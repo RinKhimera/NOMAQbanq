@@ -127,6 +127,8 @@ export default function InscriptionPage() {
                       key={i}
                       src={`https://images.pexels.com/photos/532727${i}/pexels-photo-532727${i}.jpeg?auto=compress&cs=tinysrgb&w=60`}
                       alt={`User ${i}`}
+                      width={48}
+                      height={48}
                       className="w-12 h-12 rounded-2xl border-2 border-white dark:border-gray-800 object-cover shadow-lg"
                     />
                   ))}

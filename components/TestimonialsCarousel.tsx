@@ -124,6 +124,8 @@ export default function TestimonialsCarousel() {
                   src={currentTestimonial.avatar}
                   alt={currentTestimonial.name}
                   className="relative w-20 h-20 rounded-full object-cover border-4 border-white/30 shadow-2xl"
+                  width={80}
+                  height={80}
                 />
               </div>
               <div className="text-left">

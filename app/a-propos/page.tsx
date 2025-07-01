@@ -173,6 +173,8 @@ export default function AProposPage() {
               <Image
                 src="https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg?auto=compress&cs=tinysrgb&w=600"
                 alt="Équipe médicale francophone"
+                width={600}
+                height={400}
                 className="w-full h-[400px] object-cover rounded-2xl"
               />
             </div>

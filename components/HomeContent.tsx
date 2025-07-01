@@ -225,6 +225,8 @@ export default function HomeContent() {
                     src="https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg?auto=compress&cs=tinysrgb&w=600"
                     alt="Professionnels médicaux"
                     className="w-full h-[500px] object-cover rounded-2xl"
+                    width={300}
+                    height={300}
                   />
                 </div>
 

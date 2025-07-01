@@ -106,6 +106,8 @@ export default function ConnexionPage() {
                 <Image
                   src="https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=60"
                   alt="Success story"
+                  width={60}
+                  height={60}
                   className="w-14 h-14 rounded-2xl object-cover shadow-lg"
                 />
                 <div>
