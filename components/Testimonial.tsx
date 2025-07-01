@@ -1,8 +1,9 @@
-import { Star } from 'lucide-react';
-import { Testimonial as TestimonialType } from '@/data/testimonials';
+import { Star } from "lucide-react"
+import { Testimonial as TestimonialType } from "@/data/testimonials"
+import Image from "next/image"
 
 interface TestimonialProps {
-  testimonial: TestimonialType;
+  testimonial: TestimonialType
 }
 
 export default function Testimonial({ testimonial }: TestimonialProps) {
@@ -13,13 +14,13 @@ export default function Testimonial({ testimonial }: TestimonialProps) {
           <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
         ))}
       </div>
-      
+
       <blockquote className="text-gray-700 mb-6 leading-relaxed italic">
-        "{testimonial.content}"
+        &quot;{testimonial.content}&quot;
       </blockquote>
-      
+
       <div className="flex items-center space-x-3">
-        <img
+        <Image
           src={testimonial.avatar}
           alt={testimonial.name}
           className="h-12 w-12 rounded-full object-cover"
@@ -30,5 +31,5 @@ export default function Testimonial({ testimonial }: TestimonialProps) {
         </div>
       </div>
     </div>
-  );
+  )
 }
