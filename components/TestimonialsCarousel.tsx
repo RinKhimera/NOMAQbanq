@@ -1,73 +1,86 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import {
-  ChevronLeft,
-  ChevronRight,
-  Star,
-  Quote,
-  Play,
-  Pause,
-} from "lucide-react"
-import { testimonials } from "@/data/testimonials"
-import { Button } from "@/components/ui/button"
-import Image from "next/image"
+import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
+import { ChevronLeft, ChevronRight, Star, Quote } from "lucide-react";
+import { testimonials } from "@/data/testimonials";
+import { Button } from "@/components/ui/button";
 
 export default function TestimonialsCarousel() {
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true)
-  const [isTransitioning, setIsTransitioning] = useState(false)
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const autoPlayRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Auto-play functionality (pause on user interaction)
   const handleNext = useCallback(() => {
-    if (isTransitioning) return
-    setIsTransitioning(true)
+    if (isTransitioning) return;
+    setIsTransitioning(true);
     setCurrentIndex((prevIndex) =>
       prevIndex === testimonials.length - 1 ? 0 : prevIndex + 1
-    )
-    setTimeout(() => setIsTransitioning(false), 600)
-  }, [isTransitioning])
+    );
+    setTimeout(() => setIsTransitioning(false), 600);
+  }, [isTransitioning]);
 
-  // Auto-play functionality
+  const handlePrevious = useCallback(() => {
+    if (isTransitioning) return;
+    setIsTransitioning(true);
+    setCurrentIndex((prevIndex) =>
+      prevIndex === 0 ? testimonials.length - 1 : prevIndex - 1
+    );
+    setTimeout(() => setIsTransitioning(false), 600);
+  }, [isTransitioning]);
+
+  // Auto-play: pause on hover or interaction
   useEffect(() => {
-    if (!isAutoPlaying) return
+    if (isHovered) return;
+    autoPlayRef.current = setInterval(() => {
+      handleNext();
+    }, 5000);
+    return () => {
+      if (autoPlayRef.current) clearInterval(autoPlayRef.current);
+    };
+  }, [handleNext, isHovered]);
 
-    const interval = setInterval(() => {
-      handleNext()
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [isAutoPlaying, currentIndex, handleNext])
-
-  const handlePrevious = () => {
-    if (isTransitioning) return
-    setIsAutoPlaying(false)
-    setIsTransitioning(true)
-    setCurrentIndex(
-      currentIndex === 0 ? testimonials.length - 1 : currentIndex - 1
-    )
-    setTimeout(() => setIsTransitioning(false), 600)
-  }
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") {
+        setIsHovered(true);
+        handlePrevious();
+      }
+      if (e.key === "ArrowRight") {
+        setIsHovered(true);
+        handleNext();
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [handleNext, handlePrevious]);
 
   const goToSlide = (index: number) => {
-    if (isTransitioning || index === currentIndex) return
-    setIsAutoPlaying(false)
-    setIsTransitioning(true)
-    setCurrentIndex(index)
-    setTimeout(() => setIsTransitioning(false), 600)
-  }
+    if (isTransitioning || index === currentIndex) return;
+    setIsTransitioning(true);
+    setCurrentIndex(index);
+    setTimeout(() => setIsTransitioning(false), 600);
+  };
 
-  const currentTestimonial = testimonials[currentIndex]
+  const currentTestimonial = testimonials[currentIndex];
 
   return (
-    <div className="relative max-w-5xl mx-auto">
+    <div
+      className="relative max-w-5xl mx-auto group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      tabIndex={0}
+    >
       {/* Main Testimonial Display */}
       <div className="relative overflow-hidden rounded-3xl">
         {/* Background with gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800"></div>
         <div className="absolute inset-0 bg-black/20"></div>
-
         {/* Animated background elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
           <div className="absolute -top-20 -left-20 w-40 h-40 bg-white/10 rounded-full blur-2xl animate-float"></div>
           <div
             className="absolute -bottom-20 -right-20 w-48 h-48 bg-white/10 rounded-full blur-2xl animate-float"
@@ -75,6 +88,40 @@ export default function TestimonialsCarousel() {
           ></div>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-white/5 rounded-full blur-xl"></div>
         </div>
+
+        {/* Overlay Navigation Buttons */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handlePrevious}
+          disabled={isTransitioning}
+          aria-label="Précédent"
+          className={`
+            absolute top-1/2 left-4 -translate-y-1/2 z-20
+            bg-white/60 hover:bg-white/90 text-blue-700
+            rounded-full shadow-xl transition-all duration-300
+            opacity-0 group-hover:opacity-80 group-focus-within:opacity-80
+            ${isTransitioning ? "pointer-events-none" : ""}
+          `}
+        >
+          <ChevronLeft className="h-7 w-7" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleNext}
+          disabled={isTransitioning}
+          aria-label="Suivant"
+          className={`
+            absolute top-1/2 right-4 -translate-y-1/2 z-20
+            bg-white/60 hover:bg-white/90 text-blue-700
+            rounded-full shadow-xl transition-all duration-300
+            opacity-0 group-hover:opacity-80 group-focus-within:opacity-80
+            ${isTransitioning ? "pointer-events-none" : ""}
+          `}
+        >
+          <ChevronRight className="h-7 w-7" />
+        </Button>
 
         {/* Content Container */}
         <div className="relative z-10 p-12 md:p-16">
@@ -119,13 +166,13 @@ export default function TestimonialsCarousel() {
             <div className="flex items-center justify-center space-x-6">
               <div className="relative">
                 {/* Avatar glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full blur-lg opacity-60 animate-pulse-glow"></div>
                 <Image
                   src={currentTestimonial.avatar}
                   alt={currentTestimonial.name}
-                  className="relative w-20 h-20 rounded-full object-cover border-4 border-white/30 shadow-2xl"
                   width={80}
                   height={80}
+                  className="relative w-20 h-20 rounded-full object-cover border-4 border-white/30 shadow-2xl"
+                  priority
                 />
               </div>
               <div className="text-left">
@@ -141,76 +188,32 @@ export default function TestimonialsCarousel() {
         </div>
       </div>
 
-      {/* Navigation Controls */}
-      <div className="flex justify-between items-center mt-8">
-        {/* Previous Button */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handlePrevious}
-          disabled={isTransitioning}
-          className="w-14 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-gray-200 hover:bg-white hover:border-blue-400 hover:text-blue-600 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </Button>
-
-        {/* Center Controls */}
-        <div className="flex items-center space-x-8">
-          {/* Dots Indicators */}
-          <div className="flex space-x-3">
-            {testimonials.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => goToSlide(index)}
-                disabled={isTransitioning}
-                className={`
-                  transition-all duration-300 rounded-full
-                  ${
-                    index === currentIndex
-                      ? "w-12 h-4 bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg"
-                      : "w-4 h-4 bg-gray-300 hover:bg-gray-400 hover:scale-125"
-                  }
-                  disabled:cursor-not-allowed
-                `}
-              />
-            ))}
-          </div>
-
-          {/* Auto-play Toggle */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-            className="bg-white/90 backdrop-blur-sm border border-gray-200 hover:bg-white hover:border-blue-400 px-4 py-2 rounded-xl font-medium transition-all duration-300"
-          >
-            {isAutoPlaying ? (
-              <>
-                <Pause className="h-4 w-4 mr-2" />
-                Pause
-              </>
-            ) : (
-              <>
-                <Play className="h-4 w-4 mr-2" />
-                Play
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Next Button */}
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={handleNext}
-          disabled={isTransitioning}
-          className="w-14 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-gray-200 hover:bg-white hover:border-blue-400 hover:text-blue-600 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <ChevronRight className="h-6 w-6" />
-        </Button>
+      {/* Dots Indicators */}
+      <div className="flex justify-center mt-8 space-x-3">
+        {testimonials.map((_, index) => (
+          <button
+            key={index}
+            onClick={() => {
+              setIsHovered(true);
+              goToSlide(index);
+            }}
+            disabled={isTransitioning}
+            className={`
+              transition-all duration-300 rounded-full
+              ${
+                index === currentIndex
+                  ? "w-12 h-4 bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg"
+                  : "w-4 h-4 bg-gray-300 hover:bg-gray-400 hover:scale-125"
+              }
+              disabled:cursor-not-allowed
+            `}
+            aria-label={`Aller au témoignage ${index + 1}`}
+          />
+        ))}
       </div>
 
       {/* Progress Bar */}
-      <div className="mt-8 w-full max-w-md mx-auto">
+      {/* <div className="mt-8 w-full max-w-md mx-auto">
         <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
           <div
             className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500 ease-out shadow-lg"
@@ -225,7 +228,7 @@ export default function TestimonialsCarousel() {
           </span>
           <span className="text-gray-500">Témoignages</span>
         </div>
-      </div>
+      </div> */}
     </div>
-  )
+  );
 }

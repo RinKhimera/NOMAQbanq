@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import {
   BookOpen,
   Trophy,
@@ -25,13 +25,12 @@ import {
   RefreshCw,
   Target,
   Brain,
-  Sparkles,
-} from "lucide-react"
-import { useLanguage } from "@/contexts/LanguageContext"
-import Image from "next/image"
+} from "lucide-react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import Image from "next/image";
 
 export default function HomeContent() {
-  const { t } = useLanguage()
+  const { t } = useLanguage();
 
   // const stats = [
   //   { number: "5000+", label: "Questions", icon: BookOpen },
@@ -81,7 +80,7 @@ export default function HomeContent() {
       title: t("features.mnemonics.title"),
       description: t("features.mnemonics.desc"),
     },
-  ]
+  ];
 
   // Medical specialties
   // const specialties = [
@@ -109,44 +108,20 @@ export default function HomeContent() {
   // ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
+    <div className="min-h-screen pt-16 sm:pt-20 lg:pt-24 bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
       {/* Top Banner - Modern and minimal */}
-      <section className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-          <div className="flex items-center justify-center text-center">
-            <div className="flex items-center space-x-6 text-sm font-medium">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="h-4 w-4 text-yellow-300" />
-                <span>{t("home.banner.resources")}</span>
-              </div>
-              <Link
-                href="/domaines"
-                className="text-blue-100 hover:text-white underline underline-offset-2 transition-colors"
-              >
-                {t("home.banner.candidates")}
-              </Link>
-              <span className="text-blue-200">•</span>
-              <Link
-                href="/evaluation"
-                className="text-blue-100 hover:text-white underline underline-offset-2 transition-colors"
-              >
-                {t("home.banner.students")}
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* Banner supprimée sur demande */}
 
       {/* Hero Section - Ultra modern */}
-      <section className="relative pt-20 pb-32 overflow-hidden">
+      <section className="relative pt-12 sm:pt-16 lg:pt-20 pb-16 sm:pb-24 lg:pb-32 overflow-hidden">
         {/* Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-indigo-600/20 rounded-full blur-3xl animate-float"></div>
+          <div className="absolute -top-20 sm:-top-40 -right-20 sm:-right-40 w-48 sm:w-80 h-48 sm:h-80 bg-gradient-to-br from-blue-400/20 to-indigo-600/20 rounded-full blur-3xl animate-float"></div>
           <div
-            className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-purple-400/20 to-pink-600/20 rounded-full blur-3xl animate-float"
+            className="absolute -bottom-20 sm:-bottom-40 -left-20 sm:-left-40 w-64 sm:w-96 h-64 sm:h-96 bg-gradient-to-br from-purple-400/20 to-pink-600/20 rounded-full blur-3xl animate-float"
             style={{ animationDelay: "2s" }}
           ></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-br from-blue-500/5 to-indigo-600/5 rounded-full blur-3xl"></div>
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full sm:w-[600px] lg:w-[800px] aspect-square bg-gradient-to-br from-blue-500/5 to-indigo-600/5 rounded-full blur-3xl"></div>
         </div>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -217,30 +192,30 @@ export default function HomeContent() {
             </div>
 
             {/* Right content - Modern hero image */}
-            <div className="relative lg:flex justify-end animate-slide-in-right">
+            <div className="relative lg:flex justify-end animate-slide-in-right mt-8 lg:mt-0">
               <div className="relative">
                 {/* Main image container */}
-                <div className="relative z-10 glass-card rounded-3xl p-2 shadow-2xl">
+                <div className="relative z-10 glass-card rounded-2xl sm:rounded-3xl p-1.5 sm:p-2 shadow-xl sm:shadow-2xl">
                   <Image
                     src="https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg?auto=compress&cs=tinysrgb&w=600"
                     alt="Professionnels médicaux"
-                    className="w-full h-[500px] object-cover rounded-2xl"
+                    className="w-full h-[300px] sm:h-[400px] lg:h-[500px] object-cover rounded-xl sm:rounded-2xl"
                     width={300}
                     height={300}
                   />
                 </div>
 
                 {/* Floating elements */}
-                <div className="absolute -top-6 -left-6 glass-card rounded-2xl p-4 shadow-lg animate-float z-20">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-emerald-600 rounded-xl flex items-center justify-center">
-                      <CheckCircle className="h-6 w-6 text-white" />
+                <div className="absolute -top-4 sm:-top-6 -left-4 sm:-left-6 glass-card rounded-xl sm:rounded-2xl p-2 sm:p-4 shadow-md sm:shadow-lg animate-float z-20">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-green-400 to-emerald-600 rounded-lg sm:rounded-xl flex items-center justify-center">
+                      <CheckCircle className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">
                         {t("home.hero.certified")}
                       </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                         {t("home.hero.validated")}
                       </p>
                     </div>
@@ -248,28 +223,28 @@ export default function HomeContent() {
                 </div>
 
                 <div
-                  className="absolute -bottom-6 -right-6 glass-card rounded-2xl p-4 shadow-lg animate-float z-20"
+                  className="absolute -bottom-4 sm:-bottom-6 -right-4 sm:-right-6 glass-card rounded-xl sm:rounded-2xl p-2 sm:p-4 shadow-md sm:shadow-lg animate-float z-20"
                   style={{ animationDelay: "1s" }}
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-xl flex items-center justify-center">
-                      <Trophy className="h-6 w-6 text-white" />
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-8 h-8 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-lg sm:rounded-xl flex items-center justify-center">
+                      <Trophy className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base">
                         85% {t("home.hero.success")}
                       </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                      <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                         {t("home.hero.rate")}
                       </p>
                     </div>
                   </div>
                 </div>
 
-                <div className="absolute top-1/2 -left-12 glass-card rounded-xl p-3 shadow-lg animate-pulse-glow z-20">
-                  <div className="flex items-center space-x-2">
-                    <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                    <span className="font-semibold text-gray-900 dark:text-white text-sm">
+                <div className="absolute top-1/2 -left-8 sm:-left-12 glass-card rounded-lg sm:rounded-xl p-2 sm:p-3 shadow-md sm:shadow-lg animate-pulse-glow z-20">
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
+                    <Star className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 fill-current" />
+                    <span className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm">
                       4.9/5
                     </span>
                   </div>
@@ -323,7 +298,7 @@ export default function HomeContent() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-20 items-center">
             {/* Left side - Content */}
-            <div className="space-y-8 animate-slide-in-left">
+            <div className="space-y-12 animate-slide-in-left">
               <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/50 dark:to-emerald-900/50 text-green-700 dark:text-green-300 rounded-full text-sm font-semibold border border-green-200/50 dark:border-green-700/50">
                 <BookOpen className="h-4 w-4 mr-2" />
                 {t("pricing.badge")}
@@ -343,7 +318,7 @@ export default function HomeContent() {
                 </p>
               </div>
 
-              <Link href="/inscription">
+              <Link href="/inscription" className="block mt-10">
                 <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-10 py-4 text-lg h-auto rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 btn-modern">
                   {t("pricing.try")}
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -562,5 +537,5 @@ export default function HomeContent() {
         </div>
       </footer>
     </div>
-  )
+  );
 }

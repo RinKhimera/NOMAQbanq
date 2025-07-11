@@ -263,18 +263,18 @@ export default function AProposPage() {
 
           {/* Animated background elements */}
           <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
-            <div className="absolute -top-40 -left-40 w-80 h-80 bg-white/10 rounded-full blur-3xl animate-float"></div>
+            <div className="absolute -top-20 -left-20 w-40 h-40 sm:-top-32 sm:-left-32 sm:w-64 sm:h-64 lg:-top-40 lg:-left-40 lg:w-80 lg:h-80 bg-white/10 rounded-full blur-3xl animate-float"></div>
             <div
-              className="absolute -bottom-40 -right-40 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-float"
+              className="absolute -bottom-20 -right-20 w-48 h-48 sm:-bottom-32 sm:-right-32 sm:w-72 sm:h-72 lg:-bottom-40 lg:-right-40 lg:w-96 lg:h-96 bg-white/10 rounded-full blur-3xl animate-float"
               style={{ animationDelay: "2s" }}
             ></div>
           </div>
 
-          <div className="relative z-10 p-16 text-center">
-            <h2 className="font-display text-display-md text-white mb-12">
+          <div className="relative z-10 p-6 sm:p-10 lg:p-16 text-center">
+            <h2 className="font-display text-2xl sm:text-3xl lg:text-display-md text-white mb-8 lg:mb-12">
               Ce qui nous guide
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 lg:gap-8 max-w-4xl mx-auto">
               {values.map((value, index) => (
                 <div
                   key={index}
@@ -329,9 +329,11 @@ export default function AProposPage() {
                 {t("about.cta.description")}
               </p>
               <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                <button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-12 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl btn-modern">
+                <button
+                  className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 sm:px-12 py-4 rounded-2xl font-semibold text-base sm:text-lg transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl btn-modern"
+                >
                   {t("about.cta.start")}
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                  <ArrowRight className="h-5 w-5" />
                 </button>
                 <button className="border-2 border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-12 py-4 rounded-2xl font-semibold text-lg transition-all duration-300 hover:shadow-lg">
                   {t("about.cta.contact")}

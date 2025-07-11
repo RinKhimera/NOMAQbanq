@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind utilities;
+
+@layer components {
+  .btn-gradient {
+    @apply bg-gradient-to-r from-blue-600 to-indigo-600 
+           hover:from-blue-700 hover:to-indigo-700 
+           text-white px-10 py-4 text-lg h-auto 
+           rounded-2xl font-semibold shadow-xl 
+           hover:shadow-2xl transition-all duration-300 
+           transform hover:scale-105;
+  }
+
+  .btn-outline {
+    @apply border-2 border-blue-600 dark:border-blue-400 
+           text-blue-600 dark:text-blue-400 
+           hover:bg-blue-50 dark:hover:bg-blue-900/20 
+           px-10 py-4 text-lg h-auto rounded-2xl 
+           font-semibold transition-all duration-300 
+           hover:shadow-lg;
+  }
+
+  .btn-outline-white {
+    @apply border-2 border-white/30 text-white 
+           hover:bg-white/10 px-12 py-4 text-lg 
+           h-auto rounded-2xl font-semibold 
+           transition-all duration-300 glass-card-dark;
+  }
+
+  .card-modern {
+    @apply bg-white dark:bg-gray-800 
+           rounded-2xl shadow-lg 
+           border border-gray-200 dark:border-gray-700;
+  }
+
+  .glass-card {
+    @apply bg-white/20 backdrop-blur-sm 
+           border border-white/30 
+           hover:bg-white/30 transition-colors;
+  }
+
+  .glass-card-dark {
+    @apply bg-black/20 backdrop-blur-sm 
+           border border-white/10 
+           hover:bg-white/10 transition-colors;
+  }
+
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-20px);
+    }
+  }
+}
