@@ -171,7 +171,7 @@ export default function HomeContent() {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/inscription">
+                <Link href="/auth/sign-up">
                   <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-4 text-lg h-auto rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 btn-modern">
                     {t("home.hero.signup")}
                     <ArrowRight className="ml-2 h-5 w-5" />
@@ -343,7 +343,7 @@ export default function HomeContent() {
                 </p>
               </div>
 
-              <Link href="/inscription">
+              <Link href="/auth/sign-up">
                 <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-10 py-4 text-lg h-auto rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 btn-modern">
                   {t("pricing.try")}
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -437,7 +437,7 @@ export default function HomeContent() {
               NOMAQbank
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Link href="/inscription">
+              <Link href="/auth/sign-up">
                 <Button className="bg-white text-blue-600 hover:bg-blue-50 px-12 py-4 text-lg h-auto font-semibold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 btn-modern">
                   Inscription gratuite
                   <ArrowRight className="ml-2 h-5 w-5" />
