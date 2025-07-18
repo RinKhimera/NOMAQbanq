@@ -14,11 +14,10 @@ export const upsertFromClerk = internalMutation({
   async handler(ctx, { data }) {
     const userAttributes = {
       externalId: data.id,
-      tokenIdentifier: `${process.env.CLERK_APP_DOMAIN}|${data.id}`,
+      tokenIdentifier: `${process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL}|${data.id}`,
       name: `${data.first_name} ${data.last_name}`,
       email: data.email_addresses[0]?.email_address,
       image: data.image_url,
-      accountType: "USER" as const,
       isOnline: true,
     }
 
@@ -61,8 +60,6 @@ export const createUser = internalMutation({
       name: args.name,
       email: args.email,
       image: args.image,
-      imageBanner:
-        "https://res.cloudinary.com/onlyscam/image/upload/v1745084406/banner-profile/placeholder.jpg",
     })
   },
 })

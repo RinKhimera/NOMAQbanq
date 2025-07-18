@@ -286,13 +286,15 @@ export default function NavBar() {
                       <User className="mr-2 h-4 w-4" />
                       {t("nav.profile")}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-medium"
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      {t("nav.logout")}
-                    </Button>
+                    <SignOutButton>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-medium"
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        {t("nav.logout")}
+                      </Button>
+                    </SignOutButton>
                   </>
                 )}
               </div>
