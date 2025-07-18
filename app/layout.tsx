@@ -4,6 +4,7 @@ import "./globals.css"
 import { LanguageProvider } from "@/contexts/LanguageContext"
 import { ThemeProvider } from "@/components/ThemeProvider"
 import NavBar from "@/components/NavBar"
+import ConvexClientProvider from "@/providers/convex-client-provider"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,8 +39,10 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <NavBar />
-            {children}
+            <ConvexClientProvider>
+              <NavBar />
+              {children}
+            </ConvexClientProvider>
           </ThemeProvider>
         </LanguageProvider>
       </body>

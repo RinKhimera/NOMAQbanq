@@ -100,15 +100,15 @@ export default function Quiz() {
             {isExcellent
               ? "Excellent travail !"
               : isGood
-              ? "Bon travail !"
-              : "Continuez vos efforts !"}
+                ? "Bon travail !"
+                : "Continuez vos efforts !"}
           </h2>
           <p className="text-body-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             {isExcellent
               ? "Vous maîtrisez très bien les concepts. Vous êtes sur la bonne voie pour réussir l'EACMC !"
               : isGood
-              ? "Vous avez de bonnes bases. Quelques révisions ciblées vous aideront à atteindre l'excellence."
-              : "Il y a de la place pour l'amélioration. Une préparation structurée vous aidera à progresser rapidement."}
+                ? "Vous avez de bonnes bases. Quelques révisions ciblées vous aideront à atteindre l'excellence."
+                : "Il y a de la place pour l'amélioration. Une préparation structurée vous aidera à progresser rapidement."}
           </p>
         </div>
 
@@ -123,8 +123,8 @@ export default function Quiz() {
                   isExcellent
                     ? "from-green-500 to-emerald-600"
                     : isGood
-                    ? "from-blue-500 to-indigo-600"
-                    : "from-orange-500 to-red-600"
+                      ? "from-blue-500 to-indigo-600"
+                      : "from-orange-500 to-red-600"
                 } rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl`}
               >
                 {isExcellent ? (
@@ -170,8 +170,8 @@ export default function Quiz() {
                     isExcellent
                       ? "text-green-600"
                       : isGood
-                      ? "text-blue-600"
-                      : "text-orange-600"
+                        ? "text-blue-600"
+                        : "text-orange-600"
                   }`}
                 >
                   {percentage}%
@@ -192,15 +192,15 @@ export default function Quiz() {
                     isExcellent
                       ? "text-green-600"
                       : isGood
-                      ? "text-blue-600"
-                      : "text-orange-600"
+                        ? "text-blue-600"
+                        : "text-orange-600"
                   }`}
                 >
                   {isExcellent
                     ? "Avancé"
                     : isGood
-                    ? "Intermédiaire"
-                    : "Débutant"}
+                      ? "Intermédiaire"
+                      : "Débutant"}
                 </span>
               </div>
             </div>
@@ -339,7 +339,7 @@ export default function Quiz() {
             </div>
 
             <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Link href="/inscription">
+              <Link href="/auth/sign-up">
                 <Button className="bg-white text-blue-600 hover:bg-blue-50 px-12 py-4 text-lg h-auto font-semibold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 btn-modern">
                   Créer mon compte gratuit
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -475,6 +475,8 @@ export default function Quiz() {
           <Image
             src={currentQuestion.imageSrc}
             alt="Question médicale"
+            width={800}
+            height={450}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>

@@ -2,22 +2,27 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Menu, X, Sun, Moon, Monitor } from "lucide-react"
+import { Menu, X, Sun, Moon, Monitor, User, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "next-themes"
 import { useLanguage } from "@/contexts/LanguageContext"
 import LanguageSelector from "@/components/LanguageSelector"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { SignOutButton } from "@clerk/clerk-react"
 
 export default function NavBar() {
   const [isOpen, setIsOpen] = useState(false)
   const { setTheme } = useTheme()
   const { t } = useLanguage()
+  const { currentUser, isAuthenticated } = useCurrentUser()
 
   const navigation = [
     { name: t("nav.home"), href: "/" },
@@ -106,19 +111,58 @@ export default function NavBar() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Link href="/connexion">
-                <Button
-                  variant="ghost"
-                  className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-6 py-2 rounded-xl font-medium transition-all duration-300"
-                >
-                  {t("nav.login")}
-                </Button>
-              </Link>
-              <Link href="/inscription">
-                <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 btn-modern">
-                  {t("nav.signup")}
-                </Button>
-              </Link>
+              {isAuthenticated && currentUser ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="relative h-10 w-10 rounded-full"
+                    >
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage
+                          src={currentUser.image}
+                          alt={currentUser.name}
+                        />
+                        <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white">
+                          {currentUser.name?.charAt(0)?.toUpperCase() || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="glass-card border border-gray-200 dark:border-gray-700 w-56"
+                  >
+                    <DropdownMenuItem className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>{t("nav.profile")}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <SignOutButton>
+                      <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600">
+                        <LogOut className="mr-2 h-4 w-4" />
+                        <span>{t("nav.logout")}</span>
+                      </DropdownMenuItem>
+                    </SignOutButton>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <>
+                  <Link href="/auth/sign-in">
+                    <Button
+                      variant="ghost"
+                      className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-6 py-2 rounded-xl font-medium transition-all duration-300"
+                    >
+                      {t("nav.login")}
+                    </Button>
+                  </Link>
+                  <Link href="/auth/sign-up">
+                    <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 btn-modern">
+                      {t("nav.signup")}
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -195,19 +239,64 @@ export default function NavBar() {
                 </Link>
               ))}
               <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
-                <Link href="/connexion">
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl font-medium"
-                  >
-                    {t("nav.login")}
-                  </Button>
-                </Link>
-                <Link href="/inscription">
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg btn-modern">
-                    {t("nav.signup")}
-                  </Button>
-                </Link>
+                {isAuthenticated && currentUser ? (
+                  <div className="flex items-center space-x-3 px-4 py-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage
+                        src={currentUser.image}
+                        alt={currentUser.name}
+                      />
+                      <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white">
+                        {currentUser.name?.charAt(0)?.toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {currentUser.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {currentUser.email}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Link href="/auth/sign-in">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl font-medium"
+                      >
+                        {t("nav.login")}
+                      </Button>
+                    </Link>
+                    <Link href="/auth/sign-up">
+                      <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg btn-modern">
+                        {t("nav.signup")}
+                      </Button>
+                    </Link>
+                  </>
+                )}
+                {isAuthenticated && currentUser && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl font-medium"
+                    >
+                      <User className="mr-2 h-4 w-4" />
+                      {t("nav.profile")}
+                    </Button>
+                    <SignOutButton>
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-medium"
+                      >
+                        <LogOut className="mr-2 h-4 w-4" />
+                        {t("nav.logout")}
+                      </Button>
+                    </SignOutButton>
+                  </>
+                )}
               </div>
             </div>
           </div>
