@@ -14,4 +14,15 @@ export default defineSchema({
     .index("by_tokenIdentifier", ["tokenIdentifier"])
     .index("by_username", ["username"])
     .index("byExternalId", ["externalId"]),
+
+  questions: defineTable({
+    question: v.string(),
+    imageSrc: v.optional(v.string()),
+    options: v.array(v.string()),
+    correctAnswer: v.string(),
+    explanation: v.string(),
+    references: v.optional(v.array(v.string())),
+    objectifCMC: v.string(),
+    domain: v.string(),
+  }).index("by_domain", ["domain"]),
 })

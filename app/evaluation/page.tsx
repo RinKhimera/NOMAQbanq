@@ -1,5 +1,6 @@
-import Quiz from "@/components/Quiz"
-import { BookOpen, Clock, Target, Award } from "lucide-react"
+import { BookOpen, Clock, Target, Award, Play } from "lucide-react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 export default function EvaluationPage() {
   return (
@@ -122,10 +123,23 @@ export default function EvaluationPage() {
           </div>
         </div>
 
-        {/* Quiz Component */}
-        <div className="animate-fade-in-up" style={{ animationDelay: "0.6s" }}>
-          <Quiz />
+        {/* Start Quiz Button */}
+        <div className="text-center mb-16 animate-fade-in-up">
+          <Link href="/evaluation/quiz">
+            <Button
+              size="lg"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-12 py-4 rounded-2xl font-semibold shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 text-lg"
+            >
+              <Play className="h-6 w-6 mr-3" />
+              Commencer le Quiz
+            </Button>
+          </Link>
+          <p className="text-gray-600 dark:text-gray-300 text-sm mt-4 max-w-md mx-auto">
+            10 questions • 20 secondes par question • Feedback instantané
+          </p>
         </div>
+
+        {/* Quiz Component */}
       </div>
     </div>
   )
