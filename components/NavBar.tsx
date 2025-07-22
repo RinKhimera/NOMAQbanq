@@ -6,7 +6,7 @@ import { Menu, X, Sun, Moon, Monitor, User, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "next-themes"
 import { useLanguage } from "@/contexts/LanguageContext"
-import LanguageSelector from "@/components/LanguageSelector"
+// import LanguageSelector from "@/components/LanguageSelector"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -67,8 +67,8 @@ export default function NavBar() {
             ))}
 
             <div className="flex items-center space-x-3">
-              {/* Language Selector */}
-              <LanguageSelector />
+              {/* Language Selector - Masqué */}
+              {/* <LanguageSelector /> */}
 
               {/* Theme Toggle */}
               <DropdownMenu>
@@ -168,8 +168,8 @@ export default function NavBar() {
 
           {/* Mobile menu button */}
           <div className="md:hidden flex items-center space-x-2">
-            {/* Mobile Language Selector */}
-            <LanguageSelector />
+            {/* Mobile Language Selector - Masqué */}
+            {/* <LanguageSelector /> */}
 
             {/* Mobile Theme Toggle */}
             <DropdownMenu>

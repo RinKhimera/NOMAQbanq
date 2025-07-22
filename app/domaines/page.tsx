@@ -3,6 +3,8 @@
 import { domains } from "@/data/domains"
 import DomainCard from "@/components/DomainCard"
 import { BookOpen, Target, Clock, BarChart3 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import Link from "next/link"
 // import { useLanguage } from "@/contexts/LanguageContext"
 
 export default function DomainesPage() {
@@ -99,12 +101,17 @@ export default function DomainesPage() {
                 générale pour tester vos connaissances globales
               </p>
               <div className="flex flex-col sm:flex-row gap-6 justify-center">
-                <button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl btn-modern">
-                  Évaluation générale
-                </button>
-                <button className="border-2 border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-10 py-4 rounded-2xl font-semibold transition-all duration-300 hover:shadow-lg">
+                <Link href="/evaluation">
+                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-10 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl btn-modern cursor-pointer">
+                    Évaluation générale
+                  </Button>
+                </Link>
+                <Button
+                  className="border-2 border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-10 py-4 rounded-2xl font-semibold transition-all duration-300 hover:shadow-lg cursor-pointer"
+                  variant="outline"
+                >
                   Voir mon progrès
-                </button>
+                </Button>
               </div>
             </div>
           </div>
