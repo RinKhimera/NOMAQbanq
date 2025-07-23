@@ -175,6 +175,7 @@ export default function QuizPage() {
           totalQuestions={quizQuestions.length}
           timeRemaining={quizState.timeRemaining}
           domain={currentQ.domain}
+          objectifCMC={currentQ.objectifCMC}
         />
 
         <QuestionCard

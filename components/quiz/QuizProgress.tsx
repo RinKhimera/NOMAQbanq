@@ -9,6 +9,7 @@ interface QuizProgressProps {
   totalQuestions: number
   timeRemaining: number
   domain: string
+  objectifCMC: string
 }
 
 export default function QuizProgress({
@@ -16,6 +17,7 @@ export default function QuizProgress({
   totalQuestions,
   timeRemaining,
   domain,
+  objectifCMC,
 }: QuizProgressProps) {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
@@ -37,6 +39,12 @@ export default function QuizProgress({
           </Badge>
           <Badge className="w-fit bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-1 text-xs text-white capitalize sm:text-sm">
             {domain}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="w-fit border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700 sm:text-sm dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+          >
+            {objectifCMC}
           </Badge>
         </div>
         <div className="flex items-center space-x-2 text-base font-semibold sm:text-lg">
