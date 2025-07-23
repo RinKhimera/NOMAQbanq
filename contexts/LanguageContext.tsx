@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from "react"
+import React, { createContext, useContext, useEffect, useState } from "react"
 
 type Language = "fr" | "en"
 
@@ -11,7 +11,7 @@ interface LanguageContextType {
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(
-  undefined
+  undefined,
 )
 
 // Translations object
@@ -81,11 +81,11 @@ const translations = {
 
     // Pricing
     "pricing.badge": "BANQUE DE QUESTIONS",
-    "pricing.title": "Inscrivez-vous pour les questions Ace QBank",
+    "pricing.title": "Inscrivez-vous pour les questions NOMAQbank",
     "pricing.description1":
       "Lors de la préparation à l'examen EACMC partie 1, il est essentiel de réviser les objectifs du Conseil médical du Canada (CMC). Les objectifs décrivent les qualités requises des diplômés en médecine et des diplômés médicaux internationaux (DMI) qui cherchent à entrer en résidence au Canada.",
     "pricing.description2":
-      "En vous familiarisant minutieusement avec les objectifs du CMC, vous pouvez vous assurer d'être adéquatement préparé à répondre aux attentes de la profession médicale. Ace QBank contient plus de 2800+ questions basées sur les objectifs du CMC, fournissant un contenu à haut rendement pour vous aider à réussir vos examens.",
+      "En vous familiarisant minutieusement avec les objectifs du CMC, vous pouvez vous assurer d'être adéquatement préparé à répondre aux attentes de la profession médicale. NOMAQbank contient plus de 2800+ questions basées sur les objectifs du CMC, fournissant un contenu à haut rendement pour vous aider à réussir vos examens.",
     "pricing.try": "ESSAYEZ GRATUITEMENT",
     "pricing.questions": "PLUS DE 2800+ QUESTIONS",
     "pricing.price": "339$",
@@ -192,11 +192,11 @@ const translations = {
 
     // Pricing
     "pricing.badge": "QUESTION BANK",
-    "pricing.title": "Sign Up for Ace QBank Questions",
+    "pricing.title": "Sign Up for NOMAQbank Questions",
     "pricing.description1":
       "When preparing for the MCCQE part 1 exam, it is essential to review the Medical Council of Canada's (MCC) objectives. The objectives outline the qualities required of both medical graduates and international medical graduates (IMGs) who are looking to enter residency in Canada.",
     "pricing.description2":
-      "By thoroughly familiarizing yourself with the MCC objectives, you can ensure that you are adequately prepared to meet the expectations of the medical profession. Ace QBank contains over 2800+ questions based on MCC objectives, providing high-yield content to help Ace your exams.",
+      "By thoroughly familiarizing yourself with the MCC objectives, you can ensure that you are adequately prepared to meet the expectations of the medical profession. NOMAQbank contains over 2800+ questions based on MCC objectives, providing high-yield content to help Ace your exams.",
     "pricing.try": "TRY FOR FREE",
     "pricing.questions": "OVER 2800+ QUESTIONS",
     "pricing.price": "$339",

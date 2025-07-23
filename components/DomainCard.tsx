@@ -1,17 +1,17 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { Domain } from "@/data/domains"
 import {
+  Activity,
+  ArrowRight,
+  Baby,
+  Brain,
   Heart,
   Sun as Lung,
-  Brain,
-  Activity,
-  Baby,
   Users,
-  ArrowRight,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
+} from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Domain } from "@/data/domains";
 
 const iconMap = {
   Heart,
@@ -20,43 +20,43 @@ const iconMap = {
   Activity,
   Baby,
   Users,
-}
+};
 
 interface DomainCardProps {
-  domain: Domain
+  domain: Domain;
 }
 
 export default function DomainCard({ domain }: DomainCardProps) {
-  const IconComponent = iconMap[domain.icon as keyof typeof iconMap]
+  const IconComponent = iconMap[domain.icon as keyof typeof iconMap];
 
   return (
-    <div className="group relative card-modern p-8 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3 overflow-hidden">
+    <div className="group card-modern relative transform overflow-hidden p-8 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl">
       {/* Background gradient on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-indigo-600/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div>
 
       <div className="relative z-10">
-        <div className="flex items-center space-x-6 mb-6">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
+        <div className="mb-6 flex items-center space-x-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl">
             <IconComponent className="h-8 w-8 text-white" />
           </div>
           <div>
-            <h3 className="text-2xl font-bold mb-2 font-display group-hover:text-blue-600 transition-colors duration-300">
+            <h3 className="font-display mb-2 text-2xl font-bold transition-colors duration-300 group-hover:text-blue-600">
               {domain.title}
             </h3>
-            <p className="text-sm text-blue-600 font-semibold bg-blue-50 px-3 py-1 rounded-full">
+            <p className="rounded-full bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-600">
               {domain.questionsCount} questions
             </p>
           </div>
         </div>
 
-        <p className="text-gray-600 mb-8 leading-relaxed text-lg">
+        <p className="mb-8 text-lg leading-relaxed text-gray-600">
           {domain.description}
         </p>
 
         {/* Action button */}
-        <div className="opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+        <div className="translate-y-4 transform opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
           <Link href={`/domaines/${domain.slug}`}>
-            <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 btn-modern">
+            <Button className="btn-modern w-full rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 py-4 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
               Commencer l&apos;évaluation
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
@@ -65,11 +65,11 @@ export default function DomainCard({ domain }: DomainCardProps) {
       </div>
 
       {/* Decorative elements */}
-      <div className="absolute top-4 right-4 w-20 h-20 bg-gradient-to-br from-blue-400/10 to-indigo-600/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+      <div className="absolute top-4 right-4 h-20 w-20 rounded-full bg-gradient-to-br from-blue-400/10 to-indigo-600/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div>
       <div
-        className="absolute bottom-4 left-4 w-12 h-12 bg-gradient-to-br from-indigo-400/10 to-purple-600/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        className="absolute bottom-4 left-4 h-12 w-12 rounded-full bg-gradient-to-br from-indigo-400/10 to-purple-600/10 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
         style={{ transitionDelay: "100ms" }}
       ></div>
     </div>
-  )
+  );
 }
