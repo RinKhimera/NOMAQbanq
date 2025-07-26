@@ -32,7 +32,17 @@ export const createQuestion = mutation({
 export const getAllQuestions = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("questions").collect()
+    return await ctx.db.query("questions").order("desc").collect()
+  },
+})
+
+// Récupérer les domaines uniques
+export const getUniqueDomains = query({
+  args: {},
+  handler: async (ctx) => {
+    const questions = await ctx.db.query("questions").collect()
+    const domains = [...new Set(questions.map((q) => q.domain))].sort()
+    return domains
   },
 })
 
@@ -43,6 +53,7 @@ export const getQuestionsByDomain = query({
     return await ctx.db
       .query("questions")
       .withIndex("by_domain", (q) => q.eq("domain", args.domain))
+      .order("desc")
       .collect()
   },
 })
@@ -62,7 +73,7 @@ export const updateQuestion = mutation({
     question: v.optional(v.string()),
     imageSrc: v.optional(v.string()),
     options: v.optional(v.array(v.string())),
-    correctAnswer: v.optional(v.string()), // Maintenant c'est le texte de la bonne réponse
+    correctAnswer: v.optional(v.string()),
     explanation: v.optional(v.string()),
     references: v.optional(v.array(v.string())),
     objectifCMC: v.optional(v.string()),
@@ -72,7 +83,7 @@ export const updateQuestion = mutation({
     const { id, ...updateData } = args
     // Filtrer les valeurs undefined
     const filteredData = Object.fromEntries(
-      Object.entries(updateData).filter(([, value]) => value !== undefined)
+      Object.entries(updateData).filter(([, value]) => value !== undefined),
     )
     await ctx.db.patch(id, filteredData)
   },
