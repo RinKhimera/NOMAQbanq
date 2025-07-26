@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
-import "./globals.css"
-import { LanguageProvider } from "@/contexts/LanguageContext"
-import { ThemeProvider } from "@/components/ThemeProvider"
 import NavBar from "@/components/NavBar"
+import { ThemeProvider } from "@/components/ThemeProvider"
+import { Toaster } from "@/components/ui/sonner"
+import { LanguageProvider } from "@/contexts/LanguageContext"
 import ConvexClientProvider from "@/providers/convex-client-provider"
+import "./globals.css"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -45,6 +46,7 @@ export default function RootLayout({
             </ConvexClientProvider>
           </ThemeProvider>
         </LanguageProvider>
+        <Toaster richColors />
       </body>
     </html>
   )

@@ -1,13 +1,21 @@
 "use client"
 
+import { useMutation, useQuery } from "convex/react"
+import {
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  Minus,
+  Plus,
+  RotateCcw,
+  Save,
+} from "lucide-react"
 import { useState } from "react"
-import { useMutation } from "convex/react"
-import { api } from "@/convex/_generated/api"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -15,54 +23,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import {
-  CheckCircle,
-  Loader2,
-  AlertCircle,
-  Plus,
-  Minus,
-  Save,
-  RotateCcw,
-} from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { api } from "@/convex/_generated/api"
+import { Doc } from "@/convex/_generated/dataModel"
 
-interface QuestionFormData {
-  question: string
-  imageSrc: string
-  options: string[]
-  correctAnswer: string // Maintenant c'est le texte de la bonne réponse
-  explanation: string
+// Type basé sur Doc<"questions"> mais sans les champs de métadonnées
+// et avec references toujours défini pour le formulaire
+type QuestionFormData = Omit<
+  Doc<"questions">,
+  "_id" | "_creationTime" | "references"
+> & {
   references: string[]
-  objectifCMC: string
-  domain: string
 }
-
-const DOMAINS = [
-  "Cardiologie",
-  "Pneumologie",
-  "Gastroentérologie",
-  "Endocrinologie",
-  "Neurologie",
-  "Psychiatrie",
-  "Pédiatrie",
-  "Gynécologie obstétrique",
-  "Urologie",
-  "Orthopédie",
-  "Dermatologie",
-  "Ophtalmologie",
-  "Gastro-entérologie",
-  "Chirurgie",
-  "Santé publique et médecine préventive",
-  "Médecine interne",
-  "Anesthésie-Réanimation",
-]
 
 export default function QuestionForm() {
   const [formData, setFormData] = useState<QuestionFormData>({
     question: "",
     imageSrc: "",
     options: ["", "", "", ""],
-    correctAnswer: "", // Maintenant c'est une chaîne vide par défaut
+    correctAnswer: "",
     explanation: "",
     references: [""],
     objectifCMC: "",
@@ -74,10 +53,11 @@ export default function QuestionForm() {
   const [error, setError] = useState<string | null>(null)
 
   const createQuestion = useMutation(api.questions.createQuestion)
+  const uniqueDomains = useQuery(api.questions.getUniqueDomains)
 
   const handleInputChange = (
     field: keyof QuestionFormData,
-    value: string | number
+    value: string | number,
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -166,7 +146,7 @@ export default function QuestionForm() {
 
       // Filtrer les références vides
       const filteredReferences = formData.references.filter(
-        (ref) => ref.trim() !== ""
+        (ref) => ref.trim() !== "",
       )
 
       await createQuestion({
@@ -187,7 +167,7 @@ export default function QuestionForm() {
       setError(
         err instanceof Error
           ? err.message
-          : "Erreur lors de l'ajout de la question"
+          : "Erreur lors de l'ajout de la question",
       )
       console.error("Erreur:", err)
     } finally {
@@ -196,10 +176,10 @@ export default function QuestionForm() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div>
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-2xl">
+          <CardTitle className="flex items-center gap-2">
             <Plus className="h-6 w-6" />
             Ajouter une nouvelle question
           </CardTitle>
@@ -246,7 +226,7 @@ export default function QuestionForm() {
                     variant={
                       formData.correctAnswer === option ? "default" : "outline"
                     }
-                    className="min-w-[24px] h-6 flex items-center justify-center cursor-pointer"
+                    className="flex h-6 min-w-[24px] cursor-pointer items-center justify-center"
                     onClick={() =>
                       option.trim() &&
                       handleInputChange("correctAnswer", option)
@@ -284,7 +264,7 @@ export default function QuestionForm() {
             </div>
 
             {/* Domaine et Objectif CMC */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="domain" className="text-sm font-semibold">
                   Domaine <span className="text-red-500">*</span>
@@ -297,7 +277,7 @@ export default function QuestionForm() {
                     <SelectValue placeholder="Sélectionnez un domaine" />
                   </SelectTrigger>
                   <SelectContent>
-                    {DOMAINS.map((domain) => (
+                    {uniqueDomains?.map((domain) => (
                       <SelectItem key={domain} value={domain}>
                         {domain}
                       </SelectItem>
@@ -362,7 +342,7 @@ export default function QuestionForm() {
                 <div key={index} className="flex items-start space-x-2">
                   <Badge
                     variant="outline"
-                    className="mt-2 min-w-[32px] h-6 flex items-center justify-center"
+                    className="mt-2 flex h-6 min-w-[32px] items-center justify-center"
                   >
                     {index + 1}
                   </Badge>
@@ -391,21 +371,21 @@ export default function QuestionForm() {
 
             {/* Messages d'erreur et de succès */}
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg">
+              <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-700 dark:bg-red-900/20 dark:text-red-300">
                 <AlertCircle className="h-4 w-4" />
                 <span className="text-sm">{error}</span>
               </div>
             )}
 
             {success && (
-              <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg">
+              <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3 text-green-700 dark:bg-green-900/20 dark:text-green-300">
                 <CheckCircle className="h-4 w-4" />
                 <span className="text-sm">Question ajoutée avec succès !</span>
               </div>
             )}
 
             {/* Boutons */}
-            <div className="flex flex-col sm:flex-row gap-4 pt-6">
+            <div className="flex flex-col gap-4 pt-6 sm:flex-row">
               <Button
                 type="submit"
                 disabled={isLoading}
@@ -413,12 +393,12 @@ export default function QuestionForm() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Ajout en cours...
                   </>
                 ) : (
                   <>
-                    <Save className="h-4 w-4 mr-2" />
+                    <Save className="mr-2 h-4 w-4" />
                     Ajouter la question
                   </>
                 )}
@@ -431,7 +411,7 @@ export default function QuestionForm() {
                 disabled={isLoading}
                 className="flex-1"
               >
-                <RotateCcw className="h-4 w-4 mr-2" />
+                <RotateCcw className="mr-2 h-4 w-4" />
                 Réinitialiser
               </Button>
             </div>
