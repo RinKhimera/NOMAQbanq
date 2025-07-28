@@ -47,12 +47,12 @@ export default function QuestionsList() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   const allQuestions = useQuery(api.questions.getAllQuestions)
-  const uniqueDomains = useQuery(api.questions.getUniqueDomains)
+  const allDomains = useQuery(api.questions.getAllDomains)
   const deleteQuestion = useMutation(api.questions.deleteQuestion)
 
   // Créer la liste des domaines avec "Tous les domaines" en premier
-  const domainOptions = uniqueDomains
-    ? ["Tous les domaines", ...uniqueDomains]
+  const domainOptions = allDomains
+    ? ["Tous les domaines", ...allDomains]
     : ["Tous les domaines"]
 
   const filteredQuestions = allQuestions?.filter((question) => {
@@ -243,7 +243,7 @@ export default function QuestionsList() {
                         <AlertDialogCancel>Annuler</AlertDialogCancel>
                         <AlertDialogAction
                           onClick={() => handleDelete(question._id)}
-                          className="bg-red-600 hover:bg-red-700"
+                          className="text-primary bg-red-600 hover:bg-red-700"
                         >
                           Supprimer
                         </AlertDialogAction>
