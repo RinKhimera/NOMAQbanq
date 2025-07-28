@@ -45,7 +45,7 @@ export default function QuestionForm() {
     explanation: "",
     references: [""],
     objectifCMC: "",
-    domain: "",
+    domain: "Autres",
   })
 
   const [isLoading, setIsLoading] = useState(false)
@@ -53,7 +53,7 @@ export default function QuestionForm() {
   const [error, setError] = useState<string | null>(null)
 
   const createQuestion = useMutation(api.questions.createQuestion)
-  const uniqueDomains = useQuery(api.questions.getUniqueDomains)
+  const allDomains = useQuery(api.questions.getAllDomains)
 
   const handleInputChange = (
     field: keyof QuestionFormData,
@@ -109,7 +109,7 @@ export default function QuestionForm() {
       explanation: "",
       references: [""],
       objectifCMC: "",
-      domain: "",
+      domain: "Autres",
     })
     setSuccess(false)
     setError(null)
@@ -277,7 +277,7 @@ export default function QuestionForm() {
                     <SelectValue placeholder="Sélectionnez un domaine" />
                   </SelectTrigger>
                   <SelectContent>
-                    {uniqueDomains?.map((domain) => (
+                    {allDomains?.map((domain) => (
                       <SelectItem key={domain} value={domain}>
                         {domain}
                       </SelectItem>

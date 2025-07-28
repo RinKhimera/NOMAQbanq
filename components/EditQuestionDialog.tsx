@@ -51,7 +51,7 @@ export default function EditQuestionDialog({
   const [isLoading, setIsLoading] = useState(false)
 
   const updateQuestion = useMutation(api.questions.updateQuestion)
-  const uniqueDomains = useQuery(api.questions.getUniqueDomains)
+  const allDomains = useQuery(api.questions.getAllDomains)
 
   // Charger les données de la question quand le dialog s'ouvre
   useEffect(() => {
@@ -166,7 +166,11 @@ export default function EditQuestionDialog({
         domain: formData.domain,
       }
 
-      await updateQuestion(updateData)
+      await updateQuestion({
+        ...updateData,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        domain: updateData.domain as any,
+      })
       toast.success("Question modifiée avec succès !")
       onOpenChange(false)
     } catch (error) {
@@ -267,7 +271,7 @@ export default function EditQuestionDialog({
                   <SelectValue placeholder="Sélectionnez un domaine" />
                 </SelectTrigger>
                 <SelectContent>
-                  {uniqueDomains?.map((domain) => (
+                  {allDomains?.map((domain) => (
                     <SelectItem key={domain} value={domain}>
                       {domain}
                     </SelectItem>

@@ -25,7 +25,6 @@ import { useCurrentUser } from "@/hooks/useCurrentUser"
 export const NavUser = () => {
   const { isMobile } = useSidebar()
   const { currentUser, isLoading } = useCurrentUser()
-  console.log(currentUser, isLoading)
 
   const router = useRouter()
 
