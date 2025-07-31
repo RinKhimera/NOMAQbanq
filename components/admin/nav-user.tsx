@@ -19,7 +19,6 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { Skeleton } from "@/components/ui/skeleton"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 
 export const NavUser = () => {
@@ -35,26 +34,51 @@ export const NavUser = () => {
     }
   }, [currentUser, isLoading, router])
 
+  // Redirection si l'utilisateur n'est pas admin
+  useEffect(() => {
+    if (!isLoading && currentUser && currentUser.role !== "admin") {
+      router.push("/") // Rediriger vers la page d'accueil
+    }
+  }, [currentUser, isLoading, router])
+
   if (isLoading || currentUser === undefined) {
     return (
-      <SidebarMenu>
-        <SidebarMenuItem>
-          <SidebarMenuButton size="lg" disabled>
-            <Skeleton className="h-8 w-8 rounded-lg" />
-            <div className="grid flex-1 gap-1">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-3 w-32" />
-            </div>
-            <Skeleton className="ml-auto h-4 w-4" />
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
+      <div className="bg-background fixed inset-0 z-50 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="border-primary h-12 w-12 animate-spin rounded-full border-b-2"></div>
+          <div className="text-center">
+            <h2 className="text-lg font-semibold">Chargement...</h2>
+            <p className="text-muted-foreground text-sm">
+              Vérification des permissions
+            </p>
+          </div>
+        </div>
+      </div>
     )
   }
 
   // Si pas d'utilisateur, ne rien afficher (redirection en cours)
   if (currentUser === null) {
     return null
+  }
+
+  // Vérification supplémentaire du rôle admin
+  if (currentUser.role !== "admin") {
+    return (
+      <div className="bg-background fixed inset-0 z-50 flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="border-destructive h-12 w-12 animate-spin rounded-full border-b-2"></div>
+          <div className="text-center">
+            <h2 className="text-destructive text-lg font-semibold">
+              Accès refusé
+            </h2>
+            <p className="text-muted-foreground text-sm">
+              Redirection en cours...
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

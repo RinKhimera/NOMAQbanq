@@ -43,7 +43,7 @@ export function NavSecondary({
                   asChild
                   className={
                     isActive
-                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground transition"
                       : ""
                   }
                 >

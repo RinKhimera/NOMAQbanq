@@ -35,9 +35,7 @@ export const SiteHeader = () => {
         />
         <h1 className="text-base font-medium">{getCurrentPageTitle()}</h1>
         <div className="ml-auto flex items-center gap-2">
-          <Badge variant="secondary" className="hidden sm:flex">
-            Admin
-          </Badge>
+          <Badge variant="secondary">Admin</Badge>
         </div>
       </div>
     </header>
