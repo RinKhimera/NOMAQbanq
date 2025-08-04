@@ -48,7 +48,7 @@ const examFormSchema = z.object({
   }),
   questionIds: z
     .array(z.custom<Id<"questions">>())
-    .min(20, "Sélectionnez au moins 20 questions"),
+    .min(115, "Sélectionnez au moins 115 questions"),
 })
 
 type ExamFormValues = z.infer<typeof examFormSchema>
@@ -218,13 +218,13 @@ const AdminCreateExamPage = () => {
                   <FormItem>
                     <FormLabel>Questions de l&apos;examen</FormLabel>
                     <FormDescription>
-                      Sélectionnez au moins 20 questions qui composeront cet
+                      Sélectionnez au moins 115 questions qui composeront cet
                       examen.
                     </FormDescription>
                     <QuestionSelector
                       selectedQuestions={selectedQuestions}
                       onSelectionChange={handleQuestionSelectionChange}
-                      minQuestions={20}
+                      minQuestions={115}
                     />
                     <FormMessage />
                   </FormItem>
@@ -239,7 +239,7 @@ const AdminCreateExamPage = () => {
                 >
                   Annuler
                 </Button>
-                <Button type="submit" disabled={selectedQuestions.length < 20}>
+                <Button type="submit" disabled={selectedQuestions.length < 115}>
                   Créer l&apos;examen ({selectedQuestions.length} question
                   {selectedQuestions.length > 1 ? "s" : ""})
                 </Button>

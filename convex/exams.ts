@@ -35,7 +35,6 @@ export const createExam = mutation({
       questionIds: args.questionIds,
       participants: [],
       isActive: true,
-      createdAt: Date.now(),
       createdBy: user._id,
     })
 

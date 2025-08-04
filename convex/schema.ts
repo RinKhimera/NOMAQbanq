@@ -53,14 +53,14 @@ export default defineSchema({
   exams: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
-    startDate: v.number(), // timestamp
-    endDate: v.number(), // timestamp
+    startDate: v.number(),
+    endDate: v.number(),
     questionIds: v.array(v.id("questions")),
     participants: v.array(
       v.object({
         userId: v.id("users"),
         score: v.number(),
-        completedAt: v.number(), // timestamp
+        completedAt: v.number(),
         answers: v.array(
           v.object({
             questionId: v.id("questions"),
@@ -71,7 +71,6 @@ export default defineSchema({
       }),
     ),
     isActive: v.boolean(),
-    createdAt: v.number(), // timestamp
     createdBy: v.id("users"),
   })
     .index("by_isActive", ["isActive"])

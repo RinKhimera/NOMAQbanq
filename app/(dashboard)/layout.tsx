@@ -4,9 +4,9 @@ import { GenericNavUser } from "@/components/shared/GenericNavUser"
 import { AppSidebar } from "@/components/shared/app-sidebar"
 import { SiteHeader } from "@/components/shared/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { adminNavigation } from "@/constants"
+import { dashboardNavigation } from "@/constants"
 
-export default function AdminLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode
@@ -22,9 +22,9 @@ export default function AdminLayout({
     >
       <AppSidebar
         variant="inset"
-        navigation={adminNavigation}
-        homeUrl="/admin"
-        userComponent={<GenericNavUser requireAdmin={true} redirectUrl="/" />}
+        navigation={dashboardNavigation}
+        homeUrl="/dashboard"
+        userComponent={<GenericNavUser requireAdmin={false} redirectUrl="/" />}
       />
       <SidebarInset>
         <SiteHeader />
