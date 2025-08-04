@@ -49,4 +49,31 @@ export default defineSchema({
       v.literal("Autres"),
     ),
   }).index("by_domain", ["domain"]),
+
+  exams: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    startDate: v.number(),
+    endDate: v.number(),
+    questionIds: v.array(v.id("questions")),
+    participants: v.array(
+      v.object({
+        userId: v.id("users"),
+        score: v.number(),
+        completedAt: v.number(),
+        answers: v.array(
+          v.object({
+            questionId: v.id("questions"),
+            selectedAnswer: v.string(),
+            isCorrect: v.boolean(),
+          }),
+        ),
+      }),
+    ),
+    isActive: v.boolean(),
+    createdBy: v.id("users"),
+  })
+    .index("by_isActive", ["isActive"])
+    .index("by_startDate", ["startDate"])
+    .index("by_createdBy", ["createdBy"]),
 })

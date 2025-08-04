@@ -48,3 +48,40 @@ export const adminNavigation = {
     },
   ],
 }
+
+export const dashboardNavigation = {
+  navMain: [
+    {
+      title: "Tableau de bord",
+      url: "/dashboard",
+      icon: IconDashboard,
+    },
+    {
+      title: "Examen Blanc",
+      url: "/dashboard/mock-exam",
+      icon: IconListDetails,
+    },
+    {
+      title: "Entraînement",
+      url: "/dashboard/training",
+      icon: IconChartBar,
+    },
+  ],
+  navSecondary: [
+    // {
+    //   title: "Paramètres",
+    //   url: "#",
+    //   icon: IconSettings,
+    // },
+    {
+      title: "Compte",
+      url: "/dashboard/account",
+      icon: CircleUserRound,
+    },
+    {
+      title: "Sécurité",
+      url: "/dashboard/account/security",
+      icon: ShieldCheck,
+    },
+  ],
+}

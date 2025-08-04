@@ -4,13 +4,18 @@ import { GenericNavUser } from "@/components/shared/GenericNavUser"
 import { AppSidebar } from "@/components/shared/app-sidebar"
 import { SiteHeader } from "@/components/shared/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { adminNavigation } from "@/constants"
+import { adminNavigation, dashboardNavigation } from "@/constants"
 
-export default function AdminLayout({
-  children,
-}: {
+interface GenericLayoutProps {
   children: React.ReactNode
-}) {
+  type: "admin" | "dashboard"
+}
+
+export default function GenericLayout({ children, type }: GenericLayoutProps) {
+  const navigation = type === "admin" ? adminNavigation : dashboardNavigation
+  const homeUrl = type === "admin" ? "/admin" : "/dashboard"
+  const requireAdmin = type === "admin"
+
   return (
     <SidebarProvider
       style={
@@ -22,9 +27,11 @@ export default function AdminLayout({
     >
       <AppSidebar
         variant="inset"
-        navigation={adminNavigation}
-        homeUrl="/admin"
-        userComponent={<GenericNavUser requireAdmin={true} redirectUrl="/" />}
+        navigation={navigation}
+        homeUrl={homeUrl}
+        userComponent={
+          <GenericNavUser requireAdmin={requireAdmin} redirectUrl="/" />
+        }
       />
       <SidebarInset>
         <SiteHeader />
