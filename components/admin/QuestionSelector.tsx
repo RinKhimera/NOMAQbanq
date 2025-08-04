@@ -28,7 +28,7 @@ interface QuestionSelectorProps {
 export function QuestionSelector({
   selectedQuestions,
   onSelectionChange,
-  minQuestions = 20,
+  minQuestions = 115,
 }: QuestionSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [domainFilter, setDomainFilter] = useState<string>("all")
