@@ -1,13 +1,13 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { ArrowLeft, Calendar } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useParams, useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import * as z from "zod"
@@ -64,13 +64,19 @@ const examFormSchema = z.object({
 
 type ExamFormValues = z.infer<typeof examFormSchema>
 
-const AdminCreateExamPage = () => {
+const AdminEditExamPage = () => {
+  const params = useParams()
   const router = useRouter()
+  const examId = params.id as Id<"exams">
+
   const [selectedQuestions, setSelectedQuestions] = useState<Id<"questions">[]>(
     [],
   )
+  const [isLoading, setIsLoading] = useState(true)
 
-  const createExam = useMutation(api.exams.createExam)
+  // Queries et mutations
+  const exam = useQuery(api.exams.getExamWithQuestions, { examId })
+  const updateExam = useMutation(api.exams.updateExam)
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
@@ -93,6 +99,25 @@ const AdminCreateExamPage = () => {
     return options
   }
 
+  // Charger les données de l'examen quand elles sont disponibles
+  useEffect(() => {
+    if (exam) {
+      const startDate = new Date(exam.startDate)
+      const numberOfQuestions = exam.questionIds.length
+
+      form.reset({
+        title: exam.title,
+        description: exam.description || "",
+        startDate: startDate,
+        numberOfQuestions: numberOfQuestions,
+        questionIds: exam.questionIds,
+      })
+
+      setSelectedQuestions(exam.questionIds)
+      setIsLoading(false)
+    }
+  }, [exam, form])
+
   const onSubmit = async (values: ExamFormValues) => {
     try {
       // Validation: vérifier que le nombre de questions sélectionnées correspond au nombre requis
@@ -109,7 +134,8 @@ const AdminCreateExamPage = () => {
       endDate.setDate(endDate.getDate() + 2)
       endDate.setHours(23, 59, 59, 999)
 
-      await createExam({
+      await updateExam({
+        examId,
         title: values.title,
         description: values.description,
         startDate,
@@ -117,10 +143,10 @@ const AdminCreateExamPage = () => {
         questionIds: selectedQuestions,
       })
 
-      toast.success("Examen créé avec succès")
+      toast.success("Examen modifié avec succès")
       router.push("/admin/exams")
     } catch (error) {
-      toast.error("Erreur lors de la création de l'examen")
+      toast.error("Erreur lors de la modification de l'examen")
       console.error(error)
     }
   }
@@ -130,14 +156,30 @@ const AdminCreateExamPage = () => {
     form.setValue("questionIds", questions)
   }
 
+  // État de chargement
+  if (isLoading || !exam) {
+    return (
+      <div className="@container flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
+        <div className="flex min-h-96 items-center justify-center">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+            <p className="text-gray-600 dark:text-gray-400">
+              Chargement de l&apos;examen...
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="@container flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
       {/* En-tête avec bouton retour */}
       <div className="flex flex-col justify-between gap-4 @md:flex-row @md:items-center">
         <div>
-          <h1 className="text-2xl font-bold">Créer un nouvel examen</h1>
+          <h1 className="text-2xl font-bold">Modifier l&apos;examen</h1>
           <p className="text-muted-foreground">
-            Configurez une nouvelle session d&apos;examen pour vos étudiants
+            Modifiez les paramètres de votre examen
           </p>
         </div>
         <Button variant="outline" size="sm" asChild>
@@ -153,8 +195,8 @@ const AdminCreateExamPage = () => {
         <CardHeader>
           <CardTitle>Informations de l&apos;examen</CardTitle>
           <CardDescription>
-            La période d&apos;examen durera 2 jours à partir de la date
-            sélectionnée.
+            Modifiez les informations de l&apos;examen. La période d&apos;examen
+            durera 2 jours à partir de la date sélectionnée.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -322,7 +364,7 @@ const AdminCreateExamPage = () => {
                     selectedQuestions.length < (numberOfQuestions || 115)
                   }
                 >
-                  Créer l&apos;examen ({selectedQuestions.length} question
+                  Modifier l&apos;examen ({selectedQuestions.length} question
                   {selectedQuestions.length > 1 ? "s" : ""})
                 </Button>
               </div>
@@ -334,4 +376,4 @@ const AdminCreateExamPage = () => {
   )
 }
 
-export default AdminCreateExamPage
+export default AdminEditExamPage
