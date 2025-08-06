@@ -36,6 +36,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
@@ -46,9 +53,13 @@ const examFormSchema = z.object({
   startDate: z.date({
     required_error: "Veuillez sélectionner une date de début",
   }),
+  numberOfQuestions: z
+    .number()
+    .min(10, "Minimum 10 questions")
+    .max(115, "Maximum 115 questions"),
   questionIds: z
     .array(z.custom<Id<"questions">>())
-    .min(115, "Sélectionnez au moins 115 questions"),
+    .min(1, "Sélectionnez au moins une question"),
 })
 
 type ExamFormValues = z.infer<typeof examFormSchema>
@@ -66,17 +77,37 @@ const AdminCreateExamPage = () => {
     defaultValues: {
       title: "",
       description: "",
+      numberOfQuestions: 115,
       questionIds: [],
     },
   })
 
+  const numberOfQuestions = form.watch("numberOfQuestions")
+
+  // Génerer les options pour le select (de 10 à 115 par pas de 5)
+  const generateQuestionOptions = () => {
+    const options = []
+    for (let i = 10; i <= 115; i += 5) {
+      options.push(i)
+    }
+    return options
+  }
+
   const onSubmit = async (values: ExamFormValues) => {
     try {
+      // Validation: vérifier que le nombre de questions sélectionnées correspond au nombre requis
+      if (selectedQuestions.length !== values.numberOfQuestions) {
+        toast.error(
+          `Veuillez sélectionner exactement ${values.numberOfQuestions} questions`,
+        )
+        return
+      }
+
       // Calculer la date de fin (2 jours après le début)
       const startDate = values.startDate.getTime()
       const endDate = new Date(values.startDate)
       endDate.setDate(endDate.getDate() + 2)
-      endDate.setHours(23, 59, 59, 999) // Fin de journée
+      endDate.setHours(23, 59, 59, 999)
 
       await createExam({
         title: values.title,
@@ -149,6 +180,46 @@ const AdminCreateExamPage = () => {
 
                 <FormField
                   control={form.control}
+                  name="numberOfQuestions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nombre de questions</FormLabel>
+                      <FormControl>
+                        <Select
+                          value={field.value?.toString()}
+                          onValueChange={(value) => {
+                            const numValue = parseInt(value)
+                            field.onChange(numValue)
+                            // Réinitialiser la sélection de questions si le nombre change
+                            if (selectedQuestions.length > numValue) {
+                              const newSelection = selectedQuestions.slice(
+                                0,
+                                numValue,
+                              )
+                              setSelectedQuestions(newSelection)
+                              form.setValue("questionIds", newSelection)
+                            }
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionner le nombre de questions" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {generateQuestionOptions().map((num) => (
+                              <SelectItem key={num} value={num.toString()}>
+                                {num} questions
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
                   name="startDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
@@ -176,9 +247,13 @@ const AdminCreateExamPage = () => {
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
-                            disabled={(date) =>
-                              date < new Date() || date < new Date("1900-01-01")
-                            }
+                            disabled={(date) => {
+                              const today = new Date()
+                              today.setHours(0, 0, 0, 0)
+                              return (
+                                date < today || date < new Date("1900-01-01")
+                              )
+                            }}
                             autoFocus
                           />
                         </PopoverContent>
@@ -218,13 +293,13 @@ const AdminCreateExamPage = () => {
                   <FormItem>
                     <FormLabel>Questions de l&apos;examen</FormLabel>
                     <FormDescription>
-                      Sélectionnez au moins 115 questions qui composeront cet
-                      examen.
+                      Sélectionnez {numberOfQuestions || 115} questions qui
+                      composeront cet examen.
                     </FormDescription>
                     <QuestionSelector
                       selectedQuestions={selectedQuestions}
                       onSelectionChange={handleQuestionSelectionChange}
-                      minQuestions={115}
+                      minQuestions={numberOfQuestions || 115}
                     />
                     <FormMessage />
                   </FormItem>
@@ -235,11 +310,18 @@ const AdminCreateExamPage = () => {
                 <Button
                   type="button"
                   variant="outline"
+                  className="cursor-pointer"
                   onClick={() => router.push("/admin/exams")}
                 >
                   Annuler
                 </Button>
-                <Button type="submit" disabled={selectedQuestions.length < 115}>
+                <Button
+                  type="submit"
+                  className="cursor-pointer"
+                  disabled={
+                    selectedQuestions.length < (numberOfQuestions || 115)
+                  }
+                >
                   Créer l&apos;examen ({selectedQuestions.length} question
                   {selectedQuestions.length > 1 ? "s" : ""})
                 </Button>

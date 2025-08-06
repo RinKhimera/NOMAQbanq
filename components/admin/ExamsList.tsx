@@ -3,8 +3,9 @@
 import { useMutation, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { Calendar, Clock, Eye, MoreHorizontal, Users } from "lucide-react"
+import { Calendar, Clock, Edit, Eye, MoreHorizontal, Users } from "lucide-react"
 import Link from "next/link"
+import { useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,18 +39,54 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import { Doc, Id } from "@/convex/_generated/dataModel"
 
 export function ExamsList() {
+  const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [selectedExam, setSelectedExam] = useState<Doc<"exams"> | null>(null)
+
   const exams = useQuery(api.exams.getAllExams)
   const deactivateExam = useMutation(api.exams.deactivateExam)
+  const reactivateExam = useMutation(api.exams.reactivateExam)
 
-  const handleDeactivate = async (examId: Id<"exams">) => {
+  const handleDeactivate = async (exam: Doc<"exams">) => {
+    const status = getExamStatus(exam)
+    if (status === "active") {
+      setSelectedExam(exam)
+      setShowDeactivateDialog(true)
+    } else {
+      await performDeactivate(exam._id)
+    }
+  }
+
+  const performDeactivate = async (examId: Id<"exams">) => {
     try {
       await deactivateExam({ examId })
       toast.success("Examen désactivé avec succès")
+      setShowDeactivateDialog(false)
+      setSelectedExam(null)
     } catch {
       toast.error("Erreur lors de la désactivation")
+    }
+  }
+
+  const handleEdit = (exam: Doc<"exams">) => {
+    const status = getExamStatus(exam)
+    if (status === "active") {
+      setSelectedExam(exam)
+      setShowEditDialog(true)
+    } else {
+      window.location.href = `/admin/exams/edit?id=${exam._id}`
+    }
+  }
+
+  const handleReactivate = async (examId: Id<"exams">) => {
+    try {
+      await reactivateExam({ examId })
+      toast.success("Examen réactivé avec succès")
+    } catch {
+      toast.error("Erreur lors de la réactivation")
     }
   }
 
@@ -169,12 +214,23 @@ export function ExamsList() {
                             Voir les détails
                           </Link>
                         </DropdownMenuItem>
-                        {exam.isActive && (
+                        <DropdownMenuItem onClick={() => handleEdit(exam)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Modifier
+                        </DropdownMenuItem>
+                        {exam.isActive ? (
                           <DropdownMenuItem
-                            onClick={() => handleDeactivate(exam._id)}
+                            onClick={() => handleDeactivate(exam)}
                             className="text-red-600"
                           >
                             Désactiver
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => handleReactivate(exam._id)}
+                            className="text-green-600"
+                          >
+                            Réactiver
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -186,6 +242,94 @@ export function ExamsList() {
           </TableBody>
         </Table>
       </CardContent>
+
+      {/* Dialog de confirmation pour désactiver un examen en cours */}
+      <Dialog
+        open={showDeactivateDialog}
+        onOpenChange={setShowDeactivateDialog}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Désactiver l&apos;examen en cours</DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>
+                ⚠️ <strong>Attention :</strong> Cet examen est actuellement en
+                cours.
+              </p>
+              <p>
+                Des étudiants pourraient déjà être en train de passer cet
+                examen. La désactivation interrompra immédiatement l&apos;accès
+                à l&apos;examen pour tous les utilisateurs.
+              </p>
+              <p>
+                Êtes-vous sûr de vouloir désactiver{" "}
+                <strong>&quot;{selectedExam?.title}&quot;</strong> ?
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => setShowDeactivateDialog(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              className="cursor-pointer"
+              onClick={() =>
+                selectedExam && performDeactivate(selectedExam._id)
+              }
+            >
+              Désactiver l&apos;examen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de confirmation pour modifier un examen en cours */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifier l&apos;examen en cours</DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>
+                ⚠️ <strong>Attention :</strong> Cet examen est actuellement en
+                cours.
+              </p>
+              <p>
+                Des étudiants pourraient déjà être en train de passer cet
+                examen. Modifier l&apos;examen pendant qu&apos;il est en cours
+                peut affecter l&apos;expérience des utilisateurs.
+              </p>
+              <p>
+                Êtes-vous sûr de vouloir modifier{" "}
+                <strong>&quot;{selectedExam?.title}&quot;</strong> ?
+              </p>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => setShowEditDialog(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedExam) {
+                  window.location.href = `/admin/exams/edit?id=${selectedExam._id}`
+                }
+              }}
+              className="cursor-pointer"
+            >
+              Continuer la modification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

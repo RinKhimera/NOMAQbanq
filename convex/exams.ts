@@ -229,3 +229,31 @@ export const deactivateExam = mutation({
     return { success: true }
   },
 })
+
+// Réactiver un examen
+export const reactivateExam = mutation({
+  args: { examId: v.id("exams") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Utilisateur non authentifié")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Accès non autorisé")
+    }
+
+    await ctx.db.patch(args.examId, {
+      isActive: true,
+    })
+
+    return { success: true }
+  },
+})
