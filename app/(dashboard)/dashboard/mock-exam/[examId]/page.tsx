@@ -324,7 +324,11 @@ const ExamPage = () => {
                     {currentQuestion?.options.map((option, index) => (
                       <div
                         key={index}
-                        className="flex items-start space-x-3 rounded-lg border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/10"
+                        className="flex cursor-pointer items-start space-x-3 rounded-lg border border-gray-200 p-4 transition-colors hover:border-blue-300 hover:bg-blue-50/50 dark:border-gray-700 dark:hover:border-blue-600 dark:hover:bg-blue-900/10"
+                        onClick={() =>
+                          currentQuestion &&
+                          handleAnswerChange(currentQuestion._id, option)
+                        }
                       >
                         <RadioGroupItem
                           value={option}

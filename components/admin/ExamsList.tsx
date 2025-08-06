@@ -3,8 +3,17 @@
 import { useMutation, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { Calendar, Clock, Edit, Eye, MoreHorizontal, Users } from "lucide-react"
+import {
+  Calendar,
+  Clock,
+  Edit,
+  Eye,
+  MoreHorizontal,
+  Trash2,
+  Users,
+} from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -42,13 +51,16 @@ import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
 
 export function ExamsList() {
+  const router = useRouter()
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [selectedExam, setSelectedExam] = useState<Doc<"exams"> | null>(null)
 
   const exams = useQuery(api.exams.getAllExams)
   const deactivateExam = useMutation(api.exams.deactivateExam)
   const reactivateExam = useMutation(api.exams.reactivateExam)
+  const deleteExam = useMutation(api.exams.deleteExam)
 
   const handleDeactivate = async (exam: Doc<"exams">) => {
     const status = getExamStatus(exam)
@@ -71,22 +83,38 @@ export function ExamsList() {
     }
   }
 
-  const handleEdit = (exam: Doc<"exams">) => {
-    const status = getExamStatus(exam)
-    if (status === "active") {
-      setSelectedExam(exam)
-      setShowEditDialog(true)
-    } else {
-      window.location.href = `/admin/exams/edit?id=${exam._id}`
-    }
-  }
-
   const handleReactivate = async (examId: Id<"exams">) => {
     try {
       await reactivateExam({ examId })
       toast.success("Examen réactivé avec succès")
     } catch {
       toast.error("Erreur lors de la réactivation")
+    }
+  }
+
+  const handleEdit = (exam: Doc<"exams">) => {
+    const status = getExamStatus(exam)
+    if (status === "active") {
+      setSelectedExam(exam)
+      setShowEditDialog(true)
+    } else {
+      router.push(`/admin/exams/edit/${exam._id}`)
+    }
+  }
+
+  const handleDelete = (exam: Doc<"exams">) => {
+    setSelectedExam(exam)
+    setShowDeleteDialog(true)
+  }
+
+  const performDelete = async (examId: Id<"exams">) => {
+    try {
+      await deleteExam({ examId })
+      toast.success("Examen supprimé avec succès")
+      setShowDeleteDialog(false)
+      setSelectedExam(null)
+    } catch {
+      toast.error("Erreur lors de la suppression")
     }
   }
 
@@ -214,25 +242,31 @@ export function ExamsList() {
                             Voir les détails
                           </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEdit(exam)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Modifier
-                        </DropdownMenuItem>
                         {exam.isActive ? (
                           <DropdownMenuItem
                             onClick={() => handleDeactivate(exam)}
-                            className="text-red-600"
                           >
                             Désactiver
                           </DropdownMenuItem>
                         ) : (
                           <DropdownMenuItem
                             onClick={() => handleReactivate(exam._id)}
-                            className="text-green-600"
                           >
                             Réactiver
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem onClick={() => handleEdit(exam)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Modifier
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(exam)}
+                          variant="destructive"
+                          className="text-red-600"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Supprimer
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -320,12 +354,48 @@ export function ExamsList() {
             <Button
               onClick={() => {
                 if (selectedExam) {
-                  window.location.href = `/admin/exams/edit?id=${selectedExam._id}`
+                  router.push(`/admin/exams/edit/${selectedExam._id}`)
                 }
               }}
               className="cursor-pointer"
             >
               Continuer la modification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de confirmation pour supprimer un examen */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Supprimer l&apos;examen</DialogTitle>
+          </DialogHeader>
+          <DialogDescription className="space-y-2">
+            <p>
+              ⚠️ <strong>Attention :</strong> Cette action est irréversible.
+            </p>
+            <p>
+              L&apos;examen &quot;{selectedExam?.title}&quot; et toutes ses
+              données (participants, résultats, etc.) seront définitivement
+              supprimés.
+            </p>
+            <p>Êtes-vous absolument sûr de vouloir supprimer cet examen ?</p>
+          </DialogDescription>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="cursor-pointer"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Annuler
+            </Button>
+            <Button
+              variant="destructive"
+              className="cursor-pointer"
+              onClick={() => selectedExam && performDelete(selectedExam._id)}
+            >
+              Supprimer définitivement
             </Button>
           </DialogFooter>
         </DialogContent>

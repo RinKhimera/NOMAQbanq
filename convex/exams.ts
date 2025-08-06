@@ -42,6 +42,78 @@ export const createExam = mutation({
   },
 })
 
+// Modifier un examen
+export const updateExam = mutation({
+  args: {
+    examId: v.id("exams"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    startDate: v.number(),
+    endDate: v.number(),
+    questionIds: v.array(v.id("questions")),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Utilisateur non authentifié")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Accès non autorisé")
+    }
+
+    await ctx.db.patch(args.examId, {
+      title: args.title,
+      description: args.description,
+      startDate: args.startDate,
+      endDate: args.endDate,
+      questionIds: args.questionIds,
+    })
+
+    return { success: true }
+  },
+})
+
+// Supprimer un examen
+export const deleteExam = mutation({
+  args: { examId: v.id("exams") },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Utilisateur non authentifié")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Accès non autorisé")
+    }
+
+    // Vérifier que l'examen existe
+    const exam = await ctx.db.get(args.examId)
+    if (!exam) {
+      throw new Error("Examen non trouvé")
+    }
+
+    // Supprimer l'examen
+    await ctx.db.delete(args.examId)
+
+    return { success: true }
+  },
+})
+
 // Récupérer tous les examens (pour l'admin)
 export const getAllExams = query({
   handler: async (ctx) => {
