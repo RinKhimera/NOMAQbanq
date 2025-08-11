@@ -41,7 +41,7 @@ export function AppSidebar({
   }, [pathname, isMobile, setOpenMobile])
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar className="" collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

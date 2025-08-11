@@ -41,7 +41,7 @@ export const SiteHeader = () => {
         <div className="ml-auto flex items-center gap-2">
           {pathname.startsWith("/admin") && (
             <div className="ml-auto flex items-center gap-2">
-              <Badge variant="secondary">Admin</Badge>
+              <Badge variant="badge">Admin</Badge>
             </div>
           )}
           <ThemeToggle />
