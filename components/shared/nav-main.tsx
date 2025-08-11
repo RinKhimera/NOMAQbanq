@@ -33,14 +33,10 @@ export function NavMain({
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
+                  variant={"link"}
                   tooltip={item.title}
                   asChild
-                  className={cn(
-                    "text-muted-foreground hover:bg-blue-500/25 hover:text-blue-700 dark:hover:bg-blue-500/20 dark:hover:text-white",
-                    isActive
-                      ? "bg-blue-500/15 text-blue-700 transition dark:bg-blue-500/10 dark:text-blue-400"
-                      : "",
-                  )}
+                  className={cn("", isActive ? "active-link" : "")}
                 >
                   <Link href={item.url}>
                     {item.icon && <item.icon />}
