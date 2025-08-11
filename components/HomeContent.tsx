@@ -28,52 +28,57 @@ import {
 import Image from "next/image"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { useLanguage } from "@/contexts/LanguageContext"
 
 export default function HomeContent() {
-  const { t } = useLanguage()
-
   // Features section data
   const features = [
     {
       icon: Play,
-      title: t("features.instant.title"),
-      description: t("features.instant.desc"),
+      title: "Démarrage instantané",
+      description:
+        "Après avoir créé des questions sur un sujet de votre choix, vous pouvez commencer immédiatement en mode tuteur ou chronométré",
     },
     {
       icon: BookOpen,
-      title: t("features.summary.title"),
-      description: t("features.summary.desc"),
+      title: "Points de synthèse",
+      description:
+        "À la fin de chaque cas clinique présenté, les caractéristiques clés et les concepts cliniques importants sont résumés pour un rappel rapide",
     },
     {
       icon: Timer,
-      title: t("features.modes.title"),
-      description: t("features.modes.desc"),
+      title: "Modes chronométré / tuteur",
+      description:
+        "Selon votre emploi du temps et votre objectif ultime de préparation à l&apos;examen EACMC partie 1, vous pouvez choisir entre le mode chronométré ou le mode tuteur",
     },
     {
       icon: Target,
-      title: t("features.disciplines.title"),
-      description: t("features.disciplines.desc"),
+      title: "Disciplines",
+      description:
+        "Les disciplines (matières cliniques) sont placées dans un ordre systématique pour vous permettre de tester vos connaissances dans un domaine spécifique ou de réviser un sujet particulier",
     },
     {
       icon: BarChart3,
-      title: t("features.monitoring.title"),
-      description: t("features.monitoring.desc"),
+      title: "Suivi des performances",
+      description:
+        "Quel que soit le mode chronométré ou tuteur lors de l&apos;utilisation de la banque de questions, une série de commentaires sont fournis pour améliorer les performances de l&apos;utilisateur",
     },
     {
       icon: Settings,
-      title: t("features.difficulty.title"),
-      description: t("features.difficulty.desc"),
+      title: "Niveaux de difficulté",
+      description:
+        "Il y a une combinaison de questions de niveau facile à avancé et des questions piège sont mélangées pour une meilleure préparation à l'examen EACMC partie 1",
     },
     {
       icon: RefreshCw,
-      title: t("features.update.title"),
-      description: t("features.update.desc"),
+      title: "Mise à jour",
+      description:
+        "Les questions, points de synthèse et algorithmes sont tous sous révision continue pour fournir une source fiable pour les préparations EACMC partie 1",
     },
     {
       icon: Brain,
-      title: t("features.mnemonics.title"),
-      description: t("features.mnemonics.desc"),
+      title: "Moyens mnémotechniques",
+      description:
+        "De nombreux moyens mnémotechniques présents pour résumer les points cliniques à haut rendement en un seul mot et faciliter leur rappel pendant l'examen",
     },
   ]
 
@@ -86,20 +91,21 @@ export default function HomeContent() {
             <div className="flex items-center space-x-6 text-sm font-medium">
               <div className="flex items-center space-x-2">
                 <Sparkles className="h-4 w-4 text-yellow-300" />
-                <span>{t("home.banner.resources")}</span>
+
+                <span>Ressources d&apos;apprentissage gratuites</span>
               </div>
               <Link
                 href="/domaines"
                 className="text-blue-100 underline underline-offset-2 transition-colors hover:text-white"
               >
-                {t("home.banner.candidates")}
+                Pour les candidats EACMC
               </Link>
               <span className="text-blue-200">•</span>
               <Link
                 href="/evaluation"
                 className="text-blue-100 underline underline-offset-2 transition-colors hover:text-white"
               >
-                {t("home.banner.students")}
+                Pour les étudiants
               </Link>
             </div>
           </div>
@@ -125,24 +131,26 @@ export default function HomeContent() {
               <div className="space-y-8">
                 <div className="inline-flex items-center rounded-full border border-blue-200/50 bg-gradient-to-r from-blue-100 to-indigo-100 px-4 py-2 text-sm font-semibold text-blue-700 dark:border-blue-700/50 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300">
                   <Award className="mr-2 h-4 w-4" />
-                  {t("home.hero.badge")}
+                  Plateforme #1 pour l&apos;EACMC
                 </div>
 
                 <h1 className="font-display text-display-xl gradient-text leading-none">
-                  {t("home.hero.title1")}
-                  <span className="block">{t("home.hero.title2")}</span>
-                  <span className="block">{t("home.hero.title3")}</span>
+                  PRÉPAREZ-VOUS
+                  <span className="block">SANS</span>
+                  <span className="block">LIMITES</span>
                 </h1>
 
                 <p className="text-body-lg max-w-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                  {t("home.hero.description")}
+                  Développez vos compétences médicales grâce à des QCM, des
+                  simulations et des évaluations en ligne proposés par les
+                  meilleurs professionnels francophones au Canada.
                 </p>
               </div>
 
               <div className="flex flex-col gap-4 sm:flex-row">
                 <Link href="/auth/sign-up">
                   <Button className="btn-modern h-auto transform cursor-pointer rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-2xl">
-                    {t("home.hero.signup")}
+                    Inscrivez-vous gratuitement
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
@@ -151,7 +159,7 @@ export default function HomeContent() {
                     variant="outline"
                     className="glass-card h-auto cursor-pointer rounded-2xl border-2 border-blue-200 px-8 py-4 text-lg font-semibold text-blue-700 transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-lg dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
                   >
-                    {t("home.hero.try")}
+                    Essayez NOMAQbank
                     <Play className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
@@ -178,7 +186,7 @@ export default function HomeContent() {
                       ))}
                     </div>
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      2000+ {t("home.hero.satisfied")}
+                      2000+ candidats satisfaits
                     </p>
                   </div>
                 </div>
@@ -207,10 +215,10 @@ export default function HomeContent() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {t("home.hero.certified")}
+                        Certifié EACMC
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {t("home.hero.validated")}
+                        Contenu validé
                       </p>
                     </div>
                   </div>
@@ -226,10 +234,10 @@ export default function HomeContent() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        85% {t("home.hero.success")}
+                        85% de réussite
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {t("home.hero.rate")}
+                        Taux de succès
                       </p>
                     </div>
                   </div>
@@ -255,13 +263,15 @@ export default function HomeContent() {
           <div className="animate-fade-in-up mb-20 text-center">
             <div className="mb-8 inline-flex items-center rounded-full border border-blue-200/50 bg-gradient-to-r from-blue-100 to-indigo-100 px-6 py-3 text-sm font-semibold text-blue-700 dark:border-blue-700/50 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300">
               <Zap className="mr-2 h-4 w-4" />
-              {t("features.badge")}
+              Fonctionnalités
             </div>
             <h2 className="font-display text-display-lg mb-6 text-gray-900 dark:text-white">
-              {t("features.title")}
+              Tout ce dont vous avez besoin pour améliorer vos performances en
+              un seul endroit
             </h2>
             <p className="text-body-lg mx-auto max-w-3xl text-gray-600 dark:text-gray-300">
-              {t("features.description")}
+              Une suite complète d&apos;outils conçue pour maximiser votre
+              réussite à l&apos;EACMC
             </p>
           </div>
 
@@ -295,26 +305,36 @@ export default function HomeContent() {
             <div className="animate-slide-in-left space-y-8">
               <div className="inline-flex items-center rounded-full border border-green-200/50 bg-gradient-to-r from-green-100 to-emerald-100 px-6 py-3 text-sm font-semibold text-green-700 dark:border-green-700/50 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-300">
                 <BookOpen className="mr-2 h-4 w-4" />
-                {t("pricing.badge")}
+                BANQUE DE QUESTIONS
               </div>
 
               <div className="space-y-6">
                 <h2 className="font-display text-display-lg leading-tight text-gray-900 dark:text-white">
-                  {t("pricing.title")}
+                  Inscrivez-vous pour les questions NOMAQbank
                 </h2>
 
                 <p className="text-body-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                  {t("pricing.description1")}
+                  Lors de la préparation à l&apos;examen EACMC partie 1, il est
+                  essentiel de réviser les objectifs du Conseil médical du
+                  Canada (CMC). Les objectifs décrivent les qualités requises
+                  des diplômés en médecine et des diplômés médicaux
+                  internationaux (DMI) qui cherchent à entrer en résidence au
+                  Canada.
                 </p>
 
                 <p className="text-body leading-relaxed text-gray-600 dark:text-gray-300">
-                  {t("pricing.description2")}
+                  En vous familiarisant minutieusement avec les objectifs du
+                  CMC, vous pouvez vous assurer d&apos;être adéquatement préparé
+                  à répondre aux attentes de la profession médicale. NOMAQbank
+                  contient plus de 2800+ questions basées sur les objectifs du
+                  CMC, fournissant un contenu à haut rendement pour vous aider à
+                  réussir vos examens.
                 </p>
               </div>
 
               <Link href="/evaluation">
                 <Button className="btn-modern h-auto transform cursor-pointer rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-2xl">
-                  {t("pricing.try")}
+                  ESSAYEZ GRATUITEMENT
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
@@ -334,30 +354,30 @@ export default function HomeContent() {
                   <div className="relative z-10">
                     <div className="mb-8 flex items-start justify-between">
                       <div className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold backdrop-blur-sm">
-                        {t("pricing.questions")}
+                        PLUS DE 2800+ QUESTIONS
                       </div>
                     </div>
 
                     <div className="mb-8">
                       <div className="mb-2 flex items-baseline">
-                        <span className="text-6xl font-bold">
-                          {t("pricing.price")}
-                        </span>
+                        <span className="text-6xl font-bold">339$</span>
                         <span className="ml-2 text-xl text-blue-100">
-                          {t("pricing.period")}
+                          /3 Mois
                         </span>
                       </div>
-                      <p className="text-blue-100">{t("pricing.access")}</p>
+                      <p className="text-blue-100">
+                        Accès complet à la plateforme
+                      </p>
                     </div>
 
                     <div className="mb-8 space-y-4">
                       {[
-                        t("pricing.feature1"),
-                        t("pricing.feature2"),
-                        t("pricing.feature3"),
-                        t("pricing.feature4"),
-                        t("pricing.feature5"),
-                        t("pricing.feature6"),
+                        "Banque de questions pour 3 mois",
+                        "Basé sur les objectifs CMC",
+                        "Explications simples",
+                        "Moyens mnémotechniques mémorables",
+                        "Tableaux de synthèse et algorithmes",
+                        "Apprentissage à rythme personnalisé",
                       ].map((feature, index) => (
                         <div
                           key={index}
@@ -373,7 +393,7 @@ export default function HomeContent() {
 
                     <Link href="/auth/sign-up">
                       <Button className="btn-modern w-full cursor-pointer rounded-2xl bg-white py-4 font-semibold text-blue-600 shadow-lg transition-all duration-300 hover:bg-blue-50 hover:shadow-xl">
-                        {t("pricing.signup")}
+                        S&apos;inscrire maintenant
                       </Button>
                     </Link>
                   </div>
@@ -440,7 +460,8 @@ export default function HomeContent() {
                 </span>
               </Link>
               <p className="text-body mb-8 max-w-md leading-relaxed text-gray-300">
-                {t("footer.description")}
+                La première plateforme francophone de préparation à l&apos;EACMC
+                Partie I. Votre succès commence ici.
               </p>
               <div className="flex space-x-4">
                 {[Facebook, Twitter, Linkedin, Instagram].map((Icon, index) => (
@@ -458,14 +479,14 @@ export default function HomeContent() {
             {/* Quick Links */}
             <div>
               <h3 className="font-display mb-8 text-lg font-semibold">
-                {t("footer.links")}
+                Liens rapides
               </h3>
               <ul className="space-y-4">
                 {[
-                  { name: t("nav.home"), href: "/" },
-                  { name: t("nav.domains"), href: "/domaines" },
+                  { name: "Accueil", href: "/" },
+                  { name: "Domaines", href: "/domaines" },
                   { name: "Évaluation", href: "/evaluation" },
-                  { name: t("nav.about"), href: "/a-propos" },
+                  { name: "À propos", href: "/a-propos" },
                   { name: "Tarifs", href: "#" },
                   { name: "FAQ", href: "#" },
                 ].map((link) => (
@@ -484,7 +505,7 @@ export default function HomeContent() {
             {/* Contact */}
             <div>
               <h3 className="font-display mb-8 text-lg font-semibold">
-                {t("footer.contact")}
+                Contact
               </h3>
               <ul className="space-y-6">
                 <li className="flex items-center space-x-3">
@@ -515,19 +536,23 @@ export default function HomeContent() {
 
           {/* Bottom bar */}
           <div className="mt-16 flex flex-col items-center justify-between border-t border-gray-800 pt-8 md:flex-row">
-            <p className="text-sm text-gray-400">{t("footer.copyright")}</p>
+            <p className="text-sm text-gray-400">
+              © 2024 NOMAQbank. Tous droits réservés.
+            </p>
             <div className="mt-4 flex space-x-8 md:mt-0">
-              {[t("footer.privacy"), t("footer.terms"), t("footer.legal")].map(
-                (link) => (
-                  <a
-                    key={link}
-                    href="#"
-                    className="text-sm text-gray-400 underline-offset-4 transition-colors duration-200 hover:text-blue-400 hover:underline"
-                  >
-                    {link}
-                  </a>
-                ),
-              )}
+              {[
+                "Politique de confidentialité",
+                "Conditions d'utilisation",
+                "Mentions légales",
+              ].map((link) => (
+                <a
+                  key={link}
+                  href="#"
+                  className="text-sm text-gray-400 underline-offset-4 transition-colors duration-200 hover:text-blue-400 hover:underline"
+                >
+                  {link}
+                </a>
+              ))}
             </div>
           </div>
         </div>
