@@ -8,6 +8,12 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        badge:
+          "border-blue-200/50 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 dark:border-blue-700/50 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300",
+        btn_modern:
+          "from-blue-600 to-indigo-600 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-2xl text-white bg-gradient-to-r",
+        btn_secondary:
+          "border-blue-200 text-blue-700 hover:scale-105 hover:bg-blue-50 hover:shadow-lg dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20 text-blue-700 border-2 ",
         default:
           "bg-primary text-primary-foreground shadow-xs hover:bg-primary/90",
         destructive:

@@ -27,6 +27,7 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 
 export default function HomeLanding() {
@@ -149,15 +150,18 @@ export default function HomeLanding() {
 
               <div className="flex flex-col gap-4 sm:flex-row">
                 <Link href="/auth/sign-up">
-                  <Button className="btn-modern h-auto transform cursor-pointer rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-2xl">
+                  <Button
+                    variant="btn_modern"
+                    className="btn-modern h-auto transform rounded-2xl px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
+                  >
                     Inscrivez-vous gratuitement
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
                 <Link href="/evaluation">
                   <Button
-                    variant="outline"
-                    className="glass-card h-auto cursor-pointer rounded-2xl border-2 border-blue-200 px-8 py-4 text-lg font-semibold text-blue-700 transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-lg dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                    variant="btn_secondary"
+                    className="glass-card h-auto rounded-2xl px-8 py-4 text-lg font-semibold transition-all duration-300"
                   >
                     Essayez NOMAQbank
                     <Play className="ml-2 h-5 w-5" />
@@ -261,10 +265,13 @@ export default function HomeLanding() {
       <section className="section-modern bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="animate-fade-in-up mb-20 text-center">
-            <div className="mb-8 inline-flex items-center rounded-full border border-blue-200/50 bg-gradient-to-r from-blue-100 to-indigo-100 px-6 py-3 text-sm font-semibold text-blue-700 dark:border-blue-700/50 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300">
+            <Badge
+              variant="badge"
+              className="mb-8 px-6 py-3 text-sm font-semibold"
+            >
               <Zap className="mr-2 h-4 w-4" />
               Fonctionnalités
-            </div>
+            </Badge>
             <h2 className="font-display text-display-lg mb-6 text-gray-900 dark:text-white">
               Tout ce dont vous avez besoin pour améliorer vos performances en
               un seul endroit
@@ -333,7 +340,10 @@ export default function HomeLanding() {
               </div>
 
               <Link href="/evaluation">
-                <Button className="btn-modern h-auto transform cursor-pointer rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-2xl">
+                <Button
+                  variant="btn_modern"
+                  className="btn-modern h-auto transform rounded-2xl px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
+                >
                   ESSAYEZ GRATUITEMENT
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
