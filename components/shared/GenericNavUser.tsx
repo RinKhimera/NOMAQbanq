@@ -102,11 +102,13 @@ export const GenericNavUser = ({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="group data-[state=open]:text-sidebar-accent-foreground hover:bg-muted data-[state=open]:bg-muted dark:hover:bg-gray-900 dark:data-[state=open]:bg-gray-900"
             >
-              <Avatar className="h-8 w-8 rounded-lg grayscale">
+              <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={currentUser.image} alt={currentUser.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarFallback className="group-[hover]: rounded-lg bg-gray-900">
+                  CN
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{currentUser.name}</span>
@@ -118,7 +120,7 @@ export const GenericNavUser = ({
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+            className="bg-card w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
@@ -141,7 +143,7 @@ export const GenericNavUser = ({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <SignOutButton>
-              <DropdownMenuItem>
+              <DropdownMenuItem variant="destructive">
                 <IconLogout />
                 Se déconnecter
               </DropdownMenuItem>

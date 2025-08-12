@@ -14,7 +14,12 @@ const AdminExamDetailsPage = () => {
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" asChild>
+        <Button
+          className="hover:text-blue-700 dark:hover:text-white"
+          variant="outline"
+          size="sm"
+          asChild
+        >
           <Link href="/admin/exams">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour aux examens

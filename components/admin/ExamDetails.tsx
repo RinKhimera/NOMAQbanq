@@ -22,6 +22,8 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { getExamStatus } from "@/lib/exam-status"
+import ExamStatusBadge from "./exam-status-badge"
 
 interface ExamDetailsProps {
   examId: Id<"exams">
@@ -40,19 +42,7 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
       </Card>
     )
   }
-
-  const getExamStatus = () => {
-    const now = Date.now()
-    if (!exam.isActive)
-      return { status: "inactive", label: "Désactivé", color: "destructive" }
-    if (now < exam.startDate)
-      return { status: "upcoming", label: "À venir", color: "blue" }
-    if (now > exam.endDate)
-      return { status: "completed", label: "Terminé", color: "gray" }
-    return { status: "active", label: "En cours", color: "green" }
-  }
-
-  const status = getExamStatus()
+  const status = getExamStatus(exam)
 
   return (
     <div className="space-y-6">
@@ -61,27 +51,16 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-2xl">{exam.title}</CardTitle>
+              <CardTitle className="text-2xl text-blue-600 dark:text-white">
+                {exam.title}
+              </CardTitle>
               {exam.description && (
                 <CardDescription className="mt-2">
                   {exam.description}
                 </CardDescription>
               )}
             </div>
-            <Badge
-              variant={status.color as "destructive" | "secondary" | "default"}
-              className={
-                status.color === "green"
-                  ? "bg-green-500"
-                  : status.color === "blue"
-                    ? "bg-blue-500"
-                    : status.color === "gray"
-                      ? "bg-gray-500"
-                      : ""
-              }
-            >
-              {status.label}
-            </Badge>
+            <ExamStatusBadge status={status} />
           </div>
         </CardHeader>
         <CardContent>
@@ -173,7 +152,9 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
       {leaderboard && leaderboard.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Classement</CardTitle>
+            <CardTitle className="text-blue-600 dark:text-white">
+              Classement
+            </CardTitle>
             <CardDescription>
               Les participants classés par score décroissant
             </CardDescription>
@@ -183,7 +164,7 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
               {leaderboard.map((entry, index) => (
                 <div key={index} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="bg-muted flex h-8 w-8 items-center justify-center rounded-full">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-medium text-blue-600 dark:bg-blue-900 dark:text-blue-400">
                       {index + 1}
                     </div>
                     <div>
@@ -213,7 +194,9 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
       {/* Questions de l'examen */}
       <Card>
         <CardHeader>
-          <CardTitle>Questions de l&apos;examen</CardTitle>
+          <CardTitle className="text-blue-600 dark:text-white">
+            Questions de l&apos;examen
+          </CardTitle>
           <CardDescription>
             Liste des questions composant cet examen
           </CardDescription>
@@ -226,7 +209,7 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
                   <div className="flex-1">
                     <div className="mb-2 flex items-center gap-2">
                       <Badge variant="outline">Question {index + 1}</Badge>
-                      <Badge variant="secondary">{question?.domain}</Badge>
+                      <Badge variant="badge">{question?.domain}</Badge>
                     </div>
                     <p className="line-clamp-5 text-sm leading-relaxed @lg:line-clamp-3">
                       {question?.question}
@@ -242,7 +225,7 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
                       className={`flex items-center gap-2 rounded-lg p-2 text-sm ${
                         option === question.correctAnswer
                           ? "border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20"
-                          : "bg-gray-50 dark:bg-gray-800"
+                          : "border-primary/20 bg-muted dark:bg-gray-900"
                       }`}
                     >
                       <Badge
