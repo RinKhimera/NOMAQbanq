@@ -8,6 +8,8 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
+        btn_link:
+          "hover:bg-blue-500/25 hover:text-blue-700 focus:hover:bg-blue-500/25 focus:hover:text-blue-700 dark:hover:bg-blue-500/20 dark:hover:text-white",
         none: "",
         badge:
           "border-blue-200/50 bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 dark:border-blue-700/50 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300",

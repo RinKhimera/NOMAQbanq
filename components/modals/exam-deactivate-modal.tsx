@@ -30,7 +30,7 @@ export function ExamDeactivateModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="bg-card">
         <DialogHeader>
           <DialogTitle>Désactiver l&apos;examen en cours</DialogTitle>
           <DialogDescription className="space-y-2">

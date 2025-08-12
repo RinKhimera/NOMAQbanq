@@ -18,7 +18,7 @@ export function ExamBulkActions({
   if (!isVisible || selectedExams.length === 0) return null
 
   return (
-    <div className="bg-muted/50 flex items-center gap-2 rounded-md border p-2">
+    <div className="bg-card flex items-center gap-2 rounded-md border p-2">
       <span className="text-muted-foreground text-sm">
         {selectedExams.length} examen(s) sélectionné(s)
       </span>

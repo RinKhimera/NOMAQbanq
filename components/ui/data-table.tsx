@@ -138,7 +138,7 @@ export function DataTable<TData, TValue>({
           />
         )}
         {children}
-        {showColumnToggle && (
+        {/*  {showColumnToggle && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="ml-auto">
@@ -168,14 +168,17 @@ export function DataTable<TData, TValue>({
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
+        )} */}
       </div>
 
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow
+                className="dark:hover:bg-card hover:bg-muted-foreground/10"
+                key={headerGroup.id}
+              >
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead key={header.id}>
@@ -197,7 +200,7 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="hover:bg-accent data-[state=selected]:bg-accent"
+                  className="dark:hover:bg-card dark:data-[state=selected]:bg-card hover:bg-muted-foreground/10 data-[state=selected]:bg-muted-foreground/10"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

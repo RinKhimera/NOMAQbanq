@@ -12,7 +12,7 @@ export type ExamStatus = "active" | "upcoming" | "completed" | "inactive"
 export type ExamStatusConfig = {
   label: string
   variant: "default" | "secondary" | "destructive" | "outline"
-  className?: string
+  className: string
   icon: React.ComponentType<{ className?: string }>
 }
 

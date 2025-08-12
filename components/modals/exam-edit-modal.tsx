@@ -28,7 +28,7 @@ export function ExamEditModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="bg-card">
         <DialogHeader>
           <DialogTitle>Modifier l&apos;examen en cours</DialogTitle>
           <DialogDescription className="space-y-2">

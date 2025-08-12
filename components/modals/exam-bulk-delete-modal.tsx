@@ -30,7 +30,7 @@ export function ExamBulkDeleteModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="bg-card">
         <DialogHeader>
           <DialogTitle>Supprimer {exams.length} examen(s)</DialogTitle>
           <DialogDescription className="space-y-2">
@@ -54,8 +54,8 @@ export function ExamBulkDeleteModal({
             </p>
             <p>Êtes-vous absolument sûr de vouloir supprimer ces examens ?</p>
             {exams.length > 1 && (
-              <div className="bg-muted mt-4 rounded-md p-3">
-                <p className="mb-2 text-sm font-medium">
+              <div className="mt-4 rounded-md bg-white p-3 dark:bg-gray-900">
+                <p className="mb-2 text-sm font-medium text-white">
                   Examens à supprimer :
                 </p>
                 <ul className="space-y-1 text-sm">

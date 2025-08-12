@@ -41,13 +41,13 @@ export function ExamActions({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="h-8 w-8 p-0">
+        <Button variant="btn_link" className="h-8 w-8 p-0">
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className={cn("bg-sidebar", isMobile ? "w-64" : "w-48")}
+        className={cn("bg-card", isMobile ? "w-64" : "w-48")}
       >
         {/* Informations de l'examen en version mobile */}
         {isMobile && (
@@ -87,7 +87,10 @@ export function ExamActions({
 
         {/* Actions */}
         <DropdownMenuItem
-          className={sidebarMenuButtonVariants({ variant: "link" })}
+          className={cn(
+            sidebarMenuButtonVariants({ variant: "link" }),
+            "text-muted-foreground dark:text-white",
+          )}
           asChild
         >
           <Link className="" href={`/admin/exams/${exam._id}`}>
@@ -98,7 +101,10 @@ export function ExamActions({
 
         {exam.isActive ? (
           <DropdownMenuItem
-            className={sidebarMenuButtonVariants({ variant: "link" })}
+            className={cn(
+              sidebarMenuButtonVariants({ variant: "link" }),
+              "text-muted-foreground dark:text-white",
+            )}
             onClick={() => onDeactivate(exam)}
           >
             <Pause className="mr-2 h-4 w-4" />
@@ -106,7 +112,10 @@ export function ExamActions({
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem
-            className={sidebarMenuButtonVariants({ variant: "link" })}
+            className={cn(
+              sidebarMenuButtonVariants({ variant: "link" }),
+              "text-muted-foreground dark:text-white",
+            )}
             onClick={() => onReactivate(exam._id)}
           >
             <Play className="mr-2 h-4 w-4" />
@@ -115,7 +124,10 @@ export function ExamActions({
         )}
 
         <DropdownMenuItem
-          className={sidebarMenuButtonVariants({ variant: "link" })}
+          className={cn(
+            sidebarMenuButtonVariants({ variant: "link" }),
+            "text-muted-foreground dark:text-white",
+          )}
           onClick={() => onEdit(exam)}
         >
           <Edit className="mr-2 h-4 w-4" />

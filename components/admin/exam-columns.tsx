@@ -22,6 +22,7 @@ export const createExamColumns = (
       id: "select",
       header: ({ table }) => (
         <Checkbox
+          className="border-muted-foreground dark:data-[state=checked]:bg-muted-foreground/10 data-[state=checked]:bg-blue-500 dark:text-white"
           checked={
             table.getIsAllPageRowsSelected() ||
             (table.getIsSomePageRowsSelected() && "indeterminate")
@@ -32,6 +33,7 @@ export const createExamColumns = (
       ),
       cell: ({ row }) => (
         <Checkbox
+          className="border-muted-foreground dark:data-[state=checked]:bg-muted-foreground/10 data-[state=checked]:bg-blue-500 dark:text-white"
           checked={row.getIsSelected()}
           onCheckedChange={(value) => row.toggleSelected(!!value)}
           aria-label="Sélectionner la ligne"
