@@ -1,14 +1,12 @@
 "use client"
 
+import { SignOutButton } from "@clerk/clerk-react"
+import { LogOut, Menu, Monitor, Moon, Sun, User, X } from "lucide-react"
+import { useTheme } from "next-themes"
 import Link from "next/link"
 import { useState } from "react"
-import { Menu, X, Sun, Moon, Monitor, User, LogOut } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useTheme } from "next-themes"
-import { useLanguage } from "@/contexts/LanguageContext"
-// import LanguageSelector from "@/components/LanguageSelector"
-import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,30 +14,31 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { SignOutButton } from "@clerk/clerk-react"
+// Removed language context: French-only UI
+// import LanguageSelector from "@/components/LanguageSelector"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 
 export default function NavBar() {
   const [isOpen, setIsOpen] = useState(false)
   const { setTheme } = useTheme()
-  const { t } = useLanguage()
   const { currentUser, isAuthenticated } = useCurrentUser()
 
   const navigation = [
-    { name: t("nav.home"), href: "/" },
-    { name: t("nav.domains"), href: "/domaines" },
-    { name: t("nav.about"), href: "/a-propos" },
+    { name: "Accueil", href: "/" },
+    { name: "Domaines", href: "/domaines" },
+    { name: "À propos", href: "/a-propos" },
   ]
 
   return (
-    <nav className="fixed top-0 w-full glass-card border-b border-white/20 dark:border-gray-800/50 z-50 shadow-lg bg-white/80 dark:bg-gray-900/80">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+    <nav className="glass-card fixed top-0 z-50 w-full border-b border-white/20 bg-white/80 shadow-lg dark:border-gray-800/50 dark:bg-gray-900/80">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-20 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-3 group">
-            <div className="relative w-12 h-12 rounded-2xl overflow-hidden shadow-lg group-hover:shadow-xl transition-all duration-300 transform group-hover:scale-105">
+          <Link href="/" className="group flex items-center space-x-3">
+            <div className="relative h-12 w-12 transform overflow-hidden rounded-2xl shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl">
               {/* Placeholder for logo image - can be replaced with actual image */}
-              <div className="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center">
-                <span className="text-white font-bold text-lg">N</span>
+              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-600">
+                <span className="text-lg font-bold text-white">N</span>
               </div>
               {/* Uncomment and replace with actual logo when available */}
               {/* <img 
@@ -48,21 +47,21 @@ export default function NavBar() {
                 className="w-full h-full object-cover"
               /> */}
             </div>
-            <span className="text-2xl font-bold text-gray-900 dark:text-white font-display">
+            <span className="font-display text-2xl font-bold text-gray-900 dark:text-white">
               NOMAQbank
             </span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden items-center space-x-6 md:flex">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
-                className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-300 font-medium text-lg relative group"
+                className="group relative text-lg font-medium text-gray-700 transition-all duration-300 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400"
               >
                 {item.name}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-indigo-600 group-hover:w-full transition-all duration-300"></span>
+                <span className="absolute -bottom-1 left-0 h-0.5 w-0 bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-300 group-hover:w-full"></span>
               </Link>
             ))}
 
@@ -76,10 +75,10 @@ export default function NavBar() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="w-10 h-10 rounded-xl"
+                    className="h-10 w-10 rounded-xl"
                   >
-                    <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                    <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                    <Sun className="h-5 w-5 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+                    <Moon className="absolute h-5 w-5 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
                     <span className="sr-only">Changer le thème</span>
                   </Button>
                 </DropdownMenuTrigger>
@@ -92,21 +91,21 @@ export default function NavBar() {
                     className="cursor-pointer"
                   >
                     <Sun className="mr-2 h-4 w-4" />
-                    <span>{t("nav.theme.light")}</span>
+                    <span>Clair</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setTheme("dark")}
                     className="cursor-pointer"
                   >
                     <Moon className="mr-2 h-4 w-4" />
-                    <span>{t("nav.theme.dark")}</span>
+                    <span>Sombre</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setTheme("system")}
                     className="cursor-pointer"
                   >
                     <Monitor className="mr-2 h-4 w-4" />
-                    <span>{t("nav.theme.system")}</span>
+                    <span>Système</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -131,17 +130,17 @@ export default function NavBar() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
-                    className="glass-card border border-gray-200 dark:border-gray-700 w-56"
+                    className="glass-card w-56 border border-gray-200 dark:border-gray-700"
                   >
                     <DropdownMenuItem className="cursor-pointer">
                       <User className="mr-2 h-4 w-4" />
-                      <span>{t("nav.profile")}</span>
+                      <span>Profil</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <SignOutButton>
                       <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600">
                         <LogOut className="mr-2 h-4 w-4" />
-                        <span>{t("nav.logout")}</span>
+                        <span>Déconnexion</span>
                       </DropdownMenuItem>
                     </SignOutButton>
                   </DropdownMenuContent>
@@ -151,14 +150,14 @@ export default function NavBar() {
                   <Link href="/auth/sign-in">
                     <Button
                       variant="ghost"
-                      className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 px-6 py-2 rounded-xl font-medium transition-all duration-300"
+                      className="rounded-xl px-6 py-2 font-medium text-gray-700 transition-all duration-300 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
                     >
-                      {t("nav.login")}
+                      Connexion
                     </Button>
                   </Link>
                   <Link href="/auth/sign-up">
-                    <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-8 py-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 btn-modern">
-                      {t("nav.signup")}
+                    <Button className="btn-modern transform rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-2 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
+                      Inscription
                     </Button>
                   </Link>
                 </>
@@ -167,7 +166,7 @@ export default function NavBar() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center space-x-2">
+          <div className="flex items-center space-x-2 md:hidden">
             {/* Mobile Language Selector - Masqué */}
             {/* <LanguageSelector /> */}
 
@@ -177,10 +176,10 @@ export default function NavBar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="w-10 h-10 rounded-xl"
+                  className="h-10 w-10 rounded-xl"
                 >
-                  <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-                  <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+                  <Sun className="h-5 w-5 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
+                  <Moon className="absolute h-5 w-5 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent
@@ -192,28 +191,28 @@ export default function NavBar() {
                   className="cursor-pointer"
                 >
                   <Sun className="mr-2 h-4 w-4" />
-                  <span>{t("nav.theme.light")}</span>
+                  <span>Clair</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setTheme("dark")}
                   className="cursor-pointer"
                 >
                   <Moon className="mr-2 h-4 w-4" />
-                  <span>{t("nav.theme.dark")}</span>
+                  <span>Sombre</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={() => setTheme("system")}
                   className="cursor-pointer"
                 >
                   <Monitor className="mr-2 h-4 w-4" />
-                  <span>{t("nav.theme.system")}</span>
+                  <span>Système</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
             <button
               onClick={() => setIsOpen(!isOpen)}
-              className="p-3 rounded-xl text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300"
+              className="rounded-xl p-3 text-gray-700 transition-all duration-300 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
             >
               {isOpen ? (
                 <X className="h-6 w-6" />
@@ -227,18 +226,18 @@ export default function NavBar() {
         {/* Mobile Navigation */}
         {isOpen && (
           <div className="md:hidden">
-            <div className="px-2 pt-2 pb-6 space-y-2 glass-card border-t border-white/20 dark:border-gray-800/50 mt-4 rounded-2xl shadow-xl bg-white/90 dark:bg-gray-900/90">
+            <div className="glass-card mt-4 space-y-2 rounded-2xl border-t border-white/20 bg-white/90 px-2 pt-2 pb-6 shadow-xl dark:border-gray-800/50 dark:bg-gray-900/90">
               {navigation.map((item) => (
                 <Link
                   key={item.name}
                   href={item.href}
-                  className="block px-4 py-3 text-lg font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-300"
+                  className="block rounded-xl px-4 py-3 text-lg font-medium text-gray-700 transition-all duration-300 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
                   onClick={() => setIsOpen(false)}
                 >
                   {item.name}
                 </Link>
               ))}
-              <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
+              <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-700">
                 {isAuthenticated && currentUser ? (
                   <div className="flex items-center space-x-3 px-4 py-3">
                     <Avatar className="h-10 w-10">
@@ -264,14 +263,14 @@ export default function NavBar() {
                     <Link href="/auth/sign-in">
                       <Button
                         variant="ghost"
-                        className="w-full justify-start text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl font-medium"
+                        className="w-full justify-start rounded-xl font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
                       >
-                        {t("nav.login")}
+                        Connexion
                       </Button>
                     </Link>
                     <Link href="/auth/sign-up">
-                      <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold shadow-lg btn-modern">
-                        {t("nav.signup")}
+                      <Button className="btn-modern w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-lg hover:from-blue-700 hover:to-indigo-700">
+                        Inscription
                       </Button>
                     </Link>
                   </>
@@ -281,18 +280,18 @@ export default function NavBar() {
                     <DropdownMenuSeparator />
                     <Button
                       variant="ghost"
-                      className="w-full justify-start text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl font-medium"
+                      className="w-full justify-start rounded-xl font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
                     >
                       <User className="mr-2 h-4 w-4" />
-                      {t("nav.profile")}
+                      Profil
                     </Button>
                     <SignOutButton>
                       <Button
                         variant="ghost"
-                        className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-medium"
+                        className="w-full justify-start rounded-xl font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
                       >
                         <LogOut className="mr-2 h-4 w-4" />
-                        {t("nav.logout")}
+                        Déconnexion
                       </Button>
                     </SignOutButton>
                   </>
