@@ -155,10 +155,12 @@ export function QuestionSelector({
           <SelectTrigger className="w-full cursor-pointer @lg:w-[250px]">
             <SelectValue placeholder="Filtrer par domaine" />
           </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Tous les domaines</SelectItem>
+          <SelectContent className="bg-card">
+            <SelectItem className="btn-link" value="all">
+              Tous les domaines
+            </SelectItem>
             {domains?.map((domain) => (
-              <SelectItem key={domain} value={domain}>
+              <SelectItem className="btn-link" key={domain} value={domain}>
                 {domain}
               </SelectItem>
             ))}
@@ -203,10 +205,10 @@ export function QuestionSelector({
                   key={question._id}
                   className={`flex min-w-0 items-start space-x-3 rounded-lg border p-3 transition-colors ${
                     isSelected
-                      ? "bg-primary/5 border-primary/20"
+                      ? "border-primary/20 bg-muted dark:bg-gray-900"
                       : isDisabled
                         ? "bg-muted/30 opacity-50"
-                        : "bg-card hover:bg-accent/50"
+                        : "bg-card hover:bg-muted dark:hover:bg-gray-900"
                   } `}
                 >
                   <Checkbox
@@ -225,7 +227,7 @@ export function QuestionSelector({
                     </p>
                     <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
                       <Badge
-                        variant="secondary"
+                        variant="badge"
                         className={`flex-shrink-0 text-[10px] @sm:text-xs ${isDisabled ? "opacity-60" : ""}`}
                       >
                         {question.domain}
