@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 
@@ -21,12 +22,20 @@ export function ExamLeaderboard({ examId }: { examId: Id<"exams"> }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-blue-600 dark:text-white">
-          Classement
-        </CardTitle>
-        <CardDescription>
-          Les participants classés par score décroissant
-        </CardDescription>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <CardTitle className="text-blue-600 dark:text-white">
+              Classement
+            </CardTitle>
+            <CardDescription>
+              Les participants classés par score décroissant
+            </CardDescription>
+          </div>
+          <Input
+            placeholder="Rechercher un participant..."
+            className="w-full md:w-72"
+          />
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -37,12 +46,14 @@ export function ExamLeaderboard({ examId }: { examId: Id<"exams"> }) {
                   {index + 1}
                 </div>
                 <div>
-                  <p className="font-medium">{entry.user?.name}</p>
-                  {entry.user?.username && (
-                    <p className="text-muted-foreground text-sm">
-                      @{entry.user.username}
-                    </p>
-                  )}
+                  <p className="font-medium">
+                    {entry.user?.username && (
+                      <span className="text-muted-foreground ml-2 text-sm">
+                        @{entry.user.username}
+                      </span>
+                    )}
+                    {entry.user?.name}
+                  </p>
                 </div>
               </div>
               <div className="text-right">

@@ -6,6 +6,12 @@ import { fr } from "date-fns/locale"
 import { Calendar, Clock, FileText } from "lucide-react"
 import ExamStatusBadge from "@/components/admin/exam-status-badge"
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import {
   Card,
   CardContent,
   CardDescription,
@@ -38,18 +44,27 @@ export function ExamDetails({ examId }: { examId: Id<"exams"> }) {
       {/* En-tête de l'examen */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
               <CardTitle className="text-2xl text-blue-600 dark:text-white">
                 {exam.title}
               </CardTitle>
-              {exam.description && (
-                <CardDescription className="mt-2">
-                  {exam.description}
-                </CardDescription>
-              )}
+              <ExamStatusBadge status={status} />
             </div>
-            <ExamStatusBadge status={status} />
+            {exam.description && (
+              <div className="mt-2">
+                <Accordion className="w-64" type="single" collapsible>
+                  <AccordionItem value="description">
+                    <AccordionTrigger className="w-64 text-sm">
+                      Afficher la description
+                    </AccordionTrigger>
+                    <AccordionContent className="w-64">
+                      <CardDescription>{exam.description}</CardDescription>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
