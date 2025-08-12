@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Doc, Id } from "@/convex/_generated/dataModel"
 import { getExamStatus } from "@/lib/exam-status"
+import { cn } from "@/lib/utils"
+import { sidebarMenuButtonVariants } from "../ui/sidebar"
 import ExamStatusBadge from "./exam-status-badge"
 
 interface ExamActionsProps {
@@ -43,7 +45,10 @@ export function ExamActions({
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className={isMobile ? "w-64" : "w-48"}>
+      <DropdownMenuContent
+        align="end"
+        className={cn("bg-sidebar", isMobile ? "w-64" : "w-48")}
+      >
         {/* Informations de l'examen en version mobile */}
         {isMobile && (
           <>
@@ -81,33 +86,46 @@ export function ExamActions({
         )}
 
         {/* Actions */}
-        <DropdownMenuItem asChild>
-          <Link href={`/admin/exams/${exam._id}`}>
+        <DropdownMenuItem
+          className={sidebarMenuButtonVariants({ variant: "link" })}
+          asChild
+        >
+          <Link className="" href={`/admin/exams/${exam._id}`}>
             <Eye className="mr-2 h-4 w-4" />
             Voir les détails
           </Link>
         </DropdownMenuItem>
 
         {exam.isActive ? (
-          <DropdownMenuItem onClick={() => onDeactivate(exam)}>
+          <DropdownMenuItem
+            className={sidebarMenuButtonVariants({ variant: "link" })}
+            onClick={() => onDeactivate(exam)}
+          >
             <Pause className="mr-2 h-4 w-4" />
             Désactiver
           </DropdownMenuItem>
         ) : (
-          <DropdownMenuItem onClick={() => onReactivate(exam._id)}>
+          <DropdownMenuItem
+            className={sidebarMenuButtonVariants({ variant: "link" })}
+            onClick={() => onReactivate(exam._id)}
+          >
             <Play className="mr-2 h-4 w-4" />
             Réactiver
           </DropdownMenuItem>
         )}
 
-        <DropdownMenuItem onClick={() => onEdit(exam)}>
+        <DropdownMenuItem
+          className={sidebarMenuButtonVariants({ variant: "link" })}
+          onClick={() => onEdit(exam)}
+        >
           <Edit className="mr-2 h-4 w-4" />
           Modifier
         </DropdownMenuItem>
 
         <DropdownMenuItem
+          variant="destructive"
           onClick={() => onDelete(exam)}
-          className="text-red-600 focus:bg-red-50 focus:text-red-700"
+          className=""
         >
           <Trash2 className="mr-2 h-4 w-4" />
           Supprimer
