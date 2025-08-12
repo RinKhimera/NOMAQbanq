@@ -169,9 +169,11 @@ export function ExamsList() {
   }
 
   return (
-    <Card>
+    <Card className="bg-sidebar">
       <CardHeader>
-        <CardTitle>Liste des examens</CardTitle>
+        <CardTitle className="text-blue-600 dark:text-white">
+          Liste des examens
+        </CardTitle>
         <CardDescription>
           Gérez tous vos examens depuis cette interface
         </CardDescription>
@@ -180,13 +182,13 @@ export function ExamsList() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Titre</TableHead>
-              <TableHead>Date de début</TableHead>
-              <TableHead>Date de fin</TableHead>
-              <TableHead>Questions</TableHead>
-              <TableHead>Participants</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead className="font-semibold">Titre</TableHead>
+              <TableHead className="font-semibold">Date de début</TableHead>
+              <TableHead className="font-semibold">Date de fin</TableHead>
+              <TableHead className="font-semibold">Questions</TableHead>
+              <TableHead className="font-semibold">Participants</TableHead>
+              <TableHead className="font-semibold">Statut</TableHead>
+              <TableHead className="font-semibold">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
