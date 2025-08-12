@@ -165,24 +165,22 @@ export function ExamsList() {
   // État vide
   if (exams.length === 0) {
     return (
-      <Card className="bg-sidebar">
-        <CardContent className="flex justify-center py-12">
-          <EmptyState
-            title="Aucun examen"
-            description="Aucun examen n'a été créé pour le moment."
-            icons={[FileText, Calendar, Users]}
-            action={{
-              label: "Créer un examen",
-              onClick: () => router.push("/admin/exams/create"),
-            }}
-          />
-        </CardContent>
-      </Card>
+      <EmptyState
+        className="max-w-full bg-white dark:bg-gray-900"
+        title="Aucun examen"
+        description="Aucun examen n'a été créé pour le moment."
+        icons={[FileText]}
+        iconClassName="bg-white dark:bg-gray-900"
+        action={{
+          label: "Créer un examen",
+          onClick: () => router.push("/admin/exams/create"),
+        }}
+      />
     )
   }
 
   return (
-    <Card className="bg-sidebar">
+    <Card className="bg-white dark:bg-gray-900">
       <CardHeader>
         <CardTitle className="text-blue-600 dark:text-white">
           Liste des examens
@@ -192,22 +190,6 @@ export function ExamsList() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {/* Filtres et actions en masse */}
-        {/*  <div className="mb-6 flex flex-col gap-4">
-          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-            <ExamStatusFilter
-              selectedStatuses={selectedStatuses}
-              onStatusChange={setSelectedStatuses}
-            />
-            <ExamBulkActions
-              selectedExams={selectedExams}
-              onBulkDelete={handleBulkDelete}
-              isVisible={selectedExams.length > 1}
-            />
-          </div>
-        </div> */}
-
-        {/* DataTable */}
         <DataTable
           columns={columns}
           data={filteredExams}
