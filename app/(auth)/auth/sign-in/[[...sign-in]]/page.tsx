@@ -1,31 +1,35 @@
 "use client"
 
 import { SignIn } from "@clerk/nextjs"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { ArrowRight, Sparkles, Shield, Zap } from "lucide-react"
+import { ArrowRight, Shield, Sparkles, Zap } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 export default function ConnexionPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30 pt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid lg:grid-cols-2 gap-16 items-center min-h-[700px]">
+    <div className="theme-bg min-h-screen pt-20">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid min-h-[700px] items-center gap-16 lg:grid-cols-2">
           {/* Left side - Welcome back content */}
-          <div className="space-y-10 animate-slide-in-left">
-            <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50 text-blue-700 dark:text-blue-300 rounded-full text-sm font-semibold border border-blue-200/50 dark:border-blue-700/50">
-              <Sparkles className="h-4 w-4 mr-2" />
+          <div className="animate-slide-in-left space-y-10">
+            <Badge
+              variant="badge"
+              className="mb-8 px-6 py-3 text-sm font-semibold"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
               Bon retour parmi nous
-            </div>
+            </Badge>
 
             <div className="space-y-8">
-              <h1 className="font-display text-display-lg text-gray-900 dark:text-white leading-tight">
+              <h1 className="font-display text-display-lg leading-tight text-gray-900 dark:text-white">
                 Bon retour !
-                <span className="block gradient-text">Continuez votre</span>
-                <span className="block gradient-text">apprentissage.</span>
+                <span className="gradient-text block">Continuez votre</span>
+                <span className="gradient-text block">apprentissage.</span>
               </h1>
 
-              <p className="text-body-lg text-gray-600 dark:text-gray-300 leading-relaxed max-w-lg">
+              <p className="text-body-lg max-w-lg leading-relaxed text-gray-600 dark:text-gray-300">
                 Connectez-vous à votre compte NOMAQbank et reprenez votre
                 préparation à l&apos;EACMC là où vous vous êtes arrêté.
               </p>
@@ -34,28 +38,28 @@ export default function ConnexionPage() {
             {/* Features */}
             <div className="space-y-6">
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg">
                   <Shield className="h-6 w-6 text-white" />
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">
                     Sécurisé et fiable
                   </p>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     Vos données sont protégées
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg">
                   <Zap className="h-6 w-6 text-white" />
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">
                     Accès instantané
                   </p>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     À toutes vos ressources
                   </p>
                 </div>
@@ -63,36 +67,36 @@ export default function ConnexionPage() {
             </div>
 
             {/* Success story */}
-            <div className="glass-card rounded-2xl p-6 max-w-md border border-blue-100 dark:border-blue-800">
-              <div className="flex items-center space-x-4 mb-4">
+            <div className="glass-card max-w-md rounded-2xl border border-blue-100 p-6 dark:border-blue-800">
+              <div className="mb-4 flex items-center space-x-4">
                 <Image
                   src="https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=60"
                   alt="Success story"
                   width={60}
                   height={60}
-                  className="w-14 h-14 rounded-2xl object-cover shadow-lg"
+                  className="h-14 w-14 rounded-2xl object-cover shadow-lg"
                 />
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">
                     Dr. Marie Dubois
                   </p>
-                  <p className="text-blue-600 dark:text-blue-400 text-sm font-medium">
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
                     Résidente en médecine
                   </p>
                 </div>
               </div>
-              <p className="text-gray-700 dark:text-gray-300 text-sm italic leading-relaxed">
+              <p className="text-sm leading-relaxed text-gray-700 italic dark:text-gray-300">
                 &quot;NOMAQbank m&apos;a aidée à réussir l&apos;EACMC du premier
                 coup. Une plateforme indispensable !&quot;
               </p>
             </div>
 
             <div className="text-center lg:text-left">
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
+              <p className="mb-4 text-gray-600 dark:text-gray-400">
                 Nouveau sur NOMAQbank ?
               </p>
               <Link href="/auth/sign-up">
-                <Button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold px-8 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 btn-modern">
+                <Button className="btn-modern transform rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-700 hover:to-emerald-700 hover:shadow-xl">
                   Créer un compte gratuit
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>

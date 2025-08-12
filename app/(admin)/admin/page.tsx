@@ -28,7 +28,7 @@ const AdminDashboardPage = () => {
       <SectionCards allQuestions={allQuestions} domainStats={domainStats} />
 
       <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-2 lg:px-6">
-        <Card className="flex h-[360px] flex-col">
+        <Card className="card-modern flex h-[360px] flex-col">
           <CardHeader className="flex-shrink-0">
             <div className="flex items-center justify-between">
               <CardTitle>
@@ -57,12 +57,15 @@ const AdminDashboardPage = () => {
           <CardContent className="flex-1 overflow-hidden">
             <div className="h-full space-y-4 overflow-y-auto pr-2">
               {topDomains.map(([domain, count], index) => (
-                <div key={domain} className="flex items-center justify-between">
+                <div
+                  key={domain}
+                  className="flex items-center justify-between px-1"
+                >
                   <div className="flex items-center gap-3">
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-medium text-blue-600 dark:bg-blue-900 dark:text-blue-400">
                       {index + 1}
                     </div>
-                    <span className="truncate text-sm font-medium">
+                    <span className="truncate text-sm font-semibold text-blue-700 dark:text-white">
                       {domain}
                     </span>
                   </div>
@@ -75,7 +78,7 @@ const AdminDashboardPage = () => {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="card-modern">
           <CardHeader>
             <CardTitle>Actions rapides</CardTitle>
           </CardHeader>
@@ -83,21 +86,22 @@ const AdminDashboardPage = () => {
             <div className="space-y-3">
               <Button
                 className="w-full cursor-pointer justify-start"
-                variant="outline"
+                variant="btn_modern_outline"
               >
                 <Plus className="mr-2 h-4 w-4" />
                 Ajouter une nouvelle question
               </Button>
               <Button
+                variant="btn_modern_outline"
                 className="w-full cursor-pointer justify-start"
-                variant="outline"
+                /*  variant="outline" */
               >
                 <BookOpen className="mr-2 h-4 w-4" />
                 Gérer les questions existantes
               </Button>
               <Button
                 className="w-full cursor-pointer justify-start"
-                variant="outline"
+                variant="btn_modern_outline"
               >
                 <Settings className="mr-2 h-4 w-4" />
                 Paramètres système

@@ -26,7 +26,7 @@ export default function AdminLayout({
         homeUrl="/admin"
         userComponent={<GenericNavUser requireAdmin={true} redirectUrl="/" />}
       />
-      <SidebarInset>
+      <SidebarInset className="theme-bg">
         <SiteHeader />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">

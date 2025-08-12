@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { adminNavigation, dashboardNavigation } from "@/constants"
+import ThemeToggle from "./theme-toggle"
 
 export const SiteHeader = () => {
   const pathname = usePathname()
@@ -37,11 +38,14 @@ export const SiteHeader = () => {
           className="mx-2 data-[orientation=vertical]:h-4"
         />
         <h1 className="text-base font-medium">{getCurrentPageTitle()}</h1>
-        {pathname.startsWith("/admin") && (
-          <div className="ml-auto flex items-center gap-2">
-            <Badge variant="secondary">Admin</Badge>
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {pathname.startsWith("/admin") && (
+            <div className="ml-auto flex items-center gap-2">
+              <Badge variant="badge">Admin</Badge>
+            </div>
+          )}
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   )

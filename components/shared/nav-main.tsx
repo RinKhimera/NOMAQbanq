@@ -10,6 +10,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { cn } from "@/lib/utils"
 
 export function NavMain({
   items,
@@ -32,13 +33,10 @@ export function NavMain({
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
+                  variant={"link"}
                   tooltip={item.title}
                   asChild
-                  className={
-                    isActive
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground transition"
-                      : ""
-                  }
+                  className={cn("", isActive ? "active-link" : "")}
                 >
                   <Link href={item.url}>
                     {item.icon && <item.icon />}

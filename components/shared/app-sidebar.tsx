@@ -41,13 +41,13 @@ export function AppSidebar({
   }, [pathname, isMobile, setOpenMobile])
 
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
+    <Sidebar className="" collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="data-[slot=sidebar-menu-button]:!p-1.5"
+              className="hover:bg-blue-500/25 data-[slot=sidebar-menu-button]:!p-1.5 dark:hover:bg-blue-500/20"
             >
               <Link href={homeUrl}>
                 <IconInnerShadowTop className="!size-5" />

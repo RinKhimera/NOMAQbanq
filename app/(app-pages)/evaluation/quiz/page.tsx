@@ -165,10 +165,7 @@ export default function QuizPage() {
   const currentAnswer = quizState.userAnswers[quizState.currentQuestion]
 
   return (
-    <div
-      ref={topOfQuizRef}
-      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 pt-20 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30"
-    >
+    <div ref={topOfQuizRef} className="theme-bg min-h-screen">
       <div className="mx-auto max-w-4xl px-3 py-4 sm:px-4 sm:py-8 lg:px-8">
         <QuizProgress
           currentQuestion={quizState.currentQuestion}
