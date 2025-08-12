@@ -40,7 +40,7 @@ export function ExamStatusFilter({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="text-muted-foreground gap-2 hover:text-blue-700 dark:hover:text-white"
+          className="text-muted-foreground justify-start gap-2 hover:text-blue-700 max-md:w-full dark:hover:text-white"
         >
           <Filter className="h-4 w-4" />
           FIltrer par statut
@@ -49,7 +49,7 @@ export function ExamStatusFilter({
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="bg-card w-60">
+      <DropdownMenuContent align="start" className="bg-card w-full">
         <div className="flex items-center justify-between p-2">
           <span className="text-sm font-medium">Filtrer par statut</span>
           <div className="flex gap-1">

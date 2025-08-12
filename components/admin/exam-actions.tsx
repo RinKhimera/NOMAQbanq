@@ -10,6 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -54,6 +55,7 @@ export function ExamActions({
           <>
             <div className="border-b p-3">
               <div className="space-y-2">
+                <div className="text-md font-semibold">Autres informations</div>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
                   <span className="text-sm">
@@ -81,10 +83,12 @@ export function ExamActions({
                 <ExamStatusBadge status={status} />
               </div>
             </div>
-            <DropdownMenuSeparator />
+            {/*  <DropdownMenuSeparator /> */}
           </>
         )}
-
+        <DropdownMenuLabel className="text-muted-foreground font-semibold dark:text-white">
+          Actions
+        </DropdownMenuLabel>
         {/* Actions */}
         <DropdownMenuItem
           className={cn(
