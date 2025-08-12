@@ -1,23 +1,14 @@
 "use client"
 
 import { useMutation, useQuery } from "convex/react"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
-import {
-  Calendar,
-  Clock,
-  Edit,
-  Eye,
-  MoreHorizontal,
-  Trash2,
-  Users,
-} from "lucide-react"
-import Link from "next/link"
+import { FileText } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { ExamBulkDeleteModal } from "@/components/modals/exam-bulk-delete-modal"
+import { ExamDeactivateModal } from "@/components/modals/exam-deactivate-modal"
+import { ExamDeleteModal } from "@/components/modals/exam-delete-modal"
+import { ExamEditModal } from "@/components/modals/exam-edit-modal"
 import {
   Card,
   CardContent,
@@ -25,43 +16,54 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { DataTable } from "@/components/ui/data-table"
+import { EmptyState } from "@/components/ui/empty-state"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { ExamStatus, getExamStatus } from "@/lib/exam-status"
+import { ExamBulkActions } from "./exam-bulk-actions"
+import { createExamColumns } from "./exam-columns"
+import { ExamStatusFilter } from "./exam-status-filter"
 
 export function ExamsList() {
   const router = useRouter()
+  const isMobile = useMediaQuery("(max-width: 768px)")
+
+  // États des modales
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [selectedExam, setSelectedExam] = useState<Doc<"exams"> | null>(null)
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
 
+  // États des données
+  const [selectedExam, setSelectedExam] = useState<Doc<"exams"> | null>(null)
+  const [selectedStatuses, setSelectedStatuses] = useState<ExamStatus[]>([])
+  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
+
+  // Convex queries et mutations
   const exams = useQuery(api.exams.getAllExams)
   const deactivateExam = useMutation(api.exams.deactivateExam)
   const reactivateExam = useMutation(api.exams.reactivateExam)
   const deleteExam = useMutation(api.exams.deleteExam)
 
+  // Filtrage des examens par statut
+  const filteredExams = useMemo(() => {
+    if (!exams) return []
+    if (selectedStatuses.length === 0) return exams
+
+    return exams.filter((exam) => {
+      const status = getExamStatus(exam)
+      return selectedStatuses.includes(status)
+    })
+  }, [exams, selectedStatuses])
+
+  // Gestion des examens sélectionnés
+  const selectedExams = useMemo(() => {
+    return filteredExams.filter((_, index) => rowSelection[index.toString()])
+  }, [filteredExams, rowSelection])
+
+  // Handlers pour les actions
   const handleDeactivate = async (exam: Doc<"exams">) => {
     const status = getExamStatus(exam)
     if (status === "active") {
@@ -78,6 +80,7 @@ export function ExamsList() {
       toast.success("Examen désactivé avec succès")
       setShowDeactivateDialog(false)
       setSelectedExam(null)
+      setRowSelection({})
     } catch {
       toast.error("Erreur lors de la désactivation")
     }
@@ -87,6 +90,7 @@ export function ExamsList() {
     try {
       await reactivateExam({ examId })
       toast.success("Examen réactivé avec succès")
+      setRowSelection({})
     } catch {
       toast.error("Erreur lors de la réactivation")
     }
@@ -113,38 +117,41 @@ export function ExamsList() {
       toast.success("Examen supprimé avec succès")
       setShowDeleteDialog(false)
       setSelectedExam(null)
+      setRowSelection({})
     } catch {
       toast.error("Erreur lors de la suppression")
     }
   }
 
-  const getExamStatus = (exam: {
-    isActive: boolean
-    startDate: number
-    endDate: number
-  }) => {
-    const now = Date.now()
-    if (!exam.isActive) return "inactive"
-    if (now < exam.startDate) return "upcoming"
-    if (now > exam.endDate) return "completed"
-    return "active"
+  const handleBulkDelete = () => {
+    setShowBulkDeleteDialog(true)
   }
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "active":
-        return <Badge className="bg-green-500">En cours</Badge>
-      case "upcoming":
-        return <Badge className="bg-blue-500">À venir</Badge>
-      case "completed":
-        return <Badge className="bg-gray-500">Terminé</Badge>
-      case "inactive":
-        return <Badge variant="destructive">Désactivé</Badge>
-      default:
-        return <Badge variant="secondary">Inconnu</Badge>
+  const performBulkDelete = async () => {
+    try {
+      // Ici, vous devrez implémenter la logique de suppression en masse
+      // Pour l'instant, on supprime un par un
+      for (const exam of selectedExams) {
+        await deleteExam({ examId: exam._id })
+      }
+      toast.success(`${selectedExams.length} examen(s) supprimé(s) avec succès`)
+      setShowBulkDeleteDialog(false)
+      setRowSelection({})
+    } catch {
+      toast.error("Erreur lors de la suppression en masse")
     }
   }
 
+  // Création des colonnes
+  const columns = createExamColumns(
+    handleDeactivate,
+    handleReactivate,
+    handleEdit,
+    handleDelete,
+    isMobile,
+  )
+
+  // États de chargement
   if (!exams) {
     return (
       <Card>
@@ -155,251 +162,93 @@ export function ExamsList() {
     )
   }
 
+  // État vide
   if (exams.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Aucun examen</CardTitle>
-          <CardDescription>
-            Aucun examen n&apos;a été créé pour le moment.
-          </CardDescription>
-        </CardHeader>
-      </Card>
+      <EmptyState
+        className="max-w-full bg-white dark:bg-gray-900"
+        title="Aucun examen"
+        description="Aucun examen n'a été créé pour le moment."
+        icons={[FileText]}
+        iconClassName="bg-white dark:bg-gray-900"
+        action={{
+          label: "Créer un examen",
+          onClick: () => router.push("/admin/exams/create"),
+        }}
+      />
     )
   }
 
   return (
-    <Card>
+    <Card className="bg-white dark:bg-gray-900">
       <CardHeader>
-        <CardTitle>Liste des examens</CardTitle>
+        <CardTitle className="text-blue-600 dark:text-white">
+          Liste des examens
+        </CardTitle>
         <CardDescription>
           Gérez tous vos examens depuis cette interface
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Titre</TableHead>
-              <TableHead>Date de début</TableHead>
-              <TableHead>Date de fin</TableHead>
-              <TableHead>Questions</TableHead>
-              <TableHead>Participants</TableHead>
-              <TableHead>Statut</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {exams.map((exam) => {
-              const status = getExamStatus(exam)
-              return (
-                <TableRow key={exam._id}>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{exam.title}</p>
-                      {exam.description && (
-                        <p className="text-muted-foreground text-sm">
-                          {exam.description}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      {format(new Date(exam.startDate), "PPP", { locale: fr })}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      {format(new Date(exam.endDate), "PPP", { locale: fr })}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Eye className="h-4 w-4" />
-                      {exam.questionIds.length}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4" />
-                      {exam.participants.length}
-                    </div>
-                  </TableCell>
-                  <TableCell>{getStatusBadge(status)}</TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem asChild>
-                          <Link href={`/admin/exams/${exam._id}`}>
-                            Voir les détails
-                          </Link>
-                        </DropdownMenuItem>
-                        {exam.isActive ? (
-                          <DropdownMenuItem
-                            onClick={() => handleDeactivate(exam)}
-                          >
-                            Désactiver
-                          </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem
-                            onClick={() => handleReactivate(exam._id)}
-                          >
-                            Réactiver
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => handleEdit(exam)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Modifier
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(exam)}
-                          variant="destructive"
-                          className="text-red-600"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Supprimer
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
+        <DataTable
+          columns={columns}
+          data={filteredExams}
+          searchPlaceholder="Rechercher par titre..."
+          searchKey="title"
+          showColumnToggle={!isMobile}
+          showPagination={true}
+          pageSize={10}
+          isMobile={isMobile}
+          rowSelection={rowSelection}
+          onRowSelectionChange={setRowSelection}
+        >
+          <ExamStatusFilter
+            selectedStatuses={selectedStatuses}
+            onStatusChange={setSelectedStatuses}
+          />
+          <ExamBulkActions
+            selectedExams={selectedExams}
+            onBulkDelete={handleBulkDelete}
+            isVisible={selectedExams.length > 1}
+          />
+        </DataTable>
       </CardContent>
 
-      {/* Dialog de confirmation pour désactiver un examen en cours */}
-      <Dialog
-        open={showDeactivateDialog}
-        onOpenChange={setShowDeactivateDialog}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Désactiver l&apos;examen en cours</DialogTitle>
-            <DialogDescription className="space-y-2">
-              <p>
-                ⚠️ <strong>Attention :</strong> Cet examen est actuellement en
-                cours.
-              </p>
-              <p>
-                Des étudiants pourraient déjà être en train de passer cet
-                examen. La désactivation interrompra immédiatement l&apos;accès
-                à l&apos;examen pour tous les utilisateurs.
-              </p>
-              <p>
-                Êtes-vous sûr de vouloir désactiver{" "}
-                <strong>&quot;{selectedExam?.title}&quot;</strong> ?
-              </p>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="cursor-pointer"
-              onClick={() => setShowDeactivateDialog(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              variant="destructive"
-              className="cursor-pointer"
-              onClick={() =>
-                selectedExam && performDeactivate(selectedExam._id)
-              }
-            >
-              Désactiver l&apos;examen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Modales */}
+      <ExamDeactivateModal
+        exam={selectedExam}
+        isOpen={showDeactivateDialog}
+        onClose={() => setShowDeactivateDialog(false)}
+        onConfirm={() => selectedExam && performDeactivate(selectedExam._id)}
+        isLoading={false}
+      />
 
-      {/* Dialog de confirmation pour modifier un examen en cours */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Modifier l&apos;examen en cours</DialogTitle>
-            <DialogDescription className="space-y-2">
-              <p>
-                ⚠️ <strong>Attention :</strong> Cet examen est actuellement en
-                cours.
-              </p>
-              <p>
-                Des étudiants pourraient déjà être en train de passer cet
-                examen. Modifier l&apos;examen pendant qu&apos;il est en cours
-                peut affecter l&apos;expérience des utilisateurs.
-              </p>
-              <p>
-                Êtes-vous sûr de vouloir modifier{" "}
-                <strong>&quot;{selectedExam?.title}&quot;</strong> ?
-              </p>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="cursor-pointer"
-              onClick={() => setShowEditDialog(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={() => {
-                if (selectedExam) {
-                  router.push(`/admin/exams/edit/${selectedExam._id}`)
-                }
-              }}
-              className="cursor-pointer"
-            >
-              Continuer la modification
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ExamEditModal
+        exam={selectedExam}
+        isOpen={showEditDialog}
+        onClose={() => setShowEditDialog(false)}
+        onConfirm={() => {
+          if (selectedExam) {
+            router.push(`/admin/exams/edit/${selectedExam._id}`)
+          }
+        }}
+      />
 
-      {/* Dialog de confirmation pour supprimer un examen */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Supprimer l&apos;examen</DialogTitle>
-          </DialogHeader>
-          <DialogDescription className="space-y-2">
-            <p>
-              ⚠️ <strong>Attention :</strong> Cette action est irréversible.
-            </p>
-            <p>
-              L&apos;examen &quot;{selectedExam?.title}&quot; et toutes ses
-              données (participants, résultats, etc.) seront définitivement
-              supprimés.
-            </p>
-            <p>Êtes-vous absolument sûr de vouloir supprimer cet examen ?</p>
-          </DialogDescription>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="cursor-pointer"
-              onClick={() => setShowDeleteDialog(false)}
-            >
-              Annuler
-            </Button>
-            <Button
-              variant="destructive"
-              className="cursor-pointer"
-              onClick={() => selectedExam && performDelete(selectedExam._id)}
-            >
-              Supprimer définitivement
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ExamDeleteModal
+        exam={selectedExam}
+        isOpen={showDeleteDialog}
+        onClose={() => setShowDeleteDialog(false)}
+        onConfirm={() => selectedExam && performDelete(selectedExam._id)}
+        isLoading={false}
+      />
+
+      <ExamBulkDeleteModal
+        exams={selectedExams}
+        isOpen={showBulkDeleteDialog}
+        onClose={() => setShowBulkDeleteDialog(false)}
+        onConfirm={performBulkDelete}
+        isLoading={false}
+      />
     </Card>
   )
 }
