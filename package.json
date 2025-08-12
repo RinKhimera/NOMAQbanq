@@ -6,7 +6,11 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "lint-check": "eslint . --ext .ts,.tsx --max-warnings 0",
+    "build-check": "npm run type-check && npm run lint-check",
+    "fix-lint": "eslint . --ext .ts,.tsx --fix"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.35.3",
