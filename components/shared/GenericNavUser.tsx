@@ -102,11 +102,11 @@ export const GenericNavUser = ({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="group data-[state=open]:text-sidebar-accent-foreground hover:bg-muted data-[state=open]:bg-muted dark:hover:bg-gray-900 dark:data-[state=open]:bg-gray-900"
+              className="group/avatar data-[state=open]:text-sidebar-accent-foreground hover:bg-muted data-[state=open]:bg-muted dark:hover:bg-gray-900 dark:data-[state=open]:bg-gray-900"
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={currentUser.image} alt={currentUser.name} />
-                <AvatarFallback className="group-[hover]: rounded-lg bg-gray-900">
+                <AvatarFallback className="group-hover/avatar:bg-card rounded-lg bg-gray-900">
                   CN
                 </AvatarFallback>
               </Avatar>

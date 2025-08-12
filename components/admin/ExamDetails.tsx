@@ -23,6 +23,7 @@ import { Separator } from "@/components/ui/separator"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { getExamStatus } from "@/lib/exam-status"
+import { type ExamStatItem, ExamStatsGrid } from "./_components/ExamStatsGrid"
 import ExamStatusBadge from "./exam-status-badge"
 
 interface ExamDetailsProps {
@@ -43,6 +44,39 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
     )
   }
   const status = getExamStatus(exam)
+
+  const statItems: ExamStatItem[] = [
+    {
+      title: "Participants",
+      value: exam.participants.length,
+      icon: Users,
+      iconClassName:
+        "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
+    },
+    {
+      title: "Score moyen",
+      value:
+        exam.participants.length > 0
+          ? `${Math.round(
+              exam.participants.reduce((sum, p) => sum + p.score, 0) /
+                exam.participants.length,
+            )}%`
+          : "0%",
+      icon: Trophy,
+      iconClassName:
+        "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
+    },
+    {
+      title: "Meilleur score",
+      value:
+        exam.participants.length > 0
+          ? `${Math.max(...exam.participants.map((p) => p.score))}%`
+          : "0%",
+      icon: Trophy,
+      iconClassName:
+        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -101,52 +135,7 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
       </Card>
 
       {/* Statistiques */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Participants</CardTitle>
-            <Users className="text-muted-foreground h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{exam.participants.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Score moyen</CardTitle>
-            <Trophy className="text-muted-foreground h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {exam.participants.length > 0
-                ? Math.round(
-                    exam.participants.reduce((sum, p) => sum + p.score, 0) /
-                      exam.participants.length,
-                  )
-                : 0}
-              %
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Meilleur score
-            </CardTitle>
-            <Trophy className="text-muted-foreground h-4 w-4" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {exam.participants.length > 0
-                ? Math.max(...exam.participants.map((p) => p.score))
-                : 0}
-              %
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <ExamStatsGrid items={statItems} />
 
       {/* Classement */}
       {leaderboard && leaderboard.length > 0 && (
@@ -239,9 +228,7 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
                         {String.fromCharCode(65 + optionIndex)}
                       </Badge>
                       <span
-                        className={`flex-1 ${
-                          option === question.correctAnswer ? "font-medium" : ""
-                        }`}
+                        className={`flex-1 ${option === question.correctAnswer ? "font-medium" : ""}`}
                       >
                         {option}
                       </span>
