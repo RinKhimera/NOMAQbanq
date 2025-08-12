@@ -1,6 +1,6 @@
 "use client"
 
-import { Award, Heart, Sparkles, Target, Users } from "lucide-react"
+import { Award, Target, Users } from "lucide-react"
 
 const missions = [
   {
