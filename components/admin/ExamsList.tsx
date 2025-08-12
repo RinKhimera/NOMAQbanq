@@ -193,7 +193,7 @@ export function ExamsList() {
       </CardHeader>
       <CardContent>
         {/* Filtres et actions en masse */}
-        <div className="mb-6 flex flex-col gap-4">
+        {/*  <div className="mb-6 flex flex-col gap-4">
           <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
             <ExamStatusFilter
               selectedStatuses={selectedStatuses}
@@ -205,7 +205,7 @@ export function ExamsList() {
               isVisible={selectedExams.length > 1}
             />
           </div>
-        </div>
+        </div> */}
 
         {/* DataTable */}
         <DataTable
@@ -219,7 +219,17 @@ export function ExamsList() {
           isMobile={isMobile}
           rowSelection={rowSelection}
           onRowSelectionChange={setRowSelection}
-        />
+        >
+          <ExamStatusFilter
+            selectedStatuses={selectedStatuses}
+            onStatusChange={setSelectedStatuses}
+          />
+          <ExamBulkActions
+            selectedExams={selectedExams}
+            onBulkDelete={handleBulkDelete}
+            isVisible={selectedExams.length > 1}
+          />
+        </DataTable>
       </CardContent>
 
       {/* Modales */}

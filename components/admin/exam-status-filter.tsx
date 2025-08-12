@@ -40,13 +40,13 @@ export function ExamStatusFilter({
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="gap-2">
           <Filter className="h-4 w-4" />
-          Statut
+          FIltrer par statut
           {selectedStatuses.length > 0 && (
             <Circle className="h-2 w-2 fill-current" />
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-48">
+      <DropdownMenuContent align="start" className="w-60">
         <div className="flex items-center justify-between p-2">
           <span className="text-sm font-medium">Filtrer par statut</span>
           <div className="flex gap-1">

@@ -20,25 +20,26 @@ export const EXAM_STATUS_CONFIG: Record<ExamStatus, ExamStatusConfig> = {
   active: {
     label: "En cours",
     variant: "default",
-    className: "bg-green-500 hover:bg-green-600 text-white border-green-600",
+    className: "bg-gray-200 dark:bg-gray-100 dark:text-gray-500 text-gray-700 ",
     icon: PlayCircle,
   },
   upcoming: {
     label: "À venir",
     variant: "secondary",
-    className: "bg-blue-500 hover:bg-blue-600 text-white border-blue-600",
+    className: "bg-blue-200 dark:bg-blue-100 dark:text-blue-500 text-blue-700 ",
     icon: Clock,
   },
   completed: {
     label: "Terminé",
     variant: "secondary",
-    className: "bg-gray-500 hover:bg-gray-600 text-white border-gray-600",
+    className:
+      "bg-green-200 dark:bg-green-100 dark:text-green-500 text-green-700",
     icon: CheckCircle,
   },
   inactive: {
     label: "Désactivé",
     variant: "destructive",
-    className: "bg-red-500 hover:bg-red-600 text-white border-red-600",
+    className: "bg-red-200 dark:bg-red-100 dark:text-red-500 text-red-700 ",
     icon: PauseCircle,
   },
 }

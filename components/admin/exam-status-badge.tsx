@@ -13,7 +13,13 @@ export default function ExamStatusBadge({
   const Icon = config.icon
 
   return (
-    <Badge variant={config.variant} className={cn(config.className, className)}>
+    <Badge
+      className={cn(
+        "rounded-full border-0 text-xs",
+        config.className,
+        className,
+      )}
+    >
       <Icon className="h-3 w-3" />
       {config.label}
     </Badge>

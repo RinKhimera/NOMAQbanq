@@ -55,7 +55,8 @@ export function DataTable<TData, TValue>({
   isMobile = false,
   rowSelection: controlledRowSelection,
   onRowSelectionChange,
-}: DataTableProps<TData, TValue>) {
+  children,
+}: DataTableProps<TData, TValue> & { children?: React.ReactNode }) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     [],
@@ -123,7 +124,7 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="w-full">
-      <div className="flex items-center gap-4 py-4">
+      <div className="flex flex-wrap items-end gap-4 py-4">
         {searchKey && (
           <Input
             placeholder={searchPlaceholder}
@@ -133,9 +134,10 @@ export function DataTable<TData, TValue>({
             onChange={(event) =>
               table.getColumn(searchKey)?.setFilterValue(event.target.value)
             }
-            className="max-w-sm"
+            className="max-w-sm py-4"
           />
         )}
+        {children}
       </div>
 
       <div className="rounded-md border">
