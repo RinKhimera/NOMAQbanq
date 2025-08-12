@@ -1,7 +1,7 @@
 "use client"
 
 import { LucideIcon } from "lucide-react"
-import { ExamStatCard } from "./ExamStatCard"
+import { ExamStatCard } from "./exam-stat-card"
 
 export type ExamStatItem = {
   title: string
@@ -10,7 +10,7 @@ export type ExamStatItem = {
   iconClassName?: string
 }
 
-export function ExamStatsGrid({ items }: { items: ExamStatItem[] }) {
+export function ExamSectionStats({ items }: { items: ExamStatItem[] }) {
   return (
     <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
       {items.map((it) => (

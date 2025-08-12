@@ -3,7 +3,7 @@
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
-import { ExamDetails } from "@/components/admin/ExamDetails"
+import { ExamDetails } from "@/app/(admin)/admin/exams/[id]/_components/ExamDetails"
 import { Button } from "@/components/ui/button"
 import { Id } from "@/convex/_generated/dataModel"
 
@@ -26,7 +26,7 @@ export default function AdminExamDetailsPage() {
           </Link>
         </Button>
         <h1 className="text-foreground text-lg font-semibold md:text-xl">
-          Détails de l'examen
+          Détails de l&apos;examen
         </h1>
       </div>
 

@@ -11,6 +11,7 @@ import {
   Trophy,
   Users,
 } from "lucide-react"
+import ExamStatusBadge from "@/components/admin/exam-status-badge"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -23,8 +24,8 @@ import { Separator } from "@/components/ui/separator"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { getExamStatus } from "@/lib/exam-status"
-import { type ExamStatItem, ExamStatsGrid } from "./_components/ExamStatsGrid"
-import ExamStatusBadge from "./exam-status-badge"
+import { ExamSectionStats } from "./exam-section-stats"
+import { type ExamStatItem } from "./exam-section-stats"
 
 interface ExamDetailsProps {
   examId: Id<"exams">
@@ -135,7 +136,7 @@ export function ExamDetails({ examId }: ExamDetailsProps) {
       </Card>
 
       {/* Statistiques */}
-      <ExamStatsGrid items={statItems} />
+      <ExamSectionStats items={statItems} />
 
       {/* Classement */}
       {leaderboard && leaderboard.length > 0 && (
