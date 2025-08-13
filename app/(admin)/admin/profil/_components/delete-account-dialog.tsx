@@ -32,10 +32,7 @@ export function DeleteAccountDialog(props: DeleteAccountDialogProps) {
         </DialogHeader>
         <DialogFooter>
           {/*    <Button variant="outline">Annuler</Button> */}
-          <Button
-            className="bg-blue-600 text-white hover:bg-blue-700"
-            onClick={props.onConfirm}
-          >
+          <Button variant="destructive" onClick={props.onConfirm}>
             Confirmer
           </Button>
         </DialogFooter>
