@@ -1,6 +1,5 @@
 "use client"
 
-import { useQuery } from "convex/react"
 import { CheckCircle, FileText } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -11,12 +10,15 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import { Doc } from "@/convex/_generated/dataModel"
 
-export function ExamQuestions({ examId }: { examId: Id<"exams"> }) {
-  const exam = useQuery(api.exams.getExamWithQuestions, { examId })
-  if (!exam) return null
+export function ExamQuestions({
+  examQuestions,
+}: {
+  examQuestions: Doc<"questions">[]
+}) {
+  /*  const exam = useQuery(api.exams.getExamWithQuestions, { examId }) */
+  /*   if (!exam) return null */
 
   return (
     <Card>
@@ -37,7 +39,7 @@ export function ExamQuestions({ examId }: { examId: Id<"exams"> }) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          {exam.questions?.map((question, index) => (
+          {examQuestions.map((question, index) => (
             <div key={question?._id} className="rounded-lg border p-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">

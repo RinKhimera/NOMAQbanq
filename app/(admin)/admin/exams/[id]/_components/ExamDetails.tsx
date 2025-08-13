@@ -4,13 +4,9 @@ import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { Calendar, Clock, FileText } from "lucide-react"
+import { useState } from "react"
 import ExamStatusBadge from "@/components/admin/exam-status-badge"
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -18,6 +14,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { getExamStatus } from "@/lib/exam-status"
@@ -27,6 +31,7 @@ import { ExamSectionStats } from "./exam-section-stats"
 
 export function ExamDetails({ examId }: { examId: Id<"exams"> }) {
   const exam = useQuery(api.exams.getExamWithQuestions, { examId })
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState(false)
 
   if (!exam) {
     return (
@@ -53,16 +58,27 @@ export function ExamDetails({ examId }: { examId: Id<"exams"> }) {
             </div>
             {exam.description && (
               <div className="mt-2">
-                <Accordion className="w-64" type="single" collapsible>
-                  <AccordionItem value="description">
-                    <AccordionTrigger className="w-64 text-sm">
+                <Dialog
+                  open={isDescriptionOpen}
+                  onOpenChange={setIsDescriptionOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline">
                       Afficher la description
-                    </AccordionTrigger>
-                    <AccordionContent className="w-64">
-                      <CardDescription>{exam.description}</CardDescription>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="dark:bg-card bg-white sm:max-w-[500px]">
+                    <DialogHeader>
+                      <DialogTitle className="text-blue-600 dark:text-white">
+                        Description de l&apos;examen {exam.title}
+                      </DialogTitle>
+                      <DialogDescription>
+                        Détails et informations sur cet examen.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <CardDescription>{exam.description}</CardDescription>
+                  </DialogContent>
+                </Dialog>
               </div>
             )}
           </div>
@@ -108,7 +124,7 @@ export function ExamDetails({ examId }: { examId: Id<"exams"> }) {
 
       <ExamLeaderboard examId={examId} />
 
-      <ExamQuestions examId={examId} />
+      <ExamQuestions examQuestions={exam.questions.filter((q) => q !== null)} />
     </div>
   )
 }

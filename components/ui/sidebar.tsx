@@ -477,6 +477,7 @@ export const sidebarMenuButtonVariants = cva(
   {
     variants: {
       variant: {
+        none: "",
         link: "text-muted-foreground hover:bg-blue-500/25 hover:text-blue-700 focus:hover:bg-blue-500/25 focus:hover:text-blue-700  dark:hover:bg-blue-500/20 dark:hover:text-white",
         default: "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         outline:
