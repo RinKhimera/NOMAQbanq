@@ -126,7 +126,7 @@ export function DataTable<TData, TValue>({
             onChange={(event) =>
               table.getColumn(searchKey)?.setFilterValue(event.target.value)
             }
-            className="max-w-sm py-4"
+            className="w-full py-4 md:max-w-sm"
           />
         )}
         {children}

@@ -632,7 +632,9 @@ body {
 .active-link {
   @apply bg-blue-500/15 text-blue-700 transition dark:bg-blue-500/10 dark:text-blue-400;
 }
-
+.btn-link {
+  @apply text-muted-foreground focus:hover:bg-blue-500/25 focus:hover:text-blue-700 dark:text-white dark:hover:bg-blue-500/20 dark:hover:text-white;
+}
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

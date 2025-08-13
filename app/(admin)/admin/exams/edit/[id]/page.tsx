@@ -177,12 +177,19 @@ const AdminEditExamPage = () => {
       {/* En-tête avec bouton retour */}
       <div className="flex flex-col justify-between gap-4 @md:flex-row @md:items-center">
         <div>
-          <h1 className="text-2xl font-bold">Modifier l&apos;examen</h1>
+          <h1 className="text-2xl font-bold text-blue-600 dark:text-white">
+            Modifier l&apos;examen
+          </h1>
           <p className="text-muted-foreground">
             Modifiez les paramètres de votre examen
           </p>
         </div>
-        <Button variant="outline" size="sm" asChild>
+        <Button
+          className="hover:text-blue-700 dark:hover:text-white"
+          variant="outline"
+          size="sm"
+          asChild
+        >
           <Link href="/admin/exams">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour aux examens
@@ -193,7 +200,9 @@ const AdminEditExamPage = () => {
       {/* Formulaire principal */}
       <Card>
         <CardHeader>
-          <CardTitle>Informations de l&apos;examen</CardTitle>
+          <CardTitle className="text-blue-600 dark:text-white">
+            Informations de l&apos;examen
+          </CardTitle>
           <CardDescription>
             Modifiez les informations de l&apos;examen. La période d&apos;examen
             durera 2 jours à partir de la date sélectionnée.
@@ -243,10 +252,10 @@ const AdminEditExamPage = () => {
                             }
                           }}
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="w-full">
                             <SelectValue placeholder="Sélectionner le nombre de questions" />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="bg-card">
                             {generateQuestionOptions().map((num) => (
                               <SelectItem key={num} value={num.toString()}>
                                 {num} questions
@@ -264,14 +273,14 @@ const AdminEditExamPage = () => {
                   control={form.control}
                   name="startDate"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
+                    <FormItem className="col-span-2 flex w-full flex-col">
                       <FormLabel>Date de début de l&apos;examen</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
                               variant="outline"
-                              className={`w-full pl-3 text-left font-normal ${
+                              className={`w-full pl-3 text-left font-normal hover:text-blue-700 dark:text-white ${
                                 !field.value && "text-muted-foreground"
                               }`}
                             >
@@ -359,7 +368,7 @@ const AdminEditExamPage = () => {
                 </Button>
                 <Button
                   type="submit"
-                  className="cursor-pointer"
+                  className="cursor-pointer bg-blue-600 text-white hover:bg-blue-600/90"
                   disabled={
                     selectedQuestions.length < (numberOfQuestions || 115)
                   }

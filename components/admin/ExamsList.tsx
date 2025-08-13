@@ -5,10 +5,10 @@ import { FileText } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { ExamBulkDeleteModal } from "@/components/modals/exam-bulk-delete-modal"
-import { ExamDeactivateModal } from "@/components/modals/exam-deactivate-modal"
-import { ExamDeleteModal } from "@/components/modals/exam-delete-modal"
-import { ExamEditModal } from "@/components/modals/exam-edit-modal"
+import { ExamBulkDeleteModal } from "@/components/admin/modals/exam-bulk-delete-modal"
+import { ExamDeactivateModal } from "@/components/admin/modals/exam-deactivate-modal"
+import { ExamDeleteModal } from "@/components/admin/modals/exam-delete-modal"
+import { ExamEditModal } from "@/components/admin/modals/exam-edit-modal"
 import {
   Card,
   CardContent,

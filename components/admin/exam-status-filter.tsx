@@ -40,16 +40,32 @@ export function ExamStatusFilter({
       <DropdownMenuTrigger asChild>
         <Button
           variant="outline"
-          className="text-muted-foreground gap-2 hover:text-blue-700 dark:hover:text-white"
+          className="text-muted-foreground justify-start gap-2 hover:text-blue-700 max-md:w-full dark:hover:text-white"
         >
           <Filter className="h-4 w-4" />
-          FIltrer par statut
+          Filtrer par statut
           {selectedStatuses.length > 0 && (
-            <Circle className="h-2 w-2 fill-current" />
+            <div className="ml-1 flex items-center gap-1">
+              {selectedStatuses.map((status) => {
+                const cfg = EXAM_STATUS_CONFIG[status]
+                // Derive a color from className config
+                let bg = "#3b82f6" // default blue
+                if (cfg.className.includes("bg-green")) bg = "#10b981"
+                else if (cfg.className.includes("bg-gray")) bg = "#6b7280"
+                else if (cfg.className.includes("bg-red")) bg = "#ef4444"
+                return (
+                  <span
+                    key={status}
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: bg }}
+                  />
+                )
+              })}
+            </div>
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="bg-card w-60">
+      <DropdownMenuContent align="start" className="bg-card w-full">
         <div className="flex items-center justify-between p-2">
           <span className="text-sm font-medium">Filtrer par statut</span>
           <div className="flex gap-1">
