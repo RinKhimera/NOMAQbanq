@@ -126,8 +126,9 @@ export default function ProfilPage() {
                   {profile.role}
                 </Badge>
                 <div>
-                  <h2 className="text-2xl font-bold">{profile.name}</h2>
                   <p className="text-muted-foreground">@{profile.username}</p>
+                  <h2 className="text-2xl font-bold">{profile.name}</h2>
+
                   <p className="text-muted-foreground">{profile.email}</p>
                 </div>
 

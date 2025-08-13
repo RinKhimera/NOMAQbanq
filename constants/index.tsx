@@ -5,7 +5,7 @@ import {
   // IconSettings,
   IconUsers,
 } from "@tabler/icons-react"
-import { CircleUserRound, ShieldCheck } from "lucide-react"
+import { CircleUserRound, ShieldCheck, User } from "lucide-react"
 
 export const adminNavigation = {
   navMain: [
@@ -40,6 +40,11 @@ export const adminNavigation = {
       title: "Compte",
       url: "/admin/account",
       icon: CircleUserRound,
+    },
+    {
+      title: "Profil",
+      url: "/admin/profil",
+      icon: User,
     },
     {
       title: "Sécurité",
