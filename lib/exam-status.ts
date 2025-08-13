@@ -1,11 +1,4 @@
-import {
-  Calendar,
-  CheckCircle,
-  Clock,
-  PauseCircle,
-  PlayCircle,
-  XCircle,
-} from "lucide-react"
+import { CheckCircle, Clock, PauseCircle, PlayCircle } from "lucide-react"
 
 export type ExamStatus = "active" | "upcoming" | "completed" | "inactive"
 

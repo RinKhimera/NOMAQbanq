@@ -12,15 +12,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
-import { ChevronDown } from "lucide-react"
 import * as React from "react"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -49,7 +42,7 @@ export function DataTable<TData, TValue>({
   data,
   searchPlaceholder = "Rechercher...",
   searchKey,
-  showColumnToggle = true,
+  // showColumnToggle = true,
   showPagination = true,
   pageSize = 10,
   isMobile = false,
@@ -119,7 +112,6 @@ export function DataTable<TData, TValue>({
     } else {
       setColumnVisibility({})
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, table])
 
   return (

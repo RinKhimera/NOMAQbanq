@@ -1,6 +1,6 @@
 "use client"
 
-import { Circle, Filter } from "lucide-react"
+import { Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,

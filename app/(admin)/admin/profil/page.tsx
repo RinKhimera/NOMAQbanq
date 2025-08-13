@@ -1,6 +1,6 @@
 "use client"
 
-import { Crown, Edit, Shield, Trash2 } from "lucide-react"
+import { Edit, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
