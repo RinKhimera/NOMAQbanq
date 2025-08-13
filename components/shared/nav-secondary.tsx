@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { api } from "@/convex/_generated/api"
+import { cn } from "@/lib/utils"
 
 type IconType = TablerIcon | LucideIcon
 
@@ -43,7 +44,7 @@ export function NavSecondary({
         href: "/dashboard",
         text: "Aller au Dashboard",
         theme:
-          "bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 active:from-blue-700 active:to-cyan-700",
+          "hover:bg-blue-600 bg-blue-600 focus:hover:bg-blue-600 text-white",
       }
     } else if (isOnDashboardPage && isCurrentUserAdmin) {
       // User admin sur le dashboard -> aller à l'admin
@@ -51,7 +52,7 @@ export function NavSecondary({
         href: "/admin",
         text: "Aller à l'Admin",
         theme:
-          "bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 active:from-red-700 active:to-orange-700",
+          "hover:bg-blue-600 bg-blue-600 focus:hover:bg-blue-600 text-white",
       }
     } else if (isOnDashboardPage && !isCurrentUserAdmin) {
       // User non-admin sur le dashboard -> pas de bouton
@@ -62,8 +63,7 @@ export function NavSecondary({
     return {
       href: "/",
       text: "Revenir à l'accueil",
-      theme:
-        "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 active:from-purple-700 active:to-pink-700",
+      theme: "hover:bg-blue-600 bg-blue-600 focus:hover:bg-blue-600 text-white",
     }
   }
 
@@ -79,12 +79,9 @@ export function NavSecondary({
             return (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
+                  variant={"link"}
                   asChild
-                  className={
-                    isActive
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground transition"
-                      : ""
-                  }
+                  className={cn("", isActive ? "active-link" : "")}
                 >
                   <Link href={item.url}>
                     <item.icon />
@@ -99,9 +96,10 @@ export function NavSecondary({
           <SidebarMenu>
             <SidebarMenuItem className="mt-1 flex items-center gap-2">
               <SidebarMenuButton
+                variant="none"
                 asChild
                 tooltip="Navigation contextuelle"
-                className={`min-w-8 cursor-pointer text-white duration-200 ease-linear hover:text-white active:text-white ${navigationButton.theme}`}
+                className={`min-w-8 cursor-pointer text-white duration-200 ease-linear active:text-white ${navigationButton.theme}`}
               >
                 <Link href={navigationButton.href}>
                   <IconCirclePlusFilled />
