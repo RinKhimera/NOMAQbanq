@@ -1,6 +1,16 @@
 "use client"
 
-import { AtSign, Edit, Mail, MessageSquare, Shield, User } from "lucide-react"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import {
+  AtSign,
+  Calendar,
+  Edit,
+  Mail,
+  MessageSquare,
+  Shield,
+  User,
+} from "lucide-react"
 import { ProfileEditModal } from "@/components/shared/profile/profile-edit-modal"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -13,7 +23,7 @@ export function ProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="@container flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
+      <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
         <div className="flex min-h-96 items-center justify-center">
           <div className="text-center">
             <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
@@ -28,7 +38,7 @@ export function ProfilePage() {
 
   if (!currentUser) {
     return (
-      <div className="@container flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
+      <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-gray-600 dark:text-gray-400">
@@ -51,7 +61,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="@container flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
+    <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
       <div>
         <h1 className="text-2xl font-bold">Paramètres du profil</h1>
         <p className="text-muted-foreground">
@@ -62,7 +72,7 @@ export function ProfilePage() {
       <div className="flex flex-1 flex-col gap-4">
         {/* Profile Header Card */}
         <Card>
-          <CardContent className="">
+          <CardContent>
             <div className="flex flex-col gap-8 md:flex-row md:items-center">
               {/* Avatar Section */}
               <div className="flex flex-col items-center md:items-start">
@@ -115,7 +125,7 @@ export function ProfilePage() {
         </Card>
 
         {/* Informations détaillées */}
-        <Card>
+        <Card className="@container">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-bold text-gray-900 dark:text-white">
               <User className="h-5 w-5 text-blue-600" />
@@ -123,7 +133,7 @@ export function ProfilePage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-2">
+            <div className="grid gap-4 @[700px]:grid-cols-2">
               {/* Nom complet */}
               <div className="flex items-start gap-4 rounded-lg p-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
@@ -184,14 +194,35 @@ export function ProfilePage() {
                     }
                     className="mt-1 font-semibold"
                   >
-                    {currentUser.role}
+                    {currentUser.role === "admin"
+                      ? "Administrateur"
+                      : "Utilisateur"}
                   </Badge>
+                </div>
+              </div>
+
+              {/* Date d'inscription */}
+              <div className="flex items-start gap-4 rounded-lg p-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/30">
+                  <Calendar className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    Date d&apos;inscription
+                  </p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                    {format(
+                      new Date(currentUser._creationTime),
+                      "dd MMMM yyyy",
+                      { locale: fr },
+                    )}
+                  </p>
                 </div>
               </div>
 
               {/* Biographie */}
               {currentUser.bio && (
-                <div className="md:col-span-2">
+                <div>
                   <div className="flex items-start gap-4 rounded-lg p-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/30">
                       <MessageSquare className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
@@ -200,7 +231,7 @@ export function ProfilePage() {
                       <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                         Biographie
                       </p>
-                      <p className="mt-2 leading-relaxed text-gray-900 dark:text-white">
+                      <p className="leading-relaxed text-gray-900 dark:text-white">
                         {currentUser.bio}
                       </p>
                     </div>

@@ -41,7 +41,7 @@ export default function HomeLanding() {
       icon: Timer,
       title: "Modes chronométré / tuteur",
       description:
-        "Selon votre emploi du temps et votre objectif ultime de préparation à l&apos;examen EACMC partie 1, vous pouvez choisir entre le mode chronométré ou le mode tuteur",
+        "Selon votre emploi du temps et votre objectif ultime de préparation à l'examen EACMC partie 1, vous pouvez choisir entre le mode chronométré ou le mode tuteur",
     },
     {
       icon: Target,

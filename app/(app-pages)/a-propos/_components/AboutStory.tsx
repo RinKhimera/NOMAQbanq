@@ -4,7 +4,7 @@ import { Heart, Star } from "lucide-react"
 
 export default function AboutStory() {
   return (
-    <div className="mb-20 grid items-center gap-20 lg:grid-cols-2">
+    <div className="mb-20">
       <div className="animate-slide-in-left">
         <div className="mb-8 inline-flex items-center rounded-full border border-green-200/50 bg-gradient-to-r from-green-100 to-emerald-100 px-6 py-3 text-sm font-semibold text-green-700 dark:border-green-700/50 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-300">
           <Heart className="mr-2 h-4 w-4" />
