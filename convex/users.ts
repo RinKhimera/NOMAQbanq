@@ -1,6 +1,11 @@
 import { UserJSON } from "@clerk/backend"
 import { Validator, v } from "convex/values"
-import { QueryCtx, internalMutation, query } from "./_generated/server"
+import {
+  QueryCtx,
+  internalMutation,
+  mutation,
+  query,
+} from "./_generated/server"
 
 async function userByExternalId(ctx: QueryCtx, externalId: string) {
   return await ctx.db
@@ -18,7 +23,6 @@ export const upsertFromClerk = internalMutation({
       name: `${data.first_name} ${data.last_name}`,
       email: data.email_addresses[0]?.email_address,
       image: data.image_url,
-      isOnline: true,
     }
 
     const user = await userByExternalId(ctx, data.id)
@@ -93,5 +97,49 @@ export const isCurrentUserAdmin = query({
       .unique()
 
     return user?.role === "admin"
+  },
+})
+
+export const updateUserProfile = mutation({
+  args: {
+    name: v.string(),
+    username: v.string(),
+    bio: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Vous devez être connecté pour modifier votre profil")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user) {
+      throw new Error("Utilisateur non trouvé")
+    }
+
+    if (args.username !== user.username) {
+      const existingUser = await ctx.db
+        .query("users")
+        .filter((q) => q.eq(q.field("username"), args.username))
+        .unique()
+
+      if (existingUser && existingUser._id !== user._id) {
+        throw new Error("Ce nom d'utilisateur est déjà pris")
+      }
+    }
+
+    await ctx.db.patch(user._id, {
+      name: args.name,
+      username: args.username,
+      bio: args.bio,
+    })
+
+    return { success: true }
   },
 })

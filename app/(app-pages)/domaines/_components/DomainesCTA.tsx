@@ -23,7 +23,7 @@ export default function DomainesCTA() {
             </Link>
             <Button
               variant="outline"
-              className="border-2 border-blue-600 px-10 py-4 font-semibold text-blue-600 transition-all duration-300 hover:bg-blue-50 hover:shadow-lg dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20"
+              className="rounded-2xl border-2 border-blue-600 px-10 py-4 font-semibold text-blue-600 transition-all duration-300 hover:bg-blue-50 hover:shadow-lg dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20"
             >
               Voir mon progrès
             </Button>

@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import {
   Activity,
@@ -8,10 +8,10 @@ import {
   Heart,
   Sun as Lung,
   Users,
-} from "lucide-react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Domain } from "@/data/domains";
+} from "lucide-react"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { Domain } from "@/data/domains"
 
 const iconMap = {
   Heart,
@@ -20,14 +20,14 @@ const iconMap = {
   Activity,
   Baby,
   Users,
-};
+}
 
 interface DomainCardProps {
-  domain: Domain;
+  domain: Domain
 }
 
 export default function DomainCard({ domain }: DomainCardProps) {
-  const IconComponent = iconMap[domain.icon as keyof typeof iconMap];
+  const IconComponent = iconMap[domain.icon as keyof typeof iconMap]
 
   return (
     <div className="group card-modern relative transform overflow-hidden p-8 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl">
@@ -49,7 +49,7 @@ export default function DomainCard({ domain }: DomainCardProps) {
           </div>
         </div>
 
-        <p className="mb-8 text-lg leading-relaxed text-gray-600">
+        <p className="mb-8 text-lg leading-relaxed text-gray-600 dark:text-gray-300">
           {domain.description}
         </p>
 
@@ -71,5 +71,5 @@ export default function DomainCard({ domain }: DomainCardProps) {
         style={{ transitionDelay: "100ms" }}
       ></div>
     </div>
-  );
+  )
 }

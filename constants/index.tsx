@@ -31,20 +31,15 @@ export const adminNavigation = {
     },
   ],
   navSecondary: [
-    // {
-    //   title: "Paramètres",
-    //   url: "#",
-    //   icon: IconSettings,
-    // },
-    {
-      title: "Compte",
-      url: "/admin/account",
-      icon: CircleUserRound,
-    },
     {
       title: "Profil",
       url: "/admin/profil",
       icon: User,
+    },
+    {
+      title: "Compte",
+      url: "/admin/account",
+      icon: CircleUserRound,
     },
     {
       title: "Sécurité",
@@ -73,11 +68,11 @@ export const dashboardNavigation = {
     },
   ],
   navSecondary: [
-    // {
-    //   title: "Paramètres",
-    //   url: "#",
-    //   icon: IconSettings,
-    // },
+    {
+      title: "Profil",
+      url: "/dashboard/profil",
+      icon: User,
+    },
     {
       title: "Compte",
       url: "/dashboard/account",

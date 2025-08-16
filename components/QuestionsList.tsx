@@ -176,7 +176,7 @@ export default function QuestionsList() {
                         className={`flex items-center gap-2 rounded-lg p-2 text-sm ${
                           option === question.correctAnswer
                             ? "border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20"
-                            : "bg-gray-50 dark:bg-gray-800"
+                            : "bg-muted dark:bg-muted/50"
                         }`}
                       >
                         <Badge

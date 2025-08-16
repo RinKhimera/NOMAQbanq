@@ -16,7 +16,7 @@ const AdminQuestionsPage = () => {
       </div>
 
       <Tabs defaultValue="list" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="bg-card grid w-full grid-cols-2">
           <TabsTrigger value="list" className="flex items-center gap-2">
             <List className="h-4 w-4" />
             Gérer les questions
