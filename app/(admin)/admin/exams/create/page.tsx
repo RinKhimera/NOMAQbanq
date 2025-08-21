@@ -36,13 +36,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
@@ -56,7 +49,7 @@ const examFormSchema = z.object({
   numberOfQuestions: z
     .number()
     .min(10, "Minimum 10 questions")
-    .max(115, "Maximum 115 questions"),
+    .max(230, "Maximum 230 questions"),
   questionIds: z
     .array(z.custom<Id<"questions">>())
     .min(1, "Sélectionnez au moins une question"),
@@ -77,21 +70,12 @@ const AdminCreateExamPage = () => {
     defaultValues: {
       title: "",
       description: "",
-      numberOfQuestions: 115,
+      numberOfQuestions: 50,
       questionIds: [],
     },
   })
 
   const numberOfQuestions = form.watch("numberOfQuestions")
-
-  // Génerer les options pour le select (de 10 à 115 par pas de 5)
-  const generateQuestionOptions = () => {
-    const options = []
-    for (let i = 10; i <= 115; i += 5) {
-      options.push(i)
-    }
-    return options
-  }
 
   const onSubmit = async (values: ExamFormValues) => {
     try {
@@ -194,12 +178,15 @@ const AdminCreateExamPage = () => {
                     <FormItem>
                       <FormLabel>Nombre de questions</FormLabel>
                       <FormControl>
-                        <Select
-                          value={field.value?.toString()}
-                          onValueChange={(value) => {
-                            const numValue = parseInt(value)
+                        <Input
+                          type="number"
+                          min={10}
+                          max={230}
+                          placeholder="Entre 10 et 230 questions"
+                          value={field.value || ""}
+                          onChange={(e) => {
+                            const numValue = parseInt(e.target.value) || 0
                             field.onChange(numValue)
-                            // Réinitialiser la sélection de questions si le nombre change
                             if (selectedQuestions.length > numValue) {
                               const newSelection = selectedQuestions.slice(
                                 0,
@@ -209,22 +196,7 @@ const AdminCreateExamPage = () => {
                               form.setValue("questionIds", newSelection)
                             }
                           }}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Sélectionner le nombre de questions" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card">
-                            {generateQuestionOptions().map((num) => (
-                              <SelectItem
-                                className="btn-link"
-                                key={num}
-                                value={num.toString()}
-                              >
-                                {num} questions
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -306,13 +278,13 @@ const AdminCreateExamPage = () => {
                   <FormItem>
                     <FormLabel>Questions de l&apos;examen</FormLabel>
                     <FormDescription>
-                      Sélectionnez {numberOfQuestions || 115} questions qui
+                      Sélectionnez {numberOfQuestions || 50} questions qui
                       composeront cet examen.
                     </FormDescription>
                     <QuestionSelector
                       selectedQuestions={selectedQuestions}
                       onSelectionChange={handleQuestionSelectionChange}
-                      minQuestions={numberOfQuestions || 115}
+                      minQuestions={numberOfQuestions || 50}
                     />
                     <FormMessage />
                   </FormItem>
@@ -333,7 +305,7 @@ const AdminCreateExamPage = () => {
                   type="submit"
                   className="cursor-pointer bg-blue-600 text-white hover:bg-blue-600/90"
                   disabled={
-                    selectedQuestions.length < (numberOfQuestions || 115)
+                    selectedQuestions.length < (numberOfQuestions || 50)
                   }
                 >
                   Créer l&apos;examen ({selectedQuestions.length} question

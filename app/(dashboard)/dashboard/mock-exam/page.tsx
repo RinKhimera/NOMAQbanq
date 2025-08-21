@@ -35,9 +35,9 @@ const MockExamPage = () => {
   const allExams = useQuery(api.exams.getAllExams)
   const currentUser = useQuery(api.users.getCurrentUser)
 
+  // Séparer les examens par statut
   const now = Date.now()
 
-  // Séparer les examens par statut
   const activeExams =
     allExams?.filter(
       (exam) => exam.isActive && now >= exam.startDate && now <= exam.endDate,
@@ -74,6 +74,11 @@ const MockExamPage = () => {
 
   const formatDateShort = (timestamp: number) => {
     return format(new Date(timestamp), "dd MMM yyyy", { locale: fr })
+  }
+
+  const getSelectedExamData = () => {
+    if (!selectedExam || !allExams) return null
+    return allExams.find((exam) => exam._id === selectedExam)
   }
 
   if (!allExams) {
@@ -135,7 +140,8 @@ const MockExamPage = () => {
                     <div className="flex items-center gap-3 rounded-lg bg-white/60 p-3 backdrop-blur-sm dark:bg-gray-800/60">
                       <Clock className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {exam.questionIds.length} questions • 2h30
+                        {exam.questionIds.length} questions •{" "}
+                        {Math.floor(exam.completionTime / 60)} min
                       </span>
                     </div>
                   </CardContent>
@@ -207,7 +213,8 @@ const MockExamPage = () => {
                   <div className="flex items-center gap-3 rounded-lg bg-white/60 p-3 backdrop-blur-sm dark:bg-gray-800/60">
                     <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {exam.questionIds.length} questions • 2h30
+                      {exam.questionIds.length} questions •{" "}
+                      {Math.floor(exam.completionTime / 60)} min
                     </span>
                   </div>
                 </CardContent>
@@ -342,17 +349,18 @@ const MockExamPage = () => {
               Confirmer le début de l&apos;examen
             </DialogTitle>
             <DialogDescription className="space-y-4 pt-2 text-base">
-              <p className="text-gray-700 dark:text-gray-300">
+              <div className="text-gray-700 dark:text-gray-300">
                 Vous êtes sur le point de commencer un examen blanc. Voici les
                 conditions :
-              </p>
+              </div>
               <div className="rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 p-4 dark:from-amber-950/30 dark:to-orange-950/30">
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-amber-500"></div>
                     <span>
                       <strong className="text-gray-900 dark:text-white">
-                        115 questions
+                        {getSelectedExamData()?.questionIds.length || 0}{" "}
+                        questions
                       </strong>{" "}
                       à répondre
                     </span>
@@ -361,7 +369,10 @@ const MockExamPage = () => {
                     <div className="h-2 w-2 rounded-full bg-amber-500"></div>
                     <span>
                       <strong className="text-gray-900 dark:text-white">
-                        2h30
+                        {Math.floor(
+                          (getSelectedExamData()?.completionTime || 0) / 60,
+                        )}{" "}
+                        min
                       </strong>{" "}
                       pour compléter l&apos;examen
                     </span>

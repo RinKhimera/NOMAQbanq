@@ -35,14 +35,12 @@ const ExamPage = () => {
   const router = useRouter()
   const examId = params.examId as Id<"exams">
 
-  // States
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
-  const [timeRemaining, setTimeRemaining] = useState(2.5 * 60 * 60 * 1000) // 2h30
+  const [timeRemaining, setTimeRemaining] = useState(0)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // Queries et mutations
   const examWithQuestions = useQuery(api.exams.getExamWithQuestions, { examId })
   const submitAnswers = useMutation(api.exams.submitExamAnswers)
 
@@ -83,6 +81,11 @@ const ExamPage = () => {
   useEffect(() => {
     if (!examWithQuestions) return
 
+    // Initialiser le timer avec le temps de completion de l'examen
+    if (timeRemaining === 0) {
+      setTimeRemaining(examWithQuestions.completionTime * 1000)
+    }
+
     const timer = setInterval(() => {
       setTimeRemaining((prev) => {
         if (prev <= 1000) {
@@ -94,7 +97,7 @@ const ExamPage = () => {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [examWithQuestions, handleAutoSubmit])
+  }, [examWithQuestions, handleAutoSubmit, timeRemaining])
 
   // Gestion des réponses
   const handleAnswerChange = (questionId: string, answer: string) => {

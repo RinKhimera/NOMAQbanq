@@ -56,6 +56,7 @@ export default defineSchema({
     startDate: v.number(),
     endDate: v.number(),
     questionIds: v.array(v.id("questions")),
+    completionTime: v.number(),
     participants: v.array(
       v.object({
         userId: v.id("users"),

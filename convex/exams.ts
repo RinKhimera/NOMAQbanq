@@ -27,12 +27,15 @@ export const createExam = mutation({
       throw new Error("Accès non autorisé")
     }
 
+    const completionTime = args.questionIds.length * 83
+
     const examId = await ctx.db.insert("exams", {
       title: args.title,
       description: args.description,
       startDate: args.startDate,
       endDate: args.endDate,
       questionIds: args.questionIds,
+      completionTime,
       participants: [],
       isActive: true,
       createdBy: user._id,
@@ -69,12 +72,16 @@ export const updateExam = mutation({
       throw new Error("Accès non autorisé")
     }
 
+    // Calculer le nouveau temps de completion: 83 secondes par question
+    const completionTime = args.questionIds.length * 83
+
     await ctx.db.patch(args.examId, {
       title: args.title,
       description: args.description,
       startDate: args.startDate,
       endDate: args.endDate,
       questionIds: args.questionIds,
+      completionTime,
     })
 
     return { success: true }
