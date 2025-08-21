@@ -2,7 +2,6 @@ import {
   IconChartBar,
   IconDashboard,
   IconListDetails,
-  // IconSettings,
   IconUsers,
 } from "@tabler/icons-react"
 import { CircleUserRound, ShieldCheck, User } from "lucide-react"
@@ -84,4 +83,37 @@ export const dashboardNavigation = {
       icon: ShieldCheck,
     },
   ],
+}
+
+// Domaines médicaux prédéfinis
+export const MEDICAL_DOMAINS = [
+  "Anesthésie-Réanimation",
+  "Autres",
+  "Cardiologie",
+  "Chirurgie",
+  "Dermatologie",
+  "Endocrinologie",
+  "Gastro-entérologie",
+  "Gastroentérologie",
+  "Gynécologie obstétrique",
+  "Hémato-oncologie",
+  "Infectiologie",
+  "Médecine interne",
+  "Néphrologie",
+  "Neurologie",
+  "Ophtalmologie",
+  "Orthopédie",
+  "Pédiatrie",
+  "Pneumologie",
+  "Psychiatrie",
+  "Santé publique et médecine préventive",
+  "Urologie",
+] as const
+
+// Type dérivé des domaines médicaux
+export type MedicalDomain = (typeof MEDICAL_DOMAINS)[number]
+
+// Fonction helper pour vérifier si une string est un domaine médical valide
+export const isMedicalDomain = (domain: string): domain is MedicalDomain => {
+  return MEDICAL_DOMAINS.includes(domain as MedicalDomain)
 }
