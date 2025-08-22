@@ -1,5 +1,4 @@
 import { v } from "convex/values"
-import { MEDICAL_DOMAINS } from "@/constants"
 import { mutation, query } from "./_generated/server"
 
 // Créer une nouvelle question
@@ -34,14 +33,6 @@ export const getAllQuestions = query({
   args: {},
   handler: async (ctx) => {
     return await ctx.db.query("questions").order("desc").collect()
-  },
-})
-
-// Récupérer tous les domaines disponibles (statiques)
-export const getAllDomains = query({
-  args: {},
-  handler: async () => {
-    return [...MEDICAL_DOMAINS]
   },
 })
 

@@ -102,10 +102,12 @@ export const MEDICAL_DOMAINS = [
   "Néphrologie",
   "Neurologie",
   "Ophtalmologie",
+  "ORL",
   "Orthopédie",
   "Pédiatrie",
   "Pneumologie",
   "Psychiatrie",
+  "Rhumatologie",
   "Santé publique et médecine préventive",
   "Urologie",
 ] as const

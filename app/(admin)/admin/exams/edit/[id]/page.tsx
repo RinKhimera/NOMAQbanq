@@ -10,7 +10,6 @@ import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import * as z from "zod"
 import { QuestionSelector } from "@/components/admin/QuestionSelector"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
@@ -36,33 +35,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
-
-const examFormSchema = z.object({
-  title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
-  description: z.string().optional(),
-  startDate: z.date({
-    required_error: "Veuillez sélectionner une date de début",
-  }),
-  numberOfQuestions: z
-    .number()
-    .min(10, "Minimum 10 questions")
-    .max(115, "Maximum 115 questions"),
-  questionIds: z
-    .array(z.custom<Id<"questions">>())
-    .min(1, "Sélectionnez au moins une question"),
-})
-
-type ExamFormValues = z.infer<typeof examFormSchema>
+import {
+  ExamFormValues,
+  calculateEndDate,
+  examFormSchema,
+  validateQuestionCount,
+} from "@/schemas"
 
 const AdminEditExamPage = () => {
   const params = useParams()
@@ -90,15 +71,6 @@ const AdminEditExamPage = () => {
 
   const numberOfQuestions = form.watch("numberOfQuestions")
 
-  // Génerer les options pour le select (de 10 à 115 par pas de 5)
-  const generateQuestionOptions = () => {
-    const options = []
-    for (let i = 10; i <= 115; i += 5) {
-      options.push(i)
-    }
-    return options
-  }
-
   // Charger les données de l'examen quand elles sont disponibles
   useEffect(() => {
     if (exam) {
@@ -120,19 +92,17 @@ const AdminEditExamPage = () => {
 
   const onSubmit = async (values: ExamFormValues) => {
     try {
-      // Validation: vérifier que le nombre de questions sélectionnées correspond au nombre requis
-      if (selectedQuestions.length !== values.numberOfQuestions) {
+      // Utiliser le helper pour valider le nombre de questions
+      if (!validateQuestionCount(selectedQuestions, values.numberOfQuestions)) {
         toast.error(
           `Veuillez sélectionner exactement ${values.numberOfQuestions} questions`,
         )
         return
       }
 
-      // Calculer la date de fin (2 jours après le début)
+      // Utiliser le helper pour calculer la date de fin
       const startDate = values.startDate.getTime()
-      const endDate = new Date(values.startDate)
-      endDate.setDate(endDate.getDate() + 2)
-      endDate.setHours(23, 59, 59, 999)
+      const endDate = calculateEndDate(values.startDate)
 
       await updateExam({
         examId,
@@ -236,10 +206,14 @@ const AdminEditExamPage = () => {
                     <FormItem>
                       <FormLabel>Nombre de questions</FormLabel>
                       <FormControl>
-                        <Select
-                          value={field.value?.toString()}
-                          onValueChange={(value) => {
-                            const numValue = parseInt(value)
+                        <Input
+                          type="number"
+                          min={10}
+                          max={115}
+                          placeholder="Entre 10 et 115 questions"
+                          value={field.value || ""}
+                          onChange={(e) => {
+                            const numValue = parseInt(e.target.value) || 0
                             field.onChange(numValue)
                             // Réinitialiser la sélection de questions si le nombre change
                             if (selectedQuestions.length > numValue) {
@@ -251,18 +225,7 @@ const AdminEditExamPage = () => {
                               form.setValue("questionIds", newSelection)
                             }
                           }}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Sélectionner le nombre de questions" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-card">
-                            {generateQuestionOptions().map((num) => (
-                              <SelectItem key={num} value={num.toString()}>
-                                {num} questions
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

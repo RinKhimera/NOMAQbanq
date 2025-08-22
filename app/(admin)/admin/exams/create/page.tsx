@@ -10,7 +10,6 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import * as z from "zod"
 import { QuestionSelector } from "@/components/admin/QuestionSelector"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
@@ -39,23 +38,12 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
-
-const examFormSchema = z.object({
-  title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
-  description: z.string().optional(),
-  startDate: z.date({
-    required_error: "Veuillez sélectionner une date de début",
-  }),
-  numberOfQuestions: z
-    .number()
-    .min(10, "Minimum 10 questions")
-    .max(230, "Maximum 230 questions"),
-  questionIds: z
-    .array(z.custom<Id<"questions">>())
-    .min(1, "Sélectionnez au moins une question"),
-})
-
-type ExamFormValues = z.infer<typeof examFormSchema>
+import {
+  ExamFormValues,
+  calculateEndDate,
+  examFormSchema,
+  validateQuestionCount,
+} from "@/schemas"
 
 const AdminCreateExamPage = () => {
   const router = useRouter()
@@ -70,7 +58,7 @@ const AdminCreateExamPage = () => {
     defaultValues: {
       title: "",
       description: "",
-      numberOfQuestions: 50,
+      numberOfQuestions: 10,
       questionIds: [],
     },
   })
@@ -79,19 +67,17 @@ const AdminCreateExamPage = () => {
 
   const onSubmit = async (values: ExamFormValues) => {
     try {
-      // Validation: vérifier que le nombre de questions sélectionnées correspond au nombre requis
-      if (selectedQuestions.length !== values.numberOfQuestions) {
+      // Utiliser le helper pour valider le nombre de questions
+      if (!validateQuestionCount(selectedQuestions, values.numberOfQuestions)) {
         toast.error(
           `Veuillez sélectionner exactement ${values.numberOfQuestions} questions`,
         )
         return
       }
 
-      // Calculer la date de fin (2 jours après le début)
+      // Utiliser le helper pour calculer la date de fin
       const startDate = values.startDate.getTime()
-      const endDate = new Date(values.startDate)
-      endDate.setDate(endDate.getDate() + 2)
-      endDate.setHours(23, 59, 59, 999)
+      const endDate = calculateEndDate(values.startDate)
 
       await createExam({
         title: values.title,
@@ -181,8 +167,8 @@ const AdminCreateExamPage = () => {
                         <Input
                           type="number"
                           min={10}
-                          max={230}
-                          placeholder="Entre 10 et 230 questions"
+                          max={115}
+                          placeholder="Entre 10 et 115 questions"
                           value={field.value || ""}
                           onChange={(e) => {
                             const numValue = parseInt(e.target.value) || 0
