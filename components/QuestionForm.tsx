@@ -212,7 +212,7 @@ export default function QuestionForm() {
                                 ? "default"
                                 : "outline"
                             }
-                            className="flex h-6 min-w-[24px] cursor-pointer items-center justify-center"
+                            className="flex h-6 min-w-[29px] cursor-pointer items-center justify-center"
                             onClick={() =>
                               option.trim() &&
                               form.setValue("correctAnswer", option)

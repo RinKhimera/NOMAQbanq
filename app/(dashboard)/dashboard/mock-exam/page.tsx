@@ -56,6 +56,15 @@ const MockExamPage = () => {
     )
   }
 
+  // Vérifier si l'utilisateur est éligible pour passer un examen
+  const isUserEligible = (exam: NonNullable<typeof allExams>[number]) => {
+    if (!currentUser) return false
+    // Les admins peuvent toujours passer les examens
+    if (currentUser.role === "admin") return true
+    // Les utilisateurs doivent être dans la liste des participants autorisés
+    return exam.allowedParticipants.includes(currentUser._id)
+  }
+
   const handleStartExam = (examId: Id<"exams">) => {
     setSelectedExam(examId)
     setConfirmationOpen(true)
@@ -108,6 +117,7 @@ const MockExamPage = () => {
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {activeExams.map((exam) => {
               const userTaken = hasUserTakenExam(exam)
+              const userEligible = isUserEligible(exam)
               return (
                 <Card
                   key={exam._id}
@@ -153,6 +163,18 @@ const MockExamPage = () => {
                       >
                         Déjà passé
                       </Button>
+                    ) : !userEligible ? (
+                      <div className="w-full space-y-2">
+                        <Button
+                          disabled
+                          className="w-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+                        >
+                          Non éligible
+                        </Button>
+                        <p className="text-center text-xs text-orange-600 dark:text-orange-400">
+                          Vous n&apos;êtes pas autorisé à passer cet examen
+                        </p>
+                      </div>
                     ) : (
                       <Button
                         onClick={() => handleStartExam(exam._id)}
@@ -397,10 +419,10 @@ const MockExamPage = () => {
                   </li>
                 </ul>
               </div>
-              <p className="rounded-lg bg-amber-50 p-3 font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+              <div className="rounded-lg bg-amber-50 p-3 font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
                 Assurez-vous d&apos;avoir suffisamment de temps avant de
                 commencer.
-              </p>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-3 pt-6">

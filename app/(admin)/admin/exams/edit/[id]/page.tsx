@@ -1,10 +1,10 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQuery } from "convex/react"
+import { useConvexAuth, useMutation, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { ArrowLeft, Calendar } from "lucide-react"
+import { ArrowLeft, Calendar, ChevronsUpDown } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -20,6 +20,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@/components/ui/command"
 import {
   Form,
   FormControl,
@@ -35,9 +43,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { cn } from "@/lib/utils"
 import {
   ExamFormValues,
   calculateEndDate,
@@ -46,61 +56,66 @@ import {
 } from "@/schemas"
 
 const AdminEditExamPage = () => {
-  const params = useParams()
   const router = useRouter()
+  const params = useParams()
   const examId = params.id as Id<"exams">
 
   const [selectedQuestions, setSelectedQuestions] = useState<Id<"questions">[]>(
     [],
   )
-  const [isLoading, setIsLoading] = useState(true)
+  const [selectedParticipants, setSelectedParticipants] = useState<
+    Id<"users">[]
+  >([])
 
-  // Queries et mutations
-  const exam = useQuery(api.exams.getExamWithQuestions, { examId })
+  const { isAuthenticated } = useConvexAuth()
+
   const updateExam = useMutation(api.exams.updateExam)
+  const users = useQuery(
+    api.users.getAllUsers,
+    isAuthenticated ? undefined : "skip",
+  )
+  const exam = useQuery(api.exams.getExamWithQuestions, { examId })
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
     defaultValues: {
       title: "",
       description: "",
-      numberOfQuestions: 115,
+      numberOfQuestions: 10,
       questionIds: [],
     },
   })
 
-  const numberOfQuestions = form.watch("numberOfQuestions")
-
-  // Charger les données de l'examen quand elles sont disponibles
+  // Charger les données de l'examen
   useEffect(() => {
     if (exam) {
-      const startDate = new Date(exam.startDate)
-      const numberOfQuestions = exam.questionIds.length
-
-      form.reset({
-        title: exam.title,
-        description: exam.description || "",
-        startDate: startDate,
-        numberOfQuestions: numberOfQuestions,
-        questionIds: exam.questionIds,
-      })
-
+      form.setValue("title", exam.title)
+      form.setValue("description", exam.description || "")
+      form.setValue("numberOfQuestions", exam.questionIds.length)
+      form.setValue("startDate", new Date(exam.startDate))
+      form.setValue("questionIds", exam.questionIds)
       setSelectedQuestions(exam.questionIds)
-      setIsLoading(false)
+      setSelectedParticipants(exam.allowedParticipants || [])
     }
   }, [exam, form])
 
+  const numberOfQuestions = form.watch("numberOfQuestions")
+
   const onSubmit = async (values: ExamFormValues) => {
     try {
-      // Utiliser le helper pour valider le nombre de questions
-      if (!validateQuestionCount(selectedQuestions, values.numberOfQuestions)) {
+      // Utiliser les questions du state OU du formulaire (priorité au state)
+      const questionsToValidate =
+        selectedQuestions.length > 0 ? selectedQuestions : values.questionIds
+
+      if (
+        !validateQuestionCount(questionsToValidate, values.numberOfQuestions)
+      ) {
         toast.error(
           `Veuillez sélectionner exactement ${values.numberOfQuestions} questions`,
         )
         return
       }
 
-      // Utiliser le helper pour calculer la date de fin
       const startDate = values.startDate.getTime()
       const endDate = calculateEndDate(values.startDate)
 
@@ -110,7 +125,8 @@ const AdminEditExamPage = () => {
         description: values.description,
         startDate,
         endDate: endDate.getTime(),
-        questionIds: selectedQuestions,
+        questionIds: questionsToValidate,
+        allowedParticipants: selectedParticipants,
       })
 
       toast.success("Examen modifié avec succès")
@@ -126,20 +142,8 @@ const AdminEditExamPage = () => {
     form.setValue("questionIds", questions)
   }
 
-  // État de chargement
-  if (isLoading || !exam) {
-    return (
-      <div className="@container flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
-        <div className="flex min-h-96 items-center justify-center">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
-            <p className="text-gray-600 dark:text-gray-400">
-              Chargement de l&apos;examen...
-            </p>
-          </div>
-        </div>
-      </div>
-    )
+  if (!exam) {
+    return <div>Chargement...</div>
   }
 
   return (
@@ -168,14 +172,14 @@ const AdminEditExamPage = () => {
       </div>
 
       {/* Formulaire principal */}
-      <Card>
+      <Card className="">
         <CardHeader>
           <CardTitle className="text-blue-600 dark:text-white">
             Informations de l&apos;examen
           </CardTitle>
           <CardDescription>
-            Modifiez les informations de l&apos;examen. La période d&apos;examen
-            durera 2 jours à partir de la date sélectionnée.
+            La période d&apos;examen durera 2 jours à partir de la date
+            sélectionnée.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -239,7 +243,7 @@ const AdminEditExamPage = () => {
                     <FormItem className="col-span-2 flex w-full flex-col">
                       <FormLabel>Date de début de l&apos;examen</FormLabel>
                       <Popover>
-                        <PopoverTrigger asChild>
+                        <PopoverTrigger className="w-full" asChild>
                           <FormControl>
                             <Button
                               variant="outline"
@@ -300,6 +304,115 @@ const AdminEditExamPage = () => {
                 )}
               />
 
+              {/* Sélection des participants autorisés */}
+              <div className="space-y-3">
+                <FormLabel>Participants autorisés</FormLabel>
+                <FormDescription>
+                  Sélectionnez les utilisateurs qui peuvent passer cet examen.
+                  Les administrateurs peuvent toujours passer les examens.
+                </FormDescription>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between",
+                        selectedParticipants.length === 0 &&
+                          "text-muted-foreground",
+                      )}
+                    >
+                      {selectedParticipants.length === 0
+                        ? "Sélectionner les participants..."
+                        : `${selectedParticipants.length} participant(s) sélectionné(s)`}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Rechercher un utilisateur..." />
+                      <CommandEmpty>Aucun utilisateur trouvé.</CommandEmpty>
+                      <CommandGroup>
+                        <ScrollArea className="h-80">
+                          {users
+                            ?.filter((user) => user.role !== "admin")
+                            .map((user) => (
+                              <CommandItem
+                                key={user._id}
+                                onSelect={() => {
+                                  if (selectedParticipants.includes(user._id)) {
+                                    setSelectedParticipants(
+                                      selectedParticipants.filter(
+                                        (id) => id !== user._id,
+                                      ),
+                                    )
+                                  } else {
+                                    setSelectedParticipants([
+                                      ...selectedParticipants,
+                                      user._id,
+                                    ])
+                                  }
+                                }}
+                              >
+                                <div className="flex w-full items-start space-x-2">
+                                  <Checkbox
+                                    className="mt-1"
+                                    checked={selectedParticipants.includes(
+                                      user._id,
+                                    )}
+                                    onCheckedChange={() => {}}
+                                  />
+                                  <div className="flex-1">
+                                    <div className="font-medium">
+                                      {user.name}
+                                    </div>
+                                    <div className="text-muted-foreground text-sm">
+                                      {user.email}
+                                    </div>
+                                  </div>
+                                </div>
+                              </CommandItem>
+                            ))}
+                        </ScrollArea>
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedParticipants.length > 0 && (
+                  <div className="mt-2">
+                    <p className="mb-2 text-sm font-medium">
+                      Participants sélectionnés :
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedParticipants.map((participantId) => {
+                        const user = users?.find((u) => u._id === participantId)
+                        return user ? (
+                          <div
+                            key={participantId}
+                            className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs text-blue-800"
+                          >
+                            {user.name}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedParticipants(
+                                  selectedParticipants.filter(
+                                    (id) => id !== participantId,
+                                  ),
+                                )
+                              }}
+                              className="ml-1 text-blue-600 hover:text-blue-800"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ) : null
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <FormField
                 control={form.control}
                 name="questionIds"
@@ -307,13 +420,13 @@ const AdminEditExamPage = () => {
                   <FormItem>
                     <FormLabel>Questions de l&apos;examen</FormLabel>
                     <FormDescription>
-                      Sélectionnez {numberOfQuestions || 115} questions qui
-                      composeront cet examen.
+                      Sélectionnez {numberOfQuestions} questions qui composeront
+                      cet examen.
                     </FormDescription>
                     <QuestionSelector
                       selectedQuestions={selectedQuestions}
                       onSelectionChange={handleQuestionSelectionChange}
-                      minQuestions={numberOfQuestions || 115}
+                      minQuestions={numberOfQuestions}
                     />
                     <FormMessage />
                   </FormItem>
@@ -330,11 +443,10 @@ const AdminEditExamPage = () => {
                   Annuler
                 </Button>
                 <Button
+                  variant={"none"}
                   type="submit"
                   className="cursor-pointer bg-blue-600 text-white hover:bg-blue-600/90"
-                  disabled={
-                    selectedQuestions.length < (numberOfQuestions || 115)
-                  }
+                  disabled={selectedQuestions.length < numberOfQuestions}
                 >
                   Modifier l&apos;examen ({selectedQuestions.length} question
                   {selectedQuestions.length > 1 ? "s" : ""})

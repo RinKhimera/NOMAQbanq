@@ -9,6 +9,7 @@ export const createExam = mutation({
     startDate: v.number(),
     endDate: v.number(),
     questionIds: v.array(v.id("questions")),
+    allowedParticipants: v.array(v.id("users")),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -36,6 +37,7 @@ export const createExam = mutation({
       endDate: args.endDate,
       questionIds: args.questionIds,
       completionTime,
+      allowedParticipants: args.allowedParticipants,
       participants: [],
       isActive: true,
       createdBy: user._id,
@@ -54,6 +56,7 @@ export const updateExam = mutation({
     startDate: v.number(),
     endDate: v.number(),
     questionIds: v.array(v.id("questions")),
+    allowedParticipants: v.array(v.id("users")),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -82,6 +85,7 @@ export const updateExam = mutation({
       endDate: args.endDate,
       questionIds: args.questionIds,
       completionTime,
+      allowedParticipants: args.allowedParticipants,
     })
 
     return { success: true }
@@ -131,6 +135,22 @@ export const getAllExams = query({
 // Récupérer les examens actifs pour les utilisateurs
 export const getActiveExams = query({
   handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user) {
+      return []
+    }
+
     const now = Date.now()
     const exams = await ctx.db
       .query("exams")
@@ -140,7 +160,13 @@ export const getActiveExams = query({
       )
       .collect()
 
-    return exams
+    // Filtrer les examens selon les permissions
+    // Les admins peuvent voir tous les examens, les utilisateurs seulement ceux où ils sont autorisés
+    if (user.role === "admin") {
+      return exams
+    }
+
+    return exams.filter((exam) => exam.allowedParticipants.includes(user._id))
   },
 })
 
@@ -202,6 +228,12 @@ export const submitExamAnswers = mutation({
     const now = Date.now()
     if (now < exam.startDate || now > exam.endDate) {
       throw new Error("L'examen n'est pas disponible à cette période")
+    }
+
+    // Vérifier si l'utilisateur est autorisé à passer cet examen
+    // Les admins peuvent toujours passer les examens
+    if (user.role !== "admin" && !exam.allowedParticipants.includes(user._id)) {
+      throw new Error("Vous n'êtes pas autorisé à passer cet examen")
     }
 
     // Vérifier si l'utilisateur a déjà passé cet examen

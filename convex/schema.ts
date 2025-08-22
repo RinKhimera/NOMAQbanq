@@ -35,6 +35,7 @@ export default defineSchema({
     endDate: v.number(),
     questionIds: v.array(v.id("questions")),
     completionTime: v.number(),
+    allowedParticipants: v.array(v.id("users")),
     participants: v.array(
       v.object({
         userId: v.id("users"),
