@@ -35,6 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
 import EditQuestionDialog from "./EditQuestionDialog"
@@ -47,13 +48,10 @@ export default function QuestionsList() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
 
   const allQuestions = useQuery(api.questions.getAllQuestions)
-  const allDomains = useQuery(api.questions.getAllDomains)
   const deleteQuestion = useMutation(api.questions.deleteQuestion)
 
   // Créer la liste des domaines avec "Tous les domaines" en premier
-  const domainOptions = allDomains
-    ? ["Tous les domaines", ...allDomains]
-    : ["Tous les domaines"]
+  const domainOptions = ["Tous les domaines", ...MEDICAL_DOMAINS]
 
   const filteredQuestions = allQuestions?.filter((question) => {
     const matchesDomain =

@@ -35,9 +35,9 @@ const MockExamPage = () => {
   const allExams = useQuery(api.exams.getAllExams)
   const currentUser = useQuery(api.users.getCurrentUser)
 
+  // Séparer les examens par statut
   const now = Date.now()
 
-  // Séparer les examens par statut
   const activeExams =
     allExams?.filter(
       (exam) => exam.isActive && now >= exam.startDate && now <= exam.endDate,
@@ -54,6 +54,15 @@ const MockExamPage = () => {
     return exam.participants.some(
       (p: { userId: Id<"users"> }) => p.userId === currentUser?._id,
     )
+  }
+
+  // Vérifier si l'utilisateur est éligible pour passer un examen
+  const isUserEligible = (exam: NonNullable<typeof allExams>[number]) => {
+    if (!currentUser) return false
+    // Les admins peuvent toujours passer les examens
+    if (currentUser.role === "admin") return true
+    // Les utilisateurs doivent être dans la liste des participants autorisés
+    return exam.allowedParticipants.includes(currentUser._id)
   }
 
   const handleStartExam = (examId: Id<"exams">) => {
@@ -74,6 +83,11 @@ const MockExamPage = () => {
 
   const formatDateShort = (timestamp: number) => {
     return format(new Date(timestamp), "dd MMM yyyy", { locale: fr })
+  }
+
+  const getSelectedExamData = () => {
+    if (!selectedExam || !allExams) return null
+    return allExams.find((exam) => exam._id === selectedExam)
   }
 
   if (!allExams) {
@@ -103,6 +117,7 @@ const MockExamPage = () => {
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {activeExams.map((exam) => {
               const userTaken = hasUserTakenExam(exam)
+              const userEligible = isUserEligible(exam)
               return (
                 <Card
                   key={exam._id}
@@ -135,7 +150,8 @@ const MockExamPage = () => {
                     <div className="flex items-center gap-3 rounded-lg bg-white/60 p-3 backdrop-blur-sm dark:bg-gray-800/60">
                       <Clock className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {exam.questionIds.length} questions • 2h30
+                        {exam.questionIds.length} questions •{" "}
+                        {Math.floor(exam.completionTime / 60)} min
                       </span>
                     </div>
                   </CardContent>
@@ -147,6 +163,18 @@ const MockExamPage = () => {
                       >
                         Déjà passé
                       </Button>
+                    ) : !userEligible ? (
+                      <div className="w-full space-y-2">
+                        <Button
+                          disabled
+                          className="w-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
+                        >
+                          Non éligible
+                        </Button>
+                        <p className="text-center text-xs text-orange-600 dark:text-orange-400">
+                          Vous n&apos;êtes pas autorisé à passer cet examen
+                        </p>
+                      </div>
                     ) : (
                       <Button
                         onClick={() => handleStartExam(exam._id)}
@@ -207,7 +235,8 @@ const MockExamPage = () => {
                   <div className="flex items-center gap-3 rounded-lg bg-white/60 p-3 backdrop-blur-sm dark:bg-gray-800/60">
                     <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      {exam.questionIds.length} questions • 2h30
+                      {exam.questionIds.length} questions •{" "}
+                      {Math.floor(exam.completionTime / 60)} min
                     </span>
                   </div>
                 </CardContent>
@@ -342,17 +371,18 @@ const MockExamPage = () => {
               Confirmer le début de l&apos;examen
             </DialogTitle>
             <DialogDescription className="space-y-4 pt-2 text-base">
-              <p className="text-gray-700 dark:text-gray-300">
+              <div className="text-gray-700 dark:text-gray-300">
                 Vous êtes sur le point de commencer un examen blanc. Voici les
                 conditions :
-              </p>
+              </div>
               <div className="rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 p-4 dark:from-amber-950/30 dark:to-orange-950/30">
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center gap-3">
                     <div className="h-2 w-2 rounded-full bg-amber-500"></div>
                     <span>
                       <strong className="text-gray-900 dark:text-white">
-                        115 questions
+                        {getSelectedExamData()?.questionIds.length || 0}{" "}
+                        questions
                       </strong>{" "}
                       à répondre
                     </span>
@@ -361,7 +391,10 @@ const MockExamPage = () => {
                     <div className="h-2 w-2 rounded-full bg-amber-500"></div>
                     <span>
                       <strong className="text-gray-900 dark:text-white">
-                        2h30
+                        {Math.floor(
+                          (getSelectedExamData()?.completionTime || 0) / 60,
+                        )}{" "}
+                        min
                       </strong>{" "}
                       pour compléter l&apos;examen
                     </span>
@@ -386,10 +419,10 @@ const MockExamPage = () => {
                   </li>
                 </ul>
               </div>
-              <p className="rounded-lg bg-amber-50 p-3 font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+              <div className="rounded-lg bg-amber-50 p-3 font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
                 Assurez-vous d&apos;avoir suffisamment de temps avant de
                 commencer.
-              </p>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-3 pt-6">

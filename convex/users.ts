@@ -143,3 +143,25 @@ export const updateUserProfile = mutation({
     return { success: true }
   },
 })
+
+export const getAllUsers = query({
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Utilisateur non authentifié")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user || user.role !== "admin") {
+      throw new Error("Accès non autorisé")
+    }
+
+    return await ctx.db.query("users").collect()
+  },
+})

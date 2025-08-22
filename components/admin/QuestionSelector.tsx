@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 
@@ -34,7 +35,6 @@ export function QuestionSelector({
   const [domainFilter, setDomainFilter] = useState<string>("all")
 
   const questions = useQuery(api.questions.getAllQuestions)
-  const domains = useQuery(api.questions.getAllDomains)
 
   const filteredQuestions = useMemo(() => {
     if (!questions) return []
@@ -159,7 +159,7 @@ export function QuestionSelector({
             <SelectItem className="btn-link" value="all">
               Tous les domaines
             </SelectItem>
-            {domains?.map((domain) => (
+            {MEDICAL_DOMAINS?.map((domain) => (
               <SelectItem className="btn-link" key={domain} value={domain}>
                 {domain}
               </SelectItem>

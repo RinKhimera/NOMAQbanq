@@ -1,31 +1,6 @@
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 
-// Domaines médicaux prédéfinis
-const MEDICAL_DOMAINS = [
-  "Anesthésie-Réanimation",
-  "Autres",
-  "Cardiologie",
-  "Chirurgie",
-  "Dermatologie",
-  "Endocrinologie",
-  "Gastro-entérologie",
-  "Gastroentérologie",
-  "Gynécologie obstétrique",
-  "Hémato-oncologie",
-  "Infectiologie",
-  "Médecine interne",
-  "Néphrologie",
-  "Neurologie",
-  "Ophtalmologie",
-  "Orthopédie",
-  "Pédiatrie",
-  "Pneumologie",
-  "Psychiatrie",
-  "Santé publique et médecine préventive",
-  "Urologie",
-] as const
-
 // Créer une nouvelle question
 export const createQuestion = mutation({
   args: {
@@ -36,7 +11,7 @@ export const createQuestion = mutation({
     explanation: v.string(),
     references: v.optional(v.array(v.string())),
     objectifCMC: v.string(),
-    domain: v.union(...MEDICAL_DOMAINS.map((domain) => v.literal(domain))),
+    domain: v.string(),
   },
   handler: async (ctx, args) => {
     const questionId = await ctx.db.insert("questions", {
@@ -61,14 +36,6 @@ export const getAllQuestions = query({
   },
 })
 
-// Récupérer tous les domaines disponibles (statiques)
-export const getAllDomains = query({
-  args: {},
-  handler: async () => {
-    return [...MEDICAL_DOMAINS]
-  },
-})
-
 // Récupérer les domaines uniques
 export const getUniqueDomains = query({
   args: {},
@@ -82,7 +49,7 @@ export const getUniqueDomains = query({
 // Récupérer les questions par domaine
 export const getQuestionsByDomain = query({
   args: {
-    domain: v.union(...MEDICAL_DOMAINS.map((domain) => v.literal(domain))),
+    domain: v.string(),
   },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -112,9 +79,7 @@ export const updateQuestion = mutation({
     explanation: v.optional(v.string()),
     references: v.optional(v.array(v.string())),
     objectifCMC: v.optional(v.string()),
-    domain: v.optional(
-      v.union(...MEDICAL_DOMAINS.map((domain) => v.literal(domain))),
-    ),
+    domain: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const { id, ...updateData } = args

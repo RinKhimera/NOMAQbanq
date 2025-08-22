@@ -1,8 +1,8 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useMutation } from "convex/react"
 import {
-  AlertCircle,
   CheckCircle,
   Loader2,
   Minus,
@@ -11,11 +11,21 @@ import {
   Save,
 } from "lucide-react"
 import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -24,154 +34,108 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
-import { Doc } from "@/convex/_generated/dataModel"
-
-// Type basé sur Doc<"questions"> mais sans les champs de métadonnées
-// et avec references toujours défini pour le formulaire
-type QuestionFormData = Omit<
-  Doc<"questions">,
-  "_id" | "_creationTime" | "references"
-> & {
-  references: string[]
-}
+import {
+  QuestionFormValues,
+  filterValidOptions,
+  filterValidReferences,
+  questionFormSchema,
+  validateCorrectAnswer,
+} from "@/schemas"
 
 export default function QuestionForm() {
-  const [formData, setFormData] = useState<QuestionFormData>({
-    question: "",
-    imageSrc: "",
-    options: ["", "", "", ""],
-    correctAnswer: "",
-    explanation: "",
-    references: [""],
-    objectifCMC: "",
-    domain: "Autres",
-  })
-
-  const [isLoading, setIsLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [references, setReferences] = useState<string[]>([""])
+  const [options, setOptions] = useState<string[]>(["", "", "", "", ""])
 
   const createQuestion = useMutation(api.questions.createQuestion)
-  const allDomains = useQuery(api.questions.getAllDomains)
 
-  const handleInputChange = (
-    field: keyof QuestionFormData,
-    value: string | number,
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  const handleOptionChange = (index: number, value: string) => {
-    const newOptions = [...formData.options]
-    newOptions[index] = value
-    setFormData((prev) => ({
-      ...prev,
-      options: newOptions,
-    }))
-  }
-
-  const handleReferenceChange = (index: number, value: string) => {
-    const newReferences = [...formData.references]
-    newReferences[index] = value
-    setFormData((prev) => ({
-      ...prev,
-      references: newReferences,
-    }))
-  }
-
-  const addReference = () => {
-    setFormData((prev) => ({
-      ...prev,
-      references: [...prev.references, ""],
-    }))
-  }
-
-  const removeReference = (index: number) => {
-    if (formData.references.length > 1) {
-      const newReferences = formData.references.filter((_, i) => i !== index)
-      setFormData((prev) => ({
-        ...prev,
-        references: newReferences,
-      }))
-    }
-  }
-
-  const resetForm = () => {
-    setFormData({
+  const form = useForm<QuestionFormValues>({
+    resolver: zodResolver(questionFormSchema),
+    defaultValues: {
       question: "",
       imageSrc: "",
-      options: ["", "", "", ""],
+      options: ["", "", "", "", ""],
       correctAnswer: "",
       explanation: "",
       references: [""],
       objectifCMC: "",
-      domain: "Autres",
-    })
-    setSuccess(false)
-    setError(null)
+      domain: "",
+    },
+  })
+
+  const addReference = () => {
+    const newReferences = [...references, ""]
+    setReferences(newReferences)
+    form.setValue("references", newReferences)
   }
 
-  const validateForm = (): string | null => {
-    if (!formData.question.trim()) return "La question est obligatoire"
-    if (formData.options.some((opt) => !opt.trim()))
-      return "Toutes les options doivent être remplies"
-    if (!formData.explanation.trim()) return "L'explication est obligatoire"
-    if (!formData.objectifCMC.trim()) return "L'objectif CMC est obligatoire"
-    if (!formData.domain) return "Le domaine est obligatoire"
-    if (
-      !formData.correctAnswer ||
-      !formData.options.includes(formData.correctAnswer)
-    )
-      return "Vous devez sélectionner une réponse correcte parmi les options"
-    return null
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    const validationError = validateForm()
-    if (validationError) {
-      setError(validationError)
-      return
+  const removeReference = (index: number) => {
+    if (references.length > 1) {
+      const newReferences = references.filter((_, i) => i !== index)
+      setReferences(newReferences)
+      form.setValue("references", newReferences)
     }
+  }
 
+  const updateReference = (index: number, value: string) => {
+    const newReferences = [...references]
+    newReferences[index] = value
+    setReferences(newReferences)
+    form.setValue("references", newReferences)
+  }
+
+  const updateOption = (index: number, value: string) => {
+    const newOptions = [...options]
+    newOptions[index] = value
+    setOptions(newOptions)
+    form.setValue("options", newOptions)
+
+    // Si c'était la réponse correcte, mettre à jour
+    if (form.getValues("correctAnswer") === options[index]) {
+      form.setValue("correctAnswer", value)
+    }
+  }
+
+  const resetForm = () => {
+    form.reset()
+    setReferences([""])
+    setOptions(["", "", "", "", ""])
+  }
+
+  const onSubmit = async (values: QuestionFormValues) => {
     try {
-      setIsLoading(true)
-      setError(null)
-      setSuccess(false)
+      // Utiliser les helpers pour la validation et le filtrage
+      const filteredOptions = filterValidOptions(values.options)
+      if (filteredOptions.length < 4) {
+        toast.error("Au moins 4 options sont requises")
+        return
+      }
 
-      // Filtrer les références vides
-      const filteredReferences = formData.references.filter(
-        (ref) => ref.trim() !== "",
-      )
+      // Vérifier que la réponse correcte est dans les options
+      if (!validateCorrectAnswer(values)) {
+        toast.error("La réponse correcte doit être l'une des options")
+        return
+      }
+
+      const filteredReferences = filterValidReferences(references)
 
       await createQuestion({
-        question: formData.question,
-        imageSrc: formData.imageSrc || undefined,
-        options: formData.options,
-        correctAnswer: formData.correctAnswer,
-        explanation: formData.explanation,
-        references:
-          filteredReferences.length > 0 ? filteredReferences : undefined,
-        objectifCMC: formData.objectifCMC,
-        domain: formData.domain,
+        question: values.question,
+        imageSrc: values.imageSrc || undefined,
+        options: filteredOptions,
+        correctAnswer: values.correctAnswer,
+        explanation: values.explanation,
+        references: filteredReferences,
+        objectifCMC: values.objectifCMC,
+        domain: values.domain,
       })
 
-      setSuccess(true)
-      console.log("Question ajoutée avec succès !")
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Erreur lors de l'ajout de la question",
-      )
-      console.error("Erreur:", err)
-    } finally {
-      setIsLoading(false)
+      toast.success("Question ajoutée avec succès !")
+      resetForm()
+    } catch (error) {
+      toast.error("Erreur lors de l'ajout de la question")
+      console.error("Erreur:", error)
     }
   }
 
@@ -185,237 +149,264 @@ export default function QuestionForm() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Question */}
-            <div className="space-y-2">
-              <Label htmlFor="question" className="text-sm font-semibold">
-                Question <span className="text-red-500">*</span>
-              </Label>
-              <Textarea
-                id="question"
-                placeholder="Saisissez votre question ici..."
-                value={formData.question}
-                onChange={(e) => handleInputChange("question", e.target.value)}
-                className="min-h-[100px]"
-                required
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Question */}
+              <FormField
+                control={form.control}
+                name="question"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Question <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Saisissez votre question ici..."
+                        className="min-h-[100px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            {/* Image (optionnelle) */}
-            <div className="space-y-2">
-              <Label htmlFor="imageSrc" className="text-sm font-semibold">
-                URL de l&apos;image (optionnel)
-              </Label>
-              <Input
-                id="imageSrc"
-                type="url"
-                placeholder="https://exemple.com/image.jpg"
-                value={formData.imageSrc}
-                onChange={(e) => handleInputChange("imageSrc", e.target.value)}
+              {/* Image (optionnelle) */}
+              <FormField
+                control={form.control}
+                name="imageSrc"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>URL de l&apos;image (optionnel)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="url"
+                        placeholder="https://exemple.com/image.jpg"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            {/* Options */}
-            <div className="space-y-4">
-              <Label className="text-sm font-semibold">
-                Options de réponse <span className="text-red-500">*</span>
-              </Label>
-              {formData.options.map((option, index) => (
-                <div key={index} className="flex items-center space-x-3">
-                  <Badge
-                    variant={
-                      formData.correctAnswer === option ? "default" : "outline"
-                    }
-                    className="flex h-6 min-w-[24px] cursor-pointer items-center justify-center"
-                    onClick={() =>
-                      option.trim() &&
-                      handleInputChange("correctAnswer", option)
-                    }
-                  >
-                    {String.fromCharCode(65 + index)}
-                  </Badge>
-                  <Input
-                    placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                    value={option}
-                    onChange={(e) => {
-                      const newValue = e.target.value
-                      handleOptionChange(index, newValue)
-                      // Si c'était la réponse correcte, mettre à jour avec la nouvelle valeur
-                      if (formData.correctAnswer === option) {
-                        handleInputChange("correctAnswer", newValue)
-                      }
-                    }}
-                    className={
-                      formData.correctAnswer === option
-                        ? "border-green-400"
-                        : ""
-                    }
-                    required
-                  />
-                  {formData.correctAnswer === option && (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
+              {/* Options */}
+              <FormField
+                control={form.control}
+                name="options"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>
+                      Options de réponse <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <div className="space-y-3">
+                      {options.map((option, index) => (
+                        <div
+                          key={index}
+                          className="flex items-center space-x-3"
+                        >
+                          <Badge
+                            variant={
+                              form.watch("correctAnswer") === option
+                                ? "default"
+                                : "outline"
+                            }
+                            className="flex h-6 min-w-[29px] cursor-pointer items-center justify-center"
+                            onClick={() =>
+                              option.trim() &&
+                              form.setValue("correctAnswer", option)
+                            }
+                          >
+                            {String.fromCharCode(65 + index)}
+                          </Badge>
+                          <Input
+                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                            value={option}
+                            onChange={(e) =>
+                              updateOption(index, e.target.value)
+                            }
+                            className={
+                              form.watch("correctAnswer") === option
+                                ? "border-green-400"
+                                : ""
+                            }
+                            disabled={
+                              index > 3 &&
+                              options.slice(0, 4).some((opt) => !opt.trim())
+                            }
+                          />
+                          {form.watch("correctAnswer") === option && (
+                            <CheckCircle className="h-5 w-5 text-green-600" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <FormDescription>
+                      Cliquez sur la lettre (A, B, C, D, E) pour sélectionner la
+                      bonne réponse. Minimum 4 options, maximum 5.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Domaine et Objectif CMC */}
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="domain"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Domaine <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Sélectionnez un domaine" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {MEDICAL_DOMAINS?.map((domain) => (
+                            <SelectItem key={domain} value={domain}>
+                              {domain}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
                   )}
-                </div>
-              ))}
-              <p className="text-xs text-gray-500">
-                Cliquez sur la lettre (A, B, C, D) pour sélectionner la bonne
-                réponse
-              </p>
-            </div>
+                />
 
-            {/* Domaine et Objectif CMC */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="domain" className="text-sm font-semibold">
-                  Domaine <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={formData.domain}
-                  onValueChange={(value) => handleInputChange("domain", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez un domaine" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {allDomains?.map((domain) => (
-                      <SelectItem key={domain} value={domain}>
-                        {domain}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="objectifCMC" className="text-sm font-semibold">
-                  Objectif CMC <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="objectifCMC"
-                  placeholder="Ex: Blessure abdominale"
-                  value={formData.objectifCMC}
-                  onChange={(e) =>
-                    handleInputChange("objectifCMC", e.target.value)
-                  }
-                  required
+                <FormField
+                  control={form.control}
+                  name="objectifCMC"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Objectif CMC <span className="text-red-500">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ex: Blessure abdominale"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
               </div>
-            </div>
 
-            {/* Explication */}
-            <div className="space-y-2">
-              <Label htmlFor="explanation" className="text-sm font-semibold">
-                Explication <span className="text-red-500">*</span>
-              </Label>
-              <Textarea
-                id="explanation"
-                placeholder="Explication détaillée de la réponse..."
-                value={formData.explanation}
-                onChange={(e) =>
-                  handleInputChange("explanation", e.target.value)
-                }
-                className="min-h-[150px]"
-                required
+              {/* Explication */}
+              <FormField
+                control={form.control}
+                name="explanation"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Explication <span className="text-red-500">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Explication détaillée de la réponse..."
+                        className="min-h-[150px]"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Vous pouvez utiliser des sauts de ligne. Les références
+                      peuvent être citées avec [1], [2], etc.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <p className="text-xs text-gray-500">
-                Vous pouvez utiliser des sauts de ligne. Les références peuvent
-                être citées avec [1], [2], etc.
-              </p>
-            </div>
 
-            {/* Références */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">Références</Label>
+              {/* Références */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <FormLabel className="text-sm font-semibold">
+                    Références
+                  </FormLabel>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addReference}
+                    className="flex items-center gap-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Ajouter
+                  </Button>
+                </div>
+                {references.map((reference, index) => (
+                  <div key={index} className="flex items-start space-x-2">
+                    <Badge
+                      variant="outline"
+                      className="mt-2 flex h-6 min-w-[32px] items-center justify-center"
+                    >
+                      {index + 1}
+                    </Badge>
+                    <Textarea
+                      placeholder="Référence bibliographique complète..."
+                      value={reference}
+                      onChange={(e) => updateReference(index, e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                    {references.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeReference(index)}
+                        className="mt-2 text-red-600 hover:text-red-700"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Boutons */}
+              <div className="flex flex-col gap-4 pt-6 sm:flex-row">
+                <Button
+                  type="submit"
+                  disabled={form.formState.isSubmitting}
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  {form.formState.isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Ajout en cours...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="mr-2 h-4 w-4" />
+                      Ajouter la question
+                    </>
+                  )}
+                </Button>
+
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  onClick={addReference}
-                  className="flex items-center gap-1"
+                  onClick={resetForm}
+                  disabled={form.formState.isSubmitting}
+                  className="flex-1"
                 >
-                  <Plus className="h-4 w-4" />
-                  Ajouter
+                  <RotateCcw className="mr-2 h-4 w-4" />
+                  Réinitialiser
                 </Button>
               </div>
-              {formData.references.map((reference, index) => (
-                <div key={index} className="flex items-start space-x-2">
-                  <Badge
-                    variant="outline"
-                    className="mt-2 flex h-6 min-w-[32px] items-center justify-center"
-                  >
-                    {index + 1}
-                  </Badge>
-                  <Textarea
-                    placeholder="Référence bibliographique complète..."
-                    value={reference}
-                    onChange={(e) =>
-                      handleReferenceChange(index, e.target.value)
-                    }
-                    className="min-h-[80px]"
-                  />
-                  {formData.references.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeReference(index)}
-                      className="mt-2 text-red-600 hover:text-red-700"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Messages d'erreur et de succès */}
-            {error && (
-              <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-700 dark:bg-red-900/20 dark:text-red-300">
-                <AlertCircle className="h-4 w-4" />
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-
-            {success && (
-              <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3 text-green-700 dark:bg-green-900/20 dark:text-green-300">
-                <CheckCircle className="h-4 w-4" />
-                <span className="text-sm">Question ajoutée avec succès !</span>
-              </div>
-            )}
-
-            {/* Boutons */}
-            <div className="flex flex-col gap-4 pt-6 sm:flex-row">
-              <Button
-                type="submit"
-                disabled={isLoading}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Ajout en cours...
-                  </>
-                ) : (
-                  <>
-                    <Save className="mr-2 h-4 w-4" />
-                    Ajouter la question
-                  </>
-                )}
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={resetForm}
-                disabled={isLoading}
-                className="flex-1"
-              >
-                <RotateCcw className="mr-2 h-4 w-4" />
-                Réinitialiser
-              </Button>
-            </div>
-          </form>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
