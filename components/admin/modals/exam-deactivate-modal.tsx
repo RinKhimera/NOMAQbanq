@@ -58,7 +58,7 @@ export function ExamDeactivateModal({
             onClick={onConfirm}
             disabled={isLoading}
           >
-            {isLoading ? "Désactivation..." : "Désactiver l&apos;examen"}
+            {isLoading ? "Désactivation..." : "Désactiver l'examen"}
           </Button>
         </DialogFooter>
       </DialogContent>
