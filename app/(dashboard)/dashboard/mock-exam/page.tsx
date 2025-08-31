@@ -98,7 +98,7 @@ const MockExamPage = () => {
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header avec gradient moderne */}
       <div className="flex flex-col">
-        <h1 className="text-2xl font-bold">Examens Blancs</h1>
+        <h1 className="text-2xl font-bold text-blue-600">Examens Blancs</h1>
         <p className="text-muted-foreground">
           Testez vos connaissances avec nos examens blancs dans les conditions
           réelles

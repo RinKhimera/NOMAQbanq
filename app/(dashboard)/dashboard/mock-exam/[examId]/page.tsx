@@ -57,13 +57,15 @@ const ExamPage = () => {
         }),
       )
 
-      const result = await submitAnswers({
+      await submitAnswers({
         examId,
         answers: formattedAnswers,
       })
 
-      toast.success(`Examen terminé automatiquement ! Score: ${result.score}%`)
-      router.push(`/dashboard/mock-exam/${examId}/results`)
+      toast.success(
+        "Temps écoulé ! Vos réponses ont été enregistrées automatiquement.",
+      )
+      router.push("/dashboard/mock-exam")
     } catch {
       toast.error("Erreur lors de la soumission automatique")
     }
@@ -122,13 +124,15 @@ const ExamPage = () => {
         }),
       )
 
-      const result = await submitAnswers({
+      await submitAnswers({
         examId,
         answers: formattedAnswers,
       })
 
-      toast.success(`Examen terminé ! Score: ${result.score}%`)
-      router.push(`/dashboard/mock-exam/${examId}/results`)
+      toast.success(
+        "Examen terminé ! Vos réponses ont été enregistrées avec succès.",
+      )
+      router.push("/dashboard/mock-exam")
     } catch {
       toast.error("Erreur lors de la soumission")
     } finally {
@@ -424,7 +428,9 @@ const ExamPage = () => {
               </div>
 
               <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                Une fois soumis, vous ne pourrez plus modifier vos réponses.
+                Une fois soumis, vous ne pourrez plus modifier vos réponses. Vos
+                résultats seront disponibles une fois que tous les candidats
+                auront terminé l&apos;examen.
               </p>
             </DialogDescription>
           </DialogHeader>

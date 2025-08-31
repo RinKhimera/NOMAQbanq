@@ -182,9 +182,7 @@ export function ExamsList() {
   return (
     <Card className="bg-white dark:bg-gray-900">
       <CardHeader>
-        <CardTitle className="text-blue-600 dark:text-white">
-          Liste des examens
-        </CardTitle>
+        <CardTitle className="text-blue-600">Liste des examens</CardTitle>
         <CardDescription>
           Gérez tous vos examens depuis cette interface
         </CardDescription>
