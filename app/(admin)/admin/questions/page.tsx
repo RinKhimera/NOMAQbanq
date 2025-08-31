@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 const AdminQuestionsPage = () => {
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
-      <div className="mb-6">
+      <div>
         <h1 className="text-2xl font-bold text-blue-600">
           Gestion des Questions
         </h1>

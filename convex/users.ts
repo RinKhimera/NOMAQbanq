@@ -165,3 +165,59 @@ export const getAllUsers = query({
     return await ctx.db.query("users").collect()
   },
 })
+
+export const getUsersWithPagination = query({
+  args: {
+    page: v.number(),
+    limit: v.number(),
+    sortBy: v.optional(
+      v.union(v.literal("name"), v.literal("role"), v.literal("_creationTime")),
+    ),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
+  },
+  handler: async (ctx, args) => {
+    const { page, limit, sortBy = "name", sortOrder = "asc" } = args
+    const offset = (page - 1) * limit
+
+    // Récupérer tous les utilisateurs
+    const users = await ctx.db.query("users").collect()
+
+    // Trier les utilisateurs
+    users.sort((a, b) => {
+      let valueA: string | number
+      let valueB: string | number
+
+      if (sortBy === "_creationTime") {
+        valueA = a._creationTime
+        valueB = b._creationTime
+      } else if (sortBy === "role") {
+        valueA = a.role || "user"
+        valueB = b.role || "user"
+      } else {
+        valueA = a[sortBy as keyof typeof a] || ""
+        valueB = b[sortBy as keyof typeof b] || ""
+      }
+
+      if (typeof valueA === "string" && typeof valueB === "string") {
+        valueA = valueA.toLowerCase()
+        valueB = valueB.toLowerCase()
+      }
+
+      if (sortOrder === "desc") {
+        return valueA < valueB ? 1 : valueA > valueB ? -1 : 0
+      } else {
+        return valueA > valueB ? 1 : valueA < valueB ? -1 : 0
+      }
+    })
+
+    const totalUsers = users.length
+    const paginatedUsers = users.slice(offset, offset + limit)
+
+    return {
+      users: paginatedUsers,
+      totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: page,
+    }
+  },
+})
