@@ -5,10 +5,10 @@ const DashboardAccountPage = () => {
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
       <div>
         <h1 className="text-2xl font-bold text-blue-600">
-          Paramètres du profil
+          Paramètres du compte et de sécurité
         </h1>
         <p className="text-muted-foreground">
-          Gérez votre profil, sécurité et paramètres de compte
+          Gérez votre sécurité et paramètres de compte
         </p>
       </div>
 
