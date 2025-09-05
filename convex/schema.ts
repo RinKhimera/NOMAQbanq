@@ -56,4 +56,14 @@ export default defineSchema({
     .index("by_isActive", ["isActive"])
     .index("by_startDate", ["startDate"])
     .index("by_createdBy", ["createdBy"]),
+
+  learningBankQuestions: defineTable({
+    questionId: v.id("questions"),
+    addedBy: v.id("users"),
+    addedAt: v.number(),
+    isActive: v.boolean(),
+  })
+    .index("by_questionId", ["questionId"])
+    .index("by_isActive", ["isActive"])
+    .index("by_addedBy", ["addedBy"]),
 })

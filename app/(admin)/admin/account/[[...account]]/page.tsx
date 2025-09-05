@@ -4,7 +4,9 @@ const AdminAccountPage = () => {
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
       <div>
-        <h1 className="text-2xl font-bold">Paramètres du compte</h1>
+        <h1 className="text-2xl font-bold text-blue-600">
+          Paramètres du compte et de sécurité
+        </h1>
         <p className="text-muted-foreground">
           Gérez votre sécurité et paramètres de compte
         </p>

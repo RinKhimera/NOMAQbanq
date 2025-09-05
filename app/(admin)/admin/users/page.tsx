@@ -128,7 +128,7 @@ const UsersPage = () => {
                       <Button
                         variant="ghost"
                         onClick={() => handleSort("_creationTime")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
+                        className="-ml-2.5 h-auto w-fit p-0 font-semibold hover:bg-transparent"
                       >
                         Date de création
                         {getSortIcon("_creationTime")}
@@ -152,14 +152,14 @@ const UsersPage = () => {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between space-x-2 py-4">
+            <div className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between md:gap-0">
               <div className="text-muted-foreground text-sm">
                 Affichage de {(page - 1) * limit + 1} à{" "}
                 {Math.min(page * limit, totalUsers)} sur {totalUsers}{" "}
                 utilisateur
                 {totalUsers > 1 ? "s" : ""}
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center justify-center space-x-2">
                 <Button
                   variant="outline"
                   size="icon"

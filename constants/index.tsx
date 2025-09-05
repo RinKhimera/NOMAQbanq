@@ -4,7 +4,7 @@ import {
   IconListDetails,
   IconUsers,
 } from "@tabler/icons-react"
-import { CircleUserRound, ShieldCheck, User } from "lucide-react"
+import { Blocks, CircleUserRound, ShieldCheck, User } from "lucide-react"
 
 export const adminNavigation = {
   navMain: [
@@ -17,6 +17,11 @@ export const adminNavigation = {
       title: "Questions",
       url: "/admin/questions",
       icon: IconListDetails,
+    },
+    {
+      title: "Banque d'apprentissage",
+      url: "/admin/learning-bank",
+      icon: Blocks,
     },
     {
       title: "Examens",
@@ -61,8 +66,8 @@ export const dashboardNavigation = {
       icon: IconListDetails,
     },
     {
-      title: "Entraînement",
-      url: "/dashboard/training",
+      title: "Apprentissage",
+      url: "/dashboard/learning",
       icon: IconChartBar,
     },
   ],
