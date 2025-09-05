@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,7 +38,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { api } from "@/convex/_generated/api"
 import { Doc } from "@/convex/_generated/dataModel"
 
-export default function TrainingPage() {
+function TrainingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -558,5 +558,24 @@ export default function TrainingPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function TrainingPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+            <p className="text-gray-600 dark:text-gray-400">
+              Chargement des questions d&apos;entraînement...
+            </p>
+          </div>
+        </div>
+      }
+    >
+      <TrainingContent />
+    </Suspense>
   )
 }
