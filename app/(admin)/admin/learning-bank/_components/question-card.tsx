@@ -1,4 +1,4 @@
-import { CheckCircle, Edit, Eye, Target, Trash2 } from "lucide-react"
+import { CheckCircle, Edit, Eye, Plus, Target, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -8,6 +8,7 @@ type QuestionCardProps = {
   question: Doc<"questions">
   onEdit?: () => void
   onDelete?: () => void
+  onAdd?: () => void
   onViewDetails?: () => void
   showActions?: boolean
 }
@@ -16,6 +17,7 @@ const QuestionCard = ({
   question,
   onEdit,
   onDelete,
+  onAdd,
   onViewDetails,
   showActions = true,
 }: QuestionCardProps) => {
@@ -117,6 +119,18 @@ const QuestionCard = ({
                 >
                   <Trash2 className="h-4 w-4" />
                   Supprimer
+                </Button>
+              )}
+
+              {onAdd && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1 text-green-600 hover:text-green-700 @max-[50rem]:flex-1"
+                  onClick={onAdd}
+                >
+                  <Plus className="h-4 w-4" />
+                  Ajouter
                 </Button>
               )}
             </div>

@@ -66,8 +66,8 @@ export const dashboardNavigation = {
       icon: IconListDetails,
     },
     {
-      title: "Entraînement",
-      url: "/dashboard/training",
+      title: "Apprentissage",
+      url: "/dashboard/learning",
       icon: IconChartBar,
     },
   ],

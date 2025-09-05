@@ -225,46 +225,45 @@ export const getQuestionsNotInLearningBank = query({
   },
 })
 
+// Fonction pour récupérer des questions aléatoires de la banque d'apprentissage
 export const getRandomLearningBankQuestions = query({
   args: {
     count: v.number(),
     domain: v.optional(v.string()),
   },
-  handler: async (ctx, args) => {
-    let learningBankEntries = await ctx.db
+  handler: async (ctx, { count, domain }) => {
+    // Récupérer toutes les questions de la banque d'apprentissage
+    const learningBankItems = await ctx.db
       .query("learningBankQuestions")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
+      .filter((q) => q.eq(q.field("isActive"), true))
       .collect()
 
-    // Si un domaine est spécifié, filtrer les questions
-    if (args.domain && args.domain !== "all") {
-      const questionsWithDetails = await Promise.all(
-        learningBankEntries.map(async (entry) => {
-          const question = await ctx.db.get(entry.questionId)
-          return { entry, question }
-        }),
-      )
-
-      learningBankEntries = questionsWithDetails
-        .filter(({ question }) => question?.domain === args.domain)
-        .map(({ entry }) => entry)
-    }
-
-    // Mélanger aléatoirement et prendre le nombre demandé
-    const shuffled = learningBankEntries.sort(() => Math.random() - 0.5)
-    const selectedEntries = shuffled.slice(
-      0,
-      Math.min(args.count, shuffled.length),
-    )
-
-    // Récupérer les détails des questions sélectionnées
+    // Joindre avec les questions pour avoir les détails
     const questionsWithDetails = await Promise.all(
-      selectedEntries.map(async (entry) => {
-        const question = await ctx.db.get(entry.questionId)
+      learningBankItems.map(async (item) => {
+        const question = await ctx.db.get(item.questionId)
         return question
       }),
     )
 
-    return questionsWithDetails.filter(Boolean)
+    // Filtrer les questions valides
+    let validQuestions = questionsWithDetails.filter(
+      (q): q is NonNullable<typeof q> => q !== null,
+    )
+
+    // Filtrer par domaine si spécifié
+    if (domain) {
+      validQuestions = validQuestions.filter((q) => q.domain === domain)
+    }
+
+    // Mélanger les questions (algorithme de Fisher-Yates)
+    const shuffled = [...validQuestions]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+
+    // Retourner le nombre demandé de questions
+    return shuffled.slice(0, Math.min(count, shuffled.length))
   },
 })

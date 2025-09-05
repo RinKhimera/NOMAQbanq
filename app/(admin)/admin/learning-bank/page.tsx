@@ -1,12 +1,10 @@
 "use client"
 
 import { useMutation, useQuery } from "convex/react"
-import { BookOpen, Eye, Filter, Plus, Search } from "lucide-react"
+import { BookOpen, Filter, Plus, Search } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import QuestionDetailsDialog from "@/components/QuestionDetailsDialog"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
@@ -189,46 +187,13 @@ export default function LearningBankPage() {
         <TabsContent value="available" className="@container space-y-4">
           <div className="grid gap-4">
             {filteredAvailableQuestions?.map((question) => (
-              <Card key={question._id} className="min-w-0">
-                <CardContent className="p-4">
-                  <div className="@[400px]:flex @[400px]:items-start @[400px]:justify-between @[400px]:gap-4">
-                    <div className="flex-1">
-                      <p className="mb-2 line-clamp-5 font-medium">
-                        {question.question}
-                      </p>
-                      <div className="mb-2 flex items-center gap-2">
-                        <Badge variant="outline">{question.domain}</Badge>
-                        <Badge variant="secondary" className="max-w-[200px]">
-                          {question.objectifCMC}
-                        </Badge>
-                      </div>
-                      <p className="text-muted-foreground mb-2 line-clamp-3 text-sm">
-                        {question.explanation}
-                      </p>
-                    </div>
-                    <div className="mt-3 flex gap-2 @[400px]:mt-0 @[400px]:flex-col">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleViewDetails(question)}
-                        className="flex-1 text-blue-600 hover:text-blue-700 @[400px]:flex-none"
-                      >
-                        <Eye className="mr-2 h-4 w-4 @[400px]:mr-0" />
-                        <span className="@[400px]:hidden">Voir détails</span>
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAddQuestion(question._id)}
-                        className="flex-1 text-green-600 hover:text-green-700 @[400px]:flex-none"
-                      >
-                        <Plus className="mr-2 h-4 w-4 @[400px]:mr-0" />
-                        <span className="@[400px]:hidden">Ajouter</span>
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+              <QuestionCard
+                key={question._id}
+                question={question}
+                onViewDetails={() => handleViewDetails(question)}
+                onAdd={() => handleAddQuestion(question._id)}
+                showActions={true}
+              />
             ))}
             {filteredAvailableQuestions?.length === 0 && (
               <Card>

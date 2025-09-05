@@ -1,9 +1,8 @@
 "use client"
 
-import { CheckCircle, Eye, Target, X } from "lucide-react"
+import { CheckCircle, Eye, Target } from "lucide-react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
