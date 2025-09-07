@@ -16,7 +16,6 @@ const AdminAccountPage = () => {
         <UserProfile
           appearance={{
             elements: {
-              rootBox: "",
               card: "shadow-lg border-0",
             },
           }}

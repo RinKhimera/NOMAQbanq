@@ -122,7 +122,7 @@ const AdminCreateExamPage = () => {
       {/* En-tête avec bouton retour */}
       <div className="flex flex-col justify-between gap-4 @md:flex-row @md:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-blue-600 dark:text-white">
+          <h1 className="text-2xl font-bold text-blue-600">
             Créer un nouvel examen
           </h1>
           <p className="text-muted-foreground">

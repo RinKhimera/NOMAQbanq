@@ -1,7 +1,15 @@
 "use client"
 
 import { useQuery } from "convex/react"
-import { BookOpen, ChevronDown, ChevronUp, Plus, Settings } from "lucide-react"
+import {
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Plus,
+  Settings,
+  Users,
+} from "lucide-react"
+import Link from "next/link"
 import { useState } from "react"
 import { SectionCards } from "@/components/admin/section-cards"
 import { Button } from "@/components/ui/button"
@@ -28,7 +36,7 @@ const AdminDashboardPage = () => {
       <SectionCards allQuestions={allQuestions} domainStats={domainStats} />
 
       <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-2 lg:px-6">
-        <Card className="card-modern flex h-[360px] flex-col">
+        <Card className="flex h-[360px] flex-col">
           <CardHeader className="flex-shrink-0">
             <div className="flex items-center justify-between">
               <CardTitle>
@@ -78,34 +86,48 @@ const AdminDashboardPage = () => {
           </CardContent>
         </Card>
 
-        <Card className="card-modern">
+        <Card>
           <CardHeader>
             <CardTitle>Actions rapides</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <Button
-                className="w-full cursor-pointer justify-start"
-                variant="btn_modern_outline"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Ajouter une nouvelle question
-              </Button>
-              <Button
-                variant="btn_modern_outline"
-                className="w-full cursor-pointer justify-start"
-                /*  variant="outline" */
-              >
-                <BookOpen className="mr-2 h-4 w-4" />
-                Gérer les questions existantes
-              </Button>
-              <Button
-                className="w-full cursor-pointer justify-start"
-                variant="btn_modern_outline"
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                Paramètres système
-              </Button>
+            <div className="flex flex-col gap-3">
+              <Link href="/admin/questions">
+                <Button
+                  className="w-full cursor-pointer justify-start"
+                  variant="btn_modern_outline"
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Ajouter une nouvelle question
+                </Button>
+              </Link>
+              <Link href="/admin/exams/create">
+                <Button
+                  variant="btn_modern_outline"
+                  className="w-full cursor-pointer justify-start"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Ajouter un examen
+                </Button>
+              </Link>
+              <Link href="/admin/users">
+                <Button
+                  className="w-full cursor-pointer justify-start"
+                  variant="btn_modern_outline"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  Gestion des utilisateurs
+                </Button>
+              </Link>
+              <Link href="/admin/account">
+                <Button
+                  className="w-full cursor-pointer justify-start"
+                  variant="btn_modern_outline"
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Paramètres du compte
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
