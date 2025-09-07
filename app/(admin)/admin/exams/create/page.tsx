@@ -50,7 +50,6 @@ import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import {
   ExamFormValues,
-  calculateEndDate,
   examFormSchema,
   validateQuestionCount,
 } from "@/schemas"
@@ -81,7 +80,11 @@ const AdminCreateExamPage = () => {
 
   const onSubmit = async (values: ExamFormValues) => {
     try {
-      // Utiliser le helper pour valider le nombre de questions
+      if (!values.startDate || !values.endDate) {
+        toast.error("Veuillez sélectionner les dates de début et de fin")
+        return
+      }
+
       if (!validateQuestionCount(selectedQuestions, values.numberOfQuestions)) {
         toast.error(
           `Veuillez sélectionner exactement ${values.numberOfQuestions} questions`,
@@ -89,15 +92,14 @@ const AdminCreateExamPage = () => {
         return
       }
 
-      // Utiliser le helper pour calculer la date de fin
       const startDate = values.startDate.getTime()
-      const endDate = calculateEndDate(values.startDate)
+      const endDate = values.endDate.getTime()
 
       await createExam({
         title: values.title,
         description: values.description,
         startDate,
-        endDate: endDate.getTime(),
+        endDate,
         questionIds: selectedQuestions,
         allowedParticipants: selectedParticipants,
       })
@@ -120,7 +122,7 @@ const AdminCreateExamPage = () => {
       {/* En-tête avec bouton retour */}
       <div className="flex flex-col justify-between gap-4 @md:flex-row @md:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-blue-600 dark:text-white">
+          <h1 className="text-2xl font-bold text-blue-600">
             Créer un nouvel examen
           </h1>
           <p className="text-muted-foreground">
@@ -147,8 +149,7 @@ const AdminCreateExamPage = () => {
             Informations de l&apos;examen
           </CardTitle>
           <CardDescription>
-            La période d&apos;examen durera 2 jours à partir de la date
-            sélectionnée.
+            Sélectionnez les dates de début et de fin pour votre examen.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -204,54 +205,115 @@ const AdminCreateExamPage = () => {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="startDate"
-                  render={({ field }) => (
-                    <FormItem className="col-span-2 flex w-full flex-col">
-                      <FormLabel>Date de début de l&apos;examen</FormLabel>
-                      <Popover>
-                        <PopoverTrigger className="w-full" asChild>
-                          <FormControl>
-                            <Button
-                              variant="outline"
-                              className={`w-full pl-3 text-left font-normal hover:text-blue-700 dark:text-white ${
-                                !field.value && "text-muted-foreground"
-                              }`}
-                            >
-                              {field.value ? (
-                                format(field.value, "PPP", { locale: fr })
-                              ) : (
-                                <span>Sélectionner une date</span>
-                              )}
-                              <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                          <CalendarComponent
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) => {
-                              const today = new Date()
-                              today.setHours(0, 0, 0, 0)
-                              return (
-                                date < today || date < new Date("1900-01-01")
-                              )
-                            }}
-                            autoFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormDescription>
-                        L&apos;examen sera disponible pendant 2 jours à partir
-                        de cette date.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="md:col-span-2">
+                  <FormField
+                    control={form.control}
+                    name="startDate"
+                    render={({ field: startField }) => (
+                      <FormField
+                        control={form.control}
+                        name="endDate"
+                        render={({ field: endField }) => (
+                          <FormItem className="flex w-full flex-col">
+                            <FormLabel>Période de l&apos;examen</FormLabel>
+                            <Popover>
+                              <PopoverTrigger className="w-full" asChild>
+                                <FormControl>
+                                  <Button
+                                    variant="outline"
+                                    className={`w-full pl-3 text-left font-normal hover:text-blue-700 dark:text-white ${
+                                      (!startField.value || !endField.value) &&
+                                      "text-muted-foreground"
+                                    }`}
+                                  >
+                                    {startField.value && endField.value ? (
+                                      <>
+                                        {format(startField.value, "PPP", {
+                                          locale: fr,
+                                        })}
+                                        {" - "}
+                                        {format(endField.value, "PPP", {
+                                          locale: fr,
+                                        })}
+                                      </>
+                                    ) : (
+                                      <span>
+                                        Sélectionner la période de l&apos;examen
+                                      </span>
+                                    )}
+                                    <Calendar className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent
+                                className="w-auto p-0"
+                                align="start"
+                              >
+                                <CalendarComponent
+                                  mode="range"
+                                  selected={{
+                                    from: startField.value,
+                                    to: endField.value,
+                                  }}
+                                  onSelect={(range) => {
+                                    if (range?.from) {
+                                      startField.onChange(range.from)
+                                      if (range?.to) {
+                                        // Vérifier que la plage ne dépasse pas 14 jours
+                                        const diffTime =
+                                          range.to.getTime() -
+                                          range.from.getTime()
+                                        const diffDays = Math.ceil(
+                                          diffTime / (1000 * 60 * 60 * 24),
+                                        )
+
+                                        if (diffDays <= 14) {
+                                          endField.onChange(range.to)
+                                        } else {
+                                          // Limiter à 14 jours maximum
+                                          const maxEndDate = new Date(
+                                            range.from,
+                                          )
+                                          maxEndDate.setDate(
+                                            maxEndDate.getDate() + 14,
+                                          )
+                                          endField.onChange(maxEndDate)
+                                          toast.error(
+                                            "La période d'examen ne peut pas dépasser 14 jours",
+                                          )
+                                        }
+                                      } else {
+                                        endField.onChange(undefined)
+                                      }
+                                    } else {
+                                      startField.onChange(undefined)
+                                      endField.onChange(undefined)
+                                    }
+                                  }}
+                                  disabled={(date) => {
+                                    const today = new Date()
+                                    today.setHours(0, 0, 0, 0)
+                                    return (
+                                      date < today ||
+                                      date < new Date("1900-01-01")
+                                    )
+                                  }}
+                                  numberOfMonths={2}
+                                  autoFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormDescription>
+                              Sélectionnez la période de l&apos;examen (maximum
+                              14 jours).
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                  />
+                </div>
               </div>
 
               <FormField
