@@ -283,14 +283,9 @@ const ExamPage = () => {
           <div className="lg:col-span-3">
             <Card className="shadow-lg">
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl">
-                    Question {currentQuestionIndex + 1}
-                  </CardTitle>
-                  <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                    {currentQuestion?.domain}
-                  </Badge>
-                </div>
+                <CardTitle className="text-xl">
+                  Question {currentQuestionIndex + 1}
+                </CardTitle>
               </CardHeader>
 
               <CardContent className="space-y-6">
@@ -326,7 +321,6 @@ const ExamPage = () => {
                       currentQuestion &&
                       handleAnswerChange(currentQuestion._id, value)
                     }
-                    className="space-y-3"
                   >
                     {currentQuestion?.options.map((option, index) => (
                       <div

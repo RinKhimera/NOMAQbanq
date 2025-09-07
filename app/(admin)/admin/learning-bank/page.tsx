@@ -155,8 +155,12 @@ export default function LearningBankPage() {
       {/* Onglets */}
       <Tabs defaultValue="bank" className="space-y-4">
         <TabsList className="bg-card grid w-full grid-cols-2">
-          <TabsTrigger value="bank">Banque d&apos;apprentissage</TabsTrigger>
-          <TabsTrigger value="available">Questions disponibles</TabsTrigger>
+          <TabsTrigger className="cursor-pointer" value="bank">
+            Banque d&apos;apprentissage
+          </TabsTrigger>
+          <TabsTrigger className="cursor-pointer" value="available">
+            Questions disponibles
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="bank" className="@container space-y-4">

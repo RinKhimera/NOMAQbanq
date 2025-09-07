@@ -360,7 +360,7 @@ export default function HomeLanding() {
                       </div>
                     </div>
 
-                    <div className="mb-8">
+                    {/* <div className="mb-8">
                       <div className="mb-2 flex items-baseline">
                         <span className="text-6xl font-bold">339$</span>
                         <span className="ml-2 text-xl text-blue-100">
@@ -370,7 +370,7 @@ export default function HomeLanding() {
                       <p className="text-blue-100">
                         Accès complet à la plateforme
                       </p>
-                    </div>
+                    </div> */}
 
                     <div className="mb-8 space-y-4">
                       {[
