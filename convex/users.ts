@@ -108,31 +108,24 @@ export const updateUserProfile = mutation({
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Vous devez être connecté pour modifier votre profil")
-    }
+    if (!identity) throw new Error("Non authentifié")
 
+    const tokenIdentifier = identity.tokenIdentifier
     const user = await ctx.db
       .query("users")
       .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
+        q.eq("tokenIdentifier", tokenIdentifier),
       )
       .unique()
+    if (!user) throw new Error("Utilisateur introuvable")
 
-    if (!user) {
-      throw new Error("Utilisateur non trouvé")
-    }
-
-    if (args.username !== user.username) {
-      const existingUser = await ctx.db
-        .query("users")
-        .filter((q) => q.eq(q.field("username"), args.username))
-        .unique()
-
-      if (existingUser && existingUser._id !== user._id) {
-        throw new Error("Ce nom d'utilisateur est déjà pris")
-      }
-    }
+    const usernameTaken = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", args.username))
+      .filter((q) => q.neq(q.field("_id"), user._id))
+      .first()
+    if (usernameTaken)
+      return { success: false, error: "Ce nom d'utilisateur est déjà pris !" }
 
     await ctx.db.patch(user._id, {
       name: args.name,

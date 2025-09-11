@@ -2,12 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "convex/react"
-import { AtSign, FileText, Loader2, User, X } from "lucide-react"
+import { AtSign, FileText, Loader2, User } from "lucide-react"
 import type React from "react"
-import { useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import { z } from "zod"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,23 +28,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { Doc } from "@/convex/_generated/dataModel"
-
-const userProfileSchema = z.object({
-  name: z
-    .string()
-    .min(2, "Le nom doit contenir au moins 2 caractères")
-    .max(50, "Le nom ne peut pas dépasser 50 caractères"),
-  username: z
-    .string()
-    .min(3, "Le nom d'utilisateur doit contenir au moins 3 caractères")
-    .max(20, "Le nom d'utilisateur ne peut pas dépasser 20 caractères"),
-  bio: z
-    .string()
-    .max(200, "La biographie ne peut pas dépasser 200 caractères")
-    .optional(),
-})
-
-export type UserProfile = z.infer<typeof userProfileSchema>
+import { UserFormValues, userFormSchema } from "@/schemas"
 
 interface ProfileEditModalProps {
   user: Doc<"users">
@@ -57,33 +40,45 @@ export function ProfileEditModal({ user, children }: ProfileEditModalProps) {
   const [isPending, startTransition] = useTransition()
   const updateProfile = useMutation(api.users.updateUserProfile)
 
-  const form = useForm<UserProfile>({
-    resolver: zodResolver(userProfileSchema),
-    defaultValues: {
+  const initialValues = useMemo(
+    () => ({
       name: user.name,
       username: user.username || "",
       bio: user.bio || "",
-    },
+    }),
+    [user.name, user.username, user.bio],
+  )
+
+  const form = useForm<UserFormValues>({
+    resolver: zodResolver(userFormSchema),
+    defaultValues: initialValues,
   })
 
-  const onSubmit = (data: UserProfile) => {
+  useEffect(() => {
+    if (!open) {
+      form.reset(initialValues)
+    }
+  }, [open, initialValues, form])
+
+  const onSubmit = (data: UserFormValues) => {
     startTransition(async () => {
       try {
-        await updateProfile({
+        const result = await updateProfile({
           name: data.name,
           username: data.username,
           bio: data.bio,
         })
-        setOpen(false)
-        toast.success("Profil mis à jour avec succès.")
-        form.reset(data)
+
+        if (result.success) {
+          setOpen(false)
+          toast.success("Profil mis à jour avec succès.")
+          form.reset(data)
+        } else {
+          toast.error(result.error)
+        }
       } catch (error) {
         console.error("Erreur lors de la mise à jour du profil:", error)
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : "Une erreur est survenue lors de la sauvegarde.",
-        )
+        toast.error("Une erreur est survenue lors de la sauvegarde.")
       }
     })
   }
@@ -99,7 +94,16 @@ export function ProfileEditModal({ user, children }: ProfileEditModalProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v)
+        if (!v) {
+          // fermeture -> reset (déjà géré par effet mais immédiat ici)
+          form.reset(initialValues)
+        }
+      }}
+    >
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent className="dark:bg-card bg-white sm:max-w-[500px]">
         <DialogHeader>
@@ -175,7 +179,7 @@ export function ProfileEditModal({ user, children }: ProfileEditModalProps) {
                     />
                   </FormControl>
                   <p className="text-muted-foreground text-xs">
-                    {field.value?.length || 0}/160 caractères
+                    {field.value?.length || 0}/200 caractères
                   </p>
                   <FormMessage />
                 </FormItem>
@@ -190,7 +194,6 @@ export function ProfileEditModal({ user, children }: ProfileEditModalProps) {
                 onClick={() => setOpen(false)}
                 disabled={isPending}
               >
-                <X className="mr-2 h-4 w-4" />
                 Annuler
               </Button>
               <Button

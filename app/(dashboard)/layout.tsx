@@ -1,6 +1,7 @@
 "use client"
 
 import { GenericNavUser } from "@/components/shared/GenericNavUser"
+import { OnboardingGuard } from "@/components/shared/OnboardingGuard"
 import { AppSidebar } from "@/components/shared/app-sidebar"
 import { SiteHeader } from "@/components/shared/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
@@ -20,6 +21,7 @@ export default function DashboardLayout({
         } as React.CSSProperties
       }
     >
+      <OnboardingGuard />
       <AppSidebar
         variant="inset"
         navigation={dashboardNavigation}
