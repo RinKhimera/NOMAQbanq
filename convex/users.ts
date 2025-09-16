@@ -17,7 +17,7 @@ async function userByExternalId(ctx: QueryCtx, externalId: string) {
 export const upsertFromClerk = internalMutation({
   args: { data: v.any() as Validator<UserJSON> }, // Vient de Clerk
   async handler(ctx, { data }) {
-    const userAttributes = {
+    const baseAttributes = {
       externalId: data.id,
       tokenIdentifier: `${process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL}|${data.id}`,
       name: `${data.first_name} ${data.last_name}`,
@@ -27,9 +27,12 @@ export const upsertFromClerk = internalMutation({
 
     const user = await userByExternalId(ctx, data.id)
     if (user === null) {
-      await ctx.db.insert("users", userAttributes)
+      await ctx.db.insert("users", {
+        ...baseAttributes,
+        role: "user" as const,
+      })
     } else {
-      await ctx.db.patch(user._id, userAttributes)
+      await ctx.db.patch(user._id, baseAttributes)
     }
   },
 })
