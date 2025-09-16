@@ -155,7 +155,7 @@ export default function HomeLanding() {
                     variant="btn_secondary"
                     className="glass-card h-auto rounded-2xl px-8 py-4 text-lg font-semibold transition-all duration-300"
                   >
-                    Essayez NOMAQbank
+                    Essayez NOMAQbanq
                     <Play className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
@@ -309,7 +309,7 @@ export default function HomeLanding() {
 
               <div className="space-y-6">
                 <h2 className="font-display text-display-lg leading-tight text-gray-900 dark:text-white">
-                  Inscrivez-vous pour les questions NOMAQbank
+                  Inscrivez-vous pour les questions NOMAQbanq
                 </h2>
 
                 <p className="text-body-lg leading-relaxed text-gray-600 dark:text-gray-300">
@@ -324,7 +324,7 @@ export default function HomeLanding() {
                 <p className="text-body leading-relaxed text-gray-600 dark:text-gray-300">
                   En vous familiarisant minutieusement avec les objectifs du
                   CMC, vous pouvez vous assurer d&apos;être adéquatement préparé
-                  à répondre aux attentes de la profession médicale. NOMAQbank
+                  à répondre aux attentes de la profession médicale. NOMAQbanq
                   contient plus de 2800+ questions basées sur les objectifs du
                   CMC, fournissant un contenu à haut rendement pour vous aider à
                   réussir vos examens.
@@ -427,7 +427,7 @@ export default function HomeLanding() {
             </h2>
             <p className="text-body-lg mx-auto mb-12 max-w-2xl text-blue-100">
               Rejoignez les milliers de candidats qui ont réussi grâce à
-              NOMAQbank
+              NOMAQbanq
             </p>
             <div className="flex flex-col justify-center gap-6 sm:flex-row">
               <Link href="/auth/sign-up">

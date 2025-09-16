@@ -89,7 +89,7 @@ export default function AdminPage() {
                   Administration
                 </h1>
                 <p className="mt-2 text-xl text-gray-600 dark:text-gray-300">
-                  Tableau de bord pour la gestion de NOMAQbank
+                  Tableau de bord pour la gestion de NOMAQbanq
                 </p>
                 {currentUser && (
                   <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">

@@ -51,7 +51,7 @@ export function AppSidebar({
             >
               <Link href={homeUrl}>
                 <IconInnerShadowTop className="!size-5" />
-                <span className="text-base font-semibold">NOMAQbank</span>
+                <span className="text-base font-semibold">NOMAQbanq</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>

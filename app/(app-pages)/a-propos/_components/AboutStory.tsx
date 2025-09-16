@@ -15,7 +15,7 @@ export default function AboutStory() {
         </h2>
         <div className="text-body space-y-6 leading-relaxed text-gray-700 dark:text-gray-300">
           <p>
-            NOMAQbank est née d&apos;un constat simple : les candidats
+            NOMAQbanq est née d&apos;un constat simple : les candidats
             francophones à l&apos;EACMC manquaient de ressources adaptées à leur
             langue et à leur contexte culturel.
           </p>

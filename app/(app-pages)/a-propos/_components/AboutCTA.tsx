@@ -14,7 +14,7 @@ export default function AboutCTA() {
             Prêt à commencer ?
           </div>
           <h2 className="font-display text-display-md mb-6 text-gray-900 dark:text-white">
-            Rejoignez la communauté NOMAQbank dès aujourd&apos;hui
+            Rejoignez la communauté NOMAQbanq dès aujourd&apos;hui
           </h2>
           <p className="text-body-lg mb-10 leading-relaxed text-gray-600 dark:text-gray-300">
             Lancez votre préparation et accédez à des ressources de qualité pour

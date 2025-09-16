@@ -23,7 +23,7 @@ export default function Footer() {
               <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 p-3 shadow-lg">
                 <Stethoscope className="h-8 w-8 text-white" />
               </div>
-              <span className="font-display text-2xl font-bold">NOMAQbank</span>
+              <span className="font-display text-2xl font-bold">NOMAQbanq</span>
             </Link>
             <p className="text-body mb-8 max-w-md leading-relaxed text-gray-300">
               La première plateforme francophone de préparation à l&apos;EACMC
@@ -76,7 +76,7 @@ export default function Footer() {
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20">
                   <Mail className="h-5 w-5 text-blue-400" />
                 </div>
-                <span className="text-gray-300">contact@nomaqbank.ca</span>
+                <span className="text-gray-300">contact@nomaqbanq.ca</span>
               </li>
               <li className="flex items-center space-x-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20">
@@ -101,7 +101,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-16 flex flex-col items-center justify-between border-t border-gray-800 pt-8 md:flex-row">
           <p className="text-sm text-gray-400">
-            © 2024 NOMAQbank. Tous droits réservés.
+            © 2024 NOMAQbanq. Tous droits réservés.
           </p>
           <div className="mt-4 flex space-x-8 md:mt-0">
             {[

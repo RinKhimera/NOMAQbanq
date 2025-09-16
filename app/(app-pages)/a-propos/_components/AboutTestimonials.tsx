@@ -12,11 +12,11 @@ export default function AboutTestimonials() {
           Témoignages
         </div>
         <h2 className="font-display text-display-md mb-6 text-gray-900 dark:text-white">
-          Ils ont réussi avec NOMAQbank
+          Ils ont réussi avec NOMAQbanq
         </h2>
         <p className="text-body-lg mx-auto max-w-3xl text-gray-600 dark:text-gray-300">
           Des témoignages authentiques de professionnels qui ont réussi grâce à
-          NOMAQbank
+          NOMAQbanq
         </p>
       </div>
       <div className="animate-fade-in-up" style={{ animationDelay: "0.4s" }}>

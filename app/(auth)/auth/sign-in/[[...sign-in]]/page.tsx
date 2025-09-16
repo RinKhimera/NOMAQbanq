@@ -30,7 +30,7 @@ export default function ConnexionPage() {
               </h1>
 
               <p className="text-body-lg max-w-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                Connectez-vous à votre compte NOMAQbank et reprenez votre
+                Connectez-vous à votre compte NOMAQbanq et reprenez votre
                 préparation à l&apos;EACMC là où vous vous êtes arrêté.
               </p>
             </div>
@@ -86,14 +86,14 @@ export default function ConnexionPage() {
                 </div>
               </div>
               <p className="text-sm leading-relaxed text-gray-700 italic dark:text-gray-300">
-                &quot;NOMAQbank m&apos;a aidée à réussir l&apos;EACMC du premier
+                &quot;NOMAQbanq m&apos;a aidée à réussir l&apos;EACMC du premier
                 coup. Une plateforme indispensable !&quot;
               </p>
             </div>
 
             <div className="text-center lg:text-left">
               <p className="mb-4 text-gray-600 dark:text-gray-400">
-                Nouveau sur NOMAQbank ?
+                Nouveau sur NOMAQbanq ?
               </p>
               <Link href="/auth/sign-up">
                 <Button className="btn-modern transform rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-700 hover:to-emerald-700 hover:shadow-xl">

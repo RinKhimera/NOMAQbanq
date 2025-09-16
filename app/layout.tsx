@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "NOMAQbank - Préparation EACMC Partie I",
+  title: "NOMAQbanq - Préparation EACMC Partie I",
   description:
     "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM pour réussir votre examen.",
 }

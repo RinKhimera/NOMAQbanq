@@ -44,12 +44,12 @@ export default function NavBar() {
               {/* Uncomment and replace with actual logo when available */}
               {/* <img 
                 src="/logo.png" 
-                alt="NOMAQbank Logo" 
+                alt="NOMAQbanq Logo" 
                 className="w-full h-full object-cover"
               /> */}
             </div>
             <span className="font-display text-2xl font-bold text-gray-900 dark:text-white">
-              NOMAQbank
+              NOMAQbanq
             </span>
           </Link>
 
