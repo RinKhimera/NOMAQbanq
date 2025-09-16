@@ -54,6 +54,7 @@ export const createUser = internalMutation({
     name: v.string(),
     email: v.string(),
     image: v.string(),
+    role: v.union(v.literal("admin"), v.literal("user")),
     externalId: v.string(),
     tokenIdentifier: v.string(),
   },
@@ -64,6 +65,7 @@ export const createUser = internalMutation({
       name: args.name,
       email: args.email,
       image: args.image,
+      role: args.role,
     })
   },
 })

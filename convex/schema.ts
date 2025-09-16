@@ -10,7 +10,7 @@ export default defineSchema({
     bio: v.optional(v.string()),
     tokenIdentifier: v.string(),
     externalId: v.optional(v.string()),
-    role: v.optional(v.union(v.literal("admin"), v.literal("user"))),
+    role: v.union(v.literal("admin"), v.literal("user")),
   })
     .index("by_tokenIdentifier", ["tokenIdentifier"])
     .index("by_username", ["username"])
