@@ -22,7 +22,8 @@ http.route({
           externalId: event.data.id,
           tokenIdentifier: `${process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL}|${event.data.id}`,
           name: `${event.data.first_name ?? "Guest"} ${event.data.last_name ?? ""}`,
-          email: event.data.email_addresses[0]?.email_address,
+          email:
+            event.data.email_addresses[0]?.email_address ?? "test@example.com",
           image: event.data.image_url,
         })
         break
