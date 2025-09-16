@@ -1,6 +1,5 @@
 import * as z from "zod"
 
-// Schema de validation pour les questions
 export const questionFormSchema = z.object({
   question: z.string().min(1, "La question est obligatoire"),
   imageSrc: z.string().optional(),
@@ -17,7 +16,6 @@ export const questionFormSchema = z.object({
   domain: z.string().min(1, "Le domaine est obligatoire"),
 })
 
-// Types dérivés
 export type QuestionFormValues = z.infer<typeof questionFormSchema>
 
 // Validation customisée pour vérifier que la réponse correcte est dans les options

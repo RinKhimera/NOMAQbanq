@@ -1,7 +1,6 @@
 import * as z from "zod"
 import { Id } from "@/convex/_generated/dataModel"
 
-// Schema de validation pour les examens
 export const examFormSchema = z
   .object({
     title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
@@ -43,7 +42,6 @@ export const examFormSchema = z
     },
   )
 
-// Types dérivés
 export type ExamFormValues = z.infer<typeof examFormSchema>
 
 // Helper pour valider que le nombre de questions sélectionnées correspond au nombre requis

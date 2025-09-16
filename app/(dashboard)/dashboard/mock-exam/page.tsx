@@ -318,9 +318,7 @@ const MockExamPage = () => {
                     {userTaken ? (
                       <Button
                         onClick={() =>
-                          router.push(
-                            `/dashboard/mock-exam/${exam._id}/results`,
-                          )
+                          router.push(`/dashboard/mock-exam/${exam._id}`)
                         }
                         className="w-full cursor-pointer"
                         variant="outline"
