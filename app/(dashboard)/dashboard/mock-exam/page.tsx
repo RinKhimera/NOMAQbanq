@@ -72,7 +72,7 @@ const MockExamPage = () => {
 
   const confirmStartExam = () => {
     if (selectedExam) {
-      router.push(`/dashboard/mock-exam/${selectedExam}`)
+      router.push(`/dashboard/mock-exam/${selectedExam}/assessment`)
     }
     setConfirmationOpen(false)
   }
