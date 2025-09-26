@@ -1,6 +1,6 @@
 "use client"
 
-import { IconInnerShadowTop } from "@tabler/icons-react"
+import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as React from "react"
@@ -50,7 +50,16 @@ export function AppSidebar({
               className="hover:bg-blue-500/25 data-[slot=sidebar-menu-button]:!p-1.5 dark:hover:bg-blue-500/20"
             >
               <Link href={homeUrl}>
-                <IconInnerShadowTop className="!size-5" />
+                <div className="relative flex size-12 items-center justify-center overflow-hidden rounded-lg shadow-sm">
+                  <Image
+                    src="/noma-logo.svg"
+                    alt="Logo NOMAQbanq"
+                    fill
+                    sizes="40px"
+                    className="object-contain p-1"
+                    priority
+                  />
+                </div>
                 <span className="text-base font-semibold">NOMAQbanq</span>
               </Link>
             </SidebarMenuButton>

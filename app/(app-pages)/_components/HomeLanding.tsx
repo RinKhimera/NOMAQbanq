@@ -195,11 +195,12 @@ export default function HomeLanding() {
                 {/* Main image container */}
                 <div className="glass-card relative z-10 rounded-3xl p-2 shadow-2xl">
                   <Image
-                    src="https://images.pexels.com/photos/5327921/pexels-photo-5327921.jpeg?auto=compress&cs=tinysrgb&w=600"
-                    alt="Professionnels médicaux"
+                    src="/images/home-image.jpg"
+                    alt="Jeune médecin confiant portant une blouse blanche"
                     className="h-[500px] w-full rounded-2xl object-cover"
-                    width={300}
-                    height={300}
+                    width={500}
+                    height={500}
+                    priority
                   />
                 </div>
 

@@ -3,6 +3,7 @@
 import { SignOutButton } from "@clerk/clerk-react"
 import { LogOut, Menu, Monitor, Moon, Sun, User, X } from "lucide-react"
 import { useTheme } from "next-themes"
+import Image from "next/image"
 import Link from "next/link"
 import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -14,8 +15,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-// Removed language context: French-only UI
-// import LanguageSelector from "@/components/LanguageSelector"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import ThemeToggle from "./shared/theme-toggle"
 
@@ -35,18 +34,16 @@ export default function NavBar() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-20 items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="group flex items-center space-x-3">
-            <div className="relative h-12 w-12 transform overflow-hidden rounded-2xl shadow-lg transition-all duration-300 group-hover:scale-105 group-hover:shadow-xl">
-              {/* Placeholder for logo image - can be replaced with actual image */}
-              <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-600">
-                <span className="text-lg font-bold text-white">N</span>
-              </div>
-              {/* Uncomment and replace with actual logo when available */}
-              {/* <img 
-                src="/logo.png" 
-                alt="NOMAQbanq Logo" 
-                className="w-full h-full object-cover"
-              /> */}
+          <Link href="/" className="group flex items-center space-x-2">
+            <div className="relative size-20 transform overflow-hidden rounded-2xl shadow-lg transition-all group-hover:shadow-xl">
+              <Image
+                src="/noma-logo.svg"
+                alt="Logo NOMAQbanq"
+                fill
+                sizes="60px"
+                priority
+                className="object-contain p-1"
+              />
             </div>
             <span className="font-display text-2xl font-bold text-gray-900 dark:text-white">
               NOMAQbanq
