@@ -35,7 +35,7 @@ export default function NavBar() {
         <div className="flex h-20 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="group flex items-center space-x-2">
-            <div className="relative size-20 transform overflow-hidden rounded-2xl shadow-lg transition-all group-hover:shadow-xl">
+            <div className="relative size-20">
               <Image
                 src="/noma-logo.svg"
                 alt="Logo NOMAQbanq"
@@ -64,9 +64,6 @@ export default function NavBar() {
             ))}
 
             <div className="flex items-center space-x-3">
-              {/* Language Selector - Masqué */}
-              {/* <LanguageSelector /> */}
-
               {/* Theme Toggle */}
               <ThemeToggle />
 
@@ -127,9 +124,6 @@ export default function NavBar() {
 
           {/* Mobile menu button */}
           <div className="flex items-center space-x-2 md:hidden">
-            {/* Mobile Language Selector - Masqué */}
-            {/* <LanguageSelector /> */}
-
             {/* Mobile Theme Toggle */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -50,7 +50,7 @@ export function AppSidebar({
               className="hover:bg-blue-500/25 data-[slot=sidebar-menu-button]:!p-1.5 dark:hover:bg-blue-500/20"
             >
               <Link href={homeUrl}>
-                <div className="relative flex size-12 items-center justify-center overflow-hidden rounded-lg shadow-sm">
+                <div className="relative flex size-12 items-center justify-center">
                   <Image
                     src="/noma-logo.svg"
                     alt="Logo NOMAQbanq"
