@@ -72,17 +72,29 @@ export default function Footer() {
           <div>
             <h3 className="font-display mb-8 text-lg font-semibold">Contact</h3>
             <ul className="space-y-6">
-              <li className="flex items-center space-x-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20">
-                  <Mail className="h-5 w-5 text-blue-400" />
-                </div>
-                <span className="text-gray-300">contact@nomaqbanq.ca</span>
+              <li>
+                <a
+                  href="mailto:nomaqbanq@outlook.com"
+                  className="group flex items-center space-x-3 text-gray-300 transition-colors duration-200 hover:text-blue-300 focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 focus-visible:outline-none"
+                  aria-label="Envoyer un courriel à nomaqbanq@outlook.com"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20 transition-colors duration-200 group-hover:bg-blue-600/30">
+                    <Mail className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <span>nomaqbanq@outlook.com</span>
+                </a>
               </li>
-              <li className="flex items-center space-x-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20">
-                  <Phone className="h-5 w-5 text-blue-400" />
-                </div>
-                <span className="text-gray-300">+1 (514) 123-4567</span>
+              <li>
+                <a
+                  href="tel:+14388750746"
+                  className="group flex items-center space-x-3 text-gray-300 transition-colors duration-200 hover:text-blue-300 focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 focus-visible:outline-none"
+                  aria-label="Composer le +1 438 875-0746"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20 transition-colors duration-200 group-hover:bg-blue-600/30">
+                    <Phone className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <span>+1 (438) 875-0746</span>
+                </a>
               </li>
               <li className="flex items-start space-x-3">
                 <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20">
