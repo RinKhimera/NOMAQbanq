@@ -107,7 +107,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-16 flex flex-col items-center justify-between border-t border-gray-800 pt-8 md:flex-row">
           <p className="text-sm text-gray-400">
-            © 2024 NOMAQbanq. Tous droits réservés.
+            © {new Date().getFullYear()} NOMAQbanq. Tous droits réservés.
           </p>
           <div className="mt-4 flex space-x-8 md:mt-0">
             {FOOTER_LEGAL_LINKS.map((link) => (

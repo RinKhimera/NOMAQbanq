@@ -16,7 +16,6 @@ const DashboardAccountPage = () => {
         <UserProfile
           appearance={{
             elements: {
-              rootBox: "",
               card: "shadow-lg border-0",
             },
           }}

@@ -9,7 +9,6 @@ import {
   Moon,
   Sun,
   User,
-  X,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import Image from "next/image"
@@ -26,6 +25,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import ThemeToggle from "./shared/theme-toggle"
 
@@ -103,7 +109,7 @@ export default function NavBar() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden items-center space-x-8 md:flex">
+          <div className="hidden items-center space-x-8 lg:flex">
             {navigation.map((item) => {
               const isActive = pathname === item.href
               return (
@@ -210,7 +216,7 @@ export default function NavBar() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="flex items-center space-x-2 md:hidden">
+          <div className="flex items-center space-x-2 lg:hidden">
             {/* Mobile Theme Toggle */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -251,119 +257,169 @@ export default function NavBar() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="rounded-xl p-2.5 text-gray-700 transition-all duration-300 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-              aria-label="Menu"
-            >
-              {isOpen ? (
-                <X className="h-6 w-6 transition-transform duration-300" />
-              ) : (
-                <Menu className="h-6 w-6 transition-transform duration-300" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Navigation */}
-        <div
-          className={`overflow-hidden transition-all duration-300 md:hidden ${
-            isOpen ? "max-h-[600px] opacity-100" : "max-h-0 opacity-0"
-          }`}
-        >
-          <div className="glass-card mb-4 space-y-2 rounded-2xl border-t border-white/20 bg-white/90 px-2 pt-2 pb-6 shadow-xl backdrop-blur-xl dark:border-gray-800/50 dark:bg-gray-900/90">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`block rounded-xl px-4 py-3 text-lg font-medium transition-all duration-300 ${
-                    isActive
-                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400"
-                      : "text-gray-700 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                  }`}
-                  onClick={() => setIsOpen(false)}
+            {/* Mobile Sheet Menu */}
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-xl transition-all duration-300 hover:bg-blue-50 dark:hover:bg-blue-900/20"
                 >
-                  <span className="flex items-center gap-2">
-                    {item.name}
-                    {isActive && (
-                      <span className="ml-auto h-2 w-2 rounded-full bg-blue-600 dark:bg-blue-400"></span>
-                    )}
-                  </span>
-                </Link>
-              )
-            })}
-            <div className="space-y-3 border-t border-gray-200 pt-4 dark:border-gray-700">
-              {isAuthenticated && currentUser ? (
-                <>
-                  <div className="flex items-center space-x-3 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3 dark:from-blue-900/20 dark:to-indigo-900/20">
-                    <Avatar className="h-12 w-12 ring-2 ring-white dark:ring-gray-800">
-                      <AvatarImage
-                        src={currentUser.image}
-                        alt={currentUser.name}
-                      />
-                      <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white">
-                        {currentUser.name?.charAt(0)?.toUpperCase() || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {currentUser.name}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {currentUser.email}
-                      </p>
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className="w-[300px] border-l border-gray-200 bg-gradient-to-b from-white to-gray-50 p-0 dark:border-gray-800 dark:from-gray-950 dark:to-gray-900"
+              >
+                <SheetHeader className="border-b border-gray-200 bg-white/50 p-6 backdrop-blur-sm dark:border-gray-800 dark:bg-gray-950/50">
+                  <SheetTitle className="text-left">
+                    <div className="flex items-center gap-2">
+                      <div className="relative h-8 w-8">
+                        <Image
+                          src="/noma-logo.svg"
+                          alt="NOMAQbanq Logo"
+                          fill
+                          className="object-contain"
+                        />
+                      </div>
+                      <div className="flex items-center">
+                        <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-xl font-extrabold text-transparent">
+                          NOMAQ
+                        </span>
+                        <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-xl font-extrabold text-transparent">
+                          banq
+                        </span>
+                      </div>
                     </div>
-                    <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                  </SheetTitle>
+                </SheetHeader>
+
+                <div className="flex h-[calc(100vh-5rem)] flex-col">
+                  {/* Navigation Links */}
+                  <div className="flex-1 space-y-1 p-4">
+                    {navigation.map((item) => {
+                      const isActive = pathname === item.href
+                      return (
+                        <Link
+                          key={item.name}
+                          href={item.href}
+                          className={`group flex items-center justify-between rounded-xl px-4 py-3.5 text-base font-medium transition-all duration-200 ${
+                            isActive
+                              ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
+                              : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-900"
+                          }`}
+                          onClick={() => setIsOpen(false)}
+                        >
+                          <span>{item.name}</span>
+                          {isActive && (
+                            <div className="flex h-2 w-2 items-center justify-center">
+                              <span className="absolute h-2 w-2 animate-ping rounded-full bg-white opacity-75"></span>
+                              <span className="relative h-1.5 w-1.5 rounded-full bg-white"></span>
+                            </div>
+                          )}
+                        </Link>
+                      )
+                    })}
                   </div>
-                  <Link href="/dashboard" onClick={() => setIsOpen(false)}>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-xl font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                    >
-                      <LayoutDashboard className="mr-2 h-4 w-4" />
-                      Dashboard
-                      <Badge className="ml-auto bg-blue-500 text-xs">
-                        Nouveau
-                      </Badge>
-                    </Button>
-                  </Link>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start rounded-xl font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    Profil
-                  </Button>
-                  <SignOutButton>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-xl font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
-                    >
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Déconnexion
-                    </Button>
-                  </SignOutButton>
-                </>
-              ) : (
-                <>
-                  <Link href="/auth/sign-in" onClick={() => setIsOpen(false)}>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-xl font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
-                    >
-                      Connexion
-                    </Button>
-                  </Link>
-                  <Link href="/auth/sign-up" onClick={() => setIsOpen(false)}>
-                    <Button className="btn-modern w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-lg hover:from-blue-700 hover:to-indigo-700">
-                      Inscription
-                    </Button>
-                  </Link>
-                </>
-              )}
-            </div>
+
+                  {/* User Section */}
+                  <div className="border-t p-4">
+                    {isAuthenticated && currentUser ? (
+                      <div className="space-y-3">
+                        {/* User Info Card */}
+                        <div className="rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 dark:from-blue-950/50 dark:via-indigo-950/50 dark:to-purple-950/50">
+                          <div className="flex items-center gap-3">
+                            <div className="relative">
+                              <Avatar className="h-12 w-12 border-2 border-white shadow-md dark:border-gray-900">
+                                <AvatarImage
+                                  src={currentUser.image}
+                                  alt={currentUser.name}
+                                />
+                                <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-semibold text-white">
+                                  {currentUser.name?.charAt(0)?.toUpperCase() ||
+                                    "U"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="absolute -right-0.5 -bottom-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-green-500 dark:border-gray-900"></div>
+                            </div>
+                            <div className="flex-1 overflow-hidden">
+                              <p className="truncate text-sm font-semibold text-gray-900 dark:text-white">
+                                {currentUser.name}
+                              </p>
+                              <p className="truncate text-xs text-gray-600 dark:text-gray-400">
+                                {currentUser.email}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-2">
+                          <Link
+                            href="/dashboard"
+                            onClick={() => setIsOpen(false)}
+                          >
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-900"
+                            >
+                              <LayoutDashboard className="mr-3 h-4 w-4" />
+                              Dashboard
+                              <Badge className="ml-auto bg-gradient-to-r from-blue-600 to-indigo-600 text-xs font-semibold">
+                                Nouveau
+                              </Badge>
+                            </Button>
+                          </Link>
+
+                          <Button
+                            variant="ghost"
+                            className="w-full justify-start rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-900"
+                          >
+                            <User className="mr-3 h-4 w-4" />
+                            Profil
+                          </Button>
+
+                          <SignOutButton>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-start rounded-xl font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50"
+                            >
+                              <LogOut className="mr-3 h-4 w-4" />
+                              Déconnexion
+                            </Button>
+                          </SignOutButton>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <Link
+                          href="/auth/sign-in"
+                          onClick={() => setIsOpen(false)}
+                          className="block"
+                        >
+                          <Button
+                            variant="outline"
+                            className="w-full rounded-xl border-2 font-semibold hover:bg-gray-100 dark:hover:bg-gray-900"
+                          >
+                            Connexion
+                          </Button>
+                        </Link>
+                        <Link
+                          href="/auth/sign-up"
+                          onClick={() => setIsOpen(false)}
+                          className="block"
+                        >
+                          <Button className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-lg hover:from-blue-700 hover:to-indigo-700">
+                            Inscription
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>
