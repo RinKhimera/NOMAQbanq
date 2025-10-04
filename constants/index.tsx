@@ -132,7 +132,7 @@ export const FOOTER_QUICK_LINKS = [
   { name: "Évaluation", href: "/evaluation" },
   { name: "À propos", href: "/a-propos" },
   { name: "Tarifs", href: "#" },
-  { name: "FAQ", href: "#" },
+  { name: "FAQ", href: "/faq" },
 ] as const
 
 export const FOOTER_LEGAL_LINKS = [
