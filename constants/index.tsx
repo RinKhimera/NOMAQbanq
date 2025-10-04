@@ -124,3 +124,22 @@ export type MedicalDomain = (typeof MEDICAL_DOMAINS)[number]
 export const isMedicalDomain = (domain: string): domain is MedicalDomain => {
   return MEDICAL_DOMAINS.includes(domain as MedicalDomain)
 }
+
+// Liens du footer
+export const FOOTER_QUICK_LINKS = [
+  { name: "Accueil", href: "/" },
+  { name: "Domaines", href: "/domaines" },
+  { name: "Évaluation", href: "/evaluation" },
+  { name: "À propos", href: "/a-propos" },
+  { name: "Tarifs", href: "#" },
+  { name: "FAQ", href: "#" },
+] as const
+
+export const FOOTER_LEGAL_LINKS = [
+  {
+    name: "Politique de confidentialité",
+    href: "/confidentialite",
+  },
+  { name: "Conditions d'utilisation", href: "/conditions" },
+  { name: "Cookies", href: "/cookies" },
+] as const

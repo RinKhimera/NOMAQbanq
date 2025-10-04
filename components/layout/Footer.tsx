@@ -11,6 +11,7 @@ import {
   Twitter,
 } from "lucide-react"
 import Link from "next/link"
+import { FOOTER_LEGAL_LINKS, FOOTER_QUICK_LINKS } from "@/constants"
 
 export default function Footer() {
   return (
@@ -48,14 +49,7 @@ export default function Footer() {
               Liens rapides
             </h3>
             <ul className="space-y-4">
-              {[
-                { name: "Accueil", href: "/" },
-                { name: "Domaines", href: "/domaines" },
-                { name: "Évaluation", href: "/evaluation" },
-                { name: "À propos", href: "/a-propos" },
-                { name: "Tarifs", href: "#" },
-                { name: "FAQ", href: "#" },
-              ].map((link) => (
+              {FOOTER_QUICK_LINKS.map((link) => (
                 <li key={link.name}>
                   <Link
                     href={link.href}
@@ -116,18 +110,14 @@ export default function Footer() {
             © 2024 NOMAQbanq. Tous droits réservés.
           </p>
           <div className="mt-4 flex space-x-8 md:mt-0">
-            {[
-              "Politique de confidentialité",
-              "Conditions d'utilisation",
-              "Mentions légales",
-            ].map((link) => (
-              <a
-                key={link}
-                href="#"
+            {FOOTER_LEGAL_LINKS.map((link) => (
+              <Link
+                key={link.name}
+                href={link.href}
                 className="text-sm text-gray-400 underline-offset-4 transition-colors duration-200 hover:text-blue-400 hover:underline"
               >
-                {link}
-              </a>
+                {link.name}
+              </Link>
             ))}
           </div>
         </div>
