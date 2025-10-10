@@ -259,29 +259,7 @@ const AdminCreateExamPage = () => {
                                     if (range?.from) {
                                       startField.onChange(range.from)
                                       if (range?.to) {
-                                        // Vérifier que la plage ne dépasse pas 14 jours
-                                        const diffTime =
-                                          range.to.getTime() -
-                                          range.from.getTime()
-                                        const diffDays = Math.ceil(
-                                          diffTime / (1000 * 60 * 60 * 24),
-                                        )
-
-                                        if (diffDays <= 14) {
-                                          endField.onChange(range.to)
-                                        } else {
-                                          // Limiter à 14 jours maximum
-                                          const maxEndDate = new Date(
-                                            range.from,
-                                          )
-                                          maxEndDate.setDate(
-                                            maxEndDate.getDate() + 14,
-                                          )
-                                          endField.onChange(maxEndDate)
-                                          toast.error(
-                                            "La période d'examen ne peut pas dépasser 14 jours",
-                                          )
-                                        }
+                                        endField.onChange(range.to)
                                       } else {
                                         endField.onChange(undefined)
                                       }

@@ -29,18 +29,6 @@ export const examFormSchema = z
       path: ["endDate"],
     },
   )
-  .refine(
-    (data) => {
-      if (!data.endDate || !data.startDate) return false
-      const diffTime = data.endDate.getTime() - data.startDate.getTime()
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-      return diffDays <= 14
-    },
-    {
-      message: "La période d'examen ne peut pas dépasser 14 jours",
-      path: ["endDate"],
-    },
-  )
 
 export type ExamFormValues = z.infer<typeof examFormSchema>
 
