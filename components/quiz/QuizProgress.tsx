@@ -29,20 +29,20 @@ export default function QuizProgress({
 
   return (
     <div className="mb-6 sm:mb-8">
-      <div className="mb-3 flex flex-col space-y-2 sm:mb-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
-        <div className="flex flex-col space-y-2 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
+      <div className="mb-3 flex flex-col gap-3 sm:mb-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge
             variant="outline"
-            className="w-fit px-2 py-1 text-xs sm:text-sm"
+            className="w-fit px-2 py-1 text-xs sm:px-3 sm:text-sm"
           >
             Question {currentQuestion + 1} sur {totalQuestions}
           </Badge>
-          <Badge className="w-fit bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-1 text-xs text-white capitalize sm:text-sm">
+          <Badge className="w-fit bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-1 text-xs text-white capitalize sm:px-3 sm:text-sm">
             {domain}
           </Badge>
           <Badge
             variant="outline"
-            className="w-fit border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700 sm:text-sm dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+            className="w-fit border-blue-200 bg-blue-50 px-2 py-1 text-xs text-blue-700 sm:px-3 sm:text-sm dark:border-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
           >
             {objectifCMC}
           </Badge>

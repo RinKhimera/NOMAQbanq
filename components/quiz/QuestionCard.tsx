@@ -31,14 +31,14 @@ export default function QuestionCard({
             />
           </div>
         )}
-        <h2 className="mb-4 text-lg leading-relaxed font-semibold text-gray-900 sm:mb-6 sm:text-xl dark:text-white">
+        <h2 className="mb-4 text-base leading-relaxed font-semibold text-gray-900 sm:mb-6 sm:text-xl dark:text-white">
           {question.question}
         </h2>
 
         <div className="space-y-3">
           {question.options.map((option, index) => {
             let buttonClass =
-              "w-full p-3 sm:p-4 text-left rounded-xl border-2 transition-all duration-200 hover:shadow-md text-sm sm:text-base"
+              "w-full p-3 sm:p-4 text-left rounded-xl border-2 transition-all duration-200 text-sm sm:text-base"
 
             const isSelected = option === selectedAnswer
 
@@ -47,7 +47,7 @@ export default function QuestionCard({
                 " bg-blue-100 border-blue-400 text-blue-800 dark:bg-blue-900/20 dark:border-blue-600 dark:text-blue-300"
             } else {
               buttonClass +=
-                " bg-white border-gray-200 text-gray-700 hover:border-blue-400 hover:bg-blue-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300 dark:hover:border-blue-500 dark:hover:bg-blue-900/20"
+                " bg-white border-gray-200 text-gray-700 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300"
             }
 
             return (
