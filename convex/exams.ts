@@ -368,3 +368,158 @@ export const reactivateExam = mutation({
     return { success: true }
   },
 })
+
+// Récupérer les examens disponibles pour l'utilisateur connecté
+export const getMyAvailableExams = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user) {
+      return []
+    }
+
+    const now = Date.now()
+    const allExams = await ctx.db
+      .query("exams")
+      .withIndex("by_isActive", (q) => q.eq("isActive", true))
+      .collect()
+
+    // Filtrer les examens disponibles pour l'utilisateur
+    const availableExams = allExams.filter((exam) => {
+      const isAllowed = exam.allowedParticipants.includes(user._id)
+      const isActive = exam.startDate <= now && exam.endDate >= now
+      return isAllowed && isActive
+    })
+
+    return availableExams
+  },
+})
+
+// Récupérer les statistiques du dashboard de l'utilisateur
+export const getMyDashboardStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return null
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user) {
+      return null
+    }
+
+    // Récupérer tous les examens de l'utilisateur
+    const allExams = await ctx.db.query("exams").collect()
+
+    // Examens auxquels l'utilisateur a accès
+    const myExams = allExams.filter((exam) =>
+      exam.allowedParticipants.includes(user._id),
+    )
+
+    // Examens complétés
+    const completedExams = myExams.filter((exam) =>
+      exam.participants.some((p) => p.userId === user._id),
+    )
+
+    // Calculer le score moyen
+    let totalScore = 0
+    let examCount = 0
+
+    completedExams.forEach((exam) => {
+      const participation = exam.participants.find((p) => p.userId === user._id)
+      if (participation) {
+        totalScore += participation.score
+        examCount++
+      }
+    })
+
+    const averageScore = examCount > 0 ? Math.round(totalScore / examCount) : 0
+
+    // Compter les questions dans la Learning Bank
+    const learningBankQuestions = await ctx.db
+      .query("learningBankQuestions")
+      .withIndex("by_isActive", (q) => q.eq("isActive", true))
+      .collect()
+
+    return {
+      availableExamsCount: myExams.length,
+      completedExamsCount: completedExams.length,
+      averageScore,
+      learningBankQuestionsCount: learningBankQuestions.length,
+    }
+  },
+})
+
+// Récupérer les derniers examens complétés par l'utilisateur
+export const getMyRecentExams = query({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return []
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user) {
+      return []
+    }
+
+    const allExams = await ctx.db.query("exams").collect()
+
+    // Filtrer et mapper les examens de l'utilisateur
+    const userExams = allExams
+      .filter((exam) => exam.allowedParticipants.includes(user._id))
+      .map((exam) => {
+        const participation = exam.participants.find(
+          (p) => p.userId === user._id,
+        )
+        return {
+          _id: exam._id,
+          title: exam.title,
+          startDate: exam.startDate,
+          endDate: exam.endDate,
+          isCompleted: !!participation,
+          score: participation?.score ?? null,
+          completedAt: participation?.completedAt ?? null,
+        }
+      })
+      .sort((a, b) => {
+        // Trier par date de complétion (les plus récents en premier)
+        if (a.completedAt && b.completedAt) {
+          return b.completedAt - a.completedAt
+        }
+        // Les examens non complétés en dernier
+        if (a.completedAt && !b.completedAt) return -1
+        if (!a.completedAt && b.completedAt) return 1
+        // Sinon trier par date de début
+        return b.startDate - a.startDate
+      })
+      .slice(0, 5) // Prendre les 5 derniers
+
+    return userExams
+  },
+})
