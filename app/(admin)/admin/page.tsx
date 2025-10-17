@@ -19,6 +19,7 @@ import { api } from "@/convex/_generated/api"
 const AdminDashboardPage = () => {
   const [showAllDomains, setShowAllDomains] = useState(false)
   const allQuestions = useQuery(api.questions.getAllQuestions)
+  const adminStats = useQuery(api.users.getAdminStats)
   const domainStats = allQuestions?.reduce(
     (acc, question) => {
       acc[question.domain] = (acc[question.domain] || 0) + 1
@@ -33,7 +34,11 @@ const AdminDashboardPage = () => {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <SectionCards allQuestions={allQuestions} domainStats={domainStats} />
+      <SectionCards
+        allQuestions={allQuestions}
+        domainStats={domainStats}
+        adminStats={adminStats}
+      />
 
       <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-2 lg:px-6">
         <Card className="flex h-[360px] flex-col">
