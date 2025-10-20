@@ -23,13 +23,13 @@ import { Id } from "@/convex/_generated/dataModel"
 interface QuestionSelectorProps {
   selectedQuestions: Id<"questions">[]
   onSelectionChange: (questions: Id<"questions">[]) => void
-  minQuestions?: number
+  maxQuestions?: number
 }
 
 export function QuestionSelector({
   selectedQuestions,
   onSelectionChange,
-  minQuestions = 115,
+  maxQuestions = 230,
 }: QuestionSelectorProps) {
   const [searchTerm, setSearchTerm] = useState("")
   const [domainFilter, setDomainFilter] = useState<string>("all")
@@ -60,7 +60,7 @@ export function QuestionSelector({
       onSelectionChange(updated)
     } else {
       // Seulement permettre de sélectionner si le quota n'est pas atteint
-      if (selectedQuestions.length < minQuestions) {
+      if (selectedQuestions.length < maxQuestions) {
         onSelectionChange([...selectedQuestions, questionId])
       }
     }
@@ -69,7 +69,7 @@ export function QuestionSelector({
   const handleAutoComplete = () => {
     if (!questions) return
 
-    const remaining = minQuestions - selectedQuestions.length
+    const remaining = maxQuestions - selectedQuestions.length
     if (remaining <= 0) return
 
     // Filtrer les questions non sélectionnées
@@ -91,8 +91,8 @@ export function QuestionSelector({
     onSelectionChange([])
   }
 
-  const isQuotaReached = selectedQuestions.length >= minQuestions
-  const canCreate = selectedQuestions.length >= minQuestions
+  const isQuotaReached = selectedQuestions.length >= maxQuestions
+  const canCreate = selectedQuestions.length >= maxQuestions
 
   return (
     <div className="@container space-y-4">
@@ -103,11 +103,11 @@ export function QuestionSelector({
             variant={canCreate ? "default" : "destructive"}
             className="w-fit text-sm"
           >
-            {selectedQuestions.length} / {minQuestions} questions
+            {selectedQuestions.length} / {maxQuestions} questions
           </Badge>
           {!canCreate && (
             <span className="text-muted-foreground text-sm">
-              (minimum {minQuestions} questions requis)
+              (minimum {maxQuestions} questions requis)
             </span>
           )}
           {isQuotaReached && (

@@ -14,7 +14,7 @@ export const examFormSchema = z
     numberOfQuestions: z
       .number()
       .min(10, "Minimum 10 questions")
-      .max(115, "Maximum 115 questions"),
+      .max(230, "Maximum 230 questions"),
     questionIds: z
       .array(z.custom<Id<"questions">>())
       .min(1, "Sélectionnez au moins une question"),

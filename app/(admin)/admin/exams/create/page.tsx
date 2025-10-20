@@ -183,8 +183,8 @@ const AdminCreateExamPage = () => {
                         <Input
                           type="number"
                           min={10}
-                          max={115}
-                          placeholder="Entre 10 et 115 questions"
+                          max={230}
+                          placeholder="Entre 10 et 230 questions"
                           value={field.value || ""}
                           onChange={(e) => {
                             const numValue = parseInt(e.target.value) || 0
@@ -434,7 +434,7 @@ const AdminCreateExamPage = () => {
                     <QuestionSelector
                       selectedQuestions={selectedQuestions}
                       onSelectionChange={handleQuestionSelectionChange}
-                      minQuestions={numberOfQuestions}
+                      maxQuestions={numberOfQuestions}
                     />
                     <FormMessage />
                   </FormItem>
