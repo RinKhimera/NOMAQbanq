@@ -10,18 +10,28 @@ const compat = new FlatCompat({
 })
 
 const eslintConfig = [
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+
   {
-    ignores: [
-      ".next/**",
-      "convex/_generated/**",
-      "node_modules/**",
-      ".env*",
-      "**/*.tmp",
-      "**/*.temp",
-    ],
+    files: ["next-env.d.ts"],
+    rules: {
+      "@typescript-eslint/triple-slash-reference": "off",
+    },
   },
 
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  {
+    ignores: [
+      "**/node_modules/**",
+      "**/.next/**",
+      "**/out/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/convex/_generated/**",
+      "**/*.tmp",
+      "**/*.temp",
+      ".env*",
+    ],
+  },
 ]
 
 export default eslintConfig
