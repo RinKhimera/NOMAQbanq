@@ -39,12 +39,20 @@ export function UserTableRow({
         <div className="flex items-center gap-3">
           <Image
             src={user.image}
-            alt={user.name}
+            alt={user.name || "Utilisateur"}
             width={32}
             height={32}
             className="h-8 w-8 rounded-full object-cover"
           />
-          <span className="font-medium">{user.name}</span>
+          <span
+            className={
+              user.name && user.name !== "null null"
+                ? "font-medium"
+                : "text-muted-foreground italic"
+            }
+          >
+            {user.name && user.name !== "null null" ? user.name : "Non défini"}
+          </span>
         </div>
       </TableCell>
       <TableCell className="text-muted-foreground">{user.email}</TableCell>

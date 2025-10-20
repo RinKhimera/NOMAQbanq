@@ -17,10 +17,14 @@ async function userByExternalId(ctx: QueryCtx, externalId: string) {
 export const upsertFromClerk = internalMutation({
   args: { data: v.any() as Validator<UserJSON> }, // Vient de Clerk
   async handler(ctx, { data }) {
+    const firstName = data.first_name?.trim() || ""
+    const lastName = data.last_name?.trim() || ""
+    const fullName = `${firstName} ${lastName}`.trim() || "Utilisateur"
+
     const baseAttributes = {
       externalId: data.id,
       tokenIdentifier: `${process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL}|${data.id}`,
-      name: `${data.first_name} ${data.last_name}`,
+      name: fullName,
       email: data.email_addresses[0]?.email_address,
       image: data.image_url,
     }
