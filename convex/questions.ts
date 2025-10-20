@@ -37,28 +37,6 @@ export const getAllQuestions = query({
 })
 
 // Récupérer les domaines uniques
-export const getUniqueDomains = query({
-  args: {},
-  handler: async (ctx) => {
-    const questions = await ctx.db.query("questions").collect()
-    const domains = [...new Set(questions.map((q) => q.domain))].sort()
-    return domains
-  },
-})
-
-// Récupérer les questions par domaine
-export const getQuestionsByDomain = query({
-  args: {
-    domain: v.string(),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db
-      .query("questions")
-      .withIndex("by_domain", (q) => q.eq("domain", args.domain))
-      .order("desc")
-      .collect()
-  },
-})
 
 // Supprimer une question
 export const deleteQuestion = mutation({
@@ -265,5 +243,175 @@ export const getRandomLearningBankQuestions = query({
 
     // Retourner le nombre demandé de questions
     return shuffled.slice(0, Math.min(count, shuffled.length))
+  },
+})
+
+// Pagination + Filtres pour l'admin (OPTIMISÉ)
+export const getQuestionsWithPagination = query({
+  args: {
+    page: v.number(),
+    limit: v.number(),
+    domain: v.optional(v.string()),
+    searchQuery: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { page, limit, domain, searchQuery } = args
+
+    // Récupérer toutes les questions (on pourrait optimiser avec des index)
+    let questions = await ctx.db.query("questions").order("desc").collect()
+
+    // Filtrer par domaine
+    if (domain && domain !== "Tous les domaines") {
+      questions = questions.filter((q) => q.domain === domain)
+    }
+
+    // Filtrer par recherche (côté serveur)
+    if (searchQuery && searchQuery.trim() !== "") {
+      const lowerQuery = searchQuery.toLowerCase()
+      questions = questions.filter(
+        (q) =>
+          q.question.toLowerCase().includes(lowerQuery) ||
+          q.objectifCMC.toLowerCase().includes(lowerQuery),
+      )
+    }
+
+    // Calculer la pagination
+    const totalQuestions = questions.length
+    const totalPages = Math.ceil(totalQuestions / limit)
+    const offset = (page - 1) * limit
+    const paginatedQuestions = questions.slice(offset, offset + limit)
+
+    return {
+      questions: paginatedQuestions,
+      totalQuestions,
+      totalPages,
+      currentPage: page,
+    }
+  },
+})
+
+// Pagination pour la banque d'apprentissage (OPTIMISÉ)
+export const getLearningBankQuestionsWithPagination = query({
+  args: {
+    page: v.number(),
+    limit: v.number(),
+    domain: v.optional(v.string()),
+    searchQuery: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { page, limit, domain, searchQuery } = args
+
+    // Récupérer les entrées actives de la banque d'apprentissage
+    const learningBankEntries = await ctx.db
+      .query("learningBankQuestions")
+      .withIndex("by_isActive", (q) => q.eq("isActive", true))
+      .collect()
+
+    // Récupérer les détails des questions
+    const questionsWithDetails = await Promise.all(
+      learningBankEntries.map(async (entry) => {
+        const question = await ctx.db.get(entry.questionId)
+        const addedByUser = await ctx.db.get(entry.addedBy)
+        return {
+          ...entry,
+          question,
+          addedByUser,
+        }
+      }),
+    )
+
+    // Filtrer les questions nulles
+    let filteredItems = questionsWithDetails.filter(
+      (item) => item.question !== null,
+    )
+
+    // Filtrer par domaine
+    if (domain && domain !== "all") {
+      filteredItems = filteredItems.filter(
+        (item) => item.question?.domain === domain,
+      )
+    }
+
+    // Filtrer par recherche
+    if (searchQuery && searchQuery.trim() !== "") {
+      const lowerQuery = searchQuery.toLowerCase()
+      filteredItems = filteredItems.filter(
+        (item) =>
+          item.question?.question.toLowerCase().includes(lowerQuery) ||
+          item.question?.domain.toLowerCase().includes(lowerQuery),
+      )
+    }
+
+    // Calculer la pagination
+    const totalItems = filteredItems.length
+    const totalPages = Math.ceil(totalItems / limit)
+    const offset = (page - 1) * limit
+    const paginatedItems = filteredItems.slice(offset, offset + limit)
+
+    return {
+      items: paginatedItems,
+      totalItems,
+      totalPages,
+      currentPage: page,
+    }
+  },
+})
+
+// Pagination pour les questions disponibles (non dans la banque) (OPTIMISÉ)
+export const getAvailableQuestionsWithPagination = query({
+  args: {
+    page: v.number(),
+    limit: v.number(),
+    domain: v.optional(v.string()),
+    searchQuery: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const { page, limit, domain, searchQuery } = args
+
+    // Récupérer toutes les questions
+    const allQuestions = await ctx.db.query("questions").collect()
+
+    // Récupérer les IDs des questions dans la banque d'apprentissage
+    const learningBankEntries = await ctx.db
+      .query("learningBankQuestions")
+      .withIndex("by_isActive", (q) => q.eq("isActive", true))
+      .collect()
+
+    const learningBankQuestionIds = new Set(
+      learningBankEntries.map((entry) => entry.questionId),
+    )
+
+    // Filtrer les questions qui ne sont PAS dans la banque
+    let availableQuestions = allQuestions.filter(
+      (question) => !learningBankQuestionIds.has(question._id),
+    )
+
+    // Filtrer par domaine
+    if (domain && domain !== "all") {
+      availableQuestions = availableQuestions.filter((q) => q.domain === domain)
+    }
+
+    // Filtrer par recherche
+    if (searchQuery && searchQuery.trim() !== "") {
+      const lowerQuery = searchQuery.toLowerCase()
+      availableQuestions = availableQuestions.filter(
+        (q) =>
+          q.question.toLowerCase().includes(lowerQuery) ||
+          q.domain.toLowerCase().includes(lowerQuery),
+      )
+    }
+
+    // Calculer la pagination
+    const totalQuestions = availableQuestions.length
+    const totalPages = Math.ceil(totalQuestions / limit)
+    const offset = (page - 1) * limit
+    const paginatedQuestions = availableQuestions.slice(offset, offset + limit)
+
+    return {
+      questions: paginatedQuestions,
+      totalQuestions,
+      totalPages,
+      currentPage: page,
+    }
   },
 })

@@ -3,15 +3,14 @@
 import { useMutation, useQuery } from "convex/react"
 import {
   BookOpen,
-  CheckCircle,
-  Edit,
-  Eye,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Filter,
   Search,
-  Target,
-  Trash2,
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -22,9 +21,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -39,46 +36,67 @@ import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
 import EditQuestionDialog from "./EditQuestionDialog"
+import ReusableQuestionCard, {
+  createEditAction,
+  createPermanentDeleteAction,
+} from "./ReusableQuestionCard"
 
 export default function QuestionsList() {
   const [selectedDomain, setSelectedDomain] = useState("Tous les domaines")
   const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [currentPage, setCurrentPage] = useState(1)
   const [editingQuestion, setEditingQuestion] =
     useState<Doc<"questions"> | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [questionToDelete, setQuestionToDelete] = useState<string | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const limit = 10
 
-  const allQuestions = useQuery(api.questions.getAllQuestions)
-  const deleteQuestion = useMutation(api.questions.deleteQuestion)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setCurrentPage(1)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
-  // Créer la liste des domaines avec "Tous les domaines" en premier
-  const domainOptions = ["Tous les domaines", ...MEDICAL_DOMAINS]
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [selectedDomain])
 
-  const filteredQuestions = allQuestions?.filter((question) => {
-    const matchesDomain =
-      selectedDomain === "Tous les domaines" ||
-      question.domain === selectedDomain
-    const matchesSearch =
-      question.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      question.objectifCMC.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesDomain && matchesSearch
+  const questionsData = useQuery(api.questions.getQuestionsWithPagination, {
+    page: currentPage,
+    limit,
+    domain: selectedDomain,
+    searchQuery: debouncedSearch,
   })
 
-  const handleDelete = async (questionId: string) => {
-    try {
-      await deleteQuestion({ id: questionId as Id<"questions"> })
-      toast.success("Question supprimée avec succès")
-    } catch (error) {
-      console.error("Erreur lors de la suppression:", error)
-    }
-  }
+  const deleteQuestion = useMutation(api.questions.deleteQuestion)
+
+  const domainOptions = ["Tous les domaines", ...MEDICAL_DOMAINS]
 
   const handleEdit = (question: Doc<"questions">) => {
     setEditingQuestion(question)
     setIsEditDialogOpen(true)
   }
 
-  const truncateText = (text: string, maxLength: number) => {
-    return text.length > maxLength ? text.substring(0, maxLength) + "..." : text
+  const handleDeleteClick = (questionId: string) => {
+    setQuestionToDelete(questionId)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!questionToDelete) return
+    try {
+      await deleteQuestion({ id: questionToDelete as Id<"questions"> })
+      toast.success("Question supprimée avec succès")
+      setIsDeleteDialogOpen(false)
+      setQuestionToDelete(null)
+    } catch (error) {
+      console.error("Erreur lors de la suppression:", error)
+      toast.error("Erreur lors de la suppression")
+    }
   }
 
   return (
@@ -125,137 +143,88 @@ export default function QuestionsList() {
       {/* Résultats */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">
-          Questions trouvées: {filteredQuestions?.length || 0}
+          Questions trouvées: {questionsData?.totalQuestions || 0}
         </h3>
       </div>
 
       {/* Liste des questions */}
       <div className="grid gap-4">
-        {filteredQuestions?.map((question) => (
-          <Card
+        {questionsData?.questions.map((question, index) => (
+          <ReusableQuestionCard
             key={question._id}
-            className="transition-shadow hover:shadow-lg"
-          >
-            <CardContent>
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-                {/* Contenu principal */}
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-start justify-between gap-4">
-                    <h4 className="text-lg leading-relaxed font-medium">
-                      {truncateText(question.question, 200)}
-                    </h4>
-                    <div className="flex flex-shrink-0 items-center gap-2 max-sm:hidden">
-                      <Badge variant="secondary" className="text-xs">
-                        {question.domain}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
-                    <div className="flex min-w-0 flex-1 items-center gap-1">
-                      <Target className="h-4 w-4 flex-shrink-0" />
-                      <span className="">{question.objectifCMC}</span>
-                    </div>
-                    {question.references && (
-                      <div className="flex flex-shrink-0 items-center gap-1">
-                        <Eye className="h-4 w-4" />
-                        <span className="whitespace-nowrap">
-                          {question.references.length} réf.
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Options de réponse */}
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    {question.options.map((option, index) => (
-                      <div
-                        key={index}
-                        className={`flex items-center gap-2 rounded-lg p-2 text-sm ${
-                          option === question.correctAnswer
-                            ? "border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20"
-                            : "bg-muted dark:bg-muted/50"
-                        }`}
-                      >
-                        <Badge
-                          variant={
-                            option === question.correctAnswer
-                              ? "default"
-                              : "outline"
-                          }
-                          className="flex h-6 min-w-[24px] items-center justify-center"
-                        >
-                          {String.fromCharCode(65 + index)}
-                        </Badge>
-                        <span
-                          className={
-                            option === question.correctAnswer
-                              ? "font-medium"
-                              : ""
-                          }
-                        >
-                          {truncateText(option, 80)}
-                        </span>
-                        {option === question.correctAnswer && (
-                          <CheckCircle className="ml-auto h-4 w-4 text-green-600" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 lg:flex-col">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-1"
-                    onClick={() => handleEdit(question)}
-                  >
-                    <Edit className="h-4 w-4" />
-                    Éditer
-                  </Button>
-
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="flex items-center gap-1 text-red-600 hover:text-red-700"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Supprimer
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>
-                          Confirmer la suppression
-                        </AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Êtes-vous sûr de vouloir supprimer cette question ?
-                          Cette action est irréversible.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Annuler</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => handleDelete(question._id)}
-                          className="text-primary bg-red-600 hover:bg-red-700"
-                        >
-                          Supprimer
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            question={question}
+            questionNumber={(questionsData.currentPage - 1) * limit + index + 1}
+            compact
+            actions={[
+              createEditAction(() => handleEdit(question)),
+              createPermanentDeleteAction(() =>
+                handleDeleteClick(question._id),
+              ),
+            ]}
+          />
         ))}
       </div>
 
-      {filteredQuestions?.length === 0 && (
+      {/* Pagination */}
+      {questionsData && questionsData.totalPages > 1 && (
+        <div className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between md:gap-0">
+          <div className="text-muted-foreground text-sm">
+            Affichage de {(questionsData.currentPage - 1) * limit + 1} à{" "}
+            {Math.min(
+              questionsData.currentPage * limit,
+              questionsData.totalQuestions,
+            )}{" "}
+            sur {questionsData.totalQuestions} question
+            {questionsData.totalQuestions > 1 ? "s" : ""}
+          </div>
+          <div className="flex items-center justify-center space-x-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCurrentPage(1)}
+              disabled={questionsData.currentPage === 1}
+            >
+              <ChevronsLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCurrentPage(questionsData.currentPage - 1)}
+              disabled={questionsData.currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex items-center gap-1">
+              <span className="text-sm">Page</span>
+              <span className="text-sm font-medium">
+                {questionsData.currentPage}
+              </span>
+              <span className="text-sm">sur</span>
+              <span className="text-sm font-medium">
+                {questionsData.totalPages}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCurrentPage(questionsData.currentPage + 1)}
+              disabled={questionsData.currentPage === questionsData.totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCurrentPage(questionsData.totalPages)}
+              disabled={questionsData.currentPage === questionsData.totalPages}
+            >
+              <ChevronsRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {questionsData?.questions.length === 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <BookOpen className="mx-auto mb-4 h-12 w-12 text-gray-400" />
@@ -275,6 +244,31 @@ export default function QuestionsList() {
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
       />
+
+      {/* Dialogue de confirmation de suppression */}
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmer la suppression</AlertDialogTitle>
+            <AlertDialogDescription>
+              Êtes-vous sûr de vouloir supprimer définitivement cette question ?
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

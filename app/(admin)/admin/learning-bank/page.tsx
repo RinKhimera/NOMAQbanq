@@ -1,10 +1,25 @@
 "use client"
 
 import { useMutation, useQuery } from "convex/react"
-import { BookOpen, Filter, Plus, Search } from "lucide-react"
-import { useState } from "react"
+import {
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  Filter,
+  Plus,
+  Search,
+} from "lucide-react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import QuestionDetailsDialog from "@/components/QuestionDetailsDialog"
+import ReusableQuestionCard, {
+  createAddAction,
+  createDeleteAction,
+  createViewAction,
+} from "@/components/ReusableQuestionCard"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import {
@@ -18,17 +33,59 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
-import QuestionCard from "./_components/question-card"
 
 export default function LearningBankPage() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [selectedDomain, setSelectedDomain] = useState<string>("all")
   const [selectedQuestion, setSelectedQuestion] =
     useState<Doc<"questions"> | null>(null)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
+  const [bankPage, setBankPage] = useState(1)
+  const [availablePage, setAvailablePage] = useState(1)
+  const limit = 10
 
-  const learningBankQuestions = useQuery(api.questions.getLearningBankQuestions)
-  const availableQuestions = useQuery(
+  // Debounce pour la recherche
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm)
+      setBankPage(1)
+      setAvailablePage(1)
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  // Reset pages lors du changement de domaine
+  useEffect(() => {
+    setBankPage(1)
+    setAvailablePage(1)
+  }, [selectedDomain])
+
+  const learningBankData = useQuery(
+    api.questions.getLearningBankQuestionsWithPagination,
+    {
+      page: bankPage,
+      limit,
+      domain: selectedDomain,
+      searchQuery: debouncedSearch,
+    },
+  )
+
+  const availableQuestionsData = useQuery(
+    api.questions.getAvailableQuestionsWithPagination,
+    {
+      page: availablePage,
+      limit,
+      domain: selectedDomain,
+      searchQuery: debouncedSearch,
+    },
+  )
+
+  // Pour les statistiques (utiliser les anciennes queries sans pagination)
+  const allLearningBankQuestions = useQuery(
+    api.questions.getLearningBankQuestions,
+  )
+  const allAvailableQuestions = useQuery(
     api.questions.getQuestionsNotInLearningBank,
   )
 
@@ -60,28 +117,6 @@ export default function LearningBankPage() {
     setIsDetailsDialogOpen(true)
   }
 
-  const filteredLearningBankQuestions = learningBankQuestions?.filter(
-    (item) => {
-      const matchesSearch =
-        item.question?.question
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        item.question?.domain.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesDomain =
-        selectedDomain === "all" || item.question?.domain === selectedDomain
-      return matchesSearch && matchesDomain
-    },
-  )
-
-  const filteredAvailableQuestions = availableQuestions?.filter((question) => {
-    const matchesSearch =
-      question.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      question.domain.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesDomain =
-      selectedDomain === "all" || question.domain === selectedDomain
-    return matchesSearch && matchesDomain
-  })
-
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
       <div>
@@ -105,7 +140,7 @@ export default function LearningBankPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {learningBankQuestions?.length || 0}
+              {allLearningBankQuestions?.length || 0}
             </div>
           </CardContent>
         </Card>
@@ -119,7 +154,7 @@ export default function LearningBankPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {availableQuestions?.length || 0}
+              {allAvailableQuestions?.length || 0}
             </div>
           </CardContent>
         </Card>
@@ -165,18 +200,23 @@ export default function LearningBankPage() {
 
         <TabsContent value="bank" className="@container space-y-4">
           <div className="grid gap-4">
-            {filteredLearningBankQuestions?.map((item) => (
+            {learningBankData?.items.map((item) => (
               <div key={item._id} className="relative">
                 {item.question && (
-                  <QuestionCard
+                  <ReusableQuestionCard
                     question={item.question}
-                    onViewDetails={() => handleViewDetails(item.question!)}
-                    onDelete={() => handleRemoveQuestion(item.questionId)}
+                    compact
+                    actions={[
+                      createViewAction(() => handleViewDetails(item.question!)),
+                      createDeleteAction(() =>
+                        handleRemoveQuestion(item.questionId),
+                      ),
+                    ]}
                   />
                 )}
               </div>
             ))}
-            {filteredLearningBankQuestions?.length === 0 && (
+            {learningBankData?.items.length === 0 && (
               <Card>
                 <CardContent className="p-6 text-center">
                   <p className="text-muted-foreground">
@@ -186,20 +226,85 @@ export default function LearningBankPage() {
               </Card>
             )}
           </div>
+
+          {/* Pagination Banque d'apprentissage */}
+          {learningBankData && learningBankData.totalPages > 1 && (
+            <div className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between md:gap-0">
+              <div className="text-muted-foreground text-sm">
+                Affichage de {(learningBankData.currentPage - 1) * limit + 1} à{" "}
+                {Math.min(
+                  learningBankData.currentPage * limit,
+                  learningBankData.totalItems,
+                )}{" "}
+                sur {learningBankData.totalItems} question
+                {learningBankData.totalItems > 1 ? "s" : ""}
+              </div>
+              <div className="flex items-center justify-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setBankPage(1)}
+                  disabled={learningBankData.currentPage === 1}
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setBankPage(learningBankData.currentPage - 1)}
+                  disabled={learningBankData.currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm">Page</span>
+                  <span className="text-sm font-medium">
+                    {learningBankData.currentPage}
+                  </span>
+                  <span className="text-sm">sur</span>
+                  <span className="text-sm font-medium">
+                    {learningBankData.totalPages}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setBankPage(learningBankData.currentPage + 1)}
+                  disabled={
+                    learningBankData.currentPage === learningBankData.totalPages
+                  }
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setBankPage(learningBankData.totalPages)}
+                  disabled={
+                    learningBankData.currentPage === learningBankData.totalPages
+                  }
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="available" className="@container space-y-4">
           <div className="grid gap-4">
-            {filteredAvailableQuestions?.map((question) => (
-              <QuestionCard
+            {availableQuestionsData?.questions.map((question) => (
+              <ReusableQuestionCard
                 key={question._id}
                 question={question}
-                onViewDetails={() => handleViewDetails(question)}
-                onAdd={() => handleAddQuestion(question._id)}
-                showActions={true}
+                compact
+                actions={[
+                  createViewAction(() => handleViewDetails(question)),
+                  createAddAction(() => handleAddQuestion(question._id)),
+                ]}
               />
             ))}
-            {filteredAvailableQuestions?.length === 0 && (
+            {availableQuestionsData?.questions.length === 0 && (
               <Card>
                 <CardContent className="p-6 text-center">
                   <p className="text-muted-foreground">
@@ -209,6 +314,78 @@ export default function LearningBankPage() {
               </Card>
             )}
           </div>
+
+          {/* Pagination Questions disponibles */}
+          {availableQuestionsData && availableQuestionsData.totalPages > 1 && (
+            <div className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between md:gap-0">
+              <div className="text-muted-foreground text-sm">
+                Affichage de{" "}
+                {(availableQuestionsData.currentPage - 1) * limit + 1} à{" "}
+                {Math.min(
+                  availableQuestionsData.currentPage * limit,
+                  availableQuestionsData.totalQuestions,
+                )}{" "}
+                sur {availableQuestionsData.totalQuestions} question
+                {availableQuestionsData.totalQuestions > 1 ? "s" : ""}
+              </div>
+              <div className="flex items-center justify-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setAvailablePage(1)}
+                  disabled={availableQuestionsData.currentPage === 1}
+                >
+                  <ChevronsLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setAvailablePage(availableQuestionsData.currentPage - 1)
+                  }
+                  disabled={availableQuestionsData.currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm">Page</span>
+                  <span className="text-sm font-medium">
+                    {availableQuestionsData.currentPage}
+                  </span>
+                  <span className="text-sm">sur</span>
+                  <span className="text-sm font-medium">
+                    {availableQuestionsData.totalPages}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setAvailablePage(availableQuestionsData.currentPage + 1)
+                  }
+                  disabled={
+                    availableQuestionsData.currentPage ===
+                    availableQuestionsData.totalPages
+                  }
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() =>
+                    setAvailablePage(availableQuestionsData.totalPages)
+                  }
+                  disabled={
+                    availableQuestionsData.currentPage ===
+                    availableQuestionsData.totalPages
+                  }
+                >
+                  <ChevronsRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
