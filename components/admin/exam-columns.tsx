@@ -51,10 +51,19 @@ export const createExamColumns = (
       cell: ({ row }) => {
         const exam = row.original
         return (
-          <div>
-            <p className="font-medium">{exam.title}</p>
+          <div className="max-w-xs">
+            <p className="truncate font-medium">{exam.title}</p>
             {exam.description && (
-              <p className="text-muted-foreground text-sm">
+              <p
+                className="text-muted-foreground text-sm"
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
                 {exam.description}
               </p>
             )}
