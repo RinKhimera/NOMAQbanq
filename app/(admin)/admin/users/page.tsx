@@ -11,6 +11,7 @@ import {
   ChevronsRight,
 } from "lucide-react"
 import { useState } from "react"
+import { ExportUsersButton } from "@/components/admin/ExportUsersButton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -44,6 +45,8 @@ const UsersPage = () => {
     sortBy,
     sortOrder,
   })
+
+  const allUsers = useQuery(api.users.getAllUsers)
 
   const handleSort = (field: SortBy) => {
     if (sortBy === field) {
@@ -89,11 +92,16 @@ const UsersPage = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span className="text-blue-600">Tableau des utilisateurs</span>
-              <Badge variant="secondary">
-                {totalUsers} utilisateur{totalUsers > 1 ? "s" : ""}
-              </Badge>
+            <CardTitle className="flex flex-col gap-3 @md:flex-row @md:items-center @md:justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-blue-600">Tableau des utilisateurs</span>
+                <Badge variant="secondary">
+                  {totalUsers} utilisateur{totalUsers > 1 ? "s" : ""}
+                </Badge>
+              </div>
+              {allUsers && allUsers.length > 0 && (
+                <ExportUsersButton users={allUsers} />
+              )}
             </CardTitle>
           </CardHeader>
           <CardContent>
