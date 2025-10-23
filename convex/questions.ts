@@ -36,7 +36,33 @@ export const getAllQuestions = query({
   },
 })
 
-// Récupérer les domaines uniques
+// Récupérer les statistiques des questions pour le dashboard admin (optimisé)
+export const getQuestionStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const allQuestions = await ctx.db.query("questions").collect()
+
+    const domainCountsMap = allQuestions.reduce(
+      (acc, question) => {
+        acc[question.domain] = (acc[question.domain] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+
+    const domainStats = Object.entries(domainCountsMap).map(
+      ([domain, count]) => ({
+        domain,
+        count,
+      }),
+    )
+
+    return {
+      totalCount: allQuestions.length,
+      domainStats,
+    }
+  },
+})
 
 // Supprimer une question
 export const deleteQuestion = mutation({
@@ -69,7 +95,7 @@ export const updateQuestion = mutation({
   },
 })
 
-// Fonctions pour la banque d'apprentissage
+// Fonctions pour la banque d'apprentissage (optimisé)
 export const getLearningBankQuestions = query({
   args: {},
   handler: async (ctx) => {
@@ -78,19 +104,35 @@ export const getLearningBankQuestions = query({
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
       .collect()
 
+    // Retourner seulement les données essentielles
     const questionsWithDetails = await Promise.all(
       learningBankEntries.map(async (entry) => {
         const question = await ctx.db.get(entry.questionId)
-        const addedByUser = await ctx.db.get(entry.addedBy)
+        if (!question) return null
+
+        // Ne charger que le domaine de la question (pas tous les détails)
         return {
-          ...entry,
-          question,
-          addedByUser,
+          _id: entry._id,
+          _creationTime: entry._creationTime,
+          questionId: entry.questionId,
+          addedBy: entry.addedBy,
+          isActive: entry.isActive,
+          question: {
+            _id: question._id,
+            domain: question.domain,
+            question: question.question,
+            options: question.options,
+            correctAnswer: question.correctAnswer,
+            explanation: question.explanation,
+            objectifCMC: question.objectifCMC,
+            imageSrc: question.imageSrc,
+            references: question.references,
+          },
         }
       }),
     )
 
-    return questionsWithDetails
+    return questionsWithDetails.filter((q) => q !== null)
   },
 })
 
@@ -413,5 +455,31 @@ export const getAvailableQuestionsWithPagination = query({
       totalPages,
       currentPage: page,
     }
+  },
+})
+
+// Obtenir des questions aléatoires (optimisé pour quiz)
+export const getRandomQuestions = query({
+  args: {
+    count: v.number(),
+    domain: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    let questions = await ctx.db.query("questions").collect()
+
+    // Filtrer par domaine si spécifié
+    if (args.domain && args.domain !== "all") {
+      questions = questions.filter((q) => q.domain === args.domain)
+    }
+
+    // Mélanger les questions (Fisher-Yates shuffle)
+    const shuffled = [...questions]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+
+    // Retourner le nombre demandé
+    return shuffled.slice(0, Math.min(args.count, shuffled.length))
   },
 })

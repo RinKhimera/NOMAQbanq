@@ -244,35 +244,30 @@ export const getAdminStats = query({
       throw new Error("Accès non autorisé")
     }
 
-    // Récupérer tous les utilisateurs
     const allUsers = await ctx.db.query("users").collect()
     const totalUsers = allUsers.length
 
-    // Compter les utilisateurs par rôle
     const adminCount = allUsers.filter((u) => u.role === "admin").length
     const regularUserCount = allUsers.filter((u) => u.role === "user").length
 
-    // Récupérer tous les examens
     const allExams = await ctx.db.query("exams").collect()
 
-    // Calculer le nombre total de participations aux examens
     const totalParticipations = allExams.reduce(
       (total, exam) => total + exam.participants.length,
       0,
     )
 
-    // Récupérer les examens actifs
     const now = Date.now()
-    const activeExams = allExams.filter(
+    const activeExamsCount = allExams.filter(
       (exam) => exam.isActive && exam.startDate <= now && exam.endDate >= now,
-    )
+    ).length
 
     return {
       totalUsers,
       adminCount,
       regularUserCount,
       totalExams: allExams.length,
-      activeExams: activeExams.length,
+      activeExams: activeExamsCount,
       totalParticipations,
     }
   },

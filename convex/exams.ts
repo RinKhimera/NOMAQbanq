@@ -125,10 +125,32 @@ export const deleteExam = mutation({
   },
 })
 
-// Récupérer tous les examens (pour l'admin)
+// Récupérer tous les examens
 export const getAllExams = query({
   handler: async (ctx) => {
     return await ctx.db.query("exams").order("desc").collect()
+  },
+})
+
+// Récupérer metadata des examens
+export const getAllExamsMetadata = query({
+  handler: async (ctx) => {
+    const exams = await ctx.db.query("exams").order("desc").collect()
+
+    // Retourner seulement les métadonnées essentielles
+    return exams.map((exam) => ({
+      _id: exam._id,
+      _creationTime: exam._creationTime,
+      title: exam.title,
+      description: exam.description,
+      startDate: exam.startDate,
+      endDate: exam.endDate,
+      completionTime: exam.completionTime,
+      isActive: exam.isActive,
+      questionCount: exam.questionIds.length,
+      participantCount: exam.participants.length,
+      // Ne pas inclure les arrays questionIds et participants
+    }))
   },
 })
 

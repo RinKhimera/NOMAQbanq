@@ -54,7 +54,7 @@ const TAB_OPTIONS = [
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<TabValue>("overview")
-  const allQuestions = useQuery(api.questions.getAllQuestions)
+  const questionStats = useQuery(api.questions.getQuestionStats)
   const currentUser = useQuery(api.users.getCurrentUser)
 
   // Trouver l'option active pour l'affichage
@@ -63,17 +63,19 @@ export default function AdminPage() {
   )
 
   // Statistiques
-  const totalQuestions = allQuestions?.length || 0
-  const domainStats = allQuestions?.reduce(
-    (acc, question) => {
-      acc[question.domain] = (acc[question.domain] || 0) + 1
+  const totalQuestions = questionStats?.totalCount || 0
+  const domainStatsArray = questionStats?.domainStats || []
+
+  const domainStats = domainStatsArray.reduce(
+    (acc, item) => {
+      acc[item.domain] = item.count
       return acc
     },
     {} as Record<string, number>,
   )
 
-  const topDomains = Object.entries(domainStats || {})
-    .sort(([, a], [, b]) => b - a)
+  const topDomains = [...domainStatsArray]
+    .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
   return (
@@ -252,9 +254,9 @@ export default function AdminPage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-4">
-                        {topDomains.map(([domain, count], index) => (
+                        {topDomains.map((item, index) => (
                           <div
-                            key={domain}
+                            key={item.domain}
                             className="flex items-center justify-between"
                           >
                             <div className="flex items-center gap-3">
@@ -262,11 +264,11 @@ export default function AdminPage() {
                                 {index + 1}
                               </div>
                               <span className="text-sm font-medium">
-                                {domain}
+                                {item.domain}
                               </span>
                             </div>
                             <div className="text-muted-foreground text-sm">
-                              {count} question{count > 1 ? "s" : ""}
+                              {item.count} question{item.count > 1 ? "s" : ""}
                             </div>
                           </div>
                         ))}

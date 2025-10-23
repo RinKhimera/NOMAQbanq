@@ -18,24 +18,26 @@ import { api } from "@/convex/_generated/api"
 
 const AdminDashboardPage = () => {
   const [showAllDomains, setShowAllDomains] = useState(false)
-  const allQuestions = useQuery(api.questions.getAllQuestions)
+  const questionStats = useQuery(api.questions.getQuestionStats)
   const adminStats = useQuery(api.users.getAdminStats)
-  const domainStats = allQuestions?.reduce(
-    (acc, question) => {
-      acc[question.domain] = (acc[question.domain] || 0) + 1
+  const domainStatsArray = questionStats?.domainStats || []
+
+  const domainStats = domainStatsArray.reduce(
+    (acc, item) => {
+      acc[item.domain] = item.count
       return acc
     },
     {} as Record<string, number>,
   )
 
-  const topDomains = Object.entries(domainStats || {})
-    .sort(([, a], [, b]) => b - a)
+  const topDomains = [...domainStatsArray]
+    .sort((a, b) => b.count - a.count)
     .slice(0, showAllDomains ? undefined : 5)
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <SectionCards
-        allQuestions={allQuestions}
+        totalQuestions={questionStats?.totalCount}
         domainStats={domainStats}
         adminStats={adminStats}
       />
@@ -69,9 +71,9 @@ const AdminDashboardPage = () => {
           </CardHeader>
           <CardContent className="flex-1 overflow-hidden">
             <div className="h-full space-y-4 overflow-y-auto pr-2">
-              {topDomains.map(([domain, count], index) => (
+              {topDomains.map((item, index) => (
                 <div
-                  key={domain}
+                  key={item.domain}
                   className="flex items-center justify-between px-1"
                 >
                   <div className="flex items-center gap-3">
@@ -79,11 +81,11 @@ const AdminDashboardPage = () => {
                       {index + 1}
                     </div>
                     <span className="truncate text-sm font-semibold text-blue-700 dark:text-white">
-                      {domain}
+                      {item.domain}
                     </span>
                   </div>
                   <div className="text-muted-foreground ml-2 flex-shrink-0 text-sm">
-                    {count} question{count > 1 ? "s" : ""}
+                    {item.count} question{item.count > 1 ? "s" : ""}
                   </div>
                 </div>
               ))}

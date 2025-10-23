@@ -2,13 +2,13 @@
 
 import { useQuery } from "convex/react"
 import { ArrowRight } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
+import { useState } from "react"
 import QuestionCard from "@/components/quiz/QuestionCard"
 import QuizProgress from "@/components/quiz/QuizProgress"
 import QuizResults from "@/components/quiz/QuizResults"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
-import { Doc } from "@/convex/_generated/dataModel"
 
 interface QuizState {
   currentQuestion: number
@@ -19,7 +19,9 @@ interface QuizState {
 }
 
 export default function QuizPage() {
-  const questions = useQuery(api.questions.getAllQuestions)
+  const quizQuestions = useQuery(api.questions.getRandomQuestions, {
+    count: 10,
+  })
   const topOfQuizRef = useRef<HTMLDivElement>(null)
 
   const [quizState, setQuizState] = useState<QuizState>({
@@ -30,29 +32,18 @@ export default function QuizPage() {
     totalTime: 200,
   })
 
-  // Sélectionner 10 questions aléatoires
-  const [quizQuestions, setQuizQuestions] = useState<Doc<"questions">[]>([])
-
   useEffect(() => {
-    if (questions && questions.length > 0) {
-      const shuffled = [...questions].sort(() => 0.5 - Math.random())
-      const selectedQuestions = shuffled.slice(
-        0,
-        Math.min(10, questions.length),
-      )
-      setQuizQuestions(selectedQuestions)
-
-      // Ajuster le nombre de réponses utilisateur si on a moins de 10 questions
-      if (selectedQuestions.length < 10) {
+    if (quizQuestions && quizQuestions.length > 0) {
+      if (quizQuestions.length < 10) {
         setQuizState((prev) => ({
           ...prev,
-          userAnswers: new Array(selectedQuestions.length).fill(null),
-          timeRemaining: selectedQuestions.length * 20, // 20 secondes par question
-          totalTime: selectedQuestions.length * 20,
+          userAnswers: new Array(quizQuestions.length).fill(null),
+          timeRemaining: quizQuestions.length * 20, // 20 secondes par question
+          totalTime: quizQuestions.length * 20,
         }))
       }
     }
-  }, [questions])
+  }, [quizQuestions])
 
   // Timer
   useEffect(() => {
@@ -81,6 +72,7 @@ export default function QuizPage() {
   }, [quizState.currentQuestion])
 
   const handleAnswerSelect = (answerIndex: number) => {
+    if (!quizQuestions) return
     const selectedOption =
       quizQuestions[quizState.currentQuestion].options[answerIndex]
     const newUserAnswers = [...quizState.userAnswers]
@@ -93,6 +85,7 @@ export default function QuizPage() {
   }
 
   const handleNextQuestion = () => {
+    if (!quizQuestions) return
     if (quizState.currentQuestion < quizQuestions.length - 1) {
       setQuizState((prev) => ({
         ...prev,
@@ -105,25 +98,11 @@ export default function QuizPage() {
   }
 
   const restartQuiz = () => {
-    if (questions && questions.length > 0) {
-      const shuffled = [...questions].sort(() => 0.5 - Math.random())
-      const selectedQuestions = shuffled.slice(
-        0,
-        Math.min(10, questions.length),
-      )
-      setQuizQuestions(selectedQuestions)
-
-      setQuizState({
-        currentQuestion: 0,
-        userAnswers: new Array(selectedQuestions.length).fill(null),
-        isCompleted: false,
-        timeRemaining: selectedQuestions.length * 20,
-        totalTime: selectedQuestions.length * 20,
-      })
-    }
+    window.location.reload()
   }
 
   const calculateScore = () => {
+    if (!quizQuestions) return 0
     return quizQuestions.reduce((score, question, index) => {
       return quizState.userAnswers[index] === question.correctAnswer
         ? score + 1
@@ -131,17 +110,13 @@ export default function QuizPage() {
     }, 0)
   }
 
-  if (!questions || questions.length === 0 || quizQuestions.length === 0) {
+  if (!quizQuestions || quizQuestions.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 pt-20 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
         <div className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
           <p className="text-gray-600 dark:text-gray-300">
-            {!questions
-              ? "Chargement des questions..."
-              : questions.length === 0
-                ? "Aucune question disponible dans la base de données."
-                : "Préparation du quiz..."}
+            Chargement des questions...
           </p>
         </div>
       </div>

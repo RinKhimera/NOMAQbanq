@@ -5,14 +5,13 @@ import {
   IconUsers,
 } from "@tabler/icons-react"
 import { StatCard } from "@/components/admin/StatCard"
-import { Doc } from "@/convex/_generated/dataModel"
 
 export const SectionCards = ({
-  allQuestions,
+  totalQuestions,
   domainStats,
   adminStats,
 }: {
-  allQuestions: Doc<"questions">[] | undefined
+  totalQuestions: number | undefined
   domainStats: Record<string, number> | undefined
   adminStats:
     | {
@@ -26,14 +25,14 @@ export const SectionCards = ({
     | undefined
 }) => {
   // Calculs des statistiques
-  const totalQuestions = allQuestions?.length || 0
+  const questionsCount = totalQuestions || 0
   const totalDomains = Object.keys(domainStats || {}).length
   const totalUsers = adminStats?.totalUsers || 0
   const totalParticipations = adminStats?.totalParticipations || 0
   const activeExams = adminStats?.activeExams || 0
 
   // Calculer la croissance (simulation basée sur les données)
-  const questionsGrowth = totalQuestions > 0 ? "+12.5%" : "0%"
+  const questionsGrowth = questionsCount > 0 ? "+12.5%" : "0%"
   const domainsGrowth = totalDomains > 0 ? "+8.3%" : "0%"
   const usersGrowth = totalUsers > 0 ? "+15.2%" : "0%"
   const activityGrowth = totalParticipations > 0 ? "+23.8%" : "0%"
@@ -43,7 +42,7 @@ export const SectionCards = ({
       {/* Total Questions */}
       <StatCard
         title="Total Questions"
-        value={totalQuestions}
+        value={questionsCount}
         growth={questionsGrowth}
         footerLabel="Questions disponibles"
         footerDescription="Base de données QCM médicaux"
