@@ -258,10 +258,48 @@ export const submitExamAnswers = mutation({
       throw new Error("Vous n'êtes pas autorisé à passer cet examen")
     }
 
-    // Vérifier si l'utilisateur a déjà passé cet examen
-    const hasAlreadyTaken = exam.participants.some((p) => p.userId === user._id)
-    if (hasAlreadyTaken) {
+    // Trouver la participation de l'utilisateur
+    const participantIndex = exam.participants.findIndex(
+      (p) => p.userId === user._id,
+    )
+
+    if (participantIndex === -1) {
+      throw new Error(
+        "Session d'examen non trouvée. Vous devez d'abord démarrer l'examen.",
+      )
+    }
+
+    const participant = exam.participants[participantIndex]
+
+    // Vérifier que la session est en cours
+    if (participant.status === "completed") {
       throw new Error("Vous avez déjà passé cet examen")
+    }
+
+    if (participant.status !== "in_progress") {
+      throw new Error("Cette session d'examen n'est plus active")
+    }
+
+    // Vérifier le temps écoulé côté serveur (avec marge de 5 secondes pour latence réseau)
+    const startedAt = participant.startedAt || now
+    const timeElapsed = now - startedAt
+    const maxTimeAllowed = exam.completionTime * 1000 + 5000 // +5 secondes de marge
+
+    if (timeElapsed > maxTimeAllowed) {
+      // Temps dépassé - soumission automatique avec les réponses actuelles
+      // Utiliser les réponses en cours si aucune réponse n'est fournie
+      const finalAnswers =
+        args.answers.length > 0
+          ? args.answers
+          : participant.inProgressAnswers || []
+
+      if (finalAnswers.length === 0) {
+        throw new Error(
+          "Temps écoulé et aucune réponse enregistrée. L'examen a été terminé automatiquement.",
+        )
+      }
+
+      // Continuer avec les réponses disponibles (score = 0 pour questions non répondues)
     }
 
     // Calculer le score
@@ -285,16 +323,16 @@ export const submitExamAnswers = mutation({
     const totalQuestions = exam.questionIds.length
     const percentage = Math.round((score / totalQuestions) * 100)
 
-    // Ajouter le participant à l'examen
-    const newParticipant = {
-      userId: user._id,
+    // Mettre à jour le participant existant
+    const updatedParticipants = [...exam.participants]
+    updatedParticipants[participantIndex] = {
+      ...participant,
       score: percentage,
       completedAt: now,
+      status: "completed",
       answers: answersWithCorrectness,
+      // Garder inProgressAnswers pour référence
     }
-
-    // Mettre à jour l'examen avec le nouveau participant
-    const updatedParticipants = [...exam.participants, newParticipant]
 
     // Trier les participants par score décroissant
     updatedParticipants.sort((a, b) => b.score - a.score)
@@ -550,5 +588,208 @@ export const getMyRecentExams = query({
       .slice(0, 5) // Prendre les 5 derniers
 
     return userExams
+  },
+})
+
+// Démarrer une session d'examen
+export const startExam = mutation({
+  args: {
+    examId: v.id("exams"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Utilisateur non authentifié")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user) {
+      throw new Error("Utilisateur non trouvé")
+    }
+
+    const exam = await ctx.db.get(args.examId)
+    if (!exam) {
+      throw new Error("Examen non trouvé")
+    }
+
+    const now = Date.now()
+
+    // Vérifier si l'examen est disponible
+    if (now < exam.startDate || now > exam.endDate) {
+      throw new Error("L'examen n'est pas disponible à cette période")
+    }
+
+    // Vérifier l'autorisation
+    if (user.role !== "admin" && !exam.allowedParticipants.includes(user._id)) {
+      throw new Error("Vous n'êtes pas autorisé à passer cet examen")
+    }
+
+    // Vérifier si l'utilisateur a déjà une session en cours ou complétée
+    const existingParticipation = exam.participants.find(
+      (p) => p.userId === user._id,
+    )
+
+    if (existingParticipation) {
+      // Si déjà complété, interdire
+      if (existingParticipation.status === "completed") {
+        throw new Error("Vous avez déjà passé cet examen")
+      }
+
+      // Si session en cours existe déjà, retourner les infos
+      if (existingParticipation.status === "in_progress") {
+        return {
+          startedAt: existingParticipation.startedAt!,
+          inProgressAnswers: existingParticipation.inProgressAnswers || [],
+        }
+      }
+    }
+
+    // Créer une nouvelle session
+    const newParticipant = {
+      userId: user._id,
+      startedAt: now,
+      status: "in_progress" as const,
+      inProgressAnswers: [],
+      score: 0,
+      completedAt: 0,
+      answers: [],
+    }
+
+    const updatedParticipants = [...exam.participants, newParticipant]
+
+    await ctx.db.patch(args.examId, {
+      participants: updatedParticipants,
+    })
+
+    return {
+      startedAt: now,
+      inProgressAnswers: [],
+    }
+  },
+})
+
+// Sauvegarder une réponse en temps réel
+export const saveAnswer = mutation({
+  args: {
+    examId: v.id("exams"),
+    questionId: v.id("questions"),
+    selectedAnswer: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Utilisateur non authentifié")
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user) {
+      throw new Error("Utilisateur non trouvé")
+    }
+
+    const exam = await ctx.db.get(args.examId)
+    if (!exam) {
+      throw new Error("Examen non trouvé")
+    }
+
+    // Trouver la participation de l'utilisateur
+    const participantIndex = exam.participants.findIndex(
+      (p) => p.userId === user._id,
+    )
+
+    if (participantIndex === -1) {
+      throw new Error("Session d'examen non trouvée. Veuillez redémarrer.")
+    }
+
+    const participant = exam.participants[participantIndex]
+
+    // Vérifier que la session est en cours
+    if (participant.status !== "in_progress") {
+      throw new Error("Cette session d'examen n'est plus active")
+    }
+
+    // Mettre à jour ou ajouter la réponse
+    const inProgressAnswers = participant.inProgressAnswers || []
+    const existingAnswerIndex = inProgressAnswers.findIndex(
+      (a) => a.questionId === args.questionId,
+    )
+
+    if (existingAnswerIndex !== -1) {
+      // Mettre à jour la réponse existante
+      inProgressAnswers[existingAnswerIndex].selectedAnswer =
+        args.selectedAnswer
+    } else {
+      // Ajouter nouvelle réponse
+      inProgressAnswers.push({
+        questionId: args.questionId,
+        selectedAnswer: args.selectedAnswer,
+      })
+    }
+
+    // Mettre à jour le participant
+    const updatedParticipants = [...exam.participants]
+    updatedParticipants[participantIndex] = {
+      ...participant,
+      inProgressAnswers,
+    }
+
+    await ctx.db.patch(args.examId, {
+      participants: updatedParticipants,
+    })
+
+    return { success: true }
+  },
+})
+
+// Récupérer la session en cours d'un utilisateur
+export const getExamSession = query({
+  args: {
+    examId: v.id("exams"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return null
+    }
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!user) {
+      return null
+    }
+
+    const exam = await ctx.db.get(args.examId)
+    if (!exam) {
+      return null
+    }
+
+    const participation = exam.participants.find((p) => p.userId === user._id)
+
+    if (!participation) {
+      return null
+    }
+
+    return {
+      status: participation.status,
+      startedAt: participation.startedAt,
+      inProgressAnswers: participation.inProgressAnswers || [],
+      completedAt: participation.completedAt,
+    }
   },
 })

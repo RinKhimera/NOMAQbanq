@@ -8,10 +8,11 @@ import {
   CheckCircle,
   Clock,
   Flag,
+  ShieldAlert,
 } from "lucide-react"
 import Image from "next/image"
 import { useParams, useRouter } from "next/navigation"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,7 +20,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -37,12 +37,141 @@ const AssessmentPage = () => {
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [serverStartTime, setServerStartTime] = useState<number | null>(null)
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
+  const [showWarningDialog, setShowWarningDialog] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [hasInitialized, setHasInitialized] = useState(false) // Flag pour éviter les toasts répétitifs
+  const [showSavedIndicator, setShowSavedIndicator] = useState(false) // Indicateur de sauvegarde
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const hasCompletedRef = useRef(false)
 
   const examWithQuestions = useQuery(api.exams.getExamWithQuestions, { examId })
+  const examSession = useQuery(api.exams.getExamSession, { examId })
+  const startExam = useMutation(api.exams.startExam)
+  const saveAnswer = useMutation(api.exams.saveAnswer)
   const submitAnswers = useMutation(api.exams.submitExamAnswers)
+
+  // Initialiser ou reprendre la session
+  useEffect(() => {
+    if (!examWithQuestions || !examSession) return
+
+    // Ne pas interférer si on est en train de soumettre OU si on a déjà complété dans cette session
+    if (isSubmitting || hasCompletedRef.current) return
+
+    const initializeSession = async () => {
+      // Si session existe déjà
+      if (examSession.status === "in_progress" && examSession.startedAt) {
+        setServerStartTime(examSession.startedAt)
+
+        // Restaurer les réponses sauvegardées
+        const savedAnswers: Record<string, string> = {}
+        examSession.inProgressAnswers?.forEach((answer) => {
+          savedAnswers[answer.questionId] = answer.selectedAnswer
+        })
+        setAnswers(savedAnswers)
+
+        // Calculer le temps restant basé sur le serveur
+        const now = Date.now()
+        const elapsedTime = now - examSession.startedAt
+        const totalTime = examWithQuestions.completionTime * 1000
+        const remaining = Math.max(0, totalTime - elapsedTime)
+        setTimeRemaining(remaining)
+
+        // Afficher le toast seulement au premier chargement (pas à chaque sauvegarde auto)
+        if (!hasInitialized) {
+          toast.info(
+            "Session d'examen reprise - Vos réponses ont été restaurées",
+          )
+          setHasInitialized(true)
+        }
+        return
+      }
+
+      // Si session complétée, rediriger (sauf si on vient de la compléter nous-mêmes)
+      if (examSession.status === "completed") {
+        toast.error("Vous avez déjà passé cet examen")
+        router.push("/dashboard/mock-exam")
+        return
+      }
+
+      // Sinon, démarrer nouvelle session (sera fait après fermeture du dialog d'avertissement)
+    }
+
+    initializeSession()
+  }, [examWithQuestions, examSession, router, hasInitialized, isSubmitting])
+
+  // Démarrer l'examen après acceptation de l'avertissement
+  const handleStartExam = async () => {
+    try {
+      const result = await startExam({ examId })
+      setServerStartTime(result.startedAt)
+
+      if (examWithQuestions) {
+        setTimeRemaining(examWithQuestions.completionTime * 1000)
+      }
+
+      // Restaurer les réponses si elles existent (cas de reprise)
+      if (result.inProgressAnswers && result.inProgressAnswers.length > 0) {
+        const savedAnswers: Record<string, string> = {}
+        result.inProgressAnswers.forEach((answer) => {
+          savedAnswers[answer.questionId] = answer.selectedAnswer
+        })
+        setAnswers(savedAnswers)
+      }
+
+      setShowWarningDialog(false)
+      toast.success("Examen démarré - Bonne chance !")
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Erreur lors du démarrage de l'examen",
+      )
+      router.push("/dashboard/mock-exam")
+    }
+  }
+
+  // Sauvegarde automatique des réponses
+  useEffect(() => {
+    if (!hasUnsavedChanges || !serverStartTime) return
+
+    // Debounce de 2 secondes
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current)
+    }
+
+    autoSaveTimeoutRef.current = setTimeout(async () => {
+      // Sauvegarder toutes les réponses
+      try {
+        const savePromises = Object.entries(answers).map(
+          ([questionId, selectedAnswer]) =>
+            saveAnswer({
+              examId,
+              questionId: questionId as Id<"questions">,
+              selectedAnswer,
+            }),
+        )
+
+        await Promise.all(savePromises)
+        setHasUnsavedChanges(false)
+
+        // Afficher brièvement l'indicateur de sauvegarde
+        setShowSavedIndicator(true)
+        setTimeout(() => setShowSavedIndicator(false), 2000)
+      } catch (error) {
+        console.error("Erreur lors de la sauvegarde automatique:", error)
+      }
+    }, 2000)
+
+    return () => {
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current)
+      }
+    }
+  }, [answers, hasUnsavedChanges, serverStartTime, examId, saveAnswer])
 
   // Soumission automatique quand le temps est écoulé
   const handleAutoSubmit = useCallback(async () => {
@@ -62,14 +191,67 @@ const AssessmentPage = () => {
         answers: formattedAnswers,
       })
 
+      // Marquer comme complété pour éviter le toast d'erreur
+      hasCompletedRef.current = true
+
       toast.success(
         "Temps écoulé ! Vos réponses ont été enregistrées automatiquement.",
       )
       router.push("/dashboard/mock-exam")
-    } catch {
+    } catch (error) {
       toast.error("Erreur lors de la soumission automatique")
+      console.error(error)
     }
   }, [answers, examId, submitAnswers, router, isSubmitting])
+
+  // Timer basé sur le serveur
+  useEffect(() => {
+    if (!serverStartTime || !examWithQuestions) return
+
+    const timer = setInterval(() => {
+      const now = Date.now()
+      const elapsedTime = now - serverStartTime
+      const totalTime = examWithQuestions.completionTime * 1000
+      const remaining = Math.max(0, totalTime - elapsedTime)
+
+      setTimeRemaining(remaining)
+
+      if (remaining <= 0) {
+        handleAutoSubmit()
+      }
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [serverStartTime, examWithQuestions, handleAutoSubmit])
+
+  // Détection de navigation/refresh - Avertissement et soumission auto
+  useEffect(() => {
+    if (!serverStartTime) return
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue =
+        "Attention ! Quitter cette page soumettra automatiquement votre examen. Voulez-vous vraiment quitter ?"
+      return e.returnValue
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        toast.warning(
+          "Attention ! Changer d'onglet peut entraîner la soumission automatique de votre examen.",
+          { duration: 5000 },
+        )
+      }
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+    }
+  }, [serverStartTime])
 
   // Formatage du temps
   const formatTime = (ms: number) => {
@@ -79,31 +261,10 @@ const AssessmentPage = () => {
     return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
   }
 
-  // Timer effect
-  useEffect(() => {
-    if (!examWithQuestions) return
-
-    // Initialiser le timer avec le temps de completion de l'examen
-    if (timeRemaining === 0) {
-      setTimeRemaining(examWithQuestions.completionTime * 1000)
-    }
-
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1000) {
-          handleAutoSubmit()
-          return 0
-        }
-        return prev - 1000
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [examWithQuestions, handleAutoSubmit, timeRemaining])
-
   // Gestion des réponses
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: answer }))
+    setHasUnsavedChanges(true)
   }
 
   // Navigation
@@ -129,12 +290,17 @@ const AssessmentPage = () => {
         answers: formattedAnswers,
       })
 
+      // Marquer comme complété pour éviter le toast d'erreur
+      hasCompletedRef.current = true
+
       toast.success(
         "Examen terminé ! Vos réponses ont été enregistrées avec succès.",
       )
       router.push("/dashboard/mock-exam")
-    } catch {
-      toast.error("Erreur lors de la soumission")
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Erreur lors de la soumission",
+      )
     } finally {
       setIsSubmitting(false)
       setShowSubmitDialog(false)
@@ -180,6 +346,14 @@ const AssessmentPage = () => {
             </div>
 
             <div className="flex items-center gap-4">
+              {/* Indicateur de sauvegarde automatique */}
+              {showSavedIndicator && (
+                <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="font-medium">Sauvegardé</span>
+                </div>
+              )}
+
               <div
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
                   isTimeRunningOut
@@ -397,7 +571,7 @@ const AssessmentPage = () => {
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               Terminer l&apos;examen
             </DialogTitle>
-            <DialogDescription className="space-y-3 pt-2">
+            <div className="space-y-3 pt-2">
               <p>Êtes-vous sûr de vouloir terminer l&apos;examen ?</p>
 
               <div className="space-y-2 rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
@@ -426,7 +600,7 @@ const AssessmentPage = () => {
                 résultats seront disponibles une fois que tous les candidats
                 auront terminé l&apos;examen.
               </p>
-            </DialogDescription>
+            </div>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button
@@ -442,6 +616,110 @@ const AssessmentPage = () => {
               className="bg-green-600 hover:bg-green-700"
             >
               {isSubmitting ? "Soumission..." : "Terminer l'examen"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog d'avertissement anti-fraude au démarrage */}
+      <Dialog open={showWarningDialog} onOpenChange={() => {}}>
+        <DialogContent
+          className="sm:max-w-2xl"
+          onInteractOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-2xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                <ShieldAlert className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
+              Règles importantes de l&apos;examen
+            </DialogTitle>
+            <div className="space-y-4 pt-4 text-base">
+              <div className="rounded-lg bg-gradient-to-br from-red-50 to-orange-50 p-4 dark:from-red-950/30 dark:to-orange-950/30">
+                <h3 className="mb-3 font-semibold text-red-900 dark:text-red-200">
+                  🚫 Mesures anti-fraude activées
+                </h3>
+                <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                  <li className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <span>
+                      <strong>Session unique :</strong> Une fois démarré, vous
+                      ne pouvez pas redémarrer l&apos;examen
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <span>
+                      <strong>Timer serveur :</strong> Le temps continue même si
+                      vous rafraîchissez la page
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <span>
+                      <strong>Sauvegarde automatique :</strong> Vos réponses
+                      sont sauvegardées toutes les 2 secondes
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <span>
+                      <strong>Détection de navigation :</strong> Quitter ou
+                      rafraîchir la page soumettra automatiquement votre examen
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <span>
+                      <strong>Soumission auto :</strong> L&apos;examen sera
+                      automatiquement soumis quand le temps est écoulé
+                    </span>
+                  </li>
+                </ul>
+              </div>
+
+              <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+                <h3 className="mb-2 font-semibold text-blue-900 dark:text-blue-200">
+                  📋 Informations sur l&apos;examen
+                </h3>
+                <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                  <p>
+                    • <strong>Questions :</strong>{" "}
+                    {examWithQuestions?.questions.length || 0}
+                  </p>
+                  <p>
+                    • <strong>Durée :</strong>{" "}
+                    {Math.floor((examWithQuestions?.completionTime || 0) / 60)}{" "}
+                    minutes
+                  </p>
+                  <p>
+                    • <strong>Tentatives :</strong> 1 seule (impossible de
+                    recommencer)
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-lg border-2 border-amber-500 bg-amber-50 p-4 dark:border-amber-600 dark:bg-amber-900/20">
+                <p className="text-center font-semibold text-amber-900 dark:text-amber-200">
+                  ⚠️ En cliquant sur &quot;Commencer&quot;, vous acceptez ces
+                  conditions et démarrez votre session d&apos;examen unique
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/dashboard/mock-exam")}
+            >
+              Annuler
+            </Button>
+            <Button
+              onClick={handleStartExam}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
+            >
+              Je comprends - Commencer l&apos;examen
             </Button>
           </DialogFooter>
         </DialogContent>

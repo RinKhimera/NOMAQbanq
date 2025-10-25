@@ -206,28 +206,24 @@ const DashboardPage = () => {
             <CardContent>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {availableExams.map((exam) => (
-                  <Link
+                  <div
                     key={exam._id}
-                    href={`/dashboard/mock-exam/${exam._id}`}
+                    className="hover:bg-muted/50 flex h-full flex-col rounded-lg border p-3 transition-colors"
                   >
-                    <div className="hover:bg-muted/50 flex h-full cursor-pointer flex-col rounded-lg border p-3 transition-colors">
-                      <div className="mb-2 flex items-start gap-2">
-                        <GraduationCap className="text-muted-foreground mt-0.5 h-5 w-5 flex-shrink-0" />
-                        <h4 className="line-clamp-2 font-medium">
-                          {exam.title}
-                        </h4>
-                      </div>
-                      <p className="text-muted-foreground mb-3 flex-1 text-xs">
-                        {exam.questionIds.length} questions •{" "}
-                        {Math.round(exam.completionTime / 60)} min
-                      </p>
-                      <Link href={`/dashboard/mock-exam`}>
-                        <Button size="sm" className="w-full">
-                          Commencer
-                        </Button>
-                      </Link>
+                    <div className="mb-2 flex items-start gap-2">
+                      <GraduationCap className="text-muted-foreground mt-0.5 h-5 w-5 flex-shrink-0" />
+                      <h4 className="line-clamp-2 font-medium">{exam.title}</h4>
                     </div>
-                  </Link>
+                    <p className="text-muted-foreground mb-3 flex-1 text-xs">
+                      {exam.questionIds.length} questions •{" "}
+                      {Math.round(exam.completionTime / 60)} min
+                    </p>
+                    <Link href={"/dashboard/mock-exam"}>
+                      <Button size="sm" className="w-full">
+                        Commencer
+                      </Button>
+                    </Link>
+                  </div>
                 ))}
               </div>
             </CardContent>

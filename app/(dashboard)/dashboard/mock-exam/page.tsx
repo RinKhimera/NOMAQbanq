@@ -19,7 +19,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -368,7 +367,7 @@ const MockExamPage = () => {
               </div>
               Confirmer le début de l&apos;examen
             </DialogTitle>
-            <DialogDescription className="space-y-4 pt-2 text-base">
+            <div className="space-y-4 pt-2 text-base">
               <div className="text-gray-700 dark:text-gray-300">
                 Vous êtes sur le point de commencer un examen blanc. Voici les
                 conditions :
@@ -421,7 +420,7 @@ const MockExamPage = () => {
                 Assurez-vous d&apos;avoir suffisamment de temps avant de
                 commencer.
               </div>
-            </DialogDescription>
+            </div>
           </DialogHeader>
           <DialogFooter className="gap-3 pt-6">
             <Button
