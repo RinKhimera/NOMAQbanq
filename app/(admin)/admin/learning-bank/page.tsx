@@ -205,7 +205,6 @@ export default function LearningBankPage() {
                 {item.question && (
                   <ReusableQuestionCard
                     question={item.question}
-                    compact
                     actions={[
                       createViewAction(() => handleViewDetails(item.question!)),
                       createDeleteAction(() =>
@@ -297,7 +296,6 @@ export default function LearningBankPage() {
               <ReusableQuestionCard
                 key={question._id}
                 question={question}
-                compact
                 actions={[
                   createViewAction(() => handleViewDetails(question)),
                   createAddAction(() => handleAddQuestion(question._id)),

@@ -40,7 +40,6 @@ export function ExamQuestions({
               key={question?._id}
               question={question}
               questionNumber={index + 1}
-              compact
               actions={[]}
             />
           ))}

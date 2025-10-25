@@ -1,21 +1,23 @@
 "use client"
 
 import { useQuery } from "convex/react"
-import { CheckCircle, FileText } from "lucide-react"
+import { ChevronLeft, ChevronRight, FileText } from "lucide-react"
 import * as React from "react"
-import { Badge } from "@/components/ui/badge"
+import { useState } from "react"
+import QuestionDetailsDialog from "@/components/QuestionDetailsDialog"
+import ReusableQuestionCard, {
+  createViewAction,
+} from "@/components/ReusableQuestionCard"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { Doc } from "@/convex/_generated/dataModel"
 
 type ExamQuestionsModalProps = {
   examId: Id<"exams">
@@ -23,88 +25,116 @@ type ExamQuestionsModalProps = {
   onOpenChange: (open: boolean) => void
 }
 
+const QUESTIONS_PER_PAGE = 10
+
 export function ExamQuestionsModal({
   examId,
   open,
   onOpenChange,
 }: ExamQuestionsModalProps) {
-  // No backend? Use exam query when available, else mock fallback
+  const [currentPage, setCurrentPage] = useState(0)
+  const [selectedQuestion, setSelectedQuestion] =
+    useState<Doc<"questions"> | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+
   const exam = useQuery(api.exams.getExamWithQuestions, { examId })
 
-  const data = exam
+  const questions = exam?.questions?.filter((q) => q !== null) || []
+  const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)
+  const startIndex = currentPage * QUESTIONS_PER_PAGE
+  const endIndex = startIndex + QUESTIONS_PER_PAGE
+  const currentQuestions = questions.slice(startIndex, endIndex)
+
+  const handleViewDetails = (question: Doc<"questions">) => {
+    setSelectedQuestion(question)
+    setIsDetailsOpen(true)
+  }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-card flex max-h-[85vh] max-w-3xl flex-col overflow-hidden p-0">
-        {/* Fixed header */}
-        <DialogHeader className="bg-card sticky top-0 z-10 border-b p-4">
-          <DialogTitle className="flex items-center gap-2">
-            <div className="grid size-8 place-items-center rounded-md bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
-              <FileText className="h-4 w-4" />
-            </div>
-            Questions liées à l&apos;examen
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="bg-card flex max-h-[90vh] w-full !max-w-6xl flex-col overflow-hidden p-0">
+          {/* Fixed header */}
+          <DialogHeader className="bg-card sticky top-0 z-10 border-b p-4">
+            <DialogTitle className="flex items-center gap-2">
+              <div className="grid size-8 place-items-center rounded-md bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                <FileText className="h-4 w-4" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span>Questions liées à l&apos;examen</span>
+                <span className="text-xs font-normal text-gray-500">
+                  Page {currentPage + 1} sur {totalPages || 1} (
+                  {questions.length} questions)
+                </span>
+              </div>
+            </DialogTitle>
+          </DialogHeader>
 
-        {/* Scrollable content */}
-        <ScrollArea className="h-72 flex-1 overflow-y-auto p-4">
-          <div className="space-y-4">
-            {data?.questions?.length === 0 ? (
-              <Card>Aucune question trouvée</Card>
-            ) : (
-              data?.questions?.map((q, index: number) => (
-                <div
-                  key={q?._id ?? index}
-                  className="bg-muted rounded-lg border p-4 dark:bg-gray-900"
-                >
-                  <div className="mb-2 flex items-center gap-2">
-                    <Badge variant="outline">Question {index + 1}</Badge>
-                    <Badge variant="badge">{q?.domain}</Badge>
-                  </div>
-                  <p className="mb-3 text-sm leading-relaxed">{q?.question}</p>
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                    {q?.options?.map((opt: string, i: number) => {
-                      const isCorrect = opt === q?.correctAnswer
-                      return (
-                        <div
-                          key={i}
-                          className={`flex items-center gap-2 rounded-lg p-2 text-sm ${
-                            isCorrect
-                              ? "border border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300"
-                              : "border-primary/20 dark:bg-muted/40 bg-blue-200"
-                          }`}
-                        >
-                          <Badge
-                            variant={isCorrect ? "default" : "outline"}
-                            className="flex h-6 min-w-[24px] items-center justify-center"
-                          >
-                            {String.fromCharCode(65 + i)}
-                          </Badge>
-                          <span
-                            className={`flex-1 ${isCorrect ? "font-medium" : ""}`}
-                          >
-                            {opt}
-                          </span>
-                          {isCorrect && (
-                            <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-600" />
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="space-y-4">
+              {questions.length === 0 ? (
+                <div className="text-center text-gray-500">
+                  Aucune question trouvée
                 </div>
-              ))
-            )}
-          </div>
-        </ScrollArea>
+              ) : (
+                currentQuestions.map((q, index) => {
+                  const questionNumber = startIndex + index + 1
 
-        {/* Fixed footer */}
-        <DialogFooter className="bg-card sticky bottom-0 z-10 border-t p-3">
-          <Button variant="destructive" onClick={() => onOpenChange(false)}>
-            Fermer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+                  return (
+                    <ReusableQuestionCard
+                      key={q._id}
+                      question={q}
+                      questionNumber={questionNumber}
+                      showCorrectAnswer={true}
+                      showImage={false}
+                      actions={[createViewAction(() => handleViewDetails(q))]}
+                    />
+                  )
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Fixed footer with pagination */}
+          <div className="bg-card sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t p-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Précédent
+            </Button>
+
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Page {currentPage + 1} / {totalPages || 1}
+            </span>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
+              }
+              disabled={currentPage === totalPages - 1}
+            >
+              Suivant
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Question Details Dialog */}
+      {selectedQuestion && (
+        <QuestionDetailsDialog
+          question={selectedQuestion}
+          open={isDetailsOpen}
+          onOpenChange={setIsDetailsOpen}
+        />
+      )}
+    </>
   )
 }

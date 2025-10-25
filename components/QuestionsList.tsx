@@ -154,7 +154,6 @@ export default function QuestionsList() {
             key={question._id}
             question={question}
             questionNumber={(questionsData.currentPage - 1) * limit + index + 1}
-            compact
             actions={[
               createEditAction(() => handleEdit(question)),
               createPermanentDeleteAction(() =>

@@ -42,7 +42,6 @@ type ReusableQuestionCardProps = {
   showCorrectAnswer?: boolean
   showImage?: boolean
   questionNumber?: number
-  compact?: boolean
 }
 
 const ReusableQuestionCard = ({
@@ -51,12 +50,9 @@ const ReusableQuestionCard = ({
   showCorrectAnswer = true,
   showImage = false,
   questionNumber,
-  compact = false,
 }: ReusableQuestionCardProps) => {
   return (
-    <div
-      className={`rounded-lg border border-gray-200 bg-white transition-all duration-200 dark:border-gray-700 dark:bg-gray-900 ${compact ? "p-4" : "p-4 sm:p-6 lg:p-8"}`}
-    >
+    <div className="rounded-lg border border-gray-200 bg-white p-4 transition-all duration-200 dark:border-gray-700 dark:bg-gray-900">
       {/* Header avec badge et actions */}
       <div className="mb-4 flex items-end justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -122,18 +118,12 @@ const ReusableQuestionCard = ({
       )}
 
       {/* Question */}
-      <h2
-        className={`mb-4 leading-relaxed text-gray-900 dark:text-white ${
-          compact
-            ? "line-clamp-5 text-sm font-medium @lg:line-clamp-3"
-            : "text-base font-semibold sm:mb-6 sm:text-xl"
-        }`}
-      >
+      <h2 className="mb-4 line-clamp-5 text-sm leading-relaxed font-medium text-gray-900 @lg:line-clamp-3 dark:text-white">
         {question.question}
       </h2>
 
       {/* Métadonnées (objectif CMC et références) */}
-      {!compact && question.objectifCMC && (
+      {question.objectifCMC && (
         <div className="mb-4 flex flex-col gap-2 text-sm text-gray-600 @[400px]:flex-row @[400px]:items-center @[400px]:justify-between dark:text-gray-300">
           <div className="flex min-w-0 flex-1 items-center gap-1">
             <Badge variant="outline" className="max-w-[400px]">
