@@ -9,7 +9,6 @@ import {
   Clock,
   GraduationCap,
   Target,
-  TrendingUp,
 } from "lucide-react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -188,120 +187,105 @@ const DashboardPage = () => {
         </CardContent>
       </Card>
 
-      {/* Examens disponibles */}
-      {availableExams && availableExams.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Examens actifs</CardTitle>
-              <CardDescription>
-                Examens blancs actuellement disponibles
-              </CardDescription>
-            </div>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/dashboard/mock-exam">Voir tout</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {availableExams.slice(0, 3).map((exam) => (
-                <div
-                  key={exam._id}
-                  className="flex items-center justify-between rounded-lg border p-4"
-                >
-                  <div className="flex items-center gap-3">
-                    <GraduationCap className="text-muted-foreground h-5 w-5" />
-                    <div>
-                      <h4 className="font-medium">{exam.title}</h4>
-                      <p className="text-muted-foreground text-sm">
+      {/* Examens disponibles ou message + dernier exam passé */}
+      {availableExams && availableExams.length > 0 ? (
+        <>
+          {/* Examens disponibles */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Examens disponibles</CardTitle>
+                <CardDescription>
+                  Examens blancs actuellement accessibles
+                </CardDescription>
+              </div>
+              <Button asChild variant="outline" size="sm">
+                <Link href="/dashboard/mock-exam">Voir tous</Link>
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {availableExams.map((exam) => (
+                  <Link
+                    key={exam._id}
+                    href={`/dashboard/mock-exam/${exam._id}`}
+                  >
+                    <div className="hover:bg-muted/50 flex h-full cursor-pointer flex-col rounded-lg border p-3 transition-colors">
+                      <div className="mb-2 flex items-start gap-2">
+                        <GraduationCap className="text-muted-foreground mt-0.5 h-5 w-5 flex-shrink-0" />
+                        <h4 className="line-clamp-2 font-medium">
+                          {exam.title}
+                        </h4>
+                      </div>
+                      <p className="text-muted-foreground mb-3 flex-1 text-xs">
                         {exam.questionIds.length} questions •{" "}
                         {Math.round(exam.completionTime / 60)} min
                       </p>
+                      <Link href={`/dashboard/mock-exam`}>
+                        <Button size="sm" className="w-full">
+                          Commencer
+                        </Button>
+                      </Link>
                     </div>
-                  </div>
-                  <Button asChild size="sm">
-                    <Link href={`/dashboard/mock-exam/${exam._id}`}>
-                      Commencer
-                    </Link>
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
-      {/* Activité récente */}
-      {recentExams && recentExams.length > 0 && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle>Activité récente</CardTitle>
-              <CardDescription>Vos derniers examens</CardDescription>
-            </div>
-            <Button asChild variant="outline" size="sm">
-              <Link href="/dashboard/account">Voir tout</Link>
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentExams.map((exam) => (
-                <div
-                  key={exam._id}
-                  className="flex items-center justify-between rounded-lg border p-4"
+          {/* Dernier exam passé */}
+          {recentExams &&
+          recentExams.length > 0 &&
+          recentExams[0].isCompleted ? (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Dernier examen passé</CardTitle>
+                  <CardDescription>Consultez vos résultats</CardDescription>
+                </div>
+                <Button asChild variant="outline" size="sm">
+                  <Link href="/dashboard/account">Historique</Link>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <Link
+                  href={`/dashboard/mock-exam/${recentExams[0]._id}/results`}
                 >
-                  <div className="flex items-center gap-3">
-                    <GraduationCap className="text-muted-foreground h-5 w-5" />
-                    <div>
-                      <h4 className="font-medium">{exam.title}</h4>
-                      <p className="text-muted-foreground flex items-center gap-2 text-sm">
-                        <Clock className="h-3 w-3" />
-                        {exam.completedAt
-                          ? new Date(exam.completedAt).toLocaleDateString(
-                              "fr-FR",
-                              {
+                  <div className="hover:bg-muted/50 flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <GraduationCap className="text-muted-foreground h-5 w-5" />
+                      <div>
+                        <h4 className="font-medium">{recentExams[0].title}</h4>
+                        <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                          <Clock className="h-3 w-3" />
+                          {recentExams[0].completedAt
+                            ? new Date(
+                                recentExams[0].completedAt,
+                              ).toLocaleDateString("fr-FR", {
                                 day: "numeric",
                                 month: "long",
                                 year: "numeric",
-                              },
-                            )
-                          : `Disponible jusqu'au ${new Date(exam.endDate).toLocaleDateString("fr-FR")}`}
-                      </p>
+                              })
+                            : "Date inconnue"}
+                        </p>
+                      </div>
                     </div>
+                    <Badge
+                      variant={
+                        recentExams[0].score && recentExams[0].score >= 60
+                          ? "default"
+                          : "destructive"
+                      }
+                    >
+                      {recentExams[0].score}%
+                    </Badge>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {exam.isCompleted ? (
-                      <>
-                        <Badge
-                          variant={
-                            exam.score && exam.score >= 60
-                              ? "default"
-                              : "destructive"
-                          }
-                        >
-                          {exam.score}%
-                        </Badge>
-                        <Badge variant="outline" className="gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Terminé
-                        </Badge>
-                      </>
-                    ) : (
-                      <Badge variant="secondary" className="gap-1">
-                        <TrendingUp className="h-3 w-3" />
-                        Disponible
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Message si aucun examen disponible */}
-      {availableExams && availableExams.length === 0 && (
+                </Link>
+              </CardContent>
+            </Card>
+          ) : null}
+        </>
+      ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <GraduationCap className="text-muted-foreground mb-4 h-12 w-12" />

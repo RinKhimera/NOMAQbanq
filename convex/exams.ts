@@ -419,8 +419,15 @@ export const getMyAvailableExams = query({
 
     // Filtrer les examens disponibles pour l'utilisateur
     const availableExams = allExams.filter((exam) => {
-      const isAllowed = exam.allowedParticipants.includes(user._id)
       const isActive = exam.startDate <= now && exam.endDate >= now
+
+      // Les admins/superusers peuvent voir tous les examens actifs
+      if (user.role === "admin") {
+        return isActive
+      }
+
+      // Les utilisateurs normaux doivent être dans allowedParticipants
+      const isAllowed = exam.allowedParticipants.includes(user._id)
       return isAllowed && isActive
     })
 
