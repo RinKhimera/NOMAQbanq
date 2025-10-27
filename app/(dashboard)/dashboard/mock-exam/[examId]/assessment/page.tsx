@@ -43,12 +43,28 @@ const AssessmentPage = () => {
   const [showWarningDialog, setShowWarningDialog] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasCompletedRef = useRef(false)
+  const correctAnswersRef = useRef<Record<string, string>>({})
 
-  // Charger les données normalement (Convex gère le cache automatiquement)
   const examWithQuestions = useQuery(api.exams.getExamWithQuestions, { examId })
   const examSession = useQuery(api.exams.getExamSession, { examId })
   const startExam = useMutation(api.exams.startExam)
   const submitAnswers = useMutation(api.exams.submitExamAnswers)
+
+  // Stocker les réponses correctes dès le chargement des questions
+  useEffect(() => {
+    if (!examWithQuestions) return
+
+    // Peupler le cache des réponses correctes une seule fois
+    if (Object.keys(correctAnswersRef.current).length === 0) {
+      const correctAnswersMap: Record<string, string> = {}
+      examWithQuestions.questions.forEach((question) => {
+        if (question) {
+          correctAnswersMap[question._id] = question.correctAnswer
+        }
+      })
+      correctAnswersRef.current = correctAnswersMap
+    }
+  }, [examWithQuestions])
 
   // Initialiser ou reprendre la session
   useEffect(() => {
@@ -121,6 +137,7 @@ const AssessmentPage = () => {
       await submitAnswers({
         examId,
         answers: formattedAnswers,
+        correctAnswers: correctAnswersRef.current,
       })
 
       // Marquer comme complété pour éviter le toast d'erreur
@@ -216,6 +233,7 @@ const AssessmentPage = () => {
       await submitAnswers({
         examId,
         answers: formattedAnswers,
+        correctAnswers: correctAnswersRef.current,
       })
 
       // Marquer comme complété pour éviter le toast d'erreur

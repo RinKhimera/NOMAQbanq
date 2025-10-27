@@ -224,6 +224,10 @@ export const submitExamAnswers = mutation({
         selectedAnswer: v.string(),
       }),
     ),
+    // Accepter les réponses correctes depuis le frontend pour éviter de relire les questions
+    correctAnswers: v.optional(
+      v.record(v.string(), v.string()), // { questionId: correctAnswer }
+    ),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -292,21 +296,37 @@ export const submitExamAnswers = mutation({
     }
 
     // Calculer le score
-    const questions = await Promise.all(
-      exam.questionIds.map(async (questionId) => {
-        return await ctx.db.get(questionId)
-      }),
-    )
+    let answersWithCorrectness
 
-    const answersWithCorrectness = args.answers.map((answer) => {
-      const question = questions.find((q) => q?._id === answer.questionId)
-      const isCorrect = question?.correctAnswer === answer.selectedAnswer
-      return {
-        questionId: answer.questionId,
-        selectedAnswer: answer.selectedAnswer,
-        isCorrect,
-      }
-    })
+    if (args.correctAnswers && Object.keys(args.correctAnswers).length > 0) {
+      // Utiliser les correctAnswers passées depuis le frontend (évite 200 DB reads!)
+      answersWithCorrectness = args.answers.map((answer) => {
+        const correctAnswer = args.correctAnswers?.[answer.questionId]
+        const isCorrect = correctAnswer === answer.selectedAnswer
+        return {
+          questionId: answer.questionId,
+          selectedAnswer: answer.selectedAnswer,
+          isCorrect,
+        }
+      })
+    } else {
+      // Fallback : lire les questions depuis la DB (méthode ancienne)
+      const questions = await Promise.all(
+        exam.questionIds.map(async (questionId) => {
+          return await ctx.db.get(questionId)
+        }),
+      )
+
+      answersWithCorrectness = args.answers.map((answer) => {
+        const question = questions.find((q) => q?._id === answer.questionId)
+        const isCorrect = question?.correctAnswer === answer.selectedAnswer
+        return {
+          questionId: answer.questionId,
+          selectedAnswer: answer.selectedAnswer,
+          isCorrect,
+        }
+      })
+    }
 
     const score = answersWithCorrectness.filter((a) => a.isCorrect).length
     const totalQuestions = exam.questionIds.length
