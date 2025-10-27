@@ -286,20 +286,9 @@ export const submitExamAnswers = mutation({
     const maxTimeAllowed = exam.completionTime * 1000 + 5000 // +5 secondes de marge
 
     if (timeElapsed > maxTimeAllowed) {
-      // Temps dépassé - soumission automatique avec les réponses actuelles
-      // Utiliser les réponses en cours si aucune réponse n'est fournie
-      const finalAnswers =
-        args.answers.length > 0
-          ? args.answers
-          : participant.inProgressAnswers || []
-
-      if (finalAnswers.length === 0) {
-        throw new Error(
-          "Temps écoulé et aucune réponse enregistrée. L'examen a été terminé automatiquement.",
-        )
-      }
-
-      // Continuer avec les réponses disponibles (score = 0 pour questions non répondues)
+      throw new Error(
+        "Temps écoulé ! L'examen a été automatiquement soumis avec vos réponses actuelles.",
+      )
     }
 
     // Calculer le score
@@ -645,7 +634,6 @@ export const startExam = mutation({
       if (existingParticipation.status === "in_progress") {
         return {
           startedAt: existingParticipation.startedAt!,
-          inProgressAnswers: existingParticipation.inProgressAnswers || [],
         }
       }
     }
@@ -655,7 +643,6 @@ export const startExam = mutation({
       userId: user._id,
       startedAt: now,
       status: "in_progress" as const,
-      inProgressAnswers: [],
       score: 0,
       completedAt: 0,
       answers: [],
@@ -669,89 +656,9 @@ export const startExam = mutation({
 
     return {
       startedAt: now,
-      inProgressAnswers: [],
     }
   },
 })
-
-// Sauvegarder une réponse en temps réel
-export const saveAnswer = mutation({
-  args: {
-    examId: v.id("exams"),
-    questionId: v.id("questions"),
-    selectedAnswer: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user) {
-      throw new Error("Utilisateur non trouvé")
-    }
-
-    const exam = await ctx.db.get(args.examId)
-    if (!exam) {
-      throw new Error("Examen non trouvé")
-    }
-
-    // Trouver la participation de l'utilisateur
-    const participantIndex = exam.participants.findIndex(
-      (p) => p.userId === user._id,
-    )
-
-    if (participantIndex === -1) {
-      throw new Error("Session d'examen non trouvée. Veuillez redémarrer.")
-    }
-
-    const participant = exam.participants[participantIndex]
-
-    // Vérifier que la session est en cours
-    if (participant.status !== "in_progress") {
-      throw new Error("Cette session d'examen n'est plus active")
-    }
-
-    // Mettre à jour ou ajouter la réponse
-    const inProgressAnswers = participant.inProgressAnswers || []
-    const existingAnswerIndex = inProgressAnswers.findIndex(
-      (a) => a.questionId === args.questionId,
-    )
-
-    if (existingAnswerIndex !== -1) {
-      // Mettre à jour la réponse existante
-      inProgressAnswers[existingAnswerIndex].selectedAnswer =
-        args.selectedAnswer
-    } else {
-      // Ajouter nouvelle réponse
-      inProgressAnswers.push({
-        questionId: args.questionId,
-        selectedAnswer: args.selectedAnswer,
-      })
-    }
-
-    // Mettre à jour le participant
-    const updatedParticipants = [...exam.participants]
-    updatedParticipants[participantIndex] = {
-      ...participant,
-      inProgressAnswers,
-    }
-
-    await ctx.db.patch(args.examId, {
-      participants: updatedParticipants,
-    })
-
-    return { success: true }
-  },
-})
-
 // Récupérer la session en cours d'un utilisateur
 export const getExamSession = query({
   args: {
@@ -788,7 +695,6 @@ export const getExamSession = query({
     return {
       status: participation.status,
       startedAt: participation.startedAt,
-      inProgressAnswers: participation.inProgressAnswers || [],
       completedAt: participation.completedAt,
     }
   },

@@ -41,22 +41,14 @@ export default defineSchema({
         userId: v.id("users"),
         score: v.number(),
         completedAt: v.number(),
-        startedAt: v.optional(v.number()), // Timestamp de début de session
+        startedAt: v.optional(v.number()),
         status: v.optional(
           v.union(
             v.literal("in_progress"),
             v.literal("completed"),
             v.literal("auto_submitted"),
           ),
-        ), // Statut de la participation
-        inProgressAnswers: v.optional(
-          v.array(
-            v.object({
-              questionId: v.id("questions"),
-              selectedAnswer: v.string(),
-            }),
-          ),
-        ), // Réponses en cours (sauvegarde auto)
+        ),
         answers: v.array(
           v.object({
             questionId: v.id("questions"),

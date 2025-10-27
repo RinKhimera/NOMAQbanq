@@ -42,66 +42,46 @@ const AssessmentPage = () => {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [showWarningDialog, setShowWarningDialog] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [hasInitialized, setHasInitialized] = useState(false) // Flag pour éviter les toasts répétitifs
-  const [showSavedIndicator, setShowSavedIndicator] = useState(false) // Indicateur de sauvegarde
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const hasCompletedRef = useRef(false)
 
+  // Charger les données normalement (Convex gère le cache automatiquement)
   const examWithQuestions = useQuery(api.exams.getExamWithQuestions, { examId })
   const examSession = useQuery(api.exams.getExamSession, { examId })
   const startExam = useMutation(api.exams.startExam)
-  const saveAnswer = useMutation(api.exams.saveAnswer)
   const submitAnswers = useMutation(api.exams.submitExamAnswers)
 
   // Initialiser ou reprendre la session
   useEffect(() => {
     if (!examWithQuestions || !examSession) return
-
-    // Ne pas interférer si on est en train de soumettre OU si on a déjà complété dans cette session
     if (isSubmitting || hasCompletedRef.current) return
 
     const initializeSession = async () => {
-      // Si session existe déjà
+      // Si session en cours - reprendre le timer
       if (examSession.status === "in_progress" && examSession.startedAt) {
         setServerStartTime(examSession.startedAt)
 
-        // Restaurer les réponses sauvegardées
-        const savedAnswers: Record<string, string> = {}
-        examSession.inProgressAnswers?.forEach((answer) => {
-          savedAnswers[answer.questionId] = answer.selectedAnswer
-        })
-        setAnswers(savedAnswers)
-
-        // Calculer le temps restant basé sur le serveur
+        // Calculer le temps restant
         const now = Date.now()
         const elapsedTime = now - examSession.startedAt
         const totalTime = examWithQuestions.completionTime * 1000
         const remaining = Math.max(0, totalTime - elapsedTime)
         setTimeRemaining(remaining)
 
-        // Afficher le toast seulement au premier chargement (pas à chaque sauvegarde auto)
-        if (!hasInitialized) {
-          toast.info(
-            "Session d'examen reprise - Vos réponses ont été restaurées",
-          )
-          setHasInitialized(true)
-        }
+        toast.info("Session reprise - Le timer continue")
+        setShowWarningDialog(false)
         return
       }
 
-      // Si session complétée, rediriger (sauf si on vient de la compléter nous-mêmes)
+      // Si session complétée, rediriger
       if (examSession.status === "completed") {
         toast.error("Vous avez déjà passé cet examen")
         router.push("/dashboard/mock-exam")
         return
       }
-
-      // Sinon, démarrer nouvelle session (sera fait après fermeture du dialog d'avertissement)
     }
 
     initializeSession()
-  }, [examWithQuestions, examSession, router, hasInitialized, isSubmitting])
+  }, [examWithQuestions, examSession, router, isSubmitting])
 
   // Démarrer l'examen après acceptation de l'avertissement
   const handleStartExam = async () => {
@@ -111,15 +91,6 @@ const AssessmentPage = () => {
 
       if (examWithQuestions) {
         setTimeRemaining(examWithQuestions.completionTime * 1000)
-      }
-
-      // Restaurer les réponses si elles existent (cas de reprise)
-      if (result.inProgressAnswers && result.inProgressAnswers.length > 0) {
-        const savedAnswers: Record<string, string> = {}
-        result.inProgressAnswers.forEach((answer) => {
-          savedAnswers[answer.questionId] = answer.selectedAnswer
-        })
-        setAnswers(savedAnswers)
       }
 
       setShowWarningDialog(false)
@@ -133,45 +104,6 @@ const AssessmentPage = () => {
       router.push("/dashboard/mock-exam")
     }
   }
-
-  // Sauvegarde automatique des réponses
-  useEffect(() => {
-    if (!hasUnsavedChanges || !serverStartTime) return
-
-    // Debounce de 2 secondes
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current)
-    }
-
-    autoSaveTimeoutRef.current = setTimeout(async () => {
-      // Sauvegarder toutes les réponses
-      try {
-        const savePromises = Object.entries(answers).map(
-          ([questionId, selectedAnswer]) =>
-            saveAnswer({
-              examId,
-              questionId: questionId as Id<"questions">,
-              selectedAnswer,
-            }),
-        )
-
-        await Promise.all(savePromises)
-        setHasUnsavedChanges(false)
-
-        // Afficher brièvement l'indicateur de sauvegarde
-        setShowSavedIndicator(true)
-        setTimeout(() => setShowSavedIndicator(false), 2000)
-      } catch (error) {
-        console.error("Erreur lors de la sauvegarde automatique:", error)
-      }
-    }, 2000)
-
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current)
-      }
-    }
-  }, [answers, hasUnsavedChanges, serverStartTime, examId, saveAnswer])
 
   // Soumission automatique quand le temps est écoulé
   const handleAutoSubmit = useCallback(async () => {
@@ -224,21 +156,18 @@ const AssessmentPage = () => {
     return () => clearInterval(timer)
   }, [serverStartTime, examWithQuestions, handleAutoSubmit])
 
-  // Détection de navigation/refresh - Avertissement et soumission auto
+  // Détection de navigation/refresh - Avertissement
   useEffect(() => {
     if (!serverStartTime) return
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault()
-      e.returnValue =
-        "Attention ! Quitter cette page soumettra automatiquement votre examen. Voulez-vous vraiment quitter ?"
-      return e.returnValue
     }
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
         toast.warning(
-          "Attention ! Changer d'onglet peut entraîner la soumission automatique de votre examen.",
+          "Attention ! Changer d'onglet est détecté. Restez sur cette page.",
           { duration: 5000 },
         )
       }
@@ -264,7 +193,6 @@ const AssessmentPage = () => {
   // Gestion des réponses
   const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers((prev) => ({ ...prev, [questionId]: answer }))
-    setHasUnsavedChanges(true)
   }
 
   // Navigation
@@ -346,14 +274,6 @@ const AssessmentPage = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Indicateur de sauvegarde automatique */}
-              {showSavedIndicator && (
-                <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                  <CheckCircle className="h-4 w-4" />
-                  <span className="font-medium">Sauvegardé</span>
-                </div>
-              )}
-
               <div
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 ${
                   isTimeRunningOut
@@ -658,15 +578,16 @@ const AssessmentPage = () => {
                   <li className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                     <span>
-                      <strong>Sauvegarde automatique :</strong> Vos réponses
-                      sont sauvegardées toutes les 2 secondes
+                      <strong>PAS de sauvegarde automatique :</strong> Vos
+                      réponses ne sont enregistrées qu&apos;à la soumission
+                      finale
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                     <span>
-                      <strong>Détection de navigation :</strong> Quitter ou
-                      rafraîchir la page soumettra automatiquement votre examen
+                      <strong>Rafraîchir = Perte :</strong> Si vous
+                      rafraîchissez la page, vos réponses cochées seront perdues
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
