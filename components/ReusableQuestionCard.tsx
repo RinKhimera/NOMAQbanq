@@ -74,7 +74,7 @@ const ReusableQuestionCard = ({
                 <span className="sr-only">Actions</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuContent align="end" className="w-56">
               {actions.map((action, index) => {
                 const isDestructive = action.variant === "destructive"
                 const showSeparator =

@@ -44,3 +44,5 @@ next-env.d.ts
 /.cursor
 README-REFACTOR.md
 .gitignore
+# Sentry Config File
+.env.sentry-build-plugin
