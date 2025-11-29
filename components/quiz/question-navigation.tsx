@@ -19,12 +19,12 @@ interface QuestionNavigationProps {
   onCollapseAll: () => void
 }
 
-export default function QuestionNavigation({
+const QuestionNavigation = ({
   questions,
   userAnswers,
   onExpandAll,
   onCollapseAll,
-}: QuestionNavigationProps) {
+}: QuestionNavigationProps) => {
   const [showScrollTop, setShowScrollTop] = useState(false)
 
   useEffect(() => {
@@ -167,3 +167,5 @@ export default function QuestionNavigation({
     </>
   )
 }
+
+export default QuestionNavigation

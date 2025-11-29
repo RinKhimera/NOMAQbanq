@@ -11,7 +11,7 @@ import {
   ShieldAlert,
   UserCog,
 } from "lucide-react"
-import { LegalSection } from "@/components/layout/LegalSection"
+import { LegalSection } from "@/components/layout/legal-section"
 
 export const metadata = {
   title: "Conditions d'utilisation | NOMAQbanq",
@@ -46,9 +46,9 @@ export default function ConditionsPage() {
               >
                 <p className="leading-relaxed">
                   En accédant et en utilisant la plateforme NOMAQbanq, vous
-                  acceptez d&apos;être lié par ces conditions d&apos;utilisation.
-                  Si vous n&apos;acceptez pas ces conditions, veuillez ne pas
-                  utiliser notre plateforme.
+                  acceptez d&apos;être lié par ces conditions
+                  d&apos;utilisation. Si vous n&apos;acceptez pas ces
+                  conditions, veuillez ne pas utiliser notre plateforme.
                 </p>
               </LegalSection>
 
@@ -61,9 +61,9 @@ export default function ConditionsPage() {
               >
                 <p className="leading-relaxed">
                   NOMAQbanq est une plateforme éducative francophone dédiée à la
-                  préparation de l&apos;EACMC Partie I. Nous proposons du contenu
-                  pédagogique, des évaluations, et des outils de suivi de
-                  progression pour aider les étudiants à réussir leur examen.
+                  préparation de l&apos;EACMC Partie I. Nous proposons du
+                  contenu pédagogique, des évaluations, et des outils de suivi
+                  de progression pour aider les étudiants à réussir leur examen.
                 </p>
               </LegalSection>
 
@@ -74,7 +74,9 @@ export default function ConditionsPage() {
                 colorScheme="purple"
                 number={3}
               >
-                <p className="leading-relaxed">Pour accéder à nos services, vous devez :</p>
+                <p className="leading-relaxed">
+                  Pour accéder à nos services, vous devez :
+                </p>
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
                   {[
                     "Créer un compte avec des informations exactes et complètes",
@@ -107,8 +109,8 @@ export default function ConditionsPage() {
               >
                 <p className="leading-relaxed">
                   Tout le contenu de la plateforme NOMAQbanq (textes, images,
-                  vidéos, questions d&apos;examen, etc.) est protégé par le droit
-                  d&apos;auteur et d&apos;autres lois sur la propriété
+                  vidéos, questions d&apos;examen, etc.) est protégé par le
+                  droit d&apos;auteur et d&apos;autres lois sur la propriété
                   intellectuelle.
                 </p>
                 <div className="mt-6 rounded-xl border-l-4 border-orange-500 bg-orange-50 p-6 dark:bg-orange-950/30">
@@ -184,8 +186,8 @@ export default function ConditionsPage() {
                 <div className="mt-4 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 p-4 dark:from-green-950/30 dark:to-emerald-950/30">
                   <p className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                     <span className="text-green-500">✓</span>
-                    <strong>Remboursement :</strong> Politique de remboursement de
-                    14 jours pour les nouveaux abonnés
+                    <strong>Remboursement :</strong> Politique de remboursement
+                    de 14 jours pour les nouveaux abonnés
                   </p>
                 </div>
               </LegalSection>
@@ -234,8 +236,8 @@ export default function ConditionsPage() {
                     NOMAQbanq fournit la plateforme &quot;en l&apos;état&quot;.
                     Nous ne garantissons pas que l&apos;utilisation de notre
                     plateforme garantira votre réussite à l&apos;EACMC. Nous ne
-                    sommes pas responsables des dommages indirects, accessoires ou
-                    consécutifs résultant de l&apos;utilisation ou de
+                    sommes pas responsables des dommages indirects, accessoires
+                    ou consécutifs résultant de l&apos;utilisation ou de
                     l&apos;impossibilité d&apos;utiliser nos services.
                   </p>
                 </div>
@@ -250,10 +252,10 @@ export default function ConditionsPage() {
               >
                 <p className="leading-relaxed">
                   Nous nous réservons le droit de suspendre ou de résilier votre
-                  compte en cas de violation de ces conditions d&apos;utilisation,
-                  sans préavis et sans remboursement. Vous pouvez également
-                  résilier votre compte à tout moment depuis les paramètres de
-                  votre compte.
+                  compte en cas de violation de ces conditions
+                  d&apos;utilisation, sans préavis et sans remboursement. Vous
+                  pouvez également résilier votre compte à tout moment depuis
+                  les paramètres de votre compte.
                 </p>
               </LegalSection>
 
@@ -266,9 +268,9 @@ export default function ConditionsPage() {
               >
                 <p className="leading-relaxed">
                   Nous nous réservons le droit de modifier ces conditions à tout
-                  moment. Les modifications importantes vous seront notifiées par
-                  e-mail. Votre utilisation continue de la plateforme après les
-                  modifications constitue votre acceptation des nouvelles
+                  moment. Les modifications importantes vous seront notifiées
+                  par e-mail. Votre utilisation continue de la plateforme après
+                  les modifications constitue votre acceptation des nouvelles
                   conditions.
                 </p>
               </LegalSection>
@@ -298,8 +300,8 @@ export default function ConditionsPage() {
                 number={11}
               >
                 <p className="leading-relaxed">
-                  Pour toute question concernant ces conditions d&apos;utilisation
-                  :
+                  Pour toute question concernant ces conditions
+                  d&apos;utilisation :
                 </p>
                 <div className="mt-6 space-y-4">
                   <div className="flex items-center gap-3 rounded-lg bg-white p-4 shadow-sm dark:bg-gray-900/50">

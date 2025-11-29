@@ -1,8 +1,8 @@
 "use client"
 
-import { GenericNavUser } from "@/components/shared/GenericNavUser"
-import { OnboardingGuard } from "@/components/shared/OnboardingGuard"
 import { AppSidebar } from "@/components/shared/app-sidebar"
+import { GenericNavUser } from "@/components/shared/generic-nav-user"
+import { OnboardingGuard } from "@/components/shared/onboarding-guard"
 import { SiteHeader } from "@/components/shared/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { dashboardNavigation } from "@/constants"

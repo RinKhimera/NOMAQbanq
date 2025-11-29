@@ -13,13 +13,13 @@ interface QuestionReviewProps {
   onToggleExpand: () => void
 }
 
-export default function QuestionReview({
+const QuestionReview = ({
   question,
   userAnswer,
   questionNumber,
   isExpanded,
   onToggleExpand,
-}: QuestionReviewProps) {
+}: QuestionReviewProps) => {
   const isCorrect = userAnswer === question.correctAnswer
   const wasAnswered = userAnswer !== null
 
@@ -178,3 +178,5 @@ export default function QuestionReview({
     </Card>
   )
 }
+
+export default QuestionReview

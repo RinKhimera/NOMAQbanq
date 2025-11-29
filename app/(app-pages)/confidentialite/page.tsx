@@ -8,7 +8,7 @@ import {
   Timer,
   UserCheck,
 } from "lucide-react"
-import { LegalSection } from "@/components/layout/LegalSection"
+import { LegalSection } from "@/components/layout/legal-section"
 
 export const metadata = {
   title: "Politique de confidentialité | NOMAQbanq",

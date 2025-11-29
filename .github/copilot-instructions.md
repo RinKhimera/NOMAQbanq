@@ -23,7 +23,6 @@ The app uses Next.js route groups to organize distinct application sections:
 - `(auth)/` - Authentication pages with navbar + footer layout
 - `(dashboard)/` - Student dashboard with sidebar (requires auth + onboarding)
 - `(admin)/` - Admin dashboard with sidebar (requires admin role)
-- `adminn/` - Legacy admin route (separate from route groups)
 
 **Key Rule**: All layouts in route groups are client components (`"use client"`) because they use Convex hooks or client-side navigation.
 
@@ -38,10 +37,10 @@ const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/admin(.*)"])
 role: v.union(v.literal("admin"), v.literal("user"))
 
 // Admin protection component wraps admin pages
-<AdminProtection>{children}</AdminProtection>  // See: components/AdminProtection.tsx
+<AdminProtection>{children}</AdminProtection>  // See: components/admin-protection.tsx
 
 // Onboarding guard redirects users without username
-<OnboardingGuard />  // See: components/shared/OnboardingGuard.tsx
+<OnboardingGuard />  // See: components/shared/onboarding-guard.tsx
 ```
 
 **Authorization Pattern**: Use `getCurrentUser` query to get current user, `isCurrentUserAdmin` query for admin checks. Never expose admin mutations without server-side role verification.
@@ -177,6 +176,75 @@ npm run fix-lint         # Auto-fix ESLint issues
 3. Use arrow function syntax for all component exports
 4. Import and use in the parent `page.tsx`
 
+## File Naming Conventions
+
+### Component Files (`.tsx`)
+
+- **Use kebab-case** for all component files to maintain consistency with shadcn/ui
+- Component exports remain in PascalCase
+
+```
+components/
+├── ui/                          # shadcn/ui (don't modify)
+│   ├── button.tsx
+│   ├── alert-dialog.tsx
+│
+├── admin/                       # Admin-specific components
+│   ├── exams-list.tsx          # ✅ kebab-case
+│   ├── stat-card.tsx
+│   ├── section-cards.tsx
+│
+├── shared/                      # Shared layout components
+│   ├── app-sidebar.tsx
+│   ├── generic-nav-user.tsx
+│   ├── onboarding-guard.tsx
+│   └── account/
+│       └── account-page.tsx
+│
+├── layout/                      # Layout components
+│   ├── footer.tsx
+│   ├── legal-layout.tsx
+│
+├── quiz/                        # Quiz-related components
+│   ├── question-card.tsx
+│   ├── quiz-progress.tsx
+│
+├── nav-bar.tsx                  # Root-level components
+├── theme-provider.tsx
+├── question-form.tsx
+```
+
+### Hooks, Functions & Utilities (`.ts`)
+
+- **Use camelCase** for hooks, functions, and library files
+- Keep consistency with React conventions
+
+```
+hooks/
+├── useCurrentUser.ts           # ✅ camelCase
+├── use-mobile.ts               # shadcn hook (exception)
+├── use-media-query.ts          # shadcn hook (exception)
+
+lib/
+├── utils.ts                    # ✅ camelCase
+├── exam-status.ts              # Utility file
+```
+
+### Import Examples
+
+```tsx
+// Component imports (kebab-case files)
+import { ExamsList } from "@/components/admin/exams-list"
+import NavBar from "@/components/nav-bar"
+import QuestionCard from "@/components/quiz/question-card"
+import { GenericNavUser } from "@/components/shared/generic-nav-user"
+import { AlertDialog } from "@/components/ui/alert-dialog"
+// shadcn/ui imports (kebab-case - don't modify)
+import { Button } from "@/components/ui/button"
+// Hook imports (camelCase files)
+import { useCurrentUser } from "@/hooks/useCurrentUser"
+```
+
 ## Critical Conventions
 
 ### Code Style
@@ -264,3 +332,6 @@ User Action (Component)
 - Medical domains data: `data/domains.ts`
 - User hook pattern: `hooks/useCurrentUser.ts`
 - Component structure examples: `app/(app-pages)/*/_components/`
+- Shared account page: `components/shared/account/account-page.tsx`
+- Admin protection: `components/admin-protection.tsx`
+- Navigation bar: `components/nav-bar.tsx`

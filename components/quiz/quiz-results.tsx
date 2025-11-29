@@ -6,8 +6,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Doc } from "@/convex/_generated/dataModel"
-import QuestionNavigation from "./QuestionNavigation"
-import QuestionReview from "./QuestionReview"
+import QuestionNavigation from "./question-navigation"
+import QuestionReview from "./question-review"
 
 interface QuizResultsProps {
   questions: Doc<"questions">[]

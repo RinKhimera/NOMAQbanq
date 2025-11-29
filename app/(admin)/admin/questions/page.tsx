@@ -1,8 +1,8 @@
 "use client"
 
 import { List, Plus } from "lucide-react"
-import QuestionForm from "@/components/QuestionForm"
-import QuestionsList from "@/components/QuestionsList"
+import QuestionForm from "@/components/question-form"
+import QuestionsList from "@/components/questions-list"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const AdminQuestionsPage = () => {

@@ -35,11 +35,11 @@ import {
 import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
-import EditQuestionDialog from "./EditQuestionDialog"
+import EditQuestionDialog from "./edit-question-dialog"
 import ReusableQuestionCard, {
   createEditAction,
   createPermanentDeleteAction,
-} from "./ReusableQuestionCard"
+} from "./reusable-question-card"
 
 export default function QuestionsList() {
   const [selectedDomain, setSelectedDomain] = useState("Tous les domaines")

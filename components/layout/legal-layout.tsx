@@ -1,8 +1,8 @@
 "use client"
 
 import { ReactNode } from "react"
-import NavBar from "@/components/NavBar"
-import Footer from "@/components/layout/Footer"
+import Footer from "@/components/layout/footer"
+import NavBar from "@/components/nav-bar"
 
 interface LegalLayoutProps {
   title: string

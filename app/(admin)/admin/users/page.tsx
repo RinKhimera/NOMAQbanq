@@ -11,7 +11,7 @@ import {
   ChevronsRight,
 } from "lucide-react"
 import { useState } from "react"
-import { ExportUsersButton } from "@/components/admin/ExportUsersButton"
+import { ExportUsersButton } from "@/components/admin/export-users-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"

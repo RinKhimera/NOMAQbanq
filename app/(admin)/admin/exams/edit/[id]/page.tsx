@@ -10,7 +10,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import { QuestionSelector } from "@/components/admin/QuestionSelector"
+import { QuestionSelector } from "@/components/admin/question-selector"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {

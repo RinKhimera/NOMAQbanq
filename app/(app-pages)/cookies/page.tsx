@@ -13,7 +13,7 @@ import {
   Sparkles,
   Target,
 } from "lucide-react"
-import { LegalSection } from "@/components/layout/LegalSection"
+import { LegalSection } from "@/components/layout/legal-section"
 import { Badge } from "@/components/ui/badge"
 
 export const metadata = {

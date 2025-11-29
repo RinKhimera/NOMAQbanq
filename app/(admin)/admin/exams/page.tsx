@@ -2,7 +2,7 @@
 
 import { Plus } from "lucide-react"
 import Link from "next/link"
-import { ExamsList } from "@/components/admin/ExamsList"
+import { ExamsList } from "@/components/admin/exams-list"
 import { Button } from "@/components/ui/button"
 
 const AdminExamsPage = () => {

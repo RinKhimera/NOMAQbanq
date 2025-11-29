@@ -1,7 +1,7 @@
 "use client"
 
-import { GenericNavUser } from "@/components/shared/GenericNavUser"
 import { AppSidebar } from "@/components/shared/app-sidebar"
+import { GenericNavUser } from "@/components/shared/generic-nav-user"
 import { SiteHeader } from "@/components/shared/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { adminNavigation } from "@/constants"
