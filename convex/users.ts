@@ -149,9 +149,7 @@ export const updateUserProfile = mutation({
 export const getAllUsers = query({
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
+    if (!identity) return null
 
     const user = await ctx.db
       .query("users")
@@ -160,9 +158,7 @@ export const getAllUsers = query({
       )
       .unique()
 
-    if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
-    }
+    if (!user || user.role !== "admin") return null
 
     return await ctx.db.query("users").collect()
   },
@@ -176,13 +172,31 @@ export const getUsersWithPagination = query({
       v.union(v.literal("name"), v.literal("role"), v.literal("_creationTime")),
     ),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
+    searchQuery: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { page, limit, sortBy = "name", sortOrder = "asc" } = args
+    const {
+      page,
+      limit,
+      sortBy = "name",
+      sortOrder = "asc",
+      searchQuery,
+    } = args
     const offset = (page - 1) * limit
 
     // Récupérer tous les utilisateurs
-    const users = await ctx.db.query("users").collect()
+    let users = await ctx.db.query("users").collect()
+
+    // Filtrer par recherche si un terme est fourni
+    if (searchQuery && searchQuery.trim() !== "") {
+      const query = searchQuery.toLowerCase().trim()
+      users = users.filter(
+        (user) =>
+          user.name?.toLowerCase().includes(query) ||
+          user.email?.toLowerCase().includes(query) ||
+          user.username?.toLowerCase().includes(query),
+      )
+    }
 
     // Trier les utilisateurs
     users.sort((a, b) => {

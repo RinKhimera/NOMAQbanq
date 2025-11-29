@@ -9,12 +9,14 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Search,
 } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ExportUsersButton } from "@/components/admin/export-users-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -37,16 +39,37 @@ const UsersPage = () => {
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
   const [selectedUser, setSelectedUser] = useState<Doc<"users"> | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const limit = 10
+
+  // Debounce de la recherche pour éviter trop de requêtes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+      setCurrentPage(1)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   const usersData = useQuery(api.users.getUsersWithPagination, {
     page: currentPage,
     limit,
     sortBy,
     sortOrder,
+    searchQuery: debouncedSearchQuery.trim() || undefined,
   })
 
   const allUsers = useQuery(api.users.getAllUsers)
+
+  // Marquer le chargement initial comme terminé une fois les données reçues
+  useEffect(() => {
+    if (usersData && isInitialLoad) {
+      setIsInitialLoad(false)
+    }
+  }, [usersData, isInitialLoad])
 
   const handleSort = (field: SortBy) => {
     if (sortBy === field) {
@@ -56,6 +79,10 @@ const UsersPage = () => {
       setSortOrder("asc")
     }
     setCurrentPage(1)
+  }
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value)
   }
 
   const handleUserClick = (user: Doc<"users">) => {
@@ -72,11 +99,15 @@ const UsersPage = () => {
     )
   }
 
-  if (!usersData) {
+  // Afficher le skeleton uniquement lors du premier chargement
+  if (isInitialLoad && !usersData) {
     return <UserTableSkeleton />
   }
 
-  const { users, totalUsers, totalPages, currentPage: page } = usersData
+  const users = usersData?.users ?? []
+  const totalUsers = usersData?.totalUsers ?? 0
+  const totalPages = usersData?.totalPages ?? 1
+  const page = usersData?.currentPage ?? 1
 
   return (
     <>
@@ -90,21 +121,29 @@ const UsersPage = () => {
           </p>
         </div>
 
-        <Card>
+        <Card className="gap-3">
           <CardHeader>
             <CardTitle className="flex flex-col gap-3 @md:flex-row @md:items-center @md:justify-between">
-              <div className="flex items-center gap-3">
-                <span className="text-blue-600">Tableau des utilisateurs</span>
-                <Badge variant="secondary">
-                  {totalUsers} utilisateur{totalUsers > 1 ? "s" : ""}
-                </Badge>
-              </div>
+              <Badge variant="secondary">
+                {totalUsers} utilisateur{totalUsers > 1 ? "s" : ""}
+              </Badge>
               {allUsers && allUsers.length > 0 && (
                 <ExportUsersButton users={allUsers} />
               )}
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {/* Barre de recherche */}
+            <div className="relative mb-4">
+              <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+              <Input
+                type="text"
+                placeholder="Rechercher par nom, email ou nom d'utilisateur..."
+                value={searchQuery}
+                onChange={handleSearchChange}
+                className="pl-10"
+              />
+            </div>
             <div className="rounded-md border">
               <Table>
                 <TableHeader>
