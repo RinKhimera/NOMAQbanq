@@ -98,7 +98,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 NOMAqBANK/
 ├── app/                      # Next.js Pages (App Router)
-│   ├── (app-pages)/         # Public pages (landing, about, etc.)
+│   ├── (marketing)/         # Public pages (landing, about, etc.)
 │   ├── (auth)/              # Authentication pages
 │   ├── (dashboard)/         # Student dashboard (protected)
 │   ├── (admin)/             # Admin dashboard (protected)
@@ -138,7 +138,7 @@ npm run fix-lint     # Automatically fix lint errors
 
 The project uses Next.js route groups to organize the application:
 
-- **(app-pages)** - Public marketing pages
+- **(marketing)** - Public marketing pages
 - **(auth)** - Authentication (sign-in, sign-up)
 - **(dashboard)** - Student space with sidebar
 - **(admin)** - Administrator space with sidebar

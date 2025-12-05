@@ -1,9 +1,9 @@
 "use client"
 
-import DomainesCTA from "./_components/DomainesCTA"
-import DomainesHeader from "./_components/DomainesHeader"
-import DomainesStats from "./_components/DomainesStats"
-import DomainsGrid from "./_components/DomainsGrid"
+import DomainesCTA from "./_components/domaines-cta"
+import DomainesHeader from "./_components/domaines-header"
+import DomainesStats from "./_components/domaines-stats"
+import DomainsGrid from "./_components/domains-grid"
 
 export default function DomainesPage() {
   return (

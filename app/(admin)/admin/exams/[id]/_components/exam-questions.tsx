@@ -1,7 +1,7 @@
 "use client"
 
 import { FileText } from "lucide-react"
-import ReusableQuestionCard from "@/components/reusable-question-card"
+import ReusableQuestionCard from "@/components/admin/reusable-question-card"
 import {
   Card,
   CardContent,

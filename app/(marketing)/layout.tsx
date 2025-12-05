@@ -1,6 +1,6 @@
 import { MarketingShell } from "@/components/shared/marketing-shell"
 
-export default function AuthLayout({
+export default function MainLayout({
   children,
 }: {
   children: React.ReactNode

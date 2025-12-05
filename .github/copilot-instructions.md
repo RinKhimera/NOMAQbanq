@@ -19,7 +19,7 @@ NOMAQbanq is a French-language medical exam preparation platform for EACMC Part 
 
 The app uses Next.js route groups to organize distinct application sections:
 
-- `(app-pages)/` - Public marketing pages (landing, about, domains, FAQ)
+- `(marketing)/` - Public marketing pages (landing, about, domains, FAQ)
 - `(auth)/` - Authentication pages with navbar + footer layout
 - `(dashboard)/` - Student dashboard with sidebar (requires auth + onboarding)
 - `(admin)/` - Admin dashboard with sidebar (requires admin role)
@@ -192,10 +192,19 @@ components/
 ├── admin/                       # Admin-specific components
 │   ├── exams-list.tsx          # ✅ kebab-case
 │   ├── stat-card.tsx
-│   ├── section-cards.tsx
+│   ├── question-form.tsx
+│   ├── questions-list.tsx
+│   ├── reusable-question-card.tsx
+│   ├── modals/
+│
+├── marketing/                   # Marketing page components
+│   ├── domain-card.tsx
+│   ├── testimonials-carousel.tsx
 │
 ├── shared/                      # Shared layout components
 │   ├── app-sidebar.tsx
+│   ├── dashboard-shell.tsx     # Unified dashboard layout
+│   ├── marketing-shell.tsx     # Unified marketing layout
 │   ├── generic-nav-user.tsx
 │   ├── onboarding-guard.tsx
 │   └── account/
@@ -209,9 +218,9 @@ components/
 │   ├── question-card.tsx
 │   ├── quiz-progress.tsx
 │
+├── admin-protection.tsx         # Admin role guard
 ├── nav-bar.tsx                  # Root-level components
 ├── theme-provider.tsx
-├── question-form.tsx
 ```
 
 ### Hooks, Functions & Utilities (`.ts`)
@@ -329,9 +338,12 @@ User Action (Component)
 - Database schema: `convex/schema.ts`
 - Navigation menus: `constants/index.tsx`
 - Form schemas: `schemas/`
+- Type definitions: `types/index.ts`
 - Medical domains data: `data/domains.ts`
 - User hook pattern: `hooks/useCurrentUser.ts`
-- Component structure examples: `app/(app-pages)/*/_components/`
+- Component structure examples: `app/(marketing)/*/_components/`
+- Shared dashboard layout: `components/shared/dashboard-shell.tsx`
+- Shared marketing layout: `components/shared/marketing-shell.tsx`
 - Shared account page: `components/shared/account/account-page.tsx`
 - Admin protection: `components/admin-protection.tsx`
 - Navigation bar: `components/nav-bar.tsx`

@@ -4,10 +4,10 @@ import { useQuery } from "convex/react"
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react"
 import * as React from "react"
 import { useState } from "react"
-import QuestionDetailsDialog from "@/components/question-details-dialog"
+import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
 import ReusableQuestionCard, {
   createViewAction,
-} from "@/components/reusable-question-card"
+} from "@/components/admin/reusable-question-card"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,

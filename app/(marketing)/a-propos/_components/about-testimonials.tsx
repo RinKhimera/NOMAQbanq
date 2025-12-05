@@ -1,7 +1,7 @@
 "use client"
 
 import { Star } from "lucide-react"
-import TestimonialsCarousel from "@/components/testimonials-carousel"
+import TestimonialsCarousel from "@/components/marketing/testimonials-carousel"
 
 export default function AboutTestimonials() {
   return (

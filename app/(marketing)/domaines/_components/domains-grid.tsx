@@ -1,6 +1,6 @@
 "use client"
 
-import DomainCard from "@/components/domain-card"
+import DomainCard from "@/components/marketing/domain-card"
 import { domains } from "@/data/domains"
 
 export default function DomainsGrid() {

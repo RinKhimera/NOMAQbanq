@@ -11,7 +11,7 @@ import {
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useState } from "react"
-import { ExamDetails } from "@/app/(admin)/admin/exams/[id]/_components/ExamDetails"
+import { ExamDetails } from "@/app/(admin)/admin/exams/[id]/_components/exam-details"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -24,7 +24,7 @@ import {
 import { sidebarMenuButtonVariants } from "@/components/ui/sidebar"
 import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
-import { ExamQuestionsModal } from "./_components/ExamQuestionsModal"
+import { ExamQuestionsModal } from "./_components/exam-questions-modal"
 
 export default function AdminExamDetailsPage() {
   const params = useParams()

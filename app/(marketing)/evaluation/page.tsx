@@ -1,7 +1,7 @@
-import StartQuizCTA from "../_components/StartQuizCTA"
-import EvaluationHeader from "./_components/EvaluationHeader"
-import EvaluationInstructions from "./_components/EvaluationInstructions"
-import EvaluationStats from "./_components/EvaluationStats"
+import StartQuizCTA from "../_components/start-quiz-cta"
+import EvaluationHeader from "./_components/evaluation-header"
+import EvaluationInstructions from "./_components/evaluation-instructions"
+import EvaluationStats from "./_components/evaluation-stats"
 
 export default function EvaluationPage() {
   return (

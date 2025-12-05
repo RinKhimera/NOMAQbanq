@@ -13,12 +13,12 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import QuestionDetailsDialog from "@/components/question-details-dialog"
+import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
 import ReusableQuestionCard, {
   createAddAction,
   createDeleteAction,
   createViewAction,
-} from "@/components/reusable-question-card"
+} from "@/components/admin/reusable-question-card"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"

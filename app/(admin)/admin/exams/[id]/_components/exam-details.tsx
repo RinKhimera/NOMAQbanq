@@ -15,7 +15,7 @@ import {
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { getExamStatus } from "@/lib/exam-status"
-import { ExamLeaderboard } from "./ExamLeaderboard"
+import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
 
 export function ExamDetails({ examId }: { examId: Id<"exams"> }) {

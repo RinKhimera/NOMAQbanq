@@ -2,12 +2,12 @@
 
 import { Award, CheckCircle } from "lucide-react"
 import Image from "next/image"
-import AboutCTA from "./_components/AboutCTA"
-import AboutHeader from "./_components/AboutHeader"
-import AboutMissions from "./_components/AboutMissions"
-import AboutStats from "./_components/AboutStats"
-import AboutStory from "./_components/AboutStory"
-import AboutTestimonials from "./_components/AboutTestimonials"
+import AboutCTA from "./_components/about-cta"
+import AboutHeader from "./_components/about-header"
+import AboutMissions from "./_components/about-missions"
+import AboutStats from "./_components/about-stats"
+import AboutStory from "./_components/about-story"
+import AboutTestimonials from "./_components/about-testimonials"
 
 export default function AProposPage() {
   return (

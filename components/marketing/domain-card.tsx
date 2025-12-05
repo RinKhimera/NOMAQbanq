@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Domain } from "@/data/domains"
+import { Domain } from "@/types"
 
 const iconMap = {
   Heart,
