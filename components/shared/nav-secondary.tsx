@@ -21,16 +21,21 @@ import { cn } from "@/lib/utils"
 
 type IconType = TablerIcon | LucideIcon
 
-export function NavSecondary({
-  items,
-  ...props
-}: {
+interface NavSecondaryProps
+  extends React.ComponentPropsWithoutRef<typeof SidebarGroup> {
   items: {
     title: string
     url: string
     icon: IconType
   }[]
-} & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+  isAdmin?: boolean
+}
+
+export const NavSecondary = ({
+  items,
+  isAdmin = false,
+  ...props
+}: NavSecondaryProps) => {
   const pathname = usePathname()
   const isCurrentUserAdmin = useQuery(api.users.isCurrentUserAdmin)
 
@@ -39,31 +44,28 @@ export function NavSecondary({
 
   const getNavigationButton = () => {
     if (isOnAdminPage && isCurrentUserAdmin) {
-      // User admin sur une page admin -> aller au dashboard
       return {
         href: "/dashboard",
         text: "Aller au Dashboard",
         theme:
-          "hover:bg-blue-600 bg-blue-600 focus:hover:bg-blue-600 text-white",
+          "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md shadow-blue-500/25",
       }
     } else if (isOnDashboardPage && isCurrentUserAdmin) {
-      // User admin sur le dashboard -> aller à l'admin
       return {
         href: "/admin",
         text: "Aller à l'Admin",
         theme:
-          "hover:bg-blue-600 bg-blue-600 focus:hover:bg-blue-600 text-white",
+          "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md shadow-orange-500/25",
       }
     } else if (isOnDashboardPage && !isCurrentUserAdmin) {
-      // User non-admin sur le dashboard -> pas de bouton
       return null
     }
 
-    // Fallback vers l'accueil pour les autres cas
     return {
       href: "/",
       text: "Revenir à l'accueil",
-      theme: "hover:bg-blue-600 bg-blue-600 focus:hover:bg-blue-600 text-white",
+      theme:
+        "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md shadow-blue-500/25",
     }
   }
 
@@ -71,20 +73,49 @@ export function NavSecondary({
 
   return (
     <SidebarGroup {...props}>
-      <SidebarGroupContent>
+      <SidebarGroupContent className="px-2">
         <SidebarMenu>
           {items.map((item) => {
             const isActive = pathname === item.url
 
             return (
-              <SidebarMenuItem key={item.title}>
+              <SidebarMenuItem key={item.title} className="relative">
+                {/* Barre verticale animée */}
+                <div
+                  className={cn(
+                    "absolute top-1/2 left-0 h-0 w-[3px] -translate-y-1/2 rounded-r-full transition-all duration-300 ease-out",
+                    isActive && "h-6",
+                    isAdmin
+                      ? "bg-gradient-to-b from-orange-400 to-amber-500"
+                      : "bg-gradient-to-b from-blue-400 to-indigo-500",
+                  )}
+                />
                 <SidebarMenuButton
-                  variant={"link"}
+                  variant="link"
                   asChild
-                  className={cn("", isActive ? "active-link" : "")}
+                  className={cn(
+                    "relative ml-1 rounded-xl transition-all duration-200",
+                    "hover:translate-x-1",
+                    isActive
+                      ? [
+                          "font-semibold",
+                          isAdmin
+                            ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/15 dark:bg-orange-500/15 dark:text-orange-400"
+                            : "bg-blue-500/10 text-blue-600 hover:bg-blue-500/15 dark:bg-blue-500/15 dark:text-blue-400",
+                        ]
+                      : "hover:bg-muted/50",
+                  )}
                 >
-                  <Link href={item.url}>
-                    <item.icon />
+                  <Link href={item.url} className="flex items-center gap-3">
+                    <item.icon
+                      className={cn(
+                        "size-[18px] transition-colors",
+                        isActive &&
+                          (isAdmin
+                            ? "text-orange-500 dark:text-orange-400"
+                            : "text-blue-500 dark:text-blue-400"),
+                      )}
+                    />
                     <span>{item.title}</span>
                   </Link>
                 </SidebarMenuButton>
@@ -93,17 +124,24 @@ export function NavSecondary({
           })}
         </SidebarMenu>
         {navigationButton && (
-          <SidebarMenu>
-            <SidebarMenuItem className="mt-1 flex items-center gap-2">
+          <SidebarMenu className="mt-3 px-1">
+            <SidebarMenuItem>
               <SidebarMenuButton
                 variant="none"
                 asChild
                 tooltip="Navigation contextuelle"
-                className={`min-w-8 cursor-pointer text-white duration-200 ease-linear active:text-white ${navigationButton.theme}`}
+                className={cn(
+                  "cursor-pointer rounded-xl text-white transition-all duration-300",
+                  "hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]",
+                  navigationButton.theme,
+                )}
               >
-                <Link href={navigationButton.href}>
-                  <IconCirclePlusFilled />
-                  <span>{navigationButton.text}</span>
+                <Link
+                  href={navigationButton.href}
+                  className="flex items-center gap-2"
+                >
+                  <IconCirclePlusFilled className="size-5" />
+                  <span className="font-medium">{navigationButton.text}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
