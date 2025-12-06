@@ -378,6 +378,179 @@ import {
 - **Not Found**: Use `not-found.tsx` for custom 404 pages
 - **Environment Variables**: Prefix client vars with `NEXT_PUBLIC_`
 
+## React Compiler & ESLint Rules
+
+This project uses React 19 with the React Compiler, which enforces strict rules for optimal performance and correctness. Follow these patterns to avoid linting errors.
+
+### 1. Purity Rules - No Side Effects During Render
+
+Components and hooks must be **pure functions**. Never call impure functions or perform side effects during render.
+
+**❌ AVOID:**
+
+```tsx
+// ❌ Don't use Date.now() during render
+function Component() {
+  const now = Date.now() // WRONG - impure function
+  return <div>{now}</div>
+}
+
+// ❌ Don't use Math.random() during render
+function Component() {
+  const width = `${Math.floor(Math.random() * 40) + 50}%` // WRONG
+  return <div style={{ width }} />
+}
+
+// ❌ Don't mutate objects during render
+function Component({ items }) {
+  items.push(newItem) // WRONG - mutation
+  return <List items={items} />
+}
+```
+
+**✅ CORRECT PATTERNS:**
+
+```tsx
+// ✅ Use useState initializer for one-time impure calls
+function Component() {
+  const [now] = useState(() => Date.now()) // OK - runs once
+  return <div>{now}</div>
+}
+
+// ✅ Use useState with setInterval for periodic updates
+function Component() {
+  const [now, setNow] = useState(Date.now())
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+  
+  return <div>{now}</div>
+}
+
+// ✅ Use useState initializer for Math.random()
+function Component() {
+  const [width] = useState(() => `${Math.floor(Math.random() * 40) + 50}%`)
+  return <div style={{ width }} />
+}
+
+// ✅ Create new arrays/objects instead of mutating
+function Component({ items }) {
+  const newItems = [...items, newItem] // OK - new array
+  return <List items={newItems} />
+}
+```
+
+### 2. setState in useEffect - Synchronizing with External Systems
+
+Avoid calling `setState` synchronously in `useEffect` when the state change is triggered by prop/state changes. Use the "storing information from previous renders" pattern instead.
+
+**❌ AVOID:**
+
+```tsx
+// ❌ Don't call setState in effect for derived state
+function Component({ userId }) {
+  const [user, setUser] = useState(null)
+  
+  useEffect(() => {
+    setUser(fetchUser(userId)) // WRONG - creates extra render
+  }, [userId])
+  
+  return <div>{user?.name}</div>
+}
+
+// ❌ Don't synchronize state with props in effect
+function QuestionList({ domainFilter }) {
+  const [selectedDomain, setSelectedDomain] = useState(null)
+  
+  useEffect(() => {
+    setSelectedDomain(domainFilter) // WRONG
+  }, [domainFilter])
+}
+```
+
+**✅ CORRECT PATTERNS:**
+
+```tsx
+// ✅ Derive state during render (no useEffect needed)
+function Component({ userId }) {
+  const user = fetchUser(userId) // OK - derived during render
+  return <div>{user?.name}</div>
+}
+
+// ✅ Use "storing previous renders" pattern for external data sync
+function QuestionList({ questions }) {
+  const [filteredQuestions, setFilteredQuestions] = useState(questions)
+  const [prevQuestions, setPrevQuestions] = useState(questions)
+  
+  // Detect when external data changes during render
+  if (questions !== prevQuestions) {
+    setPrevQuestions(questions)
+    setFilteredQuestions(questions)
+  }
+  
+  return <List items={filteredQuestions} />
+}
+
+// ✅ Call handler functions instead of useEffect
+function Component({ onDomainChange }) {
+  const handleDomainChange = (domain) => {
+    onDomainChange(domain) // OK - explicit handler
+  }
+  
+  return <Select onChange={handleDomainChange} />
+}
+
+// ✅ Use useSyncExternalStore for external subscriptions
+function useMediaQuery(query: string) {
+  return useSyncExternalStore(
+    (callback) => {
+      const mediaQuery = window.matchMedia(query)
+      mediaQuery.addEventListener("change", callback)
+      return () => mediaQuery.removeEventListener("change", callback)
+    },
+    () => window.matchMedia(query).matches,
+    () => false // Server-side default
+  )
+}
+```
+
+### 3. Form Watching with React Hook Form
+
+The `form.watch()` method is incompatible with React Compiler memoization. Use `useWatch()` instead.
+
+**❌ AVOID:**
+
+```tsx
+// ❌ Don't use form.watch() directly
+function FormComponent() {
+  const form = useForm()
+  const numberOfQuestions = form.watch("numberOfQuestions") // WRONG
+  
+  return <div>{numberOfQuestions}</div>
+}
+```
+
+**✅ CORRECT:**
+
+```tsx
+// ✅ Use useWatch() from react-hook-form
+import { useWatch } from "react-hook-form"
+
+function FormComponent() {
+  const form = useForm()
+  const numberOfQuestions = useWatch({
+    control: form.control,
+    name: "numberOfQuestions"
+  })
+  
+  return <div>{numberOfQuestions}</div>
+}
+```
+
 ## Data Flow Example
 
 ```
@@ -388,6 +561,88 @@ User Action (Component)
         → Database operation via ctx.db
           → Real-time sync to all clients
 ```
+
+## React Hooks & Refs Best Practices
+
+### Refs Usage Rules
+
+Refs hold values that aren't used for rendering. Unlike state, changing a ref doesn't trigger a re-render. Follow these critical rules:
+
+**❌ NEVER do this:**
+
+```typescript
+// ❌ Don't read ref during render
+function Component() {
+  const ref = useRef(0)
+  const value = ref.current // WRONG - reading during render
+  return <div>{value}</div>
+}
+
+// ❌ Don't modify ref during render
+function Component({ value }) {
+  const ref = useRef(null)
+  ref.current = value // WRONG - modifying during render
+  return <div />
+}
+```
+
+**✅ DO this instead:**
+
+```typescript
+// ✅ Read/write refs in effects or event handlers
+function Component() {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (ref.current) {
+      console.log(ref.current.offsetWidth) // OK in effect
+    }
+  })
+
+  const handleClick = () => {
+    console.log(ref.current) // OK in event handler
+  }
+
+  return <div ref={ref} onClick={handleClick} />
+}
+
+// ✅ Use state for UI values that need re-renders
+function Component() {
+  const [count, setCount] = useState(0)
+  return <button onClick={() => setCount(count + 1)}>{count}</button>
+}
+
+// ✅ Lazy initialization of ref value (one-time setup)
+function Component() {
+  const ref = useRef(null)
+
+  // Initialize only once on first use
+  if (ref.current === null) {
+    ref.current = expensiveComputation() // OK - lazy initialization
+  }
+
+  const handleClick = () => {
+    console.log(ref.current) // Use the initialized value
+  }
+
+  return <button onClick={handleClick}>Click</button>
+}
+```
+
+**Ref Detection Heuristics:**
+
+The React Compiler detects refs through:
+
+- Values returned from `useRef()` or `React.createRef()`
+- Identifiers named `ref` or ending in `Ref` that access `.current`
+- Values passed through JSX `ref` prop (e.g., `<div ref={someRef} />`)
+
+**Key Principles:**
+
+- **Refs are for side effects**, not rendering logic
+- **State is for UI values** that should trigger re-renders
+- **Only read/write `ref.current`** in effects, event handlers, or lazy initialization
+- **Never access `ref.current`** during the render phase
 
 ## Gotchas
 
