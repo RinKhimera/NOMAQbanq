@@ -57,10 +57,12 @@ export const NavMain = ({ items, isAdmin = false }: NavMainProps) => {
                       ? [
                           "font-semibold",
                           isAdmin
-                            ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/15 dark:bg-orange-500/15 dark:text-orange-400"
-                            : "bg-blue-500/10 text-blue-600 hover:bg-blue-500/15 dark:bg-blue-500/15 dark:text-blue-400",
+                            ? "bg-orange-500/10 text-orange-600 hover:bg-orange-500/15 hover:text-orange-600 dark:bg-orange-500/15 dark:text-orange-400 dark:hover:text-orange-400"
+                            : "bg-blue-500/10 text-blue-600 hover:bg-blue-500/15 hover:text-blue-600 dark:bg-blue-500/15 dark:text-blue-400 dark:hover:text-blue-400",
                         ]
-                      : "hover:bg-muted/50",
+                      : isAdmin
+                        ? "hover:bg-orange-500/10 hover:text-orange-600 dark:hover:text-orange-400"
+                        : "hover:bg-muted/50",
                   )}
                 >
                   <Link href={item.url} className="flex items-center gap-3">

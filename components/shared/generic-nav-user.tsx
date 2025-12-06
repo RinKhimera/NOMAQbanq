@@ -118,7 +118,7 @@ export const GenericNavUser = ({
             <SidebarMenuButton
               size="lg"
               className={cn(
-                "group/avatar rounded-xl transition-all duration-200",
+                "group/avatar cursor-pointer rounded-xl transition-all duration-200",
                 "hover:bg-blue-500/10 dark:hover:bg-blue-400/10",
                 "data-[state=open]:text-sidebar-accent-foreground data-[state=open]:bg-blue-500/15",
                 requireAdmin && [

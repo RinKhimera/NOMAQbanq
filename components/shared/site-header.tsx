@@ -70,7 +70,6 @@ export const SiteHeader = ({ isAdmin = false }: SiteHeaderProps) => {
                 "text-[10px] font-bold tracking-wider uppercase",
                 "bg-gradient-to-r from-orange-500 to-amber-500 text-white",
                 "shadow-lg shadow-orange-500/30",
-                "animate-pulse",
               )}
             >
               Admin

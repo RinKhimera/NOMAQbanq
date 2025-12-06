@@ -51,9 +51,9 @@ export const AppSidebar = ({
             <SidebarMenuButton
               asChild
               className={cn(
-                "group/logo rounded-2xl transition-all duration-300",
+                "group/logo rounded-2xl transition-all",
                 "data-[slot=sidebar-menu-button]:!p-2",
-                "hover:scale-[1.02] active:scale-[0.98]",
+                "active:scale-[0.98]",
                 isAdmin
                   ? "hover:bg-orange-500/10 dark:hover:bg-orange-500/15"
                   : "hover:bg-blue-500/10 dark:hover:bg-blue-500/15",
