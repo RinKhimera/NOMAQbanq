@@ -33,15 +33,19 @@ export function ExamDeleteModal({
       <DialogContent className="bg-card">
         <DialogHeader>
           <DialogTitle>Supprimer l&apos;examen</DialogTitle>
-          <DialogDescription className="space-y-2">
-            <p>
-              ⚠️ <strong>Attention :</strong> Cette action est irréversible.
-            </p>
-            <p>
-              L&apos;examen &quot;{exam.title}&quot; et toutes ses données
-              (participants, résultats, etc.) seront définitivement supprimés.
-            </p>
-            <p>Êtes-vous absolument sûr de vouloir supprimer cet examen ?</p>
+          <DialogDescription asChild>
+            <div className="space-y-2">
+              <div>
+                ⚠️ <strong>Attention :</strong> Cette action est irréversible.
+              </div>
+              <div>
+                L&apos;examen &quot;{exam.title}&quot; et toutes ses données
+                (participants, résultats, etc.) seront définitivement supprimés.
+              </div>
+              <div>
+                Êtes-vous absolument sûr de vouloir supprimer cet examen ?
+              </div>
+            </div>
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
