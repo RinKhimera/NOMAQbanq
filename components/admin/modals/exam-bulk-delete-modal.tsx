@@ -33,45 +33,49 @@ export function ExamBulkDeleteModal({
       <DialogContent className="bg-card">
         <DialogHeader>
           <DialogTitle>Supprimer {exams.length} examen(s)</DialogTitle>
-          <DialogDescription className="space-y-2">
-            <p>
-              ⚠️ <strong>Attention :</strong> Cette action est irréversible.
-            </p>
-            <p>
-              {exams.length === 1 ? (
-                <>
-                  L&apos;examen &quot;{exams[0].title}&quot; et toutes ses
-                  données (participants, résultats, etc.) seront définitivement
-                  supprimés.
-                </>
-              ) : (
-                <>
-                  Les {exams.length} examens sélectionnés et toutes leurs
-                  données (participants, résultats, etc.) seront définitivement
-                  supprimés.
-                </>
-              )}
-            </p>
-            <p>Êtes-vous absolument sûr de vouloir supprimer ces examens ?</p>
-            {exams.length > 1 && (
-              <div className="mt-4 rounded-md bg-white p-3 dark:bg-gray-900">
-                <p className="mb-2 text-sm font-medium text-white">
-                  Examens à supprimer :
-                </p>
-                <ul className="space-y-1 text-sm">
-                  {exams.slice(0, 5).map((exam) => (
-                    <li key={exam._id} className="text-muted-foreground">
-                      • {exam.title}
-                    </li>
-                  ))}
-                  {exams.length > 5 && (
-                    <li className="text-muted-foreground">
-                      • ... et {exams.length - 5} autre(s)
-                    </li>
-                  )}
-                </ul>
+          <DialogDescription asChild>
+            <div className="space-y-2">
+              <div>
+                ⚠️ <strong>Attention :</strong> Cette action est irréversible.
               </div>
-            )}
+              <div>
+                {exams.length === 1 ? (
+                  <>
+                    L&apos;examen &quot;{exams[0].title}&quot; et toutes ses
+                    données (participants, résultats, etc.) seront
+                    définitivement supprimés.
+                  </>
+                ) : (
+                  <>
+                    Les {exams.length} examens sélectionnés et toutes leurs
+                    données (participants, résultats, etc.) seront
+                    définitivement supprimés.
+                  </>
+                )}
+              </div>
+              <div>
+                Êtes-vous absolument sûr de vouloir supprimer ces examens ?
+              </div>
+              {exams.length > 1 && (
+                <div className="mt-4 rounded-md bg-white p-3 dark:bg-gray-900">
+                  <p className="mb-2 text-sm font-medium text-white">
+                    Examens à supprimer :
+                  </p>
+                  <ul className="space-y-1 text-sm">
+                    {exams.slice(0, 5).map((exam) => (
+                      <li key={exam._id} className="text-muted-foreground">
+                        • {exam.title}
+                      </li>
+                    ))}
+                    {exams.length > 5 && (
+                      <li className="text-muted-foreground">
+                        • ... et {exams.length - 5} autre(s)
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

@@ -8,9 +8,9 @@ import { ArrowLeft, Calendar, ChevronsUpDown } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
-import { QuestionSelector } from "@/components/admin/QuestionSelector"
+import { QuestionSelector } from "@/components/admin/question-selector"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
@@ -76,7 +76,10 @@ const AdminCreateExamPage = () => {
     },
   })
 
-  const numberOfQuestions = form.watch("numberOfQuestions")
+  const numberOfQuestions = useWatch({
+    control: form.control,
+    name: "numberOfQuestions",
+  })
 
   const onSubmit = async (values: ExamFormValues) => {
     try {

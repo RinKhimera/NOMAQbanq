@@ -1,13 +1,7 @@
 import { CheckCircle, Clock, PauseCircle, PlayCircle } from "lucide-react"
+import { ExamStatus, ExamStatusConfig } from "@/types"
 
-export type ExamStatus = "active" | "upcoming" | "completed" | "inactive"
-
-export type ExamStatusConfig = {
-  label: string
-  variant: "default" | "secondary" | "destructive" | "outline"
-  className: string
-  icon: React.ComponentType<{ className?: string }>
-}
+export type { ExamStatus, ExamStatusConfig }
 
 export const EXAM_STATUS_CONFIG: Record<ExamStatus, ExamStatusConfig> = {
   active: {

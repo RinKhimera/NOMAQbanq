@@ -7,10 +7,10 @@ import { fr } from "date-fns/locale"
 import { ArrowLeft, Calendar, ChevronsUpDown } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useState } from "react"
+import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
-import { QuestionSelector } from "@/components/admin/QuestionSelector"
+import { QuestionSelector } from "@/components/admin/question-selector"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
@@ -65,6 +65,7 @@ const AdminEditExamPage = () => {
   const [selectedParticipants, setSelectedParticipants] = useState<
     Id<"users">[]
   >([])
+  const [prevExam, setPrevExam] = useState<typeof exam>(undefined)
 
   const { isAuthenticated } = useConvexAuth()
 
@@ -86,20 +87,22 @@ const AdminEditExamPage = () => {
   })
 
   // Charger les données de l'examen
-  useEffect(() => {
-    if (exam) {
-      form.setValue("title", exam.title)
-      form.setValue("description", exam.description || "")
-      form.setValue("numberOfQuestions", exam.questionIds.length)
-      form.setValue("startDate", new Date(exam.startDate))
-      form.setValue("endDate", new Date(exam.endDate))
-      form.setValue("questionIds", exam.questionIds)
-      setSelectedQuestions(exam.questionIds)
-      setSelectedParticipants(exam.allowedParticipants || [])
-    }
-  }, [exam, form])
+  if (exam && exam !== prevExam) {
+    setPrevExam(exam)
+    form.setValue("title", exam.title)
+    form.setValue("description", exam.description || "")
+    form.setValue("numberOfQuestions", exam.questionIds.length)
+    form.setValue("startDate", new Date(exam.startDate))
+    form.setValue("endDate", new Date(exam.endDate))
+    form.setValue("questionIds", exam.questionIds)
+    setSelectedQuestions(exam.questionIds)
+    setSelectedParticipants(exam.allowedParticipants || [])
+  }
 
-  const numberOfQuestions = form.watch("numberOfQuestions")
+  const numberOfQuestions = useWatch({
+    control: form.control,
+    name: "numberOfQuestions",
+  })
 
   const onSubmit = async (values: ExamFormValues) => {
     try {

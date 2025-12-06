@@ -4,7 +4,7 @@ import {
   IconTrendingUp,
   IconUsers,
 } from "@tabler/icons-react"
-import { StatCard } from "@/components/admin/StatCard"
+import { StatCard } from "@/components/admin/stat-card"
 
 export const SectionCards = ({
   totalQuestions,

@@ -1,0 +1,17 @@
+import StartQuizCTA from "../_components/start-quiz-cta"
+import EvaluationHeader from "./_components/evaluation-header"
+import EvaluationInstructions from "./_components/evaluation-instructions"
+import EvaluationStats from "./_components/evaluation-stats"
+
+export default function EvaluationPage() {
+  return (
+    <div className="theme-bg min-h-screen pt-20">
+      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+        <EvaluationHeader />
+        <EvaluationInstructions />
+        <EvaluationStats />
+        <StartQuizCTA />
+      </div>
+    </div>
+  )
+}

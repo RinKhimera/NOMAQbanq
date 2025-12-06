@@ -31,20 +31,22 @@ export function ExamEditModal({
       <DialogContent className="bg-card">
         <DialogHeader>
           <DialogTitle>Modifier l&apos;examen en cours</DialogTitle>
-          <DialogDescription className="space-y-2">
-            <p>
-              ⚠️ <strong>Attention :</strong> Cet examen est actuellement en
-              cours.
-            </p>
-            <p>
-              Des étudiants pourraient déjà être en train de passer cet examen.
-              Modifier l&apos;examen pendant qu&apos;il est en cours peut
-              affecter l&apos;expérience des utilisateurs.
-            </p>
-            <p>
-              Êtes-vous sûr de vouloir modifier{" "}
-              <strong>&quot;{exam.title}&quot;</strong> ?
-            </p>
+          <DialogDescription asChild>
+            <div className="space-y-2">
+              <div>
+                ⚠️ <strong>Attention :</strong> Cet examen est actuellement en
+                cours.
+              </div>
+              <div>
+                Des étudiants pourraient déjà être en train de passer cet
+                examen. Modifier l&apos;examen pendant qu&apos;il est en cours
+                peut affecter l&apos;expérience des utilisateurs.
+              </div>
+              <div>
+                Êtes-vous sûr de vouloir modifier{" "}
+                <strong>&quot;{exam.title}&quot;</strong> ?
+              </div>
+            </div>
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

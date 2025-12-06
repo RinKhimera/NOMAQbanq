@@ -1,16 +1,9 @@
 "use client"
 
 import { Trophy, Users } from "lucide-react"
-import { LucideIcon } from "lucide-react"
 import { Doc } from "@/convex/_generated/dataModel"
+import { ExamStatItem } from "@/types"
 import { ExamStatCard } from "./exam-stat-card"
-
-export type ExamStatItem = {
-  title: string
-  value: string | number
-  icon: LucideIcon
-  iconClassName?: string
-}
 
 export function ExamSectionStats({ exam }: { exam: Doc<"exams"> }) {
   const statItems: ExamStatItem[] = [

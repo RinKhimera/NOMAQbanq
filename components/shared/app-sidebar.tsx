@@ -17,19 +17,22 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { adminNavigation, dashboardNavigation } from "@/constants"
+import { cn } from "@/lib/utils"
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   navigation: typeof adminNavigation | typeof dashboardNavigation
   homeUrl: string
   userComponent: React.ReactNode
+  isAdmin?: boolean
 }
 
-export function AppSidebar({
+export const AppSidebar = ({
   navigation,
   homeUrl,
   userComponent,
+  isAdmin = false,
   ...props
-}: AppSidebarProps) {
+}: AppSidebarProps) => {
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
 
@@ -42,25 +45,54 @@ export function AppSidebar({
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="px-2 py-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
-              className="hover:bg-blue-500/25 data-[slot=sidebar-menu-button]:!p-1.5 dark:hover:bg-blue-500/20"
+              className={cn(
+                "group/logo rounded-2xl transition-all",
+                "data-[slot=sidebar-menu-button]:!p-2",
+                "active:scale-[0.98]",
+                isAdmin
+                  ? "hover:bg-orange-500/10 dark:hover:bg-orange-500/15"
+                  : "hover:bg-blue-500/10 dark:hover:bg-blue-500/15",
+              )}
             >
-              <Link href={homeUrl}>
-                <div className="relative flex size-12 items-center justify-center">
+              <Link href={homeUrl} className="flex h-10 items-center gap-3">
+                <div
+                  className={cn(
+                    "relative flex size-11 items-center justify-center rounded-xl transition-all duration-300",
+                    "bg-gradient-to-br shadow-lg",
+                    "group-hover/logo:scale-105 group-hover/logo:shadow-xl",
+                    isAdmin
+                      ? "from-orange-500/20 to-amber-500/20 shadow-orange-500/20"
+                      : "from-blue-500/20 to-indigo-500/20 shadow-blue-500/20",
+                  )}
+                >
                   <Image
                     src="/noma-logo.svg"
                     alt="Logo NOMAQbanq"
                     fill
-                    sizes="40px"
-                    className="object-contain p-1"
+                    sizes="44px"
+                    className="object-contain p-2"
                     priority
                   />
                 </div>
-                <span className="text-base font-semibold">NOMAQbanq</span>
+                <div className="flex flex-col">
+                  <span className="text-base font-bold tracking-tight">
+                    NOMAQbanq
+                  </span>
+                  {isAdmin ? (
+                    <span className="text-[10px] font-semibold tracking-wider text-orange-500 uppercase dark:text-orange-400">
+                      Administration
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground text-[10px] font-medium">
+                      Préparation EACMC
+                    </span>
+                  )}
+                </div>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -68,8 +100,12 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent>
-        <NavMain items={navigation.navMain} />
-        <NavSecondary items={navigation.navSecondary} className="mt-auto" />
+        <NavMain items={navigation.navMain} isAdmin={isAdmin} />
+        <NavSecondary
+          items={navigation.navSecondary}
+          isAdmin={isAdmin}
+          className="mt-auto"
+        />
       </SidebarContent>
 
       <SidebarFooter>{userComponent}</SidebarFooter>

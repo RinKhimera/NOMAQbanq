@@ -1,16 +1,9 @@
-import NavBar from "@/components/NavBar"
-import Footer from "@/components/layout/Footer"
+import { MarketingShell } from "@/components/shared/marketing-shell"
 
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  return (
-    <>
-      <NavBar />
-      {children}
-      <Footer />
-    </>
-  )
+  return <MarketingShell>{children}</MarketingShell>
 }

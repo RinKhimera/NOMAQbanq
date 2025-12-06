@@ -33,20 +33,22 @@ export function ExamDeactivateModal({
       <DialogContent className="bg-card">
         <DialogHeader>
           <DialogTitle>Désactiver l&apos;examen en cours</DialogTitle>
-          <DialogDescription className="space-y-2">
-            <p>
-              ⚠️ <strong>Attention :</strong> Cet examen est actuellement en
-              cours.
-            </p>
-            <p>
-              Des étudiants pourraient déjà être en train de passer cet examen.
-              La désactivation interrompra immédiatement l&apos;accès à
-              l&apos;examen pour tous les utilisateurs.
-            </p>
-            <p>
-              Êtes-vous sûr de vouloir désactiver{" "}
-              <strong>&quot;{exam.title}&quot;</strong> ?
-            </p>
+          <DialogDescription asChild>
+            <div className="space-y-2">
+              <div>
+                ⚠️ <strong>Attention :</strong> Cet examen est actuellement en
+                cours.
+              </div>
+              <div>
+                Des étudiants pourraient déjà être en train de passer cet
+                examen. La désactivation interrompra immédiatement l&apos;accès
+                à l&apos;examen pour tous les utilisateurs.
+              </div>
+              <div>
+                Êtes-vous sûr de vouloir désactiver{" "}
+                <strong>&quot;{exam.title}&quot;</strong> ?
+              </div>
+            </div>
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

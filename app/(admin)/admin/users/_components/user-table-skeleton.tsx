@@ -1,4 +1,8 @@
+import { Download, Search } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import {
   Table,
   TableBody,
@@ -8,7 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-export function UserTableSkeleton() {
+export const UserTableSkeleton = () => {
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
       <div>
@@ -20,14 +24,29 @@ export function UserTableSkeleton() {
         </p>
       </div>
 
-      <Card>
+      <Card className="gap-3">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="h-6 w-48 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-            <div className="h-6 w-20 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+          <CardTitle className="flex flex-col gap-3 @md:flex-row @md:items-center @md:justify-between">
+            <div className="flex items-center gap-3">
+              <Badge variant="secondary">
+                <div className="h-4 w-6 animate-pulse rounded bg-gray-300 dark:bg-gray-600" />
+              </Badge>
+            </div>
+            <Button variant="outline" size="sm" className="gap-2" disabled>
+              <Download className="h-4 w-4" />
+              Exporter
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="relative mb-4">
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Input
+              placeholder="Rechercher par nom, email ou nom d'utilisateur..."
+              className="pl-10"
+              disabled
+            />
+          </div>
           <div className="rounded-md border">
             <Table>
               <TableHeader>

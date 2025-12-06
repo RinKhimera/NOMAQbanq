@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
-import { ThemeProvider } from "@/components/ThemeProvider"
+import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import ConvexClientProvider from "@/providers/convex-client-provider"
 import "./globals.css"

@@ -13,12 +13,13 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import QuestionDetailsDialog from "@/components/QuestionDetailsDialog"
-import ReusableQuestionCard, {
+import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
+import {
+  QuestionCard,
   createAddAction,
   createDeleteAction,
   createViewAction,
-} from "@/components/ReusableQuestionCard"
+} from "@/components/quiz/question-card"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -55,11 +56,12 @@ export default function LearningBankPage() {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
-  // Reset pages lors du changement de domaine
-  useEffect(() => {
+  // Reset pages lors du changement de domaine - géré via le handler
+  const handleDomainChange = (domain: string) => {
+    setSelectedDomain(domain)
     setBankPage(1)
     setAvailablePage(1)
-  }, [selectedDomain])
+  }
 
   const learningBankData = useQuery(
     api.questions.getLearningBankQuestionsWithPagination,
@@ -171,7 +173,7 @@ export default function LearningBankPage() {
             className="pl-8"
           />
         </div>
-        <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+        <Select value={selectedDomain} onValueChange={handleDomainChange}>
           <SelectTrigger className="w-[250px]">
             <Filter className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Filtrer par domaine" />
@@ -203,7 +205,8 @@ export default function LearningBankPage() {
             {learningBankData?.items.map((item) => (
               <div key={item._id} className="relative">
                 {item.question && (
-                  <ReusableQuestionCard
+                  <QuestionCard
+                    variant="default"
                     question={item.question}
                     actions={[
                       createViewAction(() => handleViewDetails(item.question!)),
@@ -293,8 +296,9 @@ export default function LearningBankPage() {
         <TabsContent value="available" className="@container space-y-4">
           <div className="grid gap-4">
             {availableQuestionsData?.questions.map((question) => (
-              <ReusableQuestionCard
+              <QuestionCard
                 key={question._id}
+                variant="default"
                 question={question}
                 actions={[
                   createViewAction(() => handleViewDetails(question)),

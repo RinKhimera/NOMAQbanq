@@ -5,8 +5,8 @@ import { ArrowLeft, BarChart3, ListChecks } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useState } from "react"
-import { ExamDetails } from "@/app/(admin)/admin/exams/[id]/_components/ExamDetails"
-import { ExamQuestionsModal } from "@/app/(admin)/admin/exams/[id]/_components/ExamQuestionsModal"
+import { ExamDetails } from "@/app/(admin)/admin/exams/[id]/_components/exam-details"
+import { ExamQuestionsModal } from "@/app/(admin)/admin/exams/[id]/_components/exam-questions-modal"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -18,6 +18,7 @@ export default function MockExamDetailsPage() {
   const params = useParams()
   const examId = params.examId as Id<"exams">
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
+  const [now] = useState(() => Date.now())
 
   const { currentUser, isLoading: userLoading } = useCurrentUser()
   const exam = useQuery(api.exams.getExamWithQuestions, { examId })
@@ -40,7 +41,6 @@ export default function MockExamDetailsPage() {
 
   // Vérifier l'accès et rediriger si non autorisé
   if (currentUser && currentUser.role !== "admin") {
-    const now = Date.now()
     const isExamClosed = exam.endDate < now
     const isAllowed = exam.allowedParticipants.includes(currentUser._id)
 
