@@ -62,9 +62,10 @@ export default function QuestionsList() {
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  useEffect(() => {
+  const handleDomainChange = (domain: string) => {
+    setSelectedDomain(domain)
     setCurrentPage(1)
-  }, [selectedDomain])
+  }
 
   const questionsData = useQuery(api.questions.getQuestionsWithPagination, {
     page: currentPage,
@@ -124,7 +125,7 @@ export default function QuestionsList() {
               </div>
             </div>
             <div className="w-full md:w-64">
-              <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+              <Select value={selectedDomain} onValueChange={handleDomainChange}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>

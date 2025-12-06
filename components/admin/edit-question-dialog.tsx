@@ -3,8 +3,8 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "convex/react"
 import { Check, Minus, Plus } from "lucide-react"
-import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useState } from "react"
+import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -75,35 +75,44 @@ export default function EditQuestionDialog({
     },
   })
 
-  // Charger les données de la question quand le dialog s'ouvre
-  useEffect(() => {
-    if (question && open) {
-      // Adapter les options pour avoir toujours 5 éléments
-      const adaptedOptions = [...question.options]
-      while (adaptedOptions.length < 5) {
-        adaptedOptions.push("")
-      }
+  const correctAnswer = useWatch({
+    control: form.control,
+    name: "correctAnswer",
+  })
 
-      const questionReferences =
-        question.references && question.references.length > 0
-          ? [...question.references]
-          : [""]
+  const [prevQuestion, setPrevQuestion] = useState<Doc<"questions"> | null>(
+    null,
+  )
+  const [prevOpen, setPrevOpen] = useState(false)
 
-      form.reset({
-        question: question.question,
-        imageSrc: question.imageSrc || "",
-        options: adaptedOptions,
-        correctAnswer: question.correctAnswer,
-        explanation: question.explanation,
-        references: questionReferences,
-        objectifCMC: question.objectifCMC,
-        domain: question.domain,
-      })
+  if (question && open && (question !== prevQuestion || open !== prevOpen)) {
+    setPrevQuestion(question)
+    setPrevOpen(open)
 
-      setOptions(adaptedOptions)
-      setReferences(questionReferences)
+    const adaptedOptions = [...question.options]
+    while (adaptedOptions.length < 5) {
+      adaptedOptions.push("")
     }
-  }, [question, open, form])
+
+    const questionReferences =
+      question.references && question.references.length > 0
+        ? [...question.references]
+        : [""]
+
+    form.reset({
+      question: question.question,
+      imageSrc: question.imageSrc || "",
+      options: adaptedOptions,
+      correctAnswer: question.correctAnswer,
+      explanation: question.explanation,
+      references: questionReferences,
+      objectifCMC: question.objectifCMC,
+      domain: question.domain,
+    })
+
+    setOptions(adaptedOptions)
+    setReferences(questionReferences)
+  }
 
   const addReference = () => {
     const newReferences = [...references, ""]
@@ -243,9 +252,7 @@ export default function EditQuestionDialog({
                       <div key={index} className="flex items-center space-x-3">
                         <Badge
                           variant={
-                            form.watch("correctAnswer") === option
-                              ? "default"
-                              : "outline"
+                            correctAnswer === option ? "default" : "outline"
                           }
                           className="flex h-6 min-w-[29px] cursor-pointer items-center justify-center"
                           onClick={() =>
@@ -260,16 +267,14 @@ export default function EditQuestionDialog({
                           value={option}
                           onChange={(e) => updateOption(index, e.target.value)}
                           className={
-                            form.watch("correctAnswer") === option
-                              ? "border-green-400"
-                              : ""
+                            correctAnswer === option ? "border-green-400" : ""
                           }
                           disabled={
                             index > 3 &&
                             options.slice(0, 4).some((opt) => !opt.trim())
                           }
                         />
-                        {form.watch("correctAnswer") === option && (
+                        {correctAnswer === option && (
                           <Check className="h-5 w-5 text-green-600" />
                         )}
                       </div>

@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,6 +40,9 @@ const TrainingContent = () => {
   const count = parseInt(searchParams.get("count") || "10")
 
   const [questions, setQuestions] = useState<Doc<"questions">[]>([])
+  const [prevRandomQuestions, setPrevRandomQuestions] = useState<
+    Doc<"questions">[] | undefined
+  >(undefined)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [userAnswer, setUserAnswer] = useState<string | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
@@ -62,16 +65,15 @@ const TrainingContent = () => {
     },
   )
 
-  // Charger les questions une seule fois
-  useEffect(() => {
-    if (
-      randomQuestions &&
-      randomQuestions.length > 0 &&
-      questions.length === 0
-    ) {
-      setQuestions(randomQuestions)
-    }
-  }, [randomQuestions, questions.length])
+  if (
+    randomQuestions &&
+    randomQuestions.length > 0 &&
+    randomQuestions !== prevRandomQuestions &&
+    questions.length === 0
+  ) {
+    setPrevRandomQuestions(randomQuestions)
+    setQuestions(randomQuestions)
+  }
 
   const currentQuestion = questions[currentQuestionIndex]
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100

@@ -11,7 +11,7 @@ import {
   Save,
 } from "lucide-react"
 import { useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -62,6 +62,11 @@ export default function QuestionForm() {
       objectifCMC: "",
       domain: "",
     },
+  })
+
+  const correctAnswer = useWatch({
+    control: form.control,
+    name: "correctAnswer",
   })
 
   const addReference = () => {
@@ -208,9 +213,7 @@ export default function QuestionForm() {
                         >
                           <Badge
                             variant={
-                              form.watch("correctAnswer") === option
-                                ? "default"
-                                : "outline"
+                              correctAnswer === option ? "default" : "outline"
                             }
                             className="flex h-6 min-w-[29px] cursor-pointer items-center justify-center"
                             onClick={() =>
@@ -227,16 +230,14 @@ export default function QuestionForm() {
                               updateOption(index, e.target.value)
                             }
                             className={
-                              form.watch("correctAnswer") === option
-                                ? "border-green-400"
-                                : ""
+                              correctAnswer === option ? "border-green-400" : ""
                             }
                             disabled={
                               index > 3 &&
                               options.slice(0, 4).some((opt) => !opt.trim())
                             }
                           />
-                          {form.watch("correctAnswer") === option && (
+                          {correctAnswer === option && (
                             <CheckCircle className="h-5 w-5 text-green-600" />
                           )}
                         </div>

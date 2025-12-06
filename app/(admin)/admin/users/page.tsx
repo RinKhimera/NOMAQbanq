@@ -41,7 +41,6 @@ const UsersPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const limit = 10
 
   // Debounce de la recherche pour éviter trop de requêtes
@@ -64,12 +63,8 @@ const UsersPage = () => {
 
   const allUsers = useQuery(api.users.getAllUsers)
 
-  // Marquer le chargement initial comme terminé une fois les données reçues
-  useEffect(() => {
-    if (usersData && isInitialLoad) {
-      setIsInitialLoad(false)
-    }
-  }, [usersData, isInitialLoad])
+  // Dériver l'état de chargement au lieu d'utiliser un useEffect
+  const showSkeleton = !usersData
 
   const handleSort = (field: SortBy) => {
     if (sortBy === field) {
@@ -100,7 +95,7 @@ const UsersPage = () => {
   }
 
   // Afficher le skeleton uniquement lors du premier chargement
-  if (isInitialLoad && !usersData) {
+  if (showSkeleton) {
     return <UserTableSkeleton />
   }
 

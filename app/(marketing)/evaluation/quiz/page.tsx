@@ -2,8 +2,7 @@
 
 import { useQuery } from "convex/react"
 import { ArrowRight } from "lucide-react"
-import { useEffect, useRef } from "react"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
 import QuizProgress from "@/components/quiz/quiz-progress"
 import QuizResults from "@/components/quiz/quiz-results"
@@ -23,6 +22,8 @@ export default function QuizPage() {
     count: 10,
   })
   const topOfQuizRef = useRef<HTMLDivElement>(null)
+  const [prevQuizQuestions, setPrevQuizQuestions] =
+    useState<typeof quizQuestions>(undefined)
 
   const [quizState, setQuizState] = useState<QuizState>({
     currentQuestion: 0,
@@ -32,34 +33,37 @@ export default function QuizPage() {
     totalTime: 200,
   })
 
-  useEffect(() => {
-    if (quizQuestions && quizQuestions.length > 0) {
-      if (quizQuestions.length < 10) {
-        setQuizState((prev) => ({
-          ...prev,
-          userAnswers: new Array(quizQuestions.length).fill(null),
-          timeRemaining: quizQuestions.length * 20, // 20 secondes par question
-          totalTime: quizQuestions.length * 20,
-        }))
-      }
-    }
-  }, [quizQuestions])
+  if (
+    quizQuestions &&
+    quizQuestions.length > 0 &&
+    quizQuestions.length < 10 &&
+    quizQuestions !== prevQuizQuestions
+  ) {
+    setPrevQuizQuestions(quizQuestions)
+    setQuizState((prev) => ({
+      ...prev,
+      userAnswers: new Array(quizQuestions.length).fill(null),
+      timeRemaining: quizQuestions.length * 20,
+      totalTime: quizQuestions.length * 20,
+    }))
+  }
 
-  // Timer
+  // Timer - utiliser setInterval pour décrémenter le temps
   useEffect(() => {
-    if (quizState.timeRemaining > 0 && !quizState.isCompleted) {
-      const timer = setTimeout(() => {
-        setQuizState((prev) => ({
-          ...prev,
-          timeRemaining: prev.timeRemaining - 1,
-        }))
-      }, 1000)
-      return () => clearTimeout(timer)
-    } else if (quizState.timeRemaining === 0) {
-      // Temps écoulé, terminer le quiz
-      setQuizState((prev) => ({ ...prev, isCompleted: true }))
-    }
-  }, [quizState.timeRemaining, quizState.isCompleted])
+    if (quizState.isCompleted) return
+
+    const interval = setInterval(() => {
+      setQuizState((prev) => {
+        if (prev.timeRemaining <= 1) {
+          clearInterval(interval)
+          return { ...prev, timeRemaining: 0, isCompleted: true }
+        }
+        return { ...prev, timeRemaining: prev.timeRemaining - 1 }
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [quizState.isCompleted])
 
   // Scroll vers le haut quand la question change
   useEffect(() => {

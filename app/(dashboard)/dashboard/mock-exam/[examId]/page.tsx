@@ -18,6 +18,7 @@ export default function MockExamDetailsPage() {
   const params = useParams()
   const examId = params.examId as Id<"exams">
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
+  const [now] = useState(() => Date.now())
 
   const { currentUser, isLoading: userLoading } = useCurrentUser()
   const exam = useQuery(api.exams.getExamWithQuestions, { examId })
@@ -40,7 +41,6 @@ export default function MockExamDetailsPage() {
 
   // Vérifier l'accès et rediriger si non autorisé
   if (currentUser && currentUser.role !== "admin") {
-    const now = Date.now()
     const isExamClosed = exam.endDate < now
     const isAllowed = exam.allowedParticipants.includes(currentUser._id)
 

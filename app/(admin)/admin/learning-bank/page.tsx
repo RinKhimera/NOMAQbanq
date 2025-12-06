@@ -56,11 +56,12 @@ export default function LearningBankPage() {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
-  // Reset pages lors du changement de domaine
-  useEffect(() => {
+  // Reset pages lors du changement de domaine - géré via le handler
+  const handleDomainChange = (domain: string) => {
+    setSelectedDomain(domain)
     setBankPage(1)
     setAvailablePage(1)
-  }, [selectedDomain])
+  }
 
   const learningBankData = useQuery(
     api.questions.getLearningBankQuestionsWithPagination,
@@ -172,7 +173,7 @@ export default function LearningBankPage() {
             className="pl-8"
           />
         </div>
-        <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+        <Select value={selectedDomain} onValueChange={handleDomainChange}>
           <SelectTrigger className="w-[250px]">
             <Filter className="mr-2 h-4 w-4" />
             <SelectValue placeholder="Filtrer par domaine" />
