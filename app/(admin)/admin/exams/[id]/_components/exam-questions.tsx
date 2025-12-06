@@ -1,7 +1,7 @@
 "use client"
 
 import { FileText } from "lucide-react"
-import ReusableQuestionCard from "@/components/admin/reusable-question-card"
+import { QuestionCard } from "@/components/quiz/question-card"
 import {
   Card,
   CardContent,
@@ -36,8 +36,9 @@ export function ExamQuestions({
       <CardContent>
         <div className="space-y-4">
           {examQuestions.map((question, index) => (
-            <ReusableQuestionCard
+            <QuestionCard
               key={question?._id}
+              variant="default"
               question={question}
               questionNumber={index + 1}
               actions={[]}

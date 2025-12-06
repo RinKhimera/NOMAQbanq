@@ -13,6 +13,11 @@ import {
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
+  QuestionCard,
+  createEditAction,
+  createPermanentDeleteAction,
+} from "@/components/quiz/question-card"
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -36,10 +41,6 @@ import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
 import EditQuestionDialog from "./edit-question-dialog"
-import ReusableQuestionCard, {
-  createEditAction,
-  createPermanentDeleteAction,
-} from "./reusable-question-card"
 
 export default function QuestionsList() {
   const [selectedDomain, setSelectedDomain] = useState("Tous les domaines")
@@ -150,8 +151,9 @@ export default function QuestionsList() {
       {/* Liste des questions */}
       <div className="grid gap-4">
         {questionsData?.questions.map((question, index) => (
-          <ReusableQuestionCard
+          <QuestionCard
             key={question._id}
+            variant="default"
             question={question}
             questionNumber={(questionsData.currentPage - 1) * limit + index + 1}
             actions={[

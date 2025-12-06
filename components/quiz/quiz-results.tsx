@@ -6,8 +6,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Doc } from "@/convex/_generated/dataModel"
+import { QuestionCard } from "./question-card"
 import QuestionNavigation from "./question-navigation"
-import QuestionReview from "./question-review"
 
 interface QuizResultsProps {
   questions: Doc<"questions">[]
@@ -148,8 +148,9 @@ export default function QuizResults({
         {/* Révision détaillée des questions */}
         <div className="space-y-6">
           {questions.map((question, index) => (
-            <QuestionReview
+            <QuestionCard
               key={question._id}
+              variant="review"
               question={question}
               userAnswer={userAnswers[index]}
               questionNumber={index + 1}

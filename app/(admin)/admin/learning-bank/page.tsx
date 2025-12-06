@@ -14,11 +14,12 @@ import {
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
-import ReusableQuestionCard, {
+import {
+  QuestionCard,
   createAddAction,
   createDeleteAction,
   createViewAction,
-} from "@/components/admin/reusable-question-card"
+} from "@/components/quiz/question-card"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -203,7 +204,8 @@ export default function LearningBankPage() {
             {learningBankData?.items.map((item) => (
               <div key={item._id} className="relative">
                 {item.question && (
-                  <ReusableQuestionCard
+                  <QuestionCard
+                    variant="default"
                     question={item.question}
                     actions={[
                       createViewAction(() => handleViewDetails(item.question!)),
@@ -293,8 +295,9 @@ export default function LearningBankPage() {
         <TabsContent value="available" className="@container space-y-4">
           <div className="grid gap-4">
             {availableQuestionsData?.questions.map((question) => (
-              <ReusableQuestionCard
+              <QuestionCard
                 key={question._id}
+                variant="default"
                 question={question}
                 actions={[
                   createViewAction(() => handleViewDetails(question)),

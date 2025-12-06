@@ -194,7 +194,6 @@ components/
 │   ├── stat-card.tsx
 │   ├── question-form.tsx
 │   ├── questions-list.tsx
-│   ├── reusable-question-card.tsx
 │   ├── modals/
 │
 ├── marketing/                   # Marketing page components
@@ -215,8 +214,13 @@ components/
 │   ├── legal-layout.tsx
 │
 ├── quiz/                        # Quiz-related components
-│   ├── question-card.tsx
+│   ├── question-card/          # Unified QuestionCard with variants
+│   │   ├── index.tsx           # Main component (default, exam, review)
+│   │   ├── answer-option.tsx   # Reusable answer option sub-component
+│   │   ├── question-actions.tsx # Action creators & dropdown
+│   │   └── types.ts            # TypeScript interfaces
 │   ├── quiz-progress.tsx
+│   ├── quiz-results.tsx
 │
 ├── admin-protection.tsx         # Admin role guard
 ├── nav-bar.tsx                  # Root-level components
@@ -245,13 +249,74 @@ lib/
 // Component imports (kebab-case files)
 import { ExamsList } from "@/components/admin/exams-list"
 import NavBar from "@/components/nav-bar"
-import QuestionCard from "@/components/quiz/question-card"
+import {
+  QuestionCard,
+  createEditAction,
+  createViewAction,
+} from "@/components/quiz/question-card"
 import { GenericNavUser } from "@/components/shared/generic-nav-user"
 import { AlertDialog } from "@/components/ui/alert-dialog"
 // shadcn/ui imports (kebab-case - don't modify)
 import { Button } from "@/components/ui/button"
 // Hook imports (camelCase files)
 import { useCurrentUser } from "@/hooks/useCurrentUser"
+```
+
+## QuestionCard Component
+
+The unified `QuestionCard` component (`components/quiz/question-card/`) supports three variants:
+
+### Variants
+
+- **`default`** - Compact card for lists (admin views, learning bank). Truncated question, 2-column options grid, action dropdown.
+- **`exam`** - Full interactive QCM mode. Complete question text, large clickable options, selection highlighting, image support.
+- **`review`** - Post-submission review. Expandable, shows correct/incorrect highlighting, explanation and references.
+
+### Usage Examples
+
+```tsx
+// Admin list view
+<QuestionCard
+  variant="default"
+  question={question}
+  questionNumber={1}
+  actions={[
+    createEditAction(() => handleEdit(question)),
+    createDeleteAction(() => handleDelete(question._id)),
+  ]}
+/>
+
+// Interactive exam
+<QuestionCard
+  variant="exam"
+  question={question}
+  selectedAnswer={currentAnswer}
+  onAnswerSelect={handleAnswerSelect}
+  showImage={true}
+/>
+
+// Quiz results review
+<QuestionCard
+  variant="review"
+  question={question}
+  userAnswer={userAnswers[index]}
+  questionNumber={index + 1}
+  isExpanded={expandedQuestions.has(index + 1)}
+  onToggleExpand={handleToggleExpand}
+/>
+```
+
+### Action Helpers
+
+```tsx
+import {
+  createAddAction,
+  createDeleteAction,
+  createEditAction,
+  createPermanentDeleteAction,
+  createRemoveAction,
+  createViewAction,
+} from "@/components/quiz/question-card"
 ```
 
 ## Critical Conventions

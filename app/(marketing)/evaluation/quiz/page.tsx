@@ -4,7 +4,7 @@ import { useQuery } from "convex/react"
 import { ArrowRight } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useState } from "react"
-import QuestionCard from "@/components/quiz/question-card"
+import { QuestionCard } from "@/components/quiz/question-card"
 import QuizProgress from "@/components/quiz/quiz-progress"
 import QuizResults from "@/components/quiz/quiz-results"
 import { Button } from "@/components/ui/button"
@@ -151,9 +151,11 @@ export default function QuizPage() {
         />
 
         <QuestionCard
+          variant="exam"
           question={currentQ}
           selectedAnswer={currentAnswer}
           onAnswerSelect={handleAnswerSelect}
+          showImage={true}
         />
 
         {/* Bouton suivant */}

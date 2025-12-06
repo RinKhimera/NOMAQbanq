@@ -5,9 +5,7 @@ import { ChevronLeft, ChevronRight, FileText } from "lucide-react"
 import * as React from "react"
 import { useState } from "react"
 import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
-import ReusableQuestionCard, {
-  createViewAction,
-} from "@/components/admin/reusable-question-card"
+import { QuestionCard, createViewAction } from "@/components/quiz/question-card"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -82,8 +80,9 @@ export function ExamQuestionsModal({
                   const questionNumber = startIndex + index + 1
 
                   return (
-                    <ReusableQuestionCard
+                    <QuestionCard
                       key={q._id}
+                      variant="default"
                       question={q}
                       questionNumber={questionNumber}
                       showCorrectAnswer={true}
