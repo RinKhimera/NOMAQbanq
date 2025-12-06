@@ -5,7 +5,7 @@ import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { AlertTriangle, CalendarDays, CheckCircle, Clock } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,13 +29,21 @@ import { Id } from "@/convex/_generated/dataModel"
 const MockExamPage = () => {
   const [selectedExam, setSelectedExam] = useState<Id<"exams"> | null>(null)
   const [confirmationOpen, setConfirmationOpen] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
   const router = useRouter()
 
   const allExams = useQuery(api.exams.getAllExams)
   const currentUser = useQuery(api.users.getCurrentUser)
 
+  // Mettre à jour le timestamp périodiquement pour les examens actifs
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now())
+    }, 60000) // Mise à jour toutes les minutes
+    return () => clearInterval(interval)
+  }, [])
+
   // Séparer les examens par statut
-  const now = Date.now()
 
   const activeExams =
     allExams?.filter(

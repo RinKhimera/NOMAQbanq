@@ -1,11 +1,7 @@
 "use client"
 
-import { GenericNavUser } from "@/components/shared/GenericNavUser"
-import { OnboardingGuard } from "@/components/shared/OnboardingGuard"
-import { AppSidebar } from "@/components/shared/app-sidebar"
-import { SiteHeader } from "@/components/shared/site-header"
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { dashboardNavigation } from "@/constants"
+import { DashboardShell } from "@/components/shared/dashboard-shell"
+import { OnboardingGuard } from "@/components/shared/onboarding-guard"
 
 export default function DashboardLayout({
   children,
@@ -13,29 +9,9 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   return (
-    <SidebarProvider
-      style={
-        {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 12)",
-        } as React.CSSProperties
-      }
-    >
+    <>
       <OnboardingGuard />
-      <AppSidebar
-        variant="inset"
-        navigation={dashboardNavigation}
-        homeUrl="/dashboard"
-        userComponent={<GenericNavUser requireAdmin={false} redirectUrl="/" />}
-      />
-      <SidebarInset className="theme-bg">
-        <SiteHeader />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-2">
-            {children}
-          </div>
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+      <DashboardShell variant="user">{children}</DashboardShell>
+    </>
   )
 }

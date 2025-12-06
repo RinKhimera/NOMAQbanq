@@ -19,11 +19,10 @@ NOMAQbanq is a French-language medical exam preparation platform for EACMC Part 
 
 The app uses Next.js route groups to organize distinct application sections:
 
-- `(app-pages)/` - Public marketing pages (landing, about, domains, FAQ)
+- `(marketing)/` - Public marketing pages (landing, about, domains, FAQ)
 - `(auth)/` - Authentication pages with navbar + footer layout
 - `(dashboard)/` - Student dashboard with sidebar (requires auth + onboarding)
 - `(admin)/` - Admin dashboard with sidebar (requires admin role)
-- `adminn/` - Legacy admin route (separate from route groups)
 
 **Key Rule**: All layouts in route groups are client components (`"use client"`) because they use Convex hooks or client-side navigation.
 
@@ -38,10 +37,10 @@ const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/admin(.*)"])
 role: v.union(v.literal("admin"), v.literal("user"))
 
 // Admin protection component wraps admin pages
-<AdminProtection>{children}</AdminProtection>  // See: components/AdminProtection.tsx
+<AdminProtection>{children}</AdminProtection>  // See: components/admin-protection.tsx
 
 // Onboarding guard redirects users without username
-<OnboardingGuard />  // See: components/shared/OnboardingGuard.tsx
+<OnboardingGuard />  // See: components/shared/onboarding-guard.tsx
 ```
 
 **Authorization Pattern**: Use `getCurrentUser` query to get current user, `isCurrentUserAdmin` query for admin checks. Never expose admin mutations without server-side role verification.
@@ -177,6 +176,149 @@ npm run fix-lint         # Auto-fix ESLint issues
 3. Use arrow function syntax for all component exports
 4. Import and use in the parent `page.tsx`
 
+## File Naming Conventions
+
+### Component Files (`.tsx`)
+
+- **Use kebab-case** for all component files to maintain consistency with shadcn/ui
+- Component exports remain in PascalCase
+
+```
+components/
+├── ui/                          # shadcn/ui (don't modify)
+│   ├── button.tsx
+│   ├── alert-dialog.tsx
+│
+├── admin/                       # Admin-specific components
+│   ├── exams-list.tsx          # ✅ kebab-case
+│   ├── stat-card.tsx
+│   ├── question-form.tsx
+│   ├── questions-list.tsx
+│   ├── modals/
+│
+├── marketing/                   # Marketing page components
+│   ├── domain-card.tsx
+│   ├── testimonials-carousel.tsx
+│
+├── shared/                      # Shared layout components
+│   ├── app-sidebar.tsx
+│   ├── dashboard-shell.tsx     # Unified dashboard layout
+│   ├── marketing-shell.tsx     # Unified marketing layout
+│   ├── generic-nav-user.tsx
+│   ├── onboarding-guard.tsx
+│   └── account/
+│       └── account-page.tsx
+│
+├── layout/                      # Layout components
+│   ├── footer.tsx
+│   ├── legal-layout.tsx
+│
+├── quiz/                        # Quiz-related components
+│   ├── question-card/          # Unified QuestionCard with variants
+│   │   ├── index.tsx           # Main component (default, exam, review)
+│   │   ├── answer-option.tsx   # Reusable answer option sub-component
+│   │   ├── question-actions.tsx # Action creators & dropdown
+│   │   └── types.ts            # TypeScript interfaces
+│   ├── quiz-progress.tsx
+│   ├── quiz-results.tsx
+│
+├── admin-protection.tsx         # Admin role guard
+├── nav-bar.tsx                  # Root-level components
+├── theme-provider.tsx
+```
+
+### Hooks, Functions & Utilities (`.ts`)
+
+- **Use camelCase** for hooks, functions, and library files
+- Keep consistency with React conventions
+
+```
+hooks/
+├── useCurrentUser.ts           # ✅ camelCase
+├── use-mobile.ts               # shadcn hook (exception)
+├── use-media-query.ts          # shadcn hook (exception)
+
+lib/
+├── utils.ts                    # ✅ camelCase
+├── exam-status.ts              # Utility file
+```
+
+### Import Examples
+
+```tsx
+// Component imports (kebab-case files)
+import { ExamsList } from "@/components/admin/exams-list"
+import NavBar from "@/components/nav-bar"
+import {
+  QuestionCard,
+  createEditAction,
+  createViewAction,
+} from "@/components/quiz/question-card"
+import { GenericNavUser } from "@/components/shared/generic-nav-user"
+import { AlertDialog } from "@/components/ui/alert-dialog"
+// shadcn/ui imports (kebab-case - don't modify)
+import { Button } from "@/components/ui/button"
+// Hook imports (camelCase files)
+import { useCurrentUser } from "@/hooks/useCurrentUser"
+```
+
+## QuestionCard Component
+
+The unified `QuestionCard` component (`components/quiz/question-card/`) supports three variants:
+
+### Variants
+
+- **`default`** - Compact card for lists (admin views, learning bank). Truncated question, 2-column options grid, action dropdown.
+- **`exam`** - Full interactive QCM mode. Complete question text, large clickable options, selection highlighting, image support.
+- **`review`** - Post-submission review. Expandable, shows correct/incorrect highlighting, explanation and references.
+
+### Usage Examples
+
+```tsx
+// Admin list view
+<QuestionCard
+  variant="default"
+  question={question}
+  questionNumber={1}
+  actions={[
+    createEditAction(() => handleEdit(question)),
+    createDeleteAction(() => handleDelete(question._id)),
+  ]}
+/>
+
+// Interactive exam
+<QuestionCard
+  variant="exam"
+  question={question}
+  selectedAnswer={currentAnswer}
+  onAnswerSelect={handleAnswerSelect}
+  showImage={true}
+/>
+
+// Quiz results review
+<QuestionCard
+  variant="review"
+  question={question}
+  userAnswer={userAnswers[index]}
+  questionNumber={index + 1}
+  isExpanded={expandedQuestions.has(index + 1)}
+  onToggleExpand={handleToggleExpand}
+/>
+```
+
+### Action Helpers
+
+```tsx
+import {
+  createAddAction,
+  createDeleteAction,
+  createEditAction,
+  createPermanentDeleteAction,
+  createRemoveAction,
+  createViewAction,
+} from "@/components/quiz/question-card"
+```
+
 ## Critical Conventions
 
 ### Code Style
@@ -236,6 +378,179 @@ npm run fix-lint         # Auto-fix ESLint issues
 - **Not Found**: Use `not-found.tsx` for custom 404 pages
 - **Environment Variables**: Prefix client vars with `NEXT_PUBLIC_`
 
+## React Compiler & ESLint Rules
+
+This project uses React 19 with the React Compiler, which enforces strict rules for optimal performance and correctness. Follow these patterns to avoid linting errors.
+
+### 1. Purity Rules - No Side Effects During Render
+
+Components and hooks must be **pure functions**. Never call impure functions or perform side effects during render.
+
+**❌ AVOID:**
+
+```tsx
+// ❌ Don't use Date.now() during render
+function Component() {
+  const now = Date.now() // WRONG - impure function
+  return <div>{now}</div>
+}
+
+// ❌ Don't use Math.random() during render
+function Component() {
+  const width = `${Math.floor(Math.random() * 40) + 50}%` // WRONG
+  return <div style={{ width }} />
+}
+
+// ❌ Don't mutate objects during render
+function Component({ items }) {
+  items.push(newItem) // WRONG - mutation
+  return <List items={items} />
+}
+```
+
+**✅ CORRECT PATTERNS:**
+
+```tsx
+// ✅ Use useState initializer for one-time impure calls
+function Component() {
+  const [now] = useState(() => Date.now()) // OK - runs once
+  return <div>{now}</div>
+}
+
+// ✅ Use useState with setInterval for periodic updates
+function Component() {
+  const [now, setNow] = useState(Date.now())
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+  
+  return <div>{now}</div>
+}
+
+// ✅ Use useState initializer for Math.random()
+function Component() {
+  const [width] = useState(() => `${Math.floor(Math.random() * 40) + 50}%`)
+  return <div style={{ width }} />
+}
+
+// ✅ Create new arrays/objects instead of mutating
+function Component({ items }) {
+  const newItems = [...items, newItem] // OK - new array
+  return <List items={newItems} />
+}
+```
+
+### 2. setState in useEffect - Synchronizing with External Systems
+
+Avoid calling `setState` synchronously in `useEffect` when the state change is triggered by prop/state changes. Use the "storing information from previous renders" pattern instead.
+
+**❌ AVOID:**
+
+```tsx
+// ❌ Don't call setState in effect for derived state
+function Component({ userId }) {
+  const [user, setUser] = useState(null)
+  
+  useEffect(() => {
+    setUser(fetchUser(userId)) // WRONG - creates extra render
+  }, [userId])
+  
+  return <div>{user?.name}</div>
+}
+
+// ❌ Don't synchronize state with props in effect
+function QuestionList({ domainFilter }) {
+  const [selectedDomain, setSelectedDomain] = useState(null)
+  
+  useEffect(() => {
+    setSelectedDomain(domainFilter) // WRONG
+  }, [domainFilter])
+}
+```
+
+**✅ CORRECT PATTERNS:**
+
+```tsx
+// ✅ Derive state during render (no useEffect needed)
+function Component({ userId }) {
+  const user = fetchUser(userId) // OK - derived during render
+  return <div>{user?.name}</div>
+}
+
+// ✅ Use "storing previous renders" pattern for external data sync
+function QuestionList({ questions }) {
+  const [filteredQuestions, setFilteredQuestions] = useState(questions)
+  const [prevQuestions, setPrevQuestions] = useState(questions)
+  
+  // Detect when external data changes during render
+  if (questions !== prevQuestions) {
+    setPrevQuestions(questions)
+    setFilteredQuestions(questions)
+  }
+  
+  return <List items={filteredQuestions} />
+}
+
+// ✅ Call handler functions instead of useEffect
+function Component({ onDomainChange }) {
+  const handleDomainChange = (domain) => {
+    onDomainChange(domain) // OK - explicit handler
+  }
+  
+  return <Select onChange={handleDomainChange} />
+}
+
+// ✅ Use useSyncExternalStore for external subscriptions
+function useMediaQuery(query: string) {
+  return useSyncExternalStore(
+    (callback) => {
+      const mediaQuery = window.matchMedia(query)
+      mediaQuery.addEventListener("change", callback)
+      return () => mediaQuery.removeEventListener("change", callback)
+    },
+    () => window.matchMedia(query).matches,
+    () => false // Server-side default
+  )
+}
+```
+
+### 3. Form Watching with React Hook Form
+
+The `form.watch()` method is incompatible with React Compiler memoization. Use `useWatch()` instead.
+
+**❌ AVOID:**
+
+```tsx
+// ❌ Don't use form.watch() directly
+function FormComponent() {
+  const form = useForm()
+  const numberOfQuestions = form.watch("numberOfQuestions") // WRONG
+  
+  return <div>{numberOfQuestions}</div>
+}
+```
+
+**✅ CORRECT:**
+
+```tsx
+// ✅ Use useWatch() from react-hook-form
+import { useWatch } from "react-hook-form"
+
+function FormComponent() {
+  const form = useForm()
+  const numberOfQuestions = useWatch({
+    control: form.control,
+    name: "numberOfQuestions"
+  })
+  
+  return <div>{numberOfQuestions}</div>
+}
+```
+
 ## Data Flow Example
 
 ```
@@ -246,6 +561,88 @@ User Action (Component)
         → Database operation via ctx.db
           → Real-time sync to all clients
 ```
+
+## React Hooks & Refs Best Practices
+
+### Refs Usage Rules
+
+Refs hold values that aren't used for rendering. Unlike state, changing a ref doesn't trigger a re-render. Follow these critical rules:
+
+**❌ NEVER do this:**
+
+```typescript
+// ❌ Don't read ref during render
+function Component() {
+  const ref = useRef(0)
+  const value = ref.current // WRONG - reading during render
+  return <div>{value}</div>
+}
+
+// ❌ Don't modify ref during render
+function Component({ value }) {
+  const ref = useRef(null)
+  ref.current = value // WRONG - modifying during render
+  return <div />
+}
+```
+
+**✅ DO this instead:**
+
+```typescript
+// ✅ Read/write refs in effects or event handlers
+function Component() {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (ref.current) {
+      console.log(ref.current.offsetWidth) // OK in effect
+    }
+  })
+
+  const handleClick = () => {
+    console.log(ref.current) // OK in event handler
+  }
+
+  return <div ref={ref} onClick={handleClick} />
+}
+
+// ✅ Use state for UI values that need re-renders
+function Component() {
+  const [count, setCount] = useState(0)
+  return <button onClick={() => setCount(count + 1)}>{count}</button>
+}
+
+// ✅ Lazy initialization of ref value (one-time setup)
+function Component() {
+  const ref = useRef(null)
+
+  // Initialize only once on first use
+  if (ref.current === null) {
+    ref.current = expensiveComputation() // OK - lazy initialization
+  }
+
+  const handleClick = () => {
+    console.log(ref.current) // Use the initialized value
+  }
+
+  return <button onClick={handleClick}>Click</button>
+}
+```
+
+**Ref Detection Heuristics:**
+
+The React Compiler detects refs through:
+
+- Values returned from `useRef()` or `React.createRef()`
+- Identifiers named `ref` or ending in `Ref` that access `.current`
+- Values passed through JSX `ref` prop (e.g., `<div ref={someRef} />`)
+
+**Key Principles:**
+
+- **Refs are for side effects**, not rendering logic
+- **State is for UI values** that should trigger re-renders
+- **Only read/write `ref.current`** in effects, event handlers, or lazy initialization
+- **Never access `ref.current`** during the render phase
 
 ## Gotchas
 
@@ -261,6 +658,12 @@ User Action (Component)
 - Database schema: `convex/schema.ts`
 - Navigation menus: `constants/index.tsx`
 - Form schemas: `schemas/`
+- Type definitions: `types/index.ts`
 - Medical domains data: `data/domains.ts`
 - User hook pattern: `hooks/useCurrentUser.ts`
-- Component structure examples: `app/(app-pages)/*/_components/`
+- Component structure examples: `app/(marketing)/*/_components/`
+- Shared dashboard layout: `components/shared/dashboard-shell.tsx`
+- Shared marketing layout: `components/shared/marketing-shell.tsx`
+- Shared account page: `components/shared/account/account-page.tsx`
+- Admin protection: `components/admin-protection.tsx`
+- Navigation bar: `components/nav-bar.tsx`

@@ -462,10 +462,187 @@
 }
 
 .admin-theme-bg {
-  @apply bg-gradient-to-br from-amber-50/30 via-orange-50/20 to-red-50/30;
+  @apply bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100;
 }
 .dark .admin-theme-bg {
   @apply bg-gradient-to-br from-gray-950 via-zinc-900 to-slate-950;
+}
+
+/* ===== Dashboard Shell Theme System ===== */
+/* User Dashboard Theme */
+[data-dashboard-mode="user"] {
+  --dashboard-accent: 217 91% 60%; /* Blue */
+  --dashboard-accent-light: 217 91% 95%;
+  --dashboard-accent-dark: 217 91% 45%;
+  --dashboard-gradient-from: 214 100% 97%;
+  --dashboard-gradient-to: 226 100% 96%;
+}
+
+.dark [data-dashboard-mode="user"] {
+  --dashboard-accent: 217 91% 60%;
+  --dashboard-accent-light: 217 91% 20%;
+  --dashboard-accent-dark: 217 91% 70%;
+  --dashboard-gradient-from: 222 47% 11%;
+  --dashboard-gradient-to: 217 33% 17%;
+}
+
+/* Admin Dashboard Theme */
+[data-dashboard-mode="admin"] {
+  --dashboard-accent: 215 20% 45%; /* Slate/Gray-Blue */
+  --dashboard-accent-light: 215 20% 95%;
+  --dashboard-accent-dark: 215 25% 35%;
+  --dashboard-gradient-from: 210 20% 98%;
+  --dashboard-gradient-to: 220 14% 96%;
+}
+
+.dark [data-dashboard-mode="admin"] {
+  --dashboard-accent: 215 20% 55%;
+  --dashboard-accent-light: 215 20% 20%;
+  --dashboard-accent-dark: 215 20% 65%;
+  --dashboard-gradient-from: 224 71% 4%;
+  --dashboard-gradient-to: 215 28% 9%;
+}
+
+/* ===== Modern Sidebar Styles ===== */
+.sidebar-modern {
+  @apply relative overflow-hidden;
+}
+
+.sidebar-modern::before {
+  content: "";
+  @apply pointer-events-none absolute inset-0 opacity-50;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    hsl(var(--sidebar) / 0.02) 50%,
+    transparent 100%
+  );
+}
+
+/* Sidebar glassmorphism for light mode */
+.sidebar-glass {
+  @apply backdrop-blur-xl;
+  background: hsl(var(--sidebar) / 0.85);
+  border-right: 1px solid hsl(var(--sidebar-border) / 0.5);
+}
+
+.dark .sidebar-glass {
+  background: hsl(var(--sidebar) / 0.9);
+  border-right: 1px solid hsl(var(--sidebar-border) / 0.3);
+}
+
+/* Modern nav item styles */
+.nav-item-modern {
+  @apply relative overflow-hidden rounded-lg transition-all duration-200 ease-out;
+}
+
+.nav-item-modern::before {
+  content: "";
+  @apply absolute top-1/2 left-0 h-0 w-[3px] -translate-y-1/2 rounded-r-full bg-blue-500 transition-all duration-200;
+}
+
+.nav-item-modern:hover::before {
+  @apply h-1/2;
+}
+
+.nav-item-modern.active::before {
+  @apply h-3/4;
+}
+
+/* Active link with pill background */
+.active-link-modern {
+  position: relative;
+  background-color: rgb(59 130 246 / 0.1);
+  color: rgb(29 78 216);
+}
+
+.dark .active-link-modern {
+  background-color: rgb(59 130 246 / 0.15);
+  color: rgb(96 165 250);
+}
+
+.active-link-modern::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 75%;
+  width: 3px;
+  transform: translateY(-50%);
+  border-radius: 0 9999px 9999px 0;
+  background-color: rgb(59 130 246);
+}
+
+/* Admin active link variant */
+[data-dashboard-mode="admin"] .active-link-modern {
+  background-color: rgb(100 116 139 / 0.1);
+  color: rgb(51 65 85);
+}
+
+.dark [data-dashboard-mode="admin"] .active-link-modern {
+  background-color: rgb(148 163 184 / 0.15);
+  color: rgb(203 213 225);
+}
+
+[data-dashboard-mode="admin"] .active-link-modern::before {
+  background-color: rgb(100 116 139);
+}
+
+.dark [data-dashboard-mode="admin"] .active-link-modern::before {
+  background-color: rgb(148 163 184);
+}
+
+[data-dashboard-mode="admin"] .nav-item-modern::before {
+  background-color: rgb(100 116 139);
+}
+
+.dark [data-dashboard-mode="admin"] .nav-item-modern::before {
+  background-color: rgb(148 163 184);
+}
+
+/* Modern header styles */
+.header-modern {
+  @apply border-border/50 bg-background/80 border-b backdrop-blur-md;
+}
+
+.dark .header-modern {
+  @apply border-border/30 bg-background/90;
+}
+
+/* Admin header variant */
+[data-dashboard-mode="admin"] .header-modern {
+  @apply border-slate-200/60 dark:border-slate-700/40;
+}
+
+/* Modern card styles for dashboard */
+.dashboard-card {
+  @apply border-border/50 bg-card rounded-xl border shadow-sm transition-all duration-200;
+}
+
+.dashboard-card:hover {
+  @apply border-border shadow-md;
+}
+
+[data-dashboard-mode="admin"] .dashboard-card {
+  @apply border-slate-200/60 dark:border-slate-700/50;
+}
+
+/* User nav modern styles */
+.user-nav-modern {
+  @apply rounded-lg border border-transparent p-1 transition-all duration-200;
+}
+
+.user-nav-modern:hover {
+  @apply border-border/50 bg-accent/50;
+}
+
+/* Badge variants for dashboard modes */
+.badge-user {
+  @apply bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300;
+}
+
+.badge-admin {
+  @apply bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300;
 }
 /* Responsive utilities */
 @media (max-width: 768px) {
@@ -636,12 +813,71 @@ body {
   transform: translateX(100%) scale(0.5) rotateY(-45deg);
   opacity: 0;
 }
+
+/* Active link alias - uses same styles as active-link-modern */
 .active-link {
-  @apply bg-blue-500/15 text-blue-700 transition dark:bg-blue-500/10 dark:text-blue-400;
+  position: relative;
+  background-color: rgb(59 130 246 / 0.1);
+  color: rgb(29 78 216);
 }
+
+.dark .active-link {
+  background-color: rgb(59 130 246 / 0.15);
+  color: rgb(96 165 250);
+}
+
+.active-link::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 75%;
+  width: 3px;
+  transform: translateY(-50%);
+  border-radius: 0 9999px 9999px 0;
+  background-color: rgb(59 130 246);
+}
+
 .btn-link {
-  @apply text-muted-foreground focus:hover:bg-blue-500/25 focus:hover:text-blue-700 dark:text-white dark:hover:bg-blue-500/20 dark:hover:text-white;
+  color: var(--muted-foreground);
+  transition: all 0.2s;
 }
+
+.btn-link:hover {
+  background-color: rgb(59 130 246 / 0.15);
+  color: rgb(29 78 216);
+}
+
+.btn-link:focus:hover {
+  background-color: rgb(59 130 246 / 0.2);
+  color: rgb(29 78 216);
+}
+
+.dark .btn-link {
+  color: white;
+}
+
+.dark .btn-link:hover {
+  background-color: rgb(59 130 246 / 0.15);
+  color: white;
+}
+
+/* Admin button link variant */
+[data-dashboard-mode="admin"] .btn-link:hover {
+  background-color: rgb(100 116 139 / 0.15);
+  color: rgb(51 65 85);
+}
+
+[data-dashboard-mode="admin"] .btn-link:focus:hover {
+  background-color: rgb(100 116 139 / 0.2);
+  color: rgb(51 65 85);
+}
+
+.dark [data-dashboard-mode="admin"] .btn-link:hover {
+  background-color: rgb(148 163 184 / 0.15);
+  color: rgb(203 213 225);
+}
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -679,10 +915,8 @@ body {
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
+
 :root {
-  /*  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255; */
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -716,6 +950,7 @@ body {
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
 }
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -748,13 +983,4 @@ body {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
 }
