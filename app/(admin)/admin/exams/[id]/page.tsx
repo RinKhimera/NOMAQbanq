@@ -113,7 +113,7 @@ export default function AdminExamDetailsPage() {
         </div>
       </div>
 
-      <ExamDetails examId={examId} />
+      <ExamDetails examId={examId} isAdmin={true} />
 
       <ExamQuestionsModal
         examId={examId}

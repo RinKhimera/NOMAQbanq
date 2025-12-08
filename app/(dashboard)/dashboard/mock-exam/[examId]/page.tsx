@@ -110,20 +110,41 @@ export default function MockExamDetailsPage() {
             <ListChecks className="mr-2 h-4 w-4" /> Voir toutes les questions
           </Button>
 
-          <Button
-            className="bg-blue-600 text-white hover:bg-blue-700"
-            size="sm"
-            asChild
-          >
-            <Link href={`/dashboard/mock-exam/${examId}/results`}>
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Voir mes résultats
-            </Link>
-          </Button>
+          {currentUser && (() => {
+            // Vérifier si l'utilisateur a complété l'examen
+            const hasCompleted = exam.participants.some(
+              (p) => p.userId === currentUser._id && p.status === "completed"
+            )
+            // Les non-admins ne peuvent voir les résultats qu'après la fin de l'examen
+            const canViewResults =
+              currentUser.role === "admin" || now >= exam.endDate
+
+            return (
+              hasCompleted &&
+              canViewResults && (
+                <Button
+                  className="bg-blue-600 text-white hover:bg-blue-700"
+                  size="sm"
+                  asChild
+                >
+                  <Link
+                    href={`/dashboard/mock-exam/${examId}/results/${currentUser._id}`}
+                  >
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Voir mes résultats
+                  </Link>
+                </Button>
+              )
+            )
+          })()}
         </div>
       </div>
 
-      <ExamDetails examId={examId} />
+      <ExamDetails
+        examId={examId}
+        isAdmin={false}
+        currentUserId={currentUser?._id}
+      />
 
       <ExamQuestionsModal
         examId={examId}

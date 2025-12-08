@@ -11,6 +11,7 @@ import {
   Target,
 } from "lucide-react"
 import Link from "next/link"
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,6 +31,7 @@ const DashboardPage = () => {
   const stats = useQuery(api.exams.getMyDashboardStats)
   const availableExams = useQuery(api.exams.getMyAvailableExams)
   const recentExams = useQuery(api.exams.getMyRecentExams)
+  const [now] = useState(() => Date.now())
 
   const quickActions = [
     {
@@ -232,7 +234,10 @@ const DashboardPage = () => {
           {/* Dernier exam passé */}
           {recentExams &&
           recentExams.length > 0 &&
-          recentExams[0].isCompleted ? (
+          recentExams[0].isCompleted &&
+          currentUser &&
+          (currentUser.role === "admin" ||
+            now >= recentExams[0].endDate) ? (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>
@@ -245,7 +250,7 @@ const DashboardPage = () => {
               </CardHeader>
               <CardContent>
                 <Link
-                  href={`/dashboard/mock-exam/${recentExams[0]._id}/results`}
+                  href={`/dashboard/mock-exam/${recentExams[0]._id}/results/${currentUser._id}`}
                 >
                   <div className="hover:bg-muted/50 flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors">
                     <div className="flex items-center gap-3">

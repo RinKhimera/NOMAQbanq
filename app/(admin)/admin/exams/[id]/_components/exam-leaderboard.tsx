@@ -3,7 +3,10 @@
 import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
+import { Eye } from "lucide-react"
+import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -16,7 +19,17 @@ import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { getInitials } from "@/lib/utils"
 
-export function ExamLeaderboard({ examId }: { examId: Id<"exams"> }) {
+interface ExamLeaderboardProps {
+  examId: Id<"exams">
+  isAdmin?: boolean
+  currentUserId?: Id<"users">
+}
+
+export function ExamLeaderboard({
+  examId,
+  isAdmin = false,
+  currentUserId,
+}: ExamLeaderboardProps) {
   const leaderboard = useQuery(api.exams.getExamLeaderboard, { examId })
 
   if (!leaderboard || leaderboard.length === 0) return null
@@ -66,11 +79,33 @@ export function ExamLeaderboard({ examId }: { examId: Id<"exams"> }) {
                     </p>
                   </div>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="font-bold">{entry.score}%</p>
-                  <p className="text-muted-foreground hidden text-sm @md:block">
-                    {format(new Date(entry.completedAt), "Pp", { locale: fr })}
-                  </p>
+                <div className="flex shrink-0 items-center gap-3">
+                  <div className="text-right">
+                    <p className="font-bold">{entry.score}%</p>
+                    <p className="text-muted-foreground hidden text-sm @md:block">
+                      {format(new Date(entry.completedAt), "Pp", { locale: fr })}
+                    </p>
+                  </div>
+                  {entry.user &&
+                    (isAdmin || entry.user._id === currentUserId) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        asChild
+                        className="h-8 w-8"
+                      >
+                        <Link
+                          href={
+                            isAdmin
+                              ? `/admin/exams/${examId}/results/${entry.user._id}`
+                              : `/dashboard/mock-exam/${examId}/results/${entry.user._id}`
+                          }
+                          title={`Voir les résultats de ${entry.user.name}`}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    )}
                 </div>
               </div>
             )

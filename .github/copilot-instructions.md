@@ -420,14 +420,14 @@ function Component() {
 // ✅ Use useState with setInterval for periodic updates
 function Component() {
   const [now, setNow] = useState(Date.now())
-  
+
   useEffect(() => {
     const interval = setInterval(() => {
       setNow(Date.now())
     }, 1000)
     return () => clearInterval(interval)
   }, [])
-  
+
   return <div>{now}</div>
 }
 
@@ -454,18 +454,18 @@ Avoid calling `setState` synchronously in `useEffect` when the state change is t
 // ❌ Don't call setState in effect for derived state
 function Component({ userId }) {
   const [user, setUser] = useState(null)
-  
+
   useEffect(() => {
     setUser(fetchUser(userId)) // WRONG - creates extra render
   }, [userId])
-  
+
   return <div>{user?.name}</div>
 }
 
 // ❌ Don't synchronize state with props in effect
 function QuestionList({ domainFilter }) {
   const [selectedDomain, setSelectedDomain] = useState(null)
-  
+
   useEffect(() => {
     setSelectedDomain(domainFilter) // WRONG
   }, [domainFilter])
@@ -485,13 +485,13 @@ function Component({ userId }) {
 function QuestionList({ questions }) {
   const [filteredQuestions, setFilteredQuestions] = useState(questions)
   const [prevQuestions, setPrevQuestions] = useState(questions)
-  
+
   // Detect when external data changes during render
   if (questions !== prevQuestions) {
     setPrevQuestions(questions)
     setFilteredQuestions(questions)
   }
-  
+
   return <List items={filteredQuestions} />
 }
 
@@ -500,7 +500,7 @@ function Component({ onDomainChange }) {
   const handleDomainChange = (domain) => {
     onDomainChange(domain) // OK - explicit handler
   }
-  
+
   return <Select onChange={handleDomainChange} />
 }
 
@@ -529,7 +529,7 @@ The `form.watch()` method is incompatible with React Compiler memoization. Use `
 function FormComponent() {
   const form = useForm()
   const numberOfQuestions = form.watch("numberOfQuestions") // WRONG
-  
+
   return <div>{numberOfQuestions}</div>
 }
 ```
@@ -544,9 +544,9 @@ function FormComponent() {
   const form = useForm()
   const numberOfQuestions = useWatch({
     control: form.control,
-    name: "numberOfQuestions"
+    name: "numberOfQuestions",
   })
-  
+
   return <div>{numberOfQuestions}</div>
 }
 ```

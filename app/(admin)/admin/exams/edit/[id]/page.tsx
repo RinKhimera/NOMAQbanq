@@ -7,7 +7,7 @@ import { fr } from "date-fns/locale"
 import { ArrowLeft, Calendar, ChevronsUpDown } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { QuestionSelector } from "@/components/admin/question-selector"
@@ -65,7 +65,6 @@ const AdminEditExamPage = () => {
   const [selectedParticipants, setSelectedParticipants] = useState<
     Id<"users">[]
   >([])
-  const [prevExam, setPrevExam] = useState<typeof exam>(undefined)
 
   const { isAuthenticated } = useConvexAuth()
 
@@ -86,18 +85,19 @@ const AdminEditExamPage = () => {
     },
   })
 
-  // Charger les données de l'examen
-  if (exam && exam !== prevExam) {
-    setPrevExam(exam)
-    form.setValue("title", exam.title)
-    form.setValue("description", exam.description || "")
-    form.setValue("numberOfQuestions", exam.questionIds.length)
-    form.setValue("startDate", new Date(exam.startDate))
-    form.setValue("endDate", new Date(exam.endDate))
-    form.setValue("questionIds", exam.questionIds)
-    setSelectedQuestions(exam.questionIds)
-    setSelectedParticipants(exam.allowedParticipants || [])
-  }
+  // Charger les données de l'examen dans useEffect
+  useEffect(() => {
+    if (exam) {
+      form.setValue("title", exam.title)
+      form.setValue("description", exam.description || "")
+      form.setValue("numberOfQuestions", exam.questionIds.length)
+      form.setValue("startDate", new Date(exam.startDate))
+      form.setValue("endDate", new Date(exam.endDate))
+      form.setValue("questionIds", exam.questionIds)
+      setSelectedQuestions(exam.questionIds)
+      setSelectedParticipants(exam.allowedParticipants || [])
+    }
+  }, [exam, form])
 
   const numberOfQuestions = useWatch({
     control: form.control,

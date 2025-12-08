@@ -18,7 +18,17 @@ import { getExamStatus } from "@/lib/exam-status"
 import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
 
-export function ExamDetails({ examId }: { examId: Id<"exams"> }) {
+interface ExamDetailsProps {
+  examId: Id<"exams">
+  isAdmin?: boolean
+  currentUserId?: Id<"users">
+}
+
+export function ExamDetails({
+  examId,
+  isAdmin = false,
+  currentUserId,
+}: ExamDetailsProps) {
   const exam = useQuery(api.exams.getExamWithQuestions, { examId })
 
   if (!exam) {
@@ -88,7 +98,11 @@ export function ExamDetails({ examId }: { examId: Id<"exams"> }) {
 
       <ExamSectionStats exam={exam} />
 
-      <ExamLeaderboard examId={examId} />
+      <ExamLeaderboard
+        examId={examId}
+        isAdmin={isAdmin}
+        currentUserId={currentUserId}
+      />
     </div>
   )
 }

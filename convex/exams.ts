@@ -719,3 +719,153 @@ export const getExamSession = query({
     }
   },
 })
+
+// Récupérer les résultats d'un participant pour un examen
+// Admins peuvent voir tous les résultats, utilisateurs seulement leurs propres résultats
+export const getParticipantExamResults = query({
+  args: {
+    examId: v.id("exams"),
+    userId: v.id("users"),
+  },
+  handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return null
+    }
+
+    const currentUser = await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
+      )
+      .unique()
+
+    if (!currentUser) {
+      return null
+    }
+
+    // Vérifier les permissions: admin ou propre résultat
+    const isAdmin = currentUser.role === "admin"
+    const isOwnResult = currentUser._id === args.userId
+
+    if (!isAdmin && !isOwnResult) {
+      return null // Accès non autorisé
+    }
+
+    // Récupérer l'examen
+    const exam = await ctx.db.get(args.examId)
+    if (!exam) {
+      return null
+    }
+
+    // Les non-admins ne peuvent voir les résultats qu'après la fin de l'examen
+    if (!isAdmin) {
+      const now = Date.now()
+      if (now < exam.endDate) {
+        return null // L'examen n'est pas encore terminé
+      }
+    }
+
+    // Trouver le participant
+    const participant = exam.participants.find((p) => p.userId === args.userId)
+    
+    // Pour les admins, retourner des informations sur l'état même si pas de résultats
+    if (!participant) {
+      if (isAdmin) {
+        // Vérifier si l'utilisateur existe
+        const participantUser = await ctx.db.get(args.userId)
+        return {
+          error: "NO_PARTICIPATION",
+          message: participantUser 
+            ? "Ce participant n'a pas encore commencé cet examen"
+            : "Utilisateur introuvable",
+          exam: {
+            _id: exam._id,
+            title: exam.title,
+            description: exam.description,
+            startDate: exam.startDate,
+            endDate: exam.endDate,
+            completionTime: exam.completionTime,
+          },
+          participantUser: participantUser
+            ? {
+                _id: participantUser._id,
+                name: participantUser.name,
+                username: participantUser.username,
+                email: participantUser.email,
+                image: participantUser.image,
+              }
+            : null,
+        }
+      }
+      return null
+    }
+
+    if (participant.status !== "completed") {
+      if (isAdmin) {
+        const participantUser = await ctx.db.get(args.userId)
+        return {
+          error: "NOT_COMPLETED",
+          message: "Ce participant n'a pas encore terminé l'examen",
+          status: participant.status,
+          exam: {
+            _id: exam._id,
+            title: exam.title,
+            description: exam.description,
+            startDate: exam.startDate,
+            endDate: exam.endDate,
+            completionTime: exam.completionTime,
+          },
+          participantUser: participantUser
+            ? {
+                _id: participantUser._id,
+                name: participantUser.name,
+                username: participantUser.username,
+                email: participantUser.email,
+                image: participantUser.image,
+              }
+            : null,
+        }
+      }
+      return null
+    }
+
+    // Récupérer les questions
+    const questions = await Promise.all(
+      exam.questionIds.map(async (questionId) => {
+        return await ctx.db.get(questionId)
+      }),
+    )
+
+    // Récupérer les informations du participant (user)
+    const participantUser = await ctx.db.get(args.userId)
+
+    return {
+      exam: {
+        _id: exam._id,
+        title: exam.title,
+        description: exam.description,
+        startDate: exam.startDate,
+        endDate: exam.endDate,
+        completionTime: exam.completionTime,
+      },
+      participant: {
+        userId: participant.userId,
+        score: participant.score,
+        completedAt: participant.completedAt,
+        startedAt: participant.startedAt,
+        answers: participant.answers,
+      },
+      participantUser: participantUser
+        ? {
+            _id: participantUser._id,
+            name: participantUser.name,
+            username: participantUser.username,
+            email: participantUser.email,
+            image: participantUser.image,
+          }
+        : null,
+      questions: questions.filter(Boolean),
+    }
+  },
+})
