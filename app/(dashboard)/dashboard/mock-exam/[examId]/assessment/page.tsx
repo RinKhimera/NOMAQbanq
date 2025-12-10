@@ -16,6 +16,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { QuestionCard } from "@/components/quiz/question-card"
+import { QuestionNavigationButtons } from "@/components/quiz/question-navigation-buttons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,12 +26,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Progress } from "@/components/ui/progress"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
@@ -575,50 +570,15 @@ const AssessmentPage = () => {
         </div>
       </div>
 
-      {/* Mobile Navigation - Floating button */}
-      <div className="fixed right-6 bottom-6 lg:hidden">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="lg"
-              className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 shadow-xl hover:from-blue-700 hover:to-indigo-700"
-            >
-              <List className="h-6 w-6" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="max-h-[400px] w-72 overflow-y-auto p-3"
-          >
-            <div className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Aller à la question
-            </div>
-            <div className="grid grid-cols-6 gap-2">
-              {examWithQuestions.questions.map((question, index) => {
-                const isAnswered = question ? answers[question._id] : false
-                const isCurrent = index === currentQuestionIndex
-
-                return (
-                  <DropdownMenuItem
-                    key={index}
-                    onClick={() => goToQuestion(index)}
-                    className={cn(
-                      "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg p-0 text-sm font-medium",
-                      isCurrent
-                        ? "bg-blue-600 text-white"
-                        : isAnswered
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400",
-                    )}
-                  >
-                    {index + 1}
-                  </DropdownMenuItem>
-                )
-              })}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {/* Mobile Navigation - Unified question navigation */}
+      <QuestionNavigationButtons
+        questionResults={examWithQuestions.questions.map((question) => ({
+          isAnswered: question ? !!answers[question._id] : false,
+        }))}
+        onNavigateToQuestion={goToQuestion}
+        variant="exam"
+        currentQuestionIndex={currentQuestionIndex}
+      />
 
       {/* Dialog de confirmation de soumission */}
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>

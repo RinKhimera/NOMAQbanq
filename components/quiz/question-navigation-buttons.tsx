@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils"
 
 type QuestionResult = {
-  isCorrect: boolean
+  isCorrect?: boolean
   isAnswered: boolean
 }
 
@@ -21,12 +21,16 @@ type QuestionNavigationButtonsProps = {
   questionResults?: QuestionResult[]
   onNavigateToQuestion?: (index: number) => void
   showNavButton?: boolean
+  variant?: "exam" | "review"
+  currentQuestionIndex?: number
 }
 
 export const QuestionNavigationButtons = ({
   questionResults,
   onNavigateToQuestion,
   showNavButton = true,
+  variant = "review",
+  currentQuestionIndex,
 }: QuestionNavigationButtonsProps) => {
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [isNavOpen, setIsNavOpen] = useState(false)
@@ -52,6 +56,27 @@ export const QuestionNavigationButtons = ({
     questionResults &&
     questionResults.length > 0 &&
     onNavigateToQuestion
+
+  // Determine badge styling based on variant and state
+  const getBadgeStyle = (result: QuestionResult, index: number) => {
+    if (variant === "exam") {
+      // Exam mode: highlight current question, show answered/unanswered
+      const isCurrent = index === currentQuestionIndex
+      if (isCurrent) {
+        return "bg-blue-600 text-white"
+      }
+      return result.isAnswered
+        ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+        : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
+    }
+
+    // Review mode: correct/incorrect/unanswered
+    return result.isCorrect
+      ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
+      : result.isAnswered
+        ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
+        : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400"
+  }
 
   return (
     <div
@@ -83,7 +108,7 @@ export const QuestionNavigationButtons = ({
 
       {/* Navigation button with dropdown (mobile-first) */}
       {canShowNav && (
-        <div className="xl:hidden">
+        <div className="lg:hidden">
           <DropdownMenu open={isNavOpen} onOpenChange={setIsNavOpen}>
             <DropdownMenuTrigger asChild>
               <Button
@@ -114,11 +139,7 @@ export const QuestionNavigationButtons = ({
                     }}
                     className={cn(
                       "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg p-0 text-sm font-medium transition-colors",
-                      result.isCorrect
-                        ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
-                        : !result.isAnswered
-                          ? "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400"
-                          : "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400",
+                      getBadgeStyle(result, index),
                     )}
                   >
                     {index + 1}
@@ -126,20 +147,39 @@ export const QuestionNavigationButtons = ({
                 ))}
               </div>
 
-              <div className="mt-4 space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700">
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                  <span>Correct</span>
+              {variant === "review" && (
+                <div className="mt-4 space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                    <span>Correct</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                    <span>Incorrect</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <div className="h-2.5 w-2.5 rounded-full bg-gray-400" />
+                    <span>Sans réponse</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <div className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                  <span>Incorrect</span>
+              )}
+
+              {variant === "exam" && (
+                <div className="mt-4 space-y-2 border-t border-gray-200 pt-4 dark:border-gray-700">
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <div className="h-2.5 w-2.5 rounded-full bg-blue-500" />
+                    <span>Question actuelle</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <div className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                    <span>Répondu</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <div className="h-2.5 w-2.5 rounded-full bg-gray-400" />
+                    <span>Non répondu</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
-                  <div className="h-2.5 w-2.5 rounded-full bg-gray-400" />
-                  <span>Sans réponse</span>
-                </div>
-              </div>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

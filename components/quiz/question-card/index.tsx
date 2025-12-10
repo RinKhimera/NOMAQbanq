@@ -253,10 +253,7 @@ export const QuestionCard = ({
             {question.question}
           </h3>
           {/* Objectif CMC Badge */}
-          <Badge
-            variant="outline"
-            className="w-fit max-w-[320px] border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-200 dark:hover:bg-purple-900/20"
-          >
+          <Badge variant="outline" className="w-fit max-w-[320px]">
             {question.objectifCMC}
           </Badge>
           <div className="flex items-center gap-2">

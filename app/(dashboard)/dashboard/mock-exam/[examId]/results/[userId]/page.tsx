@@ -495,6 +495,7 @@ const ExamResultsPage = () => {
       <QuestionNavigationButtons
         questionResults={results.questionResults}
         onNavigateToQuestion={scrollToQuestion}
+        variant="review"
       />
     </div>
   )
