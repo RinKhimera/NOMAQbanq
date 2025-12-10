@@ -65,6 +65,7 @@ const AdminEditExamPage = () => {
   const [selectedParticipants, setSelectedParticipants] = useState<
     Id<"users">[]
   >([])
+  const [isInitialized, setIsInitialized] = useState(false)
 
   const { isAuthenticated } = useConvexAuth()
 
@@ -74,8 +75,6 @@ const AdminEditExamPage = () => {
     isAuthenticated ? undefined : "skip",
   )
   const exam = useQuery(api.exams.getExamWithQuestions, { examId })
-
-  const [prevExam, setPrevExam] = useState(exam)
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
@@ -87,16 +86,18 @@ const AdminEditExamPage = () => {
     },
   })
 
-  if (exam !== prevExam && exam) {
-    setPrevExam(exam)
-    form.setValue("title", exam.title)
-    form.setValue("description", exam.description || "")
-    form.setValue("numberOfQuestions", exam.questionIds.length)
-    form.setValue("startDate", new Date(exam.startDate))
-    form.setValue("endDate", new Date(exam.endDate))
-    form.setValue("questionIds", exam.questionIds)
+  if (exam && !isInitialized) {
+    form.reset({
+      title: exam.title,
+      description: exam.description || "",
+      numberOfQuestions: exam.questionIds.length,
+      startDate: new Date(exam.startDate),
+      endDate: new Date(exam.endDate),
+      questionIds: exam.questionIds,
+    })
     setSelectedQuestions(exam.questionIds)
     setSelectedParticipants(exam.allowedParticipants || [])
+    setIsInitialized(true)
   }
 
   const numberOfQuestions = useWatch({
