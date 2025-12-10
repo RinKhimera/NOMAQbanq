@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+import { Calculator } from "@/components/quiz/calculator"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { QuestionNavigationButtons } from "@/components/quiz/question-navigation-buttons"
 import { Badge } from "@/components/ui/badge"
@@ -29,6 +30,7 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { CalculatorProvider } from "@/hooks/useCalculator"
 import { cn } from "@/lib/utils"
 
 const AssessmentPage = () => {
@@ -43,6 +45,7 @@ const AssessmentPage = () => {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [showWarningDialog, setShowWarningDialog] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
   const hasCompletedRef = useRef(false)
   const correctAnswersRef = useRef<Record<string, string>>({})
 
@@ -578,6 +581,14 @@ const AssessmentPage = () => {
         onNavigateToQuestion={goToQuestion}
         variant="exam"
         currentQuestionIndex={currentQuestionIndex}
+        showCalculator={true}
+        onOpenCalculator={() => setIsCalculatorOpen(true)}
+      />
+
+      {/* Calculator Dialog */}
+      <Calculator
+        isOpen={isCalculatorOpen}
+        onOpenChange={setIsCalculatorOpen}
       />
 
       {/* Dialog de confirmation de soumission */}
@@ -746,4 +757,12 @@ const AssessmentPage = () => {
   )
 }
 
-export default AssessmentPage
+const AssessmentPageWrapper = () => {
+  return (
+    <CalculatorProvider>
+      <AssessmentPage />
+    </CalculatorProvider>
+  )
+}
+
+export default AssessmentPageWrapper

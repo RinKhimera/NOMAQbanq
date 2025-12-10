@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUp, List } from "lucide-react"
+import { ArrowUp, Calculator, List } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,8 @@ type QuestionNavigationButtonsProps = {
   showNavButton?: boolean
   variant?: "exam" | "review"
   currentQuestionIndex?: number
+  showCalculator?: boolean
+  onOpenCalculator?: () => void
 }
 
 export const QuestionNavigationButtons = ({
@@ -31,6 +33,8 @@ export const QuestionNavigationButtons = ({
   showNavButton = true,
   variant = "review",
   currentQuestionIndex,
+  showCalculator = false,
+  onOpenCalculator,
 }: QuestionNavigationButtonsProps) => {
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [isNavOpen, setIsNavOpen] = useState(false)
@@ -105,6 +109,24 @@ export const QuestionNavigationButtons = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Calculator button - always visible when enabled */}
+      {showCalculator && onOpenCalculator && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        >
+          <Button
+            size="lg"
+            onClick={onOpenCalculator}
+            className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-600 to-violet-600 shadow-lg hover:from-purple-700 hover:to-violet-700 dark:from-purple-500 dark:to-violet-500 dark:hover:from-purple-400 dark:hover:to-violet-400"
+            aria-label="Ouvrir la calculatrice"
+          >
+            <Calculator className="h-5 w-5" />
+          </Button>
+        </motion.div>
+      )}
 
       {/* Navigation button with dropdown (mobile-first) */}
       {canShowNav && (
