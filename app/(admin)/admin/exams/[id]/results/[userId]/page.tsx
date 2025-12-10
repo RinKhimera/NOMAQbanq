@@ -16,8 +16,8 @@ import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
 import { useMemo, useState } from "react"
-import { FloatingActionButtons } from "@/components/quiz/floating-action-buttons"
 import { QuestionCard } from "@/components/quiz/question-card"
+import { QuestionNavigationButtons } from "@/components/quiz/question-navigation-buttons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -692,7 +692,7 @@ const AdminParticipantResultsPage = () => {
       </div>
 
       {/* Mobile Navigation - Floating draggable buttons */}
-      <FloatingActionButtons
+      <QuestionNavigationButtons
         questionResults={results.questionResults}
         onNavigateToQuestion={scrollToQuestion}
       />

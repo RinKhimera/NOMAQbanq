@@ -3,8 +3,8 @@
 import { CheckCircle, ChevronDown, ChevronUp, XCircle } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Image from "next/image"
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { AnswerOption } from "./answer-option"
 import {
@@ -213,8 +213,8 @@ export const QuestionCard = ({
 
       {/* Review variant header with status */}
       {isReviewVariant && (
-        <div className="mb-4 flex flex-col gap-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-2">
+          <div className="flex items-start justify-between gap-2 sm:gap-3">
             <div className="min-w-0 flex-1 space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 {questionNumber !== undefined && (
@@ -231,15 +231,7 @@ export const QuestionCard = ({
                 >
                   {question.domain}
                 </Badge>
-                {/* <Badge
-                  variant="outline"
-                  className="border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-200 dark:hover:bg-purple-900/20 w-fit"
-                >
-                  {question.objectifCMC}
-                </Badge> */}
               </div>
-
-              
             </div>
 
             {onToggleExpand && (
@@ -247,7 +239,7 @@ export const QuestionCard = ({
                 variant="ghost"
                 size="sm"
                 onClick={onToggleExpand}
-                className="h-8 w-8 flex-shrink-0 p-1"
+                className="-mt-1 h-8 w-8 flex-shrink-0 p-1"
               >
                 {isExpanded ? (
                   <ChevronUp className="h-4 w-4" />
@@ -258,19 +250,26 @@ export const QuestionCard = ({
             )}
           </div>
           <h3 className="text-sm leading-relaxed font-semibold text-gray-900 sm:text-base dark:text-white">
-                {question.question}
-              </h3>
-              <div className="flex items-center gap-2">
-                {getReviewStatus().icon}
-                <span
-                  className={cn(
-                    "text-xs font-medium sm:text-sm",
-                    getReviewStatus().textColor,
-                  )}
-                >
-                  {getReviewStatus().text}
-                </span>
-              </div>
+            {question.question}
+          </h3>
+          {/* Objectif CMC Badge */}
+          <Badge
+            variant="outline"
+            className="w-fit max-w-[320px] border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-200 dark:hover:bg-purple-900/20"
+          >
+            {question.objectifCMC}
+          </Badge>
+          <div className="flex items-center gap-2">
+            {getReviewStatus().icon}
+            <span
+              className={cn(
+                "text-xs font-medium sm:text-sm",
+                getReviewStatus().textColor,
+              )}
+            >
+              {getReviewStatus().text}
+            </span>
+          </div>
         </div>
       )}
 

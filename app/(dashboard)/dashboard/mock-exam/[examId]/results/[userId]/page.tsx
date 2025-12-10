@@ -16,8 +16,8 @@ import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
 import { useState } from "react"
-import { FloatingActionButtons } from "@/components/quiz/floating-action-buttons"
 import { QuestionCard } from "@/components/quiz/question-card"
+import { QuestionNavigationButtons } from "@/components/quiz/question-navigation-buttons"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
@@ -88,23 +88,21 @@ const ExamResultsPage = () => {
   let incorrect = 0
   let unanswered = 0
 
-  const questionResults: QuestionResult[] = questions.map(
-    (question, index) => {
-      const userAnswerData = participantResults.participant.answers[index]
-      const userAnswer = userAnswerData?.selectedAnswer || null
-      const isCorrect = userAnswerData?.isCorrect || false
-      const isAnswered = userAnswer !== null
+  const questionResults: QuestionResult[] = questions.map((question, index) => {
+    const userAnswerData = participantResults.participant.answers[index]
+    const userAnswer = userAnswerData?.selectedAnswer || null
+    const isCorrect = userAnswerData?.isCorrect || false
+    const isAnswered = userAnswer !== null
 
-      if (isAnswered) {
-        if (isCorrect) correct++
-        else incorrect++
-      } else {
-        unanswered++
-      }
+    if (isAnswered) {
+      if (isCorrect) correct++
+      else incorrect++
+    } else {
+      unanswered++
+    }
 
-      return { question, userAnswer, isCorrect, isAnswered }
-    },
-  )
+    return { question, userAnswer, isCorrect, isAnswered }
+  })
 
   const totalQuestions = questions.length
   const scorePercentage = participantResults.participant.score
@@ -494,7 +492,7 @@ const ExamResultsPage = () => {
       </div>
 
       {/* Mobile Navigation - Floating draggable buttons */}
-      <FloatingActionButtons
+      <QuestionNavigationButtons
         questionResults={results.questionResults}
         onNavigateToQuestion={scrollToQuestion}
       />
