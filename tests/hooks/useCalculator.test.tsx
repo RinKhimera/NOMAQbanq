@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
-import { CalculatorProvider, useCalculator } from "./useCalculator"
+import { CalculatorProvider, useCalculator } from "@/hooks/useCalculator"
 
 describe("useCalculator - Calculator Logic Tests", () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => (

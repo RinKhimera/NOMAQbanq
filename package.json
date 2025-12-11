@@ -2,6 +2,7 @@
   "name": "nomaqbanq",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -13,7 +14,8 @@
     "fix-lint": "eslint . --ext .ts,.tsx --fix",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.58.0",
@@ -89,6 +91,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^4.7.0",
+    "@vitest/coverage-v8": "^4.0.15",
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
     "happy-dom": "^20.0.11",

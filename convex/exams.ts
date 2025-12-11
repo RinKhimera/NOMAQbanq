@@ -228,6 +228,8 @@ export const submitExamAnswers = mutation({
     correctAnswers: v.optional(
       v.record(v.string(), v.string()), // { questionId: correctAnswer }
     ),
+    // Flag pour indiquer si c'est une soumission automatique (temps écoulé)
+    isAutoSubmit: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -284,14 +286,20 @@ export const submitExamAnswers = mutation({
       throw new Error("Cette session d'examen n'est plus active")
     }
 
-    // Vérifier le temps écoulé côté serveur (avec marge de 5 secondes pour latence réseau)
+    // Vérifier le temps écoulé côté serveur
     const startedAt = participant.startedAt || now
     const timeElapsed = now - startedAt
-    const maxTimeAllowed = exam.completionTime * 1000 + 5000 // +5 secondes de marge
+    const maxTimeAllowed = exam.completionTime * 1000
 
-    if (timeElapsed > maxTimeAllowed) {
+    // Pour soumission automatique : accepter jusqu'à 30 secondes après l'expiration (marge réseau/traitement)
+    // Pour soumission manuelle : accepter jusqu'à 5 secondes après l'expiration (marge latence réseau)
+    const gracePeriod = args.isAutoSubmit ? 30000 : 5000
+    const maxTimeWithGrace = maxTimeAllowed + gracePeriod
+
+    if (timeElapsed > maxTimeWithGrace) {
+      // Si le temps est vraiment trop écoulé, rejeter la soumission
       throw new Error(
-        "Temps écoulé ! L'examen a été automatiquement soumis avec vos réponses actuelles.",
+        "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
       )
     }
 
@@ -768,7 +776,7 @@ export const getParticipantExamResults = query({
 
     // Trouver le participant
     const participant = exam.participants.find((p) => p.userId === args.userId)
-    
+
     // Pour les admins, retourner des informations sur l'état même si pas de résultats
     if (!participant) {
       if (isAdmin) {
@@ -776,7 +784,7 @@ export const getParticipantExamResults = query({
         const participantUser = await ctx.db.get(args.userId)
         return {
           error: "NO_PARTICIPATION",
-          message: participantUser 
+          message: participantUser
             ? "Ce participant n'a pas encore commencé cet examen"
             : "Utilisateur introuvable",
           exam: {

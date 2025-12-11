@@ -142,6 +142,7 @@ const AssessmentPage = () => {
         examId,
         answers: formattedAnswers,
         correctAnswers: correctAnswersRef.current,
+        isAutoSubmit: true,
       })
 
       hasCompletedRef.current = true

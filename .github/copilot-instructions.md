@@ -652,6 +652,94 @@ The React Compiler detects refs through:
 - **Exam Timing**: Exam `startDate`/`endDate` stored as Unix timestamps (milliseconds)
 - **Question Options**: Must have 4-5 options; correctAnswer must match one option exactly
 
+## Testing Conventions
+
+### Test File Location & Naming
+
+- **All tests must be placed in the `tests/` directory** at the project root
+- **Use `.test.ts` or `.test.tsx`** extension for test files (NOT `.spec.ts`)
+- **Mirror the source structure** inside `tests/`:
+  - Source: `lib/utils.ts` → Test: `tests/lib/utils.test.ts`
+  - Source: `hooks/useCalculator.tsx` → Test: `tests/hooks/useCalculator.test.tsx`
+  - Source: `schemas/user.ts` → Test: `tests/schemas/user.test.ts`
+
+```
+tests/
+├── lib/
+│   ├── utils.test.ts           # Tests for lib/utils.ts
+│   ├── exam-status.test.ts     # Tests for lib/exam-status.ts
+│   └── exam-timer.test.ts      # Tests for lib/exam-timer.ts
+├── hooks/
+│   └── useCalculator.test.tsx  # Tests for hooks/useCalculator.tsx
+└── schemas/
+    ├── question.test.ts        # Tests for schemas/question.ts
+    ├── exam.test.ts            # Tests for schemas/exam.ts
+    └── user.test.ts            # Tests for schemas/user.ts
+```
+
+### Test Framework & Patterns
+
+- **Framework**: Vitest with `@testing-library/react` for hooks/components
+- **Coverage target**: Minimum 80% on critical utilities
+- **Structure**: Use `describe` blocks for logical grouping
+
+```typescript
+import { describe, expect, it } from "vitest"
+
+describe("FunctionName", () => {
+  describe("Scenario Group", () => {
+    it("should do specific behavior", () => {
+      // Arrange
+      const input = ...
+
+      // Act
+      const result = functionName(input)
+
+      // Assert
+      expect(result).toBe(expected)
+    })
+  })
+})
+```
+
+### Hook Testing Pattern
+
+```tsx
+import { act, renderHook } from "@testing-library/react"
+import { describe, expect, it } from "vitest"
+
+describe("useHookName", () => {
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <ProviderIfNeeded>{children}</ProviderIfNeeded>
+  )
+
+  it("should return initial state", () => {
+    const { result } = renderHook(() => useHookName(), { wrapper })
+    expect(result.current.value).toBe(expectedInitialValue)
+  })
+})
+```
+
+### What to Test
+
+**Critical (must have tests)**:
+
+- Pure utility functions in `lib/`
+- Zod schema validation in `schemas/`
+- Custom hooks with business logic
+- Data transformation functions
+
+**Important (should have tests)**:
+
+- Complex state management logic
+- Error handling paths
+- Edge cases and boundary conditions
+
+**Nice-to-have**:
+
+- UI component rendering
+- Integration tests with Convex
+
 ## Reference Files
 
 - Route organization: `app/(route-group)/layout.tsx`
@@ -667,3 +755,4 @@ The React Compiler detects refs through:
 - Shared account page: `components/shared/account/account-page.tsx`
 - Admin protection: `components/admin-protection.tsx`
 - Navigation bar: `components/nav-bar.tsx`
+- Test examples: `tests/hooks/useCalculator.test.tsx`, `tests/lib/*.test.ts`
