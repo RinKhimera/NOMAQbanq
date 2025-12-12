@@ -32,7 +32,7 @@ const MockExamPage = () => {
   const [now, setNow] = useState(() => Date.now())
   const router = useRouter()
 
-  const allExams = useQuery(api.exams.getAllExams)
+  const allExams = useQuery(api.exams.getAllExamsWithUserParticipationV2)
   const currentUser = useQuery(api.users.getCurrentUser)
 
   // Mettre à jour le timestamp périodiquement pour les examens actifs
@@ -56,11 +56,9 @@ const MockExamPage = () => {
   const pastExams =
     allExams?.filter((exam) => exam.isActive && now > exam.endDate) || []
 
-  // Vérifier si l'utilisateur a déjà passé un examen
+  // Vérifier si l'utilisateur a déjà passé un examen (V2: uses userHasTaken from query)
   const hasUserTakenExam = (exam: NonNullable<typeof allExams>[number]) => {
-    return exam.participants.some(
-      (p: { userId: Id<"users"> }) => p.userId === currentUser?._id,
-    )
+    return exam.userHasTaken
   }
 
   // Vérifier si l'utilisateur est éligible pour passer un examen
@@ -273,9 +271,8 @@ const MockExamPage = () => {
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {pastExams.map((exam) => {
               const userTaken = hasUserTakenExam(exam)
-              const userResult = exam.participants.find(
-                (p) => p.userId === currentUser?._id,
-              )
+              // V2: Use userParticipation from query instead of embedded participants
+              const userResult = exam.userParticipation
 
               return (
                 <Card

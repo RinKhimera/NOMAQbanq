@@ -30,7 +30,7 @@ export function ExamLeaderboard({
   isAdmin = false,
   currentUserId,
 }: ExamLeaderboardProps) {
-  const leaderboard = useQuery(api.exams.getExamLeaderboard, { examId })
+  const leaderboard = useQuery(api.exams.getExamLeaderboardV2, { examId })
 
   if (!leaderboard || leaderboard.length === 0) return null
 

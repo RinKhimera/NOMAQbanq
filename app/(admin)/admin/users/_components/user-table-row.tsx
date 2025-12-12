@@ -2,10 +2,11 @@
 
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import Image from "next/image"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { TableCell, TableRow } from "@/components/ui/table"
 import { Doc } from "@/convex/_generated/dataModel"
+import { getInitials } from "@/lib/utils"
 
 interface UserTableRowProps {
   user: Doc<"users">
@@ -37,13 +38,10 @@ export function UserTableRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-3">
-          <Image
-            src={user.image}
-            alt={user.name || "Utilisateur"}
-            width={32}
-            height={32}
-            className="h-8 w-8 rounded-full object-cover"
-          />
+          <Avatar className="h-8 w-8">
+            <AvatarImage src={user.image} alt={user.name || "Utilisateur"} />
+            <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+          </Avatar>
           <span
             className={
               user.name && user.name !== "null null"

@@ -5,19 +5,20 @@ import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { Calendar, Clock, Eye, Users } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Doc, Id } from "@/convex/_generated/dataModel"
+import { Id } from "@/convex/_generated/dataModel"
 import { getExamStatus } from "@/lib/exam-status"
+import { ExamWithoutParticipants } from "@/types"
 import { ExamActions } from "./exam-actions"
 import ExamStatusBadge from "./exam-status-badge"
 
 export const createExamColumns = (
-  onDeactivate: (exam: Doc<"exams">) => void,
+  onDeactivate: (exam: ExamWithoutParticipants) => void,
   onReactivate: (examId: Id<"exams">) => void,
-  onEdit: (exam: Doc<"exams">) => void,
-  onDelete: (exam: Doc<"exams">) => void,
+  onEdit: (exam: ExamWithoutParticipants) => void,
+  onDelete: (exam: ExamWithoutParticipants) => void,
   isMobile: boolean = false,
-): ColumnDef<Doc<"exams">>[] => {
-  const baseColumns: ColumnDef<Doc<"exams">>[] = [
+): ColumnDef<ExamWithoutParticipants>[] => {
+  const baseColumns: ColumnDef<ExamWithoutParticipants>[] = [
     {
       id: "select",
       header: ({ table }) => (
@@ -74,7 +75,7 @@ export const createExamColumns = (
   ]
 
   // Colonnes pour desktop (≥ md) - masquées sur mobile
-  const desktopColumns: ColumnDef<Doc<"exams">>[] = [
+  const desktopColumns: ColumnDef<ExamWithoutParticipants>[] = [
     {
       accessorKey: "startDate",
       header: "Date de début",
@@ -124,14 +125,14 @@ export const createExamColumns = (
       },
     },
     {
-      accessorKey: "participants",
+      accessorKey: "participantCount",
       header: "Participants",
       cell: ({ row }) => {
         const exam = row.original
         return (
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            {exam.participants.length}
+            {exam.participantCount}
           </div>
         )
       },
@@ -154,7 +155,7 @@ export const createExamColumns = (
   ]
 
   // Colonne d'actions
-  const actionsColumn: ColumnDef<Doc<"exams">>[] = [
+  const actionsColumn: ColumnDef<ExamWithoutParticipants>[] = [
     {
       id: "actions",
       header: "Actions",

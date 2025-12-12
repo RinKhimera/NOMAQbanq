@@ -17,15 +17,10 @@ import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
 import { useMemo, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
+import { QuestionNavigationButtons } from "@/components/quiz/question-navigation-buttons"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
 import { cn, getInitials } from "@/lib/utils"
@@ -60,7 +55,7 @@ const AdminParticipantResultsPage = () => {
   const [showOnlyIncorrect, setShowOnlyIncorrect] = useState(false)
 
   // Query avec la nouvelle fonction qui vérifie les permissions admin
-  const participantResults = useQuery(api.exams.getParticipantExamResults, {
+  const participantResults = useQuery(api.exams.getParticipantExamResultsV2, {
     examId,
     userId,
   })
@@ -395,7 +390,7 @@ const AdminParticipantResultsPage = () => {
 
       {/* Main content */}
       <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
+        <div className="grid gap-8 xl:grid-cols-[1fr_280px]">
           {/* Left column - Results & Questions */}
           <div className="space-y-8">
             {/* Participant Info Card */}
@@ -620,7 +615,7 @@ const AdminParticipantResultsPage = () => {
           </div>
 
           {/* Right column - Navigation Sidebar */}
-          <div className="hidden lg:block">
+          <div className="hidden xl:block">
             <div className="sticky top-24">
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
@@ -696,45 +691,11 @@ const AdminParticipantResultsPage = () => {
         </div>
       </div>
 
-      {/* Mobile Navigation - Floating button */}
-      <div className="fixed right-6 bottom-6 lg:hidden">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="lg"
-              className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 shadow-xl hover:from-blue-700 hover:to-indigo-700"
-            >
-              <List className="h-6 w-6" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="max-h-[400px] w-72 overflow-y-auto p-3"
-          >
-            <div className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Aller à la question
-            </div>
-            <div className="grid grid-cols-6 gap-2">
-              {results.questionResults.map((result, index) => (
-                <DropdownMenuItem
-                  key={index}
-                  onClick={() => scrollToQuestion(index)}
-                  className={cn(
-                    "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg p-0 text-sm font-medium",
-                    result.isCorrect
-                      ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
-                      : !result.isAnswered
-                        ? "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400"
-                        : "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400",
-                  )}
-                >
-                  {index + 1}
-                </DropdownMenuItem>
-              ))}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
+      {/* Mobile Navigation - Floating draggable buttons */}
+      <QuestionNavigationButtons
+        questionResults={results.questionResults}
+        onNavigateToQuestion={scrollToQuestion}
+      />
     </div>
   )
 }

@@ -19,9 +19,10 @@ import {
 import { DataTable } from "@/components/ui/data-table"
 import { EmptyState } from "@/components/ui/empty-state"
 import { api } from "@/convex/_generated/api"
-import { Doc, Id } from "@/convex/_generated/dataModel"
+import { Id } from "@/convex/_generated/dataModel"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { ExamStatus, getExamStatus } from "@/lib/exam-status"
+import { ExamWithoutParticipants } from "@/types"
 import { ExamBulkActions } from "./exam-bulk-actions"
 import { createExamColumns } from "./exam-columns"
 import { ExamStatusFilter } from "./exam-status-filter"
@@ -37,12 +38,13 @@ export function ExamsList() {
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
 
   // États des données
-  const [selectedExam, setSelectedExam] = useState<Doc<"exams"> | null>(null)
+  const [selectedExam, setSelectedExam] =
+    useState<ExamWithoutParticipants | null>(null)
   const [selectedStatuses, setSelectedStatuses] = useState<ExamStatus[]>([])
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
 
   // Convex queries et mutations
-  const exams = useQuery(api.exams.getAllExams)
+  const exams = useQuery(api.exams.getAllExamsV2)
   const deactivateExam = useMutation(api.exams.deactivateExam)
   const reactivateExam = useMutation(api.exams.reactivateExam)
   const deleteExam = useMutation(api.exams.deleteExam)
@@ -64,7 +66,7 @@ export function ExamsList() {
   }, [filteredExams, rowSelection])
 
   // Handlers pour les actions
-  const handleDeactivate = async (exam: Doc<"exams">) => {
+  const handleDeactivate = async (exam: ExamWithoutParticipants) => {
     const status = getExamStatus(exam)
     if (status === "active") {
       setSelectedExam(exam)
@@ -96,7 +98,7 @@ export function ExamsList() {
     }
   }
 
-  const handleEdit = (exam: Doc<"exams">) => {
+  const handleEdit = (exam: ExamWithoutParticipants) => {
     const status = getExamStatus(exam)
     if (status === "active") {
       setSelectedExam(exam)
@@ -106,7 +108,7 @@ export function ExamsList() {
     }
   }
 
-  const handleDelete = (exam: Doc<"exams">) => {
+  const handleDelete = (exam: ExamWithoutParticipants) => {
     setSelectedExam(exam)
     setShowDeleteDialog(true)
   }

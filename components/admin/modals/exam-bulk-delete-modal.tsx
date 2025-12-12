@@ -9,10 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Doc } from "@/convex/_generated/dataModel"
+import { ExamWithoutParticipants } from "@/types"
 
 interface ExamBulkDeleteModalProps {
-  exams: Doc<"exams">[]
+  exams: ExamWithoutParticipants[]
   isOpen: boolean
   onClose: () => void
   onConfirm: () => void

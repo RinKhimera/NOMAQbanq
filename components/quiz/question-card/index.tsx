@@ -3,6 +3,7 @@
 import { CheckCircle, ChevronDown, ChevronUp, XCircle } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Image from "next/image"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { AnswerOption } from "./answer-option"
@@ -212,45 +213,60 @@ export const QuestionCard = ({
 
       {/* Review variant header with status */}
       {isReviewVariant && (
-        <div className="mb-4 flex items-start justify-between gap-2">
-          <div className="flex flex-1 items-start gap-3">
-            {questionNumber !== undefined && (
-              <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold dark:bg-gray-700">
-                {questionNumber}
-              </span>
-            )}
-            <div className="min-w-0 flex-1">
-              <h3 className="mb-2 text-sm leading-relaxed font-semibold text-gray-900 sm:text-base dark:text-white">
-                {question.question}
-              </h3>
-              <div className="flex items-center gap-2">
-                {getReviewStatus().icon}
-                <span
-                  className={cn(
-                    "text-xs font-medium sm:text-sm",
-                    getReviewStatus().textColor,
-                  )}
+        <div className="mb-4 flex flex-col gap-2">
+          <div className="flex items-start justify-between gap-2 sm:gap-3">
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {questionNumber !== undefined && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100"
+                  >
+                    #{questionNumber}
+                  </Badge>
+                )}
+                <Badge
+                  variant="secondary"
+                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-200"
                 >
-                  {getReviewStatus().text}
-                </span>
+                  {question.domain}
+                </Badge>
               </div>
             </div>
-          </div>
 
-          {onToggleExpand && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onToggleExpand}
-              className="h-8 w-8 flex-shrink-0 p-1"
-            >
-              {isExpanded ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
+            {onToggleExpand && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onToggleExpand}
+                className="-mt-1 h-8 w-8 flex-shrink-0 p-1"
+              >
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </Button>
+            )}
+          </div>
+          <h3 className="text-sm leading-relaxed font-semibold text-gray-900 sm:text-base dark:text-white">
+            {question.question}
+          </h3>
+          {/* Objectif CMC Badge */}
+          <Badge variant="outline" className="w-fit max-w-[320px]">
+            {question.objectifCMC}
+          </Badge>
+          <div className="flex items-center gap-2">
+            {getReviewStatus().icon}
+            <span
+              className={cn(
+                "text-xs font-medium sm:text-sm",
+                getReviewStatus().textColor,
               )}
-            </Button>
-          )}
+            >
+              {getReviewStatus().text}
+            </span>
+          </div>
         </div>
       )}
 

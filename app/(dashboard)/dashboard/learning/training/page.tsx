@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   BookOpen,
+  Calculator as CalculatorIcon,
   CheckCircle,
   Home,
   RefreshCw,
@@ -16,6 +17,7 @@ import {
 import { AnimatePresence, motion } from "motion/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense, useState } from "react"
+import { Calculator } from "@/components/quiz/calculator"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -30,6 +32,7 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { api } from "@/convex/_generated/api"
 import { Doc } from "@/convex/_generated/dataModel"
+import { CalculatorProvider } from "@/hooks/useCalculator"
 import { cn } from "@/lib/utils"
 
 const TrainingContent = () => {
@@ -56,6 +59,7 @@ const TrainingContent = () => {
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(
     new Set(),
   )
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
 
   const randomQuestions = useQuery(
     api.questions.getRandomLearningBankQuestions,
@@ -627,26 +631,52 @@ const TrainingContent = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Calculator Dialog */}
+      <Calculator
+        isOpen={isCalculatorOpen}
+        onOpenChange={setIsCalculatorOpen}
+      />
+
+      {/* Floating Calculator Button */}
+      <div className="fixed right-4 bottom-6 z-50">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        >
+          <Button
+            size="lg"
+            onClick={() => setIsCalculatorOpen(true)}
+            className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-600 to-violet-600 shadow-lg hover:from-purple-700 hover:to-violet-700 dark:from-purple-500 dark:to-violet-500 dark:hover:from-purple-400 dark:hover:to-violet-400"
+            aria-label="Ouvrir la calculatrice"
+          >
+            <CalculatorIcon className="h-5 w-5" />
+          </Button>
+        </motion.div>
+      </div>
     </div>
   )
 }
 
 const TrainingPage = () => {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
-          <div className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
-            <p className="text-gray-600 dark:text-gray-400">
-              Chargement des questions d&apos;entraînement...
-            </p>
+    <CalculatorProvider>
+      <Suspense
+        fallback={
+          <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+            <div className="text-center">
+              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+              <p className="text-gray-600 dark:text-gray-400">
+                Chargement des questions d&apos;entraînement...
+              </p>
+            </div>
           </div>
-        </div>
-      }
-    >
-      <TrainingContent />
-    </Suspense>
+        }
+      >
+        <TrainingContent />
+      </Suspense>
+    </CalculatorProvider>
   )
 }
 

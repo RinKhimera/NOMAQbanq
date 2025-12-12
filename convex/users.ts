@@ -6,6 +6,11 @@ import {
   mutation,
   query,
 } from "./_generated/server"
+import {
+  getAdminUserOrThrow,
+  getCurrentUserOrNull,
+  getCurrentUserOrThrow,
+} from "./lib/auth"
 
 async function userByExternalId(ctx: QueryCtx, externalId: string) {
   return await ctx.db
@@ -116,17 +121,7 @@ export const updateUserProfile = mutation({
     bio: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) throw new Error("Non authentifié")
-
-    const tokenIdentifier = identity.tokenIdentifier
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", tokenIdentifier),
-      )
-      .unique()
-    if (!user) throw new Error("Utilisateur introuvable")
+    const user = await getCurrentUserOrThrow(ctx)
 
     const usernameTaken = await ctx.db
       .query("users")
@@ -148,17 +143,10 @@ export const updateUserProfile = mutation({
 
 export const getAllUsers = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) return null
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user || user.role !== "admin") return null
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user || user.role !== "admin") {
+      return null
+    }
 
     return await ctx.db.query("users").collect()
   },
@@ -242,21 +230,7 @@ export const getUsersWithPagination = query({
 export const getAdminStats = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
-    }
+    await getAdminUserOrThrow(ctx)
 
     const allUsers = await ctx.db.query("users").collect()
     const totalUsers = allUsers.length

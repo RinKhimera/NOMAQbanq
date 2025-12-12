@@ -1,7 +1,8 @@
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
+import { getAdminUserOrThrow } from "./lib/auth"
 
-// Créer une nouvelle question
+// Créer une nouvelle question (admin seulement)
 export const createQuestion = mutation({
   args: {
     question: v.string(),
@@ -14,6 +15,9 @@ export const createQuestion = mutation({
     domain: v.string(),
   },
   handler: async (ctx, args) => {
+    // Vérifier que l'utilisateur est admin
+    await getAdminUserOrThrow(ctx)
+
     const questionId = await ctx.db.insert("questions", {
       question: args.question,
       imageSrc: args.imageSrc,
@@ -64,15 +68,18 @@ export const getQuestionStats = query({
   },
 })
 
-// Supprimer une question
+// Supprimer une question (admin seulement)
 export const deleteQuestion = mutation({
   args: { id: v.id("questions") },
   handler: async (ctx, args) => {
+    // Vérifier que l'utilisateur est admin
+    await getAdminUserOrThrow(ctx)
+
     await ctx.db.delete(args.id)
   },
 })
 
-// Mettre à jour une question
+// Mettre à jour une question (admin seulement)
 export const updateQuestion = mutation({
   args: {
     id: v.id("questions"),
@@ -86,6 +93,9 @@ export const updateQuestion = mutation({
     domain: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Vérifier que l'utilisateur est admin
+    await getAdminUserOrThrow(ctx)
+
     const { id, ...updateData } = args
     // Filtrer les valeurs undefined
     const filteredData = Object.fromEntries(
@@ -141,21 +151,7 @@ export const addQuestionToLearningBank = mutation({
     questionId: v.id("questions"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
-    }
+    const user = await getAdminUserOrThrow(ctx)
 
     // Vérifier si la question existe déjà dans la banque d'apprentissage
     const existingEntry = await ctx.db
@@ -195,21 +191,7 @@ export const removeQuestionFromLearningBank = mutation({
     questionId: v.id("questions"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
-    }
+    await getAdminUserOrThrow(ctx)
 
     const entry = await ctx.db
       .query("learningBankQuestions")
