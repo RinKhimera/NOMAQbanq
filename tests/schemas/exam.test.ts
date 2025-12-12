@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 import { Id } from "@/convex/_generated/dataModel"
-import { examFormSchema, validateQuestionCount } from "@/schemas/exam"
+import {
+  examFormSchema,
+  getDefaultPauseDuration,
+  validateQuestionCount,
+} from "@/schemas/exam"
 
 describe("Exam Schema", () => {
   describe("examFormSchema", () => {
@@ -171,6 +175,84 @@ describe("Exam Schema", () => {
         expect(result.success).toBe(true)
       })
     })
+
+    describe("pause settings validation", () => {
+      it("should accept exam without pause settings", () => {
+        const result = examFormSchema.safeParse(validExam)
+        expect(result.success).toBe(true)
+      })
+
+      it("should accept exam with enablePause false and no pauseDurationMinutes", () => {
+        const valid = {
+          ...validExam,
+          enablePause: false,
+        }
+        const result = examFormSchema.safeParse(valid)
+        expect(result.success).toBe(true)
+      })
+
+      it("should accept exam with enablePause true and valid pauseDurationMinutes", () => {
+        const valid = {
+          ...validExam,
+          enablePause: true,
+          pauseDurationMinutes: 15,
+        }
+        const result = examFormSchema.safeParse(valid)
+        expect(result.success).toBe(true)
+      })
+
+      it("should reject when enablePause is true but pauseDurationMinutes is missing", () => {
+        const invalid = {
+          ...validExam,
+          enablePause: true,
+        }
+        const result = examFormSchema.safeParse(invalid)
+        expect(result.success).toBe(false)
+        if (!result.success) {
+          expect(result.error.issues[0].message).toContain("pause")
+        }
+      })
+
+      it("should reject when enablePause is true and pauseDurationMinutes is less than 1", () => {
+        const invalid = {
+          ...validExam,
+          enablePause: true,
+          pauseDurationMinutes: 0,
+        }
+        const result = examFormSchema.safeParse(invalid)
+        expect(result.success).toBe(false)
+      })
+
+      it("should reject when enablePause is true and pauseDurationMinutes is more than 60", () => {
+        const invalid = {
+          ...validExam,
+          enablePause: true,
+          pauseDurationMinutes: 61,
+        }
+        const result = examFormSchema.safeParse(invalid)
+        expect(result.success).toBe(false)
+      })
+
+      it("should accept pauseDurationMinutes at minimum (1 minute)", () => {
+        const valid = {
+          ...validExam,
+          enablePause: true,
+          pauseDurationMinutes: 1,
+        }
+        const result = examFormSchema.safeParse(valid)
+        expect(result.success).toBe(true)
+      })
+
+      it("should accept pauseDurationMinutes at maximum (60 minutes)", () => {
+        const valid = {
+          ...validExam,
+          enablePause: true,
+          pauseDurationMinutes: 60,
+        }
+        const result = examFormSchema.safeParse(valid)
+        expect(result.success).toBe(true)
+      })
+    })
   })
 
   describe("validateQuestionCount", () => {
@@ -200,6 +282,32 @@ describe("Exam Schema", () => {
     it("should handle large question counts", () => {
       const selected = Array(230).fill("q") as Id<"questions">[]
       expect(validateQuestionCount(selected, 230)).toBe(true)
+    })
+  })
+
+  describe("getDefaultPauseDuration", () => {
+    it("should return 5 minutes for less than 50 questions", () => {
+      expect(getDefaultPauseDuration(10)).toBe(5)
+      expect(getDefaultPauseDuration(30)).toBe(5)
+      expect(getDefaultPauseDuration(49)).toBe(5)
+    })
+
+    it("should return 10 minutes for 50-99 questions", () => {
+      expect(getDefaultPauseDuration(50)).toBe(10)
+      expect(getDefaultPauseDuration(75)).toBe(10)
+      expect(getDefaultPauseDuration(99)).toBe(10)
+    })
+
+    it("should return 15 minutes for 100-149 questions", () => {
+      expect(getDefaultPauseDuration(100)).toBe(15)
+      expect(getDefaultPauseDuration(125)).toBe(15)
+      expect(getDefaultPauseDuration(149)).toBe(15)
+    })
+
+    it("should return 20 minutes for 150+ questions", () => {
+      expect(getDefaultPauseDuration(150)).toBe(20)
+      expect(getDefaultPauseDuration(200)).toBe(20)
+      expect(getDefaultPauseDuration(230)).toBe(20)
     })
   })
 })
