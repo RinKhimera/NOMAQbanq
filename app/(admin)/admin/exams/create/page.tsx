@@ -4,13 +4,26 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { ArrowLeft, Calendar, ChevronsUpDown } from "lucide-react"
+import {
+  ArrowLeft,
+  Calendar,
+  CheckCircle2,
+  ChevronsUpDown,
+  Clock,
+  Coffee,
+  FileText,
+  Info,
+  Sparkles,
+  Users,
+} from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { QuestionSelector } from "@/components/admin/question-selector"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
@@ -44,13 +57,17 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import {
+  DEFAULT_PAUSE_DURATION_MINUTES,
   ExamFormValues,
   examFormSchema,
+  getDefaultPauseDuration,
   validateQuestionCount,
 } from "@/schemas"
 
@@ -73,12 +90,19 @@ const AdminCreateExamPage = () => {
       description: "",
       numberOfQuestions: 10,
       questionIds: [],
+      enablePause: false,
+      pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
     },
   })
 
   const numberOfQuestions = useWatch({
     control: form.control,
     name: "numberOfQuestions",
+  })
+
+  const enablePause = useWatch({
+    control: form.control,
+    name: "enablePause",
   })
 
   const onSubmit = async (values: ExamFormValues) => {
@@ -105,6 +129,10 @@ const AdminCreateExamPage = () => {
         endDate,
         questionIds: selectedQuestions,
         allowedParticipants: selectedParticipants,
+        enablePause: values.enablePause,
+        pauseDurationMinutes: values.enablePause
+          ? values.pauseDurationMinutes
+          : undefined,
       })
 
       toast.success("Examen créé avec succès")
@@ -120,54 +148,224 @@ const AdminCreateExamPage = () => {
     form.setValue("questionIds", questions)
   }
 
-  return (
-    <div className="@container flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
-      {/* En-tête avec bouton retour */}
-      <div className="flex flex-col justify-between gap-4 @md:flex-row @md:items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-blue-600">
-            Créer un nouvel examen
-          </h1>
-          <p className="text-muted-foreground">
-            Configurez une nouvelle session d&apos;examen pour vos étudiants
-          </p>
-        </div>
-        <Button
-          className="hover:text-blue-700 dark:hover:text-white"
-          variant="outline"
-          size="sm"
-          asChild
-        >
-          <Link href="/admin/exams">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Retour aux examens
-          </Link>
-        </Button>
-      </div>
+  // Handle pause toggle - set default duration when enabling
+  const handlePauseToggle = (checked: boolean) => {
+    form.setValue("enablePause", checked)
+    if (checked) {
+      const defaultDuration = getDefaultPauseDuration(numberOfQuestions)
+      form.setValue("pauseDurationMinutes", defaultDuration || 15)
+    }
+  }
 
-      {/* Formulaire principal */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-blue-600 dark:text-white">
-            Informations de l&apos;examen
-          </CardTitle>
-          <CardDescription>
-            Sélectionnez les dates de début et de fin pour votre examen.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid items-start gap-6 md:grid-cols-2">
+  // Calculate estimated exam duration
+  const estimatedDuration = Math.ceil((numberOfQuestions * 83) / 60)
+
+  return (
+    <div className="@container min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+      <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6 lg:p-8">
+        {/* Header */}
+        <div className="flex flex-col gap-4 @md:flex-row @md:items-center @md:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 shadow-lg shadow-blue-500/25">
+                <Sparkles className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  Créer un examen
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Configurez une nouvelle session d&apos;évaluation
+                </p>
+              </div>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-fit border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
+            asChild
+          >
+            <Link href="/admin/exams">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Retour aux examens
+            </Link>
+          </Button>
+        </div>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Main Info Card */}
+            <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+              <CardHeader className="border-b bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  <CardTitle className="text-lg">
+                    Informations générales
+                  </CardTitle>
+                </div>
+                <CardDescription className="text-blue-100">
+                  Définissez le titre, la période et le nombre de questions
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 p-6">
+                <div className="grid gap-6 @lg:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700 dark:text-gray-300">
+                          Titre de l&apos;examen
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Ex: Examen de Cardiologie - Session 2025"
+                            className="border-gray-200 bg-white focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="numberOfQuestions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700 dark:text-gray-300">
+                          Nombre de questions
+                        </FormLabel>
+                        <div className="flex items-center gap-3">
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={10}
+                              max={230}
+                              className="border-gray-200 bg-white focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800"
+                              value={field.value || ""}
+                              onChange={(e) => {
+                                const numValue = parseInt(e.target.value) || 10
+                                field.onChange(numValue)
+                                if (selectedQuestions.length > numValue) {
+                                  const newSelection = selectedQuestions.slice(
+                                    0,
+                                    numValue,
+                                  )
+                                  setSelectedQuestions(newSelection)
+                                  form.setValue("questionIds", newSelection)
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <Badge
+                            variant="secondary"
+                            className="shrink-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                          >
+                            <Clock className="mr-1 h-3 w-3" />~
+                            {estimatedDuration} min
+                          </Badge>
+                        </div>
+                        <FormDescription className="text-xs">
+                          Entre 10 et 230 questions (83 secondes par question)
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 <FormField
                   control={form.control}
-                  name="title"
+                  name="startDate"
+                  render={({ field: startField }) => (
+                    <FormField
+                      control={form.control}
+                      name="endDate"
+                      render={({ field: endField }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-700 dark:text-gray-300">
+                            Période de disponibilité
+                          </FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  className={cn(
+                                    "w-full justify-start border-gray-200 bg-white text-left font-normal hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700",
+                                    !startField.value &&
+                                      "text-muted-foreground",
+                                  )}
+                                >
+                                  <Calendar className="mr-2 h-4 w-4 text-gray-500" />
+                                  {startField.value && endField.value ? (
+                                    <span className="text-gray-900 dark:text-white">
+                                      {format(startField.value, "d MMM yyyy", {
+                                        locale: fr,
+                                      })}{" "}
+                                      →{" "}
+                                      {format(endField.value, "d MMM yyyy", {
+                                        locale: fr,
+                                      })}
+                                    </span>
+                                  ) : (
+                                    <span>Sélectionner les dates...</span>
+                                  )}
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-auto p-0"
+                              align="start"
+                            >
+                              <CalendarComponent
+                                mode="range"
+                                selected={{
+                                  from: startField.value,
+                                  to: endField.value,
+                                }}
+                                onSelect={(range) => {
+                                  startField.onChange(range?.from)
+                                  endField.onChange(range?.to)
+                                }}
+                                disabled={(date) => {
+                                  const today = new Date()
+                                  today.setHours(0, 0, 0, 0)
+                                  return date < today
+                                }}
+                                numberOfMonths={2}
+                                autoFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormDescription className="text-xs">
+                            Les candidats pourront accéder à l&apos;examen
+                            pendant cette période
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Titre de l&apos;examen</FormLabel>
+                      <FormLabel className="text-gray-700 dark:text-gray-300">
+                        Description{" "}
+                        <span className="text-gray-400">(optionnel)</span>
+                      </FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="Ex: Examen de Cardiologie - Février 2025"
+                        <Textarea
+                          placeholder="Ajoutez des instructions ou informations supplémentaires..."
+                          rows={3}
+                          className="resize-none border-gray-200 bg-white focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800"
                           {...field}
                         />
                       </FormControl>
@@ -175,160 +373,146 @@ const AdminCreateExamPage = () => {
                     </FormItem>
                   )}
                 />
+              </CardContent>
+            </Card>
 
+            {/* Pause Settings Card */}
+            <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+              <CardHeader className="border-b bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+                <div className="flex items-center gap-2">
+                  <Coffee className="h-5 w-5" />
+                  <CardTitle className="text-lg">
+                    Pause pendant l&apos;examen
+                  </CardTitle>
+                </div>
+                <CardDescription className="text-amber-100">
+                  Permettez aux candidats de prendre une pause obligatoire
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 p-6">
                 <FormField
                   control={form.control}
-                  name="numberOfQuestions"
+                  name="enablePause"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre de questions</FormLabel>
+                    <FormItem className="flex flex-row items-center justify-between rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+                      <div className="space-y-1">
+                        <FormLabel className="text-base font-medium text-gray-900 dark:text-white">
+                          Activer la pause obligatoire
+                        </FormLabel>
+                        <FormDescription className="text-sm text-gray-500">
+                          Une pause sera imposée à mi-parcours de l&apos;examen
+                        </FormDescription>
+                      </div>
                       <FormControl>
-                        <Input
-                          type="number"
-                          min={10}
-                          max={230}
-                          placeholder="Entre 10 et 230 questions"
-                          value={field.value || ""}
-                          onChange={(e) => {
-                            const numValue = parseInt(e.target.value) || 0
-                            field.onChange(numValue)
-                            if (selectedQuestions.length > numValue) {
-                              const newSelection = selectedQuestions.slice(
-                                0,
-                                numValue,
-                              )
-                              setSelectedQuestions(newSelection)
-                              form.setValue("questionIds", newSelection)
-                            }
-                          }}
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={handlePauseToggle}
+                          className="data-[state=checked]:bg-amber-500"
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <div className="md:col-span-2">
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field: startField }) => (
-                      <FormField
-                        control={form.control}
-                        name="endDate"
-                        render={({ field: endField }) => (
-                          <FormItem className="flex w-full flex-col">
-                            <FormLabel>Période de l&apos;examen</FormLabel>
-                            <Popover>
-                              <PopoverTrigger className="w-full" asChild>
-                                <FormControl>
-                                  <Button
-                                    variant="outline"
-                                    className={`w-full pl-3 text-left font-normal hover:text-blue-700 dark:text-white ${
-                                      (!startField.value || !endField.value) &&
-                                      "text-muted-foreground"
-                                    }`}
-                                  >
-                                    {startField.value && endField.value ? (
-                                      <>
-                                        {format(startField.value, "PPP", {
-                                          locale: fr,
-                                        })}
-                                        {" - "}
-                                        {format(endField.value, "PPP", {
-                                          locale: fr,
-                                        })}
-                                      </>
-                                    ) : (
-                                      <span>
-                                        Sélectionner la période de l&apos;examen
-                                      </span>
-                                    )}
-                                    <Calendar className="ml-auto h-4 w-4 opacity-50" />
-                                  </Button>
-                                </FormControl>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                className="w-auto p-0"
-                                align="start"
-                              >
-                                <CalendarComponent
-                                  mode="range"
-                                  selected={{
-                                    from: startField.value,
-                                    to: endField.value,
-                                  }}
-                                  onSelect={(range) => {
-                                    if (range?.from) {
-                                      startField.onChange(range.from)
-                                      if (range?.to) {
-                                        endField.onChange(range.to)
-                                      } else {
-                                        endField.onChange(undefined)
-                                      }
-                                    } else {
-                                      startField.onChange(undefined)
-                                      endField.onChange(undefined)
-                                    }
-                                  }}
-                                  disabled={(date) => {
-                                    const today = new Date()
-                                    today.setHours(0, 0, 0, 0)
-                                    return (
-                                      date < today ||
-                                      date < new Date("1900-01-01")
-                                    )
-                                  }}
-                                  numberOfMonths={2}
-                                  autoFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
-                            <FormDescription>
-                              Sélectionnez la période de l&apos;examen (maximum
-                              14 jours).
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
-                  />
-                </div>
-              </div>
+                {enablePause && (
+                  <div className="animate-in fade-in-0 slide-in-from-top-2 space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="pauseDurationMinutes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-700 dark:text-gray-300">
+                            Durée de la pause
+                          </FormLabel>
+                          <div className="flex items-center gap-3">
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min={1}
+                                max={60}
+                                className="w-32 border-gray-200 bg-white focus:border-amber-500 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-800"
+                                value={field.value || ""}
+                                onChange={(e) => {
+                                  const value = parseInt(e.target.value) || 15
+                                  field.onChange(
+                                    Math.min(60, Math.max(1, value)),
+                                  )
+                                }}
+                              />
+                            </FormControl>
+                            <span className="text-sm text-gray-500">
+                              minutes
+                            </span>
+                          </div>
+                          <FormDescription className="text-xs">
+                            Le candidat peut écourter la pause s&apos;il le
+                            souhaite (1-60 min)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description (optionnel)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Description de l'examen..."
-                        rows={3}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                    <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+                      <Info className="h-4 w-4 text-amber-600" />
+                      <AlertTitle className="text-amber-900 dark:text-amber-100">
+                        Comment fonctionne la pause ?
+                      </AlertTitle>
+                      <AlertDescription className="mt-2 space-y-2 text-sm text-amber-800 dark:text-amber-200">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                          <span>
+                            <strong>Avant la pause :</strong> Seules les
+                            questions 1 à {Math.ceil(numberOfQuestions / 2)}{" "}
+                            sont accessibles
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                          <span>
+                            <strong>Pendant la pause :</strong> Toutes les
+                            questions sont verrouillées
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                          <span>
+                            <strong>Après la pause :</strong> Toutes les{" "}
+                            {numberOfQuestions} questions sont déverrouillées
+                          </span>
+                        </div>
+                        <Separator className="my-2 bg-amber-200 dark:bg-amber-700" />
+                        <p className="text-xs italic">
+                          💡 La pause se déclenche automatiquement à 50% du
+                          temps, ou peut être prise manuellement. Le candidat ne
+                          peut prendre qu&apos;une seule pause.
+                        </p>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
                 )}
-              />
+              </CardContent>
+            </Card>
 
-              {/* Sélection des participants autorisés */}
-              <div className="space-y-3">
-                <FormLabel>Participants autorisés</FormLabel>
-                <FormDescription>
-                  Sélectionnez les utilisateurs qui peuvent passer cet examen.
-                  Les administrateurs peuvent toujours passer les examens.
-                </FormDescription>
+            {/* Participants Card */}
+            <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+              <CardHeader className="border-b bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  <CardTitle className="text-lg">Participants</CardTitle>
+                </div>
+                <CardDescription className="text-emerald-100">
+                  Sélectionnez les utilisateurs autorisés à passer cet examen
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4 p-6">
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
                       className={cn(
-                        "w-full justify-between",
+                        "w-full justify-between border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
                         selectedParticipants.length === 0 &&
                           "text-muted-foreground",
                       )}
@@ -344,7 +528,7 @@ const AdminCreateExamPage = () => {
                       <CommandInput placeholder="Rechercher un utilisateur..." />
                       <CommandEmpty>Aucun utilisateur trouvé.</CommandEmpty>
                       <CommandGroup>
-                        <ScrollArea className="h-80">
+                        <ScrollArea className="h-64">
                           {users
                             ?.filter((user) => user.role !== "admin")
                             .map((user) => (
@@ -365,21 +549,18 @@ const AdminCreateExamPage = () => {
                                   }
                                 }}
                               >
-                                <div className="flex w-full items-start space-x-2">
+                                <div className="flex w-full items-center gap-3">
                                   <Checkbox
-                                    className="mt-1"
                                     checked={selectedParticipants.includes(
                                       user._id,
                                     )}
                                     onCheckedChange={() => {}}
                                   />
                                   <div className="flex-1">
-                                    <div className="font-medium">
-                                      {user.name}
-                                    </div>
-                                    <div className="text-muted-foreground text-sm">
+                                    <p className="font-medium">{user.name}</p>
+                                    <p className="text-muted-foreground text-xs">
                                       {user.email}
-                                    </div>
+                                    </p>
                                   </div>
                                 </div>
                               </CommandItem>
@@ -389,84 +570,129 @@ const AdminCreateExamPage = () => {
                     </Command>
                   </PopoverContent>
                 </Popover>
+
                 {selectedParticipants.length > 0 && (
-                  <div className="mt-2">
-                    <p className="mb-2 text-sm font-medium">
-                      Participants sélectionnés :
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {selectedParticipants.map((participantId) => {
-                        const user = users?.find((u) => u._id === participantId)
-                        return user ? (
-                          <div
-                            key={participantId}
-                            className="inline-flex items-center gap-1 rounded-md bg-blue-100 px-2 py-1 text-xs text-blue-800"
+                  <div className="flex flex-wrap gap-2">
+                    {selectedParticipants.map((participantId) => {
+                      const user = users?.find((u) => u._id === participantId)
+                      return user ? (
+                        <Badge
+                          key={participantId}
+                          variant="secondary"
+                          className="gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300"
+                        >
+                          {user.name}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedParticipants(
+                                selectedParticipants.filter(
+                                  (id) => id !== participantId,
+                                ),
+                              )
+                            }}
+                            className="ml-1 rounded-full hover:bg-emerald-300 dark:hover:bg-emerald-700"
                           >
-                            {user.name}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedParticipants(
-                                  selectedParticipants.filter(
-                                    (id) => id !== participantId,
-                                  ),
-                                )
-                              }}
-                              className="ml-1 text-blue-600 hover:text-blue-800"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ) : null
-                      })}
-                    </div>
+                            ×
+                          </button>
+                        </Badge>
+                      ) : null
+                    })}
                   </div>
                 )}
-              </div>
 
-              <FormField
-                control={form.control}
-                name="questionIds"
-                render={() => (
-                  <FormItem>
-                    <FormLabel>Questions de l&apos;examen</FormLabel>
-                    <FormDescription>
-                      Sélectionnez {numberOfQuestions} questions qui composeront
-                      cet examen.
-                    </FormDescription>
-                    <QuestionSelector
-                      selectedQuestions={selectedQuestions}
-                      onSelectionChange={handleQuestionSelectionChange}
-                      maxQuestions={numberOfQuestions}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <p className="text-xs text-gray-500">
+                  💡 Les administrateurs peuvent toujours accéder à tous les
+                  examens
+                </p>
+              </CardContent>
+            </Card>
 
-              <div className="flex justify-end space-x-3 border-t pt-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="cursor-pointer"
-                  onClick={() => router.push("/admin/exams")}
-                >
-                  Annuler
-                </Button>
-                <Button
-                  variant={"none"}
-                  type="submit"
-                  className="cursor-pointer bg-blue-600 text-white hover:bg-blue-600/90"
-                  disabled={selectedQuestions.length < numberOfQuestions}
-                >
-                  Créer l&apos;examen ({selectedQuestions.length} question
-                  {selectedQuestions.length > 1 ? "s" : ""})
-                </Button>
-              </div>
-            </form>
-          </Form>
-        </CardContent>
-      </Card>
+            {/* Questions Card */}
+            <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+              <CardHeader className="border-b bg-gradient-to-r from-violet-500 to-purple-500 text-white">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    <CardTitle className="text-lg">
+                      Questions de l&apos;examen
+                    </CardTitle>
+                  </div>
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "font-mono",
+                      selectedQuestions.length === numberOfQuestions
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-white/20 text-white",
+                    )}
+                  >
+                    {selectedQuestions.length} / {numberOfQuestions}
+                  </Badge>
+                </div>
+                <CardDescription className="text-violet-100">
+                  Sélectionnez exactement {numberOfQuestions} questions
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <FormField
+                  control={form.control}
+                  name="questionIds"
+                  render={() => (
+                    <FormItem>
+                      <QuestionSelector
+                        selectedQuestions={selectedQuestions}
+                        onSelectionChange={handleQuestionSelectionChange}
+                        maxQuestions={numberOfQuestions}
+                      />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Action Footer */}
+            <div className="sticky bottom-4 z-10">
+              <Card className="border-0 bg-white/80 shadow-xl backdrop-blur-sm dark:bg-gray-800/80">
+                <CardContent className="flex items-center justify-between p-4">
+                  <div className="text-sm text-gray-500">
+                    {selectedQuestions.length === numberOfQuestions ? (
+                      <span className="flex items-center gap-1 text-emerald-600">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Prêt à créer
+                      </span>
+                    ) : (
+                      <span>
+                        Sélectionnez encore{" "}
+                        {numberOfQuestions - selectedQuestions.length}{" "}
+                        question(s)
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => router.push("/admin/exams")}
+                    >
+                      Annuler
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={selectedQuestions.length !== numberOfQuestions}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Créer l&apos;examen
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </form>
+        </Form>
+      </div>
     </div>
   )
 }

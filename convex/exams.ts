@@ -1,5 +1,10 @@
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
+import {
+  getAdminUserOrThrow,
+  getCurrentUserOrNull,
+  getCurrentUserOrThrow,
+} from "./lib/auth"
 
 // Créer un nouvel examen
 export const createExam = mutation({
@@ -10,25 +15,21 @@ export const createExam = mutation({
     endDate: v.number(),
     questionIds: v.array(v.id("questions")),
     allowedParticipants: v.array(v.id("users")),
+    enablePause: v.optional(v.boolean()),
+    pauseDurationMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
-    }
+    const user = await getAdminUserOrThrow(ctx)
 
     const completionTime = args.questionIds.length * 83
+
+    // Pause is enabled if explicitly set by admin
+    const enablePause = args.enablePause ?? false
+
+    // Pause duration: default 15 minutes if enabled, max 60 minutes
+    const pauseDurationMinutes = enablePause
+      ? Math.min(args.pauseDurationMinutes ?? 15, 60)
+      : undefined
 
     const examId = await ctx.db.insert("exams", {
       title: args.title,
@@ -38,6 +39,8 @@ export const createExam = mutation({
       questionIds: args.questionIds,
       completionTime,
       allowedParticipants: args.allowedParticipants,
+      enablePause: enablePause || undefined,
+      pauseDurationMinutes,
       participants: [],
       isActive: true,
       createdBy: user._id,
@@ -57,26 +60,22 @@ export const updateExam = mutation({
     endDate: v.number(),
     questionIds: v.array(v.id("questions")),
     allowedParticipants: v.array(v.id("users")),
+    enablePause: v.optional(v.boolean()),
+    pauseDurationMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
-    }
+    await getAdminUserOrThrow(ctx)
 
     // Calculer le nouveau temps de completion: 83 secondes par question
     const completionTime = args.questionIds.length * 83
+
+    // Pause is enabled if explicitly set by admin
+    const enablePause = args.enablePause ?? false
+
+    // Pause duration: default 15 minutes if enabled, max 60 minutes
+    const pauseDurationMinutes = enablePause
+      ? Math.min(args.pauseDurationMinutes ?? 15, 60)
+      : undefined
 
     await ctx.db.patch(args.examId, {
       title: args.title,
@@ -86,6 +85,8 @@ export const updateExam = mutation({
       questionIds: args.questionIds,
       completionTime,
       allowedParticipants: args.allowedParticipants,
+      enablePause: enablePause || undefined,
+      pauseDurationMinutes,
     })
 
     return { success: true }
@@ -96,21 +97,7 @@ export const updateExam = mutation({
 export const deleteExam = mutation({
   args: { examId: v.id("exams") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
-    }
+    await getAdminUserOrThrow(ctx)
 
     // Vérifier que l'examen existe
     const exam = await ctx.db.get(args.examId)
@@ -157,18 +144,7 @@ export const getAllExamsMetadata = query({
 // Récupérer les examens actifs pour les utilisateurs
 export const getActiveExams = query({
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      return []
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
+    const user = await getCurrentUserOrNull(ctx)
     if (!user) {
       return []
     }
@@ -232,21 +208,7 @@ export const submitExamAnswers = mutation({
     isAutoSubmit: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user) {
-      throw new Error("Utilisateur non trouvé")
-    }
+    const user = await getCurrentUserOrThrow(ctx)
 
     const exam = await ctx.db.get(args.examId)
     if (!exam) {
@@ -288,7 +250,13 @@ export const submitExamAnswers = mutation({
 
     // Vérifier le temps écoulé côté serveur
     const startedAt = participant.startedAt || now
-    const timeElapsed = now - startedAt
+    let timeElapsed = now - startedAt
+
+    // Subtract pause duration from elapsed time (timer was frozen during pause)
+    if (participant.totalPauseDurationMs) {
+      timeElapsed = timeElapsed - participant.totalPauseDurationMs
+    }
+
     const maxTimeAllowed = exam.completionTime * 1000
 
     // Pour soumission automatique : accepter jusqu'à 30 secondes après l'expiration (marge réseau/traitement)
@@ -301,6 +269,41 @@ export const submitExamAnswers = mutation({
       throw new Error(
         "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
       )
+    }
+
+    // PAUSE VALIDATION: Verify submitted answers respect pause rules
+    if (exam.enablePause && participant.pausePhase) {
+      const totalQuestions = exam.questionIds.length
+      const midpoint = Math.floor(totalQuestions / 2)
+
+      // Create a map of questionId to index for validation
+      const questionIdToIndex = new Map<string, number>()
+      exam.questionIds.forEach((qId, index) => {
+        questionIdToIndex.set(qId, index)
+      })
+
+      // Validate each submitted answer
+      for (const answer of args.answers) {
+        const questionIndex = questionIdToIndex.get(answer.questionId)
+        if (questionIndex === undefined) continue
+
+        // During "before_pause" phase, reject answers to second half questions
+        if (
+          participant.pausePhase === "before_pause" &&
+          questionIndex >= midpoint
+        ) {
+          throw new Error(
+            `Tentative frauduleuse détectée : réponse soumise à une question verrouillée (Q${questionIndex + 1})`,
+          )
+        }
+
+        // During "during_pause" phase, reject all new answers
+        if (participant.pausePhase === "during_pause") {
+          throw new Error(
+            "Soumission non autorisée pendant la pause. Veuillez reprendre l'examen.",
+          )
+        }
+      }
     }
 
     // Calculer le score
@@ -394,21 +397,7 @@ export const getExamLeaderboard = query({
 export const deactivateExam = mutation({
   args: { examId: v.id("exams") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
-    }
+    await getAdminUserOrThrow(ctx)
 
     await ctx.db.patch(args.examId, {
       isActive: false,
@@ -422,21 +411,7 @@ export const deactivateExam = mutation({
 export const reactivateExam = mutation({
   args: { examId: v.id("exams") },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
-    }
+    await getAdminUserOrThrow(ctx)
 
     await ctx.db.patch(args.examId, {
       isActive: true,
@@ -450,18 +425,7 @@ export const reactivateExam = mutation({
 export const getMyAvailableExams = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      return []
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
+    const user = await getCurrentUserOrNull(ctx)
     if (!user) {
       return []
     }
@@ -494,18 +458,7 @@ export const getMyAvailableExams = query({
 export const getMyDashboardStats = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      return null
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
+    const user = await getCurrentUserOrNull(ctx)
     if (!user) {
       return null
     }
@@ -556,18 +509,7 @@ export const getMyDashboardStats = query({
 export const getMyRecentExams = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      return []
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
+    const user = await getCurrentUserOrNull(ctx)
     if (!user) {
       return []
     }
@@ -614,21 +556,7 @@ export const startExam = mutation({
     examId: v.id("exams"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      throw new Error("Utilisateur non authentifié")
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
-    if (!user) {
-      throw new Error("Utilisateur non trouvé")
-    }
+    const user = await getCurrentUserOrThrow(ctx)
 
     const exam = await ctx.db.get(args.examId)
     if (!exam) {
@@ -662,9 +590,19 @@ export const startExam = mutation({
       if (existingParticipation.status === "in_progress") {
         return {
           startedAt: existingParticipation.startedAt!,
+          pausePhase: existingParticipation.pausePhase,
+          pauseStartedAt: existingParticipation.pauseStartedAt,
+          pauseEndedAt: existingParticipation.pauseEndedAt,
+          isPauseCutShort: existingParticipation.isPauseCutShort,
         }
       }
     }
+
+    // Determine initial pause phase for exams with pause enabled
+    const shouldInitPause = exam.enablePause === true
+    const initialPausePhase = shouldInitPause
+      ? ("before_pause" as const)
+      : undefined
 
     // Créer une nouvelle session
     const newParticipant = {
@@ -674,6 +612,8 @@ export const startExam = mutation({
       score: 0,
       completedAt: 0,
       answers: [],
+      // Initialize pause phase if pause is enabled
+      ...(shouldInitPause && { pausePhase: initialPausePhase }),
     }
 
     const updatedParticipants = [...exam.participants, newParticipant]
@@ -684,6 +624,7 @@ export const startExam = mutation({
 
     return {
       startedAt: now,
+      pausePhase: initialPausePhase,
     }
   },
 })
@@ -693,18 +634,7 @@ export const getExamSession = query({
     examId: v.id("exams"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      return null
-    }
-
-    const user = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
+    const user = await getCurrentUserOrNull(ctx)
     if (!user) {
       return null
     }
@@ -724,6 +654,12 @@ export const getExamSession = query({
       status: participation.status,
       startedAt: participation.startedAt,
       completedAt: participation.completedAt,
+      // Pause-related fields
+      pausePhase: participation.pausePhase,
+      pauseStartedAt: participation.pauseStartedAt,
+      pauseEndedAt: participation.pauseEndedAt,
+      isPauseCutShort: participation.isPauseCutShort,
+      totalPauseDurationMs: participation.totalPauseDurationMs,
     }
   },
 })
@@ -736,18 +672,7 @@ export const getParticipantExamResults = query({
     userId: v.id("users"),
   },
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity()
-    if (!identity) {
-      return null
-    }
-
-    const currentUser = await ctx.db
-      .query("users")
-      .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier),
-      )
-      .unique()
-
+    const currentUser = await getCurrentUserOrNull(ctx)
     if (!currentUser) {
       return null
     }
@@ -874,6 +799,263 @@ export const getParticipantExamResults = query({
           }
         : null,
       questions: questions.filter(Boolean),
+    }
+  },
+})
+
+// ==========================================
+// PAUSE FUNCTIONALITY
+// ==========================================
+
+/**
+ * Start the mandatory pause
+ * Can be triggered manually by user or automatically when timer reaches 50%
+ * Users can only take one pause per exam
+ */
+export const startPause = mutation({
+  args: {
+    examId: v.id("exams"),
+    manualTrigger: v.optional(v.boolean()), // Allow manual early trigger
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserOrThrow(ctx)
+
+    const exam = await ctx.db.get(args.examId)
+    if (!exam) {
+      throw new Error("Examen non trouvé")
+    }
+
+    // Verify pause is enabled for this exam
+    if (!exam.enablePause) {
+      throw new Error("La pause n'est pas activée pour cet examen")
+    }
+
+    const participantIndex = exam.participants.findIndex(
+      (p) => p.userId === user._id,
+    )
+
+    if (participantIndex === -1) {
+      throw new Error("Session d'examen non trouvée")
+    }
+
+    const participant = exam.participants[participantIndex]
+
+    // Validate current state
+    if (participant.status !== "in_progress") {
+      throw new Error("L'examen n'est pas en cours")
+    }
+
+    if (participant.pausePhase !== "before_pause") {
+      throw new Error("La pause ne peut être démarrée qu'une seule fois")
+    }
+
+    const now = Date.now()
+
+    // For auto-trigger (not manual), validate timing: exam timer must be at least at 50% elapsed
+    if (!args.manualTrigger) {
+      const startedAt = participant.startedAt || now
+      const elapsedTime = now - startedAt
+      const totalTime = exam.completionTime * 1000
+      const halfTime = totalTime / 2
+
+      // Allow 10 seconds tolerance for timing
+      if (elapsedTime < halfTime - 10000) {
+        throw new Error(
+          "La pause automatique ne peut être déclenchée qu'à la mi-parcours du chronomètre",
+        )
+      }
+    }
+
+    // Update participant to pause state
+    const updatedParticipants = [...exam.participants]
+    updatedParticipants[participantIndex] = {
+      ...participant,
+      pausePhase: "during_pause",
+      pauseStartedAt: now,
+    }
+
+    await ctx.db.patch(args.examId, {
+      participants: updatedParticipants,
+    })
+
+    return {
+      pauseStartedAt: now,
+      pauseDurationMinutes: exam.pauseDurationMinutes || 15,
+    }
+  },
+})
+
+/**
+ * Resume from pause (can be called before pause timer expires = cut short)
+ */
+export const resumeFromPause = mutation({
+  args: {
+    examId: v.id("exams"),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserOrThrow(ctx)
+
+    const exam = await ctx.db.get(args.examId)
+    if (!exam) {
+      throw new Error("Examen non trouvé")
+    }
+
+    const participantIndex = exam.participants.findIndex(
+      (p) => p.userId === user._id,
+    )
+
+    if (participantIndex === -1) {
+      throw new Error("Session d'examen non trouvée")
+    }
+
+    const participant = exam.participants[participantIndex]
+
+    // Validate current state
+    if (participant.status !== "in_progress") {
+      throw new Error("L'examen n'est pas en cours")
+    }
+
+    if (participant.pausePhase !== "during_pause") {
+      throw new Error("Vous n'êtes pas actuellement en pause")
+    }
+
+    const now = Date.now()
+    const pauseStartedAt = participant.pauseStartedAt || now
+    const pauseDurationMs = (exam.pauseDurationMinutes || 15) * 60 * 1000
+    const pauseEndTime = pauseStartedAt + pauseDurationMs
+
+    // Determine if pause was cut short (resumed before timer expired)
+    const isPauseCutShort = now < pauseEndTime
+
+    // Calculate actual pause duration used (to freeze exam timer)
+    const actualPauseDurationMs = now - pauseStartedAt
+
+    // Update participant to after_pause state
+    const updatedParticipants = [...exam.participants]
+    updatedParticipants[participantIndex] = {
+      ...participant,
+      pausePhase: "after_pause",
+      pauseEndedAt: now,
+      isPauseCutShort,
+      totalPauseDurationMs: actualPauseDurationMs,
+    }
+
+    await ctx.db.patch(args.examId, {
+      participants: updatedParticipants,
+    })
+
+    return {
+      pauseEndedAt: now,
+      isPauseCutShort,
+      totalPauseDurationMs: actualPauseDurationMs,
+    }
+  },
+})
+
+/**
+ * Query to validate if a user can access a specific question
+ * Used by frontend to enforce question locking during pause phases
+ */
+export const validateQuestionAccess = query({
+  args: {
+    examId: v.id("exams"),
+    questionIndex: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) {
+      return { allowed: false, reason: "Non authentifié" }
+    }
+
+    const exam = await ctx.db.get(args.examId)
+    if (!exam) {
+      return { allowed: false, reason: "Examen non trouvé" }
+    }
+
+    // If pause is not enabled, all questions are accessible
+    if (!exam.enablePause) {
+      return { allowed: true }
+    }
+
+    const participant = exam.participants.find((p) => p.userId === user._id)
+
+    if (!participant) {
+      return { allowed: false, reason: "Session non trouvée" }
+    }
+
+    const totalQuestions = exam.questionIds.length
+    const midpoint = Math.floor(totalQuestions / 2)
+    const questionIndex = args.questionIndex
+
+    switch (participant.pausePhase) {
+      case "before_pause":
+        // Can only access first half (0 to midpoint-1)
+        if (questionIndex >= midpoint) {
+          return {
+            allowed: false,
+            reason:
+              "Cette question sera déverrouillée après la pause obligatoire",
+          }
+        }
+        return { allowed: true }
+
+      case "during_pause":
+        // All questions locked during pause
+        return {
+          allowed: false,
+          reason: "Questions verrouillées pendant la pause",
+        }
+
+      case "after_pause":
+        // All questions unlocked after pause
+        return { allowed: true }
+
+      default:
+        // No pause phase set (shouldn't happen for 100+ question exams)
+        return { allowed: true }
+    }
+  },
+})
+
+/**
+ * Query to get pause status and information
+ */
+export const getPauseStatus = query({
+  args: {
+    examId: v.id("exams"),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) {
+      return null
+    }
+
+    const exam = await ctx.db.get(args.examId)
+    if (!exam) {
+      return null
+    }
+
+    const participant = exam.participants.find((p) => p.userId === user._id)
+
+    if (!participant) {
+      return null
+    }
+
+    const totalQuestions = exam.questionIds.length
+    const midpoint = Math.floor(totalQuestions / 2)
+
+    return {
+      enablePause: exam.enablePause ?? false,
+      pauseDurationMinutes: exam.pauseDurationMinutes ?? 15,
+      pausePhase: participant.pausePhase,
+      pauseStartedAt: participant.pauseStartedAt,
+      pauseEndedAt: participant.pauseEndedAt,
+      isPauseCutShort: participant.isPauseCutShort,
+      totalQuestions,
+      midpoint,
+      // Calculated fields for UI
+      questionsBeforePause: midpoint,
+      questionsAfterPause: totalQuestions - midpoint,
     }
   },
 })

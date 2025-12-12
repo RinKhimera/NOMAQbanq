@@ -36,6 +36,8 @@ export default defineSchema({
     questionIds: v.array(v.id("questions")),
     completionTime: v.number(),
     allowedParticipants: v.array(v.id("users")),
+    enablePause: v.optional(v.boolean()),
+    pauseDurationMinutes: v.optional(v.number()),
     participants: v.array(
       v.object({
         userId: v.id("users"),
@@ -49,6 +51,17 @@ export default defineSchema({
             v.literal("auto_submitted"),
           ),
         ),
+        pausePhase: v.optional(
+          v.union(
+            v.literal("before_pause"),
+            v.literal("during_pause"),
+            v.literal("after_pause"),
+          ),
+        ),
+        pauseStartedAt: v.optional(v.number()),
+        pauseEndedAt: v.optional(v.number()),
+        isPauseCutShort: v.optional(v.boolean()),
+        totalPauseDurationMs: v.optional(v.number()),
         answers: v.array(
           v.object({
             questionId: v.id("questions"),

@@ -109,3 +109,180 @@ export const calculateScorePercentage = (
   if (totalQuestions === 0) return 0
   return Math.round((correctCount / totalQuestions) * 100)
 }
+
+// ==========================================
+// PAUSE FUNCTIONALITY UTILITIES
+// ==========================================
+
+/**
+ * Pause phase type for type safety
+ */
+export type PausePhase = "before_pause" | "during_pause" | "after_pause"
+
+/**
+ * Determine if the exam should trigger the pause based on elapsed time
+ * The pause triggers when the timer reaches 50% (halfway point)
+ * @param serverStartTime - Server timestamp when exam started (ms)
+ * @param completionTimeSeconds - Total allowed time in seconds
+ * @param currentTime - Current timestamp (defaults to Date.now())
+ * @returns true if pause should be triggered
+ */
+export const shouldTriggerPause = (
+  serverStartTime: number,
+  completionTimeSeconds: number,
+  currentTime: number = Date.now(),
+): boolean => {
+  const elapsedTime = currentTime - serverStartTime
+  const totalTimeMs = completionTimeSeconds * 1000
+  const halfTime = totalTimeMs / 2
+
+  // Trigger pause when elapsed time reaches or exceeds 50%
+  return elapsedTime >= halfTime
+}
+
+/**
+ * Calculate the remaining time for the pause countdown
+ * @param pauseStartedAt - Timestamp when pause began (ms)
+ * @param pauseDurationMinutes - Duration of pause in minutes
+ * @param currentTime - Current timestamp (defaults to Date.now())
+ * @returns Remaining pause time in milliseconds (minimum 0)
+ */
+export const calculatePauseTimeRemaining = (
+  pauseStartedAt: number,
+  pauseDurationMinutes: number,
+  currentTime: number = Date.now(),
+): number => {
+  const pauseDurationMs = pauseDurationMinutes * 60 * 1000
+  const elapsedPauseTime = currentTime - pauseStartedAt
+  return Math.max(0, pauseDurationMs - elapsedPauseTime)
+}
+
+/**
+ * Check if the pause timer has expired
+ * @param pauseStartedAt - Timestamp when pause began (ms)
+ * @param pauseDurationMinutes - Duration of pause in minutes
+ * @param currentTime - Current timestamp (defaults to Date.now())
+ * @returns true if pause time has expired
+ */
+export const isPauseExpired = (
+  pauseStartedAt: number,
+  pauseDurationMinutes: number,
+  currentTime: number = Date.now(),
+): boolean => {
+  return (
+    calculatePauseTimeRemaining(
+      pauseStartedAt,
+      pauseDurationMinutes,
+      currentTime,
+    ) <= 0
+  )
+}
+
+/**
+ * Check if a question is accessible based on the current pause phase
+ * @param questionIndex - 0-based index of the question
+ * @param totalQuestions - Total number of questions in the exam
+ * @param pausePhase - Current pause phase
+ * @returns Object with `allowed` boolean and optional `reason` string
+ */
+export const isQuestionAccessible = (
+  questionIndex: number,
+  totalQuestions: number,
+  pausePhase: PausePhase | undefined,
+): { allowed: boolean; reason?: string } => {
+  // If no pause phase is set, all questions are accessible
+  if (!pausePhase) {
+    return { allowed: true }
+  }
+
+  const midpoint = Math.floor(totalQuestions / 2)
+
+  switch (pausePhase) {
+    case "before_pause":
+      // Can only access first half (0 to midpoint-1)
+      if (questionIndex >= midpoint) {
+        return {
+          allowed: false,
+          reason: `Question ${questionIndex + 1} sera déverrouillée après la pause`,
+        }
+      }
+      return { allowed: true }
+
+    case "during_pause":
+      // All questions are locked during pause
+      return {
+        allowed: false,
+        reason: "Questions verrouillées pendant la pause",
+      }
+
+    case "after_pause":
+      // All questions are accessible after pause
+      return { allowed: true }
+
+    default:
+      return { allowed: true }
+  }
+}
+
+/**
+ * Get the range of accessible question indices based on pause phase
+ * @param totalQuestions - Total number of questions
+ * @param pausePhase - Current pause phase
+ * @returns Object with `start` and `end` indices (inclusive)
+ */
+export const getAccessibleQuestionRange = (
+  totalQuestions: number,
+  pausePhase: PausePhase | undefined,
+): { start: number; end: number } => {
+  const midpoint = Math.floor(totalQuestions / 2)
+
+  if (!pausePhase || pausePhase === "after_pause") {
+    return { start: 0, end: totalQuestions - 1 }
+  }
+
+  if (pausePhase === "before_pause") {
+    return { start: 0, end: midpoint - 1 }
+  }
+
+  // during_pause - no questions accessible
+  return { start: -1, end: -1 }
+}
+
+/**
+ * Format pause time remaining to MM:SS display format
+ * @param ms - Time in milliseconds
+ * @returns Formatted string "MM:SS"
+ */
+export const formatPauseTime = (ms: number): string => {
+  const minutes = Math.floor(ms / (1000 * 60))
+  const seconds = Math.floor((ms % (1000 * 60)) / 1000)
+  return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+}
+
+/**
+ * Calculate how many questions remain until the pause
+ * @param currentQuestionIndex - Current 0-based question index
+ * @param totalQuestions - Total number of questions
+ * @returns Number of questions until pause (0 if already at or past midpoint)
+ */
+export const questionsUntilPause = (
+  currentQuestionIndex: number,
+  totalQuestions: number,
+): number => {
+  const midpoint = Math.floor(totalQuestions / 2)
+  return Math.max(0, midpoint - currentQuestionIndex - 1)
+}
+
+/**
+ * Check if the exam is approaching pause (within 10 questions)
+ * @param currentQuestionIndex - Current 0-based question index
+ * @param totalQuestions - Total number of questions
+ * @returns true if within 10 questions of the pause point
+ */
+export const isApproachingPause = (
+  currentQuestionIndex: number,
+  totalQuestions: number,
+): boolean => {
+  const remaining = questionsUntilPause(currentQuestionIndex, totalQuestions)
+  return remaining > 0 && remaining <= 10
+}

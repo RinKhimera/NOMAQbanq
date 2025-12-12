@@ -7,8 +7,10 @@ import {
   ArrowRight,
   CheckCircle,
   Clock,
+  Coffee,
   Flag,
   List,
+  Lock,
   ShieldAlert,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
@@ -16,6 +18,8 @@ import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Calculator } from "@/components/quiz/calculator"
+import { PauseApproachingAlert } from "@/components/quiz/pause-approaching-alert"
+import { PauseDialog } from "@/components/quiz/pause-dialog"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { QuestionNavigationButtons } from "@/components/quiz/question-navigation-buttons"
 import { Badge } from "@/components/ui/badge"
@@ -31,6 +35,11 @@ import { Progress } from "@/components/ui/progress"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { CalculatorProvider } from "@/hooks/useCalculator"
+import {
+  PausePhase,
+  isQuestionAccessible,
+  shouldTriggerPause,
+} from "@/lib/exam-timer"
 import { cn } from "@/lib/utils"
 
 const AssessmentPage = () => {
@@ -49,10 +58,26 @@ const AssessmentPage = () => {
   const hasCompletedRef = useRef(false)
   const correctAnswersRef = useRef<Record<string, string>>({})
 
+  // Pause-related state
+  const [pausePhase, setPausePhase] = useState<PausePhase | undefined>(
+    undefined,
+  )
+  const [pauseStartedAt, setPauseStartedAt] = useState<number | undefined>(
+    undefined,
+  )
+  const [totalPauseDurationMs, setTotalPauseDurationMs] = useState<number>(0)
+  const [showPauseDialog, setShowPauseDialog] = useState(false)
+  const [showEarlyPauseDialog, setShowEarlyPauseDialog] = useState(false)
+  const [isResuming, setIsResuming] = useState(false)
+  const pauseTriggeredRef = useRef(false)
+
   const examWithQuestions = useQuery(api.exams.getExamWithQuestions, { examId })
   const examSession = useQuery(api.exams.getExamSession, { examId })
+  const pauseStatus = useQuery(api.exams.getPauseStatus, { examId })
   const startExam = useMutation(api.exams.startExam)
   const submitAnswers = useMutation(api.exams.submitExamAnswers)
+  const startPauseMutation = useMutation(api.exams.startPause)
+  const resumeFromPauseMutation = useMutation(api.exams.resumeFromPause)
 
   // Stocker les réponses correctes dès le chargement des questions
   useEffect(() => {
@@ -69,6 +94,27 @@ const AssessmentPage = () => {
       correctAnswersRef.current = correctAnswersMap
     }
   }, [examWithQuestions])
+
+  // Sync pause state from server
+  useEffect(() => {
+    if (!examSession) return
+
+    setPausePhase(examSession.pausePhase as PausePhase | undefined)
+    setPauseStartedAt(examSession.pauseStartedAt)
+
+    // Sync total pause duration if available (after pause ended)
+    if (examSession.totalPauseDurationMs) {
+      setTotalPauseDurationMs(examSession.totalPauseDurationMs)
+    }
+
+    // If we're in during_pause phase, show the pause dialog
+    if (
+      examSession.pausePhase === "during_pause" &&
+      examSession.pauseStartedAt
+    ) {
+      setShowPauseDialog(true)
+    }
+  }, [examSession])
 
   // Initialiser ou reprendre la session
   useEffect(() => {
@@ -87,6 +133,18 @@ const AssessmentPage = () => {
         const remaining = Math.max(0, totalTime - elapsedTime)
         setTimeRemaining(remaining)
 
+        // Restore pause phase from session
+        if (examSession.pausePhase) {
+          setPausePhase(examSession.pausePhase as PausePhase)
+          if (examSession.pauseStartedAt) {
+            setPauseStartedAt(examSession.pauseStartedAt)
+          }
+          // If resuming during pause, show pause dialog
+          if (examSession.pausePhase === "during_pause") {
+            setShowPauseDialog(true)
+          }
+        }
+
         toast.info("Session reprise - Le timer continue")
         setShowWarningDialog(false)
         return
@@ -103,11 +161,109 @@ const AssessmentPage = () => {
     initializeSession()
   }, [examWithQuestions, examSession, router, isSubmitting])
 
+  // Handle starting the pause (auto or manual)
+  const handleStartPause = useCallback(
+    async (manualTrigger: boolean = false) => {
+      try {
+        const result = await startPauseMutation({ examId, manualTrigger })
+        setPausePhase("during_pause")
+        setPauseStartedAt(result.pauseStartedAt)
+        setShowPauseDialog(true)
+        setShowEarlyPauseDialog(false)
+        toast.info("⏸️ Pause - Prenez une pause bien méritée !", {
+          duration: 5000,
+        })
+      } catch (error) {
+        console.error("Error starting pause:", error)
+        toast.error("Erreur lors du démarrage de la pause")
+      }
+    },
+    [examId, startPauseMutation],
+  )
+
+  // Handle early pause button click - show confirmation dialog
+  const handleEarlyPauseClick = () => {
+    setShowEarlyPauseDialog(true)
+  }
+
+  // Confirm early pause
+  const handleConfirmEarlyPause = () => {
+    handleStartPause(true)
+  }
+
+  // Auto-trigger pause at midpoint (50% of time elapsed)
+  useEffect(() => {
+    if (!serverStartTime || !examWithQuestions || !pauseStatus?.enablePause)
+      return
+    if (pausePhase !== "before_pause" || pauseTriggeredRef.current) return
+    if (showPauseDialog || isSubmitting) return
+
+    const checkPauseTrigger = () => {
+      if (
+        shouldTriggerPause(serverStartTime, examWithQuestions.completionTime)
+      ) {
+        pauseTriggeredRef.current = true
+        handleStartPause(false) // Auto-trigger (not manual)
+      }
+    }
+
+    checkPauseTrigger()
+    const timer = setInterval(checkPauseTrigger, 1000)
+
+    return () => clearInterval(timer)
+  }, [
+    serverStartTime,
+    examWithQuestions,
+    pauseStatus,
+    pausePhase,
+    showPauseDialog,
+    isSubmitting,
+    handleStartPause,
+  ])
+
+  // Handle resuming from pause
+  const handleResumePause = useCallback(async () => {
+    setIsResuming(true)
+    try {
+      const result = await resumeFromPauseMutation({ examId })
+      setPausePhase("after_pause")
+      setShowPauseDialog(false)
+
+      // Store the total pause duration to adjust timer
+      if (result.totalPauseDurationMs) {
+        setTotalPauseDurationMs(result.totalPauseDurationMs)
+      }
+
+      if (result.isPauseCutShort) {
+        toast.success(
+          "Pause écourtée - Toutes les questions sont maintenant déverrouillées !",
+        )
+      } else {
+        toast.success("Pause terminée - Continuez l'examen !")
+      }
+
+      // Navigate to first question of second half
+      const totalQuestions = examWithQuestions?.questions.length || 0
+      const midpoint = Math.floor(totalQuestions / 2)
+      setCurrentQuestionIndex(midpoint)
+    } catch (error) {
+      toast.error("Erreur lors de la reprise de l'examen")
+      console.error(error)
+    } finally {
+      setIsResuming(false)
+    }
+  }, [examId, resumeFromPauseMutation, examWithQuestions])
+
   // Démarrer l'examen après acceptation de l'avertissement
   const handleStartExam = async () => {
     try {
       const result = await startExam({ examId })
       setServerStartTime(result.startedAt)
+
+      // Initialize pause phase if returned from server
+      if (result.pausePhase) {
+        setPausePhase(result.pausePhase as PausePhase)
+      }
 
       if (examWithQuestions) {
         setTimeRemaining(examWithQuestions.completionTime * 1000)
@@ -157,13 +313,24 @@ const AssessmentPage = () => {
     }
   }, [answers, examId, submitAnswers, router, isSubmitting])
 
-  // Timer basé sur le serveur
+  // Timer basé sur le serveur (freezes during pause)
   useEffect(() => {
     if (!serverStartTime || !examWithQuestions) return
 
+    // Don't run timer during pause - it's frozen
+    if (pausePhase === "during_pause") return
+
     const timer = setInterval(() => {
       const now = Date.now()
-      const elapsedTime = now - serverStartTime
+
+      // Calculate elapsed time, accounting for pause duration
+      let elapsedTime = now - serverStartTime
+
+      // After pause, subtract the total pause duration from elapsed time
+      if (pausePhase === "after_pause" && totalPauseDurationMs > 0) {
+        elapsedTime = elapsedTime - totalPauseDurationMs
+      }
+
       const totalTime = examWithQuestions.completionTime * 1000
       const remaining = Math.max(0, totalTime - elapsedTime)
 
@@ -175,7 +342,13 @@ const AssessmentPage = () => {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [serverStartTime, examWithQuestions, handleAutoSubmit])
+  }, [
+    serverStartTime,
+    examWithQuestions,
+    handleAutoSubmit,
+    pausePhase,
+    totalPauseDurationMs,
+  ])
 
   // Détection de navigation/refresh - Avertissement
   useEffect(() => {
@@ -214,17 +387,64 @@ const AssessmentPage = () => {
   // Gestion des réponses via QuestionCard
   const handleAnswerSelect = (answerIndex: number) => {
     if (!currentQuestion) return
+
+    // Check if question is accessible during pause
+    const totalQuestions = examWithQuestions?.questions.length || 0
+    const accessCheck = isQuestionAccessible(
+      currentQuestionIndex,
+      totalQuestions,
+      pausePhase,
+    )
+    if (!accessCheck.allowed) {
+      toast.error(accessCheck.reason || "Question verrouillée")
+      return
+    }
+
     const selectedOption = currentQuestion.options[answerIndex]
     setAnswers((prev) => ({ ...prev, [currentQuestion._id]: selectedOption }))
   }
 
-  // Navigation
+  // Navigation with pause restrictions
   const goToQuestion = (index: number) => {
-    if (index >= 0 && index < (examWithQuestions?.questions.length || 0)) {
-      setCurrentQuestionIndex(index)
-      window.scrollTo({ top: 0, behavior: "smooth" })
+    const totalQuestions = examWithQuestions?.questions.length || 0
+    if (index < 0 || index >= totalQuestions) return
+
+    // Check if question is accessible during pause
+    const accessCheck = isQuestionAccessible(index, totalQuestions, pausePhase)
+    if (!accessCheck.allowed) {
+      toast.error(accessCheck.reason || "Question verrouillée")
+      return
     }
+
+    setCurrentQuestionIndex(index)
+    window.scrollTo({ top: 0, behavior: "smooth" })
   }
+
+  // Check if a specific question is locked based on pause phase
+  const isQuestionLocked = (index: number): boolean => {
+    const totalQuestions = examWithQuestions?.questions.length || 0
+    const accessCheck = isQuestionAccessible(index, totalQuestions, pausePhase)
+    return !accessCheck.allowed
+  }
+
+  // Calculate pause-related info
+  const totalQuestions = examWithQuestions?.questions.length || 0
+  const midpoint = Math.floor(totalQuestions / 2)
+
+  // Count answered questions in first wave (before midpoint)
+  const firstWaveQuestionIds =
+    examWithQuestions?.questions
+      .slice(0, midpoint)
+      .filter((q) => q)
+      .map((q) => q!._id) || []
+  const firstWaveAnsweredCount = firstWaveQuestionIds.filter(
+    (id) => answers[id],
+  ).length
+  const firstWaveRemainingCount = midpoint - firstWaveAnsweredCount
+
+  // User can take early pause if all first wave questions are answered
+  const canTakeEarlyPause =
+    pausePhase === "before_pause" && firstWaveRemainingCount === 0
 
   // Soumission manuelle
   const handleSubmit = async () => {
@@ -338,15 +558,29 @@ const AssessmentPage = () => {
                 <span>{formatTime(timeRemaining)}</span>
               </div>
 
-              {/* Submit button */}
-              <Button
-                onClick={() => setShowSubmitDialog(true)}
-                disabled={isSubmitting}
-                className="hidden bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white shadow-lg hover:from-green-700 hover:to-emerald-700 sm:flex"
-              >
-                <Flag className="mr-2 h-4 w-4" />
-                Terminer
-              </Button>
+              {/* Early Pause button - only shown before pause is taken */}
+              {pauseStatus?.enablePause && pausePhase === "before_pause" && (
+                <Button
+                  onClick={handleEarlyPauseClick}
+                  variant="outline"
+                  className="hidden border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 sm:flex dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                >
+                  <Coffee className="mr-2 h-4 w-4" />
+                  Prendre la pause
+                </Button>
+              )}
+
+              {/* Submit button - only shown after pause is taken OR if pause not enabled */}
+              {(!pauseStatus?.enablePause || pausePhase === "after_pause") && (
+                <Button
+                  onClick={() => setShowSubmitDialog(true)}
+                  disabled={isSubmitting}
+                  className="hidden bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white shadow-lg hover:from-green-700 hover:to-emerald-700 sm:flex"
+                >
+                  <Flag className="mr-2 h-4 w-4" />
+                  Terminer
+                </Button>
+              )}
             </div>
           </div>
 
@@ -370,6 +604,22 @@ const AssessmentPage = () => {
         <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
           {/* Left column - Question */}
           <div className="space-y-6">
+            {/* Pause Approaching Alert */}
+            {pauseStatus?.enablePause &&
+              pausePhase === "before_pause" &&
+              firstWaveRemainingCount >= 0 &&
+              firstWaveRemainingCount <= 10 && (
+                <PauseApproachingAlert
+                  questionsRemaining={firstWaveRemainingCount}
+                  questionsAnswered={firstWaveAnsweredCount}
+                  midpoint={midpoint}
+                  totalQuestions={totalQuestions}
+                  canTakeEarlyPause={canTakeEarlyPause}
+                  onTakeEarlyPause={handleEarlyPauseClick}
+                  className="mb-4"
+                />
+              )}
+
             <AnimatePresence mode="wait">
               <motion.div
                 key={currentQuestionIndex}
@@ -400,7 +650,10 @@ const AssessmentPage = () => {
               <Button
                 variant="outline"
                 onClick={() => goToQuestion(currentQuestionIndex - 1)}
-                disabled={currentQuestionIndex === 0}
+                disabled={
+                  currentQuestionIndex === 0 ||
+                  isQuestionLocked(currentQuestionIndex - 1)
+                }
                 className="flex items-center gap-2"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -408,7 +661,18 @@ const AssessmentPage = () => {
               </Button>
 
               <div className="text-sm text-gray-500 dark:text-gray-400">
-                {answeredCount > 0 && (
+                {pausePhase === "before_pause" && (
+                  <span className="flex items-center gap-1 font-medium text-blue-600 dark:text-blue-400">
+                    <Coffee className="h-4 w-4" />
+                    Partie 1/{2}
+                  </span>
+                )}
+                {pausePhase === "after_pause" && (
+                  <span className="font-medium text-green-600 dark:text-green-400">
+                    Toutes questions déverrouillées
+                  </span>
+                )}
+                {!pausePhase && answeredCount > 0 && (
                   <span className="font-medium">
                     {answeredCount} question{answeredCount > 1 ? "s" : ""}{" "}
                     répondue{answeredCount > 1 ? "s" : ""}
@@ -420,26 +684,52 @@ const AssessmentPage = () => {
                 onClick={() => goToQuestion(currentQuestionIndex + 1)}
                 disabled={
                   currentQuestionIndex ===
-                  examWithQuestions.questions.length - 1
+                    examWithQuestions.questions.length - 1 ||
+                  isQuestionLocked(currentQuestionIndex + 1)
                 }
                 className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
               >
-                Suivant
-                <ArrowRight className="h-4 w-4" />
+                {isQuestionLocked(currentQuestionIndex + 1) ? (
+                  <>
+                    <Lock className="h-4 w-4" />
+                    Verrouillé
+                  </>
+                ) : (
+                  <>
+                    Suivant
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </Button>
             </div>
 
-            {/* Mobile submit button */}
-            <div className="flex justify-center sm:hidden">
-              <Button
-                onClick={() => setShowSubmitDialog(true)}
-                disabled={isSubmitting}
-                size="lg"
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white shadow-lg hover:from-green-700 hover:to-emerald-700"
-              >
-                <Flag className="mr-2 h-4 w-4" />
-                Terminer l&apos;examen
-              </Button>
+            {/* Mobile buttons */}
+            <div className="flex flex-col gap-3 sm:hidden">
+              {/* Mobile Early Pause button */}
+              {pauseStatus?.enablePause && pausePhase === "before_pause" && (
+                <Button
+                  onClick={handleEarlyPauseClick}
+                  variant="outline"
+                  size="lg"
+                  className="w-full border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                >
+                  <Coffee className="mr-2 h-4 w-4" />
+                  Prendre la pause maintenant
+                </Button>
+              )}
+
+              {/* Mobile Submit button - only after pause or if no pause */}
+              {(!pauseStatus?.enablePause || pausePhase === "after_pause") && (
+                <Button
+                  onClick={() => setShowSubmitDialog(true)}
+                  disabled={isSubmitting}
+                  size="lg"
+                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white shadow-lg hover:from-green-700 hover:to-emerald-700"
+                >
+                  <Flag className="mr-2 h-4 w-4" />
+                  Terminer l&apos;examen
+                </Button>
+              )}
             </div>
           </div>
 
@@ -467,23 +757,37 @@ const AssessmentPage = () => {
                           ? answers[question._id]
                           : false
                         const isCurrent = index === currentQuestionIndex
+                        const isLocked = isQuestionLocked(index)
 
                         return (
                           <button
                             key={index}
                             onClick={() => goToQuestion(index)}
-                            title={`Question ${index + 1}`}
+                            disabled={isLocked}
+                            title={
+                              isLocked
+                                ? `Question ${index + 1} - Verrouillée (disponible après la pause)`
+                                : `Question ${index + 1}`
+                            }
                             className={cn(
-                              "relative flex h-7 w-7 cursor-pointer items-center justify-center rounded text-xs font-medium transition-all hover:scale-110",
-                              isCurrent
+                              "relative flex h-7 w-7 items-center justify-center rounded text-xs font-medium transition-all",
+                              isLocked
+                                ? "cursor-not-allowed bg-gray-300 text-gray-400 opacity-60 dark:bg-gray-600 dark:text-gray-500"
+                                : "cursor-pointer hover:scale-110",
+                              !isLocked && isCurrent
                                 ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-400 dark:ring-offset-gray-800"
-                                : isAnswered
+                                : !isLocked && isAnswered
                                   ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                                  : "bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-400 dark:hover:bg-gray-500",
+                                  : !isLocked &&
+                                    "bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-400 dark:hover:bg-gray-500",
                             )}
                           >
-                            {index + 1}
-                            {isAnswered && !isCurrent && (
+                            {isLocked ? (
+                              <Lock className="h-3 w-3" />
+                            ) : (
+                              index + 1
+                            )}
+                            {isAnswered && !isCurrent && !isLocked && (
                               <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-500" />
                             )}
                           </button>
@@ -498,22 +802,37 @@ const AssessmentPage = () => {
                           ? answers[question._id]
                           : false
                         const isCurrent = index === currentQuestionIndex
+                        const isLocked = isQuestionLocked(index)
 
                         return (
                           <button
                             key={index}
                             onClick={() => goToQuestion(index)}
+                            disabled={isLocked}
+                            title={
+                              isLocked
+                                ? `Question ${index + 1} - Verrouillée`
+                                : undefined
+                            }
                             className={cn(
-                              "relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-sm font-medium transition-all hover:scale-105",
-                              isCurrent
+                              "relative flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium transition-all",
+                              isLocked
+                                ? "cursor-not-allowed bg-gray-300 text-gray-400 opacity-60 dark:bg-gray-600 dark:text-gray-500"
+                                : "cursor-pointer hover:scale-105",
+                              !isLocked && isCurrent
                                 ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-400 ring-offset-2 dark:ring-offset-gray-800"
-                                : isAnswered
+                                : !isLocked && isAnswered
                                   ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600",
+                                  : !isLocked &&
+                                    "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600",
                             )}
                           >
-                            {index + 1}
-                            {isAnswered && !isCurrent && (
+                            {isLocked ? (
+                              <Lock className="h-3.5 w-3.5" />
+                            ) : (
+                              index + 1
+                            )}
+                            {isAnswered && !isCurrent && !isLocked && (
                               <CheckCircle className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-white text-green-600 dark:bg-gray-800" />
                             )}
                           </button>
@@ -543,6 +862,14 @@ const AssessmentPage = () => {
                       Question actuelle
                     </span>
                   </div>
+                  {pausePhase === "before_pause" && (
+                    <div className="flex items-center gap-3">
+                      <Lock className="h-3 w-3 text-gray-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        Verrouillée (après pause)
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Warning section */}
@@ -559,15 +886,30 @@ const AssessmentPage = () => {
                   </p>
                 </div>
 
-                {/* Submit button in sidebar */}
-                <Button
-                  onClick={() => setShowSubmitDialog(true)}
-                  disabled={isSubmitting}
-                  className="mt-4 w-full bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white shadow-lg hover:from-green-700 hover:to-emerald-700"
-                >
-                  <Flag className="mr-2 h-4 w-4" />
-                  Terminer l&apos;examen
-                </Button>
+                {/* Early pause button in sidebar */}
+                {pauseStatus?.enablePause && pausePhase === "before_pause" && (
+                  <Button
+                    onClick={handleEarlyPauseClick}
+                    variant="outline"
+                    className="mt-4 w-full border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50"
+                  >
+                    <Coffee className="mr-2 h-4 w-4" />
+                    Prendre la pause
+                  </Button>
+                )}
+
+                {/* Submit button in sidebar - only after pause or if no pause */}
+                {(!pauseStatus?.enablePause ||
+                  pausePhase === "after_pause") && (
+                  <Button
+                    onClick={() => setShowSubmitDialog(true)}
+                    disabled={isSubmitting}
+                    className="mt-4 w-full bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white shadow-lg hover:from-green-700 hover:to-emerald-700"
+                  >
+                    <Flag className="mr-2 h-4 w-4" />
+                    Terminer l&apos;examen
+                  </Button>
+                )}
               </motion.div>
             </div>
           </div>
@@ -649,6 +991,81 @@ const AssessmentPage = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog de confirmation de pause anticipée */}
+      <Dialog
+        open={showEarlyPauseDialog}
+        onOpenChange={setShowEarlyPauseDialog}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Coffee className="h-5 w-5 text-amber-500" />
+              Prendre la pause maintenant ?
+            </DialogTitle>
+            <div className="space-y-3 pt-2">
+              <p>
+                Vous êtes sur le point de prendre votre pause avant le moment
+                prévu.
+              </p>
+
+              <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <div className="space-y-1 text-sm">
+                    <p className="font-medium text-amber-800 dark:text-amber-200">
+                      Conséquences importantes :
+                    </p>
+                    <ul className="list-inside list-disc space-y-1 text-amber-700 dark:text-amber-300">
+                      <li>Vous ne pourrez pas prendre de seconde pause</li>
+                      <li>
+                        Les questions de la seconde moitié seront déverrouillées
+                        après la pause
+                      </li>
+                      <li>Le chronomètre reprendra à la fin de votre pause</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Durée de la pause :{" "}
+                <span className="font-semibold">
+                  {pauseStatus?.pauseDurationMinutes || 15} minutes
+                </span>
+              </p>
+            </div>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowEarlyPauseDialog(false)}
+            >
+              Continuer l&apos;examen
+            </Button>
+            <Button
+              onClick={handleConfirmEarlyPause}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              <Coffee className="mr-2 h-4 w-4" />
+              Prendre la pause
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pause Dialog */}
+      {pauseStatus && (
+        <PauseDialog
+          isOpen={showPauseDialog}
+          onResume={handleResumePause}
+          pauseStartedAt={pauseStartedAt}
+          pauseDurationMinutes={pauseStatus.pauseDurationMinutes || 15}
+          totalQuestions={examWithQuestions.questions.length}
+          midpoint={Math.ceil(examWithQuestions.questions.length / 2)}
+          isResuming={isResuming}
+        />
+      )}
 
       {/* Dialog d'avertissement anti-fraude au démarrage */}
       <Dialog open={showWarningDialog} onOpenChange={() => {}}>

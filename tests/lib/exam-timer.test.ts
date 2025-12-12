@@ -1,13 +1,21 @@
 import { describe, expect, it } from "vitest"
 import {
+  calculatePauseTimeRemaining,
   calculateProgress,
   calculateScorePercentage,
   calculateTimeRemaining,
   formatExamTime,
+  formatPauseTime,
+  getAccessibleQuestionRange,
+  isApproachingPause,
+  isPauseExpired,
+  isQuestionAccessible,
   isTimeCritical,
   isTimeRunningOut,
   isWithinGracePeriod,
+  questionsUntilPause,
   shouldAutoSubmit,
+  shouldTriggerPause,
 } from "@/lib/exam-timer"
 
 describe("Exam Timer Utilities", () => {
@@ -272,6 +280,317 @@ describe("Exam Timer Utilities", () => {
 
     it("should handle large exam", () => {
       expect(calculateScorePercentage(175, 230)).toBe(76)
+    })
+  })
+})
+
+// ==========================================
+// PAUSE FUNCTIONALITY TESTS
+// ==========================================
+
+describe("Pause Functionality Utilities", () => {
+  describe("shouldTriggerPause", () => {
+    it("should return false when less than 50% time has elapsed", () => {
+      const serverStartTime = 1000000
+      const completionTimeSeconds = 3600 // 1 hour
+      const currentTime = serverStartTime + 1000000 // ~27.78% elapsed
+
+      expect(
+        shouldTriggerPause(serverStartTime, completionTimeSeconds, currentTime),
+      ).toBe(false)
+    })
+
+    it("should return true when exactly 50% time has elapsed", () => {
+      const serverStartTime = 1000000
+      const completionTimeSeconds = 3600 // 1 hour = 3600000ms
+      const currentTime = serverStartTime + 1800000 // exactly 50%
+
+      expect(
+        shouldTriggerPause(serverStartTime, completionTimeSeconds, currentTime),
+      ).toBe(true)
+    })
+
+    it("should return true when more than 50% time has elapsed", () => {
+      const serverStartTime = 1000000
+      const completionTimeSeconds = 3600 // 1 hour
+      const currentTime = serverStartTime + 2500000 // ~69% elapsed
+
+      expect(
+        shouldTriggerPause(serverStartTime, completionTimeSeconds, currentTime),
+      ).toBe(true)
+    })
+
+    it("should return false at exam start", () => {
+      const serverStartTime = 1000000
+      const completionTimeSeconds = 3600
+      const currentTime = serverStartTime
+
+      expect(
+        shouldTriggerPause(serverStartTime, completionTimeSeconds, currentTime),
+      ).toBe(false)
+    })
+  })
+
+  describe("calculatePauseTimeRemaining", () => {
+    it("should return full pause time at start", () => {
+      const pauseStartedAt = 1000000
+      const pauseDurationMinutes = 15
+      const currentTime = pauseStartedAt
+
+      expect(
+        calculatePauseTimeRemaining(
+          pauseStartedAt,
+          pauseDurationMinutes,
+          currentTime,
+        ),
+      ).toBe(15 * 60 * 1000) // 15 minutes in ms
+    })
+
+    it("should calculate remaining time correctly", () => {
+      const pauseStartedAt = 1000000
+      const pauseDurationMinutes = 15
+      const currentTime = pauseStartedAt + 5 * 60 * 1000 // 5 minutes later
+
+      expect(
+        calculatePauseTimeRemaining(
+          pauseStartedAt,
+          pauseDurationMinutes,
+          currentTime,
+        ),
+      ).toBe(10 * 60 * 1000) // 10 minutes remaining
+    })
+
+    it("should return 0 when pause time has expired", () => {
+      const pauseStartedAt = 1000000
+      const pauseDurationMinutes = 15
+      const currentTime = pauseStartedAt + 20 * 60 * 1000 // 20 minutes later
+
+      expect(
+        calculatePauseTimeRemaining(
+          pauseStartedAt,
+          pauseDurationMinutes,
+          currentTime,
+        ),
+      ).toBe(0)
+    })
+
+    it("should return 0 at exact expiration", () => {
+      const pauseStartedAt = 1000000
+      const pauseDurationMinutes = 15
+      const currentTime = pauseStartedAt + 15 * 60 * 1000 // exactly 15 minutes
+
+      expect(
+        calculatePauseTimeRemaining(
+          pauseStartedAt,
+          pauseDurationMinutes,
+          currentTime,
+        ),
+      ).toBe(0)
+    })
+  })
+
+  describe("isPauseExpired", () => {
+    it("should return false when pause time remains", () => {
+      const pauseStartedAt = 1000000
+      const pauseDurationMinutes = 15
+      const currentTime = pauseStartedAt + 5 * 60 * 1000
+
+      expect(
+        isPauseExpired(pauseStartedAt, pauseDurationMinutes, currentTime),
+      ).toBe(false)
+    })
+
+    it("should return true when pause time has expired", () => {
+      const pauseStartedAt = 1000000
+      const pauseDurationMinutes = 15
+      const currentTime = pauseStartedAt + 16 * 60 * 1000
+
+      expect(
+        isPauseExpired(pauseStartedAt, pauseDurationMinutes, currentTime),
+      ).toBe(true)
+    })
+
+    it("should return true at exact expiration", () => {
+      const pauseStartedAt = 1000000
+      const pauseDurationMinutes = 15
+      const currentTime = pauseStartedAt + 15 * 60 * 1000
+
+      expect(
+        isPauseExpired(pauseStartedAt, pauseDurationMinutes, currentTime),
+      ).toBe(true)
+    })
+  })
+
+  describe("isQuestionAccessible", () => {
+    describe("before_pause phase", () => {
+      it("should allow access to questions in first half", () => {
+        const result = isQuestionAccessible(0, 100, "before_pause")
+        expect(result.allowed).toBe(true)
+      })
+
+      it("should allow access to question just before midpoint", () => {
+        const result = isQuestionAccessible(49, 100, "before_pause")
+        expect(result.allowed).toBe(true)
+      })
+
+      it("should deny access to questions in second half", () => {
+        const result = isQuestionAccessible(50, 100, "before_pause")
+        expect(result.allowed).toBe(false)
+        expect(result.reason).toContain("déverrouillée après la pause")
+      })
+
+      it("should deny access to last question", () => {
+        const result = isQuestionAccessible(99, 100, "before_pause")
+        expect(result.allowed).toBe(false)
+      })
+    })
+
+    describe("during_pause phase", () => {
+      it("should deny access to all questions", () => {
+        expect(isQuestionAccessible(0, 100, "during_pause").allowed).toBe(false)
+        expect(isQuestionAccessible(50, 100, "during_pause").allowed).toBe(
+          false,
+        )
+        expect(isQuestionAccessible(99, 100, "during_pause").allowed).toBe(
+          false,
+        )
+      })
+
+      it("should provide appropriate reason", () => {
+        const result = isQuestionAccessible(25, 100, "during_pause")
+        expect(result.reason).toContain("pendant la pause")
+      })
+    })
+
+    describe("after_pause phase", () => {
+      it("should allow access to all questions", () => {
+        expect(isQuestionAccessible(0, 100, "after_pause").allowed).toBe(true)
+        expect(isQuestionAccessible(50, 100, "after_pause").allowed).toBe(true)
+        expect(isQuestionAccessible(99, 100, "after_pause").allowed).toBe(true)
+      })
+    })
+
+    describe("undefined pause phase", () => {
+      it("should allow access to all questions when no pause phase", () => {
+        expect(isQuestionAccessible(0, 100, undefined).allowed).toBe(true)
+        expect(isQuestionAccessible(99, 100, undefined).allowed).toBe(true)
+      })
+    })
+
+    describe("edge cases", () => {
+      it("should handle odd number of questions", () => {
+        // 101 questions -> midpoint is 50
+        expect(isQuestionAccessible(49, 101, "before_pause").allowed).toBe(true)
+        expect(isQuestionAccessible(50, 101, "before_pause").allowed).toBe(
+          false,
+        )
+      })
+
+      it("should handle small exams", () => {
+        // 10 questions -> midpoint is 5
+        expect(isQuestionAccessible(4, 10, "before_pause").allowed).toBe(true)
+        expect(isQuestionAccessible(5, 10, "before_pause").allowed).toBe(false)
+      })
+    })
+  })
+
+  describe("getAccessibleQuestionRange", () => {
+    it("should return full range when no pause phase", () => {
+      const result = getAccessibleQuestionRange(100, undefined)
+      expect(result).toEqual({ start: 0, end: 99 })
+    })
+
+    it("should return full range after pause", () => {
+      const result = getAccessibleQuestionRange(100, "after_pause")
+      expect(result).toEqual({ start: 0, end: 99 })
+    })
+
+    it("should return first half range before pause", () => {
+      const result = getAccessibleQuestionRange(100, "before_pause")
+      expect(result).toEqual({ start: 0, end: 49 })
+    })
+
+    it("should return empty range during pause", () => {
+      const result = getAccessibleQuestionRange(100, "during_pause")
+      expect(result).toEqual({ start: -1, end: -1 })
+    })
+
+    it("should handle odd number of questions", () => {
+      const result = getAccessibleQuestionRange(101, "before_pause")
+      expect(result).toEqual({ start: 0, end: 49 }) // midpoint is 50, so 0-49 accessible
+    })
+  })
+
+  describe("formatPauseTime", () => {
+    it("should format 15 minutes correctly", () => {
+      expect(formatPauseTime(15 * 60 * 1000)).toBe("15:00")
+    })
+
+    it("should format 5 minutes 30 seconds correctly", () => {
+      expect(formatPauseTime(5 * 60 * 1000 + 30 * 1000)).toBe("05:30")
+    })
+
+    it("should format 0 time correctly", () => {
+      expect(formatPauseTime(0)).toBe("00:00")
+    })
+
+    it("should format single digit minutes with leading zero", () => {
+      expect(formatPauseTime(3 * 60 * 1000 + 45 * 1000)).toBe("03:45")
+    })
+
+    it("should handle 1 hour (60 minutes)", () => {
+      expect(formatPauseTime(60 * 60 * 1000)).toBe("60:00")
+    })
+  })
+
+  describe("questionsUntilPause", () => {
+    it("should return correct count at start", () => {
+      expect(questionsUntilPause(0, 100)).toBe(49) // midpoint at 50, so 49 questions until pause
+    })
+
+    it("should return correct count near midpoint", () => {
+      expect(questionsUntilPause(48, 100)).toBe(1)
+    })
+
+    it("should return 0 at midpoint", () => {
+      expect(questionsUntilPause(49, 100)).toBe(0)
+    })
+
+    it("should return 0 after midpoint", () => {
+      expect(questionsUntilPause(60, 100)).toBe(0)
+    })
+
+    it("should handle odd question count", () => {
+      expect(questionsUntilPause(0, 101)).toBe(49) // midpoint is 50
+    })
+  })
+
+  describe("isApproachingPause", () => {
+    it("should return false at start of exam", () => {
+      expect(isApproachingPause(0, 100)).toBe(false)
+    })
+
+    it("should return true within 10 questions of pause", () => {
+      expect(isApproachingPause(40, 100)).toBe(true) // 9 questions until pause
+      expect(isApproachingPause(45, 100)).toBe(true) // 4 questions until pause
+    })
+
+    it("should return false at exactly 11 questions before pause", () => {
+      expect(isApproachingPause(38, 100)).toBe(false) // 11 questions until pause
+    })
+
+    it("should return false at midpoint", () => {
+      expect(isApproachingPause(50, 100)).toBe(false)
+    })
+
+    it("should return false after midpoint", () => {
+      expect(isApproachingPause(60, 100)).toBe(false)
+    })
+
+    it("should handle small exams", () => {
+      // 20 questions -> midpoint at 10
+      expect(isApproachingPause(0, 20)).toBe(true) // 9 questions until pause
+      expect(isApproachingPause(5, 20)).toBe(true) // 4 questions until pause
     })
   })
 })
