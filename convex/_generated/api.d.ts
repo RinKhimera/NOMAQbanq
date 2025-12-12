@@ -8,9 +8,11 @@
  * @module
  */
 
+import type * as examParticipations from "../examParticipations.js";
 import type * as exams from "../exams.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as migrations from "../migrations.js";
 import type * as questions from "../questions.js";
 import type * as users from "../users.js";
 
@@ -21,9 +23,11 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  examParticipations: typeof examParticipations;
   exams: typeof exams;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  migrations: typeof migrations;
   questions: typeof questions;
   users: typeof users;
 }>;

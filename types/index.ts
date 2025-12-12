@@ -1,4 +1,5 @@
 import { LucideIcon } from "lucide-react"
+import { Doc } from "@/convex/_generated/dataModel"
 
 // ===== Domain Types =====
 export interface Domain {
@@ -35,6 +36,27 @@ export type ExamStatItem = {
   value: string | number
   icon: LucideIcon
   iconClassName?: string
+}
+
+/**
+ * Exam type without embedded participants (V2 normalized schema)
+ * Use this for admin list views and other places that don't need participant details
+ */
+export type ExamWithoutParticipants = Omit<Doc<"exams">, "participants"> & {
+  participantCount: number
+}
+
+/**
+ * Exam with user's participation status (V2)
+ * Used by mock-exam page to show "already taken" status
+ */
+export type ExamWithUserParticipation = Omit<Doc<"exams">, "participants"> & {
+  userHasTaken: boolean
+  userParticipation: {
+    status: "in_progress" | "completed" | "auto_submitted" | undefined
+    score: number
+    completedAt: number
+  } | null
 }
 
 // ===== Navigation Types =====

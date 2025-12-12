@@ -13,18 +13,19 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Doc, Id } from "@/convex/_generated/dataModel"
+import { Id } from "@/convex/_generated/dataModel"
 import { getExamStatus } from "@/lib/exam-status"
 import { cn } from "@/lib/utils"
+import { ExamWithoutParticipants } from "@/types"
 import { sidebarMenuButtonVariants } from "../ui/sidebar"
 import ExamStatusBadge from "./exam-status-badge"
 
 interface ExamActionsProps {
-  exam: Doc<"exams">
-  onDeactivate: (exam: Doc<"exams">) => void
+  exam: ExamWithoutParticipants
+  onDeactivate: (exam: ExamWithoutParticipants) => void
   onReactivate: (examId: Id<"exams">) => void
-  onEdit: (exam: Doc<"exams">) => void
-  onDelete: (exam: Doc<"exams">) => void
+  onEdit: (exam: ExamWithoutParticipants) => void
+  onDelete: (exam: ExamWithoutParticipants) => void
   isMobile?: boolean
 }
 
@@ -76,7 +77,7 @@ export function ExamActions({
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
                   <span className="text-sm">
-                    {exam.participants.length} participants
+                    {exam.participantCount} participants
                   </span>
                 </div>
                 <ExamStatusBadge status={status} />

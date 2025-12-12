@@ -28,9 +28,9 @@ import { useCurrentUser } from "@/hooks/useCurrentUser"
 
 const DashboardPage = () => {
   const { currentUser, isLoading: userLoading } = useCurrentUser()
-  const stats = useQuery(api.exams.getMyDashboardStats)
+  const stats = useQuery(api.exams.getMyDashboardStatsV2)
   const availableExams = useQuery(api.exams.getMyAvailableExams)
-  const recentExams = useQuery(api.exams.getMyRecentExams)
+  const recentExams = useQuery(api.exams.getMyRecentExamsV2)
   const [now] = useState(() => Date.now())
 
   const quickActions = [

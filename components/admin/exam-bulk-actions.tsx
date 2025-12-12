@@ -2,10 +2,10 @@
 
 import { Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Doc } from "@/convex/_generated/dataModel"
+import { ExamWithoutParticipants } from "@/types"
 
 interface ExamBulkActionsProps {
-  selectedExams: Doc<"exams">[]
+  selectedExams: ExamWithoutParticipants[]
   onBulkDelete: () => void
   isVisible: boolean
 }

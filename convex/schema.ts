@@ -87,4 +87,46 @@ export default defineSchema({
     .index("by_questionId", ["questionId"])
     .index("by_isActive", ["isActive"])
     .index("by_addedBy", ["addedBy"]),
+
+  // V2: Normalized exam participation tracking
+  examParticipations: defineTable({
+    examId: v.id("exams"),
+    userId: v.id("users"),
+    score: v.number(),
+    completedAt: v.number(),
+    startedAt: v.optional(v.number()),
+    status: v.optional(
+      v.union(
+        v.literal("in_progress"),
+        v.literal("completed"),
+        v.literal("auto_submitted")
+      )
+    ),
+    // Pause functionality
+    pausePhase: v.optional(
+      v.union(
+        v.literal("before_pause"),
+        v.literal("during_pause"),
+        v.literal("after_pause")
+      )
+    ),
+    pauseStartedAt: v.optional(v.number()),
+    pauseEndedAt: v.optional(v.number()),
+    isPauseCutShort: v.optional(v.boolean()),
+    totalPauseDurationMs: v.optional(v.number()),
+  })
+    .index("by_exam", ["examId"])
+    .index("by_user", ["userId"])
+    .index("by_exam_user", ["examId", "userId"])
+    .index("by_status", ["status"]),
+
+  // V2: Individual exam answers (separate from participation)
+  examAnswers: defineTable({
+    participationId: v.id("examParticipations"),
+    questionId: v.id("questions"),
+    selectedAnswer: v.string(),
+    isCorrect: v.boolean(),
+  })
+    .index("by_participation", ["participationId"])
+    .index("by_question", ["questionId"]),
 })
