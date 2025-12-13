@@ -55,7 +55,7 @@ const AdminParticipantResultsPage = () => {
   const [showOnlyIncorrect, setShowOnlyIncorrect] = useState(false)
 
   // Query avec la nouvelle fonction qui vérifie les permissions admin
-  const participantResults = useQuery(api.exams.getParticipantExamResultsV2, {
+  const participantResults = useQuery(api.exams.getParticipantExamResults, {
     examId,
     userId,
   })

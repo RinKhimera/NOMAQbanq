@@ -26,14 +26,14 @@ import { cn } from "@/lib/utils"
 
 type Question = Doc<"questions">
 
-interface QuestionResult {
+type QuestionResult = {
   question: Question
   userAnswer: string | null
   isCorrect: boolean
   isAnswered: boolean
 }
 
-interface ExamResults {
+type ExamResults = {
   correct: number
   incorrect: number
   unanswered: number
@@ -495,7 +495,6 @@ const ExamResultsPage = () => {
       <QuestionNavigationButtons
         questionResults={results.questionResults}
         onNavigateToQuestion={scrollToQuestion}
-        variant="review"
       />
     </div>
   )

@@ -7,12 +7,14 @@ This guide documents the migration from embedded `participants` array in `exams`
 ## Why This Migration?
 
 ### Problem with V1 (Embedded)
+
 - Each exam document can grow to 500KB-1MB with all participants + answers
 - Every read of an exam loads ALL participant data (bandwidth cost)
 - Updating one participant requires read-modify-write of entire array
 - No efficient querying by user or status
 
 ### Benefits of V2 (Normalized)
+
 - Efficient indexed lookups by exam, user, or both
 - Only load data you need
 - Atomic updates per participant
@@ -21,19 +23,23 @@ This guide documents the migration from embedded `participants` array in `exams`
 ## Architecture
 
 ### V1 Schema (Legacy)
+
 ```typescript
 exams: {
   // ...exam fields
-  participants: [{
-    userId: Id<"users">,
-    score: number,
-    answers: [{ questionId, selectedAnswer, isCorrect }],
-    // ...pause fields
-  }]
+  participants: [
+    {
+      userId: Id<"users">,
+      score: number,
+      answers: [{ questionId, selectedAnswer, isCorrect }],
+      // ...pause fields
+    },
+  ]
 }
 ```
 
 ### V2 Schema (New)
+
 ```typescript
 examParticipations: {
   examId: Id<"exams">,
@@ -53,6 +59,7 @@ examAnswers: {
 ## Migration Strategy: Zero-Downtime Hybrid
 
 The migration uses a **hybrid read/write pattern** during transition:
+
 1. V1 functions remain working (no breaking changes)
 2. V2 functions work with new normalized tables
 3. Frontend can be migrated incrementally
@@ -82,6 +89,7 @@ npx convex run --prod migrations:checkMigrationStatus
 ```
 
 Expected output:
+
 ```json
 {
   "v1": {
@@ -125,6 +133,7 @@ npx convex run --prod migrations:verifyMigrationIntegrity
 ```
 
 Expected output:
+
 ```json
 {
   "isValid": true,
@@ -143,6 +152,7 @@ Expected output:
 ### Step 6: Deploy Frontend with V2 APIs
 
 Update frontend to use V2 functions:
+
 - `api.exams.startExam` → `api.exams.startExamV2`
 - `api.exams.submitExamAnswers` → `api.exams.submitExamAnswersV2`
 - `api.exams.getExamSession` → `api.exams.getExamSessionV2`
@@ -157,6 +167,7 @@ npx convex deploy
 ### Step 7: Monitoring Period (1-2 Weeks)
 
 Monitor the application:
+
 - Check error logs
 - Verify exam functionality works
 - Keep V1 data intact as fallback
@@ -174,12 +185,14 @@ npx convex run --prod migrations:migrateExamParticipants '{"clearAfterMigration"
 If issues occur:
 
 ### Option 1: Restore from Backup (Full Rollback)
+
 ```bash
 # Restore full backup (destructive - replaces ALL data)
 npx convex import --prod --replace backup.zip
 ```
 
 ### Option 2: Redeploy Old Code (Keep Data)
+
 ```bash
 # Checkout previous version
 git checkout <previous-commit>
@@ -189,20 +202,24 @@ npx convex deploy
 ```
 
 ### Option 3: Switch Frontend Back to V1 APIs
+
 Since V1 functions still exist, simply revert frontend imports.
 
 ## Troubleshooting
 
 ### Migration Times Out
+
 - Reduce `batchSize` to 1-3
 - Run during off-peak hours
 
 ### Missing Data After Migration
+
 - Run `verifyMigrationIntegrity`
 - Check `issues` array for specific problems
 - Re-run migration for affected exams
 
 ### V2 Queries Return Empty
+
 - Ensure schema was deployed: `npx convex deploy`
 - Check indexes exist in Convex Dashboard
 - Verify migration completed: `checkMigrationStatus`
@@ -211,44 +228,45 @@ Since V1 functions still exist, simply revert frontend imports.
 
 ### Migration Functions
 
-| Function | Description |
-|----------|-------------|
-| `checkMigrationStatus` | Shows V1 vs V2 record counts |
-| `migrateExamParticipants` | Migrates data in batches |
-| `verifyMigrationIntegrity` | Compares V1 and V2 data |
-| `exportV1ParticipantData` | Exports V1 data to JSON |
+| Function                   | Description                  |
+| -------------------------- | ---------------------------- |
+| `checkMigrationStatus`     | Shows V1 vs V2 record counts |
+| `migrateExamParticipants`  | Migrates data in batches     |
+| `verifyMigrationIntegrity` | Compares V1 and V2 data      |
+| `exportV1ParticipantData`  | Exports V1 data to JSON      |
 
 ### V2 Exam Functions
 
-| V1 Function | V2 Function |
-|-------------|-------------|
-| `startExam` | `startExamV2` |
-| `submitExamAnswers` | `submitExamAnswersV2` |
-| `getExamSession` | `getExamSessionV2` |
+| V1 Function                 | V2 Function                   |
+| --------------------------- | ----------------------------- |
+| `startExam`                 | `startExamV2`                 |
+| `submitExamAnswers`         | `submitExamAnswersV2`         |
+| `getExamSession`            | `getExamSessionV2`            |
 | `getParticipantExamResults` | `getParticipantExamResultsV2` |
-| `startPause` | `startPauseV2` |
-| `resumeFromPause` | `resumeFromPauseV2` |
-| `getPauseStatus` | `getPauseStatusV2` |
-| `validateQuestionAccess` | `validateQuestionAccessV2` |
-| `getExamLeaderboard` | `getExamLeaderboardV2` |
-| `getAllExamsMetadata` | `getAllExamsMetadataV2` |
-| `getMyDashboardStats` | `getMyDashboardStatsV2` |
-| `getMyRecentExams` | `getMyRecentExamsV2` |
+| `startPause`                | `startPauseV2`                |
+| `resumeFromPause`           | `resumeFromPauseV2`           |
+| `getPauseStatus`            | `getPauseStatusV2`            |
+| `validateQuestionAccess`    | `validateQuestionAccessV2`    |
+| `getExamLeaderboard`        | `getExamLeaderboardV2`        |
+| `getAllExamsMetadata`       | `getAllExamsMetadataV2`       |
+| `getMyDashboardStats`       | `getMyDashboardStatsV2`       |
+| `getMyRecentExams`          | `getMyRecentExamsV2`          |
 
 ## Timeline Recommendation
 
-| Phase | Duration | Actions |
-|-------|----------|---------|
-| Preparation | 1 day | Backup, test in dev |
-| Migration | 1-2 hours | Run batched migration |
-| Verification | 1 day | Monitor, verify integrity |
-| Frontend Deploy | 1 day | Deploy V2 API usage |
-| Monitoring | 1-2 weeks | Watch for issues |
-| Cleanup | 1 day | Clear V1 embedded data |
+| Phase           | Duration  | Actions                   |
+| --------------- | --------- | ------------------------- |
+| Preparation     | 1 day     | Backup, test in dev       |
+| Migration       | 1-2 hours | Run batched migration     |
+| Verification    | 1 day     | Monitor, verify integrity |
+| Frontend Deploy | 1 day     | Deploy V2 API usage       |
+| Monitoring      | 1-2 weeks | Watch for issues          |
+| Cleanup         | 1 day     | Clear V1 embedded data    |
 
 ## Support
 
 If you encounter issues:
+
 1. Check Convex Dashboard logs
 2. Review this guide's troubleshooting section
 3. Reach out to Convex Discord community

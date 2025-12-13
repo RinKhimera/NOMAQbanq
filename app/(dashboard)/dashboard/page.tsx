@@ -28,9 +28,9 @@ import { useCurrentUser } from "@/hooks/useCurrentUser"
 
 const DashboardPage = () => {
   const { currentUser, isLoading: userLoading } = useCurrentUser()
-  const stats = useQuery(api.exams.getMyDashboardStatsV2)
+  const stats = useQuery(api.exams.getMyDashboardStats)
   const availableExams = useQuery(api.exams.getMyAvailableExams)
-  const recentExams = useQuery(api.exams.getMyRecentExamsV2)
+  const recentExams = useQuery(api.exams.getMyRecentExams)
   const [now] = useState(() => Date.now())
 
   const quickActions = [
@@ -236,8 +236,7 @@ const DashboardPage = () => {
           recentExams.length > 0 &&
           recentExams[0].isCompleted &&
           currentUser &&
-          (currentUser.role === "admin" ||
-            now >= recentExams[0].endDate) ? (
+          (currentUser.role === "admin" || now >= recentExams[0].endDate) ? (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
                 <div>

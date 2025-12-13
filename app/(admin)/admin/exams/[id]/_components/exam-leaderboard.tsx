@@ -30,7 +30,7 @@ export function ExamLeaderboard({
   isAdmin = false,
   currentUserId,
 }: ExamLeaderboardProps) {
-  const leaderboard = useQuery(api.exams.getExamLeaderboardV2, { examId })
+  const leaderboard = useQuery(api.exams.getExamLeaderboard, { examId })
 
   if (!leaderboard || leaderboard.length === 0) return null
 
@@ -83,7 +83,9 @@ export function ExamLeaderboard({
                   <div className="text-right">
                     <p className="font-bold">{entry.score}%</p>
                     <p className="text-muted-foreground hidden text-sm @md:block">
-                      {format(new Date(entry.completedAt), "Pp", { locale: fr })}
+                      {format(new Date(entry.completedAt), "Pp", {
+                        locale: fr,
+                      })}
                     </p>
                   </div>
                   {entry.user &&

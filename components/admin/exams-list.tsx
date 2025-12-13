@@ -44,7 +44,7 @@ export function ExamsList() {
   const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
 
   // Convex queries et mutations
-  const exams = useQuery(api.exams.getAllExamsV2)
+  const exams = useQuery(api.exams.getAllExams)
   const deactivateExam = useMutation(api.exams.deactivateExam)
   const reactivateExam = useMutation(api.exams.reactivateExam)
   const deleteExam = useMutation(api.exams.deleteExam)

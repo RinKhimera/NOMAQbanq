@@ -72,12 +72,12 @@ const AssessmentPage = () => {
   const pauseTriggeredRef = useRef(false)
 
   const examWithQuestions = useQuery(api.exams.getExamWithQuestions, { examId })
-  const examSession = useQuery(api.exams.getExamSessionV2, { examId })
-  const pauseStatus = useQuery(api.exams.getPauseStatusV2, { examId })
-  const startExam = useMutation(api.exams.startExamV2)
-  const submitAnswers = useMutation(api.exams.submitExamAnswersV2)
-  const startPauseMutation = useMutation(api.exams.startPauseV2)
-  const resumeFromPauseMutation = useMutation(api.exams.resumeFromPauseV2)
+  const examSession = useQuery(api.exams.getExamSession, { examId })
+  const pauseStatus = useQuery(api.exams.getPauseStatus, { examId })
+  const startExam = useMutation(api.exams.startExam)
+  const submitAnswers = useMutation(api.exams.submitExamAnswers)
+  const startPauseMutation = useMutation(api.exams.startPause)
+  const resumeFromPauseMutation = useMutation(api.exams.resumeFromPause)
 
   // Stocker les réponses correctes dès le chargement des questions
   useEffect(() => {

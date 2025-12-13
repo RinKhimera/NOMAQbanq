@@ -99,16 +99,16 @@ export default defineSchema({
       v.union(
         v.literal("in_progress"),
         v.literal("completed"),
-        v.literal("auto_submitted")
-      )
+        v.literal("auto_submitted"),
+      ),
     ),
     // Pause functionality
     pausePhase: v.optional(
       v.union(
         v.literal("before_pause"),
         v.literal("during_pause"),
-        v.literal("after_pause")
-      )
+        v.literal("after_pause"),
+      ),
     ),
     pauseStartedAt: v.optional(v.number()),
     pauseEndedAt: v.optional(v.number()),
