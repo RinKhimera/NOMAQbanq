@@ -1,3 +1,4 @@
+import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import { getAdminUserOrThrow } from "./lib/auth"
@@ -234,10 +235,10 @@ export const getRandomLearningBankQuestions = query({
     domain: v.optional(v.string()),
   },
   handler: async (ctx, { count, domain }) => {
-    // Récupérer toutes les questions de la banque d'apprentissage
+    // Use index for active questions (more efficient than .filter())
     const learningBankItems = await ctx.db
       .query("learningBankQuestions")
-      .filter((q) => q.eq(q.field("isActive"), true))
+      .withIndex("by_isActive", (q) => q.eq("isActive", true))
       .collect()
 
     // Joindre avec les questions pour avoir les détails
@@ -270,70 +271,98 @@ export const getRandomLearningBankQuestions = query({
   },
 })
 
-// Pagination + Filtres pour l'admin (OPTIMISÉ)
+// Pagination + Filtres pour l'admin (CURSOR-BASED)
+// Note: Cursor-based pagination is optimal for index-based queries.
+// When search or complex filters are applied, we need to collect first then paginate in memory.
 export const getQuestionsWithPagination = query({
   args: {
-    page: v.number(),
-    limit: v.number(),
+    paginationOpts: paginationOptsValidator,
     domain: v.optional(v.string()),
     searchQuery: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { page, limit, domain, searchQuery } = args
+    const { paginationOpts, domain, searchQuery } = args
+    const hasDomainFilter = domain && domain !== "Tous les domaines"
+    const hasSearchQuery = searchQuery && searchQuery.trim() !== ""
 
-    // Récupérer toutes les questions (on pourrait optimiser avec des index)
-    let questions = await ctx.db.query("questions").order("desc").collect()
-
-    // Filtrer par domaine
-    if (domain && domain !== "Tous les domaines") {
-      questions = questions.filter((q) => q.domain === domain)
+    // CASE 1: Domain filter only (can use cursor pagination on index)
+    if (hasDomainFilter && !hasSearchQuery) {
+      return await ctx.db
+        .query("questions")
+        .withIndex("by_domain", (q) => q.eq("domain", domain))
+        .order("desc")
+        .paginate(paginationOpts)
     }
 
-    // Filtrer par recherche (côté serveur)
-    if (searchQuery && searchQuery.trim() !== "") {
+    // CASE 2: Search query (requires JS filter, collect then paginate)
+    // Note: For text search, we need to collect all results, filter, then manually paginate
+    // This is less optimal but unavoidable without full-text search index
+    if (hasSearchQuery) {
       const lowerQuery = searchQuery.toLowerCase()
-      questions = questions.filter(
+
+      // Get base query results
+      let baseQuery = ctx.db.query("questions").order("desc")
+
+      // If domain filter exists, apply it via index
+      if (hasDomainFilter) {
+        baseQuery = ctx.db
+          .query("questions")
+          .withIndex("by_domain", (q) => q.eq("domain", domain))
+          .order("desc")
+      }
+
+      // Collect all for filtering
+      const allQuestions = await baseQuery.collect()
+
+      // Filter by search query
+      const filteredQuestions = allQuestions.filter(
         (q) =>
           q.question.toLowerCase().includes(lowerQuery) ||
           q.objectifCMC.toLowerCase().includes(lowerQuery),
       )
+
+      // Manual pagination for filtered results
+      const startIndex = paginationOpts.cursor
+        ? parseInt(paginationOpts.cursor, 10)
+        : 0
+      const endIndex = startIndex + paginationOpts.numItems
+      const pageResults = filteredQuestions.slice(startIndex, endIndex)
+      const hasMore = endIndex < filteredQuestions.length
+
+      return {
+        page: pageResults,
+        continueCursor: hasMore ? endIndex.toString() : "",
+        isDone: !hasMore,
+      }
     }
 
-    // Calculer la pagination
-    const totalQuestions = questions.length
-    const totalPages = Math.ceil(totalQuestions / limit)
-    const offset = (page - 1) * limit
-    const paginatedQuestions = questions.slice(offset, offset + limit)
-
-    return {
-      questions: paginatedQuestions,
-      totalQuestions,
-      totalPages,
-      currentPage: page,
-    }
+    // CASE 3: No filters (use default cursor pagination)
+    return await ctx.db
+      .query("questions")
+      .order("desc")
+      .paginate(paginationOpts)
   },
 })
 
-// Pagination pour la banque d'apprentissage (OPTIMISÉ)
+// Pagination pour la banque d'apprentissage
 export const getLearningBankQuestionsWithPagination = query({
   args: {
-    page: v.number(),
-    limit: v.number(),
+    paginationOpts: paginationOptsValidator,
     domain: v.optional(v.string()),
     searchQuery: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { page, limit, domain, searchQuery } = args
+    const { paginationOpts, domain, searchQuery } = args
 
-    // Récupérer les entrées actives de la banque d'apprentissage
-    const learningBankEntries = await ctx.db
+    // Récupérer les entrées actives de la banque d'apprentissage avec cursor pagination
+    const learningBankResult = await ctx.db
       .query("learningBankQuestions")
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
+      .paginate(paginationOpts)
 
-    // Récupérer les détails des questions
+    // Récupérer les détails des questions pour cette page
     const questionsWithDetails = await Promise.all(
-      learningBankEntries.map(async (entry) => {
+      learningBankResult.page.map(async (entry) => {
         const question = await ctx.db.get(entry.questionId)
         const addedByUser = await ctx.db.get(entry.addedBy)
         return {
@@ -349,14 +378,14 @@ export const getLearningBankQuestionsWithPagination = query({
       (item) => item.question !== null,
     )
 
-    // Filtrer par domaine
+    // Filtrer par domaine si nécessaire
     if (domain && domain !== "all") {
       filteredItems = filteredItems.filter(
         (item) => item.question?.domain === domain,
       )
     }
 
-    // Filtrer par recherche
+    // Filtrer par recherche si nécessaire
     if (searchQuery && searchQuery.trim() !== "") {
       const lowerQuery = searchQuery.toLowerCase()
       filteredItems = filteredItems.filter(
@@ -366,36 +395,24 @@ export const getLearningBankQuestionsWithPagination = query({
       )
     }
 
-    // Calculer la pagination
-    const totalItems = filteredItems.length
-    const totalPages = Math.ceil(totalItems / limit)
-    const offset = (page - 1) * limit
-    const paginatedItems = filteredItems.slice(offset, offset + limit)
-
     return {
-      items: paginatedItems,
-      totalItems,
-      totalPages,
-      currentPage: page,
+      page: filteredItems,
+      continueCursor: learningBankResult.continueCursor,
+      isDone: learningBankResult.isDone,
     }
   },
 })
 
-// Pagination pour les questions disponibles (non dans la banque) (OPTIMISÉ)
+// Pagination pour les questions disponibles (non dans la banque) (CURSOR-BASED)
 export const getAvailableQuestionsWithPagination = query({
   args: {
-    page: v.number(),
-    limit: v.number(),
+    paginationOpts: paginationOptsValidator,
     domain: v.optional(v.string()),
     searchQuery: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { page, limit, domain, searchQuery } = args
+    const { paginationOpts, domain, searchQuery } = args
 
-    // Récupérer toutes les questions
-    const allQuestions = await ctx.db.query("questions").collect()
-
-    // Récupérer les IDs des questions dans la banque d'apprentissage
     const learningBankEntries = await ctx.db
       .query("learningBankQuestions")
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
@@ -405,17 +422,25 @@ export const getAvailableQuestionsWithPagination = query({
       learningBankEntries.map((entry) => entry.questionId),
     )
 
-    // Filtrer les questions qui ne sont PAS dans la banque
-    let availableQuestions = allQuestions.filter(
+    // Paginate all questions (or by domain if specified)
+    let questionsPaginated
+    if (domain && domain !== "all") {
+      questionsPaginated = await ctx.db
+        .query("questions")
+        .withIndex("by_domain", (q) => q.eq("domain", domain))
+        .paginate(paginationOpts)
+    } else {
+      questionsPaginated = await ctx.db
+        .query("questions")
+        .paginate(paginationOpts)
+    }
+
+    // Filter out questions that are in learning bank
+    let availableQuestions = questionsPaginated.page.filter(
       (question) => !learningBankQuestionIds.has(question._id),
     )
 
-    // Filtrer par domaine
-    if (domain && domain !== "all") {
-      availableQuestions = availableQuestions.filter((q) => q.domain === domain)
-    }
-
-    // Filtrer par recherche
+    // Apply search filter if provided
     if (searchQuery && searchQuery.trim() !== "") {
       const lowerQuery = searchQuery.toLowerCase()
       availableQuestions = availableQuestions.filter(
@@ -425,17 +450,10 @@ export const getAvailableQuestionsWithPagination = query({
       )
     }
 
-    // Calculer la pagination
-    const totalQuestions = availableQuestions.length
-    const totalPages = Math.ceil(totalQuestions / limit)
-    const offset = (page - 1) * limit
-    const paginatedQuestions = availableQuestions.slice(offset, offset + limit)
-
     return {
-      questions: paginatedQuestions,
-      totalQuestions,
-      totalPages,
-      currentPage: page,
+      page: availableQuestions,
+      continueCursor: questionsPaginated.continueCursor,
+      isDone: questionsPaginated.isDone,
     }
   },
 })
@@ -447,11 +465,16 @@ export const getRandomQuestions = query({
     domain: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let questions = await ctx.db.query("questions").collect()
+    let questions
 
-    // Filtrer par domaine si spécifié
+    // Use index when filtering by domain
     if (args.domain && args.domain !== "all") {
-      questions = questions.filter((q) => q.domain === args.domain)
+      questions = await ctx.db
+        .query("questions")
+        .withIndex("by_domain", (q) => q.eq("domain", args.domain!))
+        .collect()
+    } else {
+      questions = await ctx.db.query("questions").collect()
     }
 
     // Mélanger les questions (Fisher-Yates shuffle)

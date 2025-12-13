@@ -1,15 +1,7 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
-import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Filter,
-  Search,
-} from "lucide-react"
+import { useMutation, usePaginatedQuery } from "convex/react"
+import { BookOpen, Filter, Loader2, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
@@ -46,33 +38,31 @@ export default function QuestionsList() {
   const [selectedDomain, setSelectedDomain] = useState("Tous les domaines")
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [currentPage, setCurrentPage] = useState(1)
   const [editingQuestion, setEditingQuestion] =
     useState<Doc<"questions"> | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const limit = 10
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery)
-      setCurrentPage(1)
     }, 500)
     return () => clearTimeout(timer)
   }, [searchQuery])
 
   const handleDomainChange = (domain: string) => {
     setSelectedDomain(domain)
-    setCurrentPage(1)
   }
 
-  const questionsData = useQuery(api.questions.getQuestionsWithPagination, {
-    page: currentPage,
-    limit,
-    domain: selectedDomain,
-    searchQuery: debouncedSearch,
-  })
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.questions.getQuestionsWithPagination,
+    {
+      domain: selectedDomain,
+      searchQuery: debouncedSearch,
+    },
+    { initialNumItems: 10 },
+  )
 
   const deleteQuestion = useMutation(api.questions.deleteQuestion)
 
@@ -145,18 +135,19 @@ export default function QuestionsList() {
       {/* Résultats */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">
-          Questions trouvées: {questionsData?.totalQuestions || 0}
+          Questions trouvées: {results.length}
+          {status === "LoadingMore" && " (chargement...)"}
         </h3>
       </div>
 
       {/* Liste des questions */}
       <div className="grid gap-4">
-        {questionsData?.questions.map((question, index) => (
+        {results.map((question, index) => (
           <QuestionCard
             key={question._id}
             variant="default"
             question={question}
-            questionNumber={(questionsData.currentPage - 1) * limit + index + 1}
+            questionNumber={index + 1}
             actions={[
               createEditAction(() => handleEdit(question)),
               createPermanentDeleteAction(() =>
@@ -167,66 +158,28 @@ export default function QuestionsList() {
         ))}
       </div>
 
-      {/* Pagination */}
-      {questionsData && questionsData.totalPages > 1 && (
-        <div className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between md:gap-0">
-          <div className="text-muted-foreground text-sm">
-            Affichage de {(questionsData.currentPage - 1) * limit + 1} à{" "}
-            {Math.min(
-              questionsData.currentPage * limit,
-              questionsData.totalQuestions,
-            )}{" "}
-            sur {questionsData.totalQuestions} question
-            {questionsData.totalQuestions > 1 ? "s" : ""}
-          </div>
-          <div className="flex items-center justify-center space-x-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentPage(1)}
-              disabled={questionsData.currentPage === 1}
-            >
-              <ChevronsLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentPage(questionsData.currentPage - 1)}
-              disabled={questionsData.currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex items-center gap-1">
-              <span className="text-sm">Page</span>
-              <span className="text-sm font-medium">
-                {questionsData.currentPage}
-              </span>
-              <span className="text-sm">sur</span>
-              <span className="text-sm font-medium">
-                {questionsData.totalPages}
-              </span>
-            </div>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentPage(questionsData.currentPage + 1)}
-              disabled={questionsData.currentPage === questionsData.totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentPage(questionsData.totalPages)}
-              disabled={questionsData.currentPage === questionsData.totalPages}
-            >
-              <ChevronsRight className="h-4 w-4" />
-            </Button>
-          </div>
+      {/* Load More Button */}
+      {status === "CanLoadMore" && (
+        <div className="flex justify-center py-4">
+          <Button onClick={() => loadMore(10)} variant="outline">
+            Charger plus de questions
+          </Button>
         </div>
       )}
 
-      {questionsData?.questions.length === 0 && (
+      {status === "LoadingMore" && (
+        <div className="flex justify-center py-4">
+          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        </div>
+      )}
+
+      {status === "LoadingFirstPage" && (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        </div>
+      )}
+
+      {results.length === 0 && status === "Exhausted" && (
         <Card>
           <CardContent className="py-12 text-center">
             <BookOpen className="mx-auto mb-4 h-12 w-12 text-gray-400" />

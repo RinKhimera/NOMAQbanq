@@ -1,4 +1,5 @@
 import { UserJSON } from "@clerk/backend"
+import { paginationOptsValidator } from "convex/server"
 import { Validator, v } from "convex/values"
 import {
   QueryCtx,
@@ -154,8 +155,7 @@ export const getAllUsers = query({
 
 export const getUsersWithPagination = query({
   args: {
-    page: v.number(),
-    limit: v.number(),
+    paginationOpts: paginationOptsValidator,
     sortBy: v.optional(
       v.union(v.literal("name"), v.literal("role"), v.literal("_creationTime")),
     ),
@@ -164,18 +164,15 @@ export const getUsersWithPagination = query({
   },
   handler: async (ctx, args) => {
     const {
-      page,
-      limit,
+      paginationOpts,
       sortBy = "name",
       sortOrder = "asc",
       searchQuery,
     } = args
-    const offset = (page - 1) * limit
 
-    // Récupérer tous les utilisateurs
     let users = await ctx.db.query("users").collect()
 
-    // Filtrer par recherche si un terme est fourni
+    // Filter by search query if provided
     if (searchQuery && searchQuery.trim() !== "") {
       const query = searchQuery.toLowerCase().trim()
       users = users.filter(
@@ -186,7 +183,7 @@ export const getUsersWithPagination = query({
       )
     }
 
-    // Trier les utilisateurs
+    // Sort users based on criteria
     users.sort((a, b) => {
       let valueA: string | number
       let valueB: string | number
@@ -214,14 +211,18 @@ export const getUsersWithPagination = query({
       }
     })
 
-    const totalUsers = users.length
-    const paginatedUsers = users.slice(offset, offset + limit)
+    // Manual cursor-based pagination for sorted/filtered results
+    const startIndex = paginationOpts.cursor
+      ? parseInt(paginationOpts.cursor, 10)
+      : 0
+    const endIndex = startIndex + paginationOpts.numItems
+    const pageResults = users.slice(startIndex, endIndex)
+    const hasMore = endIndex < users.length
 
     return {
-      users: paginatedUsers,
-      totalUsers,
-      totalPages: Math.ceil(totalUsers / limit),
-      currentPage: page,
+      page: pageResults,
+      continueCursor: hasMore ? endIndex.toString() : "",
+      isDone: !hasMore,
     }
   },
 })
@@ -240,10 +241,8 @@ export const getAdminStats = query({
 
     const allExams = await ctx.db.query("exams").collect()
 
-    const totalParticipations = allExams.reduce(
-      (total, exam) => total + exam.participants.length,
-      0,
-    )
+    const allParticipations = await ctx.db.query("examParticipations").collect()
+    const totalParticipations = allParticipations.length
 
     const now = Date.now()
     const activeExamsCount = allExams.filter(

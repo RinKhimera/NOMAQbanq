@@ -48,8 +48,8 @@ NOMAQbanq is a modern medical exam preparation web application, offering a compr
 1. **Clone the project**
 
 ```bash
-git clone https://github.com/RinKhimera/NOMAqBANK.git
-cd NOMAqBANK
+git clone https://github.com/RinKhimera/NOMAQbanq.git
+cd NOMAQbanq
 ```
 
 2. **Install dependencies**

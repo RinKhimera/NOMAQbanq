@@ -150,21 +150,26 @@ export const getActiveExams = query({
     }
 
     const now = Date.now()
-    const exams = await ctx.db
+
+    // Get all active exams using index
+    const activeExams = await ctx.db
       .query("exams")
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .filter((q) =>
-        q.and(q.lte(q.field("startDate"), now), q.gte(q.field("endDate"), now)),
-      )
       .collect()
 
+    // Filter by date range (exam must be currently running)
+    const currentExams = activeExams.filter(
+      (exam) => exam.startDate <= now && exam.endDate >= now,
+    )
+
     // Filtrer les examens selon les permissions
-    // Les admins peuvent voir tous les examens, les utilisateurs seulement ceux où ils sont autorisés
     if (user.role === "admin") {
-      return exams
+      return currentExams
     }
 
-    return exams.filter((exam) => exam.allowedParticipants.includes(user._id))
+    return currentExams.filter((exam) =>
+      exam.allowedParticipants.includes(user._id),
+    )
   },
 })
 
