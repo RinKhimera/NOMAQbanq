@@ -1,16 +1,7 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
-import {
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Filter,
-  Plus,
-  Search,
-} from "lucide-react"
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
+import { BookOpen, Filter, Loader2, Plus, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
@@ -42,45 +33,45 @@ export default function LearningBankPage() {
   const [selectedQuestion, setSelectedQuestion] =
     useState<Doc<"questions"> | null>(null)
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false)
-  const [bankPage, setBankPage] = useState(1)
-  const [availablePage, setAvailablePage] = useState(1)
-  const limit = 10
 
   // Debounce pour la recherche
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchTerm)
-      setBankPage(1)
-      setAvailablePage(1)
     }, 500)
     return () => clearTimeout(timer)
   }, [searchTerm])
 
-  // Reset pages lors du changement de domaine - géré via le handler
+  // Reset filters handler
   const handleDomainChange = (domain: string) => {
     setSelectedDomain(domain)
-    setBankPage(1)
-    setAvailablePage(1)
   }
 
-  const learningBankData = useQuery(
+  // Paginated queries with cursor-based pagination
+  const {
+    results: learningBankResults,
+    status: learningBankStatus,
+    loadMore: loadMoreBank,
+  } = usePaginatedQuery(
     api.questions.getLearningBankQuestionsWithPagination,
     {
-      page: bankPage,
-      limit,
       domain: selectedDomain,
       searchQuery: debouncedSearch,
     },
+    { initialNumItems: 10 },
   )
 
-  const availableQuestionsData = useQuery(
+  const {
+    results: availableResults,
+    status: availableStatus,
+    loadMore: loadMoreAvailable,
+  } = usePaginatedQuery(
     api.questions.getAvailableQuestionsWithPagination,
     {
-      page: availablePage,
-      limit,
       domain: selectedDomain,
       searchQuery: debouncedSearch,
     },
+    { initialNumItems: 10 },
   )
 
   // Pour les statistiques (utiliser les anciennes queries sans pagination)
@@ -202,7 +193,7 @@ export default function LearningBankPage() {
 
         <TabsContent value="bank" className="@container space-y-4">
           <div className="grid gap-4">
-            {learningBankData?.items.map((item) => (
+            {learningBankResults.map((item) => (
               <div key={item._id} className="relative">
                 {item.question && (
                   <QuestionCard
@@ -218,84 +209,45 @@ export default function LearningBankPage() {
                 )}
               </div>
             ))}
-            {learningBankData?.items.length === 0 && (
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="text-muted-foreground">
-                    Aucune question trouvée dans la banque d&apos;apprentissage
-                  </p>
-                </CardContent>
-              </Card>
+
+            {learningBankStatus === "LoadingFirstPage" && (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              </div>
             )}
+
+            {learningBankResults.length === 0 &&
+              learningBankStatus === "Exhausted" && (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-muted-foreground">
+                      Aucune question trouvée dans la banque
+                      d&apos;apprentissage
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
           </div>
 
-          {/* Pagination Banque d'apprentissage */}
-          {learningBankData && learningBankData.totalPages > 1 && (
-            <div className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between md:gap-0">
-              <div className="text-muted-foreground text-sm">
-                Affichage de {(learningBankData.currentPage - 1) * limit + 1} à{" "}
-                {Math.min(
-                  learningBankData.currentPage * limit,
-                  learningBankData.totalItems,
-                )}{" "}
-                sur {learningBankData.totalItems} question
-                {learningBankData.totalItems > 1 ? "s" : ""}
-              </div>
-              <div className="flex items-center justify-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setBankPage(1)}
-                  disabled={learningBankData.currentPage === 1}
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setBankPage(learningBankData.currentPage - 1)}
-                  disabled={learningBankData.currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex items-center gap-1">
-                  <span className="text-sm">Page</span>
-                  <span className="text-sm font-medium">
-                    {learningBankData.currentPage}
-                  </span>
-                  <span className="text-sm">sur</span>
-                  <span className="text-sm font-medium">
-                    {learningBankData.totalPages}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setBankPage(learningBankData.currentPage + 1)}
-                  disabled={
-                    learningBankData.currentPage === learningBankData.totalPages
-                  }
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setBankPage(learningBankData.totalPages)}
-                  disabled={
-                    learningBankData.currentPage === learningBankData.totalPages
-                  }
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
+          {/* Load More Button pour la banque */}
+          {learningBankStatus === "CanLoadMore" && (
+            <div className="flex justify-center py-4">
+              <Button onClick={() => loadMoreBank(10)} variant="outline">
+                Charger plus de questions
+              </Button>
+            </div>
+          )}
+
+          {learningBankStatus === "LoadingMore" && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
           )}
         </TabsContent>
 
         <TabsContent value="available" className="@container space-y-4">
           <div className="grid gap-4">
-            {availableQuestionsData?.questions.map((question) => (
+            {availableResults.map((question) => (
               <QuestionCard
                 key={question._id}
                 variant="default"
@@ -306,86 +258,37 @@ export default function LearningBankPage() {
                 ]}
               />
             ))}
-            {availableQuestionsData?.questions.length === 0 && (
-              <Card>
-                <CardContent className="p-6 text-center">
-                  <p className="text-muted-foreground">
-                    Aucune question disponible à ajouter
-                  </p>
-                </CardContent>
-              </Card>
+
+            {availableStatus === "LoadingFirstPage" && (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+              </div>
             )}
+
+            {availableResults.length === 0 &&
+              availableStatus === "Exhausted" && (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <p className="text-muted-foreground">
+                      Aucune question disponible à ajouter
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
           </div>
 
-          {/* Pagination Questions disponibles */}
-          {availableQuestionsData && availableQuestionsData.totalPages > 1 && (
-            <div className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between md:gap-0">
-              <div className="text-muted-foreground text-sm">
-                Affichage de{" "}
-                {(availableQuestionsData.currentPage - 1) * limit + 1} à{" "}
-                {Math.min(
-                  availableQuestionsData.currentPage * limit,
-                  availableQuestionsData.totalQuestions,
-                )}{" "}
-                sur {availableQuestionsData.totalQuestions} question
-                {availableQuestionsData.totalQuestions > 1 ? "s" : ""}
-              </div>
-              <div className="flex items-center justify-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setAvailablePage(1)}
-                  disabled={availableQuestionsData.currentPage === 1}
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() =>
-                    setAvailablePage(availableQuestionsData.currentPage - 1)
-                  }
-                  disabled={availableQuestionsData.currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex items-center gap-1">
-                  <span className="text-sm">Page</span>
-                  <span className="text-sm font-medium">
-                    {availableQuestionsData.currentPage}
-                  </span>
-                  <span className="text-sm">sur</span>
-                  <span className="text-sm font-medium">
-                    {availableQuestionsData.totalPages}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() =>
-                    setAvailablePage(availableQuestionsData.currentPage + 1)
-                  }
-                  disabled={
-                    availableQuestionsData.currentPage ===
-                    availableQuestionsData.totalPages
-                  }
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() =>
-                    setAvailablePage(availableQuestionsData.totalPages)
-                  }
-                  disabled={
-                    availableQuestionsData.currentPage ===
-                    availableQuestionsData.totalPages
-                  }
-                >
-                  <ChevronsRight className="h-4 w-4" />
-                </Button>
-              </div>
+          {/* Load More Button pour les questions disponibles */}
+          {availableStatus === "CanLoadMore" && (
+            <div className="flex justify-center py-4">
+              <Button onClick={() => loadMoreAvailable(10)} variant="outline">
+                Charger plus de questions
+              </Button>
+            </div>
+          )}
+
+          {availableStatus === "LoadingMore" && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
           )}
         </TabsContent>

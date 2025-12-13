@@ -1,16 +1,7 @@
 "use client"
 
-import { useQuery } from "convex/react"
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Search,
-} from "lucide-react"
+import { usePaginatedQuery, useQuery } from "convex/react"
+import { ArrowDown, ArrowUp, ArrowUpDown, Loader2, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import { ExportUsersButton } from "@/components/admin/export-users-button"
 import { Badge } from "@/components/ui/badge"
@@ -34,37 +25,33 @@ type SortBy = "name" | "role" | "_creationTime"
 type SortOrder = "asc" | "desc"
 
 const UsersPage = () => {
-  const [currentPage, setCurrentPage] = useState(1)
   const [sortBy, setSortBy] = useState<SortBy>("name")
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
   const [selectedUser, setSelectedUser] = useState<Doc<"users"> | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
-  const limit = 10
 
   // Debounce de la recherche pour éviter trop de requêtes
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery)
-      setCurrentPage(1)
     }, 300)
 
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  const usersData = useQuery(api.users.getUsersWithPagination, {
-    page: currentPage,
-    limit,
-    sortBy,
-    sortOrder,
-    searchQuery: debouncedSearchQuery.trim() || undefined,
-  })
+  const { results, status, loadMore } = usePaginatedQuery(
+    api.users.getUsersWithPagination,
+    {
+      sortBy,
+      sortOrder,
+      searchQuery: debouncedSearchQuery.trim() || undefined,
+    },
+    { initialNumItems: 10 },
+  )
 
   const allUsers = useQuery(api.users.getAllUsers)
-
-  // Dériver l'état de chargement au lieu d'utiliser un useEffect
-  const showSkeleton = !usersData
 
   const handleSort = (field: SortBy) => {
     if (sortBy === field) {
@@ -73,7 +60,6 @@ const UsersPage = () => {
       setSortBy(field)
       setSortOrder("asc")
     }
-    setCurrentPage(1)
   }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,14 +81,9 @@ const UsersPage = () => {
   }
 
   // Afficher le skeleton uniquement lors du premier chargement
-  if (showSkeleton) {
+  if (status === "LoadingFirstPage") {
     return <UserTableSkeleton />
   }
-
-  const users = usersData?.users ?? []
-  const totalUsers = usersData?.totalUsers ?? 0
-  const totalPages = usersData?.totalPages ?? 1
-  const page = usersData?.currentPage ?? 1
 
   return (
     <>
@@ -120,7 +101,8 @@ const UsersPage = () => {
           <CardHeader>
             <CardTitle className="flex flex-col gap-3 @md:flex-row @md:items-center @md:justify-between">
               <Badge variant="secondary">
-                {totalUsers} utilisateur{totalUsers > 1 ? "s" : ""}
+                {results.length} utilisateur{results.length > 1 ? "s" : ""}
+                {status === "LoadingMore" && " (chargement...)"}
               </Badge>
               {allUsers && allUsers.length > 0 && (
                 <ExportUsersButton users={allUsers} />
@@ -179,13 +161,13 @@ const UsersPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user, index) => (
+                  {results.map((user, index) => (
                     <UserTableRow
                       key={user._id}
                       user={user}
                       index={index}
-                      page={page}
-                      limit={limit}
+                      page={1}
+                      limit={10}
                       onUserClick={handleUserClick}
                     />
                   ))}
@@ -193,55 +175,20 @@ const UsersPage = () => {
               </Table>
             </div>
 
-            {/* Pagination */}
-            <div className="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between md:gap-0">
-              <div className="text-muted-foreground text-sm">
-                Affichage de {(page - 1) * limit + 1} à{" "}
-                {Math.min(page * limit, totalUsers)} sur {totalUsers}{" "}
-                utilisateur
-                {totalUsers > 1 ? "s" : ""}
-              </div>
-              <div className="flex items-center justify-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={page === 1}
-                >
-                  <ChevronsLeft className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(page - 1)}
-                  disabled={page === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="flex items-center gap-1">
-                  <span className="text-sm">Page</span>
-                  <span className="text-sm font-medium">{page}</span>
-                  <span className="text-sm">sur</span>
-                  <span className="text-sm font-medium">{totalPages}</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(page + 1)}
-                  disabled={page === totalPages}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={page === totalPages}
-                >
-                  <ChevronsRight className="h-4 w-4" />
+            {/* Load More Button */}
+            {status === "CanLoadMore" && (
+              <div className="flex justify-center py-4">
+                <Button onClick={() => loadMore(10)} variant="outline">
+                  Charger plus d&apos;utilisateurs
                 </Button>
               </div>
-            </div>
+            )}
+
+            {status === "LoadingMore" && (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

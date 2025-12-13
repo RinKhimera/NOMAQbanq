@@ -307,23 +307,28 @@ describe("questions", () => {
 
       // Première page (2 items par page)
       const page1 = await t.query(api.questions.getQuestionsWithPagination, {
-        page: 1,
-        limit: 2,
+        paginationOpts: { numItems: 2, cursor: null },
       })
 
-      expect(page1.questions).toHaveLength(2)
-      expect(page1.totalQuestions).toBe(5)
-      expect(page1.totalPages).toBe(3)
-      expect(page1.currentPage).toBe(1)
+      expect(page1.page).toHaveLength(2)
+      expect(page1.isDone).toBe(false)
+      expect(page1.continueCursor).toBeTruthy()
 
-      // Dernière page
+      // Deuxième page
+      const page2 = await t.query(api.questions.getQuestionsWithPagination, {
+        paginationOpts: { numItems: 2, cursor: page1.continueCursor },
+      })
+
+      expect(page2.page).toHaveLength(2)
+      expect(page2.isDone).toBe(false)
+
+      // Troisième page (dernière)
       const page3 = await t.query(api.questions.getQuestionsWithPagination, {
-        page: 3,
-        limit: 2,
+        paginationOpts: { numItems: 2, cursor: page2.continueCursor },
       })
 
-      expect(page3.questions).toHaveLength(1) // 5 % 2 = 1
-      expect(page3.currentPage).toBe(3)
+      expect(page3.page).toHaveLength(1) // 5 % 2 = 1
+      expect(page3.isDone).toBe(true)
     })
 
     it("filtre par domaine", async () => {
@@ -349,13 +354,12 @@ describe("questions", () => {
       })
 
       const result = await t.query(api.questions.getQuestionsWithPagination, {
-        page: 1,
-        limit: 10,
+        paginationOpts: { numItems: 10, cursor: null },
         domain: "Cardiologie",
       })
 
-      expect(result.questions).toHaveLength(1)
-      expect(result.questions[0].domain).toBe("Cardiologie")
+      expect(result.page).toHaveLength(1)
+      expect(result.page[0].domain).toBe("Cardiologie")
     })
 
     it("filtre par recherche textuelle", async () => {
@@ -381,13 +385,130 @@ describe("questions", () => {
       })
 
       const result = await t.query(api.questions.getQuestionsWithPagination, {
-        page: 1,
-        limit: 10,
+        paginationOpts: { numItems: 10, cursor: null },
         searchQuery: "infarctus",
       })
 
-      expect(result.questions).toHaveLength(1)
-      expect(result.questions[0].question).toContain("infarctus")
+      expect(result.page).toHaveLength(1)
+      expect(result.page[0].question).toContain("infarctus")
+    })
+
+    it("filtre par domaine et recherche combinés", async () => {
+      const t = convexTest(schema, modules)
+      const asAdmin = await createAdminUser(t)
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Infarctus du myocarde",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Cardiologie",
+      })
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Infarctus cérébral",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Neurologie",
+      })
+
+      // Search for "infarctus" in Cardiologie domain
+      const result = await t.query(api.questions.getQuestionsWithPagination, {
+        paginationOpts: { numItems: 10, cursor: null },
+        domain: "Cardiologie",
+        searchQuery: "infarctus",
+      })
+
+      expect(result.page).toHaveLength(1)
+      expect(result.page[0].domain).toBe("Cardiologie")
+    })
+  })
+
+  describe("getRandomQuestions", () => {
+    it("retourne le nombre demandé de questions aléatoires", async () => {
+      const t = convexTest(schema, modules)
+      const asAdmin = await createAdminUser(t)
+
+      // Créer 5 questions
+      for (let i = 1; i <= 5; i++) {
+        await asAdmin.mutation(api.questions.createQuestion, {
+          question: `Question ${i}`,
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: `Explication ${i}`,
+          objectifCMC: `Objectif ${i}`,
+          domain: "Domain",
+        })
+      }
+
+      const result = await t.query(api.questions.getRandomQuestions, {
+        count: 3,
+      })
+
+      expect(result).toHaveLength(3)
+    })
+
+    it("filtre par domaine avec index", async () => {
+      const t = convexTest(schema, modules)
+      const asAdmin = await createAdminUser(t)
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1 Cardio",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Cardiologie",
+      })
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q2 Cardio",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Cardiologie",
+      })
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q Neuro",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Neurologie",
+      })
+
+      const result = await t.query(api.questions.getRandomQuestions, {
+        count: 10,
+        domain: "Cardiologie",
+      })
+
+      expect(result).toHaveLength(2)
+      expect(result.every((q) => q.domain === "Cardiologie")).toBe(true)
+    })
+
+    it("retourne moins si pas assez de questions", async () => {
+      const t = convexTest(schema, modules)
+      const asAdmin = await createAdminUser(t)
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Seule question",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Domain",
+      })
+
+      const result = await t.query(api.questions.getRandomQuestions, {
+        count: 10,
+      })
+
+      expect(result).toHaveLength(1)
     })
   })
 })

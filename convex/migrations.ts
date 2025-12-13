@@ -1,7 +1,7 @@
 import { v } from "convex/values"
-
-import { internalMutation, internalQuery, action } from "./_generated/server"
 import { internal } from "./_generated/api"
+import { Id } from "./_generated/dataModel"
+import { action, internalMutation, internalQuery } from "./_generated/server"
 
 // ============================================
 // MIGRATION: V1 (embedded participants) → V2 (normalized tables)
@@ -55,7 +55,7 @@ export const getExamsToMigrate = internalQuery({
 
     // Filter exams that have participants in the embedded array
     const examsWithParticipants = exams.filter(
-      (exam) => exam.participants && exam.participants.length > 0
+      (exam) => exam.participants && exam.participants.length > 0,
     )
 
     return examsWithParticipants.slice(0, batchSize)
@@ -73,7 +73,9 @@ export const checkExistingParticipation = internalQuery({
   handler: async (ctx, { examId, userId }) => {
     return await ctx.db
       .query("examParticipations")
-      .withIndex("by_exam_user", (q) => q.eq("examId", examId).eq("userId", userId))
+      .withIndex("by_exam_user", (q) =>
+        q.eq("examId", examId).eq("userId", userId),
+      )
       .unique()
   },
 })
@@ -93,15 +95,15 @@ export const migrateParticipant = internalMutation({
         v.union(
           v.literal("in_progress"),
           v.literal("completed"),
-          v.literal("auto_submitted")
-        )
+          v.literal("auto_submitted"),
+        ),
       ),
       pausePhase: v.optional(
         v.union(
           v.literal("before_pause"),
           v.literal("during_pause"),
-          v.literal("after_pause")
-        )
+          v.literal("after_pause"),
+        ),
       ),
       pauseStartedAt: v.optional(v.number()),
       pauseEndedAt: v.optional(v.number()),
@@ -112,7 +114,7 @@ export const migrateParticipant = internalMutation({
           questionId: v.id("questions"),
           selectedAnswer: v.string(),
           isCorrect: v.boolean(),
-        })
+        }),
       ),
     }),
   },
@@ -161,7 +163,7 @@ export const clearMigratedParticipants = internalMutation({
 
     const migratedSet = new Set(migratedUserIds)
     const remainingParticipants = exam.participants.filter(
-      (p) => !migratedSet.has(p.userId)
+      (p) => !migratedSet.has(p.userId),
     )
 
     await ctx.db.patch(examId, {
@@ -204,7 +206,7 @@ export const migrateExamParticipants = action({
     const errors: Array<{ examId: string; error: string }> = []
 
     for (const exam of exams) {
-      const migratedUserIds: Array<typeof exam.participants[0]["userId"]> = []
+      const migratedUserIds: Array<(typeof exam.participants)[0]["userId"]> = []
 
       for (const participant of exam.participants) {
         try {
@@ -214,7 +216,7 @@ export const migrateExamParticipants = action({
             {
               examId: exam._id,
               userId: participant.userId,
-            }
+            },
           )
 
           if (existing) {
@@ -262,6 +264,111 @@ export const migrateExamParticipants = action({
 })
 
 /**
+ * Retry migration for missing participations only
+ * Use this after running verifyMigrationIntegrity to fix missing records
+ */
+export const retryMissingParticipations = action({
+  handler: async (
+    ctx,
+  ): Promise<{
+    status: string
+    migratedCount: number
+    errors: Array<{ examId: string; userId: string; error: string }>
+  }> => {
+    const missingData = await ctx.runQuery(
+      internal.migrations.getDetailedMissingParticipations,
+    )
+
+    if (missingData.missingCount === 0) {
+      return {
+        status: "complete",
+        migratedCount: 0,
+        errors: [],
+      }
+    }
+
+    const errors: Array<{ examId: string; userId: string; error: string }> = []
+    let migratedCount = 0
+
+    // Group by exam for efficiency
+    const byExam = new Map<string, typeof missingData.details>()
+    for (const detail of missingData.details) {
+      if (!byExam.has(detail.examId)) {
+        byExam.set(detail.examId, [])
+      }
+      byExam.get(detail.examId)!.push(detail)
+    }
+
+    // Retry migration for each missing participation
+    for (const [examId, participants] of byExam.entries()) {
+      const exam = await ctx.runQuery(internal.migrations.getExamById, {
+        examId: examId as Id<"exams">,
+      })
+
+      if (!exam) {
+        for (const p of participants) {
+          errors.push({
+            examId,
+            userId: p.userId,
+            error: "Exam not found",
+          })
+        }
+        continue
+      }
+
+      for (const missingParticipant of participants) {
+        // Find the participant in the exam's embedded array
+        const participant = exam.participants.find(
+          (p) => p.userId === missingParticipant.userId,
+        )
+
+        if (!participant) {
+          errors.push({
+            examId,
+            userId: missingParticipant.userId,
+            error: "Participant not found in exam's embedded array",
+          })
+          continue
+        }
+
+        try {
+          // Retry the migration
+          await ctx.runMutation(internal.migrations.migrateParticipant, {
+            examId: exam._id,
+            participant,
+          })
+          migratedCount++
+        } catch (error) {
+          errors.push({
+            examId,
+            userId: missingParticipant.userId,
+            error: String(error),
+          })
+        }
+      }
+    }
+
+    return {
+      status: errors.length === 0 ? "complete" : "partial",
+      migratedCount,
+      errors,
+    }
+  },
+})
+
+/**
+ * Get a single exam by ID (for retry logic)
+ */
+export const getExamById = internalQuery({
+  args: {
+    examId: v.id("exams"),
+  },
+  handler: async (ctx, { examId }) => {
+    return await ctx.db.get(examId)
+  },
+})
+
+/**
  * Get migration status - how many exams/participants are left to migrate
  */
 export const getMigrationStatus = internalQuery({
@@ -284,9 +391,7 @@ export const getMigrationStatus = internalQuery({
     }
 
     // Count V2 records
-    const v2Participations = await ctx.db
-      .query("examParticipations")
-      .collect()
+    const v2Participations = await ctx.db.query("examParticipations").collect()
 
     const v2Answers = await ctx.db.query("examAnswers").collect()
 
@@ -309,8 +414,14 @@ export const getMigrationStatus = internalQuery({
  * Action to check migration status
  */
 export const checkMigrationStatus = action({
-  handler: async (ctx): Promise<{
-    v1: { examsWithParticipants: number; totalParticipants: number; totalAnswers: number }
+  handler: async (
+    ctx,
+  ): Promise<{
+    v1: {
+      examsWithParticipants: number
+      totalParticipants: number
+      totalAnswers: number
+    }
     v2: { participations: number; answers: number }
     migrationComplete: boolean
   }> => {
@@ -323,7 +434,9 @@ export const checkMigrationStatus = action({
  * Run this BEFORE clearing V1 data to ensure no data was lost
  */
 export const verifyMigrationIntegrity = action({
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx,
+  ): Promise<{
     isValid: boolean
     issues: string[]
     summary: {
@@ -340,24 +453,24 @@ export const verifyMigrationIntegrity = action({
 
     // For each exam with embedded participants, verify V2 records exist
     const verificationResult = await ctx.runQuery(
-      internal.migrations.getDetailedVerification
+      internal.migrations.getDetailedVerification,
     )
 
     if (verificationResult.missingParticipations > 0) {
       issues.push(
-        `${verificationResult.missingParticipations} participations missing in V2 tables`
+        `${verificationResult.missingParticipations} participations missing in V2 tables`,
       )
     }
 
     if (verificationResult.missingAnswers > 0) {
       issues.push(
-        `${verificationResult.missingAnswers} answers missing in V2 tables`
+        `${verificationResult.missingAnswers} answers missing in V2 tables`,
       )
     }
 
     if (verificationResult.scoreMismatches.length > 0) {
       issues.push(
-        `${verificationResult.scoreMismatches.length} score mismatches found`
+        `${verificationResult.scoreMismatches.length} score mismatches found`,
       )
     }
 
@@ -398,7 +511,7 @@ export const getDetailedVerification = internalQuery({
         const v2Participation = await ctx.db
           .query("examParticipations")
           .withIndex("by_exam_user", (q) =>
-            q.eq("examId", exam._id).eq("userId", participant.userId)
+            q.eq("examId", exam._id).eq("userId", participant.userId),
           )
           .unique()
 
@@ -421,7 +534,7 @@ export const getDetailedVerification = internalQuery({
         const v2Answers = await ctx.db
           .query("examAnswers")
           .withIndex("by_participation", (q) =>
-            q.eq("participationId", v2Participation._id)
+            q.eq("participationId", v2Participation._id),
           )
           .collect()
 
@@ -445,7 +558,9 @@ export const getDetailedVerification = internalQuery({
  * Use this to create a manual backup of embedded participant data
  */
 export const exportV1ParticipantData = action({
-  handler: async (ctx): Promise<{
+  handler: async (
+    ctx,
+  ): Promise<{
     exportedAt: number
     totalExams: number
     totalParticipants: number
@@ -466,6 +581,83 @@ export const exportV1ParticipantData = action({
     return {
       exportedAt: Date.now(),
       ...result,
+    }
+  },
+})
+
+/**
+ * Get detailed information about missing participations
+ * Use this to identify which specific participations failed to migrate
+ */
+export const getMissingParticipationsDetails = action({
+  handler: async (
+    ctx,
+  ): Promise<{
+    missingCount: number
+    details: Array<{
+      examId: string
+      examTitle: string
+      userId: string
+      userName?: string
+      score: number
+      completedAt: number
+      answersCount: number
+    }>
+  }> => {
+    return await ctx.runQuery(
+      internal.migrations.getDetailedMissingParticipations,
+    )
+  },
+})
+
+/**
+ * Internal query to get details of missing participations
+ */
+export const getDetailedMissingParticipations = internalQuery({
+  handler: async (ctx) => {
+    const exams = await ctx.db.query("exams").collect()
+    const missingDetails: Array<{
+      examId: string
+      examTitle: string
+      userId: string
+      userName?: string
+      score: number
+      completedAt: number
+      answersCount: number
+    }> = []
+
+    for (const exam of exams) {
+      if (!exam.participants || exam.participants.length === 0) continue
+
+      for (const participant of exam.participants) {
+        // Check if V2 participation exists
+        const v2Participation = await ctx.db
+          .query("examParticipations")
+          .withIndex("by_exam_user", (q) =>
+            q.eq("examId", exam._id).eq("userId", participant.userId),
+          )
+          .unique()
+
+        if (!v2Participation) {
+          // Get user name for easier debugging
+          const user = await ctx.db.get(participant.userId)
+
+          missingDetails.push({
+            examId: exam._id,
+            examTitle: exam.title,
+            userId: participant.userId,
+            userName: user?.username,
+            score: participant.score,
+            completedAt: participant.completedAt,
+            answersCount: participant.answers?.length || 0,
+          })
+        }
+      }
+    }
+
+    return {
+      missingCount: missingDetails.length,
+      details: missingDetails,
     }
   },
 })

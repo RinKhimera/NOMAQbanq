@@ -1,5 +1,4 @@
 import { v } from "convex/values"
-
 import { Id } from "./_generated/dataModel"
 import { mutation, query } from "./_generated/server"
 
@@ -25,7 +24,9 @@ export const getByExamAndUser = query({
   handler: async (ctx, { examId, userId }) => {
     return await ctx.db
       .query("examParticipations")
-      .withIndex("by_exam_user", (q) => q.eq("examId", examId).eq("userId", userId))
+      .withIndex("by_exam_user", (q) =>
+        q.eq("examId", examId).eq("userId", userId),
+      )
       .unique()
   },
 })
@@ -73,7 +74,9 @@ export const getWithAnswers = query({
 
     const answers = await ctx.db
       .query("examAnswers")
-      .withIndex("by_participation", (q) => q.eq("participationId", participationId))
+      .withIndex("by_participation", (q) =>
+        q.eq("participationId", participationId),
+      )
       .collect()
 
     return { ...participation, answers }
@@ -90,7 +93,9 @@ export const getAnswers = query({
   handler: async (ctx, { participationId }) => {
     return await ctx.db
       .query("examAnswers")
-      .withIndex("by_participation", (q) => q.eq("participationId", participationId))
+      .withIndex("by_participation", (q) =>
+        q.eq("participationId", participationId),
+      )
       .collect()
   },
 })
@@ -111,15 +116,17 @@ export const create = mutation({
       v.union(
         v.literal("before_pause"),
         v.literal("during_pause"),
-        v.literal("after_pause")
-      )
+        v.literal("after_pause"),
+      ),
     ),
   },
   handler: async (ctx, { examId, userId, startedAt, pausePhase }) => {
     // Check if participation already exists
     const existing = await ctx.db
       .query("examParticipations")
-      .withIndex("by_exam_user", (q) => q.eq("examId", examId).eq("userId", userId))
+      .withIndex("by_exam_user", (q) =>
+        q.eq("examId", examId).eq("userId", userId),
+      )
       .unique()
 
     if (existing) {
@@ -148,7 +155,7 @@ export const complete = mutation({
     participationId: v.id("examParticipations"),
     score: v.number(),
     status: v.optional(
-      v.union(v.literal("completed"), v.literal("auto_submitted"))
+      v.union(v.literal("completed"), v.literal("auto_submitted")),
     ),
   },
   handler: async (ctx, { participationId, score, status }) => {
@@ -169,7 +176,7 @@ export const updatePausePhase = mutation({
     pausePhase: v.union(
       v.literal("before_pause"),
       v.literal("during_pause"),
-      v.literal("after_pause")
+      v.literal("after_pause"),
     ),
     pauseStartedAt: v.optional(v.number()),
     pauseEndedAt: v.optional(v.number()),
@@ -178,14 +185,23 @@ export const updatePausePhase = mutation({
   },
   handler: async (
     ctx,
-    { participationId, pausePhase, pauseStartedAt, pauseEndedAt, isPauseCutShort, totalPauseDurationMs }
+    {
+      participationId,
+      pausePhase,
+      pauseStartedAt,
+      pauseEndedAt,
+      isPauseCutShort,
+      totalPauseDurationMs,
+    },
   ) => {
     const updateData: Record<string, unknown> = { pausePhase }
 
     if (pauseStartedAt !== undefined) updateData.pauseStartedAt = pauseStartedAt
     if (pauseEndedAt !== undefined) updateData.pauseEndedAt = pauseEndedAt
-    if (isPauseCutShort !== undefined) updateData.isPauseCutShort = isPauseCutShort
-    if (totalPauseDurationMs !== undefined) updateData.totalPauseDurationMs = totalPauseDurationMs
+    if (isPauseCutShort !== undefined)
+      updateData.isPauseCutShort = isPauseCutShort
+    if (totalPauseDurationMs !== undefined)
+      updateData.totalPauseDurationMs = totalPauseDurationMs
 
     await ctx.db.patch(participationId, updateData)
   },
@@ -201,11 +217,16 @@ export const saveAnswer = mutation({
     selectedAnswer: v.string(),
     isCorrect: v.boolean(),
   },
-  handler: async (ctx, { participationId, questionId, selectedAnswer, isCorrect }) => {
+  handler: async (
+    ctx,
+    { participationId, questionId, selectedAnswer, isCorrect },
+  ) => {
     // Check if answer already exists for this question
     const existingAnswers = await ctx.db
       .query("examAnswers")
-      .withIndex("by_participation", (q) => q.eq("participationId", participationId))
+      .withIndex("by_participation", (q) =>
+        q.eq("participationId", participationId),
+      )
       .collect()
 
     const existing = existingAnswers.find((a) => a.questionId === questionId)
@@ -240,14 +261,16 @@ export const saveAnswersBatch = mutation({
         questionId: v.id("questions"),
         selectedAnswer: v.string(),
         isCorrect: v.boolean(),
-      })
+      }),
     ),
   },
   handler: async (ctx, { participationId, answers }) => {
     // Get existing answers to avoid duplicates
     const existingAnswers = await ctx.db
       .query("examAnswers")
-      .withIndex("by_participation", (q) => q.eq("participationId", participationId))
+      .withIndex("by_participation", (q) =>
+        q.eq("participationId", participationId),
+      )
       .collect()
 
     const existingMap = new Map(existingAnswers.map((a) => [a.questionId, a]))
@@ -291,7 +314,9 @@ export const deleteParticipation = mutation({
     // Delete all answers first
     const answers = await ctx.db
       .query("examAnswers")
-      .withIndex("by_participation", (q) => q.eq("participationId", participationId))
+      .withIndex("by_participation", (q) =>
+        q.eq("participationId", participationId),
+      )
       .collect()
 
     for (const answer of answers) {
@@ -318,7 +343,9 @@ export const hasUserStartedExam = query({
   handler: async (ctx, { examId, userId }) => {
     const participation = await ctx.db
       .query("examParticipations")
-      .withIndex("by_exam_user", (q) => q.eq("examId", examId).eq("userId", userId))
+      .withIndex("by_exam_user", (q) =>
+        q.eq("examId", examId).eq("userId", userId),
+      )
       .unique()
 
     return participation !== null
@@ -336,10 +363,15 @@ export const hasUserCompletedExam = query({
   handler: async (ctx, { examId, userId }) => {
     const participation = await ctx.db
       .query("examParticipations")
-      .withIndex("by_exam_user", (q) => q.eq("examId", examId).eq("userId", userId))
+      .withIndex("by_exam_user", (q) =>
+        q.eq("examId", examId).eq("userId", userId),
+      )
       .unique()
 
-    return participation?.status === "completed" || participation?.status === "auto_submitted"
+    return (
+      participation?.status === "completed" ||
+      participation?.status === "auto_submitted"
+    )
   },
 })
 
@@ -374,7 +406,7 @@ export const getCompletedCount = query({
       .collect()
 
     return participations.filter(
-      (p) => p.status === "completed" || p.status === "auto_submitted"
+      (p) => p.status === "completed" || p.status === "auto_submitted",
     ).length
   },
 })
