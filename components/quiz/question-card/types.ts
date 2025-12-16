@@ -55,6 +55,10 @@ export type QuestionCardProps = {
   onAnswerSelect?: (answerIndex: number) => void
   /** Disable answer selection */
   disabled?: boolean
+  /** Whether the question is flagged for review */
+  isFlagged?: boolean
+  /** Callback when user toggles flag status */
+  onFlagToggle?: () => void
 
   // === Review mode props (variant="review") ===
   /** User's submitted answer for review */
@@ -63,6 +67,8 @@ export type QuestionCardProps = {
   isExpanded?: boolean
   /** Toggle expand/collapse callback */
   onToggleExpand?: () => void
+  /** Whether the question was flagged during exam (for review display) */
+  wasFlagged?: boolean
 
   // === Display options ===
   /** Question number (1-indexed) */
