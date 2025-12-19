@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { Id } from "./_generated/dataModel"
 import { mutation, query } from "./_generated/server"
+import { getAdminUserOrThrow } from "./lib/auth"
 
 // ============================================
 // TYPES
@@ -216,10 +217,11 @@ export const saveAnswer = mutation({
     questionId: v.id("questions"),
     selectedAnswer: v.string(),
     isCorrect: v.boolean(),
+    isFlagged: v.optional(v.boolean()),
   },
   handler: async (
     ctx,
-    { participationId, questionId, selectedAnswer, isCorrect },
+    { participationId, questionId, selectedAnswer, isCorrect, isFlagged },
   ) => {
     // Check if answer already exists for this question
     const existingAnswers = await ctx.db
@@ -236,6 +238,7 @@ export const saveAnswer = mutation({
       await ctx.db.patch(existing._id, {
         selectedAnswer,
         isCorrect,
+        isFlagged: isFlagged ?? existing.isFlagged,
       })
       return existing._id
     }
@@ -246,6 +249,7 @@ export const saveAnswer = mutation({
       questionId,
       selectedAnswer,
       isCorrect,
+      isFlagged: isFlagged ?? false,
     })
   },
 })
@@ -261,6 +265,7 @@ export const saveAnswersBatch = mutation({
         questionId: v.id("questions"),
         selectedAnswer: v.string(),
         isCorrect: v.boolean(),
+        isFlagged: v.optional(v.boolean()),
       }),
     ),
   },
@@ -285,6 +290,7 @@ export const saveAnswersBatch = mutation({
         await ctx.db.patch(existing._id, {
           selectedAnswer: answer.selectedAnswer,
           isCorrect: answer.isCorrect,
+          isFlagged: answer.isFlagged ?? false,
         })
         answerIds.push(existing._id)
       } else {
@@ -294,6 +300,7 @@ export const saveAnswersBatch = mutation({
           questionId: answer.questionId,
           selectedAnswer: answer.selectedAnswer,
           isCorrect: answer.isCorrect,
+          isFlagged: answer.isFlagged ?? false,
         })
         answerIds.push(id)
       }
@@ -311,6 +318,9 @@ export const deleteParticipation = mutation({
     participationId: v.id("examParticipations"),
   },
   handler: async (ctx, { participationId }) => {
+    // Only admins can delete participations
+    await getAdminUserOrThrow(ctx)
+
     // Delete all answers first
     const answers = await ctx.db
       .query("examAnswers")

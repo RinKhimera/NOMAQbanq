@@ -49,12 +49,16 @@ const AssessmentPage = () => {
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(
+    new Set(),
+  )
   const [serverStartTime, setServerStartTime] = useState<number | null>(null)
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [showSubmitDialog, setShowSubmitDialog] = useState(false)
   const [showWarningDialog, setShowWarningDialog] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
+  const [showFlaggedOnly, setShowFlaggedOnly] = useState(false)
   const hasCompletedRef = useRef(false)
   const correctAnswersRef = useRef<Record<string, string>>({})
 
@@ -404,6 +408,19 @@ const AssessmentPage = () => {
     setAnswers((prev) => ({ ...prev, [currentQuestion._id]: selectedOption }))
   }
 
+  // Gestion du flag de question
+  const handleFlagToggle = (questionId: string) => {
+    setFlaggedQuestions((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(questionId)) {
+        newSet.delete(questionId)
+      } else {
+        newSet.add(questionId)
+      }
+      return newSet
+    })
+  }
+
   // Navigation with pause restrictions
   const goToQuestion = (index: number) => {
     const totalQuestions = examWithQuestions?.questions.length || 0
@@ -454,6 +471,7 @@ const AssessmentPage = () => {
         ([questionId, selectedAnswer]) => ({
           questionId: questionId as Id<"questions">,
           selectedAnswer,
+          isFlagged: flaggedQuestions.has(questionId),
         }),
       )
 
@@ -636,6 +654,8 @@ const AssessmentPage = () => {
                     questionNumber={currentQuestionIndex + 1}
                     selectedAnswer={answers[currentQuestion._id] || null}
                     onAnswerSelect={handleAnswerSelect}
+                    isFlagged={flaggedQuestions.has(currentQuestion._id)}
+                    onFlagToggle={() => handleFlagToggle(currentQuestion._id)}
                     showImage={true}
                     showCorrectAnswer={false}
                     showDomainBadge={false}
@@ -741,103 +761,164 @@ const AssessmentPage = () => {
                 animate={{ opacity: 1, x: 0 }}
                 className="rounded-2xl border border-gray-200 bg-white p-5 shadow-lg dark:border-gray-700 dark:bg-gray-800"
               >
-                <div className="mb-4 flex items-center gap-2">
-                  <List className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                    Navigation
-                  </h3>
+                <div className="mb-4 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <List className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      Navigation
+                    </h3>
+                  </div>
+
+                  {/* Filter toggle for flagged questions */}
+                  {flaggedQuestions.size > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowFlaggedOnly(!showFlaggedOnly)}
+                      className={cn(
+                        "h-7 gap-1 px-2 text-xs",
+                        showFlaggedOnly
+                          ? "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
+                          : "text-gray-500 hover:text-amber-600 dark:text-gray-400",
+                      )}
+                    >
+                      <Flag
+                        className={cn(
+                          "h-3 w-3",
+                          showFlaggedOnly && "fill-amber-500",
+                        )}
+                      />
+                      {flaggedQuestions.size}
+                    </Button>
+                  )}
                 </div>
 
                 <div className="max-h-72 space-y-1 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-700/50">
                   {examWithQuestions.questions.length > 50 ? (
                     // Dense grid for large number of questions
                     <div className="grid grid-cols-6 gap-1">
-                      {examWithQuestions.questions.map((question, index) => {
-                        const isAnswered = question
-                          ? answers[question._id]
-                          : false
-                        const isCurrent = index === currentQuestionIndex
-                        const isLocked = isQuestionLocked(index)
-
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => goToQuestion(index)}
-                            disabled={isLocked}
-                            title={
-                              isLocked
-                                ? `Question ${index + 1} - Verrouillée (disponible après la pause)`
-                                : `Question ${index + 1}`
-                            }
-                            className={cn(
-                              "relative flex h-7 w-7 items-center justify-center rounded text-xs font-medium transition-all",
-                              isLocked
-                                ? "cursor-not-allowed bg-gray-300 text-gray-400 opacity-60 dark:bg-gray-600 dark:text-gray-500"
-                                : "cursor-pointer hover:scale-110",
-                              !isLocked && isCurrent
-                                ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-400 dark:ring-offset-gray-800"
-                                : !isLocked && isAnswered
-                                  ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                                  : !isLocked &&
-                                    "bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-400 dark:hover:bg-gray-500",
-                            )}
-                          >
-                            {isLocked ? (
-                              <Lock className="h-3 w-3" />
-                            ) : (
-                              index + 1
-                            )}
-                            {isAnswered && !isCurrent && !isLocked && (
-                              <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-500" />
-                            )}
-                          </button>
+                      {examWithQuestions.questions
+                        .map((question, index) => ({ question, index }))
+                        .filter(({ question }) =>
+                          showFlaggedOnly && question
+                            ? flaggedQuestions.has(question._id)
+                            : true,
                         )
-                      })}
+                        .map(({ question, index }) => {
+                          const isAnswered = question
+                            ? answers[question._id]
+                            : false
+                          const isCurrent = index === currentQuestionIndex
+                          const isLocked = isQuestionLocked(index)
+                          const isFlagged = question
+                            ? flaggedQuestions.has(question._id)
+                            : false
+
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => goToQuestion(index)}
+                              disabled={isLocked}
+                              title={
+                                isLocked
+                                  ? `Question ${index + 1} - Verrouillée (disponible après la pause)`
+                                  : isFlagged
+                                    ? `Question ${index + 1} - Marquée`
+                                    : `Question ${index + 1}`
+                              }
+                              className={cn(
+                                "relative flex h-7 w-7 items-center justify-center rounded text-xs font-medium transition-all",
+                                isLocked
+                                  ? "cursor-not-allowed bg-gray-300 text-gray-400 opacity-60 dark:bg-gray-600 dark:text-gray-500"
+                                  : "cursor-pointer hover:scale-110",
+                                !isLocked && isCurrent
+                                  ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-400 dark:ring-offset-gray-800"
+                                  : !isLocked && isAnswered
+                                    ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                                    : !isLocked &&
+                                      "bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-600 dark:text-gray-400 dark:hover:bg-gray-500",
+                                isFlagged &&
+                                  !isLocked &&
+                                  "ring-2 ring-amber-400 dark:ring-amber-500",
+                              )}
+                            >
+                              {isLocked ? (
+                                <Lock className="h-3 w-3" />
+                              ) : (
+                                index + 1
+                              )}
+                              {isFlagged && !isLocked && (
+                                <Flag className="absolute -top-1.5 -left-1.5 h-3 w-3 fill-amber-500 text-amber-500" />
+                              )}
+                              {isAnswered && !isCurrent && !isLocked && (
+                                <div className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-green-500" />
+                              )}
+                            </button>
+                          )
+                        })}
                     </div>
                   ) : (
                     // Regular grid for smaller number of questions
                     <div className="grid grid-cols-5 gap-2">
-                      {examWithQuestions.questions.map((question, index) => {
-                        const isAnswered = question
-                          ? answers[question._id]
-                          : false
-                        const isCurrent = index === currentQuestionIndex
-                        const isLocked = isQuestionLocked(index)
-
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => goToQuestion(index)}
-                            disabled={isLocked}
-                            title={
-                              isLocked
-                                ? `Question ${index + 1} - Verrouillée`
-                                : undefined
-                            }
-                            className={cn(
-                              "relative flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium transition-all",
-                              isLocked
-                                ? "cursor-not-allowed bg-gray-300 text-gray-400 opacity-60 dark:bg-gray-600 dark:text-gray-500"
-                                : "cursor-pointer hover:scale-105",
-                              !isLocked && isCurrent
-                                ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-400 ring-offset-2 dark:ring-offset-gray-800"
-                                : !isLocked && isAnswered
-                                  ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                                  : !isLocked &&
-                                    "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600",
-                            )}
-                          >
-                            {isLocked ? (
-                              <Lock className="h-3.5 w-3.5" />
-                            ) : (
-                              index + 1
-                            )}
-                            {isAnswered && !isCurrent && !isLocked && (
-                              <CheckCircle className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-white text-green-600 dark:bg-gray-800" />
-                            )}
-                          </button>
+                      {examWithQuestions.questions
+                        .map((question, index) => ({ question, index }))
+                        .filter(({ question }) =>
+                          showFlaggedOnly && question
+                            ? flaggedQuestions.has(question._id)
+                            : true,
                         )
-                      })}
+                        .map(({ question, index }) => {
+                          const isAnswered = question
+                            ? answers[question._id]
+                            : false
+                          const isCurrent = index === currentQuestionIndex
+                          const isLocked = isQuestionLocked(index)
+                          const isFlagged = question
+                            ? flaggedQuestions.has(question._id)
+                            : false
+
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => goToQuestion(index)}
+                              disabled={isLocked}
+                              title={
+                                isLocked
+                                  ? `Question ${index + 1} - Verrouillée`
+                                  : isFlagged
+                                    ? `Question ${index + 1} - Marquée`
+                                    : undefined
+                              }
+                              className={cn(
+                                "relative flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium transition-all",
+                                isLocked
+                                  ? "cursor-not-allowed bg-gray-300 text-gray-400 opacity-60 dark:bg-gray-600 dark:text-gray-500"
+                                  : "cursor-pointer hover:scale-105",
+                                !isLocked && isCurrent
+                                  ? "bg-blue-600 text-white shadow-md ring-2 ring-blue-400 ring-offset-2 dark:ring-offset-gray-800"
+                                  : !isLocked && isAnswered
+                                    ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
+                                    : !isLocked &&
+                                      "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600",
+                                isFlagged &&
+                                  !isLocked &&
+                                  "ring-2 ring-amber-400 dark:ring-amber-500",
+                              )}
+                            >
+                              {isLocked ? (
+                                <Lock className="h-3.5 w-3.5" />
+                              ) : (
+                                index + 1
+                              )}
+                              {isFlagged && !isLocked && (
+                                <Flag className="absolute -top-1.5 -left-1.5 h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                              )}
+                              {isAnswered && !isCurrent && !isLocked && (
+                                <CheckCircle className="absolute -top-1 -right-1 h-3.5 w-3.5 rounded-full bg-white text-green-600 dark:bg-gray-800" />
+                              )}
+                            </button>
+                          )
+                        })}
                     </div>
                   )}
                 </div>
@@ -860,6 +941,12 @@ const AssessmentPage = () => {
                     <div className="h-3 w-3 rounded-full bg-blue-600" />
                     <span className="text-sm text-gray-600 dark:text-gray-400">
                       Question actuelle
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Flag className="h-3 w-3 fill-amber-500 text-amber-500" />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Marquée ({flaggedQuestions.size})
                     </span>
                   </div>
                   {pausePhase === "before_pause" && (
@@ -958,6 +1045,17 @@ const AssessmentPage = () => {
                     {examWithQuestions.questions.length - answeredCount}
                   </span>
                 </div>
+                {flaggedQuestions.size > 0 && (
+                  <div className="flex justify-between text-sm">
+                    <span className="flex items-center gap-1">
+                      <Flag className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
+                      Questions marquées :
+                    </span>
+                    <span className="font-medium text-amber-600">
+                      {flaggedQuestions.size}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span>Temps restant :</span>
                   <span className="font-medium">
@@ -965,6 +1063,18 @@ const AssessmentPage = () => {
                   </span>
                 </div>
               </div>
+
+              {flaggedQuestions.size > 0 && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
+                  <p className="text-sm text-amber-800 dark:text-amber-200">
+                    <strong>Attention :</strong> Vous avez marqué{" "}
+                    {flaggedQuestions.size} question
+                    {flaggedQuestions.size > 1 ? "s" : ""} comme incertaine
+                    {flaggedQuestions.size > 1 ? "s" : ""}. Voulez-vous les
+                    revoir avant de soumettre ?
+                  </p>
+                </div>
+              )}
 
               <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
                 Une fois soumis, vous ne pourrez plus modifier vos réponses. Vos

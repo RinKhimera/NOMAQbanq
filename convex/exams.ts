@@ -350,6 +350,7 @@ export const submitExamAnswers = mutation({
       v.object({
         questionId: v.id("questions"),
         selectedAnswer: v.string(),
+        isFlagged: v.optional(v.boolean()),
       }),
     ),
     correctAnswers: v.optional(v.record(v.string(), v.string())),
@@ -460,6 +461,7 @@ export const submitExamAnswers = mutation({
           questionId: answer.questionId,
           selectedAnswer: answer.selectedAnswer,
           isCorrect,
+          isFlagged: answer.isFlagged ?? false,
         }
       })
     } else {
@@ -477,6 +479,7 @@ export const submitExamAnswers = mutation({
           questionId: answer.questionId,
           selectedAnswer: answer.selectedAnswer,
           isCorrect,
+          isFlagged: answer.isFlagged ?? false,
         }
       })
     }
@@ -492,6 +495,7 @@ export const submitExamAnswers = mutation({
         questionId: answer.questionId,
         selectedAnswer: answer.selectedAnswer,
         isCorrect: answer.isCorrect,
+        isFlagged: answer.isFlagged,
       })
     }
 
@@ -962,6 +966,7 @@ export const getExamLeaderboard = query({
         .map(async (participation) => {
           const user = await ctx.db.get(participation.userId)
           return {
+            participationId: participation._id,
             user,
             score: participation.score,
             completedAt: participation.completedAt,

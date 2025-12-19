@@ -1,6 +1,12 @@
 "use client"
 
-import { CheckCircle, ChevronDown, ChevronUp, XCircle } from "lucide-react"
+import {
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Flag,
+  XCircle,
+} from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
@@ -122,9 +128,12 @@ export const QuestionCard = ({
   selectedAnswer,
   onAnswerSelect,
   disabled = false,
+  isFlagged = false,
+  onFlagToggle,
   userAnswer,
   isExpanded = false,
   onToggleExpand,
+  wasFlagged,
   questionNumber,
   showImage = true,
   showCorrectAnswer = true,
@@ -202,13 +211,60 @@ export const QuestionCard = ({
       id={isReviewVariant ? `question-${questionNumber}` : undefined}
     >
       {/* Header */}
-      {!isReviewVariant && (
+      {!isReviewVariant && !isExamVariant && (
         <QuestionHeader
           questionNumber={questionNumber}
           domain={question.domain}
           showDomainBadge={showDomainBadge}
           actions={actions}
         />
+      )}
+
+      {/* Exam variant header with flag button */}
+      {isExamVariant && (
+        <div className="mb-3 flex items-start justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {questionNumber !== undefined && (
+              <Badge
+                variant="outline"
+                className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+              >
+                Question {questionNumber}
+              </Badge>
+            )}
+            {showDomainBadge && question.domain && (
+              <Badge variant="badge">{question.domain}</Badge>
+            )}
+          </div>
+
+          {/* Flag button for exam mode */}
+          {onFlagToggle && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation()
+                onFlagToggle()
+              }}
+              className={cn(
+                "h-8 gap-1.5 px-2 transition-colors",
+                isFlagged
+                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50"
+                  : "text-gray-500 hover:bg-gray-100 hover:text-amber-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-amber-400",
+              )}
+            >
+              <Flag
+                className={cn(
+                  "h-4 w-4",
+                  isFlagged && "fill-amber-500 dark:fill-amber-400",
+                )}
+              />
+              <span className="hidden text-xs font-medium sm:inline">
+                {isFlagged ? "Marquée" : "Marquer"}
+              </span>
+            </Button>
+          )}
+        </div>
       )}
 
       {/* Review variant header with status */}
@@ -231,6 +287,15 @@ export const QuestionCard = ({
                 >
                   {question.domain}
                 </Badge>
+                {wasFlagged && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300"
+                  >
+                    <Flag className="mr-1 h-3 w-3 fill-amber-500" />
+                    Marquée
+                  </Badge>
+                )}
               </div>
             </div>
 

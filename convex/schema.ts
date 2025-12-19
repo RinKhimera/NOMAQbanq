@@ -88,7 +88,6 @@ export default defineSchema({
     .index("by_isActive", ["isActive"])
     .index("by_addedBy", ["addedBy"]),
 
-  // V2: Normalized exam participation tracking
   examParticipations: defineTable({
     examId: v.id("exams"),
     userId: v.id("users"),
@@ -102,7 +101,6 @@ export default defineSchema({
         v.literal("auto_submitted"),
       ),
     ),
-    // Pause functionality
     pausePhase: v.optional(
       v.union(
         v.literal("before_pause"),
@@ -120,12 +118,12 @@ export default defineSchema({
     .index("by_exam_user", ["examId", "userId"])
     .index("by_status", ["status"]),
 
-  // V2: Individual exam answers (separate from participation)
   examAnswers: defineTable({
     participationId: v.id("examParticipations"),
     questionId: v.id("questions"),
     selectedAnswer: v.string(),
     isCorrect: v.boolean(),
+    isFlagged: v.optional(v.boolean()),
   })
     .index("by_participation", ["participationId"])
     .index("by_question", ["questionId"]),
