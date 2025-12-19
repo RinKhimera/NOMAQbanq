@@ -966,6 +966,7 @@ export const getExamLeaderboard = query({
         .map(async (participation) => {
           const user = await ctx.db.get(participation.userId)
           return {
+            participationId: participation._id,
             user,
             score: participation.score,
             completedAt: participation.completedAt,

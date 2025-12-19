@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { Id } from "./_generated/dataModel"
 import { mutation, query } from "./_generated/server"
+import { getAdminUserOrThrow } from "./lib/auth"
 
 // ============================================
 // TYPES
@@ -317,6 +318,9 @@ export const deleteParticipation = mutation({
     participationId: v.id("examParticipations"),
   },
   handler: async (ctx, { participationId }) => {
+    // Only admins can delete participations
+    await getAdminUserOrThrow(ctx)
+
     // Delete all answers first
     const answers = await ctx.db
       .query("examAnswers")
