@@ -1,11 +1,11 @@
+import { UserJSON } from "@clerk/backend"
 import { convexTest } from "convex-test"
 import { describe, expect, it } from "vitest"
 import { api, internal } from "./_generated/api"
 import schema from "./schema"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const modules = (import.meta as any).glob("./**/*.ts")
+const modules = import.meta.glob("./**/*.ts")
 
 describe("users", () => {
   describe("getCurrentUser", () => {
@@ -87,6 +87,94 @@ describe("users", () => {
 
       const result = await asAdmin.query(api.users.isCurrentUserAdmin)
       expect(result).toBe(true)
+    })
+  })
+
+  describe("Clerk Webhooks (Internal Mutations)", () => {
+    it("upsertFromClerk crée un nouvel utilisateur", async () => {
+      const t = convexTest(schema, modules)
+
+      await t.mutation(internal.users.upsertFromClerk, {
+        data: {
+          id: "clerk_new",
+          first_name: "John",
+          last_name: "Doe",
+          email_addresses: [{ email_address: "john@example.com" }],
+          image_url: "https://example.com/john.png",
+        } as unknown as UserJSON,
+      })
+
+      const user = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("users")
+          .withIndex("byExternalId", (q) => q.eq("externalId", "clerk_new"))
+          .unique()
+      })
+
+      expect(user).not.toBeNull()
+      expect(user?.name).toBe("John Doe")
+      expect(user?.role).toBe("user")
+    })
+
+    it("upsertFromClerk met à jour un utilisateur existant", async () => {
+      const t = convexTest(schema, modules)
+
+      await t.mutation(internal.users.createUser, {
+        name: "Old Name",
+        email: "old@example.com",
+        image: "https://example.com/old.png",
+        role: "user",
+        externalId: "clerk_existing",
+        tokenIdentifier: "https://clerk.dev|clerk_existing",
+      })
+
+      await t.mutation(internal.users.upsertFromClerk, {
+        data: {
+          id: "clerk_existing",
+          first_name: "New",
+          last_name: "Name",
+          email_addresses: [{ email_address: "new@example.com" }],
+          image_url: "https://example.com/new.png",
+        } as unknown as UserJSON,
+      })
+
+      const user = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("users")
+          .withIndex("byExternalId", (q) =>
+            q.eq("externalId", "clerk_existing"),
+          )
+          .unique()
+      })
+
+      expect(user?.name).toBe("New Name")
+      expect(user?.email).toBe("new@example.com")
+    })
+
+    it("deleteFromClerk supprime un utilisateur", async () => {
+      const t = convexTest(schema, modules)
+
+      await t.mutation(internal.users.createUser, {
+        name: "To Delete",
+        email: "delete@example.com",
+        image: "https://example.com/delete.png",
+        role: "user",
+        externalId: "clerk_delete",
+        tokenIdentifier: "https://clerk.dev|clerk_delete",
+      })
+
+      await t.mutation(internal.users.deleteFromClerk, {
+        clerkUserId: "clerk_delete",
+      })
+
+      const user = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("users")
+          .withIndex("byExternalId", (q) => q.eq("externalId", "clerk_delete"))
+          .unique()
+      })
+
+      expect(user).toBeNull()
     })
   })
 

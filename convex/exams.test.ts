@@ -5,8 +5,7 @@ import { Id } from "./_generated/dataModel"
 import schema from "./schema"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const modules = (import.meta as any).glob("./**/*.ts")
+const modules = import.meta.glob("./**/*.ts")
 
 // Helper pour créer un utilisateur admin
 const createAdminUser = async (t: ReturnType<typeof convexTest>) => {

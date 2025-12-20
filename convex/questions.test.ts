@@ -4,8 +4,7 @@ import { api, internal } from "./_generated/api"
 import schema from "./schema"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const modules = (import.meta as any).glob("./**/*.ts")
+const modules = import.meta.glob("./**/*.ts")
 
 // Helper pour créer un utilisateur admin pour les tests
 const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
