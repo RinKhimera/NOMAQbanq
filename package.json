@@ -12,13 +12,11 @@
     "lint-check": "eslint . --ext .ts,.tsx --max-warnings 1",
     "build-check": "npm run type-check && npm run lint-check",
     "fix-lint": "eslint . --ext .ts,.tsx --fix",
-    "test": "vitest run && vitest run --config vitest.config.convex.ts",
+    "test": "vitest run",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:convex": "vitest --config vitest.config.convex.ts",
-    "test:convex:run": "vitest run --config vitest.config.convex.ts",
-    "test:all": "vitest run && vitest run --config vitest.config.convex.ts",
+    "test:all": "vitest run",
     "vercel-build": "npm run test:run && next build"
   },
   "dependencies": {

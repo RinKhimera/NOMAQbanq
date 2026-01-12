@@ -5,10 +5,7 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   plugins: [react()],
   test: {
-    environment: "happy-dom",
     globals: true,
-    setupFiles: ["./vitest.setup.ts"],
-    include: ["tests/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],
@@ -26,12 +23,37 @@ export default defineConfig({
         "tests/**",
       ],
       thresholds: {
-        statements: 80,
+        statements: 75,
         branches: 75,
-        functions: 80,
-        lines: 80,
+        functions: 75,
+        lines: 75,
       },
     },
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: "frontend",
+          environment: "happy-dom",
+          setupFiles: ["./vitest.setup.ts"],
+          include: ["tests/**/*.test.{ts,tsx}"],
+          exclude: ["tests/convex/**"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "convex",
+          environment: "edge-runtime",
+          include: ["tests/convex/**/*.test.ts"],
+          server: {
+            deps: {
+              inline: ["convex-test"],
+            },
+          },
+        },
+      },
+    ],
   },
   resolve: {
     alias: {

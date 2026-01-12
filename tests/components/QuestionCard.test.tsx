@@ -5,26 +5,52 @@ import { describe, expect, it, vi } from "vitest"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { Doc, Id } from "@/convex/_generated/dataModel"
 
+// Props Framer Motion à exclure du DOM (hoisted pour être disponible dans vi.mock)
+const { filterMotionProps } = vi.hoisted(() => {
+  const motionPropsToFilter = new Set([
+    "initial",
+    "animate",
+    "exit",
+    "variants",
+    "transition",
+    "layout",
+    "layoutId",
+    "layoutDependency",
+    "layoutScroll",
+    "whileHover",
+    "whileTap",
+    "whileFocus",
+    "whileDrag",
+    "whileInView",
+    "onAnimationStart",
+    "onAnimationComplete",
+    "onUpdate",
+    "inherit",
+    "custom",
+  ])
+
+  return {
+    filterMotionProps: <T extends Record<string, unknown>>(props: T) =>
+      Object.fromEntries(
+        Object.entries(props).filter(([key]) => !motionPropsToFilter.has(key)),
+      ),
+  }
+})
+
 // Mock motion/react
 vi.mock("motion/react", () => ({
   motion: {
     div: ({
       children,
-      className,
       ...props
     }: ComponentPropsWithoutRef<"div">) => (
-      <div className={className} {...props}>
-        {children}
-      </div>
+      <div {...filterMotionProps(props)}>{children}</div>
     ),
     button: ({
       children,
-      className,
       ...props
     }: ComponentPropsWithoutRef<"button">) => (
-      <button className={className} {...props}>
-        {children}
-      </button>
+      <button {...filterMotionProps(props)}>{children}</button>
     ),
   },
   AnimatePresence: ({ children }: { children: React.ReactNode }) => (

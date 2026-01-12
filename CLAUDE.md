@@ -12,13 +12,22 @@ NOMAQbanq is the first French-language platform for EACMC Part I medical exam pr
 - **UI:** shadcn/ui components, Tailwind CSS v4, Radix UI
 - **Testing:** Vitest, Testing Library, convex-test
 
+## Key Libraries
+
+- **Animations:** `motion` (Framer Motion v12) - use `motion/react` import
+- **Icons:** `@tabler/icons-react` (primary), `lucide-react`
+- **Dates:** `date-fns` for date manipulation
+- **Charts:** `recharts` for data visualizations
+- **Drag & Drop:** `@dnd-kit` for sortable lists
+
 ## Essential Commands
 
 ```bash
 npm run dev              # Start dev server with Turbopack
 npm run build-check      # Type check + lint (run before commits)
-npm run test:all         # Run all tests (frontend + backend)
-npm run test:convex:run  # Run Convex backend tests
+npm run test:all         # Run all tests (frontend + Convex backend)
+npm run test:coverage    # Run tests with coverage report
+npm run test:ui          # Interactive test UI
 ```
 
 ## Project Structure
@@ -51,9 +60,9 @@ Key tables: `users`, `questions`, `exams`, `examParticipations`, `examAnswers`, 
 
 ## Testing Requirements
 
-- Coverage thresholds: 80% statements/lines, 75% branches, 80% functions
-- Frontend tests use happy-dom environment
-- Convex tests use edge-runtime environment
+- Coverage thresholds: 75% (statements, branches, functions, lines)
+- Frontend tests (`tests/`) use happy-dom environment
+- Convex backend tests (`tests/convex/`) use edge-runtime environment
 - Run `npm run test:all` before pushing changes
 
 ## Important Patterns

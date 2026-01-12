@@ -42,6 +42,7 @@ next-env.d.ts
 
 # specific folders and files
 /.cursor
+/.claude
 README-REFACTOR.md
 .gitignore
 # Sentry Config File

@@ -607,4 +607,776 @@ describe("exams", () => {
       expect(exams[0].participantCount).toBe(1)
     })
   })
+
+  describe("getExamWithQuestions", () => {
+    it("retourne l'examen avec ses questions", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const q1 = await createQuestion(t, admin, 1)
+      const q2 = await createQuestion(t, admin, 2)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec questions",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1, q2],
+        allowedParticipants: [],
+      })
+
+      const result = await t.query(api.exams.getExamWithQuestions, { examId })
+      expect(result).not.toBeNull()
+      expect(result!.title).toBe("Examen avec questions")
+      expect(result!.questions).toHaveLength(2)
+      expect(result!.questions[0]!.question).toBe("Question 1")
+      expect(result!.questions[1]!.question).toBe("Question 2")
+    })
+  })
+
+  describe("startPause", () => {
+    it("démarre la pause correctement avec manualTrigger", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+        enablePause: true,
+        pauseDurationMinutes: 15,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      const result = await user.asUser.mutation(api.exams.startPause, {
+        examId,
+        manualTrigger: true,
+      })
+
+      expect(result.pauseStartedAt).toBeDefined()
+      expect(result.pauseDurationMinutes).toBe(15)
+    })
+
+    it("rejette si pause non activée pour l'examen", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen sans pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+        enablePause: false,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      await expect(
+        user.asUser.mutation(api.exams.startPause, { examId }),
+      ).rejects.toThrow("La pause n'est pas activée pour cet examen")
+    })
+
+    it("rejette si déjà en pause", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+        enablePause: true,
+        pauseDurationMinutes: 15,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.startPause, {
+        examId,
+        manualTrigger: true,
+      })
+
+      await expect(
+        user.asUser.mutation(api.exams.startPause, {
+          examId,
+          manualTrigger: true,
+        }),
+      ).rejects.toThrow("La pause ne peut être démarrée qu'une seule fois")
+    })
+  })
+
+  describe("resumeFromPause", () => {
+    it("reprend correctement après la pause", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+        enablePause: true,
+        pauseDurationMinutes: 15,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.startPause, {
+        examId,
+        manualTrigger: true,
+      })
+
+      const result = await user.asUser.mutation(api.exams.resumeFromPause, {
+        examId,
+      })
+
+      expect(result.pauseEndedAt).toBeDefined()
+      expect(result.isPauseCutShort).toBe(true) // Reprise avant la fin des 15 minutes
+      expect(result.totalPauseDurationMs).toBeDefined()
+    })
+
+    it("rejette si pas en pause", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+        enablePause: true,
+        pauseDurationMinutes: 15,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      await expect(
+        user.asUser.mutation(api.exams.resumeFromPause, { examId }),
+      ).rejects.toThrow("Vous n'êtes pas actuellement en pause")
+    })
+  })
+
+  describe("getPauseStatus", () => {
+    it("retourne le statut de pause avec calculs midpoint", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      // Créer 4 questions pour tester le midpoint
+      const q1 = await createQuestion(t, admin, 1)
+      const q2 = await createQuestion(t, admin, 2)
+      const q3 = await createQuestion(t, admin, 3)
+      const q4 = await createQuestion(t, admin, 4)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1, q2, q3, q4],
+        allowedParticipants: [user.userId],
+        enablePause: true,
+        pauseDurationMinutes: 20,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      const status = await user.asUser.query(api.exams.getPauseStatus, {
+        examId,
+      })
+
+      expect(status).not.toBeNull()
+      expect(status?.enablePause).toBe(true)
+      expect(status?.pauseDurationMinutes).toBe(20)
+      expect(status?.totalQuestions).toBe(4)
+      expect(status?.midpoint).toBe(2)
+      expect(status?.questionsBeforePause).toBe(2)
+      expect(status?.questionsAfterPause).toBe(2)
+      expect(status?.pausePhase).toBe("before_pause")
+    })
+
+    it("retourne null si non authentifié", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [],
+        enablePause: true,
+      })
+
+      const status = await t.query(api.exams.getPauseStatus, { examId })
+      expect(status).toBeNull()
+    })
+  })
+
+  describe("validateQuestionAccess", () => {
+    it("before_pause bloque questions après midpoint", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      const q1 = await createQuestion(t, admin, 1)
+      const q2 = await createQuestion(t, admin, 2)
+      const q3 = await createQuestion(t, admin, 3)
+      const q4 = await createQuestion(t, admin, 4)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1, q2, q3, q4],
+        allowedParticipants: [user.userId],
+        enablePause: true,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      // Question 0 et 1 (avant midpoint) devraient être accessibles
+      const access0 = await user.asUser.query(api.exams.validateQuestionAccess, {
+        examId,
+        questionIndex: 0,
+      })
+      expect(access0.allowed).toBe(true)
+
+      const access1 = await user.asUser.query(api.exams.validateQuestionAccess, {
+        examId,
+        questionIndex: 1,
+      })
+      expect(access1.allowed).toBe(true)
+
+      // Question 2 et 3 (après midpoint) devraient être bloquées
+      const access2 = await user.asUser.query(api.exams.validateQuestionAccess, {
+        examId,
+        questionIndex: 2,
+      })
+      expect(access2.allowed).toBe(false)
+      expect(access2.reason).toContain("déverrouillée après la pause")
+    })
+
+    it("during_pause bloque toutes les questions", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+        enablePause: true,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.startPause, {
+        examId,
+        manualTrigger: true,
+      })
+
+      const access = await user.asUser.query(api.exams.validateQuestionAccess, {
+        examId,
+        questionIndex: 0,
+      })
+      expect(access.allowed).toBe(false)
+      expect(access.reason).toContain("verrouillées pendant la pause")
+    })
+
+    it("after_pause autorise toutes les questions", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      const q1 = await createQuestion(t, admin, 1)
+      const q2 = await createQuestion(t, admin, 2)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1, q2],
+        allowedParticipants: [user.userId],
+        enablePause: true,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.startPause, {
+        examId,
+        manualTrigger: true,
+      })
+      await user.asUser.mutation(api.exams.resumeFromPause, { examId })
+
+      const access0 = await user.asUser.query(api.exams.validateQuestionAccess, {
+        examId,
+        questionIndex: 0,
+      })
+      expect(access0.allowed).toBe(true)
+
+      const access1 = await user.asUser.query(api.exams.validateQuestionAccess, {
+        examId,
+        questionIndex: 1,
+      })
+      expect(access1.allowed).toBe(true)
+    })
+
+    it("autorise si pause non activée", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen sans pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+        enablePause: false,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      const access = await user.asUser.query(api.exams.validateQuestionAccess, {
+        examId,
+        questionIndex: 0,
+      })
+      expect(access.allowed).toBe(true)
+    })
+  })
+
+  describe("getMyDashboardStats", () => {
+    it("retourne les statistiques de l'utilisateur", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E1",
+        objectifCMC: "O1",
+        domain: "D1",
+      })
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+        allowedParticipants: [user.userId],
+      })
+
+      // Avant participation
+      let stats = await user.asUser.query(api.exams.getMyDashboardStats)
+      expect(stats).not.toBeNull()
+      expect(stats?.availableExamsCount).toBe(1)
+      expect(stats?.completedExamsCount).toBe(0)
+
+      // Après participation
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId,
+        answers: [{ questionId: q1, selectedAnswer: "A" }],
+        correctAnswers: { [q1]: "A" },
+      })
+
+      stats = await user.asUser.query(api.exams.getMyDashboardStats)
+      expect(stats?.completedExamsCount).toBe(1)
+      expect(stats?.averageScore).toBe(100)
+    })
+
+    it("retourne null si non authentifié", async () => {
+      const t = convexTest(schema, modules)
+      const stats = await t.query(api.exams.getMyDashboardStats)
+      expect(stats).toBeNull()
+    })
+  })
+
+  describe("getMyRecentExams", () => {
+    it("retourne les examens récents triés", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      const q1 = await createQuestion(t, admin, 1)
+
+      const now = Date.now()
+
+      // Créer 2 examens
+      const exam1 = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen 1",
+        startDate: now - 2000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+        allowedParticipants: [user.userId],
+      })
+
+      await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen 2",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+        allowedParticipants: [user.userId],
+      })
+
+      // Compléter le premier examen
+      await user.asUser.mutation(api.exams.startExam, { examId: exam1 })
+      await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId: exam1,
+        answers: [{ questionId: q1, selectedAnswer: "A" }],
+      })
+
+      const recentExams = await user.asUser.query(api.exams.getMyRecentExams)
+      expect(recentExams).toHaveLength(2)
+      // Le premier (complété) devrait être en tête
+      expect(recentExams[0].title).toBe("Examen 1")
+      expect(recentExams[0].isCompleted).toBe(true)
+      expect(recentExams[1].title).toBe("Examen 2")
+      expect(recentExams[1].isCompleted).toBe(false)
+    })
+
+    it("retourne une liste vide si non authentifié", async () => {
+      const t = convexTest(schema, modules)
+      const exams = await t.query(api.exams.getMyRecentExams)
+      expect(exams).toEqual([])
+    })
+  })
+
+  describe("getAllExamsWithUserParticipation", () => {
+    it("retourne les examens avec statut de participation", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      const q1 = await createQuestion(t, admin, 1)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen Test",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+        allowedParticipants: [user.userId],
+      })
+
+      // Avant participation
+      let exams = await user.asUser.query(api.exams.getAllExamsWithUserParticipation)
+      expect(exams).toHaveLength(1)
+      expect(exams[0].userHasTaken).toBe(false)
+      expect(exams[0].userParticipation).toBeNull()
+
+      // Après participation
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId,
+        answers: [{ questionId: q1, selectedAnswer: "A" }],
+        correctAnswers: { [q1]: "A" },
+      })
+
+      exams = await user.asUser.query(api.exams.getAllExamsWithUserParticipation)
+      expect(exams[0].userHasTaken).toBe(true)
+      expect(exams[0].userParticipation?.status).toBe("completed")
+      expect(exams[0].userParticipation?.score).toBe(100)
+    })
+
+    it("retourne userHasTaken false si non authentifié", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [],
+      })
+
+      const exams = await t.query(api.exams.getAllExamsWithUserParticipation)
+      expect(exams).toHaveLength(1)
+      expect(exams[0].userHasTaken).toBe(false)
+    })
+  })
+
+  describe("getParticipantExamResults", () => {
+    it("admin peut voir les résultats d'un participant non complété", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+      })
+
+      // Démarrer mais ne pas soumettre
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      const result = await admin.asAdmin.query(api.exams.getParticipantExamResults, {
+        examId,
+        userId: user.userId,
+      })
+
+      expect(result).not.toBeNull()
+      expect(result?.error).toBe("NOT_COMPLETED")
+    })
+
+    it("admin peut voir message si participant n'a pas commencé", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+      })
+
+      const result = await admin.asAdmin.query(api.exams.getParticipantExamResults, {
+        examId,
+        userId: user.userId,
+      })
+
+      expect(result).not.toBeNull()
+      expect(result?.error).toBe("NO_PARTICIPATION")
+    })
+
+    it("utilisateur ne peut pas voir résultats pendant l'examen", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000, // Pas encore terminé
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId,
+        answers: [{ questionId, selectedAnswer: "A" }],
+      })
+
+      // L'utilisateur essaie de voir ses résultats pendant l'examen
+      const result = await user.asUser.query(api.exams.getParticipantExamResults, {
+        examId,
+        userId: user.userId,
+      })
+
+      // Pendant l'examen, les non-admins ne peuvent pas voir les résultats
+      expect(result).toBeNull()
+    })
+
+    it("retourne null si non authentifié", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+      })
+
+      const result = await t.query(api.exams.getParticipantExamResults, {
+        examId,
+        userId: user.userId,
+      })
+
+      expect(result).toBeNull()
+    })
+
+    it("retourne null si utilisateur essaie de voir résultats d'un autre", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user1 = await createRegularUser(t, "1")
+      const user2 = await createRegularUser(t, "2")
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 1000,
+        endDate: now - 100, // Terminé
+        questionIds: [questionId],
+        allowedParticipants: [user1.userId, user2.userId],
+      })
+
+      // User1 essaie de voir les résultats de user2
+      const result = await user1.asUser.query(api.exams.getParticipantExamResults, {
+        examId,
+        userId: user2.userId,
+      })
+
+      expect(result).toBeNull()
+    })
+  })
+
+  describe("getExamLeaderboard - authorization", () => {
+    it("utilisateur non autorisé mais ayant participé peut voir le leaderboard après la fin", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 2000,
+        endDate: now - 1000, // Terminé
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+      })
+
+      // Simuler une participation en insérant directement
+      await t.run(async (ctx) => {
+        await ctx.db.insert("examParticipations", {
+          examId,
+          userId: user.userId,
+          startedAt: now - 1500,
+          completedAt: now - 1200,
+          status: "completed",
+          score: 100,
+        })
+      })
+
+      const leaderboard = await user.asUser.query(api.exams.getExamLeaderboard, {
+        examId,
+      })
+
+      expect(leaderboard).toHaveLength(1)
+    })
+
+    it("utilisateur non authentifié ne peut pas voir le leaderboard", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 2000,
+        endDate: now - 1000,
+        questionIds: [questionId],
+        allowedParticipants: [],
+      })
+
+      const leaderboard = await t.query(api.exams.getExamLeaderboard, { examId })
+      expect(leaderboard).toEqual([])
+    })
+  })
+
+  describe("submitExamAnswers - pause validation", () => {
+    it("rejette soumission pendant during_pause", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+        enablePause: true,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.startPause, {
+        examId,
+        manualTrigger: true,
+      })
+
+      // Essayer de soumettre pendant la pause
+      await expect(
+        user.asUser.mutation(api.exams.submitExamAnswers, {
+          examId,
+          answers: [{ questionId, selectedAnswer: "A" }],
+        }),
+      ).rejects.toThrow("Soumission non autorisée pendant la pause")
+    })
+  })
+
+  describe("deleteExam", () => {
+    it("supprime les participations et réponses associées", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen à supprimer",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [user.userId],
+      })
+
+      // Participer à l'examen
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId,
+        answers: [{ questionId, selectedAnswer: "A" }],
+      })
+
+      // Supprimer l'examen
+      const result = await admin.asAdmin.mutation(api.exams.deleteExam, { examId })
+
+      expect(result.success).toBe(true)
+      expect(result.deletedParticipations).toBe(1)
+    })
+  })
 })
