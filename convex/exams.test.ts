@@ -596,12 +596,9 @@ describe("exams", () => {
       expect(metadata).toHaveLength(1)
       expect(metadata[0].questionCount).toBe(1)
       expect(metadata[0].participantCount).toBe(0)
-      // Vérifier que les arrays lourds ne sont pas inclus
+      // Vérifier que questionIds n'est pas inclus dans les metadata
       expect(
         (metadata[0] as Record<string, unknown>).questionIds,
-      ).toBeUndefined()
-      expect(
-        (metadata[0] as Record<string, unknown>).participants,
       ).toBeUndefined()
     })
   })

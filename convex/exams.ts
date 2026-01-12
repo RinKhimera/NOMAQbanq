@@ -41,7 +41,6 @@ export const createExam = mutation({
       allowedParticipants: args.allowedParticipants,
       enablePause: enablePause || undefined,
       pauseDurationMinutes,
-      participants: [],
       isActive: true,
       createdBy: user._id,
     })
@@ -1038,7 +1037,6 @@ export const getAllExamsMetadata = query({
           isActive: exam.isActive,
           questionCount: exam.questionIds.length,
           participantCount: participations.length,
-          legacyParticipantCount: exam.participants.length,
         }
       }),
     )
@@ -1048,36 +1046,27 @@ export const getAllExamsMetadata = query({
 })
 
 /**
- * Get all exams without embedded participants (for admin list)
- * Returns exams with participant count from normalized tables
+ * Get all exams with participant count from normalized tables
  */
 export const getAllExams = query({
   handler: async (ctx) => {
     const exams = await ctx.db.query("exams").order("desc").collect()
 
-    // Return exams without the embedded participants array
-    // Include participant count from normalized tables
-    const examsWithoutParticipants = await Promise.all(
+    const examsWithParticipantCount = await Promise.all(
       exams.map(async (exam) => {
-        // Count participations for this exam
         const participations = await ctx.db
           .query("examParticipations")
           .withIndex("by_exam", (q) => q.eq("examId", exam._id))
           .collect()
 
-        // Destructure to exclude participants array
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { participants, ...examWithoutParticipants } = exam
-
         return {
-          ...examWithoutParticipants,
-          // Add participant count for display
+          ...exam,
           participantCount: participations.length,
         }
       }),
     )
 
-    return examsWithoutParticipants
+    return examsWithParticipantCount
   },
 })
 
@@ -1198,16 +1187,11 @@ export const getAllExamsWithUserParticipation = query({
     const exams = await ctx.db.query("exams").order("desc").collect()
 
     if (!user) {
-      // Return exams without participation info for non-authenticated users
-      return exams.map((exam) => {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { participants, ...examWithoutParticipants } = exam
-        return {
-          ...examWithoutParticipants,
-          userHasTaken: false,
-          userParticipation: null,
-        }
-      })
+      return exams.map((exam) => ({
+        ...exam,
+        userHasTaken: false,
+        userParticipation: null,
+      }))
     }
 
     // Get user's participations in a single query
@@ -1222,12 +1206,10 @@ export const getAllExamsWithUserParticipation = query({
     )
 
     return exams.map((exam) => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { participants, ...examWithoutParticipants } = exam
       const participation = participationMap.get(exam._id)
 
       return {
-        ...examWithoutParticipants,
+        ...exam,
         userHasTaken:
           participation?.status === "completed" ||
           participation?.status === "auto_submitted",

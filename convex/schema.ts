@@ -40,39 +40,8 @@ export default defineSchema({
     allowedParticipants: v.array(v.id("users")),
     enablePause: v.optional(v.boolean()),
     pauseDurationMinutes: v.optional(v.number()),
-    participants: v.array(
-      v.object({
-        userId: v.id("users"),
-        score: v.number(),
-        completedAt: v.number(),
-        startedAt: v.optional(v.number()),
-        status: v.optional(
-          v.union(
-            v.literal("in_progress"),
-            v.literal("completed"),
-            v.literal("auto_submitted"),
-          ),
-        ),
-        pausePhase: v.optional(
-          v.union(
-            v.literal("before_pause"),
-            v.literal("during_pause"),
-            v.literal("after_pause"),
-          ),
-        ),
-        pauseStartedAt: v.optional(v.number()),
-        pauseEndedAt: v.optional(v.number()),
-        isPauseCutShort: v.optional(v.boolean()),
-        totalPauseDurationMs: v.optional(v.number()),
-        answers: v.array(
-          v.object({
-            questionId: v.id("questions"),
-            selectedAnswer: v.string(),
-            isCorrect: v.boolean(),
-          }),
-        ),
-      }),
-    ),
+    // DEPRECATED: Legacy field, will be removed after cleanup
+    participants: v.optional(v.array(v.any())),
     isActive: v.boolean(),
     createdBy: v.id("users"),
   })

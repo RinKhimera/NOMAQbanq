@@ -708,3 +708,31 @@ export const getV1DataForExport = internalQuery({
     }
   },
 })
+
+/**
+ * Remove the participants field from all exams
+ * Run this after migration is complete and schema has been updated
+ */
+export const removeParticipantsField = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const exams = await ctx.db.query("exams").collect()
+    let cleaned = 0
+
+    for (const exam of exams) {
+      // Use type assertion to access the legacy field
+      const examWithLegacy = exam as typeof exam & { participants?: unknown }
+      if ("participants" in examWithLegacy) {
+        // Remove the participants field by replacing the document
+        const { participants, ...examWithoutParticipants } = examWithLegacy
+        await ctx.db.replace(exam._id, examWithoutParticipants)
+        cleaned++
+      }
+    }
+
+    return {
+      totalExams: exams.length,
+      cleaned,
+    }
+  },
+})
