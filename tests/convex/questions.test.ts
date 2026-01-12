@@ -1,10 +1,10 @@
 import { convexTest } from "convex-test"
 import { describe, expect, it } from "vitest"
-import { api, internal } from "./_generated/api"
-import schema from "./schema"
+import { api, internal } from "../../convex/_generated/api"
+import schema from "../../convex/schema"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
-const modules = import.meta.glob("./**/*.ts")
+const modules = import.meta.glob("../../convex/**/*.ts")
 
 // Helper pour créer un utilisateur admin pour les tests
 const createAdminUser = async (t: ReturnType<typeof convexTest>) => {

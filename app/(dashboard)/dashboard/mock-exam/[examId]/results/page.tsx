@@ -57,47 +57,46 @@ const ExamResultsPage = () => {
   const [showOnlyIncorrect, setShowOnlyIncorrect] = useState(false)
 
   // Queries
-  const examWithQuestions = useQuery(api.exams.getExamWithQuestions, { examId })
   const currentUser = useQuery(api.users.getCurrentUser)
+  const examResults = useQuery(
+    api.exams.getParticipantExamResults,
+    currentUser ? { examId, userId: currentUser._id } : "skip",
+  )
 
   // Calculate results
   const results = useMemo((): ExamResults | null => {
-    if (!examWithQuestions || !currentUser) return null
+    if (!examResults || "error" in examResults) return null
 
-    // Trouver les résultats de l'utilisateur courant
-    const userResult = (examWithQuestions.participants ?? []).find(
-      (p) => p.userId === currentUser._id,
-    )
-
-    if (!userResult) return null
-
-    const questions = examWithQuestions.questions.filter(
+    const questions = examResults.questions.filter(
       (q): q is Question => q !== null,
     )
     let correct = 0
     let incorrect = 0
     let unanswered = 0
 
-    const questionResults: QuestionResult[] = questions.map(
-      (question, index) => {
-        const userAnswerData = userResult.answers[index]
-        const userAnswer = userAnswerData?.selectedAnswer || null
-        const isCorrect = userAnswerData?.isCorrect || false
-        const isAnswered = userAnswer !== null
-
-        if (isAnswered) {
-          if (isCorrect) correct++
-          else incorrect++
-        } else {
-          unanswered++
-        }
-
-        return { question, userAnswer, isCorrect, isAnswered }
-      },
+    // Créer un map des réponses par questionId pour un accès rapide
+    const answersMap = new Map(
+      examResults.participant.answers.map((a) => [a.questionId, a]),
     )
 
+    const questionResults: QuestionResult[] = questions.map((question) => {
+      const userAnswerData = answersMap.get(question._id)
+      const userAnswer = userAnswerData?.selectedAnswer || null
+      const isCorrect = userAnswerData?.isCorrect || false
+      const isAnswered = userAnswer !== null
+
+      if (isAnswered) {
+        if (isCorrect) correct++
+        else incorrect++
+      } else {
+        unanswered++
+      }
+
+      return { question, userAnswer, isCorrect, isAnswered }
+    })
+
     const totalQuestions = questions.length
-    const scorePercentage = userResult.score
+    const scorePercentage = examResults.participant.score
     const isPassing = scorePercentage >= 60
 
     return {
@@ -109,7 +108,7 @@ const ExamResultsPage = () => {
       isPassing,
       questionResults,
     }
-  }, [examWithQuestions, currentUser])
+  }, [examResults])
 
   const toggleQuestionExpand = (index: number) => {
     setExpandedQuestions((prev) => {
@@ -148,7 +147,7 @@ const ExamResultsPage = () => {
   }
 
   // Loading state
-  if (!examWithQuestions || !currentUser) {
+  if (!currentUser || examResults === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
         <motion.div
@@ -235,7 +234,7 @@ const ExamResultsPage = () => {
                   Résultats de l&apos;examen
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {examWithQuestions.title}
+                  {examResults && "exam" in examResults ? examResults.exam.title : ""}
                 </p>
               </div>
             </div>

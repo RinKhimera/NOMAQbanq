@@ -22,6 +22,7 @@ export default function MockExamDetailsPage() {
 
   const { currentUser, isLoading: userLoading } = useCurrentUser()
   const exam = useQuery(api.exams.getExamWithQuestions, { examId })
+  const session = useQuery(api.exams.getExamSession, { examId })
 
   if (userLoading || !exam) {
     return (
@@ -111,10 +112,10 @@ export default function MockExamDetailsPage() {
           </Button>
 
           {currentUser && (() => {
-            // Vérifier si l'utilisateur a complété l'examen
-            const hasCompleted = (exam.participants ?? []).some(
-              (p) => p.userId === currentUser._id && p.status === "completed"
-            )
+            // Vérifier si l'utilisateur a complété l'examen via la session
+            const hasCompleted =
+              session?.status === "completed" ||
+              session?.status === "auto_submitted"
             // Les non-admins ne peuvent voir les résultats qu'après la fin de l'examen
             const canViewResults =
               currentUser.role === "admin" || now >= exam.endDate

@@ -1,12 +1,16 @@
 "use client"
 
+import { useQuery } from "convex/react"
 import { Trophy, Users } from "lucide-react"
-import { Doc } from "@/convex/_generated/dataModel"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 import { ExamStatItem } from "@/types"
 import { ExamStatCard } from "./exam-stat-card"
 
-export function ExamSectionStats({ exam }: { exam: Doc<"exams"> }) {
-  const participants = exam.participants ?? []
+export function ExamSectionStats({ examId }: { examId: Id<"exams"> }) {
+  const leaderboard = useQuery(api.exams.getExamLeaderboard, { examId })
+  const participants = leaderboard ?? []
+
   const statItems: ExamStatItem[] = [
     {
       title: "Participants",

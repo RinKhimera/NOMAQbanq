@@ -1,11 +1,11 @@
 import { convexTest } from "convex-test"
 import { describe, expect, it } from "vitest"
-import { api } from "./_generated/api"
-import { Id } from "./_generated/dataModel"
-import schema from "./schema"
+import { api } from "../../convex/_generated/api"
+import { Id } from "../../convex/_generated/dataModel"
+import schema from "../../convex/schema"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
-const modules = import.meta.glob("./**/*.ts")
+const modules = import.meta.glob("../../convex/**/*.ts")
 
 // Helper pour créer un utilisateur admin
 const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
@@ -83,6 +83,31 @@ const createExam = async (
   })
 }
 
+// Helper pour récupérer une participation par exam et user (remplace la fonction supprimée)
+const getParticipationByExamUser = async (
+  t: ReturnType<typeof convexTest>,
+  examId: Id<"exams">,
+  userId: Id<"users">,
+) => {
+  return await t.run(async (ctx) => {
+    const participations = await ctx.db.query("examParticipations").collect()
+    return participations.find(
+      (p) => p.examId === examId && p.userId === userId,
+    ) ?? null
+  })
+}
+
+// Helper pour récupérer les réponses (remplace la fonction supprimée)
+const getAnswersByParticipation = async (
+  t: ReturnType<typeof convexTest>,
+  participationId: Id<"examParticipations">,
+) => {
+  return await t.run(async (ctx) => {
+    const answers = await ctx.db.query("examAnswers").collect()
+    return answers.filter((a) => a.participationId === participationId)
+  })
+}
+
 describe("examParticipations", () => {
   it("gère le cycle de vie complet d'une participation", async () => {
     const t = convexTest(schema, modules)
@@ -102,13 +127,7 @@ describe("examParticipations", () => {
 
     expect(participationId).toBeDefined()
 
-    const participation = await user.asUser.query(
-      api.examParticipations.getByExamAndUser,
-      {
-        examId,
-        userId: user.userId,
-      },
-    )
+    const participation = await getParticipationByExamUser(t, examId, user.userId)
     expect(participation?.status).toBe("in_progress")
     expect(participation?.startedAt).toBeGreaterThan(0)
 
@@ -120,9 +139,7 @@ describe("examParticipations", () => {
       isCorrect: true,
     })
 
-    const answers = await user.asUser.query(api.examParticipations.getAnswers, {
-      participationId,
-    })
+    const answers = await getAnswersByParticipation(t, participationId)
     expect(answers).toHaveLength(1)
     expect(answers[0].selectedAnswer).toBe("A")
     expect(answers[0].isCorrect).toBe(true)
@@ -134,13 +151,7 @@ describe("examParticipations", () => {
       pauseStartedAt: Date.now(),
     })
 
-    const updatedParticipation = await user.asUser.query(
-      api.examParticipations.getByExamAndUser,
-      {
-        examId,
-        userId: user.userId,
-      },
-    )
+    const updatedParticipation = await getParticipationByExamUser(t, examId, user.userId)
     expect(updatedParticipation?.pausePhase).toBe("during_pause")
     expect(updatedParticipation?.pauseStartedAt).toBeDefined()
 
@@ -151,13 +162,7 @@ describe("examParticipations", () => {
       status: "completed",
     })
 
-    const finalParticipation = await user.asUser.query(
-      api.examParticipations.getByExamAndUser,
-      {
-        examId,
-        userId: user.userId,
-      },
-    )
+    const finalParticipation = await getParticipationByExamUser(t, examId, user.userId)
     expect(finalParticipation?.status).toBe("completed")
     expect(finalParticipation?.score).toBe(100)
     expect(finalParticipation?.completedAt).toBeGreaterThan(0)
@@ -190,18 +195,10 @@ describe("examParticipations", () => {
       participationId,
     })
 
-    const participation = await user.asUser.query(
-      api.examParticipations.getByExamAndUser,
-      {
-        examId,
-        userId: user.userId,
-      },
-    )
+    const participation = await getParticipationByExamUser(t, examId, user.userId)
     expect(participation).toBeNull()
 
-    const answers = await user.asUser.query(api.examParticipations.getAnswers, {
-      participationId,
-    })
+    const answers = await getAnswersByParticipation(t, participationId)
     expect(answers).toHaveLength(0)
   })
 
@@ -229,9 +226,7 @@ describe("examParticipations", () => {
       ],
     })
 
-    const answers = await user.asUser.query(api.examParticipations.getAnswers, {
-      participationId,
-    })
+    const answers = await getAnswersByParticipation(t, participationId)
     expect(answers).toHaveLength(2)
     expect(answers.find((a) => a.questionId === q1)?.isCorrect).toBe(true)
     expect(answers.find((a) => a.questionId === q2)?.isCorrect).toBe(false)
@@ -242,130 +237,6 @@ describe("examParticipations", () => {
   // ============================================
 
   describe("Authorization Tests", () => {
-    it("getByExam rejette les non-admins", async () => {
-      const t = convexTest(schema, modules)
-      const admin = await createAdminUser(t)
-      const user = await createRegularUser(t)
-      const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user.userId)
-
-      // L'utilisateur démarre l'examen
-      await user.asUser.mutation(api.examParticipations.create, {
-        examId,
-        userId: user.userId,
-      })
-
-      // Non-admin devrait recevoir un array vide
-      const result = await user.asUser.query(api.examParticipations.getByExam, {
-        examId,
-      })
-      expect(result).toHaveLength(0)
-
-      // Admin devrait voir les participations
-      const adminResult = await admin.asAdmin.query(
-        api.examParticipations.getByExam,
-        { examId },
-      )
-      expect(adminResult).toHaveLength(1)
-    })
-
-    it("getByUser rejette les requêtes pour d'autres utilisateurs", async () => {
-      const t = convexTest(schema, modules)
-      const admin = await createAdminUser(t)
-      const user1 = await createRegularUser(t, "1")
-      const user2 = await createRegularUser(t, "2")
-      const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user1.userId)
-
-      await user1.asUser.mutation(api.examParticipations.create, {
-        examId,
-        userId: user1.userId,
-      })
-
-      // User2 essayant de voir l'historique de User1 devrait recevoir un array vide
-      const result = await user2.asUser.query(api.examParticipations.getByUser, {
-        userId: user1.userId,
-      })
-      expect(result).toHaveLength(0)
-
-      // User1 peut voir son propre historique
-      const ownResult = await user1.asUser.query(
-        api.examParticipations.getByUser,
-        { userId: user1.userId },
-      )
-      expect(ownResult).toHaveLength(1)
-
-      // Admin peut voir l'historique de n'importe qui
-      const adminResult = await admin.asAdmin.query(
-        api.examParticipations.getByUser,
-        { userId: user1.userId },
-      )
-      expect(adminResult).toHaveLength(1)
-    })
-
-    it("getWithAnswers protège les données des autres utilisateurs", async () => {
-      const t = convexTest(schema, modules)
-      const admin = await createAdminUser(t)
-      const user1 = await createRegularUser(t, "1")
-      const user2 = await createRegularUser(t, "2")
-      const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user1.userId)
-
-      const participationId = await user1.asUser.mutation(
-        api.examParticipations.create,
-        { examId, userId: user1.userId },
-      )
-
-      // User2 ne devrait pas voir la participation de User1
-      const result = await user2.asUser.query(
-        api.examParticipations.getWithAnswers,
-        { participationId },
-      )
-      expect(result).toBeNull()
-
-      // User1 peut voir sa propre participation
-      const ownResult = await user1.asUser.query(
-        api.examParticipations.getWithAnswers,
-        { participationId },
-      )
-      expect(ownResult).not.toBeNull()
-      expect(ownResult?._id).toBe(participationId)
-    })
-
-    it("getAnswers protège les réponses des autres utilisateurs", async () => {
-      const t = convexTest(schema, modules)
-      const admin = await createAdminUser(t)
-      const user1 = await createRegularUser(t, "1")
-      const user2 = await createRegularUser(t, "2")
-      const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user1.userId)
-
-      const participationId = await user1.asUser.mutation(
-        api.examParticipations.create,
-        { examId, userId: user1.userId },
-      )
-
-      await user1.asUser.mutation(api.examParticipations.saveAnswer, {
-        participationId,
-        questionId,
-        selectedAnswer: "A",
-        isCorrect: true,
-      })
-
-      // User2 ne devrait pas voir les réponses
-      const result = await user2.asUser.query(api.examParticipations.getAnswers, {
-        participationId,
-      })
-      expect(result).toHaveLength(0)
-
-      // User1 peut voir ses propres réponses
-      const ownResult = await user1.asUser.query(
-        api.examParticipations.getAnswers,
-        { participationId },
-      )
-      expect(ownResult).toHaveLength(1)
-    })
-
     it("saveAnswer rejette les modifications des participations d'autres utilisateurs", async () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)

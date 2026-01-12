@@ -96,7 +96,7 @@ export function ExamDetails({
         </CardContent>
       </Card>
 
-      <ExamSectionStats exam={exam} />
+      <ExamSectionStats examId={examId} />
 
       <ExamLeaderboard
         examId={examId}

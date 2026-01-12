@@ -140,38 +140,6 @@ export const deleteExam = mutation({
   },
 })
 
-// Récupérer les examens actifs pour les utilisateurs
-export const getActiveExams = query({
-  handler: async (ctx) => {
-    const user = await getCurrentUserOrNull(ctx)
-    if (!user) {
-      return []
-    }
-
-    const now = Date.now()
-
-    // Get all active exams using index
-    const activeExams = await ctx.db
-      .query("exams")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
-
-    // Filter by date range (exam must be currently running)
-    const currentExams = activeExams.filter(
-      (exam) => exam.startDate <= now && exam.endDate >= now,
-    )
-
-    // Filtrer les examens selon les permissions
-    if (user.role === "admin") {
-      return currentExams
-    }
-
-    return currentExams.filter((exam) =>
-      exam.allowedParticipants.includes(user._id),
-    )
-  },
-})
-
 // Récupérer un examen par ID avec ses questions
 export const getExamWithQuestions = query({
   args: { examId: v.id("exams") },
@@ -1011,60 +979,30 @@ export const getExamLeaderboard = query({
 })
 
 /**
- * Get all exams metadata with participant counts from normalized tables
- */
-export const getAllExamsMetadata = query({
-  handler: async (ctx) => {
-    const exams = await ctx.db.query("exams").order("desc").collect()
-
-    // Get participation counts efficiently
-    const examsWithMetadata = await Promise.all(
-      exams.map(async (exam) => {
-        // Count participations for this exam
-        const participations = await ctx.db
-          .query("examParticipations")
-          .withIndex("by_exam", (q) => q.eq("examId", exam._id))
-          .collect()
-
-        return {
-          _id: exam._id,
-          _creationTime: exam._creationTime,
-          title: exam.title,
-          description: exam.description,
-          startDate: exam.startDate,
-          endDate: exam.endDate,
-          completionTime: exam.completionTime,
-          isActive: exam.isActive,
-          questionCount: exam.questionIds.length,
-          participantCount: participations.length,
-        }
-      }),
-    )
-
-    return examsWithMetadata
-  },
-})
-
-/**
  * Get all exams with participant count from normalized tables
+ * Optimized: fetches all participations in one query to avoid N+1
  */
 export const getAllExams = query({
   handler: async (ctx) => {
     const exams = await ctx.db.query("exams").order("desc").collect()
 
-    const examsWithParticipantCount = await Promise.all(
-      exams.map(async (exam) => {
-        const participations = await ctx.db
-          .query("examParticipations")
-          .withIndex("by_exam", (q) => q.eq("examId", exam._id))
-          .collect()
+    // Fetch all participations in one query (avoids N+1 problem)
+    const allParticipations = await ctx.db
+      .query("examParticipations")
+      .collect()
 
-        return {
-          ...exam,
-          participantCount: participations.length,
-        }
-      }),
-    )
+    // Create a count map by examId
+    const participationCountMap = new Map<string, number>()
+    for (const p of allParticipations) {
+      const count = participationCountMap.get(p.examId) ?? 0
+      participationCountMap.set(p.examId, count + 1)
+    }
+
+    // Map exams with their participation counts
+    const examsWithParticipantCount = exams.map((exam) => ({
+      ...exam,
+      participantCount: participationCountMap.get(exam._id) ?? 0,
+    }))
 
     return examsWithParticipantCount
   },

@@ -40,8 +40,6 @@ export default defineSchema({
     allowedParticipants: v.array(v.id("users")),
     enablePause: v.optional(v.boolean()),
     pauseDurationMinutes: v.optional(v.number()),
-    // DEPRECATED: Legacy field, will be removed after cleanup
-    participants: v.optional(v.array(v.any())),
     isActive: v.boolean(),
     createdBy: v.id("users"),
   })

@@ -1,11 +1,11 @@
 import { convexTest } from "convex-test"
 import { describe, expect, it } from "vitest"
-import { api } from "./_generated/api"
-import { Id } from "./_generated/dataModel"
-import schema from "./schema"
+import { api } from "../../convex/_generated/api"
+import { Id } from "../../convex/_generated/dataModel"
+import schema from "../../convex/schema"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
-const modules = import.meta.glob("./**/*.ts")
+const modules = import.meta.glob("../../convex/**/*.ts")
 
 // Helper pour créer un utilisateur admin
 const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
@@ -256,8 +256,8 @@ describe("exams", () => {
     })
   })
 
-  describe("getActiveExams", () => {
-    it("retourne uniquement les examens actifs et dans la période", async () => {
+  describe("getMyAvailableExams", () => {
+    it("retourne uniquement les examens actifs et dans la période pour les utilisateurs autorisés", async () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
@@ -292,9 +292,9 @@ describe("exams", () => {
         allowedParticipants: [user.userId],
       })
 
-      const activeExams = await user.asUser.query(api.exams.getActiveExams)
-      expect(activeExams).toHaveLength(1)
-      expect(activeExams[0].title).toBe("Examen actif")
+      const availableExams = await user.asUser.query(api.exams.getMyAvailableExams)
+      expect(availableExams).toHaveLength(1)
+      expect(availableExams[0].title).toBe("Examen actif")
     })
 
     it("filtre par participants autorisés pour les utilisateurs non-admin", async () => {
@@ -316,11 +316,11 @@ describe("exams", () => {
       })
 
       // User1 devrait voir l'examen
-      const user1Exams = await user1.asUser.query(api.exams.getActiveExams)
+      const user1Exams = await user1.asUser.query(api.exams.getMyAvailableExams)
       expect(user1Exams).toHaveLength(1)
 
       // User2 ne devrait pas voir l'examen
-      const user2Exams = await user2.asUser.query(api.exams.getActiveExams)
+      const user2Exams = await user2.asUser.query(api.exams.getMyAvailableExams)
       expect(user2Exams).toHaveLength(0)
     })
   })
@@ -578,28 +578,33 @@ describe("exams", () => {
     })
   })
 
-  describe("getAllExamsMetadata", () => {
-    it("retourne les métadonnées sans les données lourdes", async () => {
+  describe("getAllExams", () => {
+    it("retourne les examens avec le nombre de participants", async () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
-      await admin.asAdmin.mutation(api.exams.createExam, {
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen Test",
-        startDate: Date.now(),
-        endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-        allowedParticipants: [],
+        allowedParticipants: [user.userId],
       })
 
-      const metadata = await t.query(api.exams.getAllExamsMetadata)
-      expect(metadata).toHaveLength(1)
-      expect(metadata[0].questionCount).toBe(1)
-      expect(metadata[0].participantCount).toBe(0)
-      // Vérifier que questionIds n'est pas inclus dans les metadata
-      expect(
-        (metadata[0] as Record<string, unknown>).questionIds,
-      ).toBeUndefined()
+      // Vérifier le compteur avant participation
+      let exams = await t.query(api.exams.getAllExams)
+      expect(exams).toHaveLength(1)
+      expect(exams[0].participantCount).toBe(0)
+
+      // L'utilisateur démarre l'examen
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      // Vérifier le compteur après participation
+      exams = await t.query(api.exams.getAllExams)
+      expect(exams[0].participantCount).toBe(1)
     })
   })
 })
