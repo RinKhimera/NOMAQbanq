@@ -9,8 +9,8 @@ export default defineConfig({
         inline: ["convex-test"],
       },
     },
-    include: ["convex/**/*.test.ts"],
-    exclude: ["convex/_generated/**"],
+    include: ["tests/convex/**/*.test.ts"],
+    exclude: [],
     globals: true,
   },
   resolve: {
