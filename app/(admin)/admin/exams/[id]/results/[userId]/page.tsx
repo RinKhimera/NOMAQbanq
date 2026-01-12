@@ -71,23 +71,26 @@ const AdminParticipantResultsPage = () => {
     let incorrect = 0
     let unanswered = 0
 
-    const questionResults: QuestionResult[] = questions.map(
-      (question, index) => {
-        const userAnswerData = participantResults.participant.answers[index]
-        const userAnswer = userAnswerData?.selectedAnswer || null
-        const isCorrect = userAnswerData?.isCorrect || false
-        const isAnswered = userAnswer !== null
-
-        if (isAnswered) {
-          if (isCorrect) correct++
-          else incorrect++
-        } else {
-          unanswered++
-        }
-
-        return { question, userAnswer, isCorrect, isAnswered }
-      },
+    // Map pour correspondance par ID (évite les bugs d'ordre de réponses)
+    const answersMap = new Map(
+      participantResults.participant.answers.map((a) => [a.questionId, a]),
     )
+
+    const questionResults: QuestionResult[] = questions.map((question) => {
+      const userAnswerData = answersMap.get(question._id)
+      const userAnswer = userAnswerData?.selectedAnswer ?? null
+      const isCorrect = userAnswerData?.isCorrect ?? false
+      const isAnswered = userAnswer !== null
+
+      if (isAnswered) {
+        if (isCorrect) correct++
+        else incorrect++
+      } else {
+        unanswered++
+      }
+
+      return { question, userAnswer, isCorrect, isAnswered }
+    })
 
     const totalQuestions = questions.length
     const scorePercentage = participantResults.participant.score

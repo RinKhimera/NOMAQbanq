@@ -249,7 +249,7 @@ const DashboardPage = () => {
               </CardHeader>
               <CardContent>
                 <Link
-                  href={`/dashboard/mock-exam/${recentExams[0]._id}/results/${currentUser._id}`}
+                  href={`/dashboard/mock-exam/${recentExams[0]._id}/results`}
                 >
                   <div className="hover:bg-muted/50 flex cursor-pointer items-center justify-between rounded-lg border p-4 transition-colors">
                     <div className="flex items-center gap-3">

@@ -129,7 +129,7 @@ export default function MockExamDetailsPage() {
                   asChild
                 >
                   <Link
-                    href={`/dashboard/mock-exam/${examId}/results/${currentUser._id}`}
+                    href={`/dashboard/mock-exam/${examId}/results`}
                   >
                     <BarChart3 className="mr-2 h-4 w-4" />
                     Voir mes résultats

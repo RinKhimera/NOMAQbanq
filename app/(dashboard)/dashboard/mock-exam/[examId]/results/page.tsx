@@ -81,8 +81,8 @@ const ExamResultsPage = () => {
 
     const questionResults: QuestionResult[] = questions.map((question) => {
       const userAnswerData = answersMap.get(question._id)
-      const userAnswer = userAnswerData?.selectedAnswer || null
-      const isCorrect = userAnswerData?.isCorrect || false
+      const userAnswer = userAnswerData?.selectedAnswer ?? null
+      const isCorrect = userAnswerData?.isCorrect ?? false
       const isAnswered = userAnswer !== null
 
       if (isAnswered) {
