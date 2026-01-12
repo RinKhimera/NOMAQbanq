@@ -65,7 +65,7 @@ const ExamResultsPage = () => {
     if (!examWithQuestions || !currentUser) return null
 
     // Trouver les résultats de l'utilisateur courant
-    const userResult = examWithQuestions.participants.find(
+    const userResult = (examWithQuestions.participants ?? []).find(
       (p) => p.userId === currentUser._id,
     )
 

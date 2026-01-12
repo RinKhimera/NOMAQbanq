@@ -159,7 +159,7 @@ export const clearMigratedParticipants = internalMutation({
   },
   handler: async (ctx, { examId, migratedUserIds }) => {
     const exam = await ctx.db.get(examId)
-    if (!exam) return
+    if (!exam || !exam.participants) return
 
     const migratedSet = new Set(migratedUserIds)
     const remainingParticipants = exam.participants.filter(
@@ -206,9 +206,10 @@ export const migrateExamParticipants = action({
     const errors: Array<{ examId: string; error: string }> = []
 
     for (const exam of exams) {
-      const migratedUserIds: Array<(typeof exam.participants)[0]["userId"]> = []
+      const migratedUserIds: Id<"users">[] = []
+      const participants = exam.participants ?? []
 
-      for (const participant of exam.participants) {
+      for (const participant of participants) {
         try {
           // Check if already migrated
           const existing = await ctx.runQuery(
@@ -318,7 +319,7 @@ export const retryMissingParticipations = action({
 
       for (const missingParticipant of participants) {
         // Find the participant in the exam's embedded array
-        const participant = exam.participants.find(
+        const participant = (exam.participants ?? []).find(
           (p) => p.userId === missingParticipant.userId,
         )
 
@@ -646,7 +647,7 @@ export const getDetailedMissingParticipations = internalQuery({
             examId: exam._id,
             examTitle: exam.title,
             userId: participant.userId,
-            userName: user?.username,
+            userName: (user as { username?: string } | null)?.username,
             score: participant.score,
             completedAt: participant.completedAt,
             answersCount: participant.answers?.length || 0,
@@ -724,6 +725,7 @@ export const removeParticipantsField = internalMutation({
       const examWithLegacy = exam as typeof exam & { participants?: unknown }
       if ("participants" in examWithLegacy) {
         // Remove the participants field by replacing the document
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const { participants, ...examWithoutParticipants } = examWithLegacy
         await ctx.db.replace(exam._id, examWithoutParticipants)
         cleaned++

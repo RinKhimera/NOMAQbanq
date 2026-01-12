@@ -6,10 +6,11 @@ import { ExamStatItem } from "@/types"
 import { ExamStatCard } from "./exam-stat-card"
 
 export function ExamSectionStats({ exam }: { exam: Doc<"exams"> }) {
+  const participants = exam.participants ?? []
   const statItems: ExamStatItem[] = [
     {
       title: "Participants",
-      value: exam.participants.length,
+      value: participants.length,
       icon: Users,
       iconClassName:
         "bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300",
@@ -17,10 +18,10 @@ export function ExamSectionStats({ exam }: { exam: Doc<"exams"> }) {
     {
       title: "Score moyen",
       value:
-        exam.participants.length > 0
+        participants.length > 0
           ? `${Math.round(
-              exam.participants.reduce((sum, p) => sum + p.score, 0) /
-                exam.participants.length,
+              participants.reduce((sum, p) => sum + p.score, 0) /
+                participants.length,
             )}%`
           : "0%",
       icon: Trophy,
@@ -30,8 +31,8 @@ export function ExamSectionStats({ exam }: { exam: Doc<"exams"> }) {
     {
       title: "Meilleur score",
       value:
-        exam.participants.length > 0
-          ? `${Math.max(...exam.participants.map((p) => p.score))}%`
+        participants.length > 0
+          ? `${Math.max(...participants.map((p) => p.score))}%`
           : "0%",
       icon: Trophy,
       iconClassName:

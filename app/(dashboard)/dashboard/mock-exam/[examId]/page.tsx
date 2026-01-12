@@ -112,7 +112,7 @@ export default function MockExamDetailsPage() {
 
           {currentUser && (() => {
             // Vérifier si l'utilisateur a complété l'examen
-            const hasCompleted = exam.participants.some(
+            const hasCompleted = (exam.participants ?? []).some(
               (p) => p.userId === currentUser._id && p.status === "completed"
             )
             // Les non-admins ne peuvent voir les résultats qu'après la fin de l'examen
