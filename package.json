@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "lint-check": "eslint . --ext .ts,.tsx --max-warnings 1",
+    "lint-check": "eslint . --ext .ts,.tsx --max-warnings 0",
     "build-check": "npm run type-check && npm run lint-check",
     "fix-lint": "eslint . --ext .ts,.tsx --fix",
     "test": "vitest run",
