@@ -107,7 +107,7 @@ describe("users", () => {
       const user = await t.run(async (ctx) => {
         return await ctx.db
           .query("users")
-          .withIndex("byExternalId", (q) => q.eq("externalId", "clerk_new"))
+          .withIndex("by_externalId", (q) => q.eq("externalId", "clerk_new"))
           .unique()
       })
 
@@ -141,7 +141,7 @@ describe("users", () => {
       const user = await t.run(async (ctx) => {
         return await ctx.db
           .query("users")
-          .withIndex("byExternalId", (q) =>
+          .withIndex("by_externalId", (q) =>
             q.eq("externalId", "clerk_existing"),
           )
           .unique()
@@ -170,7 +170,7 @@ describe("users", () => {
       const user = await t.run(async (ctx) => {
         return await ctx.db
           .query("users")
-          .withIndex("byExternalId", (q) => q.eq("externalId", "clerk_delete"))
+          .withIndex("by_externalId", (q) => q.eq("externalId", "clerk_delete"))
           .unique()
       })
 

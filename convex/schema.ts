@@ -14,7 +14,7 @@ export default defineSchema({
   })
     .index("by_tokenIdentifier", ["tokenIdentifier"])
     .index("by_username", ["username"])
-    .index("byExternalId", ["externalId"])
+    .index("by_externalId", ["externalId"])
     .index("by_role", ["role"]),
 
   questions: defineTable({
@@ -26,7 +26,9 @@ export default defineSchema({
     references: v.optional(v.array(v.string())),
     objectifCMC: v.string(),
     domain: v.string(),
-  }).index("by_domain", ["domain"]),
+  })
+    .index("by_domain", ["domain"])
+    .index("by_objectifCMC", ["objectifCMC"]),
 
   exams: defineTable({
     title: v.string(),
@@ -76,6 +78,8 @@ export default defineSchema({
   })
     .index("by_isActive", ["isActive"])
     .index("by_startDate", ["startDate"])
+    .index("by_endDate", ["endDate"])
+    .index("by_isActive_startDate", ["isActive", "startDate"])
     .index("by_createdBy", ["createdBy"]),
 
   learningBankQuestions: defineTable({
@@ -86,7 +90,8 @@ export default defineSchema({
   })
     .index("by_questionId", ["questionId"])
     .index("by_isActive", ["isActive"])
-    .index("by_addedBy", ["addedBy"]),
+    .index("by_addedBy", ["addedBy"])
+    .index("by_addedAt", ["addedAt"]),
 
   examParticipations: defineTable({
     examId: v.id("exams"),

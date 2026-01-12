@@ -1,7 +1,11 @@
 import { v } from "convex/values"
 import { Id } from "./_generated/dataModel"
 import { mutation, query } from "./_generated/server"
-import { getAdminUserOrThrow } from "./lib/auth"
+import {
+  getAdminUserOrThrow,
+  getCurrentUserOrThrow,
+  getCurrentUserOrNull,
+} from "./lib/auth"
 
 // ============================================
 // TYPES
@@ -33,13 +37,19 @@ export const getByExamAndUser = query({
 })
 
 /**
- * Get all participations for an exam (admin view)
+ * Get all participations for an exam (admin only)
  */
 export const getByExam = query({
   args: {
     examId: v.id("exams"),
   },
   handler: async (ctx, { examId }) => {
+    // Only admins can view all participations for an exam
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user || user.role !== "admin") {
+      return []
+    }
+
     return await ctx.db
       .query("examParticipations")
       .withIndex("by_exam", (q) => q.eq("examId", examId))
@@ -49,12 +59,23 @@ export const getByExam = query({
 
 /**
  * Get all participations for a user (user history)
+ * Users can only view their own history; admins can view anyone's
  */
 export const getByUser = query({
   args: {
     userId: v.id("users"),
   },
   handler: async (ctx, { userId }) => {
+    const currentUser = await getCurrentUserOrNull(ctx)
+    if (!currentUser) {
+      return []
+    }
+
+    // Users can only view their own history; admins can view anyone's
+    if (currentUser.role !== "admin" && currentUser._id !== userId) {
+      return []
+    }
+
     return await ctx.db
       .query("examParticipations")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -64,14 +85,26 @@ export const getByUser = query({
 
 /**
  * Get participation with its answers
+ * Users can only view their own participation; admins can view any
  */
 export const getWithAnswers = query({
   args: {
     participationId: v.id("examParticipations"),
   },
   handler: async (ctx, { participationId }) => {
+    const currentUser = await getCurrentUserOrNull(ctx)
+    if (!currentUser) return null
+
     const participation = await ctx.db.get(participationId)
     if (!participation) return null
+
+    // Users can only view their own participation; admins can view any
+    if (
+      currentUser.role !== "admin" &&
+      currentUser._id !== participation.userId
+    ) {
+      return null
+    }
 
     const answers = await ctx.db
       .query("examAnswers")
@@ -86,12 +119,27 @@ export const getWithAnswers = query({
 
 /**
  * Get answers for a participation
+ * Users can only view their own answers; admins can view any
  */
 export const getAnswers = query({
   args: {
     participationId: v.id("examParticipations"),
   },
   handler: async (ctx, { participationId }) => {
+    const currentUser = await getCurrentUserOrNull(ctx)
+    if (!currentUser) return []
+
+    const participation = await ctx.db.get(participationId)
+    if (!participation) return []
+
+    // Users can only view their own answers; admins can view any
+    if (
+      currentUser.role !== "admin" &&
+      currentUser._id !== participation.userId
+    ) {
+      return []
+    }
+
     return await ctx.db
       .query("examAnswers")
       .withIndex("by_participation", (q) =>
@@ -107,6 +155,7 @@ export const getAnswers = query({
 
 /**
  * Create a new participation (called when user starts exam)
+ * Users can only create their own participation; admins can create for anyone
  */
 export const create = mutation({
   args: {
@@ -122,6 +171,14 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, { examId, userId, startedAt, pausePhase }) => {
+    // Verify user can create this participation
+    const currentUser = await getCurrentUserOrThrow(ctx)
+    if (currentUser._id !== userId && currentUser.role !== "admin") {
+      throw new Error(
+        "Vous ne pouvez pas créer une participation pour un autre utilisateur",
+      )
+    }
+
     // Check if participation already exists
     const existing = await ctx.db
       .query("examParticipations")
@@ -150,6 +207,7 @@ export const create = mutation({
 
 /**
  * Update participation status and score (called on exam submit)
+ * Only the owner or admin can complete a participation
  */
 export const complete = mutation({
   args: {
@@ -160,6 +218,26 @@ export const complete = mutation({
     ),
   },
   handler: async (ctx, { participationId, score, status }) => {
+    // Verify ownership
+    const currentUser = await getCurrentUserOrThrow(ctx)
+    const participation = await ctx.db.get(participationId)
+
+    if (!participation) {
+      throw new Error("Participation non trouvée")
+    }
+
+    if (
+      participation.userId !== currentUser._id &&
+      currentUser.role !== "admin"
+    ) {
+      throw new Error("Vous ne pouvez pas modifier cette participation")
+    }
+
+    // Validate score range
+    if (score < 0 || score > 100) {
+      throw new Error("Le score doit être entre 0 et 100")
+    }
+
     await ctx.db.patch(participationId, {
       score,
       completedAt: Date.now(),
@@ -170,6 +248,7 @@ export const complete = mutation({
 
 /**
  * Update pause phase (for exams with pause functionality)
+ * Only the owner can update their pause phase
  */
 export const updatePausePhase = mutation({
   args: {
@@ -195,6 +274,18 @@ export const updatePausePhase = mutation({
       totalPauseDurationMs,
     },
   ) => {
+    // Verify ownership
+    const currentUser = await getCurrentUserOrThrow(ctx)
+    const participation = await ctx.db.get(participationId)
+
+    if (!participation) {
+      throw new Error("Participation non trouvée")
+    }
+
+    if (participation.userId !== currentUser._id) {
+      throw new Error("Vous ne pouvez pas modifier cette participation")
+    }
+
     const updateData: Record<string, unknown> = { pausePhase }
 
     if (pauseStartedAt !== undefined) updateData.pauseStartedAt = pauseStartedAt
@@ -210,6 +301,7 @@ export const updatePausePhase = mutation({
 
 /**
  * Save a single answer (can be called multiple times during exam)
+ * Only the owner can save answers to their participation
  */
 export const saveAnswer = mutation({
   args: {
@@ -223,6 +315,22 @@ export const saveAnswer = mutation({
     ctx,
     { participationId, questionId, selectedAnswer, isCorrect, isFlagged },
   ) => {
+    // Verify ownership
+    const currentUser = await getCurrentUserOrThrow(ctx)
+    const participation = await ctx.db.get(participationId)
+
+    if (!participation) {
+      throw new Error("Participation non trouvée")
+    }
+
+    if (participation.userId !== currentUser._id) {
+      throw new Error("Vous ne pouvez pas modifier cette participation")
+    }
+
+    if (participation.status !== "in_progress") {
+      throw new Error("Cette participation n'est plus modifiable")
+    }
+
     // Check if answer already exists for this question
     const existingAnswers = await ctx.db
       .query("examAnswers")
@@ -256,6 +364,7 @@ export const saveAnswer = mutation({
 
 /**
  * Save multiple answers at once (called on exam submit)
+ * Only the owner can save answers to their participation
  */
 export const saveAnswersBatch = mutation({
   args: {
@@ -270,6 +379,22 @@ export const saveAnswersBatch = mutation({
     ),
   },
   handler: async (ctx, { participationId, answers }) => {
+    // Verify ownership
+    const currentUser = await getCurrentUserOrThrow(ctx)
+    const participation = await ctx.db.get(participationId)
+
+    if (!participation) {
+      throw new Error("Participation non trouvée")
+    }
+
+    if (participation.userId !== currentUser._id) {
+      throw new Error("Vous ne pouvez pas modifier cette participation")
+    }
+
+    if (participation.status !== "in_progress") {
+      throw new Error("Cette participation n'est plus modifiable")
+    }
+
     // Get existing answers to avoid duplicates
     const existingAnswers = await ctx.db
       .query("examAnswers")

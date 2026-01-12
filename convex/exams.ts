@@ -942,13 +942,43 @@ export const validateQuestionAccess = query({
 
 /**
  * Get exam leaderboard using normalized tables
+ * Admin can always view; others can only view after exam ends and if they participated
  */
 export const getExamLeaderboard = query({
   args: { examId: v.id("exams") },
   handler: async (ctx, args) => {
+    const currentUser = await getCurrentUserOrNull(ctx)
+
     const exam = await ctx.db.get(args.examId)
     if (!exam) {
       throw new Error("Examen non trouvé")
+    }
+
+    // Authorization check
+    if (currentUser?.role !== "admin") {
+      const now = Date.now()
+      // During exam, no leaderboard access for non-admins
+      if (now < exam.endDate) {
+        return []
+      }
+
+      // After exam ends: only allowed participants or those who participated can view
+      if (currentUser) {
+        const isAllowed = exam.allowedParticipants.includes(currentUser._id)
+        if (!isAllowed) {
+          const hasParticipated = await ctx.db
+            .query("examParticipations")
+            .withIndex("by_exam_user", (q) =>
+              q.eq("examId", args.examId).eq("userId", currentUser._id),
+            )
+            .unique()
+          if (!hasParticipated) {
+            return []
+          }
+        }
+      } else {
+        return []
+      }
     }
 
     // Get all participations for this exam

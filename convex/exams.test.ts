@@ -567,9 +567,11 @@ describe("exams", () => {
         correctAnswers: { [q1]: "A" },
       })
 
-      const leaderboard = await t.query(api.exams.getExamLeaderboard, {
-        examId,
-      })
+      // Admin peut toujours voir le leaderboard
+      const leaderboard = await admin.asAdmin.query(
+        api.exams.getExamLeaderboard,
+        { examId },
+      )
       expect(leaderboard).toHaveLength(2)
       expect(leaderboard[0].score).toBe(100)
       expect(leaderboard[1].score).toBe(0)
