@@ -18,6 +18,7 @@ import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Calculator } from "@/components/quiz/calculator"
+import { LabValues } from "@/components/quiz/lab-values"
 import { PauseApproachingAlert } from "@/components/quiz/pause-approaching-alert"
 import { PauseDialog } from "@/components/quiz/pause-dialog"
 import { QuestionCard } from "@/components/quiz/question-card"
@@ -58,6 +59,7 @@ const AssessmentPage = () => {
   const [showWarningDialog, setShowWarningDialog] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
+  const [isLabValuesOpen, setIsLabValuesOpen] = useState(false)
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false)
   const hasCompletedRef = useRef(false)
   const correctAnswersRef = useRef<Record<string, string>>({})
@@ -1013,12 +1015,20 @@ const AssessmentPage = () => {
         currentQuestionIndex={currentQuestionIndex}
         showCalculator={true}
         onOpenCalculator={() => setIsCalculatorOpen(true)}
+        showLabValues={true}
+        onOpenLabValues={() => setIsLabValuesOpen(true)}
       />
 
       {/* Calculator Dialog */}
       <Calculator
         isOpen={isCalculatorOpen}
         onOpenChange={setIsCalculatorOpen}
+      />
+
+      {/* Lab Values Dialog */}
+      <LabValues
+        isOpen={isLabValuesOpen}
+        onOpenChange={setIsLabValuesOpen}
       />
 
       {/* Dialog de confirmation de soumission */}

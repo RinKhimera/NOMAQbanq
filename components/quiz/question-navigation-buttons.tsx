@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowUp, Calculator, List } from "lucide-react"
+import { ArrowUp, Calculator, FlaskConical, List } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
@@ -25,6 +25,8 @@ type QuestionNavigationButtonsProps = {
   currentQuestionIndex?: number
   showCalculator?: boolean
   onOpenCalculator?: () => void
+  showLabValues?: boolean
+  onOpenLabValues?: () => void
 }
 
 export const QuestionNavigationButtons = ({
@@ -35,6 +37,8 @@ export const QuestionNavigationButtons = ({
   currentQuestionIndex,
   showCalculator = false,
   onOpenCalculator,
+  showLabValues = false,
+  onOpenLabValues,
 }: QuestionNavigationButtonsProps) => {
   const [showScrollTop, setShowScrollTop] = useState(false)
   const [isNavOpen, setIsNavOpen] = useState(false)
@@ -109,6 +113,24 @@ export const QuestionNavigationButtons = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Lab Values button - always visible when enabled */}
+      {showLabValues && onOpenLabValues && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        >
+          <Button
+            size="lg"
+            onClick={onOpenLabValues}
+            className="h-12 w-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 shadow-lg hover:from-teal-600 hover:to-cyan-700 dark:from-teal-400 dark:to-cyan-500 dark:hover:from-teal-300 dark:hover:to-cyan-400"
+            aria-label="Ouvrir les valeurs de laboratoire"
+          >
+            <FlaskConical className="h-5 w-5" />
+          </Button>
+        </motion.div>
+      )}
 
       {/* Calculator button - always visible when enabled */}
       {showCalculator && onOpenCalculator && (

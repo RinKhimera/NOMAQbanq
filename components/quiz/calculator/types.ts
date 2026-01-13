@@ -17,9 +17,3 @@ export type CalculatorActions = {
 }
 
 export type CalculatorContextType = CalculatorState & CalculatorActions
-
-export type CalculatorButtonVariant =
-  | "number"
-  | "operator"
-  | "action"
-  | "equals"
