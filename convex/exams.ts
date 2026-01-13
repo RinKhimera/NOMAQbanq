@@ -234,6 +234,22 @@ export const startExam = mutation({
   handler: async (ctx, args) => {
     const user = await getCurrentUserOrThrow(ctx)
 
+    // Vérifier l'accès payant aux examens (admins exemptés)
+    if (user.role !== "admin") {
+      const examAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "exam"),
+        )
+        .unique()
+
+      if (!examAccess || examAccess.expiresAt < Date.now()) {
+        throw new Error(
+          "Accès aux examens requis. Veuillez souscrire un abonnement.",
+        )
+      }
+    }
+
     const exam = await ctx.db.get(args.examId)
     if (!exam) {
       throw new Error("Examen non trouvé")

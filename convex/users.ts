@@ -4,6 +4,7 @@ import { Validator, v } from "convex/values"
 import {
   QueryCtx,
   internalMutation,
+  internalQuery,
   mutation,
   query,
 } from "./_generated/server"
@@ -80,6 +81,22 @@ export const createUser = internalMutation({
       image: args.image,
       role: args.role,
     })
+  },
+})
+
+/**
+ * [Internal] Récupère un utilisateur par son tokenIdentifier
+ * Utilisé par les actions Stripe pour obtenir l'utilisateur courant
+ */
+export const getUserByTokenIdentifier = internalQuery({
+  args: { tokenIdentifier: v.string() },
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("users")
+      .withIndex("by_tokenIdentifier", (q) =>
+        q.eq("tokenIdentifier", args.tokenIdentifier),
+      )
+      .unique()
   },
 })
 

@@ -99,4 +99,78 @@ export default defineSchema({
   })
     .index("by_participation", ["participationId"])
     .index("by_question", ["questionId"]),
+
+  // ============================================
+  // STRIPE PAYMENT TABLES
+  // ============================================
+
+  products: defineTable({
+    code: v.union(
+      v.literal("exam_access"),
+      v.literal("training_access"),
+      v.literal("exam_access_promo"),
+      v.literal("training_access_promo"),
+    ),
+    name: v.string(),
+    description: v.string(),
+    priceCAD: v.number(), // Prix en cents (5000 = 50$)
+    durationDays: v.number(), // 30 ou 180
+    accessType: v.union(v.literal("exam"), v.literal("training")),
+    stripeProductId: v.string(),
+    stripePriceId: v.string(),
+    isActive: v.boolean(),
+  })
+    .index("by_code", ["code"])
+    .index("by_stripeProductId", ["stripeProductId"])
+    .index("by_isActive", ["isActive"]),
+
+  transactions: defineTable({
+    userId: v.id("users"),
+    productId: v.id("products"),
+
+    type: v.union(v.literal("stripe"), v.literal("manual")),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("completed"),
+      v.literal("failed"),
+      v.literal("refunded"),
+    ),
+
+    amountPaid: v.number(), // Montant en cents
+    currency: v.string(), // "CAD" ou "XAF"
+
+    // Stripe (optionnel pour manual)
+    stripeSessionId: v.optional(v.string()),
+    stripePaymentIntentId: v.optional(v.string()),
+    stripeEventId: v.optional(v.string()), // Pour idempotence
+
+    // Manual (optionnel pour Stripe)
+    paymentMethod: v.optional(v.string()), // "cash", "interac", etc.
+    recordedBy: v.optional(v.id("users")), // Admin qui a enregistré
+    notes: v.optional(v.string()),
+
+    accessType: v.union(v.literal("exam"), v.literal("training")),
+    durationDays: v.number(),
+    accessExpiresAt: v.number(), // Timestamp d'expiration calculé
+
+    createdAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_stripeSessionId", ["stripeSessionId"])
+    .index("by_stripeEventId", ["stripeEventId"])
+    .index("by_status", ["status"])
+    .index("by_type", ["type"])
+    .index("by_userId_accessType", ["userId", "accessType"])
+    .index("by_createdAt", ["createdAt"]),
+
+  userAccess: defineTable({
+    userId: v.id("users"),
+    accessType: v.union(v.literal("exam"), v.literal("training")),
+    expiresAt: v.number(),
+    lastTransactionId: v.id("transactions"),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userId_accessType", ["userId", "accessType"])
+    .index("by_expiresAt", ["expiresAt"]),
 })

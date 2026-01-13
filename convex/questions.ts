@@ -1,7 +1,7 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
-import { getAdminUserOrThrow } from "./lib/auth"
+import { getAdminUserOrThrow, getCurrentUserOrNull } from "./lib/auth"
 
 // Créer une nouvelle question (admin seulement)
 export const createQuestion = mutation({
@@ -110,6 +110,23 @@ export const updateQuestion = mutation({
 export const getLearningBankQuestions = query({
   args: {},
   handler: async (ctx) => {
+    // Vérifier l'accès payant à l'entraînement
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) return []
+
+    if (user.role !== "admin") {
+      const trainingAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "training"),
+        )
+        .unique()
+
+      if (!trainingAccess || trainingAccess.expiresAt < Date.now()) {
+        return []
+      }
+    }
+
     const learningBankEntries = await ctx.db
       .query("learningBankQuestions")
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
@@ -235,6 +252,23 @@ export const getRandomLearningBankQuestions = query({
     domain: v.optional(v.string()),
   },
   handler: async (ctx, { count, domain }) => {
+    // Vérifier l'accès payant à l'entraînement
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) return []
+
+    if (user.role !== "admin") {
+      const trainingAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "training"),
+        )
+        .unique()
+
+      if (!trainingAccess || trainingAccess.expiresAt < Date.now()) {
+        return []
+      }
+    }
+
     // Use index for active questions (more efficient than .filter())
     const learningBankItems = await ctx.db
       .query("learningBankQuestions")
@@ -353,6 +387,25 @@ export const getLearningBankQuestionsWithPagination = query({
   },
   handler: async (ctx, args) => {
     const { paginationOpts, domain, searchQuery } = args
+
+    // Vérifier l'accès payant à l'entraînement
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) {
+      return { page: [], continueCursor: "", isDone: true }
+    }
+
+    if (user.role !== "admin") {
+      const trainingAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "training"),
+        )
+        .unique()
+
+      if (!trainingAccess || trainingAccess.expiresAt < Date.now()) {
+        return { page: [], continueCursor: "", isDone: true }
+      }
+    }
 
     // Récupérer les entrées actives de la banque d'apprentissage avec cursor pagination
     const learningBankResult = await ctx.db

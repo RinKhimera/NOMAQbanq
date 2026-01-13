@@ -12,7 +12,9 @@ import type * as examParticipations from "../examParticipations.js";
 import type * as exams from "../exams.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as payments from "../payments.js";
 import type * as questions from "../questions.js";
+import type * as stripe from "../stripe.js";
 import type * as users from "../users.js";
 
 import type {
@@ -26,7 +28,9 @@ declare const fullApi: ApiFromModules<{
   exams: typeof exams;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  payments: typeof payments;
   questions: typeof questions;
+  stripe: typeof stripe;
   users: typeof users;
 }>;
 
