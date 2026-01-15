@@ -163,6 +163,7 @@ export const getProductByCode = internalQuery({
 
 /**
  * Récupère l'historique des transactions de l'utilisateur
+ * Note: Les transactions "pending" (checkouts abandonnés) sont masquées
  */
 export const getMyTransactions = query({
   args: {
@@ -177,12 +178,15 @@ export const getMyTransactions = query({
       .order("desc")
       .paginate(args.paginationOpts)
 
-    // Enrichir avec les détails du produit
+    // Filtrer les transactions "pending" (checkouts non complétés)
+    // et enrichir avec les détails du produit
     const enrichedPage = await Promise.all(
-      transactions.page.map(async (tx) => {
-        const product = await ctx.db.get(tx.productId)
-        return { ...tx, product }
-      }),
+      transactions.page
+        .filter((tx) => tx.status !== "pending")
+        .map(async (tx) => {
+          const product = await ctx.db.get(tx.productId)
+          return { ...tx, product }
+        }),
     )
 
     return {
@@ -668,8 +672,151 @@ export const seedProducts = internalMutation({
 })
 
 // ============================================
+// QUERIES - Transaction Access Impact (Admin)
+// ============================================
+
+/**
+ * [Admin] Vérifie si la suppression d'une transaction révoquera l'accès utilisateur
+ */
+export const getTransactionAccessImpact = query({
+  args: {
+    transactionId: v.id("transactions"),
+  },
+  handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
+    const transaction = await ctx.db.get(args.transactionId)
+    if (!transaction) {
+      throw new Error("Transaction non trouvée")
+    }
+
+    // Trouver l'enregistrement d'accès pour cet utilisateur/type
+    const userAccess = await ctx.db
+      .query("userAccess")
+      .withIndex("by_userId_accessType", (q) =>
+        q
+          .eq("userId", transaction.userId)
+          .eq("accessType", transaction.accessType),
+      )
+      .unique()
+
+    // Vérifier si cette transaction est la dernière (lastTransactionId)
+    const isLastTransaction = userAccess?.lastTransactionId === args.transactionId
+
+    return {
+      willRevokeAccess: isLastTransaction,
+      currentAccessExpiresAt: userAccess?.expiresAt ?? null,
+      accessType: transaction.accessType,
+    }
+  },
+})
+
+// ============================================
+// MUTATIONS - Edit/Delete Manual Transactions (Admin)
+// ============================================
+
+/**
+ * [Admin] Modifie une transaction manuelle
+ */
+export const updateManualTransaction = mutation({
+  args: {
+    transactionId: v.id("transactions"),
+    amountPaid: v.number(),
+    currency: v.string(),
+    paymentMethod: v.string(),
+    notes: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("completed"), v.literal("refunded"))),
+  },
+  handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
+    // Récupérer la transaction
+    const transaction = await ctx.db.get(args.transactionId)
+    if (!transaction) {
+      throw new Error("Transaction non trouvée")
+    }
+
+    // Vérifier que c'est une transaction manuelle
+    if (transaction.type !== "manual") {
+      throw new Error("Seules les transactions manuelles peuvent être modifiées")
+    }
+
+    // Si le statut passe à "refunded", révoquer l'accès
+    if (args.status === "refunded" && transaction.status === "completed") {
+      await handleAccessRevocation(ctx, transaction)
+    }
+
+    // Mettre à jour la transaction
+    await ctx.db.patch(args.transactionId, {
+      amountPaid: args.amountPaid,
+      currency: args.currency,
+      paymentMethod: args.paymentMethod,
+      notes: args.notes,
+      ...(args.status && { status: args.status }),
+    })
+
+    return { success: true }
+  },
+})
+
+/**
+ * [Admin] Supprime une transaction manuelle
+ */
+export const deleteManualTransaction = mutation({
+  args: {
+    transactionId: v.id("transactions"),
+  },
+  handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
+    // Récupérer la transaction
+    const transaction = await ctx.db.get(args.transactionId)
+    if (!transaction) {
+      throw new Error("Transaction non trouvée")
+    }
+
+    // Vérifier que c'est une transaction manuelle
+    if (transaction.type !== "manual") {
+      throw new Error("Seules les transactions manuelles peuvent être supprimées")
+    }
+
+    // Vérifier l'impact sur l'accès et révoquer si nécessaire
+    const accessRevoked = await handleAccessRevocation(ctx, transaction)
+
+    // Supprimer la transaction
+    await ctx.db.delete(args.transactionId)
+
+    return { success: true, accessRevoked }
+  },
+})
+
+// ============================================
 // HELPER FUNCTIONS
 // ============================================
+
+/**
+ * Révoque l'accès utilisateur si cette transaction est la dernière
+ * Retourne true si l'accès a été révoqué
+ */
+const handleAccessRevocation = async (
+  ctx: MutationCtx,
+  transaction: { _id: Id<"transactions">; userId: Id<"users">; accessType: "exam" | "training" },
+): Promise<boolean> => {
+  const userAccess = await ctx.db
+    .query("userAccess")
+    .withIndex("by_userId_accessType", (q) =>
+      q.eq("userId", transaction.userId).eq("accessType", transaction.accessType),
+    )
+    .unique()
+
+  // Supprimer l'accès uniquement si cette transaction est la dernière
+  if (userAccess && userAccess.lastTransactionId === transaction._id) {
+    await ctx.db.delete(userAccess._id)
+    return true
+  }
+
+  return false
+}
 
 /**
  * Met à jour ou crée un enregistrement d'accès utilisateur

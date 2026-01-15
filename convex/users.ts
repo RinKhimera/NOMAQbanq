@@ -170,6 +170,14 @@ export const getAllUsers = query({
   },
 })
 
+export const getUserById = query({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    await getAdminUserOrThrow(ctx)
+    return await ctx.db.get(userId)
+  },
+})
+
 export const getUsersWithPagination = query({
   args: {
     paginationOpts: paginationOptsValidator,

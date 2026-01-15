@@ -31,6 +31,7 @@ const UsersPage = () => {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
 
   // Debounce de la recherche pour éviter trop de requêtes
   useEffect(() => {
@@ -52,6 +53,14 @@ const UsersPage = () => {
   )
 
   const allUsers = useQuery(api.users.getAllUsers)
+
+  const [prevStatus, setPrevStatus] = useState(status)
+  if (status !== prevStatus) {
+    setPrevStatus(status)
+    if (status !== "LoadingFirstPage" && !hasLoadedOnce) {
+      setHasLoadedOnce(true)
+    }
+  }
 
   const handleSort = (field: SortBy) => {
     if (sortBy === field) {
@@ -80,10 +89,12 @@ const UsersPage = () => {
     )
   }
 
-  // Afficher le skeleton uniquement lors du premier chargement
-  if (status === "LoadingFirstPage") {
+  // Afficher le skeleton uniquement lors du tout premier chargement (pas lors des recherches)
+  if (status === "LoadingFirstPage" && !hasLoadedOnce) {
     return <UserTableSkeleton />
   }
+
+  const isSearching = status === "LoadingFirstPage" && hasLoadedOnce
 
   return (
     <>
@@ -112,7 +123,11 @@ const UsersPage = () => {
           <CardContent>
             {/* Barre de recherche */}
             <div className="relative mb-4">
-              <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+              {isSearching ? (
+                <Loader2 className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 animate-spin" />
+              ) : (
+                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+              )}
               <Input
                 type="text"
                 placeholder="Rechercher par nom, email ou nom d'utilisateur..."
@@ -121,7 +136,9 @@ const UsersPage = () => {
                 className="pl-10"
               />
             </div>
-            <div className="rounded-md border">
+            <div
+              className={`rounded-md border transition-opacity ${isSearching ? "opacity-50" : ""}`}
+            >
               <Table>
                 <TableHeader>
                   <TableRow>
