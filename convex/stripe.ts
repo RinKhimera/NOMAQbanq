@@ -6,12 +6,11 @@
  *
  * Installation requise: npm install stripe
  */
-
-import Stripe from "stripe"
 import { v } from "convex/values"
+import Stripe from "stripe"
+import { internal } from "./_generated/api"
 import { Id } from "./_generated/dataModel"
 import { action } from "./_generated/server"
-import { internal } from "./_generated/api"
 
 // ============================================
 // TYPE DEFINITIONS
@@ -91,6 +90,8 @@ export const createCheckoutSession = action({
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       customer_email: user.email,
+      // Forcer la création d'un customer Stripe pour le portail de facturation
+      customer_creation: "always",
       line_items: [
         {
           price: product.stripePriceId,
@@ -137,6 +138,11 @@ export const verifyCheckoutSession = action({
     sessionId: v.string(),
   },
   handler: async (ctx, args) => {
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      throw new Error("Vous devez être connecté pour vérifier un paiement")
+    }
+
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY
     if (!stripeSecretKey) {
       throw new Error("Configuration Stripe manquante")
@@ -254,7 +260,9 @@ export const getPaymentDetails = action({
     })
 
     try {
-      const paymentIntent = await stripe.paymentIntents.retrieve(args.paymentIntentId)
+      const paymentIntent = await stripe.paymentIntents.retrieve(
+        args.paymentIntentId,
+      )
 
       return {
         id: paymentIntent.id,

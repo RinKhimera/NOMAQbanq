@@ -2,9 +2,10 @@ import {
   IconChartBar,
   IconDashboard,
   IconListDetails,
+  IconReceipt,
   IconUsers,
 } from "@tabler/icons-react"
-import { Blocks, CircleUserRound, ShieldCheck, User } from "lucide-react"
+import { Blocks, CircleUserRound, CreditCard, Settings, ShieldCheck, User } from "lucide-react"
 
 export const adminNavigation = {
   navMain: [
@@ -32,6 +33,11 @@ export const adminNavigation = {
       title: "Utilisateurs",
       url: "/admin/users",
       icon: IconUsers,
+    },
+    {
+      title: "Transactions",
+      url: "/admin/transactions",
+      icon: IconReceipt,
     },
   ],
   navSecondary: [
@@ -78,14 +84,14 @@ export const dashboardNavigation = {
       icon: User,
     },
     {
-      title: "Compte",
+      title: "Abonnement",
       url: "/dashboard/account",
-      icon: CircleUserRound,
+      icon: CreditCard,
     },
     {
-      title: "Sécurité",
-      url: "/dashboard/account/security",
-      icon: ShieldCheck,
+      title: "Paramètres",
+      url: "/dashboard/settings",
+      icon: Settings,
     },
   ],
 }
@@ -131,7 +137,7 @@ export const FOOTER_QUICK_LINKS = [
   { name: "Domaines", href: "/domaines" },
   { name: "Évaluation", href: "/evaluation" },
   { name: "À propos", href: "/a-propos" },
-  { name: "Tarifs", href: "#" },
+  { name: "Tarifs", href: "/tarifs" },
   { name: "FAQ", href: "/faq" },
 ] as const
 
