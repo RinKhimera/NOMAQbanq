@@ -1,5 +1,5 @@
 import Footer from "@/components/layout/footer"
-import NavBar from "@/components/nav-bar"
+import { MarketingHeader } from "@/components/marketing-header"
 
 type MarketingShellProps = {
   children: React.ReactNode
@@ -8,8 +8,8 @@ type MarketingShellProps = {
 export const MarketingShell = ({ children }: MarketingShellProps) => {
   return (
     <>
-      <NavBar />
-      {children}
+      <MarketingHeader />
+      <main className="min-h-screen">{children}</main>
       <Footer />
     </>
   )

@@ -10,7 +10,6 @@ import {
   Play,
   RefreshCw,
   Settings,
-  Sparkles,
   Star,
   Target,
   Timer,
@@ -76,37 +75,9 @@ export default function HomeLanding() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
-      {/* Top Banner - Modern and minimal */}
-      <section className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
-        <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-center text-center">
-            <div className="flex items-center space-x-6 text-sm font-medium">
-              <div className="flex items-center space-x-2">
-                <Sparkles className="h-4 w-4 text-yellow-300" />
-
-                <span>Ressources d&apos;apprentissage gratuites</span>
-              </div>
-              <Link
-                href="/domaines"
-                className="text-blue-100 underline underline-offset-2 transition-colors hover:text-white"
-              >
-                Pour les candidats EACMC
-              </Link>
-              <span className="text-blue-200">•</span>
-              <Link
-                href="/evaluation"
-                className="text-blue-100 underline underline-offset-2 transition-colors hover:text-white"
-              >
-                Pour les étudiants
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
+    <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
       {/* Hero Section - Ultra modern */}
-      <section className="relative overflow-hidden pt-20 pb-32">
+      <section className="relative overflow-hidden pt-8 pb-32">
         {/* Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="animate-float absolute -top-40 -right-40 h-80 w-80 rounded-full bg-gradient-to-br from-blue-400/20 to-indigo-600/20 blur-3xl"></div>

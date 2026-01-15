@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button"
 
 export default function ConnexionPage() {
   return (
-    <div className="theme-bg min-h-screen pt-20">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+    <div className="theme-bg">
+      <div className="mx-auto max-w-7xl px-4 pt-8 pb-12 sm:px-6 lg:px-8">
         <div className="grid min-h-[700px] items-center gap-16 lg:grid-cols-2">
           {/* Left side - Welcome back content - Hidden on mobile, shown on desktop */}
           <div className="animate-slide-in-left hidden space-y-10 lg:block">

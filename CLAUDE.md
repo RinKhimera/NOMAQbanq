@@ -43,20 +43,22 @@ npm run test:ui          # Interactive test UI
 
 ## Key Conventions
 
-- **Language:** All UI text MUST be in French
+- **Language:** All UI text MUST be in French with proper accents (É, è, ê, à, ç, etc.)
 - **Functions:** Use arrow functions exclusively
 - **Auth:** Always use `useCurrentUser` hook for user data; verify roles server-side in Convex
 - **Components:** Use existing shadcn/ui components from `components/ui/`
 - **Forms:** React Hook Form + Zod validation (schemas in `schemas/`)
 - **Loading states:** Handle loading/error states with appropriate UI feedback
+- **Typography:** Use `font-display` class for headings (Poppins font)
 
 ## Database (Convex)
 
-Key tables: `users`, `questions`, `exams`, `examParticipations`, `examAnswers`, `learningBankQuestions`
+Key tables: `users`, `questions`, `exams`, `examParticipations`, `examAnswers`, `learningBankQuestions`, `products`, `transactions`, `userAccess`
 
 - Schema defined in `convex/schema.ts`
 - Roles: `user` (student) and `admin`
 - Normalized data model: exam participations are separate from exams
+- Payment system: Stripe integration with `userAccess` table for time-limited access
 
 ## Testing Requirements
 
@@ -71,3 +73,18 @@ Key tables: `users`, `questions`, `exams`, `examParticipations`, `examAnswers`, 
 - Use cursor-based pagination for large datasets
 - Clerk webhooks sync user data to Convex via `convex/http.ts`
 - Error tracking via Sentry (configured in `sentry.*.config.ts`)
+
+## Animation & UI Patterns
+
+- **Motion library:** Always import from `motion/react`, use `useReducedMotion()` for accessibility
+- **Staggered animations:** Use `delay` prop with incremental values (0.1, 0.2, 0.3...)
+- **Glass morphism:** Combine `bg-white/80 backdrop-blur-sm` with subtle borders
+- **Charts (Recharts):** Use `ReferenceLine` for threshold lines, `CustomTooltip` for styled tooltips
+- **CSS utilities:** `perspective-1000`, `preserve-3d`, `font-display` classes available in globals.css
+
+## Payment System
+
+- Stripe checkout flow via `convex/stripe.ts` HTTP actions
+- Access types: `exam` (mock exams) and `training` (learning bank)
+- Time-cumulative: new purchases extend existing access rather than replacing
+- Admin bypass: admins have full access without payment checks
