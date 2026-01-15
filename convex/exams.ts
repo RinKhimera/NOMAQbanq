@@ -1178,3 +1178,45 @@ export const getAllExamsWithUserParticipation = query({
     })
   },
 })
+
+/**
+ * Get user's score history for dashboard chart
+ * Returns the last 10 completed exams with their scores
+ */
+export const getMyScoreHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) {
+      return []
+    }
+
+    // Get user's participations
+    const participations = await ctx.db
+      .query("examParticipations")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect()
+
+    // Filter completed participations and sort by completion date
+    const completedParticipations = participations
+      .filter((p) => p.status === "completed" || p.status === "auto_submitted")
+      .filter((p) => p.completedAt !== undefined)
+      .sort((a, b) => (a.completedAt ?? 0) - (b.completedAt ?? 0))
+      .slice(-10)
+
+    // Get exam titles
+    const results = await Promise.all(
+      completedParticipations.map(async (p) => {
+        const exam = await ctx.db.get(p.examId)
+        return {
+          examId: p.examId,
+          examTitle: exam?.title ?? "Examen",
+          score: p.score,
+          completedAt: p.completedAt ?? 0,
+        }
+      })
+    )
+
+    return results
+  },
+})

@@ -237,6 +237,85 @@
   animation: slideCarousel 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Dashboard Medical Lab animations */
+@keyframes vital-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes vital-pulse-green {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes vital-pulse-amber {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 12px rgba(245, 158, 11, 0);
+  }
+}
+
+@keyframes score-fill {
+  from {
+    stroke-dashoffset: 565;
+  }
+  to {
+    stroke-dashoffset: var(--score-offset, 0);
+  }
+}
+
+@keyframes count-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-vital-pulse {
+  animation: vital-pulse 2s ease-in-out infinite;
+}
+
+.animate-vital-pulse-green {
+  animation: vital-pulse-green 2s ease-in-out infinite;
+}
+
+.animate-vital-pulse-amber {
+  animation: vital-pulse-amber 2s ease-in-out infinite;
+}
+
+.animate-score-fill {
+  animation: score-fill 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: 0.3s;
+}
+
+.animate-count-up {
+  animation: count-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Dashboard card styles */
+.dashboard-vital-card {
+  @apply relative overflow-hidden rounded-2xl border bg-white/80 p-5 backdrop-blur-sm transition-all duration-300;
+  @apply dark:bg-gray-900/80;
+}
+
+.dashboard-vital-card:hover {
+  @apply translate-y-[-2px] shadow-lg;
+}
+
 /* Modern component styles */
 .glass-card {
   background: rgba(255, 255, 255, 0.8);

@@ -7,6 +7,65 @@ import schema from "../../convex/schema"
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
 
+// Cache pour les produits de test (réutilisés au sein d'un même test)
+const productCache = new Map<string, Id<"products">>()
+
+// Helper pour accorder l'accès exam ou training à un utilisateur (optimisé)
+const grantAccess = async (
+  t: ReturnType<typeof convexTest>,
+  userId: Id<"users">,
+  accessType: "exam" | "training",
+) => {
+  await t.run(async (ctx) => {
+    // Réutiliser le produit existant ou en créer un nouveau
+    const cacheKey = accessType
+    let productId = productCache.get(cacheKey)
+
+    if (!productId) {
+      productId = await ctx.db.insert("products", {
+        code: accessType === "exam" ? "exam_access" : "training_access",
+        name: accessType === "exam" ? "Accès Examens" : "Accès Entraînement",
+        description: "Test product",
+        priceCAD: 5000,
+        durationDays: 30,
+        accessType,
+        stripeProductId: `prod_test_${accessType}`,
+        stripePriceId: `price_test_${accessType}`,
+        isActive: true,
+      })
+      productCache.set(cacheKey, productId)
+    }
+
+    // Créer une transaction (minimal)
+    const transactionId = await ctx.db.insert("transactions", {
+      userId,
+      productId,
+      type: "manual",
+      status: "completed",
+      amountPaid: 0,
+      currency: "CAD",
+      accessType,
+      durationDays: 30,
+      accessExpiresAt: Date.now() + 86400000,
+      createdAt: Date.now(),
+    })
+
+    // Créer l'accès utilisateur
+    await ctx.db.insert("userAccess", {
+      userId,
+      accessType,
+      expiresAt: Date.now() + 86400000,
+      lastTransactionId: transactionId,
+    })
+  })
+}
+
+// Nettoyer le cache entre les tests
+import { beforeEach } from "vitest"
+beforeEach(() => {
+  productCache.clear()
+})
+
 // Helper pour créer un utilisateur admin
 const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
   const userId = await t.run(async (ctx) => {
@@ -332,6 +391,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen",
@@ -358,6 +420,10 @@ describe("exams", () => {
       const user2 = await createRegularUser(t, "2")
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam aux deux utilisateurs
+      await grantAccess(t, user1.userId, "exam")
+      await grantAccess(t, user2.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen",
@@ -377,6 +443,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const now = Date.now()
       // Examen dans le futur
@@ -399,6 +468,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -420,6 +492,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       // Créer des questions avec réponses connues
       const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
@@ -500,6 +575,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen",
@@ -532,6 +610,10 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user1 = await createRegularUser(t, "1")
       const user2 = await createRegularUser(t, "2")
+
+      // Accorder l'accès exam aux utilisateurs
+      await grantAccess(t, user1.userId, "exam")
+      await grantAccess(t, user2.userId, "exam")
 
       const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
         question: "Q1",
@@ -584,6 +666,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
@@ -640,6 +725,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -668,6 +756,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen sans pause",
@@ -690,6 +781,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
@@ -724,6 +818,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -756,6 +853,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -780,6 +880,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       // Créer 4 questions pour tester le midpoint
       const q1 = await createQuestion(t, admin, 1)
@@ -840,6 +943,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const q1 = await createQuestion(t, admin, 1)
       const q2 = await createQuestion(t, admin, 2)
       const q3 = await createQuestion(t, admin, 3)
@@ -885,6 +991,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -913,6 +1022,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const q1 = await createQuestion(t, admin, 1)
       const q2 = await createQuestion(t, admin, 2)
@@ -953,6 +1065,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen sans pause",
@@ -978,6 +1093,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
         question: "Q1",
@@ -1029,6 +1147,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const q1 = await createQuestion(t, admin, 1)
 
       const now = Date.now()
@@ -1078,6 +1199,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const q1 = await createQuestion(t, admin, 1)
 
@@ -1137,6 +1261,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen",
@@ -1187,6 +1314,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
@@ -1323,6 +1453,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -1355,6 +1488,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
