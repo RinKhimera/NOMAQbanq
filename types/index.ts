@@ -48,7 +48,7 @@ export type ExamWithoutParticipants = Omit<Doc<"exams">, "participants"> & {
 
 /**
  * Exam with user's participation status (V2)
- * Used by mock-exam page to show "already taken" status
+ * Used by examen-blanc page to show "already taken" status
  */
 export type ExamWithUserParticipation = Omit<Doc<"exams">, "participants"> & {
   userHasTaken: boolean

@@ -2,24 +2,24 @@
 
 import { motion } from "motion/react"
 import Link from "next/link"
-import { BookOpen, GraduationCap, User, ChevronRight } from "lucide-react"
+import { Brain, GraduationCap, User, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const quickActions = [
   {
-    title: "Banque d'apprentissage",
-    description: "Révisez les questions essentielles par domaine",
-    href: "/dashboard/learning",
-    icon: BookOpen,
-    gradient: "from-blue-500 to-blue-600",
-    bgGlow: "bg-blue-500/20",
-    iconBg: "bg-blue-500/10",
-    hoverBorder: "hover:border-blue-500/30",
+    title: "Entraînement",
+    description: "Pratiquez avec des sessions personnalisées de 5 à 20 questions",
+    href: "/dashboard/entrainement",
+    icon: Brain,
+    gradient: "from-emerald-500 to-teal-600",
+    bgGlow: "bg-emerald-500/20",
+    iconBg: "bg-emerald-500/10",
+    hoverBorder: "hover:border-emerald-500/30",
   },
   {
     title: "Examens blancs",
     description: "Testez vos connaissances en conditions réelles",
-    href: "/dashboard/mock-exam",
+    href: "/dashboard/examen-blanc",
     icon: GraduationCap,
     gradient: "from-purple-500 to-purple-600",
     bgGlow: "bg-purple-500/20",
@@ -31,10 +31,10 @@ const quickActions = [
     description: "Gérez vos informations personnelles",
     href: "/dashboard/profil",
     icon: User,
-    gradient: "from-emerald-500 to-emerald-600",
-    bgGlow: "bg-emerald-500/20",
-    iconBg: "bg-emerald-500/10",
-    hoverBorder: "hover:border-emerald-500/30",
+    gradient: "from-slate-500 to-slate-600",
+    bgGlow: "bg-slate-500/20",
+    iconBg: "bg-slate-500/10",
+    hoverBorder: "hover:border-slate-500/30",
   },
 ]
 

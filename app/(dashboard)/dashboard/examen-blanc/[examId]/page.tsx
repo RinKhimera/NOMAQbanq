@@ -56,7 +56,7 @@ export default function MockExamDetailsPage() {
               size="sm"
               asChild
             >
-              <Link href="/dashboard/mock-exam">
+              <Link href="/dashboard/examen-blanc">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Retour
               </Link>
@@ -72,7 +72,7 @@ export default function MockExamDetailsPage() {
                   : "Les résultats de cet examen ne sont pas encore disponibles."}
               </p>
               <Button asChild>
-                <Link href="/dashboard/mock-exam">Retour aux examens</Link>
+                <Link href="/dashboard/examen-blanc">Retour aux examens</Link>
               </Button>
             </CardContent>
           </Card>
@@ -91,7 +91,7 @@ export default function MockExamDetailsPage() {
             size="sm"
             asChild
           >
-            <Link href="/dashboard/mock-exam">
+            <Link href="/dashboard/examen-blanc">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Retour
             </Link>
@@ -129,7 +129,7 @@ export default function MockExamDetailsPage() {
                   asChild
                 >
                   <Link
-                    href={`/dashboard/mock-exam/${examId}/results`}
+                    href={`/dashboard/examen-blanc/${examId}/resultats`}
                   >
                     <BarChart3 className="mr-2 h-4 w-4" />
                     Voir mes résultats

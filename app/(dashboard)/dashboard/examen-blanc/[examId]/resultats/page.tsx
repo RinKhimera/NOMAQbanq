@@ -181,7 +181,7 @@ const ExamResultsPage = () => {
             Aucun résultat trouvé pour cet examen.
           </p>
           <Button asChild>
-            <Link href="/dashboard/mock-exam">Retour aux examens</Link>
+            <Link href="/dashboard/examen-blanc">Retour aux examens</Link>
           </Button>
         </motion.div>
       </div>
@@ -242,7 +242,7 @@ const ExamResultsPage = () => {
             <div className="flex items-center gap-3">
               <Button variant="outline" asChild>
                 <Link
-                  href="/dashboard/mock-exam"
+                  href="/dashboard/examen-blanc"
                   className="flex items-center gap-2"
                 >
                   <Home className="h-4 w-4" />

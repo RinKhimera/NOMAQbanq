@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react"
 import { useState } from "react"
-import { Target, CheckCircle2, BookOpen, Percent } from "lucide-react"
+import { Target, CheckCircle2, Percent, Brain } from "lucide-react"
 
 import { api } from "@/convex/_generated/api"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
@@ -22,6 +22,7 @@ const DashboardPage = () => {
   const recentExams = useQuery(api.exams.getMyRecentExams)
   const scoreHistory = useQuery(api.exams.getMyScoreHistory)
   const accessStatus = useQuery(api.payments.getMyAccessStatus)
+  const trainingStats = useQuery(api.training.getTrainingStats)
   const [now] = useState(() => Date.now())
 
   // Loading state
@@ -86,12 +87,16 @@ const DashboardPage = () => {
             />
 
             <VitalCard
-              label="Questions banque"
-              value={stats.learningBankQuestionsCount}
-              icon={BookOpen}
+              label="Entraînements"
+              value={trainingStats?.totalSessions ?? 0}
+              icon={Brain}
               color="purple"
               delay={0.4}
-              subtitle="Pour l'entraînement"
+              subtitle={
+                trainingStats && trainingStats.totalSessions > 0
+                  ? `${trainingStats.totalQuestions} questions pratiquées`
+                  : "Aucune session"
+              }
             />
           </div>
         </div>
@@ -107,7 +112,7 @@ const DashboardPage = () => {
           completedExamsCount={stats.completedExamsCount}
           averageScore={stats.averageScore}
           availableExams={availableExams ?? []}
-          learningBankCount={stats.learningBankQuestionsCount}
+          trainingStats={trainingStats ?? undefined}
         />
 
         {/* Recent Activity */}

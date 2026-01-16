@@ -1061,17 +1061,10 @@ export const getMyDashboardStats = query({
 
     const averageScore = examCount > 0 ? Math.round(totalScore / examCount) : 0
 
-    // Count learning bank questions
-    const learningBankQuestions = await ctx.db
-      .query("learningBankQuestions")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
-
     return {
       availableExamsCount: myExams.length,
       completedExamsCount: examCount,
       averageScore,
-      learningBankQuestionsCount: learningBankQuestions.length,
     }
   },
 })
@@ -1133,7 +1126,7 @@ export const getMyRecentExams = query({
 
 /**
  * Get all exams with current user's participation status
- * Used by mock-exam page to show exam list with "already taken" status
+ * Used by examen-blanc page to show exam list with "already taken" status
  */
 export const getAllExamsWithUserParticipation = query({
   handler: async (ctx) => {

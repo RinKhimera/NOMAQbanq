@@ -65,7 +65,7 @@ export const RecentActivityFeed = ({
 
         {completedExams.length > 0 && (
           <Link
-            href="/dashboard/mock-exam"
+            href="/dashboard/examen-blanc"
             className="flex items-center gap-1 text-sm font-medium text-blue-500 transition-colors hover:text-blue-600"
           >
             Voir tout
@@ -90,7 +90,7 @@ export const RecentActivityFeed = ({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: 0.6 + index * 0.1 }}
               >
-                <Link href={`/dashboard/mock-exam/${exam._id}/results`}>
+                <Link href={`/dashboard/examen-blanc/${exam._id}/resultats`}>
                   <div className="group relative flex items-center gap-4 rounded-xl border border-gray-200/50 bg-white/80 p-4 backdrop-blur-sm transition-all duration-300 hover:border-gray-300 hover:shadow-md dark:border-gray-700/50 dark:bg-gray-900/80 dark:hover:border-gray-600">
                     {/* Timeline dot */}
                     <div className="absolute -left-[3px] top-1/2 -translate-y-1/2">
@@ -164,7 +164,7 @@ export const RecentActivityFeed = ({
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Vos résultats apparaîtront ici après chaque examen
             </p>
-            <Link href="/dashboard/mock-exam">
+            <Link href="/dashboard/examen-blanc">
               <button className="mt-4 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">
                 Passer un examen
               </button>

@@ -68,12 +68,12 @@ export const dashboardNavigation = {
     },
     {
       title: "Examen Blanc",
-      url: "/dashboard/mock-exam",
+      url: "/dashboard/examen-blanc",
       icon: IconListDetails,
     },
     {
-      title: "Apprentissage",
-      url: "/dashboard/learning",
+      title: "Entraînement",
+      url: "/dashboard/entrainement",
       icon: IconChartBar,
     },
   ],

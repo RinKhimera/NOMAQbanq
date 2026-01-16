@@ -4,7 +4,7 @@ import { motion } from "motion/react"
 import Link from "next/link"
 import {
   Play,
-  BookOpen,
+  Brain,
   Target,
   TrendingUp,
   ChevronRight,
@@ -20,11 +20,22 @@ interface Exam {
   completionTime: number
 }
 
+interface TrainingStats {
+  totalSessions: number
+  totalQuestions: number
+  averageScore: number
+  recentSessions: Array<{
+    score: number
+    completedAt: number | undefined
+    questionCount: number
+  }>
+}
+
 interface NextActionsPanelProps {
   completedExamsCount: number
   averageScore: number
   availableExams: Exam[]
-  learningBankCount: number
+  trainingStats?: TrainingStats
 }
 
 interface ActionItem {
@@ -70,7 +81,7 @@ const getActions = ({
   completedExamsCount,
   averageScore,
   availableExams,
-  learningBankCount,
+  trainingStats,
 }: NextActionsPanelProps): ActionItem[] => {
   const actions: ActionItem[] = []
 
@@ -82,7 +93,7 @@ const getActions = ({
       description:
         "Évaluez vos connaissances avec un examen blanc complet",
       icon: Play,
-      href: "/dashboard/mock-exam",
+      href: "/dashboard/examen-blanc",
       priority: "high",
       color: "blue",
     })
@@ -95,46 +106,71 @@ const getActions = ({
       title: `${availableExams.length} examen${availableExams.length > 1 ? "s" : ""} disponible${availableExams.length > 1 ? "s" : ""}`,
       description: "Continuez votre préparation avec un nouvel examen",
       icon: Target,
-      href: "/dashboard/mock-exam",
+      href: "/dashboard/examen-blanc",
       priority: "high",
       color: "blue",
     })
   }
 
-  // Priority 3: Review if score is low
+  // Priority 3: Review if score is low - suggest training
   if (completedExamsCount > 0 && averageScore < 60) {
     actions.push({
       id: "review",
       title: "Révisez les domaines faibles",
-      description: "Améliorez votre score en ciblant vos lacunes",
+      description: "Améliorez votre score avec des sessions d'entraînement",
       icon: TrendingUp,
-      href: "/dashboard/learning",
+      href: "/dashboard/entrainement",
       priority: "high",
       color: "amber",
     })
   }
 
-  // Priority 4: Learning bank practice
-  if (learningBankCount > 0) {
-    actions.push({
-      id: "learning",
-      title: "Continuez l'entraînement",
-      description: `${learningBankCount} questions disponibles dans la banque`,
-      icon: BookOpen,
-      href: "/dashboard/learning",
-      priority: completedExamsCount === 0 ? "medium" : "medium",
-      color: "emerald",
-    })
+  // Priority 4: Training practice based on training stats
+  if (trainingStats) {
+    if (trainingStats.totalSessions === 0) {
+      // Never trained - encourage first session
+      actions.push({
+        id: "first-training",
+        title: "Commencez l'entraînement",
+        description: "Sessions de 5 à 20 questions personnalisées",
+        icon: Brain,
+        href: "/dashboard/entrainement",
+        priority: completedExamsCount === 0 ? "medium" : "high",
+        color: "emerald",
+      })
+    } else if (trainingStats.averageScore < 60) {
+      // Training score is low - encourage more practice
+      actions.push({
+        id: "improve-training",
+        title: "Continuez à pratiquer",
+        description: `Score moyen : ${trainingStats.averageScore}% — Visez 60%+`,
+        icon: Brain,
+        href: "/dashboard/entrainement",
+        priority: "high",
+        color: "emerald",
+      })
+    } else {
+      // Doing well - suggest maintaining practice
+      actions.push({
+        id: "continue-training",
+        title: "Poursuivez l'entraînement",
+        description: `${trainingStats.totalQuestions} questions pratiquées`,
+        icon: Brain,
+        href: "/dashboard/entrainement",
+        priority: "medium",
+        color: "emerald",
+      })
+    }
   }
 
-  // Priority 5: Keep going if doing well
+  // Priority 5: Keep going if doing well on exams
   if (completedExamsCount > 0 && averageScore >= 60) {
     actions.push({
       id: "keep-going",
       title: "Maintenez votre niveau",
       description: "Excellent travail ! Continuez à vous entraîner",
       icon: Sparkles,
-      href: "/dashboard/learning",
+      href: "/dashboard/entrainement",
       priority: "medium",
       color: "purple",
     })

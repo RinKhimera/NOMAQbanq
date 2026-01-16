@@ -159,7 +159,7 @@ const AssessmentPage = () => {
       // Si session complétée, rediriger
       if (examSession.status === "completed") {
         toast.error("Vous avez déjà passé cet examen")
-        router.push("/dashboard/mock-exam")
+        router.push("/dashboard/examen-blanc")
         return
       }
     }
@@ -283,7 +283,7 @@ const AssessmentPage = () => {
           ? error.message
           : "Erreur lors du démarrage de l'examen",
       )
-      router.push("/dashboard/mock-exam")
+      router.push("/dashboard/examen-blanc")
     }
   }
 
@@ -312,7 +312,7 @@ const AssessmentPage = () => {
       toast.success(
         "Temps écoulé ! Vos réponses ont été enregistrées automatiquement.",
       )
-      router.push("/dashboard/mock-exam")
+      router.push("/dashboard/examen-blanc")
     } catch (error) {
       toast.error("Erreur lors de la soumission automatique")
       console.error(error)
@@ -488,7 +488,7 @@ const AssessmentPage = () => {
       toast.success(
         "Examen terminé ! Vos réponses ont été enregistrées avec succès.",
       )
-      router.push("/dashboard/mock-exam")
+      router.push("/dashboard/examen-blanc")
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Erreur lors de la soumission",
@@ -1278,7 +1278,7 @@ const AssessmentPage = () => {
           <DialogFooter className="gap-2">
             <Button
               variant="outline"
-              onClick={() => router.push("/dashboard/mock-exam")}
+              onClick={() => router.push("/dashboard/examen-blanc")}
             >
               Annuler
             </Button>
