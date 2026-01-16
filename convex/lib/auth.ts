@@ -84,7 +84,7 @@ export const isAdmin = async (
  */
 export const getManyByIds = async (
   ctx: QueryCtx | MutationCtx,
-  table: "questions" | "users" | "exams" | "learningBankQuestions",
+  table: "questions" | "users" | "exams" | "trainingParticipations" | "trainingAnswers",
   ids: Id<typeof table>[],
 ): Promise<(Doc<typeof table> | null)[]> => {
   // Utiliser Promise.all est actuellement la meilleure approche dans Convex
