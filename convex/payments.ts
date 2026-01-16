@@ -90,7 +90,10 @@ export const hasTrainingAccess = query({
 export const getMyAccessStatus = query({
   args: {},
   handler: async (ctx) => {
-    const user = await getCurrentUserOrThrow(ctx)
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) {
+      return null
+    }
 
     const accessRecords = await ctx.db
       .query("userAccess")
