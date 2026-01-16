@@ -55,16 +55,42 @@ export default defineSchema({
     .index("by_isActive_startDate", ["isActive", "startDate"])
     .index("by_createdBy", ["createdBy"]),
 
-  learningBankQuestions: defineTable({
-    questionId: v.id("questions"),
-    addedBy: v.id("users"),
-    addedAt: v.number(),
-    isActive: v.boolean(),
+  // ============================================
+  // TRAINING (ENTRAÎNEMENT) TABLES
+  // ============================================
+
+  trainingParticipations: defineTable({
+    userId: v.id("users"),
+    questionCount: v.number(), // 5-20
+    questionIds: v.array(v.id("questions")), // Questions sélectionnées (pour historique)
+    score: v.number(), // 0-100 (calculé à la fin)
+    status: v.union(
+      v.literal("in_progress"),
+      v.literal("completed"),
+      v.literal("abandoned"),
+    ),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    expiresAt: v.number(), // startedAt + 24h
+    domain: v.optional(v.string()), // Pour filtrage futur
   })
-    .index("by_questionId", ["questionId"])
-    .index("by_isActive", ["isActive"])
-    .index("by_addedBy", ["addedBy"])
-    .index("by_addedAt", ["addedAt"]),
+    .index("by_user", ["userId"])
+    .index("by_user_status", ["userId", "status"])
+    .index("by_status", ["status"])
+    .index("by_expiresAt", ["expiresAt"]),
+
+  trainingAnswers: defineTable({
+    participationId: v.id("trainingParticipations"),
+    questionId: v.id("questions"),
+    selectedAnswer: v.string(),
+    isCorrect: v.boolean(),
+  })
+    .index("by_participation", ["participationId"])
+    .index("by_question", ["questionId"]),
+
+  // ============================================
+  // EXAM TABLES
+  // ============================================
 
   examParticipations: defineTable({
     examId: v.id("exams"),
