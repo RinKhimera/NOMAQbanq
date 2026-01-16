@@ -165,7 +165,7 @@ export function ExamLeaderboard({
                               href={
                                 isAdmin
                                   ? `/admin/exams/${examId}/results/${entry.user._id}`
-                                  : `/dashboard/mock-exam/${examId}/results`
+                                  : `/dashboard/examen-blanc/${examId}/resultats`
                               }
                               title={`Voir les résultats de ${entry.user.name}`}
                             >
@@ -212,7 +212,7 @@ export function ExamLeaderboard({
                                   href={
                                     isAdmin
                                       ? `/admin/exams/${examId}/results/${entry.user._id}`
-                                      : `/dashboard/mock-exam/${examId}/results`
+                                      : `/dashboard/examen-blanc/${examId}/resultats`
                                   }
                                   className="flex items-center gap-2"
                                 >
