@@ -1,7 +1,123 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
-import { getAdminUserOrThrow, getCurrentUserOrNull } from "./lib/auth"
+import { internalMutation, mutation, query } from "./_generated/server"
+import type { MutationCtx } from "./_generated/server"
+import { getAdminUserOrThrow } from "./lib/auth"
+
+// ============================================
+// HELPERS POUR LA GESTION DES STATS
+// ============================================
+
+const TOTAL_DOMAIN_KEY = "__total__"
+
+// Validation: empêcher l'utilisation de la clé réservée comme nom de domaine
+const validateDomain = (domain: string) => {
+  if (domain === TOTAL_DOMAIN_KEY) {
+    throw new Error(`Le domaine "${TOTAL_DOMAIN_KEY}" est réservé`)
+  }
+}
+
+// Helper: Incrémenter le compteur d'un domaine (et le total)
+const incrementDomainCount = async (ctx: MutationCtx, domain: string) => {
+  validateDomain(domain)
+  // Mettre à jour le compteur du domaine
+  const domainStat = await ctx.db
+    .query("questionStats")
+    .withIndex("by_domain", (q) => q.eq("domain", domain))
+    .unique()
+
+  if (domainStat) {
+    await ctx.db.patch(domainStat._id, { count: domainStat.count + 1 })
+  } else {
+    await ctx.db.insert("questionStats", { domain, count: 1 })
+  }
+
+  // Mettre à jour le total
+  const totalStat = await ctx.db
+    .query("questionStats")
+    .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
+    .unique()
+
+  if (totalStat) {
+    await ctx.db.patch(totalStat._id, { count: totalStat.count + 1 })
+  } else {
+    await ctx.db.insert("questionStats", { domain: TOTAL_DOMAIN_KEY, count: 1 })
+  }
+}
+
+// Helper: Décrémenter le compteur d'un domaine (et le total)
+const decrementDomainCount = async (ctx: MutationCtx, domain: string) => {
+  validateDomain(domain)
+
+  // Mettre à jour le compteur du domaine
+  const domainStat = await ctx.db
+    .query("questionStats")
+    .withIndex("by_domain", (q) => q.eq("domain", domain))
+    .unique()
+
+  if (domainStat) {
+    if (domainStat.count <= 1) {
+      await ctx.db.delete(domainStat._id)
+    } else {
+      await ctx.db.patch(domainStat._id, { count: domainStat.count - 1 })
+    }
+  } else {
+    // Stats désynchronisées - le domaine devrait exister
+    console.warn(`[questionStats] Domaine "${domain}" introuvable lors du décrement`)
+  }
+
+  // Mettre à jour le total
+  const totalStat = await ctx.db
+    .query("questionStats")
+    .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
+    .unique()
+
+  if (totalStat && totalStat.count > 0) {
+    await ctx.db.patch(totalStat._id, { count: totalStat.count - 1 })
+  }
+}
+
+// Helper: Transférer le compteur d'un domaine à un autre (total inchangé)
+const transferDomainCount = async (
+  ctx: MutationCtx,
+  oldDomain: string,
+  newDomain: string,
+) => {
+  validateDomain(oldDomain)
+  validateDomain(newDomain)
+
+  // Décrémenter l'ancien domaine
+  const oldDomainStat = await ctx.db
+    .query("questionStats")
+    .withIndex("by_domain", (q) => q.eq("domain", oldDomain))
+    .unique()
+
+  if (oldDomainStat) {
+    if (oldDomainStat.count <= 1) {
+      await ctx.db.delete(oldDomainStat._id)
+    } else {
+      await ctx.db.patch(oldDomainStat._id, { count: oldDomainStat.count - 1 })
+    }
+  } else {
+    console.warn(`[questionStats] Ancien domaine "${oldDomain}" introuvable lors du transfert`)
+  }
+
+  // Incrémenter le nouveau domaine
+  const newDomainStat = await ctx.db
+    .query("questionStats")
+    .withIndex("by_domain", (q) => q.eq("domain", newDomain))
+    .unique()
+
+  if (newDomainStat) {
+    await ctx.db.patch(newDomainStat._id, { count: newDomainStat.count + 1 })
+  } else {
+    await ctx.db.insert("questionStats", { domain: newDomain, count: 1 })
+  }
+}
+
+// ============================================
+// MUTATIONS CRUD QUESTIONS
+// ============================================
 
 // Créer une nouvelle question (admin seulement)
 export const createQuestion = mutation({
@@ -16,7 +132,6 @@ export const createQuestion = mutation({
     domain: v.string(),
   },
   handler: async (ctx, args) => {
-    // Vérifier que l'utilisateur est admin
     await getAdminUserOrThrow(ctx)
 
     const questionId = await ctx.db.insert("questions", {
@@ -29,6 +144,10 @@ export const createQuestion = mutation({
       objectifCMC: args.objectifCMC,
       domain: args.domain,
     })
+
+    // Mettre à jour les stats d'agrégation
+    await incrementDomainCount(ctx, args.domain)
+
     return questionId
   },
 })
@@ -41,29 +160,21 @@ export const getAllQuestions = query({
   },
 })
 
-// Récupérer les statistiques des questions pour le dashboard admin (optimisé)
+// Récupérer les statistiques des questions pour le dashboard admin (optimisé via table d'agrégation)
 export const getQuestionStats = query({
   args: {},
   handler: async (ctx) => {
-    const allQuestions = await ctx.db.query("questions").collect()
+    // Lire depuis la table d'agrégation (beaucoup plus efficace que full scan)
+    const allStats = await ctx.db.query("questionStats").collect()
 
-    const domainCountsMap = allQuestions.reduce(
-      (acc, question) => {
-        acc[question.domain] = (acc[question.domain] || 0) + 1
-        return acc
-      },
-      {} as Record<string, number>,
-    )
-
-    const domainStats = Object.entries(domainCountsMap).map(
-      ([domain, count]) => ({
-        domain,
-        count,
-      }),
-    )
+    // Séparer le total des stats par domaine
+    const totalStat = allStats.find((s) => s.domain === TOTAL_DOMAIN_KEY)
+    const domainStats = allStats
+      .filter((s) => s.domain !== TOTAL_DOMAIN_KEY)
+      .map((s) => ({ domain: s.domain, count: s.count }))
 
     return {
-      totalCount: allQuestions.length,
+      totalCount: totalStat?.count ?? 0,
       domainStats,
     }
   },
@@ -73,10 +184,18 @@ export const getQuestionStats = query({
 export const deleteQuestion = mutation({
   args: { id: v.id("questions") },
   handler: async (ctx, args) => {
-    // Vérifier que l'utilisateur est admin
     await getAdminUserOrThrow(ctx)
 
+    // Récupérer la question pour connaître son domaine
+    const question = await ctx.db.get(args.id)
+    if (!question) {
+      throw new Error("Question non trouvée")
+    }
+
     await ctx.db.delete(args.id)
+
+    // Mettre à jour les stats d'agrégation
+    await decrementDomainCount(ctx, question.domain)
   },
 })
 
@@ -94,216 +213,30 @@ export const updateQuestion = mutation({
     domain: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    // Vérifier que l'utilisateur est admin
     await getAdminUserOrThrow(ctx)
 
     const { id, ...updateData } = args
+
+    // Récupérer la question existante pour vérifier le changement de domaine
+    const existingQuestion = await ctx.db.get(id)
+    if (!existingQuestion) {
+      throw new Error("Question non trouvée")
+    }
+
     // Filtrer les valeurs undefined
     const filteredData = Object.fromEntries(
       Object.entries(updateData).filter(([, value]) => value !== undefined),
     )
+
     await ctx.db.patch(id, filteredData)
-  },
-})
 
-// Fonctions pour la banque d'apprentissage (optimisé)
-export const getLearningBankQuestions = query({
-  args: {},
-  handler: async (ctx) => {
-    // Vérifier l'accès payant à l'entraînement
-    const user = await getCurrentUserOrNull(ctx)
-    if (!user) return []
-
-    if (user.role !== "admin") {
-      const trainingAccess = await ctx.db
-        .query("userAccess")
-        .withIndex("by_userId_accessType", (q) =>
-          q.eq("userId", user._id).eq("accessType", "training"),
-        )
-        .unique()
-
-      if (!trainingAccess || trainingAccess.expiresAt < Date.now()) {
-        return []
-      }
-    }
-
-    const learningBankEntries = await ctx.db
-      .query("learningBankQuestions")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
-
-    // Retourner seulement les données essentielles
-    const questionsWithDetails = await Promise.all(
-      learningBankEntries.map(async (entry) => {
-        const question = await ctx.db.get(entry.questionId)
-        if (!question) return null
-
-        // Ne charger que le domaine de la question (pas tous les détails)
-        return {
-          _id: entry._id,
-          _creationTime: entry._creationTime,
-          questionId: entry.questionId,
-          addedBy: entry.addedBy,
-          isActive: entry.isActive,
-          question: {
-            _id: question._id,
-            domain: question.domain,
-            question: question.question,
-            options: question.options,
-            correctAnswer: question.correctAnswer,
-            explanation: question.explanation,
-            objectifCMC: question.objectifCMC,
-            imageSrc: question.imageSrc,
-            references: question.references,
-          },
-        }
-      }),
-    )
-
-    return questionsWithDetails.filter((q) => q !== null)
-  },
-})
-
-export const addQuestionToLearningBank = mutation({
-  args: {
-    questionId: v.id("questions"),
-  },
-  handler: async (ctx, args) => {
-    const user = await getAdminUserOrThrow(ctx)
-
-    // Vérifier si la question existe déjà dans la banque d'apprentissage
-    const existingEntry = await ctx.db
-      .query("learningBankQuestions")
-      .withIndex("by_questionId", (q) => q.eq("questionId", args.questionId))
-      .first()
-
-    if (existingEntry) {
-      // Si elle existe mais est inactive, la réactiver
-      if (!existingEntry.isActive) {
-        await ctx.db.patch(existingEntry._id, {
-          isActive: true,
-          addedBy: user._id,
-          addedAt: Date.now(),
-        })
-      }
-      return existingEntry._id
-    }
-
-    // Ajouter la nouvelle question
-    const learningBankQuestionId = await ctx.db.insert(
-      "learningBankQuestions",
-      {
-        questionId: args.questionId,
-        addedBy: user._id,
-        addedAt: Date.now(),
-        isActive: true,
-      },
-    )
-
-    return learningBankQuestionId
-  },
-})
-
-export const removeQuestionFromLearningBank = mutation({
-  args: {
-    questionId: v.id("questions"),
-  },
-  handler: async (ctx, args) => {
-    await getAdminUserOrThrow(ctx)
-
-    const entry = await ctx.db
-      .query("learningBankQuestions")
-      .withIndex("by_questionId", (q) => q.eq("questionId", args.questionId))
-      .first()
-
-    if (entry) {
-      await ctx.db.patch(entry._id, { isActive: false })
+    // Si le domaine a changé, mettre à jour les stats
+    if (args.domain !== undefined && args.domain !== existingQuestion.domain) {
+      await transferDomainCount(ctx, existingQuestion.domain, args.domain)
     }
   },
 })
 
-export const getQuestionsNotInLearningBank = query({
-  args: {},
-  handler: async (ctx) => {
-    // Récupérer toutes les questions
-    const allQuestions = await ctx.db.query("questions").collect()
-
-    // Récupérer toutes les questions actives dans la banque d'apprentissage
-    const learningBankEntries = await ctx.db
-      .query("learningBankQuestions")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
-
-    const learningBankQuestionIds = new Set(
-      learningBankEntries.map((entry) => entry.questionId),
-    )
-
-    // Filtrer les questions qui ne sont pas dans la banque d'apprentissage
-    return allQuestions.filter(
-      (question) => !learningBankQuestionIds.has(question._id),
-    )
-  },
-})
-
-// Fonction pour récupérer des questions aléatoires de la banque d'apprentissage
-export const getRandomLearningBankQuestions = query({
-  args: {
-    count: v.number(),
-    domain: v.optional(v.string()),
-  },
-  handler: async (ctx, { count, domain }) => {
-    // Vérifier l'accès payant à l'entraînement
-    const user = await getCurrentUserOrNull(ctx)
-    if (!user) return []
-
-    if (user.role !== "admin") {
-      const trainingAccess = await ctx.db
-        .query("userAccess")
-        .withIndex("by_userId_accessType", (q) =>
-          q.eq("userId", user._id).eq("accessType", "training"),
-        )
-        .unique()
-
-      if (!trainingAccess || trainingAccess.expiresAt < Date.now()) {
-        return []
-      }
-    }
-
-    // Use index for active questions (more efficient than .filter())
-    const learningBankItems = await ctx.db
-      .query("learningBankQuestions")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
-
-    // Joindre avec les questions pour avoir les détails
-    const questionsWithDetails = await Promise.all(
-      learningBankItems.map(async (item) => {
-        const question = await ctx.db.get(item.questionId)
-        return question
-      }),
-    )
-
-    // Filtrer les questions valides
-    let validQuestions = questionsWithDetails.filter(
-      (q): q is NonNullable<typeof q> => q !== null,
-    )
-
-    // Filtrer par domaine si spécifié
-    if (domain) {
-      validQuestions = validQuestions.filter((q) => q.domain === domain)
-    }
-
-    // Mélanger les questions (algorithme de Fisher-Yates)
-    const shuffled = [...validQuestions]
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1))
-      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-    }
-
-    // Retourner le nombre demandé de questions
-    return shuffled.slice(0, Math.min(count, shuffled.length))
-  },
-})
 
 // Pagination + Filtres pour l'admin (CURSOR-BASED)
 // Note: Cursor-based pagination is optimal for index-based queries.
@@ -378,138 +311,6 @@ export const getQuestionsWithPagination = query({
   },
 })
 
-// Pagination pour la banque d'apprentissage
-export const getLearningBankQuestionsWithPagination = query({
-  args: {
-    paginationOpts: paginationOptsValidator,
-    domain: v.optional(v.string()),
-    searchQuery: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { paginationOpts, domain, searchQuery } = args
-
-    // Vérifier l'accès payant à l'entraînement
-    const user = await getCurrentUserOrNull(ctx)
-    if (!user) {
-      return { page: [], continueCursor: "", isDone: true }
-    }
-
-    if (user.role !== "admin") {
-      const trainingAccess = await ctx.db
-        .query("userAccess")
-        .withIndex("by_userId_accessType", (q) =>
-          q.eq("userId", user._id).eq("accessType", "training"),
-        )
-        .unique()
-
-      if (!trainingAccess || trainingAccess.expiresAt < Date.now()) {
-        return { page: [], continueCursor: "", isDone: true }
-      }
-    }
-
-    // Récupérer les entrées actives de la banque d'apprentissage avec cursor pagination
-    const learningBankResult = await ctx.db
-      .query("learningBankQuestions")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .paginate(paginationOpts)
-
-    // Récupérer les détails des questions pour cette page
-    const questionsWithDetails = await Promise.all(
-      learningBankResult.page.map(async (entry) => {
-        const question = await ctx.db.get(entry.questionId)
-        const addedByUser = await ctx.db.get(entry.addedBy)
-        return {
-          ...entry,
-          question,
-          addedByUser,
-        }
-      }),
-    )
-
-    // Filtrer les questions nulles
-    let filteredItems = questionsWithDetails.filter(
-      (item) => item.question !== null,
-    )
-
-    // Filtrer par domaine si nécessaire
-    if (domain && domain !== "all") {
-      filteredItems = filteredItems.filter(
-        (item) => item.question?.domain === domain,
-      )
-    }
-
-    // Filtrer par recherche si nécessaire
-    if (searchQuery && searchQuery.trim() !== "") {
-      const lowerQuery = searchQuery.toLowerCase()
-      filteredItems = filteredItems.filter(
-        (item) =>
-          item.question?.question.toLowerCase().includes(lowerQuery) ||
-          item.question?.domain.toLowerCase().includes(lowerQuery),
-      )
-    }
-
-    return {
-      page: filteredItems,
-      continueCursor: learningBankResult.continueCursor,
-      isDone: learningBankResult.isDone,
-    }
-  },
-})
-
-// Pagination pour les questions disponibles (non dans la banque) (CURSOR-BASED)
-export const getAvailableQuestionsWithPagination = query({
-  args: {
-    paginationOpts: paginationOptsValidator,
-    domain: v.optional(v.string()),
-    searchQuery: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const { paginationOpts, domain, searchQuery } = args
-
-    const learningBankEntries = await ctx.db
-      .query("learningBankQuestions")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
-
-    const learningBankQuestionIds = new Set(
-      learningBankEntries.map((entry) => entry.questionId),
-    )
-
-    // Paginate all questions (or by domain if specified)
-    let questionsPaginated
-    if (domain && domain !== "all") {
-      questionsPaginated = await ctx.db
-        .query("questions")
-        .withIndex("by_domain", (q) => q.eq("domain", domain))
-        .paginate(paginationOpts)
-    } else {
-      questionsPaginated = await ctx.db
-        .query("questions")
-        .paginate(paginationOpts)
-    }
-
-    // Filter out questions that are in learning bank
-    let availableQuestions = questionsPaginated.page.filter(
-      (question) => !learningBankQuestionIds.has(question._id),
-    )
-
-    // Apply search filter if provided
-    if (searchQuery && searchQuery.trim() !== "") {
-      const lowerQuery = searchQuery.toLowerCase()
-      availableQuestions = availableQuestions.filter(
-        (q) =>
-          q.question.toLowerCase().includes(lowerQuery) ||
-          q.domain.toLowerCase().includes(lowerQuery),
-      )
-    }
-
-    return {
-      page: availableQuestions,
-      continueCursor: questionsPaginated.continueCursor,
-      isDone: questionsPaginated.isDone,
-    }
-  },
-})
 
 // Obtenir des questions aléatoires (optimisé pour quiz)
 export const getRandomQuestions = query({
@@ -539,5 +340,57 @@ export const getRandomQuestions = query({
 
     // Retourner le nombre demandé
     return shuffled.slice(0, Math.min(args.count, shuffled.length))
+  },
+})
+
+// ============================================
+// MIGRATION: Initialiser les stats d'agrégation
+// ============================================
+
+// Migration pour peupler la table questionStats à partir des questions existantes
+// À exécuter une seule fois après le déploiement du nouveau schéma
+// Commande: npx convex run questions:seedQuestionStats
+export const seedQuestionStats = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    // Vérifier si déjà initialisé (idempotent)
+    const existingTotal = await ctx.db
+      .query("questionStats")
+      .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
+      .unique()
+
+    if (existingTotal) {
+      console.log("Question stats already seeded")
+      return { success: true, alreadySeeded: true }
+    }
+
+    // Full table scan (coût unique de migration)
+    const allQuestions = await ctx.db.query("questions").collect()
+
+    // Construire les compteurs par domaine
+    const domainCounts = allQuestions.reduce(
+      (acc, question) => {
+        acc[question.domain] = (acc[question.domain] || 0) + 1
+        return acc
+      },
+      {} as Record<string, number>,
+    )
+
+    // Insérer les stats par domaine
+    for (const [domain, count] of Object.entries(domainCounts)) {
+      await ctx.db.insert("questionStats", { domain, count })
+    }
+
+    // Insérer le total
+    await ctx.db.insert("questionStats", {
+      domain: TOTAL_DOMAIN_KEY,
+      count: allQuestions.length,
+    })
+
+    return {
+      success: true,
+      totalCount: allQuestions.length,
+      domainsCount: Object.keys(domainCounts).length,
+    }
   },
 })

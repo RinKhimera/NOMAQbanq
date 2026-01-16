@@ -1,65 +1,10 @@
 import { convexTest } from "convex-test"
-import { beforeEach, describe, expect, it } from "vitest"
+import { describe, expect, it } from "vitest"
 import { api } from "../../convex/_generated/api"
-import { Id } from "../../convex/_generated/dataModel"
 import schema from "../../convex/schema"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
-
-// Cache pour les produits de test (réutilisés au sein d'un même test)
-const productCache = new Map<string, Id<"products">>()
-
-beforeEach(() => {
-  productCache.clear()
-})
-
-// Helper pour accorder l'accès exam ou training à un utilisateur
-const grantAccess = async (
-  t: ReturnType<typeof convexTest>,
-  userId: Id<"users">,
-  accessType: "exam" | "training",
-) => {
-  await t.run(async (ctx) => {
-    const cacheKey = accessType
-    let productId = productCache.get(cacheKey)
-
-    if (!productId) {
-      productId = await ctx.db.insert("products", {
-        code: accessType === "exam" ? "exam_access" : "training_access",
-        name: accessType === "exam" ? "Accès Examens" : "Accès Entraînement",
-        description: "Test product",
-        priceCAD: 5000,
-        durationDays: 30,
-        accessType,
-        stripeProductId: `prod_test_${accessType}`,
-        stripePriceId: `price_test_${accessType}`,
-        isActive: true,
-      })
-      productCache.set(cacheKey, productId)
-    }
-
-    const transactionId = await ctx.db.insert("transactions", {
-      userId,
-      productId,
-      type: "manual",
-      status: "completed",
-      amountPaid: 0,
-      currency: "CAD",
-      accessType,
-      durationDays: 30,
-      accessExpiresAt: Date.now() + 86400000,
-      createdAt: Date.now(),
-    })
-
-    await ctx.db.insert("userAccess", {
-      userId,
-      accessType,
-      expiresAt: Date.now() + 86400000,
-      lastTransactionId: transactionId,
-    })
-  })
-}
 
 // Helper pour créer un utilisateur admin pour les tests
 const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
@@ -355,6 +300,101 @@ describe("questions", () => {
       expect(cardioStat?.count).toBe(2)
       expect(neuroStat?.count).toBe(1)
     })
+
+    it("met à jour les stats après suppression d'une question", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      // Créer 2 questions dans le même domaine
+      const questionId1 = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E1",
+        objectifCMC: "O1",
+        domain: "Cardiologie",
+      })
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q2",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E2",
+        objectifCMC: "O2",
+        domain: "Cardiologie",
+      })
+
+      // Vérifier les stats avant suppression
+      let stats = await t.query(api.questions.getQuestionStats)
+      expect(stats.totalCount).toBe(2)
+
+      // Supprimer une question
+      await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId1 })
+
+      // Vérifier les stats après suppression
+      stats = await t.query(api.questions.getQuestionStats)
+      expect(stats.totalCount).toBe(1)
+      expect(stats.domainStats.find((s) => s.domain === "Cardiologie")?.count).toBe(1)
+    })
+
+    it("supprime le domaine des stats quand le dernier élément est supprimé", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      // Créer une seule question dans un domaine
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E1",
+        objectifCMC: "O1",
+        domain: "Pédiatrie",
+      })
+
+      // Vérifier que le domaine existe
+      let stats = await t.query(api.questions.getQuestionStats)
+      expect(stats.domainStats.find((s) => s.domain === "Pédiatrie")).toBeDefined()
+
+      // Supprimer la question
+      await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId })
+
+      // Le domaine ne devrait plus être dans les stats
+      stats = await t.query(api.questions.getQuestionStats)
+      expect(stats.totalCount).toBe(0)
+      expect(stats.domainStats.find((s) => s.domain === "Pédiatrie")).toBeUndefined()
+    })
+
+    it("met à jour les stats lors d'un changement de domaine", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      // Créer une question
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E1",
+        objectifCMC: "O1",
+        domain: "Cardiologie",
+      })
+
+      // Vérifier les stats initiales
+      let stats = await t.query(api.questions.getQuestionStats)
+      expect(stats.domainStats.find((s) => s.domain === "Cardiologie")?.count).toBe(1)
+      expect(stats.domainStats.find((s) => s.domain === "Neurologie")).toBeUndefined()
+
+      // Changer le domaine
+      await asAdmin.mutation(api.questions.updateQuestion, {
+        id: questionId,
+        domain: "Neurologie",
+      })
+
+      // Vérifier que les stats sont mises à jour
+      stats = await t.query(api.questions.getQuestionStats)
+      expect(stats.totalCount).toBe(1) // Total inchangé
+      expect(stats.domainStats.find((s) => s.domain === "Cardiologie")).toBeUndefined()
+      expect(stats.domainStats.find((s) => s.domain === "Neurologie")?.count).toBe(1)
+    })
   })
 
   describe("getQuestionsWithPagination", () => {
@@ -581,493 +621,6 @@ describe("questions", () => {
     })
   })
 
-  describe("Learning Bank", () => {
-    describe("addQuestionToLearningBank", () => {
-      it("ajoute une nouvelle question à la banque", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-        const { userId, asUser } = await createRegularUser(t)
-
-        // Accorder l'accès training à l'utilisateur
-        await grantAccess(t, userId, "training")
-
-        const questionId = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question pour banque",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Domain",
-        })
-
-        const entryId = await asAdmin.mutation(
-          api.questions.addQuestionToLearningBank,
-          { questionId },
-        )
-
-        expect(entryId).toBeDefined()
-
-        // Vérifier que la question est dans la banque (avec un utilisateur ayant accès)
-        const bankQuestions = await asUser.query(api.questions.getLearningBankQuestions)
-        expect(bankQuestions).toHaveLength(1)
-        expect(bankQuestions[0].questionId).toBe(questionId)
-      })
-
-      it("réactive une question désactivée", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-        const { userId, asUser } = await createRegularUser(t)
-
-        // Accorder l'accès training à l'utilisateur
-        await grantAccess(t, userId, "training")
-
-        const questionId = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Domain",
-        })
-
-        // Ajouter puis retirer
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId,
-        })
-        await asAdmin.mutation(api.questions.removeQuestionFromLearningBank, {
-          questionId,
-        })
-
-        // Vérifier qu'elle n'est plus active
-        let bankQuestions = await asUser.query(api.questions.getLearningBankQuestions)
-        expect(bankQuestions).toHaveLength(0)
-
-        // Réajouter - devrait réactiver
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId,
-        })
-
-        bankQuestions = await asUser.query(api.questions.getLearningBankQuestions)
-        expect(bankQuestions).toHaveLength(1)
-        expect(bankQuestions[0].isActive).toBe(true)
-      })
-
-      it("rejette si non admin", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-        const { asUser } = await createRegularUser(t)
-
-        const questionId = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Domain",
-        })
-
-        await expect(
-          asUser.mutation(api.questions.addQuestionToLearningBank, {
-            questionId,
-          }),
-        ).rejects.toThrow("Accès non autorisé")
-      })
-    })
-
-    describe("removeQuestionFromLearningBank", () => {
-      it("désactive une question de la banque", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-        const { userId, asUser } = await createRegularUser(t)
-
-        // Accorder l'accès training à l'utilisateur
-        await grantAccess(t, userId, "training")
-
-        const questionId = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Domain",
-        })
-
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId,
-        })
-
-        let bankQuestions = await asUser.query(api.questions.getLearningBankQuestions)
-        expect(bankQuestions).toHaveLength(1)
-
-        await asAdmin.mutation(api.questions.removeQuestionFromLearningBank, {
-          questionId,
-        })
-
-        bankQuestions = await asUser.query(api.questions.getLearningBankQuestions)
-        expect(bankQuestions).toHaveLength(0)
-      })
-    })
-
-    describe("getLearningBankQuestions", () => {
-      it("retourne les questions actives avec détails", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-        const { userId, asUser } = await createRegularUser(t)
-
-        // Accorder l'accès training à l'utilisateur
-        await grantAccess(t, userId, "training")
-
-        const questionId = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Ma question",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "B",
-          explanation: "Explication détaillée",
-          objectifCMC: "Objectif CMC",
-          domain: "Cardiologie",
-        })
-
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId,
-        })
-
-        const bankQuestions = await asUser.query(api.questions.getLearningBankQuestions)
-        expect(bankQuestions).toHaveLength(1)
-        expect(bankQuestions[0].question.question).toBe("Ma question")
-        expect(bankQuestions[0].question.domain).toBe("Cardiologie")
-        expect(bankQuestions[0].question.correctAnswer).toBe("B")
-      })
-
-      it("retourne une liste vide si aucune question", async () => {
-        const t = convexTest(schema, modules)
-
-        // Sans authentification, retourne une liste vide
-        const bankQuestions = await t.query(api.questions.getLearningBankQuestions)
-        expect(bankQuestions).toEqual([])
-      })
-    })
-
-    describe("getQuestionsNotInLearningBank", () => {
-      it("retourne les questions non présentes dans la banque", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-
-        const q1 = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question 1",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Domain",
-        })
-
-        const q2 = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question 2",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Domain",
-        })
-
-        // Ajouter seulement q1 à la banque
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId: q1,
-        })
-
-        const notInBank = await t.query(api.questions.getQuestionsNotInLearningBank)
-        expect(notInBank).toHaveLength(1)
-        expect(notInBank[0]._id).toBe(q2)
-      })
-    })
-
-    describe("getRandomLearningBankQuestions", () => {
-      it("retourne des questions aléatoires de la banque", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-        const { userId, asUser } = await createRegularUser(t)
-
-        // Accorder l'accès training à l'utilisateur
-        await grantAccess(t, userId, "training")
-
-        // Créer et ajouter 3 questions
-        for (let i = 1; i <= 3; i++) {
-          const questionId = await asAdmin.mutation(
-            api.questions.createQuestion,
-            {
-              question: `Question ${i}`,
-              options: ["A", "B", "C", "D"],
-              correctAnswer: "A",
-              explanation: "E",
-              objectifCMC: "O",
-              domain: "Domain",
-            },
-          )
-          await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-            questionId,
-          })
-        }
-
-        const result = await asUser.query(api.questions.getRandomLearningBankQuestions, {
-          count: 2,
-        })
-
-        expect(result).toHaveLength(2)
-      })
-
-      it("filtre par domaine", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-        const { userId, asUser } = await createRegularUser(t)
-
-        // Accorder l'accès training à l'utilisateur
-        await grantAccess(t, userId, "training")
-
-        const q1 = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question Cardio",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Cardiologie",
-        })
-
-        const q2 = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question Neuro",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Neurologie",
-        })
-
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId: q1,
-        })
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId: q2,
-        })
-
-        const result = await asUser.query(api.questions.getRandomLearningBankQuestions, {
-          count: 10,
-          domain: "Cardiologie",
-        })
-
-        expect(result).toHaveLength(1)
-        expect(result[0].domain).toBe("Cardiologie")
-      })
-
-      it("retourne une liste vide si aucune question dans la banque", async () => {
-        const t = convexTest(schema, modules)
-
-        // Sans authentification, retourne une liste vide
-        const result = await t.query(api.questions.getRandomLearningBankQuestions, {
-          count: 5,
-        })
-
-        expect(result).toEqual([])
-      })
-    })
-
-    describe("getLearningBankQuestionsWithPagination", () => {
-      it("pagine les résultats correctement", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-        const { userId, asUser } = await createRegularUser(t)
-
-        // Accorder l'accès training à l'utilisateur
-        await grantAccess(t, userId, "training")
-
-        // Créer et ajouter 5 questions
-        for (let i = 1; i <= 5; i++) {
-          const questionId = await asAdmin.mutation(
-            api.questions.createQuestion,
-            {
-              question: `Question ${i}`,
-              options: ["A", "B", "C", "D"],
-              correctAnswer: "A",
-              explanation: "E",
-              objectifCMC: "O",
-              domain: "Domain",
-            },
-          )
-          await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-            questionId,
-          })
-        }
-
-        const page1 = await asUser.query(
-          api.questions.getLearningBankQuestionsWithPagination,
-          { paginationOpts: { numItems: 2, cursor: null } },
-        )
-
-        expect(page1.page).toHaveLength(2)
-        expect(page1.isDone).toBe(false)
-      })
-
-      it("filtre par domaine", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-        const { userId, asUser } = await createRegularUser(t)
-
-        // Accorder l'accès training à l'utilisateur
-        await grantAccess(t, userId, "training")
-
-        const q1 = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Q Cardio",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Cardiologie",
-        })
-
-        const q2 = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Q Neuro",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Neurologie",
-        })
-
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId: q1,
-        })
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId: q2,
-        })
-
-        const result = await asUser.query(
-          api.questions.getLearningBankQuestionsWithPagination,
-          {
-            paginationOpts: { numItems: 10, cursor: null },
-            domain: "Cardiologie",
-          },
-        )
-
-        expect(result.page).toHaveLength(1)
-        expect(result.page[0].question?.domain).toBe("Cardiologie")
-      })
-    })
-
-    describe("getAvailableQuestionsWithPagination", () => {
-      it("pagine et exclut les questions de la banque", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-
-        // Créer 3 questions
-        const q1 = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question 1",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Domain",
-        })
-
-        const q2 = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question 2",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Domain",
-        })
-
-        const q3 = await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Question 3",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Domain",
-        })
-
-        // Ajouter q1 à la banque
-        await asAdmin.mutation(api.questions.addQuestionToLearningBank, {
-          questionId: q1,
-        })
-
-        const result = await t.query(
-          api.questions.getAvailableQuestionsWithPagination,
-          { paginationOpts: { numItems: 10, cursor: null } },
-        )
-
-        // Devrait exclure q1
-        expect(result.page).toHaveLength(2)
-        const ids = result.page.map((q) => q._id)
-        expect(ids).not.toContain(q1)
-        expect(ids).toContain(q2)
-        expect(ids).toContain(q3)
-      })
-
-      it("filtre par domaine", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-
-        await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Q Cardio",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Cardiologie",
-        })
-
-        await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Q Neuro",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Neurologie",
-        })
-
-        const result = await t.query(
-          api.questions.getAvailableQuestionsWithPagination,
-          {
-            paginationOpts: { numItems: 10, cursor: null },
-            domain: "Cardiologie",
-          },
-        )
-
-        expect(result.page).toHaveLength(1)
-        expect(result.page[0].domain).toBe("Cardiologie")
-      })
-
-      it("filtre par recherche textuelle", async () => {
-        const t = convexTest(schema, modules)
-        const { asAdmin } = await createAdminUser(t)
-
-        await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Symptômes de l'infarctus",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Cardiologie",
-        })
-
-        await asAdmin.mutation(api.questions.createQuestion, {
-          question: "Traitement de la migraine",
-          options: ["A", "B", "C", "D"],
-          correctAnswer: "A",
-          explanation: "E",
-          objectifCMC: "O",
-          domain: "Neurologie",
-        })
-
-        const result = await t.query(
-          api.questions.getAvailableQuestionsWithPagination,
-          {
-            paginationOpts: { numItems: 10, cursor: null },
-            searchQuery: "infarctus",
-          },
-        )
-
-        expect(result.page).toHaveLength(1)
-        expect(result.page[0].question).toContain("infarctus")
-      })
-    })
-  })
+  // Note: Tests Learning Bank supprimés - table learningBankQuestions remplacée par le nouveau système training
+  // Les tests pour le nouveau système training seront dans tests/convex/training.test.ts
 })

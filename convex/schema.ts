@@ -30,6 +30,12 @@ export default defineSchema({
     .index("by_domain", ["domain"])
     .index("by_objectifCMC", ["objectifCMC"]),
 
+  // Table d'agrégation pour les statistiques de questions (optimisation)
+  questionStats: defineTable({
+    domain: v.string(), // Nom du domaine ou "__total__" pour le total
+    count: v.number(),
+  }).index("by_domain", ["domain"]),
+
   exams: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
