@@ -10,6 +10,7 @@ NOMAQbanq is the first French-language platform for EACMC Part I medical exam pr
 - **Backend:** Convex (serverless functions, real-time database)
 - **Auth:** Clerk with webhook sync to Convex
 - **UI:** shadcn/ui components, Tailwind CSS v4, Radix UI
+- **Media Storage:** Bunny CDN (Storage Zone + Pull Zone)
 - **Testing:** Vitest, Testing Library, convex-test
 
 ## Key Libraries
@@ -19,6 +20,9 @@ NOMAQbanq is the first French-language platform for EACMC Part I medical exam pr
 - **Dates:** `date-fns` for date manipulation
 - **Charts:** `recharts` for data visualizations
 - **Drag & Drop:** `@dnd-kit` for sortable lists
+- **File Upload:** `react-dropzone` for drag & drop file selection
+- **Image Crop:** `react-easy-crop` for avatar cropping
+- **Lightbox:** `yet-another-react-lightbox` for image zoom/gallery
 
 ## Essential Commands
 
@@ -38,6 +42,7 @@ npm run test:ui          # Interactive test UI
 - `convex/` - Backend: queries, mutations, schema
 - `components/ui/` - shadcn/ui components
 - `components/shared/` - Shared components
+- `components/quiz/` - Quiz components (question-card, calculator, session/)
 - `schemas/` - Zod validation schemas
 - `tests/` - Test files (mirrors source structure)
 
@@ -73,7 +78,7 @@ All user-facing routes MUST use French names for consistency:
 
 ## Database (Convex)
 
-Key tables: `users`, `questions`, `questionStats`, `exams`, `examParticipations`, `examAnswers`, `learningBankQuestions`, `products`, `transactions`, `userAccess`
+Key tables: `users`, `questions`, `questionStats`, `exams`, `examParticipations`, `examAnswers`, `trainingParticipations`, `trainingAnswers`, `products`, `transactions`, `userAccess`
 
 - Schema defined in `convex/schema.ts`
 - Roles: `user` (student) and `admin`
@@ -104,6 +109,7 @@ This pattern reduces `getQuestionStats` bandwidth from O(n) documents to O(d) wh
 - Use cursor-based pagination for large datasets
 - Clerk webhooks sync user data to Convex via `convex/http.ts`
 - Error tracking via Sentry (configured in `sentry.*.config.ts`)
+- **HTTP Actions (CORS):** All custom HTTP routes in `convex/http.ts` must include CORS headers and OPTIONS preflight handlers for browser requests
 
 ## Animation & UI Patterns
 
@@ -113,12 +119,152 @@ This pattern reduces `getQuestionStats` bandwidth from O(n) documents to O(d) wh
 - **Charts (Recharts):** Use `ReferenceLine` for threshold lines, `CustomTooltip` for styled tooltips
 - **CSS utilities:** `perspective-1000`, `preserve-3d`, `font-display` classes available in globals.css
 
+## Session Components (Quiz UI)
+
+Shared components for training and exam sessions are in `components/quiz/session/`.
+
+### Available Components
+
+| Component | Description |
+|-----------|-------------|
+| `SessionHeader` | Sticky header with progress, optional timer, finish button |
+| `QuestionNavigator` | Question grid (desktop sidebar + mobile FAB) |
+| `SessionToolbar` | Floating buttons (calculator, lab values, scroll-to-top) |
+| `SessionNavigation` | Previous/Next/Flag navigation buttons |
+| `FinishDialog` | Confirmation dialog with stats before submission |
+
+### Usage
+
+```tsx
+import {
+  SessionHeader,
+  QuestionNavigator,
+  SessionToolbar,
+  SessionNavigation,
+  FinishDialog,
+} from "@/components/quiz/session"
+```
+
+### Configuration by Mode
+
+| Feature | Training (`emerald`) | Exam (`blue`) |
+|---------|---------------------|---------------|
+| Timer | ❌ `showTimer: false` | ✅ `showTimer: true` |
+| Calculator | ✅ | ✅ |
+| Lab Values | ✅ | ✅ |
+| Question Flagging | ✅ | ✅ |
+| Question Locking | ❌ | ✅ (via `isQuestionLocked`) |
+| Pause Button | ❌ | ✅ (via `examActions`) |
+
+### Example: SessionHeader
+
+```tsx
+<SessionHeader
+  config={{
+    mode: "training", // or "exam"
+    showTimer: false,
+    accentColor: "emerald", // or "blue"
+  }}
+  currentIndex={currentIndex}
+  totalQuestions={totalQuestions}
+  answeredCount={answeredCount}
+  onFinish={() => setShowFinishDialog(true)}
+  title="Entraînement"
+  icon={<Brain className="h-5 w-5 text-white" />}
+  backUrl="/dashboard/entrainement"
+  // Exam-only: examActions={{ onTakePause, canTakePause }}
+/>
+```
+
+### QuestionNavigator with Locking (Exam)
+
+```tsx
+<QuestionNavigator
+  questions={questions}
+  answers={navigatorAnswers}
+  flaggedQuestions={flaggedQuestions}
+  currentIndex={currentIndex}
+  onNavigate={goToQuestion}
+  isQuestionLocked={isQuestionLocked} // Exam: locks questions during pause
+  accentColor="blue"
+/>
+```
+
 ## Payment System
 
 - Stripe checkout flow via `convex/stripe.ts` HTTP actions
 - Access types: `exam` (mock exams) and `training` (learning bank)
 - Time-cumulative: new purchases extend existing access rather than replacing
 - Admin bypass: admins have full access without payment checks
+
+## Media Storage (Bunny CDN)
+
+Image uploads for questions and user avatars are handled via Bunny CDN.
+
+### Architecture
+
+```
+Client (FormData) → Convex HTTP Action → Bunny Storage API → Bunny CDN (Pull Zone)
+```
+
+- **Storage Zone:** Stores original files (`storage.bunnycdn.com`)
+- **Pull Zone:** Serves optimized images with automatic transformations (`cdn.nomaqbanq.ca`)
+- **API keys stay server-side:** Upload/delete only happens in Convex HTTP actions
+
+### Environment Variables (Convex Dashboard)
+
+```bash
+BUNNY_STORAGE_ZONE_NAME=your-storage-zone
+BUNNY_STORAGE_API_KEY=your-api-key
+BUNNY_CDN_HOSTNAME=cdn.nomaqbanq.ca  # Without https://
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `convex/lib/bunny.ts` | Core service: upload, delete, URL helpers |
+| `convex/http.ts` | HTTP routes: `/api/upload/avatar`, `/api/upload/question-image` |
+| `components/admin/question-image-uploader.tsx` | Multi-image upload with drag & drop reordering |
+| `components/shared/avatar-uploader.tsx` | Avatar upload with circular crop |
+| `components/shared/question-image-gallery.tsx` | Image display with lightbox zoom |
+
+### Schema Fields
+
+```typescript
+// questions table
+images: v.optional(v.array(v.object({
+  url: v.string(),           // CDN URL for display
+  storagePath: v.string(),   // Storage path for deletion
+  order: v.number(),         // Display order
+})))
+
+// users table
+avatarStoragePath: v.optional(v.string())  // For cleanup on avatar change
+```
+
+### Image Optimization (URL params)
+
+Bunny Optimizer transforms images on-the-fly via URL parameters:
+
+```typescript
+// Thumbnail: ?width=200&height=200&crop=fit&quality=80
+// Display:   ?width=800&quality=85
+// Full size: ?width=1200&quality=90
+```
+
+### Usage Example
+
+```tsx
+import { QuestionImageUploader } from "@/components/admin/question-image-uploader"
+
+<QuestionImageUploader
+  questionId={question._id}
+  images={question.images || []}
+  onImagesChange={setImages}
+  maxImages={10}
+/>
+```
 
 ## Authentication Race Conditions
 
