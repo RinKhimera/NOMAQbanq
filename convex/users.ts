@@ -178,6 +178,24 @@ export const getUserById = query({
   },
 })
 
+/**
+ * [Internal] Met à jour l'avatar d'un utilisateur
+ * Appelé par l'action HTTP d'upload d'avatar
+ */
+export const updateUserAvatar = internalMutation({
+  args: {
+    userId: v.id("users"),
+    avatarUrl: v.string(),
+    avatarStoragePath: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.patch(args.userId, {
+      image: args.avatarUrl,
+      avatarStoragePath: args.avatarStoragePath,
+    })
+  },
+})
+
 export const getUsersWithPagination = query({
   args: {
     paginationOpts: paginationOptsValidator,
