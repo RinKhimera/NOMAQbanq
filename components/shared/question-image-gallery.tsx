@@ -102,7 +102,7 @@ export const QuestionImageGallery = ({
           type="button"
           onClick={() => openLightbox(0)}
           className={cn(
-            "group relative overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-blue-500",
+            "group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-blue-500",
             sizeClasses[size],
             className,
           )}
@@ -144,7 +144,7 @@ export const QuestionImageGallery = ({
             type="button"
             onClick={() => openLightbox(index)}
             className={cn(
-              "group relative overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-blue-500",
+              "group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-blue-500",
               size === "sm" ? "h-16 w-16" : size === "md" ? "h-24 w-24" : "h-32 w-32",
             )}
           >

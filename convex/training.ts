@@ -104,6 +104,7 @@ export const getTrainingSessionById = query({
         _creationTime: q._creationTime,
         question: q.question,
         imageSrc: q.imageSrc,
+        images: q.images,
         options: q.options,
         objectifCMC: q.objectifCMC,
         domain: q.domain,
