@@ -18,10 +18,9 @@
   body {
     @apply bg-background text-foreground;
     font-family:
-      "Inter",
+      var(--font-geist-sans),
       -apple-system,
       BlinkMacSystemFont,
-      "Segoe UI",
       sans-serif;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     font-variation-settings: normal;
@@ -34,10 +33,8 @@
 /* Modern typography system */
 .font-display {
   font-family:
-    "Poppins",
-    "Inter",
-    -apple-system,
-    BlinkMacSystemFont,
+    var(--font-display),
+    var(--font-geist-sans),
     sans-serif;
 }
 

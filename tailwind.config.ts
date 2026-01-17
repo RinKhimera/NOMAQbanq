@@ -9,15 +9,6 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      fontFamily: {
-        coursera: [
-          "Source Sans Pro",
-          "Inter",
-          "-apple-system",
-          "BlinkMacSystemFont",
-          "sans-serif",
-        ],
-      },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic":

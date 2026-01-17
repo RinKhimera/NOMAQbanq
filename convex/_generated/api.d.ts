@@ -8,10 +8,12 @@
  * @module
  */
 
+import type * as crons from "../crons.js";
 import type * as examParticipations from "../examParticipations.js";
 import type * as exams from "../exams.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_bunny from "../lib/bunny.js";
 import type * as payments from "../payments.js";
 import type * as questions from "../questions.js";
 import type * as stripe from "../stripe.js";
@@ -25,10 +27,12 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  crons: typeof crons;
   examParticipations: typeof examParticipations;
   exams: typeof exams;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/bunny": typeof lib_bunny;
   payments: typeof payments;
   questions: typeof questions;
   stripe: typeof stripe;
