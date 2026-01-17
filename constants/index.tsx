@@ -5,7 +5,7 @@ import {
   IconReceipt,
   IconUsers,
 } from "@tabler/icons-react"
-import { Blocks, CircleUserRound, CreditCard, Settings, ShieldCheck, User } from "lucide-react"
+import { CreditCard, User } from "lucide-react"
 
 export const adminNavigation = {
   navMain: [
@@ -18,11 +18,6 @@ export const adminNavigation = {
       title: "Questions",
       url: "/admin/questions",
       icon: IconListDetails,
-    },
-    {
-      title: "Banque d'apprentissage",
-      url: "/admin/learning-bank",
-      icon: Blocks,
     },
     {
       title: "Examens",
@@ -45,16 +40,6 @@ export const adminNavigation = {
       title: "Profil",
       url: "/admin/profil",
       icon: User,
-    },
-    {
-      title: "Compte",
-      url: "/admin/account",
-      icon: CircleUserRound,
-    },
-    {
-      title: "Sécurité",
-      url: "/admin/account/security",
-      icon: ShieldCheck,
     },
   ],
 }
@@ -84,14 +69,9 @@ export const dashboardNavigation = {
       icon: User,
     },
     {
-      title: "Abonnement",
-      url: "/dashboard/account",
+      title: "Abonnements",
+      url: "/dashboard/abonnements",
       icon: CreditCard,
-    },
-    {
-      title: "Paramètres",
-      url: "/dashboard/settings",
-      icon: Settings,
     },
   ],
 }
