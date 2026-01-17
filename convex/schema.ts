@@ -6,7 +6,8 @@ export default defineSchema({
     name: v.string(),
     username: v.optional(v.string()),
     email: v.string(),
-    image: v.string(),
+    image: v.string(), // URL de l'avatar (Clerk ou Bunny CDN)
+    avatarStoragePath: v.optional(v.string()), // Chemin Bunny Storage (pour suppression)
     bio: v.optional(v.string()),
     tokenIdentifier: v.string(),
     externalId: v.optional(v.string()),
@@ -19,7 +20,16 @@ export default defineSchema({
 
   questions: defineTable({
     question: v.string(),
-    imageSrc: v.optional(v.string()),
+    imageSrc: v.optional(v.string()), // Legacy: URL externe (rétrocompatibilité)
+    images: v.optional(
+      v.array(
+        v.object({
+          url: v.string(), // URL CDN complète
+          storagePath: v.string(), // Chemin dans Bunny Storage (pour suppression)
+          order: v.number(), // Ordre d'affichage
+        }),
+      ),
+    ),
     options: v.array(v.string()),
     correctAnswer: v.string(),
     explanation: v.string(),

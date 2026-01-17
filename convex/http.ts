@@ -4,6 +4,14 @@ import Stripe from "stripe"
 import { Webhook } from "svix"
 import { internal } from "./_generated/api"
 import { httpAction } from "./_generated/server"
+import {
+  deleteFromBunny,
+  generateAvatarPath,
+  generateQuestionImagePath,
+  getExtensionFromMimeType,
+  uploadToBunny,
+  validateImageFile,
+} from "./lib/bunny"
 
 const http = httpRouter()
 
@@ -155,6 +163,234 @@ http.route({
     }
 
     return new Response(null, { status: 200 })
+  }),
+})
+
+// ============================================
+// BUNNY UPLOAD ROUTES
+// ============================================
+
+// CORS headers pour les routes d'upload
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+}
+
+const jsonResponseHeaders = {
+  "Content-Type": "application/json",
+  ...corsHeaders,
+}
+
+// Helper pour créer une réponse JSON avec CORS
+const jsonResponse = (data: object, status: number = 200) =>
+  new Response(JSON.stringify(data), {
+    status,
+    headers: jsonResponseHeaders,
+  })
+
+// OPTIONS preflight pour question-image
+http.route({
+  path: "/api/upload/question-image",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    })
+  }),
+})
+
+/**
+ * Upload image pour une question (admin seulement)
+ * POST /api/upload/question-image
+ * Body: FormData avec "file" et "questionId"
+ */
+http.route({
+  path: "/api/upload/question-image",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    // Vérifier l'authentification et le rôle admin
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return jsonResponse({ error: "Non authentifié" }, 401)
+    }
+
+    // Vérifier le rôle admin
+    const user = await ctx.runQuery(internal.users.getUserByTokenIdentifier, {
+      tokenIdentifier: identity.tokenIdentifier,
+    })
+    if (!user || user.role !== "admin") {
+      return jsonResponse({ error: "Accès non autorisé" }, 403)
+    }
+
+    try {
+      const formData = await request.formData()
+      const file = formData.get("file") as File | null
+      const questionId = formData.get("questionId") as string | null
+      const imageIndex = parseInt(formData.get("imageIndex") as string) || 0
+
+      if (!file) {
+        return jsonResponse({ error: "Fichier manquant" }, 400)
+      }
+
+      if (!questionId) {
+        return jsonResponse({ error: "questionId manquant" }, 400)
+      }
+
+      // Valider le fichier
+      const validationError = validateImageFile(file.type, file.size)
+      if (validationError) {
+        return jsonResponse({ error: validationError }, 400)
+      }
+
+      // Générer le chemin de stockage
+      const extension = getExtensionFromMimeType(file.type)
+      const storagePath = generateQuestionImagePath(questionId, imageIndex, extension)
+
+      // Upload vers Bunny
+      const fileBuffer = await file.arrayBuffer()
+      const result = await uploadToBunny(fileBuffer, storagePath)
+
+      if (!result.success) {
+        return jsonResponse({ error: result.error }, 500)
+      }
+
+      return jsonResponse({
+        success: true,
+        url: result.url,
+        storagePath: result.storagePath,
+      })
+    } catch (error) {
+      console.error("Question image upload error:", error)
+      return jsonResponse({ error: "Erreur lors de l'upload" }, 500)
+    }
+  }),
+})
+
+// OPTIONS preflight pour avatar
+http.route({
+  path: "/api/upload/avatar",
+  method: "OPTIONS",
+  handler: httpAction(async () => {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    })
+  }),
+})
+
+/**
+ * Upload avatar utilisateur
+ * POST /api/upload/avatar
+ * Body: FormData avec "file"
+ */
+http.route({
+  path: "/api/upload/avatar",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    // Vérifier l'authentification
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return jsonResponse({ error: "Non authentifié" }, 401)
+    }
+
+    // Récupérer l'utilisateur
+    const user = await ctx.runQuery(internal.users.getUserByTokenIdentifier, {
+      tokenIdentifier: identity.tokenIdentifier,
+    })
+    if (!user) {
+      return jsonResponse({ error: "Utilisateur non trouvé" }, 404)
+    }
+
+    try {
+      const formData = await request.formData()
+      const file = formData.get("file") as File | null
+
+      if (!file) {
+        return jsonResponse({ error: "Fichier manquant" }, 400)
+      }
+
+      // Valider le fichier
+      const validationError = validateImageFile(file.type, file.size)
+      if (validationError) {
+        return jsonResponse({ error: validationError }, 400)
+      }
+
+      // Supprimer l'ancien avatar si existant
+      if (user.avatarStoragePath) {
+        await deleteFromBunny(user.avatarStoragePath)
+      }
+
+      // Générer le chemin de stockage
+      const extension = getExtensionFromMimeType(file.type)
+      const storagePath = generateAvatarPath(user._id, extension)
+
+      // Upload vers Bunny
+      const fileBuffer = await file.arrayBuffer()
+      const result = await uploadToBunny(fileBuffer, storagePath)
+
+      if (!result.success) {
+        return jsonResponse({ error: result.error }, 500)
+      }
+
+      // Mettre à jour le profil utilisateur avec le nouvel avatar
+      await ctx.runMutation(internal.users.updateUserAvatar, {
+        userId: user._id,
+        avatarUrl: result.url,
+        avatarStoragePath: result.storagePath,
+      })
+
+      return jsonResponse({
+        success: true,
+        url: result.url,
+        storagePath: result.storagePath,
+      })
+    } catch (error) {
+      console.error("Avatar upload error:", error)
+      return jsonResponse({ error: "Erreur lors de l'upload" }, 500)
+    }
+  }),
+})
+
+/**
+ * Supprimer une image de question (admin seulement)
+ * DELETE /api/upload/question-image
+ * Body: JSON avec "storagePath"
+ */
+http.route({
+  path: "/api/upload/question-image",
+  method: "DELETE",
+  handler: httpAction(async (ctx, request) => {
+    // Vérifier l'authentification et le rôle admin
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) {
+      return jsonResponse({ error: "Non authentifié" }, 401)
+    }
+
+    const user = await ctx.runQuery(internal.users.getUserByTokenIdentifier, {
+      tokenIdentifier: identity.tokenIdentifier,
+    })
+    if (!user || user.role !== "admin") {
+      return jsonResponse({ error: "Accès non autorisé" }, 403)
+    }
+
+    try {
+      const body = await request.json()
+      const { storagePath } = body as { storagePath?: string }
+
+      if (!storagePath) {
+        return jsonResponse({ error: "storagePath manquant" }, 400)
+      }
+
+      // Supprimer de Bunny
+      const deleted = await deleteFromBunny(storagePath)
+
+      return jsonResponse({ success: deleted }, deleted ? 200 : 500)
+    } catch (error) {
+      console.error("Question image delete error:", error)
+      return jsonResponse({ error: "Erreur lors de la suppression" }, 500)
+    }
   }),
 })
 

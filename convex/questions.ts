@@ -3,6 +3,17 @@ import { v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
 import type { MutationCtx } from "./_generated/server"
 import { getAdminUserOrThrow } from "./lib/auth"
+import { deleteFromBunny } from "./lib/bunny"
+
+// ============================================
+// TYPES POUR LES IMAGES
+// ============================================
+
+const questionImageValidator = v.object({
+  url: v.string(),
+  storagePath: v.string(),
+  order: v.number(),
+})
 
 // ============================================
 // HELPERS POUR LA GESTION DES STATS
@@ -340,6 +351,137 @@ export const getRandomQuestions = query({
 
     // Retourner le nombre demandé
     return shuffled.slice(0, Math.min(args.count, shuffled.length))
+  },
+})
+
+// ============================================
+// MUTATIONS POUR LES IMAGES
+// ============================================
+
+/**
+ * Ajouter une image à une question
+ */
+export const addQuestionImage = mutation({
+  args: {
+    questionId: v.id("questions"),
+    image: questionImageValidator,
+  },
+  handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
+    const question = await ctx.db.get(args.questionId)
+    if (!question) {
+      throw new Error("Question non trouvée")
+    }
+
+    const currentImages = question.images || []
+    const newImages = [...currentImages, args.image].sort((a, b) => a.order - b.order)
+
+    await ctx.db.patch(args.questionId, { images: newImages })
+
+    return { success: true }
+  },
+})
+
+/**
+ * Supprimer une image d'une question
+ */
+export const removeQuestionImage = mutation({
+  args: {
+    questionId: v.id("questions"),
+    storagePath: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
+    const question = await ctx.db.get(args.questionId)
+    if (!question) {
+      throw new Error("Question non trouvée")
+    }
+
+    const currentImages = question.images || []
+    const imageToRemove = currentImages.find((img) => img.storagePath === args.storagePath)
+
+    if (!imageToRemove) {
+      throw new Error("Image non trouvée")
+    }
+
+    // Supprimer du storage Bunny
+    await deleteFromBunny(args.storagePath)
+
+    // Mettre à jour la question
+    const newImages = currentImages
+      .filter((img) => img.storagePath !== args.storagePath)
+      .map((img, index) => ({ ...img, order: index }))
+
+    await ctx.db.patch(args.questionId, { images: newImages })
+
+    return { success: true }
+  },
+})
+
+/**
+ * Réordonner les images d'une question
+ */
+export const reorderQuestionImages = mutation({
+  args: {
+    questionId: v.id("questions"),
+    orderedStoragePaths: v.array(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
+    const question = await ctx.db.get(args.questionId)
+    if (!question) {
+      throw new Error("Question non trouvée")
+    }
+
+    const currentImages = question.images || []
+
+    // Réordonner selon le nouvel ordre
+    const reorderedImages = args.orderedStoragePaths
+      .map((path, index) => {
+        const image = currentImages.find((img) => img.storagePath === path)
+        if (!image) return null
+        return { ...image, order: index }
+      })
+      .filter((img): img is NonNullable<typeof img> => img !== null)
+
+    await ctx.db.patch(args.questionId, { images: reorderedImages })
+
+    return { success: true }
+  },
+})
+
+/**
+ * Mettre à jour toutes les images d'une question (utilisé lors de la création/édition)
+ */
+export const setQuestionImages = mutation({
+  args: {
+    questionId: v.id("questions"),
+    images: v.array(questionImageValidator),
+  },
+  handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
+    const question = await ctx.db.get(args.questionId)
+    if (!question) {
+      throw new Error("Question non trouvée")
+    }
+
+    // Identifier les images supprimées
+    const currentImages = question.images || []
+    const newStoragePaths = new Set(args.images.map((img) => img.storagePath))
+    const imagesToDelete = currentImages.filter((img) => !newStoragePaths.has(img.storagePath))
+
+    // Supprimer les anciennes images du storage
+    await Promise.all(imagesToDelete.map((img) => deleteFromBunny(img.storagePath)))
+
+    // Mettre à jour avec les nouvelles images
+    const sortedImages = [...args.images].sort((a, b) => a.order - b.order)
+    await ctx.db.patch(args.questionId, { images: sortedImages })
+
+    return { success: true }
   },
 })
 
