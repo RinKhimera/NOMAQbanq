@@ -4,34 +4,24 @@ import { useState, useEffect, useCallback, useMemo } from "react"
 import { useConvexAuth, useQuery, useMutation } from "convex/react"
 import { useRouter, useParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
-import {
-  ChevronLeft,
-  ChevronRight,
-  Flag,
-  CheckCircle,
-  Loader2,
-  AlertTriangle,
-} from "lucide-react"
+import { Brain, Loader2, AlertTriangle } from "lucide-react"
 import { api } from "@/convex/_generated/api"
 import type { Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { QuestionCard } from "@/components/quiz/question-card"
+import { Calculator } from "@/components/quiz/calculator"
+import { LabValues } from "@/components/quiz/lab-values"
+import {
+  SessionHeader,
+  QuestionNavigator,
+  SessionToolbar,
+  SessionNavigation,
+  FinishDialog,
+} from "@/components/quiz/session"
+import { CalculatorProvider } from "@/hooks/useCalculator"
 import { toast } from "sonner"
-import { cn } from "@/lib/utils"
-import { TrainingHeader } from "./_components/training-header"
-import { QuestionNavigator } from "./_components/question-navigator"
 
-export default function TrainingSessionPage() {
+const TrainingSessionPage = () => {
   const router = useRouter()
   const params = useParams()
   const sessionId = params.sessionId as Id<"trainingParticipations">
@@ -44,6 +34,8 @@ export default function TrainingSessionPage() {
   )
   const [showFinishDialog, setShowFinishDialog] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
+  const [isLabValuesOpen, setIsLabValuesOpen] = useState(false)
 
   // Skip query until authenticated to avoid race condition on page reload
   const sessionData = useQuery(
@@ -155,6 +147,15 @@ export default function TrainingSessionPage() {
     }
   }, [completeSession, sessionId, router])
 
+  // Handle navigation or finish based on position
+  const handleNextOrFinish = useCallback(() => {
+    if (isLastQuestion) {
+      setShowFinishDialog(true)
+    } else {
+      goNext()
+    }
+  }, [isLastQuestion, goNext])
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -246,11 +247,22 @@ export default function TrainingSessionPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
       {/* Header */}
-      <TrainingHeader
+      <SessionHeader
+        config={{
+          mode: "training",
+          showTimer: false,
+          showCalculator: true,
+          showLabValues: true,
+          showFlagging: true,
+          accentColor: "emerald",
+        }}
         currentIndex={currentIndex}
         totalQuestions={totalQuestions}
         answeredCount={answeredCount}
         onFinish={() => setShowFinishDialog(true)}
+        title="Entraînement"
+        icon={<Brain className="h-5 w-5 text-white" />}
+        backUrl="/dashboard/entrainement"
       />
 
       {/* Main content */}
@@ -282,53 +294,15 @@ export default function TrainingSessionPage() {
             </AnimatePresence>
 
             {/* Navigation buttons */}
-            <div className="flex items-center justify-between gap-4">
-              <Button
-                variant="outline"
-                onClick={goPrevious}
-                disabled={isFirstQuestion}
-                className="gap-2"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="hidden sm:inline">Précédent</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                onClick={toggleFlag}
-                className={cn(
-                  "gap-2",
-                  isFlagged &&
-                    "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-                )}
-              >
-                <Flag
-                  className={cn("h-4 w-4", isFlagged && "fill-amber-500")}
-                />
-                <span className="hidden sm:inline">
-                  {isFlagged ? "Marquée" : "Marquer"}
-                </span>
-              </Button>
-
-              {isLastQuestion ? (
-                <Button
-                  onClick={() => setShowFinishDialog(true)}
-                  className="gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  <span>Terminer</span>
-                </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={goNext}
-                  className="gap-2"
-                >
-                  <span className="hidden sm:inline">Suivant</span>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
+            <SessionNavigation
+              currentIndex={currentIndex}
+              totalQuestions={totalQuestions}
+              isFlagged={isFlagged}
+              onPrevious={goPrevious}
+              onNext={handleNextOrFinish}
+              onToggleFlag={toggleFlag}
+              accentColor="emerald"
+            />
           </div>
 
           {/* Sidebar - Question navigator */}
@@ -339,13 +313,14 @@ export default function TrainingSessionPage() {
               flaggedQuestions={flaggedQuestions}
               currentIndex={currentIndex}
               onNavigate={goToQuestion}
+              accentColor="emerald"
             />
           </div>
         </div>
       </div>
 
       {/* Mobile question navigator FAB */}
-      <div className="fixed bottom-6 right-6 lg:hidden">
+      <div className="fixed bottom-6 left-6 lg:hidden">
         <QuestionNavigator
           questions={questions}
           answers={answers}
@@ -353,46 +328,52 @@ export default function TrainingSessionPage() {
           currentIndex={currentIndex}
           onNavigate={goToQuestion}
           variant="mobile"
+          accentColor="emerald"
         />
       </div>
 
+      {/* Floating toolbar (calc + lab values) */}
+      <SessionToolbar
+        showCalculator={true}
+        onOpenCalculator={() => setIsCalculatorOpen(true)}
+        showLabValues={true}
+        onOpenLabValues={() => setIsLabValuesOpen(true)}
+        showScrollTop={true}
+      />
+
+      {/* Calculator Dialog */}
+      <Calculator
+        isOpen={isCalculatorOpen}
+        onOpenChange={setIsCalculatorOpen}
+      />
+
+      {/* Lab Values Dialog */}
+      <LabValues
+        isOpen={isLabValuesOpen}
+        onOpenChange={setIsLabValuesOpen}
+      />
+
       {/* Finish confirmation dialog */}
-      <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Terminer la session ?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Vous avez répondu à {answeredCount} question
-              {answeredCount > 1 ? "s" : ""} sur {totalQuestions}.
-              {answeredCount < totalQuestions && (
-                <span className="mt-2 block text-amber-600 dark:text-amber-400">
-                  Attention : les questions non répondues seront comptées comme
-                  incorrectes.
-                </span>
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>
-              Continuer
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleFinish}
-              disabled={isSubmitting}
-              className="bg-emerald-600 hover:bg-emerald-700"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Calcul du score...
-                </>
-              ) : (
-                "Terminer"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <FinishDialog
+        isOpen={showFinishDialog}
+        onOpenChange={setShowFinishDialog}
+        answeredCount={answeredCount}
+        totalQuestions={totalQuestions}
+        flaggedCount={flaggedQuestions.size}
+        isSubmitting={isSubmitting}
+        onConfirm={handleFinish}
+        mode="training"
+      />
     </div>
   )
 }
+
+const TrainingSessionPageWrapper = () => {
+  return (
+    <CalculatorProvider>
+      <TrainingSessionPage />
+    </CalculatorProvider>
+  )
+}
+
+export default TrainingSessionPageWrapper

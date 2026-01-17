@@ -2,18 +2,11 @@
 
 import { useState, useCallback, useMemo } from "react"
 import { motion, AnimatePresence } from "motion/react"
-import { List, Flag, X } from "lucide-react"
+import { List, Flag, X, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-
-interface QuestionNavigatorProps {
-  questions: Array<{ _id: { toString(): string } }>
-  answers: Record<string, { selectedAnswer: string; isCorrect?: boolean }>
-  flaggedQuestions: Set<string>
-  currentIndex: number
-  onNavigate: (index: number) => void
-  variant?: "desktop" | "mobile"
-}
+import type { QuestionNavigatorProps } from "./types"
+import { accentColors } from "./types"
 
 export const QuestionNavigator = ({
   questions,
@@ -22,10 +15,13 @@ export const QuestionNavigator = ({
   currentIndex,
   onNavigate,
   variant = "desktop",
+  isQuestionLocked,
+  accentColor = "emerald",
 }: QuestionNavigatorProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [showFlaggedOnly, setShowFlaggedOnly] = useState(false)
 
+  const colors = accentColors[accentColor]
   const answeredCount = Object.keys(answers).length
   const flaggedCount = flaggedQuestions.size
 
@@ -38,10 +34,11 @@ export const QuestionNavigator = ({
       const isAnswered = !!answers[questionIdStr]
       const isFlagged = flaggedQuestions.has(questionIdStr)
       const isCurrent = index === currentIndex
+      const isLocked = isQuestionLocked?.(index) ?? false
 
-      return { isAnswered, isFlagged, isCurrent }
+      return { isAnswered, isFlagged, isCurrent, isLocked }
     },
-    [questions, answers, flaggedQuestions, currentIndex]
+    [questions, answers, flaggedQuestions, currentIndex, isQuestionLocked]
   )
 
   const filteredIndices = useMemo(
@@ -57,12 +54,15 @@ export const QuestionNavigator = ({
 
   const handleNavigate = useCallback(
     (index: number, closeOnMobile = false) => {
+      const state = getQuestionState(index)
+      if (state?.isLocked) return
+
       onNavigate(index)
       if (closeOnMobile && variant === "mobile") {
         setIsOpen(false)
       }
     },
-    [onNavigate, variant]
+    [onNavigate, variant, getQuestionState]
   )
 
   // Shared content between desktop and mobile
@@ -71,7 +71,7 @@ export const QuestionNavigator = ({
       {/* Stats */}
       <div className="flex items-center justify-between text-sm">
         <span className="text-gray-600 dark:text-gray-400">
-          <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+          <span className={cn("font-semibold", accentColor === "emerald" ? "text-emerald-600 dark:text-emerald-400" : "text-blue-600 dark:text-blue-400")}>
             {answeredCount}
           </span>
           /{questions.length} répondues
@@ -82,13 +82,11 @@ export const QuestionNavigator = ({
             className={cn(
               "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
               showFlaggedOnly
-                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                ? colors.flagFilter
                 : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
             )}
           >
-            <Flag
-              className={cn("h-3 w-3", showFlaggedOnly && "fill-amber-500")}
-            />
+            <Flag className={cn("h-3 w-3", showFlaggedOnly && "fill-amber-500")} />
             {flaggedCount}
           </button>
         )}
@@ -105,23 +103,29 @@ export const QuestionNavigator = ({
           const state = getQuestionState(index)
           if (!state) return null
 
-          const { isAnswered, isFlagged, isCurrent } = state
+          const { isAnswered, isFlagged, isCurrent, isLocked } = state
 
           return (
             <button
               key={index}
               onClick={() => handleNavigate(index, true)}
+              disabled={isLocked}
               className={cn(
                 "relative flex h-9 w-9 items-center justify-center rounded-lg text-xs font-medium transition-all",
-                isCurrent &&
-                  "ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-gray-900",
-                isAnswered
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                isCurrent && `ring-2 ${colors.ring} ${colors.ringOffset} dark:ring-offset-gray-900`,
+                isLocked
+                  ? "cursor-not-allowed bg-gray-200 text-gray-400 opacity-60 dark:bg-gray-700 dark:text-gray-500"
+                  : isAnswered
+                    ? colors.answered
+                    : colors.unanswered
               )}
             >
-              {index + 1}
-              {isFlagged && (
+              {isLocked ? (
+                <Lock className="h-3.5 w-3.5" />
+              ) : (
+                index + 1
+              )}
+              {isFlagged && !isLocked && (
                 <Flag className="absolute -right-0.5 -top-0.5 h-3 w-3 fill-amber-500 text-amber-500" />
               )}
             </button>
@@ -136,14 +140,12 @@ export const QuestionNavigator = ({
         </p>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-emerald-100 dark:bg-emerald-900/40" />
+            <div className={cn("h-3 w-3 rounded", accentColor === "emerald" ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-green-100 dark:bg-green-900/40")} />
             <span className="text-gray-600 dark:text-gray-400">Répondue</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="h-3 w-3 rounded bg-gray-100 dark:bg-gray-800" />
-            <span className="text-gray-600 dark:text-gray-400">
-              Non répondue
-            </span>
+            <span className="text-gray-600 dark:text-gray-400">Non répondue</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative h-3 w-3 rounded bg-gray-100 dark:bg-gray-800">
@@ -152,17 +154,24 @@ export const QuestionNavigator = ({
             <span className="text-gray-600 dark:text-gray-400">Marquée</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-gray-100 ring-2 ring-emerald-500 dark:bg-gray-800" />
+            <div className={cn("h-3 w-3 rounded bg-gray-100 ring-2 dark:bg-gray-800", colors.ring)} />
             <span className="text-gray-600 dark:text-gray-400">Actuelle</span>
           </div>
+          {isQuestionLocked && (
+            <div className="flex items-center gap-2">
+              <div className="flex h-3 w-3 items-center justify-center rounded bg-gray-200 dark:bg-gray-700">
+                <Lock className="h-2 w-2 text-gray-400" />
+              </div>
+              <span className="text-gray-600 dark:text-gray-400">Verrouillée</span>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Tips */}
       <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
         <p className="text-xs text-gray-500 dark:text-gray-400">
-          <strong>Astuce :</strong> Utilisez les flèches ← → pour naviguer, F
-          pour marquer
+          <strong>Astuce :</strong> Utilisez les flèches ← → pour naviguer, F pour marquer
         </p>
       </div>
     </div>
@@ -186,7 +195,12 @@ export const QuestionNavigator = ({
       <Button
         onClick={() => setIsOpen(!isOpen)}
         size="lg"
-        className="h-14 w-14 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 shadow-lg shadow-emerald-500/30 hover:from-emerald-700 hover:to-teal-700"
+        className={cn(
+          "h-14 w-14 rounded-full shadow-lg",
+          accentColor === "emerald"
+            ? "bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/30 hover:from-emerald-700 hover:to-teal-700"
+            : "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700"
+        )}
       >
         <List className="h-6 w-6" />
       </Button>
