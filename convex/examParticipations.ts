@@ -7,7 +7,10 @@ import { getAdminUserOrThrow, getCurrentUserOrThrow } from "./lib/auth"
 // TYPES
 // ============================================
 
-export type ParticipationStatus = "in_progress" | "completed" | "auto_submitted"
+export type ParticipationStatus =
+  | "in_progress"
+  | "completed"
+  | "auto_submitted"
 export type PausePhase = "before_pause" | "during_pause" | "after_pause"
 
 // ============================================

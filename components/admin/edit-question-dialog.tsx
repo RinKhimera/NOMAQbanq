@@ -6,6 +6,10 @@ import { Check, Minus, Plus } from "lucide-react"
 import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
+import {
+  QuestionImage,
+  QuestionImageUploader,
+} from "@/components/admin/question-image-uploader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -58,8 +62,10 @@ export default function EditQuestionDialog({
 }: EditQuestionDialogProps) {
   const [references, setReferences] = useState<string[]>([""])
   const [options, setOptions] = useState<string[]>(["", "", "", "", ""])
+  const [images, setImages] = useState<QuestionImage[]>([])
 
   const updateQuestion = useMutation(api.questions.updateQuestion)
+  const setQuestionImages = useMutation(api.questions.setQuestionImages)
 
   const form = useForm<QuestionFormValues>({
     resolver: zodResolver(questionFormSchema),
@@ -112,6 +118,8 @@ export default function EditQuestionDialog({
 
     setOptions(adaptedOptions)
     setReferences(questionReferences)
+    // Charger les images existantes
+    setImages(question.images || [])
   }
 
   const addReference = () => {
@@ -166,6 +174,7 @@ export default function EditQuestionDialog({
 
       const filteredReferences = filterValidReferences(references)
 
+      // Mettre à jour la question
       await updateQuestion({
         id: question._id as Id<"questions">,
         question: values.question,
@@ -177,6 +186,22 @@ export default function EditQuestionDialog({
         objectifCMC: values.objectifCMC,
         domain: values.domain,
       })
+
+      // Mettre à jour les images si elles ont changé
+      const originalImages = question.images || []
+      const imagesChanged =
+        images.length !== originalImages.length ||
+        images.some(
+          (img, i) =>
+            !originalImages[i] || img.storagePath !== originalImages[i].storagePath,
+        )
+
+      if (imagesChanged) {
+        await setQuestionImages({
+          questionId: question._id,
+          images,
+        })
+      }
 
       toast.success("Question modifiée avec succès !")
       onOpenChange(false)
@@ -219,13 +244,27 @@ export default function EditQuestionDialog({
               )}
             />
 
-            {/* Image (optionnelle) */}
+            {/* Images */}
+            {question && (
+              <div className="space-y-2">
+                <FormLabel>Images</FormLabel>
+                <QuestionImageUploader
+                  questionId={question._id}
+                  images={images}
+                  onImagesChange={setImages}
+                  maxImages={10}
+                  disabled={form.formState.isSubmitting}
+                />
+              </div>
+            )}
+
+            {/* URL image legacy (rétrocompatibilité) */}
             <FormField
               control={form.control}
               name="imageSrc"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>URL de l&apos;image (optionnel)</FormLabel>
+                  <FormLabel>URL externe (optionnel, legacy)</FormLabel>
                   <FormControl>
                     <Input
                       type="url"
@@ -233,6 +272,9 @@ export default function EditQuestionDialog({
                       {...field}
                     />
                   </FormControl>
+                  <FormDescription>
+                    Utilisez l&apos;upload d&apos;images ci-dessus. Ce champ est conservé pour la rétrocompatibilité.
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

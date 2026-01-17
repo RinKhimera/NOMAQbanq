@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { internalMutation, mutation, query } from "./_generated/server"
 import {
   getAdminUserOrThrow,
   getCurrentUserOrNull,
@@ -393,12 +393,21 @@ export const submitExamAnswers = mutation({
     }
 
     const maxTimeAllowed = exam.completionTime * 1000
-    const gracePeriod = args.isAutoSubmit ? 30000 : 5000
-    const maxTimeWithGrace = maxTimeAllowed + gracePeriod
 
-    if (timeElapsed > maxTimeWithGrace) {
-      throw new Error(
-        "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
+    // Pour les auto-submits (sessions abandonnées), on accepte toujours
+    // Pour les soumissions manuelles, on garde un grace period de 5 secondes
+    if (!args.isAutoSubmit) {
+      const gracePeriod = 5000
+      if (timeElapsed > maxTimeAllowed + gracePeriod) {
+        throw new Error(
+          "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
+        )
+      }
+    } else if (timeElapsed > maxTimeAllowed) {
+      // Session abandonnée - loguer mais accepter
+      const minutesLate = Math.round((timeElapsed - maxTimeAllowed) / 60000)
+      console.warn(
+        `Session abandonnée auto-soumise: ${minutesLate} min de retard pour exam ${args.examId}`,
       )
     }
 
@@ -483,10 +492,12 @@ export const submitExamAnswers = mutation({
     }
 
     // Update participation status
+    const finalStatus = args.isAutoSubmit ? "auto_submitted" : "completed"
+
     await ctx.db.patch(participation._id, {
       score: percentage,
       completedAt: now,
-      status: args.isAutoSubmit ? "auto_submitted" : "completed",
+      status: finalStatus,
     })
 
     return {
@@ -1003,9 +1014,7 @@ export const getAllExams = query({
     const exams = await ctx.db.query("exams").order("desc").collect()
 
     // Fetch all participations in one query (avoids N+1 problem)
-    const allParticipations = await ctx.db
-      .query("examParticipations")
-      .collect()
+    const allParticipations = await ctx.db.query("examParticipations").collect()
 
     // Create a count map by examId
     const participationCountMap = new Map<string, number>()
@@ -1207,9 +1216,87 @@ export const getMyScoreHistory = query({
           score: p.score,
           completedAt: p.completedAt ?? 0,
         }
-      })
+      }),
     )
 
     return results
+  },
+})
+
+// ============================================
+// CRON JOBS - Internal mutations
+// ============================================
+
+/**
+ * Ferme automatiquement les participations in_progress des examens expirés
+ * Appelé par le cron job toutes les heures
+ *
+ * Optimisation: on commence par les participations in_progress (peu nombreuses)
+ * puis on vérifie si leur examen est expiré, au lieu de scanner tous les examens expirés
+ */
+export const closeExpiredParticipations = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now()
+
+    // 1. Trouver toutes les participations in_progress (utilise l'index by_status)
+    const inProgressParticipations = await ctx.db
+      .query("examParticipations")
+      .withIndex("by_status", (q) => q.eq("status", "in_progress"))
+      .collect()
+
+    if (inProgressParticipations.length === 0) {
+      return { closedCount: 0, processedCount: 0 }
+    }
+
+    // 2. Récupérer les examens concernés en une seule requête batch
+    const examIds = [...new Set(inProgressParticipations.map((p) => p.examId))]
+    const exams = await Promise.all(examIds.map((id) => ctx.db.get(id)))
+    const examMap = new Map(
+      exams.filter(Boolean).map((exam) => [exam!._id, exam!]),
+    )
+
+    let closedCount = 0
+
+    // 3. Pour chaque participation, vérifier si l'examen est expiré
+    for (const participation of inProgressParticipations) {
+      const exam = examMap.get(participation.examId)
+      if (!exam) continue
+
+      // Vérifier si l'examen est expiré (endDate passée)
+      if (exam.endDate >= now) continue
+
+      // Calculer le score basé sur les réponses déjà enregistrées
+      const existingAnswers = await ctx.db
+        .query("examAnswers")
+        .withIndex("by_participation", (q) =>
+          q.eq("participationId", participation._id),
+        )
+        .collect()
+
+      const correctAnswers = existingAnswers.filter((a) => a.isCorrect).length
+      const totalQuestions = exam.questionIds.length
+      const score =
+        totalQuestions > 0
+          ? Math.round((correctAnswers / totalQuestions) * 100)
+          : 0
+
+      // Fermer la participation
+      await ctx.db.patch(participation._id, {
+        status: "auto_submitted",
+        score,
+        completedAt: now,
+      })
+
+      closedCount++
+    }
+
+    if (closedCount > 0) {
+      console.log(
+        `[Cron] Fermé ${closedCount} participation(s) expirée(s) sur ${inProgressParticipations.length} in_progress`,
+      )
+    }
+
+    return { closedCount, processedCount: inProgressParticipations.length }
   },
 })

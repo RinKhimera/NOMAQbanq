@@ -1,14 +1,7 @@
 "use client"
 
 import { useQuery } from "convex/react"
-import {
-  ChevronDown,
-  ChevronUp,
-  FileText,
-  Plus,
-  Settings,
-  Users,
-} from "lucide-react"
+import { ChevronDown, ChevronUp, FileText, Plus, Users } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { SectionCards } from "@/components/admin/section-cards"
@@ -124,15 +117,6 @@ const AdminDashboardPage = () => {
                 >
                   <Users className="mr-2 h-4 w-4" />
                   Gestion des utilisateurs
-                </Button>
-              </Link>
-              <Link href="/admin/account">
-                <Button
-                  className="w-full cursor-pointer justify-start"
-                  variant="btn_modern_outline"
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  Paramètres du compte
                 </Button>
               </Link>
             </div>
