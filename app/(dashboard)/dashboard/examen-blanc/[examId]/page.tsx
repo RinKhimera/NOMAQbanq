@@ -65,7 +65,7 @@ export default function MockExamDetailsPage() {
 
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <h3 className="mb-2 text-lg font-semibold">Accès non autorisé</h3>
+              <h3 className="mb-2 font-display text-lg font-semibold">Accès non autorisé</h3>
               <p className="text-muted-foreground mb-4 max-w-md text-center">
                 {!isAllowed
                   ? "Vous n'êtes pas autorisé à accéder à cet examen."
@@ -96,7 +96,7 @@ export default function MockExamDetailsPage() {
               Retour
             </Link>
           </Button>
-          <h1 className="text-lg font-semibold text-blue-600 md:text-xl">
+          <h1 className="font-display text-lg font-semibold text-blue-600 md:text-xl">
             Détails de l&apos;examen
           </h1>
         </div>

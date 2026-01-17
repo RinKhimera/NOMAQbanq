@@ -96,7 +96,7 @@ export const ScoreEvolutionChart = ({ data }: ScoreEvolutionChartProps) => {
             <TrendingUp className="h-5 w-5 text-blue-500" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">
+            <h3 className="font-display text-base font-semibold text-gray-900 dark:text-white">
               Évolution du score
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -146,7 +146,7 @@ export const ScoreEvolutionChart = ({ data }: ScoreEvolutionChartProps) => {
             <TrendingUp className="h-5 w-5 text-blue-500" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">
+            <h3 className="font-display text-base font-semibold text-gray-900 dark:text-white">
               Évolution du score
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">

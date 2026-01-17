@@ -303,7 +303,7 @@ const PaymentSuccessContent = () => {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="/dashboard/account" className="flex-1">
+              <Link href="/dashboard/abonnements" className="flex-1">
                 <Button
                   size="lg"
                   variant="outline"

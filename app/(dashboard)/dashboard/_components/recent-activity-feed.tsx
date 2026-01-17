@@ -1,18 +1,18 @@
 "use client"
 
-import { motion } from "motion/react"
-import Link from "next/link"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
-  Clock,
   CheckCircle2,
-  XCircle,
-  GraduationCap,
   ChevronRight,
+  Clock,
+  GraduationCap,
+  XCircle,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { motion } from "motion/react"
+import Link from "next/link"
 import { Id } from "@/convex/_generated/dataModel"
+import { cn } from "@/lib/utils"
 
 interface RecentExam {
   _id: Id<"exams">
@@ -36,8 +36,7 @@ export const RecentActivityFeed = ({
   isAdmin,
 }: RecentActivityFeedProps) => {
   const completedExams = recentExams.filter(
-    (exam) =>
-      exam.isCompleted && (isAdmin || now >= exam.endDate)
+    (exam) => exam.isCompleted && (isAdmin || now >= exam.endDate),
   )
 
   return (
@@ -54,7 +53,7 @@ export const RecentActivityFeed = ({
             <Clock className="h-5 w-5 text-violet-500" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900 dark:text-white">
+            <h3 className="font-display text-base font-semibold text-gray-900 dark:text-white">
               Activité récente
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -93,11 +92,11 @@ export const RecentActivityFeed = ({
                 <Link href={`/dashboard/examen-blanc/${exam._id}/resultats`}>
                   <div className="group relative flex items-center gap-4 rounded-xl border border-gray-200/50 bg-white/80 p-4 backdrop-blur-sm transition-all duration-300 hover:border-gray-300 hover:shadow-md dark:border-gray-700/50 dark:bg-gray-900/80 dark:hover:border-gray-600">
                     {/* Timeline dot */}
-                    <div className="absolute -left-[3px] top-1/2 -translate-y-1/2">
+                    <div className="absolute top-1/2 -left-[3px] -translate-y-1/2">
                       <div
                         className={cn(
                           "h-2 w-2 rounded-full",
-                          isPassing ? "bg-emerald-500" : "bg-red-500"
+                          isPassing ? "bg-emerald-500" : "bg-red-500",
                         )}
                       />
                     </div>
@@ -108,7 +107,7 @@ export const RecentActivityFeed = ({
                         "flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl",
                         isPassing
                           ? "bg-emerald-100 dark:bg-emerald-900/30"
-                          : "bg-red-100 dark:bg-red-900/30"
+                          : "bg-red-100 dark:bg-red-900/30",
                       )}
                     >
                       {isPassing ? (
@@ -122,7 +121,7 @@ export const RecentActivityFeed = ({
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <GraduationCap className="h-4 w-4 flex-shrink-0 text-gray-400" />
-                        <h4 className="truncate font-medium text-gray-900 dark:text-white">
+                        <h4 className="font-display truncate font-semibold text-gray-900 dark:text-white">
                           {exam.title}
                         </h4>
                       </div>
@@ -142,7 +141,7 @@ export const RecentActivityFeed = ({
                         "flex h-10 w-16 items-center justify-center rounded-lg font-bold",
                         isPassing
                           ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
                       )}
                     >
                       {exam.score}%
@@ -165,7 +164,7 @@ export const RecentActivityFeed = ({
               Vos résultats apparaîtront ici après chaque examen
             </p>
             <Link href="/dashboard/examen-blanc">
-              <button className="mt-4 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">
+              <button className="mt-4 cursor-pointer rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">
                 Passer un examen
               </button>
             </Link>

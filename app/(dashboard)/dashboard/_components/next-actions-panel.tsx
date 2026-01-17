@@ -195,7 +195,7 @@ export const NextActionsPanel = (props: NextActionsPanelProps) => {
           <Target className="h-5 w-5 text-indigo-500" />
         </div>
         <div>
-          <h3 className="font-semibold text-gray-900 dark:text-white">
+          <h3 className="font-display text-base font-semibold text-gray-900 dark:text-white">
             Prochaines actions
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -235,7 +235,7 @@ export const NextActionsPanel = (props: NextActionsPanelProps) => {
                     </div>
 
                     <div>
-                      <h4 className="font-medium text-gray-900 dark:text-white">
+                      <h4 className="font-display font-semibold text-gray-900 dark:text-white">
                         {action.title}
                       </h4>
                       <p className="text-sm text-gray-500 dark:text-gray-400">

@@ -47,7 +47,7 @@ export const QuickAccessGrid = () => {
       className="space-y-4"
     >
       {/* Header */}
-      <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+      <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
         Accès rapides
       </h3>
 
@@ -103,7 +103,7 @@ export const QuickAccessGrid = () => {
                 </div>
 
                 {/* Content */}
-                <h4 className="mb-2 font-semibold text-gray-900 dark:text-white">
+                <h4 className="mb-2 font-display text-lg font-semibold text-gray-900 dark:text-white">
                   {action.title}
                 </h4>
                 <p className="text-sm text-gray-500 dark:text-gray-400">

@@ -50,7 +50,7 @@ const DashboardPage = () => {
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Left Column - Vital Cards */}
         <div className="space-y-4">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
             Vitaux principaux
           </h3>
 
