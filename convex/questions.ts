@@ -134,7 +134,6 @@ const transferDomainCount = async (
 export const createQuestion = mutation({
   args: {
     question: v.string(),
-    imageSrc: v.optional(v.string()),
     options: v.array(v.string()),
     correctAnswer: v.string(),
     explanation: v.string(),
@@ -147,7 +146,6 @@ export const createQuestion = mutation({
 
     const questionId = await ctx.db.insert("questions", {
       question: args.question,
-      imageSrc: args.imageSrc,
       options: args.options,
       correctAnswer: args.correctAnswer,
       explanation: args.explanation,
@@ -163,11 +161,14 @@ export const createQuestion = mutation({
   },
 })
 
-// Récupérer toutes les questions
+// Récupérer toutes les questions (limité pour performance)
+// Note: Use getQuestionsWithPagination for large datasets
 export const getAllQuestions = query({
   args: {},
   handler: async (ctx) => {
-    return await ctx.db.query("questions").order("desc").collect()
+    // Limit to 1000 questions to prevent unbounded reads
+    // For full list, use paginated query
+    return await ctx.db.query("questions").order("desc").take(1000)
   },
 })
 
@@ -215,7 +216,6 @@ export const updateQuestion = mutation({
   args: {
     id: v.id("questions"),
     question: v.optional(v.string()),
-    imageSrc: v.optional(v.string()),
     options: v.optional(v.array(v.string())),
     correctAnswer: v.optional(v.string()),
     explanation: v.optional(v.string()),
@@ -330,6 +330,9 @@ export const getRandomQuestions = query({
     domain: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    // Limit sample size for performance: take 3x requested count or 500, whichever is larger
+    // This provides good randomness without collecting entire table
+    const sampleSize = Math.max(args.count * 3, 500)
     let questions
 
     // Use index when filtering by domain
@@ -337,9 +340,9 @@ export const getRandomQuestions = query({
       questions = await ctx.db
         .query("questions")
         .withIndex("by_domain", (q) => q.eq("domain", args.domain!))
-        .collect()
+        .take(sampleSize)
     } else {
-      questions = await ctx.db.query("questions").collect()
+      questions = await ctx.db.query("questions").take(sampleSize)
     }
 
     // Mélanger les questions (Fisher-Yates shuffle)

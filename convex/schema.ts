@@ -20,7 +20,6 @@ export default defineSchema({
 
   questions: defineTable({
     question: v.string(),
-    imageSrc: v.optional(v.string()), // Legacy: URL externe (rétrocompatibilité)
     images: v.optional(
       v.array(
         v.object({
@@ -87,7 +86,8 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_status", ["userId", "status"])
     .index("by_status", ["status"])
-    .index("by_expiresAt", ["expiresAt"]),
+    .index("by_expiresAt", ["expiresAt"])
+    .index("by_status_expiresAt", ["status", "expiresAt"]), // For cleanup crons
 
   trainingAnswers: defineTable({
     participationId: v.id("trainingParticipations"),
@@ -204,7 +204,8 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_type", ["type"])
     .index("by_userId_accessType", ["userId", "accessType"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_status_createdAt", ["status", "createdAt"]), // For dashboard queries
 
   userAccess: defineTable({
     userId: v.id("users"),
@@ -215,4 +216,15 @@ export default defineSchema({
     .index("by_userId", ["userId"])
     .index("by_userId_accessType", ["userId", "accessType"])
     .index("by_expiresAt", ["expiresAt"]),
+
+  // ============================================
+  // RATE LIMITING
+  // ============================================
+
+  uploadRateLimits: defineTable({
+    clerkId: v.string(), // User's Clerk ID (from identity.subject)
+    uploadType: v.union(v.literal("avatar"), v.literal("question-image")),
+    count: v.number(), // Number of uploads in current window
+    windowStart: v.number(), // Timestamp when window started
+  }).index("by_clerk_type", ["clerkId", "uploadType"]),
 })

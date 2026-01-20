@@ -13,6 +13,7 @@ import {
   getCurrentUserOrNull,
   getCurrentUserOrThrow,
 } from "./lib/auth"
+import { batchGetByIds } from "./lib/batchFetch"
 
 // ============================================
 // TYPE DEFINITIONS
@@ -243,17 +244,27 @@ export const getAllTransactions = query({
       .order("desc")
       .paginate(args.paginationOpts)
 
-    // Enrichir avec les détails utilisateur et produit
-    const enrichedPage = await Promise.all(
-      result.page.map(async (tx) => {
-        const [user, product, recordedByUser] = await Promise.all([
-          ctx.db.get(tx.userId),
-          ctx.db.get(tx.productId),
-          tx.recordedBy ? ctx.db.get(tx.recordedBy) : null,
-        ])
-        return { ...tx, user, product, recordedByUser }
-      }),
-    )
+    // Batch fetch all users, products, and recordedBy users (deduplicated)
+    const userIds = result.page.map((tx) => tx.userId)
+    const recordedByIds = result.page
+      .filter((tx) => tx.recordedBy)
+      .map((tx) => tx.recordedBy as Id<"users">)
+    const allUserIds = [...userIds, ...recordedByIds]
+
+    const productIds = result.page.map((tx) => tx.productId)
+
+    const [userMap, productMap] = await Promise.all([
+      batchGetByIds(ctx, "users", allUserIds),
+      batchGetByIds(ctx, "products", productIds),
+    ])
+
+    // Enrichir avec les données cachées
+    const enrichedPage = result.page.map((tx) => ({
+      ...tx,
+      user: userMap.get(tx.userId) ?? null,
+      product: productMap.get(tx.productId) ?? null,
+      recordedByUser: tx.recordedBy ? userMap.get(tx.recordedBy) ?? null : null,
+    }))
 
     // Filtrer côté client si plusieurs filtres sont combinés
     let filteredPage = enrichedPage
@@ -273,16 +284,21 @@ export const getAllTransactions = query({
 
 /**
  * [Admin] Statistiques des transactions pour le dashboard
+ *
+ * NOTE OPTIMISATION: Date.now() et .filter() JS acceptables car dashboard admin
+ * rechargé manuellement. Données limitées par .take(10000).
  */
 export const getTransactionStats = query({
   args: {},
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)
 
+    // NOTE: .take(10000) limite les lectures. Si >10k transactions,
+    // envisager table d'agrégation (pattern questionStats)
     const completedTransactions = await ctx.db
       .query("transactions")
       .withIndex("by_status", (q) => q.eq("status", "completed"))
-      .collect()
+      .take(10000)
 
     const now = Date.now()
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000
@@ -312,6 +328,105 @@ export const getTransactionStats = query({
         (tx) => tx.type === "manual",
       ).length,
     }
+  },
+})
+
+/**
+ * [Admin] Récupère les accès utilisateurs expirant dans les 7 prochains jours
+ *
+ * NOTE OPTIMISATION: Date.now() et .filter() JS acceptables car dashboard admin
+ * rechargé manuellement et données limitées par .take(500).
+ */
+export const getExpiringAccess = query({
+  args: {},
+  handler: async (ctx) => {
+    await getAdminUserOrThrow(ctx)
+
+    const now = Date.now()
+    const sevenDaysFromNow = now + 7 * 24 * 60 * 60 * 1000
+
+    // Récupérer tous les accès actifs qui expirent bientôt
+    const allAccess = await ctx.db
+      .query("userAccess")
+      .withIndex("by_expiresAt")
+      .take(500)
+
+    // Filtrer ceux qui expirent dans les 7 prochains jours
+    const expiringAccess = allAccess.filter(
+      (access) => access.expiresAt > now && access.expiresAt < sevenDaysFromNow,
+    )
+
+    // Batch fetch user details
+    const userIds = expiringAccess.map((a) => a.userId)
+    const userMap = await batchGetByIds(ctx, "users", userIds)
+
+    return expiringAccess.map((access) => {
+      const user = userMap.get(access.userId)
+      return {
+        _id: access._id,
+        userId: access.userId,
+        accessType: access.accessType,
+        expiresAt: access.expiresAt,
+        daysRemaining: Math.ceil((access.expiresAt - now) / (24 * 60 * 60 * 1000)),
+        user: user
+          ? {
+              name: user.name,
+              email: user.email,
+            }
+          : null,
+      }
+    })
+  },
+})
+
+/**
+ * [Admin] Récupère les revenus par jour pour les N derniers jours
+ *
+ * NOTE OPTIMISATION: Date.now() et .filter() JS acceptables car dashboard admin
+ * rechargé manuellement et données limitées par .take(2000).
+ */
+export const getRevenueByDay = query({
+  args: {
+    days: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
+    const days = args.days ?? 30
+    const now = Date.now()
+    const startDate = now - days * 24 * 60 * 60 * 1000
+
+    const completedTransactions = await ctx.db
+      .query("transactions")
+      .withIndex("by_status", (q) => q.eq("status", "completed"))
+      .take(2000)
+
+    // Filtrer les transactions dans la période
+    const recentTransactions = completedTransactions.filter(
+      (tx) => tx.completedAt && tx.completedAt > startDate,
+    )
+
+    // Grouper par jour
+    const byDay = new Map<string, number>()
+    for (const tx of recentTransactions) {
+      if (tx.completedAt) {
+        const day = new Date(tx.completedAt).toISOString().split("T")[0]
+        byDay.set(day, (byDay.get(day) ?? 0) + tx.amountPaid)
+      }
+    }
+
+    // Remplir les jours manquants avec 0
+    const result: { date: string; revenue: number }[] = []
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now - i * 24 * 60 * 60 * 1000)
+      const day = date.toISOString().split("T")[0]
+      result.push({
+        date: day,
+        revenue: byDay.get(day) ?? 0,
+      })
+    }
+
+    return result
   },
 })
 

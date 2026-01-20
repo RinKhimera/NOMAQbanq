@@ -54,7 +54,6 @@ export default function QuestionForm() {
     resolver: zodResolver(questionFormSchema),
     defaultValues: {
       question: "",
-      imageSrc: "",
       options: ["", "", "", "", ""],
       correctAnswer: "",
       explanation: "",
@@ -127,7 +126,6 @@ export default function QuestionForm() {
 
       await createQuestion({
         question: values.question,
-        imageSrc: values.imageSrc || undefined,
         options: filteredOptions,
         correctAnswer: values.correctAnswer,
         explanation: values.explanation,
@@ -169,25 +167,6 @@ export default function QuestionForm() {
                       <Textarea
                         placeholder="Saisissez votre question ici..."
                         className="min-h-[100px]"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Image (optionnelle) */}
-              <FormField
-                control={form.control}
-                name="imageSrc"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL de l&apos;image (optionnel)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="url"
-                        placeholder="https://exemple.com/image.jpg"
                         {...field}
                       />
                     </FormControl>

@@ -20,7 +20,9 @@ const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
   })
   return {
     userId,
-    asAdmin: t.withIdentity({ tokenIdentifier: "https://clerk.dev|clerk_admin" }),
+    asAdmin: t.withIdentity({
+      tokenIdentifier: "https://clerk.dev|clerk_admin",
+    }),
   }
 }
 
@@ -88,13 +90,12 @@ describe("questions", () => {
       )
     })
 
-    it("crée une question avec image et références", async () => {
+    it("crée une question avec références", async () => {
       const t = convexTest(schema, modules)
       const { asAdmin } = await createAdminUser(t)
 
       const questionId = await asAdmin.mutation(api.questions.createQuestion, {
         question: "Identifier cette pathologie",
-        imageSrc: "https://example.com/image.jpg",
         options: ["Option A", "Option B", "Option C", "Option D"],
         correctAnswer: "Option A",
         explanation: "Explication détaillée",
@@ -106,7 +107,6 @@ describe("questions", () => {
       expect(questionId).toBeDefined()
 
       const questions = await t.query(api.questions.getAllQuestions)
-      expect(questions[0].imageSrc).toBe("https://example.com/image.jpg")
       expect(questions[0].references).toEqual(["Ref 1", "Ref 2"])
     })
   })
@@ -334,7 +334,9 @@ describe("questions", () => {
       // Vérifier les stats après suppression
       stats = await t.query(api.questions.getQuestionStats)
       expect(stats.totalCount).toBe(1)
-      expect(stats.domainStats.find((s) => s.domain === "Cardiologie")?.count).toBe(1)
+      expect(
+        stats.domainStats.find((s) => s.domain === "Cardiologie")?.count,
+      ).toBe(1)
     })
 
     it("supprime le domaine des stats quand le dernier élément est supprimé", async () => {
@@ -353,7 +355,9 @@ describe("questions", () => {
 
       // Vérifier que le domaine existe
       let stats = await t.query(api.questions.getQuestionStats)
-      expect(stats.domainStats.find((s) => s.domain === "Pédiatrie")).toBeDefined()
+      expect(
+        stats.domainStats.find((s) => s.domain === "Pédiatrie"),
+      ).toBeDefined()
 
       // Supprimer la question
       await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId })
@@ -361,7 +365,9 @@ describe("questions", () => {
       // Le domaine ne devrait plus être dans les stats
       stats = await t.query(api.questions.getQuestionStats)
       expect(stats.totalCount).toBe(0)
-      expect(stats.domainStats.find((s) => s.domain === "Pédiatrie")).toBeUndefined()
+      expect(
+        stats.domainStats.find((s) => s.domain === "Pédiatrie"),
+      ).toBeUndefined()
     })
 
     it("met à jour les stats lors d'un changement de domaine", async () => {
@@ -380,8 +386,12 @@ describe("questions", () => {
 
       // Vérifier les stats initiales
       let stats = await t.query(api.questions.getQuestionStats)
-      expect(stats.domainStats.find((s) => s.domain === "Cardiologie")?.count).toBe(1)
-      expect(stats.domainStats.find((s) => s.domain === "Neurologie")).toBeUndefined()
+      expect(
+        stats.domainStats.find((s) => s.domain === "Cardiologie")?.count,
+      ).toBe(1)
+      expect(
+        stats.domainStats.find((s) => s.domain === "Neurologie"),
+      ).toBeUndefined()
 
       // Changer le domaine
       await asAdmin.mutation(api.questions.updateQuestion, {
@@ -392,8 +402,12 @@ describe("questions", () => {
       // Vérifier que les stats sont mises à jour
       stats = await t.query(api.questions.getQuestionStats)
       expect(stats.totalCount).toBe(1) // Total inchangé
-      expect(stats.domainStats.find((s) => s.domain === "Cardiologie")).toBeUndefined()
-      expect(stats.domainStats.find((s) => s.domain === "Neurologie")?.count).toBe(1)
+      expect(
+        stats.domainStats.find((s) => s.domain === "Cardiologie"),
+      ).toBeUndefined()
+      expect(
+        stats.domainStats.find((s) => s.domain === "Neurologie")?.count,
+      ).toBe(1)
     })
   })
 

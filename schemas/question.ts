@@ -3,7 +3,6 @@ import * as z from "zod"
 export const questionFormSchema = z
   .object({
     question: z.string().min(1, "La question est obligatoire"),
-    imageSrc: z.string().optional(),
     options: z
       .array(z.string())
       .min(4, "Au moins 4 options sont requises")

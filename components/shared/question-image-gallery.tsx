@@ -22,7 +22,6 @@ export type QuestionImage = {
 
 type QuestionImageGalleryProps = {
   images: QuestionImage[]
-  imageSrc?: string // Legacy support for single image URL
   maxDisplay?: number
   size?: "sm" | "md" | "lg"
   className?: string
@@ -55,7 +54,6 @@ const getThumbnailUrl = (url: string, size: number = 200): string => {
 
 export const QuestionImageGallery = ({
   images,
-  imageSrc,
   maxDisplay = 4,
   size = "md",
   className,
@@ -63,13 +61,7 @@ export const QuestionImageGallery = ({
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
 
-  // Combiner les images (nouveau format) avec imageSrc (legacy)
-  const allImages: QuestionImage[] = [
-    ...images,
-    ...(imageSrc && images.length === 0
-      ? [{ url: imageSrc, storagePath: "", order: 0 }]
-      : []),
-  ].sort((a, b) => a.order - b.order)
+  const allImages = [...images].sort((a, b) => a.order - b.order)
 
   if (allImages.length === 0) {
     return null
@@ -194,12 +186,10 @@ export const QuestionImageGallery = ({
 
 export const QuestionImageIndicator = ({
   images,
-  imageSrc,
 }: {
   images?: QuestionImage[]
-  imageSrc?: string
 }) => {
-  const count = (images?.length || 0) + (imageSrc && (!images || images.length === 0) ? 1 : 0)
+  const count = images?.length || 0
 
   if (count === 0) return null
 

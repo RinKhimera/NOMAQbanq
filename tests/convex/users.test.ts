@@ -187,7 +187,7 @@ describe("users", () => {
           name: "New Name",
           username: "newusername",
         }),
-      ).rejects.toThrow("Utilisateur non authentifié")
+      ).rejects.toThrow("UNAUTHENTICATED")
     })
 
     it("met à jour le profil avec succès", async () => {

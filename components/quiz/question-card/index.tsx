@@ -338,14 +338,13 @@ export const QuestionCard = ({
         </div>
       )}
 
-      {/* Image(s) - supports new multi-image array + legacy imageSrc */}
+      {/* Image(s) */}
       {showImage &&
-        (question.images?.length || question.imageSrc) &&
+        question.images?.length &&
         (isExamVariant || (isDefaultVariant && showImage)) && (
           <div className="mb-5">
             <QuestionImageGallery
-              images={question.images ?? []}
-              imageSrc={question.imageSrc}
+              images={question.images}
               size="md"
               maxDisplay={4}
             />

@@ -117,12 +117,10 @@ describe("examParticipations", () => {
     const examId = await createExam(t, admin, [questionId], user.userId)
 
     // 1. Créer une participation (Démarrer l'examen)
+    // Note: userId is no longer passed - derived from authenticated user
     const participationId = await user.asUser.mutation(
       api.examParticipations.create,
-      {
-        examId,
-        userId: user.userId,
-      },
+      { examId },
     )
 
     expect(participationId).toBeDefined()
@@ -177,10 +175,7 @@ describe("examParticipations", () => {
 
     const participationId = await user.asUser.mutation(
       api.examParticipations.create,
-      {
-        examId,
-        userId: user.userId,
-      },
+      { examId },
     )
 
     // Tentative de suppression par un utilisateur non-admin
@@ -212,10 +207,7 @@ describe("examParticipations", () => {
 
     const participationId = await user.asUser.mutation(
       api.examParticipations.create,
-      {
-        examId,
-        userId: user.userId,
-      },
+      { examId },
     )
 
     await user.asUser.mutation(api.examParticipations.saveAnswersBatch, {
@@ -247,7 +239,7 @@ describe("examParticipations", () => {
 
       const participationId = await user1.asUser.mutation(
         api.examParticipations.create,
-        { examId, userId: user1.userId },
+        { examId },
       )
 
       // User2 essayant de sauvegarder une réponse sur la participation de User1
@@ -271,7 +263,7 @@ describe("examParticipations", () => {
 
       const participationId = await user1.asUser.mutation(
         api.examParticipations.create,
-        { examId, userId: user1.userId },
+        { examId },
       )
 
       // User2 essayant de sauvegarder des réponses sur la participation de User1
@@ -283,7 +275,7 @@ describe("examParticipations", () => {
       ).rejects.toThrow("Vous ne pouvez pas modifier cette participation")
     })
 
-    it("create rejette la création de participation pour un autre utilisateur", async () => {
+    it("create rejette la création de participation pour un autre utilisateur (non-admin)", async () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user1 = await createRegularUser(t, "1")
@@ -291,15 +283,36 @@ describe("examParticipations", () => {
       const questionId = await createQuestion(t, admin)
       const examId = await createExam(t, admin, [questionId], user1.userId)
 
-      // User2 essayant de créer une participation pour User1
+      // User2 essayant de créer une participation pour User1 using forUserId
       await expect(
         user2.asUser.mutation(api.examParticipations.create, {
           examId,
-          userId: user1.userId,
+          forUserId: user1.userId,
         }),
       ).rejects.toThrow(
         "Vous ne pouvez pas créer une participation pour un autre utilisateur",
       )
+    })
+
+    it("create permet à un admin de créer une participation pour un autre utilisateur", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const questionId = await createQuestion(t, admin)
+      const examId = await createExam(t, admin, [questionId], user.userId)
+
+      // Admin crée une participation pour l'utilisateur
+      const participationId = await admin.asAdmin.mutation(
+        api.examParticipations.create,
+        {
+          examId,
+          forUserId: user.userId,
+        },
+      )
+
+      expect(participationId).toBeDefined()
+      const participation = await getParticipationByExamUser(t, examId, user.userId)
+      expect(participation?.userId).toBe(user.userId)
     })
 
     it("complete rejette la modification par un autre utilisateur", async () => {
@@ -312,7 +325,7 @@ describe("examParticipations", () => {
 
       const participationId = await user1.asUser.mutation(
         api.examParticipations.create,
-        { examId, userId: user1.userId },
+        { examId },
       )
 
       // User2 essayant de compléter la participation de User1
@@ -333,7 +346,7 @@ describe("examParticipations", () => {
 
       const participationId = await user.asUser.mutation(
         api.examParticipations.create,
-        { examId, userId: user.userId },
+        { examId },
       )
 
       // Score invalide (> 100)
@@ -363,7 +376,7 @@ describe("examParticipations", () => {
 
       const participationId = await user1.asUser.mutation(
         api.examParticipations.create,
-        { examId, userId: user1.userId },
+        { examId },
       )
 
       // User2 essayant de modifier la phase de pause de User1
@@ -384,7 +397,7 @@ describe("examParticipations", () => {
 
       const participationId = await user.asUser.mutation(
         api.examParticipations.create,
-        { examId, userId: user.userId },
+        { examId },
       )
 
       // Compléter la participation

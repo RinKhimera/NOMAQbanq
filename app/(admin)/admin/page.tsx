@@ -1,130 +1,140 @@
 "use client"
 
-import { useQuery } from "convex/react"
-import { ChevronDown, ChevronUp, FileText, Plus, Users } from "lucide-react"
-import Link from "next/link"
 import { useState } from "react"
-import { SectionCards } from "@/components/admin/section-cards"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useQuery } from "convex/react"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import { motion } from "motion/react"
+import { IconLayoutDashboard } from "@tabler/icons-react"
 import { api } from "@/convex/_generated/api"
+import {
+  AdminDashboardSkeleton,
+  AdminVitalCards,
+  RevenueChart,
+  DomainChart,
+  ActivityFeed,
+  QuickActions,
+  AlertsPanel,
+} from "@/components/admin/dashboard"
+import { ManualPaymentModal } from "@/components/shared/payments"
 
-const AdminDashboardPage = () => {
-  const [showAllDomains, setShowAllDomains] = useState(false)
-  const questionStats = useQuery(api.questions.getQuestionStats)
+export default function AdminDashboardPage() {
+  const [showManualPaymentModal, setShowManualPaymentModal] = useState(false)
+
+  // Fetch all dashboard data in parallel
   const adminStats = useQuery(api.users.getAdminStats)
-  const domainStatsArray = questionStats?.domainStats || []
+  const questionStats = useQuery(api.questions.getQuestionStats)
+  const transactionStats = useQuery(api.payments.getTransactionStats)
+  const revenueByDay = useQuery(api.payments.getRevenueByDay, {})
+  const expiringAccess = useQuery(api.payments.getExpiringAccess)
+  const recentActivity = useQuery(api.analytics.getRecentActivity)
+  const dashboardTrends = useQuery(api.analytics.getDashboardTrends)
+  const failedPaymentsCount = useQuery(api.analytics.getFailedPaymentsCount)
 
-  const domainStats = domainStatsArray.reduce(
-    (acc, item) => {
-      acc[item.domain] = item.count
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+  // Show skeleton while loading critical data
+  const isLoading =
+    adminStats === undefined ||
+    questionStats === undefined ||
+    transactionStats === undefined
 
-  const topDomains = [...domainStatsArray]
-    .sort((a, b) => b.count - a.count)
-    .slice(0, showAllDomains ? undefined : 5)
+  if (isLoading) {
+    return <AdminDashboardSkeleton />
+  }
+
+  const today = format(new Date(), "EEEE d MMMM yyyy", { locale: fr })
 
   return (
-    <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <SectionCards
-        totalQuestions={questionStats?.totalCount}
-        domainStats={domainStats}
-        adminStats={adminStats}
+    <div className="flex flex-col gap-6 py-6">
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="px-4 lg:px-6"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+            <IconLayoutDashboard className="h-6 w-6 text-slate-600 dark:text-slate-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
+              Tableau de bord
+            </h1>
+            <p className="text-muted-foreground text-sm capitalize">{today}</p>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Vital cards */}
+      <AdminVitalCards
+        revenueData={{
+          total: transactionStats.recentRevenue,
+          trend: dashboardTrends?.revenueTrend ?? 0,
+        }}
+        usersData={{
+          total: adminStats.totalUsers,
+          trend: dashboardTrends?.usersTrend ?? 0,
+        }}
+        activeExams={adminStats.activeExams}
+        expiringAccessCount={expiringAccess?.length ?? 0}
       />
 
+      {/* Charts row */}
       <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-2 lg:px-6">
-        <Card className="flex h-[360px] flex-col">
-          <CardHeader className="flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                {showAllDomains ? "Tous les domaines" : "Top 5 des domaines"}
-              </CardTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowAllDomains(!showAllDomains)}
-                className="text-xs"
-              >
-                {showAllDomains ? (
-                  <>
-                    <ChevronUp className="mr-1 h-3 w-3" />
-                    Voir moins
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="mr-1 h-3 w-3" />
-                    Voir tout
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-hidden">
-            <div className="h-full space-y-4 overflow-y-auto pr-2">
-              {topDomains.map((item, index) => (
-                <div
-                  key={item.domain}
-                  className="flex items-center justify-between px-1"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-sm font-medium text-blue-600 dark:bg-blue-900 dark:text-blue-400">
-                      {index + 1}
-                    </div>
-                    <span className="truncate text-sm font-semibold text-blue-700 dark:text-white">
-                      {item.domain}
-                    </span>
-                  </div>
-                  <div className="text-muted-foreground ml-2 flex-shrink-0 text-sm">
-                    {item.count} question{item.count > 1 ? "s" : ""}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+        >
+          <RevenueChart data={revenueByDay ?? []} />
+        </motion.div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Actions rapides</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-3">
-              <Link href="/admin/questions">
-                <Button
-                  className="w-full cursor-pointer justify-start"
-                  variant="btn_modern_outline"
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Ajouter une nouvelle question
-                </Button>
-              </Link>
-              <Link href="/admin/exams/create">
-                <Button
-                  variant="btn_modern_outline"
-                  className="w-full cursor-pointer justify-start"
-                >
-                  <FileText className="mr-2 h-4 w-4" />
-                  Ajouter un examen
-                </Button>
-              </Link>
-              <Link href="/admin/users">
-                <Button
-                  className="w-full cursor-pointer justify-start"
-                  variant="btn_modern_outline"
-                >
-                  <Users className="mr-2 h-4 w-4" />
-                  Gestion des utilisateurs
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.3 }}
+        >
+          <ActivityFeed activities={recentActivity ?? []} />
+        </motion.div>
       </div>
+
+      {/* Bottom row */}
+      <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-2 lg:px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+        >
+          <DomainChart
+            data={questionStats.domainStats}
+            totalQuestions={questionStats.totalCount}
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.5 }}
+          className="flex flex-col gap-4"
+        >
+          <QuickActions
+            onManualPaymentClick={() => setShowManualPaymentModal(true)}
+          />
+          <AlertsPanel
+            expiringAccess={expiringAccess ?? []}
+            failedPaymentsCount={failedPaymentsCount ?? 0}
+          />
+        </motion.div>
+      </div>
+
+      {/* Manual payment modal */}
+      <ManualPaymentModal
+        open={showManualPaymentModal}
+        onOpenChange={setShowManualPaymentModal}
+        onSuccess={() => {
+          // Data will auto-refresh due to Convex reactivity
+        }}
+      />
     </div>
   )
 }
-
-export default AdminDashboardPage

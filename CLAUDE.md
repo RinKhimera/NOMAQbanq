@@ -1,313 +1,143 @@
-# CLAUDE.md - NOMAQbanq
+# NOMAQbanq
 
-## Project Overview
+Plateforme francophone de préparation à l'EACMC Partie I. 5000+ QCM, examens blancs, suivi de progression.
 
-NOMAQbanq is the first French-language platform for EACMC Part I medical exam preparation. It provides 5000+ MCQs, mock exams, and progress tracking for medical students.
+## Stack
 
-## Tech Stack
+Next.js 16 (App Router) · React 19 · TypeScript · Convex · Clerk · Tailwind v4 · shadcn/ui · Bunny CDN · Vitest
 
-- **Frontend:** Next.js 16 (App Router, Turbopack), React 19, TypeScript (strict)
-- **Backend:** Convex (serverless functions, real-time database)
-- **Auth:** Clerk with webhook sync to Convex
-- **UI:** shadcn/ui components, Tailwind CSS v4, Radix UI
-- **Media Storage:** Bunny CDN (Storage Zone + Pull Zone)
-- **Testing:** Vitest, Testing Library, convex-test
-
-## Key Libraries
-
-- **Animations:** `motion` (Framer Motion v12) - use `motion/react` import
-- **Icons:** `@tabler/icons-react` (primary), `lucide-react`
-- **Dates:** `date-fns` for date manipulation
-- **Charts:** `recharts` for data visualizations
-- **Drag & Drop:** `@dnd-kit` for sortable lists
-- **File Upload:** `react-dropzone` for drag & drop file selection
-- **Image Crop:** `react-easy-crop` for avatar cropping
-- **Lightbox:** `yet-another-react-lightbox` for image zoom/gallery
-
-## Essential Commands
+## Commandes
 
 ```bash
-npm run dev              # Start dev server with Turbopack
-npm run build-check      # Type check + lint (run before commits)
-npm run test:all         # Run all tests (frontend + Convex backend)
-npm run test:coverage    # Run tests with coverage report
-npm run test:ui          # Interactive test UI
+npm run dev              # Serveur dev (Turbopack)
+npm run build-check      # tsc + eslint (avant commit)
+npm run test:all         # Tests frontend + Convex
 ```
 
-## Project Structure
-
-- `app/(dashboard)/` - Student pages (protected)
-- `app/(admin)/` - Admin pages (admin role required)
-- `app/(marketing)/` - Public landing pages
-- `convex/` - Backend: queries, mutations, schema
-- `components/ui/` - shadcn/ui components
-- `components/shared/` - Shared components
-- `components/quiz/` - Quiz components (question-card, calculator, session/)
-- `schemas/` - Zod validation schemas
-- `tests/` - Test files (mirrors source structure)
-
-### User-Facing Routes (French)
-
-All user-facing routes MUST use French names for consistency:
-
-| Route | Description |
-|-------|-------------|
-| `/dashboard` | Tableau de bord principal |
-| `/dashboard/examen-blanc` | Liste des examens blancs |
-| `/dashboard/examen-blanc/[id]` | Détails d'un examen |
-| `/dashboard/examen-blanc/[id]/evaluation` | Interface de passage d'examen |
-| `/dashboard/examen-blanc/[id]/resultats` | Résultats de l'examen |
-| `/dashboard/entrainement` | Sessions d'entraînement |
-| `/dashboard/entrainement/[id]` | Session en cours |
-| `/dashboard/entrainement/[id]/results` | Résultats de session |
-| `/dashboard/profil` | Profil utilisateur |
-
-**Note:** Admin routes (`/admin/*`) can remain in English as they are internal.
-
-## Key Conventions
-
-- **Language:** All UI text MUST be in French with proper accents (É, è, ê, à, ç, etc.)
-- **Routes:** User-facing routes MUST be in French (see route table above)
-- **Functions:** Use arrow functions exclusively
-- **Auth:** Always use `useCurrentUser` hook for user data; verify roles server-side in Convex
-- **Components:** Use existing shadcn/ui components from `components/ui/`
-- **Forms:** React Hook Form + Zod validation (schemas in `schemas/`)
-- **Loading states:** Handle loading/error states with appropriate UI feedback
-- **Typography:** Use `font-display` class for headings (Poppins font)
-- **Navigation:** Route URLs are centralized in `constants/index.tsx` - update there when adding/changing routes
-
-## Database (Convex)
-
-Key tables: `users`, `questions`, `questionStats`, `exams`, `examParticipations`, `examAnswers`, `trainingParticipations`, `trainingAnswers`, `products`, `transactions`, `userAccess`
-
-- Schema defined in `convex/schema.ts`
-- Roles: `user` (student) and `admin`
-- Normalized data model: exam participations are separate from exams
-- Payment system: Stripe integration with `userAccess` table for time-limited access
-
-### Aggregation Pattern (`questionStats`)
-
-The `questionStats` table is an **aggregation table** that maintains pre-computed counts to avoid expensive full table scans:
-
-- **Structure:** `{ domain: string, count: number }` with one row per domain + one for total (`"__total__"`)
-- **Updated atomically** by `createQuestion`, `deleteQuestion`, `updateQuestion` mutations
-- **Reserved key:** `"__total__"` is reserved - domain names cannot use this value
-- **Migration:** Run `npx convex run questions:seedQuestionStats` after initial deployment to populate stats from existing questions
-
-This pattern reduces `getQuestionStats` bandwidth from O(n) documents to O(d) where d = number of domains (~20).
-
-## Testing Requirements
-
-- Coverage thresholds: 75% (statements, branches, functions, lines)
-- Frontend tests (`tests/`) use happy-dom environment
-- Convex backend tests (`tests/convex/`) use edge-runtime environment
-- Run `npm run test:all` before pushing changes
-
-## Important Patterns
-
-- Page-specific components go in `app/**/[page]/_components/`
-- Use cursor-based pagination for large datasets
-- Clerk webhooks sync user data to Convex via `convex/http.ts`
-- Error tracking via Sentry (configured in `sentry.*.config.ts`)
-- **HTTP Actions (CORS):** All custom HTTP routes in `convex/http.ts` must include CORS headers and OPTIONS preflight handlers for browser requests
-
-## Animation & UI Patterns
-
-- **Motion library:** Always import from `motion/react`, use `useReducedMotion()` for accessibility
-- **Staggered animations:** Use `delay` prop with incremental values (0.1, 0.2, 0.3...)
-- **Glass morphism:** Combine `bg-white/80 backdrop-blur-sm` with subtle borders
-- **Charts (Recharts):** Use `ReferenceLine` for threshold lines, `CustomTooltip` for styled tooltips
-- **CSS utilities:** `perspective-1000`, `preserve-3d`, `font-display` classes available in globals.css
-
-## Session Components (Quiz UI)
-
-Shared components for training and exam sessions are in `components/quiz/session/`.
-
-### Available Components
-
-| Component | Description |
-|-----------|-------------|
-| `SessionHeader` | Sticky header with progress, optional timer, finish button |
-| `QuestionNavigator` | Question grid (desktop sidebar + mobile FAB) |
-| `SessionToolbar` | Floating buttons (calculator, lab values, scroll-to-top) |
-| `SessionNavigation` | Previous/Next/Flag navigation buttons |
-| `FinishDialog` | Confirmation dialog with stats before submission |
-
-### Usage
-
-```tsx
-import {
-  SessionHeader,
-  QuestionNavigator,
-  SessionToolbar,
-  SessionNavigation,
-  FinishDialog,
-} from "@/components/quiz/session"
-```
-
-### Configuration by Mode
-
-| Feature | Training (`emerald`) | Exam (`blue`) |
-|---------|---------------------|---------------|
-| Timer | ❌ `showTimer: false` | ✅ `showTimer: true` |
-| Calculator | ✅ | ✅ |
-| Lab Values | ✅ | ✅ |
-| Question Flagging | ✅ | ✅ |
-| Question Locking | ❌ | ✅ (via `isQuestionLocked`) |
-| Pause Button | ❌ | ✅ (via `examActions`) |
-
-### Example: SessionHeader
-
-```tsx
-<SessionHeader
-  config={{
-    mode: "training", // or "exam"
-    showTimer: false,
-    accentColor: "emerald", // or "blue"
-  }}
-  currentIndex={currentIndex}
-  totalQuestions={totalQuestions}
-  answeredCount={answeredCount}
-  onFinish={() => setShowFinishDialog(true)}
-  title="Entraînement"
-  icon={<Brain className="h-5 w-5 text-white" />}
-  backUrl="/dashboard/entrainement"
-  // Exam-only: examActions={{ onTakePause, canTakePause }}
-/>
-```
-
-### QuestionNavigator with Locking (Exam)
-
-```tsx
-<QuestionNavigator
-  questions={questions}
-  answers={navigatorAnswers}
-  flaggedQuestions={flaggedQuestions}
-  currentIndex={currentIndex}
-  onNavigate={goToQuestion}
-  isQuestionLocked={isQuestionLocked} // Exam: locks questions during pause
-  accentColor="blue"
-/>
-```
-
-## Payment System
-
-- Stripe checkout flow via `convex/stripe.ts` HTTP actions
-- Access types: `exam` (mock exams) and `training` (learning bank)
-- Time-cumulative: new purchases extend existing access rather than replacing
-- Admin bypass: admins have full access without payment checks
-
-## Media Storage (Bunny CDN)
-
-Image uploads for questions and user avatars are handled via Bunny CDN.
-
-### Architecture
+## Structure
 
 ```
-Client (FormData) → Convex HTTP Action → Bunny Storage API → Bunny CDN (Pull Zone)
+app/(dashboard)/           # Pages étudiant (protégées)
+app/(admin)/               # Pages admin
+convex/                    # Backend: queries, mutations, schema
+convex/lib/                # Helpers: auth.ts, errors.ts, batchFetch.ts, bunny.ts
+components/ui/             # shadcn/ui
+components/quiz/           # Quiz: question-card, calculator, session/
+components/admin/dashboard   # Dashboard admin: vital-cards, charts, activity-feed
+components/shared/payments   # Composants paiement: manual-payment-modal, access-badge
 ```
 
-- **Storage Zone:** Stores original files (`storage.bunnycdn.com`)
-- **Pull Zone:** Serves optimized images with automatic transformations (`cdn.nomaqbanq.ca`)
-- **API keys stay server-side:** Upload/delete only happens in Convex HTTP actions
+## Règles Critiques
 
-### Environment Variables (Convex Dashboard)
+**IMPORTANT - Langue FR** : Tout texte UI en français avec accents (É, è, ê, à, ç). Routes user en français (`/entrainement`, `/examen-blanc`).
 
-```bash
-BUNNY_STORAGE_ZONE_NAME=your-storage-zone
-BUNNY_STORAGE_API_KEY=your-api-key
-BUNNY_CDN_HOSTNAME=cdn.nomaqbanq.ca  # Without https://
-```
+**IMPORTANT - Auth côté serveur** : Toujours vérifier les rôles dans Convex via `getCurrentUserOrThrow()` ou `getAdminUserOrThrow()`. Ne jamais faire confiance au client.
 
-### Key Files
+**IMPORTANT - Skip queries auth** : Utiliser `useConvexAuth` + `"skip"` pour éviter race condition au reload. Voir pattern dans `app/(dashboard)/`.
 
-| File | Purpose |
-|------|---------|
-| `convex/lib/bunny.ts` | Core service: upload, delete, URL helpers |
-| `convex/http.ts` | HTTP routes: `/api/upload/avatar`, `/api/upload/question-image` |
-| `components/admin/question-image-uploader.tsx` | Multi-image upload with drag & drop reordering |
-| `components/shared/avatar-uploader.tsx` | Avatar upload with circular crop |
-| `components/shared/question-image-gallery.tsx` | Image display with lightbox zoom |
+**IMPORTANT - Unbounded queries** : Toujours limiter les `.collect()` avec `.take(n)` ou pagination. Max 1000 docs par query.
 
-### Schema Fields
+**IMPORTANT - N+1 queries** : Utiliser `batchGetByIds()` ou `batchGetOrderedByIds()` de `convex/lib/batchFetch.ts` au lieu de `Promise.all(ids.map(id => ctx.db.get(id)))`.
+
+## Convex Patterns
+
+### Auth helpers (`convex/lib/auth.ts`)
 
 ```typescript
-// questions table
-images: v.optional(v.array(v.object({
-  url: v.string(),           // CDN URL for display
-  storagePath: v.string(),   // Storage path for deletion
-  order: v.number(),         // Display order
-})))
-
-// users table
-avatarStoragePath: v.optional(v.string())  // For cleanup on avatar change
+getCurrentUserOrThrow(ctx)   // Throws ConvexError si non auth
+getAdminUserOrThrow(ctx)     // Throws si non admin
+getCurrentUserOrNull(ctx)    // Pour queries publiques
 ```
 
-### Image Optimization (URL params)
-
-Bunny Optimizer transforms images on-the-fly via URL parameters:
+### Errors standardisées (`convex/lib/errors.ts`)
 
 ```typescript
-// Thumbnail: ?width=200&height=200&crop=fit&quality=80
-// Display:   ?width=800&quality=85
-// Full size: ?width=1200&quality=90
+throw Errors.unauthenticated()           // Code: UNAUTHENTICATED
+throw Errors.unauthorized("Message")     // Code: UNAUTHORIZED
+throw Errors.notFound("Entité")          // Code: NOT_FOUND
+throw Errors.accessExpired("training")   // Code: ACCESS_EXPIRED
+throw Errors.invalidState("Message")     // Code: INVALID_STATE
 ```
 
-### Usage Example
+### Rate limiting uploads
 
-```tsx
-import { QuestionImageUploader } from "@/components/admin/question-image-uploader"
+Avatar uploads limités à 5/heure via `convex/rateLimit.ts`. Vérifié dans `convex/http.ts`.
 
-<QuestionImageUploader
-  questionId={question._id}
-  images={question.images || []}
-  onImagesChange={setImages}
-  maxImages={10}
-/>
+### Pause state machine (examens)
+
+Transitions valides: `undefined → before_pause → during_pause → after_pause`. Voir `validatePauseTransition()` dans `convex/exams.ts`.
+
+### Aggregation (`questionStats`)
+
+Table d'agrégation pour stats questions. Clé réservée: `"__total__"`. Mise à jour atomique dans mutations questions.
+
+### Analytics admin (`convex/analytics.ts`)
+
+```typescript
+getRecentActivity()       // 10 dernières activités (inscriptions, paiements, examens)
+getDashboardTrends()      // Tendances 30j vs 30j précédents (users, revenus, participations)
+getFailedPaymentsCount()  // Paiements échoués (7 derniers jours)
 ```
 
-## Authentication Race Conditions
-
-When using Convex queries that require authentication (using `getCurrentUserOrThrow`), a race condition can occur on page reload where the query executes before Clerk has finished loading the auth state.
-
-### Solution: Skip queries until authenticated
-
-Use `useConvexAuth` hook and pass `"skip"` to queries when not authenticated:
-
-```tsx
-import { useConvexAuth, useQuery } from "convex/react"
-
-const MyComponent = () => {
-  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
-
-  // Skip query until authenticated to avoid race condition on page reload
-  const data = useQuery(
-    api.myModule.myQuery,
-    isAuthenticated ? { arg: value } : "skip"
-  )
-
-  // Handle loading state (auth loading OR data loading)
-  if (isAuthLoading || data === undefined) {
-    return <LoadingSpinner />
-  }
-
-  // Now safe to use data
-  return <div>{data}</div>
-}
+Queries complémentaires dans `payments.ts`:
+```typescript
+getExpiringAccess()       // Accès expirant dans 7 jours
+getRevenueByDay({ days }) // Revenus quotidiens sur N jours
 ```
 
-### For `usePaginatedQuery`:
+### Admin users page (`convex/users.ts`)
 
-```tsx
-const { results, status, loadMore } = usePaginatedQuery(
-  api.myModule.paginatedQuery,
-  isAuthenticated ? {} : "skip",
-  { initialNumItems: 10 }
-)
+```typescript
+getUsersStats()           // KPIs: total, nouveaux, accès actifs, revenus avec trends
+getUsersWithFilters()     // Liste paginée avec filtres (role, accessStatus, dates, search)
+getUserPanelData()        // Données panel latéral (user, accès, transactions)
 ```
 
-### Key points:
-- Always check `isAuthLoading` in loading conditions
-- Pass `"skip"` (string literal) as the second argument when not authenticated
-- For queries without required args, use `isAuthenticated ? undefined : "skip"`
-- For queries with args, use `isAuthenticated ? { ...args } : "skip"`
+## Accès payant
+
+- Types: `exam` (examens blancs) et `training` (banque questions)
+- Table `userAccess` avec `expiresAt`
+- **Re-vérifier l'accès à la soumission** (pas seulement au démarrage)
+- Admins: bypass automatique
+
+## Médias (Bunny CDN)
+
+Upload via HTTP actions dans `convex/http.ts`. Helpers dans `convex/lib/bunny.ts`.
+
+| Route | Usage |
+|-------|-------|
+| `POST /api/upload/avatar` | Avatar user (rate limited) |
+| `POST /api/upload/question-image` | Images questions (admin) |
+
+## Tests
+
+- Seuil coverage: 75%
+- Frontend: `tests/` (happy-dom)
+- Convex: `tests/convex/` (edge-runtime, convex-test)
+
+## UI Patterns Admin
+
+### Master-detail avec panel latéral
+
+Pattern utilisé dans `/admin/users`. Table cliquable → panel Sheet (420px) avec détails.
+- URL deep linking: `?user=xxx` pour partager un lien direct
+- Composants: `Sheet` de shadcn/ui, animation `motion/react`
+
+### Stat cards avec trends
+
+Pattern `users-stats-row.tsx`: cartes KPI avec icône, valeur, trend %, subtitle.
+- Couleurs: emerald, blue, amber, teal, slate
+- Toujours réserver l'espace subtitle pour hauteur uniforme
+
+### Filtres avancés
+
+Pattern `users-filter-bar.tsx`: recherche debounce + Select filters + DateRange picker avec presets.
+
+## Gotchas
+
+- **motion** : Import depuis `motion/react`, pas `framer-motion`
+- **Icons** : `@tabler/icons-react` (primaire), `lucide-react` (secondaire)
+- **HTTP Actions** : Toujours inclure CORS headers + OPTIONS handler
+- **Clerk webhooks** : Sync users via `convex/http.ts` route `/clerk`
+- **Routes centralisées** : Modifier `constants/index.tsx` pour ajouter/changer URLs
+- **Hauteur uniforme cards** : Utiliser `h-full` + réserver espace pour éléments optionnels (subtitles)

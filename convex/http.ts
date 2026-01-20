@@ -284,6 +284,7 @@ http.route({
  * Upload avatar utilisateur
  * POST /api/upload/avatar
  * Body: FormData avec "file"
+ * Rate limited: 5 uploads per hour
  */
 http.route({
   path: "/api/upload/avatar",
@@ -293,6 +294,25 @@ http.route({
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
       return jsonResponse({ error: "Non authentifié" }, 401)
+    }
+
+    // Check rate limit before processing
+    const rateLimitResult = await ctx.runQuery(
+      internal.rateLimit.checkUploadRateLimit,
+      {
+        clerkId: identity.subject,
+        uploadType: "avatar",
+      },
+    )
+
+    if (!rateLimitResult.allowed) {
+      return jsonResponse(
+        {
+          error: `Limite d'uploads atteinte. Réessayez dans ${rateLimitResult.retryAfterMinutes} minute(s).`,
+          retryAfterMs: rateLimitResult.retryAfterMs,
+        },
+        429,
+      )
     }
 
     // Récupérer l'utilisateur
@@ -339,6 +359,12 @@ http.route({
         userId: user._id,
         avatarUrl: result.url,
         avatarStoragePath: result.storagePath,
+      })
+
+      // Increment rate limit counter after successful upload
+      await ctx.runMutation(internal.rateLimit.incrementUploadCount, {
+        clerkId: identity.subject,
+        uploadType: "avatar",
       })
 
       return jsonResponse({

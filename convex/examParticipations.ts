@@ -19,12 +19,13 @@ export type PausePhase = "before_pause" | "during_pause" | "after_pause"
 
 /**
  * Create a new participation (called when user starts exam)
- * Users can only create their own participation; admins can create for anyone
+ * Users always create their own participation; admins can optionally create for another user
  */
 export const create = mutation({
   args: {
     examId: v.id("exams"),
-    userId: v.id("users"),
+    // Admin-only: create participation for another user
+    forUserId: v.optional(v.id("users")),
     startedAt: v.optional(v.number()),
     pausePhase: v.optional(
       v.union(
@@ -34,13 +35,20 @@ export const create = mutation({
       ),
     ),
   },
-  handler: async (ctx, { examId, userId, startedAt, pausePhase }) => {
-    // Verify user can create this participation
+  handler: async (ctx, { examId, forUserId, startedAt, pausePhase }) => {
     const currentUser = await getCurrentUserOrThrow(ctx)
-    if (currentUser._id !== userId && currentUser.role !== "admin") {
-      throw new Error(
-        "Vous ne pouvez pas créer une participation pour un autre utilisateur",
-      )
+
+    // Determine target user: admins can specify forUserId, others use their own ID
+    let userId: Id<"users">
+    if (forUserId) {
+      if (currentUser.role !== "admin") {
+        throw new Error(
+          "Vous ne pouvez pas créer une participation pour un autre utilisateur",
+        )
+      }
+      userId = forUserId
+    } else {
+      userId = currentUser._id
     }
 
     // Check if participation already exists

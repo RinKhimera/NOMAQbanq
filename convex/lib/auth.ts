@@ -1,5 +1,6 @@
 import { Doc, Id } from "../_generated/dataModel"
 import { MutationCtx, QueryCtx } from "../_generated/server"
+import { Errors } from "./errors"
 
 /**
  * Type pour le contexte avec authentification
@@ -8,14 +9,14 @@ export type AuthenticatedUser = Doc<"users">
 
 /**
  * Récupère l'utilisateur courant depuis le contexte
- * @throws Error si non authentifié ou utilisateur non trouvé
+ * @throws ConvexError si non authentifié ou utilisateur non trouvé
  */
 export const getCurrentUserOrThrow = async (
   ctx: QueryCtx | MutationCtx,
 ): Promise<AuthenticatedUser> => {
   const identity = await ctx.auth.getUserIdentity()
   if (!identity) {
-    throw new Error("Utilisateur non authentifié")
+    throw Errors.unauthenticated()
   }
 
   const user = await ctx.db
@@ -26,7 +27,7 @@ export const getCurrentUserOrThrow = async (
     .unique()
 
   if (!user) {
-    throw new Error("Utilisateur non trouvé")
+    throw Errors.notFound("Utilisateur")
   }
 
   return user
@@ -54,7 +55,7 @@ export const getCurrentUserOrNull = async (
 
 /**
  * Récupère l'utilisateur admin courant
- * @throws Error si non authentifié, non trouvé ou non admin
+ * @throws ConvexError si non authentifié, non trouvé ou non admin
  */
 export const getAdminUserOrThrow = async (
   ctx: QueryCtx | MutationCtx,
@@ -62,7 +63,7 @@ export const getAdminUserOrThrow = async (
   const user = await getCurrentUserOrThrow(ctx)
 
   if (user.role !== "admin") {
-    throw new Error("Accès non autorisé")
+    throw Errors.unauthorized()
   }
 
   return user

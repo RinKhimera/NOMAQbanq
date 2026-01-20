@@ -1,222 +1,198 @@
 "use client"
 
-import { usePaginatedQuery, useQuery } from "convex/react"
-import { ArrowDown, ArrowUp, ArrowUpDown, Loader2, Search } from "lucide-react"
-import { useEffect, useState } from "react"
-import { ExportUsersButton } from "@/components/admin/export-users-button"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import {
-  Table,
-  TableBody,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { useState, useCallback, useMemo, useEffect } from "react"
+import { useQuery } from "convex/react"
+import { DateRange } from "react-day-picker"
+import { useSearchParams, useRouter } from "next/navigation"
 import { api } from "@/convex/_generated/api"
-import { Doc } from "@/convex/_generated/dataModel"
-import { UserDetailsDialog } from "./_components/user-details-dialog"
-import { UserTableRow } from "./_components/user-table-row"
-import { UserTableSkeleton } from "./_components/user-table-skeleton"
+import { Id } from "@/convex/_generated/dataModel"
+import { Badge } from "@/components/ui/badge"
+import { ExportUsersButton } from "@/components/admin/export-users-button"
+import { UsersStatsRow } from "./_components/users-stats-row"
+import {
+  UsersFilterBar,
+  type RoleFilter,
+  type AccessStatusFilter,
+} from "./_components/users-filter-bar"
+import {
+  UsersTable,
+  type EnrichedUser,
+  type SortBy,
+  type SortOrder,
+} from "./_components/users-table"
+import { UserSidePanel } from "./_components/user-side-panel"
 
-type SortBy = "name" | "role" | "_creationTime"
-type SortOrder = "asc" | "desc"
+export default function UsersPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
 
-const UsersPage = () => {
-  const [sortBy, setSortBy] = useState<SortBy>("name")
-  const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
-  const [selectedUser, setSelectedUser] = useState<Doc<"users"> | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  // Initialize selected user from URL params
+  const initialUserId = searchParams.get("user") as Id<"users"> | null
+
+  // State for filters
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
-  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
+  const [role, setRole] = useState<RoleFilter>("all")
+  const [accessStatus, setAccessStatus] = useState<AccessStatusFilter>("all")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
+  const [sortBy, setSortBy] = useState<SortBy>("name")
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
 
-  // Debounce de la recherche pour éviter trop de requêtes
+  // State for panel - initialize from URL
+  const [selectedUserId, setSelectedUserId] = useState<Id<"users"> | null>(
+    initialUserId,
+  )
+  const [isPanelOpen, setIsPanelOpen] = useState(!!initialUserId)
+
+  // Debounce search query
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery)
-    }, 300)
-
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300)
     return () => clearTimeout(timer)
   }, [searchQuery])
 
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.users.getUsersWithPagination,
-    {
-      sortBy,
-      sortOrder,
-      searchQuery: debouncedSearchQuery.trim() || undefined,
+  // Stats query
+  const stats = useQuery(api.users.getUsersStats)
+
+  // Users query with filters
+  const usersResult = useQuery(api.users.getUsersWithFilters, {
+    paginationOpts: {
+      numItems: 50,
+      cursor: null,
     },
-    { initialNumItems: 10 },
+    searchQuery: debouncedSearchQuery.trim() || undefined,
+    role: role === "all" ? undefined : role,
+    accessStatus: accessStatus === "all" ? undefined : accessStatus,
+    dateFrom: dateRange?.from?.getTime(),
+    dateTo: dateRange?.to?.getTime(),
+    sortBy,
+    sortOrder,
+  })
+
+  // All users for export (legacy query)
+  const allUsersForExport = useQuery(api.users.getAllUsers)
+
+  // Memoize users list
+  const users = useMemo(() => {
+    return (usersResult?.page as EnrichedUser[]) ?? []
+  }, [usersResult?.page])
+
+  // Handlers
+  const handleSort = useCallback((field: SortBy) => {
+    setSortBy((prev) => {
+      if (prev === field) {
+        setSortOrder((order) => (order === "asc" ? "desc" : "asc"))
+        return prev
+      }
+      setSortOrder("asc")
+      return field
+    })
+  }, [])
+
+  const handleUserSelect = useCallback(
+    (user: EnrichedUser) => {
+      setSelectedUserId(user._id)
+      setIsPanelOpen(true)
+      // Update URL without navigation
+      const url = new URL(window.location.href)
+      url.searchParams.set("user", user._id)
+      router.replace(url.pathname + url.search, { scroll: false })
+    },
+    [router],
   )
 
-  const allUsers = useQuery(api.users.getAllUsers)
+  const handlePanelClose = useCallback(
+    (open: boolean) => {
+      setIsPanelOpen(open)
+      if (!open) {
+        setSelectedUserId(null)
+        // Remove user param from URL
+        const url = new URL(window.location.href)
+        url.searchParams.delete("user")
+        router.replace(url.pathname + url.search, { scroll: false })
+      }
+    },
+    [router],
+  )
 
-  const [prevStatus, setPrevStatus] = useState(status)
-  if (status !== prevStatus) {
-    setPrevStatus(status)
-    if (status !== "LoadingFirstPage" && !hasLoadedOnce) {
-      setHasLoadedOnce(true)
-    }
-  }
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery("")
+    setRole("all")
+    setAccessStatus("all")
+    setDateRange(undefined)
+    setSortBy("name")
+    setSortOrder("asc")
+  }, [])
 
-  const handleSort = (field: SortBy) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc")
-    } else {
-      setSortBy(field)
-      setSortOrder("asc")
-    }
-  }
+  const hasActiveFilters =
+    searchQuery !== "" ||
+    role !== "all" ||
+    accessStatus !== "all" ||
+    dateRange !== undefined
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value)
-  }
-
-  const handleUserClick = (user: Doc<"users">) => {
-    setSelectedUser(user)
-    setDialogOpen(true)
-  }
-
-  const getSortIcon = (field: SortBy) => {
-    if (sortBy !== field) return <ArrowUpDown className="h-4 w-4" />
-    return sortOrder === "asc" ? (
-      <ArrowUp className="h-4 w-4" />
-    ) : (
-      <ArrowDown className="h-4 w-4" />
-    )
-  }
-
-  // Afficher le skeleton uniquement lors du tout premier chargement (pas lors des recherches)
-  if (status === "LoadingFirstPage" && !hasLoadedOnce) {
-    return <UserTableSkeleton />
-  }
-
-  const isSearching = status === "LoadingFirstPage" && hasLoadedOnce
+  const isLoading = usersResult === undefined
+  const canLoadMore = !!usersResult?.continueCursor && !usersResult?.isDone
 
   return (
-    <>
-      <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
+    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-blue-600">
-            Tableau des utilisateurs
+            Gestion des utilisateurs
           </h1>
           <p className="text-muted-foreground">
-            Gérez tous les utilisateurs enregistrés sur la plateforme
+            Consultez et gérez les utilisateurs de la plateforme
           </p>
         </div>
-
-        <Card className="gap-3">
-          <CardHeader>
-            <CardTitle className="flex flex-col gap-3 @md:flex-row @md:items-center @md:justify-between">
-              <Badge variant="secondary">
-                {results.length} utilisateur{results.length > 1 ? "s" : ""}
-                {status === "LoadingMore" && " (chargement...)"}
-              </Badge>
-              {allUsers && allUsers.length > 0 && (
-                <ExportUsersButton users={allUsers} />
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Barre de recherche */}
-            <div className="relative mb-4">
-              {isSearching ? (
-                <Loader2 className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 animate-spin" />
-              ) : (
-                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-              )}
-              <Input
-                type="text"
-                placeholder="Rechercher par nom, email ou nom d'utilisateur..."
-                value={searchQuery}
-                onChange={handleSearchChange}
-                className="pl-10"
-              />
-            </div>
-            <div
-              className={`rounded-md border transition-opacity ${isSearching ? "opacity-50" : ""}`}
-            >
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]">#</TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("name")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                      >
-                        Nom
-                        {getSortIcon("name")}
-                      </Button>
-                    </TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Nom d&apos;utilisateur</TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("role")}
-                        className="h-auto p-0 font-semibold hover:bg-transparent"
-                      >
-                        Rôle
-                        {getSortIcon("role")}
-                      </Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("_creationTime")}
-                        className="-ml-2.5 h-auto w-fit p-0 font-semibold hover:bg-transparent"
-                      >
-                        Date de création
-                        {getSortIcon("_creationTime")}
-                      </Button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {results.map((user, index) => (
-                    <UserTableRow
-                      key={user._id}
-                      user={user}
-                      index={index}
-                      page={1}
-                      limit={10}
-                      onUserClick={handleUserClick}
-                    />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Load More Button */}
-            {status === "CanLoadMore" && (
-              <div className="flex justify-center py-4">
-                <Button onClick={() => loadMore(10)} variant="outline">
-                  Charger plus d&apos;utilisateurs
-                </Button>
-              </div>
-            )}
-
-            {status === "LoadingMore" && (
-              <div className="flex justify-center py-4">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="h-8 px-3">
+            {stats?.totalUsers ?? "..."} utilisateur
+            {(stats?.totalUsers ?? 0) > 1 ? "s" : ""}
+          </Badge>
+          {allUsersForExport && allUsersForExport.length > 0 && (
+            <ExportUsersButton users={allUsersForExport} />
+          )}
+        </div>
       </div>
 
-      <UserDetailsDialog
-        user={selectedUser}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
+      {/* Stats Row */}
+      <UsersStatsRow stats={stats ?? null} isLoading={stats === undefined} />
+
+      {/* Filter Bar */}
+      <UsersFilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        role={role}
+        onRoleChange={setRole}
+        accessStatus={accessStatus}
+        onAccessStatusChange={setAccessStatus}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        isSearching={isLoading && debouncedSearchQuery !== ""}
+        onClearFilters={handleClearFilters}
+        hasActiveFilters={hasActiveFilters}
       />
-    </>
+
+      {/* Users Table */}
+      <UsersTable
+        users={users}
+        selectedUserId={selectedUserId}
+        onUserSelect={handleUserSelect}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        isLoading={isLoading}
+        canLoadMore={canLoadMore}
+        onLoadMore={() => {}}
+        isLoadingMore={false}
+      />
+
+      {/* Side Panel */}
+      <UserSidePanel
+        userId={selectedUserId}
+        open={isPanelOpen}
+        onOpenChange={handlePanelClose}
+      />
+    </div>
   )
 }
-
-export default UsersPage

@@ -2,6 +2,8 @@ import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { mutation, query } from "./_generated/server"
 import { getCurrentUserOrNull, getCurrentUserOrThrow } from "./lib/auth"
+import { batchGetOrderedByIds } from "./lib/batchFetch"
+import { Errors } from "./lib/errors"
 
 // ============================================
 // CONSTANTS
@@ -74,9 +76,11 @@ export const getTrainingSessionById = query({
       return null
     }
 
-    // Récupérer les questions
-    const rawQuestions = await Promise.all(
-      session.questionIds.map((id) => ctx.db.get(id)),
+    // Récupérer les questions (batch fetch)
+    const rawQuestions = await batchGetOrderedByIds(
+      ctx,
+      "questions",
+      session.questionIds,
     )
 
     // Récupérer les réponses existantes
@@ -103,7 +107,6 @@ export const getTrainingSessionById = query({
         _id: q._id,
         _creationTime: q._creationTime,
         question: q.question,
-        imageSrc: q.imageSrc,
         images: q.images,
         options: q.options,
         objectifCMC: q.objectifCMC,
@@ -186,9 +189,11 @@ export const getTrainingSessionResults = query({
       return { error: "SESSION_NOT_COMPLETED" as const }
     }
 
-    // Récupérer toutes les questions avec détails complets
-    const questions = await Promise.all(
-      session.questionIds.map((id) => ctx.db.get(id)),
+    // Récupérer toutes les questions avec détails complets (batch fetch)
+    const questions = await batchGetOrderedByIds(
+      ctx,
+      "questions",
+      session.questionIds,
     )
 
     // Récupérer toutes les réponses
@@ -246,7 +251,8 @@ export const getAvailableDomains = query({
     }
 
     // Fallback: calculer depuis la table questions (si questionStats non peuplée)
-    const allQuestions = await ctx.db.query("questions").collect()
+    // Limited to 2000 questions for performance; ideally questionStats should be used
+    const allQuestions = await ctx.db.query("questions").take(2000)
 
     const domainCounts = allQuestions.reduce(
       (acc, q) => {
@@ -378,14 +384,16 @@ export const createTrainingSession = mutation({
     }
 
     // 4. Sélectionner les questions
+    // Sample more than needed to ensure enough for shuffling (3x requested or 500 minimum)
+    const sampleSize = Math.max(questionCount * 3, 500)
     let questions
     if (domain && domain !== "all") {
       questions = await ctx.db
         .query("questions")
         .withIndex("by_domain", (q) => q.eq("domain", domain))
-        .collect()
+        .take(sampleSize)
     } else {
-      questions = await ctx.db.query("questions").collect()
+      questions = await ctx.db.query("questions").take(sampleSize)
     }
 
     // 5. Valider qu'il y a assez de questions
@@ -438,19 +446,33 @@ export const saveTrainingAnswer = mutation({
   handler: async (ctx, { sessionId, questionId, selectedAnswer }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
+    // 0. Re-verify training access (admin bypass)
+    if (user.role !== "admin") {
+      const access = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "training"),
+        )
+        .unique()
+
+      if (!access || access.expiresAt < Date.now()) {
+        throw Errors.accessExpired("training")
+      }
+    }
+
     // 1. Vérifier propriété de la session
     const session = await ctx.db.get(sessionId)
     if (!session) {
-      throw new Error("Session non trouvée")
+      throw Errors.notFound("Session")
     }
 
     if (session.userId !== user._id) {
-      throw new Error("Cette session ne vous appartient pas")
+      throw Errors.unauthorized("Cette session ne vous appartient pas")
     }
 
     // 2. Vérifier que la session est active
     if (session.status !== "in_progress") {
-      throw new Error("Cette session n'est plus active")
+      throw Errors.invalidState("Cette session n'est plus active")
     }
 
     if (session.expiresAt < Date.now()) {
@@ -513,19 +535,33 @@ export const completeTrainingSession = mutation({
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
+    // 0. Re-verify training access (admin bypass)
+    if (user.role !== "admin") {
+      const access = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "training"),
+        )
+        .unique()
+
+      if (!access || access.expiresAt < Date.now()) {
+        throw Errors.accessExpired("training")
+      }
+    }
+
     // 1. Vérifier propriété
     const session = await ctx.db.get(sessionId)
     if (!session) {
-      throw new Error("Session non trouvée")
+      throw Errors.notFound("Session")
     }
 
     if (session.userId !== user._id) {
-      throw new Error("Cette session ne vous appartient pas")
+      throw Errors.unauthorized("Cette session ne vous appartient pas")
     }
 
     // 2. Vérifier status
     if (session.status !== "in_progress") {
-      throw new Error("Cette session n'est plus active")
+      throw Errors.invalidState("Cette session n'est plus active")
     }
 
     // 3. Récupérer toutes les réponses

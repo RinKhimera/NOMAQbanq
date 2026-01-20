@@ -71,7 +71,6 @@ export default function EditQuestionDialog({
     resolver: zodResolver(questionFormSchema),
     defaultValues: {
       question: "",
-      imageSrc: "",
       options: ["", "", "", "", ""],
       correctAnswer: "",
       explanation: "",
@@ -107,7 +106,6 @@ export default function EditQuestionDialog({
 
     form.reset({
       question: question.question,
-      imageSrc: question.imageSrc || "",
       options: adaptedOptions,
       correctAnswer: question.correctAnswer,
       explanation: question.explanation,
@@ -178,7 +176,6 @@ export default function EditQuestionDialog({
       await updateQuestion({
         id: question._id as Id<"questions">,
         question: values.question,
-        imageSrc: values.imageSrc || undefined,
         options: filteredOptions,
         correctAnswer: values.correctAnswer,
         explanation: values.explanation,
@@ -257,28 +254,6 @@ export default function EditQuestionDialog({
                 />
               </div>
             )}
-
-            {/* URL image legacy (rétrocompatibilité) */}
-            <FormField
-              control={form.control}
-              name="imageSrc"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>URL externe (optionnel, legacy)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="url"
-                      placeholder="https://exemple.com/image.jpg"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Utilisez l&apos;upload d&apos;images ci-dessus. Ce champ est conservé pour la rétrocompatibilité.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             {/* Options */}
             <FormField

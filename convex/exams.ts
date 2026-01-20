@@ -5,6 +5,47 @@ import {
   getCurrentUserOrNull,
   getCurrentUserOrThrow,
 } from "./lib/auth"
+import { batchGetByIds } from "./lib/batchFetch"
+
+// ============================================
+// PAUSE STATE MACHINE
+// ============================================
+// Valid pause phase transitions:
+//   undefined -> "before_pause" (on exam start with pause enabled)
+//   "before_pause" -> "during_pause" (user starts pause)
+//   "during_pause" -> "after_pause" (user resumes from pause)
+//
+// Once in "after_pause", no further transitions are allowed.
+
+type PausePhase = "before_pause" | "during_pause" | "after_pause" | undefined
+
+const PAUSE_TRANSITIONS: Record<string, readonly string[]> = {
+  before_pause: ["during_pause"],
+  during_pause: ["after_pause"],
+  after_pause: [], // terminal state
+}
+
+/**
+ * Validates that a pause phase transition is allowed
+ * @throws Error if the transition is invalid
+ */
+const validatePauseTransition = (
+  current: PausePhase,
+  target: "during_pause" | "after_pause",
+): void => {
+  const currentKey = current ?? "undefined"
+  const allowedTransitions = PAUSE_TRANSITIONS[current ?? ""] || []
+
+  if (!allowedTransitions.includes(target)) {
+    const errorMessages: Record<string, string> = {
+      during_pause: "La pause ne peut être démarrée qu'une seule fois",
+      after_pause: "Vous n'êtes pas actuellement en pause",
+    }
+    throw new Error(
+      errorMessages[target] || `Transition invalide: ${currentKey} -> ${target}`,
+    )
+  }
+}
 
 // Créer un nouvel examen
 export const createExam = mutation({
@@ -735,9 +776,8 @@ export const startPause = mutation({
       throw new Error("L'examen n'est pas en cours")
     }
 
-    if (participation.pausePhase !== "before_pause") {
-      throw new Error("La pause ne peut être démarrée qu'une seule fois")
-    }
+    // Validate state machine transition (before_pause -> during_pause)
+    validatePauseTransition(participation.pausePhase, "during_pause")
 
     const now = Date.now()
 
@@ -796,9 +836,8 @@ export const resumeFromPause = mutation({
       throw new Error("L'examen n'est pas en cours")
     }
 
-    if (participation.pausePhase !== "during_pause") {
-      throw new Error("Vous n'êtes pas actuellement en pause")
-    }
+    // Validate state machine transition (during_pause -> after_pause)
+    validatePauseTransition(participation.pausePhase, "after_pause")
 
     const now = Date.now()
     const pauseStartedAt = participation.pauseStartedAt || now
@@ -981,27 +1020,27 @@ export const getExamLeaderboard = query({
       .withIndex("by_exam", (q) => q.eq("examId", args.examId))
       .collect()
 
-    // Filter completed participations and get user info
-    const leaderboard = await Promise.all(
-      participations
-        .filter(
-          (p) => p.status === "completed" || p.status === "auto_submitted",
-        )
-        .map(async (participation) => {
-          const user = await ctx.db.get(participation.userId)
-          return {
-            participationId: participation._id,
-            user,
-            score: participation.score,
-            completedAt: participation.completedAt,
-          }
-        }),
+    // Filter to completed participations only
+    const completedParticipations = participations.filter(
+      (p) => p.status === "completed" || p.status === "auto_submitted",
     )
 
-    // Sort by score descending
-    return leaderboard
+    // Batch fetch all users (deduplicated)
+    const userIds = completedParticipations.map((p) => p.userId)
+    const userMap = await batchGetByIds(ctx, "users", userIds)
+
+    // Build leaderboard with cached user data
+    const leaderboard = completedParticipations
+      .map((participation) => ({
+        participationId: participation._id,
+        user: userMap.get(participation.userId) ?? null,
+        score: participation.score,
+        completedAt: participation.completedAt,
+      }))
       .filter((entry) => entry.user !== null)
-      .sort((a, b) => b.score - a.score)
+
+    // Sort by score descending
+    return leaderboard.sort((a, b) => b.score - a.score)
   },
 })
 
@@ -1011,10 +1050,13 @@ export const getExamLeaderboard = query({
  */
 export const getAllExams = query({
   handler: async (ctx) => {
-    const exams = await ctx.db.query("exams").order("desc").collect()
+    // Limit to 100 exams for performance
+    const exams = await ctx.db.query("exams").order("desc").take(100)
 
-    // Fetch all participations in one query (avoids N+1 problem)
-    const allParticipations = await ctx.db.query("examParticipations").collect()
+    // Fetch participations limited for performance
+    const allParticipations = await ctx.db
+      .query("examParticipations")
+      .take(2000)
 
     // Create a count map by examId
     const participationCountMap = new Map<string, number>()
@@ -1044,8 +1086,8 @@ export const getMyDashboardStats = query({
       return null
     }
 
-    // Get all exams user has access to
-    const allExams = await ctx.db.query("exams").collect()
+    // Get exams user has access to (limited for performance)
+    const allExams = await ctx.db.query("exams").take(200)
     const myExams = allExams.filter((exam) =>
       exam.allowedParticipants.includes(user._id),
     )
@@ -1095,8 +1137,8 @@ export const getMyRecentExams = query({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect()
 
-    // Get all exams user has access to
-    const allExams = await ctx.db.query("exams").collect()
+    // Get exams user has access to (limited for performance)
+    const allExams = await ctx.db.query("exams").take(200)
 
     // Create participation lookup map
     const participationMap = new Map(myParticipations.map((p) => [p.examId, p]))
@@ -1140,7 +1182,8 @@ export const getMyRecentExams = query({
 export const getAllExamsWithUserParticipation = query({
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
-    const exams = await ctx.db.query("exams").order("desc").collect()
+    // Limit to 100 exams for performance
+    const exams = await ctx.db.query("exams").order("desc").take(100)
 
     if (!user) {
       return exams.map((exam) => ({
