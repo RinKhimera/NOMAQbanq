@@ -13,6 +13,7 @@ import {
   getCurrentUserOrNull,
   getCurrentUserOrThrow,
 } from "./lib/auth"
+import { batchGetByIds } from "./lib/batchFetch"
 
 async function userByExternalId(ctx: QueryCtx, externalId: string) {
   return await ctx.db
@@ -627,11 +628,11 @@ export const getUserPanelData = query({
     const user = await ctx.db.get(args.userId)
     if (!user) return null
 
-    // Fetch access records
+    // Fetch access records (limited - max 2 access types)
     const accessRecords = await ctx.db
       .query("userAccess")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect()
+      .take(10)
 
     // Fetch recent transactions
     const recentTransactions = await ctx.db
@@ -640,18 +641,15 @@ export const getUserPanelData = query({
       .order("desc")
       .take(5)
 
-    // Fetch total transaction count
+    // Fetch total transaction count (limited for performance)
     const allUserTransactions = await ctx.db
       .query("transactions")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect()
+      .take(100)
 
-    // Get product details for transactions
+    // Get product details for transactions using batch fetch
     const productIds = recentTransactions.map((tx) => tx.productId)
-    const products = await Promise.all(productIds.map((id) => ctx.db.get(id)))
-    const productMap = new Map(
-      products.filter(Boolean).map((p) => [p!._id, p!]),
-    )
+    const productMap = await batchGetByIds(ctx, "products", productIds)
 
     const enrichedTransactions = recentTransactions.map((tx) => ({
       ...tx,

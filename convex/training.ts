@@ -83,11 +83,11 @@ export const getTrainingSessionById = query({
       session.questionIds,
     )
 
-    // Récupérer les réponses existantes
+    // Récupérer les réponses existantes (limited to max questions)
     const answers = await ctx.db
       .query("trainingAnswers")
       .withIndex("by_participation", (q) => q.eq("participationId", sessionId))
-      .collect()
+      .take(MAX_QUESTIONS)
 
     // Créer un map questionId -> answer
     const answersMap = Object.fromEntries(
@@ -196,11 +196,11 @@ export const getTrainingSessionResults = query({
       session.questionIds,
     )
 
-    // Récupérer toutes les réponses
+    // Récupérer toutes les réponses (limited to max questions)
     const answers = await ctx.db
       .query("trainingAnswers")
       .withIndex("by_participation", (q) => q.eq("participationId", sessionId))
-      .collect()
+      .take(MAX_QUESTIONS)
 
     // Créer un map pour accès rapide
     const answersMap = Object.fromEntries(
@@ -282,13 +282,13 @@ export const getTrainingStats = query({
     const user = await getCurrentUserOrNull(ctx)
     if (!user) return null
 
-    // Récupérer toutes les sessions terminées
+    // Récupérer les sessions terminées (limited for performance)
     const completedSessions = await ctx.db
       .query("trainingParticipations")
       .withIndex("by_user_status", (q) =>
         q.eq("userId", user._id).eq("status", "completed"),
       )
-      .collect()
+      .take(100)
 
     const totalSessions = completedSessions.length
     const totalQuestions = completedSessions.reduce(
@@ -494,11 +494,11 @@ export const saveTrainingAnswer = mutation({
 
     const isCorrect = selectedAnswer === question.correctAnswer
 
-    // 5. Vérifier si une réponse existe déjà
+    // 5. Vérifier si une réponse existe déjà (limited to max questions)
     const existingAnswers = await ctx.db
       .query("trainingAnswers")
       .withIndex("by_participation", (q) => q.eq("participationId", sessionId))
-      .collect()
+      .take(MAX_QUESTIONS)
 
     const existing = existingAnswers.find(
       (a) => a.questionId === questionId,
@@ -564,11 +564,11 @@ export const completeTrainingSession = mutation({
       throw Errors.invalidState("Cette session n'est plus active")
     }
 
-    // 3. Récupérer toutes les réponses
+    // 3. Récupérer toutes les réponses (limited to max questions)
     const answers = await ctx.db
       .query("trainingAnswers")
       .withIndex("by_participation", (q) => q.eq("participationId", sessionId))
-      .collect()
+      .take(MAX_QUESTIONS)
 
     // 4. Calculer le score
     const correctCount = answers.filter((a) => a.isCorrect).length

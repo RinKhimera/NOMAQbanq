@@ -8,6 +8,8 @@ import {
   generateAvatarPath,
   getExtensionFromMimeType,
   validateImageFile,
+  uploadToBunny,
+  deleteFromBunny,
 } from "@/convex/lib/bunny"
 
 describe("bunny utilities", () => {
@@ -232,6 +234,254 @@ describe("bunny utilities", () => {
       // Should return MIME type error first
       const result = validateImageFile("image/gif", 10 * 1024 * 1024)
       expect(result).toBe("Format non supporté. Utilisez JPG, PNG ou WebP.")
+    })
+  })
+
+  describe("uploadToBunny", () => {
+    const originalEnv = process.env
+
+    beforeEach(() => {
+      // Set up mock environment variables
+      process.env = {
+        ...originalEnv,
+        BUNNY_STORAGE_ZONE_NAME: "test-zone",
+        BUNNY_STORAGE_API_KEY: "test-api-key",
+        BUNNY_CDN_HOSTNAME: "test.b-cdn.net",
+      }
+      // Suppress expected console.error messages during error tests
+      vi.spyOn(console, "error").mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      process.env = originalEnv
+      vi.restoreAllMocks()
+    })
+
+    it("throws when BUNNY_STORAGE_ZONE_NAME is missing", async () => {
+      delete process.env.BUNNY_STORAGE_ZONE_NAME
+
+      const fileData = new Uint8Array([1, 2, 3])
+      await expect(uploadToBunny(fileData, "test/path.jpg")).rejects.toThrow(
+        "Configuration Bunny manquante",
+      )
+    })
+
+    it("throws when BUNNY_STORAGE_API_KEY is missing", async () => {
+      delete process.env.BUNNY_STORAGE_API_KEY
+
+      const fileData = new Uint8Array([1, 2, 3])
+      await expect(uploadToBunny(fileData, "test/path.jpg")).rejects.toThrow(
+        "Configuration Bunny manquante",
+      )
+    })
+
+    it("throws when BUNNY_CDN_HOSTNAME is missing", async () => {
+      delete process.env.BUNNY_CDN_HOSTNAME
+
+      const fileData = new Uint8Array([1, 2, 3])
+      await expect(uploadToBunny(fileData, "test/path.jpg")).rejects.toThrow(
+        "Configuration Bunny manquante",
+      )
+    })
+
+    it("returns success with CDN URL on successful upload", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const fileData = new Uint8Array([1, 2, 3])
+      const result = await uploadToBunny(fileData, "questions/q1/image.jpg")
+
+      expect(result).toEqual({
+        success: true,
+        url: "https://test.b-cdn.net/questions/q1/image.jpg",
+        storagePath: "questions/q1/image.jpg",
+      })
+
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://storage.bunnycdn.com/test-zone/questions/q1/image.jpg",
+        expect.objectContaining({
+          method: "PUT",
+          headers: {
+            AccessKey: "test-api-key",
+            "Content-Type": "application/octet-stream",
+          },
+        }),
+      )
+    })
+
+    it("handles ArrayBuffer input", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const arrayBuffer = new ArrayBuffer(8)
+      const result = await uploadToBunny(arrayBuffer, "test/path.jpg")
+
+      expect(result.success).toBe(true)
+      expect(mockFetch).toHaveBeenCalled()
+    })
+
+    it("returns auth error on 401 status", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: () => Promise.resolve("Unauthorized"),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const fileData = new Uint8Array([1, 2, 3])
+      const result = await uploadToBunny(fileData, "test/path.jpg")
+
+      expect(result).toEqual({
+        success: false,
+        error: "Authentification Bunny échouée. Vérifiez l'API key.",
+      })
+    })
+
+    it("returns generic error on other non-OK status", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve("Internal Server Error"),
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const fileData = new Uint8Array([1, 2, 3])
+      const result = await uploadToBunny(fileData, "test/path.jpg")
+
+      expect(result).toEqual({
+        success: false,
+        error: "Échec de l'upload: 500",
+      })
+    })
+
+    it("returns network error on fetch failure with Error instance", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockRejectedValue(new Error("Network connection failed"))
+      vi.stubGlobal("fetch", mockFetch)
+
+      const fileData = new Uint8Array([1, 2, 3])
+      const result = await uploadToBunny(fileData, "test/path.jpg")
+
+      expect(result).toEqual({
+        success: false,
+        error: "Network connection failed",
+      })
+    })
+
+    it("returns generic network error on non-Error thrown", async () => {
+      const mockFetch = vi.fn().mockRejectedValue("string error")
+      vi.stubGlobal("fetch", mockFetch)
+
+      const fileData = new Uint8Array([1, 2, 3])
+      const result = await uploadToBunny(fileData, "test/path.jpg")
+
+      expect(result).toEqual({
+        success: false,
+        error: "Erreur réseau",
+      })
+    })
+  })
+
+  describe("deleteFromBunny", () => {
+    const originalEnv = process.env
+
+    beforeEach(() => {
+      process.env = {
+        ...originalEnv,
+        BUNNY_STORAGE_ZONE_NAME: "test-zone",
+        BUNNY_STORAGE_API_KEY: "test-api-key",
+        BUNNY_CDN_HOSTNAME: "test.b-cdn.net",
+      }
+      // Suppress expected console.error messages during error tests
+      vi.spyOn(console, "error").mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      process.env = originalEnv
+      vi.restoreAllMocks()
+    })
+
+    it("returns true on successful delete (200)", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const result = await deleteFromBunny("questions/q1/image.jpg")
+
+      expect(result).toBe(true)
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://storage.bunnycdn.com/test-zone/questions/q1/image.jpg",
+        expect.objectContaining({
+          method: "DELETE",
+          headers: {
+            AccessKey: "test-api-key",
+          },
+        }),
+      )
+    })
+
+    it("returns true on 404 (file already deleted)", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const result = await deleteFromBunny("questions/q1/nonexistent.jpg")
+
+      expect(result).toBe(true)
+    })
+
+    it("returns false on other error status", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const result = await deleteFromBunny("questions/q1/image.jpg")
+
+      expect(result).toBe(false)
+    })
+
+    it("returns false on 403 forbidden", async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+      })
+      vi.stubGlobal("fetch", mockFetch)
+
+      const result = await deleteFromBunny("questions/q1/image.jpg")
+
+      expect(result).toBe(false)
+    })
+
+    it("returns false on network error", async () => {
+      const mockFetch = vi
+        .fn()
+        .mockRejectedValue(new Error("Network connection failed"))
+      vi.stubGlobal("fetch", mockFetch)
+
+      const result = await deleteFromBunny("questions/q1/image.jpg")
+
+      expect(result).toBe(false)
+    })
+
+    it("throws when configuration is missing", async () => {
+      delete process.env.BUNNY_STORAGE_ZONE_NAME
+
+      await expect(
+        deleteFromBunny("questions/q1/image.jpg"),
+      ).rejects.toThrow("Configuration Bunny manquante")
     })
   })
 })

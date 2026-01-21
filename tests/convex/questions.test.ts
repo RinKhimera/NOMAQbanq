@@ -1,6 +1,6 @@
 import { convexTest } from "convex-test"
-import { describe, expect, it } from "vitest"
-import { api } from "../../convex/_generated/api"
+import { describe, expect, it, vi } from "vitest"
+import { api, internal } from "../../convex/_generated/api"
 import schema from "../../convex/schema"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
@@ -637,4 +637,436 @@ describe("questions", () => {
 
   // Note: Tests Learning Bank supprimés - table learningBankQuestions remplacée par le nouveau système training
   // Les tests pour le nouveau système training seront dans tests/convex/training.test.ts
+
+  describe("reorderQuestionImages", () => {
+    it("rejette si non admin", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+      const { asUser } = await createRegularUser(t)
+
+      // Create question with images as admin
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question avec images",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "Explication",
+        objectifCMC: "Objectif",
+        domain: "Domain",
+      })
+
+      // Add images directly in DB
+      await t.run(async (ctx) => {
+        await ctx.db.patch(questionId, {
+          images: [
+            { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
+            { url: "https://cdn.example.com/img2.jpg", storagePath: "q/img2.jpg", order: 1 },
+          ],
+        })
+      })
+
+      await expect(
+        asUser.mutation(api.questions.reorderQuestionImages, {
+          questionId,
+          orderedStoragePaths: ["q/img2.jpg", "q/img1.jpg"],
+        }),
+      ).rejects.toThrow("Accès non autorisé")
+    })
+
+    it("rejette si question non trouvée", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      // Create and delete a question to get a valid but non-existent ID
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question temporaire",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "D",
+      })
+      await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId })
+
+      await expect(
+        asAdmin.mutation(api.questions.reorderQuestionImages, {
+          questionId,
+          orderedStoragePaths: ["path1.jpg"],
+        }),
+      ).rejects.toThrow("Question non trouvée")
+    })
+
+    it("réordonne les images correctement", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question avec images",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "Explication",
+        objectifCMC: "Objectif",
+        domain: "Domain",
+      })
+
+      // Add images
+      await t.run(async (ctx) => {
+        await ctx.db.patch(questionId, {
+          images: [
+            { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
+            { url: "https://cdn.example.com/img2.jpg", storagePath: "q/img2.jpg", order: 1 },
+            { url: "https://cdn.example.com/img3.jpg", storagePath: "q/img3.jpg", order: 2 },
+          ],
+        })
+      })
+
+      // Reorder: swap first and last
+      const result = await asAdmin.mutation(api.questions.reorderQuestionImages, {
+        questionId,
+        orderedStoragePaths: ["q/img3.jpg", "q/img2.jpg", "q/img1.jpg"],
+      })
+
+      expect(result.success).toBe(true)
+
+      // Verify the new order
+      const question = await t.run(async (ctx) => ctx.db.get(questionId))
+      expect(question?.images).toHaveLength(3)
+      expect(question?.images?.[0].storagePath).toBe("q/img3.jpg")
+      expect(question?.images?.[0].order).toBe(0)
+      expect(question?.images?.[1].storagePath).toBe("q/img2.jpg")
+      expect(question?.images?.[1].order).toBe(1)
+      expect(question?.images?.[2].storagePath).toBe("q/img1.jpg")
+      expect(question?.images?.[2].order).toBe(2)
+    })
+
+    it("filtre les images non trouvées", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question avec images",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "Explication",
+        objectifCMC: "Objectif",
+        domain: "Domain",
+      })
+
+      // Add only 2 images
+      await t.run(async (ctx) => {
+        await ctx.db.patch(questionId, {
+          images: [
+            { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
+            { url: "https://cdn.example.com/img2.jpg", storagePath: "q/img2.jpg", order: 1 },
+          ],
+        })
+      })
+
+      // Reorder with non-existent path (should be filtered out)
+      const result = await asAdmin.mutation(api.questions.reorderQuestionImages, {
+        questionId,
+        orderedStoragePaths: ["q/img2.jpg", "q/nonexistent.jpg", "q/img1.jpg"],
+      })
+
+      expect(result.success).toBe(true)
+
+      // Verify only existing images remain
+      const question = await t.run(async (ctx) => ctx.db.get(questionId))
+      expect(question?.images).toHaveLength(2)
+      expect(question?.images?.[0].storagePath).toBe("q/img2.jpg")
+      expect(question?.images?.[1].storagePath).toBe("q/img1.jpg")
+    })
+  })
+
+  describe("setQuestionImages", () => {
+    it("rejette si non admin", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+      const { asUser } = await createRegularUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "D",
+      })
+
+      await expect(
+        asUser.mutation(api.questions.setQuestionImages, {
+          questionId,
+          images: [],
+        }),
+      ).rejects.toThrow("Accès non autorisé")
+    })
+
+    it("rejette si question non trouvée", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question temporaire",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "D",
+      })
+      await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId })
+
+      await expect(
+        asAdmin.mutation(api.questions.setQuestionImages, {
+          questionId,
+          images: [],
+        }),
+      ).rejects.toThrow("Question non trouvée")
+    })
+
+    it("définit les images et trie par order", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "D",
+      })
+
+      // Set images out of order
+      const result = await asAdmin.mutation(api.questions.setQuestionImages, {
+        questionId,
+        images: [
+          { url: "https://cdn.example.com/img2.jpg", storagePath: "q/img2.jpg", order: 2 },
+          { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
+          { url: "https://cdn.example.com/img3.jpg", storagePath: "q/img3.jpg", order: 1 },
+        ],
+      })
+
+      expect(result.success).toBe(true)
+
+      // Verify images are sorted by order
+      const question = await t.run(async (ctx) => ctx.db.get(questionId))
+      expect(question?.images).toHaveLength(3)
+      expect(question?.images?.[0].order).toBe(0)
+      expect(question?.images?.[1].order).toBe(1)
+      expect(question?.images?.[2].order).toBe(2)
+    })
+
+    it("remplace les images existantes par de nouvelles", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "D",
+      })
+
+      // Add initial images
+      await t.run(async (ctx) => {
+        await ctx.db.patch(questionId, {
+          images: [
+            { url: "https://cdn.example.com/old1.jpg", storagePath: "q/old1.jpg", order: 0 },
+            { url: "https://cdn.example.com/old2.jpg", storagePath: "q/old2.jpg", order: 1 },
+          ],
+        })
+      })
+
+      // Replace with new images (keeping all old ones to avoid Bunny deletion in tests)
+      const result = await asAdmin.mutation(api.questions.setQuestionImages, {
+        questionId,
+        images: [
+          { url: "https://cdn.example.com/old1.jpg", storagePath: "q/old1.jpg", order: 0 },
+          { url: "https://cdn.example.com/old2.jpg", storagePath: "q/old2.jpg", order: 1 },
+          { url: "https://cdn.example.com/new1.jpg", storagePath: "q/new1.jpg", order: 2 },
+        ],
+      })
+
+      expect(result.success).toBe(true)
+
+      // Verify images updated
+      const question = await t.run(async (ctx) => ctx.db.get(questionId))
+      expect(question?.images).toHaveLength(3)
+      expect(question?.images?.some((img) => img.storagePath === "q/old1.jpg")).toBe(true)
+      expect(question?.images?.some((img) => img.storagePath === "q/old2.jpg")).toBe(true)
+      expect(question?.images?.some((img) => img.storagePath === "q/new1.jpg")).toBe(true)
+    })
+
+    it("gère le cas sans images initiales", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question sans images",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "D",
+      })
+
+      // Set images on question with no initial images
+      const result = await asAdmin.mutation(api.questions.setQuestionImages, {
+        questionId,
+        images: [
+          { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
+        ],
+      })
+
+      expect(result.success).toBe(true)
+
+      const question = await t.run(async (ctx) => ctx.db.get(questionId))
+      expect(question?.images).toHaveLength(1)
+    })
+  })
+
+  describe("seedQuestionStats", () => {
+    it("retourne alreadySeeded:true si déjà initialisé", async () => {
+      // Suppress expected console.log message
+      vi.spyOn(console, "log").mockImplementation(() => {})
+
+      const t = convexTest(schema, modules)
+
+      // Pre-seed the stats
+      await t.run(async (ctx) => {
+        await ctx.db.insert("questionStats", {
+          domain: "__total__",
+          count: 5,
+        })
+      })
+
+      const result = await t.mutation(internal.questions.seedQuestionStats, {})
+
+      expect(result.success).toBe(true)
+      expect(result.alreadySeeded).toBe(true)
+
+      vi.restoreAllMocks()
+    })
+
+    it("compte les questions par domaine", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      // Create questions in different domains
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1 Cardio",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Cardiologie",
+      })
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q2 Cardio",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Cardiologie",
+      })
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1 Neuro",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Neurologie",
+      })
+
+      // Clear existing stats (created by createQuestion)
+      await t.run(async (ctx) => {
+        const existingStats = await ctx.db.query("questionStats").collect()
+        for (const stat of existingStats) {
+          await ctx.db.delete(stat._id)
+        }
+      })
+
+      // Seed stats
+      const result = await t.mutation(internal.questions.seedQuestionStats, {})
+
+      expect(result.success).toBe(true)
+      expect(result.alreadySeeded).toBeUndefined()
+      expect(result.totalCount).toBe(3)
+      expect(result.domainsCount).toBe(2)
+
+      // Verify stats in DB
+      const stats = await t.run(async (ctx) =>
+        ctx.db.query("questionStats").collect(),
+      )
+
+      const totalStat = stats.find((s) => s.domain === "__total__")
+      const cardioStat = stats.find((s) => s.domain === "Cardiologie")
+      const neuroStat = stats.find((s) => s.domain === "Neurologie")
+
+      expect(totalStat?.count).toBe(3)
+      expect(cardioStat?.count).toBe(2)
+      expect(neuroStat?.count).toBe(1)
+    })
+
+    it("crée l'entrée __total__", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      // Create one question
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "O",
+        domain: "Domain",
+      })
+
+      // Clear existing stats
+      await t.run(async (ctx) => {
+        const existingStats = await ctx.db.query("questionStats").collect()
+        for (const stat of existingStats) {
+          await ctx.db.delete(stat._id)
+        }
+      })
+
+      // Seed stats
+      await t.mutation(internal.questions.seedQuestionStats, {})
+
+      // Verify __total__ entry exists
+      const totalEntry = await t.run(async (ctx) =>
+        ctx.db
+          .query("questionStats")
+          .withIndex("by_domain", (q) => q.eq("domain", "__total__"))
+          .unique(),
+      )
+
+      expect(totalEntry).not.toBeNull()
+      expect(totalEntry?.count).toBe(1)
+    })
+
+    it("gère le cas sans questions", async () => {
+      const t = convexTest(schema, modules)
+
+      // Seed with no questions
+      const result = await t.mutation(internal.questions.seedQuestionStats, {})
+
+      expect(result.success).toBe(true)
+      expect(result.totalCount).toBe(0)
+      expect(result.domainsCount).toBe(0)
+
+      // Verify __total__ entry exists with count 0
+      const totalEntry = await t.run(async (ctx) =>
+        ctx.db
+          .query("questionStats")
+          .withIndex("by_domain", (q) => q.eq("domain", "__total__"))
+          .unique(),
+      )
+
+      expect(totalEntry?.count).toBe(0)
+    })
+  })
 })

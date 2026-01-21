@@ -18,6 +18,7 @@ export default defineConfig({
       exclude: [
         "node_modules/**",
         "convex/_generated/**",
+        "convex/schema.ts",
         "**/*.config.*",
         "**/*.d.ts",
         "components/ui/**",

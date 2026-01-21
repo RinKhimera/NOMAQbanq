@@ -5,7 +5,8 @@ import {
   getCurrentUserOrNull,
   getCurrentUserOrThrow,
 } from "./lib/auth"
-import { batchGetByIds } from "./lib/batchFetch"
+import { batchGetByIds, batchGetOrderedByIds } from "./lib/batchFetch"
+import { Errors } from "./lib/errors"
 
 // ============================================
 // PAUSE STATE MACHINE
@@ -151,14 +152,14 @@ export const deleteExam = mutation({
       .withIndex("by_exam", (q) => q.eq("examId", args.examId))
       .collect()
 
-    // 2. Delete all answers for each participation
+    // 2. Delete all answers for each participation (limited per batch)
     for (const participation of participations) {
       const answers = await ctx.db
         .query("examAnswers")
         .withIndex("by_participation", (q) =>
           q.eq("participationId", participation._id),
         )
-        .collect()
+        .take(500)
 
       for (const answer of answers) {
         await ctx.db.delete(answer._id)
@@ -190,10 +191,10 @@ export const getExamWithQuestions = query({
       throw new Error("Examen non trouvé")
     }
 
-    const questions = await Promise.all(
-      exam.questionIds.map(async (questionId) => {
-        return await ctx.db.get(questionId)
-      }),
+    const questions = await batchGetOrderedByIds(
+      ctx,
+      "questions",
+      exam.questionIds,
     )
 
     return {
@@ -244,7 +245,7 @@ export const getMyAvailableExams = query({
     const allExams = await ctx.db
       .query("exams")
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
+      .take(100)
 
     // Filtrer les examens disponibles pour l'utilisateur
     const availableExams = allExams.filter((exam) => {
@@ -424,6 +425,21 @@ export const submitExamAnswers = mutation({
       throw new Error("Cette session d'examen n'est plus active")
     }
 
+    // Re-verify exam access at submission time (admin bypass)
+    // This check runs after session validation to provide appropriate error messages
+    if (user.role !== "admin") {
+      const examAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "exam"),
+        )
+        .unique()
+
+      if (!examAccess || examAccess.expiresAt < now) {
+        throw Errors.accessExpired("exam")
+      }
+    }
+
     // Vérifier le temps écoulé côté serveur
     const startedAt = participation.startedAt || now
     let timeElapsed = now - startedAt
@@ -498,11 +514,11 @@ export const submitExamAnswers = mutation({
         }
       })
     } else {
-      // Fallback: read questions from DB
-      const questions = await Promise.all(
-        exam.questionIds.map(async (questionId) => {
-          return await ctx.db.get(questionId)
-        }),
+      // Fallback: read questions from DB using batch fetch
+      const questions = await batchGetOrderedByIds(
+        ctx,
+        "questions",
+        exam.questionIds,
       )
 
       answersWithCorrectness = args.answers.map((answer) => {
@@ -691,20 +707,20 @@ export const getParticipantExamResults = query({
       return null
     }
 
-    // Get questions
-    const questions = await Promise.all(
-      exam.questionIds.map(async (questionId) => {
-        return await ctx.db.get(questionId)
-      }),
+    // Get questions using batch fetch
+    const questions = await batchGetOrderedByIds(
+      ctx,
+      "questions",
+      exam.questionIds,
     )
 
-    // Get answers from examAnswers table (indexed query)
+    // Get answers from examAnswers table (indexed query, limited)
     const answers = await ctx.db
       .query("examAnswers")
       .withIndex("by_participation", (q) =>
         q.eq("participationId", participation._id),
       )
-      .collect()
+      .take(200)
 
     return {
       exam: {
@@ -1014,11 +1030,11 @@ export const getExamLeaderboard = query({
       }
     }
 
-    // Get all participations for this exam
+    // Get participations for this exam (limited for performance)
     const participations = await ctx.db
       .query("examParticipations")
       .withIndex("by_exam", (q) => q.eq("examId", args.examId))
-      .collect()
+      .take(500)
 
     // Filter to completed participations only
     const completedParticipations = participations.filter(
@@ -1092,11 +1108,11 @@ export const getMyDashboardStats = query({
       exam.allowedParticipants.includes(user._id),
     )
 
-    // Get user's participations from V2 tables
+    // Get user's participations from V2 tables (limited for performance)
     const myParticipations = await ctx.db
       .query("examParticipations")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect()
+      .take(100)
 
     const completedParticipations = myParticipations.filter(
       (p) => p.status === "completed" || p.status === "auto_submitted",
@@ -1131,11 +1147,11 @@ export const getMyRecentExams = query({
       return []
     }
 
-    // Get user's participations
+    // Get user's participations (limited for performance)
     const myParticipations = await ctx.db
       .query("examParticipations")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect()
+      .take(50)
 
     // Get exams user has access to (limited for performance)
     const allExams = await ctx.db.query("exams").take(200)
@@ -1193,11 +1209,11 @@ export const getAllExamsWithUserParticipation = query({
       }))
     }
 
-    // Get user's participations in a single query
+    // Get user's participations in a single query (limited for performance)
     const userParticipations = await ctx.db
       .query("examParticipations")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect()
+      .take(100)
 
     // Create a map for O(1) lookup
     const participationMap = new Map(
@@ -1236,11 +1252,11 @@ export const getMyScoreHistory = query({
       return []
     }
 
-    // Get user's participations
+    // Get user's participations (limited for performance)
     const participations = await ctx.db
       .query("examParticipations")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect()
+      .take(50)
 
     // Filter completed participations and sort by completion date
     const completedParticipations = participations
@@ -1249,18 +1265,19 @@ export const getMyScoreHistory = query({
       .sort((a, b) => (a.completedAt ?? 0) - (b.completedAt ?? 0))
       .slice(-10)
 
-    // Get exam titles
-    const results = await Promise.all(
-      completedParticipations.map(async (p) => {
-        const exam = await ctx.db.get(p.examId)
-        return {
-          examId: p.examId,
-          examTitle: exam?.title ?? "Examen",
-          score: p.score,
-          completedAt: p.completedAt ?? 0,
-        }
-      }),
-    )
+    // Batch fetch exam titles
+    const examIds = completedParticipations.map((p) => p.examId)
+    const examMap = await batchGetByIds(ctx, "exams", examIds)
+
+    const results = completedParticipations.map((p) => {
+      const exam = examMap.get(p.examId)
+      return {
+        examId: p.examId,
+        examTitle: exam?.title ?? "Examen",
+        score: p.score,
+        completedAt: p.completedAt ?? 0,
+      }
+    })
 
     return results
   },
@@ -1294,10 +1311,7 @@ export const closeExpiredParticipations = internalMutation({
 
     // 2. Récupérer les examens concernés en une seule requête batch
     const examIds = [...new Set(inProgressParticipations.map((p) => p.examId))]
-    const exams = await Promise.all(examIds.map((id) => ctx.db.get(id)))
-    const examMap = new Map(
-      exams.filter(Boolean).map((exam) => [exam!._id, exam!]),
-    )
+    const examMap = await batchGetByIds(ctx, "exams", examIds)
 
     let closedCount = 0
 
@@ -1309,13 +1323,13 @@ export const closeExpiredParticipations = internalMutation({
       // Vérifier si l'examen est expiré (endDate passée)
       if (exam.endDate >= now) continue
 
-      // Calculer le score basé sur les réponses déjà enregistrées
+      // Calculer le score basé sur les réponses déjà enregistrées (limited)
       const existingAnswers = await ctx.db
         .query("examAnswers")
         .withIndex("by_participation", (q) =>
           q.eq("participationId", participation._id),
         )
-        .collect()
+        .take(200)
 
       const correctAnswers = existingAnswers.filter((a) => a.isCorrect).length
       const totalQuestions = exam.questionIds.length
