@@ -144,13 +144,16 @@ export const createQuestion = mutation({
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
+    // Normaliser l'objectifCMC (trim + majuscule initiale)
+    const normalizedObjectif = normalizeObjectifCMC(args.objectifCMC)
+
     const questionId = await ctx.db.insert("questions", {
       question: args.question,
       options: args.options,
       correctAnswer: args.correctAnswer,
       explanation: args.explanation,
       references: args.references,
-      objectifCMC: args.objectifCMC,
+      objectifCMC: normalizedObjectif,
       domain: args.domain,
     })
 
@@ -187,6 +190,38 @@ export const getQuestionStats = query({
 
     return {
       totalCount: totalStat?.count ?? 0,
+      domainStats,
+    }
+  },
+})
+
+// Récupérer les statistiques enrichies pour la page admin questions
+export const getQuestionStatsEnriched = query({
+  args: {},
+  handler: async (ctx) => {
+    // Lire depuis la table d'agrégation
+    const allStats = await ctx.db.query("questionStats").collect()
+
+    // Séparer le total des stats par domaine
+    const totalStat = allStats.find((s) => s.domain === TOTAL_DOMAIN_KEY)
+    const domainStats = allStats
+      .filter((s) => s.domain !== TOTAL_DOMAIN_KEY)
+      .map((s) => ({ domain: s.domain, count: s.count }))
+      .sort((a, b) => b.count - a.count)
+
+    // Pour les stats images, on doit faire un scan (pas d'index sur images)
+    // On limite à 5000 pour performance
+    const questions = await ctx.db.query("questions").take(5000)
+    const withImagesCount = questions.filter(
+      (q) => q.images && q.images.length > 0
+    ).length
+    const withoutImagesCount = questions.length - withImagesCount
+
+    return {
+      totalCount: totalStat?.count ?? 0,
+      withImagesCount,
+      withoutImagesCount,
+      uniqueDomainsCount: domainStats.length,
       domainStats,
     }
   },
@@ -234,6 +269,11 @@ export const updateQuestion = mutation({
       throw new Error("Question non trouvée")
     }
 
+    // Normaliser l'objectifCMC si fourni
+    if (updateData.objectifCMC !== undefined) {
+      updateData.objectifCMC = normalizeObjectifCMC(updateData.objectifCMC)
+    }
+
     // Filtrer les valeurs undefined
     const filteredData = Object.fromEntries(
       Object.entries(updateData).filter(([, value]) => value !== undefined),
@@ -249,7 +289,7 @@ export const updateQuestion = mutation({
 })
 
 
-// Pagination + Filtres pour l'admin (CURSOR-BASED)
+// Pagination + Filtres pour l'admin (CURSOR-BASED) - Version legacy
 // Note: Cursor-based pagination is optimal for index-based queries.
 // When search or complex filters are applied, we need to collect first then paginate in memory.
 export const getQuestionsWithPagination = query({
@@ -319,6 +359,214 @@ export const getQuestionsWithPagination = query({
       .query("questions")
       .order("desc")
       .paginate(paginationOpts)
+  },
+})
+
+// ============================================
+// NOUVELLES QUERIES POUR LA PAGE ADMIN REDESIGNÉE
+// ============================================
+
+// Version améliorée avec filtres avancés et tri
+export const getQuestionsWithFilters = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    searchQuery: v.optional(v.string()),
+    domain: v.optional(v.string()),
+    hasImages: v.optional(v.boolean()),
+    sortBy: v.optional(
+      v.union(
+        v.literal("_creationTime"),
+        v.literal("question"),
+        v.literal("domain")
+      )
+    ),
+    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
+  },
+  handler: async (ctx, args) => {
+    const {
+      paginationOpts,
+      searchQuery,
+      domain,
+      hasImages,
+      sortBy = "_creationTime",
+      sortOrder = "desc",
+    } = args
+
+    const hasDomainFilter = domain && domain !== "all"
+    const hasSearchFilter = searchQuery && searchQuery.trim() !== ""
+    const hasImagesFilter = hasImages !== undefined
+    const hasCustomSort = sortBy !== "_creationTime"
+
+    // Si on a des filtres complexes (search, images) ou un tri personnalisé,
+    // on doit collecter et filtrer/trier en JS
+    const needsJsFilter = hasSearchFilter || hasImagesFilter || hasCustomSort
+
+    if (needsJsFilter) {
+      // Collecter les questions (avec index domaine si possible)
+      let questions
+      if (hasDomainFilter) {
+        questions = await ctx.db
+          .query("questions")
+          .withIndex("by_domain", (q) => q.eq("domain", domain))
+          .collect()
+      } else {
+        questions = await ctx.db.query("questions").collect()
+      }
+
+      // Appliquer les filtres JS
+      let filtered = questions
+
+      if (hasSearchFilter) {
+        const lowerQuery = searchQuery.toLowerCase()
+        filtered = filtered.filter(
+          (q) =>
+            q.question.toLowerCase().includes(lowerQuery) ||
+            q.objectifCMC.toLowerCase().includes(lowerQuery)
+        )
+      }
+
+      if (hasImagesFilter) {
+        filtered = filtered.filter((q) => {
+          const questionHasImages = q.images && q.images.length > 0
+          return hasImages ? questionHasImages : !questionHasImages
+        })
+      }
+
+      // Appliquer le tri
+      filtered.sort((a, b) => {
+        let comparison = 0
+        switch (sortBy) {
+          case "question":
+            comparison = a.question.localeCompare(b.question, "fr")
+            break
+          case "domain":
+            comparison = a.domain.localeCompare(b.domain, "fr")
+            break
+          case "_creationTime":
+          default:
+            comparison = a._creationTime - b._creationTime
+        }
+        return sortOrder === "desc" ? -comparison : comparison
+      })
+
+      // Pagination manuelle
+      const startIndex = paginationOpts.cursor
+        ? parseInt(paginationOpts.cursor, 10)
+        : 0
+      const endIndex = startIndex + paginationOpts.numItems
+      const pageResults = filtered.slice(startIndex, endIndex)
+      const hasMore = endIndex < filtered.length
+
+      return {
+        page: pageResults,
+        continueCursor: hasMore ? endIndex.toString() : "",
+        isDone: !hasMore,
+      }
+    }
+
+    // Sans filtres complexes, utiliser la pagination Convex native
+    const order = sortOrder === "desc" ? "desc" : "asc"
+
+    if (hasDomainFilter) {
+      return await ctx.db
+        .query("questions")
+        .withIndex("by_domain", (q) => q.eq("domain", domain))
+        .order(order)
+        .paginate(paginationOpts)
+    }
+
+    return await ctx.db
+      .query("questions")
+      .order(order)
+      .paginate(paginationOpts)
+  },
+})
+
+// Récupérer une question par son ID (pour le panel et l'édition)
+export const getQuestionById = query({
+  args: { questionId: v.id("questions") },
+  handler: async (ctx, args) => {
+    return await ctx.db.get(args.questionId)
+  },
+})
+
+// Récupérer tous les objectifs CMC uniques (pour le combobox)
+export const getUniqueObjectifsCMC = query({
+  args: {},
+  handler: async (ctx) => {
+    // Collecter toutes les questions (limité pour performance)
+    const questions = await ctx.db.query("questions").take(5000)
+
+    // Extraire les objectifs uniques
+    const objectifsSet = new Set<string>()
+    for (const q of questions) {
+      if (q.objectifCMC && q.objectifCMC.trim()) {
+        objectifsSet.add(q.objectifCMC.trim())
+      }
+    }
+
+    // Trier alphabétiquement
+    return Array.from(objectifsSet).sort((a, b) => a.localeCompare(b, "fr"))
+  },
+})
+
+// Récupérer toutes les questions pour l'export (avec filtres)
+export const getAllQuestionsForExport = query({
+  args: {
+    searchQuery: v.optional(v.string()),
+    domain: v.optional(v.string()),
+    hasImages: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const { searchQuery, domain, hasImages } = args
+    const hasDomainFilter = domain && domain !== "all"
+    const hasSearchFilter = searchQuery && searchQuery.trim() !== ""
+    const hasImagesFilter = hasImages !== undefined
+
+    // Collecter les questions
+    let questions
+    if (hasDomainFilter) {
+      questions = await ctx.db
+        .query("questions")
+        .withIndex("by_domain", (q) => q.eq("domain", domain))
+        .take(5000)
+    } else {
+      questions = await ctx.db.query("questions").take(5000)
+    }
+
+    // Appliquer les filtres
+    let filtered = questions
+
+    if (hasSearchFilter) {
+      const lowerQuery = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (q) =>
+          q.question.toLowerCase().includes(lowerQuery) ||
+          q.objectifCMC.toLowerCase().includes(lowerQuery)
+      )
+    }
+
+    if (hasImagesFilter) {
+      filtered = filtered.filter((q) => {
+        const questionHasImages = q.images && q.images.length > 0
+        return hasImages ? questionHasImages : !questionHasImages
+      })
+    }
+
+    // Retourner les données formatées pour l'export
+    return filtered.map((q) => ({
+      _id: q._id,
+      _creationTime: q._creationTime,
+      question: q.question,
+      options: q.options,
+      correctAnswer: q.correctAnswer,
+      explanation: q.explanation,
+      references: q.references || [],
+      objectifCMC: q.objectifCMC,
+      domain: q.domain,
+      hasImages: (q.images && q.images.length > 0) || false,
+      imagesCount: q.images?.length || 0,
+    }))
   },
 })
 
@@ -485,6 +733,89 @@ export const setQuestionImages = mutation({
     await ctx.db.patch(args.questionId, { images: sortedImages })
 
     return { success: true }
+  },
+})
+
+// ============================================
+// HELPER: Normalisation objectifCMC
+// ============================================
+
+/**
+ * Normalise un objectifCMC: trim + majuscule initiale
+ */
+function normalizeObjectifCMC(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.length === 0) return trimmed
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
+}
+
+// ============================================
+// MIGRATION: Audit et normalisation objectifCMC
+// ============================================
+
+/**
+ * Audit des valeurs objectifCMC pour identifier les doublons
+ * Commande: npx convex run questions:auditObjectifsCMC
+ */
+export const auditObjectifsCMC = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const questions = await ctx.db.query("questions").collect()
+
+    // Grouper par forme normalisée (trim + lowercase)
+    const groups = new Map<string, { values: Set<string>; count: number }>()
+
+    for (const q of questions) {
+      const normalized = q.objectifCMC.trim().toLowerCase()
+      const existing = groups.get(normalized) || { values: new Set(), count: 0 }
+      existing.values.add(q.objectifCMC)
+      existing.count++
+      groups.set(normalized, existing)
+    }
+
+    // Retourner toutes les valeurs groupées
+    return Array.from(groups.entries()).map(([key, data]) => ({
+      normalized: key,
+      variants: Array.from(data.values),
+      count: data.count,
+      hasDuplicates: data.values.size > 1,
+    })).sort((a, b) => a.normalized.localeCompare(b.normalized, "fr"))
+  },
+})
+
+/**
+ * Migration pour normaliser les objectifCMC
+ * Commande: npx convex run questions:normalizeObjectifsCMC --args '{"mappings": [...]}'
+ */
+export const normalizeObjectifsCMC = internalMutation({
+  args: {
+    mappings: v.array(
+      v.object({
+        canonical: v.string(),
+        variants: v.array(v.string()),
+      })
+    ),
+  },
+  handler: async (ctx, args) => {
+    let updated = 0
+
+    for (const { canonical, variants } of args.mappings) {
+      for (const variant of variants) {
+        if (variant === canonical) continue // Skip si déjà correct
+
+        const questions = await ctx.db
+          .query("questions")
+          .withIndex("by_objectifCMC", (q) => q.eq("objectifCMC", variant))
+          .collect()
+
+        for (const q of questions) {
+          await ctx.db.patch(q._id, { objectifCMC: canonical })
+          updated++
+        }
+      }
+    }
+
+    return { updated }
   },
 })
 

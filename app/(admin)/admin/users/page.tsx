@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect } from "react"
-import { useQuery } from "convex/react"
+import { useState, useCallback, useEffect } from "react"
+import { useQuery, usePaginatedQuery } from "convex/react"
 import { DateRange } from "react-day-picker"
 import { useSearchParams, useRouter } from "next/navigation"
 import { api } from "@/convex/_generated/api"
@@ -53,40 +53,42 @@ export default function UsersPage() {
   // Stats query
   const stats = useQuery(api.users.getUsersStats)
 
-  // Users query with filters
-  const usersResult = useQuery(api.users.getUsersWithFilters, {
-    paginationOpts: {
-      numItems: 50,
-      cursor: null,
+  // Users query with filters using usePaginatedQuery
+  const {
+    results: users,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
+    api.users.getUsersWithFilters,
+    {
+      searchQuery: debouncedSearchQuery.trim() || undefined,
+      role: role === "all" ? undefined : role,
+      accessStatus: accessStatus === "all" ? undefined : accessStatus,
+      dateFrom: dateRange?.from?.getTime(),
+      dateTo: dateRange?.to?.getTime(),
+      sortBy,
+      sortOrder,
     },
-    searchQuery: debouncedSearchQuery.trim() || undefined,
-    role: role === "all" ? undefined : role,
-    accessStatus: accessStatus === "all" ? undefined : accessStatus,
-    dateFrom: dateRange?.from?.getTime(),
-    dateTo: dateRange?.to?.getTime(),
-    sortBy,
-    sortOrder,
-  })
+    { initialNumItems: 50 }
+  )
 
   // All users for export (legacy query)
   const allUsersForExport = useQuery(api.users.getAllUsers)
 
-  // Memoize users list
-  const users = useMemo(() => {
-    return (usersResult?.page as EnrichedUser[]) ?? []
-  }, [usersResult?.page])
-
   // Handlers
-  const handleSort = useCallback((field: SortBy) => {
-    setSortBy((prev) => {
-      if (prev === field) {
+  const handleSort = useCallback(
+    (field: SortBy) => {
+      if (sortBy === field) {
+        // Same column - toggle order
         setSortOrder((order) => (order === "asc" ? "desc" : "asc"))
-        return prev
+      } else {
+        // Different column - set new column with default asc order
+        setSortBy(field)
+        setSortOrder("asc")
       }
-      setSortOrder("asc")
-      return field
-    })
-  }, [])
+    },
+    [sortBy]
+  )
 
   const handleUserSelect = useCallback(
     (user: EnrichedUser) => {
@@ -129,8 +131,15 @@ export default function UsersPage() {
     accessStatus !== "all" ||
     dateRange !== undefined
 
-  const isLoading = usersResult === undefined
-  const canLoadMore = !!usersResult?.continueCursor && !usersResult?.isDone
+  const isLoading = status === "LoadingFirstPage"
+  const canLoadMore = status === "CanLoadMore"
+  const isLoadingMore = status === "LoadingMore"
+
+  const handleLoadMore = useCallback(() => {
+    if (canLoadMore) {
+      loadMore(50)
+    }
+  }, [canLoadMore, loadMore])
 
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
@@ -175,7 +184,7 @@ export default function UsersPage() {
 
       {/* Users Table */}
       <UsersTable
-        users={users}
+        users={users as EnrichedUser[]}
         selectedUserId={selectedUserId}
         onUserSelect={handleUserSelect}
         sortBy={sortBy}
@@ -183,8 +192,8 @@ export default function UsersPage() {
         onSort={handleSort}
         isLoading={isLoading}
         canLoadMore={canLoadMore}
-        onLoadMore={() => {}}
-        isLoadingMore={false}
+        onLoadMore={handleLoadMore}
+        isLoadingMore={isLoadingMore}
       />
 
       {/* Side Panel */}

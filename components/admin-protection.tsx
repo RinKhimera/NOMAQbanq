@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
 import { AlertTriangle, Loader2, Shield } from "lucide-react"
 import { api } from "@/convex/_generated/api"
 
@@ -9,9 +9,17 @@ interface AdminProtectionProps {
 }
 
 export default function AdminProtection({ children }: AdminProtectionProps) {
-  const isAdmin = useQuery(api.users.isCurrentUserAdmin)
+  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
 
-  if (isAdmin === undefined) {
+  // Skip query until Clerk auth is ready to avoid race condition on page reload
+  const isAdmin = useQuery(
+    api.users.isCurrentUserAdmin,
+    isAuthenticated ? undefined : "skip"
+  )
+
+  // Loading state: only show loader while auth is loading OR while query is loading
+  // Don't show loader if user is simply not authenticated (that's a denial case)
+  if (isAuthLoading || (isAuthenticated && isAdmin === undefined)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">

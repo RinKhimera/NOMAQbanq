@@ -1,44 +1,221 @@
 "use client"
 
-import { List, Plus } from "lucide-react"
-import QuestionForm from "@/components/admin/question-form"
-import QuestionsList from "@/components/admin/questions-list"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useCallback, useEffect } from "react"
+import { useQuery, usePaginatedQuery } from "convex/react"
+import { useSearchParams, useRouter } from "next/navigation"
+import { Plus } from "lucide-react"
+import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
+import { QuestionsStatsRow } from "./_components/questions-stats-row"
+import {
+  QuestionsFilterBar,
+  type ImageFilter,
+} from "./_components/questions-filter-bar"
+import {
+  QuestionsTable,
+  type QuestionRow,
+  type SortBy,
+  type SortOrder,
+} from "./_components/questions-table"
+import { QuestionSidePanel } from "./_components/question-side-panel"
+import { ExportQuestionsButton } from "./_components/export-questions-button"
 
-const AdminQuestionsPage = () => {
+export default function AdminQuestionsPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Initialize selected question from URL params
+  const initialQuestionId = searchParams.get("question") as Id<"questions"> | null
+
+  // State for filters
+  const [searchQuery, setSearchQuery] = useState("")
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
+  const [domain, setDomain] = useState<string>("all")
+  const [imageFilter, setImageFilter] = useState<ImageFilter>("all")
+  const [sortBy, setSortBy] = useState<SortBy>("_creationTime")
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc")
+
+  // State for panel - initialize from URL
+  const [selectedQuestionId, setSelectedQuestionId] = useState<Id<"questions"> | null>(
+    initialQuestionId
+  )
+  const [isPanelOpen, setIsPanelOpen] = useState(!!initialQuestionId)
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Stats query
+  const stats = useQuery(api.questions.getQuestionStatsEnriched)
+
+  // Questions query with filters using usePaginatedQuery
+  const {
+    results: questions,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
+    api.questions.getQuestionsWithFilters,
+    {
+      searchQuery: debouncedSearchQuery.trim() || undefined,
+      domain: domain === "all" ? undefined : domain,
+      hasImages:
+        imageFilter === "all" ? undefined : imageFilter === "with" ? true : false,
+      sortBy,
+      sortOrder,
+    },
+    { initialNumItems: 50 }
+  )
+
+  // Handlers
+  const handleSort = useCallback(
+    (field: SortBy) => {
+      if (sortBy === field) {
+        // Same column - toggle order
+        setSortOrder((order) => (order === "asc" ? "desc" : "asc"))
+      } else {
+        // Different column - set new column with default desc order
+        setSortBy(field)
+        setSortOrder("desc")
+      }
+    },
+    [sortBy]
+  )
+
+  const handleQuestionSelect = useCallback(
+    (question: QuestionRow) => {
+      setSelectedQuestionId(question._id)
+      setIsPanelOpen(true)
+      // Update URL without navigation
+      const url = new URL(window.location.href)
+      url.searchParams.set("question", question._id)
+      router.replace(url.pathname + url.search, { scroll: false })
+    },
+    [router]
+  )
+
+  const handlePanelClose = useCallback(
+    (open: boolean) => {
+      setIsPanelOpen(open)
+      if (!open) {
+        setSelectedQuestionId(null)
+        // Remove question param from URL
+        const url = new URL(window.location.href)
+        url.searchParams.delete("question")
+        router.replace(url.pathname + url.search, { scroll: false })
+      }
+    },
+    [router]
+  )
+
+  const handleQuestionDeleted = useCallback(() => {
+    setIsPanelOpen(false)
+    setSelectedQuestionId(null)
+    // Remove question param from URL
+    const url = new URL(window.location.href)
+    url.searchParams.delete("question")
+    router.replace(url.pathname + url.search, { scroll: false })
+  }, [router])
+
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery("")
+    setDomain("all")
+    setImageFilter("all")
+    setSortBy("_creationTime")
+    setSortOrder("desc")
+  }, [])
+
+  const hasActiveFilters =
+    searchQuery !== "" || domain !== "all" || imageFilter !== "all"
+
+  const isLoading = status === "LoadingFirstPage"
+  const canLoadMore = status === "CanLoadMore"
+  const isLoadingMore = status === "LoadingMore"
+
+  const handleLoadMore = useCallback(() => {
+    if (canLoadMore) {
+      loadMore(50)
+    }
+  }, [canLoadMore, loadMore])
+
   return (
-    <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-blue-600">
-          Gestion des Questions
-        </h1>
-        <p className="text-muted-foreground">
-          Ajoutez, modifiez et gérez toutes vos questions QCM
-        </p>
+    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-blue-600">
+            Gestion des Questions
+          </h1>
+          <p className="text-muted-foreground">
+            Gérez votre banque de questions QCM pour les examens EACMC
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Badge variant="secondary" className="h-8 px-3">
+            {stats?.totalCount ?? "..."} question
+            {(stats?.totalCount ?? 0) > 1 ? "s" : ""}
+          </Badge>
+          <ExportQuestionsButton
+            searchQuery={debouncedSearchQuery}
+            domain={domain}
+            hasImages={
+              imageFilter === "all"
+                ? undefined
+                : imageFilter === "with"
+                  ? true
+                  : false
+            }
+          />
+          <Link href="/admin/questions/nouvelle">
+            <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+              <Plus className="h-4 w-4" />
+              Nouvelle question
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      <Tabs defaultValue="list" className="w-full">
-        <TabsList className="bg-card grid w-full grid-cols-2">
-          <TabsTrigger value="list" className="flex items-center gap-2">
-            <List className="h-4 w-4" />
-            Gérer les questions
-          </TabsTrigger>
-          <TabsTrigger value="add" className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Ajouter une question
-          </TabsTrigger>
-        </TabsList>
+      {/* Stats Row */}
+      <QuestionsStatsRow stats={stats ?? null} isLoading={stats === undefined} />
 
-        <TabsContent value="list" className="mt-6">
-          <QuestionsList />
-        </TabsContent>
+      {/* Filter Bar */}
+      <QuestionsFilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        domain={domain}
+        onDomainChange={setDomain}
+        imageFilter={imageFilter}
+        onImageFilterChange={setImageFilter}
+        isSearching={isLoading && debouncedSearchQuery !== ""}
+        onClearFilters={handleClearFilters}
+        hasActiveFilters={hasActiveFilters}
+      />
 
-        <TabsContent value="add" className="mt-6">
-          <QuestionForm />
-        </TabsContent>
-      </Tabs>
+      {/* Questions Table */}
+      <QuestionsTable
+        questions={questions as QuestionRow[]}
+        selectedQuestionId={selectedQuestionId}
+        onQuestionSelect={handleQuestionSelect}
+        sortBy={sortBy}
+        sortOrder={sortOrder}
+        onSort={handleSort}
+        isLoading={isLoading}
+        canLoadMore={canLoadMore}
+        onLoadMore={handleLoadMore}
+        isLoadingMore={isLoadingMore}
+      />
+
+      {/* Side Panel */}
+      <QuestionSidePanel
+        questionId={selectedQuestionId}
+        open={isPanelOpen}
+        onOpenChange={handlePanelClose}
+        onDeleted={handleQuestionDeleted}
+      />
     </div>
   )
 }
-
-export default AdminQuestionsPage

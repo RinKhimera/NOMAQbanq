@@ -12,7 +12,7 @@ export const questionFormSchema = z
       .min(1, "Vous devez sélectionner une réponse correcte"),
     explanation: z.string().min(1, "L'explication est obligatoire"),
     references: z.array(z.string()).optional(),
-    objectifCMC: z.string().min(1, "L'objectif CMC est obligatoire"),
+    objectifCMC: z.string().trim().min(1, "L'objectif CMC est obligatoire"),
     domain: z.string().min(1, "Le domaine est obligatoire"),
   })
   .refine(
