@@ -29,8 +29,8 @@ const usernameSchema = z
   .max(20, "Le nom d'utilisateur ne peut pas dépasser 20 caractères")
   .transform((v) => v.toLowerCase())
   .refine((v) => /^[a-z0-9_]+$/.test(v), {
-    message: "Caractères autorisés: lettres, chiffres, underscore",
-  })
+      error: "Caractères autorisés: lettres, chiffres, underscore"
+})
 
 const bioSchema = z
   .string()

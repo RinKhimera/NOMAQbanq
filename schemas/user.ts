@@ -19,8 +19,7 @@ export const userFormSchema = z.object({
     .string()
     .trim()
     .max(200, "La biographie ne peut pas dépasser 200 caractères")
-    .optional()
-    .transform((v) => (v && v.trim().length === 0 ? undefined : v)),
+    .optional(),
 })
 
 export type UserFormValues = z.infer<typeof userFormSchema>

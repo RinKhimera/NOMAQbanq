@@ -114,7 +114,7 @@ export const InlineEditField = ({
 
   const displayValue = value || emptyText
   // eslint-disable-next-line react-hooks/incompatible-library
-  const currentValue = form.watch("value") ?? ""
+  const currentValue = String(form.watch("value") ?? "")
   const errorMessage = form.formState.errors.value?.message
 
   // Properly handle ref combination for react-hook-form

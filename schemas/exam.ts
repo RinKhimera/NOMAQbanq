@@ -6,10 +6,10 @@ export const examFormSchema = z
     title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
     description: z.string().optional(),
     startDate: z.date({
-      required_error: "Veuillez sélectionner une date de début",
+      error: "Veuillez sélectionner une date de début",
     }),
     endDate: z.date({
-      required_error: "Veuillez sélectionner une date de fin",
+      error: "Veuillez sélectionner une date de fin",
     }),
     numberOfQuestions: z
       .number()
