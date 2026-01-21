@@ -1,0 +1,51 @@
+version: 2
+updates:
+  # Dépendances npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Montreal"
+    open-pull-requests-limit: 10
+    # Grouper les mises à jour pour éviter trop de PRs
+    groups:
+      # Mises à jour mineures et patches groupées
+      minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+          - "convex"
+      # Framework Next.js séparé (peut casser des choses)
+      nextjs:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+      # Convex séparé (backend critique)
+      convex:
+        patterns:
+          - "convex"
+    labels:
+      - "dependencies"
+      - "automated"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci)"

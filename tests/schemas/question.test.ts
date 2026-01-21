@@ -34,15 +34,6 @@ describe("Question Schema", () => {
         expect(result.success).toBe(true)
       })
 
-      it("should validate with optional imageSrc", () => {
-        const questionWithImage = {
-          ...validQuestion,
-          imageSrc: "https://example.com/image.png",
-        }
-        const result = questionFormSchema.safeParse(questionWithImage)
-        expect(result.success).toBe(true)
-      })
-
       it("should validate with optional references", () => {
         const questionWithRefs = {
           ...validQuestion,

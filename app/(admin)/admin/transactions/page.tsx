@@ -1,0 +1,170 @@
+"use client"
+
+import { useState, useMemo } from "react"
+import { usePaginatedQuery } from "convex/react"
+import { motion } from "motion/react"
+import { Plus, Receipt } from "lucide-react"
+import { api } from "@/convex/_generated/api"
+import { Button } from "@/components/ui/button"
+import {
+  TransactionTable,
+  ManualPaymentModal,
+  EditTransactionModal,
+  DeleteTransactionDialog,
+  type Transaction,
+} from "@/components/shared/payments"
+import { TransactionStats } from "./_components/transaction-stats"
+import {
+  TransactionFilters,
+  type TransactionTypeFilter,
+  type TransactionStatusFilter,
+} from "./_components/transaction-filters"
+
+export default function AdminTransactionsPage() {
+  const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>("all")
+  const [statusFilter, setStatusFilter] = useState<TransactionStatusFilter>("all")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showManualPaymentModal, setShowManualPaymentModal] = useState(false)
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
+  const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null)
+
+  // Build query args
+  const queryArgs = useMemo(() => {
+    const args: {
+      type?: "stripe" | "manual"
+      status?: "pending" | "completed" | "failed" | "refunded"
+    } = {}
+
+    if (typeFilter !== "all") {
+      args.type = typeFilter
+    }
+    if (statusFilter !== "all") {
+      args.status = statusFilter
+    }
+
+    return args
+  }, [typeFilter, statusFilter])
+
+  const {
+    results: transactions,
+    status,
+    loadMore,
+  } = usePaginatedQuery(
+    api.payments.getAllTransactions,
+    queryArgs,
+    { initialNumItems: 20 }
+  )
+
+  // Client-side search filtering
+  const filteredTransactions = useMemo(() => {
+    if (!transactions || !searchQuery) return transactions || []
+
+    const query = searchQuery.toLowerCase()
+    return transactions.filter((tx) => {
+      const userName = tx.user?.name?.toLowerCase() || ""
+      const userEmail = tx.user?.email?.toLowerCase() || ""
+      const productName = tx.product?.name?.toLowerCase() || ""
+
+      return (
+        userName.includes(query) ||
+        userEmail.includes(query) ||
+        productName.includes(query)
+      )
+    })
+  }, [transactions, searchQuery])
+
+  const handleClearFilters = () => {
+    setTypeFilter("all")
+    setStatusFilter("all")
+    setSearchQuery("")
+  }
+
+  return (
+    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
+      {/* Header */}
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
+            <Receipt className="h-7 w-7 text-slate-600" />
+            Transactions
+          </h1>
+          <p className="text-muted-foreground">
+            Gérez les paiements et enregistrez les transactions manuelles
+          </p>
+        </div>
+        <Button
+          onClick={() => setShowManualPaymentModal(true)}
+          className="rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 text-white hover:from-slate-600 hover:to-slate-700"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Paiement manuel
+        </Button>
+      </div>
+
+      {/* Stats cards */}
+      <TransactionStats />
+
+      {/* Filters */}
+      <TransactionFilters
+        typeFilter={typeFilter}
+        statusFilter={statusFilter}
+        searchQuery={searchQuery}
+        onTypeChange={setTypeFilter}
+        onStatusChange={setStatusFilter}
+        onSearchChange={setSearchQuery}
+        onClearFilters={handleClearFilters}
+      />
+
+      {/* Transactions table */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <TransactionTable
+          transactions={filteredTransactions}
+          showUserColumn
+          isLoading={status === "LoadingFirstPage"}
+          onLoadMore={() => loadMore(20)}
+          hasMore={status === "CanLoadMore"}
+          onEditTransaction={setEditingTransaction}
+          onDeleteTransaction={setDeletingTransaction}
+          emptyMessage={
+            typeFilter !== "all" || statusFilter !== "all" || searchQuery
+              ? "Aucune transaction ne correspond aux filtres"
+              : "Aucune transaction enregistrée"
+          }
+        />
+      </motion.div>
+
+      {/* Manual payment modal */}
+      <ManualPaymentModal
+        open={showManualPaymentModal}
+        onOpenChange={setShowManualPaymentModal}
+        onSuccess={() => {
+          // Table will auto-refresh due to Convex reactivity
+        }}
+      />
+
+      {/* Edit transaction modal */}
+      <EditTransactionModal
+        transaction={editingTransaction}
+        open={editingTransaction !== null}
+        onOpenChange={(open) => !open && setEditingTransaction(null)}
+        onSuccess={() => {
+          setEditingTransaction(null)
+        }}
+      />
+
+      {/* Delete transaction dialog */}
+      <DeleteTransactionDialog
+        transaction={deletingTransaction}
+        open={deletingTransaction !== null}
+        onOpenChange={(open) => !open && setDeletingTransaction(null)}
+        onSuccess={() => {
+          setDeletingTransaction(null)
+        }}
+      />
+    </div>
+  )
+}

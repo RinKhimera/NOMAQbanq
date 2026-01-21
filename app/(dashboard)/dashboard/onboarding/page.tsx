@@ -104,7 +104,7 @@ export default function OnboardingPage() {
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
       <div>
-        <h1 className="text-2xl font-bold text-blue-600">
+        <h1 className="font-display text-2xl font-bold text-blue-600">
           Complétez votre profil
         </h1>
         <p className="text-muted-foreground">

@@ -53,21 +53,26 @@ export default function QuestionDetailsDialog({
               </div>
             </div>
 
-            {/* Image si présente */}
-            {question.imageSrc && (
+            {/* Images si présentes */}
+            {question.images && question.images.length > 0 && (
               <div className="space-y-2">
                 <h3 className="flex items-center gap-2 text-lg font-semibold">
                   <Eye className="h-5 w-5" />
-                  Image
+                  {question.images.length > 1 ? "Images" : "Image"}
                 </h3>
                 <div className="bg-muted rounded-lg p-4">
-                  <Image
-                    src={question.imageSrc}
-                    alt="Question illustration"
-                    width={600}
-                    height={400}
-                    className="h-auto max-w-full rounded"
-                  />
+                  <div className="flex flex-wrap gap-4">
+                    {question.images.map((img, index) => (
+                      <Image
+                        key={img.storagePath || index}
+                        src={img.url}
+                        alt={`Question illustration ${index + 1}`}
+                        width={300}
+                        height={200}
+                        className="h-auto max-w-full rounded"
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

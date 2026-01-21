@@ -1,10 +1,52 @@
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { internalMutation, mutation, query } from "./_generated/server"
 import {
   getAdminUserOrThrow,
   getCurrentUserOrNull,
   getCurrentUserOrThrow,
 } from "./lib/auth"
+import { batchGetByIds, batchGetOrderedByIds } from "./lib/batchFetch"
+import { Errors } from "./lib/errors"
+
+// ============================================
+// PAUSE STATE MACHINE
+// ============================================
+// Valid pause phase transitions:
+//   undefined -> "before_pause" (on exam start with pause enabled)
+//   "before_pause" -> "during_pause" (user starts pause)
+//   "during_pause" -> "after_pause" (user resumes from pause)
+//
+// Once in "after_pause", no further transitions are allowed.
+
+type PausePhase = "before_pause" | "during_pause" | "after_pause" | undefined
+
+const PAUSE_TRANSITIONS: Record<string, readonly string[]> = {
+  before_pause: ["during_pause"],
+  during_pause: ["after_pause"],
+  after_pause: [], // terminal state
+}
+
+/**
+ * Validates that a pause phase transition is allowed
+ * @throws Error if the transition is invalid
+ */
+const validatePauseTransition = (
+  current: PausePhase,
+  target: "during_pause" | "after_pause",
+): void => {
+  const currentKey = current ?? "undefined"
+  const allowedTransitions = PAUSE_TRANSITIONS[current ?? ""] || []
+
+  if (!allowedTransitions.includes(target)) {
+    const errorMessages: Record<string, string> = {
+      during_pause: "La pause ne peut être démarrée qu'une seule fois",
+      after_pause: "Vous n'êtes pas actuellement en pause",
+    }
+    throw new Error(
+      errorMessages[target] || `Transition invalide: ${currentKey} -> ${target}`,
+    )
+  }
+}
 
 // Créer un nouvel examen
 export const createExam = mutation({
@@ -110,14 +152,14 @@ export const deleteExam = mutation({
       .withIndex("by_exam", (q) => q.eq("examId", args.examId))
       .collect()
 
-    // 2. Delete all answers for each participation
+    // 2. Delete all answers for each participation (limited per batch)
     for (const participation of participations) {
       const answers = await ctx.db
         .query("examAnswers")
         .withIndex("by_participation", (q) =>
           q.eq("participationId", participation._id),
         )
-        .collect()
+        .take(500)
 
       for (const answer of answers) {
         await ctx.db.delete(answer._id)
@@ -149,10 +191,10 @@ export const getExamWithQuestions = query({
       throw new Error("Examen non trouvé")
     }
 
-    const questions = await Promise.all(
-      exam.questionIds.map(async (questionId) => {
-        return await ctx.db.get(questionId)
-      }),
+    const questions = await batchGetOrderedByIds(
+      ctx,
+      "questions",
+      exam.questionIds,
     )
 
     return {
@@ -203,7 +245,7 @@ export const getMyAvailableExams = query({
     const allExams = await ctx.db
       .query("exams")
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
+      .take(100)
 
     // Filtrer les examens disponibles pour l'utilisateur
     const availableExams = allExams.filter((exam) => {
@@ -233,6 +275,22 @@ export const startExam = mutation({
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUserOrThrow(ctx)
+
+    // Vérifier l'accès payant aux examens (admins exemptés)
+    if (user.role !== "admin") {
+      const examAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "exam"),
+        )
+        .unique()
+
+      if (!examAccess || examAccess.expiresAt < Date.now()) {
+        throw new Error(
+          "Accès aux examens requis. Veuillez souscrire un abonnement.",
+        )
+      }
+    }
 
     const exam = await ctx.db.get(args.examId)
     if (!exam) {
@@ -367,6 +425,21 @@ export const submitExamAnswers = mutation({
       throw new Error("Cette session d'examen n'est plus active")
     }
 
+    // Re-verify exam access at submission time (admin bypass)
+    // This check runs after session validation to provide appropriate error messages
+    if (user.role !== "admin") {
+      const examAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "exam"),
+        )
+        .unique()
+
+      if (!examAccess || examAccess.expiresAt < now) {
+        throw Errors.accessExpired("exam")
+      }
+    }
+
     // Vérifier le temps écoulé côté serveur
     const startedAt = participation.startedAt || now
     let timeElapsed = now - startedAt
@@ -377,12 +450,21 @@ export const submitExamAnswers = mutation({
     }
 
     const maxTimeAllowed = exam.completionTime * 1000
-    const gracePeriod = args.isAutoSubmit ? 30000 : 5000
-    const maxTimeWithGrace = maxTimeAllowed + gracePeriod
 
-    if (timeElapsed > maxTimeWithGrace) {
-      throw new Error(
-        "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
+    // Pour les auto-submits (sessions abandonnées), on accepte toujours
+    // Pour les soumissions manuelles, on garde un grace period de 5 secondes
+    if (!args.isAutoSubmit) {
+      const gracePeriod = 5000
+      if (timeElapsed > maxTimeAllowed + gracePeriod) {
+        throw new Error(
+          "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
+        )
+      }
+    } else if (timeElapsed > maxTimeAllowed) {
+      // Session abandonnée - loguer mais accepter
+      const minutesLate = Math.round((timeElapsed - maxTimeAllowed) / 60000)
+      console.warn(
+        `Session abandonnée auto-soumise: ${minutesLate} min de retard pour exam ${args.examId}`,
       )
     }
 
@@ -432,11 +514,11 @@ export const submitExamAnswers = mutation({
         }
       })
     } else {
-      // Fallback: read questions from DB
-      const questions = await Promise.all(
-        exam.questionIds.map(async (questionId) => {
-          return await ctx.db.get(questionId)
-        }),
+      // Fallback: read questions from DB using batch fetch
+      const questions = await batchGetOrderedByIds(
+        ctx,
+        "questions",
+        exam.questionIds,
       )
 
       answersWithCorrectness = args.answers.map((answer) => {
@@ -467,10 +549,12 @@ export const submitExamAnswers = mutation({
     }
 
     // Update participation status
+    const finalStatus = args.isAutoSubmit ? "auto_submitted" : "completed"
+
     await ctx.db.patch(participation._id, {
       score: percentage,
       completedAt: now,
-      status: args.isAutoSubmit ? "auto_submitted" : "completed",
+      status: finalStatus,
     })
 
     return {
@@ -623,20 +707,20 @@ export const getParticipantExamResults = query({
       return null
     }
 
-    // Get questions
-    const questions = await Promise.all(
-      exam.questionIds.map(async (questionId) => {
-        return await ctx.db.get(questionId)
-      }),
+    // Get questions using batch fetch
+    const questions = await batchGetOrderedByIds(
+      ctx,
+      "questions",
+      exam.questionIds,
     )
 
-    // Get answers from examAnswers table (indexed query)
+    // Get answers from examAnswers table (indexed query, limited)
     const answers = await ctx.db
       .query("examAnswers")
       .withIndex("by_participation", (q) =>
         q.eq("participationId", participation._id),
       )
-      .collect()
+      .take(200)
 
     return {
       exam: {
@@ -708,9 +792,8 @@ export const startPause = mutation({
       throw new Error("L'examen n'est pas en cours")
     }
 
-    if (participation.pausePhase !== "before_pause") {
-      throw new Error("La pause ne peut être démarrée qu'une seule fois")
-    }
+    // Validate state machine transition (before_pause -> during_pause)
+    validatePauseTransition(participation.pausePhase, "during_pause")
 
     const now = Date.now()
 
@@ -769,9 +852,8 @@ export const resumeFromPause = mutation({
       throw new Error("L'examen n'est pas en cours")
     }
 
-    if (participation.pausePhase !== "during_pause") {
-      throw new Error("Vous n'êtes pas actuellement en pause")
-    }
+    // Validate state machine transition (during_pause -> after_pause)
+    validatePauseTransition(participation.pausePhase, "after_pause")
 
     const now = Date.now()
     const pauseStartedAt = participation.pauseStartedAt || now
@@ -948,33 +1030,33 @@ export const getExamLeaderboard = query({
       }
     }
 
-    // Get all participations for this exam
+    // Get participations for this exam (limited for performance)
     const participations = await ctx.db
       .query("examParticipations")
       .withIndex("by_exam", (q) => q.eq("examId", args.examId))
-      .collect()
+      .take(500)
 
-    // Filter completed participations and get user info
-    const leaderboard = await Promise.all(
-      participations
-        .filter(
-          (p) => p.status === "completed" || p.status === "auto_submitted",
-        )
-        .map(async (participation) => {
-          const user = await ctx.db.get(participation.userId)
-          return {
-            participationId: participation._id,
-            user,
-            score: participation.score,
-            completedAt: participation.completedAt,
-          }
-        }),
+    // Filter to completed participations only
+    const completedParticipations = participations.filter(
+      (p) => p.status === "completed" || p.status === "auto_submitted",
     )
 
-    // Sort by score descending
-    return leaderboard
+    // Batch fetch all users (deduplicated)
+    const userIds = completedParticipations.map((p) => p.userId)
+    const userMap = await batchGetByIds(ctx, "users", userIds)
+
+    // Build leaderboard with cached user data
+    const leaderboard = completedParticipations
+      .map((participation) => ({
+        participationId: participation._id,
+        user: userMap.get(participation.userId) ?? null,
+        score: participation.score,
+        completedAt: participation.completedAt,
+      }))
       .filter((entry) => entry.user !== null)
-      .sort((a, b) => b.score - a.score)
+
+    // Sort by score descending
+    return leaderboard.sort((a, b) => b.score - a.score)
   },
 })
 
@@ -984,12 +1066,13 @@ export const getExamLeaderboard = query({
  */
 export const getAllExams = query({
   handler: async (ctx) => {
-    const exams = await ctx.db.query("exams").order("desc").collect()
+    // Limit to 100 exams for performance
+    const exams = await ctx.db.query("exams").order("desc").take(100)
 
-    // Fetch all participations in one query (avoids N+1 problem)
+    // Fetch participations limited for performance
     const allParticipations = await ctx.db
       .query("examParticipations")
-      .collect()
+      .take(2000)
 
     // Create a count map by examId
     const participationCountMap = new Map<string, number>()
@@ -1019,17 +1102,17 @@ export const getMyDashboardStats = query({
       return null
     }
 
-    // Get all exams user has access to
-    const allExams = await ctx.db.query("exams").collect()
+    // Get exams user has access to (limited for performance)
+    const allExams = await ctx.db.query("exams").take(200)
     const myExams = allExams.filter((exam) =>
       exam.allowedParticipants.includes(user._id),
     )
 
-    // Get user's participations from V2 tables
+    // Get user's participations from V2 tables (limited for performance)
     const myParticipations = await ctx.db
       .query("examParticipations")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect()
+      .take(100)
 
     const completedParticipations = myParticipations.filter(
       (p) => p.status === "completed" || p.status === "auto_submitted",
@@ -1045,17 +1128,10 @@ export const getMyDashboardStats = query({
 
     const averageScore = examCount > 0 ? Math.round(totalScore / examCount) : 0
 
-    // Count learning bank questions
-    const learningBankQuestions = await ctx.db
-      .query("learningBankQuestions")
-      .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
-
     return {
       availableExamsCount: myExams.length,
       completedExamsCount: examCount,
       averageScore,
-      learningBankQuestionsCount: learningBankQuestions.length,
     }
   },
 })
@@ -1071,14 +1147,14 @@ export const getMyRecentExams = query({
       return []
     }
 
-    // Get user's participations
+    // Get user's participations (limited for performance)
     const myParticipations = await ctx.db
       .query("examParticipations")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect()
+      .take(50)
 
-    // Get all exams user has access to
-    const allExams = await ctx.db.query("exams").collect()
+    // Get exams user has access to (limited for performance)
+    const allExams = await ctx.db.query("exams").take(200)
 
     // Create participation lookup map
     const participationMap = new Map(myParticipations.map((p) => [p.examId, p]))
@@ -1117,12 +1193,13 @@ export const getMyRecentExams = query({
 
 /**
  * Get all exams with current user's participation status
- * Used by mock-exam page to show exam list with "already taken" status
+ * Used by examen-blanc page to show exam list with "already taken" status
  */
 export const getAllExamsWithUserParticipation = query({
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
-    const exams = await ctx.db.query("exams").order("desc").collect()
+    // Limit to 100 exams for performance
+    const exams = await ctx.db.query("exams").order("desc").take(100)
 
     if (!user) {
       return exams.map((exam) => ({
@@ -1132,11 +1209,11 @@ export const getAllExamsWithUserParticipation = query({
       }))
     }
 
-    // Get user's participations in a single query
+    // Get user's participations in a single query (limited for performance)
     const userParticipations = await ctx.db
       .query("examParticipations")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .collect()
+      .take(100)
 
     // Create a map for O(1) lookup
     const participationMap = new Map(
@@ -1160,5 +1237,123 @@ export const getAllExamsWithUserParticipation = query({
           : null,
       }
     })
+  },
+})
+
+/**
+ * Get user's score history for dashboard chart
+ * Returns the last 10 completed exams with their scores
+ */
+export const getMyScoreHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) {
+      return []
+    }
+
+    // Get user's participations (limited for performance)
+    const participations = await ctx.db
+      .query("examParticipations")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .take(50)
+
+    // Filter completed participations and sort by completion date
+    const completedParticipations = participations
+      .filter((p) => p.status === "completed" || p.status === "auto_submitted")
+      .filter((p) => p.completedAt !== undefined)
+      .sort((a, b) => (a.completedAt ?? 0) - (b.completedAt ?? 0))
+      .slice(-10)
+
+    // Batch fetch exam titles
+    const examIds = completedParticipations.map((p) => p.examId)
+    const examMap = await batchGetByIds(ctx, "exams", examIds)
+
+    const results = completedParticipations.map((p) => {
+      const exam = examMap.get(p.examId)
+      return {
+        examId: p.examId,
+        examTitle: exam?.title ?? "Examen",
+        score: p.score,
+        completedAt: p.completedAt ?? 0,
+      }
+    })
+
+    return results
+  },
+})
+
+// ============================================
+// CRON JOBS - Internal mutations
+// ============================================
+
+/**
+ * Ferme automatiquement les participations in_progress des examens expirés
+ * Appelé par le cron job toutes les heures
+ *
+ * Optimisation: on commence par les participations in_progress (peu nombreuses)
+ * puis on vérifie si leur examen est expiré, au lieu de scanner tous les examens expirés
+ */
+export const closeExpiredParticipations = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now()
+
+    // 1. Trouver toutes les participations in_progress (utilise l'index by_status)
+    const inProgressParticipations = await ctx.db
+      .query("examParticipations")
+      .withIndex("by_status", (q) => q.eq("status", "in_progress"))
+      .collect()
+
+    if (inProgressParticipations.length === 0) {
+      return { closedCount: 0, processedCount: 0 }
+    }
+
+    // 2. Récupérer les examens concernés en une seule requête batch
+    const examIds = [...new Set(inProgressParticipations.map((p) => p.examId))]
+    const examMap = await batchGetByIds(ctx, "exams", examIds)
+
+    let closedCount = 0
+
+    // 3. Pour chaque participation, vérifier si l'examen est expiré
+    for (const participation of inProgressParticipations) {
+      const exam = examMap.get(participation.examId)
+      if (!exam) continue
+
+      // Vérifier si l'examen est expiré (endDate passée)
+      if (exam.endDate >= now) continue
+
+      // Calculer le score basé sur les réponses déjà enregistrées (limited)
+      const existingAnswers = await ctx.db
+        .query("examAnswers")
+        .withIndex("by_participation", (q) =>
+          q.eq("participationId", participation._id),
+        )
+        .take(200)
+
+      const correctAnswers = existingAnswers.filter((a) => a.isCorrect).length
+      const totalQuestions = exam.questionIds.length
+      const score =
+        totalQuestions > 0
+          ? Math.round((correctAnswers / totalQuestions) * 100)
+          : 0
+
+      // Fermer la participation
+      await ctx.db.patch(participation._id, {
+        status: "auto_submitted",
+        score,
+        completedAt: now,
+      })
+
+      closedCount++
+    }
+
+    if (closedCount > 0) {
+      console.log(
+        `[Cron] Fermé ${closedCount} participation(s) expirée(s) sur ${inProgressParticipations.length} in_progress`,
+      )
+    }
+
+    return { closedCount, processedCount: inProgressParticipations.length }
   },
 })

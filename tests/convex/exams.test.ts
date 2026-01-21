@@ -1,11 +1,70 @@
 import { convexTest } from "convex-test"
 import { describe, expect, it } from "vitest"
-import { api } from "../../convex/_generated/api"
+import { api, internal } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
 import schema from "../../convex/schema"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
+
+// Cache pour les produits de test (réutilisés au sein d'un même test)
+const productCache = new Map<string, Id<"products">>()
+
+// Helper pour accorder l'accès exam ou training à un utilisateur (optimisé)
+const grantAccess = async (
+  t: ReturnType<typeof convexTest>,
+  userId: Id<"users">,
+  accessType: "exam" | "training",
+) => {
+  await t.run(async (ctx) => {
+    // Réutiliser le produit existant ou en créer un nouveau
+    const cacheKey = accessType
+    let productId = productCache.get(cacheKey)
+
+    if (!productId) {
+      productId = await ctx.db.insert("products", {
+        code: accessType === "exam" ? "exam_access" : "training_access",
+        name: accessType === "exam" ? "Accès Examens" : "Accès Entraînement",
+        description: "Test product",
+        priceCAD: 5000,
+        durationDays: 30,
+        accessType,
+        stripeProductId: `prod_test_${accessType}`,
+        stripePriceId: `price_test_${accessType}`,
+        isActive: true,
+      })
+      productCache.set(cacheKey, productId)
+    }
+
+    // Créer une transaction (minimal)
+    const transactionId = await ctx.db.insert("transactions", {
+      userId,
+      productId,
+      type: "manual",
+      status: "completed",
+      amountPaid: 0,
+      currency: "CAD",
+      accessType,
+      durationDays: 30,
+      accessExpiresAt: Date.now() + 86400000,
+      createdAt: Date.now(),
+    })
+
+    // Créer l'accès utilisateur
+    await ctx.db.insert("userAccess", {
+      userId,
+      accessType,
+      expiresAt: Date.now() + 86400000,
+      lastTransactionId: transactionId,
+    })
+  })
+}
+
+// Nettoyer le cache entre les tests
+import { beforeEach } from "vitest"
+beforeEach(() => {
+  productCache.clear()
+})
 
 // Helper pour créer un utilisateur admin
 const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
@@ -332,6 +391,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen",
@@ -358,6 +420,10 @@ describe("exams", () => {
       const user2 = await createRegularUser(t, "2")
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam aux deux utilisateurs
+      await grantAccess(t, user1.userId, "exam")
+      await grantAccess(t, user2.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen",
@@ -377,6 +443,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const now = Date.now()
       // Examen dans le futur
@@ -399,6 +468,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -420,6 +492,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       // Créer des questions avec réponses connues
       const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
@@ -500,6 +575,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen",
@@ -532,6 +610,10 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user1 = await createRegularUser(t, "1")
       const user2 = await createRegularUser(t, "2")
+
+      // Accorder l'accès exam aux utilisateurs
+      await grantAccess(t, user1.userId, "exam")
+      await grantAccess(t, user2.userId, "exam")
 
       const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
         question: "Q1",
@@ -584,6 +666,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
@@ -640,6 +725,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -668,6 +756,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen sans pause",
@@ -690,6 +781,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
@@ -724,6 +818,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -756,6 +853,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -780,6 +880,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       // Créer 4 questions pour tester le midpoint
       const q1 = await createQuestion(t, admin, 1)
@@ -840,6 +943,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const q1 = await createQuestion(t, admin, 1)
       const q2 = await createQuestion(t, admin, 2)
       const q3 = await createQuestion(t, admin, 3)
@@ -885,6 +991,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -913,6 +1022,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const q1 = await createQuestion(t, admin, 1)
       const q2 = await createQuestion(t, admin, 2)
@@ -953,6 +1065,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen sans pause",
@@ -978,6 +1093,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
         question: "Q1",
@@ -1029,6 +1147,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const q1 = await createQuestion(t, admin, 1)
 
       const now = Date.now()
@@ -1078,6 +1199,9 @@ describe("exams", () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const q1 = await createQuestion(t, admin, 1)
 
@@ -1137,6 +1261,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen",
@@ -1187,6 +1314,9 @@ describe("exams", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
 
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
@@ -1323,6 +1453,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen avec pause",
@@ -1356,6 +1489,9 @@ describe("exams", () => {
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const now = Date.now()
       const examId = await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen à supprimer",
@@ -1377,6 +1513,474 @@ describe("exams", () => {
 
       expect(result.success).toBe(true)
       expect(result.deletedParticipations).toBe(1)
+    })
+  })
+
+  describe("getMyScoreHistory", () => {
+    it("retourne une liste vide si non authentifié", async () => {
+      const t = convexTest(schema, modules)
+      const history = await t.query(api.exams.getMyScoreHistory)
+      expect(history).toEqual([])
+    })
+
+    it("retourne une liste vide si aucun examen complété", async () => {
+      const t = convexTest(schema, modules)
+      const user = await createRegularUser(t)
+
+      const history = await user.asUser.query(api.exams.getMyScoreHistory)
+      expect(history).toEqual([])
+    })
+
+    it("retourne l'historique trié par date de completion", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      await grantAccess(t, user.userId, "exam")
+
+      const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E1",
+        objectifCMC: "O1",
+        domain: "D1",
+      })
+
+      const now = Date.now()
+
+      // Create first exam
+      const exam1 = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen 1",
+        startDate: now - 2000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+        allowedParticipants: [user.userId],
+      })
+
+      // Create second exam
+      const exam2 = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen 2",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+        allowedParticipants: [user.userId],
+      })
+
+      // Complete exam1 first (100%)
+      await user.asUser.mutation(api.exams.startExam, { examId: exam1 })
+      await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId: exam1,
+        answers: [{ questionId: q1, selectedAnswer: "A" }],
+        correctAnswers: { [q1]: "A" },
+      })
+
+      // Complete exam2 second (0%)
+      await user.asUser.mutation(api.exams.startExam, { examId: exam2 })
+      await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId: exam2,
+        answers: [{ questionId: q1, selectedAnswer: "B" }],
+        correctAnswers: { [q1]: "A" },
+      })
+
+      const history = await user.asUser.query(api.exams.getMyScoreHistory)
+
+      expect(history).toHaveLength(2)
+      // Sorted by completion date ascending (oldest first)
+      expect(history[0].examTitle).toBe("Examen 1")
+      expect(history[0].score).toBe(100)
+      expect(history[1].examTitle).toBe("Examen 2")
+      expect(history[1].score).toBe(0)
+    })
+
+    it("limite à 10 résultats maximum", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      await grantAccess(t, user.userId, "exam")
+
+      const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E1",
+        objectifCMC: "O1",
+        domain: "D1",
+      })
+
+      const now = Date.now()
+
+      // Create and complete 12 exams
+      for (let i = 1; i <= 12; i++) {
+        const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+          title: `Examen ${i}`,
+          startDate: now - 1000,
+          endDate: now + 7 * 24 * 60 * 60 * 1000,
+          questionIds: [q1],
+          allowedParticipants: [user.userId],
+        })
+
+        await user.asUser.mutation(api.exams.startExam, { examId })
+        await user.asUser.mutation(api.exams.submitExamAnswers, {
+          examId,
+          answers: [{ questionId: q1, selectedAnswer: "A" }],
+          correctAnswers: { [q1]: "A" },
+        })
+      }
+
+      const history = await user.asUser.query(api.exams.getMyScoreHistory)
+      expect(history).toHaveLength(10)
+    })
+
+    it("inclut les examens auto_submitted", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      await grantAccess(t, user.userId, "exam")
+
+      const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E1",
+        objectifCMC: "O1",
+        domain: "D1",
+      })
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen auto-soumis",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+        allowedParticipants: [user.userId],
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      // Submit with isAutoSubmit flag
+      await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId,
+        answers: [{ questionId: q1, selectedAnswer: "A" }],
+        correctAnswers: { [q1]: "A" },
+        isAutoSubmit: true,
+      })
+
+      const history = await user.asUser.query(api.exams.getMyScoreHistory)
+      expect(history).toHaveLength(1)
+      expect(history[0].examTitle).toBe("Examen auto-soumis")
+    })
+
+    it("n'inclut pas les examens in_progress", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      await grantAccess(t, user.userId, "exam")
+
+      const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E1",
+        objectifCMC: "O1",
+        domain: "D1",
+      })
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen en cours",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+        allowedParticipants: [user.userId],
+      })
+
+      // Start but don't complete
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      const history = await user.asUser.query(api.exams.getMyScoreHistory)
+      expect(history).toHaveLength(0)
+    })
+  })
+
+  describe("closeExpiredParticipations", () => {
+    it("retourne closedCount=0 si aucune participation in_progress", async () => {
+      const t = convexTest(schema, modules)
+
+      const result = await t.mutation(
+        internal.exams.closeExpiredParticipations,
+        {},
+      )
+
+      expect(result.closedCount).toBe(0)
+      expect(result.processedCount).toBe(0)
+    })
+
+    it("ferme les participations in_progress des examens expirés", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      const now = Date.now()
+
+      // Create a question (using correct schema)
+      const questionId = await t.run(async (ctx) => {
+        return await ctx.db.insert("questions", {
+          question: "Test question",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "Test",
+          objectifCMC: "Test",
+          domain: "Test",
+        })
+      })
+
+      // Create an expired exam
+      const examId = await t.run(async (ctx) => {
+        return await ctx.db.insert("exams", {
+          title: "Examen expiré",
+          startDate: now - 2 * 24 * 60 * 60 * 1000,
+          endDate: now - 1000, // Just expired
+          questionIds: [questionId],
+          completionTime: 83,
+          allowedParticipants: [user.userId],
+          isActive: true,
+          createdBy: admin.userId,
+        })
+      })
+
+      // Create an in_progress participation
+      const participationId = await t.run(async (ctx) => {
+        return await ctx.db.insert("examParticipations", {
+          examId,
+          userId: user.userId,
+          startedAt: now - 1 * 24 * 60 * 60 * 1000,
+          status: "in_progress",
+          score: 0,
+          completedAt: 0,
+        })
+      })
+
+      // Add an answer
+      await t.run(async (ctx) => {
+        await ctx.db.insert("examAnswers", {
+          participationId,
+          questionId,
+          selectedAnswer: "A",
+          isCorrect: true,
+        })
+      })
+
+      // Run the cron job
+      const result = await t.mutation(
+        internal.exams.closeExpiredParticipations,
+        {},
+      )
+
+      expect(result.closedCount).toBe(1)
+      expect(result.processedCount).toBe(1)
+
+      // Verify the participation was updated
+      const participation = await t.run(async (ctx) => {
+        return await ctx.db.get(participationId)
+      })
+
+      expect(participation?.status).toBe("auto_submitted")
+      expect(participation?.score).toBe(100) // 1 correct out of 1
+      expect(participation?.completedAt).toBeGreaterThan(0)
+    })
+
+    it("ne ferme pas les participations des examens non expirés", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      await grantAccess(t, user.userId, "exam")
+
+      const q1 = await admin.asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q1",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E1",
+        objectifCMC: "O1",
+        domain: "D1",
+      })
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen actif",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000, // Not expired
+        questionIds: [q1],
+        allowedParticipants: [user.userId],
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      // Run the cron job
+      const result = await t.mutation(
+        internal.exams.closeExpiredParticipations,
+        {},
+      )
+
+      expect(result.closedCount).toBe(0)
+      expect(result.processedCount).toBe(1) // Processed but not closed
+
+      // Verify participation is still in_progress
+      const session = await user.asUser.query(api.exams.getExamSession, {
+        examId,
+      })
+      expect(session?.status).toBe("in_progress")
+    })
+
+    it("calcule le score basé sur les réponses existantes", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      const now = Date.now()
+
+      // Create two questions (using correct schema)
+      const q1 = await t.run(async (ctx) => {
+        return await ctx.db.insert("questions", {
+          question: "Q1",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "E1",
+          objectifCMC: "O1",
+          domain: "Test",
+        })
+      })
+
+      const q2 = await t.run(async (ctx) => {
+        return await ctx.db.insert("questions", {
+          question: "Q2",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "B",
+          explanation: "E2",
+          objectifCMC: "O2",
+          domain: "Test",
+        })
+      })
+
+      // Create expired exam with 2 questions
+      const examId = await t.run(async (ctx) => {
+        return await ctx.db.insert("exams", {
+          title: "Examen expiré",
+          startDate: now - 2 * 24 * 60 * 60 * 1000,
+          endDate: now - 1000,
+          questionIds: [q1, q2],
+          completionTime: 166,
+          allowedParticipants: [user.userId],
+          isActive: true,
+          createdBy: admin.userId,
+        })
+      })
+
+      const participationId = await t.run(async (ctx) => {
+        return await ctx.db.insert("examParticipations", {
+          examId,
+          userId: user.userId,
+          startedAt: now - 1 * 24 * 60 * 60 * 1000,
+          status: "in_progress",
+          score: 0,
+          completedAt: 0,
+        })
+      })
+
+      // Add 1 correct answer out of 2 questions
+      await t.run(async (ctx) => {
+        await ctx.db.insert("examAnswers", {
+          participationId,
+          questionId: q1,
+          selectedAnswer: "A",
+          isCorrect: true,
+        })
+        await ctx.db.insert("examAnswers", {
+          participationId,
+          questionId: q2,
+          selectedAnswer: "C", // Wrong
+          isCorrect: false,
+        })
+      })
+
+      // Run the cron job
+      await t.mutation(internal.exams.closeExpiredParticipations, {})
+
+      // Verify score is 50% (1/2)
+      const participation = await t.run(async (ctx) => {
+        return await ctx.db.get(participationId)
+      })
+
+      expect(participation?.score).toBe(50)
+      expect(participation?.status).toBe("auto_submitted")
+    })
+
+    it("gère correctement plusieurs participations expirées", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user1 = await createRegularUser(t, "1")
+      const user2 = await createRegularUser(t, "2")
+
+      const now = Date.now()
+
+      // Create a question (using correct schema)
+      const questionId = await t.run(async (ctx) => {
+        return await ctx.db.insert("questions", {
+          question: "Test question",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "Test",
+          objectifCMC: "Test",
+          domain: "Test",
+        })
+      })
+
+      // Create expired exam
+      const examId = await t.run(async (ctx) => {
+        return await ctx.db.insert("exams", {
+          title: "Examen expiré",
+          startDate: now - 2 * 24 * 60 * 60 * 1000,
+          endDate: now - 1000,
+          questionIds: [questionId],
+          completionTime: 83,
+          allowedParticipants: [user1.userId, user2.userId],
+          isActive: true,
+          createdBy: admin.userId,
+        })
+      })
+
+      // Create in_progress participations for both users
+      await t.run(async (ctx) => {
+        await ctx.db.insert("examParticipations", {
+          examId,
+          userId: user1.userId,
+          startedAt: now - 1 * 24 * 60 * 60 * 1000,
+          status: "in_progress",
+          score: 0,
+          completedAt: 0,
+        })
+        await ctx.db.insert("examParticipations", {
+          examId,
+          userId: user2.userId,
+          startedAt: now - 1 * 24 * 60 * 60 * 1000,
+          status: "in_progress",
+          score: 0,
+          completedAt: 0,
+        })
+      })
+
+      // Run the cron job
+      const result = await t.mutation(
+        internal.exams.closeExpiredParticipations,
+        {},
+      )
+
+      expect(result.closedCount).toBe(2)
+      expect(result.processedCount).toBe(2)
     })
   })
 })

@@ -2,7 +2,6 @@
 
 import { useQuery } from "convex/react"
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react"
-import * as React from "react"
 import { useState } from "react"
 import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
 import { QuestionCard, createViewAction } from "@/components/quiz/question-card"

@@ -8,9 +8,9 @@ import {
   XCircle,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { QuestionImageGallery } from "@/components/shared/question-image-gallery"
 import { cn } from "@/lib/utils"
 import { AnswerOption } from "./answer-option"
 import {
@@ -338,18 +338,15 @@ export const QuestionCard = ({
         </div>
       )}
 
-      {/* Image (for exam variant) */}
+      {/* Image(s) */}
       {showImage &&
-        question.imageSrc &&
-        question.imageSrc.trim() !== "" &&
+        question.images?.length &&
         (isExamVariant || (isDefaultVariant && showImage)) && (
-          <div className="mb-4 overflow-hidden rounded-xl sm:mb-5">
-            <Image
-              src={question.imageSrc}
-              alt="Question illustration"
-              width={800}
-              height={256}
-              className="h-48 w-full object-cover sm:h-64"
+          <div className="mb-5">
+            <QuestionImageGallery
+              images={question.images}
+              size="md"
+              maxDisplay={4}
             />
           </div>
         )}

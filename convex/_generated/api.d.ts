@@ -8,11 +8,20 @@
  * @module
  */
 
+import type * as analytics from "../analytics.js";
+import type * as crons from "../crons.js";
 import type * as examParticipations from "../examParticipations.js";
 import type * as exams from "../exams.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
+import type * as lib_batchFetch from "../lib/batchFetch.js";
+import type * as lib_bunny from "../lib/bunny.js";
+import type * as lib_errors from "../lib/errors.js";
+import type * as payments from "../payments.js";
 import type * as questions from "../questions.js";
+import type * as rateLimit from "../rateLimit.js";
+import type * as stripe from "../stripe.js";
+import type * as training from "../training.js";
 import type * as users from "../users.js";
 
 import type {
@@ -22,11 +31,20 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  analytics: typeof analytics;
+  crons: typeof crons;
   examParticipations: typeof examParticipations;
   exams: typeof exams;
   http: typeof http;
   "lib/auth": typeof lib_auth;
+  "lib/batchFetch": typeof lib_batchFetch;
+  "lib/bunny": typeof lib_bunny;
+  "lib/errors": typeof lib_errors;
+  payments: typeof payments;
   questions: typeof questions;
+  rateLimit: typeof rateLimit;
+  stripe: typeof stripe;
+  training: typeof training;
   users: typeof users;
 }>;
 

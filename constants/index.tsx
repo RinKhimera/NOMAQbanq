@@ -2,9 +2,10 @@ import {
   IconChartBar,
   IconDashboard,
   IconListDetails,
+  IconReceipt,
   IconUsers,
 } from "@tabler/icons-react"
-import { Blocks, CircleUserRound, ShieldCheck, User } from "lucide-react"
+import { CreditCard, User } from "lucide-react"
 
 export const adminNavigation = {
   navMain: [
@@ -19,11 +20,6 @@ export const adminNavigation = {
       icon: IconListDetails,
     },
     {
-      title: "Banque d'apprentissage",
-      url: "/admin/learning-bank",
-      icon: Blocks,
-    },
-    {
       title: "Examens",
       url: "/admin/exams",
       icon: IconChartBar,
@@ -33,22 +29,17 @@ export const adminNavigation = {
       url: "/admin/users",
       icon: IconUsers,
     },
+    {
+      title: "Transactions",
+      url: "/admin/transactions",
+      icon: IconReceipt,
+    },
   ],
   navSecondary: [
     {
       title: "Profil",
       url: "/admin/profil",
       icon: User,
-    },
-    {
-      title: "Compte",
-      url: "/admin/account",
-      icon: CircleUserRound,
-    },
-    {
-      title: "Sécurité",
-      url: "/admin/account/security",
-      icon: ShieldCheck,
     },
   ],
 }
@@ -62,12 +53,12 @@ export const dashboardNavigation = {
     },
     {
       title: "Examen Blanc",
-      url: "/dashboard/mock-exam",
+      url: "/dashboard/examen-blanc",
       icon: IconListDetails,
     },
     {
-      title: "Apprentissage",
-      url: "/dashboard/learning",
+      title: "Entraînement",
+      url: "/dashboard/entrainement",
       icon: IconChartBar,
     },
   ],
@@ -78,14 +69,9 @@ export const dashboardNavigation = {
       icon: User,
     },
     {
-      title: "Compte",
-      url: "/dashboard/account",
-      icon: CircleUserRound,
-    },
-    {
-      title: "Sécurité",
-      url: "/dashboard/account/security",
-      icon: ShieldCheck,
+      title: "Abonnements",
+      url: "/dashboard/abonnements",
+      icon: CreditCard,
     },
   ],
 }
@@ -131,7 +117,7 @@ export const FOOTER_QUICK_LINKS = [
   { name: "Domaines", href: "/domaines" },
   { name: "Évaluation", href: "/evaluation" },
   { name: "À propos", href: "/a-propos" },
-  { name: "Tarifs", href: "#" },
+  { name: "Tarifs", href: "/tarifs" },
   { name: "FAQ", href: "/faq" },
 ] as const
 

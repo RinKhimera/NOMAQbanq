@@ -7,8 +7,8 @@ import DomainsGrid from "./_components/domains-grid"
 
 export default function DomainesPage() {
   return (
-    <div className="theme-bg min-h-screen pt-20">
-      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+    <div className="theme-bg">
+      <div className="mx-auto max-w-7xl px-4 pt-8 pb-16 sm:px-6 lg:px-8">
         <DomainesHeader />
         <DomainesStats />
         <DomainsGrid />
