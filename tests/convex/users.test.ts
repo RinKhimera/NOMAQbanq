@@ -1826,4 +1826,578 @@ describe("users", () => {
       expect(result!.totalTransactionCount).toBe(1)
     })
   })
+
+  describe("getUsersStats", () => {
+    it("rejette si non admin", async () => {
+      const t = convexTest(schema, modules)
+
+      await t.mutation(internal.users.createUser, {
+        name: "Regular User",
+        email: "user@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_regular",
+        tokenIdentifier: "https://clerk.dev|clerk_regular",
+      })
+
+      const asUser = t.withIdentity({
+        tokenIdentifier: "https://clerk.dev|clerk_regular",
+      })
+
+      await expect(asUser.query(api.users.getUsersStats)).rejects.toThrow(
+        "Accès non autorisé",
+      )
+    })
+
+    it("rejette si non authentifié", async () => {
+      const t = convexTest(schema, modules)
+
+      await expect(t.query(api.users.getUsersStats)).rejects.toThrow(
+        "UNAUTHENTICATED",
+      )
+    })
+
+    it("retourne le nombre total d'utilisateurs", async () => {
+      const t = convexTest(schema, modules)
+
+      await t.mutation(internal.users.createUser, {
+        name: "Admin",
+        email: "admin@example.com",
+        image: "https://example.com/avatar.png",
+        role: "admin",
+        externalId: "clerk_admin",
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      await t.mutation(internal.users.createUser, {
+        name: "User 1",
+        email: "user1@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_user1",
+        tokenIdentifier: "https://clerk.dev|clerk_user1",
+      })
+
+      await t.mutation(internal.users.createUser, {
+        name: "User 2",
+        email: "user2@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_user2",
+        tokenIdentifier: "https://clerk.dev|clerk_user2",
+      })
+
+      const asAdmin = t.withIdentity({
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const stats = await asAdmin.query(api.users.getUsersStats)
+      expect(stats.totalUsers).toBe(3)
+    })
+
+    it("compte les nouveaux utilisateurs ce mois-ci", async () => {
+      const t = convexTest(schema, modules)
+
+      // All users created during test are "this month"
+      await t.mutation(internal.users.createUser, {
+        name: "Admin",
+        email: "admin@example.com",
+        image: "https://example.com/avatar.png",
+        role: "admin",
+        externalId: "clerk_admin",
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      await t.mutation(internal.users.createUser, {
+        name: "User 1",
+        email: "user1@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_user1",
+        tokenIdentifier: "https://clerk.dev|clerk_user1",
+      })
+
+      const asAdmin = t.withIdentity({
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const stats = await asAdmin.query(api.users.getUsersStats)
+      expect(stats.newThisMonth).toBe(2)
+      // With no users last month, trend should be 100%
+      expect(stats.newThisMonthTrend).toBe(100)
+    })
+
+    it("compte les accès exam actifs", async () => {
+      const t = convexTest(schema, modules)
+
+      const now = Date.now()
+      const futureDate = now + 30 * 24 * 60 * 60 * 1000
+
+      await t.mutation(internal.users.createUser, {
+        name: "Admin",
+        email: "admin@example.com",
+        image: "https://example.com/avatar.png",
+        role: "admin",
+        externalId: "clerk_admin",
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const userId = await t.run(async (ctx) => {
+        return await ctx.db.insert("users", {
+          name: "User with access",
+          email: "access@example.com",
+          image: "https://example.com/avatar.png",
+          role: "user",
+          externalId: "clerk_access",
+          tokenIdentifier: "https://clerk.dev|clerk_access",
+        })
+      })
+
+      await t.run(async (ctx) => {
+        const productId = await ctx.db.insert("products", {
+          code: "exam_access",
+          name: "Exam Access",
+          description: "Test",
+          priceCAD: 5000,
+          durationDays: 30,
+          accessType: "exam",
+          stripeProductId: "prod_stats_exam",
+          stripePriceId: "price_stats_exam",
+          isActive: true,
+        })
+
+        const txId = await ctx.db.insert("transactions", {
+          userId,
+          productId,
+          type: "manual",
+          status: "completed",
+          amountPaid: 5000,
+          currency: "CAD",
+          accessType: "exam",
+          durationDays: 30,
+          accessExpiresAt: futureDate,
+          createdAt: now,
+          completedAt: now,
+        })
+
+        await ctx.db.insert("userAccess", {
+          userId,
+          accessType: "exam",
+          expiresAt: futureDate,
+          lastTransactionId: txId,
+        })
+      })
+
+      const asAdmin = t.withIdentity({
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const stats = await asAdmin.query(api.users.getUsersStats)
+      expect(stats.activeExamAccess).toBe(1)
+    })
+
+    it("compte les accès training actifs", async () => {
+      const t = convexTest(schema, modules)
+
+      const now = Date.now()
+      const futureDate = now + 30 * 24 * 60 * 60 * 1000
+
+      await t.mutation(internal.users.createUser, {
+        name: "Admin",
+        email: "admin@example.com",
+        image: "https://example.com/avatar.png",
+        role: "admin",
+        externalId: "clerk_admin",
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const userId = await t.run(async (ctx) => {
+        return await ctx.db.insert("users", {
+          name: "User with training",
+          email: "training@example.com",
+          image: "https://example.com/avatar.png",
+          role: "user",
+          externalId: "clerk_training",
+          tokenIdentifier: "https://clerk.dev|clerk_training",
+        })
+      })
+
+      await t.run(async (ctx) => {
+        const productId = await ctx.db.insert("products", {
+          code: "training_access",
+          name: "Training Access",
+          description: "Test",
+          priceCAD: 3000,
+          durationDays: 30,
+          accessType: "training",
+          stripeProductId: "prod_stats_training",
+          stripePriceId: "price_stats_training",
+          isActive: true,
+        })
+
+        const txId = await ctx.db.insert("transactions", {
+          userId,
+          productId,
+          type: "manual",
+          status: "completed",
+          amountPaid: 3000,
+          currency: "CAD",
+          accessType: "training",
+          durationDays: 30,
+          accessExpiresAt: futureDate,
+          createdAt: now,
+          completedAt: now,
+        })
+
+        await ctx.db.insert("userAccess", {
+          userId,
+          accessType: "training",
+          expiresAt: futureDate,
+          lastTransactionId: txId,
+        })
+      })
+
+      const asAdmin = t.withIdentity({
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const stats = await asAdmin.query(api.users.getUsersStats)
+      expect(stats.activeTrainingAccess).toBe(1)
+    })
+
+    it("compte les accès expirant bientôt (7 jours)", async () => {
+      const t = convexTest(schema, modules)
+
+      const now = Date.now()
+      const expiringDate = now + 3 * 24 * 60 * 60 * 1000 // 3 days (within 7 days)
+
+      await t.mutation(internal.users.createUser, {
+        name: "Admin",
+        email: "admin@example.com",
+        image: "https://example.com/avatar.png",
+        role: "admin",
+        externalId: "clerk_admin",
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const userId = await t.run(async (ctx) => {
+        return await ctx.db.insert("users", {
+          name: "Expiring User",
+          email: "expiring@example.com",
+          image: "https://example.com/avatar.png",
+          role: "user",
+          externalId: "clerk_expiring",
+          tokenIdentifier: "https://clerk.dev|clerk_expiring",
+        })
+      })
+
+      await t.run(async (ctx) => {
+        const productId = await ctx.db.insert("products", {
+          code: "exam_access",
+          name: "Exam Access",
+          description: "Test",
+          priceCAD: 5000,
+          durationDays: 30,
+          accessType: "exam",
+          stripeProductId: "prod_expiring",
+          stripePriceId: "price_expiring",
+          isActive: true,
+        })
+
+        const txId = await ctx.db.insert("transactions", {
+          userId,
+          productId,
+          type: "manual",
+          status: "completed",
+          amountPaid: 5000,
+          currency: "CAD",
+          accessType: "exam",
+          durationDays: 30,
+          accessExpiresAt: expiringDate,
+          createdAt: now,
+          completedAt: now,
+        })
+
+        await ctx.db.insert("userAccess", {
+          userId,
+          accessType: "exam",
+          expiresAt: expiringDate,
+          lastTransactionId: txId,
+        })
+      })
+
+      const asAdmin = t.withIdentity({
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const stats = await asAdmin.query(api.users.getUsersStats)
+      expect(stats.examExpiringCount).toBe(1)
+      expect(stats.activeExamAccess).toBe(1) // Still active
+    })
+
+    it("calcule le revenu des 30 derniers jours", async () => {
+      const t = convexTest(schema, modules)
+
+      const now = Date.now()
+      const tenDaysAgo = now - 10 * 24 * 60 * 60 * 1000
+
+      await t.mutation(internal.users.createUser, {
+        name: "Admin",
+        email: "admin@example.com",
+        image: "https://example.com/avatar.png",
+        role: "admin",
+        externalId: "clerk_admin",
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const userId = await t.run(async (ctx) => {
+        return await ctx.db.insert("users", {
+          name: "Paying User",
+          email: "paying@example.com",
+          image: "https://example.com/avatar.png",
+          role: "user",
+          externalId: "clerk_paying",
+          tokenIdentifier: "https://clerk.dev|clerk_paying",
+        })
+      })
+
+      await t.run(async (ctx) => {
+        const productId = await ctx.db.insert("products", {
+          code: "exam_access",
+          name: "Exam Access",
+          description: "Test",
+          priceCAD: 5000,
+          durationDays: 30,
+          accessType: "exam",
+          stripeProductId: "prod_revenue",
+          stripePriceId: "price_revenue",
+          isActive: true,
+        })
+
+        await ctx.db.insert("transactions", {
+          userId,
+          productId,
+          type: "manual",
+          status: "completed",
+          amountPaid: 5000,
+          currency: "CAD",
+          accessType: "exam",
+          durationDays: 30,
+          accessExpiresAt: now + 30 * 24 * 60 * 60 * 1000,
+          createdAt: tenDaysAgo,
+          completedAt: tenDaysAgo,
+        })
+
+        await ctx.db.insert("transactions", {
+          userId,
+          productId,
+          type: "manual",
+          status: "completed",
+          amountPaid: 3000,
+          currency: "CAD",
+          accessType: "exam",
+          durationDays: 30,
+          accessExpiresAt: now + 30 * 24 * 60 * 60 * 1000,
+          createdAt: now,
+          completedAt: now,
+        })
+      })
+
+      const asAdmin = t.withIdentity({
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const stats = await asAdmin.query(api.users.getUsersStats)
+      expect(stats.recentRevenue).toBe(8000) // 5000 + 3000
+      // With no revenue in previous period, trend should be 100%
+      expect(stats.revenueTrend).toBe(100)
+    })
+
+    it("retourne zéros si aucune donnée d'accès ou revenu", async () => {
+      const t = convexTest(schema, modules)
+
+      await t.mutation(internal.users.createUser, {
+        name: "Admin",
+        email: "admin@example.com",
+        image: "https://example.com/avatar.png",
+        role: "admin",
+        externalId: "clerk_admin",
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const asAdmin = t.withIdentity({
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const stats = await asAdmin.query(api.users.getUsersStats)
+      expect(stats.activeExamAccess).toBe(0)
+      expect(stats.activeTrainingAccess).toBe(0)
+      expect(stats.examExpiringCount).toBe(0)
+      expect(stats.trainingExpiringCount).toBe(0)
+      expect(stats.recentRevenue).toBe(0)
+      expect(stats.revenueTrend).toBe(0)
+    })
+  })
+
+  describe("getUsersWithPagination - tri par _creationTime", () => {
+    it("trie par _creationTime en ordre ascendant", async () => {
+      const t = convexTest(schema, modules)
+
+      // Create users sequentially to ensure different _creationTime
+      await t.mutation(internal.users.createUser, {
+        name: "First User",
+        email: "first@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_first",
+        tokenIdentifier: "https://clerk.dev|clerk_first",
+      })
+
+      await t.mutation(internal.users.createUser, {
+        name: "Second User",
+        email: "second@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_second",
+        tokenIdentifier: "https://clerk.dev|clerk_second",
+      })
+
+      await t.mutation(internal.users.createUser, {
+        name: "Third User",
+        email: "third@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_third",
+        tokenIdentifier: "https://clerk.dev|clerk_third",
+      })
+
+      const result = await t.query(api.users.getUsersWithPagination, {
+        paginationOpts: { numItems: 10, cursor: null },
+        sortBy: "_creationTime",
+        sortOrder: "asc",
+      })
+
+      expect(result.page).toHaveLength(3)
+      expect(result.page[0].name).toBe("First User")
+      expect(result.page[1].name).toBe("Second User")
+      expect(result.page[2].name).toBe("Third User")
+    })
+
+    it("trie par _creationTime en ordre descendant", async () => {
+      const t = convexTest(schema, modules)
+
+      await t.mutation(internal.users.createUser, {
+        name: "First User",
+        email: "first@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_first",
+        tokenIdentifier: "https://clerk.dev|clerk_first",
+      })
+
+      await t.mutation(internal.users.createUser, {
+        name: "Second User",
+        email: "second@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_second",
+        tokenIdentifier: "https://clerk.dev|clerk_second",
+      })
+
+      await t.mutation(internal.users.createUser, {
+        name: "Third User",
+        email: "third@example.com",
+        image: "https://example.com/avatar.png",
+        role: "user",
+        externalId: "clerk_third",
+        tokenIdentifier: "https://clerk.dev|clerk_third",
+      })
+
+      const result = await t.query(api.users.getUsersWithPagination, {
+        paginationOpts: { numItems: 10, cursor: null },
+        sortBy: "_creationTime",
+        sortOrder: "desc",
+      })
+
+      expect(result.page).toHaveLength(3)
+      expect(result.page[0].name).toBe("Third User")
+      expect(result.page[1].name).toBe("Second User")
+      expect(result.page[2].name).toBe("First User")
+    })
+  })
+
+  describe("getAdminStats - examens actifs", () => {
+    it("compte correctement les examens actifs", async () => {
+      const t = convexTest(schema, modules)
+
+      const now = Date.now()
+
+      // Create admin
+      await t.mutation(internal.users.createUser, {
+        name: "Admin",
+        email: "admin@example.com",
+        image: "https://example.com/avatar.png",
+        role: "admin",
+        externalId: "clerk_admin",
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      const asAdmin = t.withIdentity({
+        tokenIdentifier: "https://clerk.dev|clerk_admin",
+      })
+
+      // Create a question using API
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Test question",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "Test",
+        objectifCMC: "Test",
+        domain: "Test",
+      })
+
+      // Create active exam (isActive: true, within date range)
+      await asAdmin.mutation(api.exams.createExam, {
+        title: "Examen actif",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [],
+      })
+
+      // Create inactive exam then deactivate it
+      const inactiveExamId = await asAdmin.mutation(api.exams.createExam, {
+        title: "Examen inactif",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [],
+      })
+      await asAdmin.mutation(api.exams.deactivateExam, {
+        examId: inactiveExamId,
+      })
+
+      // Create expired exam (past endDate)
+      await asAdmin.mutation(api.exams.createExam, {
+        title: "Examen passé",
+        startDate: now - 14 * 24 * 60 * 60 * 1000,
+        endDate: now - 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [],
+      })
+
+      // Create future exam (not started yet)
+      await asAdmin.mutation(api.exams.createExam, {
+        title: "Examen futur",
+        startDate: now + 7 * 24 * 60 * 60 * 1000,
+        endDate: now + 14 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+        allowedParticipants: [],
+      })
+
+      const stats = await asAdmin.query(api.users.getAdminStats)
+      expect(stats.totalExams).toBe(4)
+      expect(stats.activeExams).toBe(1) // Only the first exam is truly active
+    })
+  })
 })
