@@ -21,10 +21,69 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   subsets: ["latin"],
 })
 
+const baseUrl = "https://nomaqbanq.ca"
+
 export const metadata: Metadata = {
-  title: "NOMAQbanq - Préparation EACMC Partie I",
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: "NOMAQbanq - Préparation EACMC Partie I",
+    template: "%s | NOMAQbanq",
+  },
   description:
-    "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM pour réussir votre examen.",
+    "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM, examens blancs et suivi de progression pour réussir votre examen.",
+  keywords: [
+    "EACMC",
+    "EACMC Partie 1",
+    "préparation EACMC",
+    "QCM médical",
+    "examen médical Canada",
+    "diplômé médecin international",
+    "DMI Canada",
+    "banque questions médicales",
+    "CMC objectifs",
+    "résidences Canada",
+  ],
+  authors: [{ name: "NOMAQbanq" }],
+  creator: "NOMAQbanq",
+  publisher: "NOMAQbanq",
+  openGraph: {
+    type: "website",
+    locale: "fr_CA",
+    url: baseUrl,
+    siteName: "NOMAQbanq",
+    title: "NOMAQbanq - Préparation EACMC Partie I",
+    description:
+      "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM pour réussir votre examen.",
+    images: [
+      {
+        url: "/images/home-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "NOMAQbanq - Plateforme de préparation EACMC",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "NOMAQbanq - Préparation EACMC Partie I",
+    description:
+      "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM pour réussir votre examen.",
+    images: ["/images/home-image.jpg"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  alternates: {
+    canonical: baseUrl,
+  },
 }
 
 export default function RootLayout({

@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: "Politique de confidentialité | NOMAQbanq",
   description:
     "Découvrez comment NOMAQbanq protège vos données personnelles et respecte votre vie privée.",
+  alternates: {
+    canonical: "https://nomaqbanq.ca/confidentialite",
+  },
 }
 
 const sections = [

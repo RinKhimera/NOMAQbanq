@@ -1,26 +1,15 @@
-"use client"
+import { Metadata } from "next"
+import FaqPageClient from "./_components/faq-page-client"
 
-import { useState } from "react"
-import { FaqHeader } from "./_components/faq-header"
-import { FaqSearch } from "./_components/faq-search"
-import { FaqCategories } from "./_components/faq-categories"
-import { FaqCta } from "./_components/faq-cta"
+export const metadata: Metadata = {
+  title: "FAQ",
+  description:
+    "Questions fréquentes sur NOMAQbanq : inscription, abonnements, fonctionnement des QCM, examens blancs, support technique. Trouvez rapidement vos réponses.",
+  alternates: {
+    canonical: "https://nomaqbanq.ca/faq",
+  },
+}
 
 export default function FAQPage() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [activeCategory, setActiveCategory] = useState("all")
-
-  return (
-    <>
-      <FaqHeader />
-      <FaqSearch
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        activeCategory={activeCategory}
-        setActiveCategory={setActiveCategory}
-      />
-      <FaqCategories searchQuery={searchQuery} activeCategory={activeCategory} />
-      <FaqCta />
-    </>
-  )
+  return <FaqPageClient />
 }

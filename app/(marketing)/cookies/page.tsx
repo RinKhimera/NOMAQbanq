@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: "Politique de cookies | NOMAQbanq",
   description:
     "Informations sur l'utilisation des cookies et traceurs sur la plateforme NOMAQbanq.",
+  alternates: {
+    canonical: "https://nomaqbanq.ca/cookies",
+  },
 }
 
 const sections = [
