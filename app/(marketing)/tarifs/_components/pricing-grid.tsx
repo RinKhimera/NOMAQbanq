@@ -1,16 +1,22 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery, useAction } from "convex/react"
+import { useAction, useQuery } from "convex/react"
+import { ConvexError } from "convex/values"
+import { AlertCircle, PackageX, Sparkles, Zap } from "lucide-react"
 import { motion } from "motion/react"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
+import { toast } from "sonner"
+import { PricingCard } from "@/components/shared/payments"
+import {
+  AccessBadge,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/convex/_generated/api"
-import { PricingCard } from "@/components/shared/payments"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Zap, Sparkles, AlertCircle, PackageX } from "lucide-react"
-import { toast } from "sonner"
+import type { ErrorCode } from "@/convex/lib/errors"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
-import { AccessBadge, getAccessStatus } from "@/components/shared/payments/access-badge"
 import { cn } from "@/lib/utils"
 
 type AccessFilter = "all" | "exam" | "training"
@@ -18,20 +24,36 @@ type AccessFilter = "all" | "exam" | "training"
 export const PricingGrid = () => {
   const [filter, setFilter] = useState<AccessFilter>("all")
   const [loadingProduct, setLoadingProduct] = useState<string | null>(null)
+  const router = useRouter()
 
-  const { isAuthenticated } = useCurrentUser()
+  const { isAuthenticated, isLoading: isAuthLoading } = useCurrentUser()
   const products = useQuery(api.payments.getAvailableProducts)
   const accessStatus = useQuery(
     api.payments.getMyAccessStatus,
-    isAuthenticated ? {} : "skip"
+    isAuthenticated ? {} : "skip",
   )
   const createCheckout = useAction(api.stripe.createCheckoutSession)
 
   const handlePurchase = async (productCode: string) => {
+    // Attendre que l'état d'authentification soit déterminé
+    if (isAuthLoading) {
+      return
+    }
+
+    // Rediriger vers l'authentification si non connecté
+    if (!isAuthenticated) {
+      router.push("/auth/sign-up")
+      return
+    }
+
     setLoadingProduct(productCode)
     try {
       const { checkoutUrl } = await createCheckout({
-        productCode: productCode as "exam_access" | "training_access" | "exam_access_promo" | "training_access_promo",
+        productCode: productCode as
+          | "exam_access"
+          | "training_access"
+          | "exam_access_promo"
+          | "training_access_promo",
         successUrl: `${window.location.origin}/dashboard/payment/success`,
         cancelUrl: `${window.location.origin}/tarifs`,
       })
@@ -41,6 +63,15 @@ export const PricingGrid = () => {
       }
     } catch (error) {
       console.error("Erreur lors de la création du checkout:", error)
+
+      // Gérer l'erreur d'authentification (défense en profondeur)
+      if (error instanceof ConvexError) {
+        const data = error.data as { code?: ErrorCode; message?: string }
+        if (data.code === "UNAUTHENTICATED") {
+          router.push("/auth/sign-up")
+          return
+        }
+      }
 
       if (!navigator.onLine) {
         toast.error("Pas de connexion internet. Vérifiez votre réseau.")
@@ -71,7 +102,9 @@ export const PricingGrid = () => {
 
   const getCurrentAccess = (accessType: "exam" | "training") => {
     if (!accessStatus) return null
-    return accessType === "exam" ? accessStatus.examAccess : accessStatus.trainingAccess
+    return accessType === "exam"
+      ? accessStatus.examAccess
+      : accessStatus.trainingAccess
   }
 
   if (!products) {
@@ -129,45 +162,54 @@ export const PricingGrid = () => {
     <section className="py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Current access status banner */}
-        {isAuthenticated && accessStatus && (accessStatus.examAccess || accessStatus.trainingAccess) && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-12 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/30 dark:to-indigo-950/30"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                <span className="font-medium text-gray-900 dark:text-white">
-                  Vos accès actuels
-                </span>
+        {isAuthenticated &&
+          accessStatus &&
+          (accessStatus.examAccess || accessStatus.trainingAccess) && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-12 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/30 dark:to-indigo-950/30"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    Vos accès actuels
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {accessStatus.examAccess && (
+                    <AccessBadge
+                      accessType="exam"
+                      status={getAccessStatus(
+                        accessStatus.examAccess.expiresAt,
+                        accessStatus.examAccess.daysRemaining,
+                      )}
+                      daysRemaining={accessStatus.examAccess.daysRemaining}
+                      showDetails
+                      size="md"
+                    />
+                  )}
+                  {accessStatus.trainingAccess && (
+                    <AccessBadge
+                      accessType="training"
+                      status={getAccessStatus(
+                        accessStatus.trainingAccess.expiresAt,
+                        accessStatus.trainingAccess.daysRemaining,
+                      )}
+                      daysRemaining={accessStatus.trainingAccess.daysRemaining}
+                      showDetails
+                      size="md"
+                    />
+                  )}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-3">
-                {accessStatus.examAccess && (
-                  <AccessBadge
-                    accessType="exam"
-                    status={getAccessStatus(accessStatus.examAccess.expiresAt, accessStatus.examAccess.daysRemaining)}
-                    daysRemaining={accessStatus.examAccess.daysRemaining}
-                    showDetails
-                    size="md"
-                  />
-                )}
-                {accessStatus.trainingAccess && (
-                  <AccessBadge
-                    accessType="training"
-                    status={getAccessStatus(accessStatus.trainingAccess.expiresAt, accessStatus.trainingAccess.daysRemaining)}
-                    daysRemaining={accessStatus.trainingAccess.daysRemaining}
-                    showDetails
-                    size="md"
-                  />
-                )}
-              </div>
-            </div>
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
-              Prolongez votre accès avant expiration pour cumuler le temps restant avec le nouvel achat.
-            </p>
-          </motion.div>
-        )}
+              <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">
+                Prolongez votre accès avant expiration pour cumuler le temps
+                restant avec le nouvel achat.
+              </p>
+            </motion.div>
+          )}
 
         {/* Filter tabs */}
         <motion.div
@@ -175,14 +217,18 @@ export const PricingGrid = () => {
           animate={{ opacity: 1, y: 0 }}
           className="mb-12 flex justify-center"
         >
-          <Tabs value={filter} onValueChange={(v) => setFilter(v as AccessFilter)} aria-label="Filtrer les offres par type">
+          <Tabs
+            value={filter}
+            onValueChange={(v) => setFilter(v as AccessFilter)}
+            aria-label="Filtrer les offres par type"
+          >
             <TabsList className="h-14 rounded-full bg-gray-100 p-1.5 dark:bg-gray-800">
               <TabsTrigger
                 value="all"
                 aria-label="Afficher toutes les offres"
                 className={cn(
                   "rounded-full px-6 py-2.5 text-sm font-medium transition-all",
-                  filter === "all" && "bg-white shadow-md dark:bg-gray-700"
+                  filter === "all" && "bg-white shadow-md dark:bg-gray-700",
                 )}
               >
                 Toutes les offres
@@ -192,7 +238,7 @@ export const PricingGrid = () => {
                 aria-label="Filtrer par examens simulés"
                 className={cn(
                   "flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all",
-                  filter === "exam" && "bg-white shadow-md dark:bg-gray-700"
+                  filter === "exam" && "bg-white shadow-md dark:bg-gray-700",
                 )}
               >
                 <Zap className="h-4 w-4" aria-hidden="true" />
@@ -203,7 +249,8 @@ export const PricingGrid = () => {
                 aria-label="Filtrer par banque d'entraînement"
                 className={cn(
                   "flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all",
-                  filter === "training" && "bg-white shadow-md dark:bg-gray-700"
+                  filter === "training" &&
+                    "bg-white shadow-md dark:bg-gray-700",
                 )}
               >
                 <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -214,10 +261,14 @@ export const PricingGrid = () => {
         </motion.div>
 
         {/* Products grid */}
-        <div className={cn(
-          "grid gap-8",
-          filter === "all" ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-2 max-w-3xl mx-auto"
-        )}>
+        <div
+          className={cn(
+            "grid gap-8",
+            filter === "all"
+              ? "md:grid-cols-2 lg:grid-cols-4"
+              : "mx-auto max-w-3xl md:grid-cols-2",
+          )}
+        >
           {sortedProducts?.map((product, index) => (
             <PricingCard
               key={product._id}

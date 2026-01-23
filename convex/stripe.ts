@@ -11,6 +11,7 @@ import Stripe from "stripe"
 import { internal } from "./_generated/api"
 import { Id } from "./_generated/dataModel"
 import { action } from "./_generated/server"
+import { Errors } from "./lib/errors"
 
 // ============================================
 // TYPE DEFINITIONS
@@ -44,7 +45,7 @@ export const createCheckoutSession = action({
     // Vérifier l'authentification
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
-      throw new Error("Non authentifié")
+      throw Errors.unauthenticated()
     }
 
     // Récupérer l'utilisateur

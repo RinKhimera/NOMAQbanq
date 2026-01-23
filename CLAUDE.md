@@ -133,6 +133,18 @@ Pattern `users-stats-row.tsx`: cartes KPI avec icône, valeur, trend %, subtitle
 
 Pattern `users-filter-bar.tsx`: recherche debounce + Select filters + DateRange picker avec presets.
 
+## SEO
+
+**IMPORTANT - Metadata Server Components** : `metadata` et `generateMetadata` uniquement dans Server Components. Pages avec `"use client"` → extraire le contenu dans `_components/*-page-client.tsx`.
+
+| Fichier | Rôle |
+|---------|------|
+| `app/robots.ts` | Règles crawl (bloque `/admin/`, `/dashboard/`, `/auth/`) |
+| `app/sitemap.ts` | 9 pages publiques avec priorités |
+| `app/layout.tsx` | Metadata globales + OpenGraph + Twitter cards |
+
+Pattern pages marketing : voir `app/(marketing)/tarifs/page.tsx` + `_components/tarifs-page-client.tsx`.
+
 ## Gotchas
 
 - **motion** : Import depuis `motion/react`, pas `framer-motion`
