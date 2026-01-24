@@ -1,20 +1,18 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQuery } from "convex/react"
+import { useMutation } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
-  ChevronsUpDown,
   Clock,
   Coffee,
   FileText,
   Info,
   Sparkles,
-  Users,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -22,6 +20,7 @@ import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { QuestionSelector } from "@/components/admin/question-selector"
+import { EligibleCandidatesCard } from "../_components/eligible-candidates-card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -33,14 +32,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command"
 import {
   Form,
   FormControl,
@@ -56,7 +47,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -76,12 +66,8 @@ const AdminCreateExamPage = () => {
   const [selectedQuestions, setSelectedQuestions] = useState<Id<"questions">[]>(
     [],
   )
-  const [selectedParticipants, setSelectedParticipants] = useState<
-    Id<"users">[]
-  >([])
 
   const createExam = useMutation(api.exams.createExam)
-  const users = useQuery(api.users.getAllUsers)
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
@@ -128,7 +114,6 @@ const AdminCreateExamPage = () => {
         startDate,
         endDate,
         questionIds: selectedQuestions,
-        allowedParticipants: selectedParticipants,
         enablePause: values.enablePause,
         pauseDurationMinutes: values.enablePause
           ? values.pauseDurationMinutes
@@ -494,119 +479,8 @@ const AdminCreateExamPage = () => {
               </CardContent>
             </Card>
 
-            {/* Participants Card */}
-            <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-              <CardHeader className="border-b bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
-                <div className="flex items-center gap-2">
-                  <Users className="h-5 w-5" />
-                  <CardTitle className="text-lg">Participants</CardTitle>
-                </div>
-                <CardDescription className="text-emerald-100">
-                  Sélectionnez les utilisateurs autorisés à passer cet examen
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 p-6">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className={cn(
-                        "w-full justify-between border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800",
-                        selectedParticipants.length === 0 &&
-                          "text-muted-foreground",
-                      )}
-                    >
-                      {selectedParticipants.length === 0
-                        ? "Sélectionner les participants..."
-                        : `${selectedParticipants.length} participant(s) sélectionné(s)`}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Rechercher un utilisateur..." />
-                      <CommandEmpty>Aucun utilisateur trouvé.</CommandEmpty>
-                      <CommandGroup>
-                        <ScrollArea className="h-64">
-                          {users
-                            ?.filter((user) => user.role !== "admin")
-                            .map((user) => (
-                              <CommandItem
-                                key={user._id}
-                                onSelect={() => {
-                                  if (selectedParticipants.includes(user._id)) {
-                                    setSelectedParticipants(
-                                      selectedParticipants.filter(
-                                        (id) => id !== user._id,
-                                      ),
-                                    )
-                                  } else {
-                                    setSelectedParticipants([
-                                      ...selectedParticipants,
-                                      user._id,
-                                    ])
-                                  }
-                                }}
-                              >
-                                <div className="flex w-full items-center gap-3">
-                                  <Checkbox
-                                    checked={selectedParticipants.includes(
-                                      user._id,
-                                    )}
-                                    onCheckedChange={() => {}}
-                                  />
-                                  <div className="flex-1">
-                                    <p className="font-medium">{user.name}</p>
-                                    <p className="text-muted-foreground text-xs">
-                                      {user.email}
-                                    </p>
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                        </ScrollArea>
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-
-                {selectedParticipants.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedParticipants.map((participantId) => {
-                      const user = users?.find((u) => u._id === participantId)
-                      return user ? (
-                        <Badge
-                          key={participantId}
-                          variant="secondary"
-                          className="gap-1 bg-emerald-100 text-emerald-700 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300"
-                        >
-                          {user.name}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedParticipants(
-                                selectedParticipants.filter(
-                                  (id) => id !== participantId,
-                                ),
-                              )
-                            }}
-                            className="ml-1 rounded-full hover:bg-emerald-300 dark:hover:bg-emerald-700"
-                          >
-                            ×
-                          </button>
-                        </Badge>
-                      ) : null
-                    })}
-                  </div>
-                )}
-
-                <p className="text-xs text-gray-500">
-                  💡 Les administrateurs peuvent toujours accéder à tous les
-                  examens
-                </p>
-              </CardContent>
-            </Card>
+            {/* Candidats éligibles (lecture seule) */}
+            <EligibleCandidatesCard />
 
             {/* Questions Card */}
             <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">

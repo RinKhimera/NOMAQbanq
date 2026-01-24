@@ -15,6 +15,7 @@ import {
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { getExamStatus } from "@/lib/exam-status"
+import { EligibleCandidatesSection } from "./eligible-candidates-section"
 import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
 
@@ -97,6 +98,8 @@ export function ExamDetails({
       </Card>
 
       <ExamSectionStats examId={examId} />
+
+      {isAdmin && <EligibleCandidatesSection />}
 
       <ExamLeaderboard
         examId={examId}

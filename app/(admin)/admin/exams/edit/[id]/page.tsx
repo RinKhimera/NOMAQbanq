@@ -7,14 +7,11 @@ import { fr } from "date-fns/locale"
 import {
   ArrowLeft,
   Calendar,
-  ChevronsUpDown,
   Clock,
   Coffee,
   FileText,
   Loader2,
   Save,
-  Users,
-  X,
 } from "lucide-react"
 import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
@@ -22,6 +19,7 @@ import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { QuestionSelector } from "@/components/admin/question-selector"
+import { EligibleCandidatesCard } from "../../_components/eligible-candidates-card"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
@@ -31,14 +29,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command"
 import {
   Form,
   FormControl,
@@ -54,7 +44,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -76,20 +65,16 @@ const AdminEditExamPage = () => {
   const [selectedQuestions, setSelectedQuestions] = useState<Id<"questions">[]>(
     [],
   )
-  const [selectedParticipants, setSelectedParticipants] = useState<
-    Id<"users">[]
-  >([])
   const [isInitialized, setIsInitialized] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const { isAuthenticated } = useConvexAuth()
 
   const updateExam = useMutation(api.exams.updateExam)
-  const users = useQuery(
-    api.users.getAllUsers,
-    isAuthenticated ? undefined : "skip",
+  const exam = useQuery(
+    api.exams.getExamWithQuestions,
+    isAuthenticated ? { examId } : "skip",
   )
-  const exam = useQuery(api.exams.getExamWithQuestions, { examId })
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
@@ -115,7 +100,6 @@ const AdminEditExamPage = () => {
       pauseDurationMinutes: exam.pauseDurationMinutes ?? 15,
     })
     setSelectedQuestions(exam.questionIds)
-    setSelectedParticipants(exam.allowedParticipants || [])
     setIsInitialized(true)
   }
 
@@ -165,7 +149,6 @@ const AdminEditExamPage = () => {
         startDate,
         endDate,
         questionIds: questionsToValidate,
-        allowedParticipants: selectedParticipants,
         enablePause: values.enablePause,
         pauseDurationMinutes: values.pauseDurationMinutes,
       })
@@ -534,127 +517,8 @@ const AdminEditExamPage = () => {
             </Card>
           </div>
 
-          {/* Carte participants */}
-          <Card className="overflow-hidden border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-500 shadow-md">
-                  <Users className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-emerald-700 dark:text-emerald-300">
-                    Participants autorisés
-                  </CardTitle>
-                  <CardDescription>
-                    Sélectionnez les étudiants qui peuvent passer cet examen
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className={cn(
-                        "w-full justify-between transition-all hover:border-emerald-300 dark:hover:border-emerald-700",
-                        selectedParticipants.length === 0 &&
-                          "text-muted-foreground",
-                      )}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Users className="h-4 w-4 text-emerald-600" />
-                        {selectedParticipants.length === 0
-                          ? "Sélectionner les participants..."
-                          : `${selectedParticipants.length} participant(s) sélectionné(s)`}
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Rechercher un utilisateur..." />
-                      <CommandEmpty>Aucun utilisateur trouvé.</CommandEmpty>
-                      <CommandGroup>
-                        <ScrollArea className="h-72">
-                          {users
-                            ?.filter((user) => user.role !== "admin")
-                            .map((user) => (
-                              <CommandItem
-                                key={user._id}
-                                onSelect={() => {
-                                  if (selectedParticipants.includes(user._id)) {
-                                    setSelectedParticipants(
-                                      selectedParticipants.filter(
-                                        (id) => id !== user._id,
-                                      ),
-                                    )
-                                  } else {
-                                    setSelectedParticipants([
-                                      ...selectedParticipants,
-                                      user._id,
-                                    ])
-                                  }
-                                }}
-                              >
-                                <div className="flex w-full items-center gap-3">
-                                  <Checkbox
-                                    checked={selectedParticipants.includes(
-                                      user._id,
-                                    )}
-                                    onCheckedChange={() => {}}
-                                    className="data-[state=checked]:border-emerald-500 data-[state=checked]:bg-emerald-500"
-                                  />
-                                  <div className="flex-1">
-                                    <div className="font-medium">
-                                      {user.name}
-                                    </div>
-                                    <div className="text-muted-foreground text-xs">
-                                      {user.email}
-                                    </div>
-                                  </div>
-                                </div>
-                              </CommandItem>
-                            ))}
-                        </ScrollArea>
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-
-                {selectedParticipants.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedParticipants.map((participantId) => {
-                      const user = users?.find((u) => u._id === participantId)
-                      return user ? (
-                        <div
-                          key={participantId}
-                          className="group inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-sm font-medium text-emerald-800 transition-all hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:hover:bg-emerald-900/50"
-                        >
-                          {user.name}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedParticipants(
-                                selectedParticipants.filter(
-                                  (id) => id !== participantId,
-                                ),
-                              )
-                            }}
-                            className="rounded-full p-0.5 transition-colors hover:bg-emerald-300 dark:hover:bg-emerald-800"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : null
-                    })}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Candidats éligibles (lecture seule) */}
+          <EligibleCandidatesCard />
 
           {/* Sélection des questions */}
           <Card className="overflow-hidden border-0 shadow-lg">

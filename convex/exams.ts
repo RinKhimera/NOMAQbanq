@@ -56,7 +56,9 @@ export const createExam = mutation({
     startDate: v.number(),
     endDate: v.number(),
     questionIds: v.array(v.id("questions")),
-    allowedParticipants: v.array(v.id("users")),
+    // Deprecated: allowedParticipants n'est plus utilisé
+    // Les candidats éligibles sont déterminés par userAccess
+    allowedParticipants: v.optional(v.array(v.id("users"))),
     enablePause: v.optional(v.boolean()),
     pauseDurationMinutes: v.optional(v.number()),
   },
@@ -80,7 +82,6 @@ export const createExam = mutation({
       endDate: args.endDate,
       questionIds: args.questionIds,
       completionTime,
-      allowedParticipants: args.allowedParticipants,
       enablePause: enablePause || undefined,
       pauseDurationMinutes,
       isActive: true,
@@ -100,7 +101,8 @@ export const updateExam = mutation({
     startDate: v.number(),
     endDate: v.number(),
     questionIds: v.array(v.id("questions")),
-    allowedParticipants: v.array(v.id("users")),
+    // Deprecated: allowedParticipants n'est plus utilisé
+    allowedParticipants: v.optional(v.array(v.id("users"))),
     enablePause: v.optional(v.boolean()),
     pauseDurationMinutes: v.optional(v.number()),
   },
@@ -125,7 +127,7 @@ export const updateExam = mutation({
       endDate: args.endDate,
       questionIds: args.questionIds,
       completionTime,
-      allowedParticipants: args.allowedParticipants,
+      // allowedParticipants n'est plus mis à jour (deprecated)
       enablePause: enablePause || undefined,
       pauseDurationMinutes,
     })
@@ -242,26 +244,41 @@ export const getMyAvailableExams = query({
     }
 
     const now = Date.now()
+
+    // Les admins peuvent voir tous les examens actifs
+    if (user.role === "admin") {
+      const allExams = await ctx.db
+        .query("exams")
+        .withIndex("by_isActive", (q) => q.eq("isActive", true))
+        .take(100)
+
+      return allExams.filter(
+        (exam) => exam.startDate <= now && exam.endDate >= now,
+      )
+    }
+
+    // Vérifier si l'utilisateur a un accès exam actif
+    const examAccess = await ctx.db
+      .query("userAccess")
+      .withIndex("by_userId_accessType", (q) =>
+        q.eq("userId", user._id).eq("accessType", "exam"),
+      )
+      .unique()
+
+    // Si pas d'accès actif, retourner liste vide
+    if (!examAccess || examAccess.expiresAt < now) {
+      return []
+    }
+
+    // Retourner tous les examens actifs dans la période
     const allExams = await ctx.db
       .query("exams")
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
       .take(100)
 
-    // Filtrer les examens disponibles pour l'utilisateur
-    const availableExams = allExams.filter((exam) => {
-      const isActive = exam.startDate <= now && exam.endDate >= now
-
-      // Les admins/superusers peuvent voir tous les examens actifs
-      if (user.role === "admin") {
-        return isActive
-      }
-
-      // Les utilisateurs normaux doivent être dans allowedParticipants
-      const isAllowed = exam.allowedParticipants.includes(user._id)
-      return isAllowed && isActive
-    })
-
-    return availableExams
+    return allExams.filter(
+      (exam) => exam.startDate <= now && exam.endDate >= now,
+    )
   },
 })
 
@@ -304,10 +321,8 @@ export const startExam = mutation({
       throw new Error("L'examen n'est pas disponible à cette période")
     }
 
-    // Vérifier l'autorisation
-    if (user.role !== "admin" && !exam.allowedParticipants.includes(user._id)) {
-      throw new Error("Vous n'êtes pas autorisé à passer cet examen")
-    }
+    // Note: L'autorisation est vérifiée via userAccess (accès payant)
+    // Les admins sont exemptés du check ci-dessus
 
     // Check for existing participation in V2 tables
     const existingParticipation = await ctx.db
@@ -394,10 +409,8 @@ export const submitExamAnswers = mutation({
       throw new Error("L'examen n'est pas disponible à cette période")
     }
 
-    // Vérifier si l'utilisateur est autorisé à passer cet examen
-    if (user.role !== "admin" && !exam.allowedParticipants.includes(user._id)) {
-      throw new Error("Vous n'êtes pas autorisé à passer cet examen")
-    }
+    // Note: L'autorisation est vérifiée via userAccess plus bas
+    // Les admins sont exemptés du check
 
     // Find participation in V2 tables
     const participation = await ctx.db
@@ -1011,17 +1024,25 @@ export const getExamLeaderboard = query({
         return []
       }
 
-      // After exam ends: only allowed participants or those who participated can view
+      // After exam ends: only users with exam access or those who participated can view
       if (currentUser) {
-        const isAllowed = exam.allowedParticipants.includes(currentUser._id)
-        if (!isAllowed) {
-          const hasParticipated = await ctx.db
-            .query("examParticipations")
-            .withIndex("by_exam_user", (q) =>
-              q.eq("examId", args.examId).eq("userId", currentUser._id),
+        const hasParticipated = await ctx.db
+          .query("examParticipations")
+          .withIndex("by_exam_user", (q) =>
+            q.eq("examId", args.examId).eq("userId", currentUser._id),
+          )
+          .unique()
+        if (!hasParticipated) {
+          // Check if user has active exam access
+          const userAccess = await ctx.db
+            .query("userAccess")
+            .withIndex("by_userId_accessType", (q) =>
+              q.eq("userId", currentUser._id).eq("accessType", "exam"),
             )
             .unique()
-          if (!hasParticipated) {
+          const now = Date.now()
+          const hasAccess = userAccess && userAccess.expiresAt > now
+          if (!hasAccess) {
             return []
           }
         }
@@ -1092,6 +1113,48 @@ export const getAllExams = query({
 })
 
 /**
+ * [Admin] Statistiques pour la page listing des examens
+ */
+export const getExamsStats = query({
+  handler: async (ctx) => {
+    await getAdminUserOrThrow(ctx)
+
+    const now = Date.now()
+
+    // Fetch exams (limited for performance)
+    const exams = await ctx.db.query("exams").take(500)
+
+    // Calculate exam stats
+    const total = exams.length
+    const active = exams.filter(
+      (e) => e.isActive && e.startDate <= now && e.endDate >= now,
+    ).length
+    const upcoming = exams.filter((e) => e.isActive && e.startDate > now).length
+    const past = exams.filter((e) => e.endDate < now).length
+    const inactive = exams.filter((e) => !e.isActive).length
+
+    // Get eligible candidates count (users with active exam access)
+    const activeAccess = await ctx.db
+      .query("userAccess")
+      .withIndex("by_expiresAt", (q) => q.gt("expiresAt", now))
+      .take(1000)
+
+    const eligibleCandidates = activeAccess.filter(
+      (a) => a.accessType === "exam",
+    ).length
+
+    return {
+      total,
+      active,
+      upcoming,
+      past,
+      inactive,
+      eligibleCandidates,
+    }
+  },
+})
+
+/**
  * Get user's dashboard stats using normalized tables
  */
 export const getMyDashboardStats = query({
@@ -1102,11 +1165,20 @@ export const getMyDashboardStats = query({
       return null
     }
 
-    // Get exams user has access to (limited for performance)
-    const allExams = await ctx.db.query("exams").take(200)
-    const myExams = allExams.filter((exam) =>
-      exam.allowedParticipants.includes(user._id),
-    )
+    // Check if user has active exam access
+    const userAccess = await ctx.db
+      .query("userAccess")
+      .withIndex("by_userId_accessType", (q) =>
+        q.eq("userId", user._id).eq("accessType", "exam"),
+      )
+      .unique()
+    const now = Date.now()
+    const hasExamAccess = userAccess && userAccess.expiresAt > now
+
+    // Get all active exams if user has access (limited for performance)
+    const allExams = hasExamAccess
+      ? await ctx.db.query("exams").withIndex("by_isActive", (q) => q.eq("isActive", true)).take(200)
+      : []
 
     // Get user's participations from V2 tables (limited for performance)
     const myParticipations = await ctx.db
@@ -1129,7 +1201,7 @@ export const getMyDashboardStats = query({
     const averageScore = examCount > 0 ? Math.round(totalScore / examCount) : 0
 
     return {
-      availableExamsCount: myExams.length,
+      availableExamsCount: allExams.length,
       completedExamsCount: examCount,
       averageScore,
     }
@@ -1153,15 +1225,26 @@ export const getMyRecentExams = query({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .take(50)
 
-    // Get exams user has access to (limited for performance)
-    const allExams = await ctx.db.query("exams").take(200)
+    // Check if user has active exam access
+    const userAccess = await ctx.db
+      .query("userAccess")
+      .withIndex("by_userId_accessType", (q) =>
+        q.eq("userId", user._id).eq("accessType", "exam"),
+      )
+      .unique()
+    const now = Date.now()
+    const hasExamAccess = userAccess && userAccess.expiresAt > now
+
+    // Get active exams if user has access (limited for performance)
+    const allExams = hasExamAccess
+      ? await ctx.db.query("exams").withIndex("by_isActive", (q) => q.eq("isActive", true)).take(200)
+      : []
 
     // Create participation lookup map
     const participationMap = new Map(myParticipations.map((p) => [p.examId, p]))
 
-    // Filter and map user's exams
+    // Map exams to include participation data
     const userExams = allExams
-      .filter((exam) => exam.allowedParticipants.includes(user._id))
       .map((exam) => {
         const participation = participationMap.get(exam._id)
         const isCompleted =

@@ -687,3 +687,98 @@ export const getUserPanelData = query({
     }
   },
 })
+
+/**
+ * [Admin] Récupère les utilisateurs avec un accès exam actif
+ * Utilisé pour afficher les candidats éligibles aux examens
+ */
+export const getUsersWithActiveExamAccess = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
+    const now = Date.now()
+    const limit = args.limit ?? 100
+
+    // Get all active access records (filter by expiry)
+    const activeAccess = await ctx.db
+      .query("userAccess")
+      .withIndex("by_expiresAt", (q) => q.gt("expiresAt", now))
+      .take(limit * 2) // Fetch extra to filter by type
+
+    // Filter for exam access type
+    const examAccess = activeAccess.filter((a) => a.accessType === "exam")
+
+    // Get unique user IDs
+    const userIds = [...new Set(examAccess.map((a) => a.userId))]
+    const limitedUserIds = userIds.slice(0, limit)
+
+    // Batch fetch users
+    const usersMap = await batchGetByIds(ctx, "users", limitedUserIds)
+
+    // Build result with user info and access details
+    return examAccess
+      .filter((access) => usersMap.has(access.userId))
+      .slice(0, limit)
+      .map((access) => {
+        const user = usersMap.get(access.userId)!
+        return {
+          user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            image: user.image,
+            username: user.username,
+          },
+          expiresAt: access.expiresAt,
+          daysRemaining: Math.ceil(
+            (access.expiresAt - now) / (1000 * 60 * 60 * 24),
+          ),
+        }
+      })
+  },
+})
+
+/**
+ * [Admin] Compte le nombre d'utilisateurs avec un accès exam actif
+ */
+export const getActiveExamAccessCount = query({
+  handler: async (ctx) => {
+    await getAdminUserOrThrow(ctx)
+
+    const now = Date.now()
+
+    // Get all active access records
+    const activeAccess = await ctx.db
+      .query("userAccess")
+      .withIndex("by_expiresAt", (q) => q.gt("expiresAt", now))
+      .take(1000)
+
+    // Count exam access only
+    return activeAccess.filter((a) => a.accessType === "exam").length
+  },
+})
+
+/**
+ * Récupère l'accès de l'utilisateur courant pour un type donné
+ */
+export const getMyAccess = query({
+  args: {
+    accessType: v.union(v.literal("exam"), v.literal("training")),
+  },
+  handler: async (ctx, args) => {
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) {
+      return null
+    }
+
+    const access = await ctx.db
+      .query("userAccess")
+      .withIndex("by_userId_accessType", (q) =>
+        q.eq("userId", user._id).eq("accessType", args.accessType),
+      )
+      .unique()
+
+    return access
+  },
+})
