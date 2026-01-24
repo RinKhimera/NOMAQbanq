@@ -1,24 +1,17 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { Edit, Eye, MoreHorizontal, Pause, Play, Trash2 } from "lucide-react"
-import { Calendar, Clock, Eye as EyeIcon, Users } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Id } from "@/convex/_generated/dataModel"
-import { getExamStatus } from "@/lib/exam-status"
-import { cn } from "@/lib/utils"
 import { ExamWithoutParticipants } from "@/types"
-import { sidebarMenuButtonVariants } from "../ui/sidebar"
-import ExamStatusBadge from "./exam-status-badge"
 
 interface ExamActionsProps {
   exam: ExamWithoutParticipants
@@ -26,7 +19,6 @@ interface ExamActionsProps {
   onReactivate: (examId: Id<"exams">) => void
   onEdit: (exam: ExamWithoutParticipants) => void
   onDelete: (exam: ExamWithoutParticipants) => void
-  isMobile?: boolean
 }
 
 export function ExamActions({
@@ -35,115 +27,63 @@ export function ExamActions({
   onReactivate,
   onEdit,
   onDelete,
-  isMobile = false,
 }: ExamActionsProps) {
-  const status = getExamStatus(exam)
-
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="btn_link" className="h-8 w-8 p-0">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+        >
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className={cn("bg-card", isMobile ? "w-64" : "w-48")}
-      >
-        {/* Informations de l'examen en version mobile */}
-        {isMobile && (
-          <>
-            <div className="border-b p-3">
-              <div className="space-y-2">
-                <div className="text-md font-semibold">Autres informations</div>
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-sm">
-                    {format(new Date(exam.startDate), "PPP", { locale: fr })}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  <span className="text-sm">
-                    {format(new Date(exam.endDate), "PPP", { locale: fr })}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <EyeIcon className="h-4 w-4" />
-                  <span className="text-sm">
-                    {exam.questionIds.length} questions
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  <span className="text-sm">
-                    {exam.participantCount} participants
-                  </span>
-                </div>
-                <ExamStatusBadge status={status} />
-              </div>
-            </div>
-            {/*  <DropdownMenuSeparator /> */}
-          </>
-        )}
-        <DropdownMenuLabel className="text-muted-foreground font-semibold dark:text-white">
-          Actions
-        </DropdownMenuLabel>
-        {/* Actions */}
-        <DropdownMenuItem
-          className={cn(
-            sidebarMenuButtonVariants({ variant: "link" }),
-            "text-muted-foreground dark:text-white",
-          )}
-          asChild
-        >
-          <Link className="" href={`/admin/exams/${exam._id}`}>
-            <Eye className="mr-2 h-4 w-4" />
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem asChild>
+          <Link
+            href={`/admin/exams/${exam._id}`}
+            className="flex items-center gap-2"
+          >
+            <Eye className="h-4 w-4" />
             Voir les détails
           </Link>
         </DropdownMenuItem>
 
+        <DropdownMenuItem
+          onClick={() => onEdit(exam)}
+          className="flex items-center gap-2"
+        >
+          <Edit className="h-4 w-4" />
+          Modifier
+        </DropdownMenuItem>
+
         {exam.isActive ? (
           <DropdownMenuItem
-            className={cn(
-              sidebarMenuButtonVariants({ variant: "link" }),
-              "text-muted-foreground dark:text-white",
-            )}
             onClick={() => onDeactivate(exam)}
+            className="flex items-center gap-2"
           >
-            <Pause className="mr-2 h-4 w-4" />
+            <Pause className="h-4 w-4" />
             Désactiver
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem
-            className={cn(
-              sidebarMenuButtonVariants({ variant: "link" }),
-              "text-muted-foreground dark:text-white",
-            )}
             onClick={() => onReactivate(exam._id)}
+            className="flex items-center gap-2"
           >
-            <Play className="mr-2 h-4 w-4" />
+            <Play className="h-4 w-4" />
             Réactiver
           </DropdownMenuItem>
         )}
 
-        <DropdownMenuItem
-          className={cn(
-            sidebarMenuButtonVariants({ variant: "link" }),
-            "text-muted-foreground dark:text-white",
-          )}
-          onClick={() => onEdit(exam)}
-        >
-          <Edit className="mr-2 h-4 w-4" />
-          Modifier
-        </DropdownMenuItem>
+        <DropdownMenuSeparator />
 
         <DropdownMenuItem
           variant="destructive"
           onClick={() => onDelete(exam)}
-          className=""
+          className="flex items-center gap-2"
         >
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Trash2 className="h-4 w-4" />
           Supprimer
         </DropdownMenuItem>
       </DropdownMenuContent>

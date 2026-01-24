@@ -1,14 +1,14 @@
 "use client"
 
 import { useMutation, useQuery } from "convex/react"
-import { FileText } from "lucide-react"
+import { FileText, Plus, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { ExamBulkDeleteModal } from "@/components/admin/modals/exam-bulk-delete-modal"
 import { ExamDeactivateModal } from "@/components/admin/modals/exam-deactivate-modal"
 import { ExamDeleteModal } from "@/components/admin/modals/exam-delete-modal"
 import { ExamEditModal } from "@/components/admin/modals/exam-edit-modal"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -16,32 +16,32 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { DataTable } from "@/components/ui/data-table"
 import { EmptyState } from "@/components/ui/empty-state"
+import { Input } from "@/components/ui/input"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
-import { useMediaQuery } from "@/hooks/use-media-query"
 import { ExamStatus, getExamStatus } from "@/lib/exam-status"
 import { ExamWithoutParticipants } from "@/types"
-import { ExamBulkActions } from "./exam-bulk-actions"
-import { createExamColumns } from "./exam-columns"
+import { ExamCard } from "./exam-card"
 import { ExamStatusFilter } from "./exam-status-filter"
 
-export function ExamsList() {
+interface ExamsListProps {
+  onExamSelect?: (examId: Id<"exams">) => void
+}
+
+export function ExamsList({ onExamSelect }: ExamsListProps = {}) {
   const router = useRouter()
-  const isMobile = useMediaQuery("(max-width: 768px)")
 
   // États des modales
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
 
   // États des données
   const [selectedExam, setSelectedExam] =
     useState<ExamWithoutParticipants | null>(null)
   const [selectedStatuses, setSelectedStatuses] = useState<ExamStatus[]>([])
-  const [rowSelection, setRowSelection] = useState<Record<string, boolean>>({})
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Convex queries et mutations
   const exams = useQuery(api.exams.getAllExams)
@@ -49,21 +49,32 @@ export function ExamsList() {
   const reactivateExam = useMutation(api.exams.reactivateExam)
   const deleteExam = useMutation(api.exams.deleteExam)
 
-  // Filtrage des examens par statut
+  // Filtrage des examens par statut et recherche
   const filteredExams = useMemo(() => {
     if (!exams) return []
-    if (selectedStatuses.length === 0) return exams
 
-    return exams.filter((exam) => {
-      const status = getExamStatus(exam)
-      return selectedStatuses.includes(status)
-    })
-  }, [exams, selectedStatuses])
+    let result = exams
 
-  // Gestion des examens sélectionnés
-  const selectedExams = useMemo(() => {
-    return filteredExams.filter((_, index) => rowSelection[index.toString()])
-  }, [filteredExams, rowSelection])
+    // Filtre par statut
+    if (selectedStatuses.length > 0) {
+      result = result.filter((exam) => {
+        const status = getExamStatus(exam)
+        return selectedStatuses.includes(status)
+      })
+    }
+
+    // Filtre par recherche
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(
+        (exam) =>
+          exam.title.toLowerCase().includes(query) ||
+          exam.description?.toLowerCase().includes(query)
+      )
+    }
+
+    return result
+  }, [exams, selectedStatuses, searchQuery])
 
   // Handlers pour les actions
   const handleDeactivate = async (exam: ExamWithoutParticipants) => {
@@ -82,7 +93,6 @@ export function ExamsList() {
       toast.success("Examen désactivé avec succès")
       setShowDeactivateDialog(false)
       setSelectedExam(null)
-      setRowSelection({})
     } catch {
       toast.error("Erreur lors de la désactivation")
     }
@@ -92,7 +102,6 @@ export function ExamsList() {
     try {
       await reactivateExam({ examId })
       toast.success("Examen réactivé avec succès")
-      setRowSelection({})
     } catch {
       toast.error("Erreur lors de la réactivation")
     }
@@ -119,39 +128,10 @@ export function ExamsList() {
       toast.success("Examen supprimé avec succès")
       setShowDeleteDialog(false)
       setSelectedExam(null)
-      setRowSelection({})
     } catch {
       toast.error("Erreur lors de la suppression")
     }
   }
-
-  const handleBulkDelete = () => {
-    setShowBulkDeleteDialog(true)
-  }
-
-  const performBulkDelete = async () => {
-    try {
-      // Ici, vous devrez implémenter la logique de suppression en masse
-      // Pour l'instant, on supprime un par un
-      for (const exam of selectedExams) {
-        await deleteExam({ examId: exam._id })
-      }
-      toast.success(`${selectedExams.length} examen(s) supprimé(s) avec succès`)
-      setShowBulkDeleteDialog(false)
-      setRowSelection({})
-    } catch {
-      toast.error("Erreur lors de la suppression en masse")
-    }
-  }
-
-  // Création des colonnes
-  const columns = createExamColumns(
-    handleDeactivate,
-    handleReactivate,
-    handleEdit,
-    handleDelete,
-    isMobile,
-  )
 
   // États de chargement
   if (!exams) {
@@ -184,34 +164,68 @@ export function ExamsList() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-blue-600">Liste des examens</CardTitle>
-        <CardDescription>
-          Gérez tous vos examens depuis cette interface
-        </CardDescription>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="text-blue-600">Liste des examens</CardTitle>
+            <CardDescription>
+              Gérez tous vos examens depuis cette interface
+            </CardDescription>
+          </div>
+          <Button onClick={() => router.push("/admin/exams/create")}>
+            <Plus className="mr-2 h-4 w-4" />
+            Créer un examen
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
-        <DataTable
-          columns={columns}
-          data={filteredExams}
-          searchPlaceholder="Rechercher par titre..."
-          searchKey="title"
-          showColumnToggle={!isMobile}
-          showPagination={true}
-          pageSize={10}
-          isMobile={isMobile}
-          rowSelection={rowSelection}
-          onRowSelectionChange={setRowSelection}
-        >
+        {/* Filtres */}
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input
+              placeholder="Rechercher par titre..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
           <ExamStatusFilter
             selectedStatuses={selectedStatuses}
             onStatusChange={setSelectedStatuses}
           />
-          <ExamBulkActions
-            selectedExams={selectedExams}
-            onBulkDelete={handleBulkDelete}
-            isVisible={selectedExams.length > 1}
-          />
-        </DataTable>
+        </div>
+
+        {/* Grille de cards */}
+        {filteredExams.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-slate-500 dark:text-slate-400">
+              Aucun examen ne correspond à vos critères de recherche.
+            </p>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            {filteredExams.map((exam) => (
+              <ExamCard
+                key={exam._id}
+                exam={exam}
+                onView={onExamSelect}
+                onDeactivate={handleDeactivate}
+                onReactivate={handleReactivate}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Compteur de résultats */}
+        <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+          {filteredExams.length} examen{filteredExams.length > 1 ? "s" : ""}{" "}
+          affiché{filteredExams.length > 1 ? "s" : ""}
+          {selectedStatuses.length > 0 || searchQuery
+            ? ` sur ${exams.length}`
+            : ""}
+        </div>
       </CardContent>
 
       {/* Modales */}
@@ -239,14 +253,6 @@ export function ExamsList() {
         isOpen={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
         onConfirm={() => selectedExam && performDelete(selectedExam._id)}
-        isLoading={false}
-      />
-
-      <ExamBulkDeleteModal
-        exams={selectedExams}
-        isOpen={showBulkDeleteDialog}
-        onClose={() => setShowBulkDeleteDialog(false)}
-        onConfirm={performBulkDelete}
         isLoading={false}
       />
     </Card>
