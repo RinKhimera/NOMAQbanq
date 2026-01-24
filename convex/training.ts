@@ -322,6 +322,71 @@ export const getTrainingStats = query({
   },
 })
 
+/**
+ * Récupère l'historique des scores d'entraînement pour le graphique du dashboard
+ * Retourne les 10 dernières sessions + performance par domaine
+ */
+export const getMyTrainingScoreHistory = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) {
+      return { sessions: [], domainPerformance: [] }
+    }
+
+    // Récupérer les sessions complétées (limité pour performance)
+    const completedSessions = await ctx.db
+      .query("trainingParticipations")
+      .withIndex("by_user_status", (q) =>
+        q.eq("userId", user._id).eq("status", "completed"),
+      )
+      .take(100)
+
+    // Trier par date de complétion et prendre les 10 dernières
+    const sortedSessions = completedSessions
+      .filter((s) => s.completedAt !== undefined)
+      .sort((a, b) => (a.completedAt ?? 0) - (b.completedAt ?? 0))
+
+    const recentSessions = sortedSessions.slice(-10)
+
+    // Construire l'historique pour le graphique en aire
+    const sessions = recentSessions.map((s) => ({
+      sessionId: s._id,
+      score: s.score,
+      completedAt: s.completedAt ?? 0,
+      questionCount: s.questionCount,
+      domain: s.domain ?? "Tous domaines",
+    }))
+
+    // Calculer la performance par domaine (score moyen)
+    // Utilise toutes les sessions pour des stats plus précises
+    const domainScores: Record<string, { total: number; count: number }> = {}
+
+    for (const session of completedSessions) {
+      const domain = session.domain ?? "Tous domaines"
+      if (!domainScores[domain]) {
+        domainScores[domain] = { total: 0, count: 0 }
+      }
+      domainScores[domain].total += session.score
+      domainScores[domain].count += 1
+    }
+
+    const domainPerformance = Object.entries(domainScores)
+      .map(([domain, { total, count }]) => ({
+        domain,
+        averageScore: Math.round(total / count),
+        sessionCount: count,
+      }))
+      .sort((a, b) => b.averageScore - a.averageScore)
+      .slice(0, 10) // Top 10 domaines
+
+    return {
+      sessions,
+      domainPerformance,
+    }
+  },
+})
+
 // ============================================
 // MUTATIONS
 // ============================================
@@ -618,5 +683,98 @@ export const abandonTrainingSession = mutation({
     await ctx.db.patch(sessionId, { status: "abandoned" })
 
     return { success: true }
+  },
+})
+
+/**
+ * Supprime une session d'entraînement terminée ou abandonnée
+ * IMPORTANT: Suppression en cascade des réponses associées
+ */
+export const deleteTrainingSession = mutation({
+  args: {
+    sessionId: v.id("trainingParticipations"),
+  },
+  handler: async (ctx, { sessionId }) => {
+    const user = await getCurrentUserOrThrow(ctx)
+
+    const session = await ctx.db.get(sessionId)
+    if (!session) {
+      throw Errors.notFound("Session")
+    }
+
+    // Vérifier propriété
+    if (session.userId !== user._id) {
+      throw Errors.unauthorized("Cette session ne vous appartient pas")
+    }
+
+    // Interdire la suppression des sessions en cours
+    if (session.status === "in_progress") {
+      throw Errors.invalidState(
+        "Impossible de supprimer une session en cours. Veuillez d'abord la terminer ou l'abandonner.",
+      )
+    }
+
+    // Suppression en cascade : d'abord les réponses
+    const answers = await ctx.db
+      .query("trainingAnswers")
+      .withIndex("by_participation", (q) => q.eq("participationId", sessionId))
+      .take(MAX_QUESTIONS)
+
+    for (const answer of answers) {
+      await ctx.db.delete(answer._id)
+    }
+
+    // Puis la session
+    await ctx.db.delete(sessionId)
+
+    return { success: true }
+  },
+})
+
+/**
+ * Supprime toutes les sessions d'entraînement terminées/abandonnées de l'utilisateur
+ * IMPORTANT: Les sessions en cours ne sont PAS supprimées
+ */
+export const deleteAllTrainingSessions = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getCurrentUserOrThrow(ctx)
+
+    // Récupérer toutes les sessions de l'utilisateur (limited to 1000)
+    const allSessions = await ctx.db
+      .query("trainingParticipations")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .take(1000)
+
+    // Filtrer : seulement completed et abandoned
+    const sessionsToDelete = allSessions.filter(
+      (s) => s.status === "completed" || s.status === "abandoned",
+    )
+
+    let deletedAnswers = 0
+
+    for (const session of sessionsToDelete) {
+      // Supprimer les réponses associées
+      const answers = await ctx.db
+        .query("trainingAnswers")
+        .withIndex("by_participation", (q) =>
+          q.eq("participationId", session._id),
+        )
+        .take(MAX_QUESTIONS)
+
+      for (const answer of answers) {
+        await ctx.db.delete(answer._id)
+        deletedAnswers++
+      }
+
+      // Supprimer la session
+      await ctx.db.delete(session._id)
+    }
+
+    return {
+      success: true,
+      deletedCount: sessionsToDelete.length,
+      deletedAnswers,
+    }
   },
 })
