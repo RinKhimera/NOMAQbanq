@@ -3,8 +3,10 @@
 import { useState, useMemo } from "react"
 import { usePaginatedQuery } from "convex/react"
 import { motion } from "motion/react"
-import { Plus, Receipt } from "lucide-react"
+import { Plus } from "lucide-react"
+import { IconReceipt } from "@tabler/icons-react"
 import { api } from "@/convex/_generated/api"
+import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { Button } from "@/components/ui/button"
 import {
   TransactionTable,
@@ -82,24 +84,21 @@ export default function AdminTransactionsPage() {
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-            <Receipt className="h-7 w-7 text-slate-600" />
-            Transactions
-          </h1>
-          <p className="text-muted-foreground">
-            Gérez les paiements et enregistrez les transactions manuelles
-          </p>
-        </div>
-        <Button
-          onClick={() => setShowManualPaymentModal(true)}
-          className="rounded-xl bg-gradient-to-r from-slate-700 to-slate-800 text-white hover:from-slate-600 hover:to-slate-700"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Paiement manuel
-        </Button>
-      </div>
+      <AdminPageHeader
+        icon={IconReceipt}
+        title="Transactions"
+        subtitle="Gérez les paiements et enregistrez les transactions manuelles"
+        colorScheme="amber"
+        actions={
+          <Button
+            onClick={() => setShowManualPaymentModal(true)}
+            className="bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 transition-all hover:from-amber-600 hover:to-orange-700 hover:shadow-xl hover:shadow-amber-500/30"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Paiement manuel
+          </Button>
+        }
+      />
 
       {/* Stats cards */}
       <TransactionStats />

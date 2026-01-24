@@ -4,9 +4,10 @@ import { useState, useCallback, useEffect } from "react"
 import { useQuery, usePaginatedQuery } from "convex/react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
+import { IconListCheck } from "@tabler/icons-react"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { QuestionsStatsRow } from "./_components/questions-stats-row"
@@ -145,39 +146,33 @@ export default function AdminQuestionsPage() {
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-blue-600">
-            Gestion des Questions
-          </h1>
-          <p className="text-muted-foreground">
-            Gérez votre banque de questions QCM pour les examens EACMC
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="h-8 px-3">
-            {stats?.totalCount ?? "..."} question
-            {(stats?.totalCount ?? 0) > 1 ? "s" : ""}
-          </Badge>
-          <ExportQuestionsButton
-            searchQuery={debouncedSearchQuery}
-            domain={domain}
-            hasImages={
-              imageFilter === "all"
-                ? undefined
-                : imageFilter === "with"
-                  ? true
-                  : false
-            }
-          />
-          <Link href="/admin/questions/nouvelle">
-            <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
-              <Plus className="h-4 w-4" />
-              Nouvelle question
-            </Button>
-          </Link>
-        </div>
-      </div>
+      <AdminPageHeader
+        icon={IconListCheck}
+        title="Gestion des Questions"
+        subtitle="Gérez votre banque de questions QCM pour les examens EACMC"
+        colorScheme="emerald"
+        actions={
+          <>
+            <ExportQuestionsButton
+              searchQuery={debouncedSearchQuery}
+              domain={domain}
+              hasImages={
+                imageFilter === "all"
+                  ? undefined
+                  : imageFilter === "with"
+                    ? true
+                    : false
+              }
+            />
+            <Link href="/admin/questions/nouvelle">
+              <Button className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-600 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30">
+                <Plus className="h-4 w-4" />
+                Nouvelle question
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {/* Stats Row */}
       <QuestionsStatsRow stats={stats ?? null} isLoading={stats === undefined} />

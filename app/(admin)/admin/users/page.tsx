@@ -4,9 +4,10 @@ import { useState, useCallback, useEffect } from "react"
 import { useQuery, usePaginatedQuery } from "convex/react"
 import { DateRange } from "react-day-picker"
 import { useSearchParams, useRouter } from "next/navigation"
+import { IconUsers } from "@tabler/icons-react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
-import { Badge } from "@/components/ui/badge"
+import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ExportUsersButton } from "@/components/admin/export-users-button"
 import { UsersStatsRow } from "./_components/users-stats-row"
 import {
@@ -144,25 +145,17 @@ export default function UsersPage() {
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-blue-600">
-            Gestion des utilisateurs
-          </h1>
-          <p className="text-muted-foreground">
-            Consultez et gérez les utilisateurs de la plateforme
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Badge variant="secondary" className="h-8 px-3">
-            {stats?.totalUsers ?? "..."} utilisateur
-            {(stats?.totalUsers ?? 0) > 1 ? "s" : ""}
-          </Badge>
-          {allUsersForExport && allUsersForExport.length > 0 && (
+      <AdminPageHeader
+        icon={IconUsers}
+        title="Gestion des utilisateurs"
+        subtitle="Consultez et gérez les utilisateurs de la plateforme"
+        colorScheme="violet"
+        actions={
+          allUsersForExport && allUsersForExport.length > 0 ? (
             <ExportUsersButton users={allUsersForExport} />
-          )}
-        </div>
-      </div>
+          ) : undefined
+        }
+      />
 
       {/* Stats Row */}
       <UsersStatsRow stats={stats ?? null} isLoading={stats === undefined} />

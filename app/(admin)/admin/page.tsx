@@ -16,6 +16,7 @@ import {
   QuickActions,
   AlertsPanel,
 } from "@/components/admin/dashboard"
+import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ManualPaymentModal } from "@/components/shared/payments"
 
 export default function AdminDashboardPage() {
@@ -44,26 +45,14 @@ export default function AdminDashboardPage() {
   const today = format(new Date(), "EEEE d MMMM yyyy", { locale: fr })
 
   return (
-    <div className="flex flex-col gap-6 py-6">
+    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="px-4 lg:px-6"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
-            <IconLayoutDashboard className="h-6 w-6 text-slate-600 dark:text-slate-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-              Tableau de bord
-            </h1>
-            <p className="text-muted-foreground text-sm capitalize">{today}</p>
-          </div>
-        </div>
-      </motion.div>
+      <AdminPageHeader
+        icon={IconLayoutDashboard}
+        title="Tableau de bord"
+        subtitle={today}
+        colorScheme="slate"
+      />
 
       {/* Vital cards */}
       <AdminVitalCards
@@ -80,7 +69,7 @@ export default function AdminDashboardPage() {
       />
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-2 lg:px-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -99,7 +88,7 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* Bottom row */}
-      <div className="grid grid-cols-1 gap-4 px-4 lg:grid-cols-2 lg:px-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
