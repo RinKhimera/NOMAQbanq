@@ -89,7 +89,7 @@ export const TrainingHistorySection = () => {
                 onClick={() =>
                   router.push(`/dashboard/entrainement/${session._id}/results`)
                 }
-                className="group flex w-full items-center gap-4 rounded-xl border border-transparent bg-gray-50/50 p-4 text-left transition-all hover:border-gray-200 hover:bg-gray-100/80 dark:bg-gray-800/30 dark:hover:border-gray-700 dark:hover:bg-gray-800/60"
+                className="group flex w-full cursor-pointer items-center gap-4 rounded-xl border border-transparent bg-gray-50/50 p-4 text-left transition-all hover:border-gray-200 hover:bg-gray-100/80 dark:bg-gray-800/30 dark:hover:border-gray-700 dark:hover:bg-gray-800/60"
               >
                 {/* Score badge */}
                 <div

@@ -341,10 +341,10 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                           className={cn(
                             "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 font-bold transition-all",
                             correctAnswer === option && option.trim()
-                              ? "border-emerald-500 bg-emerald-500 text-white"
+                              ? "cursor-pointer border-emerald-500 bg-emerald-500 text-white"
                               : option.trim()
-                                ? "border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                                : "border-gray-200 bg-gray-50 text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-600"
+                                ? "cursor-pointer border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                : "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-600"
                           )}
                         >
                           {correctAnswer === option && option.trim() ? (

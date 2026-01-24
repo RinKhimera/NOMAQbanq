@@ -23,7 +23,7 @@ import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 import { QuestionsTableSkeleton } from "./questions-table-skeleton"
 
-export type SortBy = "_creationTime" | "question" | "domain"
+export type SortBy = "_creationTime" | "question" | "domain" | "objectifCMC"
 export type SortOrder = "asc" | "desc"
 
 export interface QuestionRow {
@@ -179,7 +179,14 @@ export function QuestionsTable({
               </Button>
             </TableHead>
             <TableHead className="hidden w-[180px] md:table-cell">
-              Objectif CMC
+              <Button
+                variant="ghost"
+                onClick={() => onSort("objectifCMC")}
+                className="h-auto p-0 font-semibold hover:bg-transparent"
+              >
+                Objectif CMC
+                {getSortIcon("objectifCMC")}
+              </Button>
             </TableHead>
             <TableHead className="w-[80px] text-center">Images</TableHead>
             <TableHead className="hidden w-[120px] lg:table-cell">

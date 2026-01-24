@@ -377,7 +377,8 @@ export const getQuestionsWithFilters = query({
       v.union(
         v.literal("_creationTime"),
         v.literal("question"),
-        v.literal("domain")
+        v.literal("domain"),
+        v.literal("objectifCMC")
       )
     ),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
@@ -441,6 +442,9 @@ export const getQuestionsWithFilters = query({
             break
           case "domain":
             comparison = a.domain.localeCompare(b.domain, "fr")
+            break
+          case "objectifCMC":
+            comparison = a.objectifCMC.localeCompare(b.objectifCMC, "fr")
             break
           case "_creationTime":
           default:

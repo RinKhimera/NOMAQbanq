@@ -78,7 +78,6 @@ interface ExamCardProps {
       score: number
       completedAt: number
     } | null
-    allowedParticipants: string[]
   }
   variant: "active" | "upcoming" | "past"
   isEligible: boolean
@@ -433,6 +432,10 @@ const ExamenBlancPage = () => {
     api.users.getCurrentUser,
     isAuthenticated ? undefined : "skip"
   )
+  const userAccess = useQuery(
+    api.users.getMyAccess,
+    isAuthenticated ? { accessType: "exam" as const } : "skip"
+  )
 
   // Update timestamp periodically for active exams
   useEffect(() => {
@@ -484,11 +487,11 @@ const ExamenBlancPage = () => {
     }
   }, [allExams])
 
-  // Check user eligibility
-  const isUserEligible = (exam: NonNullable<typeof allExams>[number]) => {
+  // Check user eligibility - based on active exam access
+  const isUserEligible = (): boolean => {
     if (!currentUser) return false
     if (currentUser.role === "admin") return true
-    return exam.allowedParticipants.includes(currentUser._id)
+    return !!(userAccess && userAccess.expiresAt > now)
   }
 
   const handleStartExam = (examId: Id<"exams">) => {
@@ -617,7 +620,7 @@ const ExamenBlancPage = () => {
                   key={exam._id}
                   exam={exam}
                   variant="active"
-                  isEligible={isUserEligible(exam)}
+                  isEligible={isUserEligible()}
                   onStart={handleStartExam}
                   onViewResults={handleViewResults}
                   index={index}
@@ -647,7 +650,7 @@ const ExamenBlancPage = () => {
                   key={exam._id}
                   exam={exam}
                   variant="upcoming"
-                  isEligible={isUserEligible(exam)}
+                  isEligible={isUserEligible()}
                   onStart={handleStartExam}
                   onViewResults={handleViewResults}
                   index={index}
@@ -677,7 +680,7 @@ const ExamenBlancPage = () => {
                   key={exam._id}
                   exam={exam}
                   variant="past"
-                  isEligible={isUserEligible(exam)}
+                  isEligible={isUserEligible()}
                   onStart={handleStartExam}
                   onViewResults={handleViewResults}
                   index={index}

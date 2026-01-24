@@ -338,19 +338,6 @@ export const QuestionCard = ({
         </div>
       )}
 
-      {/* Image(s) */}
-      {showImage &&
-        question.images?.length &&
-        (isExamVariant || (isDefaultVariant && showImage)) && (
-          <div className="mb-5">
-            <QuestionImageGallery
-              images={question.images}
-              size="md"
-              maxDisplay={4}
-            />
-          </div>
-        )}
-
       {/* Question text (for non-review variants) */}
       {!isReviewVariant && (
         <h2
@@ -365,6 +352,19 @@ export const QuestionCard = ({
           {question.question}
         </h2>
       )}
+
+      {/* Image(s) */}
+      {showImage &&
+        question.images?.length &&
+        (isExamVariant || (isDefaultVariant && showImage)) && (
+          <div className="mb-5">
+            <QuestionImageGallery
+              images={question.images}
+              size="md"
+              maxDisplay={4}
+            />
+          </div>
+        )}
 
       {/* Metadata (objectifCMC, references count) */}
       {isDefaultVariant && (

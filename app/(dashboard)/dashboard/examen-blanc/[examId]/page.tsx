@@ -23,6 +23,10 @@ export default function MockExamDetailsPage() {
   const { currentUser, isLoading: userLoading } = useCurrentUser()
   const exam = useQuery(api.exams.getExamWithQuestions, { examId })
   const session = useQuery(api.exams.getExamSession, { examId })
+  const userAccess = useQuery(
+    api.users.getMyAccess,
+    currentUser ? { accessType: "exam" } : "skip",
+  )
 
   if (userLoading || !exam) {
     return (
@@ -43,10 +47,10 @@ export default function MockExamDetailsPage() {
   // Vérifier l'accès et rediriger si non autorisé
   if (currentUser && currentUser.role !== "admin") {
     const isExamClosed = exam.endDate < now
-    const isAllowed = exam.allowedParticipants.includes(currentUser._id)
+    const hasExamAccess = userAccess && userAccess.expiresAt > now
 
-    // Les users ne peuvent accéder que si l'exam est fermé ET ils sont dans allowedParticipants
-    if (!isExamClosed || !isAllowed) {
+    // Les users ne peuvent accéder que si l'exam est fermé ET ils ont un accès exam actif
+    if (!isExamClosed || !hasExamAccess) {
       return (
         <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
           <div className="flex items-center gap-3 md:gap-4">
@@ -67,8 +71,8 @@ export default function MockExamDetailsPage() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <h3 className="mb-2 font-display text-lg font-semibold">Accès non autorisé</h3>
               <p className="text-muted-foreground mb-4 max-w-md text-center">
-                {!isAllowed
-                  ? "Vous n'êtes pas autorisé à accéder à cet examen."
+                {!hasExamAccess
+                  ? "Vous devez avoir un accès exam actif pour accéder à cet examen."
                   : "Les résultats de cet examen ne sont pas encore disponibles."}
               </p>
               <Button asChild>
