@@ -11,6 +11,7 @@ import { DashboardSkeleton } from "./_components/dashboard-skeleton"
 import { DashboardHero } from "./_components/dashboard-hero"
 import { VitalCard } from "./_components/vital-card"
 import { ScoreEvolutionChart } from "./_components/score-evolution-chart"
+import { TrainingScoreChart } from "./_components/training-score-chart"
 import { NextActionsPanel } from "./_components/next-actions-panel"
 import { RecentActivityFeed } from "./_components/recent-activity-feed"
 import { QuickAccessGrid } from "./_components/quick-access-grid"
@@ -23,6 +24,7 @@ const DashboardPage = () => {
   const scoreHistory = useQuery(api.exams.getMyScoreHistory)
   const accessStatus = useQuery(api.payments.getMyAccessStatus)
   const trainingStats = useQuery(api.training.getTrainingStats)
+  const trainingScoreHistory = useQuery(api.training.getMyTrainingScoreHistory)
   const [now] = useState(() => Date.now())
 
   // Loading state
@@ -46,63 +48,66 @@ const DashboardPage = () => {
         accessStatus={accessStatus}
       />
 
-      {/* Main Content Grid */}
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Left Column - Vital Cards */}
-        <div className="space-y-4">
-          <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-            Vitaux principaux
-          </h3>
+      {/* Vital Cards Section */}
+      <div className="space-y-4">
+        <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          Vitaux principaux
+        </h3>
 
-          <div className="grid grid-cols-2 gap-4">
-            <VitalCard
-              label="Score moyen"
-              value={stats.completedExamsCount > 0 ? `${stats.averageScore}%` : "—"}
-              icon={Percent}
-              color="blue"
-              delay={0.1}
-              subtitle={
-                stats.completedExamsCount > 0
-                  ? "Sur vos examens"
-                  : "Aucun examen"
-              }
-            />
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <VitalCard
+            label="Score moyen"
+            value={stats.completedExamsCount > 0 ? `${stats.averageScore}%` : "—"}
+            icon={Percent}
+            color="blue"
+            delay={0.1}
+            subtitle={
+              stats.completedExamsCount > 0
+                ? "Sur vos examens"
+                : "Aucun examen"
+            }
+          />
 
-            <VitalCard
-              label="Examens complétés"
-              value={stats.completedExamsCount}
-              icon={CheckCircle2}
-              color="green"
-              delay={0.2}
-              subtitle={`sur ${stats.availableExamsCount} disponibles`}
-            />
+          <VitalCard
+            label="Examens complétés"
+            value={stats.completedExamsCount}
+            icon={CheckCircle2}
+            color="green"
+            delay={0.2}
+            subtitle={`sur ${stats.availableExamsCount} disponibles`}
+          />
 
-            <VitalCard
-              label="Taux de complétion"
-              value={`${completionRate}%`}
-              icon={Target}
-              color="amber"
-              delay={0.3}
-              subtitle="Progression globale"
-            />
+          <VitalCard
+            label="Taux de complétion"
+            value={`${completionRate}%`}
+            icon={Target}
+            color="amber"
+            delay={0.3}
+            subtitle="Progression globale"
+          />
 
-            <VitalCard
-              label="Entraînements"
-              value={trainingStats?.totalSessions ?? 0}
-              icon={Brain}
-              color="purple"
-              delay={0.4}
-              subtitle={
-                trainingStats && trainingStats.totalSessions > 0
-                  ? `${trainingStats.totalQuestions} questions pratiquées`
-                  : "Aucune session"
-              }
-            />
-          </div>
+          <VitalCard
+            label="Entraînements"
+            value={trainingStats?.totalSessions ?? 0}
+            icon={Brain}
+            color="purple"
+            delay={0.4}
+            subtitle={
+              trainingStats && trainingStats.totalSessions > 0
+                ? `${trainingStats.totalQuestions} questions pratiquées`
+                : "Aucune session"
+            }
+          />
         </div>
+      </div>
 
-        {/* Right Column - Score Evolution Chart */}
+      {/* Charts Section */}
+      <div className="grid gap-8 lg:grid-cols-2">
         <ScoreEvolutionChart data={scoreHistory ?? []} />
+        <TrainingScoreChart
+          sessions={trainingScoreHistory?.sessions ?? []}
+          domainPerformance={trainingScoreHistory?.domainPerformance ?? []}
+        />
       </div>
 
       {/* Actions & Activity Grid */}

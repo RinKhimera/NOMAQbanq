@@ -1,5 +1,9 @@
 "use client"
 
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import { BarChart3, TrendingUp } from "lucide-react"
+import { motion } from "motion/react"
 import {
   Area,
   AreaChart,
@@ -10,10 +14,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { motion } from "motion/react"
-import { TrendingUp, BarChart3 } from "lucide-react"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 
 interface ScoreHistoryItem {
   examId: string
@@ -137,7 +137,7 @@ export const ScoreEvolutionChart = ({ data }: ScoreEvolutionChartProps) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.3 }}
-      className="relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80"
+      className="relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80 [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
     >
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
@@ -176,7 +176,10 @@ export const ScoreEvolutionChart = ({ data }: ScoreEvolutionChartProps) => {
       {/* Chart */}
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+          <AreaChart
+            data={chartData}
+            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+          >
             <defs>
               <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
