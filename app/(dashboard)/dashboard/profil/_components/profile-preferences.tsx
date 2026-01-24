@@ -27,6 +27,7 @@ const PreferenceItem = ({
   description,
   children,
   disabled = false,
+  responsive = false,
 }: {
   icon: React.ComponentType<{ className?: string }>
   iconColorClass: string
@@ -35,7 +36,47 @@ const PreferenceItem = ({
   description: string
   children: React.ReactNode
   disabled?: boolean
+  responsive?: boolean
 }) => {
+  // Version responsive avec container queries
+  if (responsive) {
+    return (
+      <div
+        className={cn(
+          "@container rounded-xl p-4 transition-colors",
+          disabled && "opacity-60",
+        )}
+      >
+        <div className="flex flex-col gap-4 @[420px]:flex-row @[420px]:items-start">
+          <div className="flex items-start gap-4 @[420px]:flex-1">
+            <div
+              className={cn(
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+                iconBgClass,
+              )}
+            >
+              <Icon className={cn("h-5 w-5", iconColorClass)} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {label}
+                </p>
+              </div>
+              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+                {description}
+              </p>
+            </div>
+          </div>
+          <div className="w-full @[420px]:w-auto @[420px]:shrink-0">
+            {children}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Version standard (non responsive)
   return (
     <div
       className={cn(
@@ -88,26 +129,34 @@ const ThemeOption = ({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-16 flex-col items-center justify-center gap-1.5 rounded-xl border-2 p-3 transition-all",
+        "group relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 px-3 py-3.5 transition-all duration-200 @[420px]:w-[4.5rem] @[420px]:flex-none",
         selected
-          ? "border-amber-400 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/30"
-          : "border-transparent bg-gray-50 hover:border-gray-200 dark:bg-gray-800/50 dark:hover:border-gray-700",
+          ? "border-amber-400 bg-gradient-to-b from-amber-50 to-amber-100/50 shadow-sm dark:border-amber-500 dark:from-amber-900/40 dark:to-amber-900/20"
+          : "border-gray-200/80 bg-gray-50/80 hover:border-amber-300 hover:bg-amber-50/50 dark:border-gray-700/80 dark:bg-gray-800/50 dark:hover:border-amber-600 dark:hover:bg-amber-900/20",
       )}
     >
+      {/* Indicateur de sélection */}
+      {selected && (
+        <motion.div
+          layoutId="theme-indicator"
+          className="absolute inset-0 rounded-xl ring-2 ring-amber-400/50 dark:ring-amber-500/50"
+          transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
+        />
+      )}
       <Icon
         className={cn(
-          "h-5 w-5",
+          "relative h-5 w-5 transition-transform duration-200 group-hover:scale-110",
           selected
             ? "text-amber-600 dark:text-amber-400"
-            : "text-gray-600 dark:text-gray-400",
+            : "text-gray-500 group-hover:text-amber-600 dark:text-gray-400 dark:group-hover:text-amber-400",
         )}
       />
       <span
         className={cn(
-          "text-xs",
+          "relative text-xs font-medium transition-colors",
           selected
-            ? "font-medium text-amber-600 dark:text-amber-400"
-            : "text-gray-600 dark:text-gray-400",
+            ? "text-amber-700 dark:text-amber-300"
+            : "text-gray-600 group-hover:text-amber-600 dark:text-gray-400 dark:group-hover:text-amber-400",
         )}
       >
         {label}
@@ -132,7 +181,11 @@ export const ProfilePreferences = () => {
     : {
         initial: { opacity: 0, y: 20 },
         animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.5, delay: 0.3, ease: [0.16, 1, 0.3, 1] as const },
+        transition: {
+          duration: 0.5,
+          delay: 0.3,
+          ease: [0.16, 1, 0.3, 1] as const,
+        },
       }
 
   // Current theme (default to "system" if not mounted yet)
@@ -183,6 +236,7 @@ export const ProfilePreferences = () => {
             iconBgClass="bg-amber-100 dark:bg-amber-900/30"
             label="Thème de l'interface"
             description="Choisissez l'apparence de l'application"
+            responsive
           >
             <div className="flex gap-2">
               <ThemeOption
