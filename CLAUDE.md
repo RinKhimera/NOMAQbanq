@@ -97,6 +97,7 @@ getUserPanelData()        // Données panel latéral (user, accès, transactions
 
 - Types: `exam` (examens blancs) et `training` (banque questions)
 - Table `userAccess` avec `expiresAt`
+- **Éligibilité examens** : Automatique via `userAccess.accessType === "exam"` ET `expiresAt > now`. Plus de sélection manuelle.
 - **Re-vérifier l'accès à la soumission** (pas seulement au démarrage)
 - Admins: bypass automatique
 
@@ -119,13 +120,14 @@ Upload via HTTP actions dans `convex/http.ts`. Helpers dans `convex/lib/bunny.ts
 
 ### Master-detail avec panel latéral
 
-Pattern utilisé dans `/admin/users`. Table cliquable → panel Sheet (420px) avec détails.
-- URL deep linking: `?user=xxx` pour partager un lien direct
+Pattern utilisé dans `/admin/users` et `/admin/exams`. Table cliquable → panel Sheet (420px) avec détails.
+- URL deep linking: `?user=xxx` ou `?exam=xxx` pour partager un lien direct
 - Composants: `Sheet` de shadcn/ui, animation `motion/react`
+- **État dérivé de l'URL** : Pas de useState+useEffect. Voir `app/(admin)/admin/exams/page.tsx`.
 
 ### Stat cards avec trends
 
-Pattern `users-stats-row.tsx`: cartes KPI avec icône, valeur, trend %, subtitle.
+Pattern `users-stats-row.tsx` et `exams-stats-row.tsx`: cartes KPI avec icône, valeur, trend %, subtitle.
 - Couleurs: emerald, blue, amber, teal, slate
 - Toujours réserver l'espace subtitle pour hauteur uniforme
 
@@ -153,3 +155,4 @@ Pattern pages marketing : voir `app/(marketing)/tarifs/page.tsx` + `_components/
 - **Clerk webhooks** : Sync users via `convex/http.ts` route `/clerk`
 - **Routes centralisées** : Modifier `constants/index.tsx` pour ajouter/changer URLs
 - **Hauteur uniforme cards** : Utiliser `h-full` + réserver espace pour éléments optionnels (subtitles)
+- **URL state** : Dériver l'état de l'URL, pas useState+useEffect. Voir [React docs](https://react.dev/learn/you-might-not-need-an-effect)
