@@ -307,19 +307,30 @@ export const getTransactionStats = query({
       (tx) => tx.completedAt && tx.completedAt > thirtyDaysAgo,
     )
 
-    const totalRevenue = completedTransactions.reduce(
-      (sum, tx) => sum + tx.amountPaid,
-      0,
-    )
-    const recentRevenue = recentTransactions.reduce(
-      (sum, tx) => sum + tx.amountPaid,
-      0,
-    )
+    // Grouper les revenus par devise
+    const revenueByCurrency: Record<string, { total: number; recent: number }> = {
+      CAD: { total: 0, recent: 0 },
+      XAF: { total: 0, recent: 0 },
+    }
+
+    for (const tx of completedTransactions) {
+      const currency = tx.currency || "CAD"
+      if (!revenueByCurrency[currency]) {
+        revenueByCurrency[currency] = { total: 0, recent: 0 }
+      }
+      revenueByCurrency[currency].total += tx.amountPaid
+    }
+
+    for (const tx of recentTransactions) {
+      const currency = tx.currency || "CAD"
+      if (revenueByCurrency[currency]) {
+        revenueByCurrency[currency].recent += tx.amountPaid
+      }
+    }
 
     return {
-      totalRevenue,
+      revenueByCurrency,
       totalTransactions: completedTransactions.length,
-      recentRevenue,
       recentTransactions: recentTransactions.length,
       stripeTransactions: completedTransactions.filter(
         (tx) => tx.type === "stripe",
@@ -406,27 +417,41 @@ export const getRevenueByDay = query({
       (tx) => tx.completedAt && tx.completedAt > startDate,
     )
 
-    // Grouper par jour
-    const byDay = new Map<string, number>()
+    // Grouper par jour ET par devise
+    const byDayCurrency: Record<string, Record<string, number>> = {
+      CAD: {},
+      XAF: {},
+    }
+
     for (const tx of recentTransactions) {
       if (tx.completedAt) {
         const day = new Date(tx.completedAt).toISOString().split("T")[0]
-        byDay.set(day, (byDay.get(day) ?? 0) + tx.amountPaid)
+        const currency = tx.currency || "CAD"
+        if (!byDayCurrency[currency]) {
+          byDayCurrency[currency] = {}
+        }
+        byDayCurrency[currency][day] = (byDayCurrency[currency][day] ?? 0) + tx.amountPaid
       }
     }
 
-    // Remplir les jours manquants avec 0
-    const result: { date: string; revenue: number }[] = []
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now - i * 24 * 60 * 60 * 1000)
-      const day = date.toISOString().split("T")[0]
-      result.push({
-        date: day,
-        revenue: byDay.get(day) ?? 0,
-      })
+    // Construire le résultat pour chaque devise
+    const buildDaysArray = (currencyData: Record<string, number> = {}) => {
+      const result: { date: string; revenue: number }[] = []
+      for (let i = days - 1; i >= 0; i--) {
+        const date = new Date(now - i * 24 * 60 * 60 * 1000)
+        const day = date.toISOString().split("T")[0]
+        result.push({
+          date: day,
+          revenue: currencyData[day] ?? 0,
+        })
+      }
+      return result
     }
 
-    return result
+    return {
+      CAD: buildDaysArray(byDayCurrency["CAD"]),
+      XAF: buildDaysArray(byDayCurrency["XAF"]),
+    }
   },
 })
 

@@ -1179,7 +1179,7 @@ describe("payments", () => {
       )
 
       expect(result.totalTransactions).toBe(2)
-      expect(result.totalRevenue).toBe(8000)
+      expect(result.revenueByCurrency.CAD.total).toBe(8000)
       expect(result.manualTransactions).toBe(2)
       expect(result.stripeTransactions).toBe(0)
     })

@@ -390,33 +390,49 @@ export const getUsersStats = query({
         a.expiresAt < sevenDaysFromNow,
     ).length
 
-    // Revenue (last 30 days)
+    // Revenue by currency (last 30 days vs previous 30 days)
+    const sixtyDaysAgo = now - 60 * 24 * 60 * 60 * 1000
+
     const recentTransactions = transactions.filter(
       (tx) => tx.completedAt && tx.completedAt > thirtyDaysAgo,
     )
-    const recentRevenue = recentTransactions.reduce(
-      (sum, tx) => sum + tx.amountPaid,
-      0,
-    )
-
-    // Revenue trend (compare to previous 30 days)
-    const sixtyDaysAgo = now - 60 * 24 * 60 * 60 * 1000
     const previousPeriodTransactions = transactions.filter(
       (tx) =>
         tx.completedAt &&
         tx.completedAt > sixtyDaysAgo &&
         tx.completedAt <= thirtyDaysAgo,
     )
-    const previousRevenue = previousPeriodTransactions.reduce(
-      (sum, tx) => sum + tx.amountPaid,
-      0,
-    )
-    const revenueTrend =
-      previousRevenue > 0
-        ? ((recentRevenue - previousRevenue) / previousRevenue) * 100
-        : recentRevenue > 0
-          ? 100
-          : 0
+
+    // Grouper par devise (seulement CAD et XAF supportés)
+    const revenueByCurrency = {
+      CAD: { recent: 0, previous: 0, trend: 0 },
+      XAF: { recent: 0, previous: 0, trend: 0 },
+    }
+
+    for (const tx of recentTransactions) {
+      const currency = (tx.currency || "CAD") as "CAD" | "XAF"
+      if (currency === "CAD" || currency === "XAF") {
+        revenueByCurrency[currency].recent += tx.amountPaid
+      }
+    }
+
+    for (const tx of previousPeriodTransactions) {
+      const currency = (tx.currency || "CAD") as "CAD" | "XAF"
+      if (currency === "CAD" || currency === "XAF") {
+        revenueByCurrency[currency].previous += tx.amountPaid
+      }
+    }
+
+    // Calculer les trends pour chaque devise
+    for (const key of ["CAD", "XAF"] as const) {
+      const { recent, previous } = revenueByCurrency[key]
+      revenueByCurrency[key].trend =
+        previous > 0
+          ? Math.round(((recent - previous) / previous) * 1000) / 10
+          : recent > 0
+            ? 100
+            : 0
+    }
 
     return {
       totalUsers,
@@ -426,8 +442,7 @@ export const getUsersStats = query({
       examExpiringCount,
       activeTrainingAccess,
       trainingExpiringCount,
-      recentRevenue,
-      revenueTrend,
+      revenueByCurrency,
     }
   },
 })

@@ -172,19 +172,48 @@ export const getDashboardTrends = query({
     )
     const usersTrend = calculateTrend(recentUsers.length, previousUsers.length)
 
-    // Calcul des tendances revenus
-    const recentRevenue = completedTransactions
-      .filter((tx) => tx.completedAt && tx.completedAt > thirtyDaysAgo)
-      .reduce((sum, tx) => sum + tx.amountPaid, 0)
-    const previousRevenue = completedTransactions
-      .filter(
-        (tx) =>
-          tx.completedAt &&
-          tx.completedAt > sixtyDaysAgo &&
-          tx.completedAt <= thirtyDaysAgo,
-      )
-      .reduce((sum, tx) => sum + tx.amountPaid, 0)
-    const revenueTrend = calculateTrend(recentRevenue, previousRevenue)
+    // Calcul des tendances revenus par devise
+    const recentTxByPeriod = completedTransactions.filter(
+      (tx) => tx.completedAt && tx.completedAt > thirtyDaysAgo,
+    )
+    const previousTxByPeriod = completedTransactions.filter(
+      (tx) =>
+        tx.completedAt &&
+        tx.completedAt > sixtyDaysAgo &&
+        tx.completedAt <= thirtyDaysAgo,
+    )
+
+    // Grouper par devise
+    const revenueByCurrency: Record<string, { recent: number; previous: number; trend: number }> = {
+      CAD: { recent: 0, previous: 0, trend: 0 },
+      XAF: { recent: 0, previous: 0, trend: 0 },
+    }
+
+    for (const tx of recentTxByPeriod) {
+      const currency = tx.currency || "CAD"
+      if (!revenueByCurrency[currency]) {
+        revenueByCurrency[currency] = { recent: 0, previous: 0, trend: 0 }
+      }
+      revenueByCurrency[currency].recent += tx.amountPaid
+    }
+
+    for (const tx of previousTxByPeriod) {
+      const currency = tx.currency || "CAD"
+      if (!revenueByCurrency[currency]) {
+        revenueByCurrency[currency] = { recent: 0, previous: 0, trend: 0 }
+      }
+      revenueByCurrency[currency].previous += tx.amountPaid
+    }
+
+    // Calculer les trends pour chaque devise
+    for (const currency of Object.keys(revenueByCurrency)) {
+      revenueByCurrency[currency].trend = Math.round(
+        calculateTrend(
+          revenueByCurrency[currency].recent,
+          revenueByCurrency[currency].previous,
+        ) * 10,
+      ) / 10
+    }
 
     // Calcul des tendances participations
     const recentParticipations = examParticipations.filter(
@@ -203,11 +232,10 @@ export const getDashboardTrends = query({
 
     return {
       usersTrend: Math.round(usersTrend * 10) / 10,
-      revenueTrend: Math.round(revenueTrend * 10) / 10,
+      revenueByCurrency,
       participationsTrend: Math.round(participationsTrend * 10) / 10,
       // Données brutes pour référence
       recentUsersCount: recentUsers.length,
-      recentRevenue,
       recentParticipationsCount: recentParticipations.length,
     }
   },

@@ -8,6 +8,7 @@ import {
   IconClipboardCheck,
   IconSparkles,
   IconCurrencyDollar,
+  IconCoin,
 } from "@tabler/icons-react"
 
 interface StatCardProps {
@@ -182,6 +183,12 @@ function StatCard({
   )
 }
 
+interface CurrencyRevenue {
+  recent: number
+  previous: number
+  trend: number
+}
+
 interface UsersStatsRowProps {
   stats: {
     totalUsers: number
@@ -191,14 +198,16 @@ interface UsersStatsRowProps {
     examExpiringCount: number
     activeTrainingAccess: number
     trainingExpiringCount: number
-    recentRevenue: number
-    revenueTrend: number
+    revenueByCurrency: {
+      CAD: CurrencyRevenue
+      XAF: CurrencyRevenue
+    }
   } | null
   isLoading?: boolean
 }
 
 export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
-  const formatCurrency = (amount: number) => {
+  const formatCAD = (amount: number) => {
     return new Intl.NumberFormat("fr-CA", {
       style: "currency",
       currency: "CAD",
@@ -206,6 +215,16 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
       maximumFractionDigits: 0,
     }).format(amount / 100)
   }
+
+  const formatXAF = (amount: number) => {
+    return new Intl.NumberFormat("fr-FR", {
+      style: "decimal",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount / 100) + " XAF"
+  }
+
+  const hasXAFRevenue = stats?.revenueByCurrency.XAF.recent ?? 0 > 0
 
   if (isLoading || !stats) {
     return (
@@ -221,7 +240,10 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div className={cn(
+      "grid grid-cols-1 gap-4 sm:grid-cols-2",
+      hasXAFRevenue ? "lg:grid-cols-6" : "lg:grid-cols-5"
+    )}>
       <StatCard
         label="Total utilisateurs"
         value={stats.totalUsers.toLocaleString("fr-CA")}
@@ -274,11 +296,11 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
       />
 
       <StatCard
-        label="Revenus (30j)"
-        value={formatCurrency(stats.recentRevenue)}
+        label="Revenus CAD (30j)"
+        value={formatCAD(stats.revenueByCurrency.CAD.recent)}
         trend={
-          stats.revenueTrend !== 0
-            ? { value: stats.revenueTrend, isPositive: stats.revenueTrend > 0 }
+          stats.revenueByCurrency.CAD.trend !== 0
+            ? { value: stats.revenueByCurrency.CAD.trend, isPositive: stats.revenueByCurrency.CAD.trend > 0 }
             : undefined
         }
         color="slate"
@@ -286,6 +308,22 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
         subtitle="vs 30 jours précédents"
         icon={<IconCurrencyDollar className="h-5 w-5" />}
       />
+
+      {hasXAFRevenue && (
+        <StatCard
+          label="Revenus XAF (30j)"
+          value={formatXAF(stats.revenueByCurrency.XAF.recent)}
+          trend={
+            stats.revenueByCurrency.XAF.trend !== 0
+              ? { value: stats.revenueByCurrency.XAF.trend, isPositive: stats.revenueByCurrency.XAF.trend > 0 }
+              : undefined
+          }
+          color="teal"
+          delay={0.25}
+          subtitle="vs 30 jours précédents"
+          icon={<IconCoin className="h-5 w-5" />}
+        />
+      )}
     </div>
   )
 }

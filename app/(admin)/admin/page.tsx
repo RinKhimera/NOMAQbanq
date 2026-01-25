@@ -56,9 +56,15 @@ export default function AdminDashboardPage() {
 
       {/* Vital cards */}
       <AdminVitalCards
-        revenueData={{
-          total: transactionStats.recentRevenue,
-          trend: dashboardTrends?.revenueTrend ?? 0,
+        revenueByCurrency={{
+          CAD: {
+            recent: transactionStats.revenueByCurrency.CAD.recent,
+            trend: dashboardTrends?.revenueByCurrency.CAD.trend ?? 0,
+          },
+          XAF: {
+            recent: transactionStats.revenueByCurrency.XAF.recent,
+            trend: dashboardTrends?.revenueByCurrency.XAF.trend ?? 0,
+          },
         }}
         usersData={{
           total: adminStats.totalUsers,
@@ -75,7 +81,7 @@ export default function AdminDashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          <RevenueChart data={revenueByDay ?? []} />
+          <RevenueChart data={revenueByDay ?? { CAD: [], XAF: [] }} />
         </motion.div>
 
         <motion.div

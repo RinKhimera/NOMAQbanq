@@ -2208,9 +2208,9 @@ describe("users", () => {
       })
 
       const stats = await asAdmin.query(api.users.getUsersStats)
-      expect(stats.recentRevenue).toBe(8000) // 5000 + 3000
+      expect(stats.revenueByCurrency.CAD.recent).toBe(8000) // 5000 + 3000
       // With no revenue in previous period, trend should be 100%
-      expect(stats.revenueTrend).toBe(100)
+      expect(stats.revenueByCurrency.CAD.trend).toBe(100)
     })
 
     it("retourne zéros si aucune donnée d'accès ou revenu", async () => {
@@ -2234,8 +2234,8 @@ describe("users", () => {
       expect(stats.activeTrainingAccess).toBe(0)
       expect(stats.examExpiringCount).toBe(0)
       expect(stats.trainingExpiringCount).toBe(0)
-      expect(stats.recentRevenue).toBe(0)
-      expect(stats.revenueTrend).toBe(0)
+      expect(stats.revenueByCurrency.CAD.recent).toBe(0)
+      expect(stats.revenueByCurrency.CAD.trend).toBe(0)
     })
   })
 

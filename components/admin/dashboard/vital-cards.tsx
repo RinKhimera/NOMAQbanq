@@ -7,7 +7,9 @@ import {
   IconUsers,
   IconClipboardCheck,
   IconAlertTriangle,
+  IconCoin,
 } from "@tabler/icons-react"
+import type { Icon } from "@tabler/icons-react"
 
 interface VitalCardProps {
   label: string
@@ -16,7 +18,8 @@ interface VitalCardProps {
     value: number
     isPositive: boolean
   }
-  color: "slate" | "emerald" | "amber" | "rose"
+  color: "slate" | "teal" | "emerald" | "amber" | "rose"
+  icon?: Icon
   delay?: number
   subtitle?: string
   alert?: boolean
@@ -30,6 +33,14 @@ const colorVariants = {
     border: "border-slate-200/60 dark:border-slate-700/40",
     glow: "group-hover:shadow-slate-500/10",
     accent: "from-slate-500 to-slate-600",
+  },
+  teal: {
+    bg: "from-teal-500/10 via-teal-400/5 to-transparent",
+    iconBg: "bg-teal-500/10 dark:bg-teal-400/10",
+    iconColor: "text-teal-600 dark:text-teal-400",
+    border: "border-teal-200/60 dark:border-teal-700/40",
+    glow: "group-hover:shadow-teal-500/10",
+    accent: "from-teal-500 to-teal-600",
   },
   emerald: {
     bg: "from-emerald-500/10 via-emerald-400/5 to-transparent",
@@ -57,16 +68,27 @@ const colorVariants = {
   },
 }
 
+// Icônes par défaut selon la couleur
+const defaultIcons: Record<VitalCardProps["color"], Icon> = {
+  slate: IconCurrencyDollar,
+  teal: IconCoin,
+  emerald: IconUsers,
+  amber: IconClipboardCheck,
+  rose: IconAlertTriangle,
+}
+
 function VitalCard({
   label,
   value,
   trend,
   color,
+  icon,
   delay = 0,
   subtitle,
   alert,
 }: VitalCardProps) {
   const colors = colorVariants[color]
+  const IconComponent = icon ?? defaultIcons[color]
 
   return (
     <motion.div
@@ -109,18 +131,7 @@ function VitalCard({
               colors.iconBg
             )}
           >
-            {color === "slate" && (
-              <IconCurrencyDollar className={cn("h-5 w-5", colors.iconColor)} />
-            )}
-            {color === "emerald" && (
-              <IconUsers className={cn("h-5 w-5", colors.iconColor)} />
-            )}
-            {color === "amber" && (
-              <IconClipboardCheck className={cn("h-5 w-5", colors.iconColor)} />
-            )}
-            {color === "rose" && (
-              <IconAlertTriangle className={cn("h-5 w-5", colors.iconColor)} />
-            )}
+            <IconComponent className={cn("h-5 w-5", colors.iconColor)} />
           </div>
 
           {trend && (
@@ -192,10 +203,15 @@ function VitalCard({
   )
 }
 
+interface CurrencyRevenue {
+  recent: number
+  trend: number
+}
+
 interface AdminVitalCardsProps {
-  revenueData: {
-    total: number
-    trend: number
+  revenueByCurrency: {
+    CAD: CurrencyRevenue
+    XAF: CurrencyRevenue
   }
   usersData: {
     total: number
@@ -206,12 +222,12 @@ interface AdminVitalCardsProps {
 }
 
 export function AdminVitalCards({
-  revenueData,
+  revenueByCurrency,
   usersData,
   activeExams,
   expiringAccessCount,
 }: AdminVitalCardsProps) {
-  const formatCurrency = (amount: number) => {
+  const formatCAD = (amount: number) => {
     return new Intl.NumberFormat("fr-CA", {
       style: "currency",
       currency: "CAD",
@@ -220,20 +236,48 @@ export function AdminVitalCards({
     }).format(amount / 100)
   }
 
+  const formatXAF = (amount: number) => {
+    return new Intl.NumberFormat("fr-FR", {
+      style: "decimal",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount / 100) + " XAF"
+  }
+
+  const hasXAFRevenue = revenueByCurrency.XAF.recent > 0
+
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className={cn(
+      "grid grid-cols-1 gap-4 sm:grid-cols-2",
+      hasXAFRevenue ? "lg:grid-cols-5" : "lg:grid-cols-4"
+    )}>
       <VitalCard
-        label="Revenus (30j)"
-        value={formatCurrency(revenueData.total)}
+        label="Revenus CAD (30j)"
+        value={formatCAD(revenueByCurrency.CAD.recent)}
         trend={
-          revenueData.trend !== 0
-            ? { value: revenueData.trend, isPositive: revenueData.trend > 0 }
+          revenueByCurrency.CAD.trend !== 0
+            ? { value: revenueByCurrency.CAD.trend, isPositive: revenueByCurrency.CAD.trend > 0 }
             : undefined
         }
         color="slate"
         delay={0}
         subtitle="vs 30 jours précédents"
       />
+
+      {hasXAFRevenue && (
+        <VitalCard
+          label="Revenus XAF (30j)"
+          value={formatXAF(revenueByCurrency.XAF.recent)}
+          trend={
+            revenueByCurrency.XAF.trend !== 0
+              ? { value: revenueByCurrency.XAF.trend, isPositive: revenueByCurrency.XAF.trend > 0 }
+              : undefined
+          }
+          color="teal"
+          delay={0.05}
+          subtitle="vs 30 jours précédents"
+        />
+      )}
 
       <VitalCard
         label="Utilisateurs"
@@ -244,7 +288,7 @@ export function AdminVitalCards({
             : undefined
         }
         color="emerald"
-        delay={0.1}
+        delay={hasXAFRevenue ? 0.1 : 0.1}
         subtitle={`${usersData.trend >= 0 ? "+" : ""}${usersData.trend.toFixed(0)}% ce mois`}
       />
 
@@ -252,7 +296,7 @@ export function AdminVitalCards({
         label="Examens actifs"
         value={activeExams}
         color="amber"
-        delay={0.2}
+        delay={hasXAFRevenue ? 0.15 : 0.2}
         subtitle="Examens en cours"
       />
 
@@ -260,7 +304,7 @@ export function AdminVitalCards({
         label="Accès expirant"
         value={expiringAccessCount}
         color="rose"
-        delay={0.3}
+        delay={hasXAFRevenue ? 0.2 : 0.3}
         subtitle="Dans les 7 prochains jours"
         alert={expiringAccessCount > 0}
       />
