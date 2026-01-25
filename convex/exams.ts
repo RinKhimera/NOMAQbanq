@@ -152,7 +152,7 @@ export const deleteExam = mutation({
     const participations = await ctx.db
       .query("examParticipations")
       .withIndex("by_exam", (q) => q.eq("examId", args.examId))
-      .collect()
+      .take(1000)
 
     // 2. Delete all answers for each participation (limited per batch)
     for (const participation of participations) {
@@ -1386,7 +1386,7 @@ export const closeExpiredParticipations = internalMutation({
     const inProgressParticipations = await ctx.db
       .query("examParticipations")
       .withIndex("by_status", (q) => q.eq("status", "in_progress"))
-      .collect()
+      .take(500)
 
     if (inProgressParticipations.length === 0) {
       return { closedCount: 0, processedCount: 0 }

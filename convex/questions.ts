@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
-import { internalMutation, mutation, query } from "./_generated/server"
+import { mutation, query } from "./_generated/server"
 import type { MutationCtx } from "./_generated/server"
 import { getAdminUserOrThrow } from "./lib/auth"
 import { deleteFromBunny } from "./lib/bunny"
@@ -189,7 +189,7 @@ export const getQuestionStats = query({
   args: {},
   handler: async (ctx) => {
     // Lire depuis la table d'agrégation (beaucoup plus efficace que full scan)
-    const allStats = await ctx.db.query("questionStats").collect()
+    const allStats = await ctx.db.query("questionStats").take(1000)
 
     // Séparer le total des stats par domaine
     const totalStat = allStats.find((s) => s.domain === TOTAL_DOMAIN_KEY)
@@ -209,7 +209,7 @@ export const getQuestionStatsEnriched = query({
   args: {},
   handler: async (ctx) => {
     // Lire depuis la table d'agrégation
-    const allStats = await ctx.db.query("questionStats").collect()
+    const allStats = await ctx.db.query("questionStats").take(1000)
 
     // Séparer le total des stats par domaine
     const totalStat = allStats.find((s) => s.domain === TOTAL_DOMAIN_KEY)
@@ -339,7 +339,7 @@ export const getQuestionsWithPagination = query({
       }
 
       // Collect all for filtering
-      const allQuestions = await baseQuery.collect()
+      const allQuestions = await baseQuery.take(5000)
 
       // Filter by search query
       const filteredQuestions = allQuestions.filter(
@@ -418,9 +418,9 @@ export const getQuestionsWithFilters = query({
         questions = await ctx.db
           .query("questions")
           .withIndex("by_domain", (q) => q.eq("domain", domain))
-          .collect()
+          .take(5000)
       } else {
-        questions = await ctx.db.query("questions").collect()
+        questions = await ctx.db.query("questions").take(5000)
       }
 
       // Appliquer les filtres JS
@@ -762,124 +762,3 @@ function normalizeObjectifCMC(value: string): string {
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
 }
 
-// ============================================
-// MIGRATION: Audit et normalisation objectifCMC
-// ============================================
-
-/**
- * Audit des valeurs objectifCMC pour identifier les doublons
- * Commande: npx convex run questions:auditObjectifsCMC
- */
-export const auditObjectifsCMC = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    const questions = await ctx.db.query("questions").collect()
-
-    // Grouper par forme normalisée (trim + lowercase)
-    const groups = new Map<string, { values: Set<string>; count: number }>()
-
-    for (const q of questions) {
-      const normalized = q.objectifCMC.trim().toLowerCase()
-      const existing = groups.get(normalized) || { values: new Set(), count: 0 }
-      existing.values.add(q.objectifCMC)
-      existing.count++
-      groups.set(normalized, existing)
-    }
-
-    // Retourner toutes les valeurs groupées
-    return Array.from(groups.entries()).map(([key, data]) => ({
-      normalized: key,
-      variants: Array.from(data.values),
-      count: data.count,
-      hasDuplicates: data.values.size > 1,
-    })).sort((a, b) => a.normalized.localeCompare(b.normalized, "fr"))
-  },
-})
-
-/**
- * Migration pour normaliser les objectifCMC
- * Commande: npx convex run questions:normalizeObjectifsCMC --args '{"mappings": [...]}'
- */
-export const normalizeObjectifsCMC = internalMutation({
-  args: {
-    mappings: v.array(
-      v.object({
-        canonical: v.string(),
-        variants: v.array(v.string()),
-      })
-    ),
-  },
-  handler: async (ctx, args) => {
-    let updated = 0
-
-    for (const { canonical, variants } of args.mappings) {
-      for (const variant of variants) {
-        if (variant === canonical) continue // Skip si déjà correct
-
-        const questions = await ctx.db
-          .query("questions")
-          .withIndex("by_objectifCMC", (q) => q.eq("objectifCMC", variant))
-          .collect()
-
-        for (const q of questions) {
-          await ctx.db.patch(q._id, { objectifCMC: canonical })
-          updated++
-        }
-      }
-    }
-
-    return { updated }
-  },
-})
-
-// ============================================
-// MIGRATION: Initialiser les stats d'agrégation
-// ============================================
-
-// Migration pour peupler la table questionStats à partir des questions existantes
-// À exécuter une seule fois après le déploiement du nouveau schéma
-// Commande: npx convex run questions:seedQuestionStats
-export const seedQuestionStats = internalMutation({
-  args: {},
-  handler: async (ctx) => {
-    // Vérifier si déjà initialisé (idempotent)
-    const existingTotal = await ctx.db
-      .query("questionStats")
-      .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
-      .unique()
-
-    if (existingTotal) {
-      console.log("Question stats already seeded")
-      return { success: true, alreadySeeded: true }
-    }
-
-    // Full table scan (coût unique de migration)
-    const allQuestions = await ctx.db.query("questions").collect()
-
-    // Construire les compteurs par domaine
-    const domainCounts = allQuestions.reduce(
-      (acc, question) => {
-        acc[question.domain] = (acc[question.domain] || 0) + 1
-        return acc
-      },
-      {} as Record<string, number>,
-    )
-
-    // Insérer les stats par domaine
-    for (const [domain, count] of Object.entries(domainCounts)) {
-      await ctx.db.insert("questionStats", { domain, count })
-    }
-
-    // Insérer le total
-    await ctx.db.insert("questionStats", {
-      domain: TOTAL_DOMAIN_KEY,
-      count: allQuestions.length,
-    })
-
-    return {
-      success: true,
-      totalCount: allQuestions.length,
-      domainsCount: Object.keys(domainCounts).length,
-    }
-  },
-})

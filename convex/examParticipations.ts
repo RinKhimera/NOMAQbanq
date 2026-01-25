@@ -209,7 +209,7 @@ export const saveAnswer = mutation({
       .withIndex("by_participation", (q) =>
         q.eq("participationId", participationId),
       )
-      .collect()
+      .take(500)
 
     const existing = existingAnswers.find((a) => a.questionId === questionId)
 
@@ -273,7 +273,7 @@ export const saveAnswersBatch = mutation({
       .withIndex("by_participation", (q) =>
         q.eq("participationId", participationId),
       )
-      .collect()
+      .take(500)
 
     const existingMap = new Map(existingAnswers.map((a) => [a.questionId, a]))
 
@@ -324,7 +324,7 @@ export const deleteParticipation = mutation({
       .withIndex("by_participation", (q) =>
         q.eq("participationId", participationId),
       )
-      .collect()
+      .take(500)
 
     for (const answer of answers) {
       await ctx.db.delete(answer._id)

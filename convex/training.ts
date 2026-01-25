@@ -230,7 +230,7 @@ export const getAvailableDomains = query({
   args: {},
   handler: async (ctx) => {
     // Utiliser la table d'agrégation questionStats si disponible
-    const stats = await ctx.db.query("questionStats").collect()
+    const stats = await ctx.db.query("questionStats").take(1000)
 
     if (stats.length > 0) {
       // Utiliser les stats d'agrégation (plus performant)

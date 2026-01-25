@@ -99,7 +99,7 @@ export const getMyAccessStatus = query({
     const accessRecords = await ctx.db
       .query("userAccess")
       .withIndex("by_userId", (q) => q.eq("userId", user._id))
-      .collect()
+      .take(10)
 
     const now = Date.now()
 
@@ -183,15 +183,15 @@ export const getMyTransactions = query({
       .paginate(args.paginationOpts)
 
     // Filtrer les transactions "pending" (checkouts non complétés)
-    // et enrichir avec les détails du produit
-    const enrichedPage = await Promise.all(
-      transactions.page
-        .filter((tx) => tx.status !== "pending")
-        .map(async (tx) => {
-          const product = await ctx.db.get(tx.productId)
-          return { ...tx, product }
-        }),
-    )
+    const filteredPage = transactions.page.filter((tx) => tx.status !== "pending")
+
+    // Enrichir avec les détails du produit (batch fetch pour éviter N+1)
+    const productIds = filteredPage.map((tx) => tx.productId)
+    const productMap = await batchGetByIds(ctx, "products", productIds)
+    const enrichedPage = filteredPage.map((tx) => ({
+      ...tx,
+      product: productMap.get(tx.productId) ?? null,
+    }))
 
     return {
       ...transactions,
@@ -468,7 +468,7 @@ export const getUserAccessStatus = query({
     const accessRecords = await ctx.db
       .query("userAccess")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .collect()
+      .take(10)
 
     const now = Date.now()
 
