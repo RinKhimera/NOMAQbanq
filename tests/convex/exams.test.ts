@@ -350,6 +350,9 @@ describe("exams", () => {
 
       })
 
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
       const availableExams = await user.asUser.query(api.exams.getMyAvailableExams)
       expect(availableExams).toHaveLength(1)
       expect(availableExams[0].title).toBe("Examen actif")
@@ -364,7 +367,7 @@ describe("exams", () => {
 
       const now = Date.now()
 
-      // Examen pour user1 seulement
+      // Examen actif
       await admin.asAdmin.mutation(api.exams.createExam, {
         title: "Examen pour user1",
         startDate: now - 1000,
@@ -373,11 +376,14 @@ describe("exams", () => {
 
       })
 
-      // User1 devrait voir l'examen
+      // Accorder l'accès exam à user1 seulement
+      await grantAccess(t, user1.userId, "exam")
+
+      // User1 devrait voir l'examen (a un accès exam actif)
       const user1Exams = await user1.asUser.query(api.exams.getMyAvailableExams)
       expect(user1Exams).toHaveLength(1)
 
-      // User2 ne devrait pas voir l'examen
+      // User2 ne devrait pas voir l'examen (pas d'accès exam)
       const user2Exams = await user2.asUser.query(api.exams.getMyAvailableExams)
       expect(user2Exams).toHaveLength(0)
     })
