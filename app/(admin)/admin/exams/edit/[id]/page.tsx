@@ -18,7 +18,10 @@ import { useParams, useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
-import { QuestionSelector } from "@/components/admin/question-selector"
+import {
+  QuestionBrowser,
+  QuestionPreviewPanel,
+} from "@/components/admin/question-browser"
 import { EligibleCandidatesCard } from "../../_components/eligible-candidates-card"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
@@ -520,50 +523,47 @@ const AdminEditExamPage = () => {
           {/* Candidats éligibles (lecture seule) */}
           <EligibleCandidatesCard />
 
-          {/* Sélection des questions */}
-          <Card className="overflow-hidden border-0 shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 dark:from-violet-500/20 dark:to-purple-500/20">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500 shadow-md">
-                    <FileText className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-violet-700 dark:text-violet-300">
-                      Questions de l&apos;examen
-                    </CardTitle>
-                    <CardDescription>
-                      Sélectionnez exactement {numberOfQuestions} questions
-                    </CardDescription>
-                  </div>
+          {/* Questions Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg shadow-violet-500/25">
+                  <FileText className="h-5 w-5 text-white" />
                 </div>
-                <div className="flex h-9 items-center gap-2 rounded-full bg-violet-100 px-4 dark:bg-violet-900/30">
-                  <span className="text-sm font-semibold text-violet-700 dark:text-violet-300">
-                    {selectedQuestions.length}
-                  </span>
-                  <span className="text-sm text-violet-600/70 dark:text-violet-400/70">
-                    / {numberOfQuestions}
-                  </span>
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Questions de l&apos;examen
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Sélectionnez exactement {numberOfQuestions} questions
+                  </p>
                 </div>
               </div>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <FormField
-                control={form.control}
-                name="questionIds"
-                render={() => (
-                  <FormItem>
-                    <QuestionSelector
-                      selectedQuestions={selectedQuestions}
-                      onSelectionChange={handleQuestionSelectionChange}
-                      maxQuestions={numberOfQuestions}
-                    />
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
+            </div>
+
+            <FormField
+              control={form.control}
+              name="questionIds"
+              render={() => (
+                <FormItem>
+                  <QuestionBrowser
+                    mode="select"
+                    selectedIds={selectedQuestions}
+                    onSelectionChange={handleQuestionSelectionChange}
+                    maxSelection={numberOfQuestions}
+                    renderPanel={({ questionId, onClose }) => (
+                      <QuestionPreviewPanel
+                        questionId={questionId}
+                        open={!!questionId}
+                        onOpenChange={(open) => !open && onClose()}
+                      />
+                    )}
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
 
           {/* Boutons d'action */}
           <div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:justify-end">

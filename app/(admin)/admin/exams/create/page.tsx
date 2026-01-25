@@ -19,7 +19,10 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
-import { QuestionSelector } from "@/components/admin/question-selector"
+import {
+  QuestionBrowser,
+  QuestionPreviewPanel,
+} from "@/components/admin/question-browser"
 import { EligibleCandidatesCard } from "../_components/eligible-candidates-card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -146,8 +149,7 @@ const AdminCreateExamPage = () => {
   const estimatedDuration = Math.ceil((numberOfQuestions * 83) / 60)
 
   return (
-    <div className="@container min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/20 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-      <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-6 lg:p-8">
+    <div className="@container flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
         {/* Header */}
         <div className="flex flex-col gap-4 @md:flex-row @md:items-center @md:justify-between">
           <div className="space-y-1">
@@ -482,49 +484,47 @@ const AdminCreateExamPage = () => {
             {/* Candidats éligibles (lecture seule) */}
             <EligibleCandidatesCard />
 
-            {/* Questions Card */}
-            <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-              <CardHeader className="border-b bg-gradient-to-r from-violet-500 to-purple-500 text-white">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    <CardTitle className="text-lg">
-                      Questions de l&apos;examen
-                    </CardTitle>
+            {/* Questions Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg shadow-violet-500/25">
+                    <FileText className="h-5 w-5 text-white" />
                   </div>
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      "font-mono",
-                      selectedQuestions.length === numberOfQuestions
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-white/20 text-white",
-                    )}
-                  >
-                    {selectedQuestions.length} / {numberOfQuestions}
-                  </Badge>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                      Questions de l&apos;examen
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Sélectionnez exactement {numberOfQuestions} questions
+                    </p>
+                  </div>
                 </div>
-                <CardDescription className="text-violet-100">
-                  Sélectionnez exactement {numberOfQuestions} questions
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-6">
-                <FormField
-                  control={form.control}
-                  name="questionIds"
-                  render={() => (
-                    <FormItem>
-                      <QuestionSelector
-                        selectedQuestions={selectedQuestions}
-                        onSelectionChange={handleQuestionSelectionChange}
-                        maxQuestions={numberOfQuestions}
-                      />
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </CardContent>
-            </Card>
+              </div>
+
+              <FormField
+                control={form.control}
+                name="questionIds"
+                render={() => (
+                  <FormItem>
+                    <QuestionBrowser
+                      mode="select"
+                      selectedIds={selectedQuestions}
+                      onSelectionChange={handleQuestionSelectionChange}
+                      maxSelection={numberOfQuestions}
+                      renderPanel={({ questionId, onClose }) => (
+                        <QuestionPreviewPanel
+                          questionId={questionId}
+                          open={!!questionId}
+                          onOpenChange={(open) => !open && onClose()}
+                        />
+                      )}
+                    />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             {/* Action Footer */}
             <div className="sticky bottom-4 z-10">
@@ -566,7 +566,6 @@ const AdminCreateExamPage = () => {
             </div>
           </form>
         </Form>
-      </div>
     </div>
   )
 }

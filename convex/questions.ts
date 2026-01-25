@@ -175,6 +175,15 @@ export const getAllQuestions = query({
   },
 })
 
+// Récupérer tous les IDs de questions (pour auto-complete efficace)
+export const getAllQuestionIds = query({
+  args: {},
+  handler: async (ctx) => {
+    const questions = await ctx.db.query("questions").take(5000)
+    return questions.map((q) => q._id)
+  },
+})
+
 // Récupérer les statistiques des questions pour le dashboard admin (optimisé via table d'agrégation)
 export const getQuestionStats = query({
   args: {},

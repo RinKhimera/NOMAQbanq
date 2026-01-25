@@ -11,34 +11,28 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { MEDICAL_DOMAINS } from "@/constants"
+import { cn } from "@/lib/utils"
+import { useQuestionBrowser } from "./question-browser-context"
+import { ImageFilter, QuestionBrowserToolbarProps } from "./types"
 
-export type ImageFilter = "all" | "with" | "without"
+export function QuestionBrowserToolbar({
+  className,
+}: QuestionBrowserToolbarProps) {
+  const {
+    filters,
+    updateFilter,
+    clearFilters,
+    hasActiveFilters,
+    isSearching,
+  } = useQuestionBrowser()
 
-interface QuestionsFilterBarProps {
-  searchQuery: string
-  onSearchChange: (value: string) => void
-  domain: string
-  onDomainChange: (value: string) => void
-  imageFilter: ImageFilter
-  onImageFilterChange: (value: ImageFilter) => void
-  isSearching?: boolean
-  onClearFilters: () => void
-  hasActiveFilters: boolean
-}
-
-export function QuestionsFilterBar({
-  searchQuery,
-  onSearchChange,
-  domain,
-  onDomainChange,
-  imageFilter,
-  onImageFilterChange,
-  isSearching,
-  onClearFilters,
-  hasActiveFilters,
-}: QuestionsFilterBarProps) {
   return (
-    <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
+    <div
+      className={cn(
+        "rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-gray-700/50 dark:bg-gray-900",
+        className
+      )}
+    >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         {/* Search */}
         <div className="relative flex-1">
@@ -50,8 +44,8 @@ export function QuestionsFilterBar({
           <Input
             type="text"
             placeholder="Rechercher dans les questions ou objectifs CMC..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
+            value={filters.searchQuery}
+            onChange={(e) => updateFilter("searchQuery", e.target.value)}
             className="h-10 pl-10 pr-4"
           />
         </div>
@@ -59,7 +53,10 @@ export function QuestionsFilterBar({
         {/* Filters row */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Domain filter */}
-          <Select value={domain} onValueChange={onDomainChange}>
+          <Select
+            value={filters.domain}
+            onValueChange={(value) => updateFilter("domain", value)}
+          >
             <SelectTrigger className="h-10 w-[200px]">
               <SelectValue placeholder="Domaine" />
             </SelectTrigger>
@@ -75,8 +72,8 @@ export function QuestionsFilterBar({
 
           {/* Image filter */}
           <Select
-            value={imageFilter}
-            onValueChange={(v) => onImageFilterChange(v as ImageFilter)}
+            value={filters.hasImages}
+            onValueChange={(v) => updateFilter("hasImages", v as ImageFilter)}
           >
             <SelectTrigger className="h-10 w-[160px]">
               <SelectValue placeholder="Images" />
@@ -93,7 +90,7 @@ export function QuestionsFilterBar({
             <Button
               variant="ghost"
               size="sm"
-              onClick={onClearFilters}
+              onClick={clearFilters}
               className="h-10 gap-1.5 text-gray-500 hover:text-gray-700"
             >
               <X className="h-4 w-4" />
