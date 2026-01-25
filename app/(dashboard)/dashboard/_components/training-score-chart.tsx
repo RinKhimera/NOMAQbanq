@@ -269,11 +269,11 @@ export const TrainingScoreChart = ({
         className="[&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
       >
         <TabsList className="mb-4">
-          <TabsTrigger value="evolution" className="gap-1.5">
+          <TabsTrigger value="evolution" className="cursor-pointer gap-1.5">
             <LineChart className="h-4 w-4" />
             Évolution
           </TabsTrigger>
-          <TabsTrigger value="domains" className="gap-1.5">
+          <TabsTrigger value="domains" className="cursor-pointer gap-1.5">
             <BarChart3 className="h-4 w-4" />
             Par domaine
           </TabsTrigger>

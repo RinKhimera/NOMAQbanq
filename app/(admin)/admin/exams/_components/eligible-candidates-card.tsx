@@ -1,11 +1,15 @@
 "use client"
 
+import {
+  IconAlertCircle,
+  IconChevronRight,
+  IconUsers,
+} from "@tabler/icons-react"
 import { useQuery } from "convex/react"
-import { api } from "@/convex/_generated/api"
-import { cn } from "@/lib/utils"
-import { IconUsers, IconAlertCircle, IconChevronRight } from "@tabler/icons-react"
+import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -13,13 +17,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { useState } from "react"
+import { api } from "@/convex/_generated/api"
+import { cn } from "@/lib/utils"
 
 interface EligibleCandidatesCardProps {
   /** Nombre maximum de candidats à afficher initialement */
@@ -37,10 +41,9 @@ export function EligibleCandidatesCard({
 }: EligibleCandidatesCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const eligibleCandidates = useQuery(
-    api.users.getUsersWithActiveExamAccess,
-    { limit: 50 },
-  )
+  const eligibleCandidates = useQuery(api.users.getUsersWithActiveExamAccess, {
+    limit: 50,
+  })
 
   const isLoading = eligibleCandidates === undefined
 
@@ -174,12 +177,13 @@ interface CandidateRowProps {
 
 function CandidateRow({ candidate, compact }: CandidateRowProps) {
   const { user, daysRemaining } = candidate
-  const initials = user.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "?"
+  const initials =
+    user.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "?"
 
   const isExpiringSoon = daysRemaining <= 7
 

@@ -1,27 +1,23 @@
 "use client"
 
-import { useState } from "react"
-import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery } from "convex/react"
-import { motion, AnimatePresence } from "motion/react"
 import {
   Banknote,
-  User,
-  Package,
-  DollarSign,
-  CreditCard,
-  FileText,
-  Loader2,
+  Check,
   CheckCircle,
   ChevronsUpDown,
-  Check,
+  CreditCard,
+  DollarSign,
+  FileText,
+  Loader2,
+  Package,
+  User,
 } from "lucide-react"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
-import { cn } from "@/lib/utils"
-import { formatCurrency } from "@/lib/format"
-import { manualPaymentSchema, type ManualPaymentFormValues, type ProductCode } from "@/schemas/payment"
+import { AnimatePresence, motion } from "motion/react"
+import { useState } from "react"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -37,12 +33,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import {
   Form,
   FormControl,
   FormDescription,
@@ -51,6 +41,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Select,
   SelectContent,
@@ -58,9 +55,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "sonner"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
+import { formatCurrency } from "@/lib/format"
+import { cn } from "@/lib/utils"
+import {
+  type ManualPaymentFormValues,
+  type ProductCode,
+  manualPaymentSchema,
+} from "@/schemas/payment"
 
 interface ManualPaymentModalProps {
   open: boolean
@@ -87,7 +91,7 @@ const currencies = [
  */
 const parseAmountToCents = (
   input: string,
-  currency: "CAD" | "XAF"
+  currency: "CAD" | "XAF",
 ): number | null => {
   if (!input || input.trim() === "") return null
 
@@ -136,7 +140,7 @@ export const ManualPaymentModal = ({
   })
 
   const selectedProduct = products?.find(
-    (p) => p.code === form.watch("productCode")
+    (p) => p.code === form.watch("productCode"),
   )
 
   const onSubmit = async (data: ManualPaymentFormValues) => {
@@ -169,7 +173,8 @@ export const ManualPaymentModal = ({
 
       toast.success("Paiement enregistré avec succès")
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue"
+      const errorMessage =
+        error instanceof Error ? error.message : "Erreur inconnue"
       if (errorMessage.includes("non trouvé")) {
         toast.error("Utilisateur ou produit non trouvé")
       } else {
@@ -217,8 +222,8 @@ export const ManualPaymentModal = ({
             >
               {/* Header with gradient */}
               <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 px-6 py-8">
-                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
-                <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
+                <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
+                <div className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
                 <div className="relative">
                   <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 backdrop-blur">
                     <Banknote className="h-6 w-6 text-white" />
@@ -234,20 +239,29 @@ export const ManualPaymentModal = ({
 
               {/* Form */}
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 p-6">
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-5 p-6"
+                >
                   {/* User */}
                   <FormField
                     control={form.control}
                     name="userId"
                     render={({ field }) => {
-                      const selectedUser = users?.find((u) => u._id === field.value)
+                      const selectedUser = users?.find(
+                        (u) => u._id === field.value,
+                      )
                       return (
                         <FormItem>
                           <FormLabel className="flex items-center gap-2">
                             <User className="h-4 w-4" />
                             Utilisateur
                           </FormLabel>
-                          <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
+                          <Popover
+                            open={userPopoverOpen}
+                            onOpenChange={setUserPopoverOpen}
+                            modal={true}
+                          >
                             <PopoverTrigger asChild>
                               <FormControl>
                                 <Button
@@ -256,7 +270,7 @@ export const ManualPaymentModal = ({
                                   aria-expanded={userPopoverOpen}
                                   className={cn(
                                     "w-full justify-between rounded-xl",
-                                    !field.value && "text-muted-foreground"
+                                    !field.value && "text-muted-foreground",
                                   )}
                                 >
                                   {selectedUser
@@ -266,12 +280,17 @@ export const ManualPaymentModal = ({
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
-                            <PopoverContent className="w-full p-0" align="start">
+                            <PopoverContent
+                              className="w-[400px] p-0"
+                              align="start"
+                            >
                               <Command>
                                 <CommandInput placeholder="Rechercher par nom ou email..." />
-                                <CommandEmpty>Aucun utilisateur trouvé.</CommandEmpty>
+                                <CommandEmpty>
+                                  Aucun utilisateur trouvé.
+                                </CommandEmpty>
                                 <CommandGroup>
-                                  <ScrollArea className="h-64">
+                                  <ScrollArea className="h-72">
                                     {users
                                       ?.filter((user) => user.role !== "admin")
                                       .map((user) => (
@@ -282,17 +301,20 @@ export const ManualPaymentModal = ({
                                             field.onChange(user._id)
                                             setUserPopoverOpen(false)
                                           }}
+                                          className="cursor-pointer"
                                         >
                                           <Check
                                             className={cn(
                                               "mr-2 h-4 w-4",
                                               field.value === user._id
                                                 ? "opacity-100"
-                                                : "opacity-0"
+                                                : "opacity-0",
                                             )}
                                           />
                                           <div className="flex-1">
-                                            <p className="font-medium">{user.name}</p>
+                                            <p className="font-medium">
+                                              {user.name}
+                                            </p>
                                             <p className="text-muted-foreground text-xs">
                                               {user.email}
                                             </p>
@@ -336,7 +358,10 @@ export const ManualPaymentModal = ({
                           </FormControl>
                           <SelectContent>
                             {products?.map((product) => (
-                              <SelectItem key={product.code} value={product.code}>
+                              <SelectItem
+                                key={product.code}
+                                value={product.code}
+                              >
                                 <div className="flex items-center justify-between gap-4">
                                   <span>{product.name}</span>
                                   <span className="text-xs text-gray-500">
@@ -349,7 +374,9 @@ export const ManualPaymentModal = ({
                         </Select>
                         {selectedProduct && (
                           <FormDescription className="text-xs">
-                            {selectedProduct.durationDays} jours d{"'"}accès · Prix suggéré: {formatCurrency(selectedProduct.priceCAD)}
+                            {selectedProduct.durationDays} jours d{"'"}accès ·
+                            Prix suggéré:{" "}
+                            {formatCurrency(selectedProduct.priceCAD)}
                           </FormDescription>
                         )}
                         <FormMessage />
@@ -375,7 +402,9 @@ export const ManualPaymentModal = ({
                               <Input
                                 type="text"
                                 inputMode="decimal"
-                                placeholder={currency === "XAF" ? "5000" : "50.00"}
+                                placeholder={
+                                  currency === "XAF" ? "5000" : "50.00"
+                                }
                                 className="rounded-xl"
                                 {...field}
                               />
@@ -413,7 +442,10 @@ export const ManualPaymentModal = ({
                             </FormControl>
                             <SelectContent>
                               {currencies.map((currency) => (
-                                <SelectItem key={currency.value} value={currency.value}>
+                                <SelectItem
+                                  key={currency.value}
+                                  value={currency.value}
+                                >
                                   {currency.label}
                                 </SelectItem>
                               ))}
@@ -452,7 +484,7 @@ export const ManualPaymentModal = ({
                                   "flex cursor-pointer items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all",
                                   field.value === method.value
                                     ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                                    : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+                                    : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600",
                                 )}
                               >
                                 <Icon className="h-4 w-4" />

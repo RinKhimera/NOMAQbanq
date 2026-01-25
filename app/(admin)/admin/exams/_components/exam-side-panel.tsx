@@ -58,6 +58,7 @@ export function ExamSidePanel({
       <SheetContent
         className="w-full overflow-y-auto border-l-0 bg-gradient-to-b from-slate-50 via-white to-slate-50/50 p-0 shadow-2xl sm:max-w-[480px] dark:from-gray-900 dark:via-gray-900 dark:to-gray-950"
         side="right"
+        hideCloseButton
       >
         {/* Accessible title for loading/empty states */}
         {!exam && (
