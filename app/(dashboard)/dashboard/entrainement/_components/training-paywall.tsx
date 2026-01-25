@@ -1,21 +1,14 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery, useAction } from "convex/react"
+import { useAction, useQuery } from "convex/react"
+import { ArrowRight, Brain, Check, Loader2, Lock, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
-import {
-  Lock,
-  Brain,
-  Check,
-  Sparkles,
-  ArrowRight,
-  Loader2,
-} from "lucide-react"
-import { api } from "@/convex/_generated/api"
-import { Button } from "@/components/ui/button"
-import { formatCurrency } from "@/lib/format"
+import { useActionState, useTransition } from "react"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { api } from "@/convex/_generated/api"
+import { formatCurrency } from "@/lib/format"
 
 const FEATURES = [
   "Plus de 5000 questions",
@@ -27,21 +20,19 @@ const FEATURES = [
 ]
 
 export const TrainingPaywall = () => {
-  const [isLoading, setIsLoading] = useState(false)
-
   const products = useQuery(api.payments.getAvailableProducts)
   const createCheckout = useAction(api.stripe.createCheckoutSession)
 
   // Find the training product (non-promo first, then promo as backup)
   const trainingProduct =
     products?.find(
-      (p) => p.accessType === "training" && !p.code.includes("promo")
+      (p) => p.accessType === "training" && !p.code.includes("promo"),
     ) ?? products?.find((p) => p.accessType === "training")
 
-  const handlePurchase = async () => {
-    if (!trainingProduct) return
+  const [, startTransition] = useTransition()
+  const [, purchaseAction, isPending] = useActionState(async () => {
+    if (!trainingProduct) return null
 
-    setIsLoading(true)
     try {
       const { checkoutUrl } = await createCheckout({
         productCode: trainingProduct.code as
@@ -57,17 +48,17 @@ export const TrainingPaywall = () => {
     } catch (error) {
       console.error("Erreur lors de la création du checkout:", error)
       toast.error("Une erreur est survenue. Veuillez réessayer.")
-    } finally {
-      setIsLoading(false)
     }
-  }
+
+    return null
+  }, null)
 
   return (
     <div className="relative min-h-screen overflow-hidden">
       {/* Background gradient mesh */}
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute -left-1/4 -top-1/4 h-[600px] w-[600px] rounded-full bg-gradient-to-br from-emerald-100/40 to-teal-100/40 blur-3xl dark:from-emerald-900/20 dark:to-teal-900/20" />
-        <div className="absolute -bottom-1/4 -right-1/4 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-cyan-100/30 to-emerald-100/30 blur-3xl dark:from-cyan-900/15 dark:to-emerald-900/15" />
+        <div className="absolute -top-1/4 -left-1/4 h-[600px] w-[600px] rounded-full bg-gradient-to-br from-emerald-100/40 to-teal-100/40 blur-3xl dark:from-emerald-900/20 dark:to-teal-900/20" />
+        <div className="absolute -right-1/4 -bottom-1/4 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-cyan-100/30 to-emerald-100/30 blur-3xl dark:from-cyan-900/15 dark:to-emerald-900/15" />
       </div>
 
       <div className="container mx-auto flex min-h-[80vh] max-w-4xl items-center justify-center px-4 py-12">
@@ -94,7 +85,7 @@ export const TrainingPaywall = () => {
                   <Lock className="h-10 w-10 text-white" />
                 </motion.div>
 
-                <h1 className="font-display text-3xl font-bold text-gray-900 dark:text-white md:text-4xl">
+                <h1 className="font-display text-3xl font-bold text-gray-900 md:text-4xl dark:text-white">
                   Débloquez l&apos;Entraînement
                 </h1>
                 <p className="mt-3 text-lg text-gray-600 dark:text-gray-400">
@@ -158,12 +149,12 @@ export const TrainingPaywall = () => {
               {/* CTA buttons */}
               <div className="space-y-4">
                 <Button
-                  onClick={handlePurchase}
-                  disabled={isLoading || !trainingProduct}
+                  onClick={() => startTransition(purchaseAction)}
+                  disabled={isPending || !trainingProduct}
                   size="lg"
                   className="h-14 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30"
                 >
-                  {isLoading ? (
+                  {isPending ? (
                     <>
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                       Redirection vers le paiement...

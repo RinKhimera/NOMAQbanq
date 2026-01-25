@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useTransition } from "react"
 import { useQuery } from "convex/react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Plus } from "lucide-react"
@@ -34,22 +34,27 @@ export default function AdminQuestionsPage() {
   // State for filters (used by export button)
   const [currentFilters, setCurrentFilters] = useState<QuestionFilters>(defaultFilters)
 
+  // Transition for non-blocking panel updates
+  const [, startTransition] = useTransition()
+
   // Stats query
   const stats = useQuery(api.questions.getQuestionStatsEnriched)
 
   // Handle preview change (sync with URL)
   const handlePreviewChange = useCallback(
     (id: Id<"questions"> | null) => {
-      setSelectedQuestionId(id)
-      const url = new URL(window.location.href)
-      if (id) {
-        url.searchParams.set("question", id)
-      } else {
-        url.searchParams.delete("question")
-      }
-      router.replace(url.pathname + url.search, { scroll: false })
+      startTransition(() => {
+        setSelectedQuestionId(id)
+        const url = new URL(window.location.href)
+        if (id) {
+          url.searchParams.set("question", id)
+        } else {
+          url.searchParams.delete("question")
+        }
+        router.replace(url.pathname + url.search, { scroll: false })
+      })
     },
-    [router]
+    [router, startTransition]
   )
 
   // Handle question deleted

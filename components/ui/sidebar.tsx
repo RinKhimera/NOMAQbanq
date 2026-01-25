@@ -607,10 +607,8 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean
 }) {
-  // Random width between 50 to 90%
-  const [width] = React.useState(
-    () => `${Math.floor(Math.random() * 40) + 50}%`,
-  )
+  // Valeur fixe pour éviter Math.random() qui cause des mismatches SSR/hydration (pureté React 19)
+  const width = "70%"
 
   return (
     <div

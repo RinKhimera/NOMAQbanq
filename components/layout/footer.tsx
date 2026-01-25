@@ -13,6 +13,9 @@ import {
 import Link from "next/link"
 import { FOOTER_LEGAL_LINKS, FOOTER_QUICK_LINKS } from "@/constants"
 
+// Constante module-level pour éviter new Date() à chaque render (pureté React 19)
+const CURRENT_YEAR = new Date().getFullYear()
+
 export default function Footer() {
   return (
     <footer className="bg-gray-900 text-white">
@@ -107,7 +110,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-16 flex flex-col items-center justify-between border-t border-gray-800 pt-8 md:flex-row">
           <p className="text-sm text-gray-400">
-            © {new Date().getFullYear()} NOMAQbanq. Tous droits réservés.
+            © {CURRENT_YEAR} NOMAQbanq. Tous droits réservés.
           </p>
           <div className="mt-4 flex space-x-8 md:mt-0">
             {FOOTER_LEGAL_LINKS.map((link) => (

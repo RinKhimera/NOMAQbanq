@@ -49,7 +49,7 @@ export const TransactionStats = () => {
 
   const hasXAFRevenue = stats.revenueByCurrency.XAF.total > 0
 
-  // Construire les cartes dynamiquement selon les devises présentes
+  // Construction déclarative des cartes selon les devises présentes (pattern React idiomatique)
   const statCards: StatCardConfig[] = [
     {
       key: "totalRevenueCAD",
@@ -59,20 +59,19 @@ export const TransactionStats = () => {
       bgGradient: "from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30",
       format: (value: number) => formatCurrency(value, "CAD"),
     },
-  ]
-
-  if (hasXAFRevenue) {
-    statCards.push({
-      key: "totalRevenueXAF",
-      label: "Revenus totaux XAF",
-      icon: Coins,
-      gradient: "from-teal-500 to-cyan-600",
-      bgGradient: "from-teal-50 to-cyan-50 dark:from-teal-950/30 dark:to-cyan-950/30",
-      format: (value: number) => formatCurrency(value, "XAF"),
-    })
-  }
-
-  statCards.push(
+    ...(hasXAFRevenue
+      ? [
+          {
+            key: "totalRevenueXAF",
+            label: "Revenus totaux XAF",
+            icon: Coins,
+            gradient: "from-teal-500 to-cyan-600",
+            bgGradient:
+              "from-teal-50 to-cyan-50 dark:from-teal-950/30 dark:to-cyan-950/30",
+            format: (value: number) => formatCurrency(value, "XAF"),
+          } as StatCardConfig,
+        ]
+      : []),
     {
       key: "recentRevenueCAD",
       label: "30 jours CAD",
@@ -81,20 +80,19 @@ export const TransactionStats = () => {
       bgGradient: "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30",
       format: (value: number) => formatCurrency(value, "CAD"),
     },
-  )
-
-  if (hasXAFRevenue) {
-    statCards.push({
-      key: "recentRevenueXAF",
-      label: "30 jours XAF",
-      icon: TrendingUp,
-      gradient: "from-cyan-500 to-blue-600",
-      bgGradient: "from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30",
-      format: (value: number) => formatCurrency(value, "XAF"),
-    })
-  }
-
-  statCards.push(
+    ...(hasXAFRevenue
+      ? [
+          {
+            key: "recentRevenueXAF",
+            label: "30 jours XAF",
+            icon: TrendingUp,
+            gradient: "from-cyan-500 to-blue-600",
+            bgGradient:
+              "from-cyan-50 to-blue-50 dark:from-cyan-950/30 dark:to-blue-950/30",
+            format: (value: number) => formatCurrency(value, "XAF"),
+          } as StatCardConfig,
+        ]
+      : []),
     {
       key: "stripeTransactions",
       label: "Transactions Stripe",
@@ -111,7 +109,7 @@ export const TransactionStats = () => {
       bgGradient: "from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30",
       format: (value: number) => value.toString(),
     },
-  )
+  ]
 
   // Mapper les clés vers les valeurs
   const getValue = (key: string): number => {

@@ -1,26 +1,29 @@
 "use client"
 
-import { useState } from "react"
+import { IconLayoutDashboard } from "@tabler/icons-react"
 import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { motion } from "motion/react"
-import { IconLayoutDashboard } from "@tabler/icons-react"
-import { api } from "@/convex/_generated/api"
+import { useState } from "react"
+import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import {
+  ActivityFeed,
   AdminDashboardSkeleton,
   AdminVitalCards,
-  RevenueChart,
-  DomainChart,
-  ActivityFeed,
-  QuickActions,
   AlertsPanel,
+  DomainChart,
+  QuickActions,
+  RevenueChart,
 } from "@/components/admin/dashboard"
-import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ManualPaymentModal } from "@/components/shared/payments"
+import { api } from "@/convex/_generated/api"
 
 export default function AdminDashboardPage() {
   const [showManualPaymentModal, setShowManualPaymentModal] = useState(false)
+  const [today] = useState(() =>
+    format(new Date(), "EEEE d MMMM yyyy", { locale: fr }),
+  )
 
   // Fetch all dashboard data in parallel
   const adminStats = useQuery(api.users.getAdminStats)
@@ -41,8 +44,6 @@ export default function AdminDashboardPage() {
   if (isLoading) {
     return <AdminDashboardSkeleton />
   }
-
-  const today = format(new Date(), "EEEE d MMMM yyyy", { locale: fr })
 
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">

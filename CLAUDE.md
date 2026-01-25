@@ -156,3 +156,4 @@ Pattern pages marketing : voir `app/(marketing)/tarifs/page.tsx` + `_components/
 - **Routes centralisées** : Modifier `constants/index.tsx` pour ajouter/changer URLs
 - **Hauteur uniforme cards** : Utiliser `h-full` + réserver espace pour éléments optionnels (subtitles)
 - **URL state** : Dériver l'état de l'URL, pas useState+useEffect. Voir [React docs](https://react.dev/learn/you-might-not-need-an-effect)
+- **useActionState** : Toujours appeler l'action dans `startTransition()` ou via `<form action={...}>`. Sinon erreur "called outside of a transition"

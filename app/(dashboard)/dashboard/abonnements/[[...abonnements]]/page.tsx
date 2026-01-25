@@ -20,7 +20,7 @@ import {
 } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
-import { useState } from "react"
+import { useActionState, useTransition } from "react"
 import { toast } from "sonner"
 import {
   AccessBadge,
@@ -233,7 +233,6 @@ const AccountPageSkeleton = () => (
 )
 
 export default function AbonnementsPage() {
-  const [isLoadingPortal, setIsLoadingPortal] = useState(false)
   const { isAuthenticated } = useConvexAuth()
 
   const accessStatus = useQuery(
@@ -251,31 +250,36 @@ export default function AbonnementsPage() {
   )
   const createPortal = useAction(api.stripe.createCustomerPortalSession)
 
-  const handleManageBilling = async () => {
-    setIsLoadingPortal(true)
-    try {
-      const { portalUrl } = await createPortal({
-        returnUrl: `${window.location.origin}/dashboard/abonnements`,
-      })
-      window.location.href = portalUrl
-    } catch (error) {
-      console.error("Erreur portail:", error)
+  // Transition for action state
+  const [, startTransition] = useTransition()
 
-      const errorMessage = error instanceof Error ? error.message : ""
+  const [, openPortalAction, isLoadingPortal] = useActionState(
+    async () => {
+      try {
+        const { portalUrl } = await createPortal({
+          returnUrl: `${window.location.origin}/dashboard/abonnements`,
+        })
+        window.location.href = portalUrl
+        return { success: true }
+      } catch (error) {
+        console.error("Erreur portail:", error)
 
-      if (!navigator.onLine) {
-        toast.error("Pas de connexion internet. Vérifiez votre réseau.")
-      } else if (errorMessage.includes("Aucun historique de paiement")) {
-        toast.error(
-          "Aucun achat effectué. Effectuez un premier achat pour accéder à vos factures.",
-        )
-      } else {
-        toast.error("Impossible d'ouvrir le portail de facturation")
+        const errorMessage = error instanceof Error ? error.message : ""
+
+        if (!navigator.onLine) {
+          toast.error("Pas de connexion internet. Vérifiez votre réseau.")
+        } else if (errorMessage.includes("Aucun historique de paiement")) {
+          toast.error(
+            "Aucun achat effectué. Effectuez un premier achat pour accéder à vos factures.",
+          )
+        } else {
+          toast.error("Impossible d'ouvrir le portail de facturation")
+        }
+        return { success: false, error: errorMessage }
       }
-    } finally {
-      setIsLoadingPortal(false)
-    }
-  }
+    },
+    { success: false, error: undefined },
+  )
 
   if (accessStatus === undefined) {
     return (
@@ -338,7 +342,7 @@ export default function AbonnementsPage() {
                   Annuler
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={handleManageBilling}
+                  onClick={() => startTransition(() => openPortalAction())}
                   className="rounded-xl bg-blue-600 hover:bg-blue-700"
                 >
                   Continuer vers Stripe

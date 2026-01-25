@@ -1,13 +1,12 @@
 "use client"
 
-import { useState } from "react"
 import { useMutation } from "convex/react"
-import { useRouter } from "next/navigation"
+import { Layers, Loader2, Play, Target } from "lucide-react"
 import { motion } from "motion/react"
-import { Play, Loader2, Layers, Target } from "lucide-react"
-import { api } from "@/convex/_generated/api"
+import { useRouter } from "next/navigation"
+import { useActionState, useState, useTransition } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
 import {
   Select,
   SelectContent,
@@ -15,8 +14,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Slider } from "@/components/ui/slider"
+import { api } from "@/convex/_generated/api"
 import { cn } from "@/lib/utils"
-import { toast } from "sonner"
 
 interface TrainingConfigFormProps {
   domains: { domain: string; count: number }[]
@@ -32,22 +32,21 @@ export const TrainingConfigForm = ({
   const router = useRouter()
   const [questionCount, setQuestionCount] = useState(10)
   const [selectedDomain, setSelectedDomain] = useState<string>("all")
-  const [isLoading, setIsLoading] = useState(false)
 
   const createSession = useMutation(api.training.createTrainingSession)
 
   const selectedDomainQuestions =
     selectedDomain === "all"
       ? totalQuestions
-      : domains.find((d) => d.domain === selectedDomain)?.count ?? 0
+      : (domains.find((d) => d.domain === selectedDomain)?.count ?? 0)
 
   const maxQuestions = Math.min(20, selectedDomainQuestions)
   const isValidCount = questionCount <= selectedDomainQuestions
 
-  const handleSubmit = async () => {
-    if (!isValidCount) return
+  const [, startTransition] = useTransition()
+  const [, submitAction, isPending] = useActionState(async () => {
+    if (!isValidCount) return null
 
-    setIsLoading(true)
     try {
       const result = await createSession({
         questionCount,
@@ -64,10 +63,10 @@ export const TrainingConfigForm = ({
         description:
           error instanceof Error ? error.message : "Une erreur est survenue",
       })
-    } finally {
-      setIsLoading(false)
     }
-  }
+
+    return null
+  }, null)
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 shadow-lg backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
@@ -88,7 +87,7 @@ export const TrainingConfigForm = ({
         </div>
       </div>
 
-      <div className="p-6 space-y-8">
+      <div className="space-y-8 p-6">
         {/* Question count slider */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -99,7 +98,7 @@ export const TrainingConfigForm = ({
               key={questionCount}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 font-display text-lg font-bold text-white shadow-md"
+              className="font-display flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-lg font-bold text-white shadow-md"
             >
               {questionCount}
             </motion.div>
@@ -113,7 +112,7 @@ export const TrainingConfigForm = ({
               min={5}
               max={maxQuestions}
               step={1}
-              className="[&_[data-slot=slider-track]]:h-3 [&_[data-slot=slider-track]]:bg-gradient-to-r [&_[data-slot=slider-track]]:from-gray-100 [&_[data-slot=slider-track]]:to-gray-200 [&_[data-slot=slider-track]]:dark:from-gray-800 [&_[data-slot=slider-track]]:dark:to-gray-700 [&_[data-slot=slider-range]]:bg-gradient-to-r [&_[data-slot=slider-range]]:from-emerald-500 [&_[data-slot=slider-range]]:to-teal-500 [&_[data-slot=slider-thumb]]:h-6 [&_[data-slot=slider-thumb]]:w-6 [&_[data-slot=slider-thumb]]:border-2 [&_[data-slot=slider-thumb]]:border-emerald-500 [&_[data-slot=slider-thumb]]:shadow-lg [&_[data-slot=slider-thumb]]:shadow-emerald-500/20"
+              className="[&_[data-slot=slider-range]]:bg-gradient-to-r [&_[data-slot=slider-range]]:from-emerald-500 [&_[data-slot=slider-range]]:to-teal-500 [&_[data-slot=slider-thumb]]:h-6 [&_[data-slot=slider-thumb]]:w-6 [&_[data-slot=slider-thumb]]:border-2 [&_[data-slot=slider-thumb]]:border-emerald-500 [&_[data-slot=slider-thumb]]:shadow-lg [&_[data-slot=slider-thumb]]:shadow-emerald-500/20 [&_[data-slot=slider-track]]:h-3 [&_[data-slot=slider-track]]:bg-gradient-to-r [&_[data-slot=slider-track]]:from-gray-100 [&_[data-slot=slider-track]]:to-gray-200 [&_[data-slot=slider-track]]:dark:from-gray-800 [&_[data-slot=slider-track]]:dark:to-gray-700"
             />
 
             {/* Marks */}
@@ -127,7 +126,7 @@ export const TrainingConfigForm = ({
                     "flex h-6 w-8 items-center justify-center rounded-md text-xs font-medium transition-all",
                     questionCount === mark
                       ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300",
                   )}
                 >
                   {mark}
@@ -191,12 +190,12 @@ export const TrainingConfigForm = ({
 
         {/* Submit button */}
         <Button
-          onClick={handleSubmit}
-          disabled={isLoading || !isValidCount}
+          onClick={() => startTransition(submitAction)}
+          disabled={isPending || !isValidCount}
           size="lg"
           className="h-14 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-base font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30 disabled:opacity-50"
         >
-          {isLoading ? (
+          {isPending ? (
             <>
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
               Création en cours...

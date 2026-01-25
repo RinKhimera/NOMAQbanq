@@ -140,7 +140,8 @@ export const EditTransactionModal = ({
         status: transaction.status as "completed" | "refunded" | undefined,
       })
     }
-  }, [transaction, open, form])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- form is stable from useForm
+  }, [transaction, open])
 
   const watchedStatus = form.watch("status")
   const showRefundWarning = watchedStatus === "refunded" && transaction?.status === "completed"

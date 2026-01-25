@@ -1,6 +1,13 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useActionState,
+  useTransition,
+} from "react"
 import { useConvexAuth, useQuery, useMutation } from "convex/react"
 import { useRouter, useParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
@@ -33,7 +40,6 @@ const TrainingSessionPage = () => {
     new Set()
   )
   const [showFinishDialog, setShowFinishDialog] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
   const [isLabValuesOpen, setIsLabValuesOpen] = useState(false)
 
@@ -127,25 +133,31 @@ const TrainingSessionPage = () => {
     })
   }, [currentQuestion])
 
-  // Finish session
-  const handleFinish = useCallback(async () => {
-    setIsSubmitting(true)
-    try {
-      await completeSession({ sessionId })
-      toast.success("Session terminée !", {
-        description: "Vos résultats sont prêts",
-      })
-      router.push(`/dashboard/entrainement/${sessionId}/results`)
-    } catch (error) {
-      toast.error("Erreur", {
-        description:
-          error instanceof Error ? error.message : "Impossible de terminer",
-      })
-    } finally {
-      setIsSubmitting(false)
-      setShowFinishDialog(false)
-    }
-  }, [completeSession, sessionId, router])
+  // Transition for action state
+  const [, startTransition] = useTransition()
+
+  // Finish session with useActionState
+  const [, finishAction, isSubmitting] = useActionState(
+    async () => {
+      try {
+        await completeSession({ sessionId })
+        toast.success("Session terminée !", {
+          description: "Vos résultats sont prêts",
+        })
+        router.push(`/dashboard/entrainement/${sessionId}/results`)
+        return { success: true }
+      } catch (error) {
+        toast.error("Erreur", {
+          description:
+            error instanceof Error ? error.message : "Impossible de terminer",
+        })
+        return { success: false }
+      } finally {
+        setShowFinishDialog(false)
+      }
+    },
+    { success: false }
+  )
 
   // Handle navigation or finish based on position
   const handleNextOrFinish = useCallback(() => {
@@ -361,7 +373,7 @@ const TrainingSessionPage = () => {
         totalQuestions={totalQuestions}
         flaggedCount={flaggedQuestions.size}
         isSubmitting={isSubmitting}
-        onConfirm={handleFinish}
+        onConfirm={() => startTransition(() => finishAction())}
         mode="training"
       />
     </div>

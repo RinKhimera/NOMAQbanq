@@ -1,9 +1,10 @@
 "use client"
 
-import { motion } from "motion/react"
-import { ProgressRing } from "./progress-ring"
 import { Clock, Shield, Sparkles } from "lucide-react"
+import { motion } from "motion/react"
+import { useState } from "react"
 import { cn } from "@/lib/utils"
+import { ProgressRing } from "./progress-ring"
 
 interface AccessStatus {
   examAccess: { expiresAt: number; daysRemaining: number } | null
@@ -17,7 +18,7 @@ interface DashboardHeroProps {
   accessStatus?: AccessStatus | null
 }
 
-const getGreeting = () => {
+const getGreetingValue = () => {
   const hour = new Date().getHours()
   if (hour < 12) return "Bonjour"
   if (hour < 18) return "Bon après-midi"
@@ -53,7 +54,7 @@ const AccessBadge = ({
           ? isExpiring
             ? "border-amber-500/30 bg-amber-500/10"
             : "border-emerald-500/30 bg-emerald-500/10"
-          : "border-gray-500/30 bg-gray-500/10"
+          : "border-gray-500/30 bg-gray-500/10",
       )}
     >
       <div
@@ -63,7 +64,7 @@ const AccessBadge = ({
             ? isExpiring
               ? "bg-amber-500/20"
               : "bg-emerald-500/20"
-            : "bg-gray-500/20"
+            : "bg-gray-500/20",
         )}
       >
         {type === "exam" ? (
@@ -74,7 +75,7 @@ const AccessBadge = ({
                 ? isExpiring
                   ? "text-amber-500"
                   : "text-emerald-500"
-                : "text-gray-500"
+                : "text-gray-500",
             )}
           />
         ) : (
@@ -85,7 +86,7 @@ const AccessBadge = ({
                 ? isExpiring
                   ? "text-amber-500"
                   : "text-emerald-500"
-                : "text-gray-500"
+                : "text-gray-500",
             )}
           />
         )}
@@ -102,7 +103,7 @@ const AccessBadge = ({
               ? isExpiring
                 ? "text-amber-600 dark:text-amber-400"
                 : "text-emerald-600 dark:text-emerald-400"
-              : "text-gray-600 dark:text-gray-400"
+              : "text-gray-600 dark:text-gray-400",
           )}
         >
           {isActive ? (
@@ -125,7 +126,7 @@ export const DashboardHero = ({
   hasCompletedExams,
   accessStatus,
 }: DashboardHeroProps) => {
-  const greeting = getGreeting()
+  const [greeting] = useState(getGreetingValue)
   const firstName = userName?.split(" ")[0] || "Étudiant"
 
   return (
@@ -134,7 +135,7 @@ export const DashboardHero = ({
       <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-blue-950/50 dark:via-gray-900 dark:to-indigo-950/50" />
 
       {/* Decorative elements */}
-      <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
+      <div className="absolute -top-20 -right-20 h-64 w-64 rounded-full bg-blue-400/10 blur-3xl" />
       <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-indigo-400/10 blur-3xl" />
 
       {/* Grid pattern overlay */}
@@ -155,7 +156,7 @@ export const DashboardHero = ({
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col gap-2 text-center lg:text-left"
           >
-            <h1 className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-white lg:text-4xl">
+            <h1 className="font-display text-3xl font-bold tracking-tight text-gray-900 lg:text-4xl dark:text-white">
               {greeting},{" "}
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                 {firstName}
@@ -199,7 +200,9 @@ export const DashboardHero = ({
             />
             <AccessBadge
               type="training"
-              daysRemaining={accessStatus?.trainingAccess?.daysRemaining ?? null}
+              daysRemaining={
+                accessStatus?.trainingAccess?.daysRemaining ?? null
+              }
             />
           </div>
         </div>

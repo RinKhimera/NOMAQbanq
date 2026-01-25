@@ -35,24 +35,22 @@ export const GenericNavUser = ({
   const { currentUser, isLoading } = useCurrentUser()
   const router = useRouter()
 
-  // Redirection automatique si pas d'utilisateur connecté
+  // Redirection: utilisateur non connecté ou non admin (si requis)
   useEffect(() => {
-    if (!isLoading && currentUser === null) {
-      router.push(redirectUrl)
-    }
-  }, [currentUser, isLoading, router, redirectUrl])
+    if (isLoading) return
 
-  // Redirection si admin requis mais utilisateur pas admin
-  useEffect(() => {
-    if (
-      requireAdmin &&
-      !isLoading &&
-      currentUser &&
-      currentUser.role !== "admin"
-    ) {
+    // Redirect if not authenticated
+    if (currentUser === null || currentUser === undefined) {
       router.push(redirectUrl)
+      return
     }
-  }, [currentUser, isLoading, router, requireAdmin, redirectUrl])
+
+    // Redirect if admin required but not admin
+    if (requireAdmin && currentUser.role !== "admin") {
+      router.push(redirectUrl)
+      return
+    }
+  }, [currentUser, isLoading, requireAdmin, redirectUrl, router])
 
   if (isLoading || currentUser === undefined) {
     return (

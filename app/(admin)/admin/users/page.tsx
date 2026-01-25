@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useTransition } from "react"
 import { useQuery, usePaginatedQuery } from "convex/react"
 import { DateRange } from "react-day-picker"
 import { useSearchParams, useRouter } from "next/navigation"
@@ -45,6 +45,9 @@ export default function UsersPage() {
   )
   const [isPanelOpen, setIsPanelOpen] = useState(!!initialUserId)
 
+  // Transition for non-blocking filter updates
+  const [, startTransition] = useTransition()
+
   // Debounce search query
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300)
@@ -79,16 +82,18 @@ export default function UsersPage() {
   // Handlers
   const handleSort = useCallback(
     (field: SortBy) => {
-      if (sortBy === field) {
-        // Same column - toggle order
-        setSortOrder((order) => (order === "asc" ? "desc" : "asc"))
-      } else {
-        // Different column - set new column with default asc order
-        setSortBy(field)
-        setSortOrder("asc")
-      }
+      startTransition(() => {
+        if (sortBy === field) {
+          // Same column - toggle order
+          setSortOrder((order) => (order === "asc" ? "desc" : "asc"))
+        } else {
+          // Different column - set new column with default asc order
+          setSortBy(field)
+          setSortOrder("asc")
+        }
+      })
     },
-    [sortBy]
+    [sortBy, startTransition]
   )
 
   const handleUserSelect = useCallback(
@@ -118,13 +123,15 @@ export default function UsersPage() {
   )
 
   const handleClearFilters = useCallback(() => {
-    setSearchQuery("")
-    setRole("all")
-    setAccessStatus("all")
-    setDateRange(undefined)
-    setSortBy("name")
-    setSortOrder("asc")
-  }, [])
+    startTransition(() => {
+      setSearchQuery("")
+      setRole("all")
+      setAccessStatus("all")
+      setDateRange(undefined)
+      setSortBy("name")
+      setSortOrder("asc")
+    })
+  }, [startTransition])
 
   const hasActiveFilters =
     searchQuery !== "" ||

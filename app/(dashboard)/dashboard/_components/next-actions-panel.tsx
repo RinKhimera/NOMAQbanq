@@ -77,106 +77,113 @@ const colorStyles = {
   },
 }
 
+// Helper pour déterminer l'action d'entraînement selon les stats
+const getTrainingAction = (
+  trainingStats: TrainingStats | undefined,
+  completedExamsCount: number
+): ActionItem | null => {
+  if (!trainingStats) return null
+
+  if (trainingStats.totalSessions === 0) {
+    return {
+      id: "first-training",
+      title: "Commencez l'entraînement",
+      description: "Sessions de 5 à 20 questions personnalisées",
+      icon: Brain,
+      href: "/dashboard/entrainement",
+      priority: completedExamsCount === 0 ? "medium" : "high",
+      color: "emerald",
+    }
+  }
+
+  if (trainingStats.averageScore < 60) {
+    return {
+      id: "improve-training",
+      title: "Continuez à pratiquer",
+      description: `Score moyen : ${trainingStats.averageScore}% — Visez 60%+`,
+      icon: Brain,
+      href: "/dashboard/entrainement",
+      priority: "high",
+      color: "emerald",
+    }
+  }
+
+  return {
+    id: "continue-training",
+    title: "Poursuivez l'entraînement",
+    description: `${trainingStats.totalQuestions} questions pratiquées`,
+    icon: Brain,
+    href: "/dashboard/entrainement",
+    priority: "medium",
+    color: "emerald",
+  }
+}
+
+// Construction déclarative des actions avec filter(Boolean) (pattern React idiomatique)
 const getActions = ({
   completedExamsCount,
   averageScore,
   availableExams,
   trainingStats,
 }: NextActionsPanelProps): ActionItem[] => {
-  const actions: ActionItem[] = []
+  const actions: (ActionItem | null)[] = [
+    // Priority 1: First exam if never completed any
+    completedExamsCount === 0 && availableExams.length > 0
+      ? {
+          id: "first-exam",
+          title: "Passez votre premier examen",
+          description: "Évaluez vos connaissances avec un examen blanc complet",
+          icon: Play,
+          href: "/dashboard/examen-blanc",
+          priority: "high" as const,
+          color: "blue" as const,
+        }
+      : null,
 
-  // Priority 1: First exam if never completed any
-  if (completedExamsCount === 0 && availableExams.length > 0) {
-    actions.push({
-      id: "first-exam",
-      title: "Passez votre premier examen",
-      description:
-        "Évaluez vos connaissances avec un examen blanc complet",
-      icon: Play,
-      href: "/dashboard/examen-blanc",
-      priority: "high",
-      color: "blue",
-    })
-  }
+    // Priority 2: Available exams to take
+    completedExamsCount > 0 && availableExams.length > 0
+      ? {
+          id: "take-exam",
+          title: `${availableExams.length} examen${availableExams.length > 1 ? "s" : ""} disponible${availableExams.length > 1 ? "s" : ""}`,
+          description: "Continuez votre préparation avec un nouvel examen",
+          icon: Target,
+          href: "/dashboard/examen-blanc",
+          priority: "high" as const,
+          color: "blue" as const,
+        }
+      : null,
 
-  // Priority 2: Available exams to take
-  if (completedExamsCount > 0 && availableExams.length > 0) {
-    actions.push({
-      id: "take-exam",
-      title: `${availableExams.length} examen${availableExams.length > 1 ? "s" : ""} disponible${availableExams.length > 1 ? "s" : ""}`,
-      description: "Continuez votre préparation avec un nouvel examen",
-      icon: Target,
-      href: "/dashboard/examen-blanc",
-      priority: "high",
-      color: "blue",
-    })
-  }
+    // Priority 3: Review if score is low
+    completedExamsCount > 0 && averageScore < 60
+      ? {
+          id: "review",
+          title: "Révisez les domaines faibles",
+          description: "Améliorez votre score avec des sessions d'entraînement",
+          icon: TrendingUp,
+          href: "/dashboard/entrainement",
+          priority: "high" as const,
+          color: "amber" as const,
+        }
+      : null,
 
-  // Priority 3: Review if score is low - suggest training
-  if (completedExamsCount > 0 && averageScore < 60) {
-    actions.push({
-      id: "review",
-      title: "Révisez les domaines faibles",
-      description: "Améliorez votre score avec des sessions d'entraînement",
-      icon: TrendingUp,
-      href: "/dashboard/entrainement",
-      priority: "high",
-      color: "amber",
-    })
-  }
+    // Priority 4: Training action based on stats
+    getTrainingAction(trainingStats, completedExamsCount),
 
-  // Priority 4: Training practice based on training stats
-  if (trainingStats) {
-    if (trainingStats.totalSessions === 0) {
-      // Never trained - encourage first session
-      actions.push({
-        id: "first-training",
-        title: "Commencez l'entraînement",
-        description: "Sessions de 5 à 20 questions personnalisées",
-        icon: Brain,
-        href: "/dashboard/entrainement",
-        priority: completedExamsCount === 0 ? "medium" : "high",
-        color: "emerald",
-      })
-    } else if (trainingStats.averageScore < 60) {
-      // Training score is low - encourage more practice
-      actions.push({
-        id: "improve-training",
-        title: "Continuez à pratiquer",
-        description: `Score moyen : ${trainingStats.averageScore}% — Visez 60%+`,
-        icon: Brain,
-        href: "/dashboard/entrainement",
-        priority: "high",
-        color: "emerald",
-      })
-    } else {
-      // Doing well - suggest maintaining practice
-      actions.push({
-        id: "continue-training",
-        title: "Poursuivez l'entraînement",
-        description: `${trainingStats.totalQuestions} questions pratiquées`,
-        icon: Brain,
-        href: "/dashboard/entrainement",
-        priority: "medium",
-        color: "emerald",
-      })
-    }
-  }
+    // Priority 5: Keep going if doing well
+    completedExamsCount > 0 && averageScore >= 60
+      ? {
+          id: "keep-going",
+          title: "Maintenez votre niveau",
+          description: "Excellent travail ! Continuez à vous entraîner",
+          icon: Sparkles,
+          href: "/dashboard/entrainement",
+          priority: "medium" as const,
+          color: "purple" as const,
+        }
+      : null,
+  ]
 
-  // Priority 5: Keep going if doing well on exams
-  if (completedExamsCount > 0 && averageScore >= 60) {
-    actions.push({
-      id: "keep-going",
-      title: "Maintenez votre niveau",
-      description: "Excellent travail ! Continuez à vous entraîner",
-      icon: Sparkles,
-      href: "/dashboard/entrainement",
-      priority: "medium",
-      color: "purple",
-    })
-  }
-
-  return actions.slice(0, 3)
+  return actions.filter((action): action is ActionItem => action !== null).slice(0, 3)
 }
 
 export const NextActionsPanel = (props: NextActionsPanelProps) => {
