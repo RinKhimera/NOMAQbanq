@@ -727,13 +727,14 @@ export const getParticipantExamResults = query({
       exam.questionIds,
     )
 
-    // Get answers from examAnswers table (indexed query, limited)
+    // Get answers from examAnswers table (indexed query)
+    // Limit set to 500 to support exams with up to 500 questions
     const answers = await ctx.db
       .query("examAnswers")
       .withIndex("by_participation", (q) =>
         q.eq("participationId", participation._id),
       )
-      .take(200)
+      .take(500)
 
     return {
       exam: {
@@ -1406,13 +1407,14 @@ export const closeExpiredParticipations = internalMutation({
       // Vérifier si l'examen est expiré (endDate passée)
       if (exam.endDate >= now) continue
 
-      // Calculer le score basé sur les réponses déjà enregistrées (limited)
+      // Calculer le score basé sur les réponses déjà enregistrées
+      // Limit increased to 500 to support exams with 200+ questions
       const existingAnswers = await ctx.db
         .query("examAnswers")
         .withIndex("by_participation", (q) =>
           q.eq("participationId", participation._id),
         )
-        .take(200)
+        .take(500)
 
       const correctAnswers = existingAnswers.filter((a) => a.isCorrect).length
       const totalQuestions = exam.questionIds.length
