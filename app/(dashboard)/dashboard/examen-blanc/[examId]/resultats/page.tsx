@@ -5,9 +5,7 @@ import {
   CheckCircle,
   Clock,
   Home,
-  List,
   Target,
-  TrendingUp,
   Trophy,
   XCircle,
 } from "lucide-react"
@@ -16,14 +14,10 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useMemo, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
+import { ResultsQuestionNavigator } from "@/components/quiz/results"
+import { ScrollToTop } from "@/components/shared/scroll-to-top"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
@@ -109,6 +103,15 @@ const ExamResultsPage = () => {
       questionResults,
     }
   }, [examResults])
+
+  // Navigator data format
+  const navigatorResults = useMemo(() => {
+    if (!results) return []
+    return results.questionResults.map((r) => ({
+      isCorrect: r.isCorrect,
+      isAnswered: r.isAnswered,
+    }))
+  }, [results])
 
   const toggleQuestionExpand = (index: number) => {
     setExpandedQuestions((prev) => {
@@ -444,121 +447,35 @@ const ExamResultsPage = () => {
             </div>
           </div>
 
-          {/* Right column - Navigation Sidebar */}
+          {/* Right column - Navigation Sidebar (desktop) */}
           <div className="hidden lg:block">
-            <div className="sticky top-24">
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-lg dark:border-gray-700 dark:bg-gray-800"
-              >
-                <div className="mb-4 flex items-center gap-2">
-                  <List className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                    Navigation
-                  </h3>
-                </div>
-
-                <div className="grid grid-cols-5 gap-2">
-                  {results.questionResults.map((result, index) => (
-                    <button
-                      key={index}
-                      onClick={() => scrollToQuestion(index)}
-                      className={cn(
-                        "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-sm font-medium transition-all hover:scale-105",
-                        result.isCorrect
-                          ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                          : !result.isAnswered
-                            ? "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
-                            : "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50",
-                      )}
-                    >
-                      {index + 1}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-6 space-y-3 border-t border-gray-200 pt-6 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <div className="h-3 w-3 rounded-full bg-green-500" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Correct ({results.correct})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="h-3 w-3 rounded-full bg-red-500" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Incorrect ({results.incorrect})
-                    </span>
-                  </div>
-                  {results.unanswered > 0 && (
-                    <div className="flex items-center gap-3">
-                      <div className="h-3 w-3 rounded-full bg-gray-400" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Sans réponse ({results.unanswered})
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Tips section */}
-                <div className="mt-6 rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
-                  <div className="mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      Conseil
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-blue-800 dark:text-blue-200">
-                    Révisez vos erreurs en cliquant sur les questions en rouge.
-                    Lisez attentivement les explications pour mieux comprendre.
-                  </p>
-                </div>
-              </motion.div>
-            </div>
+            <ResultsQuestionNavigator
+              questionResults={navigatorResults}
+              onNavigateToQuestion={scrollToQuestion}
+              variant="desktop"
+              accentColor="blue"
+            />
           </div>
         </div>
       </div>
 
-      {/* Mobile Navigation - Floating button */}
-      <div className="fixed right-6 bottom-6 lg:hidden">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="lg"
-              className="h-14 w-14 rounded-full bg-gradient-to-br from-blue-600 to-indigo-600 shadow-xl hover:from-blue-700 hover:to-indigo-700"
-            >
-              <List className="h-6 w-6" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            className="max-h-[400px] w-72 overflow-y-auto p-3"
-          >
-            <div className="mb-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Aller à la question
-            </div>
-            <div className="grid grid-cols-6 gap-2">
-              {results.questionResults.map((result, index) => (
-                <DropdownMenuItem
-                  key={index}
-                  onClick={() => scrollToQuestion(index)}
-                  className={cn(
-                    "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg p-0 text-sm font-medium",
-                    result.isCorrect
-                      ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
-                      : !result.isAnswered
-                        ? "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400"
-                        : "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400",
-                  )}
-                >
-                  {index + 1}
-                </DropdownMenuItem>
-              ))}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+      {/* Mobile navigation FAB */}
+      <div className="lg:hidden">
+        <ResultsQuestionNavigator
+          questionResults={navigatorResults}
+          onNavigateToQuestion={scrollToQuestion}
+          variant="mobile"
+          position="right"
+          accentColor="blue"
+        />
       </div>
+
+      {/* Scroll to top (offset to avoid FAB collision on mobile) */}
+      <ScrollToTop
+        threshold={500}
+        position="right"
+        className="bottom-24 right-6 lg:bottom-6"
+      />
     </div>
   )
 }

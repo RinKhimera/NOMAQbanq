@@ -2362,7 +2362,6 @@ describe("users", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-        allowedParticipants: [],
       })
 
       // Create inactive exam then deactivate it
@@ -2371,7 +2370,6 @@ describe("users", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-        allowedParticipants: [],
       })
       await asAdmin.mutation(api.exams.deactivateExam, {
         examId: inactiveExamId,
@@ -2383,7 +2381,6 @@ describe("users", () => {
         startDate: now - 14 * 24 * 60 * 60 * 1000,
         endDate: now - 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-        allowedParticipants: [],
       })
 
       // Create future exam (not started yet)
@@ -2392,7 +2389,6 @@ describe("users", () => {
         startDate: now + 7 * 24 * 60 * 60 * 1000,
         endDate: now + 14 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-        allowedParticipants: [],
       })
 
       const stats = await asAdmin.query(api.users.getAdminStats)

@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import Image from "next/image"
 import { ComponentPropsWithoutRef } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { QuestionCard } from "@/components/quiz/question-card"
@@ -61,7 +60,8 @@ vi.mock("motion/react", () => ({
 // Mock next/image
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
-    <Image src={src} alt={alt} />
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt={alt} data-testid="next-image" />
   ),
 }))
 

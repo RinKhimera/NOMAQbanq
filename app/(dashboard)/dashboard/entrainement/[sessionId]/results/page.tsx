@@ -22,6 +22,8 @@ import type { Id, Doc } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { QuestionCard } from "@/components/quiz/question-card"
+import { ResultsQuestionNavigator } from "@/components/quiz/results"
+import { ScrollToTop } from "@/components/shared/scroll-to-top"
 import { cn } from "@/lib/utils"
 
 export default function TrainingResultsPage() {
@@ -95,6 +97,17 @@ export default function TrainingResultsPage() {
 
     return questions
   }, [questions, answers, showErrorsOnly])
+
+  // Question results for navigator
+  const questionResults = useMemo(() => {
+    return questions.map((q) => {
+      const answer = answers[q._id.toString()]
+      return {
+        isCorrect: answer?.isCorrect ?? false,
+        isAnswered: !!answer,
+      }
+    })
+  }, [questions, answers])
 
   // Toggle question expansion
   const toggleQuestion = (questionId: string) => {
@@ -437,82 +450,35 @@ export default function TrainingResultsPage() {
             </div>
           </div>
 
-          {/* Sidebar - Navigation grid */}
+          {/* Sidebar - Navigation grid (desktop) */}
           <div className="hidden lg:block">
-            <div className="sticky top-24 overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
-              <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
-                Questions
-              </h3>
-
-              {/* Navigation grid */}
-              <div
-                className={cn(
-                  "grid gap-1.5",
-                  questions.length > 15 ? "grid-cols-6" : "grid-cols-5"
-                )}
-              >
-                {questions.map((question, index) => {
-                  const answer = answers[question._id.toString()]
-                  const isCorrect = answer?.isCorrect
-                  const isUnanswered = !answer
-
-                  return (
-                    <button
-                      key={question._id}
-                      onClick={() => scrollToQuestion(index)}
-                      className={cn(
-                        "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-xs font-medium transition-all hover:scale-105",
-                        isUnanswered
-                          ? "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                          : isCorrect
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300"
-                      )}
-                    >
-                      {index + 1}
-                    </button>
-                  )
-                })}
-              </div>
-
-              {/* Legend */}
-              <div className="mt-4 space-y-2 border-t border-gray-200/60 pt-4 dark:border-gray-700/60">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                  Légende
-                </p>
-                <div className="grid grid-cols-1 gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded bg-emerald-100 dark:bg-emerald-900/40" />
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Correcte
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded bg-red-100 dark:bg-red-900/40" />
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Incorrecte
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded bg-gray-100 dark:bg-gray-800" />
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Sans réponse
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tips */}
-              <div className="mt-4 rounded-lg bg-emerald-50 p-3 dark:bg-emerald-900/20">
-                <p className="text-xs text-emerald-700 dark:text-emerald-300">
-                  <strong>Conseil :</strong> Cliquez sur les questions rouges
-                  pour réviser vos erreurs
-                </p>
-              </div>
-            </div>
+            <ResultsQuestionNavigator
+              questionResults={questionResults}
+              onNavigateToQuestion={scrollToQuestion}
+              variant="desktop"
+              accentColor="emerald"
+            />
           </div>
         </div>
       </div>
+
+      {/* Mobile navigation FAB */}
+      <div className="lg:hidden">
+        <ResultsQuestionNavigator
+          questionResults={questionResults}
+          onNavigateToQuestion={scrollToQuestion}
+          variant="mobile"
+          position="right"
+          accentColor="emerald"
+        />
+      </div>
+
+      {/* Scroll to top (offset to avoid FAB collision on mobile) */}
+      <ScrollToTop
+        threshold={500}
+        position="right"
+        className="bottom-24 right-6 lg:bottom-6"
+      />
     </div>
   )
 }

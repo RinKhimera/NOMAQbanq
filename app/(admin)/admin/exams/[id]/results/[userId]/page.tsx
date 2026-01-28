@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CheckCircle,
   Clock,
-  List,
   Target,
   TrendingUp,
   Trophy,
@@ -17,6 +16,8 @@ import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
 import { useMemo, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
+import { ResultsQuestionNavigator } from "@/components/quiz/results"
+import { ScrollToTop } from "@/components/shared/scroll-to-top"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -41,127 +42,6 @@ interface ExamResults {
   scorePercentage: number
   isPassing: boolean
   questionResults: QuestionResult[]
-}
-
-// Mobile FAB navigator for results page
-const MobileResultsNavigator = ({
-  questionResults,
-  onNavigateToQuestion,
-}: {
-  questionResults: QuestionResult[]
-  onNavigateToQuestion: (index: number) => void
-}) => {
-  const [isOpen, setIsOpen] = useState(false)
-
-  const correct = questionResults.filter((r) => r.isCorrect).length
-  const incorrect = questionResults.filter((r) => !r.isCorrect && r.isAnswered).length
-  const unanswered = questionResults.filter((r) => !r.isAnswered).length
-
-  return (
-    <div className="fixed bottom-6 left-6 z-50 xl:hidden">
-      <Button
-        onClick={() => setIsOpen(!isOpen)}
-        size="lg"
-        className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 shadow-lg shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700"
-      >
-        <List className="h-6 w-6" />
-      </Button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
-              onClick={() => setIsOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed bottom-24 left-6 z-50 w-72 rounded-2xl border border-gray-200/60 bg-white p-5 shadow-xl dark:border-gray-700/60 dark:bg-gray-900"
-            >
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-display text-lg font-semibold text-gray-900 dark:text-white">
-                  Navigation
-                </h3>
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-                >
-                  <XCircle className="h-5 w-5" />
-                </button>
-              </div>
-
-              <div className="mb-4 flex items-center justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold text-green-600 dark:text-green-400">
-                    {correct}
-                  </span>
-                  /{questionResults.length} correctes
-                </span>
-              </div>
-
-              <div
-                className={cn(
-                  "grid gap-1.5",
-                  questionResults.length > 15 ? "grid-cols-6" : "grid-cols-5"
-                )}
-              >
-                {questionResults.map((result, index) => (
-                  <button
-                    key={index}
-                    onClick={() => {
-                      onNavigateToQuestion(index)
-                      setIsOpen(false)
-                    }}
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-lg text-xs font-medium transition-all hover:scale-105",
-                      result.isCorrect
-                        ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400"
-                        : !result.isAnswered
-                          ? "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400"
-                          : "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400"
-                    )}
-                  >
-                    {index + 1}
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-4 space-y-2 border-t border-gray-200/60 pt-4 dark:border-gray-700/60">
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded bg-green-100 dark:bg-green-900/40" />
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Correct ({correct})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded bg-red-100 dark:bg-red-900/40" />
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Incorrect ({incorrect})
-                    </span>
-                  </div>
-                  {unanswered > 0 && (
-                    <div className="flex items-center gap-2">
-                      <div className="h-3 w-3 rounded bg-gray-100 dark:bg-gray-800" />
-                      <span className="text-gray-600 dark:text-gray-400">
-                        Vide ({unanswered})
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  )
 }
 
 const AdminParticipantResultsPage = () => {
@@ -226,6 +106,15 @@ const AdminParticipantResultsPage = () => {
       questionResults,
     }
   }, [participantResults])
+
+  // Navigator data format
+  const navigatorResults = useMemo(() => {
+    if (!results) return []
+    return results.questionResults.map((r) => ({
+      isCorrect: r.isCorrect,
+      isAnswered: r.isAnswered,
+    }))
+  }, [results])
 
   const toggleQuestionExpand = (index: number) => {
     setExpandedQuestions((prev) => {
@@ -737,88 +626,54 @@ const AdminParticipantResultsPage = () => {
             </div>
           </div>
 
-          {/* Right column - Navigation Sidebar */}
+          {/* Right column - Navigation Sidebar (desktop) */}
           <div className="hidden xl:block">
-            <div className="sticky top-24">
+            <div className="sticky top-24 space-y-4">
+              <ResultsQuestionNavigator
+                questionResults={navigatorResults}
+                onNavigateToQuestion={scrollToQuestion}
+                variant="desktop"
+                accentColor="blue"
+                showTips={false}
+              />
+
+              {/* Admin info section */}
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                transition={{ delay: 0.1 }}
+                className="rounded-xl border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-900/20"
               >
-                <div className="mb-4 flex items-center gap-2">
-                  <List className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                    Navigation
-                  </h3>
+                <div className="mb-2 flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
+                    Vue administrateur
+                  </span>
                 </div>
-
-                <div className="grid grid-cols-5 gap-2">
-                  {results.questionResults.map((result, index) => (
-                    <button
-                      key={index}
-                      onClick={() => scrollToQuestion(index)}
-                      className={cn(
-                        "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-sm font-medium transition-all hover:scale-105",
-                        result.isCorrect
-                          ? "bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400 dark:hover:bg-green-900/50"
-                          : !result.isAnswered
-                            ? "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
-                            : "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50",
-                      )}
-                    >
-                      {index + 1}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-6 space-y-3 border-t border-gray-200 pt-6 dark:border-gray-700">
-                  <div className="flex items-center gap-3">
-                    <div className="h-3 w-3 rounded-full bg-green-500" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Correct ({results.correct})
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="h-3 w-3 rounded-full bg-red-500" />
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Incorrect ({results.incorrect})
-                    </span>
-                  </div>
-                  {results.unanswered > 0 && (
-                    <div className="flex items-center gap-3">
-                      <div className="h-3 w-3 rounded-full bg-gray-400" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Sans réponse ({results.unanswered})
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Admin info section */}
-                <div className="mt-6 rounded-xl border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-900/20">
-                  <div className="mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                    <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                      Vue administrateur
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-purple-800 dark:text-purple-200">
-                    Vous consultez les résultats de{" "}
-                    {participantUser?.name || "ce participant"}. Utilisez cette
-                    vue pour analyser les performances.
-                  </p>
-                </div>
+                <p className="text-xs leading-relaxed text-purple-800 dark:text-purple-200">
+                  Vous consultez les résultats de{" "}
+                  {participantUser?.name || "ce participant"}. Utilisez cette
+                  vue pour analyser les performances.
+                </p>
               </motion.div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile Navigation FAB */}
-      <MobileResultsNavigator
-        questionResults={results.questionResults}
-        onNavigateToQuestion={scrollToQuestion}
-      />
+      {/* Mobile navigation FAB (positioned left for admin) */}
+      <div className="xl:hidden">
+        <ResultsQuestionNavigator
+          questionResults={navigatorResults}
+          onNavigateToQuestion={scrollToQuestion}
+          variant="mobile"
+          position="left"
+          accentColor="blue"
+        />
+      </div>
+
+      {/* Scroll to top (right side, no collision with left FAB) */}
+      <ScrollToTop threshold={500} position="right" />
     </div>
   )
 }

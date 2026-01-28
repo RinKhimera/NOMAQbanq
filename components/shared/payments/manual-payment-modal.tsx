@@ -58,6 +58,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { parseAmountToCents } from "@/lib/currency"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
@@ -84,34 +85,6 @@ const currencies = [
   { value: "CAD", label: "CAD ($)", symbol: "$" },
   { value: "XAF", label: "XAF (FCFA)", symbol: "FCFA" },
 ] as const
-
-/**
- * Parse un montant saisi par l'utilisateur en centimes
- * Retourne null si invalide pour la devise donnée
- */
-const parseAmountToCents = (
-  input: string,
-  currency: "CAD" | "XAF",
-): number | null => {
-  if (!input || input.trim() === "") return null
-
-  const normalized = input.replace(",", ".").trim()
-  const num = parseFloat(normalized)
-
-  if (isNaN(num) || num <= 0) return null
-
-  if (currency === "XAF") {
-    // XAF n'a pas de centimes - doit être un entier
-    if (!Number.isInteger(num)) return null
-    return num * 100
-  } else {
-    // CAD: max 2 décimales
-    const decimalPart = normalized.split(".")[1]
-    const decimalPlaces = decimalPart ? decimalPart.length : 0
-    if (decimalPlaces > 2) return null
-    return Math.round(num * 100)
-  }
-}
 
 export const ManualPaymentModal = ({
   open,

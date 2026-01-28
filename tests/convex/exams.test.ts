@@ -1485,6 +1485,127 @@ describe("exams", () => {
         }),
       ).rejects.toThrow("Soumission non autorisée pendant la pause")
     })
+
+    it("détecte fraude - réponse à question verrouillée pendant before_pause", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      // Créer 4 questions pour avoir un midpoint à 2
+      const q1 = await createQuestion(t, admin, 1)
+      const q2 = await createQuestion(t, admin, 2)
+      const q3 = await createQuestion(t, admin, 3)
+      const q4 = await createQuestion(t, admin, 4)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause - test fraude",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1, q2, q3, q4], // Midpoint = 2
+
+        enablePause: true,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      // On est maintenant en before_pause
+
+      // Tentative de répondre à une question après le midpoint (Q3 = index 2)
+      await expect(
+        user.asUser.mutation(api.exams.submitExamAnswers, {
+          examId,
+          answers: [{ questionId: q3, selectedAnswer: "A" }],
+        }),
+      ).rejects.toThrow("Tentative frauduleuse détectée")
+    })
+
+    it("autorise réponse à questions avant midpoint pendant before_pause", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      // Créer 4 questions pour avoir un midpoint à 2
+      const q1 = await createQuestion(t, admin, 1)
+      const q2 = await createQuestion(t, admin, 2)
+      const q3 = await createQuestion(t, admin, 3)
+      const q4 = await createQuestion(t, admin, 4)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause - test autorisé",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1, q2, q3, q4], // Midpoint = 2
+
+        enablePause: true,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      // On est maintenant en before_pause
+
+      // Répondre aux questions avant le midpoint (Q1, Q2 = index 0, 1) devrait fonctionner
+      const result = await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId,
+        answers: [
+          { questionId: q1, selectedAnswer: "A" },
+          { questionId: q2, selectedAnswer: "B" },
+        ],
+      })
+
+      expect(result.score).toBeDefined()
+    })
+
+    it("autorise toutes les questions après after_pause", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      // Créer 4 questions
+      const q1 = await createQuestion(t, admin, 1)
+      const q2 = await createQuestion(t, admin, 2)
+      const q3 = await createQuestion(t, admin, 3)
+      const q4 = await createQuestion(t, admin, 4)
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantAccess(t, user.userId, "exam")
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen avec pause - test après pause",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1, q2, q3, q4],
+
+        enablePause: true,
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      await user.asUser.mutation(api.exams.startPause, {
+        examId,
+        manualTrigger: true,
+      })
+      await user.asUser.mutation(api.exams.resumeFromPause, { examId })
+      // On est maintenant en after_pause
+
+      // Toutes les questions devraient être autorisées
+      const result = await user.asUser.mutation(api.exams.submitExamAnswers, {
+        examId,
+        answers: [
+          { questionId: q1, selectedAnswer: "A" },
+          { questionId: q2, selectedAnswer: "B" },
+          { questionId: q3, selectedAnswer: "C" },
+          { questionId: q4, selectedAnswer: "D" },
+        ],
+      })
+
+      expect(result.score).toBeDefined()
+    })
   })
 
   describe("deleteExam", () => {

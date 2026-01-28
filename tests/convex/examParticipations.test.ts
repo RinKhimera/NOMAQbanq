@@ -71,7 +71,6 @@ const createExam = async (
   t: ReturnType<typeof convexTest>,
   admin: Awaited<ReturnType<typeof createAdminUser>>,
   questionIds: Id<"questions">[],
-  userId: Id<"users">,
 ) => {
   return await admin.asAdmin.mutation(api.exams.createExam, {
     title: "Examen Test",
@@ -79,7 +78,49 @@ const createExam = async (
     startDate: Date.now(),
     endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
     questionIds,
-    allowedParticipants: [userId],
+  })
+}
+
+// Helper pour accorder l'accès exam à un utilisateur
+const grantExamAccess = async (
+  t: ReturnType<typeof convexTest>,
+  userId: Id<"users">,
+) => {
+  await t.run(async (ctx) => {
+    // Créer un produit
+    const productId = await ctx.db.insert("products", {
+      code: "exam_access",
+      name: "Accès Examens",
+      description: "Test product",
+      priceCAD: 5000,
+      durationDays: 30,
+      accessType: "exam",
+      stripeProductId: "prod_test_exam",
+      stripePriceId: "price_test_exam",
+      isActive: true,
+    })
+
+    // Créer une transaction
+    const transactionId = await ctx.db.insert("transactions", {
+      userId,
+      productId,
+      type: "manual",
+      status: "completed",
+      amountPaid: 0,
+      currency: "CAD",
+      accessType: "exam",
+      durationDays: 30,
+      accessExpiresAt: Date.now() + 86400000,
+      createdAt: Date.now(),
+    })
+
+    // Créer l'accès utilisateur
+    await ctx.db.insert("userAccess", {
+      userId,
+      accessType: "exam",
+      expiresAt: Date.now() + 86400000,
+      lastTransactionId: transactionId,
+    })
   })
 }
 
@@ -114,7 +155,10 @@ describe("examParticipations", () => {
     const admin = await createAdminUser(t)
     const user = await createRegularUser(t)
     const questionId = await createQuestion(t, admin)
-    const examId = await createExam(t, admin, [questionId], user.userId)
+    const examId = await createExam(t, admin, [questionId])
+
+    // Accorder l'accès exam à l'utilisateur
+    await grantExamAccess(t, user.userId)
 
     // 1. Créer une participation (Démarrer l'examen)
     // Note: userId is no longer passed - derived from authenticated user
@@ -171,7 +215,10 @@ describe("examParticipations", () => {
     const admin = await createAdminUser(t)
     const user = await createRegularUser(t)
     const questionId = await createQuestion(t, admin)
-    const examId = await createExam(t, admin, [questionId], user.userId)
+    const examId = await createExam(t, admin, [questionId])
+
+    // Accorder l'accès exam à l'utilisateur
+    await grantExamAccess(t, user.userId)
 
     const participationId = await user.asUser.mutation(
       api.examParticipations.create,
@@ -203,7 +250,10 @@ describe("examParticipations", () => {
     const user = await createRegularUser(t)
     const q1 = await createQuestion(t, admin, 1)
     const q2 = await createQuestion(t, admin, 2)
-    const examId = await createExam(t, admin, [q1, q2], user.userId)
+    const examId = await createExam(t, admin, [q1, q2])
+
+    // Accorder l'accès exam à l'utilisateur
+    await grantExamAccess(t, user.userId)
 
     const participationId = await user.asUser.mutation(
       api.examParticipations.create,
@@ -235,7 +285,10 @@ describe("examParticipations", () => {
       const user1 = await createRegularUser(t, "1")
       const user2 = await createRegularUser(t, "2")
       const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user1.userId)
+      const examId = await createExam(t, admin, [questionId])
+
+      // Accorder l'accès exam à user1
+      await grantExamAccess(t, user1.userId)
 
       const participationId = await user1.asUser.mutation(
         api.examParticipations.create,
@@ -259,7 +312,10 @@ describe("examParticipations", () => {
       const user1 = await createRegularUser(t, "1")
       const user2 = await createRegularUser(t, "2")
       const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user1.userId)
+      const examId = await createExam(t, admin, [questionId])
+
+      // Accorder l'accès exam à user1
+      await grantExamAccess(t, user1.userId)
 
       const participationId = await user1.asUser.mutation(
         api.examParticipations.create,
@@ -281,7 +337,10 @@ describe("examParticipations", () => {
       const user1 = await createRegularUser(t, "1")
       const user2 = await createRegularUser(t, "2")
       const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user1.userId)
+      const examId = await createExam(t, admin, [questionId])
+
+      // Accorder l'accès exam à user1 (pour que la création soit possible par les bonnes personnes)
+      await grantExamAccess(t, user1.userId)
 
       // User2 essayant de créer une participation pour User1 using forUserId
       await expect(
@@ -299,7 +358,10 @@ describe("examParticipations", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user.userId)
+      const examId = await createExam(t, admin, [questionId])
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantExamAccess(t, user.userId)
 
       // Admin crée une participation pour l'utilisateur
       const participationId = await admin.asAdmin.mutation(
@@ -321,7 +383,10 @@ describe("examParticipations", () => {
       const user1 = await createRegularUser(t, "1")
       const user2 = await createRegularUser(t, "2")
       const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user1.userId)
+      const examId = await createExam(t, admin, [questionId])
+
+      // Accorder l'accès exam à user1
+      await grantExamAccess(t, user1.userId)
 
       const participationId = await user1.asUser.mutation(
         api.examParticipations.create,
@@ -342,7 +407,10 @@ describe("examParticipations", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user.userId)
+      const examId = await createExam(t, admin, [questionId])
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantExamAccess(t, user.userId)
 
       const participationId = await user.asUser.mutation(
         api.examParticipations.create,
@@ -372,7 +440,10 @@ describe("examParticipations", () => {
       const user1 = await createRegularUser(t, "1")
       const user2 = await createRegularUser(t, "2")
       const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user1.userId)
+      const examId = await createExam(t, admin, [questionId])
+
+      // Accorder l'accès exam à user1
+      await grantExamAccess(t, user1.userId)
 
       const participationId = await user1.asUser.mutation(
         api.examParticipations.create,
@@ -393,7 +464,10 @@ describe("examParticipations", () => {
       const admin = await createAdminUser(t)
       const user = await createRegularUser(t)
       const questionId = await createQuestion(t, admin)
-      const examId = await createExam(t, admin, [questionId], user.userId)
+      const examId = await createExam(t, admin, [questionId])
+
+      // Accorder l'accès exam à l'utilisateur
+      await grantExamAccess(t, user.userId)
 
       const participationId = await user.asUser.mutation(
         api.examParticipations.create,

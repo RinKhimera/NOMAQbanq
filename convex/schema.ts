@@ -54,7 +54,6 @@ export default defineSchema({
     completionTime: v.number(),
     // Note: allowedParticipants a été supprimé - l'éligibilité est maintenant
     // déterminée par userAccess.accessType === "exam" avec expiresAt > now
-    allowedParticipants: v.optional(v.array(v.id("users"))),
     enablePause: v.optional(v.boolean()),
     pauseDurationMinutes: v.optional(v.number()),
     isActive: v.boolean(),
