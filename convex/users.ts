@@ -643,24 +643,23 @@ export const getUserPanelData = query({
     const user = await ctx.db.get(args.userId)
     if (!user) return null
 
-    // Fetch access records (limited - max 2 access types)
-    const accessRecords = await ctx.db
-      .query("userAccess")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .take(10)
-
-    // Fetch recent transactions
-    const recentTransactions = await ctx.db
-      .query("transactions")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .order("desc")
-      .take(5)
-
-    // Fetch total transaction count (limited for performance)
-    const allUserTransactions = await ctx.db
-      .query("transactions")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .take(100)
+    // Fetch access records, recent transactions, and total count in parallel
+    const [accessRecords, recentTransactions, allUserTransactions] =
+      await Promise.all([
+        ctx.db
+          .query("userAccess")
+          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .take(10),
+        ctx.db
+          .query("transactions")
+          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .order("desc")
+          .take(5),
+        ctx.db
+          .query("transactions")
+          .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+          .take(100),
+      ])
 
     // Get product details for transactions using batch fetch
     const productIds = recentTransactions.map((tx) => tx.productId)

@@ -69,36 +69,44 @@ export default function QuestionForm() {
   })
 
   const addReference = () => {
-    const newReferences = [...references, ""]
-    setReferences(newReferences)
-    form.setValue("references", newReferences)
+    setReferences((prev) => {
+      const newReferences = [...prev, ""]
+      form.setValue("references", newReferences)
+      return newReferences
+    })
   }
 
   const removeReference = (index: number) => {
-    if (references.length > 1) {
-      const newReferences = references.filter((_, i) => i !== index)
-      setReferences(newReferences)
+    setReferences((prev) => {
+      if (prev.length <= 1) return prev
+      const newReferences = prev.filter((_, i) => i !== index)
       form.setValue("references", newReferences)
-    }
+      return newReferences
+    })
   }
 
   const updateReference = (index: number, value: string) => {
-    const newReferences = [...references]
-    newReferences[index] = value
-    setReferences(newReferences)
-    form.setValue("references", newReferences)
+    setReferences((prev) => {
+      const newReferences = [...prev]
+      newReferences[index] = value
+      form.setValue("references", newReferences)
+      return newReferences
+    })
   }
 
   const updateOption = (index: number, value: string) => {
-    const newOptions = [...options]
-    newOptions[index] = value
-    setOptions(newOptions)
-    form.setValue("options", newOptions)
+    setOptions((prev) => {
+      const newOptions = [...prev]
+      const oldValue = prev[index]
+      newOptions[index] = value
+      form.setValue("options", newOptions)
 
-    // Si c'était la réponse correcte, mettre à jour
-    if (form.getValues("correctAnswer") === options[index]) {
-      form.setValue("correctAnswer", value)
-    }
+      // Si c'était la réponse correcte, mettre à jour
+      if (form.getValues("correctAnswer") === oldValue) {
+        form.setValue("correctAnswer", value)
+      }
+      return newOptions
+    })
   }
 
   const resetForm = () => {

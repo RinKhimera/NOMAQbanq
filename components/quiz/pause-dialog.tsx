@@ -40,7 +40,11 @@ export const PauseDialog = ({
   isResuming = false,
 }: PauseDialogProps) => {
   const [pauseTimeRemaining, setPauseTimeRemaining] = useState(0)
-  const [progress, setProgress] = useState(0)
+
+  // Derive progress from pauseTimeRemaining (no need for separate state)
+  const totalPauseMs = pauseDurationMinutes * 60 * 1000
+  const progress =
+    totalPauseMs > 0 ? ((totalPauseMs - pauseTimeRemaining) / totalPauseMs) * 100 : 0
 
   // Update pause countdown
   useEffect(() => {
@@ -52,11 +56,6 @@ export const PauseDialog = ({
         pauseDurationMinutes,
       )
       setPauseTimeRemaining(remaining)
-
-      // Calculate progress as percentage of pause time elapsed
-      const totalPauseMs = pauseDurationMinutes * 60 * 1000
-      const elapsed = totalPauseMs - remaining
-      setProgress((elapsed / totalPauseMs) * 100)
 
       // Auto-resume when pause timer expires
       if (isPauseExpired(pauseStartedAt, pauseDurationMinutes)) {

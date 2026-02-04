@@ -637,7 +637,18 @@ export const getParticipantExamResults = query({
       return null
     }
 
-    const exam = await ctx.db.get(args.examId)
+    // Fetch exam, participation, and user in parallel
+    const [exam, participation, participantUser] = await Promise.all([
+      ctx.db.get(args.examId),
+      ctx.db
+        .query("examParticipations")
+        .withIndex("by_exam_user", (q) =>
+          q.eq("examId", args.examId).eq("userId", args.userId),
+        )
+        .unique(),
+      ctx.db.get(args.userId),
+    ])
+
     if (!exam) {
       return null
     }
@@ -649,16 +660,6 @@ export const getParticipantExamResults = query({
         return null
       }
     }
-
-    // Find participation in V2 tables
-    const participation = await ctx.db
-      .query("examParticipations")
-      .withIndex("by_exam_user", (q) =>
-        q.eq("examId", args.examId).eq("userId", args.userId),
-      )
-      .unique()
-
-    const participantUser = await ctx.db.get(args.userId)
 
     if (!participation) {
       if (isAdmin) {
@@ -1027,21 +1028,23 @@ export const getExamLeaderboard = query({
 
       // After exam ends: only users with exam access or those who participated can view
       if (currentUser) {
-        const hasParticipated = await ctx.db
-          .query("examParticipations")
-          .withIndex("by_exam_user", (q) =>
-            q.eq("examId", args.examId).eq("userId", currentUser._id),
-          )
-          .unique()
-        if (!hasParticipated) {
-          // Check if user has active exam access
-          const userAccess = await ctx.db
+        // Fetch participation and access in parallel
+        const [hasParticipated, userAccess] = await Promise.all([
+          ctx.db
+            .query("examParticipations")
+            .withIndex("by_exam_user", (q) =>
+              q.eq("examId", args.examId).eq("userId", currentUser._id),
+            )
+            .unique(),
+          ctx.db
             .query("userAccess")
             .withIndex("by_userId_accessType", (q) =>
               q.eq("userId", currentUser._id).eq("accessType", "exam"),
             )
-            .unique()
-          const now = Date.now()
+            .unique(),
+        ])
+        if (!hasParticipated) {
+          // Check if user has active exam access
           const hasAccess = userAccess && userAccess.expiresAt > now
           if (!hasAccess) {
             return []
@@ -1399,25 +1402,40 @@ export const closeExpiredParticipations = internalMutation({
     const examIds = [...new Set(inProgressParticipations.map((p) => p.examId))]
     const examMap = await batchGetByIds(ctx, "exams", examIds)
 
+    // 3. Filtrer les participations dont l'examen est expiré
+    const expiredParticipations = inProgressParticipations.filter((p) => {
+      const exam = examMap.get(p.examId)
+      return exam && exam.endDate < now
+    })
+
+    if (expiredParticipations.length === 0) {
+      return { closedCount: 0, processedCount: inProgressParticipations.length }
+    }
+
+    // 4. Batch fetch toutes les réponses en parallèle (évite N+1)
+    const allAnswersArrays = await Promise.all(
+      expiredParticipations.map((p) =>
+        ctx.db
+          .query("examAnswers")
+          .withIndex("by_participation", (q) => q.eq("participationId", p._id))
+          .take(500),
+      ),
+    )
+
+    // Build a map of participationId -> answers
+    const answersMap = new Map<string, typeof allAnswersArrays[0]>()
+    for (let i = 0; i < expiredParticipations.length; i++) {
+      answersMap.set(expiredParticipations[i]._id, allAnswersArrays[i])
+    }
+
     let closedCount = 0
 
-    // 3. Pour chaque participation, vérifier si l'examen est expiré
-    for (const participation of inProgressParticipations) {
+    // 5. Pour chaque participation expirée, calculer le score et fermer
+    for (const participation of expiredParticipations) {
       const exam = examMap.get(participation.examId)
       if (!exam) continue
 
-      // Vérifier si l'examen est expiré (endDate passée)
-      if (exam.endDate >= now) continue
-
-      // Calculer le score basé sur les réponses déjà enregistrées
-      // Limit increased to 500 to support exams with 200+ questions
-      const existingAnswers = await ctx.db
-        .query("examAnswers")
-        .withIndex("by_participation", (q) =>
-          q.eq("participationId", participation._id),
-        )
-        .take(500)
-
+      const existingAnswers = answersMap.get(participation._id) ?? []
       const correctAnswers = existingAnswers.filter((a) => a.isCorrect).length
       const totalQuestions = exam.questionIds.length
       const score =

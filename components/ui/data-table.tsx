@@ -99,21 +99,22 @@ export function DataTable<TData, TValue>({
     },
   })
 
-  // Masquer automatiquement les colonnes sur mobile (utilise les id réels calculés par la table)
+  // Compute mobile column visibility from columns (memoized to avoid recreating on each render)
+  const mobileHiddenVisibility = React.useMemo(() => {
+    const mobileHidden: VisibilityState = {}
+    table.getAllLeafColumns().forEach((col) => {
+      const meta = col.columnDef?.meta as
+        | { hideOnMobile?: boolean }
+        | undefined
+      if (meta?.hideOnMobile) mobileHidden[col.id] = false
+    })
+    return mobileHidden
+  }, [table])
+
+  // Apply mobile visibility when isMobile changes
   React.useEffect(() => {
-    if (isMobile) {
-      const mobileHidden: VisibilityState = {}
-      table.getAllLeafColumns().forEach((col) => {
-        const meta = col.columnDef?.meta as
-          | { hideOnMobile?: boolean }
-          | undefined
-        if (meta?.hideOnMobile) mobileHidden[col.id] = false
-      })
-      setColumnVisibility(mobileHidden)
-    } else {
-      setColumnVisibility({})
-    }
-  }, [isMobile, table])
+    setColumnVisibility(isMobile ? mobileHiddenVisibility : {})
+  }, [isMobile, mobileHiddenVisibility])
 
   return (
     <div className="w-full">
