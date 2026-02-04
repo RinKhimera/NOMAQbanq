@@ -274,6 +274,50 @@ export const getAvailableDomains = query({
 })
 
 /**
+ * Récupère les objectifs CMC disponibles avec comptage
+ * Optionnel : filtre par domaine pour affiner la liste
+ */
+export const getAvailableObjectifsCMC = query({
+  args: {
+    domain: v.optional(v.string()),
+  },
+  handler: async (ctx, { domain }) => {
+    // Fetch questions avec limite pour performance
+    let questions
+    if (domain && domain !== "all") {
+      questions = await ctx.db
+        .query("questions")
+        .withIndex("by_domain", (q) => q.eq("domain", domain))
+        .take(5000)
+    } else {
+      questions = await ctx.db.query("questions").take(5000)
+    }
+
+    // Compter occurrences par objectif
+    const objectifCounts: Record<string, number> = {}
+    for (const q of questions) {
+      if (q.objectifCMC && q.objectifCMC.trim()) {
+        const objectif = q.objectifCMC.trim()
+        objectifCounts[objectif] = (objectifCounts[objectif] || 0) + 1
+      }
+    }
+
+    // Transformer en array et trier
+    const objectifs = Object.entries(objectifCounts)
+      .map(([objectif, count]) => ({ objectif, count }))
+      .sort((a, b) => {
+        if (b.count !== a.count) return b.count - a.count
+        return a.objectif.localeCompare(b.objectif, "fr")
+      })
+
+    return {
+      objectifs,
+      total: questions.length,
+    }
+  },
+})
+
+/**
  * Récupère les statistiques d'entraînement pour le dashboard
  */
 export const getTrainingStats = query({
@@ -398,8 +442,9 @@ export const createTrainingSession = mutation({
   args: {
     questionCount: v.number(),
     domain: v.optional(v.string()),
+    objectifsCMCs: v.optional(v.array(v.string())),
   },
-  handler: async (ctx, { questionCount, domain }) => {
+  handler: async (ctx, { questionCount, domain, objectifsCMCs }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
     // 1. Vérifier accès training (admin bypass)
@@ -459,6 +504,19 @@ export const createTrainingSession = mutation({
         .take(sampleSize)
     } else {
       questions = await ctx.db.query("questions").take(sampleSize)
+    }
+
+    // Filtrage par objectifs CMC (logique ET)
+    if (objectifsCMCs && objectifsCMCs.length > 0) {
+      const normalizedObjectifs = objectifsCMCs.map((obj) =>
+        obj.trim().toLowerCase(),
+      )
+
+      questions = questions.filter(
+        (q) =>
+          q.objectifCMC &&
+          normalizedObjectifs.includes(q.objectifCMC.trim().toLowerCase()),
+      )
     }
 
     // 5. Valider qu'il y a assez de questions

@@ -5,12 +5,17 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery } from "convex/react"
 import {
   ArrowLeft,
+  BookOpen,
   CheckCircle,
+  FileText,
   ImageIcon,
+  Info,
+  Link2,
   Loader2,
   Minus,
   Plus,
   Save,
+  Target,
 } from "lucide-react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
@@ -18,6 +23,13 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
   Form,
   FormControl,
@@ -259,23 +271,32 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl">
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          {/* Question Text */}
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Question Text & Images */}
+        <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+          <CardHeader className="border-b bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              <CardTitle className="text-lg">Contenu de la question</CardTitle>
+            </div>
+            <CardDescription className="text-blue-100">
+              Saisissez le texte de la question et ajoutez des images si nécessaire
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6 p-6">
             <FormField
               control={form.control}
               name="question"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-base font-semibold">
+                  <FormLabel className="text-gray-700 dark:text-gray-300">
                     Question <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Saisissez votre question ici..."
-                      className="min-h-[120px] resize-none"
+                      className="min-h-[120px] resize-none border-gray-200 bg-white focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800"
                       {...field}
                     />
                   </FormControl>
@@ -288,47 +309,58 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                 </FormItem>
               )}
             />
-          </div>
 
-          {/* Images */}
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
-            <div className="mb-4 flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-gray-500" />
-              <h3 className="text-base font-semibold">Images</h3>
-              {images.length > 0 && (
-                <Badge variant="secondary">{images.length}</Badge>
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-gray-500" />
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Images
+                </h4>
+                {images.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {images.length}
+                  </Badge>
+                )}
+              </div>
+              {mode === "edit" && questionId ? (
+                <QuestionImageUploader
+                  questionId={questionId}
+                  images={images}
+                  onImagesChange={setImages}
+                />
+              ) : (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800/50">
+                  <ImageIcon className="mx-auto h-10 w-10 text-gray-400" />
+                  <p className="mt-3 text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Les images pourront être ajoutées après la création
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+                    Créez la question, puis modifiez-la pour ajouter des images
+                  </p>
+                </div>
               )}
             </div>
-            {mode === "edit" && questionId ? (
-              <QuestionImageUploader
-                questionId={questionId}
-                images={images}
-                onImagesChange={setImages}
-              />
-            ) : (
-              <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800/50">
-                <ImageIcon className="mx-auto h-10 w-10 text-gray-400" />
-                <p className="mt-3 text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Les images pourront être ajoutées après la création
-                </p>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                  Créez la question, puis modifiez-la pour ajouter des images
-                </p>
-              </div>
-            )}
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Options */}
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
+        {/* Options */}
+        <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+          <CardHeader className="border-b bg-gradient-to-r from-violet-500 to-purple-500 text-white">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              <CardTitle className="text-lg">Options de réponse</CardTitle>
+            </div>
+            <CardDescription className="text-violet-100">
+              Saisissez les options et cliquez sur la lettre pour marquer la bonne réponse
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 p-6">
             <FormField
               control={form.control}
               name="options"
               render={() => (
                 <FormItem>
-                  <FormLabel className="text-base font-semibold">
-                    Options de réponse <span className="text-red-500">*</span>
-                  </FormLabel>
-                  <div className="mt-4 space-y-3">
+                  <div className="space-y-3">
                     {options.map((option, index) => (
                       <div key={index} className="flex items-center gap-3">
                         <button
@@ -343,7 +375,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                             correctAnswer === option && option.trim()
                               ? "cursor-pointer border-emerald-500 bg-emerald-500 text-white"
                               : option.trim()
-                                ? "cursor-pointer border-gray-300 bg-white text-gray-600 hover:border-blue-400 hover:bg-blue-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                ? "cursor-pointer border-gray-300 bg-white text-gray-600 hover:border-violet-400 hover:bg-violet-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
                                 : "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-600"
                           )}
                         >
@@ -358,7 +390,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                           value={option}
                           onChange={(e) => updateOption(index, e.target.value)}
                           className={cn(
-                            "transition-colors",
+                            "border-gray-200 bg-white transition-colors focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800",
                             correctAnswer === option && option.trim()
                               ? "border-emerald-400 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-900/20"
                               : ""
@@ -367,7 +399,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                       </div>
                     ))}
                   </div>
-                  <FormDescription className="mt-4">
+                  <FormDescription className="mt-4 text-xs">
                     Cliquez sur la lettre pour marquer la bonne réponse.
                     Minimum 4 options, maximum 5.
                   </FormDescription>
@@ -375,22 +407,33 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                 </FormItem>
               )}
             />
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Domain & ObjectifCMC */}
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+        {/* Domain & ObjectifCMC */}
+        <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+          <CardHeader className="border-b bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+            <div className="flex items-center gap-2">
+              <Target className="h-5 w-5" />
+              <CardTitle className="text-lg">Classification</CardTitle>
+            </div>
+            <CardDescription className="text-emerald-100">
+              Définissez le domaine médical et l&apos;objectif CMC de la question
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 gap-6 @lg:grid-cols-2">
               <FormField
                 control={form.control}
                 name="domain"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base font-semibold">
+                    <FormLabel className="text-gray-700 dark:text-gray-300">
                       Domaine <span className="text-red-500">*</span>
                     </FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="border-gray-200 bg-white focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-800">
                           <SelectValue placeholder="Sélectionnez un domaine" />
                         </SelectTrigger>
                       </FormControl>
@@ -412,7 +455,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                 name="objectifCMC"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel className="text-base font-semibold">
+                    <FormLabel className="text-gray-700 dark:text-gray-300">
                       Objectif CMC <span className="text-red-500">*</span>
                     </FormLabel>
                     <FormControl>
@@ -427,26 +470,37 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                 )}
               />
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Explanation */}
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
+        {/* Explanation */}
+        <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+          <CardHeader className="border-b bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+            <div className="flex items-center gap-2">
+              <Info className="h-5 w-5" />
+              <CardTitle className="text-lg">Explication</CardTitle>
+            </div>
+            <CardDescription className="text-amber-100">
+              Fournissez une explication détaillée de la réponse correcte
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
             <FormField
               control={form.control}
               name="explanation"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-base font-semibold">
-                    Explication <span className="text-red-500">*</span>
+                  <FormLabel className="text-gray-700 dark:text-gray-300">
+                    Texte de l&apos;explication <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Explication détaillée de la réponse..."
-                      className="min-h-[180px] resize-none"
+                      className="min-h-[180px] resize-none border-gray-200 bg-white focus:border-amber-500 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-800"
                       {...field}
                     />
                   </FormControl>
-                  <FormDescription>
+                  <FormDescription className="text-xs">
                     Vous pouvez utiliser des sauts de ligne. Les références
                     peuvent être citées avec [1], [2], etc.
                   </FormDescription>
@@ -454,84 +508,96 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                 </FormItem>
               )}
             />
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* References */}
-          <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-base font-semibold">Références</h3>
+        {/* References */}
+        <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+          <CardHeader className="border-b bg-gradient-to-r from-teal-600 to-cyan-600 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5" />
+                <CardTitle className="text-lg">Références bibliographiques</CardTitle>
+              </div>
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={addReference}
-                className="gap-1"
+                className="gap-1 text-white hover:bg-white/20"
               >
                 <Plus className="h-4 w-4" />
                 Ajouter
               </Button>
             </div>
-            <div className="space-y-3">
-              {references.map((reference, index) => (
-                <div key={index} className="flex items-start gap-3">
-                  <Badge
-                    variant="outline"
-                    className="mt-2.5 flex h-7 min-w-[32px] items-center justify-center"
+            <CardDescription className="text-teal-100">
+              Ajoutez les sources et références utilisées pour cette question
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 p-6">
+            {references.map((reference, index) => (
+              <div key={index} className="flex items-start gap-3">
+                <Badge
+                  variant="outline"
+                  className="mt-2.5 flex h-7 min-w-[32px] items-center justify-center border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
+                >
+                  {index + 1}
+                </Badge>
+                <Textarea
+                  placeholder="Référence bibliographique complète..."
+                  value={reference}
+                  onChange={(e) => updateReference(index, e.target.value)}
+                  className="min-h-[80px] resize-none border-gray-200 bg-white focus:border-teal-500 focus:ring-teal-500 dark:border-gray-700 dark:bg-gray-800"
+                />
+                {references.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeReference(index)}
+                    className="mt-2 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
                   >
-                    {index + 1}
-                  </Badge>
-                  <Textarea
-                    placeholder="Référence bibliographique complète..."
-                    value={reference}
-                    onChange={(e) => updateReference(index, e.target.value)}
-                    className="min-h-[80px] resize-none"
-                  />
-                  {references.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeReference(index)}
-                      className="mt-2 text-red-600 hover:bg-red-50 hover:text-red-700"
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
-            <Link href="/admin/questions">
-              <Button type="button" variant="outline" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Annuler
+        {/* Action Footer */}
+        <div className="sticky bottom-4 z-10">
+          <Card className="border-0 bg-white/80 shadow-xl backdrop-blur-sm dark:bg-gray-800/80">
+            <CardContent className="flex items-center justify-between p-4">
+              <Link href="/admin/questions">
+                <Button type="button" variant="outline" className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Annuler
+                </Button>
+              </Link>
+              <Button
+                type="submit"
+                disabled={form.formState.isSubmitting}
+                className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
+              >
+                {form.formState.isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {mode === "create" ? "Création..." : "Enregistrement..."}
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    {mode === "create"
+                      ? "Créer la question"
+                      : "Enregistrer les modifications"}
+                  </>
+                )}
               </Button>
-            </Link>
-            <Button
-              type="submit"
-              disabled={form.formState.isSubmitting}
-              className="gap-2 bg-blue-600 hover:bg-blue-700"
-            >
-              {form.formState.isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {mode === "create" ? "Création..." : "Enregistrement..."}
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4" />
-                  {mode === "create"
-                    ? "Créer la question"
-                    : "Enregistrer les modifications"}
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </div>
+            </CardContent>
+          </Card>
+        </div>
+      </form>
+    </Form>
   )
 }

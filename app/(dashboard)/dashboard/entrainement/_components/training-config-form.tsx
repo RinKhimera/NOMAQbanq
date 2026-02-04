@@ -1,10 +1,11 @@
 "use client"
 
-import { useMutation } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { Layers, Loader2, Play, Target } from "lucide-react"
+import { IconTargetArrow } from "@tabler/icons-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
-import { useActionState, useState, useTransition } from "react"
+import { useActionState, useState, useTransition, useEffect } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -17,10 +18,12 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { api } from "@/convex/_generated/api"
 import { cn } from "@/lib/utils"
+import { ObjectifsCMCMultiSelect } from "./objectifs-cmc-multi-select"
 
 interface TrainingConfigFormProps {
   domains: { domain: string; count: number }[]
   totalQuestions: number
+  objectifs: Array<{ objectif: string; count: number }>
 }
 
 const QUESTION_MARKS = [5, 10, 15, 20]
@@ -28,20 +31,41 @@ const QUESTION_MARKS = [5, 10, 15, 20]
 export const TrainingConfigForm = ({
   domains,
   totalQuestions,
+  objectifs,
 }: TrainingConfigFormProps) => {
   const router = useRouter()
   const [questionCount, setQuestionCount] = useState(10)
   const [selectedDomain, setSelectedDomain] = useState<string>("all")
+  const [selectedObjectifs, setSelectedObjectifs] = useState<string[]>([])
 
   const createSession = useMutation(api.training.createTrainingSession)
+
+  // Query pour objectifs filtrés par domaine
+  const filteredObjectifs = useQuery(
+    api.training.getAvailableObjectifsCMC,
+    selectedDomain !== "all" ? { domain: selectedDomain } : {},
+  )
 
   const selectedDomainQuestions =
     selectedDomain === "all"
       ? totalQuestions
       : (domains.find((d) => d.domain === selectedDomain)?.count ?? 0)
 
-  const maxQuestions = Math.min(20, selectedDomainQuestions)
-  const isValidCount = questionCount <= selectedDomainQuestions
+  // Si objectifs sélectionnés, compter les questions filtrées
+  let availableQuestions = selectedDomainQuestions
+  if (selectedObjectifs.length > 0 && filteredObjectifs) {
+    availableQuestions = filteredObjectifs.objectifs
+      .filter((obj) => selectedObjectifs.includes(obj.objectif))
+      .reduce((sum, obj) => sum + obj.count, 0)
+  }
+
+  const maxQuestions = Math.min(20, availableQuestions)
+  const isValidCount = questionCount <= availableQuestions
+
+  // Reset objectifs quand domaine change
+  useEffect(() => {
+    setSelectedObjectifs([])
+  }, [selectedDomain])
 
   const [, startTransition] = useTransition()
   const [, submitAction, isPending] = useActionState(async () => {
@@ -51,6 +75,8 @@ export const TrainingConfigForm = ({
       const result = await createSession({
         questionCount,
         domain: selectedDomain === "all" ? undefined : selectedDomain,
+        objectifsCMCs:
+          selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
       })
 
       toast.success("Session créée !", {
@@ -182,8 +208,40 @@ export const TrainingConfigForm = ({
               animate={{ opacity: 1, y: 0 }}
               className="text-sm text-amber-600 dark:text-amber-400"
             >
-              Seulement {selectedDomainQuestions} questions disponibles dans ce
-              domaine. Réduisez le nombre ou changez de domaine.
+              Seulement {availableQuestions} question
+              {availableQuestions > 1 ? "s" : ""} disponible
+              {availableQuestions > 1 ? "s" : ""} avec ces filtres. Réduisez le
+              nombre ou modifiez les filtres.
+            </motion.p>
+          )}
+        </div>
+
+        {/* Objectifs CMC multi-selector */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <IconTargetArrow className="h-4 w-4 text-gray-500" />
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Objectifs CMC (optionnel)
+            </label>
+          </div>
+
+          <ObjectifsCMCMultiSelect
+            objectifs={filteredObjectifs?.objectifs ?? objectifs}
+            selectedObjectifs={selectedObjectifs}
+            onChange={setSelectedObjectifs}
+            isLoading={filteredObjectifs === undefined}
+            maxSelections={10}
+          />
+
+          {/* Info dynamique sur les questions disponibles */}
+          {selectedObjectifs.length > 0 && filteredObjectifs && (
+            <motion.p
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-sm text-emerald-600 dark:text-emerald-400"
+            >
+              {availableQuestions} question{availableQuestions > 1 ? "s" : ""}{" "}
+              disponible{availableQuestions > 1 ? "s" : ""} pour ces objectifs
             </motion.p>
           )}
         </div>

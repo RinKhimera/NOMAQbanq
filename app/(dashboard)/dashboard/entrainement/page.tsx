@@ -22,6 +22,7 @@ export default function EntrainementPage() {
     isAuthenticated ? undefined : "skip"
   )
   const domains = useQuery(api.training.getAvailableDomains)
+  const objectifs = useQuery(api.training.getAvailableObjectifsCMC, {})
   const stats = useQuery(
     api.training.getTrainingStats,
     isAuthenticated ? undefined : "skip"
@@ -139,7 +140,7 @@ export default function EntrainementPage() {
             )}
 
             {/* New session config */}
-            {!activeSession?.canResume && domains && (
+            {!activeSession?.canResume && domains && objectifs && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -148,6 +149,7 @@ export default function EntrainementPage() {
                 <TrainingConfigForm
                   domains={domains.domains}
                   totalQuestions={domains.totalQuestions}
+                  objectifs={objectifs.objectifs}
                 />
               </motion.div>
             )}
