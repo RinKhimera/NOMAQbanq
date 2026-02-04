@@ -1166,13 +1166,20 @@ export const getMyDashboardStats = query({
       return null
     }
 
-    // Check if user has active exam access
-    const userAccess = await ctx.db
-      .query("userAccess")
-      .withIndex("by_userId_accessType", (q) =>
-        q.eq("userId", user._id).eq("accessType", "exam"),
-      )
-      .unique()
+    // Parallelize independent queries for better performance
+    const [userAccess, myParticipations] = await Promise.all([
+      ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "exam"),
+        )
+        .unique(),
+      ctx.db
+        .query("examParticipations")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .take(100),
+    ])
+
     const now = Date.now()
     const hasExamAccess = userAccess && userAccess.expiresAt > now
 
@@ -1180,12 +1187,6 @@ export const getMyDashboardStats = query({
     const allExams = hasExamAccess
       ? await ctx.db.query("exams").withIndex("by_isActive", (q) => q.eq("isActive", true)).take(200)
       : []
-
-    // Get user's participations from V2 tables (limited for performance)
-    const myParticipations = await ctx.db
-      .query("examParticipations")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .take(100)
 
     const completedParticipations = myParticipations.filter(
       (p) => p.status === "completed" || p.status === "auto_submitted",
@@ -1220,19 +1221,20 @@ export const getMyRecentExams = query({
       return []
     }
 
-    // Get user's participations (limited for performance)
-    const myParticipations = await ctx.db
-      .query("examParticipations")
-      .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .take(50)
+    // Parallelize independent queries for better performance
+    const [myParticipations, userAccess] = await Promise.all([
+      ctx.db
+        .query("examParticipations")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .take(50),
+      ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", user._id).eq("accessType", "exam"),
+        )
+        .unique(),
+    ])
 
-    // Check if user has active exam access
-    const userAccess = await ctx.db
-      .query("userAccess")
-      .withIndex("by_userId_accessType", (q) =>
-        q.eq("userId", user._id).eq("accessType", "exam"),
-      )
-      .unique()
     const now = Date.now()
     const hasExamAccess = userAccess && userAccess.expiresAt > now
 

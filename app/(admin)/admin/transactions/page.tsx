@@ -8,13 +8,10 @@ import { IconReceipt } from "@tabler/icons-react"
 import { api } from "@/convex/_generated/api"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { Button } from "@/components/ui/button"
-import {
-  TransactionTable,
-  ManualPaymentModal,
-  EditTransactionModal,
-  DeleteTransactionDialog,
-  type Transaction,
-} from "@/components/shared/payments"
+import { TransactionTable, type Transaction } from "@/components/shared/payments/transaction-table"
+import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
+import { EditTransactionModal } from "@/components/shared/payments/edit-transaction-modal"
+import { DeleteTransactionDialog } from "@/components/shared/payments/delete-transaction-dialog"
 import { TransactionStats } from "./_components/transaction-stats"
 import {
   TransactionFilters,

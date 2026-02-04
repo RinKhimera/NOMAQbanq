@@ -10,7 +10,6 @@ import {
   FileText,
   ImageIcon,
   Info,
-  Link2,
   Loader2,
   Minus,
   Plus,

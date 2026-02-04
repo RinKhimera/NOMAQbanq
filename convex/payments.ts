@@ -672,23 +672,24 @@ export const recordManualPayment = mutation({
   handler: async (ctx, args) => {
     const admin = await getAdminUserOrThrow(ctx)
 
-    // Récupérer le produit
-    const product = await ctx.db
-      .query("products")
-      .withIndex("by_code", (q) => q.eq("code", args.productCode))
-      .unique()
+    // Parallelize independent lookups for better performance
+    const [product, targetUser] = await Promise.all([
+      ctx.db
+        .query("products")
+        .withIndex("by_code", (q) => q.eq("code", args.productCode))
+        .unique(),
+      ctx.db.get(args.userId),
+    ])
 
     if (!product) {
       throw new Error("Produit non trouvé: " + args.productCode)
     }
 
-    // Vérifier que l'utilisateur cible existe
-    const targetUser = await ctx.db.get(args.userId)
     if (!targetUser) {
       throw new Error("Utilisateur non trouvé")
     }
 
-    // Calculer l'expiration avec cumul
+    // Calculer l'expiration avec cumul (depends on product.accessType)
     const existingAccess = await ctx.db
       .query("userAccess")
       .withIndex("by_userId_accessType", (q) =>

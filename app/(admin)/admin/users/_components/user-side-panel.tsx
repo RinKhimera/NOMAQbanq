@@ -5,6 +5,7 @@ import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { motion } from "motion/react"
+import dynamic from "next/dynamic"
 import {
   Calendar,
   Check,
@@ -31,11 +32,19 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { cn, getInitials } from "@/lib/utils"
 import { formatExpiration } from "@/lib/format"
+
+// Lazy-load ManualPaymentModal to reduce initial bundle size
+const ManualPaymentModal = dynamic(
+  () =>
+    import("@/components/shared/payments/manual-payment-modal").then((mod) => ({
+      default: mod.ManualPaymentModal,
+    })),
+  { ssr: false },
+)
 
 interface UserSidePanelProps {
   userId: Id<"users"> | null
@@ -401,12 +410,14 @@ function PanelContent({ userId }: { userId: Id<"users"> }) {
         </Link>
       </motion.div>
 
-      {/* Manual Payment Modal */}
-      <ManualPaymentModal
-        open={showPaymentModal}
-        onOpenChange={setShowPaymentModal}
-        defaultUserId={userId}
-      />
+      {/* Manual Payment Modal - lazy loaded on demand */}
+      {showPaymentModal && (
+        <ManualPaymentModal
+          open={showPaymentModal}
+          onOpenChange={setShowPaymentModal}
+          defaultUserId={userId}
+        />
+      )}
     </>
   )
 }

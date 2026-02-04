@@ -5,7 +5,7 @@ import { Layers, Loader2, Play, Target } from "lucide-react"
 import { IconTargetArrow } from "@tabler/icons-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
-import { useActionState, useState, useTransition, useEffect } from "react"
+import { useActionState, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -62,10 +62,10 @@ export const TrainingConfigForm = ({
   const maxQuestions = Math.min(20, availableQuestions)
   const isValidCount = questionCount <= availableQuestions
 
-  // Reset objectifs quand domaine change
-  useEffect(() => {
+  const handleDomainChange = (domain: string) => {
+    setSelectedDomain(domain)
     setSelectedObjectifs([])
-  }, [selectedDomain])
+  }
 
   const [, startTransition] = useTransition()
   const [, submitAction, isPending] = useActionState(async () => {
@@ -171,7 +171,7 @@ export const TrainingConfigForm = ({
             </label>
           </div>
 
-          <Select value={selectedDomain} onValueChange={setSelectedDomain}>
+          <Select value={selectedDomain} onValueChange={handleDomainChange}>
             <SelectTrigger className="h-12 rounded-xl border-gray-200 bg-white/60 text-base shadow-sm transition-all hover:border-emerald-300 focus:border-emerald-500 focus:ring-emerald-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:border-emerald-700">
               <SelectValue placeholder="Sélectionnez un domaine" />
             </SelectTrigger>

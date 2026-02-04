@@ -12,6 +12,7 @@ import {
   uploadToBunny,
   validateImageFile,
 } from "./lib/bunny"
+import { STRIPE_API_VERSION } from "./lib/stripe"
 
 const http = httpRouter()
 
@@ -91,7 +92,7 @@ http.route({
     }
 
     const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2025-12-15.clover",
+      apiVersion: STRIPE_API_VERSION,
     })
 
     const signature = request.headers.get("stripe-signature")

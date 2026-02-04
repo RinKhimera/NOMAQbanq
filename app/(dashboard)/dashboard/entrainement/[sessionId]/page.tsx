@@ -18,13 +18,11 @@ import { Button } from "@/components/ui/button"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { Calculator } from "@/components/quiz/calculator"
 import { LabValues } from "@/components/quiz/lab-values"
-import {
-  SessionHeader,
-  QuestionNavigator,
-  SessionToolbar,
-  SessionNavigation,
-  FinishDialog,
-} from "@/components/quiz/session"
+import { SessionHeader } from "@/components/quiz/session/session-header"
+import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
+import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
+import { SessionNavigation } from "@/components/quiz/session/session-navigation"
+import { FinishDialog } from "@/components/quiz/session/finish-dialog"
 import { CalculatorProvider } from "@/hooks/useCalculator"
 import { toast } from "sonner"
 

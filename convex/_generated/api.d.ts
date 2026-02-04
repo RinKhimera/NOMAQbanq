@@ -17,6 +17,7 @@ import type * as lib_auth from "../lib/auth.js";
 import type * as lib_batchFetch from "../lib/batchFetch.js";
 import type * as lib_bunny from "../lib/bunny.js";
 import type * as lib_errors from "../lib/errors.js";
+import type * as lib_stripe from "../lib/stripe.js";
 import type * as payments from "../payments.js";
 import type * as questions from "../questions.js";
 import type * as rateLimit from "../rateLimit.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   "lib/batchFetch": typeof lib_batchFetch;
   "lib/bunny": typeof lib_bunny;
   "lib/errors": typeof lib_errors;
+  "lib/stripe": typeof lib_stripe;
   payments: typeof payments;
   questions: typeof questions;
   rateLimit: typeof rateLimit;

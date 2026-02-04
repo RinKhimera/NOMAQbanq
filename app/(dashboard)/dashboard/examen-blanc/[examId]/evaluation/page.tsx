@@ -19,12 +19,10 @@ import { LabValues } from "@/components/quiz/lab-values"
 import { PauseApproachingAlert } from "@/components/quiz/pause-approaching-alert"
 import { PauseDialog } from "@/components/quiz/pause-dialog"
 import { QuestionCard } from "@/components/quiz/question-card"
-import {
-  SessionHeader,
-  QuestionNavigator,
-  SessionToolbar,
-  FinishDialog,
-} from "@/components/quiz/session"
+import { SessionHeader } from "@/components/quiz/session/session-header"
+import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
+import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
+import { FinishDialog } from "@/components/quiz/session/finish-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,

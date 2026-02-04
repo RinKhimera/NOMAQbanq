@@ -10,7 +10,7 @@ import { formatExpiration } from "@/lib/format"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Progress } from "@/components/ui/progress"
-import { AccessBadge, getAccessStatus } from "@/components/shared/payments"
+import { AccessBadge, getAccessStatus } from "@/components/shared/payments/access-badge"
 
 interface UserAccessSectionProps {
   userId: Id<"users">

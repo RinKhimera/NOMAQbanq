@@ -7,11 +7,11 @@
  * Installation requise: npm install stripe
  */
 import { v } from "convex/values"
-import Stripe from "stripe"
 import { internal } from "./_generated/api"
 import { Id } from "./_generated/dataModel"
 import { action } from "./_generated/server"
 import { Errors } from "./lib/errors"
+import { getStripe } from "./lib/stripe"
 
 // ============================================
 // TYPE DEFINITIONS
@@ -77,15 +77,7 @@ export const createCheckoutSession = action({
       throw new Error("Ce produit n'est plus disponible")
     }
 
-    // Initialiser Stripe
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-    if (!stripeSecretKey) {
-      throw new Error("Configuration Stripe manquante")
-    }
-
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2025-12-15.clover",
-    })
+    const stripe = getStripe()
 
     // Créer la session Checkout
     const session = await stripe.checkout.sessions.create({
@@ -144,14 +136,7 @@ export const verifyCheckoutSession = action({
       throw new Error("Vous devez être connecté pour vérifier un paiement")
     }
 
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-    if (!stripeSecretKey) {
-      throw new Error("Configuration Stripe manquante")
-    }
-
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2025-12-15.clover",
-    })
+    const stripe = getStripe()
 
     try {
       const session = await stripe.checkout.sessions.retrieve(args.sessionId)
@@ -196,14 +181,7 @@ export const createCustomerPortalSession = action({
       throw new Error("Utilisateur non trouvé")
     }
 
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-    if (!stripeSecretKey) {
-      throw new Error("Configuration Stripe manquante")
-    }
-
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2025-12-15.clover",
-    })
+    const stripe = getStripe()
 
     // Rechercher le client Stripe par email
     const customers = await stripe.customers.list({
@@ -251,14 +229,7 @@ export const getPaymentDetails = action({
       throw new Error("Accès non autorisé")
     }
 
-    const stripeSecretKey = process.env.STRIPE_SECRET_KEY
-    if (!stripeSecretKey) {
-      throw new Error("Configuration Stripe manquante")
-    }
-
-    const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2025-12-15.clover",
-    })
+    const stripe = getStripe()
 
     try {
       const paymentIntent = await stripe.paymentIntents.retrieve(

@@ -5,15 +5,25 @@ import { useParams } from "next/navigation"
 import { useQuery, usePaginatedQuery } from "convex/react"
 import { motion } from "motion/react"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { ArrowLeft, User, CreditCard } from "lucide-react"
 import { Id } from "@/convex/_generated/dataModel"
 import { api } from "@/convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { TransactionTable, ManualPaymentModal } from "@/components/shared/payments"
+import { TransactionTable } from "@/components/shared/payments/transaction-table"
 import { UserInfoCard } from "./_components/user-info-card"
 import { UserAccessSection } from "./_components/user-access-section"
+
+// Lazy-load ManualPaymentModal to reduce initial bundle size
+const ManualPaymentModal = dynamic(
+  () =>
+    import("@/components/shared/payments/manual-payment-modal").then((mod) => ({
+      default: mod.ManualPaymentModal,
+    })),
+  { ssr: false },
+)
 
 const PageSkeleton = () => (
   <div className="space-y-6">
@@ -148,15 +158,17 @@ export default function AdminUserDetailPage() {
         </div>
       </div>
 
-      {/* Manual payment modal */}
-      <ManualPaymentModal
-        open={showManualPaymentModal}
-        onOpenChange={setShowManualPaymentModal}
-        defaultUserId={userId}
-        onSuccess={() => {
-          // Will auto-refresh due to Convex reactivity
-        }}
-      />
+      {/* Manual payment modal - lazy loaded on demand */}
+      {showManualPaymentModal && (
+        <ManualPaymentModal
+          open={showManualPaymentModal}
+          onOpenChange={setShowManualPaymentModal}
+          defaultUserId={userId}
+          onSuccess={() => {
+            // Will auto-refresh due to Convex reactivity
+          }}
+        />
+      )}
     </div>
   )
 }

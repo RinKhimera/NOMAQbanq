@@ -6,18 +6,25 @@ import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { motion } from "motion/react"
 import { useState } from "react"
+import dynamic from "next/dynamic"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
-import {
-  ActivityFeed,
-  AdminDashboardSkeleton,
-  AdminVitalCards,
-  AlertsPanel,
-  DomainChart,
-  QuickActions,
-  RevenueChart,
-} from "@/components/admin/dashboard"
-import { ManualPaymentModal } from "@/components/shared/payments"
+import { ActivityFeed } from "@/components/admin/dashboard/activity-feed"
+import { AdminDashboardSkeleton } from "@/components/admin/dashboard/skeleton"
+import { AdminVitalCards } from "@/components/admin/dashboard/vital-cards"
+import { AlertsPanel } from "@/components/admin/dashboard/alerts-panel"
+import { DomainChart } from "@/components/admin/dashboard/domain-chart"
+import { QuickActions } from "@/components/admin/dashboard/quick-actions"
+import { RevenueChart } from "@/components/admin/dashboard/revenue-chart"
 import { api } from "@/convex/_generated/api"
+
+// Lazy-load ManualPaymentModal to reduce initial bundle size
+const ManualPaymentModal = dynamic(
+  () =>
+    import("@/components/shared/payments/manual-payment-modal").then((mod) => ({
+      default: mod.ManualPaymentModal,
+    })),
+  { ssr: false },
+)
 
 export default function AdminDashboardPage() {
   const [showManualPaymentModal, setShowManualPaymentModal] = useState(false)
@@ -123,14 +130,16 @@ export default function AdminDashboardPage() {
         </motion.div>
       </div>
 
-      {/* Manual payment modal */}
-      <ManualPaymentModal
-        open={showManualPaymentModal}
-        onOpenChange={setShowManualPaymentModal}
-        onSuccess={() => {
-          // Data will auto-refresh due to Convex reactivity
-        }}
-      />
+      {/* Manual payment modal - lazy loaded on demand */}
+      {showManualPaymentModal && (
+        <ManualPaymentModal
+          open={showManualPaymentModal}
+          onOpenChange={setShowManualPaymentModal}
+          onSuccess={() => {
+            // Data will auto-refresh due to Convex reactivity
+          }}
+        />
+      )}
     </div>
   )
 }
