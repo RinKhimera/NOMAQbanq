@@ -91,7 +91,7 @@ export const VitalCard = ({
               colors.iconBg
             )}
           >
-            <Icon className={cn("h-5 w-5", colors.iconColor)} />
+            <Icon className={cn("h-5 w-5", colors.iconColor)} aria-hidden="true" />
           </div>
 
           {trend && (
@@ -111,6 +111,7 @@ export const VitalCard = ({
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -119,6 +120,7 @@ export const VitalCard = ({
                   d="M5 10l7-7m0 0l7 7m-7-7v18"
                 />
               </svg>
+              <span className="sr-only">{trend.isPositive ? "Hausse de" : "Baisse de"}</span>
               {trend.value}%
             </div>
           )}

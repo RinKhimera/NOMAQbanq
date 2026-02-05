@@ -12,6 +12,7 @@ import { Errors } from "./lib/errors"
 const SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000 // 24 heures
 const MIN_QUESTIONS = 5
 const MAX_QUESTIONS = 20
+const MAX_SESSIONS_PER_HOUR = 10 // Rate limiting: max sessions créées par heure
 
 // ============================================
 // QUERIES
@@ -446,6 +447,20 @@ export const createTrainingSession = mutation({
   },
   handler: async (ctx, { questionCount, domain, objectifsCMCs }) => {
     const user = await getCurrentUserOrThrow(ctx)
+
+    // 0. Rate limiting: max 10 sessions par heure (sauf admin)
+    if (user.role !== "admin") {
+      const oneHourAgo = Date.now() - 60 * 60 * 1000
+      const recentSessions = await ctx.db
+        .query("trainingParticipations")
+        .withIndex("by_user", (q) => q.eq("userId", user._id))
+        .filter((q) => q.gt(q.field("startedAt"), oneHourAgo))
+        .take(MAX_SESSIONS_PER_HOUR + 1)
+
+      if (recentSessions.length >= MAX_SESSIONS_PER_HOUR) {
+        throw Errors.rateLimited(60)
+      }
+    }
 
     // 1. Vérifier accès training (admin bypass)
     if (user.role !== "admin") {

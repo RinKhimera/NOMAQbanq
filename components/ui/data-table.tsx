@@ -40,7 +40,7 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
   data,
-  searchPlaceholder = "Rechercher...",
+  searchPlaceholder = "Rechercher…",
   searchKey,
   // showColumnToggle = true,
   showPagination = true,

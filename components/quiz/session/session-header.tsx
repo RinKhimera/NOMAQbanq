@@ -102,9 +102,10 @@ export const SessionHeader = ({
                 onClick={examActions.onTakePause}
                 variant="outline"
                 size="sm"
+                aria-label="Mettre en pause l'examen"
                 className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/30"
               >
-                <Pause className="h-4 w-4" />
+                <Pause className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Pause</span>
               </Button>
             )}
@@ -113,6 +114,7 @@ export const SessionHeader = ({
             <Button
               onClick={onFinish}
               size="sm"
+              aria-label="Terminer l'examen"
               className={cn(
                 "gap-2 shadow-md",
                 config.accentColor === "blue"
@@ -120,7 +122,7 @@ export const SessionHeader = ({
                   : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
               )}
             >
-              <CheckCircle className="h-4 w-4" />
+              <CheckCircle className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Terminer</span>
             </Button>
           </div>

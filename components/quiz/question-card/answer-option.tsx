@@ -67,7 +67,7 @@ export const AnswerOption = ({
       {/* Option text */}
       <span
         className={cn(
-          "flex-1 leading-relaxed",
+          "min-w-0 flex-1 leading-relaxed",
           compact ? "line-clamp-2" : "",
           state === "correct" || state === "user-correct"
             ? "font-medium"
@@ -84,6 +84,7 @@ export const AnswerOption = ({
             "flex-shrink-0 text-green-600 dark:text-green-400",
             compact ? "h-4 w-4" : "h-5 w-5",
           )}
+          aria-hidden="true"
         />
       )}
       {showXIcon && (
@@ -92,6 +93,7 @@ export const AnswerOption = ({
             "flex-shrink-0 text-red-600 dark:text-red-400",
             compact ? "h-4 w-4" : "h-5 w-5",
           )}
+          aria-hidden="true"
         />
       )}
     </div>

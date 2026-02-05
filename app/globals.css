@@ -720,6 +720,45 @@
 .badge-admin {
   @apply bg-slate-100 text-slate-700 dark:bg-slate-800/60 dark:text-slate-300;
 }
+/* Reduced motion support for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-float,
+  .animate-pulse,
+  .animate-pulse-glow,
+  .animate-fade-in-up,
+  .animate-fade-in-scale,
+  .animate-slide-in-left,
+  .animate-slide-in-right,
+  .animate-gradient,
+  .animate-rotate-3d,
+  .animate-slide-carousel,
+  .animate-vital-pulse,
+  .animate-vital-pulse-green,
+  .animate-vital-pulse-amber,
+  .animate-score-fill,
+  .animate-count-up,
+  .loading-shimmer {
+    animation: none !important;
+  }
+
+  .card-3d:hover,
+  .card-feature:hover,
+  .card-modern:hover,
+  .btn-modern:hover,
+  .dashboard-vital-card:hover {
+    transform: none !important;
+  }
+}
+
 /* Responsive utilities */
 @media (max-width: 768px) {
   .text-display-xl {

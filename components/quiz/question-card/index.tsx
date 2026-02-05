@@ -246,6 +246,8 @@ export const QuestionCard = ({
                 e.stopPropagation()
                 onFlagToggle()
               }}
+              aria-label={isFlagged ? "Retirer le marquage de la question" : "Marquer la question pour révision"}
+              aria-pressed={isFlagged}
               className={cn(
                 "h-8 gap-1.5 px-2 transition-colors",
                 isFlagged
@@ -258,6 +260,7 @@ export const QuestionCard = ({
                   "h-4 w-4",
                   isFlagged && "fill-amber-500 dark:fill-amber-400",
                 )}
+                aria-hidden="true"
               />
               <span className="hidden text-xs font-medium sm:inline">
                 {isFlagged ? "Marquée" : "Marquer"}
@@ -304,12 +307,14 @@ export const QuestionCard = ({
                 variant="ghost"
                 size="sm"
                 onClick={onToggleExpand}
+                aria-label={isExpanded ? "Réduire la question" : "Développer la question"}
+                aria-expanded={isExpanded}
                 className="-mt-1 h-8 w-8 flex-shrink-0 p-1"
               >
                 {isExpanded ? (
-                  <ChevronUp className="h-4 w-4" />
+                  <ChevronUp className="h-4 w-4" aria-hidden="true" />
                 ) : (
-                  <ChevronDown className="h-4 w-4" />
+                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
                 )}
               </Button>
             )}

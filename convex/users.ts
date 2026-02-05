@@ -1,6 +1,5 @@
-import { UserJSON } from "@clerk/backend"
 import { paginationOptsValidator } from "convex/server"
-import { Validator, v } from "convex/values"
+import { v } from "convex/values"
 import {
   QueryCtx,
   internalMutation,
@@ -22,8 +21,21 @@ async function userByExternalId(ctx: QueryCtx, externalId: string) {
     .unique()
 }
 
+// Validator pour les données Clerk webhook (seulement les champs utilisés)
+const clerkUserDataValidator = v.object({
+  id: v.string(),
+  first_name: v.optional(v.union(v.string(), v.null())),
+  last_name: v.optional(v.union(v.string(), v.null())),
+  email_addresses: v.array(
+    v.object({
+      email_address: v.string(),
+    })
+  ),
+  image_url: v.optional(v.union(v.string(), v.null())),
+})
+
 export const upsertFromClerk = internalMutation({
-  args: { data: v.any() as Validator<UserJSON> }, // Vient de Clerk
+  args: { data: clerkUserDataValidator },
   async handler(ctx, { data }) {
     const firstName = data.first_name?.trim() || ""
     const lastName = data.last_name?.trim() || ""
@@ -34,7 +46,7 @@ export const upsertFromClerk = internalMutation({
       tokenIdentifier: `${process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL}|${data.id}`,
       name: fullName,
       email: data.email_addresses[0]?.email_address,
-      image: data.image_url,
+      image: data.image_url ?? "",
     }
 
     const user = await userByExternalId(ctx, data.id)
@@ -195,82 +207,6 @@ export const updateUserAvatar = internalMutation({
       image: args.avatarUrl,
       avatarStoragePath: args.avatarStoragePath,
     })
-  },
-})
-
-export const getUsersWithPagination = query({
-  args: {
-    paginationOpts: paginationOptsValidator,
-    sortBy: v.optional(
-      v.union(v.literal("name"), v.literal("role"), v.literal("_creationTime")),
-    ),
-    sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
-    searchQuery: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const {
-      paginationOpts,
-      sortBy = "name",
-      sortOrder = "asc",
-      searchQuery,
-    } = args
-
-    // Limit to 500 users for in-memory filtering
-    // For production with 1000+ users, consider implementing full-text search
-    let users = await ctx.db.query("users").take(500)
-
-    // Filter by search query if provided
-    if (searchQuery && searchQuery.trim() !== "") {
-      const query = searchQuery.toLowerCase().trim()
-      users = users.filter(
-        (user) =>
-          user.name?.toLowerCase().includes(query) ||
-          user.email?.toLowerCase().includes(query) ||
-          user.username?.toLowerCase().includes(query),
-      )
-    }
-
-    // Sort users based on criteria
-    users.sort((a, b) => {
-      let valueA: string | number
-      let valueB: string | number
-
-      if (sortBy === "_creationTime") {
-        valueA = a._creationTime
-        valueB = b._creationTime
-      } else if (sortBy === "role") {
-        valueA = a.role || "user"
-        valueB = b.role || "user"
-      } else {
-        valueA = a[sortBy as keyof typeof a] || ""
-        valueB = b[sortBy as keyof typeof b] || ""
-      }
-
-      if (typeof valueA === "string" && typeof valueB === "string") {
-        valueA = valueA.toLowerCase()
-        valueB = valueB.toLowerCase()
-      }
-
-      if (sortOrder === "desc") {
-        return valueA < valueB ? 1 : valueA > valueB ? -1 : 0
-      } else {
-        return valueA > valueB ? 1 : valueA < valueB ? -1 : 0
-      }
-    })
-
-    // Manual cursor-based pagination for sorted/filtered results
-    const startIndex = paginationOpts.cursor
-      ? parseInt(paginationOpts.cursor, 10)
-      : 0
-    const endIndex = startIndex + paginationOpts.numItems
-    const pageResults = users.slice(startIndex, endIndex)
-    const hasMore = endIndex < users.length
-
-    return {
-      page: pageResults,
-      continueCursor: hasMore ? endIndex.toString() : "",
-      isDone: !hasMore,
-    }
   },
 })
 

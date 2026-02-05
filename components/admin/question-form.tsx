@@ -198,18 +198,23 @@ export default function QuestionForm() {
                           key={index}
                           className="flex items-center space-x-3"
                         >
-                          <Badge
-                            variant={
-                              correctAnswer === option ? "default" : "outline"
-                            }
-                            className="flex h-6 min-w-[29px] cursor-pointer items-center justify-center"
+                          <button
+                            type="button"
                             onClick={() =>
                               option.trim() &&
                               form.setValue("correctAnswer", option)
                             }
+                            disabled={!option.trim()}
+                            aria-label={`Sélectionner l'option ${String.fromCharCode(65 + index)} comme réponse correcte`}
+                            aria-pressed={correctAnswer === option && option.trim() !== ""}
+                            className={`flex h-6 min-w-[29px] items-center justify-center rounded-md border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                              correctAnswer === option && option.trim() !== ""
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-input bg-background hover:bg-accent hover:text-accent-foreground"
+                            }`}
                           >
                             {String.fromCharCode(65 + index)}
-                          </Badge>
+                          </button>
                           <Input
                             placeholder={`Option ${String.fromCharCode(65 + index)}`}
                             value={option}
@@ -225,7 +230,7 @@ export default function QuestionForm() {
                             }
                           />
                           {correctAnswer === option && (
-                            <CheckCircle className="h-5 w-5 text-green-600" />
+                            <CheckCircle className="h-5 w-5 text-green-600" aria-hidden="true" />
                           )}
                         </div>
                       ))}

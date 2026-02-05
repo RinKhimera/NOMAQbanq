@@ -172,8 +172,10 @@ http.route({
 // ============================================
 
 // CORS headers pour les routes d'upload
+// Utilise NEXT_PUBLIC_BASE_URL en prod, fallback localhost en dev
 const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Origin":
+    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 }
