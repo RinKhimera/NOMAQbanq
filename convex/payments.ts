@@ -24,6 +24,7 @@ export type ProductCode =
   | "training_access"
   | "exam_access_promo"
   | "training_access_promo"
+  | "premium_access"
 
 export type AccessType = "exam" | "training"
 
@@ -32,6 +33,7 @@ const productCodeValidator = v.union(
   v.literal("training_access"),
   v.literal("exam_access_promo"),
   v.literal("training_access_promo"),
+  v.literal("premium_access"),
 )
 
 const accessTypeValidator = v.union(v.literal("exam"), v.literal("training"))
@@ -516,22 +518,30 @@ export const createPendingTransaction = internalMutation({
     currency: v.string(),
     accessType: accessTypeValidator,
     durationDays: v.number(),
+    isCombo: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
-    // Calculer l'expiration avec cumul du temps
-    const existingAccess = await ctx.db
-      .query("userAccess")
-      .withIndex("by_userId_accessType", (q) =>
-        q.eq("userId", args.userId).eq("accessType", args.accessType),
-      )
-      .unique()
-
     const now = Date.now()
-    const baseTime =
-      existingAccess && existingAccess.expiresAt > now
-        ? existingAccess.expiresAt
-        : now
-    const accessExpiresAt = baseTime + args.durationDays * 24 * 60 * 60 * 1000
+    let accessExpiresAt: number
+
+    if (args.isCombo) {
+      // Combo: toujours calculer depuis maintenant (pas de cumul)
+      accessExpiresAt = now + args.durationDays * 24 * 60 * 60 * 1000
+    } else {
+      // Non-combo: cumul avec temps existant si applicable
+      const existingAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", args.userId).eq("accessType", args.accessType),
+        )
+        .unique()
+
+      const baseTime =
+        existingAccess && existingAccess.expiresAt > now
+          ? existingAccess.expiresAt
+          : now
+      accessExpiresAt = baseTime + args.durationDays * 24 * 60 * 60 * 1000
+    }
 
     return await ctx.db.insert("transactions", {
       userId: args.userId,
@@ -599,14 +609,38 @@ export const completeStripeTransaction = internalMutation({
       completedAt: now,
     })
 
-    // Mettre à jour ou créer l'accès utilisateur
-    await updateUserAccess(
-      ctx,
-      transaction.userId,
-      transaction.accessType,
-      transaction.accessExpiresAt,
-      transaction._id,
-    )
+    // Vérifier si c'est un produit combo
+    const product = await ctx.db.get(transaction.productId)
+    const isCombo = product?.isCombo ?? false
+
+    if (isCombo) {
+      // Combo: accorder les DEUX types d'accès
+      await Promise.all([
+        updateUserAccess(
+          ctx,
+          transaction.userId,
+          "exam",
+          transaction.accessExpiresAt,
+          transaction._id,
+        ),
+        updateUserAccess(
+          ctx,
+          transaction.userId,
+          "training",
+          transaction.accessExpiresAt,
+          transaction._id,
+        ),
+      ])
+    } else {
+      // Non-combo: un seul type d'accès
+      await updateUserAccess(
+        ctx,
+        transaction.userId,
+        transaction.accessType,
+        transaction.accessExpiresAt,
+        transaction._id,
+      )
+    }
 
     return { success: true, transactionId: transaction._id }
   },
@@ -689,21 +723,28 @@ export const recordManualPayment = mutation({
       throw new Error("Utilisateur non trouvé")
     }
 
-    // Calculer l'expiration avec cumul (depends on product.accessType)
-    const existingAccess = await ctx.db
-      .query("userAccess")
-      .withIndex("by_userId_accessType", (q) =>
-        q.eq("userId", args.userId).eq("accessType", product.accessType),
-      )
-      .unique()
-
     const now = Date.now()
-    const baseTime =
-      existingAccess && existingAccess.expiresAt > now
-        ? existingAccess.expiresAt
-        : now
-    const accessExpiresAt =
-      baseTime + product.durationDays * 24 * 60 * 60 * 1000
+    const isCombo = product.isCombo ?? false
+    let accessExpiresAt: number
+
+    if (isCombo) {
+      // Combo: toujours calculer depuis maintenant (pas de cumul)
+      accessExpiresAt = now + product.durationDays * 24 * 60 * 60 * 1000
+    } else {
+      // Non-combo: cumul avec temps existant si applicable
+      const existingAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", args.userId).eq("accessType", product.accessType),
+        )
+        .unique()
+
+      const baseTime =
+        existingAccess && existingAccess.expiresAt > now
+          ? existingAccess.expiresAt
+          : now
+      accessExpiresAt = baseTime + product.durationDays * 24 * 60 * 60 * 1000
+    }
 
     // Créer la transaction complétée
     const transactionId = await ctx.db.insert("transactions", {
@@ -724,13 +765,22 @@ export const recordManualPayment = mutation({
     })
 
     // Mettre à jour l'accès utilisateur
-    await updateUserAccess(
-      ctx,
-      args.userId,
-      product.accessType,
-      accessExpiresAt,
-      transactionId,
-    )
+    if (isCombo) {
+      // Combo: accorder les DEUX types d'accès
+      await Promise.all([
+        updateUserAccess(ctx, args.userId, "exam", accessExpiresAt, transactionId),
+        updateUserAccess(ctx, args.userId, "training", accessExpiresAt, transactionId),
+      ])
+    } else {
+      // Non-combo: un seul type d'accès
+      await updateUserAccess(
+        ctx,
+        args.userId,
+        product.accessType,
+        accessExpiresAt,
+        transactionId,
+      )
+    }
 
     return { success: true, transactionId }
   },
@@ -754,6 +804,7 @@ export const upsertProduct = mutation({
     stripeProductId: v.string(),
     stripePriceId: v.string(),
     isActive: v.boolean(),
+    isCombo: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
@@ -773,6 +824,7 @@ export const upsertProduct = mutation({
         stripeProductId: args.stripeProductId,
         stripePriceId: args.stripePriceId,
         isActive: args.isActive,
+        isCombo: args.isCombo,
       })
       return { success: true, productId: existing._id, updated: true }
     } else {
@@ -798,6 +850,7 @@ export const seedProducts = internalMutation({
         stripeProductId: v.string(),
         stripePriceId: v.string(),
         isActive: v.boolean(),
+        isCombo: v.optional(v.boolean()),
       }),
     ),
   },

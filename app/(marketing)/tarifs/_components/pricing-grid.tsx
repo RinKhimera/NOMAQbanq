@@ -7,11 +7,12 @@ import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
-import { PricingCard } from "@/components/shared/payments/pricing-card"
 import {
   AccessBadge,
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
+import { PremiumPricingCard } from "@/components/shared/payments/premium-pricing-card"
+import { PricingCard } from "@/components/shared/payments/pricing-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/convex/_generated/api"
@@ -53,7 +54,8 @@ export const PricingGrid = () => {
           | "exam_access"
           | "training_access"
           | "exam_access_promo"
-          | "training_access_promo",
+          | "training_access_promo"
+          | "premium_access",
         successUrl: `${window.location.origin}/dashboard/payment/success`,
         cancelUrl: `${window.location.origin}/tarifs`,
       })
@@ -85,7 +87,12 @@ export const PricingGrid = () => {
     }
   }
 
-  const filteredProducts = products?.filter((p) => {
+  // Séparer le produit premium des produits réguliers
+  const premiumProduct = products?.find((p) => p.code === "premium_access")
+  const regularProducts = products?.filter((p) => p.code !== "premium_access")
+
+  // Filtrer les produits réguliers (le premium apparaît toujours au-dessus)
+  const filteredProducts = regularProducts?.filter((p) => {
     if (filter === "all") return true
     return p.accessType === filter
   })
@@ -211,6 +218,19 @@ export const PricingGrid = () => {
             </motion.div>
           )}
 
+        {/* Premium product featured section */}
+        {premiumProduct && (
+          <div className="mb-16">
+            <PremiumPricingCard
+              product={premiumProduct}
+              examAccess={accessStatus?.examAccess}
+              trainingAccess={accessStatus?.trainingAccess}
+              onPurchase={() => handlePurchase(premiumProduct.code)}
+              isLoading={loadingProduct === premiumProduct.code}
+            />
+          </div>
+        )}
+
         {/* Filter tabs */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -227,7 +247,7 @@ export const PricingGrid = () => {
                 value="all"
                 aria-label="Afficher toutes les offres"
                 className={cn(
-                  "rounded-full px-6 py-2.5 text-sm font-medium transition-all",
+                  "cursor-pointer rounded-full px-6 py-2.5 text-sm font-medium transition-all",
                   filter === "all" && "bg-white shadow-md dark:bg-gray-700",
                 )}
               >
@@ -237,7 +257,7 @@ export const PricingGrid = () => {
                 value="exam"
                 aria-label="Filtrer par examens simulés"
                 className={cn(
-                  "flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all",
+                  "flex cursor-pointer items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all",
                   filter === "exam" && "bg-white shadow-md dark:bg-gray-700",
                 )}
               >
@@ -248,7 +268,7 @@ export const PricingGrid = () => {
                 value="training"
                 aria-label="Filtrer par banque d'entraînement"
                 className={cn(
-                  "flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all",
+                  "flex cursor-pointer items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all",
                   filter === "training" &&
                     "bg-white shadow-md dark:bg-gray-700",
                 )}

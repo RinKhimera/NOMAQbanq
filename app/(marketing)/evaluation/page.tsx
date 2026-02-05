@@ -10,6 +10,22 @@ export const metadata: Metadata = {
     "Testez gratuitement NOMAQbanq avec notre évaluation EACMC. Découvrez notre interface, la qualité de nos questions et évaluez votre niveau avant de vous abonner.",
   alternates: {
     canonical: "https://nomaqbanq.ca/evaluation",
+    languages: {
+      "fr-CA": "https://nomaqbanq.ca/evaluation",
+    },
+  },
+  openGraph: {
+    title: "Évaluation gratuite EACMC | NOMAQbanq",
+    description:
+      "Testez gratuitement notre plateforme de préparation EACMC. Découvrez la qualité de nos questions et évaluez votre niveau.",
+    images: [
+      {
+        url: "/images/home-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "NOMAQbanq - Évaluation gratuite EACMC",
+      },
+    ],
   },
 }
 

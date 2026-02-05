@@ -153,6 +153,7 @@ export default defineSchema({
       v.literal("training_access"),
       v.literal("exam_access_promo"),
       v.literal("training_access_promo"),
+      v.literal("premium_access"),
     ),
     name: v.string(),
     description: v.string(),
@@ -162,6 +163,7 @@ export default defineSchema({
     stripeProductId: v.string(),
     stripePriceId: v.string(),
     isActive: v.boolean(),
+    isCombo: v.optional(v.boolean()), // true = accorde exam + training
   })
     .index("by_code", ["code"])
     .index("by_stripeProductId", ["stripeProductId"])

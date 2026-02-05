@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
+import { JsonLd } from "@/components/seo/json-ld"
 import { Toaster } from "@/components/ui/sonner"
 import ConvexClientProvider from "@/providers/convex-client-provider"
 import "./globals.css"
@@ -83,6 +84,42 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: baseUrl,
+    languages: {
+      "fr-CA": baseUrl,
+      "x-default": baseUrl,
+    },
+  },
+}
+
+const organizationSchema = {
+  "@context": "https://schema.org" as const,
+  "@type": "Organization" as const,
+  name: "NOMAQbanq",
+  url: baseUrl,
+  logo: `${baseUrl}/noma-logo.svg`,
+  description:
+    "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM, examens blancs et suivi de progression.",
+  contactPoint: {
+    "@type": "ContactPoint",
+    email: "nomaqbanq@outlook.com",
+    telephone: "+1-438-875-0746",
+    contactType: "customer service",
+    availableLanguage: "French",
+  },
+}
+
+const websiteSchema = {
+  "@context": "https://schema.org" as const,
+  "@type": "WebSite" as const,
+  name: "NOMAQbanq",
+  url: baseUrl,
+  description:
+    "Plateforme francophone de préparation à l'EACMC Partie I avec QCM et examens blancs.",
+  inLanguage: "fr-CA",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: `${baseUrl}/faq?q={search_term_string}`,
+    "query-input": "required name=search_term_string",
   },
 }
 
@@ -96,6 +133,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${plusJakartaSans.variable} antialiased`}
       >
+        <JsonLd data={organizationSchema} />
+        <JsonLd data={websiteSchema} />
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

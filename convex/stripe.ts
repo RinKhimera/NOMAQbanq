@@ -22,6 +22,7 @@ const productCodeValidator = v.union(
   v.literal("training_access"),
   v.literal("exam_access_promo"),
   v.literal("training_access_promo"),
+  v.literal("premium_access"),
 )
 
 // ============================================
@@ -67,6 +68,7 @@ export const createCheckoutSession = action({
       accessType: "exam" | "training"
       durationDays: number
       isActive: boolean
+      isCombo?: boolean
     } | null
 
     if (!product) {
@@ -98,6 +100,7 @@ export const createCheckoutSession = action({
         productCode: args.productCode,
         accessType: product.accessType,
         durationDays: product.durationDays.toString(),
+        isCombo: product.isCombo ? "true" : "false",
       },
       success_url: args.successUrl + "?session_id={CHECKOUT_SESSION_ID}",
       cancel_url: args.cancelUrl,
@@ -114,6 +117,7 @@ export const createCheckoutSession = action({
       currency: "CAD",
       accessType: product.accessType,
       durationDays: product.durationDays,
+      isCombo: product.isCombo,
     })
 
     return {
