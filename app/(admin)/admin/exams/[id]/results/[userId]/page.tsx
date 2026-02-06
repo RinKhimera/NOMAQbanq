@@ -15,6 +15,7 @@ import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
 import { useMemo, useState } from "react"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import { ScrollToTop } from "@/components/shared/scroll-to-top"
@@ -49,6 +50,7 @@ const AdminParticipantResultsPage = () => {
   const examId = params.id as Id<"exams">
   const userId = params.userId as Id<"users">
 
+  const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(
     new Set([0]),
   )
@@ -155,7 +157,7 @@ const AdminParticipantResultsPage = () => {
   // Loading state
   if (participantResults === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -181,7 +183,7 @@ const AdminParticipantResultsPage = () => {
     const initials = getInitials(participantUser?.name)
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+      <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
         {/* Header */}
         <div className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80">
           <div className="mx-auto max-w-6xl px-4 py-4">
@@ -190,7 +192,7 @@ const AdminParticipantResultsPage = () => {
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 shadow-lg"
+                  className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-amber-500 to-orange-600 shadow-lg"
                 >
                   <Clock className="h-6 w-6 text-white" />
                 </motion.div>
@@ -258,7 +260,7 @@ const AdminParticipantResultsPage = () => {
             )}
 
             {/* Error Message Card */}
-            <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50 to-orange-50 p-8 shadow-lg dark:border-amber-700/50 dark:from-amber-900/20 dark:to-orange-900/20">
+            <div className="rounded-2xl border border-amber-200/80 bg-linear-to-br from-amber-50 to-orange-50 p-8 shadow-lg dark:border-amber-700/50 dark:from-amber-900/20 dark:to-orange-900/20">
               <div className="flex items-start gap-4">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/50">
                   {participantResults.error === "NO_PARTICIPATION" ? (
@@ -353,7 +355,7 @@ const AdminParticipantResultsPage = () => {
   const initials = getInitials(participantUser?.name)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
       {/* Header */}
       <div className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80">
         <div className="mx-auto max-w-6xl px-4 py-4">
@@ -363,7 +365,7 @@ const AdminParticipantResultsPage = () => {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg",
+                  "flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-lg",
                   results.isPassing
                     ? "from-green-500 to-emerald-600"
                     : "from-amber-500 to-orange-600",
@@ -446,7 +448,7 @@ const AdminParticipantResultsPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className={cn(
-                "rounded-2xl border border-gray-200/80 bg-gradient-to-br p-6 shadow-lg dark:border-gray-700/50",
+                "rounded-2xl border border-gray-200/80 bg-linear-to-br p-6 shadow-lg dark:border-gray-700/50",
                 getScoreBgColor(results.scorePercentage),
               )}
             >
@@ -548,10 +550,10 @@ const AdminParticipantResultsPage = () => {
                     className={cn(
                       "h-full rounded-full",
                       results.scorePercentage >= 80
-                        ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                        ? "bg-linear-to-r from-green-500 to-emerald-500"
                         : results.scorePercentage >= 60
-                          ? "bg-gradient-to-r from-amber-500 to-orange-500"
-                          : "bg-gradient-to-r from-red-500 to-rose-500",
+                          ? "bg-linear-to-r from-amber-500 to-orange-500"
+                          : "bg-linear-to-r from-red-500 to-rose-500",
                     )}
                   />
                   {/* 60% marker */}
@@ -628,6 +630,7 @@ const AdminParticipantResultsPage = () => {
 
           {/* Right column - Navigation Sidebar (desktop) */}
           <div className="hidden xl:block">
+            <div ref={desktopNavRef} className="h-px" />
             <div className="sticky top-24 space-y-4">
               <ResultsQuestionNavigator
                 questionResults={navigatorResults}
@@ -661,8 +664,8 @@ const AdminParticipantResultsPage = () => {
         </div>
       </div>
 
-      {/* Mobile navigation FAB (positioned left for admin) */}
-      <div className="xl:hidden">
+      {/* Navigation FAB (mobile + desktop when sidebar is out of view) */}
+      {!isDesktopNavVisible && (
         <ResultsQuestionNavigator
           questionResults={navigatorResults}
           onNavigateToQuestion={scrollToQuestion}
@@ -670,7 +673,7 @@ const AdminParticipantResultsPage = () => {
           position="left"
           accentColor="blue"
         />
-      </div>
+      )}
 
       {/* Scroll to top (right side, no collision with left FAB) */}
       <ScrollToTop threshold={500} position="right" />

@@ -4,7 +4,7 @@ export const ProfileSkeleton = () => {
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header skeleton */}
-      <div className="relative overflow-hidden rounded-3xl border border-gray-100 bg-gradient-to-br from-blue-50/80 via-indigo-50/50 to-violet-50/80 p-6 shadow-sm dark:border-gray-800 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-violet-950/30 md:p-8">
+      <div className="relative overflow-hidden rounded-3xl border border-gray-100 bg-linear-to-br from-blue-50/80 via-indigo-50/50 to-violet-50/80 p-6 shadow-sm dark:border-gray-800 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-violet-950/30 md:p-8">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
           <Skeleton className="h-32 w-32 rounded-2xl sm:h-36 sm:w-36" />
           <div className="flex-1 space-y-3 text-center sm:text-left">

@@ -30,7 +30,7 @@ export default function AboutMissions() {
   return (
     <div className="mb-20">
       <div className="animate-fade-in-up mb-16 text-center">
-        <div className="mb-8 inline-flex items-center rounded-full border border-purple-200/50 bg-gradient-to-r from-purple-100 to-pink-100 px-6 py-3 text-sm font-semibold text-purple-700 dark:border-purple-700/50 dark:from-purple-900/50 dark:to-pink-900/50 dark:text-purple-300">
+        <div className="mb-8 inline-flex items-center rounded-full border border-purple-200/50 bg-linear-to-r from-purple-100 to-pink-100 px-6 py-3 text-sm font-semibold text-purple-700 dark:border-purple-700/50 dark:from-purple-900/50 dark:to-pink-900/50 dark:text-purple-300">
           <Target className="mr-2 h-4 w-4" />
           Nos valeurs
         </div>
@@ -50,7 +50,7 @@ export default function AboutMissions() {
             style={{ animationDelay: `${index * 0.2}s` }}
           >
             <div
-              className={`mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br ${mission.color} shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:shadow-2xl`}
+              className={`mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-3xl bg-linear-to-br ${mission.color} shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:shadow-2xl`}
             >
               <mission.icon className="h-10 w-10 text-white" />
             </div>

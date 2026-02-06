@@ -13,6 +13,7 @@ import {
 import { AnimatePresence, motion } from "motion/react"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { toast } from "sonner"
 import { Calculator } from "@/components/quiz/calculator"
 import { LabValues } from "@/components/quiz/lab-values"
@@ -52,6 +53,7 @@ const AssessmentPage = () => {
   const router = useRouter()
   const examId = params.examId as Id<"exams">
 
+  const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(
@@ -579,7 +581,7 @@ const AssessmentPage = () => {
 
   if (!examWithQuestions) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -606,7 +608,7 @@ const AssessmentPage = () => {
   })
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
       {/* Header */}
       <SessionHeader
         config={{
@@ -717,7 +719,7 @@ const AssessmentPage = () => {
               {currentQuestionIndex === totalQuestions - 1 ? (
                 <Button
                   onClick={() => setShowSubmitDialog(true)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
                   <CheckCircle className="h-4 w-4" />
                   Terminer
@@ -726,7 +728,7 @@ const AssessmentPage = () => {
                 <Button
                   onClick={() => goToQuestion(currentQuestionIndex + 1)}
                   disabled={isQuestionLocked(currentQuestionIndex + 1)}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
                   {isQuestionLocked(currentQuestionIndex + 1) ? (
                     <>
@@ -762,7 +764,7 @@ const AssessmentPage = () => {
                   onClick={() => setShowSubmitDialog(true)}
                   disabled={isSubmitting}
                   size="lg"
-                  className="w-full bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white shadow-lg hover:from-green-700 hover:to-emerald-700"
+                  className="w-full bg-linear-to-r from-green-600 to-emerald-600 font-semibold text-white shadow-lg hover:from-green-700 hover:to-emerald-700"
                 >
                   <Flag className="mr-2 h-4 w-4" />
                   Terminer l&apos;examen
@@ -773,6 +775,7 @@ const AssessmentPage = () => {
 
           {/* Right column - Navigation Sidebar */}
           <div className="hidden lg:block">
+            <div ref={desktopNavRef} className="h-px" />
             <QuestionNavigator
               questions={examWithQuestions.questions.filter((q): q is NonNullable<typeof q> => q !== null)}
               answers={navigatorAnswers}
@@ -786,19 +789,21 @@ const AssessmentPage = () => {
         </div>
       </div>
 
-      {/* Mobile question navigator FAB */}
-      <div className="fixed bottom-6 left-6 lg:hidden">
-        <QuestionNavigator
-          questions={examWithQuestions.questions.filter((q): q is NonNullable<typeof q> => q !== null)}
-          answers={navigatorAnswers}
-          flaggedQuestions={flaggedQuestions}
-          currentIndex={currentQuestionIndex}
-          onNavigate={goToQuestion}
-          variant="mobile"
-          isQuestionLocked={isQuestionLocked}
-          accentColor="blue"
-        />
-      </div>
+      {/* Navigation FAB (mobile + desktop when sidebar is out of view) */}
+      {!isDesktopNavVisible && (
+        <div className="fixed bottom-6 left-6">
+          <QuestionNavigator
+            questions={examWithQuestions.questions.filter((q): q is NonNullable<typeof q> => q !== null)}
+            answers={navigatorAnswers}
+            flaggedQuestions={flaggedQuestions}
+            currentIndex={currentQuestionIndex}
+            onNavigate={goToQuestion}
+            variant="mobile"
+            isQuestionLocked={isQuestionLocked}
+            accentColor="blue"
+          />
+        </div>
+      )}
 
       {/* Floating toolbar */}
       <SessionToolbar
@@ -926,7 +931,7 @@ const AssessmentPage = () => {
               Règles importantes de l&apos;examen
             </DialogTitle>
             <div className="space-y-4 pt-4 text-base">
-              <div className="rounded-lg bg-gradient-to-br from-red-50 to-orange-50 p-4 dark:from-red-950/30 dark:to-orange-950/30">
+              <div className="rounded-lg bg-linear-to-br from-red-50 to-orange-50 p-4 dark:from-red-950/30 dark:to-orange-950/30">
                 <h3 className="mb-3 font-semibold text-red-900 dark:text-red-200">
                   Mesures anti-fraude activées
                 </h3>
@@ -1008,7 +1013,7 @@ const AssessmentPage = () => {
             </Button>
             <Button
               onClick={handleStartExam}
-              className="bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
+              className="bg-linear-to-r from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
             >
               Je comprends - Commencer l&apos;examen
             </Button>

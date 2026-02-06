@@ -8,6 +8,7 @@ import {
   useActionState,
   useTransition,
 } from "react"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { useConvexAuth, useQuery, useMutation } from "convex/react"
 import { useRouter, useParams } from "next/navigation"
 import { motion, AnimatePresence } from "motion/react"
@@ -31,6 +32,8 @@ const TrainingSessionPage = () => {
   const params = useParams()
   const sessionId = params.sessionId as Id<"trainingParticipations">
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
+
+  const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
 
   // State
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -255,7 +258,7 @@ const TrainingSessionPage = () => {
     : false
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
+    <div className="min-h-screen bg-linear-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
       {/* Header */}
       <SessionHeader
         config={{
@@ -317,6 +320,7 @@ const TrainingSessionPage = () => {
 
           {/* Sidebar - Question navigator */}
           <div className="hidden lg:block">
+            <div ref={desktopNavRef} className="h-px" />
             <QuestionNavigator
               questions={questions}
               answers={answers}
@@ -329,18 +333,20 @@ const TrainingSessionPage = () => {
         </div>
       </div>
 
-      {/* Mobile question navigator FAB */}
-      <div className="fixed bottom-6 left-6 lg:hidden">
-        <QuestionNavigator
-          questions={questions}
-          answers={answers}
-          flaggedQuestions={flaggedQuestions}
-          currentIndex={currentIndex}
-          onNavigate={goToQuestion}
-          variant="mobile"
-          accentColor="emerald"
-        />
-      </div>
+      {/* Navigation FAB (mobile + desktop when sidebar is out of view) */}
+      {!isDesktopNavVisible && (
+        <div className="fixed bottom-6 left-6">
+          <QuestionNavigator
+            questions={questions}
+            answers={answers}
+            flaggedQuestions={flaggedQuestions}
+            currentIndex={currentIndex}
+            onNavigate={goToQuestion}
+            variant="mobile"
+            accentColor="emerald"
+          />
+        </div>
+      )}
 
       {/* Floating toolbar (calc + lab values) */}
       <SessionToolbar

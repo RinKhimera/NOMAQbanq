@@ -103,7 +103,7 @@ export function DomainChartContent({
         </div>
       </CardHeader>
       <CardContent className="flex-1 pb-4">
-        <ChartContainer config={chartConfig} className="h-[320px] w-full">
+        <ChartContainer config={chartConfig} className="h-80 w-full">
           <BarChart
             data={chartData}
             layout="vertical"

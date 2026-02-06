@@ -91,10 +91,10 @@ export const MarketingHeader = () => {
                     isScrolled ? "text-lg" : "text-xl"
                   }`}
                 >
-                  <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400">
+                  <span className="bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400">
                     NOMAQ
                   </span>
-                  <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-blue-400">
+                  <span className="bg-linear-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent dark:from-indigo-400 dark:to-blue-400">
                     banq
                   </span>
                 </span>
@@ -126,7 +126,7 @@ export const MarketingHeader = () => {
                   >
                     {item.name}
                     <span
-                      className={`absolute -bottom-0.5 left-0 h-0.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 transition-all duration-300 ${
+                      className={`absolute -bottom-0.5 left-0 h-0.5 rounded-full bg-linear-to-r from-blue-600 to-indigo-600 transition-all duration-300 ${
                         isActive ? "w-full" : "w-0 group-hover:w-full"
                       }`}
                     />
@@ -155,7 +155,7 @@ export const MarketingHeader = () => {
                           src={currentUser.image}
                           alt={currentUser.name}
                         />
-                        <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white">
+                        <AvatarFallback className="bg-linear-to-br from-blue-600 to-indigo-600 text-white">
                           {currentUser.name?.charAt(0)?.toUpperCase() || "U"}
                         </AvatarFallback>
                       </Avatar>
@@ -211,7 +211,7 @@ export const MarketingHeader = () => {
                     </Button>
                   </Link>
                   <Link href="/auth/sign-up">
-                    <Button className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-2 text-[15px] font-semibold text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg">
+                    <Button className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-2 text-[15px] font-semibold text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg">
                       Inscription
                     </Button>
                   </Link>

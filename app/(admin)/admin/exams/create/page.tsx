@@ -154,7 +154,7 @@ const AdminCreateExamPage = () => {
         <div className="flex flex-col gap-4 @md:flex-row @md:items-center @md:justify-between">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 shadow-lg shadow-blue-500/25">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-blue-600 to-indigo-600 shadow-lg shadow-blue-500/25">
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div>
@@ -184,7 +184,7 @@ const AdminCreateExamPage = () => {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* Main Info Card */}
             <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-              <CardHeader className="border-b bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+              <CardHeader className="border-b bg-linear-to-r from-blue-600 to-indigo-600 text-white">
                 <div className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   <CardTitle className="text-lg">
@@ -365,7 +365,7 @@ const AdminCreateExamPage = () => {
 
             {/* Pause Settings Card */}
             <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-              <CardHeader className="border-b bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+              <CardHeader className="border-b bg-linear-to-r from-amber-500 to-orange-500 text-white">
                 <div className="flex items-center gap-2">
                   <Coffee className="h-5 w-5" />
                   <CardTitle className="text-lg">
@@ -488,7 +488,7 @@ const AdminCreateExamPage = () => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg shadow-violet-500/25">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-violet-500 to-purple-500 shadow-lg shadow-violet-500/25">
                     <FileText className="h-5 w-5 text-white" />
                   </div>
                   <div>
@@ -555,7 +555,7 @@ const AdminCreateExamPage = () => {
                     <Button
                       type="submit"
                       disabled={selectedQuestions.length !== numberOfQuestions}
-                      className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
+                      className="bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
                     >
                       <Sparkles className="mr-2 h-4 w-4" />
                       Créer l&apos;examen

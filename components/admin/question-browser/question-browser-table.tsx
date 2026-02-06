@@ -163,9 +163,9 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
         <TableHeader>
           <TableRow className="hover:bg-transparent">
             {/* Checkbox column for select mode */}
-            {isSelectMode && <TableHead className="w-[50px] pl-4" />}
-            <TableHead className="w-[50px] pl-4">#</TableHead>
-            <TableHead className="min-w-[300px]">
+            {isSelectMode && <TableHead className="w-12.5 pl-4" />}
+            <TableHead className="w-12.5 pl-4">#</TableHead>
+            <TableHead className="min-w-75">
               <Button
                 variant="ghost"
                 onClick={() => handleSort("question")}
@@ -175,7 +175,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                 {getSortIcon("question")}
               </Button>
             </TableHead>
-            <TableHead className="w-[150px]">
+            <TableHead className="w-37.5">
               <Button
                 variant="ghost"
                 onClick={() => handleSort("domain")}
@@ -185,7 +185,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                 {getSortIcon("domain")}
               </Button>
             </TableHead>
-            <TableHead className="hidden w-[180px] md:table-cell">
+            <TableHead className="hidden w-45 md:table-cell">
               <Button
                 variant="ghost"
                 onClick={() => handleSort("objectifCMC")}
@@ -195,8 +195,8 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                 {getSortIcon("objectifCMC")}
               </Button>
             </TableHead>
-            <TableHead className="w-[80px] text-center">Images</TableHead>
-            <TableHead className="hidden w-[120px] lg:table-cell">
+            <TableHead className="w-20 text-center">Images</TableHead>
+            <TableHead className="hidden w-30 lg:table-cell">
               <Button
                 variant="ghost"
                 onClick={() => handleSort("_creationTime")}
@@ -207,7 +207,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
               </Button>
             </TableHead>
             {/* Preview button column */}
-            <TableHead className="w-[50px]" />
+            <TableHead className="w-12.5" />
           </TableRow>
         </TableHeader>
         <TableBody>

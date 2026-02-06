@@ -13,6 +13,7 @@ import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useMemo, useState } from "react"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import { ScrollToTop } from "@/components/shared/scroll-to-top"
@@ -45,6 +46,7 @@ const ExamResultsPage = () => {
   const params = useParams()
   const examId = params.examId as Id<"exams">
 
+  const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(
     new Set([0]),
   )
@@ -152,7 +154,7 @@ const ExamResultsPage = () => {
   // Loading state
   if (!currentUser || examResults === undefined) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -170,7 +172,7 @@ const ExamResultsPage = () => {
   // No results found
   if (!results) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -210,7 +212,7 @@ const ExamResultsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
       {/* Header */}
       <div className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80">
         <div className="mx-auto max-w-6xl px-4 py-4">
@@ -220,7 +222,7 @@ const ExamResultsPage = () => {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg",
+                  "flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-lg",
                   results.isPassing
                     ? "from-green-500 to-emerald-600"
                     : "from-amber-500 to-orange-600",
@@ -267,7 +269,7 @@ const ExamResultsPage = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className={cn(
-                "rounded-2xl border border-gray-200/80 bg-gradient-to-br p-6 shadow-lg dark:border-gray-700/50",
+                "rounded-2xl border border-gray-200/80 bg-linear-to-br p-6 shadow-lg dark:border-gray-700/50",
                 getScoreBgColor(results.scorePercentage),
               )}
             >
@@ -369,10 +371,10 @@ const ExamResultsPage = () => {
                     className={cn(
                       "h-full rounded-full",
                       results.scorePercentage >= 80
-                        ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                        ? "bg-linear-to-r from-green-500 to-emerald-500"
                         : results.scorePercentage >= 60
-                          ? "bg-gradient-to-r from-amber-500 to-orange-500"
-                          : "bg-gradient-to-r from-red-500 to-rose-500",
+                          ? "bg-linear-to-r from-amber-500 to-orange-500"
+                          : "bg-linear-to-r from-red-500 to-rose-500",
                     )}
                   />
                   {/* 60% marker */}
@@ -449,6 +451,7 @@ const ExamResultsPage = () => {
 
           {/* Right column - Navigation Sidebar (desktop) */}
           <div className="hidden lg:block">
+            <div ref={desktopNavRef} className="h-px" />
             <ResultsQuestionNavigator
               questionResults={navigatorResults}
               onNavigateToQuestion={scrollToQuestion}
@@ -459,8 +462,8 @@ const ExamResultsPage = () => {
         </div>
       </div>
 
-      {/* Mobile navigation FAB */}
-      <div className="lg:hidden">
+      {/* Navigation FAB (mobile + desktop when sidebar is out of view) */}
+      {!isDesktopNavVisible && (
         <ResultsQuestionNavigator
           questionResults={navigatorResults}
           onNavigateToQuestion={scrollToQuestion}
@@ -468,13 +471,13 @@ const ExamResultsPage = () => {
           position="right"
           accentColor="blue"
         />
-      </div>
+      )}
 
       {/* Scroll to top (offset to avoid FAB collision on mobile) */}
       <ScrollToTop
         threshold={500}
         position="right"
-        className="bottom-24 right-6 lg:bottom-6"
+        className="bottom-24 right-6"
       />
     </div>
   )

@@ -154,7 +154,7 @@ export const TransactionStats = () => {
             {/* Background gradient on hover */}
             <div
               className={cn(
-                "absolute inset-0 bg-gradient-to-br opacity-0 transition-opacity duration-300 group-hover:opacity-100",
+                "absolute inset-0 bg-linear-to-br opacity-0 transition-opacity duration-300 group-hover:opacity-100",
                 card.bgGradient
               )}
             />
@@ -162,7 +162,7 @@ export const TransactionStats = () => {
             <div className="relative flex items-center gap-4">
               <div
                 className={cn(
-                  "flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg",
+                  "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-linear-to-br shadow-lg",
                   card.gradient
                 )}
               >
@@ -181,7 +181,7 @@ export const TransactionStats = () => {
             {/* Decorative corner */}
             <div
               className={cn(
-                "absolute -right-8 -bottom-8 h-24 w-24 rounded-full bg-gradient-to-br opacity-10 blur-2xl",
+                "absolute -right-8 -bottom-8 h-24 w-24 rounded-full bg-linear-to-br opacity-10 blur-2xl",
                 card.gradient
               )}
             />

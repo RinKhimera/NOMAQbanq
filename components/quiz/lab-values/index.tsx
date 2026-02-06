@@ -36,7 +36,7 @@ const CategoryPill = ({
     {isActive && (
       <motion.div
         layoutId="active-category"
-        className="absolute inset-0 rounded-full bg-gradient-to-r from-cyan-500/90 to-teal-600/90 shadow-[0_2px_8px_rgba(6,182,212,0.3)]"
+        className="absolute inset-0 rounded-full bg-linear-to-r from-cyan-500/90 to-teal-600/90 shadow-[0_2px_8px_rgba(6,182,212,0.3)]"
         transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
       />
     )}
@@ -62,7 +62,7 @@ const UnitToggle = ({
     aria-label="Basculer entre unités US et SI"
   >
     <motion.div
-      className="absolute top-1 h-6 w-10 rounded-full bg-gradient-to-r from-amber-500/90 to-amber-600/90 shadow-[0_2px_4px_rgba(0,0,0,0.2)]"
+      className="absolute top-1 h-6 w-10 rounded-full bg-linear-to-r from-amber-500/90 to-amber-600/90 shadow-[0_2px_4px_rgba(0,0,0,0.2)]"
       animate={{ left: unitSystem === "us" ? 4 : 44 }}
       transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
     />
@@ -135,8 +135,8 @@ export const LabValues = ({ isOpen, onOpenChange }: LabValuesProps) => {
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "flex h-[600px] w-[95vw] max-w-[500px] flex-col overflow-hidden rounded-2xl border-0 p-0",
-          "bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950",
+          "flex h-150 w-[95vw] max-w-125 flex-col overflow-hidden rounded-2xl border-0 p-0",
+          "bg-linear-to-b from-slate-900 via-slate-900 to-slate-950",
           "shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_20px_50px_-12px_rgba(0,0,0,0.8)]",
         )}
         aria-describedby="lab-values-description"
@@ -183,7 +183,7 @@ export const LabValues = ({ isOpen, onOpenChange }: LabValuesProps) => {
         </div>
 
         {/* Separator */}
-        <div className="h-px shrink-0 bg-gradient-to-r from-transparent via-slate-700/50 to-transparent" />
+        <div className="h-px shrink-0 bg-linear-to-r from-transparent via-slate-700/50 to-transparent" />
 
         {/* Column headers - Fixed outside scroll */}
         <div className="shrink-0 flex items-center justify-between gap-3 bg-slate-900/95 px-4 py-2 border-b border-slate-800/30">
@@ -231,7 +231,7 @@ export const LabValues = ({ isOpen, onOpenChange }: LabValuesProps) => {
         </div>
 
         {/* Bottom accent line */}
-        <div className="h-1 shrink-0 bg-gradient-to-r from-teal-500/0 via-teal-500/50 to-teal-500/0" />
+        <div className="h-1 shrink-0 bg-linear-to-r from-teal-500/0 via-teal-500/50 to-teal-500/0" />
       </DialogContent>
     </Dialog>
   )

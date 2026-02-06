@@ -115,7 +115,7 @@ export const PricingCard = ({
         >
           <div className={cn(
             "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold text-white shadow-lg",
-            "bg-gradient-to-r",
+            "bg-linear-to-r",
             config.gradient
           )}>
             <Crown className="h-4 w-4" />
@@ -140,7 +140,7 @@ export const PricingCard = ({
         {isPopular && (
           <div className={cn(
             "absolute inset-0 opacity-[0.03] dark:opacity-[0.08]",
-            "bg-gradient-to-br",
+            "bg-linear-to-br",
             config.gradient
           )} />
         )}
@@ -148,7 +148,7 @@ export const PricingCard = ({
         {/* Decorative corner gradient */}
         <div className={cn(
           "absolute -right-20 -top-20 h-40 w-40 rounded-full blur-3xl opacity-30 transition-opacity duration-500",
-          "bg-gradient-to-br",
+          "bg-linear-to-br",
           config.gradient,
           "group-hover:opacity-50"
         )} />
@@ -160,7 +160,7 @@ export const PricingCard = ({
             <div className="space-y-2">
               <div className={cn(
                 "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-semibold",
-                "bg-gradient-to-r",
+                "bg-linear-to-r",
                 config.lightGradient,
                 config.accentColor
               )}>
@@ -227,8 +227,8 @@ export const PricingCard = ({
                 className="flex items-start gap-3"
               >
                 <div className={cn(
-                  "mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full",
-                  "bg-gradient-to-br",
+                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                  "bg-linear-to-br",
                   config.gradient
                 )}>
                   <Check className="h-3 w-3 text-white" />
@@ -248,7 +248,7 @@ export const PricingCard = ({
               "w-full h-14 text-base font-bold rounded-2xl transition-all duration-300",
               "shadow-lg hover:shadow-xl",
               isPopular
-                ? cn("bg-gradient-to-r text-white hover:opacity-90", config.gradient)
+                ? cn("bg-linear-to-r text-white hover:opacity-90", config.gradient)
                 : "bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
             )}
           >

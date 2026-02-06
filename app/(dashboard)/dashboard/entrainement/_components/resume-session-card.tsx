@@ -83,7 +83,7 @@ export const ResumeSessionCard = ({
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="relative overflow-hidden rounded-2xl border-2 border-amber-300/60 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 shadow-lg dark:border-amber-700/40 dark:from-amber-950/40 dark:via-orange-950/40 dark:to-yellow-950/40"
+      className="relative overflow-hidden rounded-2xl border-2 border-amber-300/60 bg-linear-to-br from-amber-50 via-orange-50 to-yellow-50 shadow-lg dark:border-amber-700/40 dark:from-amber-950/40 dark:via-orange-950/40 dark:to-yellow-950/40"
     >
       {/* Decorative pulse */}
       <div className="absolute right-4 top-4">
@@ -141,7 +141,7 @@ export const ResumeSessionCard = ({
         <div className="flex gap-3">
           <Button
             onClick={handleResume}
-            className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 font-semibold text-white shadow-md shadow-amber-500/20 hover:from-amber-600 hover:to-orange-600"
+            className="flex-1 bg-linear-to-r from-amber-500 to-orange-500 font-semibold text-white shadow-md shadow-amber-500/20 hover:from-amber-600 hover:to-orange-600"
           >
             <Play className="mr-2 h-4 w-4" />
             Reprendre

@@ -116,7 +116,7 @@ export default function QuizPage() {
 
   if (!quizQuestions || quizQuestions.length === 0) {
     return (
-      <div className="flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
+      <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
         <div className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
           <p className="text-gray-600 dark:text-gray-300">
@@ -167,7 +167,7 @@ export default function QuizPage() {
           <Button
             onClick={handleNextQuestion}
             disabled={currentAnswer === null}
-            className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-2 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-2 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
           >
             {quizState.currentQuestion < quizQuestions.length - 1 ? (
               <>

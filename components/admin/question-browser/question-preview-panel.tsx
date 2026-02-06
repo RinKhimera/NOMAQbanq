@@ -275,7 +275,7 @@ export function QuestionPreviewPanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-[420px] overflow-y-auto sm:max-w-[420px]"
+        className="w-105 overflow-y-auto sm:max-w-105"
       >
         <SheetHeader className="sr-only">
           <SheetTitle>Prévisualisation de la question</SheetTitle>

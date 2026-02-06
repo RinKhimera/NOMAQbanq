@@ -74,7 +74,7 @@ export const QuestionActions = ({ actions }: QuestionActionsProps) => {
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 flex-shrink-0 hover:bg-gray-100 dark:hover:bg-gray-700"
+          className="h-8 w-8 shrink-0 hover:bg-gray-100 dark:hover:bg-gray-700"
         >
           <MoreVertical className="h-4 w-4" />
           <span className="sr-only">Actions</span>
@@ -161,13 +161,13 @@ export const QuestionMetadata = ({
   return (
     <div className="mb-3 flex flex-col gap-2 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between dark:text-gray-400">
       <div className="flex min-w-0 flex-1 items-center gap-1">
-        <Badge variant="outline" className="max-w-[400px] truncate">
+        <Badge variant="outline" className="max-w-100 truncate">
           {objectifCMC}
         </Badge>
       </div>
 
       {referencesCount !== undefined && referencesCount > 0 && (
-        <div className="flex flex-shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           <Eye className="h-4 w-4 text-gray-400" />
           <Badge variant="outline" className="whitespace-nowrap">
             {referencesCount} réf.

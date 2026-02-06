@@ -39,7 +39,7 @@ const CalcButton = ({
       "dark:bg-slate-800/80 dark:hover:bg-slate-700/90",
     ),
     operator: cn(
-      "bg-gradient-to-b from-amber-500/90 to-amber-600/90 text-white text-lg",
+      "bg-linear-to-b from-amber-500/90 to-amber-600/90 text-white text-lg",
       "hover:from-amber-400/90 hover:to-amber-500/90",
       "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_2px_8px_rgba(245,158,11,0.3)]",
     ),
@@ -49,7 +49,7 @@ const CalcButton = ({
       "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03),0_2px_4px_rgba(0,0,0,0.2)]",
     ),
     equals: cn(
-      "bg-gradient-to-b from-cyan-500 to-teal-600 text-white text-lg",
+      "bg-linear-to-b from-cyan-500 to-teal-600 text-white text-lg",
       "hover:from-cyan-400 hover:to-teal-500",
       "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_2px_12px_rgba(6,182,212,0.4)]",
     ),
@@ -157,7 +157,7 @@ export const Calculator = ({ isOpen, onOpenChange }: CalculatorProps) => {
       <DialogContent
         className={cn(
           "max-w-[320px] overflow-hidden rounded-2xl border-0 p-0",
-          "bg-gradient-to-b from-slate-900 via-slate-900 to-slate-950",
+          "bg-linear-to-b from-slate-900 via-slate-900 to-slate-950",
           "shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_20px_50px_-12px_rgba(0,0,0,0.8)]",
         )}
         aria-describedby="calculator-description"
@@ -210,7 +210,7 @@ export const Calculator = ({ isOpen, onOpenChange }: CalculatorProps) => {
                 "text-right font-mono text-4xl font-light tracking-tight",
                 hasError
                   ? "text-rose-400"
-                  : "bg-gradient-to-r from-slate-100 to-white bg-clip-text text-transparent",
+                  : "bg-linear-to-r from-slate-100 to-white bg-clip-text text-transparent",
               )}
               style={{ fontFeatureSettings: '"tnum"' }}
             >
@@ -218,14 +218,14 @@ export const Calculator = ({ isOpen, onOpenChange }: CalculatorProps) => {
             </motion.div>
 
             {/* Subtle shine effect */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/10 to-transparent" />
           </motion.div>
         </div>
 
         {/* Button Grid */}
         <div className="relative p-4 pt-0">
           {/* Separator line */}
-          <div className="absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-slate-700/50 to-transparent" />
+          <div className="absolute inset-x-4 top-0 h-px bg-linear-to-r from-transparent via-slate-700/50 to-transparent" />
 
           <div className="grid grid-cols-4 gap-2.5 pt-4">
             {/* Row 1 */}
@@ -310,7 +310,7 @@ export const Calculator = ({ isOpen, onOpenChange }: CalculatorProps) => {
         </div>
 
         {/* Bottom accent line */}
-        <div className="h-1 bg-gradient-to-r from-cyan-500/0 via-cyan-500/50 to-cyan-500/0" />
+        <div className="h-1 bg-linear-to-r from-cyan-500/0 via-cyan-500/50 to-cyan-500/0" />
       </DialogContent>
     </Dialog>
   )

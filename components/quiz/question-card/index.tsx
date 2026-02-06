@@ -309,7 +309,7 @@ export const QuestionCard = ({
                 onClick={onToggleExpand}
                 aria-label={isExpanded ? "Réduire la question" : "Développer la question"}
                 aria-expanded={isExpanded}
-                className="-mt-1 h-8 w-8 flex-shrink-0 p-1"
+                className="-mt-1 h-8 w-8 shrink-0 p-1"
               >
                 {isExpanded ? (
                   <ChevronUp className="h-4 w-4" aria-hidden="true" />

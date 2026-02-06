@@ -71,7 +71,7 @@ export function AdminPageHeader({
           <div
             className={cn(
               "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl",
-              "bg-gradient-to-br shadow-lg",
+              "bg-linear-to-br shadow-lg",
               colors.gradient,
               colors.shadow
             )}

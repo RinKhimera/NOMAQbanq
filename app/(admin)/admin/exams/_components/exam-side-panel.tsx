@@ -56,7 +56,7 @@ export function ExamSidePanel({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        className="w-full overflow-y-auto border-l-0 bg-gradient-to-b from-slate-50 via-white to-slate-50/50 p-0 shadow-2xl sm:max-w-[480px] dark:from-gray-900 dark:via-gray-900 dark:to-gray-950"
+        className="w-full overflow-y-auto border-l-0 bg-linear-to-b from-slate-50 via-white to-slate-50/50 p-0 shadow-2xl sm:max-w-120 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950"
         side="right"
         hideCloseButton
       >
@@ -168,13 +168,13 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
         className={cn(
           "relative overflow-hidden px-6 pb-6 pt-5",
           status === "active" &&
-            "bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent",
+            "bg-linear-to-br from-emerald-500/10 via-teal-500/5 to-transparent",
           status === "upcoming" &&
-            "bg-gradient-to-br from-blue-500/10 via-indigo-500/5 to-transparent",
+            "bg-linear-to-br from-blue-500/10 via-indigo-500/5 to-transparent",
           status === "completed" &&
-            "bg-gradient-to-br from-gray-500/10 via-slate-500/5 to-transparent",
+            "bg-linear-to-br from-gray-500/10 via-slate-500/5 to-transparent",
           status === "inactive" &&
-            "bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent",
+            "bg-linear-to-br from-amber-500/10 via-orange-500/5 to-transparent",
         )}
       >
         {/* Pattern overlay */}
@@ -191,7 +191,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
               <div
                 className={cn(
                   "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg",
-                  "bg-gradient-to-br",
+                  "bg-linear-to-br",
                   status === "active" && "from-emerald-500 to-teal-600",
                   status === "upcoming" && "from-blue-500 to-indigo-600",
                   status === "completed" && "from-gray-400 to-slate-500",
@@ -316,7 +316,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
             </Link>
           </Button>
           <Button
-            className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
+            className="flex-1 bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
             asChild
           >
             <Link href={`/admin/exams/edit/${exam._id}`}>

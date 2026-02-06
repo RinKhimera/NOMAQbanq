@@ -77,7 +77,7 @@ export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
       <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
         <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
           <CardTitle className="flex items-center gap-3 text-lg">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
               <User className="h-5 w-5 text-white" />
             </div>
             <span className="font-display font-semibold text-gray-900 dark:text-white">

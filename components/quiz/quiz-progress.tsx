@@ -37,7 +37,7 @@ export default function QuizProgress({
           >
             Question {currentQuestion + 1} sur {totalQuestions}
           </Badge>
-          <Badge className="w-fit bg-gradient-to-r from-purple-500 to-pink-500 px-2 py-1 text-xs text-white capitalize sm:px-3 sm:text-sm">
+          <Badge className="w-fit bg-linear-to-r from-purple-500 to-pink-500 px-2 py-1 text-xs text-white capitalize sm:px-3 sm:text-sm">
             {domain}
           </Badge>
           <Badge

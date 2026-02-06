@@ -56,7 +56,7 @@ export const AnswerOption = ({
       {/* Letter badge */}
       <span
         className={cn(
-          "flex flex-shrink-0 items-center justify-center rounded-full font-semibold",
+          "flex shrink-0 items-center justify-center rounded-full font-semibold",
           compact ? "h-6 w-6 text-xs" : "h-8 w-8 text-sm",
           badgeStyles[state],
         )}
@@ -81,7 +81,7 @@ export const AnswerOption = ({
       {showCheckIcon && (
         <CheckCircle
           className={cn(
-            "flex-shrink-0 text-green-600 dark:text-green-400",
+            "shrink-0 text-green-600 dark:text-green-400",
             compact ? "h-4 w-4" : "h-5 w-5",
           )}
           aria-hidden="true"
@@ -90,7 +90,7 @@ export const AnswerOption = ({
       {showXIcon && (
         <XCircle
           className={cn(
-            "flex-shrink-0 text-red-600 dark:text-red-400",
+            "shrink-0 text-red-600 dark:text-red-400",
             compact ? "h-4 w-4" : "h-5 w-5",
           )}
           aria-hidden="true"

@@ -100,7 +100,7 @@ const AccessCard = ({
       {isActive && (
         <div
           className={cn(
-            "absolute inset-x-0 top-0 h-1 bg-gradient-to-r",
+            "absolute inset-x-0 top-0 h-1 bg-linear-to-r",
             config.gradient,
           )}
         />
@@ -113,7 +113,7 @@ const AccessCard = ({
             className={cn(
               "flex h-12 w-12 items-center justify-center rounded-xl",
               isActive
-                ? cn("bg-gradient-to-br shadow-lg", config.gradient)
+                ? cn("bg-linear-to-br shadow-lg", config.gradient)
                 : "bg-gray-200 dark:bg-gray-700",
             )}
           >
@@ -188,7 +188,7 @@ const AccessCard = ({
           <Link href="/tarifs">
             <Button
               className={cn(
-                "w-full rounded-xl bg-gradient-to-r text-white hover:opacity-90",
+                "w-full rounded-xl bg-linear-to-r text-white hover:opacity-90",
                 config.gradient,
               )}
             >
@@ -364,7 +364,7 @@ export default function AbonnementsPage() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-xl"
+          className="relative overflow-hidden rounded-2xl bg-linear-to-r from-blue-600 via-indigo-600 to-violet-600 p-6 text-white shadow-xl"
         >
           <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
           <div className="absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-white/10 blur-2xl" />

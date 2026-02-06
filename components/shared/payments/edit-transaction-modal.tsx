@@ -206,7 +206,7 @@ export const EditTransactionModal = ({
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-                className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg"
+                className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg"
               >
                 <CheckCircle className="h-10 w-10 text-white" />
               </motion.div>
@@ -225,7 +225,7 @@ export const EditTransactionModal = ({
               exit={{ opacity: 0 }}
             >
               {/* Header with gradient */}
-              <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 px-6 py-8">
+              <div className="relative overflow-hidden bg-linear-to-br from-slate-800 to-slate-900 px-6 py-8">
                 <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
                 <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
                 <div className="relative">
@@ -406,7 +406,7 @@ export const EditTransactionModal = ({
                         <FormControl>
                           <Textarea
                             placeholder="Ex: Paiement reçu le 15 janvier par Interac..."
-                            className="min-h-[80px] resize-none rounded-xl"
+                            className="min-h-20 resize-none rounded-xl"
                             {...field}
                           />
                         </FormControl>
@@ -478,8 +478,8 @@ export const EditTransactionModal = ({
                       className={cn(
                         "flex-1 rounded-xl text-white",
                         showRefundWarning
-                          ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90"
-                          : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:opacity-90"
+                          ? "bg-linear-to-r from-amber-500 to-orange-500 hover:opacity-90"
+                          : "bg-linear-to-r from-blue-600 to-indigo-600 hover:opacity-90"
                       )}
                     >
                       {isSubmitting ? (

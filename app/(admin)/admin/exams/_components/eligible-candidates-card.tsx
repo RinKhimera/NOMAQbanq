@@ -88,7 +88,7 @@ export function EligibleCandidatesCard({
     >
       <CardHeader
         className={cn(
-          "border-b bg-gradient-to-r from-teal-500 to-cyan-500 text-white",
+          "border-b bg-linear-to-r from-teal-500 to-cyan-500 text-white",
           compact && "py-3",
         )}
       >

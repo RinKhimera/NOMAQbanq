@@ -24,7 +24,7 @@ export default function Footer() {
           {/* Logo and description */}
           <div className="col-span-1 md:col-span-2">
             <Link href="/" className="mb-8 flex items-center space-x-3">
-              <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 p-3 shadow-lg">
+              <div className="rounded-2xl bg-linear-to-br from-blue-600 to-indigo-600 p-3 shadow-lg">
                 <Stethoscope className="h-8 w-8 text-white" />
               </div>
               <span className="font-display text-2xl font-bold">NOMAQbanq</span>
@@ -38,7 +38,7 @@ export default function Footer() {
                 <a
                   key={index}
                   href="#"
-                  className="flex h-12 w-12 transform items-center justify-center rounded-2xl bg-gray-800 transition-all duration-300 hover:scale-110 hover:bg-gradient-to-br hover:from-blue-600 hover:to-indigo-600"
+                  className="flex h-12 w-12 transform items-center justify-center rounded-2xl bg-gray-800 transition-all duration-300 hover:scale-110 hover:bg-linear-to-br hover:from-blue-600 hover:to-indigo-600"
                 >
                   <Icon className="h-5 w-5" />
                 </a>

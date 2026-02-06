@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 export const FaqCta = () => {
   return (
     <section className="relative overflow-hidden py-24">
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800" />
+      <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-indigo-700 to-purple-800" />
       <div className="absolute inset-0 bg-black/20" />
 
       {/* Animated background */}

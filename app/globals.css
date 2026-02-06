@@ -531,17 +531,17 @@
   border-color: rgb(59, 130, 246);
 }
 .theme-bg {
-  @apply bg-gradient-to-br from-blue-50 via-white to-indigo-100;
+  @apply bg-linear-to-br from-blue-50 via-white to-indigo-100;
 }
 .dark .theme-bg {
-  @apply bg-gradient-to-br from-gray-900 via-gray-800 to-blue-900/30;
+  @apply bg-linear-to-br from-gray-900 via-gray-800 to-blue-900/30;
 }
 
 .admin-theme-bg {
-  @apply bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-100;
+  @apply bg-linear-to-br from-slate-50 via-gray-50 to-zinc-100;
 }
 .dark .admin-theme-bg {
-  @apply bg-gradient-to-br from-gray-950 via-zinc-900 to-slate-950;
+  @apply bg-linear-to-br from-gray-950 via-zinc-900 to-slate-950;
 }
 
 /* ===== Dashboard Shell Theme System ===== */

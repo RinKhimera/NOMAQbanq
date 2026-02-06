@@ -52,7 +52,7 @@ export const AppSidebar = ({
               asChild
               className={cn(
                 "group/logo rounded-2xl transition-all",
-                "data-[slot=sidebar-menu-button]:!p-2",
+                "data-[slot=sidebar-menu-button]:p-2!",
                 "active:scale-[0.98]",
                 isAdmin
                   ? "hover:bg-orange-500/10 dark:hover:bg-orange-500/15"
@@ -63,7 +63,7 @@ export const AppSidebar = ({
                 <div
                   className={cn(
                     "relative flex size-11 items-center justify-center rounded-xl transition-all duration-300",
-                    "bg-gradient-to-br shadow-lg",
+                    "bg-linear-to-br shadow-lg",
                     "group-hover/logo:scale-105 group-hover/logo:shadow-xl",
                     isAdmin
                       ? "from-orange-500/20 to-amber-500/20 shadow-orange-500/20"

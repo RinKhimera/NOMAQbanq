@@ -68,7 +68,7 @@ export const SiteHeader = ({ isAdmin = false }: SiteHeaderProps) => {
               className={cn(
                 "inline-flex items-center rounded-full px-2.5 py-1",
                 "text-[10px] font-bold tracking-wider uppercase",
-                "bg-gradient-to-r from-orange-500 to-amber-500 text-white",
+                "bg-linear-to-r from-orange-500 to-amber-500 text-white",
                 "shadow-lg shadow-orange-500/30",
               )}
             >

@@ -235,7 +235,7 @@ export const InlineEditField = ({
                     size="sm"
                     disabled={isSaving}
                     className={cn(
-                      "rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4",
+                      "rounded-lg bg-linear-to-r from-blue-600 to-indigo-600 px-4",
                       "hover:from-blue-700 hover:to-indigo-700",
                       "transition-all duration-200",
                     )}

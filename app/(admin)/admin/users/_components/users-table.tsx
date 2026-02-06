@@ -162,7 +162,7 @@ export function UsersTable({
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
-            <TableHead className="w-[50px] pl-4">#</TableHead>
+            <TableHead className="w-12.5 pl-4">#</TableHead>
             <TableHead>
               <Button
                 variant="ghost"
@@ -219,7 +219,7 @@ export function UsersTable({
                       src={user.image}
                       alt={user.name || "Utilisateur"}
                     />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-medium text-white">
+                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-xs font-medium text-white">
                       {getInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>
@@ -245,7 +245,7 @@ export function UsersTable({
                 </div>
               </TableCell>
               <TableCell className="hidden text-gray-500 md:table-cell">
-                <span className="max-w-[200px] truncate">{user.email}</span>
+                <span className="max-w-50 truncate">{user.email}</span>
               </TableCell>
               <TableCell>
                 <Badge

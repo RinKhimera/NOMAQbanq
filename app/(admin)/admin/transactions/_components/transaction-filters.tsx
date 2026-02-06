@@ -75,7 +75,7 @@ export const TransactionFilters = ({
           value={typeFilter}
           onValueChange={(v) => onTypeChange(v as TransactionTypeFilter)}
         >
-          <SelectTrigger className="w-[140px] rounded-xl border-gray-200 dark:border-gray-700">
+          <SelectTrigger className="w-35 rounded-xl border-gray-200 dark:border-gray-700">
             <SelectValue placeholder="Type" />
           </SelectTrigger>
           <SelectContent>
@@ -92,7 +92,7 @@ export const TransactionFilters = ({
           value={statusFilter}
           onValueChange={(v) => onStatusChange(v as TransactionStatusFilter)}
         >
-          <SelectTrigger className="w-[150px] rounded-xl border-gray-200 dark:border-gray-700">
+          <SelectTrigger className="w-37.5 rounded-xl border-gray-200 dark:border-gray-700">
             <SelectValue placeholder="Statut" />
           </SelectTrigger>
           <SelectContent>

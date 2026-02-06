@@ -91,7 +91,7 @@ export const FinishDialog = ({
                 <div className="space-y-2">
                   {hasUnanswered && (
                     <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                       <p className="text-sm text-amber-800 dark:text-amber-200">
                         <strong>{unansweredCount} question{unansweredCount > 1 ? "s" : ""}</strong>{" "}
                         non répondue{unansweredCount > 1 ? "s" : ""} sera{unansweredCount > 1 ? "ont" : ""} comptée{unansweredCount > 1 ? "s" : ""} comme incorrecte{unansweredCount > 1 ? "s" : ""}.
@@ -100,7 +100,7 @@ export const FinishDialog = ({
                   )}
                   {hasFlagged && (
                     <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
-                      <Flag className="mt-0.5 h-4 w-4 flex-shrink-0 text-blue-600 dark:text-blue-400" />
+                      <Flag className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
                       <p className="text-sm text-blue-800 dark:text-blue-200">
                         Vous avez <strong>{flaggedCount} question{flaggedCount > 1 ? "s" : ""} marquée{flaggedCount > 1 ? "s" : ""}</strong> pour révision.
                       </p>

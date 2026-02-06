@@ -62,19 +62,19 @@ export const UpgradePrompt = ({
       {/* Background gradient */}
       <div className={cn(
         "absolute inset-0 opacity-[0.03] dark:opacity-[0.08]",
-        "bg-gradient-to-br",
+        "bg-linear-to-br",
         config.gradient
       )} />
 
       {/* Decorative elements */}
       <div className={cn(
         "absolute -right-16 -top-16 h-32 w-32 rounded-full blur-3xl opacity-40",
-        "bg-gradient-to-br",
+        "bg-linear-to-br",
         config.gradient
       )} />
       <div className={cn(
         "absolute -left-16 -bottom-16 h-32 w-32 rounded-full blur-3xl opacity-20",
-        "bg-gradient-to-br",
+        "bg-linear-to-br",
         config.gradient
       )} />
 
@@ -88,14 +88,14 @@ export const UpgradePrompt = ({
         >
           <div className={cn(
             "relative mx-auto flex h-20 w-20 items-center justify-center rounded-2xl",
-            "bg-gradient-to-br shadow-lg",
+            "bg-linear-to-br shadow-lg",
             config.gradient
           )}>
             <Lock className="h-10 w-10 text-white" />
             {/* Animated ring */}
             <div className={cn(
               "absolute inset-0 rounded-2xl opacity-50 animate-ping",
-              "bg-gradient-to-br",
+              "bg-linear-to-br",
               config.gradient
             )} />
           </div>
@@ -127,7 +127,7 @@ export const UpgradePrompt = ({
           transition={{ delay: 0.4 }}
           className={cn(
             "mb-8 rounded-2xl p-6",
-            "bg-gradient-to-br",
+            "bg-linear-to-br",
             config.lightGradient
           )}
         >
@@ -135,8 +135,8 @@ export const UpgradePrompt = ({
             {config.features.map((feat, i) => (
               <div key={i} className="flex items-center gap-2">
                 <div className={cn(
-                  "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full",
-                  "bg-gradient-to-br",
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                  "bg-linear-to-br",
                   config.gradient
                 )}>
                   <Icon className="h-3 w-3 text-white" />
@@ -161,7 +161,7 @@ export const UpgradePrompt = ({
               size="lg"
               className={cn(
                 "h-14 w-full rounded-2xl text-base font-bold text-white shadow-lg",
-                "bg-gradient-to-r hover:opacity-90",
+                "bg-linear-to-r hover:opacity-90",
                 config.gradient
               )}
             >

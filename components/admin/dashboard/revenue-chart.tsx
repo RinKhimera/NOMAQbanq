@@ -31,7 +31,7 @@ const RevenueChartContent = dynamic(
           </div>
         </CardHeader>
         <CardContent className="flex-1 pb-4">
-          <Skeleton className="h-[280px] w-full" />
+          <Skeleton className="h-70 w-full" />
         </CardContent>
       </Card>
     ),

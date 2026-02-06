@@ -54,14 +54,14 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
       className="relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-6 shadow-lg dark:border-gray-700/50 dark:bg-gray-900"
     >
       {/* Background gradient */}
-      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-br from-slate-600 to-slate-800" />
+      <div className="absolute inset-x-0 top-0 h-24 bg-linear-to-br from-slate-600 to-slate-800" />
 
       <div className="relative">
         {/* Avatar and basic info */}
         <div className="flex flex-col items-center text-center sm:flex-row sm:items-end sm:text-left">
           <Avatar className="h-24 w-24 border-4 border-white shadow-xl dark:border-gray-900">
             <AvatarImage src={user.image} alt={user.name} />
-            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-2xl font-bold text-white">
+            <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-2xl font-bold text-white">
               {initials}
             </AvatarFallback>
           </Avatar>

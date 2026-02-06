@@ -91,11 +91,11 @@ function StatCard({
     >
       <div
         className={cn(
-          "relative h-full overflow-hidden rounded-2xl border bg-gradient-to-br p-5 transition-all duration-300",
+          "relative h-full overflow-hidden rounded-2xl border bg-linear-to-br p-5 transition-all duration-300",
           "bg-white/90 backdrop-blur-sm dark:bg-gray-900/90",
           colors.border,
           colors.bg,
-          "hover:translate-y-[-2px] hover:shadow-lg",
+          "hover:-translate-y-0.5 hover:shadow-lg",
           colors.glow,
         )}
       >
@@ -109,7 +109,7 @@ function StatCard({
         />
 
         {/* Glow effect on hover */}
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
+        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
 
         {/* Header */}
         <div className="relative mb-3 flex items-center justify-between">
@@ -170,10 +170,10 @@ function StatCard({
         </p>
 
         {/* Bottom accent line */}
-        <div className="absolute bottom-0 left-0 h-[3px] w-full overflow-hidden">
+        <div className="absolute bottom-0 left-0 h-0.75 w-full overflow-hidden">
           <div
             className={cn(
-              "h-full w-0 bg-gradient-to-r transition-all duration-500 group-hover:w-full",
+              "h-full w-0 bg-linear-to-r transition-all duration-500 group-hover:w-full",
               colors.accent,
             )}
           />
@@ -232,7 +232,7 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
         {[...Array(5)].map((_, i) => (
           <div
             key={i}
-            className="h-[156px] animate-pulse rounded-2xl border border-gray-200/60 bg-gray-100/50 dark:border-gray-700/40 dark:bg-gray-800/50"
+            className="h-39 animate-pulse rounded-2xl border border-gray-200/60 bg-gray-100/50 dark:border-gray-700/40 dark:bg-gray-800/50"
           />
         ))}
       </div>

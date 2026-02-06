@@ -114,7 +114,7 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
         </div>
       </CardHeader>
       <CardContent className="flex-1 pb-4">
-        <ChartContainer config={chartConfig} className="h-[280px] w-full">
+        <ChartContainer config={chartConfig} className="h-70 w-full">
           <AreaChart
             data={mergedData}
             margin={{ top: 10, right: 10, left: 0, bottom: 0 }}

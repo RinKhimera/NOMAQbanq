@@ -17,7 +17,7 @@ export default function DomainesCTA() {
           </p>
           <div className="flex flex-col justify-center gap-6 sm:flex-row">
             <Link href="/evaluation">
-              <Button className="btn-modern cursor-pointer rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-10 py-4 font-semibold text-white transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
+              <Button className="btn-modern cursor-pointer rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 px-10 py-4 font-semibold text-white transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
                 Évaluation générale
               </Button>
             </Link>

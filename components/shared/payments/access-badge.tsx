@@ -20,7 +20,7 @@ const statusConfig = {
   active: {
     icon: CheckCircle,
     label: "Actif",
-    bgClass: "bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20",
+    bgClass: "bg-linear-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20",
     borderClass: "border-emerald-500/30 dark:border-emerald-400/30",
     textClass: "text-emerald-700 dark:text-emerald-300",
     iconClass: "text-emerald-500 dark:text-emerald-400",
@@ -29,7 +29,7 @@ const statusConfig = {
   expiring: {
     icon: Clock,
     label: "Expire bientôt",
-    bgClass: "bg-gradient-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
+    bgClass: "bg-linear-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
     borderClass: "border-amber-500/30 dark:border-amber-400/30",
     textClass: "text-amber-700 dark:text-amber-300",
     iconClass: "text-amber-500 dark:text-amber-400 animate-pulse",
@@ -38,7 +38,7 @@ const statusConfig = {
   expired: {
     icon: XCircle,
     label: "Expiré",
-    bgClass: "bg-gradient-to-r from-red-500/10 to-rose-500/10 dark:from-red-500/20 dark:to-rose-500/20",
+    bgClass: "bg-linear-to-r from-red-500/10 to-rose-500/10 dark:from-red-500/20 dark:to-rose-500/20",
     borderClass: "border-red-500/30 dark:border-red-400/30",
     textClass: "text-red-700 dark:text-red-300",
     iconClass: "text-red-500 dark:text-red-400",
@@ -47,7 +47,7 @@ const statusConfig = {
   none: {
     icon: Sparkles,
     label: "Aucun accès",
-    bgClass: "bg-gradient-to-r from-slate-500/10 to-gray-500/10 dark:from-slate-500/20 dark:to-gray-500/20",
+    bgClass: "bg-linear-to-r from-slate-500/10 to-gray-500/10 dark:from-slate-500/20 dark:to-gray-500/20",
     borderClass: "border-slate-500/30 dark:border-slate-400/30",
     textClass: "text-slate-600 dark:text-slate-400",
     iconClass: "text-slate-400 dark:text-slate-500",

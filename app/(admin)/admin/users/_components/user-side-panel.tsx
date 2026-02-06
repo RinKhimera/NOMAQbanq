@@ -102,7 +102,7 @@ function AccessCard({
             className={cn(
               "flex h-7 w-7 items-center justify-center rounded-lg",
               isActive
-                ? cn("bg-gradient-to-br", config.gradient)
+                ? cn("bg-linear-to-br", config.gradient)
                 : "bg-gray-200 dark:bg-gray-700",
             )}
           >
@@ -288,7 +288,7 @@ function PanelContent({ userId }: { userId: Id<"users"> }) {
         <div className="flex flex-col items-center pt-2">
           <Avatar className="h-20 w-20 border-4 border-white shadow-lg dark:border-gray-800">
             <AvatarImage src={user.image} alt={user.name || "Utilisateur"} />
-            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-xl font-semibold text-white">
+            <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-xl font-semibold text-white">
               {getInitials(user.name)}
             </AvatarFallback>
           </Avatar>
@@ -431,7 +431,7 @@ export function UserSidePanel({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-[420px] overflow-y-auto sm:max-w-[420px]"
+        className="w-105 overflow-y-auto sm:max-w-105"
       >
         <SheetHeader className="sr-only">
           <SheetTitle>Détails de l&apos;utilisateur</SheetTitle>

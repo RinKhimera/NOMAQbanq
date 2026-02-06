@@ -45,7 +45,7 @@ export const ProgressRing = ({
       <svg
         width={size}
         height={size}
-        className="rotate-[-90deg] transform"
+        className="-rotate-90 transform"
         style={{ filter: `drop-shadow(0 0 8px ${colors.glow})` }}
       >
         {/* Background circle */}

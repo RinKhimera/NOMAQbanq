@@ -174,7 +174,7 @@ export default function QuestionForm() {
                     <FormControl>
                       <Textarea
                         placeholder="Saisissez votre question ici..."
-                        className="min-h-[100px]"
+                        className="min-h-25"
                         {...field}
                       />
                     </FormControl>
@@ -308,7 +308,7 @@ export default function QuestionForm() {
                     <FormControl>
                       <Textarea
                         placeholder="Explication détaillée de la réponse..."
-                        className="min-h-[150px]"
+                        className="min-h-37.5"
                         {...field}
                       />
                     </FormControl>
@@ -342,7 +342,7 @@ export default function QuestionForm() {
                   <div key={index} className="flex items-start space-x-2">
                     <Badge
                       variant="outline"
-                      className="mt-2 flex h-6 min-w-[32px] items-center justify-center"
+                      className="mt-2 flex h-6 min-w-8 items-center justify-center"
                     >
                       {index + 1}
                     </Badge>
@@ -350,7 +350,7 @@ export default function QuestionForm() {
                       placeholder="Référence bibliographique complète..."
                       value={reference}
                       onChange={(e) => updateReference(index, e.target.value)}
-                      className="min-h-[80px]"
+                      className="min-h-20"
                     />
                     {references.length > 1 && (
                       <Button
@@ -372,7 +372,7 @@ export default function QuestionForm() {
                 <Button
                   type="submit"
                   disabled={form.formState.isSubmitting}
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  className="flex-1 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
                   {form.formState.isSubmitting ? (
                     <>

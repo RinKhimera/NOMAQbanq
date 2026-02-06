@@ -32,7 +32,7 @@ const DomainChartContent = dynamic(
           </div>
         </CardHeader>
         <CardContent className="flex-1 pb-4">
-          <Skeleton className="h-[320px] w-full" />
+          <Skeleton className="h-80 w-full" />
         </CardContent>
       </Card>
     ),

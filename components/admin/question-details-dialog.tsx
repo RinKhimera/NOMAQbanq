@@ -102,7 +102,7 @@ export default function QuestionDetailsDialog({
                     </Badge>
                     <p className="flex-1 text-base leading-relaxed">{option}</p>
                     {option === question.correctAnswer && (
-                      <CheckCircle className="h-6 w-6 flex-shrink-0 text-green-600" />
+                      <CheckCircle className="h-6 w-6 shrink-0 text-green-600" />
                     )}
                   </div>
                 ))}

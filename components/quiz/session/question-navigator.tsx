@@ -180,24 +180,28 @@ export const QuestionNavigator = ({
     </div>
   )
 
-  // Combined content for desktop (non-scrollable)
-  const navigatorContent = (
-    <div className="space-y-4">
-      {statsSection}
-      {gridSection}
-      {legendSection}
-      {tipsSection}
-    </div>
-  )
-
   // Desktop variant
   if (variant === "desktop") {
     return (
-      <div className="sticky top-24 overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
-        <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
-          Navigation
-        </h3>
-        {navigatorContent}
+      <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
+        {/* Fixed header */}
+        <div className="shrink-0">
+          <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
+            Navigation
+          </h3>
+          {statsSection}
+        </div>
+
+        {/* Scrollable grid */}
+        <div className="min-h-0 flex-1 overflow-y-auto py-4">
+          {gridSection}
+        </div>
+
+        {/* Fixed footer */}
+        <div className="shrink-0">
+          {legendSection}
+          <div className="mt-3">{tipsSection}</div>
+        </div>
       </div>
     )
   }
@@ -211,8 +215,8 @@ export const QuestionNavigator = ({
         className={cn(
           "h-14 w-14 rounded-full shadow-lg",
           accentColor === "emerald"
-            ? "bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-500/30 hover:from-emerald-700 hover:to-teal-700"
-            : "bg-gradient-to-r from-blue-600 to-indigo-600 shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700"
+            ? "bg-linear-to-r from-emerald-600 to-teal-600 shadow-emerald-500/30 hover:from-emerald-700 hover:to-teal-700"
+            : "bg-linear-to-r from-blue-600 to-indigo-600 shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700"
         )}
       >
         <List className="h-6 w-6" />

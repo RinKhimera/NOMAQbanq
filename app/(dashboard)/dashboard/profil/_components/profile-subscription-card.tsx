@@ -62,7 +62,7 @@ const AccessMiniCard = ({
       {isActive && (
         <div
           className={cn(
-            "absolute inset-x-0 top-0 h-1 bg-gradient-to-r",
+            "absolute inset-x-0 top-0 h-1 bg-linear-to-r",
             gradient,
           )}
         />
@@ -73,7 +73,7 @@ const AccessMiniCard = ({
           className={cn(
             "flex h-9 w-9 items-center justify-center rounded-lg",
             isActive
-              ? cn("bg-gradient-to-br shadow-md", gradient)
+              ? cn("bg-linear-to-br shadow-md", gradient)
               : "bg-gray-200 dark:bg-gray-700",
           )}
         >
@@ -135,7 +135,7 @@ export const ProfileSubscriptionCard = ({
       <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
         <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
           <CardTitle className="flex items-center gap-3 text-lg">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/20">
               <IconCreditCard className="h-5 w-5 text-white" />
             </div>
             <span className="font-display font-semibold text-gray-900 dark:text-white">
@@ -159,7 +159,7 @@ export const ProfileSubscriptionCard = ({
 
           {/* Upgrade prompt if no access */}
           {!hasAnyAccess && (
-            <div className="mt-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 p-4 dark:from-blue-950/30 dark:to-indigo-950/30">
+            <div className="mt-4 rounded-xl bg-linear-to-r from-blue-50 to-indigo-50 p-4 dark:from-blue-950/30 dark:to-indigo-950/30">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Débloquez l{"'"}accès aux examens et à la banque d{"'"}
                 entraînement pour préparer votre EACMC.

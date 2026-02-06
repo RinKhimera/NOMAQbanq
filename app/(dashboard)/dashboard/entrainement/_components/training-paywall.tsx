@@ -57,8 +57,8 @@ export const TrainingPaywall = () => {
     <div className="relative min-h-screen overflow-hidden">
       {/* Background gradient mesh */}
       <div className="pointer-events-none fixed inset-0 -z-10">
-        <div className="absolute -top-1/4 -left-1/4 h-[600px] w-[600px] rounded-full bg-gradient-to-br from-emerald-100/40 to-teal-100/40 blur-3xl dark:from-emerald-900/20 dark:to-teal-900/20" />
-        <div className="absolute -right-1/4 -bottom-1/4 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-cyan-100/30 to-emerald-100/30 blur-3xl dark:from-cyan-900/15 dark:to-emerald-900/15" />
+        <div className="absolute -top-1/4 -left-1/4 h-150 w-150 rounded-full bg-linear-to-br from-emerald-100/40 to-teal-100/40 blur-3xl dark:from-emerald-900/20 dark:to-teal-900/20" />
+        <div className="absolute -right-1/4 -bottom-1/4 h-125 w-125 rounded-full bg-linear-to-br from-cyan-100/30 to-emerald-100/30 blur-3xl dark:from-cyan-900/15 dark:to-emerald-900/15" />
       </div>
 
       <div className="container mx-auto flex min-h-[80vh] max-w-4xl items-center justify-center px-4 py-12">
@@ -71,7 +71,7 @@ export const TrainingPaywall = () => {
           {/* Main card */}
           <div className="relative overflow-hidden rounded-3xl border border-gray-200/60 bg-white/90 shadow-2xl backdrop-blur-xl dark:border-gray-700/60 dark:bg-gray-900/90">
             {/* Decorative gradient */}
-            <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" />
+            <div className="absolute inset-x-0 top-0 h-1 bg-linear-to-r from-emerald-500 via-teal-500 to-cyan-500" />
 
             <div className="p-8 md:p-12">
               {/* Header */}
@@ -80,7 +80,7 @@ export const TrainingPaywall = () => {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                  className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30"
+                  className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30"
                 >
                   <Lock className="h-10 w-10 text-white" />
                 </motion.div>
@@ -104,7 +104,7 @@ export const TrainingPaywall = () => {
                     transition={{ delay: 0.3 + index * 0.05 }}
                     className="flex items-center gap-3 rounded-xl bg-gray-50/80 p-3 dark:bg-gray-800/50"
                   >
-                    <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-500">
                       <Check className="h-3.5 w-3.5 text-white" />
                     </div>
                     <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -120,7 +120,7 @@ export const TrainingPaywall = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.5 }}
-                  className="mb-8 rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50 p-6 text-center dark:border-emerald-800/40 dark:from-emerald-950/40 dark:to-teal-950/40"
+                  className="mb-8 rounded-2xl border border-emerald-200/60 bg-linear-to-br from-emerald-50 to-teal-50 p-6 text-center dark:border-emerald-800/40 dark:from-emerald-950/40 dark:to-teal-950/40"
                 >
                   <div className="mb-2 flex items-center justify-center gap-2">
                     <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -152,7 +152,7 @@ export const TrainingPaywall = () => {
                   onClick={() => startTransition(purchaseAction)}
                   disabled={isPending || !trainingProduct}
                   size="lg"
-                  className="h-14 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30"
+                  className="h-14 w-full rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30"
                 >
                   {isPending ? (
                     <>

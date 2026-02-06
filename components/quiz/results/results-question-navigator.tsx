@@ -95,35 +95,38 @@ export const ResultsQuestionNavigator = ({
   // Desktop variant - sticky sidebar
   if (variant === "desktop") {
     return (
-      <div className="sticky top-24 overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
-        <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
-          Navigation
-        </h3>
-
-        {/* Stats */}
-        <div className="mb-4 flex items-center justify-between text-sm">
-          <span className="text-gray-600 dark:text-gray-400">
-            <span className={cn("font-semibold", colors.accentText)}>
-              {stats.correct}
+      <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
+        {/* Fixed header */}
+        <div className="shrink-0">
+          <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
+            Navigation
+          </h3>
+          <div className="mb-4 flex items-center justify-between text-sm">
+            <span className="text-gray-600 dark:text-gray-400">
+              <span className={cn("font-semibold", colors.accentText)}>
+                {stats.correct}
+              </span>
+              /{questionResults.length} correctes
             </span>
-            /{questionResults.length} correctes
-          </span>
+          </div>
         </div>
 
-        {/* Grid */}
-        {navigationGrid}
+        {/* Scrollable grid */}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {navigationGrid}
+        </div>
 
-        {/* Legend */}
-        <div className="mt-4">{legend}</div>
-
-        {/* Tips */}
-        {showTips && (
-          <div className={cn("mt-4 rounded-lg p-3", colors.tipBg)}>
-            <p className="text-xs text-gray-600 dark:text-gray-400">
-              <strong>Astuce :</strong> Cliquez sur un numéro pour accéder directement à la question
-            </p>
-          </div>
-        )}
+        {/* Fixed footer */}
+        <div className="shrink-0">
+          <div className="mt-4">{legend}</div>
+          {showTips && (
+            <div className={cn("mt-4 rounded-lg p-3", colors.tipBg)}>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                <strong>Astuce :</strong> Cliquez sur un numéro pour accéder directement à la question
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     )
   }

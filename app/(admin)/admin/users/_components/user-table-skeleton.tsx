@@ -51,7 +51,7 @@ export const UserTableSkeleton = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[50px]">#</TableHead>
+                  <TableHead className="w-12.5">#</TableHead>
                   <TableHead>Nom</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Nom d&apos;utilisateur</TableHead>

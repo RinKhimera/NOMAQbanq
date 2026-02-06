@@ -74,7 +74,7 @@ export const ScrollToTop = ({
           <Button
             size="lg"
             onClick={scrollToTop}
-            className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-600 to-gray-800 shadow-lg shadow-gray-500/20 hover:from-gray-700 hover:to-gray-900 dark:from-gray-500 dark:to-gray-700 dark:shadow-gray-900/30 dark:hover:from-gray-400 dark:hover:to-gray-600"
+            className="h-12 w-12 rounded-full bg-linear-to-br from-gray-600 to-gray-800 shadow-lg shadow-gray-500/20 hover:from-gray-700 hover:to-gray-900 dark:from-gray-500 dark:to-gray-700 dark:shadow-gray-900/30 dark:hover:from-gray-400 dark:hover:to-gray-600"
             aria-label="Retourner en haut de page"
           >
             <ArrowUp className="h-5 w-5" />

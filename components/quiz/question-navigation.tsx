@@ -135,7 +135,7 @@ const QuestionNavigation = ({
                     className="flex cursor-pointer items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
                     <div className="flex items-center space-x-3">
-                      <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold dark:bg-gray-700">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold dark:bg-gray-700">
                         {questionNumber}
                       </span>
                       <span className="text-sm">Question {questionNumber}</span>

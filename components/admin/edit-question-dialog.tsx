@@ -232,7 +232,7 @@ export default function EditQuestionDialog({
                   <FormControl>
                     <Textarea
                       placeholder="Saisissez votre question ici..."
-                      className="min-h-[100px]"
+                      className="min-h-25"
                       {...field}
                     />
                   </FormControl>
@@ -271,7 +271,7 @@ export default function EditQuestionDialog({
                           variant={
                             correctAnswer === option ? "default" : "outline"
                           }
-                          className="flex h-6 min-w-[29px] cursor-pointer items-center justify-center"
+                          className="flex h-6 min-w-7.25 cursor-pointer items-center justify-center"
                           onClick={() =>
                             option.trim() &&
                             form.setValue("correctAnswer", option)
@@ -364,7 +364,7 @@ export default function EditQuestionDialog({
                   <FormControl>
                     <Textarea
                       placeholder="Explication détaillée de la réponse..."
-                      className="min-h-[150px]"
+                      className="min-h-37.5"
                       {...field}
                     />
                   </FormControl>
@@ -398,7 +398,7 @@ export default function EditQuestionDialog({
                 <div key={index} className="flex items-start space-x-2">
                   <Badge
                     variant="outline"
-                    className="mt-2 flex h-6 min-w-[32px] items-center justify-center"
+                    className="mt-2 flex h-6 min-w-8 items-center justify-center"
                   >
                     {index + 1}
                   </Badge>
@@ -406,7 +406,7 @@ export default function EditQuestionDialog({
                     placeholder="Référence bibliographique complète..."
                     value={reference}
                     onChange={(e) => updateReference(index, e.target.value)}
-                    className="min-h-[80px]"
+                    className="min-h-20"
                   />
                   {references.length > 1 && (
                     <Button

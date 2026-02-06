@@ -62,8 +62,8 @@ export const SessionNavigation = ({
           className={cn(
             "gap-2 shadow-md",
             accentColor === "blue"
-              ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-              : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+              ? "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              : "bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
           )}
         >
           <CheckCircle className="h-4 w-4" />

@@ -138,8 +138,8 @@ export const GenericNavUser = ({
                   className={cn(
                     "rounded-lg font-semibold",
                     requireAdmin
-                      ? "bg-gradient-to-br from-orange-500 to-amber-500 text-white"
-                      : "bg-gradient-to-br from-blue-500 to-indigo-500 text-white",
+                      ? "bg-linear-to-br from-orange-500 to-amber-500 text-white"
+                      : "bg-linear-to-br from-blue-500 to-indigo-500 text-white",
                   )}
                 >
                   {getInitials(currentUser.name)}
@@ -175,8 +175,8 @@ export const GenericNavUser = ({
                     className={cn(
                       "rounded-lg font-semibold",
                       requireAdmin
-                        ? "bg-gradient-to-br from-orange-500 to-amber-500 text-white"
-                        : "bg-gradient-to-br from-blue-500 to-indigo-500 text-white",
+                        ? "bg-linear-to-br from-orange-500 to-amber-500 text-white"
+                        : "bg-linear-to-br from-blue-500 to-indigo-500 text-white",
                     )}
                   >
                     {getInitials(currentUser.name)}

@@ -155,7 +155,7 @@ export const TrainingHistorySection = () => {
                     {/* Score badge */}
                     <div
                       className={cn(
-                        "flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl border",
+                        "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border",
                         getScoreBg(session.score),
                       )}
                     >
@@ -201,7 +201,7 @@ export const TrainingHistorySection = () => {
                     </div>
 
                     {/* Arrow */}
-                    <ChevronRight className="h-5 w-5 flex-shrink-0 text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                    <ChevronRight className="h-5 w-5 shrink-0 text-gray-400 transition-transform group-hover:translate-x-1 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
                   </button>
 
                   {/* Actions menu */}
@@ -210,7 +210,7 @@ export const TrainingHistorySection = () => {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 flex-shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+                        className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <MoreHorizontal className="h-4 w-4" />

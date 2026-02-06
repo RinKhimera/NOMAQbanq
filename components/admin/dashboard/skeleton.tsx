@@ -37,7 +37,7 @@ export function AdminDashboardSkeleton() {
             <Skeleton className="mt-1 h-4 w-56" />
           </CardHeader>
           <CardContent>
-            <Skeleton className="h-[280px] w-full rounded-lg" />
+            <Skeleton className="h-70 w-full rounded-lg" />
           </CardContent>
         </Card>
 
@@ -68,7 +68,7 @@ export function AdminDashboardSkeleton() {
             <Skeleton className="h-6 w-48" />
           </CardHeader>
           <CardContent>
-            <Skeleton className="h-[320px] w-full rounded-lg" />
+            <Skeleton className="h-80 w-full rounded-lg" />
           </CardContent>
         </Card>
 

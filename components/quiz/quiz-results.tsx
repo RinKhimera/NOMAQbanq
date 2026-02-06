@@ -62,7 +62,7 @@ export default function QuizResults({
   const percentage = ((score / totalQuestions) * 100).toFixed(0)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 pt-20 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
+    <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-indigo-50 pt-20 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
       <div className="mx-auto max-w-4xl px-4 py-16 sm:px-6 lg:px-8">
         {/* Résumé du score */}
         <Card className="card-modern mb-8">
@@ -104,7 +104,7 @@ export default function QuizResults({
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <Button
                 onClick={onRestart}
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+                className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
               >
                 <RotateCcw className="mr-2 h-5 w-5" />
                 Recommencer

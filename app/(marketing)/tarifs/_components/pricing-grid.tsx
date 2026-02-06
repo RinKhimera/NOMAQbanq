@@ -175,7 +175,7 @@ export const PricingGrid = () => {
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mb-12 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/30 dark:to-indigo-950/30"
+              className="mb-12 rounded-2xl bg-linear-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/30 dark:to-indigo-950/30"
             >
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">

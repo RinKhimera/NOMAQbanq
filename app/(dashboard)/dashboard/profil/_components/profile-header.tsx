@@ -35,7 +35,7 @@ export const ProfileHeader = ({ user, onAvatarChange }: ProfileHeaderProps) => {
       className="relative overflow-hidden rounded-3xl border border-gray-100/80 shadow-sm dark:border-gray-800/80"
     >
       {/* Background gradient with subtle pattern */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-50/90 via-indigo-50/70 to-violet-50/90 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-violet-950/40" />
+      <div className="absolute inset-0 bg-linear-to-br from-blue-50/90 via-indigo-50/70 to-violet-50/90 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-violet-950/40" />
       <div
         className="absolute inset-0 opacity-30"
         style={{
@@ -59,7 +59,7 @@ export const ProfileHeader = ({ user, onAvatarChange }: ProfileHeaderProps) => {
             className="relative"
           >
             {/* Glow effect behind avatar */}
-            <div className="absolute inset-0 scale-110 rounded-full bg-gradient-to-br from-blue-500/20 to-violet-500/20 blur-xl" />
+            <div className="absolute inset-0 scale-110 rounded-full bg-linear-to-br from-blue-500/20 to-violet-500/20 blur-xl" />
 
             <div className="relative rounded-2xl bg-white/50 p-1.5 shadow-lg ring-1 ring-white/50 backdrop-blur-sm dark:bg-gray-900/50 dark:ring-gray-800/50">
               <AvatarUploader

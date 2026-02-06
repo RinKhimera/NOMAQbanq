@@ -274,7 +274,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {/* Question Text & Images */}
         <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-          <CardHeader className="border-b bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
+          <CardHeader className="border-b bg-linear-to-r from-blue-600 to-indigo-600 text-white">
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
               <CardTitle className="text-lg">Contenu de la question</CardTitle>
@@ -295,7 +295,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                   <FormControl>
                     <Textarea
                       placeholder="Saisissez votre question ici..."
-                      className="min-h-[120px] resize-none border-gray-200 bg-white focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800"
+                      className="min-h-30 resize-none border-gray-200 bg-white focus:border-blue-500 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800"
                       {...field}
                     />
                   </FormControl>
@@ -344,7 +344,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
 
         {/* Options */}
         <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-          <CardHeader className="border-b bg-gradient-to-r from-violet-500 to-purple-500 text-white">
+          <CardHeader className="border-b bg-linear-to-r from-violet-500 to-purple-500 text-white">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5" />
               <CardTitle className="text-lg">Options de réponse</CardTitle>
@@ -411,7 +411,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
 
         {/* Domain & ObjectifCMC */}
         <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-          <CardHeader className="border-b bg-gradient-to-r from-emerald-600 to-teal-600 text-white">
+          <CardHeader className="border-b bg-linear-to-r from-emerald-600 to-teal-600 text-white">
             <div className="flex items-center gap-2">
               <Target className="h-5 w-5" />
               <CardTitle className="text-lg">Classification</CardTitle>
@@ -474,7 +474,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
 
         {/* Explanation */}
         <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-          <CardHeader className="border-b bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+          <CardHeader className="border-b bg-linear-to-r from-amber-500 to-orange-500 text-white">
             <div className="flex items-center gap-2">
               <Info className="h-5 w-5" />
               <CardTitle className="text-lg">Explication</CardTitle>
@@ -495,7 +495,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                   <FormControl>
                     <Textarea
                       placeholder="Explication détaillée de la réponse..."
-                      className="min-h-[180px] resize-none border-gray-200 bg-white focus:border-amber-500 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-800"
+                      className="min-h-45 resize-none border-gray-200 bg-white focus:border-amber-500 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-800"
                       {...field}
                     />
                   </FormControl>
@@ -512,7 +512,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
 
         {/* References */}
         <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-          <CardHeader className="border-b bg-gradient-to-r from-teal-600 to-cyan-600 text-white">
+          <CardHeader className="border-b bg-linear-to-r from-teal-600 to-cyan-600 text-white">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5" />
@@ -538,7 +538,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
               <div key={index} className="flex items-start gap-3">
                 <Badge
                   variant="outline"
-                  className="mt-2.5 flex h-7 min-w-[32px] items-center justify-center border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
+                  className="mt-2.5 flex h-7 min-w-8 items-center justify-center border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
                 >
                   {index + 1}
                 </Badge>
@@ -546,7 +546,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                   placeholder="Référence bibliographique complète..."
                   value={reference}
                   onChange={(e) => updateReference(index, e.target.value)}
-                  className="min-h-[80px] resize-none border-gray-200 bg-white focus:border-teal-500 focus:ring-teal-500 dark:border-gray-700 dark:bg-gray-800"
+                  className="min-h-20 resize-none border-gray-200 bg-white focus:border-teal-500 focus:ring-teal-500 dark:border-gray-700 dark:bg-gray-800"
                 />
                 {references.length > 1 && (
                   <Button
@@ -577,7 +577,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
               <Button
                 type="submit"
                 disabled={form.formState.isSubmitting}
-                className="gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
+                className="gap-2 bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
               >
                 {form.formState.isSubmitting ? (
                   <>

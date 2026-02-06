@@ -11,7 +11,7 @@ export default function ConnexionPage() {
   return (
     <div className="theme-bg">
       <div className="mx-auto max-w-7xl px-4 pt-8 pb-12 sm:px-6 lg:px-8">
-        <div className="grid min-h-[700px] items-center gap-16 lg:grid-cols-2">
+        <div className="grid min-h-175 items-center gap-16 lg:grid-cols-2">
           {/* Left side - Welcome back content - Hidden on mobile, shown on desktop */}
           <div className="animate-slide-in-left hidden space-y-10 lg:block">
             <Badge
@@ -38,7 +38,7 @@ export default function ConnexionPage() {
             {/* Features */}
             <div className="space-y-6">
               <div className="flex items-center space-x-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-green-500 to-emerald-600 shadow-lg">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-green-500 to-emerald-600 shadow-lg">
                   <Shield className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -52,7 +52,7 @@ export default function ConnexionPage() {
               </div>
 
               <div className="flex items-center space-x-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg">
                   <Zap className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -96,7 +96,7 @@ export default function ConnexionPage() {
                 Nouveau sur NOMAQbanq ?
               </p>
               <Link href="/auth/sign-up">
-                <Button className="btn-modern transform rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-700 hover:to-emerald-700 hover:shadow-xl">
+                <Button className="btn-modern transform rounded-2xl bg-linear-to-r from-green-600 to-emerald-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-700 hover:to-emerald-700 hover:shadow-xl">
                   Créer un compte gratuit
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -110,13 +110,13 @@ export default function ConnexionPage() {
             style={{ animationDelay: "0.2s" }}
           >
             {/* Decorative background elements */}
-            <div className="absolute -top-10 -right-10 h-72 w-72 rounded-full bg-gradient-to-br from-blue-400/20 to-indigo-400/20 blur-3xl"></div>
-            <div className="absolute -bottom-10 -left-10 h-64 w-64 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-400/20 blur-3xl"></div>
+            <div className="absolute -top-10 -right-10 h-72 w-72 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-400/20 blur-3xl"></div>
+            <div className="absolute -bottom-10 -left-10 h-64 w-64 rounded-full bg-linear-to-br from-purple-400/20 to-pink-400/20 blur-3xl"></div>
 
             {/* Card container */}
             <div className="relative z-10 flex flex-col items-center rounded-3xl border border-white/20 bg-white/60 p-8 shadow-2xl backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/60">
               <div className="mb-6 w-full text-center">
-                <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg">
+                <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg">
                   <Shield className="h-8 w-8 text-white" />
                 </div>
                 <h2 className="mb-2 text-2xl font-bold text-gray-900 dark:text-white">

@@ -86,7 +86,7 @@ export const LegalNavCards = ({ currentPage }: LegalNavCardsProps) => {
               >
                 {/* Icon */}
                 <div
-                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${config.gradient} text-white shadow-lg`}
+                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-linear-to-br ${config.gradient} text-white shadow-lg`}
                 >
                   <Icon className="h-6 w-6" />
                 </div>
@@ -106,7 +106,7 @@ export const LegalNavCards = ({ currentPage }: LegalNavCardsProps) => {
 
                 {/* Hover gradient overlay */}
                 <div
-                  className={`absolute inset-0 bg-gradient-to-r ${config.gradient} opacity-0 transition-opacity duration-300 group-hover:opacity-[0.03]`}
+                  className={`absolute inset-0 bg-linear-to-r ${config.gradient} opacity-0 transition-opacity duration-300 group-hover:opacity-[0.03]`}
                 />
               </Link>
             </motion.div>

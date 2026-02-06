@@ -42,8 +42,8 @@ export const SessionHeader = ({
               className={cn(
                 "flex h-10 w-10 items-center justify-center rounded-xl shadow-md",
                 config.accentColor === "blue"
-                  ? "bg-gradient-to-br from-blue-500 to-indigo-600"
-                  : "bg-gradient-to-br from-emerald-500 to-teal-600"
+                  ? "bg-linear-to-br from-blue-500 to-indigo-600"
+                  : "bg-linear-to-br from-emerald-500 to-teal-600"
               )}
             >
               {icon}
@@ -84,8 +84,8 @@ export const SessionHeader = ({
                 className={cn(
                   "h-2",
                   config.accentColor === "blue"
-                    ? "[&>div]:bg-gradient-to-r [&>div]:from-blue-500 [&>div]:to-indigo-500"
-                    : "[&>div]:bg-gradient-to-r [&>div]:from-emerald-500 [&>div]:to-teal-500"
+                    ? "[&>div]:bg-linear-to-r [&>div]:from-blue-500 [&>div]:to-indigo-500"
+                    : "[&>div]:bg-linear-to-r [&>div]:from-emerald-500 [&>div]:to-teal-500"
                 )}
               />
               <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -118,8 +118,8 @@ export const SessionHeader = ({
               className={cn(
                 "gap-2 shadow-md",
                 config.accentColor === "blue"
-                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                  : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                  ? "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  : "bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
               )}
             >
               <CheckCircle className="h-4 w-4" aria-hidden="true" />

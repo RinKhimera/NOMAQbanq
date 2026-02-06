@@ -81,6 +81,7 @@
   "devDependencies": {
     "@edge-runtime/vm": "^5.0.0",
     "@eslint/eslintrc": "^3",
+    "@tailwindcss/node": "^4.1.18",
     "@tailwindcss/postcss": "^4",
     "@tailwindcss/vite": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
@@ -95,6 +96,7 @@
     "convex-test": "^0.0.41",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "eslint-plugin-tailwind-canonical-classes": "^1.1.0",
     "happy-dom": "^20.5.0",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",

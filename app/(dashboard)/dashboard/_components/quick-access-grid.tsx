@@ -71,7 +71,7 @@ export const QuickAccessGrid = () => {
                   "group relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm transition-all duration-500",
                   "dark:border-gray-700/50 dark:bg-gray-900/80",
                   action.hoverBorder,
-                  "hover:translate-y-[-8px] hover:shadow-xl"
+                  "hover:-translate-y-2 hover:shadow-xl"
                 )}
                 style={{
                   transformStyle: "preserve-3d",
@@ -94,7 +94,7 @@ export const QuickAccessGrid = () => {
                 >
                   <div
                     className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br",
+                      "flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br",
                       action.gradient
                     )}
                   >
@@ -122,7 +122,7 @@ export const QuickAccessGrid = () => {
                 <div className="absolute bottom-0 left-0 h-1 w-full overflow-hidden">
                   <div
                     className={cn(
-                      "h-full w-0 bg-gradient-to-r transition-all duration-500 group-hover:w-full",
+                      "h-full w-0 bg-linear-to-r transition-all duration-500 group-hover:w-full",
                       action.gradient
                     )}
                   />

@@ -108,8 +108,8 @@ export const PremiumPricingCard = ({
       >
         <div className="relative">
           {/* Glow effect */}
-          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-rose-500 opacity-75 blur-lg" />
-          <div className="relative flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 px-6 py-2.5 text-sm font-bold text-white shadow-2xl">
+          <div className="absolute inset-0 rounded-full bg-linear-to-r from-amber-400 via-orange-500 to-rose-500 opacity-75 blur-lg" />
+          <div className="relative flex items-center gap-2 rounded-full bg-linear-to-r from-amber-500 via-orange-500 to-rose-500 px-6 py-2.5 text-sm font-bold text-white shadow-2xl">
             <Star className="h-4 w-4 fill-current" />
             <span className="tracking-wide">MEILLEURE OFFRE</span>
             <Gift className="h-4 w-4" />
@@ -118,13 +118,13 @@ export const PremiumPricingCard = ({
       </motion.div>
 
       {/* Main card container */}
-      <div className="relative overflow-hidden rounded-[2rem] border-2 border-amber-400/30 bg-gradient-to-br from-amber-50 via-white to-orange-50 shadow-[0_20px_70px_-15px_rgba(251,191,36,0.3)] dark:border-amber-500/20 dark:from-gray-900 dark:via-gray-900 dark:to-amber-950/30 dark:shadow-[0_20px_70px_-15px_rgba(251,191,36,0.15)]">
+      <div className="relative overflow-hidden rounded-4xl border-2 border-amber-400/30 bg-linear-to-br from-amber-50 via-white to-orange-50 shadow-[0_20px_70px_-15px_rgba(251,191,36,0.3)] dark:border-amber-500/20 dark:from-gray-900 dark:via-gray-900 dark:to-amber-950/30 dark:shadow-[0_20px_70px_-15px_rgba(251,191,36,0.15)]">
         {/* Decorative background elements */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {/* Top right gradient orb */}
-          <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-gradient-to-br from-amber-400/40 via-orange-400/30 to-transparent blur-3xl dark:from-amber-500/20 dark:via-orange-500/15" />
+          <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-linear-to-br from-amber-400/40 via-orange-400/30 to-transparent blur-3xl dark:from-amber-500/20 dark:via-orange-500/15" />
           {/* Bottom left gradient orb */}
-          <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-gradient-to-tr from-rose-400/30 via-orange-400/20 to-transparent blur-3xl dark:from-rose-500/15 dark:via-orange-500/10" />
+          <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-linear-to-tr from-rose-400/30 via-orange-400/20 to-transparent blur-3xl dark:from-rose-500/15 dark:via-orange-500/10" />
           {/* Subtle grid pattern */}
           <div
             className="absolute inset-0 opacity-[0.015] dark:opacity-[0.03]"
@@ -146,7 +146,7 @@ export const PremiumPricingCard = ({
                   initial={{ rotate: -10, scale: 0 }}
                   animate={{ rotate: 0, scale: 1 }}
                   transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                  className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 via-orange-500 to-rose-500 shadow-lg shadow-amber-500/30"
+                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br from-amber-400 via-orange-500 to-rose-500 shadow-lg shadow-amber-500/30"
                 >
                   <Crown className="h-8 w-8 text-white" />
                 </motion.div>
@@ -167,14 +167,14 @@ export const PremiumPricingCard = ({
               {/* Price block */}
               <div className="mb-8">
                 <div className="flex flex-wrap items-baseline gap-3">
-                  <span className="bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 bg-clip-text text-5xl font-black tracking-tight text-transparent lg:text-6xl">
+                  <span className="bg-linear-to-r from-amber-600 via-orange-600 to-rose-600 bg-clip-text text-5xl font-black tracking-tight text-transparent lg:text-6xl">
                     {formatCurrency(product.priceCAD)}
                   </span>
                   <div className="flex flex-col gap-1">
                     <span className="text-xl text-gray-400 line-through dark:text-gray-500">
                       {formatCurrency(regularPrice)}
                     </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-3 py-1 text-sm font-bold text-white shadow-lg shadow-emerald-500/30">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-linear-to-r from-emerald-500 to-teal-500 px-3 py-1 text-sm font-bold text-white shadow-lg shadow-emerald-500/30">
                       <TrendingUp className="h-3.5 w-3.5" />
                       Économisez {savings}%
                     </span>
@@ -257,10 +257,10 @@ export const PremiumPricingCard = ({
                 <Button
                   onClick={handleClick}
                   disabled={isLoading}
-                  className="group relative h-16 w-full overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-lg font-bold text-white shadow-xl shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-orange-500/40"
+                  className="group relative h-16 w-full overflow-hidden rounded-2xl bg-linear-to-r from-amber-500 via-orange-500 to-rose-500 text-lg font-bold text-white shadow-xl shadow-orange-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-orange-500/40"
                 >
                   {/* Shimmer effect */}
-                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
+                  <div className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000 group-hover:translate-x-full" />
                   <span className="relative flex items-center justify-center gap-3">
                     {isLoading ? (
                       <>
@@ -307,7 +307,7 @@ export const PremiumPricingCard = ({
                         transition={{ delay: 0.5 + i * 0.05 }}
                         className="flex items-start gap-2.5"
                       >
-                        <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-blue-500">
+                        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-blue-500">
                           <Check className="h-3 w-3 text-white" />
                         </div>
                         <span className="text-sm text-gray-600 dark:text-gray-300">
@@ -333,7 +333,7 @@ export const PremiumPricingCard = ({
                         transition={{ delay: 0.65 + i * 0.05 }}
                         className="flex items-start gap-2.5"
                       >
-                        <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500">
+                        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500">
                           <Check className="h-3 w-3 text-white" />
                         </div>
                         <span className="text-sm text-gray-600 dark:text-gray-300">
@@ -359,7 +359,7 @@ export const PremiumPricingCard = ({
                         transition={{ delay: 0.8 + i * 0.05 }}
                         className="flex items-start gap-2.5"
                       >
-                        <div className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-orange-500">
+                        <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-amber-500 to-orange-500">
                           <Check className="h-3 w-3 text-white" />
                         </div>
                         <span className="text-sm text-gray-600 dark:text-gray-300">
@@ -381,7 +381,7 @@ export const PremiumPricingCard = ({
                     Entraînement
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                    <div className="h-3 w-3 rounded-full bg-gradient-to-br from-amber-500 to-orange-500" />
+                    <div className="h-3 w-3 rounded-full bg-linear-to-br from-amber-500 to-orange-500" />
                     Premium
                   </div>
                 </div>

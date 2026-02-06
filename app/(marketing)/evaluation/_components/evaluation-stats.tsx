@@ -35,7 +35,7 @@ export default function EvaluationStats() {
           style={{ animationDelay: `${index * 0.1}s` }}
         >
           <div
-            className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br ${stat.color} shadow-lg`}
+            className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br ${stat.color} shadow-lg`}
           >
             <Award className="h-6 w-6 text-white" />
           </div>

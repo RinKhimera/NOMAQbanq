@@ -75,25 +75,25 @@ export default function HomeLanding() {
   ]
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
+    <div className="bg-linear-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
       {/* Hero Section - Ultra modern */}
       <section className="relative overflow-hidden pt-8 pb-32">
         {/* Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
-          <div className="animate-float absolute -top-40 -right-40 h-80 w-80 rounded-full bg-gradient-to-br from-blue-400/20 to-indigo-600/20 blur-3xl"></div>
+          <div className="animate-float absolute -top-40 -right-40 h-80 w-80 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-600/20 blur-3xl"></div>
           <div
-            className="animate-float absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-600/20 blur-3xl"
+            className="animate-float absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-linear-to-br from-purple-400/20 to-pink-600/20 blur-3xl"
             style={{ animationDelay: "2s" }}
           ></div>
-          <div className="absolute top-1/2 left-1/2 h-[800px] w-[800px] -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-gradient-to-br from-blue-500/5 to-indigo-600/5 blur-3xl"></div>
+          <div className="absolute top-1/2 left-1/2 h-200 w-200 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-linear-to-br from-blue-500/5 to-indigo-600/5 blur-3xl"></div>
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid min-h-[700px] items-center gap-16 lg:grid-cols-2">
+          <div className="grid min-h-175 items-center gap-16 lg:grid-cols-2">
             {/* Left content */}
             <div className="animate-fade-in-up space-y-10">
               <div className="space-y-8">
-                <div className="inline-flex items-center rounded-full border border-blue-200/50 bg-gradient-to-r from-blue-100 to-indigo-100 px-4 py-2 text-sm font-semibold text-blue-700 dark:border-blue-700/50 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300">
+                <div className="inline-flex items-center rounded-full border border-blue-200/50 bg-linear-to-r from-blue-100 to-indigo-100 px-4 py-2 text-sm font-semibold text-blue-700 dark:border-blue-700/50 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300">
                   <Award className="mr-2 h-4 w-4" />
                   Plateforme #1 pour l&apos;EACMC
                 </div>
@@ -139,7 +139,7 @@ export default function HomeLanding() {
                     {[1, 2, 3, 4].map((i) => (
                       <div
                         key={i}
-                        className="h-10 w-10 rounded-full border-2 border-white bg-gradient-to-br from-blue-400 to-indigo-600 dark:border-gray-800"
+                        className="h-10 w-10 rounded-full border-2 border-white bg-linear-to-br from-blue-400 to-indigo-600 dark:border-gray-800"
                       ></div>
                     ))}
                   </div>
@@ -168,7 +168,7 @@ export default function HomeLanding() {
                   <Image
                     src="/images/home-image.jpg"
                     alt="Jeune médecin confiant portant une blouse blanche"
-                    className="h-[500px] w-full rounded-2xl object-cover"
+                    className="h-125 w-full rounded-2xl object-cover"
                     width={500}
                     height={500}
                     priority
@@ -178,7 +178,7 @@ export default function HomeLanding() {
                 {/* Floating elements */}
                 <div className="glass-card animate-float absolute -top-6 -left-6 z-20 rounded-2xl p-4 shadow-lg">
                   <div className="flex items-center space-x-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-400 to-emerald-600">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-green-400 to-emerald-600">
                       <CheckCircle className="h-6 w-6 text-white" />
                     </div>
                     <div>
@@ -197,7 +197,7 @@ export default function HomeLanding() {
                   style={{ animationDelay: "1s" }}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-indigo-600">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-blue-400 to-indigo-600">
                       <Trophy className="h-6 w-6 text-white" />
                     </div>
                     <div>
@@ -226,7 +226,7 @@ export default function HomeLanding() {
       </section>
 
       {/* Features Section - Ultra modern cards */}
-      <section className="section-modern bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <section className="section-modern bg-linear-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="animate-fade-in-up mb-20 text-center">
             <Badge
@@ -253,7 +253,7 @@ export default function HomeLanding() {
                 className="card-feature animate-fade-in-scale"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
-                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg">
+                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg">
                   <feature.icon className="h-8 w-8 text-white" />
                 </div>
                 <h3 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
@@ -274,7 +274,7 @@ export default function HomeLanding() {
           <div className="grid items-center gap-20 lg:grid-cols-2">
             {/* Left side - Content */}
             <div className="animate-slide-in-left space-y-8">
-              <div className="inline-flex items-center rounded-full border border-green-200/50 bg-gradient-to-r from-green-100 to-emerald-100 px-6 py-3 text-sm font-semibold text-green-700 dark:border-green-700/50 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-300">
+              <div className="inline-flex items-center rounded-full border border-green-200/50 bg-linear-to-r from-green-100 to-emerald-100 px-6 py-3 text-sm font-semibold text-green-700 dark:border-green-700/50 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-300">
                 <BookOpen className="mr-2 h-4 w-4" />
                 BANQUE DE QUESTIONS
               </div>
@@ -320,8 +320,8 @@ export default function HomeLanding() {
               style={{ animationDelay: "0.2s" }}
             >
               <div className="relative">
-                <div className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 opacity-25 blur"></div>
-                <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-600 to-indigo-700 p-8 text-white shadow-2xl">
+                <div className="absolute -inset-1 rounded-3xl bg-linear-to-r from-blue-600 to-indigo-600 opacity-25 blur"></div>
+                <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-blue-600 to-indigo-700 p-8 text-white shadow-2xl">
                   <div className="absolute top-0 right-0 h-32 w-32 translate-x-16 -translate-y-16 rounded-full bg-white/10"></div>
                   <div className="absolute bottom-0 left-0 h-24 w-24 -translate-x-12 translate-y-12 rounded-full bg-white/10"></div>
 
@@ -357,7 +357,7 @@ export default function HomeLanding() {
                           key={index}
                           className="flex items-center space-x-3"
                         >
-                          <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-green-400">
+                          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-400">
                             <CheckCircle className="h-3 w-3 text-green-900" />
                           </div>
                           <span className="text-blue-50">{feature}</span>
@@ -380,7 +380,7 @@ export default function HomeLanding() {
 
       {/* CTA Section - Modern gradient */}
       <section className="relative overflow-hidden py-32">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800"></div>
+        <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-indigo-700 to-purple-800"></div>
         <div className="absolute inset-0 bg-black/20"></div>
 
         {/* Animated background elements */}

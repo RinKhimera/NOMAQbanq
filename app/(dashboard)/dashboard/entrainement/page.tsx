@@ -46,8 +46,8 @@ export default function EntrainementPage() {
     <div className="min-h-screen">
       {/* Background gradient mesh */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-1/4 -top-1/4 h-[600px] w-[600px] rounded-full bg-gradient-to-br from-emerald-100/40 to-teal-100/40 blur-3xl dark:from-emerald-900/20 dark:to-teal-900/20" />
-        <div className="absolute -bottom-1/4 -right-1/4 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-cyan-100/30 to-emerald-100/30 blur-3xl dark:from-cyan-900/15 dark:to-emerald-900/15" />
+        <div className="absolute -left-1/4 -top-1/4 h-150 w-150 rounded-full bg-linear-to-br from-emerald-100/40 to-teal-100/40 blur-3xl dark:from-emerald-900/20 dark:to-teal-900/20" />
+        <div className="absolute -bottom-1/4 -right-1/4 h-125 w-125 rounded-full bg-linear-to-br from-cyan-100/30 to-emerald-100/30 blur-3xl dark:from-cyan-900/15 dark:to-emerald-900/15" />
       </div>
 
       <div className="container mx-auto max-w-6xl px-4 py-8">
@@ -60,7 +60,7 @@ export default function EntrainementPage() {
         >
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
                 <Brain className="h-8 w-8 text-white" />
               </div>
               <motion.div
@@ -179,27 +179,27 @@ export default function EntrainementPage() {
                 </h3>
                 <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">
                   <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                     <span>
                       Commencez par des sessions courtes (5-10 questions) pour
                       vous échauffer
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                     <span>
                       Utilisez les marqueurs pour identifier les questions à
                       réviser
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                     <span>
                       Lisez attentivement les explications après chaque session
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-500" />
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
                     <span>
                       Ciblez vos domaines faibles pour améliorer votre score
                       global
@@ -210,7 +210,7 @@ export default function EntrainementPage() {
 
               {/* Available questions info */}
               {domains && (
-                <div className="overflow-hidden rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50 to-teal-50 p-6 dark:border-emerald-800/40 dark:from-emerald-950/40 dark:to-teal-950/40">
+                <div className="overflow-hidden rounded-2xl border border-emerald-200/60 bg-linear-to-br from-emerald-50 to-teal-50 p-6 dark:border-emerald-800/40 dark:from-emerald-950/40 dark:to-teal-950/40">
                   <div className="mb-3 text-4xl font-bold text-emerald-600 dark:text-emerald-400">
                     {domains.totalQuestions.toLocaleString()}
                   </div>

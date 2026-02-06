@@ -50,7 +50,7 @@ export function ExamQuestionsModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="bg-card flex max-h-[90vh] w-full !max-w-6xl flex-col overflow-hidden p-0">
+        <DialogContent className="bg-card flex max-h-[90vh] w-full max-w-6xl! flex-col overflow-hidden p-0">
           {/* Fixed header */}
           <DialogHeader className="bg-card sticky top-0 z-10 border-b p-4">
             <DialogTitle className="flex items-center gap-2">

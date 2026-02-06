@@ -186,7 +186,7 @@ export const PauseDialog = ({
             onClick={onResume}
             disabled={isResuming}
             size="lg"
-            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
+            className="w-full bg-linear-to-r from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
           >
             {isResuming ? (
               <>

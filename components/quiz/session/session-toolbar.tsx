@@ -62,7 +62,7 @@ export const SessionToolbar = ({
             <Button
               size="lg"
               onClick={scrollToTop}
-              className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-600 to-gray-800 shadow-lg shadow-gray-500/20 hover:from-gray-700 hover:to-gray-900 dark:from-gray-500 dark:to-gray-700 dark:shadow-gray-900/30 dark:hover:from-gray-400 dark:hover:to-gray-600"
+              className="h-12 w-12 rounded-full bg-linear-to-br from-gray-600 to-gray-800 shadow-lg shadow-gray-500/20 hover:from-gray-700 hover:to-gray-900 dark:from-gray-500 dark:to-gray-700 dark:shadow-gray-900/30 dark:hover:from-gray-400 dark:hover:to-gray-600"
               aria-label="Retourner en haut de page"
             >
               <ArrowUp className="h-5 w-5" />
@@ -84,7 +84,7 @@ export const SessionToolbar = ({
           <Button
             size="lg"
             onClick={onOpenLabValues}
-            className="h-12 w-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 shadow-lg shadow-teal-500/25 hover:from-teal-600 hover:to-cyan-700 dark:from-teal-400 dark:to-cyan-500 dark:shadow-teal-900/30 dark:hover:from-teal-300 dark:hover:to-cyan-400"
+            className="h-12 w-12 rounded-full bg-linear-to-br from-teal-500 to-cyan-600 shadow-lg shadow-teal-500/25 hover:from-teal-600 hover:to-cyan-700 dark:from-teal-400 dark:to-cyan-500 dark:shadow-teal-900/30 dark:hover:from-teal-300 dark:hover:to-cyan-400"
             aria-label="Ouvrir les valeurs de laboratoire"
           >
             <FlaskConical className="h-5 w-5" />
@@ -105,7 +105,7 @@ export const SessionToolbar = ({
           <Button
             size="lg"
             onClick={onOpenCalculator}
-            className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-600 to-violet-600 shadow-lg shadow-purple-500/25 hover:from-purple-700 hover:to-violet-700 dark:from-purple-500 dark:to-violet-500 dark:shadow-purple-900/30 dark:hover:from-purple-400 dark:hover:to-violet-400"
+            className="h-12 w-12 rounded-full bg-linear-to-br from-purple-600 to-violet-600 shadow-lg shadow-purple-500/25 hover:from-purple-700 hover:to-violet-700 dark:from-purple-500 dark:to-violet-500 dark:shadow-purple-900/30 dark:hover:from-purple-400 dark:hover:to-violet-400"
             aria-label="Ouvrir la calculatrice"
           >
             <Calculator className="h-5 w-5" />

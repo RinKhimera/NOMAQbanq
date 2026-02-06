@@ -149,7 +149,7 @@ export default function LegalPageLayout({
           </div>
 
           {/* Decorative gradient line */}
-          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent dark:via-gray-700" />
+          <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-gray-700" />
         </header>
 
         {/* Main Content */}
@@ -205,7 +205,7 @@ export default function LegalPageLayout({
               {/* Sections with Timeline */}
               <div className="relative">
                 {/* Timeline line */}
-                <div className="absolute bottom-0 left-[11px] top-0 w-0.5 bg-gradient-to-b from-gray-200 via-gray-200 to-transparent dark:from-gray-800 dark:via-gray-800" />
+                <div className="absolute bottom-0 left-2.75 top-0 w-0.5 bg-linear-to-b from-gray-200 via-gray-200 to-transparent dark:from-gray-800 dark:via-gray-800" />
 
                 {/* Content */}
                 <div className="space-y-0">{children}</div>

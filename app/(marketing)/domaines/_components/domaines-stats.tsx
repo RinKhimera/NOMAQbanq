@@ -39,7 +39,7 @@ export default function DomainesStats() {
           style={{ animationDelay: `${index * 0.1}s` }}
         >
           <div
-            className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br ${stat.color} shadow-lg`}
+            className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br ${stat.color} shadow-lg`}
           >
             <stat.icon className="h-8 w-8 text-white" />
           </div>

@@ -61,7 +61,7 @@ const AccessCard = ({
             className={cn(
               "flex h-8 w-8 items-center justify-center rounded-lg",
               isActive
-                ? cn("bg-gradient-to-br", config.gradient)
+                ? cn("bg-linear-to-br", config.gradient)
                 : "bg-gray-200 dark:bg-gray-700"
             )}
           >

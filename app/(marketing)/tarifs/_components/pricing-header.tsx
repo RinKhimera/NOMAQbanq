@@ -14,12 +14,12 @@ export const PricingHeader = () => {
   return (
     <section className="relative overflow-hidden pt-8 pb-16">
       {/* Background effects */}
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20" />
+      <div className="absolute inset-0 bg-linear-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20" />
 
       {/* Animated orbs */}
-      <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-gradient-to-br from-blue-400/20 to-indigo-600/20 blur-3xl animate-float" />
+      <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-600/20 blur-3xl animate-float" />
       <div
-        className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-600/20 blur-3xl animate-float"
+        className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-linear-to-br from-purple-400/20 to-pink-600/20 blur-3xl animate-float"
         style={{ animationDelay: "2s" }}
       />
 
@@ -79,7 +79,7 @@ export const PricingHeader = () => {
                 key={index}
                 className="flex items-center gap-3 rounded-2xl bg-white/80 px-5 py-3 shadow-lg backdrop-blur dark:bg-gray-800/80"
               >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-600">
                   <stat.icon className="h-5 w-5 text-white" />
                 </div>
                 <div className="text-left">

@@ -129,9 +129,9 @@ const ThemeOption = ({
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 px-3 py-3.5 transition-all duration-200 @[420px]:w-[4.5rem] @[420px]:flex-none",
+        "group relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 px-3 py-3.5 transition-all duration-200 @[420px]:w-18 @[420px]:flex-none",
         selected
-          ? "border-amber-400 bg-gradient-to-b from-amber-50 to-amber-100/50 shadow-sm dark:border-amber-500 dark:from-amber-900/40 dark:to-amber-900/20"
+          ? "border-amber-400 bg-linear-to-b from-amber-50 to-amber-100/50 shadow-sm dark:border-amber-500 dark:from-amber-900/40 dark:to-amber-900/20"
           : "border-gray-200/80 bg-gray-50/80 hover:border-amber-300 hover:bg-amber-50/50 dark:border-gray-700/80 dark:bg-gray-800/50 dark:hover:border-amber-600 dark:hover:bg-amber-900/20",
       )}
     >
@@ -196,7 +196,7 @@ export const ProfilePreferences = () => {
       <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
         <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
           <CardTitle className="flex items-center gap-3 text-lg">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-gray-500 to-slate-600 shadow-lg shadow-gray-500/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-gray-500 to-slate-600 shadow-lg shadow-gray-500/20">
               <IconSettings className="h-5 w-5 text-white" />
             </div>
             <span className="font-display font-semibold text-gray-900 dark:text-white">

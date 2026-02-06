@@ -183,7 +183,7 @@ const AdminEditExamPage = () => {
 
   if (!exam) {
     return (
-      <div className="flex min-h-[400px] items-center justify-center">
+      <div className="flex min-h-100 items-center justify-center">
         <div className="text-muted-foreground flex items-center gap-2">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Chargement de l&apos;examen...</span>
@@ -197,7 +197,7 @@ const AdminEditExamPage = () => {
       {/* En-tête moderne */}
       <div className="flex flex-col justify-between gap-4 @lg:flex-row @lg:items-center">
         <div className="space-y-1">
-          <h1 className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-2xl font-bold tracking-tight text-transparent md:text-3xl dark:from-blue-400 dark:to-indigo-400">
+          <h1 className="bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-2xl font-bold tracking-tight text-transparent md:text-3xl dark:from-blue-400 dark:to-indigo-400">
             Modifier l&apos;examen
           </h1>
           <p className="text-muted-foreground">
@@ -222,7 +222,7 @@ const AdminEditExamPage = () => {
           <div className="grid gap-6 @3xl:grid-cols-2">
             {/* Carte informations principales */}
             <Card className="overflow-hidden border-0 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20">
+              <CardHeader className="bg-linear-to-r from-blue-500/10 to-indigo-500/10 dark:from-blue-500/20 dark:to-indigo-500/20">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600 shadow-md">
                     <FileText className="h-5 w-5 text-white" />
@@ -400,7 +400,7 @@ const AdminEditExamPage = () => {
 
             {/* Carte paramètres de pause */}
             <Card className="overflow-hidden border-0 shadow-lg">
-              <CardHeader className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20">
+              <CardHeader className="bg-linear-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500 shadow-md">
                     <Coffee className="h-5 w-5 text-white" />
@@ -527,7 +527,7 @@ const AdminEditExamPage = () => {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-500 shadow-lg shadow-violet-500/25">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-violet-500 to-purple-500 shadow-lg shadow-violet-500/25">
                   <FileText className="h-5 w-5 text-white" />
                 </div>
                 <div>
@@ -581,7 +581,7 @@ const AdminEditExamPage = () => {
               disabled={
                 selectedQuestions.length !== numberOfQuestions || isSubmitting
               }
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl disabled:opacity-50"
+              className="bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>

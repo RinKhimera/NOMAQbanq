@@ -87,7 +87,7 @@ export default function AdminQuestionsPage() {
               }
             />
             <Link href="/admin/questions/nouvelle">
-              <Button className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-600 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30">
+              <Button className="gap-2 bg-linear-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-600 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30">
                 <Plus className="h-4 w-4" />
                 Nouvelle question
               </Button>

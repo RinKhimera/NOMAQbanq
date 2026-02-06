@@ -106,7 +106,7 @@ export function UsersFilterBar({
         <div className="flex flex-wrap items-center gap-2">
           {/* Role filter */}
           <Select value={role} onValueChange={(v) => onRoleChange(v as RoleFilter)}>
-            <SelectTrigger className="h-10 w-[140px]">
+            <SelectTrigger className="h-10 w-35">
               <SelectValue placeholder="Rôle" />
             </SelectTrigger>
             <SelectContent>
@@ -121,7 +121,7 @@ export function UsersFilterBar({
             value={accessStatus}
             onValueChange={(v) => onAccessStatusChange(v as AccessStatusFilter)}
           >
-            <SelectTrigger className="h-10 w-[160px]">
+            <SelectTrigger className="h-10 w-40">
               <SelectValue placeholder="Statut accès" />
             </SelectTrigger>
             <SelectContent>
@@ -139,7 +139,7 @@ export function UsersFilterBar({
               <Button
                 variant="outline"
                 className={cn(
-                  "h-10 w-[200px] justify-start text-left font-normal",
+                  "h-10 w-50 justify-start text-left font-normal",
                   !dateRange && "text-muted-foreground",
                 )}
               >

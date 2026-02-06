@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { useConvexAuth, useQuery } from "convex/react"
 import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
@@ -32,6 +33,7 @@ export default function TrainingResultsPage() {
   const sessionId = params.sessionId as Id<"trainingParticipations">
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
 
+  const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(
     new Set()
   )
@@ -209,7 +211,7 @@ export default function TrainingResultsPage() {
         : "from-red-500/20 to-rose-500/20"
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
+    <div className="min-h-screen bg-linear-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
       {/* Header */}
       <header className="border-b border-gray-200/60 bg-white/80 backdrop-blur-xl dark:border-gray-700/60 dark:bg-gray-900/80">
         <div className="container mx-auto max-w-7xl px-4">
@@ -219,8 +221,8 @@ export default function TrainingResultsPage() {
                 className={cn(
                   "flex h-10 w-10 items-center justify-center rounded-xl shadow-md",
                   stats.score >= 60
-                    ? "bg-gradient-to-br from-emerald-500 to-teal-600"
-                    : "bg-gradient-to-br from-amber-500 to-orange-600"
+                    ? "bg-linear-to-br from-emerald-500 to-teal-600"
+                    : "bg-linear-to-br from-amber-500 to-orange-600"
                 )}
               >
                 {stats.score >= 60 ? (
@@ -259,7 +261,7 @@ export default function TrainingResultsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
               className={cn(
-                "overflow-hidden rounded-2xl border border-gray-200/60 bg-gradient-to-br p-8 shadow-lg backdrop-blur-sm dark:border-gray-700/60",
+                "overflow-hidden rounded-2xl border border-gray-200/60 bg-linear-to-br p-8 shadow-lg backdrop-blur-sm dark:border-gray-700/60",
                 scoreBgGradient
               )}
             >
@@ -440,7 +442,7 @@ export default function TrainingResultsPage() {
                 <Link href="/dashboard/entrainement">
                   <Button
                     size="lg"
-                    className="w-full gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                    className="w-full gap-2 bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
                   >
                     <Plus className="h-5 w-5" />
                     Nouvelle session
@@ -452,6 +454,7 @@ export default function TrainingResultsPage() {
 
           {/* Sidebar - Navigation grid (desktop) */}
           <div className="hidden lg:block">
+            <div ref={desktopNavRef} className="h-px" />
             <ResultsQuestionNavigator
               questionResults={questionResults}
               onNavigateToQuestion={scrollToQuestion}
@@ -462,8 +465,8 @@ export default function TrainingResultsPage() {
         </div>
       </div>
 
-      {/* Mobile navigation FAB */}
-      <div className="lg:hidden">
+      {/* Navigation FAB (mobile + desktop when sidebar is out of view) */}
+      {!isDesktopNavVisible && (
         <ResultsQuestionNavigator
           questionResults={questionResults}
           onNavigateToQuestion={scrollToQuestion}
@@ -471,13 +474,13 @@ export default function TrainingResultsPage() {
           position="right"
           accentColor="emerald"
         />
-      </div>
+      )}
 
       {/* Scroll to top (offset to avoid FAB collision on mobile) */}
       <ScrollToTop
         threshold={500}
         position="right"
-        className="bottom-24 right-6 lg:bottom-6"
+        className="bottom-24 right-6"
       />
     </div>
   )

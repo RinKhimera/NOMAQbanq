@@ -27,12 +27,12 @@ export default function AProposPageClient() {
                 alt="Équipe médicale francophone"
                 width={600}
                 height={400}
-                className="h-[400px] w-full rounded-2xl object-cover"
+                className="h-100 w-full rounded-2xl object-cover"
               />
             </div>
             <div className="glass-card animate-float absolute -top-6 -right-6 z-20 rounded-2xl p-4 shadow-lg">
               <div className="flex items-center space-x-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-400 to-emerald-600">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-green-400 to-emerald-600">
                   <CheckCircle className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -50,7 +50,7 @@ export default function AProposPageClient() {
               style={{ animationDelay: "1s" }}
             >
               <div className="flex items-center space-x-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-indigo-600">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-blue-400 to-indigo-600">
                   <Award className="h-6 w-6 text-white" />
                 </div>
                 <div>
@@ -67,7 +67,7 @@ export default function AProposPageClient() {
         </div>
         <AboutMissions />
         <div className="relative mb-20 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800"></div>
+          <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-indigo-700 to-purple-800"></div>
           <div className="absolute inset-0 bg-black/20"></div>
           <div className="absolute top-0 left-0 h-full w-full overflow-hidden">
             <div className="animate-float absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl"></div>

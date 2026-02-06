@@ -11,7 +11,7 @@ const SkeletonPulse = ({
 }) => (
   <div
     className={cn(
-      "animate-pulse rounded-xl bg-gradient-to-r from-blue-100 via-blue-50 to-blue-100 dark:from-blue-900/20 dark:via-blue-800/10 dark:to-blue-900/20",
+      "animate-pulse rounded-xl bg-linear-to-r from-blue-100 via-blue-50 to-blue-100 dark:from-blue-900/20 dark:via-blue-800/10 dark:to-blue-900/20",
       className
     )}
     style={style}
@@ -22,7 +22,7 @@ export const DashboardSkeleton = () => {
   return (
     <div className="flex flex-col gap-8 p-4 lg:p-6">
       {/* Hero Skeleton */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-8 dark:from-blue-950/50 dark:via-gray-900 dark:to-indigo-950/50">
+      <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-blue-50 via-white to-indigo-50 p-8 dark:from-blue-950/50 dark:via-gray-900 dark:to-indigo-950/50">
         <div className="flex flex-col items-center gap-6 lg:flex-row lg:justify-between">
           {/* Left - Greeting */}
           <div className="flex flex-col gap-3 text-center lg:text-left">

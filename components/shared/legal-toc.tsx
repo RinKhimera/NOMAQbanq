@@ -105,7 +105,7 @@ export const LegalTOC = ({ sections, currentPage }: LegalTOCProps) => {
       transition={{ duration: 0.5, delay: 0.3 }}
       className="hidden lg:block"
     >
-      <div className="sticky top-[90px] z-[45] space-y-6">
+      <div className="sticky top-22.5 z-45 space-y-6">
         {/* Table des matières */}
         <nav className="rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-800/60 dark:bg-gray-900/80">
           <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">

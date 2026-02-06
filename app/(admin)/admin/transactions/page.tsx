@@ -81,7 +81,7 @@ export default function AdminTransactionsPage() {
         actions={
           <Button
             onClick={() => setShowManualPaymentModal(true)}
-            className="bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 transition-all hover:from-amber-600 hover:to-orange-700 hover:shadow-xl hover:shadow-amber-500/30"
+            className="bg-linear-to-r from-amber-500 to-orange-600 text-white shadow-lg shadow-amber-500/25 transition-all hover:from-amber-600 hover:to-orange-700 hover:shadow-xl hover:shadow-amber-500/30"
           >
             <Plus className="mr-2 h-4 w-4" />
             Paiement manuel

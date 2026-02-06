@@ -57,7 +57,7 @@ export function QuestionBrowserToolbar({
             value={filters.domain}
             onValueChange={(value) => updateFilter("domain", value)}
           >
-            <SelectTrigger className="h-10 w-[200px]">
+            <SelectTrigger className="h-10 w-50">
               <SelectValue placeholder="Domaine" />
             </SelectTrigger>
             <SelectContent>
@@ -75,7 +75,7 @@ export function QuestionBrowserToolbar({
             value={filters.hasImages}
             onValueChange={(v) => updateFilter("hasImages", v as ImageFilter)}
           >
-            <SelectTrigger className="h-10 w-[160px]">
+            <SelectTrigger className="h-10 w-40">
               <SelectValue placeholder="Images" />
             </SelectTrigger>
             <SelectContent>

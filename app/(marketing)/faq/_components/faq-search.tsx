@@ -31,7 +31,7 @@ export const FaqSearch = ({
   return (
     <section className="relative -mt-8 pb-8">
       {/* Transitional background - blends header to categories */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-50/50 to-slate-50 dark:from-transparent dark:via-gray-800/50 dark:to-gray-900" />
+      <div className="absolute inset-0 bg-linear-to-b from-transparent via-slate-50/50 to-slate-50 dark:from-transparent dark:via-gray-800/50 dark:to-gray-900" />
 
       <div className="relative mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <motion.div
@@ -71,7 +71,7 @@ export const FaqSearch = ({
                 className={cn(
                   "cursor-pointer rounded-full px-4 py-2 text-sm font-medium transition-all duration-200",
                   activeCategory === category.id
-                    ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
+                    ? "bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-md"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600",
                 )}
               >

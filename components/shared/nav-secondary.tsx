@@ -48,14 +48,14 @@ export const NavSecondary = ({
         href: "/dashboard",
         text: "Aller au Dashboard",
         theme:
-          "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md shadow-blue-500/25",
+          "bg-linear-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md shadow-blue-500/25",
       }
     } else if (isOnDashboardPage && isCurrentUserAdmin) {
       return {
         href: "/admin",
         text: "Aller à l'Admin",
         theme:
-          "bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md shadow-orange-500/25",
+          "bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md shadow-orange-500/25",
       }
     } else if (isOnDashboardPage && !isCurrentUserAdmin) {
       return null
@@ -65,7 +65,7 @@ export const NavSecondary = ({
       href: "/",
       text: "Revenir à l'accueil",
       theme:
-        "bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md shadow-blue-500/25",
+        "bg-linear-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md shadow-blue-500/25",
     }
   }
 
@@ -83,11 +83,11 @@ export const NavSecondary = ({
                 {/* Barre verticale animée */}
                 <div
                   className={cn(
-                    "absolute top-1/2 left-0 h-0 w-[3px] -translate-y-1/2 rounded-r-full transition-all duration-300 ease-out",
+                    "absolute top-1/2 left-0 h-0 w-0.75 -translate-y-1/2 rounded-r-full transition-all duration-300 ease-out",
                     isActive && "h-6",
                     isAdmin
-                      ? "bg-gradient-to-b from-orange-400 to-amber-500"
-                      : "bg-gradient-to-b from-blue-400 to-indigo-500",
+                      ? "bg-linear-to-b from-orange-400 to-amber-500"
+                      : "bg-linear-to-b from-blue-400 to-indigo-500",
                   )}
                 />
                 <SidebarMenuButton
@@ -111,7 +111,7 @@ export const NavSecondary = ({
                   <Link href={item.url} className="flex items-center gap-3">
                     <item.icon
                       className={cn(
-                        "size-[18px] transition-colors",
+                        "size-4.5 transition-colors",
                         isActive &&
                           (isAdmin
                             ? "text-orange-500 dark:text-orange-400"

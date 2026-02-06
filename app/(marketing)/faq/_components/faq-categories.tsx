@@ -73,12 +73,12 @@ export const FaqCategories = ({
   return (
     <section className="relative py-12">
       {/* Background with depth */}
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-50 via-white to-blue-50/50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950/30" />
+      <div className="absolute inset-0 bg-linear-to-b from-slate-50 via-white to-blue-50/50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-950/30" />
 
       {/* Subtle animated orbs */}
-      <div className="absolute top-20 -left-32 h-64 w-64 rounded-full bg-gradient-to-br from-blue-200/40 to-indigo-300/40 blur-3xl dark:from-blue-900/20 dark:to-indigo-900/20" />
-      <div className="absolute bottom-40 -right-32 h-72 w-72 rounded-full bg-gradient-to-br from-purple-200/40 to-pink-300/40 blur-3xl dark:from-purple-900/20 dark:to-pink-900/20" />
-      <div className="absolute top-1/2 left-1/4 h-48 w-48 rounded-full bg-gradient-to-br from-emerald-200/30 to-teal-300/30 blur-3xl dark:from-emerald-900/15 dark:to-teal-900/15" />
+      <div className="absolute top-20 -left-32 h-64 w-64 rounded-full bg-linear-to-br from-blue-200/40 to-indigo-300/40 blur-3xl dark:from-blue-900/20 dark:to-indigo-900/20" />
+      <div className="absolute bottom-40 -right-32 h-72 w-72 rounded-full bg-linear-to-br from-purple-200/40 to-pink-300/40 blur-3xl dark:from-purple-900/20 dark:to-pink-900/20" />
+      <div className="absolute top-1/2 left-1/4 h-48 w-48 rounded-full bg-linear-to-br from-emerald-200/30 to-teal-300/30 blur-3xl dark:from-emerald-900/15 dark:to-teal-900/15" />
 
       {/* Grid pattern overlay */}
       <div
@@ -113,7 +113,7 @@ export const FaqCategories = ({
               {/* Category Header */}
               <div className="mb-6 flex items-center gap-4">
                 <div
-                  className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${category.color} shadow-lg`}
+                  className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br ${category.color} shadow-lg`}
                 >
                   <category.icon className="h-7 w-7 text-white" />
                 </div>

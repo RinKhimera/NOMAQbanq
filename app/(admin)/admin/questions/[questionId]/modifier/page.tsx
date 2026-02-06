@@ -22,7 +22,7 @@ export default function EditQuestionPage({ params }: EditQuestionPageProps) {
       <div className="flex flex-col gap-4 @md:flex-row @md:items-center @md:justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-600 shadow-lg shadow-emerald-500/25">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-600 to-teal-600 shadow-lg shadow-emerald-500/25">
               <Pencil className="h-5 w-5 text-white" />
             </div>
             <div>

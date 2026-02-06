@@ -206,7 +206,7 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
         </div>
       </CardHeader>
       <CardContent className="flex-1 p-0">
-        <ScrollArea className="h-[320px] px-4 pb-4">
+        <ScrollArea className="h-80 px-4 pb-4">
           <div className="space-y-1">
             {activities.map((activity, index) => (
               <ActivityItem key={`${activity.type}-${index}`} activity={activity} />

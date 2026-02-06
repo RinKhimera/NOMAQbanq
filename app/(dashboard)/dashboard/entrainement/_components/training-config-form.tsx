@@ -97,9 +97,9 @@ export const TrainingConfigForm = ({
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 shadow-lg backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
       {/* Header with gradient */}
-      <div className="border-b border-gray-200/60 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 px-6 py-4 dark:border-gray-700/60">
+      <div className="border-b border-gray-200/60 bg-linear-to-r from-emerald-500/10 via-teal-500/10 to-cyan-500/10 px-6 py-4 dark:border-gray-700/60">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-md">
             <Target className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -124,7 +124,7 @@ export const TrainingConfigForm = ({
               key={questionCount}
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="font-display flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-lg font-bold text-white shadow-md"
+              className="font-display flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-emerald-500 to-teal-600 text-lg font-bold text-white shadow-md"
             >
               {questionCount}
             </motion.div>
@@ -138,7 +138,7 @@ export const TrainingConfigForm = ({
               min={5}
               max={maxQuestions}
               step={1}
-              className="[&_[data-slot=slider-range]]:bg-gradient-to-r [&_[data-slot=slider-range]]:from-emerald-500 [&_[data-slot=slider-range]]:to-teal-500 [&_[data-slot=slider-thumb]]:h-6 [&_[data-slot=slider-thumb]]:w-6 [&_[data-slot=slider-thumb]]:border-2 [&_[data-slot=slider-thumb]]:border-emerald-500 [&_[data-slot=slider-thumb]]:shadow-lg [&_[data-slot=slider-thumb]]:shadow-emerald-500/20 [&_[data-slot=slider-track]]:h-3 [&_[data-slot=slider-track]]:bg-gradient-to-r [&_[data-slot=slider-track]]:from-gray-100 [&_[data-slot=slider-track]]:to-gray-200 [&_[data-slot=slider-track]]:dark:from-gray-800 [&_[data-slot=slider-track]]:dark:to-gray-700"
+              className="**:data-[slot=slider-range]:bg-linear-to-r **:data-[slot=slider-range]:from-emerald-500 **:data-[slot=slider-range]:to-teal-500 **:data-[slot=slider-thumb]:h-6 **:data-[slot=slider-thumb]:w-6 **:data-[slot=slider-thumb]:border-2 **:data-[slot=slider-thumb]:border-emerald-500 **:data-[slot=slider-thumb]:shadow-lg **:data-[slot=slider-thumb]:shadow-emerald-500/20 **:data-[slot=slider-track]:h-3 **:data-[slot=slider-track]:bg-linear-to-r **:data-[slot=slider-track]:from-gray-100 **:data-[slot=slider-track]:to-gray-200 **:data-[slot=slider-track]:dark:from-gray-800 **:data-[slot=slider-track]:dark:to-gray-700"
             />
 
             {/* Marks */}
@@ -251,7 +251,7 @@ export const TrainingConfigForm = ({
           onClick={() => startTransition(submitAction)}
           disabled={isPending || !isValidCount}
           size="lg"
-          className="h-14 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-base font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30 disabled:opacity-50"
+          className="h-14 w-full rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-base font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30 disabled:opacity-50"
         >
           {isPending ? (
             <>

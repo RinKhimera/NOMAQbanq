@@ -40,7 +40,7 @@ export default function TarifsPageClient() {
       <PricingGrid />
 
       {/* Guarantees section */}
-      <section className="py-20 bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <section className="py-20 bg-linear-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -67,10 +67,10 @@ export default function TarifsPageClient() {
                 className="group relative overflow-hidden rounded-2xl bg-white p-6 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:bg-gray-800"
               >
                 {/* Gradient accent on hover */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-600/5 to-indigo-600/5 opacity-0 transition-opacity group-hover:opacity-100" />
+                <div className="absolute inset-0 bg-linear-to-br from-blue-600/5 to-indigo-600/5 opacity-0 transition-opacity group-hover:opacity-100" />
 
                 <div className="relative">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg">
                     <item.icon className="h-6 w-6 text-white" />
                   </div>
                   <h3 className="mb-2 text-lg font-semibold text-gray-900 dark:text-white">
@@ -88,7 +88,7 @@ export default function TarifsPageClient() {
 
       {/* CTA Section */}
       <section className="relative overflow-hidden py-24">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800" />
+        <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-indigo-700 to-purple-800" />
         <div className="absolute inset-0 bg-black/20" />
 
         {/* Animated background */}

@@ -128,7 +128,7 @@ const PaymentSuccessContent = () => {
             className="text-center"
           >
             <div className="mb-8 flex justify-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50">
+              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50">
                 <Loader2 className="h-12 w-12 animate-spin text-blue-600 dark:text-blue-400" />
               </div>
             </div>
@@ -157,7 +157,7 @@ const PaymentSuccessContent = () => {
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-                  className="flex h-28 w-28 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-2xl shadow-emerald-500/30"
+                  className="flex h-28 w-28 items-center justify-center rounded-3xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-2xl shadow-emerald-500/30"
                 >
                   <CheckCircle className="h-14 w-14 text-white" />
                 </motion.div>
@@ -241,7 +241,7 @@ const PaymentSuccessContent = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                className="mb-8 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/30 dark:to-indigo-950/30"
+                className="mb-8 rounded-2xl bg-linear-to-r from-blue-50 to-indigo-50 p-6 dark:from-blue-950/30 dark:to-indigo-950/30"
               >
                 <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">
                   Vos accès actifs
@@ -297,7 +297,7 @@ const PaymentSuccessContent = () => {
               <Link href="/dashboard" className="flex-1">
                 <Button
                   size="lg"
-                  className="h-14 w-full rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-base font-bold text-white hover:opacity-90"
+                  className="h-14 w-full rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 text-base font-bold text-white hover:opacity-90"
                 >
                   Aller au tableau de bord
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -326,7 +326,7 @@ const PaymentSuccessContent = () => {
             className="w-full max-w-lg text-center"
           >
             <div className="mb-8 flex justify-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/50 dark:to-orange-900/50">
+              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-amber-100 to-orange-100 dark:from-amber-900/50 dark:to-orange-900/50">
                 <Clock className="h-12 w-12 text-amber-600 dark:text-amber-400" />
               </div>
             </div>
@@ -379,7 +379,7 @@ const PaymentSuccessContent = () => {
             className="w-full max-w-lg text-center"
           >
             <div className="mb-8 flex justify-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-red-100 to-rose-100 dark:from-red-900/50 dark:to-rose-900/50">
+              <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-red-100 to-rose-100 dark:from-red-900/50 dark:to-rose-900/50">
                 <XCircle className="h-12 w-12 text-red-600 dark:text-red-400" />
               </div>
             </div>
@@ -397,7 +397,7 @@ const PaymentSuccessContent = () => {
               <Link href="/tarifs" className="flex-1">
                 <Button
                   size="lg"
-                  className="h-14 w-full rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white"
+                  className="h-14 w-full rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 text-white"
                 >
                   Réessayer l{"'"}achat
                 </Button>

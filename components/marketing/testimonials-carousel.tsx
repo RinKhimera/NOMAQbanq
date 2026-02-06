@@ -67,7 +67,7 @@ export default function TestimonialsCarousel() {
       {/* Main Testimonial Display */}
       <div className="relative overflow-hidden rounded-3xl">
         {/* Background with gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-indigo-700 to-purple-800"></div>
+        <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-indigo-700 to-purple-800"></div>
         <div className="absolute inset-0 bg-black/20"></div>
 
         {/* Animated background elements */}
@@ -123,7 +123,7 @@ export default function TestimonialsCarousel() {
             <div className="flex items-center justify-center space-x-6">
               <div className="relative">
                 {/* Avatar glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full blur-lg opacity-60 animate-pulse-glow"></div>
+                <div className="absolute inset-0 bg-linear-to-br from-blue-400 to-indigo-600 rounded-full blur-lg opacity-60 animate-pulse-glow"></div>
                 <Image
                   src={currentTestimonial.avatar}
                   alt={currentTestimonial.name}
@@ -171,7 +171,7 @@ export default function TestimonialsCarousel() {
                   transition-all duration-300 rounded-full
                   ${
                     index === currentIndex
-                      ? "w-12 h-4 bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg"
+                      ? "w-12 h-4 bg-linear-to-r from-blue-500 to-indigo-600 shadow-lg"
                       : "w-4 h-4 bg-gray-300 hover:bg-gray-400 hover:scale-125"
                   }
                   disabled:cursor-not-allowed
@@ -217,7 +217,7 @@ export default function TestimonialsCarousel() {
       <div className="mt-8 w-full max-w-md mx-auto">
         <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
           <div
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500 ease-out shadow-lg"
+            className="bg-linear-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500 ease-out shadow-lg"
             style={{
               width: `${((currentIndex + 1) / testimonials.length) * 100}%`,
             }}

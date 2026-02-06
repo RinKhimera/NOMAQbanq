@@ -72,16 +72,16 @@ export const VitalCard = ({
     >
       <div
         className={cn(
-          "relative overflow-hidden rounded-2xl border bg-gradient-to-br p-5 transition-all duration-300",
+          "relative overflow-hidden rounded-2xl border bg-linear-to-br p-5 transition-all duration-300",
           "bg-white/80 backdrop-blur-sm dark:bg-gray-900/80",
           colors.border,
           colors.bg,
-          "hover:translate-y-[-2px] hover:shadow-lg",
+          "hover:-translate-y-0.5 hover:shadow-lg",
           colors.glow
         )}
       >
         {/* Pulse animation on hover */}
-        <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-gradient-to-br from-current to-transparent opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-20" />
+        <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-20" />
 
         {/* Header with icon */}
         <div className="mb-3 flex items-center justify-between">
@@ -150,10 +150,10 @@ export const VitalCard = ({
           <div
             className={cn(
               "h-full w-0 transition-all duration-500 group-hover:w-full",
-              color === "blue" && "bg-gradient-to-r from-blue-500 to-blue-600",
-              color === "green" && "bg-gradient-to-r from-emerald-500 to-emerald-600",
-              color === "amber" && "bg-gradient-to-r from-amber-500 to-amber-600",
-              color === "purple" && "bg-gradient-to-r from-purple-500 to-purple-600"
+              color === "blue" && "bg-linear-to-r from-blue-500 to-blue-600",
+              color === "green" && "bg-linear-to-r from-emerald-500 to-emerald-600",
+              color === "amber" && "bg-linear-to-r from-amber-500 to-amber-600",
+              color === "purple" && "bg-linear-to-r from-purple-500 to-purple-600"
             )}
           />
         </div>

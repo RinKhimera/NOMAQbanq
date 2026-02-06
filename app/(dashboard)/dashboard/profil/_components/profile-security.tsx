@@ -31,7 +31,7 @@ export const ProfileSecurity = () => {
       <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
         <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
           <CardTitle className="flex items-center gap-3 text-lg">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 shadow-lg shadow-orange-500/20">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-orange-500 to-amber-600 shadow-lg shadow-orange-500/20">
               <IconShield className="h-5 w-5 text-white" />
             </div>
             <span className="font-display font-semibold text-gray-900 dark:text-white">
@@ -41,7 +41,7 @@ export const ProfileSecurity = () => {
         </CardHeader>
 
         <CardContent className="p-6">
-          <div className="rounded-xl bg-gradient-to-br from-orange-50 to-amber-50/50 p-5 dark:from-orange-950/30 dark:to-amber-950/20">
+          <div className="rounded-xl bg-linear-to-br from-orange-50 to-amber-50/50 p-5 dark:from-orange-950/30 dark:to-amber-950/20">
             <div className="flex items-start gap-4">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-100 dark:bg-orange-900/40">
                 <IconKey className="h-5 w-5 text-orange-600 dark:text-orange-400" />

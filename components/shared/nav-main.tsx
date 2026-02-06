@@ -39,11 +39,11 @@ export const NavMain = ({ items, isAdmin = false }: NavMainProps) => {
                 {/* Barre verticale animée */}
                 <div
                   className={cn(
-                    "absolute top-1/2 left-0 h-0 w-[3px] -translate-y-1/2 rounded-r-full transition-all duration-300 ease-out",
+                    "absolute top-1/2 left-0 h-0 w-0.75 -translate-y-1/2 rounded-r-full transition-all duration-300 ease-out",
                     isActive && "h-6",
                     isAdmin
-                      ? "bg-gradient-to-b from-orange-400 to-amber-500"
-                      : "bg-gradient-to-b from-blue-400 to-indigo-500",
+                      ? "bg-linear-to-b from-orange-400 to-amber-500"
+                      : "bg-linear-to-b from-blue-400 to-indigo-500",
                   )}
                 />
                 <SidebarMenuButton
@@ -69,7 +69,7 @@ export const NavMain = ({ items, isAdmin = false }: NavMainProps) => {
                     {item.icon && (
                       <item.icon
                         className={cn(
-                          "size-[18px] transition-colors",
+                          "size-4.5 transition-colors",
                           isActive &&
                             (isAdmin
                               ? "text-orange-500 dark:text-orange-400"

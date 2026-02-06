@@ -27,7 +27,7 @@ export function EmptyState({
     <div
       className={cn(
         "bg-background border-border hover:border-border/80 text-center",
-        "w-full max-w-[620px] rounded-xl border-1 p-14",
+        "w-full max-w-155 rounded-xl border p-14",
         "group hover:bg-muted/50 transition duration-500 hover:duration-200",
         className,
       )}

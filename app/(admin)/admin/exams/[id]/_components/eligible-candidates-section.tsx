@@ -51,7 +51,7 @@ export function EligibleCandidatesSection() {
   if (isLoading) {
     return (
       <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-        <CardHeader className="border-b bg-gradient-to-r from-teal-500 to-cyan-500 text-white">
+        <CardHeader className="border-b bg-linear-to-r from-teal-500 to-cyan-500 text-white">
           <div className="flex items-center gap-2">
             <IconUsers className="h-5 w-5" />
             <CardTitle className="text-lg">Candidats éligibles</CardTitle>
@@ -81,7 +81,7 @@ export function EligibleCandidatesSection() {
 
   return (
     <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-      <CardHeader className="border-b bg-gradient-to-r from-teal-500 to-cyan-500 text-white">
+      <CardHeader className="border-b bg-linear-to-r from-teal-500 to-cyan-500 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <IconUsers className="h-5 w-5" />
@@ -137,7 +137,7 @@ export function EligibleCandidatesSection() {
             </p>
           </div>
         ) : (
-          <ScrollArea className="h-[400px]">
+          <ScrollArea className="h-100">
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {filteredCandidates.map((candidate, index) => (
                 <CandidateRow
@@ -194,7 +194,7 @@ function CandidateRow({ candidate, index }: CandidateRowProps) {
     >
       <Avatar className="h-12 w-12 border-2 border-teal-100 shadow-sm dark:border-teal-800">
         <AvatarImage src={user.image} alt={user.name || "User"} />
-        <AvatarFallback className="bg-gradient-to-br from-teal-500 to-cyan-500 text-sm font-semibold text-white">
+        <AvatarFallback className="bg-linear-to-br from-teal-500 to-cyan-500 text-sm font-semibold text-white">
           {initials}
         </AvatarFallback>
       </Avatar>

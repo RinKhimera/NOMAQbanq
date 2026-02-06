@@ -157,7 +157,7 @@ const ExamCard = ({
     >
       <div
         className={cn(
-          "group relative h-full overflow-hidden rounded-2xl border bg-gradient-to-br p-6 shadow-sm backdrop-blur-sm transition-all duration-300",
+          "group relative h-full overflow-hidden rounded-2xl border bg-linear-to-br p-6 shadow-sm backdrop-blur-sm transition-all duration-300",
           styles.gradient,
           styles.border,
           styles.hoverBorder,
@@ -296,7 +296,7 @@ const ExamCard = ({
               ) : (
                 <Button
                   onClick={() => onStart(exam._id)}
-                  className="w-full cursor-pointer bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md transition-all duration-200 hover:from-emerald-700 hover:to-teal-700 hover:shadow-lg"
+                  className="w-full cursor-pointer bg-linear-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md transition-all duration-200 hover:from-emerald-700 hover:to-teal-700 hover:shadow-lg"
                 >
                   <PlayCircle className="mr-2 h-4 w-4" />
                   Commencer l&apos;examen
@@ -524,8 +524,8 @@ const ExamenBlancPage = () => {
     <div className="min-h-screen">
       {/* Background gradient mesh */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-1/4 -top-1/4 h-[600px] w-[600px] rounded-full bg-gradient-to-br from-blue-100/40 to-indigo-100/40 blur-3xl dark:from-blue-900/20 dark:to-indigo-900/20" />
-        <div className="absolute -bottom-1/4 -right-1/4 h-[500px] w-[500px] rounded-full bg-gradient-to-br from-violet-100/30 to-blue-100/30 blur-3xl dark:from-violet-900/15 dark:to-blue-900/15" />
+        <div className="absolute -left-1/4 -top-1/4 h-150 w-150 rounded-full bg-linear-to-br from-blue-100/40 to-indigo-100/40 blur-3xl dark:from-blue-900/20 dark:to-indigo-900/20" />
+        <div className="absolute -bottom-1/4 -right-1/4 h-125 w-125 rounded-full bg-linear-to-br from-violet-100/30 to-blue-100/30 blur-3xl dark:from-violet-900/15 dark:to-blue-900/15" />
       </div>
 
       <div className="container mx-auto max-w-6xl px-4 py-8">
@@ -538,7 +538,7 @@ const ExamenBlancPage = () => {
         >
           <div className="flex items-center gap-4">
             <div className="relative">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
                 <GraduationCap className="h-8 w-8 text-white" />
               </div>
               <motion.div
@@ -716,7 +716,7 @@ const ExamenBlancPage = () => {
                 initial={{ scale: 0, rotate: -180 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30"
+                className="flex h-12 w-12 items-center justify-center rounded-full bg-linear-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30"
               >
                 <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               </motion.div>
@@ -727,7 +727,7 @@ const ExamenBlancPage = () => {
                 Vous êtes sur le point de commencer un examen blanc. Voici les
                 conditions :
               </p>
-              <div className="space-y-3 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 p-4 dark:from-amber-950/30 dark:to-orange-950/30">
+              <div className="space-y-3 rounded-xl bg-linear-to-br from-amber-50 to-orange-50 p-4 dark:from-amber-950/30 dark:to-orange-950/30">
                 {[
                   {
                     text: `${getSelectedExamData()?.questionIds.length || 0} questions`,
@@ -780,7 +780,7 @@ const ExamenBlancPage = () => {
             </Button>
             <Button
               onClick={confirmStartExam}
-              className="bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-lg transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl"
+              className="bg-linear-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-lg transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl"
             >
               <PlayCircle className="mr-2 h-4 w-4" />
               Commencer l&apos;examen

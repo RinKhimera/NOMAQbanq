@@ -53,7 +53,7 @@ export const MobileMenu = ({
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-[300px] border-l border-gray-200 bg-white p-0 dark:border-gray-800 dark:bg-gray-950 sm:w-[340px]"
+        className="w-75 border-l border-gray-200 bg-white p-0 dark:border-gray-800 dark:bg-gray-950 sm:w-85"
       >
         <SheetHeader className="border-b border-gray-200 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-900/50">
           <SheetTitle className="text-left">
@@ -67,10 +67,10 @@ export const MobileMenu = ({
                 />
               </div>
               <div className="flex items-baseline">
-                <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-lg font-extrabold text-transparent">
+                <span className="bg-linear-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-lg font-extrabold text-transparent">
                   NOMAQ
                 </span>
-                <span className="bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-lg font-extrabold text-transparent">
+                <span className="bg-linear-to-r from-indigo-600 to-blue-600 bg-clip-text text-lg font-extrabold text-transparent">
                   banq
                 </span>
               </div>
@@ -90,7 +90,7 @@ export const MobileMenu = ({
                   onClick={handleLinkClick}
                   className={`flex items-center justify-between rounded-xl px-4 py-3 text-[15px] font-medium transition-all duration-200 ${
                     isActive
-                      ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md"
+                      ? "bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-md"
                       : "text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
                   }`}
                 >
@@ -138,7 +138,7 @@ export const MobileMenu = ({
             {isAuthenticated && currentUser ? (
               <div className="space-y-3">
                 {/* User Info Card */}
-                <div className="rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30">
+                <div className="rounded-xl bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30">
                   <div className="flex items-center gap-3">
                     <div className="relative">
                       <Avatar className="size-11 border-2 border-white shadow-md dark:border-gray-900">
@@ -146,7 +146,7 @@ export const MobileMenu = ({
                           src={currentUser.image ?? undefined}
                           alt={currentUser.name ?? "Utilisateur"}
                         />
-                        <AvatarFallback className="bg-gradient-to-br from-blue-600 to-indigo-600 text-sm font-semibold text-white">
+                        <AvatarFallback className="bg-linear-to-br from-blue-600 to-indigo-600 text-sm font-semibold text-white">
                           {currentUser.name?.charAt(0)?.toUpperCase() || "U"}
                         </AvatarFallback>
                       </Avatar>
@@ -216,7 +216,7 @@ export const MobileMenu = ({
                   onClick={handleLinkClick}
                   className="block"
                 >
-                  <Button className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md">
+                  <Button className="w-full rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md">
                     Inscription
                   </Button>
                 </Link>

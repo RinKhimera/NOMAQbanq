@@ -92,7 +92,7 @@ export const RecentActivityFeed = ({
                 <Link href={`/dashboard/examen-blanc/${exam._id}/resultats`}>
                   <div className="group relative flex items-center gap-4 rounded-xl border border-gray-200/50 bg-white/80 p-4 backdrop-blur-sm transition-all duration-300 hover:border-gray-300 hover:shadow-md dark:border-gray-700/50 dark:bg-gray-900/80 dark:hover:border-gray-600">
                     {/* Timeline dot */}
-                    <div className="absolute top-1/2 -left-[3px] -translate-y-1/2">
+                    <div className="absolute top-1/2 -left-0.75 -translate-y-1/2">
                       <div
                         className={cn(
                           "h-2 w-2 rounded-full",
@@ -104,7 +104,7 @@ export const RecentActivityFeed = ({
                     {/* Icon */}
                     <div
                       className={cn(
-                        "flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl",
+                        "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
                         isPassing
                           ? "bg-emerald-100 dark:bg-emerald-900/30"
                           : "bg-red-100 dark:bg-red-900/30",
@@ -120,7 +120,7 @@ export const RecentActivityFeed = ({
                     {/* Content */}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <GraduationCap className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                        <GraduationCap className="h-4 w-4 shrink-0 text-gray-400" />
                         <h4 className="font-display truncate font-semibold text-gray-900 dark:text-white">
                           {exam.title}
                         </h4>
