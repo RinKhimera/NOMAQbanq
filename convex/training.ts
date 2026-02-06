@@ -350,7 +350,7 @@ export const getTrainingStats = query({
 
     // Récupérer les 5 dernières sessions pour le graphique
     const recentSessions = completedSessions
-      .sort((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
+      .toSorted((a, b) => (b.completedAt ?? 0) - (a.completedAt ?? 0))
       .slice(0, 5)
       .map((s) => ({
         score: s.score,

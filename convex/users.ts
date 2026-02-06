@@ -451,8 +451,8 @@ export const getUsersWithFilters = query({
       { exam?: number; training?: number }
     > = new Map()
 
-    if (accessStatus || true) {
-      // Always fetch access for enrichment
+    {
+      // Always fetch access for enrichment (needed for access badges in UI)
       const allAccess = await ctx.db.query("userAccess").take(2000)
 
       for (const access of allAccess) {
@@ -502,7 +502,7 @@ export const getUsersWithFilters = query({
     }
 
     // Sort
-    users.sort((a, b) => {
+    users = users.toSorted((a, b) => {
       let valueA: string | number
       let valueB: string | number
 

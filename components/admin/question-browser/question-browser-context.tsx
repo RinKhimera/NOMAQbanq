@@ -52,6 +52,12 @@ export function QuestionBrowserProvider({
   const [filters, setFilters] = useState<QuestionFilters>(defaultFilters)
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
 
+  // Debounce search to avoid excessive Convex queries
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(filters.searchQuery), 300)
+    return () => clearTimeout(timer)
+  }, [filters.searchQuery])
+
   // Preview panel state (internal, used when not controlled)
   const [internalPreviewId, setInternalPreviewId] =
     useState<Id<"questions"> | null>(null)
@@ -68,14 +74,6 @@ export function QuestionBrowserProvider({
   // Use external or internal selection based on mode and props
   const selectedIds = externalSelectedIds ?? internalSelectedIds
   const setSelectedIds = onSelectionChange ?? setInternalSelectedIds
-
-  // Debounce search query
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(filters.searchQuery)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [filters.searchQuery])
 
   // Notify parent of filter changes
   useEffect(() => {

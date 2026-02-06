@@ -443,7 +443,7 @@ export const getQuestionsWithFilters = query({
       }
 
       // Appliquer le tri
-      filtered.sort((a, b) => {
+      filtered = filtered.toSorted((a, b) => {
         let comparison = 0
         switch (sortBy) {
           case "question":

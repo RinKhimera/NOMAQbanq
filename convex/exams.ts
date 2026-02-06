@@ -1081,7 +1081,7 @@ export const getExamLeaderboard = query({
       .filter((entry) => entry.user !== null)
 
     // Sort by score descending
-    return leaderboard.sort((a, b) => b.score - a.score)
+    return leaderboard.toSorted((a, b) => b.score - a.score)
   },
 })
 

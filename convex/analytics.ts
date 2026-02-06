@@ -134,7 +134,7 @@ export const getRecentActivity = query({
     }
 
     // Trier par timestamp décroissant et limiter à 10
-    return activities.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10)
+    return activities.toSorted((a, b) => b.timestamp - a.timestamp).slice(0, 10)
   },
 })
 

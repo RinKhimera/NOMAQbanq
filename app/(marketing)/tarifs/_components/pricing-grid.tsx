@@ -98,7 +98,7 @@ export const PricingGrid = () => {
   })
 
   // Sort products: promo (6 months) first for each type
-  const sortedProducts = filteredProducts?.sort((a, b) => {
+  const sortedProducts = filteredProducts?.toSorted((a, b) => {
     if (a.accessType !== b.accessType) {
       return a.accessType === "exam" ? -1 : 1
     }

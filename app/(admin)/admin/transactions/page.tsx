@@ -28,21 +28,13 @@ export default function AdminTransactionsPage() {
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null)
 
   // Build query args
-  const queryArgs = useMemo(() => {
-    const args: {
-      type?: "stripe" | "manual"
-      status?: "pending" | "completed" | "failed" | "refunded"
-    } = {}
-
-    if (typeFilter !== "all") {
-      args.type = typeFilter
-    }
-    if (statusFilter !== "all") {
-      args.status = statusFilter
-    }
-
-    return args
-  }, [typeFilter, statusFilter])
+  const queryArgs: {
+    type?: "stripe" | "manual"
+    status?: "pending" | "completed" | "failed" | "refunded"
+  } = {
+    ...(typeFilter !== "all" && { type: typeFilter }),
+    ...(statusFilter !== "all" && { status: statusFilter }),
+  }
 
   const {
     results: transactions,

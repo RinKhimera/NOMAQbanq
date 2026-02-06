@@ -33,6 +33,12 @@ export default function UsersPage() {
   // State for filters
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
+
+  // Debounce search to avoid excessive Convex queries
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
   const [role, setRole] = useState<RoleFilter>("all")
   const [accessStatus, setAccessStatus] = useState<AccessStatusFilter>("all")
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined)
@@ -47,12 +53,6 @@ export default function UsersPage() {
 
   // Transition for non-blocking filter updates
   const [, startTransition] = useTransition()
-
-  // Debounce search query
-  useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearchQuery(searchQuery), 300)
-    return () => clearTimeout(timer)
-  }, [searchQuery])
 
   // Stats query
   const stats = useQuery(api.users.getUsersStats)
