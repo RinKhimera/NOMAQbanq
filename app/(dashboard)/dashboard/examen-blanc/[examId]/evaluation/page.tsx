@@ -1,6 +1,6 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
+import { useConvexAuth, useMutation, useQuery } from "convex/react"
 import {
   AlertTriangle,
   CheckCircle,
@@ -81,9 +81,10 @@ const AssessmentPage = () => {
   const [isResuming, setIsResuming] = useState(false)
   const pauseTriggeredRef = useRef(false)
 
-  const examWithQuestions = useQuery(api.exams.getExamWithQuestions, { examId })
-  const examSession = useQuery(api.exams.getExamSession, { examId })
-  const pauseStatus = useQuery(api.examPause.getPauseStatus, { examId })
+  const { isAuthenticated } = useConvexAuth()
+  const examWithQuestions = useQuery(api.exams.getExamWithQuestions, isAuthenticated ? { examId } : "skip")
+  const examSession = useQuery(api.exams.getExamSession, isAuthenticated ? { examId } : "skip")
+  const pauseStatus = useQuery(api.examPause.getPauseStatus, isAuthenticated ? { examId } : "skip")
   const startExam = useMutation(api.exams.startExam)
   const submitAnswers = useMutation(api.exams.submitExamAnswers)
   const startPauseMutation = useMutation(api.examPause.startPause)

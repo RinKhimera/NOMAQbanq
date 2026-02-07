@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
 import { useState } from "react"
 import { Target, CheckCircle2, Percent, Brain } from "lucide-react"
 
@@ -17,14 +17,16 @@ import { RecentActivityFeed } from "./_components/recent-activity-feed"
 import { QuickAccessGrid } from "./_components/quick-access-grid"
 
 const DashboardPage = () => {
+  const { isAuthenticated } = useConvexAuth()
   const { currentUser, isLoading: userLoading } = useCurrentUser()
-  const stats = useQuery(api.examStats.getMyDashboardStats)
-  const availableExams = useQuery(api.exams.getMyAvailableExams)
-  const recentExams = useQuery(api.examStats.getMyRecentExams)
-  const scoreHistory = useQuery(api.examStats.getMyScoreHistory)
-  const accessStatus = useQuery(api.payments.getMyAccessStatus)
-  const trainingStats = useQuery(api.training.getTrainingStats)
-  const trainingScoreHistory = useQuery(api.training.getMyTrainingScoreHistory)
+  const skip = isAuthenticated ? undefined : ("skip" as const)
+  const stats = useQuery(api.examStats.getMyDashboardStats, skip)
+  const availableExams = useQuery(api.exams.getMyAvailableExams, skip)
+  const recentExams = useQuery(api.examStats.getMyRecentExams, skip)
+  const scoreHistory = useQuery(api.examStats.getMyScoreHistory, skip)
+  const accessStatus = useQuery(api.payments.getMyAccessStatus, skip)
+  const trainingStats = useQuery(api.training.getTrainingStats, skip)
+  const trainingScoreHistory = useQuery(api.training.getMyTrainingScoreHistory, skip)
   const [now] = useState(() => Date.now())
 
   // Loading state
