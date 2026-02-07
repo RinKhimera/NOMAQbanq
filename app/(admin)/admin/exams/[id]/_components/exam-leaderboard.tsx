@@ -55,7 +55,7 @@ export function ExamLeaderboard({
   isAdmin = false,
   currentUserId,
 }: ExamLeaderboardProps) {
-  const leaderboard = useQuery(api.exams.getExamLeaderboard, { examId })
+  const leaderboard = useQuery(api.examStats.getExamLeaderboard, { examId })
   const deleteParticipation = useMutation(
     api.examParticipations.deleteParticipation,
   )

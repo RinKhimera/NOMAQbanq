@@ -12,6 +12,8 @@ export const SessionToolbar = ({
   showLabValues = true,
   onOpenLabValues,
   showScrollTop = true,
+  navFab,
+  showNavFab = false,
 }: SessionToolbarProps) => {
   const [isScrolled, setIsScrolled] = useState(false)
 
@@ -67,6 +69,21 @@ export const SessionToolbar = ({
             >
               <ArrowUp className="h-5 w-5" />
             </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Nav FAB */}
+      <AnimatePresence>
+        {showNavFab && navFab && (
+          <motion.div
+            key="nav-fab"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            {navFab}
           </motion.div>
         )}
       </AnimatePresence>

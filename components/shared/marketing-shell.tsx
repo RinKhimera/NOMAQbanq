@@ -1,4 +1,4 @@
-import Footer from "@/components/layout/footer"
+import Footer from "@/components/shared/footer"
 import { MarketingHeader } from "@/components/marketing-header"
 
 type MarketingShellProps = {

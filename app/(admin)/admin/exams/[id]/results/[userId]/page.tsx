@@ -18,7 +18,7 @@ import { useMemo, useState } from "react"
 import { useIsVisible } from "@/hooks/use-is-visible"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
-import { ScrollToTop } from "@/components/shared/scroll-to-top"
+import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -630,7 +630,7 @@ const AdminParticipantResultsPage = () => {
 
           {/* Right column - Navigation Sidebar (desktop) */}
           <div className="hidden xl:block">
-            <div ref={desktopNavRef} className="h-px" />
+            <div ref={desktopNavRef} className="h-1" />
             <div className="sticky top-24 space-y-4">
               <ResultsQuestionNavigator
                 questionResults={navigatorResults}
@@ -664,19 +664,19 @@ const AdminParticipantResultsPage = () => {
         </div>
       </div>
 
-      {/* Navigation FAB (mobile + desktop when sidebar is out of view) */}
-      {!isDesktopNavVisible && (
-        <ResultsQuestionNavigator
-          questionResults={navigatorResults}
-          onNavigateToQuestion={scrollToQuestion}
-          variant="mobile"
-          position="left"
-          accentColor="blue"
-        />
-      )}
-
-      {/* Scroll to top (right side, no collision with left FAB) */}
-      <ScrollToTop threshold={500} position="right" />
+      {/* Floating toolbar: scroll-to-top + nav FAB */}
+      <SessionToolbar
+        showScrollTop={true}
+        showNavFab={!isDesktopNavVisible}
+        navFab={
+          <ResultsQuestionNavigator
+            questionResults={navigatorResults}
+            onNavigateToQuestion={scrollToQuestion}
+            variant="mobile"
+            accentColor="blue"
+          />
+        }
+      />
     </div>
   )
 }

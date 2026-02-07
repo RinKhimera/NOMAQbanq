@@ -8,7 +8,7 @@ import { ExamStatItem } from "@/types"
 import { ExamStatCard } from "./exam-stat-card"
 
 export function ExamSectionStats({ examId }: { examId: Id<"exams"> }) {
-  const leaderboard = useQuery(api.exams.getExamLeaderboard, { examId })
+  const leaderboard = useQuery(api.examStats.getExamLeaderboard, { examId })
   const participants = leaderboard ?? []
 
   const statItems: ExamStatItem[] = [

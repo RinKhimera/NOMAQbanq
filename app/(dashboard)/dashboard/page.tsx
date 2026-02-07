@@ -18,10 +18,10 @@ import { QuickAccessGrid } from "./_components/quick-access-grid"
 
 const DashboardPage = () => {
   const { currentUser, isLoading: userLoading } = useCurrentUser()
-  const stats = useQuery(api.exams.getMyDashboardStats)
+  const stats = useQuery(api.examStats.getMyDashboardStats)
   const availableExams = useQuery(api.exams.getMyAvailableExams)
-  const recentExams = useQuery(api.exams.getMyRecentExams)
-  const scoreHistory = useQuery(api.exams.getMyScoreHistory)
+  const recentExams = useQuery(api.examStats.getMyRecentExams)
+  const scoreHistory = useQuery(api.examStats.getMyScoreHistory)
   const accessStatus = useQuery(api.payments.getMyAccessStatus)
   const trainingStats = useQuery(api.training.getTrainingStats)
   const trainingScoreHistory = useQuery(api.training.getMyTrainingScoreHistory)

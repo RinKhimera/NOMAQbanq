@@ -183,8 +183,8 @@ describe("bunny utilities", () => {
       expect(getExtensionFromMimeType("image/webp")).toBe("webp")
     })
 
-    it("returns gif for image/gif", () => {
-      expect(getExtensionFromMimeType("image/gif")).toBe("gif")
+    it("returns jpg fallback for image/gif (not in ALLOWED_MIME_TYPES)", () => {
+      expect(getExtensionFromMimeType("image/gif")).toBe("jpg")
     })
 
     it("returns jpg as default for unknown MIME types", () => {

@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
-import { ScrollToTop } from "@/components/shared/scroll-to-top"
+import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { cn } from "@/lib/utils"
 
 export default function TrainingResultsPage() {
@@ -454,7 +454,7 @@ export default function TrainingResultsPage() {
 
           {/* Sidebar - Navigation grid (desktop) */}
           <div className="hidden lg:block">
-            <div ref={desktopNavRef} className="h-px" />
+            <div ref={desktopNavRef} className="h-1" />
             <ResultsQuestionNavigator
               questionResults={questionResults}
               onNavigateToQuestion={scrollToQuestion}
@@ -465,22 +465,18 @@ export default function TrainingResultsPage() {
         </div>
       </div>
 
-      {/* Navigation FAB (mobile + desktop when sidebar is out of view) */}
-      {!isDesktopNavVisible && (
-        <ResultsQuestionNavigator
-          questionResults={questionResults}
-          onNavigateToQuestion={scrollToQuestion}
-          variant="mobile"
-          position="right"
-          accentColor="emerald"
-        />
-      )}
-
-      {/* Scroll to top (offset to avoid FAB collision on mobile) */}
-      <ScrollToTop
-        threshold={500}
-        position="right"
-        className="bottom-24 right-6"
+      {/* Floating toolbar: scroll-to-top + nav FAB */}
+      <SessionToolbar
+        showScrollTop={true}
+        showNavFab={!isDesktopNavVisible}
+        navFab={
+          <ResultsQuestionNavigator
+            questionResults={questionResults}
+            onNavigateToQuestion={scrollToQuestion}
+            variant="mobile"
+            accentColor="emerald"
+          />
+        }
       />
     </div>
   )

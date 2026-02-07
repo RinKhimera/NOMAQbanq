@@ -26,7 +26,7 @@ const AdminExamsPage = () => {
 
   // Stats query
   const stats = useQuery(
-    api.exams.getExamsStats,
+    api.examStats.getExamsStats,
     isAuthenticated ? undefined : "skip",
   )
 

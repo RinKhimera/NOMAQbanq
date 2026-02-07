@@ -425,7 +425,7 @@ const ExamenBlancPage = () => {
 
   // Skip queries until authenticated to avoid race condition on page reload
   const allExams = useQuery(
-    api.exams.getAllExamsWithUserParticipation,
+    api.examStats.getAllExamsWithUserParticipation,
     isAuthenticated ? undefined : "skip"
   )
   const currentUser = useQuery(

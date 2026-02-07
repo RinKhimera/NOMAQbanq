@@ -1,4 +1,4 @@
-import { Doc, Id } from "../_generated/dataModel"
+import { Doc } from "../_generated/dataModel"
 import { MutationCtx, QueryCtx } from "../_generated/server"
 import { Errors } from "./errors"
 
@@ -79,16 +79,3 @@ export const isAdmin = async (
   return user?.role === "admin"
 }
 
-/**
- * Helper pour récupérer plusieurs documents par leurs IDs en batch
- * Plus efficace que Promise.all avec ctx.db.get() individuels
- */
-export const getManyByIds = async (
-  ctx: QueryCtx | MutationCtx,
-  table: "questions" | "users" | "exams" | "trainingParticipations" | "trainingAnswers",
-  ids: Id<typeof table>[],
-): Promise<(Doc<typeof table> | null)[]> => {
-  // Utiliser Promise.all est actuellement la meilleure approche dans Convex
-  // car il n'y a pas de méthode batch native
-  return Promise.all(ids.map((id) => ctx.db.get(id)))
-}

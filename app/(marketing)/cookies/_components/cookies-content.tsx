@@ -1,6 +1,6 @@
 "use client"
 
-import { LegalSection } from "@/components/layout/legal-section"
+import { LegalSection } from "@/components/shared/legal-section"
 
 export const CookiesContent = () => {
   return (

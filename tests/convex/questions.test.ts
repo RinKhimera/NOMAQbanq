@@ -567,7 +567,7 @@ describe("questions", () => {
         })
       }
 
-      const result = await t.query(api.questions.getRandomQuestions, {
+      const result = await t.mutation(api.questions.getRandomQuestions, {
         count: 3,
       })
 
@@ -605,7 +605,7 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await t.query(api.questions.getRandomQuestions, {
+      const result = await t.mutation(api.questions.getRandomQuestions, {
         count: 10,
         domain: "Cardiologie",
       })
@@ -627,7 +627,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await t.query(api.questions.getRandomQuestions, {
+      const result = await t.mutation(api.questions.getRandomQuestions, {
         count: 10,
       })
 
@@ -692,7 +692,7 @@ describe("questions", () => {
           questionId,
           orderedStoragePaths: ["path1.jpg"],
         }),
-      ).rejects.toThrow("Question non trouvée")
+      ).rejects.toThrow("NOT_FOUND")
     })
 
     it("réordonne les images correctement", async () => {
@@ -793,7 +793,7 @@ describe("questions", () => {
       })
 
       await expect(
-        asUser.mutation(api.questions.setQuestionImages, {
+        asUser.action(api.questions.setQuestionImages, {
           questionId,
           images: [],
         }),
@@ -815,7 +815,7 @@ describe("questions", () => {
       await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId })
 
       await expect(
-        asAdmin.mutation(api.questions.setQuestionImages, {
+        asAdmin.action(api.questions.setQuestionImages, {
           questionId,
           images: [],
         }),
@@ -836,7 +836,7 @@ describe("questions", () => {
       })
 
       // Set images out of order
-      const result = await asAdmin.mutation(api.questions.setQuestionImages, {
+      const result = await asAdmin.action(api.questions.setQuestionImages, {
         questionId,
         images: [
           { url: "https://cdn.example.com/img2.jpg", storagePath: "q/img2.jpg", order: 2 },
@@ -879,7 +879,7 @@ describe("questions", () => {
       })
 
       // Replace with new images (keeping all old ones to avoid Bunny deletion in tests)
-      const result = await asAdmin.mutation(api.questions.setQuestionImages, {
+      const result = await asAdmin.action(api.questions.setQuestionImages, {
         questionId,
         images: [
           { url: "https://cdn.example.com/old1.jpg", storagePath: "q/old1.jpg", order: 0 },
@@ -912,7 +912,7 @@ describe("questions", () => {
       })
 
       // Set images on question with no initial images
-      const result = await asAdmin.mutation(api.questions.setQuestionImages, {
+      const result = await asAdmin.action(api.questions.setQuestionImages, {
         questionId,
         images: [
           { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
@@ -940,7 +940,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const question = await t.query(api.questions.getQuestionById, {
+      const question = await asAdmin.query(api.questions.getQuestionById, {
         questionId,
       })
 
@@ -964,7 +964,7 @@ describe("questions", () => {
       })
       await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId })
 
-      const question = await t.query(api.questions.getQuestionById, {
+      const question = await asAdmin.query(api.questions.getQuestionById, {
         questionId,
       })
 
@@ -1199,7 +1199,7 @@ describe("questions", () => {
         })
       })
 
-      const result = await t.query(api.questions.getAllQuestionsForExport, {})
+      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {})
 
       expect(result).toHaveLength(1)
       expect(result[0].question).toBe("Question export")
@@ -1230,7 +1230,7 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await t.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
         domain: "Cardiologie",
       })
 
@@ -1260,7 +1260,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await t.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
         searchQuery: "infarctus",
       })
 
@@ -1304,7 +1304,7 @@ describe("questions", () => {
         })
       })
 
-      const result = await t.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
         hasImages: true,
       })
 
@@ -1348,7 +1348,7 @@ describe("questions", () => {
         })
       })
 
-      const result = await t.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
         hasImages: false,
       })
 
@@ -1405,7 +1405,7 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await t.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
         searchQuery: "infarctus",
         domain: "Cardiologie",
         hasImages: true,
@@ -1854,7 +1854,7 @@ describe("questions", () => {
             order: 0,
           },
         })
-      ).rejects.toThrow("Question non trouvée")
+      ).rejects.toThrow("NOT_FOUND")
     })
 
     it("ajoute une image à une question sans images", async () => {
@@ -2003,7 +2003,7 @@ describe("questions", () => {
       })
 
       await expect(
-        asUser.mutation(api.questions.removeQuestionImage, {
+        asUser.action(api.questions.removeQuestionImage, {
           questionId,
           storagePath: "q/img.jpg",
         })
@@ -2025,7 +2025,7 @@ describe("questions", () => {
       await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId })
 
       await expect(
-        asAdmin.mutation(api.questions.removeQuestionImage, {
+        asAdmin.action(api.questions.removeQuestionImage, {
           questionId,
           storagePath: "q/img.jpg",
         })
@@ -2058,7 +2058,7 @@ describe("questions", () => {
       })
 
       await expect(
-        asAdmin.mutation(api.questions.removeQuestionImage, {
+        asAdmin.action(api.questions.removeQuestionImage, {
           questionId,
           storagePath: "q/nonexistent.jpg",
         })
@@ -2103,7 +2103,7 @@ describe("questions", () => {
       // Note: deleteFromBunny will be called but may fail in test env
       // The test focuses on the DB changes
       try {
-        const result = await asAdmin.mutation(api.questions.removeQuestionImage, {
+        const result = await asAdmin.action(api.questions.removeQuestionImage, {
           questionId,
           storagePath: "q/img2.jpg",
         })

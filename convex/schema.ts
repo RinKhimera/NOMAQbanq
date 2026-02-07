@@ -182,7 +182,7 @@ export default defineSchema({
     ),
 
     amountPaid: v.number(), // Montant en cents
-    currency: v.string(), // "CAD" ou "XAF"
+    currency: v.union(v.literal("CAD"), v.literal("XAF")),
 
     // Stripe (optionnel pour manual)
     stripeSessionId: v.optional(v.string()),

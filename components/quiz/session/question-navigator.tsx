@@ -111,7 +111,7 @@ export const QuestionNavigator = ({
             onClick={() => handleNavigate(index, true)}
             disabled={isLocked}
             className={cn(
-              "relative flex h-9 w-9 items-center justify-center rounded-lg text-xs font-medium transition-all",
+              "relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-xs font-medium transition-all",
               isCurrent && `ring-2 ${colors.ring} ${colors.ringOffset} dark:ring-offset-gray-900`,
               isLocked
                 ? "cursor-not-allowed bg-gray-200 text-gray-400 opacity-60 dark:bg-gray-700 dark:text-gray-500"
@@ -183,7 +183,7 @@ export const QuestionNavigator = ({
   // Desktop variant
   if (variant === "desktop") {
     return (
-      <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
+      <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-clip rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
         {/* Fixed header */}
         <div className="shrink-0">
           <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
@@ -193,7 +193,7 @@ export const QuestionNavigator = ({
         </div>
 
         {/* Scrollable grid */}
-        <div className="min-h-0 flex-1 overflow-y-auto py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto px-1 py-4">
           {gridSection}
         </div>
 
@@ -213,13 +213,13 @@ export const QuestionNavigator = ({
         onClick={() => setIsOpen(!isOpen)}
         size="lg"
         className={cn(
-          "h-14 w-14 rounded-full shadow-lg",
+          "h-12 w-12 rounded-full shadow-lg",
           accentColor === "emerald"
-            ? "bg-linear-to-r from-emerald-600 to-teal-600 shadow-emerald-500/30 hover:from-emerald-700 hover:to-teal-700"
-            : "bg-linear-to-r from-blue-600 to-indigo-600 shadow-blue-500/30 hover:from-blue-700 hover:to-indigo-700"
+            ? "bg-linear-to-r from-emerald-600 to-teal-600 shadow-emerald-500/20 hover:from-emerald-700 hover:to-teal-700"
+            : "bg-linear-to-r from-blue-600 to-indigo-600 shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700"
         )}
       >
-        <List className="h-6 w-6" />
+        <List className="h-5 w-5" />
       </Button>
 
       <AnimatePresence>
@@ -236,11 +236,11 @@ export const QuestionNavigator = ({
 
             {/* Panel */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="fixed bottom-24 right-6 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-xl dark:border-gray-700/60 dark:bg-gray-900"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.15 }}
+              className="fixed bottom-68 right-6 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-xl dark:border-gray-700/60 dark:bg-gray-900"
             >
               {/* Header - fixed */}
               <div className="border-b border-gray-200/60 bg-white p-4 dark:border-gray-700/60 dark:bg-gray-900">

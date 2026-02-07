@@ -67,7 +67,6 @@ const AssessmentPage = () => {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
   const [isLabValuesOpen, setIsLabValuesOpen] = useState(false)
   const hasCompletedRef = useRef(false)
-  const correctAnswersRef = useRef<Record<string, string>>({})
 
   // Pause-related state
   const [pausePhase, setPausePhase] = useState<PausePhase | undefined>(
@@ -84,26 +83,11 @@ const AssessmentPage = () => {
 
   const examWithQuestions = useQuery(api.exams.getExamWithQuestions, { examId })
   const examSession = useQuery(api.exams.getExamSession, { examId })
-  const pauseStatus = useQuery(api.exams.getPauseStatus, { examId })
+  const pauseStatus = useQuery(api.examPause.getPauseStatus, { examId })
   const startExam = useMutation(api.exams.startExam)
   const submitAnswers = useMutation(api.exams.submitExamAnswers)
-  const startPauseMutation = useMutation(api.exams.startPause)
-  const resumeFromPauseMutation = useMutation(api.exams.resumeFromPause)
-
-  // Stocker les réponses correctes dès le chargement des questions
-  useEffect(() => {
-    if (!examWithQuestions) return
-
-    if (Object.keys(correctAnswersRef.current).length === 0) {
-      const correctAnswersMap: Record<string, string> = {}
-      examWithQuestions.questions.forEach((question) => {
-        if (question) {
-          correctAnswersMap[question._id] = question.correctAnswer
-        }
-      })
-      correctAnswersRef.current = correctAnswersMap
-    }
-  }, [examWithQuestions])
+  const startPauseMutation = useMutation(api.examPause.startPause)
+  const resumeFromPauseMutation = useMutation(api.examPause.resumeFromPause)
 
   // Restaurer les réponses depuis localStorage (si disponibles)
   useEffect(() => {
@@ -170,14 +154,6 @@ const AssessmentPage = () => {
           const savedAnswers = loadAnswersFromStorage(examId)
           const hasAnswers = savedAnswers && Object.keys(savedAnswers).length > 0
 
-          // Préparer les réponses correctes
-          const correctAnswersMap: Record<string, string> = {}
-          examWithQuestions.questions.forEach((question) => {
-            if (question) {
-              correctAnswersMap[question._id] = question.correctAnswer
-            }
-          })
-
           const formattedAnswers = hasAnswers
             ? Object.entries(savedAnswers).map(([questionId, selectedAnswer]) => ({
                 questionId: questionId as Id<"questions">,
@@ -190,7 +166,6 @@ const AssessmentPage = () => {
           submitAnswers({
             examId,
             answers: formattedAnswers,
-            correctAnswers: correctAnswersMap,
             isAutoSubmit: true,
           })
             .then(() => {
@@ -367,7 +342,6 @@ const AssessmentPage = () => {
       await submitAnswers({
         examId,
         answers: formattedAnswers,
-        correctAnswers: correctAnswersRef.current,
         isAutoSubmit: true,
       })
 
@@ -549,7 +523,6 @@ const AssessmentPage = () => {
       await submitAnswers({
         examId,
         answers: formattedAnswers,
-        correctAnswers: correctAnswersRef.current,
       })
 
       hasCompletedRef.current = true
@@ -775,7 +748,7 @@ const AssessmentPage = () => {
 
           {/* Right column - Navigation Sidebar */}
           <div className="hidden lg:block">
-            <div ref={desktopNavRef} className="h-px" />
+            <div ref={desktopNavRef} className="h-1" />
             <QuestionNavigator
               questions={examWithQuestions.questions.filter((q): q is NonNullable<typeof q> => q !== null)}
               answers={navigatorAnswers}
@@ -789,9 +762,15 @@ const AssessmentPage = () => {
         </div>
       </div>
 
-      {/* Navigation FAB (mobile + desktop when sidebar is out of view) */}
-      {!isDesktopNavVisible && (
-        <div className="fixed bottom-6 left-6">
+      {/* Floating toolbar with nav FAB */}
+      <SessionToolbar
+        showCalculator={true}
+        onOpenCalculator={() => setIsCalculatorOpen(true)}
+        showLabValues={true}
+        onOpenLabValues={() => setIsLabValuesOpen(true)}
+        showScrollTop={true}
+        showNavFab={!isDesktopNavVisible}
+        navFab={
           <QuestionNavigator
             questions={examWithQuestions.questions.filter((q): q is NonNullable<typeof q> => q !== null)}
             answers={navigatorAnswers}
@@ -802,16 +781,7 @@ const AssessmentPage = () => {
             isQuestionLocked={isQuestionLocked}
             accentColor="blue"
           />
-        </div>
-      )}
-
-      {/* Floating toolbar */}
-      <SessionToolbar
-        showCalculator={true}
-        onOpenCalculator={() => setIsCalculatorOpen(true)}
-        showLabValues={true}
-        onOpenLabValues={() => setIsLabValuesOpen(true)}
-        showScrollTop={true}
+        }
       />
 
       {/* Calculator Dialog */}

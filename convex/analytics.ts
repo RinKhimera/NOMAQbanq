@@ -1,3 +1,4 @@
+import { v } from "convex/values"
 import { query } from "./_generated/server"
 import { getAdminUserOrThrow } from "./lib/auth"
 import { batchGetByIds } from "./lib/batchFetch"
@@ -19,6 +20,38 @@ import { batchGetByIds } from "./lib/batchFetch"
  */
 export const getRecentActivity = query({
   args: {},
+  returns: v.array(
+    v.union(
+      v.object({
+        type: v.literal("user_signup"),
+        timestamp: v.number(),
+        data: v.object({
+          userName: v.string(),
+          userEmail: v.optional(v.string()),
+        }),
+      }),
+      v.object({
+        type: v.literal("payment"),
+        timestamp: v.number(),
+        data: v.object({
+          userName: v.string(),
+          amount: v.number(),
+          currency: v.string(),
+          productName: v.string(),
+          paymentType: v.union(v.literal("stripe"), v.literal("manual")),
+        }),
+      }),
+      v.object({
+        type: v.literal("exam_completed"),
+        timestamp: v.number(),
+        data: v.object({
+          userName: v.string(),
+          examTitle: v.string(),
+          score: v.union(v.null(), v.number()),
+        }),
+      }),
+    ),
+  ),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)
 
@@ -144,6 +177,13 @@ export const getRecentActivity = query({
  */
 export const getDashboardTrends = query({
   args: {},
+  returns: v.object({
+    usersTrend: v.number(),
+    revenueByCurrency: v.any(),
+    participationsTrend: v.number(),
+    recentUsersCount: v.number(),
+    recentParticipationsCount: v.number(),
+  }),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)
 
@@ -246,6 +286,7 @@ export const getDashboardTrends = query({
  */
 export const getFailedPaymentsCount = query({
   args: {},
+  returns: v.number(),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)
 

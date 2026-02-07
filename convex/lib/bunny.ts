@@ -260,7 +260,6 @@ export const getExtensionFromMimeType = (mimeType: string): string => {
     "image/jpeg": "jpg",
     "image/png": "png",
     "image/webp": "webp",
-    "image/gif": "gif",
   }
   return mimeToExt[mimeType] || "jpg"
 }

@@ -34,7 +34,7 @@ http.route({
           name: `${event.data.first_name ?? "Guest"} ${event.data.last_name ?? ""}`,
           role: "user",
           email:
-            event.data.email_addresses[0]?.email_address ?? "test@example.com",
+            event.data.email_addresses[0]?.email_address ?? "",
           image: event.data.image_url,
         })
         break

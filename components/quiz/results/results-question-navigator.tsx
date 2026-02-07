@@ -12,7 +12,6 @@ export const ResultsQuestionNavigator = ({
   questionResults,
   onNavigateToQuestion,
   variant,
-  position = "right",
   accentColor = "blue",
   showTips = true,
 }: ResultsNavigatorProps) => {
@@ -47,7 +46,7 @@ export const ResultsQuestionNavigator = ({
           key={index}
           onClick={() => handleNavigate(index)}
           className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg text-xs font-medium transition-all hover:scale-105",
+            "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-xs font-medium transition-colors",
             result.isCorrect
               ? colors.correct
               : !result.isAnswered
@@ -95,7 +94,7 @@ export const ResultsQuestionNavigator = ({
   // Desktop variant - sticky sidebar
   if (variant === "desktop") {
     return (
-      <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
+      <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-clip rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
         {/* Fixed header */}
         <div className="shrink-0">
           <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
@@ -133,19 +132,13 @@ export const ResultsQuestionNavigator = ({
 
   // Mobile variant - FAB with scrollable panel
   return (
-    <div
-      className={cn(
-        "fixed z-50",
-        position === "left" ? "left-6" : "right-6",
-        "bottom-6"
-      )}
-    >
+    <>
       <Button
         onClick={() => setIsOpen(!isOpen)}
         size="lg"
-        className={cn("h-14 w-14 rounded-full shadow-lg", colors.fabButton)}
+        className={cn("h-12 w-12 rounded-full shadow-lg", colors.fabButton)}
       >
-        <List className="h-6 w-6" />
+        <List className="h-5 w-5" />
       </Button>
 
       <AnimatePresence>
@@ -162,15 +155,11 @@ export const ResultsQuestionNavigator = ({
 
             {/* Panel */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className={cn(
-                "fixed z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-xl dark:border-gray-700/60 dark:bg-gray-900",
-                position === "left" ? "left-6" : "right-6",
-                "bottom-24"
-              )}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: 0.15 }}
+              className="fixed bottom-68 right-6 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-xl dark:border-gray-700/60 dark:bg-gray-900"
             >
               {/* Header - fixed */}
               <div className="border-b border-gray-200/60 bg-white p-4 dark:border-gray-700/60 dark:bg-gray-900">
@@ -225,6 +214,6 @@ export const ResultsQuestionNavigator = ({
           </>
         )}
       </AnimatePresence>
-    </div>
+    </>
   )
 }

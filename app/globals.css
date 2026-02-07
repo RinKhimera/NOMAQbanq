@@ -32,10 +32,7 @@
 
 /* Modern typography system */
 .font-display {
-  font-family:
-    var(--font-display),
-    var(--font-geist-sans),
-    sans-serif;
+  font-family: var(--font-display), var(--font-geist-sans), sans-serif;
 }
 
 .text-display-xl {
@@ -236,7 +233,8 @@
 
 /* Dashboard Medical Lab animations */
 @keyframes vital-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
   }
   50% {
@@ -245,7 +243,8 @@
 }
 
 @keyframes vital-pulse-green {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
   }
   50% {
@@ -254,7 +253,8 @@
 }
 
 @keyframes vital-pulse-amber {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
   }
   50% {
@@ -310,7 +310,7 @@
 }
 
 .dashboard-vital-card:hover {
-  @apply translate-y-[-2px] shadow-lg;
+  @apply -translate-y-0.5 shadow-lg;
 }
 
 /* Modern component styles */
@@ -614,7 +614,7 @@
 
 .nav-item-modern::before {
   content: "";
-  @apply absolute top-1/2 left-0 h-0 w-[3px] -translate-y-1/2 rounded-r-full bg-blue-500 transition-all duration-200;
+  @apply absolute top-1/2 left-0 h-0 w-0.75 -translate-y-1/2 rounded-r-full bg-blue-500 transition-all duration-200;
 }
 
 .nav-item-modern:hover::before {
@@ -748,6 +748,8 @@
   .animate-count-up,
   .loading-shimmer {
     animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 
   .card-3d:hover,

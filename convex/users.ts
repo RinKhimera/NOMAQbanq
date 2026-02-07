@@ -36,6 +36,7 @@ const clerkUserDataValidator = v.object({
 
 export const upsertFromClerk = internalMutation({
   args: { data: clerkUserDataValidator },
+  returns: v.null(),
   async handler(ctx, { data }) {
     const firstName = data.first_name?.trim() || ""
     const lastName = data.last_name?.trim() || ""
@@ -63,6 +64,7 @@ export const upsertFromClerk = internalMutation({
 
 export const deleteFromClerk = internalMutation({
   args: { clerkUserId: v.string() },
+  returns: v.null(),
   async handler(ctx, { clerkUserId }) {
     const user = await userByExternalId(ctx, clerkUserId)
 
@@ -85,6 +87,7 @@ export const createUser = internalMutation({
     externalId: v.string(),
     tokenIdentifier: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.insert("users", {
       externalId: args.externalId,
@@ -103,6 +106,22 @@ export const createUser = internalMutation({
  */
 export const getUserByTokenIdentifier = internalQuery({
   args: { tokenIdentifier: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("users"),
+      _creationTime: v.number(),
+      name: v.string(),
+      username: v.optional(v.string()),
+      email: v.string(),
+      image: v.string(),
+      avatarStoragePath: v.optional(v.string()),
+      bio: v.optional(v.string()),
+      tokenIdentifier: v.string(),
+      externalId: v.optional(v.string()),
+      role: v.union(v.literal("admin"), v.literal("user")),
+    }),
+  ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("users")
@@ -115,6 +134,22 @@ export const getUserByTokenIdentifier = internalQuery({
 
 export const getCurrentUser = query({
   args: {},
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("users"),
+      _creationTime: v.number(),
+      name: v.string(),
+      username: v.optional(v.string()),
+      email: v.string(),
+      image: v.string(),
+      avatarStoragePath: v.optional(v.string()),
+      bio: v.optional(v.string()),
+      tokenIdentifier: v.string(),
+      externalId: v.optional(v.string()),
+      role: v.union(v.literal("admin"), v.literal("user")),
+    }),
+  ),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return null
@@ -130,6 +165,7 @@ export const getCurrentUser = query({
 
 export const isCurrentUserAdmin = query({
   args: {},
+  returns: v.boolean(),
   handler: async (ctx) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) return false
@@ -151,6 +187,10 @@ export const updateUserProfile = mutation({
     username: v.string(),
     bio: v.optional(v.string()),
   },
+  returns: v.object({
+    success: v.boolean(),
+    error: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -173,6 +213,24 @@ export const updateUserProfile = mutation({
 })
 
 export const getAllUsers = query({
+  returns: v.union(
+    v.null(),
+    v.array(
+      v.object({
+        _id: v.id("users"),
+        _creationTime: v.number(),
+        name: v.string(),
+        username: v.optional(v.string()),
+        email: v.string(),
+        image: v.string(),
+        avatarStoragePath: v.optional(v.string()),
+        bio: v.optional(v.string()),
+        tokenIdentifier: v.string(),
+        externalId: v.optional(v.string()),
+        role: v.union(v.literal("admin"), v.literal("user")),
+      }),
+    ),
+  ),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user || user.role !== "admin") {
@@ -186,6 +244,22 @@ export const getAllUsers = query({
 
 export const getUserById = query({
   args: { userId: v.id("users") },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("users"),
+      _creationTime: v.number(),
+      name: v.string(),
+      username: v.optional(v.string()),
+      email: v.string(),
+      image: v.string(),
+      avatarStoragePath: v.optional(v.string()),
+      bio: v.optional(v.string()),
+      tokenIdentifier: v.string(),
+      externalId: v.optional(v.string()),
+      role: v.union(v.literal("admin"), v.literal("user")),
+    }),
+  ),
   handler: async (ctx, { userId }) => {
     await getAdminUserOrThrow(ctx)
     return await ctx.db.get(userId)
@@ -202,6 +276,7 @@ export const updateUserAvatar = internalMutation({
     avatarUrl: v.string(),
     avatarStoragePath: v.string(),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await ctx.db.patch(args.userId, {
       image: args.avatarUrl,
@@ -214,6 +289,14 @@ export const updateUserAvatar = internalMutation({
 // Note: For scale, consider creating adminStats aggregation table like questionStats
 export const getAdminStats = query({
   args: {},
+  returns: v.object({
+    totalUsers: v.number(),
+    adminCount: v.number(),
+    regularUserCount: v.number(),
+    totalExams: v.number(),
+    activeExams: v.number(),
+    totalParticipations: v.number(),
+  }),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)
 
@@ -261,6 +344,19 @@ export const getAdminStats = query({
  */
 export const getUsersStats = query({
   args: {},
+  returns: v.object({
+    totalUsers: v.number(),
+    newThisMonth: v.number(),
+    newThisMonthTrend: v.number(),
+    activeExamAccess: v.number(),
+    examExpiringCount: v.number(),
+    activeTrainingAccess: v.number(),
+    trainingExpiringCount: v.number(),
+    revenueByCurrency: v.object({
+      CAD: v.object({ recent: v.number(), previous: v.number(), trend: v.number() }),
+      XAF: v.object({ recent: v.number(), previous: v.number(), trend: v.number() }),
+    }),
+  }),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)
 
@@ -406,6 +502,39 @@ export const getUsersWithFilters = query({
     ),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.object({
+    page: v.array(
+      v.object({
+        _id: v.id("users"),
+        _creationTime: v.number(),
+        name: v.string(),
+        username: v.optional(v.string()),
+        email: v.string(),
+        image: v.string(),
+        avatarStoragePath: v.optional(v.string()),
+        bio: v.optional(v.string()),
+        tokenIdentifier: v.string(),
+        externalId: v.optional(v.string()),
+        role: v.union(v.literal("admin"), v.literal("user")),
+        examAccess: v.union(
+          v.null(),
+          v.object({
+            expiresAt: v.number(),
+            daysRemaining: v.number(),
+          }),
+        ),
+        trainingAccess: v.union(
+          v.null(),
+          v.object({
+            expiresAt: v.number(),
+            daysRemaining: v.number(),
+          }),
+        ),
+      }),
+    ),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+  }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -573,6 +702,92 @@ export const getUsersWithFilters = query({
  */
 export const getUserPanelData = query({
   args: { userId: v.id("users") },
+  returns: v.union(
+    v.null(),
+    v.object({
+      user: v.object({
+        _id: v.id("users"),
+        _creationTime: v.number(),
+        name: v.string(),
+        username: v.optional(v.string()),
+        email: v.string(),
+        image: v.string(),
+        avatarStoragePath: v.optional(v.string()),
+        bio: v.optional(v.string()),
+        tokenIdentifier: v.string(),
+        externalId: v.optional(v.string()),
+        role: v.union(v.literal("admin"), v.literal("user")),
+      }),
+      examAccess: v.union(
+        v.null(),
+        v.object({
+          expiresAt: v.number(),
+          daysRemaining: v.number(),
+          isActive: v.boolean(),
+        }),
+      ),
+      trainingAccess: v.union(
+        v.null(),
+        v.object({
+          expiresAt: v.number(),
+          daysRemaining: v.number(),
+          isActive: v.boolean(),
+        }),
+      ),
+      recentTransactions: v.array(
+        v.object({
+          _id: v.id("transactions"),
+          _creationTime: v.number(),
+          userId: v.id("users"),
+          productId: v.id("products"),
+          type: v.union(v.literal("stripe"), v.literal("manual")),
+          status: v.union(
+            v.literal("pending"),
+            v.literal("completed"),
+            v.literal("failed"),
+            v.literal("refunded"),
+          ),
+          amountPaid: v.number(),
+          currency: v.union(v.literal("CAD"), v.literal("XAF")),
+          stripeSessionId: v.optional(v.string()),
+          stripePaymentIntentId: v.optional(v.string()),
+          stripeEventId: v.optional(v.string()),
+          paymentMethod: v.optional(v.string()),
+          recordedBy: v.optional(v.id("users")),
+          notes: v.optional(v.string()),
+          accessType: v.union(v.literal("exam"), v.literal("training")),
+          durationDays: v.number(),
+          accessExpiresAt: v.number(),
+          createdAt: v.number(),
+          completedAt: v.optional(v.number()),
+          product: v.union(
+            v.null(),
+            v.object({
+              _id: v.id("products"),
+              _creationTime: v.number(),
+              code: v.union(
+                v.literal("exam_access"),
+                v.literal("training_access"),
+                v.literal("exam_access_promo"),
+                v.literal("training_access_promo"),
+                v.literal("premium_access"),
+              ),
+              name: v.string(),
+              description: v.string(),
+              priceCAD: v.number(),
+              durationDays: v.number(),
+              accessType: v.union(v.literal("exam"), v.literal("training")),
+              stripeProductId: v.string(),
+              stripePriceId: v.string(),
+              isActive: v.boolean(),
+              isCombo: v.optional(v.boolean()),
+            }),
+          ),
+        }),
+      ),
+      totalTransactionCount: v.number(),
+    }),
+  ),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -644,6 +859,19 @@ export const getUserPanelData = query({
  */
 export const getUsersWithActiveExamAccess = query({
   args: { limit: v.optional(v.number()) },
+  returns: v.array(
+    v.object({
+      user: v.object({
+        _id: v.id("users"),
+        name: v.string(),
+        email: v.string(),
+        image: v.string(),
+        username: v.optional(v.string()),
+      }),
+      expiresAt: v.number(),
+      daysRemaining: v.number(),
+    }),
+  ),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -693,6 +921,7 @@ export const getUsersWithActiveExamAccess = query({
  * [Admin] Compte le nombre d'utilisateurs avec un accès exam actif
  */
 export const getActiveExamAccessCount = query({
+  returns: v.number(),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)
 
@@ -716,6 +945,17 @@ export const getMyAccess = query({
   args: {
     accessType: v.union(v.literal("exam"), v.literal("training")),
   },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("userAccess"),
+      _creationTime: v.number(),
+      userId: v.id("users"),
+      accessType: v.union(v.literal("exam"), v.literal("training")),
+      expiresAt: v.number(),
+      lastTransactionId: v.id("transactions"),
+    }),
+  ),
   handler: async (ctx, args) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user) {

@@ -173,12 +173,11 @@ describe("examParticipations", () => {
     expect(participation?.status).toBe("in_progress")
     expect(participation?.startedAt).toBeGreaterThan(0)
 
-    // 2. Sauvegarder une réponse
+    // 2. Sauvegarder une réponse (isCorrect calculé côté serveur)
     await user.asUser.mutation(api.examParticipations.saveAnswer, {
       participationId,
       questionId,
       selectedAnswer: "A",
-      isCorrect: true,
     })
 
     const answers = await getAnswersByParticipation(t, participationId)
@@ -186,7 +185,13 @@ describe("examParticipations", () => {
     expect(answers[0].selectedAnswer).toBe("A")
     expect(answers[0].isCorrect).toBe(true)
 
-    // 3. Mettre à jour la phase de pause
+    // 3. Mettre à jour la phase de pause (transition valide: before_pause → during_pause)
+    // D'abord initialiser la phase before_pause
+    await user.asUser.mutation(api.examParticipations.updatePausePhase, {
+      participationId,
+      pausePhase: "before_pause",
+    })
+    // Puis transition vers during_pause
     await user.asUser.mutation(api.examParticipations.updatePausePhase, {
       participationId,
       pausePhase: "during_pause",
@@ -263,8 +268,8 @@ describe("examParticipations", () => {
     await user.asUser.mutation(api.examParticipations.saveAnswersBatch, {
       participationId,
       answers: [
-        { questionId: q1, selectedAnswer: "A", isCorrect: true },
-        { questionId: q2, selectedAnswer: "B", isCorrect: false },
+        { questionId: q1, selectedAnswer: "A" },
+        { questionId: q2, selectedAnswer: "B" },
       ],
     })
 
@@ -301,7 +306,6 @@ describe("examParticipations", () => {
           participationId,
           questionId,
           selectedAnswer: "B",
-          isCorrect: false,
         }),
       ).rejects.toThrow("Vous ne pouvez pas modifier cette participation")
     })
@@ -326,7 +330,7 @@ describe("examParticipations", () => {
       await expect(
         user2.asUser.mutation(api.examParticipations.saveAnswersBatch, {
           participationId,
-          answers: [{ questionId, selectedAnswer: "B", isCorrect: false }],
+          answers: [{ questionId, selectedAnswer: "B" }],
         }),
       ).rejects.toThrow("Vous ne pouvez pas modifier cette participation")
     })
@@ -486,7 +490,6 @@ describe("examParticipations", () => {
           participationId,
           questionId,
           selectedAnswer: "C",
-          isCorrect: false,
         }),
       ).rejects.toThrow("Cette participation n'est plus modifiable")
     })

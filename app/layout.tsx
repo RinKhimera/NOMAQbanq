@@ -89,6 +89,7 @@ export const metadata: Metadata = {
       "x-default": baseUrl,
     },
   },
+  themeColor: "#2563eb",
 }
 
 const organizationSchema = {
@@ -96,7 +97,7 @@ const organizationSchema = {
   "@type": "Organization" as const,
   name: "NOMAQbanq",
   url: baseUrl,
-  logo: `${baseUrl}/noma-logo.svg`,
+  logo: `${baseUrl}/icon.svg`,
   description:
     "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM, examens blancs et suivi de progression.",
   contactPoint: {

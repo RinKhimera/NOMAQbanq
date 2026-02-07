@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "convex/react"
+import { useMutation } from "convex/react"
 import { ArrowRight } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
@@ -8,6 +8,9 @@ import QuizProgress from "@/components/quiz/quiz-progress"
 import QuizResults from "@/components/quiz/quiz-results"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
+import type { Doc } from "@/convex/_generated/dataModel"
+
+type QuizQuestion = Omit<Doc<"questions">, "correctAnswer" | "explanation">
 
 interface QuizState {
   currentQuestion: number
@@ -18,12 +21,19 @@ interface QuizState {
 }
 
 export default function QuizPage() {
-  const quizQuestions = useQuery(api.questions.getRandomQuestions, {
-    count: 10,
-  })
+  const getQuestionsMut = useMutation(api.questions.getRandomQuestions)
+  const scoreQuizMut = useMutation(api.questions.scoreQuizAnswers)
   const topOfQuizRef = useRef<HTMLDivElement>(null)
-  const [prevQuizQuestions, setPrevQuizQuestions] =
-    useState<typeof quizQuestions>(undefined)
+  const questionsLoadedRef = useRef(false)
+  const scoringTriggeredRef = useRef(false)
+
+  const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[] | null>(
+    null,
+  )
+  const [scoredResults, setScoredResults] = useState<{
+    score: number
+    questions: Doc<"questions">[]
+  } | null>(null)
 
   const [quizState, setQuizState] = useState<QuizState>({
     currentQuestion: 0,
@@ -33,24 +43,27 @@ export default function QuizPage() {
     totalTime: 200,
   })
 
-  if (
-    quizQuestions &&
-    quizQuestions.length > 0 &&
-    quizQuestions.length < 10 &&
-    quizQuestions !== prevQuizQuestions
-  ) {
-    setPrevQuizQuestions(quizQuestions)
-    setQuizState((prev) => ({
-      ...prev,
-      userAnswers: new Array(quizQuestions.length).fill(null),
-      timeRemaining: quizQuestions.length * 20,
-      totalTime: quizQuestions.length * 20,
-    }))
-  }
+  // Charger les questions une seule fois au montage
+  useEffect(() => {
+    if (questionsLoadedRef.current) return
+    questionsLoadedRef.current = true
+
+    getQuestionsMut({ count: 10 }).then((questions) => {
+      setQuizQuestions(questions)
+      if (questions.length > 0 && questions.length < 10) {
+        setQuizState((prev) => ({
+          ...prev,
+          userAnswers: new Array(questions.length).fill(null),
+          timeRemaining: questions.length * 20,
+          totalTime: questions.length * 20,
+        }))
+      }
+    })
+  }, [getQuestionsMut])
 
   // Timer - utiliser setInterval pour décrémenter le temps
   useEffect(() => {
-    if (quizState.isCompleted) return
+    if (!quizQuestions || quizState.isCompleted) return
 
     const interval = setInterval(() => {
       setQuizState((prev) => {
@@ -63,7 +76,25 @@ export default function QuizPage() {
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [quizState.isCompleted])
+  }, [quizQuestions, quizState.isCompleted])
+
+  // Scorer côté serveur quand le quiz est terminé
+  useEffect(() => {
+    if (
+      !quizState.isCompleted ||
+      !quizQuestions ||
+      scoringTriggeredRef.current
+    )
+      return
+    scoringTriggeredRef.current = true
+
+    const answers = quizQuestions.map((q, i) => ({
+      questionId: q._id,
+      selectedAnswer: quizState.userAnswers[i],
+    }))
+
+    scoreQuizMut({ answers }).then(setScoredResults)
+  }, [quizState.isCompleted, quizQuestions, quizState.userAnswers, scoreQuizMut])
 
   // Scroll vers le haut quand la question change
   useEffect(() => {
@@ -105,15 +136,6 @@ export default function QuizPage() {
     window.location.reload()
   }
 
-  const calculateScore = () => {
-    if (!quizQuestions) return 0
-    return quizQuestions.reduce((score, question, index) => {
-      return quizState.userAnswers[index] === question.correctAnswer
-        ? score + 1
-        : score
-    }, 0)
-  }
-
   if (!quizQuestions || quizQuestions.length === 0) {
     return (
       <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
@@ -129,11 +151,24 @@ export default function QuizPage() {
 
   // Écran de résultats
   if (quizState.isCompleted) {
+    if (!scoredResults) {
+      return (
+        <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+            <p className="text-gray-600 dark:text-gray-300">
+              Calcul du score...
+            </p>
+          </div>
+        </div>
+      )
+    }
+
     return (
       <QuizResults
-        questions={quizQuestions}
+        questions={scoredResults.questions}
         userAnswers={quizState.userAnswers}
-        score={calculateScore()}
+        score={scoredResults.score}
         timeRemaining={quizState.timeRemaining}
         onRestart={restartQuiz}
       />
@@ -156,7 +191,7 @@ export default function QuizPage() {
 
         <QuestionCard
           variant="exam"
-          question={currentQ}
+          question={currentQ as Doc<"questions">}
           selectedAnswer={currentAnswer}
           onAnswerSelect={handleAnswerSelect}
           showImage={true}

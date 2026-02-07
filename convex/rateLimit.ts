@@ -28,6 +28,14 @@ export const checkUploadRateLimit = internalQuery({
     clerkId: v.string(),
     uploadType: v.union(v.literal("avatar"), v.literal("question-image")),
   },
+  returns: v.union(
+    v.object({ allowed: v.literal(true) }),
+    v.object({
+      allowed: v.literal(false),
+      retryAfterMs: v.number(),
+      retryAfterMinutes: v.number(),
+    }),
+  ),
   handler: async (ctx, { clerkId, uploadType }) => {
     const now = Date.now()
 
@@ -75,6 +83,7 @@ export const incrementUploadCount = internalMutation({
     clerkId: v.string(),
     uploadType: v.union(v.literal("avatar"), v.literal("question-image")),
   },
+  returns: v.null(),
   handler: async (ctx, { clerkId, uploadType }) => {
     const now = Date.now()
 

@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import LegalPageLayout from "@/components/layout/legal-page-layout"
+import LegalPageLayout from "@/components/shared/legal-page-layout"
 import { PrivacyContent } from "./_components/privacy-content"
 
 export const metadata: Metadata = {

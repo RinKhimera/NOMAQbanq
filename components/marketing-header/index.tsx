@@ -77,7 +77,7 @@ export const MarketingHeader = () => {
                 }`}
               >
                 <Image
-                  src="/noma-logo.svg"
+                  src="/icons/concept_4_abstract_n.svg"
                   alt="Logo NOMAQbanq"
                   fill
                   sizes="48px"

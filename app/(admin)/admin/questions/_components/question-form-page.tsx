@@ -2,7 +2,7 @@
 
 import { useState, useEffect, startTransition } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQuery } from "convex/react"
+import { useAction, useMutation, useQuery } from "convex/react"
 import {
   ArrowLeft,
   BookOpen,
@@ -87,7 +87,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
   // Mutations
   const createQuestion = useMutation(api.questions.createQuestion)
   const updateQuestion = useMutation(api.questions.updateQuestion)
-  const setQuestionImages = useMutation(api.questions.setQuestionImages)
+  const setQuestionImages = useAction(api.questions.setQuestionImages)
 
   const form = useForm<QuestionFormValues>({
     resolver: zodResolver(questionFormSchema),

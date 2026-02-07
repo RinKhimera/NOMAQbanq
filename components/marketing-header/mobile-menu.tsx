@@ -60,7 +60,7 @@ export const MobileMenu = ({
             <div className="flex items-center gap-2.5">
               <div className="relative size-8">
                 <Image
-                  src="/noma-logo.svg"
+                  src="/icons/concept_4_abstract_n.svg"
                   alt="NOMAQbanq Logo"
                   fill
                   className="object-contain"

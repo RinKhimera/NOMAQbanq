@@ -2,6 +2,9 @@ import { v } from "convex/values"
 import { Id } from "./_generated/dataModel"
 import { mutation } from "./_generated/server"
 import { getAdminUserOrThrow, getCurrentUserOrThrow } from "./lib/auth"
+import { batchGetByIds } from "./lib/batchFetch"
+import { Errors } from "./lib/errors"
+import { validatePauseTransition } from "./examPause"
 
 // ============================================
 // TYPES
@@ -35,6 +38,7 @@ export const create = mutation({
       ),
     ),
   },
+  returns: v.id("examParticipations"),
   handler: async (ctx, { examId, forUserId, startedAt, pausePhase }) => {
     const currentUser = await getCurrentUserOrThrow(ctx)
 
@@ -42,13 +46,25 @@ export const create = mutation({
     let userId: Id<"users">
     if (forUserId) {
       if (currentUser.role !== "admin") {
-        throw new Error(
+        throw Errors.unauthorized(
           "Vous ne pouvez pas créer une participation pour un autre utilisateur",
         )
       }
       userId = forUserId
     } else {
       userId = currentUser._id
+
+      // Vérifier l'accès payant aux examens (admins exemptés)
+      const examAccess = await ctx.db
+        .query("userAccess")
+        .withIndex("by_userId_accessType", (q) =>
+          q.eq("userId", userId).eq("accessType", "exam"),
+        )
+        .unique()
+
+      if (!examAccess || examAccess.expiresAt < Date.now()) {
+        throw Errors.accessExpired("exam")
+      }
     }
 
     // Check if participation already exists
@@ -89,25 +105,26 @@ export const complete = mutation({
       v.union(v.literal("completed"), v.literal("auto_submitted")),
     ),
   },
+  returns: v.null(),
   handler: async (ctx, { participationId, score, status }) => {
     // Verify ownership
     const currentUser = await getCurrentUserOrThrow(ctx)
     const participation = await ctx.db.get(participationId)
 
     if (!participation) {
-      throw new Error("Participation non trouvée")
+      throw Errors.notFound("Participation")
     }
 
     if (
       participation.userId !== currentUser._id &&
       currentUser.role !== "admin"
     ) {
-      throw new Error("Vous ne pouvez pas modifier cette participation")
+      throw Errors.unauthorized("Vous ne pouvez pas modifier cette participation")
     }
 
     // Validate score range
     if (score < 0 || score > 100) {
-      throw new Error("Le score doit être entre 0 et 100")
+      throw Errors.invalidState("Le score doit être entre 0 et 100")
     }
 
     await ctx.db.patch(participationId, {
@@ -135,6 +152,7 @@ export const updatePausePhase = mutation({
     isPauseCutShort: v.optional(v.boolean()),
     totalPauseDurationMs: v.optional(v.number()),
   },
+  returns: v.null(),
   handler: async (
     ctx,
     {
@@ -151,11 +169,16 @@ export const updatePausePhase = mutation({
     const participation = await ctx.db.get(participationId)
 
     if (!participation) {
-      throw new Error("Participation non trouvée")
+      throw Errors.notFound("Participation")
     }
 
     if (participation.userId !== currentUser._id) {
-      throw new Error("Vous ne pouvez pas modifier cette participation")
+      throw Errors.unauthorized("Vous ne pouvez pas modifier cette participation")
+    }
+
+    // Valider la transition d'état de la pause
+    if (pausePhase === "during_pause" || pausePhase === "after_pause") {
+      validatePauseTransition(participation.pausePhase, pausePhase)
     }
 
     const updateData: Record<string, unknown> = { pausePhase }
@@ -180,28 +203,35 @@ export const saveAnswer = mutation({
     participationId: v.id("examParticipations"),
     questionId: v.id("questions"),
     selectedAnswer: v.string(),
-    isCorrect: v.boolean(),
     isFlagged: v.optional(v.boolean()),
   },
+  returns: v.id("examAnswers"),
   handler: async (
     ctx,
-    { participationId, questionId, selectedAnswer, isCorrect, isFlagged },
+    { participationId, questionId, selectedAnswer, isFlagged },
   ) => {
     // Verify ownership
     const currentUser = await getCurrentUserOrThrow(ctx)
     const participation = await ctx.db.get(participationId)
 
     if (!participation) {
-      throw new Error("Participation non trouvée")
+      throw Errors.notFound("Participation")
     }
 
     if (participation.userId !== currentUser._id) {
-      throw new Error("Vous ne pouvez pas modifier cette participation")
+      throw Errors.unauthorized("Vous ne pouvez pas modifier cette participation")
     }
 
     if (participation.status !== "in_progress") {
-      throw new Error("Cette participation n'est plus modifiable")
+      throw Errors.invalidState("Cette participation n'est plus modifiable")
     }
+
+    // Calculer isCorrect côté serveur
+    const question = await ctx.db.get(questionId)
+    if (!question) {
+      throw Errors.notFound("Question")
+    }
+    const isCorrect = question.correctAnswer === selectedAnswer
 
     // Check if answer already exists for this question
     const existingAnswers = await ctx.db
@@ -245,27 +275,31 @@ export const saveAnswersBatch = mutation({
       v.object({
         questionId: v.id("questions"),
         selectedAnswer: v.string(),
-        isCorrect: v.boolean(),
         isFlagged: v.optional(v.boolean()),
       }),
     ),
   },
+  returns: v.array(v.id("examAnswers")),
   handler: async (ctx, { participationId, answers }) => {
     // Verify ownership
     const currentUser = await getCurrentUserOrThrow(ctx)
     const participation = await ctx.db.get(participationId)
 
     if (!participation) {
-      throw new Error("Participation non trouvée")
+      throw Errors.notFound("Participation")
     }
 
     if (participation.userId !== currentUser._id) {
-      throw new Error("Vous ne pouvez pas modifier cette participation")
+      throw Errors.unauthorized("Vous ne pouvez pas modifier cette participation")
     }
 
     if (participation.status !== "in_progress") {
-      throw new Error("Cette participation n'est plus modifiable")
+      throw Errors.invalidState("Cette participation n'est plus modifiable")
     }
+
+    // Batch fetch questions pour calculer isCorrect côté serveur
+    const questionIds = answers.map((a) => a.questionId)
+    const questionMap = await batchGetByIds(ctx, "questions", questionIds)
 
     // Get existing answers to avoid duplicates
     const existingAnswers = await ctx.db
@@ -280,13 +314,15 @@ export const saveAnswersBatch = mutation({
     const answerIds: Id<"examAnswers">[] = []
 
     for (const answer of answers) {
+      const question = questionMap.get(answer.questionId)
+      const isCorrect = question?.correctAnswer === answer.selectedAnswer
       const existing = existingMap.get(answer.questionId)
 
       if (existing) {
         // Update existing
         await ctx.db.patch(existing._id, {
           selectedAnswer: answer.selectedAnswer,
-          isCorrect: answer.isCorrect,
+          isCorrect,
           isFlagged: answer.isFlagged ?? false,
         })
         answerIds.push(existing._id)
@@ -296,7 +332,7 @@ export const saveAnswersBatch = mutation({
           participationId,
           questionId: answer.questionId,
           selectedAnswer: answer.selectedAnswer,
-          isCorrect: answer.isCorrect,
+          isCorrect,
           isFlagged: answer.isFlagged ?? false,
         })
         answerIds.push(id)
@@ -314,6 +350,7 @@ export const deleteParticipation = mutation({
   args: {
     participationId: v.id("examParticipations"),
   },
+  returns: v.null(),
   handler: async (ctx, { participationId }) => {
     // Only admins can delete participations
     await getAdminUserOrThrow(ctx)

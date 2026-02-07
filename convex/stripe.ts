@@ -39,6 +39,10 @@ export const createCheckoutSession = action({
     successUrl: v.string(),
     cancelUrl: v.string(),
   },
+  returns: v.object({
+    checkoutUrl: v.union(v.null(), v.string()),
+    sessionId: v.string(),
+  }),
   handler: async (
     ctx,
     args,
@@ -55,7 +59,7 @@ export const createCheckoutSession = action({
     })) as { _id: Id<"users">; email: string } | null
 
     if (!user) {
-      throw new Error("Utilisateur non trouvé")
+      throw Errors.notFound("Utilisateur")
     }
 
     // Récupérer le produit
@@ -72,11 +76,11 @@ export const createCheckoutSession = action({
     } | null
 
     if (!product) {
-      throw new Error("Produit non trouvé: " + args.productCode)
+      throw Errors.notFound("Produit")
     }
 
     if (!product.isActive) {
-      throw new Error("Ce produit n'est plus disponible")
+      throw Errors.invalidState("Ce produit n'est plus disponible")
     }
 
     const stripe = getStripe()
@@ -134,10 +138,11 @@ export const verifyCheckoutSession = action({
   args: {
     sessionId: v.string(),
   },
+  returns: v.any(),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
-      throw new Error("Vous devez être connecté pour vérifier un paiement")
+      throw Errors.unauthenticated()
     }
 
     const stripe = getStripe()
@@ -171,10 +176,11 @@ export const createCustomerPortalSession = action({
   args: {
     returnUrl: v.string(),
   },
+  returns: v.object({ portalUrl: v.string() }),
   handler: async (ctx, args): Promise<{ portalUrl: string }> => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
-      throw new Error("Non authentifié")
+      throw Errors.unauthenticated()
     }
 
     const user = (await ctx.runQuery(internal.users.getUserByTokenIdentifier, {
@@ -182,7 +188,7 @@ export const createCustomerPortalSession = action({
     })) as { _id: string; email: string } | null
 
     if (!user) {
-      throw new Error("Utilisateur non trouvé")
+      throw Errors.notFound("Utilisateur")
     }
 
     const stripe = getStripe()
@@ -194,7 +200,7 @@ export const createCustomerPortalSession = action({
     })
 
     if (customers.data.length === 0) {
-      throw new Error("Aucun historique de paiement trouvé")
+      throw Errors.notFound("Historique de paiement")
     }
 
     const customerId = customers.data[0].id
@@ -218,11 +224,12 @@ export const getPaymentDetails = action({
   args: {
     paymentIntentId: v.string(),
   },
+  returns: v.any(),
   handler: async (ctx, args) => {
     // Vérifier que l'utilisateur est admin
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
-      throw new Error("Non authentifié")
+      throw Errors.unauthenticated()
     }
 
     const user = (await ctx.runQuery(internal.users.getUserByTokenIdentifier, {
@@ -230,7 +237,7 @@ export const getPaymentDetails = action({
     })) as { _id: string; role: string } | null
 
     if (!user || user.role !== "admin") {
-      throw new Error("Accès non autorisé")
+      throw Errors.unauthorized()
     }
 
     const stripe = getStripe()

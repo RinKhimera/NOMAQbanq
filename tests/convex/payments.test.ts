@@ -1584,7 +1584,7 @@ describe("payments", () => {
           stripePaymentIntentId: "pi_test_789",
           stripeEventId: "evt_test_789",
         }),
-      ).rejects.toThrow("Transaction non trouvée")
+      ).rejects.toThrow("NOT_FOUND")
     })
 
     it("retourne alreadyProcessed si transaction déjà completed", async () => {

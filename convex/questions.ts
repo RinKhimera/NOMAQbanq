@@ -1,9 +1,12 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { internal } from "./_generated/api"
+import { action, internalMutation, mutation, query } from "./_generated/server"
 import type { MutationCtx } from "./_generated/server"
 import { getAdminUserOrThrow } from "./lib/auth"
+import { batchGetOrderedByIds } from "./lib/batchFetch"
 import { deleteFromBunny } from "./lib/bunny"
+import { Errors } from "./lib/errors"
 
 // ============================================
 // TYPES POUR LES IMAGES
@@ -24,7 +27,7 @@ const TOTAL_DOMAIN_KEY = "__total__"
 // Validation: empêcher l'utilisation de la clé réservée comme nom de domaine
 const validateDomain = (domain: string) => {
   if (domain === TOTAL_DOMAIN_KEY) {
-    throw new Error(`Le domaine "${TOTAL_DOMAIN_KEY}" est réservé`)
+    throw Errors.invalidInput(`Le domaine "${TOTAL_DOMAIN_KEY}" est réservé`)
   }
 }
 
@@ -141,6 +144,7 @@ export const createQuestion = mutation({
     objectifCMC: v.string(),
     domain: v.string(),
   },
+  returns: v.id("questions"),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -168,6 +172,7 @@ export const createQuestion = mutation({
 // Note: Use getQuestionsWithPagination for large datasets
 export const getAllQuestions = query({
   args: {},
+  returns: v.any(),
   handler: async (ctx) => {
     // Limit to 1000 questions to prevent unbounded reads
     // For full list, use paginated query
@@ -178,7 +183,10 @@ export const getAllQuestions = query({
 // Récupérer tous les IDs de questions (pour auto-complete efficace)
 export const getAllQuestionIds = query({
   args: {},
+  returns: v.array(v.id("questions")),
   handler: async (ctx) => {
+    await getAdminUserOrThrow(ctx)
+
     const questions = await ctx.db.query("questions").take(5000)
     return questions.map((q) => q._id)
   },
@@ -187,6 +195,10 @@ export const getAllQuestionIds = query({
 // Récupérer les statistiques des questions pour le dashboard admin (optimisé via table d'agrégation)
 export const getQuestionStats = query({
   args: {},
+  returns: v.object({
+    totalCount: v.number(),
+    domainStats: v.array(v.object({ domain: v.string(), count: v.number() })),
+  }),
   handler: async (ctx) => {
     // Lire depuis la table d'agrégation (beaucoup plus efficace que full scan)
     const allStats = await ctx.db.query("questionStats").take(1000)
@@ -207,6 +219,13 @@ export const getQuestionStats = query({
 // Récupérer les statistiques enrichies pour la page admin questions
 export const getQuestionStatsEnriched = query({
   args: {},
+  returns: v.object({
+    totalCount: v.number(),
+    withImagesCount: v.number(),
+    withoutImagesCount: v.number(),
+    uniqueDomainsCount: v.number(),
+    domainStats: v.array(v.object({ domain: v.string(), count: v.number() })),
+  }),
   handler: async (ctx) => {
     // Lire depuis la table d'agrégation
     const allStats = await ctx.db.query("questionStats").take(1000)
@@ -239,13 +258,14 @@ export const getQuestionStatsEnriched = query({
 // Supprimer une question (admin seulement)
 export const deleteQuestion = mutation({
   args: { id: v.id("questions") },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
     // Récupérer la question pour connaître son domaine
     const question = await ctx.db.get(args.id)
     if (!question) {
-      throw new Error("Question non trouvée")
+      throw Errors.notFound("Question")
     }
 
     await ctx.db.delete(args.id)
@@ -267,6 +287,7 @@ export const updateQuestion = mutation({
     objectifCMC: v.optional(v.string()),
     domain: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -275,7 +296,7 @@ export const updateQuestion = mutation({
     // Récupérer la question existante pour vérifier le changement de domaine
     const existingQuestion = await ctx.db.get(id)
     if (!existingQuestion) {
-      throw new Error("Question non trouvée")
+      throw Errors.notFound("Question")
     }
 
     // Normaliser l'objectifCMC si fourni
@@ -307,6 +328,7 @@ export const getQuestionsWithPagination = query({
     domain: v.optional(v.string()),
     searchQuery: v.optional(v.string()),
   },
+  returns: v.any(),
   handler: async (ctx, args) => {
     const { paginationOpts, domain, searchQuery } = args
     const hasDomainFilter = domain && domain !== "Tous les domaines"
@@ -392,6 +414,7 @@ export const getQuestionsWithFilters = query({
     ),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
+  returns: v.any(),
   handler: async (ctx, args) => {
     const {
       paginationOpts,
@@ -498,7 +521,10 @@ export const getQuestionsWithFilters = query({
 // Récupérer une question par son ID (pour le panel et l'édition)
 export const getQuestionById = query({
   args: { questionId: v.id("questions") },
+  returns: v.any(),
   handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
     return await ctx.db.get(args.questionId)
   },
 })
@@ -506,6 +532,7 @@ export const getQuestionById = query({
 // Récupérer tous les objectifs CMC uniques (pour le combobox)
 export const getUniqueObjectifsCMC = query({
   args: {},
+  returns: v.array(v.string()),
   handler: async (ctx) => {
     // Collecter toutes les questions (limité pour performance)
     const questions = await ctx.db.query("questions").take(5000)
@@ -530,7 +557,24 @@ export const getAllQuestionsForExport = query({
     domain: v.optional(v.string()),
     hasImages: v.optional(v.boolean()),
   },
+  returns: v.array(
+    v.object({
+      _id: v.id("questions"),
+      _creationTime: v.number(),
+      question: v.string(),
+      options: v.array(v.string()),
+      correctAnswer: v.string(),
+      explanation: v.string(),
+      references: v.array(v.string()),
+      objectifCMC: v.string(),
+      domain: v.string(),
+      hasImages: v.boolean(),
+      imagesCount: v.number(),
+    })
+  ),
   handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
+
     const { searchQuery, domain, hasImages } = args
     const hasDomainFilter = domain && domain !== "all"
     const hasSearchFilter = searchQuery && searchQuery.trim() !== ""
@@ -584,12 +628,15 @@ export const getAllQuestionsForExport = query({
 })
 
 
-// Obtenir des questions aléatoires (optimisé pour quiz)
-export const getRandomQuestions = query({
+// Obtenir des questions aléatoires (optimisé pour quiz marketing)
+// Mutation car utilise Math.random() (non déterministe, interdit dans les queries)
+// Masque correctAnswer et explanation pour le quiz public
+export const getRandomQuestions = mutation({
   args: {
     count: v.number(),
     domain: v.optional(v.string()),
   },
+  returns: v.any(),
   handler: async (ctx, args) => {
     // Limit sample size for performance: take 3x requested count or 500, whichever is larger
     // This provides good randomness without collecting entire table
@@ -613,8 +660,49 @@ export const getRandomQuestions = query({
       ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
     }
 
-    // Retourner le nombre demandé
-    return shuffled.slice(0, Math.min(args.count, shuffled.length))
+    // Retourner sans correctAnswer ni explanation (quiz public)
+    return shuffled.slice(0, Math.min(args.count, shuffled.length)).map((q) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { correctAnswer, explanation, ...rest } = q
+      return rest
+    })
+  },
+})
+
+/**
+ * Score quiz answers server-side and return full question data for review.
+ * Used by the public marketing quiz after completion.
+ */
+export const scoreQuizAnswers = mutation({
+  args: {
+    answers: v.array(
+      v.object({
+        questionId: v.id("questions"),
+        selectedAnswer: v.union(v.string(), v.null()),
+      }),
+    ),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    const questionIds = args.answers.map((a) => a.questionId)
+    const questions = await batchGetOrderedByIds(ctx, "questions", questionIds)
+
+    let score = 0
+    for (let i = 0; i < args.answers.length; i++) {
+      const question = questions[i]
+      if (
+        question &&
+        args.answers[i].selectedAnswer === question.correctAnswer
+      ) {
+        score++
+      }
+    }
+
+    return {
+      score,
+      totalQuestions: questionIds.length,
+      questions: questions.filter((q) => q !== null),
+    }
   },
 })
 
@@ -630,12 +718,13 @@ export const addQuestionImage = mutation({
     questionId: v.id("questions"),
     image: questionImageValidator,
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
     const question = await ctx.db.get(args.questionId)
     if (!question) {
-      throw new Error("Question non trouvée")
+      throw Errors.notFound("Question")
     }
 
     const currentImages = question.images || []
@@ -648,16 +737,15 @@ export const addQuestionImage = mutation({
 })
 
 /**
- * Supprimer une image d'une question
+ * Supprimer une image d'une question (internalMutation pour la partie DB)
  */
-export const removeQuestionImage = mutation({
+export const _removeQuestionImageData = internalMutation({
   args: {
     questionId: v.id("questions"),
     storagePath: v.string(),
   },
+  returns: v.object({ storagePath: v.string() }),
   handler: async (ctx, args) => {
-    await getAdminUserOrThrow(ctx)
-
     const question = await ctx.db.get(args.questionId)
     if (!question) {
       throw new Error("Question non trouvée")
@@ -670,15 +758,42 @@ export const removeQuestionImage = mutation({
       throw new Error("Image non trouvée")
     }
 
-    // Supprimer du storage Bunny
-    await deleteFromBunny(args.storagePath)
-
-    // Mettre à jour la question
     const newImages = currentImages
       .filter((img) => img.storagePath !== args.storagePath)
       .map((img, index) => ({ ...img, order: index }))
 
     await ctx.db.patch(args.questionId, { images: newImages })
+
+    return { storagePath: args.storagePath }
+  },
+})
+
+/**
+ * Supprimer une image d'une question (action: DB + suppression Bunny)
+ */
+export const removeQuestionImage = action({
+  args: {
+    questionId: v.id("questions"),
+    storagePath: v.string(),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, args) => {
+    // Vérifier l'authentification admin
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw Errors.unauthenticated()
+    const user = await ctx.runQuery(internal.users.getUserByTokenIdentifier, {
+      tokenIdentifier: identity.tokenIdentifier,
+    })
+    if (!user || user.role !== "admin") throw Errors.unauthorized()
+
+    // Supprimer l'image de la DB
+    const result = await ctx.runMutation(
+      internal.questions._removeQuestionImageData,
+      { questionId: args.questionId, storagePath: args.storagePath },
+    )
+
+    // Supprimer du storage Bunny
+    await deleteFromBunny(result.storagePath)
 
     return { success: true }
   },
@@ -692,12 +807,13 @@ export const reorderQuestionImages = mutation({
     questionId: v.id("questions"),
     orderedStoragePaths: v.array(v.string()),
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
     const question = await ctx.db.get(args.questionId)
     if (!question) {
-      throw new Error("Question non trouvée")
+      throw Errors.notFound("Question")
     }
 
     const currentImages = question.images || []
@@ -718,16 +834,16 @@ export const reorderQuestionImages = mutation({
 })
 
 /**
- * Mettre à jour toutes les images d'une question (utilisé lors de la création/édition)
+ * Mettre à jour toutes les images d'une question (internalMutation pour la partie DB)
+ * Retourne les storagePaths des images supprimées pour nettoyage Bunny
  */
-export const setQuestionImages = mutation({
+export const _setQuestionImagesData = internalMutation({
   args: {
     questionId: v.id("questions"),
     images: v.array(questionImageValidator),
   },
+  returns: v.object({ pathsToDelete: v.array(v.string()) }),
   handler: async (ctx, args) => {
-    await getAdminUserOrThrow(ctx)
-
     const question = await ctx.db.get(args.questionId)
     if (!question) {
       throw new Error("Question non trouvée")
@@ -736,14 +852,44 @@ export const setQuestionImages = mutation({
     // Identifier les images supprimées
     const currentImages = question.images || []
     const newStoragePaths = new Set(args.images.map((img) => img.storagePath))
-    const imagesToDelete = currentImages.filter((img) => !newStoragePaths.has(img.storagePath))
-
-    // Supprimer les anciennes images du storage
-    await Promise.all(imagesToDelete.map((img) => deleteFromBunny(img.storagePath)))
+    const pathsToDelete = currentImages
+      .filter((img) => !newStoragePaths.has(img.storagePath))
+      .map((img) => img.storagePath)
 
     // Mettre à jour avec les nouvelles images
     const sortedImages = [...args.images].sort((a, b) => a.order - b.order)
     await ctx.db.patch(args.questionId, { images: sortedImages })
+
+    return { pathsToDelete }
+  },
+})
+
+/**
+ * Mettre à jour toutes les images d'une question (action: DB + suppression Bunny)
+ */
+export const setQuestionImages = action({
+  args: {
+    questionId: v.id("questions"),
+    images: v.array(questionImageValidator),
+  },
+  returns: v.object({ success: v.boolean() }),
+  handler: async (ctx, args) => {
+    // Vérifier l'authentification admin
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw Errors.unauthenticated()
+    const user = await ctx.runQuery(internal.users.getUserByTokenIdentifier, {
+      tokenIdentifier: identity.tokenIdentifier,
+    })
+    if (!user || user.role !== "admin") throw Errors.unauthorized()
+
+    // Mettre à jour la DB et récupérer les chemins à supprimer
+    const { pathsToDelete } = await ctx.runMutation(
+      internal.questions._setQuestionImagesData,
+      { questionId: args.questionId, images: args.images },
+    )
+
+    // Supprimer les anciennes images du storage Bunny
+    await Promise.all(pathsToDelete.map((path: string) => deleteFromBunny(path)))
 
     return { success: true }
   },

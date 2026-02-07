@@ -93,6 +93,10 @@ export interface SessionToolbarProps {
   showLabValues?: boolean
   onOpenLabValues?: () => void
   showScrollTop?: boolean
+  /** Nav FAB element to show/hide in the toolbar stack */
+  navFab?: React.ReactNode
+  /** Whether to show the nav FAB (animated with AnimatePresence) */
+  showNavFab?: boolean
 }
 
 export interface SessionNavigationProps {

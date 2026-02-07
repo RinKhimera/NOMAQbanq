@@ -13,4 +13,14 @@ crons.hourly(
   internal.exams.closeExpiredParticipations,
 )
 
+/**
+ * Ferme automatiquement les sessions d'entraînement expirées (24h TTL)
+ * S'exécute toutes les heures, décalé de 30min par rapport aux examens
+ */
+crons.hourly(
+  "close-expired-training-sessions",
+  { minuteUTC: 30 }, // S'exécute à chaque heure +30 (00:30, 01:30, etc.)
+  internal.training.closeExpiredTrainingSessions,
+)
+
 export default crons

@@ -11,6 +11,8 @@
 import type * as analytics from "../analytics.js";
 import type * as crons from "../crons.js";
 import type * as examParticipations from "../examParticipations.js";
+import type * as examPause from "../examPause.js";
+import type * as examStats from "../examStats.js";
 import type * as exams from "../exams.js";
 import type * as http from "../http.js";
 import type * as lib_auth from "../lib/auth.js";
@@ -35,6 +37,8 @@ declare const fullApi: ApiFromModules<{
   analytics: typeof analytics;
   crons: typeof crons;
   examParticipations: typeof examParticipations;
+  examPause: typeof examPause;
+  examStats: typeof examStats;
   exams: typeof exams;
   http: typeof http;
   "lib/auth": typeof lib_auth;

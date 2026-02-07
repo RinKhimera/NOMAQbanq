@@ -1,7 +1,7 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation } from "convex/react"
+import { useAction, useMutation } from "convex/react"
 import { Check, Minus, Plus } from "lucide-react"
 import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
@@ -65,7 +65,7 @@ export default function EditQuestionDialog({
   const [images, setImages] = useState<QuestionImage[]>([])
 
   const updateQuestion = useMutation(api.questions.updateQuestion)
-  const setQuestionImages = useMutation(api.questions.setQuestionImages)
+  const setQuestionImages = useAction(api.questions.setQuestionImages)
 
   const form = useForm<QuestionFormValues>({
     resolver: zodResolver(questionFormSchema),

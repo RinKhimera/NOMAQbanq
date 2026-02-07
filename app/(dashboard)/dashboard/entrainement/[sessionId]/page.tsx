@@ -320,7 +320,7 @@ const TrainingSessionPage = () => {
 
           {/* Sidebar - Question navigator */}
           <div className="hidden lg:block">
-            <div ref={desktopNavRef} className="h-px" />
+            <div ref={desktopNavRef} className="h-1" />
             <QuestionNavigator
               questions={questions}
               answers={answers}
@@ -333,9 +333,15 @@ const TrainingSessionPage = () => {
         </div>
       </div>
 
-      {/* Navigation FAB (mobile + desktop when sidebar is out of view) */}
-      {!isDesktopNavVisible && (
-        <div className="fixed bottom-6 left-6">
+      {/* Floating toolbar with nav FAB */}
+      <SessionToolbar
+        showCalculator={true}
+        onOpenCalculator={() => setIsCalculatorOpen(true)}
+        showLabValues={true}
+        onOpenLabValues={() => setIsLabValuesOpen(true)}
+        showScrollTop={true}
+        showNavFab={!isDesktopNavVisible}
+        navFab={
           <QuestionNavigator
             questions={questions}
             answers={answers}
@@ -345,16 +351,7 @@ const TrainingSessionPage = () => {
             variant="mobile"
             accentColor="emerald"
           />
-        </div>
-      )}
-
-      {/* Floating toolbar (calc + lab values) */}
-      <SessionToolbar
-        showCalculator={true}
-        onOpenCalculator={() => setIsCalculatorOpen(true)}
-        showLabValues={true}
-        onOpenLabValues={() => setIsLabValuesOpen(true)}
-        showScrollTop={true}
+        }
       />
 
       {/* Calculator Dialog */}

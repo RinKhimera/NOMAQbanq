@@ -14,6 +14,7 @@ import {
   getCurrentUserOrThrow,
 } from "./lib/auth"
 import { batchGetByIds } from "./lib/batchFetch"
+import { Errors } from "./lib/errors"
 
 // ============================================
 // TYPE DEFINITIONS
@@ -38,6 +39,8 @@ const productCodeValidator = v.union(
 
 const accessTypeValidator = v.union(v.literal("exam"), v.literal("training"))
 
+const currencyValidator = v.union(v.literal("CAD"), v.literal("XAF"))
+
 // ============================================
 // QUERIES - User Access
 // ============================================
@@ -47,6 +50,7 @@ const accessTypeValidator = v.union(v.literal("exam"), v.literal("training"))
  */
 export const hasExamAccess = query({
   args: {},
+  returns: v.boolean(),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user) return false
@@ -70,6 +74,7 @@ export const hasExamAccess = query({
  */
 export const hasTrainingAccess = query({
   args: {},
+  returns: v.boolean(),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user) return false
@@ -92,6 +97,19 @@ export const hasTrainingAccess = query({
  */
 export const getMyAccessStatus = query({
   args: {},
+  returns: v.union(
+    v.null(),
+    v.object({
+      examAccess: v.union(
+        v.null(),
+        v.object({ expiresAt: v.number(), daysRemaining: v.number() }),
+      ),
+      trainingAccess: v.union(
+        v.null(),
+        v.object({ expiresAt: v.number(), daysRemaining: v.number() }),
+      ),
+    }),
+  ),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user) {
@@ -142,11 +160,33 @@ export const getMyAccessStatus = query({
  */
 export const getAvailableProducts = query({
   args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("products"),
+      _creationTime: v.number(),
+      code: v.union(
+        v.literal("exam_access"),
+        v.literal("training_access"),
+        v.literal("exam_access_promo"),
+        v.literal("training_access_promo"),
+        v.literal("premium_access"),
+      ),
+      name: v.string(),
+      description: v.string(),
+      priceCAD: v.number(),
+      durationDays: v.number(),
+      accessType: v.union(v.literal("exam"), v.literal("training")),
+      stripeProductId: v.string(),
+      stripePriceId: v.string(),
+      isActive: v.boolean(),
+      isCombo: v.optional(v.boolean()),
+    }),
+  ),
   handler: async (ctx) => {
     return await ctx.db
       .query("products")
       .withIndex("by_isActive", (q) => q.eq("isActive", true))
-      .collect()
+      .take(50)
   },
 })
 
@@ -155,6 +195,29 @@ export const getAvailableProducts = query({
  */
 export const getProductByCode = internalQuery({
   args: { code: productCodeValidator },
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("products"),
+      _creationTime: v.number(),
+      code: v.union(
+        v.literal("exam_access"),
+        v.literal("training_access"),
+        v.literal("exam_access_promo"),
+        v.literal("training_access_promo"),
+        v.literal("premium_access"),
+      ),
+      name: v.string(),
+      description: v.string(),
+      priceCAD: v.number(),
+      durationDays: v.number(),
+      accessType: v.union(v.literal("exam"), v.literal("training")),
+      stripeProductId: v.string(),
+      stripePriceId: v.string(),
+      isActive: v.boolean(),
+      isCombo: v.optional(v.boolean()),
+    }),
+  ),
   handler: async (ctx, args) => {
     return await ctx.db
       .query("products")
@@ -175,6 +238,19 @@ export const getMyTransactions = query({
   args: {
     paginationOpts: paginationOptsValidator,
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
+    pageStatus: v.optional(
+      v.union(
+        v.literal("SplitRecommended"),
+        v.literal("SplitRequired"),
+        v.null(),
+      ),
+    ),
+  }),
   handler: async (ctx, args) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -219,6 +295,19 @@ export const getAllTransactions = query({
     ),
     userId: v.optional(v.id("users")),
   },
+  returns: v.object({
+    page: v.array(v.any()),
+    isDone: v.boolean(),
+    continueCursor: v.string(),
+    splitCursor: v.optional(v.union(v.string(), v.null())),
+    pageStatus: v.optional(
+      v.union(
+        v.literal("SplitRecommended"),
+        v.literal("SplitRequired"),
+        v.null(),
+      ),
+    ),
+  }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -292,6 +381,13 @@ export const getAllTransactions = query({
  */
 export const getTransactionStats = query({
   args: {},
+  returns: v.object({
+    revenueByCurrency: v.any(),
+    totalTransactions: v.number(),
+    recentTransactions: v.number(),
+    stripeTransactions: v.number(),
+    manualTransactions: v.number(),
+  }),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)
 
@@ -352,22 +448,35 @@ export const getTransactionStats = query({
  */
 export const getExpiringAccess = query({
   args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id("userAccess"),
+      userId: v.id("users"),
+      accessType: v.union(v.literal("exam"), v.literal("training")),
+      expiresAt: v.number(),
+      daysRemaining: v.number(),
+      user: v.union(
+        v.null(),
+        v.object({
+          name: v.string(),
+          email: v.string(),
+        }),
+      ),
+    }),
+  ),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)
 
     const now = Date.now()
     const sevenDaysFromNow = now + 7 * 24 * 60 * 60 * 1000
 
-    // Récupérer tous les accès actifs qui expirent bientôt
-    const allAccess = await ctx.db
+    // Récupérer les accès qui expirent dans les 7 prochains jours
+    const expiringAccess = await ctx.db
       .query("userAccess")
-      .withIndex("by_expiresAt")
-      .take(500)
-
-    // Filtrer ceux qui expirent dans les 7 prochains jours
-    const expiringAccess = allAccess.filter(
-      (access) => access.expiresAt > now && access.expiresAt < sevenDaysFromNow,
-    )
+      .withIndex("by_expiresAt", (q) =>
+        q.gt("expiresAt", now).lt("expiresAt", sevenDaysFromNow),
+      )
+      .take(200)
 
     // Batch fetch user details
     const userIds = expiringAccess.map((a) => a.userId)
@@ -402,6 +511,10 @@ export const getRevenueByDay = query({
   args: {
     days: v.optional(v.number()),
   },
+  returns: v.object({
+    CAD: v.array(v.object({ date: v.string(), revenue: v.number() })),
+    XAF: v.array(v.object({ date: v.string(), revenue: v.number() })),
+  }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -464,6 +577,16 @@ export const getUserAccessStatus = query({
   args: {
     userId: v.id("users"),
   },
+  returns: v.object({
+    examAccess: v.union(
+      v.null(),
+      v.object({ expiresAt: v.number(), daysRemaining: v.number() }),
+    ),
+    trainingAccess: v.union(
+      v.null(),
+      v.object({ expiresAt: v.number(), daysRemaining: v.number() }),
+    ),
+  }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -515,11 +638,12 @@ export const createPendingTransaction = internalMutation({
     productId: v.id("products"),
     stripeSessionId: v.string(),
     amountPaid: v.number(),
-    currency: v.string(),
+    currency: currencyValidator,
     accessType: accessTypeValidator,
     durationDays: v.number(),
     isCombo: v.optional(v.boolean()),
   },
+  returns: v.id("transactions"),
   handler: async (ctx, args) => {
     const now = Date.now()
     let accessExpiresAt: number
@@ -568,6 +692,11 @@ export const completeStripeTransaction = internalMutation({
     stripePaymentIntentId: v.string(),
     stripeEventId: v.string(),
   },
+  returns: v.object({
+    success: v.boolean(),
+    alreadyProcessed: v.optional(v.boolean()),
+    transactionId: v.optional(v.id("transactions")),
+  }),
   handler: async (ctx, args) => {
     // Vérification idempotence - si event déjà traité, skip
     const existingByEvent = await ctx.db
@@ -590,9 +719,7 @@ export const completeStripeTransaction = internalMutation({
       .unique()
 
     if (!transaction) {
-      throw new Error(
-        "Transaction non trouvée pour la session: " + args.stripeSessionId,
-      )
+      throw Errors.notFound("Transaction")
     }
 
     if (transaction.status === "completed") {
@@ -654,6 +781,11 @@ export const failStripeTransaction = internalMutation({
     stripeSessionId: v.string(),
     stripeEventId: v.string(),
   },
+  returns: v.object({
+    success: v.boolean(),
+    alreadyProcessed: v.optional(v.boolean()),
+    error: v.optional(v.string()),
+  }),
   handler: async (ctx, args) => {
     // Vérification idempotence
     const existingByEvent = await ctx.db
@@ -699,10 +831,14 @@ export const recordManualPayment = mutation({
     userId: v.id("users"),
     productCode: productCodeValidator,
     amountPaid: v.number(),
-    currency: v.string(),
+    currency: currencyValidator,
     paymentMethod: v.string(),
     notes: v.optional(v.string()),
   },
+  returns: v.object({
+    success: v.boolean(),
+    transactionId: v.id("transactions"),
+  }),
   handler: async (ctx, args) => {
     const admin = await getAdminUserOrThrow(ctx)
 
@@ -716,11 +852,11 @@ export const recordManualPayment = mutation({
     ])
 
     if (!product) {
-      throw new Error("Produit non trouvé: " + args.productCode)
+      throw Errors.notFound("Produit")
     }
 
     if (!targetUser) {
-      throw new Error("Utilisateur non trouvé")
+      throw Errors.notFound("Utilisateur")
     }
 
     const now = Date.now()
@@ -806,6 +942,11 @@ export const upsertProduct = mutation({
     isActive: v.boolean(),
     isCombo: v.optional(v.boolean()),
   },
+  returns: v.object({
+    success: v.boolean(),
+    productId: v.id("products"),
+    updated: v.boolean(),
+  }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -854,6 +995,7 @@ export const seedProducts = internalMutation({
       }),
     ),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     for (const product of args.products) {
       const existing = await ctx.db
@@ -879,12 +1021,17 @@ export const getTransactionAccessImpact = query({
   args: {
     transactionId: v.id("transactions"),
   },
+  returns: v.object({
+    willRevokeAccess: v.boolean(),
+    currentAccessExpiresAt: v.union(v.null(), v.number()),
+    accessType: v.union(v.literal("exam"), v.literal("training")),
+  }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
     const transaction = await ctx.db.get(args.transactionId)
     if (!transaction) {
-      throw new Error("Transaction non trouvée")
+      throw Errors.notFound("Transaction")
     }
 
     // Trouver l'enregistrement d'accès pour cet utilisateur/type
@@ -919,23 +1066,24 @@ export const updateManualTransaction = mutation({
   args: {
     transactionId: v.id("transactions"),
     amountPaid: v.number(),
-    currency: v.string(),
+    currency: currencyValidator,
     paymentMethod: v.string(),
     notes: v.optional(v.string()),
     status: v.optional(v.union(v.literal("completed"), v.literal("refunded"))),
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
     // Récupérer la transaction
     const transaction = await ctx.db.get(args.transactionId)
     if (!transaction) {
-      throw new Error("Transaction non trouvée")
+      throw Errors.notFound("Transaction")
     }
 
     // Vérifier que c'est une transaction manuelle
     if (transaction.type !== "manual") {
-      throw new Error("Seules les transactions manuelles peuvent être modifiées")
+      throw Errors.invalidState("Seules les transactions manuelles peuvent être modifiées")
     }
 
     // Si le statut passe à "refunded", révoquer l'accès
@@ -963,18 +1111,19 @@ export const deleteManualTransaction = mutation({
   args: {
     transactionId: v.id("transactions"),
   },
+  returns: v.object({ success: v.boolean(), accessRevoked: v.boolean() }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
     // Récupérer la transaction
     const transaction = await ctx.db.get(args.transactionId)
     if (!transaction) {
-      throw new Error("Transaction non trouvée")
+      throw Errors.notFound("Transaction")
     }
 
     // Vérifier que c'est une transaction manuelle
     if (transaction.type !== "manual") {
-      throw new Error("Seules les transactions manuelles peuvent être supprimées")
+      throw Errors.invalidState("Seules les transactions manuelles peuvent être supprimées")
     }
 
     // Vérifier l'impact sur l'accès et révoquer si nécessaire

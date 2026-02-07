@@ -1,6 +1,6 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
-import { mutation, query } from "./_generated/server"
+import { internalMutation, mutation, query } from "./_generated/server"
 import { getCurrentUserOrNull, getCurrentUserOrThrow } from "./lib/auth"
 import { batchGetOrderedByIds } from "./lib/batchFetch"
 import { Errors } from "./lib/errors"
@@ -23,6 +23,7 @@ const MAX_SESSIONS_PER_HOUR = 10 // Rate limiting: max sessions créées par heu
  */
 export const getActiveTrainingSession = query({
   args: {},
+  returns: v.any(),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user) return null
@@ -66,6 +67,7 @@ export const getTrainingSessionById = query({
   args: {
     sessionId: v.id("trainingParticipations"),
   },
+  returns: v.any(),
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -134,6 +136,20 @@ export const getTrainingHistory = query({
   args: {
     paginationOpts: paginationOptsValidator,
   },
+  returns: v.object({
+    page: v.array(
+      v.object({
+        _id: v.id("trainingParticipations"),
+        questionCount: v.number(),
+        score: v.number(),
+        completedAt: v.optional(v.number()),
+        domain: v.optional(v.string()),
+        startedAt: v.number(),
+      }),
+    ),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+  }),
   handler: async (ctx, { paginationOpts }) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user) {
@@ -174,6 +190,7 @@ export const getTrainingSessionResults = query({
   args: {
     sessionId: v.id("trainingParticipations"),
   },
+  returns: v.any(),
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -229,6 +246,15 @@ export const getTrainingSessionResults = query({
  */
 export const getAvailableDomains = query({
   args: {},
+  returns: v.object({
+    domains: v.array(
+      v.object({
+        domain: v.string(),
+        count: v.number(),
+      }),
+    ),
+    totalQuestions: v.number(),
+  }),
   handler: async (ctx) => {
     // Utiliser la table d'agrégation questionStats si disponible
     const stats = await ctx.db.query("questionStats").take(1000)
@@ -282,6 +308,15 @@ export const getAvailableObjectifsCMC = query({
   args: {
     domain: v.optional(v.string()),
   },
+  returns: v.object({
+    objectifs: v.array(
+      v.object({
+        objectif: v.string(),
+        count: v.number(),
+      }),
+    ),
+    total: v.number(),
+  }),
   handler: async (ctx, { domain }) => {
     // Fetch questions avec limite pour performance
     let questions
@@ -323,6 +358,21 @@ export const getAvailableObjectifsCMC = query({
  */
 export const getTrainingStats = query({
   args: {},
+  returns: v.union(
+    v.null(),
+    v.object({
+      totalSessions: v.number(),
+      totalQuestions: v.number(),
+      averageScore: v.number(),
+      recentSessions: v.array(
+        v.object({
+          score: v.number(),
+          completedAt: v.optional(v.number()),
+          questionCount: v.number(),
+        }),
+      ),
+    }),
+  ),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user) return null
@@ -373,6 +423,24 @@ export const getTrainingStats = query({
  */
 export const getMyTrainingScoreHistory = query({
   args: {},
+  returns: v.object({
+    sessions: v.array(
+      v.object({
+        sessionId: v.id("trainingParticipations"),
+        score: v.number(),
+        completedAt: v.number(),
+        questionCount: v.number(),
+        domain: v.string(),
+      }),
+    ),
+    domainPerformance: v.array(
+      v.object({
+        domain: v.string(),
+        averageScore: v.number(),
+        sessionCount: v.number(),
+      }),
+    ),
+  }),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user) {
@@ -388,6 +456,7 @@ export const getMyTrainingScoreHistory = query({
       .take(100)
 
     // Trier par date de complétion et prendre les 10 dernières
+    // .sort() intentionnel : .filter() crée déjà un nouveau tableau, .toSorted() ferait une copie inutile
     const sortedSessions = completedSessions
       .filter((s) => s.completedAt !== undefined)
       .sort((a, b) => (a.completedAt ?? 0) - (b.completedAt ?? 0))
@@ -445,6 +514,11 @@ export const createTrainingSession = mutation({
     domain: v.optional(v.string()),
     objectifsCMCs: v.optional(v.array(v.string())),
   },
+  returns: v.object({
+    sessionId: v.id("trainingParticipations"),
+    questionIds: v.array(v.id("questions")),
+    expiresAt: v.number(),
+  }),
   handler: async (ctx, { questionCount, domain, objectifsCMCs }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -472,9 +546,7 @@ export const createTrainingSession = mutation({
         .unique()
 
       if (!access || access.expiresAt < Date.now()) {
-        throw new Error(
-          "Accès à l'entraînement requis. Veuillez souscrire un abonnement.",
-        )
+        throw Errors.accessExpired("training")
       }
     }
 
@@ -484,7 +556,7 @@ export const createTrainingSession = mutation({
       questionCount < MIN_QUESTIONS ||
       questionCount > MAX_QUESTIONS
     ) {
-      throw new Error(
+      throw Errors.invalidInput(
         `Le nombre de questions doit être un entier entre ${MIN_QUESTIONS} et ${MAX_QUESTIONS}`,
       )
     }
@@ -500,7 +572,7 @@ export const createTrainingSession = mutation({
     if (existingSession) {
       // Si non expirée, erreur
       if (existingSession.expiresAt >= Date.now()) {
-        throw new Error(
+        throw Errors.invalidState(
           "Vous avez déjà une session en cours. Veuillez la terminer ou attendre son expiration.",
         )
       }
@@ -536,7 +608,7 @@ export const createTrainingSession = mutation({
 
     // 5. Valider qu'il y a assez de questions
     if (questions.length < questionCount) {
-      throw new Error(
+      throw Errors.invalidInput(
         `Seulement ${questions.length} questions disponibles. Réduisez le nombre demandé.`,
       )
     }
@@ -581,6 +653,10 @@ export const saveTrainingAnswer = mutation({
     questionId: v.id("questions"),
     selectedAnswer: v.string(),
   },
+  returns: v.object({
+    answerId: v.id("trainingAnswers"),
+    isCorrect: v.boolean(),
+  }),
   handler: async (ctx, { sessionId, questionId, selectedAnswer }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -616,18 +692,18 @@ export const saveTrainingAnswer = mutation({
     if (session.expiresAt < Date.now()) {
       // Marquer comme abandonnée
       await ctx.db.patch(sessionId, { status: "abandoned" })
-      throw new Error("Cette session a expiré")
+      throw Errors.invalidState("Cette session a expiré")
     }
 
     // 3. Vérifier que la question fait partie de la session
     if (!session.questionIds.includes(questionId)) {
-      throw new Error("Cette question ne fait pas partie de la session")
+      throw Errors.invalidInput("Cette question ne fait pas partie de la session")
     }
 
     // 4. Récupérer la bonne réponse
     const question = await ctx.db.get(questionId)
     if (!question) {
-      throw new Error("Question non trouvée")
+      throw Errors.notFound("Question")
     }
 
     const isCorrect = selectedAnswer === question.correctAnswer
@@ -670,6 +746,12 @@ export const completeTrainingSession = mutation({
   args: {
     sessionId: v.id("trainingParticipations"),
   },
+  returns: v.object({
+    score: v.number(),
+    correctCount: v.number(),
+    totalQuestions: v.number(),
+    completedAt: v.number(),
+  }),
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -737,20 +819,21 @@ export const abandonTrainingSession = mutation({
   args: {
     sessionId: v.id("trainingParticipations"),
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
     const session = await ctx.db.get(sessionId)
     if (!session) {
-      throw new Error("Session non trouvée")
+      throw Errors.notFound("Session")
     }
 
     if (session.userId !== user._id) {
-      throw new Error("Cette session ne vous appartient pas")
+      throw Errors.unauthorized("Cette session ne vous appartient pas")
     }
 
     if (session.status !== "in_progress") {
-      throw new Error("Cette session n'est pas en cours")
+      throw Errors.invalidState("Cette session n'est pas en cours")
     }
 
     await ctx.db.patch(sessionId, { status: "abandoned" })
@@ -767,6 +850,7 @@ export const deleteTrainingSession = mutation({
   args: {
     sessionId: v.id("trainingParticipations"),
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -810,6 +894,11 @@ export const deleteTrainingSession = mutation({
  */
 export const deleteAllTrainingSessions = mutation({
   args: {},
+  returns: v.object({
+    success: v.boolean(),
+    deletedCount: v.number(),
+    deletedAnswers: v.number(),
+  }),
   handler: async (ctx) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -849,5 +938,64 @@ export const deleteAllTrainingSessions = mutation({
       deletedCount: sessionsToDelete.length,
       deletedAnswers,
     }
+  },
+})
+
+// ============================================
+// INTERNAL - Cron Jobs
+// ============================================
+
+/**
+ * Ferme automatiquement les sessions d'entraînement expirées (expiresAt dépassé)
+ * Les sessions in_progress au-delà de 24h sont marquées comme abandonnées
+ * Appelé par le cron job toutes les heures
+ */
+export const closeExpiredTrainingSessions = internalMutation({
+  args: {},
+  returns: v.object({ closedCount: v.number() }),
+  handler: async (ctx) => {
+    const now = Date.now()
+
+    const expiredSessions = await ctx.db
+      .query("trainingParticipations")
+      .withIndex("by_status_expiresAt", (q) =>
+        q.eq("status", "in_progress").lt("expiresAt", now),
+      )
+      .take(100)
+
+    if (expiredSessions.length === 0) {
+      return { closedCount: 0 }
+    }
+
+    for (const session of expiredSessions) {
+      // Calculer le score à partir des réponses existantes
+      const answers = await ctx.db
+        .query("trainingAnswers")
+        .withIndex("by_participation", (q) =>
+          q.eq("participationId", session._id),
+        )
+        .take(MAX_QUESTIONS)
+
+      const correctAnswers = answers.filter((a) => a.isCorrect).length
+      const totalQuestions = session.questionIds.length
+      const score =
+        totalQuestions > 0
+          ? Math.round((correctAnswers / totalQuestions) * 100)
+          : 0
+
+      await ctx.db.patch(session._id, {
+        status: "abandoned",
+        score,
+        completedAt: now,
+      })
+    }
+
+    if (expiredSessions.length > 0) {
+      console.log(
+        `[Cron] Fermé ${expiredSessions.length} session(s) d'entraînement expirée(s)`,
+      )
+    }
+
+    return { closedCount: expiredSessions.length }
   },
 })
