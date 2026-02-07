@@ -100,6 +100,14 @@ export default function TrainingResultsPage() {
     return questions
   }, [questions, answers, showErrorsOnly])
 
+  // Pre-build index map to avoid O(n²) findIndex inside .map()
+  // Not a real perf concern at current training sizes (~50 questions max),
+  // but avoids the quadratic pattern for correctness.
+  const questionIndexMap = useMemo(
+    () => new Map(questions.map((q, i) => [q._id.toString(), i])),
+    [questions],
+  )
+
   // Question results for navigator
   const questionResults = useMemo(() => {
     return questions.map((q) => {
@@ -410,10 +418,9 @@ export default function TrainingResultsPage() {
                     question._id.toString()
                   )
 
-                  // Find original index for question number
-                  const originalIndex = questions.findIndex(
-                    (q) => q._id === question._id
-                  )
+                  const originalIndex = questionIndexMap.get(
+                    question._id.toString(),
+                  ) ?? index
 
                   return (
                     <motion.div

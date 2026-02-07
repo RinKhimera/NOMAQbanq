@@ -139,7 +139,7 @@ export const ScoreEvolutionChartContent = ({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.3 }}
-      className="relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80 [&_*:focus]:outline-none [&_*:focus-visible]:outline-none"
+      className="relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80 [&_svg_*:focus]:outline-none"
     >
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">

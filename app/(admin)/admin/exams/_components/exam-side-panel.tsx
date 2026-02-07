@@ -220,6 +220,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Fermer le panneau"
               onClick={onClose}
               className="shrink-0 rounded-full hover:bg-white/50 dark:hover:bg-gray-800/50"
             >

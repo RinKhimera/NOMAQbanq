@@ -12,6 +12,7 @@ import {
 import { motion } from "motion/react"
 import Link from "next/link"
 import { Id } from "@/convex/_generated/dataModel"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 interface RecentExam {
@@ -163,11 +164,11 @@ export const RecentActivityFeed = ({
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Vos résultats apparaîtront ici après chaque examen
             </p>
-            <Link href="/dashboard/examen-blanc">
-              <button className="mt-4 cursor-pointer rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-600">
+            <Button asChild className="mt-4 bg-blue-500 hover:bg-blue-600">
+              <Link href="/dashboard/examen-blanc">
                 Passer un examen
-              </button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         )}
       </div>

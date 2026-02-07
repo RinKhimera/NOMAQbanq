@@ -181,6 +181,7 @@ export function ObjectifsCMCMultiSelect({
               <button
                 type="button"
                 onClick={() => handleRemove(objectif)}
+                aria-label={`Retirer ${objectif}`}
                 className="ml-1 rounded-full hover:bg-emerald-200 dark:hover:bg-emerald-800"
               >
                 <X className="h-3 w-3" />

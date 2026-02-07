@@ -84,6 +84,7 @@ const QuestionNavigation = ({
           <DropdownMenuTrigger asChild>
             <Button
               size="lg"
+              aria-label="Navigation des questions"
               className="h-12 w-12 rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700"
             >
               <List className="h-6 w-6" />
@@ -158,6 +159,7 @@ const QuestionNavigation = ({
           <Button
             onClick={scrollToTop}
             size="lg"
+            aria-label="Retour en haut"
             className="animate-in fade-in h-12 w-12 rounded-full bg-gray-600 text-white shadow-lg duration-200 hover:bg-gray-700"
           >
             <ArrowUp className="h-6 w-6" />

@@ -136,6 +136,7 @@ export const ResultsQuestionNavigator = ({
       <Button
         onClick={() => setIsOpen(!isOpen)}
         size="lg"
+        aria-label="Navigation des questions"
         className={cn("h-12 w-12 rounded-full shadow-lg", colors.fabButton)}
       >
         <List className="h-5 w-5" />
@@ -169,6 +170,7 @@ export const ResultsQuestionNavigator = ({
                   </h3>
                   <button
                     onClick={() => setIsOpen(false)}
+                    aria-label="Fermer la navigation"
                     className="rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
                   >
                     <X className="h-5 w-5" />

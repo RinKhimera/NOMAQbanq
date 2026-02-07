@@ -172,7 +172,7 @@ function VitalCard({
 
         {/* Value */}
         <div className="relative mb-1">
-          <span className="font-display text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+          <span className="font-display text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-white">
             {value}
           </span>
         </div>

@@ -197,6 +197,13 @@ const ExamResultsPage = () => {
     ? results.questionResults.filter((r) => !r.isCorrect)
     : results.questionResults
 
+  // Pre-build index map to avoid O(n²) indexOf inside .map()
+  // Not a real perf concern at current exam sizes (~200 questions max),
+  // but avoids the quadratic pattern for correctness.
+  const resultIndexMap = new Map(
+    results.questionResults.map((r, i) => [r, i]),
+  )
+
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-600 dark:text-green-400"
     if (score >= 60) return "text-amber-600 dark:text-amber-400"
@@ -422,7 +429,7 @@ const ExamResultsPage = () => {
             <div className="space-y-4">
               <AnimatePresence mode="popLayout">
                 {filteredResults.map((result, index) => {
-                  const originalIndex = results.questionResults.indexOf(result)
+                  const originalIndex = resultIndexMap.get(result) ?? index
                   return (
                     <motion.div
                       key={result.question._id}

@@ -151,6 +151,7 @@ export const ResumeSessionCard = ({
             <AlertDialogTrigger asChild>
               <Button
                 variant="outline"
+                aria-label="Abandonner la session"
                 className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/30"
                 disabled={isAbandoning}
               >

@@ -34,6 +34,7 @@ export function ExamActions({
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Actions de l'examen"
           className="h-8 w-8 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
         >
           <MoreHorizontal className="h-4 w-4" />

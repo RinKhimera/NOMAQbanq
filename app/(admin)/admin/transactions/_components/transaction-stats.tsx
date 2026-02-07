@@ -172,7 +172,7 @@ export const TransactionStats = () => {
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   {card.label}
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-2xl font-bold tabular-nums text-gray-900 dark:text-white">
                   {card.format(value)}
                 </p>
               </div>

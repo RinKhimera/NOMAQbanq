@@ -131,6 +131,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" suppressHydrationWarning>
+      <head>
+        <link rel="preconnect" href="https://clerk.nomaqbanq.ca" />
+        <link rel="preconnect" href="https://cdn.nomaqbanq.ca" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${plusJakartaSans.variable} antialiased`}
       >
@@ -143,9 +147,8 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <ConvexClientProvider>{children}</ConvexClientProvider>
+          <Toaster richColors />
         </ThemeProvider>
-
-        <Toaster richColors />
       </body>
     </html>
   )

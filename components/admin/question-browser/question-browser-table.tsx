@@ -322,6 +322,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                         <Button
                           variant="ghost"
                           size="icon"
+                          aria-label="Prévisualiser la question"
                           className="h-8 w-8 text-gray-400 hover:text-gray-600"
                           onClick={(e) => handlePreviewClick(e, question._id)}
                         >
