@@ -149,7 +149,7 @@ describe("QuestionActions", () => {
       expect(screen.getByText("Retirer de la banque")).toBeInTheDocument()
     })
     const actionItem = screen.getByText("Retirer de la banque").closest("div")
-    expect(actionItem?.className).toContain("text-red")
+    expect(actionItem).toHaveClass("text-red-600")
   })
 
   it("shows separator between non-destructive and destructive actions", async () => {

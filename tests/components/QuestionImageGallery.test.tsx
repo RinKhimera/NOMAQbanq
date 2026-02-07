@@ -151,8 +151,7 @@ describe("QuestionImageGallery", () => {
       )
 
       const button = container.querySelector("button")
-      expect(button?.className).toContain("h-20")
-      expect(button?.className).toContain("w-20")
+      expect(button).toHaveClass("h-20", "w-20")
     })
 
     it("applies md size class (default)", () => {
@@ -160,8 +159,7 @@ describe("QuestionImageGallery", () => {
       const { container } = render(<QuestionImageGallery images={images} />)
 
       const button = container.querySelector("button")
-      expect(button?.className).toContain("h-32")
-      expect(button?.className).toContain("w-32")
+      expect(button).toHaveClass("h-32", "w-32")
     })
 
     it("applies lg size class", () => {
@@ -171,8 +169,7 @@ describe("QuestionImageGallery", () => {
       )
 
       const button = container.querySelector("button")
-      expect(button?.className).toContain("h-48")
-      expect(button?.className).toContain("w-48")
+      expect(button).toHaveClass("h-48", "w-48")
     })
   })
 
@@ -211,7 +208,7 @@ describe("QuestionImageGallery", () => {
       )
 
       const button = container.querySelector("button")
-      expect(button?.className).toContain("custom-class")
+      expect(button).toHaveClass("custom-class")
     })
   })
 })

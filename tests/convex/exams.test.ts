@@ -1,113 +1,12 @@
 import { convexTest } from "convex-test"
-import { describe, expect, it } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import { api, internal } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
 import schema from "../../convex/schema"
+import { createAdminUser, createRegularUser, grantAccess, clearProductCache } from "../helpers/convex-helpers"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
-
-// Cache pour les produits de test (réutilisés au sein d'un même test)
-const productCache = new Map<string, Id<"products">>()
-
-// Helper pour accorder l'accès exam ou training à un utilisateur (optimisé)
-const grantAccess = async (
-  t: ReturnType<typeof convexTest>,
-  userId: Id<"users">,
-  accessType: "exam" | "training",
-) => {
-  await t.run(async (ctx) => {
-    // Réutiliser le produit existant ou en créer un nouveau
-    const cacheKey = accessType
-    let productId = productCache.get(cacheKey)
-
-    if (!productId) {
-      productId = await ctx.db.insert("products", {
-        code: accessType === "exam" ? "exam_access" : "training_access",
-        name: accessType === "exam" ? "Accès Examens" : "Accès Entraînement",
-        description: "Test product",
-        priceCAD: 5000,
-        durationDays: 30,
-        accessType,
-        stripeProductId: `prod_test_${accessType}`,
-        stripePriceId: `price_test_${accessType}`,
-        isActive: true,
-      })
-      productCache.set(cacheKey, productId)
-    }
-
-    // Créer une transaction (minimal)
-    const transactionId = await ctx.db.insert("transactions", {
-      userId,
-      productId,
-      type: "manual",
-      status: "completed",
-      amountPaid: 0,
-      currency: "CAD",
-      accessType,
-      durationDays: 30,
-      accessExpiresAt: Date.now() + 86400000,
-      createdAt: Date.now(),
-    })
-
-    // Créer l'accès utilisateur
-    await ctx.db.insert("userAccess", {
-      userId,
-      accessType,
-      expiresAt: Date.now() + 86400000,
-      lastTransactionId: transactionId,
-    })
-  })
-}
-
-// Nettoyer le cache entre les tests
-import { beforeEach } from "vitest"
-beforeEach(() => {
-  productCache.clear()
-})
-
-// Helper pour créer un utilisateur admin
-const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
-  const userId = await t.run(async (ctx) => {
-    return await ctx.db.insert("users", {
-      name: "Admin",
-      email: "admin@example.com",
-      image: "https://example.com/avatar.png",
-      role: "admin",
-      externalId: "clerk_admin",
-      tokenIdentifier: "https://clerk.dev|clerk_admin",
-    })
-  })
-  return {
-    userId,
-    asAdmin: t.withIdentity({
-      tokenIdentifier: "https://clerk.dev|clerk_admin",
-    }),
-  }
-}
-
-// Helper pour créer un utilisateur standard
-const createRegularUser = async (
-  t: ReturnType<typeof convexTest>,
-  suffix: string = "",
-) => {
-  const userId = await t.run(async (ctx) => {
-    return await ctx.db.insert("users", {
-      name: `User ${suffix}`,
-      email: `user${suffix}@example.com`,
-      image: "https://example.com/avatar.png",
-      role: "user",
-      externalId: `clerk_user${suffix}`,
-      tokenIdentifier: `https://clerk.dev|clerk_user${suffix}`,
-    })
-  })
-  return {
-    userId,
-    asUser: t.withIdentity({
-      tokenIdentifier: `https://clerk.dev|clerk_user${suffix}`,
-    }),
-  }
-}
 
 // Helper pour créer une question
 const createQuestion = async (
@@ -128,6 +27,11 @@ const createQuestion = async (
 }
 
 describe("exams", () => {
+  // Nettoyer le cache entre les tests
+  beforeEach(() => {
+    clearProductCache()
+  })
+
   describe("createExam", () => {
     it("rejette si non admin", async () => {
       const t = convexTest(schema, modules)

@@ -159,8 +159,7 @@ describe("formatDateTime", () => {
     expect(result).toContain("mars")
     expect(result).toContain("2024")
     expect(result).toContain("à")
-    // L'heure dépend du fuseau horaire local
-    expect(result).toMatch(/\d{2}:\d{2}/)
+    expect(result).toContain("14:30")
   })
 
   it("utilise le format 24h", () => {
@@ -168,7 +167,7 @@ describe("formatDateTime", () => {
     const result = formatDateTime(timestamp)
 
     // Vérifie que c'est bien en format 24h
-    expect(result).toMatch(/\d{2}:\d{2}/)
+    expect(result).toContain("23:45")
   })
 })
 
@@ -177,21 +176,20 @@ describe("formatTimeOnly", () => {
     const timestamp = new Date("2024-03-15T14:30:00Z").getTime()
     const result = formatTimeOnly(timestamp)
 
-    // L'heure dépend du fuseau horaire local, mais le format doit être HH:mm
-    expect(result).toMatch(/^\d{2}:\d{2}$/)
+    expect(result).toBe("14:30")
   })
 
   it("gère minuit", () => {
     const timestamp = new Date("2024-03-15T00:00:00Z").getTime()
     const result = formatTimeOnly(timestamp)
 
-    expect(result).toMatch(/^\d{2}:\d{2}$/)
+    expect(result).toBe("00:00")
   })
 
   it("gère midi", () => {
     const timestamp = new Date("2024-03-15T12:00:00Z").getTime()
     const result = formatTimeOnly(timestamp)
 
-    expect(result).toMatch(/^\d{2}:\d{2}$/)
+    expect(result).toBe("12:00")
   })
 })

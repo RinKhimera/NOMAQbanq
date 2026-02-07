@@ -2,52 +2,10 @@ import { convexTest } from "convex-test"
 import { describe, expect, it } from "vitest"
 import { api } from "../../convex/_generated/api"
 import schema from "../../convex/schema"
+import { createAdminUser, createRegularUser } from "../helpers/convex-helpers"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
-
-// Helper pour créer un utilisateur admin pour les tests
-const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
-  const userId = await t.run(async (ctx) => {
-    return await ctx.db.insert("users", {
-      name: "Admin",
-      email: "admin@example.com",
-      image: "https://example.com/avatar.png",
-      role: "admin",
-      externalId: "clerk_admin",
-      tokenIdentifier: "https://clerk.dev|clerk_admin",
-    })
-  })
-  return {
-    userId,
-    asAdmin: t.withIdentity({
-      tokenIdentifier: "https://clerk.dev|clerk_admin",
-    }),
-  }
-}
-
-// Helper pour créer un utilisateur standard
-const createRegularUser = async (
-  t: ReturnType<typeof convexTest>,
-  suffix: string = "",
-) => {
-  const userId = await t.run(async (ctx) => {
-    return await ctx.db.insert("users", {
-      name: `User ${suffix}`,
-      email: `user${suffix}@example.com`,
-      image: "https://example.com/avatar.png",
-      role: "user",
-      externalId: `clerk_user${suffix}`,
-      tokenIdentifier: `https://clerk.dev|clerk_user${suffix}`,
-    })
-  })
-  return {
-    userId,
-    asUser: t.withIdentity({
-      tokenIdentifier: `https://clerk.dev|clerk_user${suffix}`,
-    }),
-  }
-}
 
 describe("questions", () => {
   describe("createQuestion", () => {
@@ -2100,25 +2058,27 @@ describe("questions", () => {
         })
       })
 
-      // Note: deleteFromBunny will be called but may fail in test env
-      // The test focuses on the DB changes
+      // Note: deleteFromBunny peut échouer en env de test (pas d'API Bunny)
+      // On sépare l'appel réseau de la vérification DB
+      let actionSucceeded = false
       try {
         const result = await asAdmin.action(api.questions.removeQuestionImage, {
           questionId,
           storagePath: "q/img2.jpg",
         })
+        actionSucceeded = result.success === true
+      } catch {
+        // API Bunny non disponible en test — vérifier auth/validation séparément
+      }
 
-        expect(result.success).toBe(true)
-
+      // Si l'action a réussi, vérifier que la DB a été mise à jour correctement
+      if (actionSucceeded) {
         const question = await t.run(async (ctx) => ctx.db.get(questionId))
         expect(question?.images).toHaveLength(2)
         expect(question?.images?.[0].storagePath).toBe("q/img1.jpg")
         expect(question?.images?.[0].order).toBe(0)
         expect(question?.images?.[1].storagePath).toBe("q/img3.jpg")
         expect(question?.images?.[1].order).toBe(1)
-      } catch {
-        // If Bunny API fails in test, that's expected
-        // The important thing is auth and validation work
       }
     })
   })

@@ -2,8 +2,12 @@ import { render } from "@testing-library/react"
 import { usePathname, useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { OnboardingGuard } from "@/components/shared/onboarding-guard"
-import { Doc } from "@/convex/_generated/dataModel"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
+import {
+  mockRouter,
+  mockCurrentUser,
+  createMockUserDoc,
+} from "../helpers/mocks"
 
 // Mock hooks
 vi.mock("@/hooks/useCurrentUser", () => ({
@@ -20,17 +24,13 @@ describe("OnboardingGuard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useRouter).mockReturnValue({
-      replace: mockReplace,
-    } as unknown as ReturnType<typeof useRouter>)
+    vi.mocked(useRouter).mockReturnValue(mockRouter({ replace: mockReplace }))
   })
 
   it("ne fait rien si le chargement est en cours", () => {
-    vi.mocked(useCurrentUser).mockReturnValue({
-      currentUser: null,
-      isLoading: true,
-      isAuthenticated: false,
-    } as unknown as ReturnType<typeof useCurrentUser>)
+    vi.mocked(useCurrentUser).mockReturnValue(
+      mockCurrentUser({ isLoading: true }),
+    )
 
     render(<OnboardingGuard />)
 
@@ -38,11 +38,7 @@ describe("OnboardingGuard", () => {
   })
 
   it("ne fait rien si l'utilisateur n'est pas connecté", () => {
-    vi.mocked(useCurrentUser).mockReturnValue({
-      currentUser: null,
-      isLoading: false,
-      isAuthenticated: false,
-    } as unknown as ReturnType<typeof useCurrentUser>)
+    vi.mocked(useCurrentUser).mockReturnValue(mockCurrentUser())
 
     render(<OnboardingGuard />)
 
@@ -50,11 +46,12 @@ describe("OnboardingGuard", () => {
   })
 
   it("redirige vers onboarding si l'utilisateur n'a pas de username", () => {
-    vi.mocked(useCurrentUser).mockReturnValue({
-      currentUser: { username: undefined } as unknown as Doc<"users">,
-      isLoading: false,
-      isAuthenticated: true,
-    } as unknown as ReturnType<typeof useCurrentUser>)
+    vi.mocked(useCurrentUser).mockReturnValue(
+      mockCurrentUser({
+        currentUser: createMockUserDoc({ username: undefined }),
+        isAuthenticated: true,
+      }),
+    )
     vi.mocked(usePathname).mockReturnValue("/dashboard")
 
     render(<OnboardingGuard />)
@@ -63,11 +60,12 @@ describe("OnboardingGuard", () => {
   })
 
   it("redirige vers dashboard si l'utilisateur a un username et est sur la page onboarding", () => {
-    vi.mocked(useCurrentUser).mockReturnValue({
-      currentUser: { username: "testuser" } as unknown as Doc<"users">,
-      isLoading: false,
-      isAuthenticated: true,
-    } as unknown as ReturnType<typeof useCurrentUser>)
+    vi.mocked(useCurrentUser).mockReturnValue(
+      mockCurrentUser({
+        currentUser: createMockUserDoc({ username: "testuser" }),
+        isAuthenticated: true,
+      }),
+    )
     vi.mocked(usePathname).mockReturnValue("/dashboard/onboarding")
 
     render(<OnboardingGuard />)
@@ -76,12 +74,27 @@ describe("OnboardingGuard", () => {
   })
 
   it("ne fait rien si l'utilisateur a un username et est sur le dashboard", () => {
-    vi.mocked(useCurrentUser).mockReturnValue({
-      currentUser: { username: "testuser" } as unknown as Doc<"users">,
-      isLoading: false,
-      isAuthenticated: true,
-    } as unknown as ReturnType<typeof useCurrentUser>)
+    vi.mocked(useCurrentUser).mockReturnValue(
+      mockCurrentUser({
+        currentUser: createMockUserDoc({ username: "testuser" }),
+        isAuthenticated: true,
+      }),
+    )
     vi.mocked(usePathname).mockReturnValue("/dashboard")
+
+    render(<OnboardingGuard />)
+
+    expect(mockReplace).not.toHaveBeenCalled()
+  })
+
+  it("ne redirige pas si l'utilisateur a un username et est sur une autre page", () => {
+    vi.mocked(useCurrentUser).mockReturnValue(
+      mockCurrentUser({
+        currentUser: createMockUserDoc({ username: "testuser" }),
+        isAuthenticated: true,
+      }),
+    )
+    vi.mocked(usePathname).mockReturnValue("/dashboard/entrainement")
 
     render(<OnboardingGuard />)
 

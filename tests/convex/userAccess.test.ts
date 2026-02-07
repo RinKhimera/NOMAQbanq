@@ -1,89 +1,15 @@
 import { convexTest } from "convex-test"
 import { describe, expect, it, beforeEach } from "vitest"
 import { api } from "../../convex/_generated/api"
-import { Id } from "../../convex/_generated/dataModel"
 import schema from "../../convex/schema"
+import { createAdminUser, createRegularUser, getOrCreateProduct, clearProductCache } from "../helpers/convex-helpers"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
 
-// Cache pour les produits de test
-const productCache = new Map<string, Id<"products">>()
-
 beforeEach(() => {
-  productCache.clear()
+  clearProductCache()
 })
-
-// Helper pour créer un utilisateur admin
-const createAdminUser = async (t: ReturnType<typeof convexTest>) => {
-  const userId = await t.run(async (ctx) => {
-    return await ctx.db.insert("users", {
-      name: "Admin",
-      email: "admin@example.com",
-      image: "https://example.com/avatar.png",
-      role: "admin",
-      externalId: "clerk_admin",
-      tokenIdentifier: "https://clerk.dev|clerk_admin",
-    })
-  })
-  return {
-    userId,
-    asAdmin: t.withIdentity({
-      tokenIdentifier: "https://clerk.dev|clerk_admin",
-    }),
-  }
-}
-
-// Helper pour créer un utilisateur standard
-const createRegularUser = async (
-  t: ReturnType<typeof convexTest>,
-  suffix: string = "",
-) => {
-  const userId = await t.run(async (ctx) => {
-    return await ctx.db.insert("users", {
-      name: `User ${suffix}`,
-      email: `user${suffix}@example.com`,
-      image: "https://example.com/avatar.png",
-      role: "user",
-      externalId: `clerk_user${suffix}`,
-      tokenIdentifier: `https://clerk.dev|clerk_user${suffix}`,
-    })
-  })
-  return {
-    userId,
-    asUser: t.withIdentity({
-      tokenIdentifier: `https://clerk.dev|clerk_user${suffix}`,
-    }),
-  }
-}
-
-// Helper pour créer un produit
-const getOrCreateProduct = async (
-  t: ReturnType<typeof convexTest>,
-  accessType: "exam" | "training",
-) => {
-  const cacheKey = accessType
-  let productId = productCache.get(cacheKey)
-
-  if (!productId) {
-    productId = await t.run(async (ctx) => {
-      return await ctx.db.insert("products", {
-        code: accessType === "exam" ? "exam_access" : "training_access",
-        name: accessType === "exam" ? "Accès Examens" : "Accès Entraînement",
-        description: "Test product",
-        priceCAD: 5000,
-        durationDays: 30,
-        accessType,
-        stripeProductId: `prod_test_${accessType}`,
-        stripePriceId: `price_test_${accessType}`,
-        isActive: true,
-      })
-    })
-    productCache.set(cacheKey, productId)
-  }
-
-  return productId
-}
 
 describe("userAccess - Gestion des accès payants", () => {
   describe("Création d'accès via paiement manuel", () => {

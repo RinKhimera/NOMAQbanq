@@ -11,6 +11,7 @@ export default defineConfig({
     postcss: {},
   },
   test: {
+    env: { TZ: "UTC" },
     globals: true,
     coverage: {
       provider: "v8",

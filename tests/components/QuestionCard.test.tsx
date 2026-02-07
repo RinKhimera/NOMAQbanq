@@ -123,9 +123,9 @@ describe("QuestionCard", () => {
         />,
       )
 
-      // On vérifie que l'option Lyon a une classe de sélection (on peut vérifier via data-state ou autre si présent)
-      // Ici on va juste vérifier que le rendu ne crash pas et que l'option est là
-      expect(screen.getByText("Lyon")).toBeInTheDocument()
+      // L'option sélectionnée doit avoir le style "selected" (bg-blue-50, border-blue-400)
+      const lyonContainer = screen.getByText("Lyon").closest("div")
+      expect(lyonContainer).toHaveClass("bg-blue-50", "border-blue-400")
     })
 
     it("appelle onFlagToggle lors du clic sur le drapeau", () => {
