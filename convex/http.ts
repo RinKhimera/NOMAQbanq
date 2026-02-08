@@ -172,34 +172,42 @@ http.route({
 // ============================================
 
 // CORS headers pour les routes d'upload
-// Utilise NEXT_PUBLIC_BASE_URL en prod, fallback localhost en dev
-const corsHeaders = {
-  "Access-Control-Allow-Origin":
-    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-}
+const ALLOWED_ORIGINS = [
+  "https://nomaqbanq.ca",
+  "https://www.nomaqbanq.ca",
+  "http://localhost:3000",
+]
 
-const jsonResponseHeaders = {
-  "Content-Type": "application/json",
-  ...corsHeaders,
+const getCorsHeaders = (request?: Request) => {
+  const origin = request?.headers.get("Origin") ?? ""
+  const allowedOrigin = ALLOWED_ORIGINS.includes(origin)
+    ? origin
+    : ALLOWED_ORIGINS[0]
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin,
+    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  }
 }
 
 // Helper pour créer une réponse JSON avec CORS
-const jsonResponse = (data: object, status: number = 200) =>
+const jsonResponse = (data: object, status: number = 200, request?: Request) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: jsonResponseHeaders,
+    headers: {
+      "Content-Type": "application/json",
+      ...getCorsHeaders(request),
+    },
   })
 
 // OPTIONS preflight pour question-image
 http.route({
   path: "/api/upload/question-image",
   method: "OPTIONS",
-  handler: httpAction(async () => {
+  handler: httpAction(async (_ctx, request) => {
     return new Response(null, {
       status: 204,
-      headers: corsHeaders,
+      headers: getCorsHeaders(request),
     })
   }),
 })
@@ -216,7 +224,7 @@ http.route({
     // Vérifier l'authentification et le rôle admin
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
-      return jsonResponse({ error: "Non authentifié" }, 401)
+      return jsonResponse({ error: "Non authentifié" }, 401, request)
     }
 
     // Vérifier le rôle admin
@@ -224,7 +232,7 @@ http.route({
       tokenIdentifier: identity.tokenIdentifier,
     })
     if (!user || user.role !== "admin") {
-      return jsonResponse({ error: "Accès non autorisé" }, 403)
+      return jsonResponse({ error: "Accès non autorisé" }, 403, request)
     }
 
     try {
@@ -234,17 +242,17 @@ http.route({
       const imageIndex = parseInt(formData.get("imageIndex") as string) || 0
 
       if (!file) {
-        return jsonResponse({ error: "Fichier manquant" }, 400)
+        return jsonResponse({ error: "Fichier manquant" }, 400, request)
       }
 
       if (!questionId) {
-        return jsonResponse({ error: "questionId manquant" }, 400)
+        return jsonResponse({ error: "questionId manquant" }, 400, request)
       }
 
       // Valider le fichier
       const validationError = validateImageFile(file.type, file.size)
       if (validationError) {
-        return jsonResponse({ error: validationError }, 400)
+        return jsonResponse({ error: validationError }, 400, request)
       }
 
       // Générer le chemin de stockage
@@ -256,17 +264,17 @@ http.route({
       const result = await uploadToBunny(fileBuffer, storagePath)
 
       if (!result.success) {
-        return jsonResponse({ error: result.error }, 500)
+        return jsonResponse({ error: result.error }, 500, request)
       }
 
       return jsonResponse({
         success: true,
         url: result.url,
         storagePath: result.storagePath,
-      })
+      }, 200, request)
     } catch (error) {
       console.error("Question image upload error:", error)
-      return jsonResponse({ error: "Erreur lors de l'upload" }, 500)
+      return jsonResponse({ error: "Erreur lors de l'upload" }, 500, request)
     }
   }),
 })
@@ -275,10 +283,10 @@ http.route({
 http.route({
   path: "/api/upload/avatar",
   method: "OPTIONS",
-  handler: httpAction(async () => {
+  handler: httpAction(async (_ctx, request) => {
     return new Response(null, {
       status: 204,
-      headers: corsHeaders,
+      headers: getCorsHeaders(request),
     })
   }),
 })
@@ -296,7 +304,7 @@ http.route({
     // Vérifier l'authentification
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
-      return jsonResponse({ error: "Non authentifié" }, 401)
+      return jsonResponse({ error: "Non authentifié" }, 401, request)
     }
 
     // Check rate limit before processing
@@ -315,6 +323,7 @@ http.route({
           retryAfterMs: rateLimitResult.retryAfterMs,
         },
         429,
+        request,
       )
     }
 
@@ -323,7 +332,7 @@ http.route({
       tokenIdentifier: identity.tokenIdentifier,
     })
     if (!user) {
-      return jsonResponse({ error: "Utilisateur non trouvé" }, 404)
+      return jsonResponse({ error: "Utilisateur non trouvé" }, 404, request)
     }
 
     try {
@@ -331,13 +340,13 @@ http.route({
       const file = formData.get("file") as File | null
 
       if (!file) {
-        return jsonResponse({ error: "Fichier manquant" }, 400)
+        return jsonResponse({ error: "Fichier manquant" }, 400, request)
       }
 
       // Valider le fichier
       const validationError = validateImageFile(file.type, file.size)
       if (validationError) {
-        return jsonResponse({ error: validationError }, 400)
+        return jsonResponse({ error: validationError }, 400, request)
       }
 
       // Supprimer l'ancien avatar si existant
@@ -354,7 +363,7 @@ http.route({
       const result = await uploadToBunny(fileBuffer, storagePath)
 
       if (!result.success) {
-        return jsonResponse({ error: result.error }, 500)
+        return jsonResponse({ error: result.error }, 500, request)
       }
 
       // Mettre à jour le profil utilisateur avec le nouvel avatar
@@ -374,10 +383,10 @@ http.route({
         success: true,
         url: result.url,
         storagePath: result.storagePath,
-      })
+      }, 200, request)
     } catch (error) {
       console.error("Avatar upload error:", error)
-      return jsonResponse({ error: "Erreur lors de l'upload" }, 500)
+      return jsonResponse({ error: "Erreur lors de l'upload" }, 500, request)
     }
   }),
 })
@@ -394,14 +403,14 @@ http.route({
     // Vérifier l'authentification et le rôle admin
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
-      return jsonResponse({ error: "Non authentifié" }, 401)
+      return jsonResponse({ error: "Non authentifié" }, 401, request)
     }
 
     const user = await ctx.runQuery(internal.users.getUserByTokenIdentifier, {
       tokenIdentifier: identity.tokenIdentifier,
     })
     if (!user || user.role !== "admin") {
-      return jsonResponse({ error: "Accès non autorisé" }, 403)
+      return jsonResponse({ error: "Accès non autorisé" }, 403, request)
     }
 
     try {
@@ -409,16 +418,16 @@ http.route({
       const { storagePath } = body as { storagePath?: string }
 
       if (!storagePath) {
-        return jsonResponse({ error: "storagePath manquant" }, 400)
+        return jsonResponse({ error: "storagePath manquant" }, 400, request)
       }
 
       // Supprimer de Bunny
       const deleted = await deleteFromBunny(storagePath)
 
-      return jsonResponse({ success: deleted }, deleted ? 200 : 500)
+      return jsonResponse({ success: deleted }, deleted ? 200 : 500, request)
     } catch (error) {
       console.error("Question image delete error:", error)
-      return jsonResponse({ error: "Erreur lors de la suppression" }, 500)
+      return jsonResponse({ error: "Erreur lors de la suppression" }, 500, request)
     }
   }),
 })
