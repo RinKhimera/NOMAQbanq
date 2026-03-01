@@ -1,7 +1,13 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
-import { action, internalMutation, mutation, query } from "./_generated/server"
+import {
+  action,
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server"
 import type { MutationCtx } from "./_generated/server"
 import { getAdminUserOrThrow } from "./lib/auth"
 import { batchGetOrderedByIds } from "./lib/batchFetch"
@@ -130,6 +136,155 @@ const transferDomainCount = async (
 }
 
 // ============================================
+// HELPERS POUR LES STATS OBJECTIFS CMC
+// ============================================
+
+const GLOBAL_OBJECTIF_KEY = "__all__"
+
+// Helper: Incrémenter le compteur d'un objectifCMC (domaine-specific + global)
+const incrementObjectifCMCCount = async (
+  ctx: MutationCtx,
+  objectifCMC: string,
+  domain: string,
+) => {
+  const normalized = normalizeObjectifCMC(objectifCMC)
+  if (!normalized) return
+
+  // Incrémenter la ligne (objectifCMC, domain)
+  const domainStat = await ctx.db
+    .query("objectifCMCStats")
+    .withIndex("by_objectifCMC_domain", (q) =>
+      q.eq("objectifCMC", normalized).eq("domain", domain),
+    )
+    .unique()
+
+  if (domainStat) {
+    await ctx.db.patch(domainStat._id, { count: domainStat.count + 1 })
+  } else {
+    await ctx.db.insert("objectifCMCStats", {
+      objectifCMC: normalized,
+      domain,
+      count: 1,
+    })
+  }
+
+  // Incrémenter la ligne globale (objectifCMC, "__all__")
+  const globalStat = await ctx.db
+    .query("objectifCMCStats")
+    .withIndex("by_objectifCMC_domain", (q) =>
+      q.eq("objectifCMC", normalized).eq("domain", GLOBAL_OBJECTIF_KEY),
+    )
+    .unique()
+
+  if (globalStat) {
+    await ctx.db.patch(globalStat._id, { count: globalStat.count + 1 })
+  } else {
+    await ctx.db.insert("objectifCMCStats", {
+      objectifCMC: normalized,
+      domain: GLOBAL_OBJECTIF_KEY,
+      count: 1,
+    })
+  }
+}
+
+// Helper: Décrémenter le compteur d'un objectifCMC (domaine-specific + global)
+const decrementObjectifCMCCount = async (
+  ctx: MutationCtx,
+  objectifCMC: string,
+  domain: string,
+) => {
+  const normalized = normalizeObjectifCMC(objectifCMC)
+  if (!normalized) return
+
+  // Décrémenter la ligne (objectifCMC, domain)
+  const domainStat = await ctx.db
+    .query("objectifCMCStats")
+    .withIndex("by_objectifCMC_domain", (q) =>
+      q.eq("objectifCMC", normalized).eq("domain", domain),
+    )
+    .unique()
+
+  if (domainStat) {
+    if (domainStat.count <= 1) {
+      await ctx.db.delete(domainStat._id)
+    } else {
+      await ctx.db.patch(domainStat._id, { count: domainStat.count - 1 })
+    }
+  } else {
+    console.warn(
+      `[objectifCMCStats] Stat "${normalized}" / "${domain}" introuvable lors du décrement`,
+    )
+  }
+
+  // Décrémenter la ligne globale
+  const globalStat = await ctx.db
+    .query("objectifCMCStats")
+    .withIndex("by_objectifCMC_domain", (q) =>
+      q.eq("objectifCMC", normalized).eq("domain", GLOBAL_OBJECTIF_KEY),
+    )
+    .unique()
+
+  if (globalStat) {
+    if (globalStat.count <= 1) {
+      await ctx.db.delete(globalStat._id)
+    } else {
+      await ctx.db.patch(globalStat._id, { count: globalStat.count - 1 })
+    }
+  }
+}
+
+// Helper: Transférer le compteur objectifCMC quand objectifCMC et/ou domain changent
+const transferObjectifCMCCount = async (
+  ctx: MutationCtx,
+  oldObjectif: string,
+  newObjectif: string,
+  oldDomain: string,
+  newDomain: string,
+) => {
+  const oldNorm = normalizeObjectifCMC(oldObjectif)
+  const newNorm = normalizeObjectifCMC(newObjectif)
+
+  if (oldNorm === newNorm && oldDomain === newDomain) return
+
+  if (oldNorm) {
+    await decrementObjectifCMCCount(ctx, oldNorm, oldDomain)
+  }
+  if (newNorm) {
+    await incrementObjectifCMCCount(ctx, newNorm, newDomain)
+  }
+}
+
+// ============================================
+// HELPERS POUR LE COMPTEUR D'IMAGES
+// ============================================
+
+const incrementWithImagesCount = async (ctx: MutationCtx) => {
+  const totalStat = await ctx.db
+    .query("questionStats")
+    .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
+    .unique()
+
+  if (totalStat) {
+    await ctx.db.patch(totalStat._id, {
+      withImagesCount: (totalStat.withImagesCount ?? 0) + 1,
+    })
+  }
+}
+
+const decrementWithImagesCount = async (ctx: MutationCtx) => {
+  const totalStat = await ctx.db
+    .query("questionStats")
+    .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
+    .unique()
+
+  if (totalStat && (totalStat.withImagesCount ?? 0) > 0) {
+    await ctx.db.patch(totalStat._id, {
+      withImagesCount: (totalStat.withImagesCount ?? 0) - 1,
+    })
+  }
+}
+
+// ============================================
 // MUTATIONS CRUD QUESTIONS
 // ============================================
 
@@ -163,6 +318,7 @@ export const createQuestion = mutation({
 
     // Mettre à jour les stats d'agrégation
     await incrementDomainCount(ctx, args.domain)
+    await incrementObjectifCMCCount(ctx, normalizedObjectif, args.domain)
 
     return questionId
   },
@@ -227,28 +383,22 @@ export const getQuestionStatsEnriched = query({
     domainStats: v.array(v.object({ domain: v.string(), count: v.number() })),
   }),
   handler: async (ctx) => {
-    // Lire depuis la table d'agrégation
+    // Lire depuis la table d'agrégation (plus de scan de la table questions)
     const allStats = await ctx.db.query("questionStats").take(1000)
 
-    // Séparer le total des stats par domaine
     const totalStat = allStats.find((s) => s.domain === TOTAL_DOMAIN_KEY)
     const domainStats = allStats
       .filter((s) => s.domain !== TOTAL_DOMAIN_KEY)
       .map((s) => ({ domain: s.domain, count: s.count }))
       .sort((a, b) => b.count - a.count)
 
-    // Pour les stats images, on doit faire un scan (pas d'index sur images)
-    // On limite à 5000 pour performance
-    const questions = await ctx.db.query("questions").take(5000)
-    const withImagesCount = questions.filter(
-      (q) => q.images && q.images.length > 0
-    ).length
-    const withoutImagesCount = questions.length - withImagesCount
+    const totalCount = totalStat?.count ?? 0
+    const withImagesCount = totalStat?.withImagesCount ?? 0
 
     return {
-      totalCount: totalStat?.count ?? 0,
+      totalCount,
       withImagesCount,
-      withoutImagesCount,
+      withoutImagesCount: totalCount - withImagesCount,
       uniqueDomainsCount: domainStats.length,
       domainStats,
     }
@@ -272,6 +422,10 @@ export const deleteQuestion = mutation({
 
     // Mettre à jour les stats d'agrégation
     await decrementDomainCount(ctx, question.domain)
+    await decrementObjectifCMCCount(ctx, question.objectifCMC, question.domain)
+    if (question.images && question.images.length > 0) {
+      await decrementWithImagesCount(ctx)
+    }
   },
 })
 
@@ -311,9 +465,26 @@ export const updateQuestion = mutation({
 
     await ctx.db.patch(id, filteredData)
 
-    // Si le domaine a changé, mettre à jour les stats
+    // Si le domaine a changé, mettre à jour les stats domaine
     if (args.domain !== undefined && args.domain !== existingQuestion.domain) {
       await transferDomainCount(ctx, existingQuestion.domain, args.domain)
+    }
+
+    // Si l'objectifCMC ou le domaine a changé, mettre à jour les stats objectifCMC
+    const effectiveNewObjectif =
+      updateData.objectifCMC ?? existingQuestion.objectifCMC
+    const effectiveNewDomain = args.domain ?? existingQuestion.domain
+    if (
+      existingQuestion.objectifCMC !== effectiveNewObjectif ||
+      existingQuestion.domain !== effectiveNewDomain
+    ) {
+      await transferObjectifCMCCount(
+        ctx,
+        existingQuestion.objectifCMC,
+        effectiveNewObjectif,
+        existingQuestion.domain,
+        effectiveNewDomain,
+      )
     }
   },
 })
@@ -530,100 +701,195 @@ export const getQuestionById = query({
 })
 
 // Récupérer tous les objectifs CMC uniques (pour le combobox)
+// Optimisé : lit depuis la table d'agrégation objectifCMCStats au lieu de scanner 5000+ questions
 export const getUniqueObjectifsCMC = query({
   args: {},
   returns: v.array(v.string()),
   handler: async (ctx) => {
-    // Collecter toutes les questions (limité pour performance)
-    const questions = await ctx.db.query("questions").take(5000)
+    // Lire les lignes globales (__all__) depuis objectifCMCStats
+    const stats = await ctx.db
+      .query("objectifCMCStats")
+      .withIndex("by_domain", (q) => q.eq("domain", GLOBAL_OBJECTIF_KEY))
+      .take(1000)
 
-    // Extraire les objectifs uniques
-    const objectifsSet = new Set<string>()
-    for (const q of questions) {
-      if (q.objectifCMC && q.objectifCMC.trim()) {
-        objectifsSet.add(q.objectifCMC.trim())
-      }
-    }
-
-    // Trier alphabétiquement
-    return Array.from(objectifsSet).sort((a, b) => a.localeCompare(b, "fr"))
+    return stats
+      .map((s) => s.objectifCMC)
+      .sort((a, b) => a.localeCompare(b, "fr"))
   },
 })
 
-// Récupérer toutes les questions pour l'export (avec filtres)
-export const getAllQuestionsForExport = query({
+// Query paginée interne pour l'export (appelée par l'action getAllQuestionsForExport)
+export const _getQuestionsPageForExport = internalQuery({
   args: {
     searchQuery: v.optional(v.string()),
     domain: v.optional(v.string()),
     hasImages: v.optional(v.boolean()),
+    paginationOpts: v.object({
+      numItems: v.number(),
+      cursor: v.union(v.string(), v.null()),
+    }),
   },
-  returns: v.array(
-    v.object({
-      _id: v.id("questions"),
-      _creationTime: v.number(),
-      question: v.string(),
-      options: v.array(v.string()),
-      correctAnswer: v.string(),
-      explanation: v.string(),
-      references: v.array(v.string()),
-      objectifCMC: v.string(),
-      domain: v.string(),
-      hasImages: v.boolean(),
-      imagesCount: v.number(),
-    })
-  ),
+  returns: v.object({
+    page: v.array(
+      v.object({
+        _id: v.id("questions"),
+        _creationTime: v.number(),
+        question: v.string(),
+        options: v.array(v.string()),
+        correctAnswer: v.string(),
+        explanation: v.string(),
+        references: v.array(v.string()),
+        objectifCMC: v.string(),
+        domain: v.string(),
+        hasImages: v.boolean(),
+        imagesCount: v.number(),
+      }),
+    ),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+  }),
   handler: async (ctx, args) => {
-    await getAdminUserOrThrow(ctx)
-
-    const { searchQuery, domain, hasImages } = args
+    const { searchQuery, domain, hasImages, paginationOpts } = args
     const hasDomainFilter = domain && domain !== "all"
     const hasSearchFilter = searchQuery && searchQuery.trim() !== ""
     const hasImagesFilter = hasImages !== undefined
+    const needsJsFilter = hasSearchFilter || hasImagesFilter
 
-    // Collecter les questions
+    if (!needsJsFilter) {
+      // Pagination native Convex (pas de filtre JS nécessaire)
+      let result
+      if (hasDomainFilter) {
+        result = await ctx.db
+          .query("questions")
+          .withIndex("by_domain", (q) => q.eq("domain", domain))
+          .paginate(paginationOpts)
+      } else {
+        result = await ctx.db.query("questions").paginate(paginationOpts)
+      }
+
+      return {
+        page: result.page.map((q) => ({
+          _id: q._id,
+          _creationTime: q._creationTime,
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation,
+          references: q.references || [],
+          objectifCMC: q.objectifCMC,
+          domain: q.domain,
+          hasImages: (q.images && q.images.length > 0) || false,
+          imagesCount: q.images?.length || 0,
+        })),
+        continueCursor: result.continueCursor,
+        isDone: result.isDone,
+      }
+    }
+
+    // Avec filtres JS : pagination offset-based
+    const startOffset = paginationOpts.cursor
+      ? parseInt(paginationOpts.cursor, 10)
+      : 0
+    const batchSize = 1000
+
     let questions
     if (hasDomainFilter) {
       questions = await ctx.db
         .query("questions")
         .withIndex("by_domain", (q) => q.eq("domain", domain))
-        .take(5000)
+        .take(startOffset + batchSize)
     } else {
-      questions = await ctx.db.query("questions").take(5000)
+      questions = await ctx.db
+        .query("questions")
+        .take(startOffset + batchSize)
     }
 
-    // Appliquer les filtres
-    let filtered = questions
+    let batch = questions.slice(startOffset)
 
     if (hasSearchFilter) {
       const lowerQuery = searchQuery.toLowerCase()
-      filtered = filtered.filter(
+      batch = batch.filter(
         (q) =>
           q.question.toLowerCase().includes(lowerQuery) ||
-          q.objectifCMC.toLowerCase().includes(lowerQuery)
+          q.objectifCMC.toLowerCase().includes(lowerQuery),
       )
     }
 
     if (hasImagesFilter) {
-      filtered = filtered.filter((q) => {
+      batch = batch.filter((q) => {
         const questionHasImages = q.images && q.images.length > 0
         return hasImages ? questionHasImages : !questionHasImages
       })
     }
 
-    // Retourner les données formatées pour l'export
-    return filtered.map((q) => ({
-      _id: q._id,
-      _creationTime: q._creationTime,
-      question: q.question,
-      options: q.options,
-      correctAnswer: q.correctAnswer,
-      explanation: q.explanation,
-      references: q.references || [],
-      objectifCMC: q.objectifCMC,
-      domain: q.domain,
-      hasImages: (q.images && q.images.length > 0) || false,
-      imagesCount: q.images?.length || 0,
-    }))
+    const page = batch.slice(0, paginationOpts.numItems)
+    const isDone = questions.length < startOffset + batchSize
+
+    return {
+      page: page.map((q) => ({
+        _id: q._id,
+        _creationTime: q._creationTime,
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation,
+        references: q.references || [],
+        objectifCMC: q.objectifCMC,
+        domain: q.domain,
+        hasImages: (q.images && q.images.length > 0) || false,
+        imagesCount: q.images?.length || 0,
+      })),
+      continueCursor: isDone ? "" : (startOffset + batchSize).toString(),
+      isDone,
+    }
+
+  },
+})
+
+// Exporter toutes les questions (action non-réactive, évite la souscription pour gros volumes)
+export const getAllQuestionsForExport = action({
+  args: {
+    searchQuery: v.optional(v.string()),
+    domain: v.optional(v.string()),
+    hasImages: v.optional(v.boolean()),
+  },
+  returns: v.any(),
+  handler: async (ctx, args) => {
+    // Vérifier l'authentification admin
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw Errors.unauthenticated()
+    const user = await ctx.runQuery(internal.users.getUserByTokenIdentifier, {
+      tokenIdentifier: identity.tokenIdentifier,
+    })
+    if (!user || user.role !== "admin") throw Errors.unauthorized()
+
+    // Boucle paginée pour récupérer toutes les questions
+    const allResults: Array<Record<string, unknown>> = []
+
+    let cursor: string | null = null
+    let done = false
+
+    while (!done) {
+      const page: {
+        page: Array<Record<string, unknown>>
+        continueCursor: string
+        isDone: boolean
+      } = await ctx.runQuery(
+        internal.questions._getQuestionsPageForExport,
+        {
+          searchQuery: args.searchQuery,
+          domain: args.domain,
+          hasImages: args.hasImages,
+          paginationOpts: { numItems: 500, cursor },
+        },
+      )
+
+      allResults.push(...page.page)
+      done = page.isDone
+      cursor = page.isDone ? null : page.continueCursor
+    }
+
+    return allResults
   },
 })
 
@@ -732,6 +998,11 @@ export const addQuestionImage = mutation({
 
     await ctx.db.patch(args.questionId, { images: newImages })
 
+    // Si c'est la première image ajoutée (0 → 1), incrémenter withImagesCount
+    if (currentImages.length === 0) {
+      await incrementWithImagesCount(ctx)
+    }
+
     return { success: true }
   },
 })
@@ -763,6 +1034,11 @@ export const _removeQuestionImageData = internalMutation({
       .map((img, index) => ({ ...img, order: index }))
 
     await ctx.db.patch(args.questionId, { images: newImages })
+
+    // Si la dernière image a été supprimée (1 → 0), décrémenter withImagesCount
+    if (newImages.length === 0 && currentImages.length > 0) {
+      await decrementWithImagesCount(ctx)
+    }
 
     return { storagePath: args.storagePath }
   },
@@ -860,6 +1136,15 @@ export const _setQuestionImagesData = internalMutation({
     const sortedImages = [...args.images].sort((a, b) => a.order - b.order)
     await ctx.db.patch(args.questionId, { images: sortedImages })
 
+    // Mettre à jour withImagesCount si le statut images a changé
+    const hadImages = currentImages.length > 0
+    const hasImagesNow = sortedImages.length > 0
+    if (!hadImages && hasImagesNow) {
+      await incrementWithImagesCount(ctx)
+    } else if (hadImages && !hasImagesNow) {
+      await decrementWithImagesCount(ctx)
+    }
+
     return { pathsToDelete }
   },
 })
@@ -907,4 +1192,105 @@ function normalizeObjectifCMC(value: string): string {
   if (trimmed.length === 0) return trimmed
   return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
 }
+
+// ============================================
+// MIGRATION: Backfill objectifCMCStats + withImagesCount
+// ============================================
+
+/**
+ * Migration one-shot: Peuple objectifCMCStats et withImagesCount sur questionStats.__total__
+ * Exécuter via: npx convex run questions:migrateAggregationStats
+ * Idempotent: safe à relancer (clear + rebuild)
+ */
+export const migrateAggregationStats = internalMutation({
+  args: {},
+  returns: v.object({
+    questionsProcessed: v.number(),
+    objectifCMCStatsCreated: v.number(),
+    withImagesCount: v.number(),
+  }),
+  handler: async (ctx) => {
+    // 1. Clear objectifCMCStats existants (pour idempotence)
+    const existingStats = await ctx.db.query("objectifCMCStats").take(10000)
+    for (const stat of existingStats) {
+      await ctx.db.delete(stat._id)
+    }
+
+    // 2. Scanner toutes les questions
+    const questions = await ctx.db.query("questions").take(10000)
+
+    // 3. Construire les maps d'agrégation en mémoire
+    const domainPairCounts = new Map<string, Map<string, number>>()
+    const globalCounts = new Map<string, number>()
+    let withImagesCount = 0
+
+    for (const q of questions) {
+      // Compteur d'images
+      if (q.images && q.images.length > 0) {
+        withImagesCount++
+      }
+
+      // Compteur objectifCMC
+      const objectif = normalizeObjectifCMC(q.objectifCMC)
+      if (!objectif) continue
+
+      // Pair (objectifCMC, domain)
+      if (!domainPairCounts.has(objectif)) {
+        domainPairCounts.set(objectif, new Map())
+      }
+      const domainMap = domainPairCounts.get(objectif)!
+      domainMap.set(q.domain, (domainMap.get(q.domain) ?? 0) + 1)
+
+      // Global
+      globalCounts.set(objectif, (globalCounts.get(objectif) ?? 0) + 1)
+    }
+
+    // 4. Insérer les lignes objectifCMCStats
+    let objectifCMCStatsCreated = 0
+
+    // Lignes par domaine
+    for (const [objectifCMC, domainMap] of domainPairCounts) {
+      for (const [domain, count] of domainMap) {
+        await ctx.db.insert("objectifCMCStats", { objectifCMC, domain, count })
+        objectifCMCStatsCreated++
+      }
+    }
+
+    // Lignes globales (__all__)
+    for (const [objectifCMC, count] of globalCounts) {
+      await ctx.db.insert("objectifCMCStats", {
+        objectifCMC,
+        domain: GLOBAL_OBJECTIF_KEY,
+        count,
+      })
+      objectifCMCStatsCreated++
+    }
+
+    // 5. Mettre à jour withImagesCount sur questionStats.__total__
+    const totalStat = await ctx.db
+      .query("questionStats")
+      .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
+      .unique()
+
+    if (totalStat) {
+      await ctx.db.patch(totalStat._id, { withImagesCount })
+    } else {
+      await ctx.db.insert("questionStats", {
+        domain: TOTAL_DOMAIN_KEY,
+        count: questions.length,
+        withImagesCount,
+      })
+    }
+
+    console.log(
+      `[Migration] ${questions.length} questions traitées, ${objectifCMCStatsCreated} stats objectifCMC créées, ${withImagesCount} questions avec images`,
+    )
+
+    return {
+      questionsProcessed: questions.length,
+      objectifCMCStatsCreated,
+      withImagesCount,
+    }
+  },
+})
 

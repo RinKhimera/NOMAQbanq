@@ -85,6 +85,7 @@ export default function AdminQuestionsPage() {
                     ? true
                     : false
               }
+              questionCount={stats?.totalCount}
             />
             <Link href="/admin/questions/nouvelle">
               <Button className="gap-2 bg-linear-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-600 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30">

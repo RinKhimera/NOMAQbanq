@@ -303,6 +303,7 @@ export const getAvailableDomains = query({
 /**
  * Récupère les objectifs CMC disponibles avec comptage
  * Optionnel : filtre par domaine pour affiner la liste
+ * Optimisé : lit depuis la table d'agrégation objectifCMCStats au lieu de scanner 5000+ questions
  */
 export const getAvailableObjectifsCMC = query({
   args: {
@@ -318,29 +319,18 @@ export const getAvailableObjectifsCMC = query({
     total: v.number(),
   }),
   handler: async (ctx, { domain }) => {
-    // Fetch questions avec limite pour performance
-    let questions
-    if (domain && domain !== "all") {
-      questions = await ctx.db
-        .query("questions")
-        .withIndex("by_domain", (q) => q.eq("domain", domain))
-        .take(5000)
-    } else {
-      questions = await ctx.db.query("questions").take(5000)
-    }
+    // "__all__" pour le total global, sinon le domaine spécifique
+    const targetDomain =
+      domain && domain !== "all" ? domain : "__all__"
 
-    // Compter occurrences par objectif
-    const objectifCounts: Record<string, number> = {}
-    for (const q of questions) {
-      if (q.objectifCMC && q.objectifCMC.trim()) {
-        const objectif = q.objectifCMC.trim()
-        objectifCounts[objectif] = (objectifCounts[objectif] || 0) + 1
-      }
-    }
+    const stats = await ctx.db
+      .query("objectifCMCStats")
+      .withIndex("by_domain", (q) => q.eq("domain", targetDomain))
+      .take(1000)
 
-    // Transformer en array et trier
-    const objectifs = Object.entries(objectifCounts)
-      .map(([objectif, count]) => ({ objectif, count }))
+    const objectifs = stats
+      .filter((s) => s.count > 0)
+      .map((s) => ({ objectif: s.objectifCMC, count: s.count }))
       .sort((a, b) => {
         if (b.count !== a.count) return b.count - a.count
         return a.objectif.localeCompare(b.objectif, "fr")
@@ -348,7 +338,7 @@ export const getAvailableObjectifsCMC = query({
 
     return {
       objectifs,
-      total: questions.length,
+      total: objectifs.reduce((sum, o) => sum + o.count, 0),
     }
   },
 })

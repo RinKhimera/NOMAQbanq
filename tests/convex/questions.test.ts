@@ -1157,7 +1157,7 @@ describe("questions", () => {
         })
       })
 
-      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {})
+      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {})
 
       expect(result).toHaveLength(1)
       expect(result[0].question).toBe("Question export")
@@ -1188,7 +1188,7 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
         domain: "Cardiologie",
       })
 
@@ -1218,7 +1218,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
         searchQuery: "infarctus",
       })
 
@@ -1262,7 +1262,7 @@ describe("questions", () => {
         })
       })
 
-      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
         hasImages: true,
       })
 
@@ -1306,7 +1306,7 @@ describe("questions", () => {
         })
       })
 
-      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
         hasImages: false,
       })
 
@@ -1363,7 +1363,7 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await asAdmin.query(api.questions.getAllQuestionsForExport, {
+      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
         searchQuery: "infarctus",
         domain: "Cardiologie",
         hasImages: true,
