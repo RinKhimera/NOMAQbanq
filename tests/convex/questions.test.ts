@@ -971,17 +971,14 @@ describe("questions", () => {
         }
       )
 
-      // Ajouter des images directement
-      await t.run(async (ctx) => {
-        await ctx.db.patch(questionWithImagesId, {
-          images: [
-            {
-              url: "https://cdn.example.com/img1.jpg",
-              storagePath: "q/img1.jpg",
-              order: 0,
-            },
-          ],
-        })
+      // Ajouter une image via la mutation (met à jour les stats d'agrégation)
+      await asAdmin.mutation(api.questions.addQuestionImage, {
+        questionId: questionWithImagesId,
+        image: {
+          url: "https://cdn.example.com/img1.jpg",
+          storagePath: "q/img1.jpg",
+          order: 0,
+        },
       })
 
       const stats = await t.query(api.questions.getQuestionStatsEnriched)
@@ -1119,9 +1116,10 @@ describe("questions", () => {
         domain: "D",
       })
 
-      // Modifier directement pour avoir un objectif vide (contournement de la normalisation)
-      await t.run(async (ctx) => {
-        await ctx.db.patch(questionId, { objectifCMC: "   " })
+      // Modifier via la mutation pour avoir un objectif vide (met à jour les stats d'agrégation)
+      await asAdmin.mutation(api.questions.updateQuestion, {
+        id: questionId,
+        objectifCMC: "   ",
       })
 
       const objectifs = await t.query(api.questions.getUniqueObjectifsCMC)
