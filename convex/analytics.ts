@@ -179,7 +179,7 @@ export const getDashboardTrends = query({
   args: {},
   returns: v.object({
     usersTrend: v.number(),
-    revenueByCurrency: v.any(),
+    revenueByCurrency: v.record(v.string(), v.object({ recent: v.number(), previous: v.number(), trend: v.number() })),
     participationsTrend: v.number(),
     recentUsersCount: v.number(),
     recentParticipationsCount: v.number(),

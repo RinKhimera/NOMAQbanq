@@ -64,7 +64,7 @@ const ExamResultsPage = () => {
     if (!examResults || "error" in examResults) return null
 
     const questions = examResults.questions.filter(
-      (q): q is Question => q !== null,
+      (q: Question | null): q is Question => q !== null,
     )
     let correct = 0
     let incorrect = 0
@@ -72,10 +72,13 @@ const ExamResultsPage = () => {
 
     // Créer un map des réponses par questionId pour un accès rapide
     const answersMap = new Map(
-      examResults.participant.answers.map((a) => [a.questionId, a]),
+      examResults.participant.answers.map(
+        (a: { questionId: Id<"questions">; selectedAnswer: string; isCorrect: boolean }) =>
+          [a.questionId, a] as const,
+      ),
     )
 
-    const questionResults: QuestionResult[] = questions.map((question) => {
+    const questionResults: QuestionResult[] = questions.map((question: Question) => {
       const userAnswerData = answersMap.get(question._id)
       const userAnswer = userAnswerData?.selectedAnswer ?? null
       const isCorrect = userAnswerData?.isCorrect ?? false

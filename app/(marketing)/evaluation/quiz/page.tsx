@@ -32,7 +32,7 @@ export default function QuizPage() {
   )
   const [scoredResults, setScoredResults] = useState<{
     score: number
-    questions: Doc<"questions">[]
+    mergedQuestions: Doc<"questions">[]
   } | null>(null)
 
   const [quizState, setQuizState] = useState<QuizState>({
@@ -93,7 +93,22 @@ export default function QuizPage() {
       selectedAnswer: quizState.userAnswers[i],
     }))
 
-    scoreQuizMut({ answers }).then(setScoredResults)
+    scoreQuizMut({ answers }).then((result) => {
+      // Merge quizQuestions (text, options) with scored results (correctAnswer, explanation)
+      const resultMap = new Map(
+        result.questionResults.map((r) => [r.questionId, r]),
+      )
+      const merged = quizQuestions!.map((q) => {
+        const scored = resultMap.get(q._id)
+        return {
+          ...q,
+          correctAnswer: scored?.correctAnswer ?? "",
+          explanation: scored?.explanation ?? "",
+          references: scored?.references ?? [],
+        } as Doc<"questions">
+      })
+      setScoredResults({ score: result.score, mergedQuestions: merged })
+    })
   }, [quizState.isCompleted, quizQuestions, quizState.userAnswers, scoreQuizMut])
 
   // Scroll vers le haut quand la question change
@@ -166,7 +181,7 @@ export default function QuizPage() {
 
     return (
       <QuizResults
-        questions={scoredResults.questions}
+        questions={scoredResults.mergedQuestions}
         userAnswers={quizState.userAnswers}
         score={scoredResults.score}
         timeRemaining={quizState.timeRemaining}

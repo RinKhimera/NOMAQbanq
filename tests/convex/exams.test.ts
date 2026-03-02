@@ -612,7 +612,7 @@ describe("exams", () => {
 
       })
 
-      const result = await t.query(api.exams.getExamWithQuestions, { examId })
+      const result = await admin.asAdmin.query(api.exams.getExamWithQuestions, { examId })
       expect(result).not.toBeNull()
       expect(result!.title).toBe("Examen avec questions")
       expect(result!.questions).toHaveLength(2)

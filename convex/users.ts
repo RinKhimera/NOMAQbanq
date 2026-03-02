@@ -213,6 +213,7 @@ export const updateUserProfile = mutation({
 })
 
 export const getAllUsers = query({
+  args: {},
   returns: v.union(
     v.null(),
     v.array(
@@ -921,6 +922,7 @@ export const getUsersWithActiveExamAccess = query({
  * [Admin] Compte le nombre d'utilisateurs avec un accès exam actif
  */
 export const getActiveExamAccessCount = query({
+  args: {},
   returns: v.number(),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)

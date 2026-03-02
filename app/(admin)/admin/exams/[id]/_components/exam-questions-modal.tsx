@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react"
 import { useState } from "react"
 import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
@@ -34,7 +34,8 @@ export function ExamQuestionsModal({
     useState<Doc<"questions"> | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
-  const exam = useQuery(api.exams.getExamWithQuestions, { examId })
+  const { isAuthenticated } = useConvexAuth()
+  const exam = useQuery(api.exams.getExamWithQuestions, isAuthenticated ? { examId } : "skip")
 
   const questions = exam?.questions?.filter((q) => q !== null) || []
   const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)

@@ -57,8 +57,9 @@ const TrainingSessionPage = () => {
   // Derived state - filter out null values from questions
   const questions = useMemo(() => {
     if (!sessionData?.questions) return []
+    type SessionQuestion = NonNullable<(typeof sessionData)["questions"]>[number]
     return sessionData.questions.filter(
-      (q): q is NonNullable<typeof q> => q !== null
+      (q: SessionQuestion | null): q is SessionQuestion => q !== null
     )
   }, [sessionData?.questions])
   const answers = useMemo(

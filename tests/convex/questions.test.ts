@@ -41,7 +41,7 @@ describe("questions", () => {
       expect(questionId).toBeDefined()
 
       // Vérifier que la question existe
-      const questions = await t.query(api.questions.getAllQuestions)
+      const questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions).toHaveLength(1)
       expect(questions[0].question).toBe(
         "Quelle est la capitale de la France ?",
@@ -64,7 +64,7 @@ describe("questions", () => {
 
       expect(questionId).toBeDefined()
 
-      const questions = await t.query(api.questions.getAllQuestions)
+      const questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions[0].references).toEqual(["Ref 1", "Ref 2"])
     })
   })
@@ -72,8 +72,9 @@ describe("questions", () => {
   describe("getAllQuestions", () => {
     it("retourne une liste vide initialement", async () => {
       const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
 
-      const questions = await t.query(api.questions.getAllQuestions)
+      const questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions).toEqual([])
     })
 
@@ -100,7 +101,7 @@ describe("questions", () => {
         domain: "Domain 2",
       })
 
-      const questions = await t.query(api.questions.getAllQuestions)
+      const questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions).toHaveLength(2)
       // La plus récente en premier (order: "desc")
       expect(questions[0].question).toBe("Question 2")
@@ -151,7 +152,7 @@ describe("questions", () => {
         correctAnswer: "B",
       })
 
-      const questions = await t.query(api.questions.getAllQuestions)
+      const questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions[0].question).toBe("Question modifiée")
       expect(questions[0].correctAnswer).toBe("B")
       // Les autres champs restent inchangés
@@ -193,14 +194,14 @@ describe("questions", () => {
       })
 
       // Vérifier que la question existe
-      let questions = await t.query(api.questions.getAllQuestions)
+      let questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions).toHaveLength(1)
 
       // Supprimer la question
       await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId })
 
       // Vérifier que la question a été supprimée
-      questions = await t.query(api.questions.getAllQuestions)
+      questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions).toHaveLength(0)
     })
   })
@@ -387,7 +388,7 @@ describe("questions", () => {
       }
 
       // Première page (2 items par page)
-      const page1 = await t.query(api.questions.getQuestionsWithPagination, {
+      const page1 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 2, cursor: null },
       })
 
@@ -396,7 +397,7 @@ describe("questions", () => {
       expect(page1.continueCursor).toBeTruthy()
 
       // Deuxième page
-      const page2 = await t.query(api.questions.getQuestionsWithPagination, {
+      const page2 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 2, cursor: page1.continueCursor },
       })
 
@@ -404,7 +405,7 @@ describe("questions", () => {
       expect(page2.isDone).toBe(false)
 
       // Troisième page (dernière)
-      const page3 = await t.query(api.questions.getQuestionsWithPagination, {
+      const page3 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 2, cursor: page2.continueCursor },
       })
 
@@ -434,7 +435,7 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await t.query(api.questions.getQuestionsWithPagination, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 10, cursor: null },
         domain: "Cardiologie",
       })
@@ -465,7 +466,7 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await t.query(api.questions.getQuestionsWithPagination, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 10, cursor: null },
         searchQuery: "infarctus",
       })
@@ -497,7 +498,7 @@ describe("questions", () => {
       })
 
       // Search for "infarctus" in Cardiologie domain
-      const result = await t.query(api.questions.getQuestionsWithPagination, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 10, cursor: null },
         domain: "Cardiologie",
         searchQuery: "infarctus",
@@ -1397,7 +1398,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await t.query(api.questions.getQuestionsWithFilters, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 10, cursor: null },
         searchQuery: "infarctus",
       })
@@ -1428,7 +1429,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await t.query(api.questions.getQuestionsWithFilters, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 10, cursor: null },
         searchQuery: "cardiaque",
       })
@@ -1471,7 +1472,7 @@ describe("questions", () => {
         })
       })
 
-      const result = await t.query(api.questions.getQuestionsWithFilters, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 10, cursor: null },
         hasImages: true,
       })
@@ -1514,7 +1515,7 @@ describe("questions", () => {
         })
       })
 
-      const result = await t.query(api.questions.getQuestionsWithFilters, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 10, cursor: null },
         hasImages: false,
       })
@@ -1545,7 +1546,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await t.query(api.questions.getQuestionsWithFilters, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 10, cursor: null },
         sortBy: "question",
         sortOrder: "asc",
@@ -1577,7 +1578,7 @@ describe("questions", () => {
         domain: "Allergie",
       })
 
-      const result = await t.query(api.questions.getQuestionsWithFilters, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 10, cursor: null },
         sortBy: "domain",
         sortOrder: "asc",
@@ -1609,7 +1610,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await t.query(api.questions.getQuestionsWithFilters, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 10, cursor: null },
         sortBy: "_creationTime",
         sortOrder: "asc",
@@ -1636,7 +1637,7 @@ describe("questions", () => {
       }
 
       // Page 1
-      const page1 = await t.query(api.questions.getQuestionsWithFilters, {
+      const page1 = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 2, cursor: null },
         searchQuery: "test",
       })
@@ -1646,7 +1647,7 @@ describe("questions", () => {
       expect(page1.continueCursor).toBeTruthy()
 
       // Page 2
-      const page2 = await t.query(api.questions.getQuestionsWithFilters, {
+      const page2 = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 2, cursor: page1.continueCursor },
         searchQuery: "test",
       })
@@ -1655,7 +1656,7 @@ describe("questions", () => {
       expect(page2.isDone).toBe(false)
 
       // Page 3
-      const page3 = await t.query(api.questions.getQuestionsWithFilters, {
+      const page3 = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 2, cursor: page2.continueCursor },
         searchQuery: "test",
       })
@@ -1679,7 +1680,7 @@ describe("questions", () => {
         })
       }
 
-      const result = await t.query(api.questions.getQuestionsWithFilters, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 10, cursor: null },
       })
 
@@ -1751,7 +1752,7 @@ describe("questions", () => {
         })
       })
 
-      const result = await t.query(api.questions.getQuestionsWithFilters, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
         paginationOpts: { numItems: 10, cursor: null },
         domain: "Cardiologie",
         hasImages: true,
@@ -2101,7 +2102,7 @@ describe("questions", () => {
       }
 
       // Page 1
-      const page1 = await t.query(api.questions.getQuestionsWithPagination, {
+      const page1 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 2, cursor: null },
         searchQuery: "infarctus",
       })
@@ -2111,7 +2112,7 @@ describe("questions", () => {
       expect(page1.continueCursor).toBeTruthy()
 
       // Page 2
-      const page2 = await t.query(api.questions.getQuestionsWithPagination, {
+      const page2 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 2, cursor: page1.continueCursor },
         searchQuery: "infarctus",
       })
@@ -2120,7 +2121,7 @@ describe("questions", () => {
       expect(page2.isDone).toBe(false)
 
       // Page 3
-      const page3 = await t.query(api.questions.getQuestionsWithPagination, {
+      const page3 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 2, cursor: page2.continueCursor },
         searchQuery: "infarctus",
       })
@@ -2142,7 +2143,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await t.query(api.questions.getQuestionsWithPagination, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 10, cursor: null },
         searchQuery: "infarctus",
       })
@@ -2163,7 +2164,7 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await t.query(api.questions.getQuestionsWithPagination, {
+      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
         paginationOpts: { numItems: 10, cursor: null },
         searchQuery: "cardiovasculaires",
       })

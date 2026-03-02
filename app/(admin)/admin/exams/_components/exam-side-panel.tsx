@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { motion, AnimatePresence } from "motion/react"
@@ -44,9 +44,10 @@ export function ExamSidePanel({
   open,
   onOpenChange,
 }: ExamSidePanelProps) {
+  const { isAuthenticated } = useConvexAuth()
   const exam = useQuery(
     api.exams.getExamWithQuestions,
-    examId ? { examId } : "skip",
+    isAuthenticated && examId ? { examId } : "skip",
   )
 
   const eligibleCount = useQuery(api.users.getActiveExamAccessCount)

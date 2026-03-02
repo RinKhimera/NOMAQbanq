@@ -67,7 +67,7 @@ const AdminParticipantResultsPage = () => {
     if (!participantResults || "error" in participantResults) return null
 
     const questions = participantResults.questions.filter(
-      (q): q is Question => q !== null,
+      (q: Question | null): q is Question => q !== null,
     )
     let correct = 0
     let incorrect = 0
@@ -75,10 +75,13 @@ const AdminParticipantResultsPage = () => {
 
     // Map pour correspondance par ID (évite les bugs d'ordre de réponses)
     const answersMap = new Map(
-      participantResults.participant.answers.map((a) => [a.questionId, a]),
+      participantResults.participant.answers.map(
+        (a: { questionId: Id<"questions">; selectedAnswer: string; isCorrect: boolean }) =>
+          [a.questionId, a] as const,
+      ),
     )
 
-    const questionResults: QuestionResult[] = questions.map((question) => {
+    const questionResults: QuestionResult[] = questions.map((question: Question) => {
       const userAnswerData = answersMap.get(question._id)
       const userAnswer = userAnswerData?.selectedAnswer ?? null
       const isCorrect = userAnswerData?.isCorrect ?? false

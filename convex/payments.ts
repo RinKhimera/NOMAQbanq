@@ -239,7 +239,7 @@ export const getMyTransactions = query({
     paginationOpts: paginationOptsValidator,
   },
   returns: v.object({
-    page: v.array(v.any()),
+    page: v.any(),
     isDone: v.boolean(),
     continueCursor: v.string(),
     splitCursor: v.optional(v.union(v.string(), v.null())),
@@ -296,7 +296,7 @@ export const getAllTransactions = query({
     userId: v.optional(v.id("users")),
   },
   returns: v.object({
-    page: v.array(v.any()),
+    page: v.any(),
     isDone: v.boolean(),
     continueCursor: v.string(),
     splitCursor: v.optional(v.union(v.string(), v.null())),
@@ -382,7 +382,7 @@ export const getAllTransactions = query({
 export const getTransactionStats = query({
   args: {},
   returns: v.object({
-    revenueByCurrency: v.any(),
+    revenueByCurrency: v.record(v.string(), v.object({ total: v.number(), recent: v.number() })),
     totalTransactions: v.number(),
     recentTransactions: v.number(),
     stripeTransactions: v.number(),

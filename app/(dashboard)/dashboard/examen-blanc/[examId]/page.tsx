@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
 import { ArrowLeft, BarChart3, ListChecks } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
@@ -20,9 +20,10 @@ export default function MockExamDetailsPage() {
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
   const [now] = useState(() => Date.now())
 
+  const { isAuthenticated } = useConvexAuth()
   const { currentUser, isLoading: userLoading } = useCurrentUser()
-  const exam = useQuery(api.exams.getExamWithQuestions, { examId })
-  const session = useQuery(api.exams.getExamSession, { examId })
+  const exam = useQuery(api.exams.getExamWithQuestions, isAuthenticated ? { examId } : "skip")
+  const session = useQuery(api.exams.getExamSession, isAuthenticated ? { examId } : "skip")
   const userAccess = useQuery(
     api.users.getMyAccess,
     currentUser ? { accessType: "exam" } : "skip",

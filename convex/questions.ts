@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { internal } from "./_generated/api"
+import type { Id } from "./_generated/dataModel"
 import {
   action,
   internalMutation,
@@ -22,6 +23,41 @@ const questionImageValidator = v.object({
   url: v.string(),
   storagePath: v.string(),
   order: v.number(),
+})
+
+// Validator complet pour un document question
+const questionDocValidator = v.object({
+  _id: v.id("questions"),
+  _creationTime: v.number(),
+  question: v.string(),
+  images: v.optional(v.array(questionImageValidator)),
+  options: v.array(v.string()),
+  correctAnswer: v.string(),
+  explanation: v.string(),
+  references: v.optional(v.array(v.string())),
+  objectifCMC: v.string(),
+  domain: v.string(),
+})
+
+// Validator pour question sans réponses (quiz marketing)
+const questionWithoutAnswersValidator = v.object({
+  _id: v.id("questions"),
+  _creationTime: v.number(),
+  question: v.string(),
+  images: v.optional(v.array(questionImageValidator)),
+  options: v.array(v.string()),
+  references: v.optional(v.array(v.string())),
+  objectifCMC: v.string(),
+  domain: v.string(),
+})
+
+// Validator pour résultat paginé de questions
+const paginatedQuestionsValidator = v.object({
+  page: v.array(questionDocValidator),
+  continueCursor: v.string(),
+  isDone: v.boolean(),
+  splitCursor: v.optional(v.union(v.string(), v.null())),
+  pageStatus: v.optional(v.union(v.literal("SplitRecommended"), v.literal("SplitRequired"), v.null())),
 })
 
 // ============================================
@@ -328,8 +364,9 @@ export const createQuestion = mutation({
 // Note: Use getQuestionsWithPagination for large datasets
 export const getAllQuestions = query({
   args: {},
-  returns: v.any(),
+  returns: v.array(questionDocValidator),
   handler: async (ctx) => {
+    await getAdminUserOrThrow(ctx)
     // Limit to 1000 questions to prevent unbounded reads
     // For full list, use paginated query
     return await ctx.db.query("questions").order("desc").take(1000)
@@ -499,8 +536,9 @@ export const getQuestionsWithPagination = query({
     domain: v.optional(v.string()),
     searchQuery: v.optional(v.string()),
   },
-  returns: v.any(),
+  returns: paginatedQuestionsValidator,
   handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
     const { paginationOpts, domain, searchQuery } = args
     const hasDomainFilter = domain && domain !== "Tous les domaines"
     const hasSearchQuery = searchQuery && searchQuery.trim() !== ""
@@ -585,8 +623,9 @@ export const getQuestionsWithFilters = query({
     ),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
-  returns: v.any(),
+  returns: paginatedQuestionsValidator,
   handler: async (ctx, args) => {
+    await getAdminUserOrThrow(ctx)
     const {
       paginationOpts,
       searchQuery,
@@ -692,7 +731,7 @@ export const getQuestionsWithFilters = query({
 // Récupérer une question par son ID (pour le panel et l'édition)
 export const getQuestionById = query({
   args: { questionId: v.id("questions") },
-  returns: v.any(),
+  returns: v.union(v.null(), questionDocValidator),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -853,7 +892,21 @@ export const getAllQuestionsForExport = action({
     domain: v.optional(v.string()),
     hasImages: v.optional(v.boolean()),
   },
-  returns: v.any(),
+  returns: v.array(
+    v.object({
+      _id: v.id("questions"),
+      _creationTime: v.number(),
+      question: v.string(),
+      options: v.array(v.string()),
+      correctAnswer: v.string(),
+      explanation: v.string(),
+      references: v.array(v.string()),
+      objectifCMC: v.string(),
+      domain: v.string(),
+      hasImages: v.boolean(),
+      imagesCount: v.number(),
+    })
+  ),
   handler: async (ctx, args) => {
     // Vérifier l'authentification admin
     const identity = await ctx.auth.getUserIdentity()
@@ -864,17 +917,26 @@ export const getAllQuestionsForExport = action({
     if (!user || user.role !== "admin") throw Errors.unauthorized()
 
     // Boucle paginée pour récupérer toutes les questions
-    const allResults: Array<Record<string, unknown>> = []
+    type ExportQuestion = {
+      _id: Id<"questions">
+      _creationTime: number
+      question: string
+      options: string[]
+      correctAnswer: string
+      explanation: string
+      references: string[]
+      objectifCMC: string
+      domain: string
+      hasImages: boolean
+      imagesCount: number
+    }
+    const allResults: ExportQuestion[] = []
 
     let cursor: string | null = null
     let done = false
 
     while (!done) {
-      const page: {
-        page: Array<Record<string, unknown>>
-        continueCursor: string
-        isDone: boolean
-      } = await ctx.runQuery(
+      const page = (await ctx.runQuery(
         internal.questions._getQuestionsPageForExport,
         {
           searchQuery: args.searchQuery,
@@ -882,7 +944,11 @@ export const getAllQuestionsForExport = action({
           hasImages: args.hasImages,
           paginationOpts: { numItems: 500, cursor },
         },
-      )
+      )) as {
+        page: ExportQuestion[]
+        continueCursor: string
+        isDone: boolean
+      }
 
       allResults.push(...page.page)
       done = page.isDone
@@ -902,7 +968,7 @@ export const getRandomQuestions = mutation({
     count: v.number(),
     domain: v.optional(v.string()),
   },
-  returns: v.any(),
+  returns: v.array(questionWithoutAnswersValidator),
   handler: async (ctx, args) => {
     // Limit sample size for performance: take 3x requested count or 500, whichever is larger
     // This provides good randomness without collecting entire table
@@ -936,8 +1002,10 @@ export const getRandomQuestions = mutation({
 })
 
 /**
- * Score quiz answers server-side and return full question data for review.
+ * Score quiz answers server-side and return per-question results for review.
  * Used by the public marketing quiz after completion.
+ * Returns only scoring data (isCorrect, correctAnswer, explanation) — not full question docs.
+ * The frontend merges this with the questions already in state from getRandomQuestions.
  */
 export const scoreQuizAnswers = mutation({
   args: {
@@ -948,26 +1016,46 @@ export const scoreQuizAnswers = mutation({
       }),
     ),
   },
-  returns: v.any(),
+  returns: v.object({
+    score: v.number(),
+    totalQuestions: v.number(),
+    questionResults: v.array(
+      v.object({
+        questionId: v.id("questions"),
+        isCorrect: v.boolean(),
+        correctAnswer: v.string(),
+        explanation: v.string(),
+        references: v.array(v.string()),
+      }),
+    ),
+  }),
   handler: async (ctx, args) => {
     const questionIds = args.answers.map((a) => a.questionId)
     const questions = await batchGetOrderedByIds(ctx, "questions", questionIds)
 
     let score = 0
+    const questionResults = []
+
     for (let i = 0; i < args.answers.length; i++) {
       const question = questions[i]
-      if (
-        question &&
-        args.answers[i].selectedAnswer === question.correctAnswer
-      ) {
-        score++
-      }
+      if (!question) continue
+
+      const isCorrect = args.answers[i].selectedAnswer === question.correctAnswer
+      if (isCorrect) score++
+
+      questionResults.push({
+        questionId: question._id,
+        isCorrect,
+        correctAnswer: question.correctAnswer,
+        explanation: question.explanation,
+        references: question.references ?? [],
+      })
     }
 
     return {
       score,
-      totalQuestions: questionIds.length,
-      questions: questions.filter((q) => q !== null),
+      totalQuestions: questionResults.length,
+      questionResults,
     }
   },
 })

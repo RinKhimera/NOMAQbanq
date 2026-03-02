@@ -138,7 +138,20 @@ export const verifyCheckoutSession = action({
   args: {
     sessionId: v.string(),
   },
-  returns: v.any(),
+  returns: v.union(
+    v.object({
+      success: v.literal(true),
+      status: v.string(),
+      customerEmail: v.union(v.null(), v.string()),
+      metadata: v.any(),
+      amountTotal: v.union(v.null(), v.number()),
+      currency: v.union(v.null(), v.string()),
+    }),
+    v.object({
+      success: v.literal(false),
+      error: v.string(),
+    })
+  ),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
     if (!identity) {
@@ -151,7 +164,7 @@ export const verifyCheckoutSession = action({
       const session = await stripe.checkout.sessions.retrieve(args.sessionId)
 
       return {
-        success: session.payment_status === "paid",
+        success: true as const,
         status: session.payment_status,
         customerEmail: session.customer_email,
         metadata: session.metadata,
@@ -161,7 +174,7 @@ export const verifyCheckoutSession = action({
     } catch (error) {
       console.error("Erreur lors de la vérification de la session:", error)
       return {
-        success: false,
+        success: false as const,
         error: "Session non trouvée ou invalide",
       }
     }
@@ -224,7 +237,20 @@ export const getPaymentDetails = action({
   args: {
     paymentIntentId: v.string(),
   },
-  returns: v.any(),
+  returns: v.union(
+    v.object({
+      id: v.string(),
+      amount: v.number(),
+      currency: v.string(),
+      status: v.string(),
+      created: v.number(),
+      metadata: v.any(),
+      paymentMethod: v.union(v.null(), v.string()),
+    }),
+    v.object({
+      error: v.string(),
+    })
+  ),
   handler: async (ctx, args) => {
     // Vérifier que l'utilisateur est admin
     const identity = await ctx.auth.getUserIdentity()
@@ -254,7 +280,9 @@ export const getPaymentDetails = action({
         status: paymentIntent.status,
         created: paymentIntent.created,
         metadata: paymentIntent.metadata,
-        paymentMethod: paymentIntent.payment_method,
+        paymentMethod: typeof paymentIntent.payment_method === "string"
+          ? paymentIntent.payment_method
+          : paymentIntent.payment_method?.id ?? null,
       }
     } catch (error) {
       console.error("Erreur lors de la récupération du paiement:", error)

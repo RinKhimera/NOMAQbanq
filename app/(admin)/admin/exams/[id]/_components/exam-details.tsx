@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { Calendar, Clock, FileText } from "lucide-react"
@@ -30,7 +30,8 @@ export function ExamDetails({
   isAdmin = false,
   currentUserId,
 }: ExamDetailsProps) {
-  const exam = useQuery(api.exams.getExamWithQuestions, { examId })
+  const { isAuthenticated } = useConvexAuth()
+  const exam = useQuery(api.exams.getExamWithQuestions, isAuthenticated ? { examId } : "skip")
 
   if (!exam) {
     return (

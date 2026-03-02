@@ -7,6 +7,10 @@ import {
 } from "./lib/auth"
 import { batchGetByIds, batchGetOrderedByIds } from "./lib/batchFetch"
 import { Errors } from "./lib/errors"
+import {
+  deleteExamParticipationStats,
+  incrementExamParticipationCount,
+} from "./lib/examStats"
 
 // Créer un nouvel examen
 export const createExam = mutation({
@@ -134,7 +138,10 @@ export const deleteExam = mutation({
       await ctx.db.delete(participation._id)
     }
 
-    // 4. Delete the exam itself
+    // 4. Delete aggregation stats for this exam
+    await deleteExamParticipationStats(ctx, args.examId)
+
+    // 5. Delete the exam itself
     await ctx.db.delete(args.examId)
 
     return {
@@ -197,8 +204,8 @@ export const getExamWithQuestions = query({
       exam.questionIds,
     )
 
-    const user = await getCurrentUserOrNull(ctx)
-    const isUserAdmin = user?.role === "admin"
+    const user = await getCurrentUserOrThrow(ctx)
+    const isUserAdmin = user.role === "admin"
 
     return {
       ...exam,
@@ -405,6 +412,9 @@ export const startExam = mutation({
       completedAt: 0,
       pausePhase: initialPausePhase,
     })
+
+    // Update aggregation stats
+    await incrementExamParticipationCount(ctx, args.examId)
 
     return {
       participationId,
@@ -671,7 +681,98 @@ export const getParticipantExamResults = query({
     examId: v.id("exams"),
     userId: v.id("users"),
   },
-  returns: v.any(),
+  returns: v.union(
+    v.null(),
+    v.object({
+      error: v.literal("NO_PARTICIPATION"),
+      message: v.string(),
+      exam: v.object({
+        _id: v.id("exams"),
+        title: v.string(),
+        description: v.optional(v.string()),
+        startDate: v.number(),
+        endDate: v.number(),
+        completionTime: v.number(),
+      }),
+      participantUser: v.union(
+        v.null(),
+        v.object({
+          _id: v.id("users"),
+          name: v.string(),
+          username: v.optional(v.string()),
+          email: v.string(),
+          image: v.string(),
+        })
+      ),
+    }),
+    v.object({
+      error: v.literal("NOT_COMPLETED"),
+      message: v.string(),
+      status: v.optional(v.union(v.literal("in_progress"), v.literal("completed"), v.literal("auto_submitted"))),
+      exam: v.object({
+        _id: v.id("exams"),
+        title: v.string(),
+        description: v.optional(v.string()),
+        startDate: v.number(),
+        endDate: v.number(),
+        completionTime: v.number(),
+      }),
+      participantUser: v.union(
+        v.null(),
+        v.object({
+          _id: v.id("users"),
+          name: v.string(),
+          username: v.optional(v.string()),
+          email: v.string(),
+          image: v.string(),
+        })
+      ),
+    }),
+    v.object({
+      exam: v.object({
+        _id: v.id("exams"),
+        title: v.string(),
+        description: v.optional(v.string()),
+        startDate: v.number(),
+        endDate: v.number(),
+        completionTime: v.number(),
+      }),
+      participant: v.object({
+        participationId: v.id("examParticipations"),
+        userId: v.id("users"),
+        score: v.number(),
+        completedAt: v.number(),
+        startedAt: v.optional(v.number()),
+        answers: v.array(v.object({
+          questionId: v.id("questions"),
+          selectedAnswer: v.string(),
+          isCorrect: v.boolean(),
+        })),
+      }),
+      participantUser: v.union(
+        v.null(),
+        v.object({
+          _id: v.id("users"),
+          name: v.string(),
+          username: v.optional(v.string()),
+          email: v.string(),
+          image: v.string(),
+        })
+      ),
+      questions: v.array(v.object({
+        _id: v.id("questions"),
+        _creationTime: v.number(),
+        question: v.string(),
+        images: v.optional(v.array(v.object({ url: v.string(), storagePath: v.string(), order: v.number() }))),
+        options: v.array(v.string()),
+        correctAnswer: v.string(),
+        explanation: v.string(),
+        references: v.optional(v.array(v.string())),
+        objectifCMC: v.string(),
+        domain: v.string(),
+      })),
+    })
+  ),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserOrNull(ctx)
     if (!currentUser) {
@@ -712,7 +813,7 @@ export const getParticipantExamResults = query({
     if (!participation) {
       if (isAdmin) {
         return {
-          error: "NO_PARTICIPATION",
+          error: "NO_PARTICIPATION" as const,
           message: participantUser
             ? "Ce participant n'a pas encore commencé cet examen"
             : "Utilisateur introuvable",
@@ -744,7 +845,7 @@ export const getParticipantExamResults = query({
     ) {
       if (isAdmin) {
         return {
-          error: "NOT_COMPLETED",
+          error: "NOT_COMPLETED" as const,
           message: "Ce participant n'a pas encore terminé l'examen",
           status: participation.status,
           exam: {
@@ -815,7 +916,7 @@ export const getParticipantExamResults = query({
             image: participantUser.image,
           }
         : null,
-      questions: questions.filter(Boolean),
+      questions: questions.filter((q): q is NonNullable<typeof q> => q !== null),
     }
   },
 })
@@ -849,16 +950,14 @@ export const getAllExams = query({
     // Limit to 100 exams for performance
     const exams = await ctx.db.query("exams").order("desc").take(100)
 
-    // Fetch participations limited for performance
-    const allParticipations = await ctx.db
-      .query("examParticipations")
-      .take(2000)
+    // Read participation counts from aggregation table (lightweight)
+    const allStats = await ctx.db
+      .query("examParticipationStats")
+      .take(1000)
 
-    // Create a count map by examId
     const participationCountMap = new Map<string, number>()
-    for (const p of allParticipations) {
-      const count = participationCountMap.get(p.examId) ?? 0
-      participationCountMap.set(p.examId, count + 1)
+    for (const stat of allStats) {
+      participationCountMap.set(stat.examId, stat.count)
     }
 
     // Map exams with their participation counts
@@ -963,5 +1062,55 @@ export const closeExpiredParticipations = internalMutation({
     }
 
     return { closedCount, processedCount: inProgressParticipations.length }
+  },
+})
+
+// ============================================
+// MIGRATION - Aggregation stats
+// ============================================
+
+/**
+ * Migration one-shot pour peupler examParticipationStats.
+ * Idempotent : supprime les stats existantes avant de recalculer.
+ * Exécuter via: npx convex run exams:migrateExamParticipationStats
+ */
+export const migrateExamParticipationStats = internalMutation({
+  args: {},
+  returns: v.object({
+    examsProcessed: v.number(),
+    statsCreated: v.number(),
+  }),
+  handler: async (ctx) => {
+    // 1. Clear existing stats (idempotent)
+    const existingStats = await ctx.db
+      .query("examParticipationStats")
+      .take(10000)
+    for (const stat of existingStats) {
+      await ctx.db.delete(stat._id)
+    }
+
+    // 2. Count participations per exam
+    const allParticipations = await ctx.db
+      .query("examParticipations")
+      .take(10000)
+    const countMap = new Map<string, number>()
+    for (const p of allParticipations) {
+      countMap.set(p.examId, (countMap.get(p.examId) ?? 0) + 1)
+    }
+
+    // 3. Insert stats
+    let statsCreated = 0
+    for (const [examId, count] of countMap) {
+      await ctx.db.insert("examParticipationStats", {
+        examId: examId as typeof allParticipations[0]["examId"],
+        count,
+      })
+      statsCreated++
+    }
+
+    console.log(
+      `[Migration] examParticipationStats: ${statsCreated} stats créées pour ${countMap.size} examens`,
+    )
+    return { examsProcessed: countMap.size, statsCreated }
   },
 })

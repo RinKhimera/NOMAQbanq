@@ -4,6 +4,10 @@ import { mutation } from "./_generated/server"
 import { getAdminUserOrThrow, getCurrentUserOrThrow } from "./lib/auth"
 import { batchGetByIds } from "./lib/batchFetch"
 import { Errors } from "./lib/errors"
+import {
+  decrementExamParticipationCount,
+  incrementExamParticipationCount,
+} from "./lib/examStats"
 import { validatePauseTransition } from "./examPause"
 
 // ============================================
@@ -88,6 +92,9 @@ export const create = mutation({
       status: "in_progress",
       pausePhase,
     })
+
+    // Update aggregation stats
+    await incrementExamParticipationCount(ctx, examId)
 
     return participationId
   },
@@ -367,7 +374,15 @@ export const deleteParticipation = mutation({
       await ctx.db.delete(answer._id)
     }
 
+    // Get participation to know examId before deleting
+    const participation = await ctx.db.get(participationId)
+
     // Delete participation
     await ctx.db.delete(participationId)
+
+    // Update aggregation stats
+    if (participation) {
+      await decrementExamParticipationCount(ctx, participation.examId)
+    }
   },
 })
