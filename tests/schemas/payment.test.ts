@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest"
 import {
+  accessTypeSchema,
   editTransactionSchema,
   manualPaymentSchema,
   paymentMethodSchema,
   productCodeSchema,
-  accessTypeSchema,
   transactionStatusSchema,
   transactionTypeSchema,
 } from "@/schemas/payment"
@@ -14,8 +14,12 @@ describe("Payment Schema", () => {
     it("valide les codes de produits valides", () => {
       expect(productCodeSchema.safeParse("exam_access").success).toBe(true)
       expect(productCodeSchema.safeParse("training_access").success).toBe(true)
-      expect(productCodeSchema.safeParse("exam_access_promo").success).toBe(true)
-      expect(productCodeSchema.safeParse("training_access_promo").success).toBe(true)
+      expect(productCodeSchema.safeParse("exam_access_promo").success).toBe(
+        true,
+      )
+      expect(productCodeSchema.safeParse("training_access_promo").success).toBe(
+        true,
+      )
     })
 
     it("rejette les codes invalides", () => {

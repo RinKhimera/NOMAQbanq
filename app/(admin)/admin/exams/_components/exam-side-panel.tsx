@@ -1,23 +1,25 @@
 "use client"
 
-import { useConvexAuth, useQuery } from "convex/react"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
-import { motion, AnimatePresence } from "motion/react"
-import Link from "next/link"
+import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import {
   IconCalendarEvent,
   IconClipboardCheck,
   IconClock,
   IconEdit,
   IconExternalLink,
+  IconPlayerPause,
   IconQuestionMark,
   IconUsers,
   IconX,
-  IconPlayerPause,
 } from "@tabler/icons-react"
+import { useConvexAuth, useQuery } from "convex/react"
+import { format } from "date-fns"
+import { fr } from "date-fns/locale"
+import { AnimatePresence, motion } from "motion/react"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Separator } from "@/components/ui/separator"
 import {
   Sheet,
   SheetContent,
@@ -25,13 +27,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Separator } from "@/components/ui/separator"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { EXAM_STATUS_CONFIG, getExamStatus } from "@/lib/exam-status"
 import { cn } from "@/lib/utils"
-import { getExamStatus, EXAM_STATUS_CONFIG } from "@/lib/exam-status"
 
 interface ExamSidePanelProps {
   examId: Id<"exams"> | null
@@ -167,7 +167,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
       {/* Header avec gradient dynamique */}
       <div
         className={cn(
-          "relative overflow-hidden px-6 pb-6 pt-5",
+          "relative overflow-hidden px-6 pt-5 pb-6",
           status === "active" &&
             "bg-linear-to-br from-emerald-500/10 via-teal-500/5 to-transparent",
           status === "upcoming" &&
@@ -202,7 +202,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
                 <StatusIcon className="h-7 w-7 text-white" />
               </div>
               <div className="min-w-0 flex-1">
-                <SheetTitle className="line-clamp-2 text-left text-lg font-bold leading-tight text-gray-900 dark:text-white">
+                <SheetTitle className="line-clamp-2 text-left text-lg leading-tight font-bold text-gray-900 dark:text-white">
                   {exam.title}
                 </SheetTitle>
                 <VisuallyHidden.Root>
@@ -264,7 +264,9 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
             icon={<IconPlayerPause className="h-4 w-4" />}
             label="Pause"
             value={
-              exam.enablePause ? `${exam.pauseDurationMinutes ?? 15} min` : "Non"
+              exam.enablePause
+                ? `${exam.pauseDurationMinutes ?? 15} min`
+                : "Non"
             }
             color="amber"
           />
@@ -274,7 +276,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
 
         {/* Dates */}
         <div className="space-y-3">
-          <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+          <h3 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-gray-500 uppercase">
             <IconCalendarEvent className="h-4 w-4" />
             Période de disponibilité
           </h3>

@@ -1,7 +1,7 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import { motion, useReducedMotion } from "motion/react"
+import { cn } from "@/lib/utils"
 
 interface ProgressRingProps {
   value: number
@@ -24,9 +24,12 @@ export const ProgressRing = ({
 
   // Determine color based on score
   const getScoreColor = (score: number) => {
-    if (score >= 80) return { stroke: "#10B981", glow: "rgba(16, 185, 129, 0.3)" }
-    if (score >= 60) return { stroke: "#3B82F6", glow: "rgba(59, 130, 246, 0.3)" }
-    if (score >= 40) return { stroke: "#F59E0B", glow: "rgba(245, 158, 11, 0.3)" }
+    if (score >= 80)
+      return { stroke: "#10B981", glow: "rgba(16, 185, 129, 0.3)" }
+    if (score >= 60)
+      return { stroke: "#3B82F6", glow: "rgba(59, 130, 246, 0.3)" }
+    if (score >= 40)
+      return { stroke: "#F59E0B", glow: "rgba(245, 158, 11, 0.3)" }
     return { stroke: "#EF4444", glow: "rgba(239, 68, 68, 0.3)" }
   }
 
@@ -36,7 +39,7 @@ export const ProgressRing = ({
     <div className={cn("relative", className)}>
       {/* Glow effect */}
       <div
-        className="absolute inset-0 rounded-full blur-xl opacity-50"
+        className="absolute inset-0 rounded-full opacity-50 blur-xl"
         style={{
           background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`,
         }}
@@ -69,7 +72,9 @@ export const ProgressRing = ({
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          initial={{ strokeDashoffset: shouldReduceMotion ? offset : circumference }}
+          initial={{
+            strokeDashoffset: shouldReduceMotion ? offset : circumference,
+          }}
           animate={{ strokeDashoffset: offset }}
           transition={
             shouldReduceMotion
@@ -100,7 +105,11 @@ export const ProgressRing = ({
         <motion.span
           className="font-display text-4xl font-bold tracking-tight"
           style={{ color: colors.stroke }}
-          initial={shouldReduceMotion ? { opacity: 1, scale: 1 } : { opacity: 0, scale: 0.5 }}
+          initial={
+            shouldReduceMotion
+              ? { opacity: 1, scale: 1 }
+              : { opacity: 0, scale: 0.5 }
+          }
           animate={{ opacity: 1, scale: 1 }}
           transition={
             shouldReduceMotion ? { duration: 0 } : { duration: 0.5, delay: 0.8 }
@@ -109,7 +118,7 @@ export const ProgressRing = ({
           {value}%
         </motion.span>
         <motion.span
-          className="text-muted-foreground text-xs font-medium uppercase tracking-widest"
+          className="text-muted-foreground text-xs font-medium tracking-widest uppercase"
           initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={

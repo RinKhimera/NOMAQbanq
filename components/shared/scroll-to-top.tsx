@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
 import { ArrowUp } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -67,7 +67,7 @@ export const ScrollToTop = ({
           className={cn(
             "fixed bottom-6",
             position === "right" ? "right-6" : "left-6",
-            className
+            className,
           )}
           style={{ zIndex }}
         >

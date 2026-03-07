@@ -1,30 +1,30 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
-import { useIsVisible } from "@/hooks/use-is-visible"
 import { useConvexAuth, useQuery } from "convex/react"
-import { useRouter, useParams } from "next/navigation"
-import Link from "next/link"
-import { motion } from "motion/react"
 import {
-  Trophy,
-  Target,
+  AlertTriangle,
   ArrowLeft,
   CheckCircle,
-  XCircle,
   Clock,
   Filter,
-  Plus,
   Loader2,
-  AlertTriangle,
+  Plus,
+  Target,
+  Trophy,
+  XCircle,
 } from "lucide-react"
-import { api } from "@/convex/_generated/api"
-import type { Id, Doc } from "@/convex/_generated/dataModel"
-import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
+import { motion } from "motion/react"
+import Link from "next/link"
+import { useParams, useRouter } from "next/navigation"
+import { useCallback, useMemo, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
+import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { api } from "@/convex/_generated/api"
+import type { Doc, Id } from "@/convex/_generated/dataModel"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { cn } from "@/lib/utils"
 
 export default function TrainingResultsPage() {
@@ -35,14 +35,14 @@ export default function TrainingResultsPage() {
 
   const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(
-    new Set()
+    new Set(),
   )
   const [showErrorsOnly, setShowErrorsOnly] = useState(false)
 
   // Skip query until authenticated to avoid race condition on page reload
   const results = useQuery(
     api.training.getTrainingSessionResults,
-    isAuthenticated ? { sessionId } : "skip"
+    isAuthenticated ? { sessionId } : "skip",
   )
 
   // Type for answers
@@ -71,9 +71,11 @@ export default function TrainingResultsPage() {
   const stats = useMemo(() => {
     if (!session || !questions.length) return null
 
-    const correctCount = Object.values(answers).filter((a) => a.isCorrect).length
+    const correctCount = Object.values(answers).filter(
+      (a) => a.isCorrect,
+    ).length
     const incorrectCount = Object.values(answers).filter(
-      (a) => !a.isCorrect
+      (a) => !a.isCorrect,
     ).length
     const unansweredCount = questions.length - Object.keys(answers).length
 
@@ -162,7 +164,7 @@ export default function TrainingResultsPage() {
         })
       })
     },
-    [questions, expandedQuestions]
+    [questions, expandedQuestions],
   )
 
   // Loading state (auth loading or results loading)
@@ -185,7 +187,7 @@ export default function TrainingResultsPage() {
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-900/20">
           <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-amber-500" />
-          <h1 className="mb-2 font-display text-xl font-bold text-amber-900 dark:text-amber-100">
+          <h1 className="font-display mb-2 text-xl font-bold text-amber-900 dark:text-amber-100">
             Session non terminée
           </h1>
           <p className="mb-6 text-amber-700 dark:text-amber-300">
@@ -230,7 +232,7 @@ export default function TrainingResultsPage() {
                   "flex h-10 w-10 items-center justify-center rounded-xl shadow-md",
                   stats.score >= 60
                     ? "bg-linear-to-br from-emerald-500 to-teal-600"
-                    : "bg-linear-to-br from-amber-500 to-orange-600"
+                    : "bg-linear-to-br from-amber-500 to-orange-600",
                 )}
               >
                 {stats.score >= 60 ? (
@@ -270,12 +272,12 @@ export default function TrainingResultsPage() {
               transition={{ duration: 0.5 }}
               className={cn(
                 "overflow-hidden rounded-2xl border border-gray-200/60 bg-linear-to-br p-8 shadow-lg backdrop-blur-sm dark:border-gray-700/60",
-                scoreBgGradient
+                scoreBgGradient,
               )}
             >
               <div className="flex flex-col items-center text-center sm:flex-row sm:text-left">
                 {/* Score */}
-                <div className="mb-6 sm:mb-0 sm:mr-8">
+                <div className="mb-6 sm:mr-8 sm:mb-0">
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
@@ -286,7 +288,7 @@ export default function TrainingResultsPage() {
                     }}
                     className={cn(
                       "font-display text-7xl font-black",
-                      scoreColor
+                      scoreColor,
                     )}
                   >
                     {stats.score}%
@@ -365,7 +367,7 @@ export default function TrainingResultsPage() {
                       "h-3",
                       stats.score >= 60
                         ? "[&>div]:bg-emerald-500"
-                        : "[&>div]:bg-red-500"
+                        : "[&>div]:bg-red-500",
                     )}
                   />
                   {/* 60% threshold marker */}
@@ -391,7 +393,7 @@ export default function TrainingResultsPage() {
                     onClick={() => setShowErrorsOnly(!showErrorsOnly)}
                     className={cn(
                       showErrorsOnly &&
-                        "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300"
+                        "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300",
                     )}
                   >
                     <Filter className="mr-2 h-4 w-4" />
@@ -415,12 +417,11 @@ export default function TrainingResultsPage() {
                   const answer = answers[question._id.toString()]
                   const userAnswer = answer?.selectedAnswer ?? null
                   const isExpanded = expandedQuestions.has(
-                    question._id.toString()
+                    question._id.toString(),
                   )
 
-                  const originalIndex = questionIndexMap.get(
-                    question._id.toString(),
-                  ) ?? index
+                  const originalIndex =
+                    questionIndexMap.get(question._id.toString()) ?? index
 
                   return (
                     <motion.div

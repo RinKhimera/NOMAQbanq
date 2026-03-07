@@ -150,7 +150,7 @@ export const verifyCheckoutSession = action({
     v.object({
       success: v.literal(false),
       error: v.string(),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity()
@@ -249,7 +249,7 @@ export const getPaymentDetails = action({
     }),
     v.object({
       error: v.string(),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     // Vérifier que l'utilisateur est admin
@@ -280,9 +280,10 @@ export const getPaymentDetails = action({
         status: paymentIntent.status,
         created: paymentIntent.created,
         metadata: paymentIntent.metadata,
-        paymentMethod: typeof paymentIntent.payment_method === "string"
-          ? paymentIntent.payment_method
-          : paymentIntent.payment_method?.id ?? null,
+        paymentMethod:
+          typeof paymentIntent.payment_method === "string"
+            ? paymentIntent.payment_method
+            : (paymentIntent.payment_method?.id ?? null),
       }
     } catch (error) {
       console.error("Erreur lors de la récupération du paiement:", error)

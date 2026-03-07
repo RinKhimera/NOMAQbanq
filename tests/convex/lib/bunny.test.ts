@@ -1,15 +1,15 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
-  getOptimizedImageUrl,
-  getThumbnailUrl,
-  getQuestionImageUrl,
-  getAvatarUrl,
-  generateQuestionImagePath,
-  generateAvatarPath,
-  getExtensionFromMimeType,
-  validateImageFile,
-  uploadToBunny,
   deleteFromBunny,
+  generateAvatarPath,
+  generateQuestionImagePath,
+  getAvatarUrl,
+  getExtensionFromMimeType,
+  getOptimizedImageUrl,
+  getQuestionImageUrl,
+  getThumbnailUrl,
+  uploadToBunny,
+  validateImageFile,
 } from "@/convex/lib/bunny"
 
 describe("bunny utilities", () => {
@@ -479,9 +479,9 @@ describe("bunny utilities", () => {
     it("throws when configuration is missing", async () => {
       delete process.env.BUNNY_STORAGE_ZONE_NAME
 
-      await expect(
-        deleteFromBunny("questions/q1/image.jpg"),
-      ).rejects.toThrow("Configuration Bunny manquante")
+      await expect(deleteFromBunny("questions/q1/image.jpg")).rejects.toThrow(
+        "Configuration Bunny manquante",
+      )
     })
   })
 })

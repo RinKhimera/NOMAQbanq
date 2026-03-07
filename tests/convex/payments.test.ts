@@ -4,10 +4,10 @@ import { api, internal } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
 import schema from "../../convex/schema"
 import {
+  clearProductCache,
   createAdminUser,
   createRegularUser,
   getOrCreateProduct,
-  clearProductCache,
 } from "../helpers/convex-helpers"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
@@ -250,7 +250,9 @@ describe("payments", () => {
           currency: "CAD",
           paymentMethod: "cash",
         }),
-      ).rejects.toThrow("Seules les transactions manuelles peuvent être modifiées")
+      ).rejects.toThrow(
+        "Seules les transactions manuelles peuvent être modifiées",
+      )
     })
 
     it("modifie une transaction manuelle avec succès", async () => {
@@ -447,7 +449,9 @@ describe("payments", () => {
         admin.asAdmin.mutation(api.payments.deleteManualTransaction, {
           transactionId,
         }),
-      ).rejects.toThrow("Seules les transactions manuelles peuvent être supprimées")
+      ).rejects.toThrow(
+        "Seules les transactions manuelles peuvent être supprimées",
+      )
     })
 
     it("supprime une transaction et révoque l'accès (dernière transaction)", async () => {
@@ -1275,9 +1279,12 @@ describe("payments", () => {
       await createManualTransactionWithAccess(t, user1, "exam")
       await createManualTransactionWithAccess(t, user2, "training")
 
-      const result = await admin.asAdmin.query(api.payments.getAllTransactions, {
-        paginationOpts: { numItems: 10, cursor: null },
-      })
+      const result = await admin.asAdmin.query(
+        api.payments.getAllTransactions,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+        },
+      )
 
       expect(result.page.length).toBe(2)
       expect(result.page[0].user).toBeDefined()
@@ -1292,10 +1299,13 @@ describe("payments", () => {
       await createManualTransactionWithAccess(t, userId, "exam")
       await createStripeTransaction(t, userId, "training")
 
-      const result = await admin.asAdmin.query(api.payments.getAllTransactions, {
-        paginationOpts: { numItems: 10, cursor: null },
-        type: "manual",
-      })
+      const result = await admin.asAdmin.query(
+        api.payments.getAllTransactions,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          type: "manual",
+        },
+      )
 
       expect(result.page.every((tx) => tx.type === "manual")).toBe(true)
     })
@@ -1310,10 +1320,13 @@ describe("payments", () => {
         status: "refunded",
       })
 
-      const result = await admin.asAdmin.query(api.payments.getAllTransactions, {
-        paginationOpts: { numItems: 10, cursor: null },
-        status: "completed",
-      })
+      const result = await admin.asAdmin.query(
+        api.payments.getAllTransactions,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          status: "completed",
+        },
+      )
 
       expect(result.page.every((tx) => tx.status === "completed")).toBe(true)
     })
@@ -1327,10 +1340,13 @@ describe("payments", () => {
       await createManualTransactionWithAccess(t, user1, "exam")
       await createManualTransactionWithAccess(t, user2, "training")
 
-      const result = await admin.asAdmin.query(api.payments.getAllTransactions, {
-        paginationOpts: { numItems: 10, cursor: null },
-        userId: user1,
-      })
+      const result = await admin.asAdmin.query(
+        api.payments.getAllTransactions,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          userId: user1,
+        },
+      )
 
       expect(result.page.length).toBe(1)
       expect(result.page[0].userId).toBe(user1)

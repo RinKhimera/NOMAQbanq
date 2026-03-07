@@ -2,15 +2,15 @@ import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import {
-  createViewAction,
-  createEditAction,
-  createDeleteAction,
-  createAddAction,
-  createPermanentDeleteAction,
-  createRemoveAction,
   QuestionActions,
   QuestionHeader,
   QuestionMetadata,
+  createAddAction,
+  createDeleteAction,
+  createEditAction,
+  createPermanentDeleteAction,
+  createRemoveAction,
+  createViewAction,
 } from "@/components/quiz/question-card/question-actions"
 
 describe("Action Creators", () => {
@@ -188,17 +188,13 @@ describe("QuestionHeader", () => {
   })
 
   it("renders domain badge when showDomainBadge is true and domain provided", () => {
-    render(
-      <QuestionHeader domain="Cardiologie" showDomainBadge={true} />,
-    )
+    render(<QuestionHeader domain="Cardiologie" showDomainBadge={true} />)
 
     expect(screen.getByText("Cardiologie")).toBeInTheDocument()
   })
 
   it("hides domain badge when showDomainBadge is false", () => {
-    render(
-      <QuestionHeader domain="Cardiologie" showDomainBadge={false} />,
-    )
+    render(<QuestionHeader domain="Cardiologie" showDomainBadge={false} />)
 
     expect(screen.queryByText("Cardiologie")).not.toBeInTheDocument()
   })
@@ -248,9 +244,7 @@ describe("QuestionMetadata", () => {
   })
 
   it("returns null when objectifCMC is undefined", () => {
-    const { container } = render(
-      <QuestionMetadata showObjectifBadge={true} />,
-    )
+    const { container } = render(<QuestionMetadata showObjectifBadge={true} />)
     expect(container.firstChild).toBeNull()
   })
 
@@ -292,12 +286,7 @@ describe("QuestionMetadata", () => {
   })
 
   it("does not render references count when undefined", () => {
-    render(
-      <QuestionMetadata
-        objectifCMC="Objectif"
-        showObjectifBadge={true}
-      />,
-    )
+    render(<QuestionMetadata objectifCMC="Objectif" showObjectifBadge={true} />)
 
     expect(screen.queryByText(/réf\./)).not.toBeInTheDocument()
   })

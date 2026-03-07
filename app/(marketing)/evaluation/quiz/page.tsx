@@ -80,11 +80,7 @@ export default function QuizPage() {
 
   // Scorer côté serveur quand le quiz est terminé
   useEffect(() => {
-    if (
-      !quizState.isCompleted ||
-      !quizQuestions ||
-      scoringTriggeredRef.current
-    )
+    if (!quizState.isCompleted || !quizQuestions || scoringTriggeredRef.current)
       return
     scoringTriggeredRef.current = true
 
@@ -109,7 +105,12 @@ export default function QuizPage() {
       })
       setScoredResults({ score: result.score, mergedQuestions: merged })
     })
-  }, [quizState.isCompleted, quizQuestions, quizState.userAnswers, scoreQuizMut])
+  }, [
+    quizState.isCompleted,
+    quizQuestions,
+    quizState.userAnswers,
+    scoreQuizMut,
+  ])
 
   // Scroll vers le haut quand la question change
   useEffect(() => {

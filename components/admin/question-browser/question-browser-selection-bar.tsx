@@ -23,8 +23,8 @@ export function QuestionBrowserSelectionBar({
   return (
     <div
       className={cn(
-        "flex flex-col gap-4 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-gray-700/50 dark:bg-gray-900 lg:flex-row lg:items-center lg:justify-between",
-        className
+        "flex flex-col gap-4 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm lg:flex-row lg:items-center lg:justify-between dark:border-gray-700/50 dark:bg-gray-900",
+        className,
       )}
     >
       {/* Left side: Counter and status */}
@@ -34,7 +34,7 @@ export function QuestionBrowserSelectionBar({
           className={cn(
             "text-sm",
             canCreate &&
-              "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300"
+              "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300",
           )}
         >
           {selectedIds.length} / {maxSelection} questions

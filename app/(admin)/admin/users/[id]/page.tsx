@@ -1,20 +1,26 @@
 "use client"
 
-import { useState } from "react"
-import { useParams } from "next/navigation"
-import { useQuery, usePaginatedQuery } from "convex/react"
+import { usePaginatedQuery, useQuery } from "convex/react"
+import { ArrowLeft, CreditCard, User } from "lucide-react"
 import { motion } from "motion/react"
-import Link from "next/link"
 import dynamic from "next/dynamic"
-import { ArrowLeft, User, CreditCard } from "lucide-react"
-import { Id } from "@/convex/_generated/dataModel"
-import { api } from "@/convex/_generated/api"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
+import Link from "next/link"
+import { useParams } from "next/navigation"
+import { useState } from "react"
 import { TransactionTable } from "@/components/shared/payments/transaction-table"
-import { UserInfoCard } from "./_components/user-info-card"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 import { UserAccessSection } from "./_components/user-access-section"
+import { UserInfoCard } from "./_components/user-info-card"
 
 // Lazy-load ManualPaymentModal to reduce initial bundle size
 const ManualPaymentModal = dynamic(
@@ -55,7 +61,7 @@ export default function AdminUserDetailPage() {
   } = usePaginatedQuery(
     api.payments.getAllTransactions,
     { userId },
-    { initialNumItems: 10 }
+    { initialNumItems: 10 },
   )
 
   if (user === undefined) {

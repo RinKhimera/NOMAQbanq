@@ -1,13 +1,13 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-import { motion } from "motion/react"
 import {
+  IconCalendarEvent,
   IconClipboardCheck,
   IconClipboardList,
-  IconCalendarEvent,
   IconUsers,
 } from "@tabler/icons-react"
+import { motion } from "motion/react"
+import { cn } from "@/lib/utils"
 
 interface StatCardProps {
   label: string
@@ -94,7 +94,7 @@ function StatCard({
         />
 
         {/* Glow effect on hover */}
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
+        <div className="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
 
         {/* Header */}
         <div className="relative mb-3 flex items-center justify-between">

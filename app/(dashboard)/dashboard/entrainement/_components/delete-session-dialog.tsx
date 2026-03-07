@@ -1,13 +1,12 @@
 "use client"
 
-import { useState } from "react"
 import { useMutation } from "convex/react"
-import { motion } from "motion/react"
-import { Trash2, AlertTriangle, Loader2, Target } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import { AlertTriangle, Loader2, Target, Trash2 } from "lucide-react"
+import { motion } from "motion/react"
+import { useState } from "react"
+import { toast } from "sonner"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,7 +17,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { toast } from "sonner"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 
 interface Session {
   _id: Id<"trainingParticipations">
@@ -107,7 +107,9 @@ export const DeleteSessionDialog = ({
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Questions</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                Questions
+              </span>
               <span className="flex items-center gap-1.5 font-medium text-gray-900 dark:text-white">
                 <Target className="h-3.5 w-3.5 text-gray-400" />
                 {session.questionCount}
@@ -115,7 +117,9 @@ export const DeleteSessionDialog = ({
             </div>
             {session.domain && (
               <div className="flex items-center justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Domaine</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  Domaine
+                </span>
                 <span className="rounded-md bg-gray-200/60 px-2 py-0.5 text-xs font-medium text-gray-700 dark:bg-gray-700/60 dark:text-gray-300">
                   {session.domain}
                 </span>
@@ -148,8 +152,8 @@ export const DeleteSessionDialog = ({
               Suppression définitive
             </p>
             <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
-              Les données de cette session (score, réponses) seront définitivement
-              supprimées et ne pourront pas être récupérées.
+              Les données de cette session (score, réponses) seront
+              définitivement supprimées et ne pourront pas être récupérées.
             </p>
           </div>
         </motion.div>

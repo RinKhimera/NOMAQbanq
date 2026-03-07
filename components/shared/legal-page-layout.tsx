@@ -1,16 +1,16 @@
 "use client"
 
-import { ReactNode } from "react"
-import { motion } from "motion/react"
 import {
+  IconCalendar,
+  IconCookie,
   IconFileText,
   IconShield,
-  IconCookie,
-  IconCalendar,
 } from "@tabler/icons-react"
+import { motion } from "motion/react"
+import { ReactNode } from "react"
+import { LegalNavCards } from "@/components/shared/legal-nav-cards"
 import { LegalProgressBar } from "@/components/shared/legal-progress-bar"
 import { LegalTOC } from "@/components/shared/legal-toc"
-import { LegalNavCards } from "@/components/shared/legal-nav-cards"
 
 type PageType = "conditions" | "confidentialite" | "cookies"
 
@@ -92,7 +92,7 @@ export default function LegalPageLayout({
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
-                className={`pointer-events-none absolute -left-4 -top-8 select-none font-serif text-[10rem] font-black leading-none sm:text-[14rem] lg:text-[18rem] ${config.numberColor}`}
+                className={`pointer-events-none absolute -top-8 -left-4 font-serif text-[10rem] leading-none font-black select-none sm:text-[14rem] lg:text-[18rem] ${config.numberColor}`}
                 style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
               >
                 {articleNumber}
@@ -149,7 +149,7 @@ export default function LegalPageLayout({
           </div>
 
           {/* Decorative gradient line */}
-          <div className="absolute bottom-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-gray-700" />
+          <div className="absolute right-0 bottom-0 left-0 h-px bg-linear-to-r from-transparent via-gray-300 to-transparent dark:via-gray-700" />
         </header>
 
         {/* Main Content */}
@@ -205,7 +205,7 @@ export default function LegalPageLayout({
               {/* Sections with Timeline */}
               <div className="relative">
                 {/* Timeline line */}
-                <div className="absolute bottom-0 left-2.75 top-0 w-0.5 bg-linear-to-b from-gray-200 via-gray-200 to-transparent dark:from-gray-800 dark:via-gray-800" />
+                <div className="absolute top-0 bottom-0 left-2.75 w-0.5 bg-linear-to-b from-gray-200 via-gray-200 to-transparent dark:from-gray-800 dark:via-gray-800" />
 
                 {/* Content */}
                 <div className="space-y-0">{children}</div>

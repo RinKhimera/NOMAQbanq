@@ -1,14 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
-import { motion } from "motion/react"
 import {
+  IconChevronRight,
+  IconCookie,
   IconFileText,
   IconShield,
-  IconCookie,
-  IconChevronRight,
 } from "@tabler/icons-react"
+import { motion } from "motion/react"
+import Link from "next/link"
+import { useEffect, useState } from "react"
 
 type PageType = "conditions" | "confidentialite" | "cookies"
 
@@ -67,7 +67,7 @@ export const LegalTOC = ({ sections, currentPage }: LegalTOCProps) => {
       {
         rootMargin: "-20% 0px -70% 0px",
         threshold: 0,
-      }
+      },
     )
 
     sections.forEach((section) => {
@@ -95,7 +95,7 @@ export const LegalTOC = ({ sections, currentPage }: LegalTOCProps) => {
   }
 
   const otherPages = (Object.keys(pageConfig) as PageType[]).filter(
-    (page) => page !== currentPage
+    (page) => page !== currentPage,
   )
 
   return (
@@ -108,7 +108,7 @@ export const LegalTOC = ({ sections, currentPage }: LegalTOCProps) => {
       <div className="sticky top-22.5 z-45 space-y-6">
         {/* Table des matières */}
         <nav className="rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-800/60 dark:bg-gray-900/80">
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <h3 className="mb-4 text-xs font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
             Table des matières
           </h3>
           <ul className="space-y-1">
@@ -141,7 +141,7 @@ export const LegalTOC = ({ sections, currentPage }: LegalTOCProps) => {
                     {isActive && (
                       <motion.div
                         layoutId="activeSection"
-                        className={`absolute left-0 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full ${accentColors[currentPage]}`}
+                        className={`absolute top-1/2 left-0 h-6 w-0.5 -translate-y-1/2 rounded-full ${accentColors[currentPage]}`}
                         transition={{
                           type: "spring",
                           stiffness: 350,
@@ -158,7 +158,7 @@ export const LegalTOC = ({ sections, currentPage }: LegalTOCProps) => {
 
         {/* Liens vers autres pages */}
         <div className="rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-800/60 dark:bg-gray-900/80">
-          <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <h3 className="mb-4 text-xs font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
             Autres documents
           </h3>
           <ul className="space-y-2">

@@ -11,7 +11,7 @@ describe("Pause Alert Logic - Answered Questions Based", () => {
   describe("First Wave Progress Calculation", () => {
     it("should calculate first wave progress correctly", () => {
       const totalQuestions = 100
-      const midpoint = Math.floor(totalQuestions / 2) 
+      const midpoint = Math.floor(totalQuestions / 2)
 
       const answers: Record<string, string> = {
         q1: "A",
@@ -177,7 +177,7 @@ describe("Pause Alert Logic - Answered Questions Based", () => {
       const remainingCount = midpoint - answeredCount
 
       expect(remainingCount).toBe(5)
-      expect(remainingCount <= 10).toBe(true) 
+      expect(remainingCount <= 10).toBe(true)
     })
 
     it("scenario: user skips around, answers all first wave", () => {
@@ -187,23 +187,22 @@ describe("Pause Alert Logic - Answered Questions Based", () => {
       const remainingCount = midpoint - answeredCount
 
       expect(remainingCount).toBe(0)
-      expect(remainingCount === 0).toBe(true) 
+      expect(remainingCount === 0).toBe(true)
     })
 
     it("scenario: user at question 48, only answered 30 questions", () => {
       const midpoint = 50
 
-     
       const answeredCount = 30
       const remainingCount = midpoint - answeredCount
 
       expect(remainingCount).toBe(20)
-      expect(remainingCount <= 10).toBe(false) 
+      expect(remainingCount <= 10).toBe(false)
     })
 
     it("scenario: 100 question exam with odd number split", () => {
       const totalQuestions = 101
-      const midpoint = Math.floor(totalQuestions / 2) 
+      const midpoint = Math.floor(totalQuestions / 2)
 
       const answeredCount = 45
       const remainingCount = midpoint - answeredCount
@@ -214,13 +213,13 @@ describe("Pause Alert Logic - Answered Questions Based", () => {
 
     it("scenario: small exam with 20 questions", () => {
       const totalQuestions = 20
-      const midpoint = Math.floor(totalQuestions / 2) 
+      const midpoint = Math.floor(totalQuestions / 2)
 
       const answeredCount = 8
       const remainingCount = midpoint - answeredCount
 
       expect(remainingCount).toBe(2)
-      expect(remainingCount <= 10).toBe(true) 
+      expect(remainingCount <= 10).toBe(true)
     })
 
     it("scenario: exact 10 questions boundary", () => {
@@ -230,8 +229,8 @@ describe("Pause Alert Logic - Answered Questions Based", () => {
       const remainingCount = midpoint - answeredCount
 
       expect(remainingCount).toBe(10)
-      expect(remainingCount <= 10).toBe(true) 
-      expect(remainingCount <= 3).toBe(false) 
+      expect(remainingCount <= 10).toBe(true)
+      expect(remainingCount <= 3).toBe(false)
     })
 
     it("scenario: exactly 11 questions remaining (no alert)", () => {
@@ -248,7 +247,7 @@ describe("Pause Alert Logic - Answered Questions Based", () => {
   describe("Edge Cases", () => {
     it("should handle exam with minimum questions (10)", () => {
       const totalQuestions = 10
-      const midpoint = Math.floor(totalQuestions / 2) 
+      const midpoint = Math.floor(totalQuestions / 2)
 
       const answeredCount = 3
       const remainingCount = midpoint - answeredCount
@@ -270,10 +269,10 @@ describe("Pause Alert Logic - Answered Questions Based", () => {
     it("should handle all questions answered (edge case - shouldn't happen normally)", () => {
       const midpoint = 50
 
-      const answeredCount = 100 
+      const answeredCount = 100
       const remainingCount = Math.max(0, midpoint - answeredCount)
 
-      expect(remainingCount).toBe(0) 
+      expect(remainingCount).toBe(0)
       expect(remainingCount === 0).toBe(true)
     })
   })

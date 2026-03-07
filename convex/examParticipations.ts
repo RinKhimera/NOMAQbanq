@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import { Id } from "./_generated/dataModel"
 import { mutation } from "./_generated/server"
+import { validatePauseTransition } from "./examPause"
 import { getAdminUserOrThrow, getCurrentUserOrThrow } from "./lib/auth"
 import { batchGetByIds } from "./lib/batchFetch"
 import { Errors } from "./lib/errors"
@@ -8,16 +9,12 @@ import {
   decrementExamParticipationCount,
   incrementExamParticipationCount,
 } from "./lib/examStats"
-import { validatePauseTransition } from "./examPause"
 
 // ============================================
 // TYPES
 // ============================================
 
-export type ParticipationStatus =
-  | "in_progress"
-  | "completed"
-  | "auto_submitted"
+export type ParticipationStatus = "in_progress" | "completed" | "auto_submitted"
 export type PausePhase = "before_pause" | "during_pause" | "after_pause"
 
 // ============================================
@@ -126,7 +123,9 @@ export const complete = mutation({
       participation.userId !== currentUser._id &&
       currentUser.role !== "admin"
     ) {
-      throw Errors.unauthorized("Vous ne pouvez pas modifier cette participation")
+      throw Errors.unauthorized(
+        "Vous ne pouvez pas modifier cette participation",
+      )
     }
 
     // Validate score range
@@ -180,7 +179,9 @@ export const updatePausePhase = mutation({
     }
 
     if (participation.userId !== currentUser._id) {
-      throw Errors.unauthorized("Vous ne pouvez pas modifier cette participation")
+      throw Errors.unauthorized(
+        "Vous ne pouvez pas modifier cette participation",
+      )
     }
 
     // Valider la transition d'état de la pause
@@ -226,7 +227,9 @@ export const saveAnswer = mutation({
     }
 
     if (participation.userId !== currentUser._id) {
-      throw Errors.unauthorized("Vous ne pouvez pas modifier cette participation")
+      throw Errors.unauthorized(
+        "Vous ne pouvez pas modifier cette participation",
+      )
     }
 
     if (participation.status !== "in_progress") {
@@ -297,7 +300,9 @@ export const saveAnswersBatch = mutation({
     }
 
     if (participation.userId !== currentUser._id) {
-      throw Errors.unauthorized("Vous ne pouvez pas modifier cette participation")
+      throw Errors.unauthorized(
+        "Vous ne pouvez pas modifier cette participation",
+      )
     }
 
     if (participation.status !== "in_progress") {

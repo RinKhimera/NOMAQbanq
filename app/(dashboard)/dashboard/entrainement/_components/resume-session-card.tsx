@@ -1,13 +1,11 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { useMutation } from "convex/react"
-import { useRouter } from "next/navigation"
+import { AlertCircle, Clock, Loader2, Play, X } from "lucide-react"
 import { motion } from "motion/react"
-import { Play, X, Clock, AlertCircle, Loader2 } from "lucide-react"
-import { api } from "@/convex/_generated/api"
-import type { Doc } from "@/convex/_generated/dataModel"
-import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
+import { toast } from "sonner"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,7 +17,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
+import { api } from "@/convex/_generated/api"
+import type { Doc } from "@/convex/_generated/dataModel"
 
 interface ResumeSessionCardProps {
   session: Doc<"trainingParticipations">
@@ -86,7 +86,7 @@ export const ResumeSessionCard = ({
       className="relative overflow-hidden rounded-2xl border-2 border-amber-300/60 bg-linear-to-br from-amber-50 via-orange-50 to-yellow-50 shadow-lg dark:border-amber-700/40 dark:from-amber-950/40 dark:via-orange-950/40 dark:to-yellow-950/40"
     >
       {/* Decorative pulse */}
-      <div className="absolute right-4 top-4">
+      <div className="absolute top-4 right-4">
         <span className="relative flex h-3 w-3">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
           <span className="relative inline-flex h-3 w-3 rounded-full bg-amber-500" />

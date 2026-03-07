@@ -1,31 +1,37 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { usePaginatedQuery } from "convex/react"
-import { motion } from "motion/react"
-import { Plus } from "lucide-react"
 import { IconReceipt } from "@tabler/icons-react"
-import { api } from "@/convex/_generated/api"
+import { usePaginatedQuery } from "convex/react"
+import { Plus } from "lucide-react"
+import { motion } from "motion/react"
+import { useMemo, useState } from "react"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
-import { Button } from "@/components/ui/button"
-import { TransactionTable, type Transaction } from "@/components/shared/payments/transaction-table"
-import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
-import { EditTransactionModal } from "@/components/shared/payments/edit-transaction-modal"
 import { DeleteTransactionDialog } from "@/components/shared/payments/delete-transaction-dialog"
-import { TransactionStats } from "./_components/transaction-stats"
+import { EditTransactionModal } from "@/components/shared/payments/edit-transaction-modal"
+import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
+import {
+  type Transaction,
+  TransactionTable,
+} from "@/components/shared/payments/transaction-table"
+import { Button } from "@/components/ui/button"
+import { api } from "@/convex/_generated/api"
 import {
   TransactionFilters,
-  type TransactionTypeFilter,
   type TransactionStatusFilter,
+  type TransactionTypeFilter,
 } from "./_components/transaction-filters"
+import { TransactionStats } from "./_components/transaction-stats"
 
 export default function AdminTransactionsPage() {
   const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>("all")
-  const [statusFilter, setStatusFilter] = useState<TransactionStatusFilter>("all")
+  const [statusFilter, setStatusFilter] =
+    useState<TransactionStatusFilter>("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [showManualPaymentModal, setShowManualPaymentModal] = useState(false)
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null)
-  const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null)
+  const [editingTransaction, setEditingTransaction] =
+    useState<Transaction | null>(null)
+  const [deletingTransaction, setDeletingTransaction] =
+    useState<Transaction | null>(null)
 
   // Build query args
   const queryArgs: {
@@ -40,11 +46,9 @@ export default function AdminTransactionsPage() {
     results: transactions,
     status,
     loadMore,
-  } = usePaginatedQuery(
-    api.payments.getAllTransactions,
-    queryArgs,
-    { initialNumItems: 20 }
-  )
+  } = usePaginatedQuery(api.payments.getAllTransactions, queryArgs, {
+    initialNumItems: 20,
+  })
 
   // Client-side search filtering
   const filteredTransactions = useMemo(() => {

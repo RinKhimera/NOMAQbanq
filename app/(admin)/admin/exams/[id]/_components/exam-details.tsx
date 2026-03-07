@@ -31,7 +31,10 @@ export function ExamDetails({
   currentUserId,
 }: ExamDetailsProps) {
   const { isAuthenticated } = useConvexAuth()
-  const exam = useQuery(api.exams.getExamWithQuestions, isAuthenticated ? { examId } : "skip")
+  const exam = useQuery(
+    api.exams.getExamWithQuestions,
+    isAuthenticated ? { examId } : "skip",
+  )
 
   if (!exam) {
     return (

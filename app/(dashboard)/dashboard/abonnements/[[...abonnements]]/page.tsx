@@ -22,7 +22,10 @@ import { motion } from "motion/react"
 import Link from "next/link"
 import { useActionState, useTransition } from "react"
 import { toast } from "sonner"
-import { AccessBadge, getAccessStatus } from "@/components/shared/payments/access-badge"
+import {
+  AccessBadge,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
 import { TransactionTable } from "@/components/shared/payments/transaction-table"
 import {
   AlertDialog,

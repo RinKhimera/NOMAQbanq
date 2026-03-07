@@ -1,13 +1,13 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-import { motion } from "motion/react"
 import {
+  IconCategory,
   IconListDetails,
   IconPhoto,
   IconPhotoOff,
-  IconCategory,
 } from "@tabler/icons-react"
+import { motion } from "motion/react"
+import { cn } from "@/lib/utils"
 
 interface StatCardProps {
   label: string
@@ -81,7 +81,7 @@ function StatCard({
           colors.border,
           colors.bg,
           "hover:-translate-y-0.5 hover:shadow-lg",
-          colors.glow
+          colors.glow,
         )}
       >
         {/* Subtle pattern overlay */}
@@ -94,14 +94,14 @@ function StatCard({
         />
 
         {/* Glow effect on hover */}
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
+        <div className="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
 
         {/* Header */}
         <div className="relative mb-3 flex items-center justify-between">
           <div
             className={cn(
               "flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105",
-              colors.iconBg
+              colors.iconBg,
             )}
           >
             <div className={cn("h-5 w-5", colors.iconColor)}>{icon}</div>
@@ -124,7 +124,7 @@ function StatCard({
         <p
           className={cn(
             "mt-1 text-xs text-gray-500 dark:text-gray-500",
-            !subtitle && "invisible"
+            !subtitle && "invisible",
           )}
         >
           {subtitle || "placeholder"}
@@ -135,7 +135,7 @@ function StatCard({
           <div
             className={cn(
               "h-full w-0 bg-linear-to-r transition-all duration-500 group-hover:w-full",
-              colors.accent
+              colors.accent,
             )}
           />
         </div>
@@ -154,7 +154,10 @@ interface QuestionsStatsRowProps {
   isLoading?: boolean
 }
 
-export function QuestionsStatsRow({ stats, isLoading }: QuestionsStatsRowProps) {
+export function QuestionsStatsRow({
+  stats,
+  isLoading,
+}: QuestionsStatsRowProps) {
   if (isLoading || !stats) {
     return (
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

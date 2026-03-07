@@ -15,7 +15,6 @@ import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import { notFound, useParams } from "next/navigation"
 import { useMemo, useState } from "react"
-import { useIsVisible } from "@/hooks/use-is-visible"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
@@ -24,6 +23,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { cn, getInitials } from "@/lib/utils"
 
 type Question = Doc<"questions">
@@ -76,26 +76,31 @@ const AdminParticipantResultsPage = () => {
     // Map pour correspondance par ID (évite les bugs d'ordre de réponses)
     const answersMap = new Map(
       participantResults.participant.answers.map(
-        (a: { questionId: Id<"questions">; selectedAnswer: string; isCorrect: boolean }) =>
-          [a.questionId, a] as const,
+        (a: {
+          questionId: Id<"questions">
+          selectedAnswer: string
+          isCorrect: boolean
+        }) => [a.questionId, a] as const,
       ),
     )
 
-    const questionResults: QuestionResult[] = questions.map((question: Question) => {
-      const userAnswerData = answersMap.get(question._id)
-      const userAnswer = userAnswerData?.selectedAnswer ?? null
-      const isCorrect = userAnswerData?.isCorrect ?? false
-      const isAnswered = userAnswer !== null
+    const questionResults: QuestionResult[] = questions.map(
+      (question: Question) => {
+        const userAnswerData = answersMap.get(question._id)
+        const userAnswer = userAnswerData?.selectedAnswer ?? null
+        const isCorrect = userAnswerData?.isCorrect ?? false
+        const isAnswered = userAnswer !== null
 
-      if (isAnswered) {
-        if (isCorrect) correct++
-        else incorrect++
-      } else {
-        unanswered++
-      }
+        if (isAnswered) {
+          if (isCorrect) correct++
+          else incorrect++
+        } else {
+          unanswered++
+        }
 
-      return { question, userAnswer, isCorrect, isAnswered }
-    })
+        return { question, userAnswer, isCorrect, isAnswered }
+      },
+    )
 
     const totalQuestions = questions.length
     const scorePercentage = participantResults.participant.score

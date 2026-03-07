@@ -1,10 +1,10 @@
 "use client"
 
-import dynamic from "next/dynamic"
 import { Brain } from "lucide-react"
 import { motion } from "motion/react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import dynamic from "next/dynamic"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { Id } from "@/convex/_generated/dataModel"
 
 interface TrainingSessionItem {
@@ -45,7 +45,7 @@ const TrainingScoreChartContent = dynamic(
             <Brain className="h-5 w-5 text-purple-500" />
           </div>
           <div className="flex-1">
-            <Skeleton className="h-5 w-48 mb-1" />
+            <Skeleton className="mb-1 h-5 w-48" />
             <Skeleton className="h-4 w-40" />
           </div>
         </div>

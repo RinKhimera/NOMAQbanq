@@ -103,9 +103,7 @@ export function DataTable<TData, TValue>({
   const mobileHiddenVisibility = React.useMemo(() => {
     const mobileHidden: VisibilityState = {}
     table.getAllLeafColumns().forEach((col) => {
-      const meta = col.columnDef?.meta as
-        | { hideOnMobile?: boolean }
-        | undefined
+      const meta = col.columnDef?.meta as { hideOnMobile?: boolean } | undefined
       if (meta?.hideOnMobile) mobileHidden[col.id] = false
     })
     return mobileHidden

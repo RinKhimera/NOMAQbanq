@@ -9,15 +9,18 @@ Next.js 16 (App Router) · React 19 · TypeScript · Convex · Clerk · Tailwind
 ## Commandes
 
 ```bash
-npm run dev              # Serveur dev (Turbopack)
-npm run build            # Build production
-npm run build-check      # tsc + eslint (avant commit)
-npm run fix-lint         # Auto-fix ESLint
-npm run test:all         # Tests frontend + Convex
-npm run test:coverage    # Tests avec rapport coverage
+bun dev                  # Serveur dev (Turbopack)
+bun run build            # Build production
+bun run check            # tsc + eslint (avant commit)
+bun run lint             # ESLint strict (--max-warnings 0)
+bun run lint:fix         # Auto-fix ESLint
+bun run format           # Prettier write
+bun run format:check     # Prettier check
+bun test                 # Tests frontend + Convex
+bun run test:coverage    # Tests avec rapport coverage
 ```
 
-CI: `.github/workflows/ci.yml` — type-check -> lint-check -> test + coverage -> Codecov.
+CI: `.github/workflows/ci.yml` — type-check -> lint -> test + coverage -> Codecov.
 
 ## Structure
 
@@ -66,16 +69,16 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **useActionState** : Toujours dans `startTransition()` ou via `<form action={...}>`
 - **Prettier** : Import order enforce: 1) node/npm 2) @/ 3) relatifs
 - **Sentry** : Tunnel route a `/monitoring` dans next.config.ts
-- **Image domains** : pexels.com, clerk.com, *.b-cdn.net, cdn.nomaqbanq.ca (next.config.ts)
+- **Image domains** : pexels.com, clerk.com, \*.b-cdn.net, cdn.nomaqbanq.ca (next.config.ts)
 
 ## Instruction Routing
 
 Regles specialisees dans `.claude/rules/`:
 
-| Fichier | Scope | Contenu |
-|---------|-------|---------|
-| `convex-backend.md` | `convex/**` | Auth, errors, rate limits, crons, HTTP actions, analytics, acces payant |
-| `admin-ui.md` | `app/(admin)/**`, `components/admin/**` | Master-detail, stat cards, filtres |
-| `seo.md` | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts` | Metadata, pages marketing |
+| Fichier             | Scope                                                   | Contenu                                                                 |
+| ------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `convex-backend.md` | `convex/**`                                             | Auth, errors, rate limits, crons, HTTP actions, analytics, acces payant |
+| `admin-ui.md`       | `app/(admin)/**`, `components/admin/**`                 | Master-detail, stat cards, filtres                                      |
+| `seo.md`            | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts` | Metadata, pages marketing                                               |
 
 Ajouter les nouveaux patterns au fichier rules correspondant, pas ici.

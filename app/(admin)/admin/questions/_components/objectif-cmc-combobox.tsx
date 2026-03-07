@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
 import { useQuery } from "convex/react"
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -54,7 +54,7 @@ export function ObjectifCMCCombobox({
   const isNewValue = useMemo(() => {
     if (!searchValue.trim() || !objectifs) return false
     return !objectifs.some(
-      (obj) => obj.toLowerCase() === searchValue.toLowerCase()
+      (obj) => obj.toLowerCase() === searchValue.toLowerCase(),
     )
   }, [objectifs, searchValue])
 
@@ -82,7 +82,7 @@ export function ObjectifCMCCombobox({
           disabled={disabled}
           className={cn(
             "w-full justify-between font-normal",
-            !value && "text-muted-foreground"
+            !value && "text-muted-foreground",
           )}
         >
           {value || placeholder}
@@ -100,7 +100,9 @@ export function ObjectifCMCCombobox({
             {isLoading ? (
               <div className="flex items-center justify-center p-4">
                 <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
-                <span className="ml-2 text-sm text-gray-500">Chargement...</span>
+                <span className="ml-2 text-sm text-gray-500">
+                  Chargement...
+                </span>
               </div>
             ) : (
               <>
@@ -134,7 +136,7 @@ export function ObjectifCMCCombobox({
                         <Check
                           className={cn(
                             "mr-2 h-4 w-4",
-                            value === objectif ? "opacity-100" : "opacity-0"
+                            value === objectif ? "opacity-100" : "opacity-0",
                           )}
                         />
                         {objectif}

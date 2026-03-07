@@ -1,14 +1,14 @@
 "use client"
 
-import { Bar, BarChart, XAxis, YAxis, Cell } from "recharts"
+import { IconBooks } from "@tabler/icons-react"
+import { Bar, BarChart, Cell, XAxis, YAxis } from "recharts"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { IconBooks } from "@tabler/icons-react"
 
 interface DomainChartContentProps {
   data: {
@@ -139,14 +139,18 @@ export function DomainChartContent({
                           className="h-2 w-2 rounded-full"
                           style={{ backgroundColor: props.payload.fill }}
                         />
-                        <span className="text-muted-foreground">Questions:</span>
+                        <span className="text-muted-foreground">
+                          Questions:
+                        </span>
                         <span className="font-mono font-semibold">
                           {(value as number).toLocaleString("fr-CA")}
                         </span>
                       </div>
                       <span className="text-muted-foreground text-xs">
-                        {((value as number / totalQuestions) * 100).toFixed(1)}%
-                        du total
+                        {(((value as number) / totalQuestions) * 100).toFixed(
+                          1,
+                        )}
+                        % du total
                       </span>
                     </div>
                   )}

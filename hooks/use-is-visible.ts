@@ -20,7 +20,7 @@ export function useIsVisible() {
 
     const observer = new IntersectionObserver(
       ([entry]) => setIsVisible(entry.isIntersecting),
-      { threshold: 0 }
+      { threshold: 0 },
     )
 
     observer.observe(element)

@@ -1,5 +1,5 @@
-import { vi } from "vitest"
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
+import { vi } from "vitest"
 import type { Doc } from "@/convex/_generated/dataModel"
 
 // ===== Router Mock =====

@@ -1,5 +1,5 @@
+import { Doc, Id, TableNames } from "../_generated/dataModel"
 import { QueryCtx } from "../_generated/server"
-import { Id, TableNames, Doc } from "../_generated/dataModel"
 
 /**
  * Batch fetch documents by IDs with deduplication and Map result

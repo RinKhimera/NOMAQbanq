@@ -1,5 +1,5 @@
-import Footer from "@/components/shared/footer"
 import { MarketingHeader } from "@/components/marketing-header"
+import Footer from "@/components/shared/footer"
 
 type MarketingShellProps = {
   children: React.ReactNode

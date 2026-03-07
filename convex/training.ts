@@ -33,7 +33,11 @@ export const getActiveTrainingSession = query({
         questionCount: v.number(),
         questionIds: v.array(v.id("questions")),
         score: v.number(),
-        status: v.union(v.literal("in_progress"), v.literal("completed"), v.literal("abandoned")),
+        status: v.union(
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("abandoned"),
+        ),
         startedAt: v.number(),
         completedAt: v.optional(v.number()),
         expiresAt: v.number(),
@@ -42,7 +46,7 @@ export const getActiveTrainingSession = query({
       isExpired: v.boolean(),
       canResume: v.boolean(),
       remainingTimeMs: v.number(),
-    })
+    }),
   ),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
@@ -97,7 +101,11 @@ export const getTrainingSessionById = query({
         questionCount: v.number(),
         questionIds: v.array(v.id("questions")),
         score: v.number(),
-        status: v.union(v.literal("in_progress"), v.literal("completed"), v.literal("abandoned")),
+        status: v.union(
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("abandoned"),
+        ),
         startedAt: v.number(),
         completedAt: v.optional(v.number()),
         expiresAt: v.number(),
@@ -108,18 +116,26 @@ export const getTrainingSessionById = query({
           _id: v.id("questions"),
           _creationTime: v.number(),
           question: v.string(),
-          images: v.optional(v.array(v.object({ url: v.string(), storagePath: v.string(), order: v.number() }))),
+          images: v.optional(
+            v.array(
+              v.object({
+                url: v.string(),
+                storagePath: v.string(),
+                order: v.number(),
+              }),
+            ),
+          ),
           options: v.array(v.string()),
           correctAnswer: v.optional(v.string()),
           explanation: v.optional(v.string()),
           references: v.optional(v.array(v.string())),
           objectifCMC: v.string(),
           domain: v.string(),
-        })
+        }),
       ),
       answers: v.any(),
       isExpired: v.boolean(),
-    })
+    }),
   ),
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
@@ -261,17 +277,25 @@ export const getTrainingSessionResults = query({
           _id: v.id("questions"),
           _creationTime: v.number(),
           question: v.string(),
-          images: v.optional(v.array(v.object({ url: v.string(), storagePath: v.string(), order: v.number() }))),
+          images: v.optional(
+            v.array(
+              v.object({
+                url: v.string(),
+                storagePath: v.string(),
+                order: v.number(),
+              }),
+            ),
+          ),
           options: v.array(v.string()),
           correctAnswer: v.string(),
           explanation: v.string(),
           references: v.optional(v.array(v.string())),
           objectifCMC: v.string(),
           domain: v.string(),
-        })
+        }),
       ),
       answers: v.any(),
-    })
+    }),
   ),
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
@@ -306,9 +330,7 @@ export const getTrainingSessionResults = query({
       .take(MAX_QUESTIONS)
 
     // Créer un map pour accès rapide
-    const answersMap = Object.fromEntries(
-      answers.map((a) => [a.questionId, a]),
-    )
+    const answersMap = Object.fromEntries(answers.map((a) => [a.questionId, a]))
 
     return {
       session: {
@@ -405,8 +427,7 @@ export const getAvailableObjectifsCMC = query({
   }),
   handler: async (ctx, { domain }) => {
     // "__all__" pour le total global, sinon le domaine spécifique
-    const targetDomain =
-      domain && domain !== "all" ? domain : "__all__"
+    const targetDomain = domain && domain !== "all" ? domain : "__all__"
 
     const stats = await ctx.db
       .query("objectifCMCStats")
@@ -773,7 +794,9 @@ export const saveTrainingAnswer = mutation({
 
     // 3. Vérifier que la question fait partie de la session
     if (!session.questionIds.includes(questionId)) {
-      throw Errors.invalidInput("Cette question ne fait pas partie de la session")
+      throw Errors.invalidInput(
+        "Cette question ne fait pas partie de la session",
+      )
     }
 
     // 4. Récupérer la bonne réponse
@@ -790,9 +813,7 @@ export const saveTrainingAnswer = mutation({
       .withIndex("by_participation", (q) => q.eq("participationId", sessionId))
       .take(MAX_QUESTIONS)
 
-    const existing = existingAnswers.find(
-      (a) => a.questionId === questionId,
-    )
+    const existing = existingAnswers.find((a) => a.questionId === questionId)
 
     if (existing) {
       // Mettre à jour la réponse existante

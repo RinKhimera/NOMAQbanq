@@ -1,8 +1,14 @@
 "use client"
 
-import { useState } from "react"
 import { useAction } from "convex/react"
-import { Download, FileJson, FileSpreadsheet, FileText, Loader2 } from "lucide-react"
+import {
+  Download,
+  FileJson,
+  FileSpreadsheet,
+  FileText,
+  Loader2,
+} from "lucide-react"
+import { useState } from "react"
 import { toast } from "sonner"
 import { utils, writeFile } from "xlsx"
 import { Button } from "@/components/ui/button"
@@ -164,9 +170,21 @@ export function ExportQuestionsButton({
     const worksheet = utils.json_to_sheet(data)
 
     worksheet["!cols"] = [
-      { wch: 30 }, { wch: 50 }, { wch: 30 }, { wch: 30 }, { wch: 30 },
-      { wch: 30 }, { wch: 30 }, { wch: 30 }, { wch: 50 }, { wch: 20 },
-      { wch: 15 }, { wch: 40 }, { wch: 12 }, { wch: 15 }, { wch: 18 },
+      { wch: 30 },
+      { wch: 50 },
+      { wch: 30 },
+      { wch: 30 },
+      { wch: 30 },
+      { wch: 30 },
+      { wch: 30 },
+      { wch: 30 },
+      { wch: 50 },
+      { wch: 20 },
+      { wch: 15 },
+      { wch: 40 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 18 },
     ]
 
     const workbook = utils.book_new()
@@ -191,16 +209,23 @@ export function ExportQuestionsButton({
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>Format d&apos;export</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => fetchAndExport("xlsx")} className="gap-2">
+        <DropdownMenuItem
+          onClick={() => fetchAndExport("xlsx")}
+          className="gap-2"
+        >
           <FileSpreadsheet className="h-4 w-4 text-green-600" />
           <div className="flex flex-col">
             <span className="font-medium">Excel (XLSX)</span>
             <span className="text-muted-foreground text-xs">
-              {questionCount ?? "..."} question{(questionCount ?? 0) > 1 ? "s" : ""}
+              {questionCount ?? "..."} question
+              {(questionCount ?? 0) > 1 ? "s" : ""}
             </span>
           </div>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => fetchAndExport("csv")} className="gap-2">
+        <DropdownMenuItem
+          onClick={() => fetchAndExport("csv")}
+          className="gap-2"
+        >
           <FileText className="h-4 w-4 text-blue-600" />
           <div className="flex flex-col">
             <span className="font-medium">CSV</span>
@@ -209,7 +234,10 @@ export function ExportQuestionsButton({
             </span>
           </div>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => fetchAndExport("json")} className="gap-2">
+        <DropdownMenuItem
+          onClick={() => fetchAndExport("json")}
+          className="gap-2"
+        >
           <FileJson className="h-4 w-4 text-amber-600" />
           <div className="flex flex-col">
             <span className="font-medium">JSON</span>

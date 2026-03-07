@@ -1,24 +1,24 @@
 "use client"
 
-import { useRef, useEffect } from "react"
-import { motion } from "motion/react"
 import {
-  Check,
-  Crown,
-  Sparkles,
-  Zap,
-  Clock,
   ArrowRight,
-  Star,
+  Check,
+  Clock,
+  Crown,
   Gift,
   Shield,
+  Sparkles,
+  Star,
   TrendingUp,
+  Zap,
 } from "lucide-react"
+import { motion } from "motion/react"
+import { useEffect, useRef } from "react"
+import { Button } from "@/components/ui/button"
+import { formatCurrency } from "@/lib/format"
 // cn is available but not currently used - keeping import for future styling needs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { cn } from "@/lib/utils"
-import { formatCurrency } from "@/lib/format"
-import { Button } from "@/components/ui/button"
 import { AccessBadge, getAccessStatus } from "./access-badge"
 
 interface Product {
@@ -122,7 +122,7 @@ export const PremiumPricingCard = ({
         {/* Decorative background elements */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           {/* Top right gradient orb */}
-          <div className="absolute -right-32 -top-32 h-80 w-80 rounded-full bg-linear-to-br from-amber-400/40 via-orange-400/30 to-transparent blur-3xl dark:from-amber-500/20 dark:via-orange-500/15" />
+          <div className="absolute -top-32 -right-32 h-80 w-80 rounded-full bg-linear-to-br from-amber-400/40 via-orange-400/30 to-transparent blur-3xl dark:from-amber-500/20 dark:via-orange-500/15" />
           {/* Bottom left gradient orb */}
           <div className="absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-linear-to-tr from-rose-400/30 via-orange-400/20 to-transparent blur-3xl dark:from-rose-500/15 dark:via-orange-500/10" />
           {/* Subtle grid pattern */}
@@ -151,7 +151,7 @@ export const PremiumPricingCard = ({
                   <Crown className="h-8 w-8 text-white" />
                 </motion.div>
                 <div>
-                  <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white lg:text-3xl">
+                  <h3 className="text-2xl font-extrabold tracking-tight text-gray-900 lg:text-3xl dark:text-white">
                     {product.name}
                   </h3>
                   <p className="mt-1 flex items-center gap-2 text-base text-gray-600 dark:text-gray-400">
@@ -216,7 +216,7 @@ export const PremiumPricingCard = ({
                           accessType="exam"
                           status={getAccessStatus(
                             examAccess.expiresAt,
-                            examAccess.daysRemaining
+                            examAccess.daysRemaining,
                           )}
                           daysRemaining={examAccess.daysRemaining}
                           size="sm"
@@ -235,7 +235,7 @@ export const PremiumPricingCard = ({
                           accessType="training"
                           status={getAccessStatus(
                             trainingAccess.expiresAt,
-                            trainingAccess.daysRemaining
+                            trainingAccess.daysRemaining,
                           )}
                           daysRemaining={trainingAccess.daysRemaining}
                           size="sm"
@@ -294,7 +294,7 @@ export const PremiumPricingCard = ({
 
                 {/* Exam features */}
                 <div className="mb-5">
-                  <p className="mb-2.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                  <p className="mb-2.5 flex items-center gap-2 text-xs font-semibold tracking-wider text-blue-600 uppercase dark:text-blue-400">
                     <Zap className="h-3.5 w-3.5" />
                     Examens Simulés
                   </p>
@@ -320,7 +320,7 @@ export const PremiumPricingCard = ({
 
                 {/* Training features */}
                 <div className="mb-5">
-                  <p className="mb-2.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                  <p className="mb-2.5 flex items-center gap-2 text-xs font-semibold tracking-wider text-emerald-600 uppercase dark:text-emerald-400">
                     <Sparkles className="h-3.5 w-3.5" />
                     Banque d&apos;Entraînement
                   </p>
@@ -346,7 +346,7 @@ export const PremiumPricingCard = ({
 
                 {/* Shared/Premium features */}
                 <div className="border-t border-amber-200/50 pt-5 dark:border-amber-500/20">
-                  <p className="mb-2.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  <p className="mb-2.5 flex items-center gap-2 text-xs font-semibold tracking-wider text-amber-600 uppercase dark:text-amber-400">
                     <Crown className="h-3.5 w-3.5" />
                     Bonus Premium
                   </p>

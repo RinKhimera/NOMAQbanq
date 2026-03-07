@@ -53,7 +53,7 @@ export const MobileMenu = ({
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-75 border-l border-gray-200 bg-white p-0 dark:border-gray-800 dark:bg-gray-950 sm:w-85"
+        className="w-75 border-l border-gray-200 bg-white p-0 sm:w-85 dark:border-gray-800 dark:bg-gray-950"
       >
         <SheetHeader className="border-b border-gray-200 bg-gray-50/50 p-5 dark:border-gray-800 dark:bg-gray-900/50">
           <SheetTitle className="text-left">
@@ -108,7 +108,7 @@ export const MobileMenu = ({
 
           {/* Theme Selector */}
           <div className="border-t border-gray-200 p-4 dark:border-gray-800">
-            <p className="mb-3 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+            <p className="mb-3 text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">
               Apparence
             </p>
             <div className="flex gap-2">

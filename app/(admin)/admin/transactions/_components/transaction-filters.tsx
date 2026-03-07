@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, Filter, X } from "lucide-react"
+import { Filter, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -12,7 +12,12 @@ import {
 } from "@/components/ui/select"
 
 export type TransactionTypeFilter = "all" | "stripe" | "manual"
-export type TransactionStatusFilter = "all" | "completed" | "pending" | "failed" | "refunded"
+export type TransactionStatusFilter =
+  | "all"
+  | "completed"
+  | "pending"
+  | "failed"
+  | "refunded"
 
 interface TransactionFiltersProps {
   typeFilter: TransactionTypeFilter
@@ -51,21 +56,21 @@ export const TransactionFilters = ({
     typeFilter !== "all" || statusFilter !== "all" || searchQuery !== ""
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-gray-700/50 dark:bg-gray-900 sm:flex-row sm:items-center">
+    <div className="flex flex-col gap-4 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:flex-row sm:items-center dark:border-gray-700/50 dark:bg-gray-900">
       {/* Search */}
       <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
         <Input
           placeholder="Rechercher par email ou nom..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-10 rounded-xl border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50"
+          className="rounded-xl border-gray-200 bg-gray-50/50 pl-10 dark:border-gray-700 dark:bg-gray-800/50"
         />
       </div>
 
       {/* Filter icon on mobile */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 sm:hidden">
+        <div className="flex items-center gap-2 text-sm text-gray-500 sm:hidden dark:text-gray-400">
           <Filter className="h-4 w-4" />
           Filtres
         </div>

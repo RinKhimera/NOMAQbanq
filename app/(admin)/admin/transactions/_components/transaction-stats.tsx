@@ -1,18 +1,18 @@
 "use client"
 
-import { motion } from "motion/react"
 import { useQuery } from "convex/react"
 import {
+  Banknote,
+  Coins,
+  CreditCard,
   DollarSign,
   TrendingUp,
-  CreditCard,
-  Banknote,
-  Coins
 } from "lucide-react"
-import { api } from "@/convex/_generated/api"
-import { cn } from "@/lib/utils"
-import { formatCurrency } from "@/lib/format"
+import { motion } from "motion/react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { api } from "@/convex/_generated/api"
+import { formatCurrency } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 interface StatCardConfig {
   key: string
@@ -56,7 +56,8 @@ export const TransactionStats = () => {
       label: "Revenus totaux CAD",
       icon: DollarSign,
       gradient: "from-emerald-500 to-teal-600",
-      bgGradient: "from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30",
+      bgGradient:
+        "from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30",
       format: (value: number) => formatCurrency(value, "CAD"),
     },
     ...(hasXAFRevenue
@@ -77,7 +78,8 @@ export const TransactionStats = () => {
       label: "30 jours CAD",
       icon: TrendingUp,
       gradient: "from-blue-500 to-indigo-600",
-      bgGradient: "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30",
+      bgGradient:
+        "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30",
       format: (value: number) => formatCurrency(value, "CAD"),
     },
     ...(hasXAFRevenue
@@ -98,7 +100,8 @@ export const TransactionStats = () => {
       label: "Transactions Stripe",
       icon: CreditCard,
       gradient: "from-violet-500 to-purple-600",
-      bgGradient: "from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30",
+      bgGradient:
+        "from-violet-50 to-purple-50 dark:from-violet-950/30 dark:to-purple-950/30",
       format: (value: number) => value.toString(),
     },
     {
@@ -106,7 +109,8 @@ export const TransactionStats = () => {
       label: "Paiements manuels",
       icon: Banknote,
       gradient: "from-amber-500 to-orange-600",
-      bgGradient: "from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30",
+      bgGradient:
+        "from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30",
       format: (value: number) => value.toString(),
     },
   ]
@@ -132,10 +136,12 @@ export const TransactionStats = () => {
   }
 
   return (
-    <div className={cn(
-      "grid gap-6 md:grid-cols-2",
-      hasXAFRevenue ? "lg:grid-cols-3" : "lg:grid-cols-4"
-    )}>
+    <div
+      className={cn(
+        "grid gap-6 md:grid-cols-2",
+        hasXAFRevenue ? "lg:grid-cols-3" : "lg:grid-cols-4",
+      )}
+    >
       {statCards.map((card, index) => {
         const Icon = card.icon
         const value = getValue(card.key)
@@ -148,14 +154,14 @@ export const TransactionStats = () => {
             transition={{ delay: index * 0.1 }}
             className={cn(
               "group relative overflow-hidden rounded-2xl border bg-white p-6 shadow-sm transition-all duration-300 hover:shadow-lg dark:bg-gray-900",
-              "border-gray-200/80 dark:border-gray-700/50"
+              "border-gray-200/80 dark:border-gray-700/50",
             )}
           >
             {/* Background gradient on hover */}
             <div
               className={cn(
                 "absolute inset-0 bg-linear-to-br opacity-0 transition-opacity duration-300 group-hover:opacity-100",
-                card.bgGradient
+                card.bgGradient,
               )}
             />
 
@@ -163,7 +169,7 @@ export const TransactionStats = () => {
               <div
                 className={cn(
                   "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-linear-to-br shadow-lg",
-                  card.gradient
+                  card.gradient,
                 )}
               >
                 <Icon className="h-7 w-7 text-white" />
@@ -172,7 +178,7 @@ export const TransactionStats = () => {
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                   {card.label}
                 </p>
-                <p className="text-2xl font-bold tabular-nums text-gray-900 dark:text-white">
+                <p className="text-2xl font-bold text-gray-900 tabular-nums dark:text-white">
                   {card.format(value)}
                 </p>
               </div>
@@ -182,7 +188,7 @@ export const TransactionStats = () => {
             <div
               className={cn(
                 "absolute -right-8 -bottom-8 h-24 w-24 rounded-full bg-linear-to-br opacity-10 blur-2xl",
-                card.gradient
+                card.gradient,
               )}
             />
           </motion.div>

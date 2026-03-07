@@ -44,10 +44,10 @@ export const get = query({
 ## Auth (`convex/lib/auth.ts`)
 
 ```typescript
-getCurrentUserOrThrow(ctx)   // Throws si non auth
-getAdminUserOrThrow(ctx)     // Throws si non admin
-getCurrentUserOrNull(ctx)    // Pour queries publiques
-isAdmin(ctx)                 // Boolean (pas de throw)
+getCurrentUserOrThrow(ctx) // Throws si non auth
+getAdminUserOrThrow(ctx) // Throws si non admin
+getCurrentUserOrNull(ctx) // Pour queries publiques
+isAdmin(ctx) // Boolean (pas de throw)
 ```
 
 Verifier les roles dans CHAQUE mutation/query sensible. Ne jamais faire confiance au client.
@@ -57,21 +57,21 @@ Verifier les roles dans CHAQUE mutation/query sensible. Ne jamais faire confianc
 **Toujours utiliser `Errors.*`**, jamais `throw new ConvexError(...)` directement :
 
 ```typescript
-Errors.unauthenticated()           // UNAUTHENTICATED
-Errors.unauthorized("Message")     // UNAUTHORIZED
-Errors.notFound("Entite")          // NOT_FOUND
-Errors.accessExpired("training")   // ACCESS_EXPIRED
-Errors.invalidState("Message")     // INVALID_STATE
-Errors.invalidInput("Message")     // INVALID_INPUT
-Errors.rateLimited(retryMinutes)   // RATE_LIMITED
-Errors.alreadyExists("Entite")    // ALREADY_EXISTS
+Errors.unauthenticated() // UNAUTHENTICATED
+Errors.unauthorized("Message") // UNAUTHORIZED
+Errors.notFound("Entite") // NOT_FOUND
+Errors.accessExpired("training") // ACCESS_EXPIRED
+Errors.invalidState("Message") // INVALID_STATE
+Errors.invalidInput("Message") // INVALID_INPUT
+Errors.rateLimited(retryMinutes) // RATE_LIMITED
+Errors.alreadyExists("Entite") // ALREADY_EXISTS
 ```
 
 ## N+1 queries (`convex/lib/batchFetch.ts`)
 
 ```typescript
-batchGetByIds(ctx.db, ids)          // Map pour lookups O(1), deduplique
-batchGetOrderedByIds(ctx.db, ids)   // Array ordonne preservant les indices
+batchGetByIds(ctx.db, ids) // Map pour lookups O(1), deduplique
+batchGetOrderedByIds(ctx.db, ids) // Array ordonne preservant les indices
 ```
 
 Jamais `Promise.all(ids.map(id => ctx.db.get(id)))`.
@@ -85,12 +85,12 @@ Jamais `Promise.all(ids.map(id => ctx.db.get(id)))`.
 
 ## HTTP Actions (`convex/http.ts`)
 
-| Route | Usage |
-|-------|-------|
-| `POST /clerk` | Webhook Clerk (sync users via svix) |
-| `POST /stripe` | Webhook Stripe (paiements) |
-| `POST /api/upload/avatar` | Avatar user (rate limited 5/h) |
-| `POST /api/upload/question-image` | Images questions (admin, 50/h) |
+| Route                             | Usage                               |
+| --------------------------------- | ----------------------------------- |
+| `POST /clerk`                     | Webhook Clerk (sync users via svix) |
+| `POST /stripe`                    | Webhook Stripe (paiements)          |
+| `POST /api/upload/avatar`         | Avatar user (rate limited 5/h)      |
+| `POST /api/upload/question-image` | Images questions (admin, 50/h)      |
 
 - CORS : `getCorsHeaders()` avec origin dynamique
 - Toujours OPTIONS handler sur routes upload
@@ -99,6 +99,7 @@ Jamais `Promise.all(ids.map(id => ctx.db.get(id)))`.
 ## Cron jobs (`convex/crons.ts`)
 
 Deux crons horaires decales :
+
 - `close-expired-exam-participations` a :00
 - `close-expired-training-sessions` a :30
 
@@ -123,17 +124,17 @@ Table d'aggregation. Cle reservee : `"__total__"`. Mise a jour atomique dans mut
 
 ## Organisation fichiers
 
-| Fichier | Lignes | Role |
-|---------|--------|------|
-| questions.ts | ~1200 | CRUD questions, aggregation, batch |
-| payments.ts | ~1200 | Transactions, acces, Stripe |
-| training.ts | ~990 | Sessions entrainement |
-| users.ts | ~970 | Gestion users, Clerk sync |
-| exams.ts | ~970 | CRUD examens, participations |
-| examStats.ts | ~450 | Statistiques examens |
-| http.ts | ~435 | Webhooks et uploads |
-| examParticipations.ts | ~370 | Cycle de vie participations |
-| analytics.ts | ~320 | Dashboard admin |
-| examPause.ts | ~310 | Machine a etats pause |
+| Fichier               | Lignes | Role                               |
+| --------------------- | ------ | ---------------------------------- |
+| questions.ts          | ~1200  | CRUD questions, aggregation, batch |
+| payments.ts           | ~1200  | Transactions, acces, Stripe        |
+| training.ts           | ~990   | Sessions entrainement              |
+| users.ts              | ~970   | Gestion users, Clerk sync          |
+| exams.ts              | ~970   | CRUD examens, participations       |
+| examStats.ts          | ~450   | Statistiques examens               |
+| http.ts               | ~435   | Webhooks et uploads                |
+| examParticipations.ts | ~370   | Cycle de vie participations        |
+| analytics.ts          | ~320   | Dashboard admin                    |
+| examPause.ts          | ~310   | Machine a etats pause              |
 
 Libs : `lib/auth.ts`, `lib/errors.ts`, `lib/batchFetch.ts`, `lib/bunny.ts`, `lib/stripe.ts`.

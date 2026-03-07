@@ -22,7 +22,6 @@ import {
   QuestionBrowser,
   QuestionPreviewPanel,
 } from "@/components/admin/question-browser"
-import { EligibleCandidatesCard } from "../../_components/eligible-candidates-card"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
@@ -59,6 +58,7 @@ import {
   getDefaultPauseDuration,
   validateQuestionCount,
 } from "@/schemas"
+import { EligibleCandidatesCard } from "../../_components/eligible-candidates-card"
 
 const AdminEditExamPage = () => {
   const router = useRouter()

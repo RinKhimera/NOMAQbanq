@@ -1,15 +1,15 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-import { motion } from "motion/react"
 import {
+  IconAlertTriangle,
+  IconClipboardCheck,
+  IconCoin,
   IconCurrencyDollar,
   IconUsers,
-  IconClipboardCheck,
-  IconAlertTriangle,
-  IconCoin,
 } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
+import { motion } from "motion/react"
+import { cn } from "@/lib/utils"
 
 interface VitalCardProps {
   label: string
@@ -108,7 +108,7 @@ function VitalCard({
           colors.border,
           colors.bg,
           "hover:-translate-y-0.5 hover:shadow-lg",
-          colors.glow
+          colors.glow,
         )}
       >
         {/* Subtle pattern overlay */}
@@ -121,14 +121,14 @@ function VitalCard({
         />
 
         {/* Glow effect on hover */}
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
+        <div className="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
 
         {/* Header */}
         <div className="relative mb-3 flex items-center justify-between">
           <div
             className={cn(
               "flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105",
-              colors.iconBg
+              colors.iconBg,
             )}
           >
             <IconComponent className={cn("h-5 w-5", colors.iconColor)} />
@@ -140,7 +140,7 @@ function VitalCard({
                 "flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tracking-tight",
                 trend.isPositive
                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
-                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400"
+                  : "bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400",
               )}
             >
               <svg
@@ -172,7 +172,7 @@ function VitalCard({
 
         {/* Value */}
         <div className="relative mb-1">
-          <span className="font-display text-3xl font-bold tracking-tight tabular-nums text-gray-900 dark:text-white">
+          <span className="font-display text-3xl font-bold tracking-tight text-gray-900 tabular-nums dark:text-white">
             {value}
           </span>
         </div>
@@ -194,7 +194,7 @@ function VitalCard({
           <div
             className={cn(
               "h-full w-0 bg-linear-to-r transition-all duration-500 group-hover:w-full",
-              colors.accent
+              colors.accent,
             )}
           />
         </div>
@@ -237,26 +237,33 @@ export function AdminVitalCards({
   }
 
   const formatXAF = (amount: number) => {
-    return new Intl.NumberFormat("fr-FR", {
-      style: "decimal",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount / 100) + " XAF"
+    return (
+      new Intl.NumberFormat("fr-FR", {
+        style: "decimal",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount / 100) + " XAF"
+    )
   }
 
   const hasXAFRevenue = revenueByCurrency.XAF.recent > 0
 
   return (
-    <div className={cn(
-      "grid grid-cols-1 gap-4 sm:grid-cols-2",
-      hasXAFRevenue ? "lg:grid-cols-5" : "lg:grid-cols-4"
-    )}>
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-4 sm:grid-cols-2",
+        hasXAFRevenue ? "lg:grid-cols-5" : "lg:grid-cols-4",
+      )}
+    >
       <VitalCard
         label="Revenus CAD (30j)"
         value={formatCAD(revenueByCurrency.CAD.recent)}
         trend={
           revenueByCurrency.CAD.trend !== 0
-            ? { value: revenueByCurrency.CAD.trend, isPositive: revenueByCurrency.CAD.trend > 0 }
+            ? {
+                value: revenueByCurrency.CAD.trend,
+                isPositive: revenueByCurrency.CAD.trend > 0,
+              }
             : undefined
         }
         color="slate"
@@ -270,7 +277,10 @@ export function AdminVitalCards({
           value={formatXAF(revenueByCurrency.XAF.recent)}
           trend={
             revenueByCurrency.XAF.trend !== 0
-              ? { value: revenueByCurrency.XAF.trend, isPositive: revenueByCurrency.XAF.trend > 0 }
+              ? {
+                  value: revenueByCurrency.XAF.trend,
+                  isPositive: revenueByCurrency.XAF.trend > 0,
+                }
               : undefined
           }
           color="teal"

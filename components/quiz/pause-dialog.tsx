@@ -44,7 +44,9 @@ export const PauseDialog = ({
   // Derive progress from pauseTimeRemaining (no need for separate state)
   const totalPauseMs = pauseDurationMinutes * 60 * 1000
   const progress =
-    totalPauseMs > 0 ? ((totalPauseMs - pauseTimeRemaining) / totalPauseMs) * 100 : 0
+    totalPauseMs > 0
+      ? ((totalPauseMs - pauseTimeRemaining) / totalPauseMs) * 100
+      : 0
 
   // Update pause countdown
   useEffect(() => {

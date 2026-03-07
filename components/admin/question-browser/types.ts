@@ -79,7 +79,7 @@ export interface QuestionBrowserContextState {
   setFilters: (filters: QuestionFilters) => void
   updateFilter: <K extends keyof QuestionFilters>(
     key: K,
-    value: QuestionFilters[K]
+    value: QuestionFilters[K],
   ) => void
   clearFilters: () => void
   hasActiveFilters: boolean

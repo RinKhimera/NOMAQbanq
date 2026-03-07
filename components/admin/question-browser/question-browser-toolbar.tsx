@@ -18,35 +18,30 @@ import { ImageFilter, QuestionBrowserToolbarProps } from "./types"
 export function QuestionBrowserToolbar({
   className,
 }: QuestionBrowserToolbarProps) {
-  const {
-    filters,
-    updateFilter,
-    clearFilters,
-    hasActiveFilters,
-    isSearching,
-  } = useQuestionBrowser()
+  const { filters, updateFilter, clearFilters, hasActiveFilters, isSearching } =
+    useQuestionBrowser()
 
   return (
     <div
       className={cn(
         "rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-gray-700/50 dark:bg-gray-900",
-        className
+        className,
       )}
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         {/* Search */}
         <div className="relative flex-1">
           {isSearching ? (
-            <Loader2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+            <Loader2 className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
           ) : (
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
           )}
           <Input
             type="text"
             placeholder="Rechercher dans les questions ou objectifs CMC..."
             value={filters.searchQuery}
             onChange={(e) => updateFilter("searchQuery", e.target.value)}
-            className="h-10 pl-10 pr-4"
+            className="h-10 pr-4 pl-10"
           />
         </div>
 

@@ -1,11 +1,8 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery, useMutation } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { motion } from "motion/react"
-import Image from "next/image"
 import {
   AlertTriangle,
   BookOpen,
@@ -19,8 +16,11 @@ import {
   Pencil,
   Trash2,
 } from "lucide-react"
-import { toast } from "sonner"
+import { motion } from "motion/react"
+import Image from "next/image"
 import Link from "next/link"
+import { useState } from "react"
+import { toast } from "sonner"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -214,7 +214,7 @@ function PanelContent({
                     "flex items-start gap-3 rounded-lg border p-3 transition-colors",
                     isCorrect
                       ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20"
-                      : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50"
+                      : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50",
                   )}
                 >
                   <div
@@ -222,7 +222,7 @@ function PanelContent({
                       "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                       isCorrect
                         ? "bg-emerald-500 text-white"
-                        : "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                        : "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
                     )}
                   >
                     {isCorrect ? <Check className="h-3.5 w-3.5" /> : letter}
@@ -232,7 +232,7 @@ function PanelContent({
                       "text-sm leading-relaxed",
                       isCorrect
                         ? "font-medium text-emerald-800 dark:text-emerald-300"
-                        : "text-gray-700 dark:text-gray-300"
+                        : "text-gray-700 dark:text-gray-300",
                     )}
                   >
                     {option}
@@ -307,9 +307,13 @@ function PanelContent({
             <Calendar className="h-4 w-4 text-gray-400" />
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Créée le{" "}
-              {format(new Date(question._creationTime), "d MMMM yyyy 'à' HH:mm", {
-                locale: fr,
-              })}
+              {format(
+                new Date(question._creationTime),
+                "d MMMM yyyy 'à' HH:mm",
+                {
+                  locale: fr,
+                },
+              )}
             </span>
           </div>
           <div className="flex items-center justify-between pt-1">
@@ -329,7 +333,10 @@ function PanelContent({
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Link href={`/admin/questions/${questionId}/modifier`} className="flex-1">
+          <Link
+            href={`/admin/questions/${questionId}/modifier`}
+            className="flex-1"
+          >
             <Button variant="outline" className="w-full gap-2">
               <Pencil className="h-4 w-4" />
               Modifier
@@ -383,10 +390,7 @@ export function QuestionSidePanel({
 }: QuestionSidePanelProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-105 overflow-y-auto sm:max-w-105"
-      >
+      <SheetContent side="right" className="w-105 overflow-y-auto sm:max-w-105">
         <SheetHeader className="sr-only">
           <SheetTitle>Détails de la question</SheetTitle>
           <SheetDescription>

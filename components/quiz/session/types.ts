@@ -140,19 +140,27 @@ export const accentColors = {
     hoverGradient: "from-emerald-700 to-teal-700",
     ring: "ring-emerald-500",
     ringOffset: "ring-offset-2",
-    badge: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
-    answered: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
-    unanswered: "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
-    flagFilter: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    badge:
+      "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800",
+    answered:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",
+    unanswered:
+      "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
+    flagFilter:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   },
   blue: {
     gradient: "from-blue-600 to-indigo-600",
     hoverGradient: "from-blue-700 to-indigo-700",
     ring: "ring-blue-500",
     ringOffset: "ring-offset-2",
-    badge: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
-    answered: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
-    unanswered: "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
-    flagFilter: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    badge:
+      "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
+    answered:
+      "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
+    unanswered:
+      "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700",
+    flagFilter:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
   },
 } as const

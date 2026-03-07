@@ -7,17 +7,16 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint --max-warnings 0",
+    "lint:fix": "eslint --fix",
     "type-check": "tsc --noEmit",
-    "lint-check": "eslint . --ext .ts,.tsx --max-warnings 0",
-    "build-check": "npm run type-check && npm run lint-check",
-    "fix-lint": "eslint . --ext .ts,.tsx --fix",
+    "check": "tsc --noEmit && eslint --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "vitest run",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:all": "vitest run",
-    "generate-favicons": "node scripts/generate-favicons.mjs"
+    "generate-favicons": "bun scripts/generate-favicons.mjs"
   },
   "dependencies": {
     "@clerk/clerk-react": "^5.61.3",

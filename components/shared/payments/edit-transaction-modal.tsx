@@ -1,31 +1,23 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery } from "convex/react"
-import { motion, AnimatePresence } from "motion/react"
 import {
-  Pencil,
-  User,
-  Package,
-  DollarSign,
+  AlertTriangle,
+  Banknote,
+  CheckCircle,
   CreditCard,
+  DollarSign,
   FileText,
   Loader2,
-  CheckCircle,
-  Banknote,
-  AlertTriangle,
+  Package,
+  Pencil,
+  User,
 } from "lucide-react"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
-import { cn } from "@/lib/utils"
-import { formatCurrency } from "@/lib/format"
-import {
-  editTransactionSchema,
-  type EditTransactionFormValues,
-  type PaymentMethod,
-} from "@/schemas/payment"
+import { AnimatePresence, motion } from "motion/react"
+import { useEffect, useState } from "react"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -42,6 +34,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -49,9 +42,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { toast } from "sonner"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
+import { formatCurrency } from "@/lib/format"
+import { cn } from "@/lib/utils"
+import {
+  type EditTransactionFormValues,
+  type PaymentMethod,
+  editTransactionSchema,
+} from "@/schemas/payment"
 import type { Transaction } from "./transaction-table"
 
 interface EditTransactionModalProps {
@@ -75,7 +75,7 @@ const currencies = [
 
 const parseAmountToCents = (
   input: string,
-  currency: "CAD" | "XAF"
+  currency: "CAD" | "XAF",
 ): number | null => {
   if (!input || input.trim() === "") return null
 
@@ -115,7 +115,9 @@ export const EditTransactionModal = ({
   const updateTransaction = useMutation(api.payments.updateManualTransaction)
   const accessImpact = useQuery(
     api.payments.getTransactionAccessImpact,
-    transaction ? { transactionId: transaction._id as Id<"transactions"> } : "skip"
+    transaction
+      ? { transactionId: transaction._id as Id<"transactions"> }
+      : "skip",
   )
 
   const form = useForm<EditTransactionFormValues>({
@@ -133,7 +135,10 @@ export const EditTransactionModal = ({
   useEffect(() => {
     if (transaction && open) {
       form.reset({
-        amountInput: centsToDisplayAmount(transaction.amountPaid, transaction.currency),
+        amountInput: centsToDisplayAmount(
+          transaction.amountPaid,
+          transaction.currency,
+        ),
         currency: transaction.currency as "CAD" | "XAF",
         paymentMethod: (transaction.paymentMethod || "autre") as PaymentMethod,
         notes: transaction.notes || "",
@@ -144,7 +149,8 @@ export const EditTransactionModal = ({
   }, [transaction, open])
 
   const watchedStatus = form.watch("status")
-  const showRefundWarning = watchedStatus === "refunded" && transaction?.status === "completed"
+  const showRefundWarning =
+    watchedStatus === "refunded" && transaction?.status === "completed"
 
   const onSubmit = async (data: EditTransactionFormValues) => {
     if (!transaction) return
@@ -175,12 +181,14 @@ export const EditTransactionModal = ({
         onSuccess?.()
       }, 1500)
 
-      const message = data.status === "refunded"
-        ? "Transaction remboursée et accès révoqué"
-        : "Transaction modifiée avec succès"
+      const message =
+        data.status === "refunded"
+          ? "Transaction remboursée et accès révoqué"
+          : "Transaction modifiée avec succès"
       toast.success(message)
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue"
+      const errorMessage =
+        error instanceof Error ? error.message : "Erreur inconnue"
       toast.error(errorMessage)
       console.error(error)
     } finally {
@@ -226,8 +234,8 @@ export const EditTransactionModal = ({
             >
               {/* Header with gradient */}
               <div className="relative overflow-hidden bg-linear-to-br from-slate-800 to-slate-900 px-6 py-8">
-                <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
-                <div className="absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
+                <div className="absolute -top-10 -right-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
+                <div className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-white/5 blur-2xl" />
                 <div className="relative">
                   <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white/10 backdrop-blur">
                     <Pencil className="h-6 w-6 text-white" />
@@ -243,7 +251,10 @@ export const EditTransactionModal = ({
 
               {/* Form */}
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5 p-6">
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-5 p-6"
+                >
                   {/* Read-only User Info */}
                   <div className="rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
                     <div className="flex items-start gap-3">
@@ -278,7 +289,10 @@ export const EditTransactionModal = ({
                           {transaction.product?.name || "Produit inconnu"}
                         </p>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {transaction.durationDays} jours · {transaction.accessType === "exam" ? "Examens" : "Entraînement"}
+                          {transaction.durationDays} jours ·{" "}
+                          {transaction.accessType === "exam"
+                            ? "Examens"
+                            : "Entraînement"}
                         </p>
                       </div>
                     </div>
@@ -302,7 +316,9 @@ export const EditTransactionModal = ({
                               <Input
                                 type="text"
                                 inputMode="decimal"
-                                placeholder={currency === "XAF" ? "5000" : "50.00"}
+                                placeholder={
+                                  currency === "XAF" ? "5000" : "50.00"
+                                }
                                 className="rounded-xl"
                                 {...field}
                               />
@@ -340,7 +356,10 @@ export const EditTransactionModal = ({
                             </FormControl>
                             <SelectContent>
                               {currencies.map((currency) => (
-                                <SelectItem key={currency.value} value={currency.value}>
+                                <SelectItem
+                                  key={currency.value}
+                                  value={currency.value}
+                                >
                                   {currency.label}
                                 </SelectItem>
                               ))}
@@ -379,7 +398,7 @@ export const EditTransactionModal = ({
                                   "flex cursor-pointer items-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all",
                                   field.value === method.value
                                     ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                                    : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600"
+                                    : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600",
                                 )}
                               >
                                 <Icon className="h-4 w-4" />
@@ -433,8 +452,12 @@ export const EditTransactionModal = ({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="completed">Complété</SelectItem>
-                              <SelectItem value="refunded">Remboursé</SelectItem>
+                              <SelectItem value="completed">
+                                Complété
+                              </SelectItem>
+                              <SelectItem value="refunded">
+                                Remboursé
+                              </SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -456,7 +479,12 @@ export const EditTransactionModal = ({
                           Attention : Révocation d{"'"}accès
                         </p>
                         <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
-                          Le remboursement révoquera l{"'"}accès {accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} de l{"'"}utilisateur car c{"'"}est sa dernière transaction pour ce type d{"'"}accès.
+                          Le remboursement révoquera l{"'"}accès{" "}
+                          {accessImpact.accessType === "exam"
+                            ? "aux examens"
+                            : "à l'entraînement"}{" "}
+                          de l{"'"}utilisateur car c{"'"}est sa dernière
+                          transaction pour ce type d{"'"}accès.
                         </p>
                       </div>
                     </motion.div>
@@ -479,7 +507,7 @@ export const EditTransactionModal = ({
                         "flex-1 rounded-xl text-white",
                         showRefundWarning
                           ? "bg-linear-to-r from-amber-500 to-orange-500 hover:opacity-90"
-                          : "bg-linear-to-r from-blue-600 to-indigo-600 hover:opacity-90"
+                          : "bg-linear-to-r from-blue-600 to-indigo-600 hover:opacity-90",
                       )}
                     >
                       {isSubmitting ? (

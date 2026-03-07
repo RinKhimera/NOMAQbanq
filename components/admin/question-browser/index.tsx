@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback } from "react"
 import { useQuery } from "convex/react"
+import { useCallback } from "react"
 import { api } from "@/convex/_generated/api"
 import { cn } from "@/lib/utils"
 import { QuestionBrowserProvider } from "./question-browser-context"
@@ -27,7 +27,7 @@ function QuestionBrowserContent({
   // Query for all question IDs (used for auto-complete)
   const allQuestionIds = useQuery(
     api.questions.getAllQuestionIds,
-    mode === "select" ? {} : "skip"
+    mode === "select" ? {} : "skip",
   )
 
   // Handle auto-complete for select mode
@@ -39,7 +39,7 @@ function QuestionBrowserContent({
 
     // Filter out already selected questions
     const availableIds = allQuestionIds.filter(
-      (id) => !selectedIds?.includes(id)
+      (id) => !selectedIds?.includes(id),
     )
 
     // Shuffle and take the needed amount

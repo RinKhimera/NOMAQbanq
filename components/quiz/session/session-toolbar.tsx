@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
 import { ArrowUp, Calculator, FlaskConical } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import type { SessionToolbarProps } from "./types"
 
@@ -48,7 +48,7 @@ export const SessionToolbar = ({
   }
 
   return (
-    <div className="fixed bottom-6 right-4 z-50 flex flex-col items-end gap-3 touch-none">
+    <div className="fixed right-4 bottom-6 z-50 flex touch-none flex-col items-end gap-3">
       {/* Scroll to top */}
       <AnimatePresence>
         {showScrollTop && isScrolled && (
