@@ -13,6 +13,7 @@ import {
   validateImageFile,
 } from "./lib/bunny"
 import { STRIPE_API_VERSION } from "./lib/stripe"
+import { resetExamHandler } from "./testing"
 
 const http = httpRouter()
 
@@ -451,6 +452,16 @@ http.route({
       )
     }
   }),
+})
+
+// ============================================
+// E2E TESTING RESET (dev only)
+// ============================================
+
+http.route({
+  path: "/e2e/reset-exam",
+  method: "POST",
+  handler: resetExamHandler,
 })
 
 export default http

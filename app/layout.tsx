@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google"
 import { JsonLd } from "@/components/seo/json-ld"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -89,6 +89,9 @@ export const metadata: Metadata = {
       "x-default": baseUrl,
     },
   },
+}
+
+export const viewport: Viewport = {
   themeColor: "#2563eb",
 }
 

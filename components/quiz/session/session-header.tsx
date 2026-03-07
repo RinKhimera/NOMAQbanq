@@ -114,6 +114,7 @@ export const SessionHeader = ({
             <Button
               onClick={onFinish}
               size="sm"
+              data-testid="btn-header-finish"
               aria-label="Terminer l'examen"
               className={cn(
                 "gap-2 shadow-md",

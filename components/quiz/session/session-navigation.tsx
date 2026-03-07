@@ -26,12 +26,13 @@ export const SessionNavigation = ({
   const isLastQuestion = currentIndex === totalQuestions - 1
 
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex items-center justify-between gap-4" data-testid="session-navigation">
       {/* Previous button */}
       <Button
         variant="outline"
         onClick={onPrevious}
         disabled={isFirstQuestion || isPreviousLocked}
+        data-testid="btn-previous"
         className={cn(
           "gap-2",
           isPreviousLocked && "cursor-not-allowed opacity-50",
@@ -49,6 +50,8 @@ export const SessionNavigation = ({
       <Button
         variant="outline"
         onClick={onToggleFlag}
+        data-testid="btn-flag"
+        data-flagged={isFlagged}
         className={cn(
           "gap-2",
           isFlagged &&
@@ -65,6 +68,7 @@ export const SessionNavigation = ({
       {isLastQuestion ? (
         <Button
           onClick={onNext}
+          data-testid="btn-finish"
           className={cn(
             "gap-2 shadow-md",
             accentColor === "blue"
@@ -80,6 +84,7 @@ export const SessionNavigation = ({
           variant="outline"
           onClick={onNext}
           disabled={isNextLocked}
+          data-testid="btn-next"
           className={cn(
             "gap-2",
             isNextLocked && "cursor-not-allowed opacity-50",

@@ -692,6 +692,7 @@ const AssessmentPage = () => {
                   currentQuestionIndex === 0 ||
                   isQuestionLocked(currentQuestionIndex - 1)
                 }
+                data-testid="btn-previous"
                 className="flex items-center gap-2"
               >
                 {isQuestionLocked(currentQuestionIndex - 1) ? (
@@ -720,6 +721,7 @@ const AssessmentPage = () => {
               {currentQuestionIndex === totalQuestions - 1 ? (
                 <Button
                   onClick={() => setShowSubmitDialog(true)}
+                  data-testid="btn-finish"
                   className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
                   <CheckCircle className="h-4 w-4" />
@@ -729,6 +731,7 @@ const AssessmentPage = () => {
                 <Button
                   onClick={() => goToQuestion(currentQuestionIndex + 1)}
                   disabled={isQuestionLocked(currentQuestionIndex + 1)}
+                  data-testid="btn-next"
                   className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
                   {isQuestionLocked(currentQuestionIndex + 1) ? (

@@ -109,6 +109,8 @@ export const AnswerOption = ({
         whileTap={{ scale: 0.99 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
         className="w-full text-left"
+        data-testid={`answer-option-${index}`}
+        data-selected={state === "selected"}
       >
         {content}
       </motion.button>

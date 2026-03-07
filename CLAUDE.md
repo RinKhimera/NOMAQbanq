@@ -18,6 +18,8 @@ bun run format           # Prettier write
 bun run format:check     # Prettier check
 bun test                 # Tests frontend + Convex
 bun run test:coverage    # Tests avec rapport coverage
+bun run test:e2e         # Tests E2E Playwright (bunx, pas npx)
+bun run e2e:ui           # Playwright UI mode
 ```
 
 CI: `.github/workflows/ci.yml` — type-check -> lint -> test + coverage -> Codecov.
@@ -56,7 +58,8 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 
 - Seuil coverage: 75%
 - Frontend: `tests/` (happy-dom) — Convex: `tests/convex/` (edge-runtime, convex-test)
-- Config: `vitest.config.ts` — env `TZ=UTC` pour coherence timezone
+- E2E: `e2e/tests/` (Playwright + Clerk auth) — POMs dans `e2e/pages/`
+- Config: `vitest.config.ts` (exclut `e2e/**`) — `playwright.config.ts` — env `TZ=UTC`
 
 ## Gotchas
 
@@ -70,6 +73,8 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Prettier** : Import order enforce: 1) node/npm 2) @/ 3) relatifs
 - **Sentry** : Tunnel route a `/monitoring` dans next.config.ts
 - **Image domains** : pexels.com, clerk.com, \*.b-cdn.net, cdn.nomaqbanq.ca (next.config.ts)
+- **ESM** : `"type": "module"` — pas de `__dirname`, utiliser `fileURLToPath(import.meta.url)`
+- **data-testid** : Obligatoire sur composants quiz interactifs (`components/quiz/`). Convention : `answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`
 
 ## Instruction Routing
 
@@ -80,5 +85,6 @@ Regles specialisees dans `.claude/rules/`:
 | `convex-backend.md` | `convex/**`                                             | Auth, errors, rate limits, crons, HTTP actions, analytics, acces payant |
 | `admin-ui.md`       | `app/(admin)/**`, `components/admin/**`                 | Master-detail, stat cards, filtres                                      |
 | `seo.md`            | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts` | Metadata, pages marketing                                               |
+| `e2e-testing.md`    | `e2e/**`, `playwright.config.ts`, `components/quiz/**`  | Playwright, data-testid, Clerk auth, selectors, Convex real-time        |
 
 Ajouter les nouveaux patterns au fichier rules correspondant, pas ici.

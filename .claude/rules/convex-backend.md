@@ -91,6 +91,7 @@ Jamais `Promise.all(ids.map(id => ctx.db.get(id)))`.
 | `POST /stripe`                    | Webhook Stripe (paiements)          |
 | `POST /api/upload/avatar`         | Avatar user (rate limited 5/h)      |
 | `POST /api/upload/question-image` | Images questions (admin, 50/h)      |
+| `POST /e2e/reset-exam`            | Reset E2E (secret-protected, dev)   |
 
 - CORS : `getCorsHeaders()` avec origin dynamique
 - Toujours OPTIONS handler sur routes upload
