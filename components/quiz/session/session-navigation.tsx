@@ -26,7 +26,10 @@ export const SessionNavigation = ({
   const isLastQuestion = currentIndex === totalQuestions - 1
 
   return (
-    <div className="flex items-center justify-between gap-4" data-testid="session-navigation">
+    <div
+      className="flex items-center justify-between gap-4"
+      data-testid="session-navigation"
+    >
       {/* Previous button */}
       <Button
         variant="outline"

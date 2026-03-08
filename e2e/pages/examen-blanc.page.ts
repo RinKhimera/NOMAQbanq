@@ -1,5 +1,4 @@
 import { type Page, expect } from "@playwright/test"
-
 import { BasePage } from "./base.page"
 
 export class ExamenBlancPage extends BasePage {
@@ -29,9 +28,7 @@ export class ExamenBlancPage extends BasePage {
     ).toBeVisible()
 
     const dialog = this.page.locator('[role="alertdialog"], [role="dialog"]')
-    await dialog
-      .getByRole("button", { name: "Commencer l'examen" })
-      .click()
+    await dialog.getByRole("button", { name: "Commencer l'examen" }).click()
 
     await this.page.waitForURL(/\/evaluation/, { timeout: 15_000 })
   }
@@ -98,14 +95,10 @@ export class ExamenBlancPage extends BasePage {
     // Use header finish button (visible on any question, not just last)
     await this.page.getByTestId("btn-header-finish").click()
 
-    await expect(
-      this.page.getByText("Soumettre l'examen ?"),
-    ).toBeVisible()
+    await expect(this.page.getByText("Soumettre l'examen ?")).toBeVisible()
 
     const dialog = this.page.locator('[role="alertdialog"], [role="dialog"]')
-    await dialog
-      .getByRole("button", { name: /Terminer l'examen/ })
-      .click()
+    await dialog.getByRole("button", { name: /Terminer l'examen/ }).click()
 
     await this.page.waitForURL(/\/dashboard\/examen-blanc/, {
       timeout: 15_000,

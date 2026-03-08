@@ -100,6 +100,7 @@ export const PauseDialog = ({
           {/* Timer Display */}
           <div className="text-center">
             <div
+              data-testid="pause-timer"
               className={cn(
                 "inline-flex items-center gap-3 rounded-2xl px-6 py-4 font-mono text-4xl font-bold transition-colors",
                 isPauseAlmostOver
@@ -188,6 +189,7 @@ export const PauseDialog = ({
             onClick={onResume}
             disabled={isResuming}
             size="lg"
+            data-testid="btn-resume-exam"
             className="w-full bg-linear-to-r from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
           >
             {isResuming ? (

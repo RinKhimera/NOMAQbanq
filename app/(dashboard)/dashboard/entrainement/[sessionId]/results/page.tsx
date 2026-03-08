@@ -390,6 +390,7 @@ export default function TrainingResultsPage() {
                   <Button
                     variant="outline"
                     size="sm"
+                    data-testid="btn-filter-errors"
                     onClick={() => setShowErrorsOnly(!showErrorsOnly)}
                     className={cn(
                       showErrorsOnly &&
@@ -402,10 +403,20 @@ export default function TrainingResultsPage() {
                       : `Erreurs (${stats.incorrectCount + stats.unansweredCount})`}
                   </Button>
 
-                  <Button variant="ghost" size="sm" onClick={expandAll}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid="btn-expand-all"
+                    onClick={expandAll}
+                  >
                     Tout ouvrir
                   </Button>
-                  <Button variant="ghost" size="sm" onClick={collapseAll}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    data-testid="btn-collapse-all"
+                    onClick={collapseAll}
+                  >
                     Tout fermer
                   </Button>
                 </div>

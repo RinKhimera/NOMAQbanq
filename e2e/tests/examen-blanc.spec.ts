@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test"
-
 import { ExamenBlancPage } from "../pages/examen-blanc.page"
 
 test.describe("Examen Blanc — session complete", () => {
@@ -28,21 +27,15 @@ test.describe("Examen Blanc — session complete", () => {
     await exam.clickStartExam()
 
     // Dialog de confirmation visible
-    await expect(
-      page.getByText("Confirmer le début de l'examen"),
-    ).toBeVisible()
+    await expect(page.getByText("Confirmer le début de l'examen")).toBeVisible()
     await expect(page.getByText(/questions à répondre/)).toBeVisible()
     await expect(page.getByText(/minutes pour compléter/)).toBeVisible()
-    await expect(
-      page.getByText("Un seul essai autorisé"),
-    ).toBeVisible()
+    await expect(page.getByText("Un seul essai autorisé")).toBeVisible()
 
     // Annuler ferme le dialog
     const dialog = page.locator('[role="alertdialog"], [role="dialog"]')
     await dialog.getByRole("button", { name: "Annuler" }).click()
-    await expect(
-      page.getByText("Confirmer le début de l'examen"),
-    ).toBeHidden()
+    await expect(page.getByText("Confirmer le début de l'examen")).toBeHidden()
   })
 
   test("demarre l'examen et affiche le warning anti-fraude", async ({
@@ -53,12 +46,10 @@ test.describe("Examen Blanc — session complete", () => {
     await exam.confirmStart()
 
     // Warning dialog visible
-    await expect(
-      page.getByText("Règles importantes de l'examen"),
-    ).toBeVisible({ timeout: 10_000 })
-    await expect(
-      page.getByText("Mesures anti-fraude activées"),
-    ).toBeVisible()
+    await expect(page.getByText("Règles importantes de l'examen")).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.getByText("Mesures anti-fraude activées")).toBeVisible()
     await expect(
       page.getByRole("button", { name: /Je comprends.*Commencer/ }),
     ).toBeVisible()
@@ -134,9 +125,9 @@ test.describe("Examen Blanc — session complete", () => {
     await exam.goto()
 
     // Active exam shows "Déjà passé" after submission
-    await expect(
-      page.getByRole("button", { name: "Déjà passé" }),
-    ).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole("button", { name: "Déjà passé" })).toBeVisible({
+      timeout: 15_000,
+    })
 
     // Stats header shows completion info
     await expect(page.getByText("1 examen passé")).toBeVisible()

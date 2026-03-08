@@ -29,6 +29,7 @@ Le projet a `"type": "module"` dans `package.json`. Utiliser :
 ```typescript
 import path from "path"
 import { fileURLToPath } from "url"
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 ```
 
@@ -36,16 +37,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 **IMPORTANT** : Ne JAMAIS utiliser de selecteurs CSS generiques (`button.w-full.text-left`) — ils matchent des elements inattendus (bouton profil sidebar, etc.). Utiliser les `data-testid` :
 
-| Element | data-testid | Fichier source |
-|---------|-------------|----------------|
-| Option reponse N | `answer-option-{index}` | `components/quiz/question-card/answer-option.tsx` |
-| Bouton precedent | `btn-previous` | `session-navigation.tsx` + `evaluation/page.tsx` |
-| Bouton suivant | `btn-next` | `session-navigation.tsx` + `evaluation/page.tsx` |
-| Bouton terminer (dernier Q) | `btn-finish` | `session-navigation.tsx` + `evaluation/page.tsx` |
-| Bouton terminer (header) | `btn-header-finish` | `session-header.tsx` |
-| Bouton marquer | `btn-flag` | `session-navigation.tsx` |
+| Element                     | data-testid             | Fichier source                                    |
+| --------------------------- | ----------------------- | ------------------------------------------------- |
+| Option reponse N            | `answer-option-{index}` | `components/quiz/question-card/answer-option.tsx` |
+| Bouton precedent            | `btn-previous`          | `session-navigation.tsx` + `evaluation/page.tsx`  |
+| Bouton suivant              | `btn-next`              | `session-navigation.tsx` + `evaluation/page.tsx`  |
+| Bouton terminer (dernier Q) | `btn-finish`            | `session-navigation.tsx` + `evaluation/page.tsx`  |
+| Bouton terminer (header)    | `btn-header-finish`     | `session-header.tsx`                              |
+| Bouton marquer              | `btn-flag`              | `session-navigation.tsx`                          |
 
 **Data attributes d'etat** :
+
 - `data-selected="true"` sur `answer-option-{index}` quand selectionne
 - `data-flagged="true"` sur `btn-flag` quand question marquee
 
@@ -68,11 +70,11 @@ Quand un nouveau composant interactif est cree dans `components/quiz/`, ajouter 
 
 ## Auth projects
 
-| Projet | storageState | Usage |
-|--------|-------------|-------|
-| `chromium` | aucun | Pages publiques (marketing) |
-| `chromium-auth` | `e2e/.auth/user.json` | Student sans acces (paywall) |
-| `chromium-admin` | `e2e/.auth/admin.json` | Admin avec acces complet |
+| Projet           | storageState           | Usage                        |
+| ---------------- | ---------------------- | ---------------------------- |
+| `chromium`       | aucun                  | Pages publiques (marketing)  |
+| `chromium-auth`  | `e2e/.auth/user.json`  | Student sans acces (paywall) |
+| `chromium-admin` | `e2e/.auth/admin.json` | Admin avec acces complet     |
 
 Si le user test n'a pas d'acces training/exam, les tests skipent gracieusement via `if (!(await pom.hasAccess())) test.skip()`.
 
@@ -81,6 +83,7 @@ Si le user test n'a pas d'acces training/exam, les tests skipent gracieusement v
 Setup ET teardown appellent `POST /e2e/reset-exam` sur le Convex HTTP site (`*.convex.site`). Necessite `E2E_RESET_SECRET` dans l'env Convex (`bunx convex env set`) ET `.env.local`.
 
 Le reset :
+
 1. Trouve ou cree un examen actif (si aucun n'existe, en cree un avec 10 questions de la DB)
 2. Supprime la participation du user test pour l'examen actif uniquement (garde les resultats des examens passes)
 3. Supprime les sessions d'entrainement `in_progress`

@@ -30,3 +30,29 @@ teardown("reset exam participation", async ({ request }) => {
     }
   }
 })
+
+teardown("cleanup e2e test data", async ({ request }) => {
+  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
+  const resetSecret = process.env.E2E_RESET_SECRET
+
+  if (!convexUrl || !resetSecret) {
+    console.log("Skipping E2E cleanup: missing env vars")
+    return
+  }
+
+  const resetUrl = convexUrl.replace(".convex.cloud", ".convex.site")
+
+  try {
+    const response = await request.post(`${resetUrl}/e2e/cleanup`, {
+      headers: { "Content-Type": "application/json" },
+      data: { secret: resetSecret, prefix: "[E2E]" },
+    })
+    if (response.ok()) {
+      console.log("E2E cleanup: OK")
+    } else {
+      console.warn("E2E cleanup failed:", response.status())
+    }
+  } catch (error) {
+    console.warn("E2E cleanup error (non-blocking):", error)
+  }
+})

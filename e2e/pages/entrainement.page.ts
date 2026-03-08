@@ -1,5 +1,4 @@
 import { type Page, expect } from "@playwright/test"
-
 import { BasePage } from "./base.page"
 
 export class EntrainementPage extends BasePage {
@@ -26,7 +25,10 @@ export class EntrainementPage extends BasePage {
 
   /** Returns true if there's an in-progress session to resume */
   async hasActiveSession(): Promise<boolean> {
-    return this.page.getByText("Session en cours").isVisible().catch(() => false)
+    return this.page
+      .getByText("Session en cours")
+      .isVisible()
+      .catch(() => false)
   }
 
   /** Abandon the current in-progress session so we can start fresh */
@@ -97,9 +99,7 @@ export class EntrainementPage extends BasePage {
     // Click finish — could be in header or session-navigation
     await this.page.getByTestId("btn-finish").click()
 
-    await expect(
-      this.page.getByText("Terminer la session ?"),
-    ).toBeVisible()
+    await expect(this.page.getByText("Terminer la session ?")).toBeVisible()
 
     const dialog = this.page.locator('[role="alertdialog"], [role="dialog"]')
     await dialog.getByRole("button", { name: "Terminer" }).click()

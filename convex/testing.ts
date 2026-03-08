@@ -1,5 +1,4 @@
 import { v } from "convex/values"
-
 import { internal } from "./_generated/api"
 import { httpAction, internalMutation } from "./_generated/server"
 
@@ -65,7 +64,7 @@ export const resetExamParticipation = internalMutation({
             isActive: true,
             createdBy: user._id,
           })
-          activeExam = await ctx.db.get(examId)
+          activeExam = (await ctx.db.get(examId)) ?? undefined
           activatedExamTitle = "Examen E2E (created)"
           console.log(
             `[E2E Reset] Created exam with ${questions.length} questions`,
@@ -133,16 +132,125 @@ export const resetExamParticipation = internalMutation({
 })
 
 /**
+ * Cleanup E2E test data (questions, exams with [E2E] prefix).
+ * Called from global.teardown.ts after all tests complete.
+ */
+export const cleanupE2EData = internalMutation({
+  args: { prefix: v.string() },
+  handler: async (ctx, { prefix }) => {
+    let deletedQuestions = 0
+    let deletedExams = 0
+
+    // Delete questions with [E2E] prefix
+    const questions = await ctx.db.query("questions").take(500)
+    for (const q of questions) {
+      if (q.question.startsWith(prefix)) {
+        await ctx.db.delete(q._id)
+        deletedQuestions++
+      }
+    }
+
+    // Delete exams with [E2E] prefix
+    const exams = await ctx.db.query("exams").take(500)
+    for (const exam of exams) {
+      if (exam.title.startsWith(prefix)) {
+        // Delete related participations and answers
+        const participations = await ctx.db
+          .query("examParticipations")
+          .withIndex("by_exam", (q) => q.eq("examId", exam._id))
+          .collect()
+
+        for (const p of participations) {
+          const answers = await ctx.db
+            .query("examAnswers")
+            .withIndex("by_participation", (q) =>
+              q.eq("participationId", p._id),
+            )
+            .collect()
+          for (const a of answers) {
+            await ctx.db.delete(a._id)
+          }
+          await ctx.db.delete(p._id)
+        }
+
+        await ctx.db.delete(exam._id)
+        deletedExams++
+      }
+    }
+
+    console.log(
+      `[E2E Cleanup] Deleted ${deletedQuestions} questions, ${deletedExams} exams with prefix "${prefix}"`,
+    )
+
+    return { deletedQuestions, deletedExams }
+  },
+})
+
+/**
+ * HTTP action handler for E2E cleanup endpoint.
+ * Protected by E2E_RESET_SECRET environment variable.
+ */
+export const cleanupHandler = httpAction(async (ctx, request) => {
+  const resetSecret = process.env.E2E_RESET_SECRET
+  if (!resetSecret) {
+    return new Response(JSON.stringify({ error: "E2E reset not configured" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  const body = await request.json()
+  const { secret, prefix } = body as {
+    secret?: string
+    prefix?: string
+  }
+
+  if (secret !== resetSecret) {
+    return new Response(JSON.stringify({ error: "Invalid secret" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  if (!prefix) {
+    return new Response(JSON.stringify({ error: "prefix is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    })
+  }
+
+  try {
+    const result = await ctx.runMutation(internal.testing.cleanupE2EData, {
+      prefix,
+    })
+
+    return new Response(JSON.stringify({ success: true, ...result }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  } catch (error) {
+    console.error("[E2E Cleanup] Error:", error)
+    return new Response(
+      JSON.stringify({
+        error: "Cleanup failed",
+        message: String(error),
+      }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    )
+  }
+})
+
+/**
  * HTTP action handler for E2E reset endpoint.
  * Protected by E2E_RESET_SECRET environment variable.
  */
 export const resetExamHandler = httpAction(async (ctx, request) => {
   const resetSecret = process.env.E2E_RESET_SECRET
   if (!resetSecret) {
-    return new Response(
-      JSON.stringify({ error: "E2E reset not configured" }),
-      { status: 503, headers: { "Content-Type": "application/json" } },
-    )
+    return new Response(JSON.stringify({ error: "E2E reset not configured" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    })
   }
 
   const body = await request.json()
@@ -159,10 +267,10 @@ export const resetExamHandler = httpAction(async (ctx, request) => {
   }
 
   if (!userEmail) {
-    return new Response(
-      JSON.stringify({ error: "userEmail is required" }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    )
+    return new Response(JSON.stringify({ error: "userEmail is required" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    })
   }
 
   try {

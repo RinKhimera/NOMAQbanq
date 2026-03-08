@@ -2189,9 +2189,7 @@ describe("users", () => {
         const tp = await ctx.db.get(trainingParticipationId)
         expect(tp).toBeNull()
 
-        const trainingAnswers = await ctx.db
-          .query("trainingAnswers")
-          .collect()
+        const trainingAnswers = await ctx.db.query("trainingAnswers").collect()
         expect(trainingAnswers).toHaveLength(0)
 
         // Exam data supprime
@@ -2210,9 +2208,7 @@ describe("users", () => {
         expect(rateLimits).toHaveLength(0)
 
         // ExamParticipationStats decremente (supprime car count=1 -> 0)
-        const stats = await ctx.db
-          .query("examParticipationStats")
-          .collect()
+        const stats = await ctx.db.query("examParticipationStats").collect()
         expect(stats).toHaveLength(0)
       })
 

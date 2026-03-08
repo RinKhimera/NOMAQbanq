@@ -1,5 +1,4 @@
 import { type Page, expect } from "@playwright/test"
-
 import { BasePage } from "./base.page"
 
 export class PaymentPage extends BasePage {
@@ -27,20 +26,20 @@ export class PaymentPage extends BasePage {
 
   async expectPaywall(type: "training" | "exam") {
     if (type === "training") {
-      await expect(
-        this.page.getByText("Débloquez l'Entraînement"),
-      ).toBeVisible({ timeout: 15_000 })
+      await expect(this.page.getByText("Débloquez l'Entraînement")).toBeVisible(
+        { timeout: 15_000 },
+      )
     } else {
-      await expect(
-        this.page.getByText(/Accès aux examens requis/),
-      ).toBeVisible({ timeout: 15_000 })
+      await expect(this.page.getByText(/Accès aux examens requis/)).toBeVisible(
+        { timeout: 15_000 },
+      )
     }
   }
 
   async expectNoPaywall() {
-    await expect(
-      this.page.getByText("Nouvelle session"),
-    ).toBeVisible({ timeout: 15_000 })
+    await expect(this.page.getByText("Nouvelle session")).toBeVisible({
+      timeout: 15_000,
+    })
   }
 
   async expectActiveAccess(type: "training" | "exam") {

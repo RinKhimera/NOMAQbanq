@@ -13,7 +13,7 @@ import {
   validateImageFile,
 } from "./lib/bunny"
 import { STRIPE_API_VERSION } from "./lib/stripe"
-import { resetExamHandler } from "./testing"
+import { cleanupHandler, resetExamHandler } from "./testing"
 
 const http = httpRouter()
 
@@ -41,7 +41,15 @@ http.route({
 
       case "user.updated":
         await ctx.runMutation(internal.users.upsertFromClerk, {
-          data: event.data,
+          data: {
+            id: event.data.id,
+            first_name: event.data.first_name,
+            last_name: event.data.last_name,
+            email_addresses: event.data.email_addresses.map((e) => ({
+              email_address: e.email_address,
+            })),
+            image_url: event.data.image_url,
+          },
         })
         break
 
@@ -462,6 +470,12 @@ http.route({
   path: "/e2e/reset-exam",
   method: "POST",
   handler: resetExamHandler,
+})
+
+http.route({
+  path: "/e2e/cleanup",
+  method: "POST",
+  handler: cleanupHandler,
 })
 
 export default http

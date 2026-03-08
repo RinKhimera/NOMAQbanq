@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test"
-
 import { PaymentPage } from "../pages/payment.page"
 
 test.describe("Paiement et acces — paywall et verification", () => {
@@ -8,16 +7,14 @@ test.describe("Paiement et acces — paywall et verification", () => {
     await payment.gotoTarifs()
 
     await expect(
-      page.getByRole("button", { name: /Acheter maintenant|Prolonger/ }).first(),
+      page
+        .getByRole("button", { name: /Acheter maintenant|Prolonger/ })
+        .first(),
     ).toBeVisible()
-    await expect(
-      page.getByText(/Paiement sécurisé/),
-    ).toBeVisible()
+    await expect(page.getByText(/Paiement sécurisé/)).toBeVisible()
   })
 
-  test("la page abonnements affiche le statut des acces", async ({
-    page,
-  }) => {
+  test("la page abonnements affiche le statut des acces", async ({ page }) => {
     const payment = new PaymentPage(page)
     await payment.gotoAbonnements()
 
@@ -57,12 +54,10 @@ test.describe("Paiement et acces — paywall et verification", () => {
     const payment = new PaymentPage(page)
     await payment.gotoPaymentSuccess()
 
-    await expect(
-      page.getByText("Erreur de vérification"),
-    ).toBeVisible({ timeout: 15_000 })
-    await expect(
-      page.getByText(/Aucun identifiant de session/),
-    ).toBeVisible()
+    await expect(page.getByText("Erreur de vérification")).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(page.getByText(/Aucun identifiant de session/)).toBeVisible()
   })
 
   test("la page succes de paiement affiche erreur avec session_id invalide", async ({

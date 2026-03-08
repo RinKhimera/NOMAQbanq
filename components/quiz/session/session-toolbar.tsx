@@ -103,6 +103,7 @@ export const SessionToolbar = ({
             onClick={onOpenLabValues}
             className="h-12 w-12 rounded-full bg-linear-to-br from-teal-500 to-cyan-600 shadow-lg shadow-teal-500/25 hover:from-teal-600 hover:to-cyan-700 dark:from-teal-400 dark:to-cyan-500 dark:shadow-teal-900/30 dark:hover:from-teal-300 dark:hover:to-cyan-400"
             aria-label="Ouvrir les valeurs de laboratoire"
+            data-testid="btn-lab-values"
           >
             <FlaskConical className="h-5 w-5" />
           </Button>
@@ -124,6 +125,7 @@ export const SessionToolbar = ({
             onClick={onOpenCalculator}
             className="h-12 w-12 rounded-full bg-linear-to-br from-purple-600 to-violet-600 shadow-lg shadow-purple-500/25 hover:from-purple-700 hover:to-violet-700 dark:from-purple-500 dark:to-violet-500 dark:shadow-purple-900/30 dark:hover:from-purple-400 dark:hover:to-violet-400"
             aria-label="Ouvrir la calculatrice"
+            data-testid="btn-calculator"
           >
             <Calculator className="h-5 w-5" />
           </Button>

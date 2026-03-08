@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test"
-
 import { EntrainementPage } from "../pages/entrainement.page"
 
 test.describe("Entrainement — session complete", () => {
@@ -147,5 +146,117 @@ test.describe("Entrainement — session complete", () => {
     await expect(page.locator("text=/\\d+%/").first()).toBeVisible({
       timeout: 10_000,
     })
+  })
+
+  test("la calculatrice s'ouvre depuis la toolbar", async ({ page }) => {
+    await entrainement.goto()
+    if (!(await entrainement.hasAccess())) test.skip()
+
+    await entrainement.waitForForm()
+    await entrainement.setQuestionCount(5)
+    await entrainement.startSession()
+    await entrainement.waitForQuestion(1, 5)
+
+    // Click calculator FAB
+    const calculatorBtn = page.locator("[data-testid='btn-calculator']")
+    await expect(calculatorBtn).toBeVisible({ timeout: 10_000 })
+    await calculatorBtn.click()
+
+    // Calculator dialog should open
+    await expect(
+      page.locator("[role='dialog']").filter({ hasText: /Calculatrice|AC|0/ }),
+    ).toBeVisible({ timeout: 5_000 })
+
+    // Close it
+    await page.keyboard.press("Escape")
+  })
+
+  test("les valeurs de laboratoire s'ouvrent depuis la toolbar", async ({
+    page,
+  }) => {
+    await entrainement.goto()
+    if (!(await entrainement.hasAccess())) test.skip()
+
+    await entrainement.waitForForm()
+    await entrainement.setQuestionCount(5)
+    await entrainement.startSession()
+    await entrainement.waitForQuestion(1, 5)
+
+    // Click lab values FAB
+    const labBtn = page.locator("[data-testid='btn-lab-values']")
+    await expect(labBtn).toBeVisible({ timeout: 10_000 })
+    await labBtn.click()
+
+    // Lab values dialog should open
+    await expect(
+      page
+        .locator("[role='dialog']")
+        .filter({ hasText: /Valeurs de laboratoire|Paramètre/ }),
+    ).toBeVisible({ timeout: 5_000 })
+
+    // Close it
+    await page.keyboard.press("Escape")
+  })
+
+  test("la page resultats filtre les erreurs uniquement", async ({ page }) => {
+    await entrainement.goto()
+    if (!(await entrainement.hasAccess())) test.skip()
+
+    await entrainement.waitForForm()
+    await entrainement.setQuestionCount(5)
+    await entrainement.startSession()
+
+    // Answer all questions
+    for (let i = 0; i < 5; i++) {
+      await entrainement.waitForQuestion(i + 1, 5)
+      await entrainement.selectAnswer(0)
+      if (i < 4) {
+        await entrainement.nextQuestion()
+      }
+    }
+
+    await entrainement.finishSession()
+
+    // On results page — click filter errors button
+    const filterBtn = page.locator("[data-testid='btn-filter-errors']")
+    await expect(filterBtn).toBeVisible({ timeout: 15_000 })
+    await filterBtn.click()
+
+    // Button text should change to "Voir toutes"
+    await expect(filterBtn).toHaveText("Voir toutes")
+
+    // Click again to show all
+    await filterBtn.click()
+    await expect(filterBtn).toHaveText(/Erreurs/)
+  })
+
+  test("les boutons tout ouvrir / tout fermer fonctionnent", async ({
+    page,
+  }) => {
+    await entrainement.goto()
+    if (!(await entrainement.hasAccess())) test.skip()
+
+    await entrainement.waitForForm()
+    await entrainement.setQuestionCount(5)
+    await entrainement.startSession()
+
+    for (let i = 0; i < 5; i++) {
+      await entrainement.waitForQuestion(i + 1, 5)
+      await entrainement.selectAnswer(0)
+      if (i < 4) {
+        await entrainement.nextQuestion()
+      }
+    }
+
+    await entrainement.finishSession()
+
+    // Expand all
+    const expandBtn = page.locator("[data-testid='btn-expand-all']")
+    await expect(expandBtn).toBeVisible({ timeout: 15_000 })
+    await expandBtn.click()
+
+    // Collapse all
+    const collapseBtn = page.locator("[data-testid='btn-collapse-all']")
+    await collapseBtn.click()
   })
 })
