@@ -53,7 +53,9 @@ export const ProfileHeader = ({ user, onAvatarChange }: ProfileHeaderProps) => {
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
           {/* Avatar with upload */}
           <motion.div
-            initial={prefersReducedMotion ? undefined : { scale: 0.8, opacity: 0 }}
+            initial={
+              prefersReducedMotion ? undefined : { scale: 0.8, opacity: 0 }
+            }
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             className="relative"
@@ -70,7 +72,7 @@ export const ProfileHeader = ({ user, onAvatarChange }: ProfileHeaderProps) => {
             </div>
 
             {/* Camera indicator */}
-            <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md ring-2 ring-white dark:bg-gray-800 dark:ring-gray-800">
+            <div className="absolute -right-1 -bottom-1 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md ring-2 ring-white dark:bg-gray-800 dark:ring-gray-800">
               <svg
                 className="h-4 w-4 text-blue-600"
                 fill="none"
@@ -100,7 +102,7 @@ export const ProfileHeader = ({ user, onAvatarChange }: ProfileHeaderProps) => {
             className="flex-1 text-center sm:text-left"
           >
             {/* Name */}
-            <h1 className="font-display text-2xl font-bold text-gray-900 dark:text-white md:text-3xl">
+            <h1 className="font-display text-2xl font-bold text-gray-900 md:text-3xl dark:text-white">
               {user.name}
             </h1>
 
@@ -112,7 +114,7 @@ export const ProfileHeader = ({ user, onAvatarChange }: ProfileHeaderProps) => {
             )}
 
             {/* Email */}
-            <div className="mt-3 flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 sm:justify-start">
+            <div className="mt-3 flex items-center justify-center gap-2 text-gray-600 sm:justify-start dark:text-gray-400">
               <IconMail className="h-4 w-4" />
               <span className="text-sm">{user.email}</span>
             </div>

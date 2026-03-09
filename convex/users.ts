@@ -1,7 +1,9 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
+import { internal } from "./_generated/api"
 import {
   QueryCtx,
+  internalAction,
   internalMutation,
   internalQuery,
   mutation,
@@ -13,6 +15,8 @@ import {
   getCurrentUserOrThrow,
 } from "./lib/auth"
 import { batchGetByIds } from "./lib/batchFetch"
+import { deleteFromBunny } from "./lib/bunny"
+import { decrementExamParticipationCount } from "./lib/examStats"
 
 async function userByExternalId(ctx: QueryCtx, externalId: string) {
   return await ctx.db
@@ -29,7 +33,7 @@ const clerkUserDataValidator = v.object({
   email_addresses: v.array(
     v.object({
       email_address: v.string(),
-    })
+    }),
   ),
   image_url: v.optional(v.union(v.string(), v.null())),
 })
@@ -62,6 +66,10 @@ export const upsertFromClerk = internalMutation({
   },
 })
 
+/**
+ * @deprecated Utiliser cascadeDeleteUser action a la place.
+ * Conserve pour compatibilite arriere.
+ */
 export const deleteFromClerk = internalMutation({
   args: { clerkUserId: v.string() },
   returns: v.null(),
@@ -75,6 +83,170 @@ export const deleteFromClerk = internalMutation({
         `Can't delete user, there is none for Clerk user ID: ${clerkUserId}`,
       )
     }
+  },
+})
+
+/**
+ * [Internal] Supprime toutes les donnees utilisateur en cascade.
+ * Retourne le avatarStoragePath pour nettoyage CDN par l'action appelante.
+ */
+export const _cascadeDeleteUserData = internalMutation({
+  args: { clerkUserId: v.string() },
+  returns: v.object({
+    deleted: v.boolean(),
+    avatarStoragePath: v.union(v.string(), v.null()),
+    stats: v.object({
+      trainingParticipations: v.number(),
+      trainingAnswers: v.number(),
+      examParticipations: v.number(),
+      examAnswers: v.number(),
+      userAccess: v.number(),
+      rateLimits: v.number(),
+    }),
+  }),
+  async handler(ctx, { clerkUserId }) {
+    const user = await userByExternalId(ctx, clerkUserId)
+
+    if (!user) {
+      console.warn(
+        `[CascadeDelete] User not found for Clerk ID: ${clerkUserId}`,
+      )
+      return {
+        deleted: false,
+        avatarStoragePath: null,
+        stats: {
+          trainingParticipations: 0,
+          trainingAnswers: 0,
+          examParticipations: 0,
+          examAnswers: 0,
+          userAccess: 0,
+          rateLimits: 0,
+        },
+      }
+    }
+
+    const userId = user._id
+    const avatarStoragePath = user.avatarStoragePath ?? null
+    let totalTrainingAnswers = 0
+    let totalExamAnswers = 0
+
+    // 1. Supprimer trainingParticipations + trainingAnswers
+    const trainingParticipations = await ctx.db
+      .query("trainingParticipations")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(1000)
+
+    for (const tp of trainingParticipations) {
+      const answers = await ctx.db
+        .query("trainingAnswers")
+        .withIndex("by_participation", (q) => q.eq("participationId", tp._id))
+        .take(25)
+
+      for (const answer of answers) {
+        await ctx.db.delete(answer._id)
+        totalTrainingAnswers++
+      }
+      await ctx.db.delete(tp._id)
+    }
+
+    // 2. Supprimer examParticipations + examAnswers + decrementer stats
+    const examParticipations = await ctx.db
+      .query("examParticipations")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .take(500)
+
+    for (const ep of examParticipations) {
+      const answers = await ctx.db
+        .query("examAnswers")
+        .withIndex("by_participation", (q) => q.eq("participationId", ep._id))
+        .take(500)
+
+      for (const answer of answers) {
+        await ctx.db.delete(answer._id)
+        totalExamAnswers++
+      }
+      await ctx.db.delete(ep._id)
+      await decrementExamParticipationCount(ctx, ep.examId)
+    }
+
+    // 3. Supprimer userAccess
+    const accessRecords = await ctx.db
+      .query("userAccess")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .take(10)
+
+    for (const access of accessRecords) {
+      await ctx.db.delete(access._id)
+    }
+
+    // 4. Supprimer uploadRateLimits
+    const rateLimits = await ctx.db
+      .query("uploadRateLimits")
+      .withIndex("by_clerk_type", (q) => q.eq("clerkId", clerkUserId))
+      .take(5)
+
+    for (const rl of rateLimits) {
+      await ctx.db.delete(rl._id)
+    }
+
+    // 5. Supprimer le document utilisateur
+    await ctx.db.delete(userId)
+
+    console.log(
+      `[CascadeDelete] Deleted user ${clerkUserId}: ` +
+        `${trainingParticipations.length} training sessions, ${totalTrainingAnswers} training answers, ` +
+        `${examParticipations.length} exam participations, ${totalExamAnswers} exam answers, ` +
+        `${accessRecords.length} access records, ${rateLimits.length} rate limits`,
+    )
+
+    return {
+      deleted: true,
+      avatarStoragePath,
+      stats: {
+        trainingParticipations: trainingParticipations.length,
+        trainingAnswers: totalTrainingAnswers,
+        examParticipations: examParticipations.length,
+        examAnswers: totalExamAnswers,
+        userAccess: accessRecords.length,
+        rateLimits: rateLimits.length,
+      },
+    }
+  },
+})
+
+/**
+ * [Internal] Action qui orchestre la suppression cascade d'un utilisateur.
+ * Appele depuis le webhook Clerk user.deleted.
+ * Gere la suppression DB (mutation) + avatar Bunny CDN (API externe).
+ */
+export const cascadeDeleteUser = internalAction({
+  args: { clerkUserId: v.string() },
+  returns: v.null(),
+  async handler(ctx, { clerkUserId }) {
+    const result = await ctx.runMutation(
+      internal.users._cascadeDeleteUserData,
+      { clerkUserId },
+    )
+
+    if (!result.deleted) {
+      console.warn(`[CascadeDelete] No user found for ${clerkUserId}, skipping`)
+      return null
+    }
+
+    if (result.avatarStoragePath) {
+      const deleted = await deleteFromBunny(result.avatarStoragePath)
+      if (deleted) {
+        console.log(
+          `[CascadeDelete] Avatar deleted from Bunny: ${result.avatarStoragePath}`,
+        )
+      } else {
+        console.warn(
+          `[CascadeDelete] Failed to delete avatar from Bunny: ${result.avatarStoragePath}`,
+        )
+      }
+    }
+
+    return null
   },
 })
 
@@ -213,6 +385,7 @@ export const updateUserProfile = mutation({
 })
 
 export const getAllUsers = query({
+  args: {},
   returns: v.union(
     v.null(),
     v.array(
@@ -353,8 +526,16 @@ export const getUsersStats = query({
     activeTrainingAccess: v.number(),
     trainingExpiringCount: v.number(),
     revenueByCurrency: v.object({
-      CAD: v.object({ recent: v.number(), previous: v.number(), trend: v.number() }),
-      XAF: v.object({ recent: v.number(), previous: v.number(), trend: v.number() }),
+      CAD: v.object({
+        recent: v.number(),
+        previous: v.number(),
+        trend: v.number(),
+      }),
+      XAF: v.object({
+        recent: v.number(),
+        previous: v.number(),
+        trend: v.number(),
+      }),
     }),
   }),
   handler: async (ctx) => {
@@ -575,10 +756,8 @@ export const getUsersWithFilters = query({
     }
 
     // Access status filtering requires joining with userAccess
-    const accessMap: Map<
-      string,
-      { exam?: number; training?: number }
-    > = new Map()
+    const accessMap: Map<string, { exam?: number; training?: number }> =
+      new Map()
 
     {
       // Always fetch access for enrichment (needed for access badges in UI)
@@ -921,6 +1100,7 @@ export const getUsersWithActiveExamAccess = query({
  * [Admin] Compte le nombre d'utilisateurs avec un accès exam actif
  */
 export const getActiveExamAccessCount = query({
+  args: {},
   returns: v.number(),
   handler: async (ctx) => {
     await getAdminUserOrThrow(ctx)

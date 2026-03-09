@@ -1,5 +1,6 @@
 "use client"
 
+import { usePaginatedQuery } from "convex/react"
 import {
   createContext,
   useCallback,
@@ -8,21 +9,19 @@ import {
   useMemo,
   useState,
 } from "react"
-import { usePaginatedQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import {
-  defaultFilters,
   QuestionBrowserContextState,
   QuestionBrowserMode,
   QuestionFilters,
   QuestionRow,
   SortBy,
+  defaultFilters,
 } from "./types"
 
-const QuestionBrowserContext = createContext<QuestionBrowserContextState | null>(
-  null
-)
+const QuestionBrowserContext =
+  createContext<QuestionBrowserContextState | null>(null)
 
 interface QuestionBrowserProviderProps {
   children: React.ReactNode
@@ -54,7 +53,10 @@ export function QuestionBrowserProvider({
 
   // Debounce search to avoid excessive Convex queries
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearchQuery(filters.searchQuery), 300)
+    const timer = setTimeout(
+      () => setDebouncedSearchQuery(filters.searchQuery),
+      300,
+    )
     return () => clearTimeout(timer)
   }, [filters.searchQuery])
 
@@ -63,7 +65,8 @@ export function QuestionBrowserProvider({
     useState<Id<"questions"> | null>(null)
 
   // Use external or internal preview based on props (controlled/uncontrolled)
-  const previewQuestionId = externalPreviewId !== undefined ? externalPreviewId : internalPreviewId
+  const previewQuestionId =
+    externalPreviewId !== undefined ? externalPreviewId : internalPreviewId
   const setPreviewQuestionId = onPreviewChange ?? setInternalPreviewId
 
   // Internal selection state (used when not controlled externally)
@@ -91,13 +94,11 @@ export function QuestionBrowserProvider({
       searchQuery: debouncedSearchQuery || undefined,
       domain: filters.domain !== "all" ? filters.domain : undefined,
       hasImages:
-        filters.hasImages === "all"
-          ? undefined
-          : filters.hasImages === "with",
+        filters.hasImages === "all" ? undefined : filters.hasImages === "with",
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
     },
-    { initialNumItems: 50 }
+    { initialNumItems: 50 },
   )
 
   // Computed states
@@ -119,7 +120,7 @@ export function QuestionBrowserProvider({
     <K extends keyof QuestionFilters>(key: K, value: QuestionFilters[K]) => {
       setFilters((prev) => ({ ...prev, [key]: value }))
     },
-    []
+    [],
   )
 
   // Clear all filters
@@ -150,7 +151,7 @@ export function QuestionBrowserProvider({
         setSelectedIds([...selectedIds, id])
       }
     },
-    [selectedIds, setSelectedIds, maxSelection]
+    [selectedIds, setSelectedIds, maxSelection],
   )
 
   const clearSelection = useCallback(() => {
@@ -159,7 +160,7 @@ export function QuestionBrowserProvider({
 
   const isSelected = useCallback(
     (id: Id<"questions">) => selectedIds.includes(id),
-    [selectedIds]
+    [selectedIds],
   )
 
   // Load more wrapper
@@ -226,7 +227,7 @@ export function QuestionBrowserProvider({
       loadMore,
       isLoadingMore,
       isSearching,
-    ]
+    ],
   )
 
   return (
@@ -240,7 +241,7 @@ export function useQuestionBrowser() {
   const context = useContext(QuestionBrowserContext)
   if (!context) {
     throw new Error(
-      "useQuestionBrowser must be used within a QuestionBrowserProvider"
+      "useQuestionBrowser must be used within a QuestionBrowserProvider",
     )
   }
   return context

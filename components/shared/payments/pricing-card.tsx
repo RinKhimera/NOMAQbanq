@@ -1,11 +1,11 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { ArrowRight, Check, Clock, Crown, Sparkles, Zap } from "lucide-react"
 import { motion } from "motion/react"
-import { Check, Crown, Sparkles, Zap, Clock, ArrowRight } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { formatCurrency } from "@/lib/format"
+import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { formatCurrency } from "@/lib/format"
+import { cn } from "@/lib/utils"
 import { AccessBadge, getAccessStatus } from "./access-badge"
 
 interface Product {
@@ -35,7 +35,8 @@ interface PricingCardProps {
 const accessTypeConfig = {
   exam: {
     gradient: "from-blue-600 via-indigo-600 to-violet-600",
-    lightGradient: "from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50",
+    lightGradient:
+      "from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50",
     accentColor: "text-blue-600 dark:text-blue-400",
     borderAccent: "border-blue-500/20",
     icon: Zap,
@@ -49,7 +50,8 @@ const accessTypeConfig = {
   },
   training: {
     gradient: "from-emerald-600 via-teal-600 to-cyan-600",
-    lightGradient: "from-emerald-50 to-teal-50 dark:from-emerald-950/50 dark:to-teal-950/50",
+    lightGradient:
+      "from-emerald-50 to-teal-50 dark:from-emerald-950/50 dark:to-teal-950/50",
     accentColor: "text-emerald-600 dark:text-emerald-400",
     borderAccent: "border-emerald-500/20",
     icon: Sparkles,
@@ -74,10 +76,15 @@ export const PricingCard = ({
   const config = accessTypeConfig[product.accessType]
   const Icon = config.icon
   const hasAccess = !!currentAccess
-  const accessStatus = getAccessStatus(currentAccess?.expiresAt, currentAccess?.daysRemaining)
+  const accessStatus = getAccessStatus(
+    currentAccess?.expiresAt,
+    currentAccess?.daysRemaining,
+  )
 
   const isPromo = product.code.includes("promo")
-  const savings = isPromo ? Math.round((1 - (product.priceCAD / (50 * 100 * 6))) * 100) : 0
+  const savings = isPromo
+    ? Math.round((1 - product.priceCAD / (50 * 100 * 6)) * 100)
+    : 0
 
   // Protection contre le double-clic
   const isClickedRef = useRef(false)
@@ -101,7 +108,7 @@ export const PricingCard = ({
       transition={{
         duration: 0.6,
         delay: index * 0.1,
-        ease: [0.16, 1, 0.3, 1]
+        ease: [0.16, 1, 0.3, 1],
       }}
       className="group relative"
     >
@@ -113,11 +120,13 @@ export const PricingCard = ({
           transition={{ delay: 0.3 + index * 0.1, duration: 0.4 }}
           className="absolute -top-4 left-1/2 z-20 -translate-x-1/2"
         >
-          <div className={cn(
-            "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold text-white shadow-lg",
-            "bg-linear-to-r",
-            config.gradient
-          )}>
+          <div
+            className={cn(
+              "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold text-white shadow-lg",
+              "bg-linear-to-r",
+              config.gradient,
+            )}
+          >
             <Crown className="h-4 w-4" />
             Populaire
           </div>
@@ -131,39 +140,45 @@ export const PricingCard = ({
           "dark:bg-gray-900",
           isPopular
             ? "border-transparent shadow-2xl shadow-blue-500/20 dark:shadow-blue-500/10"
-            : "border-gray-200/80 dark:border-gray-700/50 shadow-xl",
-          "hover:shadow-2xl hover:-translate-y-2",
-          isPopular && "ring-2 ring-blue-500/20 dark:ring-blue-400/20"
+            : "border-gray-200/80 shadow-xl dark:border-gray-700/50",
+          "hover:-translate-y-2 hover:shadow-2xl",
+          isPopular && "ring-2 ring-blue-500/20 dark:ring-blue-400/20",
         )}
       >
         {/* Gradient background overlay for popular */}
         {isPopular && (
-          <div className={cn(
-            "absolute inset-0 opacity-[0.03] dark:opacity-[0.08]",
-            "bg-linear-to-br",
-            config.gradient
-          )} />
+          <div
+            className={cn(
+              "absolute inset-0 opacity-[0.03] dark:opacity-[0.08]",
+              "bg-linear-to-br",
+              config.gradient,
+            )}
+          />
         )}
 
         {/* Decorative corner gradient */}
-        <div className={cn(
-          "absolute -right-20 -top-20 h-40 w-40 rounded-full blur-3xl opacity-30 transition-opacity duration-500",
-          "bg-linear-to-br",
-          config.gradient,
-          "group-hover:opacity-50"
-        )} />
+        <div
+          className={cn(
+            "absolute -top-20 -right-20 h-40 w-40 rounded-full opacity-30 blur-3xl transition-opacity duration-500",
+            "bg-linear-to-br",
+            config.gradient,
+            "group-hover:opacity-50",
+          )}
+        />
 
         {/* Content */}
         <div className="relative p-8">
           {/* Header */}
           <div className="mb-6 flex items-start justify-between">
             <div className="space-y-2">
-              <div className={cn(
-                "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-semibold",
-                "bg-linear-to-r",
-                config.lightGradient,
-                config.accentColor
-              )}>
+              <div
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-semibold",
+                  "bg-linear-to-r",
+                  config.lightGradient,
+                  config.accentColor,
+                )}
+              >
                 <Icon className="h-4 w-4" />
                 {config.label}
               </div>
@@ -182,10 +197,12 @@ export const PricingCard = ({
           {/* Price */}
           <div className="mb-6">
             <div className="flex items-baseline gap-2">
-              <span className={cn(
-                "text-5xl font-black tracking-tight",
-                config.accentColor
-              )}>
+              <span
+                className={cn(
+                  "text-5xl font-black tracking-tight",
+                  config.accentColor,
+                )}
+              >
                 {formatCurrency(product.priceCAD)}
               </span>
               {isPromo && (
@@ -226,11 +243,13 @@ export const PricingCard = ({
                 transition={{ delay: 0.4 + index * 0.1 + i * 0.05 }}
                 className="flex items-start gap-3"
               >
-                <div className={cn(
-                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-                  "bg-linear-to-br",
-                  config.gradient
-                )}>
+                <div
+                  className={cn(
+                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
+                    "bg-linear-to-br",
+                    config.gradient,
+                  )}
+                >
                   <Check className="h-3 w-3 text-white" />
                 </div>
                 <span className="text-sm text-gray-600 dark:text-gray-300">
@@ -245,11 +264,14 @@ export const PricingCard = ({
             onClick={handlePurchaseClick}
             disabled={isLoading}
             className={cn(
-              "w-full h-14 text-base font-bold rounded-2xl transition-all duration-300",
+              "h-14 w-full rounded-2xl text-base font-bold transition-all duration-300",
               "shadow-lg hover:shadow-xl",
               isPopular
-                ? cn("bg-linear-to-r text-white hover:opacity-90", config.gradient)
-                : "bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+                ? cn(
+                    "bg-linear-to-r text-white hover:opacity-90",
+                    config.gradient,
+                  )
+                : "bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100",
             )}
           >
             {isLoading ? (

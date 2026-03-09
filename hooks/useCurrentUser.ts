@@ -6,7 +6,7 @@ export const useCurrentUser = () => {
 
   const currentUser = useQuery(
     api.users.getCurrentUser,
-    isAuthenticated ? undefined : "skip"
+    isAuthenticated ? undefined : "skip",
   )
 
   return {

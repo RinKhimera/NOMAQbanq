@@ -1,8 +1,8 @@
 "use client"
 
+import { IconBooks } from "@tabler/icons-react"
 import dynamic from "next/dynamic"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { IconBooks } from "@tabler/icons-react"
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface DomainChartProps {
@@ -24,7 +24,7 @@ const DomainChartContent = dynamic(
       <Card className="flex h-full flex-col">
         <CardHeader className="flex flex-row items-center justify-between pb-2">
           <div className="flex-1">
-            <Skeleton className="h-5 w-40 mb-2" />
+            <Skeleton className="mb-2 h-5 w-40" />
             <Skeleton className="h-4 w-32" />
           </div>
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">

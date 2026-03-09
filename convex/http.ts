@@ -13,6 +13,7 @@ import {
   validateImageFile,
 } from "./lib/bunny"
 import { STRIPE_API_VERSION } from "./lib/stripe"
+import { cleanupHandler, resetExamHandler } from "./testing"
 
 const http = httpRouter()
 
@@ -33,21 +34,28 @@ http.route({
           tokenIdentifier: `${process.env.NEXT_PUBLIC_CLERK_FRONTEND_API_URL}|${event.data.id}`,
           name: `${event.data.first_name ?? "Guest"} ${event.data.last_name ?? ""}`,
           role: "user",
-          email:
-            event.data.email_addresses[0]?.email_address ?? "",
+          email: event.data.email_addresses[0]?.email_address ?? "",
           image: event.data.image_url,
         })
         break
 
       case "user.updated":
         await ctx.runMutation(internal.users.upsertFromClerk, {
-          data: event.data,
+          data: {
+            id: event.data.id,
+            first_name: event.data.first_name,
+            last_name: event.data.last_name,
+            email_addresses: event.data.email_addresses.map((e) => ({
+              email_address: e.email_address,
+            })),
+            image_url: event.data.image_url,
+          },
         })
         break
 
       case "user.deleted": {
         const clerkUserId = event.data.id!
-        await ctx.runMutation(internal.users.deleteFromClerk, { clerkUserId })
+        await ctx.runAction(internal.users.cascadeDeleteUser, { clerkUserId })
         break
       }
 
@@ -105,10 +113,16 @@ http.route({
     let event: Stripe.Event
     try {
       // Use async version for Convex edge runtime compatibility
-      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret)
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature,
+        webhookSecret,
+      )
     } catch (err) {
       console.error("Webhook signature verification failed:", err)
-      return new Response("Webhook signature verification failed", { status: 400 })
+      return new Response("Webhook signature verification failed", {
+        status: 400,
+      })
     }
 
     // Traiter les événements Stripe
@@ -257,7 +271,11 @@ http.route({
 
       // Générer le chemin de stockage
       const extension = getExtensionFromMimeType(file.type)
-      const storagePath = generateQuestionImagePath(questionId, imageIndex, extension)
+      const storagePath = generateQuestionImagePath(
+        questionId,
+        imageIndex,
+        extension,
+      )
 
       // Upload vers Bunny
       const fileBuffer = await file.arrayBuffer()
@@ -267,11 +285,15 @@ http.route({
         return jsonResponse({ error: result.error }, 500, request)
       }
 
-      return jsonResponse({
-        success: true,
-        url: result.url,
-        storagePath: result.storagePath,
-      }, 200, request)
+      return jsonResponse(
+        {
+          success: true,
+          url: result.url,
+          storagePath: result.storagePath,
+        },
+        200,
+        request,
+      )
     } catch (error) {
       console.error("Question image upload error:", error)
       return jsonResponse({ error: "Erreur lors de l'upload" }, 500, request)
@@ -379,11 +401,15 @@ http.route({
         uploadType: "avatar",
       })
 
-      return jsonResponse({
-        success: true,
-        url: result.url,
-        storagePath: result.storagePath,
-      }, 200, request)
+      return jsonResponse(
+        {
+          success: true,
+          url: result.url,
+          storagePath: result.storagePath,
+        },
+        200,
+        request,
+      )
     } catch (error) {
       console.error("Avatar upload error:", error)
       return jsonResponse({ error: "Erreur lors de l'upload" }, 500, request)
@@ -427,9 +453,29 @@ http.route({
       return jsonResponse({ success: deleted }, deleted ? 200 : 500, request)
     } catch (error) {
       console.error("Question image delete error:", error)
-      return jsonResponse({ error: "Erreur lors de la suppression" }, 500, request)
+      return jsonResponse(
+        { error: "Erreur lors de la suppression" },
+        500,
+        request,
+      )
     }
   }),
+})
+
+// ============================================
+// E2E TESTING RESET (dev only)
+// ============================================
+
+http.route({
+  path: "/e2e/reset-exam",
+  method: "POST",
+  handler: resetExamHandler,
+})
+
+http.route({
+  path: "/e2e/cleanup",
+  method: "POST",
+  handler: cleanupHandler,
 })
 
 export default http

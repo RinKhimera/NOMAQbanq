@@ -1,16 +1,16 @@
 "use client"
 
-import { Area, AreaChart, CartesianGrid, XAxis, YAxis, Legend } from "recharts"
+import { IconTrendingUp } from "@tabler/icons-react"
+import { format, parseISO } from "date-fns"
+import { fr } from "date-fns/locale"
+import { Area, AreaChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { IconTrendingUp } from "@tabler/icons-react"
-import { format, parseISO } from "date-fns"
-import { fr } from "date-fns/locale"
 
 interface RevenueChartContentProps {
   data: {
@@ -45,11 +45,13 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
   }
 
   const formatXAF = (value: number) => {
-    return new Intl.NumberFormat("fr-FR", {
-      style: "decimal",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value / 100) + " XAF"
+    return (
+      new Intl.NumberFormat("fr-FR", {
+        style: "decimal",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(value / 100) + " XAF"
+    )
   }
 
   const formatDate = (dateStr: string) => {

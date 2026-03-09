@@ -1,6 +1,6 @@
 import { ConvexError } from "convex/values"
 import { describe, expect, it } from "vitest"
-import { Errors, type ErrorCode } from "@/convex/lib/errors"
+import { type ErrorCode, Errors } from "@/convex/lib/errors"
 
 describe("Errors", () => {
   describe("unauthenticated", () => {

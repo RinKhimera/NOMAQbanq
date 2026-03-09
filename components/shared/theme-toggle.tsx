@@ -20,7 +20,7 @@ export default function ThemeToggle() {
   const mounted = useSyncExternalStore(
     emptySubscribe,
     () => true, // Côté client : toujours monté
-    () => false // Côté serveur : jamais monté
+    () => false, // Côté serveur : jamais monté
   )
 
   // Fermer le dropdown au scroll

@@ -1,7 +1,7 @@
 "use client"
 
-import { motion } from "motion/react"
 import { Mail, Phone } from "lucide-react"
+import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 
 export const FaqCta = () => {
@@ -11,9 +11,9 @@ export const FaqCta = () => {
       <div className="absolute inset-0 bg-black/20" />
 
       {/* Animated background */}
-      <div className="absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl animate-float" />
+      <div className="animate-float absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
       <div
-        className="absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-white/10 blur-3xl animate-float"
+        className="animate-float absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-white/10 blur-3xl"
         style={{ animationDelay: "2s" }}
       />
 

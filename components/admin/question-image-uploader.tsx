@@ -1,24 +1,30 @@
 "use client"
 
+import { useAuth } from "@clerk/nextjs"
 import {
-  closestCenter,
   DndContext,
   DragEndEvent,
   KeyboardSensor,
   PointerSensor,
+  closestCenter,
   useSensor,
   useSensors,
 } from "@dnd-kit/core"
 import {
+  SortableContext,
   arrayMove,
   rectSortingStrategy,
-  SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { useAuth } from "@clerk/nextjs"
-import { IconGripVertical, IconPhoto, IconTrash, IconUpload, IconX } from "@tabler/icons-react"
+import {
+  IconGripVertical,
+  IconPhoto,
+  IconTrash,
+  IconUpload,
+  IconX,
+} from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
 import Image from "next/image"
 import { useCallback, useRef, useState } from "react"
@@ -86,7 +92,7 @@ const SortableImageItem = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group relative aspect-square overflow-hidden rounded-lg border bg-muted",
+        "group bg-muted relative aspect-square overflow-hidden rounded-lg border",
         isDragging && "z-50 opacity-50",
       )}
     >
@@ -122,7 +128,7 @@ const SortableImageItem = ({
       </div>
 
       {/* Badge ordre */}
-      <span className="absolute left-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs font-medium text-white">
+      <span className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs font-medium text-white">
         {image.order + 1}
       </span>
     </div>
@@ -140,7 +146,7 @@ const UploadingImageItem = ({
   item: UploadingImage
   onCancel: () => void
 }) => (
-  <div className="relative aspect-square overflow-hidden rounded-lg border bg-muted">
+  <div className="bg-muted relative aspect-square overflow-hidden rounded-lg border">
     <Image
       src={item.preview}
       alt="Upload en cours"
@@ -161,7 +167,9 @@ const UploadingImageItem = ({
       {item.status === "error" && (
         <div className="text-center">
           <IconX className="mx-auto h-6 w-6 text-red-400" />
-          <span className="mt-1 text-xs text-red-300">{item.error || "Erreur"}</span>
+          <span className="mt-1 text-xs text-red-300">
+            {item.error || "Erreur"}
+          </span>
         </div>
       )}
 
@@ -174,7 +182,7 @@ const UploadingImageItem = ({
       <button
         type="button"
         onClick={onCancel}
-        className="absolute right-1 top-1 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
+        className="absolute top-1 right-1 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
       >
         <IconX className="h-3 w-3" />
       </button>
@@ -210,93 +218,103 @@ export const QuestionImageUploader = ({
   imagesRef.current = images
 
   // Upload d'une image vers Bunny
-  const uploadImage = useCallback(async (file: File, index: number): Promise<QuestionImage | null> => {
-    const uploadId = `upload-${Date.now()}-${index}`
+  const uploadImage = useCallback(
+    async (file: File, index: number): Promise<QuestionImage | null> => {
+      const uploadId = `upload-${Date.now()}-${index}`
 
-    setUploadingImages((prev) => [
-      ...prev,
-      {
-        id: uploadId,
-        file,
-        preview: URL.createObjectURL(file),
-        progress: 0,
-        status: "uploading",
-      },
-    ])
+      setUploadingImages((prev) => [
+        ...prev,
+        {
+          id: uploadId,
+          file,
+          preview: URL.createObjectURL(file),
+          progress: 0,
+          status: "uploading",
+        },
+      ])
 
-    try {
-      const token = await getToken({ template: "convex" })
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("questionId", questionId)
-      formData.append("imageIndex", (imagesRef.current.length + index).toString())
+      try {
+        const token = await getToken({ template: "convex" })
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("questionId", questionId)
+        formData.append(
+          "imageIndex",
+          (imagesRef.current.length + index).toString(),
+        )
 
-      // Simuler le progress (les fetch ne supportent pas nativement le progress)
-      const progressInterval = setInterval(() => {
+        // Simuler le progress (les fetch ne supportent pas nativement le progress)
+        const progressInterval = setInterval(() => {
+          setUploadingImages((prev) =>
+            prev.map((img) =>
+              img.id === uploadId && img.progress < 90
+                ? { ...img, progress: img.progress + 10 }
+                : img,
+            ),
+          )
+        }, 200)
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_CONVEX_URL?.replace(".cloud", ".site")}/api/upload/question-image`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            body: formData,
+          },
+        )
+
+        clearInterval(progressInterval)
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || "Erreur lors de l'upload")
+        }
+
+        const result = await response.json()
+
+        // Marquer comme terminé
         setUploadingImages((prev) =>
           prev.map((img) =>
-            img.id === uploadId && img.progress < 90
-              ? { ...img, progress: img.progress + 10 }
+            img.id === uploadId
+              ? { ...img, progress: 100, status: "done" }
               : img,
           ),
         )
-      }, 200)
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_CONVEX_URL?.replace(".cloud", ".site")}/api/upload/question-image`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        },
-      )
+        // Nettoyer après un court délai
+        setTimeout(() => {
+          setUploadingImages((prev) =>
+            prev.filter((img) => img.id !== uploadId),
+          )
+        }, 500)
 
-      clearInterval(progressInterval)
+        return {
+          url: result.url,
+          storagePath: result.storagePath,
+          order: imagesRef.current.length + index,
+        }
+      } catch (error) {
+        console.error("Upload error:", error)
 
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Erreur lors de l'upload")
+        setUploadingImages((prev) =>
+          prev.map((img) =>
+            img.id === uploadId
+              ? {
+                  ...img,
+                  status: "error",
+                  error: error instanceof Error ? error.message : "Erreur",
+                }
+              : img,
+          ),
+        )
+
+        return null
       }
-
-      const result = await response.json()
-
-      // Marquer comme terminé
-      setUploadingImages((prev) =>
-        prev.map((img) =>
-          img.id === uploadId ? { ...img, progress: 100, status: "done" } : img,
-        ),
-      )
-
-      // Nettoyer après un court délai
-      setTimeout(() => {
-        setUploadingImages((prev) => prev.filter((img) => img.id !== uploadId))
-      }, 500)
-
-      return {
-        url: result.url,
-        storagePath: result.storagePath,
-        order: imagesRef.current.length + index,
-      }
-    } catch (error) {
-      console.error("Upload error:", error)
-
-      setUploadingImages((prev) =>
-        prev.map((img) =>
-          img.id === uploadId
-            ? {
-                ...img,
-                status: "error",
-                error: error instanceof Error ? error.message : "Erreur",
-              }
-            : img,
-        ),
-      )
-
-      return null
-    }
-  }, [getToken, questionId])
+    },
+    [getToken, questionId],
+  )
 
   // Gestion du drop
   const onDrop = useCallback(
@@ -307,7 +325,9 @@ export const QuestionImageUploader = ({
       const filesToUpload = acceptedFiles.slice(0, remainingSlots)
 
       if (filesToUpload.length < acceptedFiles.length) {
-        toast.warning(`Seulement ${remainingSlots} image(s) peuvent être ajoutée(s)`)
+        toast.warning(
+          `Seulement ${remainingSlots} image(s) peuvent être ajoutée(s)`,
+        )
       }
 
       // Upload en parallèle
@@ -321,15 +341,24 @@ export const QuestionImageUploader = ({
       )
 
       if (successfulUploads.length > 0) {
-        const newImages = [...images, ...successfulUploads].map((img, index) => ({
-          ...img,
-          order: index,
-        }))
+        const newImages = [...images, ...successfulUploads].map(
+          (img, index) => ({
+            ...img,
+            order: index,
+          }),
+        )
         onImagesChange(newImages)
         toast.success(`${successfulUploads.length} image(s) ajoutée(s)`)
       }
     },
-    [disabled, images, maxImages, onImagesChange, uploadImage, uploadingImages.length],
+    [
+      disabled,
+      images,
+      maxImages,
+      onImagesChange,
+      uploadImage,
+      uploadingImages.length,
+    ],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -416,15 +445,15 @@ export const QuestionImageUploader = ({
         )}
       >
         <input {...getInputProps()} />
-        <IconUpload className="mx-auto h-10 w-10 text-muted-foreground" />
-        <p className="mt-2 text-sm text-muted-foreground">
+        <IconUpload className="text-muted-foreground mx-auto h-10 w-10" />
+        <p className="text-muted-foreground mt-2 text-sm">
           {isDragActive
             ? "Déposez les images ici..."
             : canAddMore
               ? "Glissez-déposez des images ou cliquez pour sélectionner"
               : `Maximum ${maxImages} images atteint`}
         </p>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-xs">
           JPG, PNG, WebP - Max 5MB par image
         </p>
       </div>
@@ -463,15 +492,13 @@ export const QuestionImageUploader = ({
       )}
 
       {/* Compteur */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex items-center justify-between text-sm">
         <span className="flex items-center gap-1">
           <IconPhoto className="h-4 w-4" />
           {images.length} / {maxImages} images
         </span>
         {images.length > 1 && !disabled && (
-          <span className="text-xs">
-            Glissez pour réorganiser
-          </span>
+          <span className="text-xs">Glissez pour réorganiser</span>
         )}
       </div>
     </div>

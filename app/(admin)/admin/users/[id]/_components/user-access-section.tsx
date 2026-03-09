@@ -1,16 +1,19 @@
 "use client"
 
 import { useQuery } from "convex/react"
+import { Calendar, Clock, Plus, Sparkles, Zap } from "lucide-react"
 import { motion } from "motion/react"
-import { Zap, Sparkles, Plus, Clock, Calendar } from "lucide-react"
-import { Id } from "@/convex/_generated/dataModel"
-import { api } from "@/convex/_generated/api"
-import { cn } from "@/lib/utils"
-import { formatExpiration } from "@/lib/format"
+import {
+  AccessBadge,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Progress } from "@/components/ui/progress"
-import { AccessBadge, getAccessStatus } from "@/components/shared/payments/access-badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
+import { formatExpiration } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 interface UserAccessSectionProps {
   userId: Id<"users">
@@ -22,13 +25,15 @@ const accessTypeConfig = {
     icon: Zap,
     label: "Examens Simulés",
     gradient: "from-blue-600 to-indigo-600",
-    lightGradient: "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30",
+    lightGradient:
+      "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30",
   },
   training: {
     icon: Sparkles,
     label: "Banque d'Entraînement",
     gradient: "from-emerald-600 to-teal-600",
-    lightGradient: "from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30",
+    lightGradient:
+      "from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30",
   },
 }
 
@@ -43,7 +48,9 @@ const AccessCard = ({
   const Icon = config.icon
   const status = getAccessStatus(access?.expiresAt, access?.daysRemaining)
   const isActive = status === "active" || status === "expiring"
-  const progressPercent = access ? Math.min((access.daysRemaining / 180) * 100, 100) : 0
+  const progressPercent = access
+    ? Math.min((access.daysRemaining / 180) * 100, 100)
+    : 0
 
   return (
     <div
@@ -51,7 +58,7 @@ const AccessCard = ({
         "rounded-xl border p-4 transition-all",
         isActive
           ? "border-transparent bg-white shadow-md dark:bg-gray-900"
-          : "border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30"
+          : "border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30",
       )}
     >
       {/* Header */}
@@ -62,13 +69,13 @@ const AccessCard = ({
               "flex h-8 w-8 items-center justify-center rounded-lg",
               isActive
                 ? cn("bg-linear-to-br", config.gradient)
-                : "bg-gray-200 dark:bg-gray-700"
+                : "bg-gray-200 dark:bg-gray-700",
             )}
           >
             <Icon
               className={cn(
                 "h-4 w-4",
-                isActive ? "text-white" : "text-gray-400"
+                isActive ? "text-white" : "text-gray-400",
               )}
             />
           </div>
@@ -115,7 +122,10 @@ const AccessCard = ({
   )
 }
 
-export const UserAccessSection = ({ userId, onAddAccess }: UserAccessSectionProps) => {
+export const UserAccessSection = ({
+  userId,
+  onAddAccess,
+}: UserAccessSectionProps) => {
   const accessStatus = useQuery(api.payments.getUserAccessStatus, { userId })
 
   if (accessStatus === undefined) {
@@ -158,7 +168,10 @@ export const UserAccessSection = ({ userId, onAddAccess }: UserAccessSectionProp
 
       <div className="grid gap-4 sm:grid-cols-2">
         <AccessCard type="exam" access={accessStatus?.examAccess ?? null} />
-        <AccessCard type="training" access={accessStatus?.trainingAccess ?? null} />
+        <AccessCard
+          type="training"
+          access={accessStatus?.trainingAccess ?? null}
+        />
       </div>
     </motion.div>
   )

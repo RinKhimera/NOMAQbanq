@@ -1,9 +1,9 @@
 "use client"
 
-import { useState } from "react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { CalendarIcon, Loader2, Search, X } from "lucide-react"
+import { useState } from "react"
 import { DateRange } from "react-day-picker"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
@@ -23,7 +23,12 @@ import {
 import { cn } from "@/lib/utils"
 
 export type RoleFilter = "all" | "admin" | "user"
-export type AccessStatusFilter = "all" | "active" | "expiring" | "expired" | "never"
+export type AccessStatusFilter =
+  | "all"
+  | "active"
+  | "expiring"
+  | "expired"
+  | "never"
 
 interface UsersFilterBarProps {
   searchQuery: string
@@ -54,7 +59,9 @@ export function UsersFilterBar({
 }: UsersFilterBarProps) {
   const [isCalendarOpen, setIsCalendarOpen] = useState(false)
 
-  const handlePresetClick = (preset: "this_month" | "last_30" | "last_90" | "all") => {
+  const handlePresetClick = (
+    preset: "this_month" | "last_30" | "last_90" | "all",
+  ) => {
     const now = new Date()
 
     switch (preset) {
@@ -79,7 +86,8 @@ export function UsersFilterBar({
 
   const formatDateRange = () => {
     if (!dateRange?.from) return "Toutes les dates"
-    if (!dateRange.to) return format(dateRange.from, "d MMM yyyy", { locale: fr })
+    if (!dateRange.to)
+      return format(dateRange.from, "d MMM yyyy", { locale: fr })
     return `${format(dateRange.from, "d MMM", { locale: fr })} - ${format(dateRange.to, "d MMM yyyy", { locale: fr })}`
   }
 
@@ -89,23 +97,26 @@ export function UsersFilterBar({
         {/* Search */}
         <div className="relative flex-1">
           {isSearching ? (
-            <Loader2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+            <Loader2 className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
           ) : (
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
           )}
           <Input
             type="text"
             placeholder="Rechercher par nom, email ou username..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-10 pl-10 pr-4"
+            className="h-10 pr-4 pl-10"
           />
         </div>
 
         {/* Filters row */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Role filter */}
-          <Select value={role} onValueChange={(v) => onRoleChange(v as RoleFilter)}>
+          <Select
+            value={role}
+            onValueChange={(v) => onRoleChange(v as RoleFilter)}
+          >
             <SelectTrigger className="h-10 w-35">
               <SelectValue placeholder="Rôle" />
             </SelectTrigger>

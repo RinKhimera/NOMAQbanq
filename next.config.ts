@@ -1,13 +1,9 @@
-import {withSentryConfig} from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs"
 import type { NextConfig } from "next"
 
 const nextConfig: NextConfig = {
   experimental: {
-    optimizePackageImports: [
-      "@tabler/icons-react",
-      "lucide-react",
-      "recharts",
-    ],
+    optimizePackageImports: ["@tabler/icons-react", "lucide-react", "recharts"],
   },
   images: {
     remotePatterns: [
@@ -70,4 +66,4 @@ export default withSentryConfig(nextConfig, {
     // https://vercel.com/docs/cron-jobs
     automaticVercelMonitors: true,
   },
-});
+})

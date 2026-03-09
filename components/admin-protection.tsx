@@ -14,7 +14,7 @@ export default function AdminProtection({ children }: AdminProtectionProps) {
   // Skip query until Clerk auth is ready to avoid race condition on page reload
   const isAdmin = useQuery(
     api.users.isCurrentUserAdmin,
-    isAuthenticated ? undefined : "skip"
+    isAuthenticated ? undefined : "skip",
   )
 
   // Loading state: only show loader while auth is loading OR while query is loading

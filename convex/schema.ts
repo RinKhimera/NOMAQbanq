@@ -43,7 +43,25 @@ export default defineSchema({
   questionStats: defineTable({
     domain: v.string(), // Nom du domaine ou "__total__" pour le total
     count: v.number(),
+    withImagesCount: v.optional(v.number()), // Seulement sur la ligne "__total__"
   }).index("by_domain", ["domain"]),
+
+  // Table d'agrégation pour les objectifs CMC (optimisation)
+  // Une ligne par couple (objectifCMC, domain) + (objectifCMC, "__all__") pour totaux globaux
+  objectifCMCStats: defineTable({
+    objectifCMC: v.string(),
+    domain: v.string(), // Nom du domaine ou "__all__" pour le total global
+    count: v.number(),
+  })
+    .index("by_objectifCMC", ["objectifCMC"])
+    .index("by_domain", ["domain"])
+    .index("by_objectifCMC_domain", ["objectifCMC", "domain"]),
+
+  // Table d'agrégation pour les participations d'examen (optimisation)
+  examParticipationStats: defineTable({
+    examId: v.id("exams"),
+    count: v.number(),
+  }).index("by_examId", ["examId"]),
 
   exams: defineTable({
     title: v.string(),
@@ -88,7 +106,8 @@ export default defineSchema({
     .index("by_user_status", ["userId", "status"])
     .index("by_status", ["status"])
     .index("by_expiresAt", ["expiresAt"])
-    .index("by_status_expiresAt", ["status", "expiresAt"]), // For cleanup crons
+    .index("by_status_expiresAt", ["status", "expiresAt"]) // For cleanup crons
+    .index("by_user_startedAt", ["userId", "startedAt"]),
 
   trainingAnswers: defineTable({
     participationId: v.id("trainingParticipations"),

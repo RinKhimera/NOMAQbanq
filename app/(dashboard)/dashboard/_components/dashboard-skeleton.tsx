@@ -12,7 +12,7 @@ const SkeletonPulse = ({
   <div
     className={cn(
       "animate-pulse rounded-xl bg-linear-to-r from-blue-100 via-blue-50 to-blue-100 dark:from-blue-900/20 dark:via-blue-800/10 dark:to-blue-900/20",
-      className
+      className,
     )}
     style={style}
   />

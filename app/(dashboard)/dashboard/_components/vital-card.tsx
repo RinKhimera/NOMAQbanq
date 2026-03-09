@@ -1,8 +1,8 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-import { motion } from "motion/react"
 import { LucideIcon } from "lucide-react"
+import { motion } from "motion/react"
+import { cn } from "@/lib/utils"
 
 interface VitalCardProps {
   label: string
@@ -77,21 +77,24 @@ export const VitalCard = ({
           colors.border,
           colors.bg,
           "hover:-translate-y-0.5 hover:shadow-lg",
-          colors.glow
+          colors.glow,
         )}
       >
         {/* Pulse animation on hover */}
-        <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-20" />
+        <div className="absolute -top-4 -right-4 h-24 w-24 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-2xl transition-opacity duration-500 group-hover:opacity-20" />
 
         {/* Header with icon */}
         <div className="mb-3 flex items-center justify-between">
           <div
             className={cn(
               "flex h-10 w-10 items-center justify-center rounded-xl",
-              colors.iconBg
+              colors.iconBg,
             )}
           >
-            <Icon className={cn("h-5 w-5", colors.iconColor)} aria-hidden="true" />
+            <Icon
+              className={cn("h-5 w-5", colors.iconColor)}
+              aria-hidden="true"
+            />
           </div>
 
           {trend && (
@@ -100,14 +103,11 @@ export const VitalCard = ({
                 "flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium",
                 trend.isPositive
                   ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
               )}
             >
               <svg
-                className={cn(
-                  "h-3 w-3",
-                  !trend.isPositive && "rotate-180"
-                )}
+                className={cn("h-3 w-3", !trend.isPositive && "rotate-180")}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -120,7 +120,9 @@ export const VitalCard = ({
                   d="M5 10l7-7m0 0l7 7m-7-7v18"
                 />
               </svg>
-              <span className="sr-only">{trend.isPositive ? "Hausse de" : "Baisse de"}</span>
+              <span className="sr-only">
+                {trend.isPositive ? "Hausse de" : "Baisse de"}
+              </span>
               {trend.value}%
             </div>
           )}
@@ -151,9 +153,11 @@ export const VitalCard = ({
             className={cn(
               "h-full w-0 transition-all duration-500 group-hover:w-full",
               color === "blue" && "bg-linear-to-r from-blue-500 to-blue-600",
-              color === "green" && "bg-linear-to-r from-emerald-500 to-emerald-600",
+              color === "green" &&
+                "bg-linear-to-r from-emerald-500 to-emerald-600",
               color === "amber" && "bg-linear-to-r from-amber-500 to-amber-600",
-              color === "purple" && "bg-linear-to-r from-purple-500 to-purple-600"
+              color === "purple" &&
+                "bg-linear-to-r from-purple-500 to-purple-600",
             )}
           />
         </div>

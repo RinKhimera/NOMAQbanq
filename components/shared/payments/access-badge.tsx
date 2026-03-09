@@ -1,8 +1,8 @@
 "use client"
 
-import { CheckCircle, Clock, XCircle, Sparkles } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { CheckCircle, Clock, Sparkles, XCircle } from "lucide-react"
 import { formatExpiration } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 type AccessStatus = "active" | "expiring" | "expired" | "none"
 
@@ -20,7 +20,8 @@ const statusConfig = {
   active: {
     icon: CheckCircle,
     label: "Actif",
-    bgClass: "bg-linear-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20",
+    bgClass:
+      "bg-linear-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20",
     borderClass: "border-emerald-500/30 dark:border-emerald-400/30",
     textClass: "text-emerald-700 dark:text-emerald-300",
     iconClass: "text-emerald-500 dark:text-emerald-400",
@@ -29,7 +30,8 @@ const statusConfig = {
   expiring: {
     icon: Clock,
     label: "Expire bientôt",
-    bgClass: "bg-linear-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
+    bgClass:
+      "bg-linear-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20",
     borderClass: "border-amber-500/30 dark:border-amber-400/30",
     textClass: "text-amber-700 dark:text-amber-300",
     iconClass: "text-amber-500 dark:text-amber-400 animate-pulse",
@@ -38,7 +40,8 @@ const statusConfig = {
   expired: {
     icon: XCircle,
     label: "Expiré",
-    bgClass: "bg-linear-to-r from-red-500/10 to-rose-500/10 dark:from-red-500/20 dark:to-rose-500/20",
+    bgClass:
+      "bg-linear-to-r from-red-500/10 to-rose-500/10 dark:from-red-500/20 dark:to-rose-500/20",
     borderClass: "border-red-500/30 dark:border-red-400/30",
     textClass: "text-red-700 dark:text-red-300",
     iconClass: "text-red-500 dark:text-red-400",
@@ -47,7 +50,8 @@ const statusConfig = {
   none: {
     icon: Sparkles,
     label: "Aucun accès",
-    bgClass: "bg-linear-to-r from-slate-500/10 to-gray-500/10 dark:from-slate-500/20 dark:to-gray-500/20",
+    bgClass:
+      "bg-linear-to-r from-slate-500/10 to-gray-500/10 dark:from-slate-500/20 dark:to-gray-500/20",
     borderClass: "border-slate-500/30 dark:border-slate-400/30",
     textClass: "text-slate-600 dark:text-slate-400",
     iconClass: "text-slate-400 dark:text-slate-500",
@@ -117,28 +121,38 @@ export const AccessBadge = ({
         sizes.gap,
         status === "active" && "shadow-lg",
         config.glowClass,
-        className
+        className,
       )}
     >
       <Icon className={cn(sizes.iconSize, config.iconClass)} />
       <span className={sizes.textSize}>
-        {showDetails ? `${accessTypeLabels[accessType]} · ${getStatusLabel()}` : getStatusLabel()}
+        {showDetails
+          ? `${accessTypeLabels[accessType]} · ${getStatusLabel()}`
+          : getStatusLabel()}
       </span>
-      {showDetails && expiresAt && status !== "none" && status !== "expired" && (
-        <span className={cn(sizes.textSize, "opacity-70")}>
-          · {formatExpiration(expiresAt)}
-        </span>
-      )}
+      {showDetails &&
+        expiresAt &&
+        status !== "none" &&
+        status !== "expired" && (
+          <span className={cn(sizes.textSize, "opacity-70")}>
+            · {formatExpiration(expiresAt)}
+          </span>
+        )}
     </div>
   )
 }
 
 export const getAccessStatus = (
   expiresAt: number | null | undefined,
-  daysRemaining: number | null | undefined
+  daysRemaining: number | null | undefined,
 ): AccessStatus => {
   if (!expiresAt) return "none"
   if (Date.now() > expiresAt) return "expired"
-  if (daysRemaining !== undefined && daysRemaining !== null && daysRemaining <= 7) return "expiring"
+  if (
+    daysRemaining !== undefined &&
+    daysRemaining !== null &&
+    daysRemaining <= 7
+  )
+    return "expiring"
   return "active"
 }

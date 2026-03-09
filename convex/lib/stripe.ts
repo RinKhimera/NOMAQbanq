@@ -4,7 +4,7 @@ import Stripe from "stripe"
  * Version de l'API Stripe centralisée.
  * Mettre à jour ici lors des mises à jour du package stripe.
  */
-export const STRIPE_API_VERSION = "2026-01-28.clover" as const
+export const STRIPE_API_VERSION = "2026-02-25.clover" as const
 
 /**
  * Crée une instance Stripe configurée.

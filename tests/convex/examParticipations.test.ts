@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest"
 import { api } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
 import schema from "../../convex/schema"
-import { createAdminUser, createRegularUser, grantAccess } from "../helpers/convex-helpers"
+import {
+  createAdminUser,
+  createRegularUser,
+  grantAccess,
+} from "../helpers/convex-helpers"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
@@ -47,9 +51,10 @@ const getParticipationByExamUser = async (
 ) => {
   return await t.run(async (ctx) => {
     const participations = await ctx.db.query("examParticipations").collect()
-    return participations.find(
-      (p) => p.examId === examId && p.userId === userId,
-    ) ?? null
+    return (
+      participations.find((p) => p.examId === examId && p.userId === userId) ??
+      null
+    )
   })
 }
 
@@ -84,7 +89,11 @@ describe("examParticipations", () => {
 
     expect(participationId).toBeDefined()
 
-    const participation = await getParticipationByExamUser(t, examId, user.userId)
+    const participation = await getParticipationByExamUser(
+      t,
+      examId,
+      user.userId,
+    )
     expect(participation?.status).toBe("in_progress")
     expect(participation?.startedAt).toBeGreaterThan(0)
 
@@ -113,7 +122,11 @@ describe("examParticipations", () => {
       pauseStartedAt: Date.now(),
     })
 
-    const updatedParticipation = await getParticipationByExamUser(t, examId, user.userId)
+    const updatedParticipation = await getParticipationByExamUser(
+      t,
+      examId,
+      user.userId,
+    )
     expect(updatedParticipation?.pausePhase).toBe("during_pause")
     expect(updatedParticipation?.pauseStartedAt).toBeDefined()
 
@@ -124,7 +137,11 @@ describe("examParticipations", () => {
       status: "completed",
     })
 
-    const finalParticipation = await getParticipationByExamUser(t, examId, user.userId)
+    const finalParticipation = await getParticipationByExamUser(
+      t,
+      examId,
+      user.userId,
+    )
     expect(finalParticipation?.status).toBe("completed")
     expect(finalParticipation?.score).toBe(100)
     expect(finalParticipation?.completedAt).toBeGreaterThan(0)
@@ -157,7 +174,11 @@ describe("examParticipations", () => {
       participationId,
     })
 
-    const participation = await getParticipationByExamUser(t, examId, user.userId)
+    const participation = await getParticipationByExamUser(
+      t,
+      examId,
+      user.userId,
+    )
     expect(participation).toBeNull()
 
     const answers = await getAnswersByParticipation(t, participationId)
@@ -292,7 +313,11 @@ describe("examParticipations", () => {
       )
 
       expect(participationId).toBeDefined()
-      const participation = await getParticipationByExamUser(t, examId, user.userId)
+      const participation = await getParticipationByExamUser(
+        t,
+        examId,
+        user.userId,
+      )
       expect(participation?.userId).toBe(user.userId)
     })
 

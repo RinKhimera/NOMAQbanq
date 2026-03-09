@@ -1,7 +1,7 @@
 "use client"
 
-import { type ReactNode, type ElementType } from "react"
 import { motion } from "motion/react"
+import { type ElementType, type ReactNode } from "react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
@@ -73,7 +73,7 @@ export function AdminPageHeader({
               "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl",
               "bg-linear-to-br shadow-lg",
               colors.gradient,
-              colors.shadow
+              colors.shadow,
             )}
           >
             <Icon className="h-7 w-7 text-white" />

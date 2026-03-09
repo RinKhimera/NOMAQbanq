@@ -1,7 +1,11 @@
 "use client"
 
+import {
+  IconAlertTriangle,
+  IconArrowLeft,
+  IconLayoutDashboard,
+} from "@tabler/icons-react"
 import Link from "next/link"
-import { IconArrowLeft, IconLayoutDashboard, IconAlertTriangle } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 
 export default function AdminNotFound() {

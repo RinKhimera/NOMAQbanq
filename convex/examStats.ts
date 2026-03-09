@@ -209,7 +209,10 @@ export const getMyDashboardStats = query({
 
     // Get all active exams if user has access (limited for performance)
     const allExams = hasExamAccess
-      ? await ctx.db.query("exams").withIndex("by_isActive", (q) => q.eq("isActive", true)).take(200)
+      ? await ctx.db
+          .query("exams")
+          .withIndex("by_isActive", (q) => q.eq("isActive", true))
+          .take(200)
       : []
 
     const completedParticipations = myParticipations.filter(
@@ -275,7 +278,10 @@ export const getMyRecentExams = query({
 
     // Get active exams if user has access (limited for performance)
     const allExams = hasExamAccess
-      ? await ctx.db.query("exams").withIndex("by_isActive", (q) => q.eq("isActive", true)).take(200)
+      ? await ctx.db
+          .query("exams")
+          .withIndex("by_isActive", (q) => q.eq("isActive", true))
+          .take(200)
       : []
 
     // Create participation lookup map

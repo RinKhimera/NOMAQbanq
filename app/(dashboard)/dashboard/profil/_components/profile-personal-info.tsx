@@ -1,9 +1,9 @@
 "use client"
 
 import { IconAt, IconFileText, IconUser } from "@tabler/icons-react"
+import { useMutation } from "convex/react"
 import { User } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
-import { useMutation } from "convex/react"
 import { toast } from "sonner"
 import { z } from "zod"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,8 +29,8 @@ const usernameSchema = z
   .max(20, "Le nom d'utilisateur ne peut pas dépasser 20 caractères")
   .transform((v) => v.toLowerCase())
   .refine((v) => /^[a-z0-9_]+$/.test(v), {
-      error: "Caractères autorisés: lettres, chiffres, underscore"
-})
+    error: "Caractères autorisés: lettres, chiffres, underscore",
+  })
 
 const bioSchema = z
   .string()
@@ -48,15 +48,18 @@ export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
     try {
       const result = await updateProfile({
         name: fieldName === "name" ? value : user.name,
-        username: fieldName === "username" ? value : (user.username || ""),
-        bio: fieldName === "bio" ? (value || undefined) : user.bio,
+        username: fieldName === "username" ? value : user.username || "",
+        bio: fieldName === "bio" ? value || undefined : user.bio,
       })
 
       if (result.success) {
         toast.success("Modification enregistrée")
         return { success: true }
       } else {
-        return { success: false, error: result.error || "Erreur lors de la sauvegarde" }
+        return {
+          success: false,
+          error: result.error || "Erreur lors de la sauvegarde",
+        }
       }
     } catch (error) {
       console.error("Update error:", error)
@@ -69,7 +72,11 @@ export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
     : {
         initial: { opacity: 0, y: 20 },
         animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] as const },
+        transition: {
+          duration: 0.5,
+          delay: 0.1,
+          ease: [0.16, 1, 0.3, 1] as const,
+        },
       }
 
   return (

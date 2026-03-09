@@ -78,4 +78,3 @@ export const isAdmin = async (
   const user = await getCurrentUserOrNull(ctx)
   return user?.role === "admin"
 }
-

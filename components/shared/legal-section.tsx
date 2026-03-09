@@ -1,7 +1,7 @@
 "use client"
 
-import { ReactNode } from "react"
 import { motion } from "motion/react"
+import { ReactNode } from "react"
 
 type AccentColor = "blue" | "violet" | "amber"
 
@@ -43,7 +43,7 @@ export const LegalSection = ({
     >
       {/* Timeline dot */}
       <div
-        className={`absolute left-0 top-1 flex h-6 w-6 items-center justify-center rounded-full ${dotColors[accentColor]} text-xs font-bold text-white shadow-md transition-transform group-hover:scale-110`}
+        className={`absolute top-1 left-0 flex h-6 w-6 items-center justify-center rounded-full ${dotColors[accentColor]} text-xs font-bold text-white shadow-md transition-transform group-hover:scale-110`}
       >
         {number}
       </div>
@@ -58,7 +58,7 @@ export const LegalSection = ({
         </h2>
 
         {/* Section content */}
-        <div className="mt-4 space-y-4 text-gray-600 leading-relaxed dark:text-gray-400">
+        <div className="mt-4 space-y-4 leading-relaxed text-gray-600 dark:text-gray-400">
           {children}
         </div>
       </div>

@@ -178,7 +178,8 @@ export const InlineEditField = ({
                       "h-11 rounded-xl border-gray-200 bg-white text-base transition-all",
                       "focus:border-blue-400 focus:ring-2 focus:ring-blue-100",
                       "dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-900/50",
-                      errorMessage && "border-red-300 focus:border-red-400 focus:ring-red-100",
+                      errorMessage &&
+                        "border-red-300 focus:border-red-400 focus:ring-red-100",
                     )}
                     aria-label={label}
                     aria-invalid={!!errorMessage}
@@ -196,10 +197,11 @@ export const InlineEditField = ({
                     onKeyDown={handleKeyDown}
                     disabled={isSaving}
                     className={cn(
-                      "rounded-xl border-gray-200 bg-white text-base transition-all resize-none",
+                      "resize-none rounded-xl border-gray-200 bg-white text-base transition-all",
                       "focus:border-blue-400 focus:ring-2 focus:ring-blue-100",
                       "dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-900/50",
-                      errorMessage && "border-red-300 focus:border-red-400 focus:ring-red-100",
+                      errorMessage &&
+                        "border-red-300 focus:border-red-400 focus:ring-red-100",
                     )}
                     aria-label={label}
                     aria-invalid={!!errorMessage}
@@ -271,7 +273,7 @@ export const InlineEditField = ({
                 ) : (
                   <p
                     className={cn(
-                      "text-lg font-semibold leading-relaxed",
+                      "text-lg leading-relaxed font-semibold",
                       value
                         ? "text-gray-900 dark:text-white"
                         : "text-gray-400 italic dark:text-gray-500",
@@ -288,10 +290,10 @@ export const InlineEditField = ({
                     onClick={handleEdit}
                     className={cn(
                       "cursor-pointer rounded-lg p-2 transition-all duration-200",
-                      "text-gray-400 hover:text-gray-600 hover:bg-gray-100",
-                      "dark:hover:text-gray-300 dark:hover:bg-gray-800",
+                      "text-gray-400 hover:bg-gray-100 hover:text-gray-600",
+                      "dark:hover:bg-gray-800 dark:hover:text-gray-300",
                       "opacity-0 group-hover:opacity-100 focus:opacity-100",
-                      "focus:outline-none focus:ring-2 focus:ring-blue-500/20",
+                      "focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
                     )}
                     aria-label={`Modifier ${label.toLowerCase()}`}
                   >

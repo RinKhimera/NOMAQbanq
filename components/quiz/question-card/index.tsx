@@ -8,9 +8,9 @@ import {
   XCircle,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
+import { QuestionImageGallery } from "@/components/shared/question-image-gallery"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { QuestionImageGallery } from "@/components/shared/question-image-gallery"
 import { cn } from "@/lib/utils"
 import { AnswerOption } from "./answer-option"
 import {
@@ -246,7 +246,11 @@ export const QuestionCard = ({
                 e.stopPropagation()
                 onFlagToggle()
               }}
-              aria-label={isFlagged ? "Retirer le marquage de la question" : "Marquer la question pour révision"}
+              aria-label={
+                isFlagged
+                  ? "Retirer le marquage de la question"
+                  : "Marquer la question pour révision"
+              }
               aria-pressed={isFlagged}
               className={cn(
                 "h-8 gap-1.5 px-2 transition-colors",
@@ -307,7 +311,9 @@ export const QuestionCard = ({
                 variant="ghost"
                 size="sm"
                 onClick={onToggleExpand}
-                aria-label={isExpanded ? "Réduire la question" : "Développer la question"}
+                aria-label={
+                  isExpanded ? "Réduire la question" : "Développer la question"
+                }
                 aria-expanded={isExpanded}
                 className="-mt-1 h-8 w-8 shrink-0 p-1"
               >

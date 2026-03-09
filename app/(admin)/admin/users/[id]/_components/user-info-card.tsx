@@ -1,21 +1,15 @@
 "use client"
 
-import { motion } from "motion/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import {
-  Mail,
-  Calendar,
-  Shield,
-  Copy,
-  Check
-} from "lucide-react"
+import { Calendar, Check, Copy, Mail, Shield } from "lucide-react"
+import { motion } from "motion/react"
 import { useState } from "react"
-import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { toast } from "sonner"
+import { cn } from "@/lib/utils"
 
 interface UserInfoCardProps {
   user: {
@@ -40,12 +34,13 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const initials = user.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "U"
+  const initials =
+    user.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "U"
 
   return (
     <motion.div
@@ -66,7 +61,7 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
             </AvatarFallback>
           </Avatar>
 
-          <div className="mt-4 sm:ml-4 sm:mt-0 sm:pb-2">
+          <div className="mt-4 sm:mt-0 sm:ml-4 sm:pb-2">
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 {user.name || "Utilisateur"}
@@ -76,7 +71,7 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
                   "rounded-full",
                   user.role === "admin"
                     ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
                 )}
               >
                 <Shield className="mr-1 h-3 w-3" />
@@ -110,9 +105,13 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
               <Calendar className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs text-gray-500 dark:text-gray-400">Inscrit le</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Inscrit le
+              </p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {format(new Date(user._creationTime), "d MMMM yyyy", { locale: fr })}
+                {format(new Date(user._creationTime), "d MMMM yyyy", {
+                  locale: fr,
+                })}
               </p>
             </div>
           </div>
@@ -121,7 +120,9 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
         {/* Bio */}
         {user.bio && (
           <div className="mt-4 rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
-            <p className="text-sm text-gray-500 dark:text-gray-400">Biographie</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Biographie
+            </p>
             <p className="mt-1 text-gray-700 dark:text-gray-300">{user.bio}</p>
           </div>
         )}
@@ -129,7 +130,9 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
         {/* User ID */}
         <div className="mt-4 flex items-center justify-between rounded-xl border border-dashed border-gray-200 p-3 dark:border-gray-700">
           <div className="min-w-0 flex-1">
-            <p className="text-xs text-gray-500 dark:text-gray-400">ID Utilisateur</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              ID Utilisateur
+            </p>
             <p className="truncate font-mono text-sm text-gray-700 dark:text-gray-300">
               {user._id}
             </p>

@@ -1,20 +1,18 @@
 "use client"
 
 import { useConvexAuth, useQuery } from "convex/react"
+import { Brain, CheckCircle2, Percent, Target } from "lucide-react"
 import { useState } from "react"
-import { Target, CheckCircle2, Percent, Brain } from "lucide-react"
-
 import { api } from "@/convex/_generated/api"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
-
-import { DashboardSkeleton } from "./_components/dashboard-skeleton"
 import { DashboardHero } from "./_components/dashboard-hero"
-import { VitalCard } from "./_components/vital-card"
+import { DashboardSkeleton } from "./_components/dashboard-skeleton"
+import { NextActionsPanel } from "./_components/next-actions-panel"
+import { QuickAccessGrid } from "./_components/quick-access-grid"
+import { RecentActivityFeed } from "./_components/recent-activity-feed"
 import { ScoreEvolutionChart } from "./_components/score-evolution-chart"
 import { TrainingScoreChart } from "./_components/training-score-chart"
-import { NextActionsPanel } from "./_components/next-actions-panel"
-import { RecentActivityFeed } from "./_components/recent-activity-feed"
-import { QuickAccessGrid } from "./_components/quick-access-grid"
+import { VitalCard } from "./_components/vital-card"
 
 const DashboardPage = () => {
   const { isAuthenticated } = useConvexAuth()
@@ -26,7 +24,10 @@ const DashboardPage = () => {
   const scoreHistory = useQuery(api.examStats.getMyScoreHistory, skip)
   const accessStatus = useQuery(api.payments.getMyAccessStatus, skip)
   const trainingStats = useQuery(api.training.getTrainingStats, skip)
-  const trainingScoreHistory = useQuery(api.training.getMyTrainingScoreHistory, skip)
+  const trainingScoreHistory = useQuery(
+    api.training.getMyTrainingScoreHistory,
+    skip,
+  )
   const [now] = useState(() => Date.now())
 
   // Loading state
@@ -37,7 +38,9 @@ const DashboardPage = () => {
   // Calculate completion rate
   const completionRate =
     stats.availableExamsCount > 0
-      ? Math.round((stats.completedExamsCount / stats.availableExamsCount) * 100)
+      ? Math.round(
+          (stats.completedExamsCount / stats.availableExamsCount) * 100,
+        )
       : 0
 
   return (
@@ -52,21 +55,21 @@ const DashboardPage = () => {
 
       {/* Vital Cards Section */}
       <div className="space-y-4">
-        <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <h3 className="font-display text-sm font-semibold tracking-wider text-gray-500 uppercase dark:text-gray-400">
           Vitaux principaux
         </h3>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <VitalCard
             label="Score moyen"
-            value={stats.completedExamsCount > 0 ? `${stats.averageScore}%` : "—"}
+            value={
+              stats.completedExamsCount > 0 ? `${stats.averageScore}%` : "—"
+            }
             icon={Percent}
             color="blue"
             delay={0.1}
             subtitle={
-              stats.completedExamsCount > 0
-                ? "Sur vos examens"
-                : "Aucun examen"
+              stats.completedExamsCount > 0 ? "Sur vos examens" : "Aucun examen"
             }
           />
 

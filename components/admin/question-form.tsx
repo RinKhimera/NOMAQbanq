@@ -206,8 +206,10 @@ export default function QuestionForm() {
                             }
                             disabled={!option.trim()}
                             aria-label={`Sélectionner l'option ${String.fromCharCode(65 + index)} comme réponse correcte`}
-                            aria-pressed={correctAnswer === option && option.trim() !== ""}
-                            className={`flex h-6 min-w-[29px] items-center justify-center rounded-md border text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+                            aria-pressed={
+                              correctAnswer === option && option.trim() !== ""
+                            }
+                            className={`focus-visible:ring-ring flex h-6 min-w-[29px] items-center justify-center rounded-md border text-xs font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
                               correctAnswer === option && option.trim() !== ""
                                 ? "border-primary bg-primary text-primary-foreground"
                                 : "border-input bg-background hover:bg-accent hover:text-accent-foreground"
@@ -230,7 +232,10 @@ export default function QuestionForm() {
                             }
                           />
                           {correctAnswer === option && (
-                            <CheckCircle className="h-5 w-5 text-green-600" aria-hidden="true" />
+                            <CheckCircle
+                              className="h-5 w-5 text-green-600"
+                              aria-hidden="true"
+                            />
                           )}
                         </div>
                       ))}

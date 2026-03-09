@@ -21,8 +21,9 @@ import { cn } from "@/lib/utils"
 
 type IconType = TablerIcon | LucideIcon
 
-interface NavSecondaryProps
-  extends React.ComponentPropsWithoutRef<typeof SidebarGroup> {
+interface NavSecondaryProps extends React.ComponentPropsWithoutRef<
+  typeof SidebarGroup
+> {
   items: {
     title: string
     url: string

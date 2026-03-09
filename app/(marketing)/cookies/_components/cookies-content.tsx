@@ -14,12 +14,14 @@ export const CookiesContent = () => {
         <p>
           Un cookie est un petit fichier texte déposé sur votre appareil
           (ordinateur, tablette ou téléphone) lorsque vous visitez un site web.
-          Il permet au site de mémoriser certaines informations sur votre visite,
-          comme votre langue préférée ou vos préférences d&apos;affichage.
+          Il permet au site de mémoriser certaines informations sur votre
+          visite, comme votre langue préférée ou vos préférences
+          d&apos;affichage.
         </p>
         <p>
           Les cookies peuvent être « de session » (supprimés à la fermeture du
-          navigateur) ou « persistants » (conservés pendant une durée déterminée).
+          navigateur) ou « persistants » (conservés pendant une durée
+          déterminée).
         </p>
       </LegalSection>
 
@@ -70,7 +72,8 @@ export const CookiesContent = () => {
             autres menaces
           </li>
           <li>
-            <strong>Préférences :</strong> mémorisent vos choix (thème clair/sombre)
+            <strong>Préférences :</strong> mémorisent vos choix (thème
+            clair/sombre)
           </li>
         </ul>
         <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm dark:bg-amber-950/30">
@@ -152,8 +155,8 @@ export const CookiesContent = () => {
             incognito pour limiter le suivi
           </li>
           <li>
-            <strong>Extensions :</strong> des extensions comme Privacy Badger
-            ou uBlock Origin offrent un contrôle supplémentaire
+            <strong>Extensions :</strong> des extensions comme Privacy Badger ou
+            uBlock Origin offrent un contrôle supplémentaire
           </li>
         </ul>
         <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm dark:bg-amber-950/30">
@@ -176,8 +179,8 @@ export const CookiesContent = () => {
             navigateur
           </li>
           <li>
-            <strong>Cookies d&apos;authentification :</strong> jusqu&apos;à 30 jours
-            (selon vos préférences de connexion)
+            <strong>Cookies d&apos;authentification :</strong> jusqu&apos;à 30
+            jours (selon vos préférences de connexion)
           </li>
           <li>
             <strong>Cookies de préférences :</strong> jusqu&apos;à 1 an
@@ -210,8 +213,8 @@ export const CookiesContent = () => {
           </li>
         </ul>
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-500">
-          Cette politique de cookies peut être mise à jour périodiquement.
-          Nous vous informerons de tout changement significatif.
+          Cette politique de cookies peut être mise à jour périodiquement. Nous
+          vous informerons de tout changement significatif.
         </p>
       </LegalSection>
     </>

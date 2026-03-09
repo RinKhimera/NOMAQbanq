@@ -1,8 +1,13 @@
 import { convexTest } from "convex-test"
-import { describe, expect, it, beforeEach } from "vitest"
+import { beforeEach, describe, expect, it } from "vitest"
 import { api } from "../../convex/_generated/api"
 import schema from "../../convex/schema"
-import { createAdminUser, createRegularUser, getOrCreateProduct, clearProductCache } from "../helpers/convex-helpers"
+import {
+  clearProductCache,
+  createAdminUser,
+  createRegularUser,
+  getOrCreateProduct,
+} from "../helpers/convex-helpers"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
@@ -86,7 +91,9 @@ describe("userAccess - Gestion des accès payants", () => {
 
       // L'accès doit être étendu (pas dupliqué)
       expect(extendedAccess).not.toBeNull()
-      expect(extendedAccess?.expiresAt).toBeGreaterThan(firstAccess?.expiresAt ?? 0)
+      expect(extendedAccess?.expiresAt).toBeGreaterThan(
+        firstAccess?.expiresAt ?? 0,
+      )
     })
 
     it("gère les deux types d'accès indépendamment", async () => {
@@ -122,7 +129,10 @@ describe("userAccess - Gestion des accès payants", () => {
       })
 
       expect(allAccess).toHaveLength(2)
-      expect(allAccess.map((a) => a.accessType).sort()).toEqual(["exam", "training"])
+      expect(allAccess.map((a) => a.accessType).sort()).toEqual([
+        "exam",
+        "training",
+      ])
     })
   })
 
@@ -287,7 +297,9 @@ describe("userAccess - Gestion des accès payants", () => {
       })
 
       // L'admin peut démarrer sans accès payant
-      const result = await admin.asAdmin.mutation(api.exams.startExam, { examId })
+      const result = await admin.asAdmin.mutation(api.exams.startExam, {
+        examId,
+      })
       expect(result).toBeDefined()
     })
   })
@@ -439,7 +451,9 @@ describe("userAccess - Gestion des accès payants", () => {
         paymentMethod: "interac",
       })
 
-      const expiringSoon = await admin.asAdmin.query(api.payments.getExpiringAccess)
+      const expiringSoon = await admin.asAdmin.query(
+        api.payments.getExpiringAccess,
+      )
 
       // Seul user1 devrait apparaître (expire dans moins de 7 jours)
       const expiringUserIds = expiringSoon.map((a) => a.userId)

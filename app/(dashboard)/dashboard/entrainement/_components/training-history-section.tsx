@@ -1,23 +1,21 @@
 "use client"
 
-import { useState } from "react"
 import { useConvexAuth, usePaginatedQuery } from "convex/react"
-import { useRouter } from "next/navigation"
-import { motion } from "motion/react"
-import {
-  History,
-  ChevronRight,
-  Trophy,
-  Target,
-  Loader2,
-  MoreHorizontal,
-  Eye,
-  Trash2,
-} from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import {
+  ChevronRight,
+  Eye,
+  History,
+  Loader2,
+  MoreHorizontal,
+  Target,
+  Trash2,
+  Trophy,
+} from "lucide-react"
+import { motion } from "motion/react"
+import { useRouter } from "next/navigation"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -26,9 +24,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
-import { DeleteSessionDialog } from "./delete-session-dialog"
 import { DeleteAllSessionsDialog } from "./delete-all-sessions-dialog"
+import { DeleteSessionDialog } from "./delete-session-dialog"
 
 interface Session {
   _id: Id<"trainingParticipations">

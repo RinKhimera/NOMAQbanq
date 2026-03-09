@@ -1,17 +1,17 @@
 "use client"
 
-import { motion } from "motion/react"
-import Link from "next/link"
 import {
-  Play,
   Brain,
+  ChevronRight,
+  Play,
+  Sparkles,
   Target,
   TrendingUp,
-  ChevronRight,
-  Sparkles,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { motion } from "motion/react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface Exam {
   _id: string
@@ -80,7 +80,7 @@ const colorStyles = {
 // Helper pour déterminer l'action d'entraînement selon les stats
 const getTrainingAction = (
   trainingStats: TrainingStats | undefined,
-  completedExamsCount: number
+  completedExamsCount: number,
 ): ActionItem | null => {
   if (!trainingStats) return null
 
@@ -183,7 +183,9 @@ const getActions = ({
       : null,
   ]
 
-  return actions.filter((action): action is ActionItem => action !== null).slice(0, 3)
+  return actions
+    .filter((action): action is ActionItem => action !== null)
+    .slice(0, 3)
 }
 
 export const NextActionsPanel = (props: NextActionsPanelProps) => {
@@ -228,17 +230,19 @@ export const NextActionsPanel = (props: NextActionsPanelProps) => {
                   className={cn(
                     "group flex items-center justify-between rounded-xl border border-gray-200/50 bg-white/80 p-4 backdrop-blur-sm transition-all duration-300",
                     "hover:border-gray-300 hover:shadow-md dark:border-gray-700/50 dark:bg-gray-900/80 dark:hover:border-gray-600",
-                    priorityStyles[action.priority]
+                    priorityStyles[action.priority],
                   )}
                 >
                   <div className="flex items-center gap-4">
                     <div
                       className={cn(
                         "flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110",
-                        colors.iconBg
+                        colors.iconBg,
                       )}
                     >
-                      <action.icon className={cn("h-6 w-6", colors.iconColor)} />
+                      <action.icon
+                        className={cn("h-6 w-6", colors.iconColor)}
+                      />
                     </div>
 
                     <div>
@@ -255,7 +259,7 @@ export const NextActionsPanel = (props: NextActionsPanelProps) => {
                     size="sm"
                     className={cn(
                       "opacity-0 transition-all duration-300 group-hover:opacity-100",
-                      colors.button
+                      colors.button,
                     )}
                   >
                     <span className="mr-1">Commencer</span>

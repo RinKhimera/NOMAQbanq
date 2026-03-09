@@ -8,6 +8,6 @@ const config = {
   importOrderSeparation: false,
   importOrderSortSpecifiers: true,
   importOrderParserPlugins: ["typescript", "jsx", "decorators-legacy"],
-};
+}
 
-export default config;
+export default config

@@ -179,7 +179,10 @@ export const getDashboardTrends = query({
   args: {},
   returns: v.object({
     usersTrend: v.number(),
-    revenueByCurrency: v.any(),
+    revenueByCurrency: v.record(
+      v.string(),
+      v.object({ recent: v.number(), previous: v.number(), trend: v.number() }),
+    ),
     participationsTrend: v.number(),
     recentUsersCount: v.number(),
     recentParticipationsCount: v.number(),
@@ -224,7 +227,10 @@ export const getDashboardTrends = query({
     )
 
     // Grouper par devise
-    const revenueByCurrency: Record<string, { recent: number; previous: number; trend: number }> = {
+    const revenueByCurrency: Record<
+      string,
+      { recent: number; previous: number; trend: number }
+    > = {
       CAD: { recent: 0, previous: 0, trend: 0 },
       XAF: { recent: 0, previous: 0, trend: 0 },
     }
@@ -247,12 +253,13 @@ export const getDashboardTrends = query({
 
     // Calculer les trends pour chaque devise
     for (const currency of Object.keys(revenueByCurrency)) {
-      revenueByCurrency[currency].trend = Math.round(
-        calculateTrend(
-          revenueByCurrency[currency].recent,
-          revenueByCurrency[currency].previous,
-        ) * 10,
-      ) / 10
+      revenueByCurrency[currency].trend =
+        Math.round(
+          calculateTrend(
+            revenueByCurrency[currency].recent,
+            revenueByCurrency[currency].previous,
+          ) * 10,
+        ) / 10
     }
 
     // Calcul des tendances participations

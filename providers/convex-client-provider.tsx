@@ -24,9 +24,7 @@ export default function ConvexClientProvider({
       publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY!}
     >
       <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
-        <MotionConfig reducedMotion="user">
-          {children}
-        </MotionConfig>
+        <MotionConfig reducedMotion="user">{children}</MotionConfig>
       </ConvexProviderWithClerk>
     </ClerkProvider>
   )

@@ -23,7 +23,31 @@ const MAX_SESSIONS_PER_HOUR = 10 // Rate limiting: max sessions créées par heu
  */
 export const getActiveTrainingSession = query({
   args: {},
-  returns: v.any(),
+  returns: v.union(
+    v.null(),
+    v.object({
+      session: v.object({
+        _id: v.id("trainingParticipations"),
+        _creationTime: v.number(),
+        userId: v.id("users"),
+        questionCount: v.number(),
+        questionIds: v.array(v.id("questions")),
+        score: v.number(),
+        status: v.union(
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("abandoned"),
+        ),
+        startedAt: v.number(),
+        completedAt: v.optional(v.number()),
+        expiresAt: v.number(),
+        domain: v.optional(v.string()),
+      }),
+      isExpired: v.boolean(),
+      canResume: v.boolean(),
+      remainingTimeMs: v.number(),
+    }),
+  ),
   handler: async (ctx) => {
     const user = await getCurrentUserOrNull(ctx)
     if (!user) return null
@@ -67,7 +91,52 @@ export const getTrainingSessionById = query({
   args: {
     sessionId: v.id("trainingParticipations"),
   },
-  returns: v.any(),
+  returns: v.union(
+    v.null(),
+    v.object({
+      session: v.object({
+        _id: v.id("trainingParticipations"),
+        _creationTime: v.number(),
+        userId: v.id("users"),
+        questionCount: v.number(),
+        questionIds: v.array(v.id("questions")),
+        score: v.number(),
+        status: v.union(
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("abandoned"),
+        ),
+        startedAt: v.number(),
+        completedAt: v.optional(v.number()),
+        expiresAt: v.number(),
+        domain: v.optional(v.string()),
+      }),
+      questions: v.array(
+        v.object({
+          _id: v.id("questions"),
+          _creationTime: v.number(),
+          question: v.string(),
+          images: v.optional(
+            v.array(
+              v.object({
+                url: v.string(),
+                storagePath: v.string(),
+                order: v.number(),
+              }),
+            ),
+          ),
+          options: v.array(v.string()),
+          correctAnswer: v.optional(v.string()),
+          explanation: v.optional(v.string()),
+          references: v.optional(v.array(v.string())),
+          objectifCMC: v.string(),
+          domain: v.string(),
+        }),
+      ),
+      answers: v.any(),
+      isExpired: v.boolean(),
+    }),
+  ),
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -100,28 +169,29 @@ export const getTrainingSessionById = query({
     const isCompleted = session.status === "completed"
 
     // Pour les sessions en cours, masquer les réponses correctes (anti-triche)
-    const questions = rawQuestions.filter(Boolean).map((q) => {
-      if (!q) return null
-      if (isCompleted) {
-        return q // Session terminée : retourner tout
-      }
-      // Session en cours : masquer correctAnswer et explanation
-      return {
-        _id: q._id,
-        _creationTime: q._creationTime,
-        question: q.question,
-        images: q.images,
-        options: q.options,
-        objectifCMC: q.objectifCMC,
-        domain: q.domain,
-        references: q.references,
-        // correctAnswer et explanation sont omis
-      }
-    })
+    const questions = rawQuestions
+      .filter((q): q is NonNullable<typeof q> => q !== null)
+      .map((q) => {
+        if (isCompleted) {
+          return q // Session terminée : retourner tout
+        }
+        // Session en cours : masquer correctAnswer et explanation
+        return {
+          _id: q._id,
+          _creationTime: q._creationTime,
+          question: q.question,
+          images: q.images,
+          options: q.options,
+          objectifCMC: q.objectifCMC,
+          domain: q.domain,
+          references: q.references,
+          // correctAnswer et explanation sont omis
+        }
+      })
 
     return {
       session,
-      questions: questions.filter(Boolean),
+      questions,
       answers: answersMap,
       isExpired: session.expiresAt < Date.now(),
     }
@@ -190,7 +260,43 @@ export const getTrainingSessionResults = query({
   args: {
     sessionId: v.id("trainingParticipations"),
   },
-  returns: v.any(),
+  returns: v.union(
+    v.null(),
+    v.object({ error: v.literal("SESSION_NOT_COMPLETED") }),
+    v.object({
+      session: v.object({
+        _id: v.id("trainingParticipations"),
+        score: v.number(),
+        questionCount: v.number(),
+        startedAt: v.number(),
+        completedAt: v.optional(v.number()),
+        domain: v.optional(v.string()),
+      }),
+      questions: v.array(
+        v.object({
+          _id: v.id("questions"),
+          _creationTime: v.number(),
+          question: v.string(),
+          images: v.optional(
+            v.array(
+              v.object({
+                url: v.string(),
+                storagePath: v.string(),
+                order: v.number(),
+              }),
+            ),
+          ),
+          options: v.array(v.string()),
+          correctAnswer: v.string(),
+          explanation: v.string(),
+          references: v.optional(v.array(v.string())),
+          objectifCMC: v.string(),
+          domain: v.string(),
+        }),
+      ),
+      answers: v.any(),
+    }),
+  ),
   handler: async (ctx, { sessionId }) => {
     const user = await getCurrentUserOrThrow(ctx)
 
@@ -208,10 +314,13 @@ export const getTrainingSessionResults = query({
     }
 
     // Récupérer toutes les questions avec détails complets (batch fetch)
-    const questions = await batchGetOrderedByIds(
+    const rawQuestions = await batchGetOrderedByIds(
       ctx,
       "questions",
       session.questionIds,
+    )
+    const questions = rawQuestions.filter(
+      (q): q is NonNullable<typeof q> => q !== null,
     )
 
     // Récupérer toutes les réponses (limited to max questions)
@@ -221,9 +330,7 @@ export const getTrainingSessionResults = query({
       .take(MAX_QUESTIONS)
 
     // Créer un map pour accès rapide
-    const answersMap = Object.fromEntries(
-      answers.map((a) => [a.questionId, a]),
-    )
+    const answersMap = Object.fromEntries(answers.map((a) => [a.questionId, a]))
 
     return {
       session: {
@@ -234,7 +341,7 @@ export const getTrainingSessionResults = query({
         completedAt: session.completedAt,
         domain: session.domain,
       },
-      questions: questions.filter(Boolean),
+      questions,
       answers: answersMap,
     }
   },
@@ -303,6 +410,7 @@ export const getAvailableDomains = query({
 /**
  * Récupère les objectifs CMC disponibles avec comptage
  * Optionnel : filtre par domaine pour affiner la liste
+ * Optimisé : lit depuis la table d'agrégation objectifCMCStats au lieu de scanner 5000+ questions
  */
 export const getAvailableObjectifsCMC = query({
   args: {
@@ -318,29 +426,17 @@ export const getAvailableObjectifsCMC = query({
     total: v.number(),
   }),
   handler: async (ctx, { domain }) => {
-    // Fetch questions avec limite pour performance
-    let questions
-    if (domain && domain !== "all") {
-      questions = await ctx.db
-        .query("questions")
-        .withIndex("by_domain", (q) => q.eq("domain", domain))
-        .take(5000)
-    } else {
-      questions = await ctx.db.query("questions").take(5000)
-    }
+    // "__all__" pour le total global, sinon le domaine spécifique
+    const targetDomain = domain && domain !== "all" ? domain : "__all__"
 
-    // Compter occurrences par objectif
-    const objectifCounts: Record<string, number> = {}
-    for (const q of questions) {
-      if (q.objectifCMC && q.objectifCMC.trim()) {
-        const objectif = q.objectifCMC.trim()
-        objectifCounts[objectif] = (objectifCounts[objectif] || 0) + 1
-      }
-    }
+    const stats = await ctx.db
+      .query("objectifCMCStats")
+      .withIndex("by_domain", (q) => q.eq("domain", targetDomain))
+      .take(1000)
 
-    // Transformer en array et trier
-    const objectifs = Object.entries(objectifCounts)
-      .map(([objectif, count]) => ({ objectif, count }))
+    const objectifs = stats
+      .filter((s) => s.count > 0)
+      .map((s) => ({ objectif: s.objectifCMC, count: s.count }))
       .sort((a, b) => {
         if (b.count !== a.count) return b.count - a.count
         return a.objectif.localeCompare(b.objectif, "fr")
@@ -348,7 +444,7 @@ export const getAvailableObjectifsCMC = query({
 
     return {
       objectifs,
-      total: questions.length,
+      total: objectifs.reduce((sum, o) => sum + o.count, 0),
     }
   },
 })
@@ -527,8 +623,9 @@ export const createTrainingSession = mutation({
       const oneHourAgo = Date.now() - 60 * 60 * 1000
       const recentSessions = await ctx.db
         .query("trainingParticipations")
-        .withIndex("by_user", (q) => q.eq("userId", user._id))
-        .filter((q) => q.gt(q.field("startedAt"), oneHourAgo))
+        .withIndex("by_user_startedAt", (q) =>
+          q.eq("userId", user._id).gt("startedAt", oneHourAgo),
+        )
         .take(MAX_SESSIONS_PER_HOUR + 1)
 
       if (recentSessions.length >= MAX_SESSIONS_PER_HOUR) {
@@ -697,7 +794,9 @@ export const saveTrainingAnswer = mutation({
 
     // 3. Vérifier que la question fait partie de la session
     if (!session.questionIds.includes(questionId)) {
-      throw Errors.invalidInput("Cette question ne fait pas partie de la session")
+      throw Errors.invalidInput(
+        "Cette question ne fait pas partie de la session",
+      )
     }
 
     // 4. Récupérer la bonne réponse
@@ -714,9 +813,7 @@ export const saveTrainingAnswer = mutation({
       .withIndex("by_participation", (q) => q.eq("participationId", sessionId))
       .take(MAX_QUESTIONS)
 
-    const existing = existingAnswers.find(
-      (a) => a.questionId === questionId,
-    )
+    const existing = existingAnswers.find((a) => a.questionId === questionId)
 
     if (existing) {
       // Mettre à jour la réponse existante

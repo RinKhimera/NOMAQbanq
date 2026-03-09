@@ -17,16 +17,16 @@ export const PrivacyContent = () => {
         </p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            <strong>Données d&apos;identification :</strong> nom, prénom, adresse
-            courriel
+            <strong>Données d&apos;identification :</strong> nom, prénom,
+            adresse courriel
           </li>
           <li>
             <strong>Données de connexion :</strong> adresse IP, type de
             navigateur, appareil utilisé
           </li>
           <li>
-            <strong>Données d&apos;utilisation :</strong> historique des questions
-            répondues, résultats aux examens, progression
+            <strong>Données d&apos;utilisation :</strong> historique des
+            questions répondues, résultats aux examens, progression
           </li>
           <li>
             <strong>Données de paiement :</strong> traitées de manière sécurisée
@@ -48,7 +48,9 @@ export const PrivacyContent = () => {
           <li>Personnaliser votre expérience d&apos;apprentissage</li>
           <li>Traiter vos paiements et gérer vos abonnements</li>
           <li>Vous envoyer des communications relatives à votre compte</li>
-          <li>Améliorer nos services et développer de nouvelles fonctionnalités</li>
+          <li>
+            Améliorer nos services et développer de nouvelles fonctionnalités
+          </li>
           <li>Assurer la sécurité de la plateforme</li>
         </ul>
       </LegalSection>
@@ -102,11 +104,12 @@ export const PrivacyContent = () => {
             <strong>Prestataire de paiement :</strong> Stripe
           </li>
           <li>
-            <strong>Outils d&apos;analyse :</strong> pour comprendre l&apos;utilisation de
-            la plateforme
+            <strong>Outils d&apos;analyse :</strong> pour comprendre
+            l&apos;utilisation de la plateforme
           </li>
           <li>
-            <strong>Autorités compétentes :</strong> en cas d&apos;obligation légale
+            <strong>Autorités compétentes :</strong> en cas d&apos;obligation
+            légale
           </li>
         </ul>
         <p>
@@ -129,7 +132,10 @@ export const PrivacyContent = () => {
           <li>Chiffrement des données en transit (HTTPS/TLS)</li>
           <li>Chiffrement des données sensibles au repos</li>
           <li>Authentification sécurisée via Clerk</li>
-          <li>Accès restreint aux données sur la base du besoin d&apos;en connaître</li>
+          <li>
+            Accès restreint aux données sur la base du besoin d&apos;en
+            connaître
+          </li>
           <li>Surveillance et journalisation des accès</li>
           <li>Sauvegardes régulières des données</li>
         </ul>
@@ -142,7 +148,8 @@ export const PrivacyContent = () => {
         accentColor="violet"
       >
         <p>
-          Nous conservons vos données personnelles pendant les durées suivantes :
+          Nous conservons vos données personnelles pendant les durées suivantes
+          :
         </p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
@@ -170,21 +177,21 @@ export const PrivacyContent = () => {
         accentColor="violet"
       >
         <p>
-          Conformément à la Loi 25 du Québec et au RGPD, vous disposez des droits
-          suivants :
+          Conformément à la Loi 25 du Québec et au RGPD, vous disposez des
+          droits suivants :
         </p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            <strong>Droit d&apos;accès :</strong> obtenir une copie de vos données
-            personnelles
+            <strong>Droit d&apos;accès :</strong> obtenir une copie de vos
+            données personnelles
           </li>
           <li>
             <strong>Droit de rectification :</strong> corriger des données
             inexactes
           </li>
           <li>
-            <strong>Droit à l&apos;effacement :</strong> demander la suppression de
-            vos données
+            <strong>Droit à l&apos;effacement :</strong> demander la suppression
+            de vos données
           </li>
           <li>
             <strong>Droit à la portabilité :</strong> recevoir vos données dans
@@ -199,9 +206,7 @@ export const PrivacyContent = () => {
             consentement à tout moment
           </li>
         </ul>
-        <p>
-          Pour exercer ces droits, contactez-nous à nomaqbanq@outlook.com.
-        </p>
+        <p>Pour exercer ces droits, contactez-nous à nomaqbanq@outlook.com.</p>
       </LegalSection>
 
       <LegalSection
@@ -261,8 +266,8 @@ export const PrivacyContent = () => {
         </ul>
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-500">
           Vous avez également le droit de déposer une plainte auprès de la
-          Commission d&apos;accès à l&apos;information du Québec (CAI) si vous estimez
-          que vos droits n&apos;ont pas été respectés.
+          Commission d&apos;accès à l&apos;information du Québec (CAI) si vous
+          estimez que vos droits n&apos;ont pas été respectés.
         </p>
       </LegalSection>
     </>

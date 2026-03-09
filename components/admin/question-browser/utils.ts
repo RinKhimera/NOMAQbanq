@@ -4,8 +4,7 @@ export const domainColors: Record<string, string> = {
     "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
   Neurologie:
     "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
-  Pédiatrie:
-    "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",
+  Pédiatrie: "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",
   Chirurgie: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
   Psychiatrie:
     "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300",
@@ -15,8 +14,7 @@ export const domainColors: Record<string, string> = {
     "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
   Gastroentérologie:
     "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
-  Pneumologie:
-    "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
+  Pneumologie: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
   Néphrologie:
     "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300",
   Endocrinologie:

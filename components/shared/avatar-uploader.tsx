@@ -5,8 +5,8 @@ import { IconCamera, IconCheck, IconUpload, IconX } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
 import Image from "next/image"
 import { useCallback, useState } from "react"
-import Cropper, { Area, Point } from "react-easy-crop"
 import { useDropzone } from "react-dropzone"
+import Cropper, { Area, Point } from "react-easy-crop"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -237,8 +237,8 @@ export const AvatarUploader = ({
             sizes={`(max-width: 768px) ${size === "lg" ? "128px" : size === "md" ? "96px" : "64px"}`}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-muted">
-            <IconCamera className="h-1/3 w-1/3 text-muted-foreground" />
+          <div className="bg-muted flex h-full w-full items-center justify-center">
+            <IconCamera className="text-muted-foreground h-1/3 w-1/3" />
           </div>
         )}
 
@@ -270,7 +270,7 @@ export const AvatarUploader = ({
           {imageSrc && (
             <div className="space-y-4">
               {/* Crop area */}
-              <div className="relative h-64 w-full overflow-hidden rounded-lg bg-muted">
+              <div className="bg-muted relative h-64 w-full overflow-hidden rounded-lg">
                 <Cropper
                   image={imageSrc}
                   crop={crop}

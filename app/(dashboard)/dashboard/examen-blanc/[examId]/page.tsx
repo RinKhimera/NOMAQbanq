@@ -1,6 +1,6 @@
 "use client"
 
-import { useQuery } from "convex/react"
+import { useConvexAuth, useQuery } from "convex/react"
 import { ArrowLeft, BarChart3, ListChecks } from "lucide-react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
@@ -20,9 +20,16 @@ export default function MockExamDetailsPage() {
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
   const [now] = useState(() => Date.now())
 
+  const { isAuthenticated } = useConvexAuth()
   const { currentUser, isLoading: userLoading } = useCurrentUser()
-  const exam = useQuery(api.exams.getExamWithQuestions, { examId })
-  const session = useQuery(api.exams.getExamSession, { examId })
+  const exam = useQuery(
+    api.exams.getExamWithQuestions,
+    isAuthenticated ? { examId } : "skip",
+  )
+  const session = useQuery(
+    api.exams.getExamSession,
+    isAuthenticated ? { examId } : "skip",
+  )
   const userAccess = useQuery(
     api.users.getMyAccess,
     currentUser ? { accessType: "exam" } : "skip",
@@ -69,7 +76,9 @@ export default function MockExamDetailsPage() {
 
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <h3 className="mb-2 font-display text-lg font-semibold">Accès non autorisé</h3>
+              <h3 className="font-display mb-2 text-lg font-semibold">
+                Accès non autorisé
+              </h3>
               <p className="text-muted-foreground mb-4 max-w-md text-center">
                 {!hasExamAccess
                   ? "Vous devez avoir un accès exam actif pour accéder à cet examen."
@@ -115,33 +124,32 @@ export default function MockExamDetailsPage() {
             <ListChecks className="mr-2 h-4 w-4" /> Voir toutes les questions
           </Button>
 
-          {currentUser && (() => {
-            // Vérifier si l'utilisateur a complété l'examen via la session
-            const hasCompleted =
-              session?.status === "completed" ||
-              session?.status === "auto_submitted"
-            // Les non-admins ne peuvent voir les résultats qu'après la fin de l'examen
-            const canViewResults =
-              currentUser.role === "admin" || now >= exam.endDate
+          {currentUser &&
+            (() => {
+              // Vérifier si l'utilisateur a complété l'examen via la session
+              const hasCompleted =
+                session?.status === "completed" ||
+                session?.status === "auto_submitted"
+              // Les non-admins ne peuvent voir les résultats qu'après la fin de l'examen
+              const canViewResults =
+                currentUser.role === "admin" || now >= exam.endDate
 
-            return (
-              hasCompleted &&
-              canViewResults && (
-                <Button
-                  className="bg-blue-600 text-white hover:bg-blue-700"
-                  size="sm"
-                  asChild
-                >
-                  <Link
-                    href={`/dashboard/examen-blanc/${examId}/resultats`}
+              return (
+                hasCompleted &&
+                canViewResults && (
+                  <Button
+                    className="bg-blue-600 text-white hover:bg-blue-700"
+                    size="sm"
+                    asChild
                   >
-                    <BarChart3 className="mr-2 h-4 w-4" />
-                    Voir mes résultats
-                  </Link>
-                </Button>
+                    <Link href={`/dashboard/examen-blanc/${examId}/resultats`}>
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Voir mes résultats
+                    </Link>
+                  </Button>
+                )
               )
-            )
-          })()}
+            })()}
         </div>
       </div>
 

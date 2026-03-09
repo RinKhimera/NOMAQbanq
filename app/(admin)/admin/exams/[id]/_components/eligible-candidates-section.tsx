@@ -1,16 +1,17 @@
 "use client"
 
+import {
+  IconAlertCircle,
+  IconClock,
+  IconMail,
+  IconSearch,
+  IconUsers,
+} from "@tabler/icons-react"
 import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { motion } from "motion/react"
-import {
-  IconUsers,
-  IconAlertCircle,
-  IconSearch,
-  IconClock,
-  IconMail,
-} from "@tabler/icons-react"
+import { useMemo, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -24,7 +25,6 @@ import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { api } from "@/convex/_generated/api"
 import { cn } from "@/lib/utils"
-import { useMemo, useState } from "react"
 
 export function EligibleCandidatesSection() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -102,7 +102,7 @@ export function EligibleCandidatesSection() {
         {/* Barre de recherche */}
         <div className="border-b border-gray-200/60 bg-gray-50/50 p-4 dark:border-gray-700/60 dark:bg-gray-900/50">
           <div className="relative">
-            <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <IconSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <Input
               placeholder="Rechercher par nom ou email..."
               value={searchQuery}
@@ -225,7 +225,8 @@ function CandidateRow({ candidate, index }: CandidateRowProps) {
           </Badge>
         ) : (
           <span className="text-xs text-gray-400">
-            Expire le {format(new Date(expiresAt), "d MMM yyyy", { locale: fr })}
+            Expire le{" "}
+            {format(new Date(expiresAt), "d MMM yyyy", { locale: fr })}
           </span>
         )}
       </div>

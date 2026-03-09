@@ -104,7 +104,8 @@ const ExamCard = ({
 
   const variantStyles = {
     active: {
-      gradient: "from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/40 dark:via-green-950/30 dark:to-teal-950/30",
+      gradient:
+        "from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/40 dark:via-green-950/30 dark:to-teal-950/30",
       border: "border-emerald-200/60 dark:border-emerald-800/40",
       hoverBorder: "hover:border-emerald-300 dark:hover:border-emerald-700",
       iconBg: "bg-emerald-500",
@@ -113,10 +114,12 @@ const ExamCard = ({
       badgeText: "text-emerald-700 dark:text-emerald-300",
       badgeBorder: "border-emerald-200 dark:border-emerald-700",
       infoBg: "bg-white/60 dark:bg-gray-800/60",
-      titleHover: "group-hover:text-emerald-700 dark:group-hover:text-emerald-400",
+      titleHover:
+        "group-hover:text-emerald-700 dark:group-hover:text-emerald-400",
     },
     upcoming: {
-      gradient: "from-blue-50 via-indigo-50 to-violet-50 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-violet-950/30",
+      gradient:
+        "from-blue-50 via-indigo-50 to-violet-50 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-violet-950/30",
       border: "border-blue-200/60 dark:border-blue-800/40",
       hoverBorder: "hover:border-blue-300 dark:hover:border-blue-700",
       iconBg: "bg-blue-500",
@@ -128,7 +131,8 @@ const ExamCard = ({
       titleHover: "group-hover:text-blue-700 dark:group-hover:text-blue-400",
     },
     past: {
-      gradient: "from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-950/40 dark:via-gray-950/30 dark:to-zinc-950/30",
+      gradient:
+        "from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-950/40 dark:via-gray-950/30 dark:to-zinc-950/30",
       border: "border-gray-200/60 dark:border-gray-700/40",
       hoverBorder: "hover:border-gray-300 dark:hover:border-gray-600",
       iconBg: "bg-gray-500",
@@ -161,7 +165,7 @@ const ExamCard = ({
           styles.gradient,
           styles.border,
           styles.hoverBorder,
-          "hover:-translate-y-1 hover:shadow-lg"
+          "hover:-translate-y-1 hover:shadow-lg",
         )}
       >
         {/* Header */}
@@ -169,7 +173,7 @@ const ExamCard = ({
           <h3
             className={cn(
               "font-display text-lg font-bold text-gray-900 transition-colors dark:text-white",
-              styles.titleHover
+              styles.titleHover,
             )}
           >
             {exam.title}
@@ -180,7 +184,7 @@ const ExamCard = ({
               "shrink-0 text-xs font-medium",
               styles.badgeBg,
               styles.badgeText,
-              styles.badgeBorder
+              styles.badgeBorder,
             )}
           >
             {variant === "active" && (
@@ -211,7 +215,7 @@ const ExamCard = ({
           <div
             className={cn(
               "flex items-center gap-3 rounded-lg p-2.5",
-              styles.infoBg
+              styles.infoBg,
             )}
           >
             <CalendarDays className={cn("h-4 w-4", styles.iconColor)} />
@@ -225,7 +229,7 @@ const ExamCard = ({
           <div
             className={cn(
               "flex items-center gap-3 rounded-lg p-2.5",
-              styles.infoBg
+              styles.infoBg,
             )}
           >
             <Clock className={cn("h-4 w-4", styles.iconColor)} />
@@ -241,7 +245,7 @@ const ExamCard = ({
           <div className="mb-6 rounded-xl border border-gray-200 bg-white/80 p-4 dark:border-gray-700 dark:bg-gray-800/80">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                <p className="text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">
                   Votre score
                 </p>
                 <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
@@ -253,7 +257,7 @@ const ExamCard = ({
                   "flex h-12 w-12 items-center justify-center rounded-full",
                   userResult.score >= 60
                     ? "bg-emerald-100 dark:bg-emerald-900/30"
-                    : "bg-amber-100 dark:bg-amber-900/30"
+                    : "bg-amber-100 dark:bg-amber-900/30",
                 )}
               >
                 {userResult.score >= 60 ? (
@@ -390,18 +394,13 @@ const SectionHeader = ({
       <div
         className={cn(
           "flex h-10 w-10 items-center justify-center rounded-xl",
-          styles.iconBg
+          styles.iconBg,
         )}
       >
         <IconComponent className={cn("h-5 w-5", styles.iconColor)} />
       </div>
       <div>
-        <h2
-          className={cn(
-            "font-display text-xl font-bold",
-            styles.titleColor
-          )}
-        >
+        <h2 className={cn("font-display text-xl font-bold", styles.titleColor)}>
           {title}
           <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
             ({count})
@@ -426,15 +425,15 @@ const ExamenBlancPage = () => {
   // Skip queries until authenticated to avoid race condition on page reload
   const allExams = useQuery(
     api.examStats.getAllExamsWithUserParticipation,
-    isAuthenticated ? undefined : "skip"
+    isAuthenticated ? undefined : "skip",
   )
   const currentUser = useQuery(
     api.users.getCurrentUser,
-    isAuthenticated ? undefined : "skip"
+    isAuthenticated ? undefined : "skip",
   )
   const userAccess = useQuery(
     api.users.getMyAccess,
-    isAuthenticated ? { accessType: "exam" as const } : "skip"
+    isAuthenticated ? { accessType: "exam" as const } : "skip",
   )
 
   // Update timestamp periodically for active exams
@@ -451,10 +450,10 @@ const ExamenBlancPage = () => {
 
     return {
       activeExams: allExams.filter(
-        (exam) => exam.isActive && now >= exam.startDate && now <= exam.endDate
+        (exam) => exam.isActive && now >= exam.startDate && now <= exam.endDate,
       ),
       upcomingExams: allExams.filter(
-        (exam) => exam.isActive && now < exam.startDate
+        (exam) => exam.isActive && now < exam.startDate,
       ),
       pastExams: allExams.filter((exam) => exam.isActive && now > exam.endDate),
     }
@@ -467,15 +466,15 @@ const ExamenBlancPage = () => {
     const completedExams = allExams.filter((exam) => exam.userParticipation)
     const totalCompleted = completedExams.length
     const passedExams = completedExams.filter(
-      (exam) => (exam.userParticipation?.score ?? 0) >= 60
+      (exam) => (exam.userParticipation?.score ?? 0) >= 60,
     ).length
     const averageScore =
       totalCompleted > 0
         ? Math.round(
             completedExams.reduce(
               (sum, exam) => sum + (exam.userParticipation?.score ?? 0),
-              0
-            ) / totalCompleted
+              0,
+            ) / totalCompleted,
           )
         : 0
 
@@ -524,8 +523,8 @@ const ExamenBlancPage = () => {
     <div className="min-h-screen">
       {/* Background gradient mesh */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-1/4 -top-1/4 h-150 w-150 rounded-full bg-linear-to-br from-blue-100/40 to-indigo-100/40 blur-3xl dark:from-blue-900/20 dark:to-indigo-900/20" />
-        <div className="absolute -bottom-1/4 -right-1/4 h-125 w-125 rounded-full bg-linear-to-br from-violet-100/30 to-blue-100/30 blur-3xl dark:from-violet-900/15 dark:to-blue-900/15" />
+        <div className="absolute -top-1/4 -left-1/4 h-150 w-150 rounded-full bg-linear-to-br from-blue-100/40 to-indigo-100/40 blur-3xl dark:from-blue-900/20 dark:to-indigo-900/20" />
+        <div className="absolute -right-1/4 -bottom-1/4 h-125 w-125 rounded-full bg-linear-to-br from-violet-100/30 to-blue-100/30 blur-3xl dark:from-violet-900/15 dark:to-blue-900/15" />
       </div>
 
       <div className="container mx-auto max-w-6xl px-4 py-8">
@@ -545,7 +544,7 @@ const ExamenBlancPage = () => {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 shadow-md"
+                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 shadow-md"
               >
                 <Trophy className="h-3.5 w-3.5 text-amber-900" />
               </motion.div>
@@ -555,7 +554,8 @@ const ExamenBlancPage = () => {
                 Examens Blancs
               </h1>
               <p className="mt-1 text-gray-600 dark:text-gray-400">
-                Testez vos connaissances dans les conditions réelles de l&apos;EACMC
+                Testez vos connaissances dans les conditions réelles de
+                l&apos;EACMC
               </p>
             </div>
           </div>

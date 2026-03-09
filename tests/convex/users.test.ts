@@ -3,6 +3,11 @@ import { convexTest } from "convex-test"
 import { describe, expect, it } from "vitest"
 import { api, internal } from "../../convex/_generated/api"
 import schema from "../../convex/schema"
+import {
+  createAdminUser,
+  createRegularUser,
+  grantAccess,
+} from "../helpers/convex-helpers"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
@@ -880,7 +885,9 @@ describe("users", () => {
       const expiredUserId = await t.run(async (ctx) => {
         const user = await ctx.db
           .query("users")
-          .withIndex("by_externalId", (q) => q.eq("externalId", "clerk_expired"))
+          .withIndex("by_externalId", (q) =>
+            q.eq("externalId", "clerk_expired"),
+          )
           .unique()
         return user!._id
       })
@@ -1364,7 +1371,9 @@ describe("users", () => {
       const userId = await t.run(async (ctx) => {
         const user = await ctx.db
           .query("users")
-          .withIndex("by_externalId", (q) => q.eq("externalId", "clerk_regular"))
+          .withIndex("by_externalId", (q) =>
+            q.eq("externalId", "clerk_regular"),
+          )
           .unique()
         return user!._id
       })
@@ -2070,6 +2079,200 @@ describe("users", () => {
       const stats = await asAdmin.query(api.users.getAdminStats)
       expect(stats.totalExams).toBe(4)
       expect(stats.activeExams).toBe(1) // Only the first exam is truly active
+    })
+  })
+
+  describe("_cascadeDeleteUserData", () => {
+    it("supprime toutes les donnees utilisateur en cascade", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+
+      // Creer une question + examen
+      const questionId = await admin.asAdmin.mutation(
+        api.questions.createQuestion,
+        {
+          question: "Question 1",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "Explication",
+          objectifCMC: "Objectif 1",
+          domain: "Domain",
+        },
+      )
+
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen Test",
+        startDate: Date.now(),
+        endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [questionId],
+      })
+
+      // Accorder acces + creer des donnees
+      await grantAccess(t, user.userId, "exam")
+      await grantAccess(t, user.userId, "training")
+
+      // Creer training participation + answers
+      const trainingParticipationId = await t.run(async (ctx) => {
+        const tpId = await ctx.db.insert("trainingParticipations", {
+          userId: user.userId,
+          questionCount: 1,
+          questionIds: [questionId],
+          score: 0,
+          status: "completed",
+          startedAt: Date.now(),
+          completedAt: Date.now(),
+          expiresAt: Date.now() + 86400000,
+        })
+        await ctx.db.insert("trainingAnswers", {
+          participationId: tpId,
+          questionId,
+          selectedAnswer: "A",
+          isCorrect: true,
+        })
+        return tpId
+      })
+
+      // Creer exam participation + answers
+      const examParticipationId = await t.run(async (ctx) => {
+        const epId = await ctx.db.insert("examParticipations", {
+          examId,
+          userId: user.userId,
+          score: 80,
+          completedAt: Date.now(),
+          status: "completed",
+        })
+        await ctx.db.insert("examAnswers", {
+          participationId: epId,
+          questionId,
+          selectedAnswer: "A",
+          isCorrect: true,
+        })
+        // Creer le stat d'agregation
+        await ctx.db.insert("examParticipationStats", {
+          examId,
+          count: 1,
+        })
+        return epId
+      })
+
+      // Creer rate limit
+      await t.run(async (ctx) => {
+        await ctx.db.insert("uploadRateLimits", {
+          clerkId: "clerk_user",
+          uploadType: "avatar",
+          count: 1,
+          windowStart: Date.now(),
+        })
+      })
+
+      // Executer la cascade deletion
+      const result = await t.mutation(internal.users._cascadeDeleteUserData, {
+        clerkUserId: "clerk_user",
+      })
+
+      expect(result.deleted).toBe(true)
+      expect(result.stats.trainingParticipations).toBe(1)
+      expect(result.stats.trainingAnswers).toBe(1)
+      expect(result.stats.examParticipations).toBe(1)
+      expect(result.stats.examAnswers).toBe(1)
+      expect(result.stats.userAccess).toBe(2)
+      expect(result.stats.rateLimits).toBe(1)
+
+      // Verifier que tout est supprime
+      await t.run(async (ctx) => {
+        // User supprime
+        const userDoc = await ctx.db.get(user.userId)
+        expect(userDoc).toBeNull()
+
+        // Training data supprime
+        const tp = await ctx.db.get(trainingParticipationId)
+        expect(tp).toBeNull()
+
+        const trainingAnswers = await ctx.db.query("trainingAnswers").collect()
+        expect(trainingAnswers).toHaveLength(0)
+
+        // Exam data supprime
+        const ep = await ctx.db.get(examParticipationId)
+        expect(ep).toBeNull()
+
+        const examAnswers = await ctx.db.query("examAnswers").collect()
+        expect(examAnswers).toHaveLength(0)
+
+        // UserAccess supprime
+        const access = await ctx.db.query("userAccess").collect()
+        expect(access).toHaveLength(0)
+
+        // Rate limits supprime
+        const rateLimits = await ctx.db.query("uploadRateLimits").collect()
+        expect(rateLimits).toHaveLength(0)
+
+        // ExamParticipationStats decremente (supprime car count=1 -> 0)
+        const stats = await ctx.db.query("examParticipationStats").collect()
+        expect(stats).toHaveLength(0)
+      })
+
+      // Verifier que les transactions sont conservees
+      await t.run(async (ctx) => {
+        const transactions = await ctx.db.query("transactions").collect()
+        expect(transactions.length).toBeGreaterThan(0)
+      })
+
+      // Verifier que l'examen est conserve
+      await t.run(async (ctx) => {
+        const exam = await ctx.db.get(examId)
+        expect(exam).not.toBeNull()
+      })
+    })
+
+    it("retourne deleted: false si le user n'existe pas", async () => {
+      const t = convexTest(schema, modules)
+
+      const result = await t.mutation(internal.users._cascadeDeleteUserData, {
+        clerkUserId: "clerk_inexistant",
+      })
+
+      expect(result.deleted).toBe(false)
+      expect(result.avatarStoragePath).toBeNull()
+    })
+
+    it("est idempotent (2e appel retourne deleted: false)", async () => {
+      const t = convexTest(schema, modules)
+      await createRegularUser(t)
+
+      const result1 = await t.mutation(internal.users._cascadeDeleteUserData, {
+        clerkUserId: "clerk_user",
+      })
+      expect(result1.deleted).toBe(true)
+
+      const result2 = await t.mutation(internal.users._cascadeDeleteUserData, {
+        clerkUserId: "clerk_user",
+      })
+      expect(result2.deleted).toBe(false)
+    })
+
+    it("retourne le avatarStoragePath quand il existe", async () => {
+      const t = convexTest(schema, modules)
+
+      // Creer un user avec avatarStoragePath
+      await t.run(async (ctx) => {
+        await ctx.db.insert("users", {
+          name: "User Avatar",
+          email: "avatar@example.com",
+          image: "https://cdn.example.com/avatar.jpg",
+          role: "user",
+          externalId: "clerk_avatar_user",
+          tokenIdentifier: "https://clerk.dev|clerk_avatar_user",
+          avatarStoragePath: "avatars/user123/avatar.jpg",
+        })
+      })
+
+      const result = await t.mutation(internal.users._cascadeDeleteUserData, {
+        clerkUserId: "clerk_avatar_user",
+      })
+
+      expect(result.deleted).toBe(true)
+      expect(result.avatarStoragePath).toBe("avatars/user123/avatar.jpg")
     })
   })
 })

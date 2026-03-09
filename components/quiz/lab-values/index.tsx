@@ -25,11 +25,11 @@ const CategoryPill = ({
     type="button"
     onClick={onClick}
     className={cn(
-      "relative cursor-pointer whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+      "relative cursor-pointer rounded-full px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors",
       "focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50",
       isActive
         ? "text-white"
-        : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/50",
+        : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-200",
     )}
     whileTap={{ scale: 0.97 }}
   >
@@ -106,18 +106,18 @@ const LabValueRow = ({
       index % 2 === 0 ? "bg-slate-900/20" : "bg-transparent",
     )}
   >
-    <span className="flex-1 min-w-0 text-sm font-medium text-slate-200 group-hover:text-white transition-colors truncate">
+    <span className="min-w-0 flex-1 truncate text-sm font-medium text-slate-200 transition-colors group-hover:text-white">
       {name}
     </span>
-    <div className="flex items-baseline gap-2 shrink-0">
+    <div className="flex shrink-0 items-baseline gap-2">
       <span
-        className="font-mono text-sm tabular-nums text-cyan-300 whitespace-nowrap"
+        className="font-mono text-sm whitespace-nowrap text-cyan-300 tabular-nums"
         style={{ fontFeatureSettings: '"tnum"' }}
       >
         {value}
       </span>
       {unit && (
-        <span className="text-[11px] text-slate-500 whitespace-nowrap">
+        <span className="text-[11px] whitespace-nowrap text-slate-500">
           {unit}
         </span>
       )}
@@ -170,7 +170,7 @@ export const LabValues = ({ isOpen, onOpenChange }: LabValuesProps) => {
           </div>
 
           {/* Category pills */}
-          <div className="mt-4 flex gap-1 overflow-x-auto pb-1 scrollbar-none">
+          <div className="scrollbar-none mt-4 flex gap-1 overflow-x-auto pb-1">
             {LAB_VALUES_DATA.map((category) => (
               <CategoryPill
                 key={category.id}
@@ -186,17 +186,17 @@ export const LabValues = ({ isOpen, onOpenChange }: LabValuesProps) => {
         <div className="h-px shrink-0 bg-linear-to-r from-transparent via-slate-700/50 to-transparent" />
 
         {/* Column headers - Fixed outside scroll */}
-        <div className="shrink-0 flex items-center justify-between gap-3 bg-slate-900/95 px-4 py-2 border-b border-slate-800/30">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-800/30 bg-slate-900/95 px-4 py-2">
+          <span className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
             Paramètre
           </span>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+          <span className="text-[11px] font-semibold tracking-wider text-slate-500 uppercase">
             Valeur normale
           </span>
         </div>
 
         {/* Values list - Scrollable area with fixed height */}
-        <div className="flex-1 overflow-y-auto min-h-0 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+        <div className="scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent min-h-0 flex-1 overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={`${activeCategory}-${unitSystem}`}
@@ -210,7 +210,9 @@ export const LabValues = ({ isOpen, onOpenChange }: LabValuesProps) => {
                 <LabValueRow
                   key={labValue.id}
                   name={labValue.name}
-                  value={unitSystem === "us" ? labValue.usValue : labValue.siValue}
+                  value={
+                    unitSystem === "us" ? labValue.usValue : labValue.siValue
+                  }
                   unit={unitSystem === "us" ? labValue.usUnit : labValue.siUnit}
                   index={index}
                 />

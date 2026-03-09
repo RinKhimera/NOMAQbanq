@@ -1,20 +1,18 @@
 "use client"
 
-import { motion } from "motion/react"
 import {
-  CreditCard,
   Banknote,
   CheckCircle,
-  Clock,
-  XCircle,
-  RotateCcw,
   ChevronDown,
+  Clock,
+  CreditCard,
   MoreVertical,
   Pencil,
+  RotateCcw,
   Trash2,
+  XCircle,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
-import { formatCurrency, formatShortDate, formatTimeOnly } from "@/lib/format"
+import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -22,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -30,7 +29,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Skeleton } from "@/components/ui/skeleton"
+import { formatCurrency, formatShortDate, formatTimeOnly } from "@/lib/format"
+import { cn } from "@/lib/utils"
 
 type TransactionStatus = "pending" | "completed" | "failed" | "refunded"
 type TransactionType = "stripe" | "manual"
@@ -64,20 +64,25 @@ interface TransactionTableProps {
 
 export type { Transaction }
 
-const statusConfig: Record<TransactionStatus, {
-  label: string
-  icon: typeof CheckCircle
-  className: string
-}> = {
+const statusConfig: Record<
+  TransactionStatus,
+  {
+    label: string
+    icon: typeof CheckCircle
+    className: string
+  }
+> = {
   completed: {
     label: "Complété",
     icon: CheckCircle,
-    className: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    className:
+      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   },
   pending: {
     label: "En attente",
     icon: Clock,
-    className: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    className:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
   },
   failed: {
     label: "Échoué",
@@ -87,24 +92,30 @@ const statusConfig: Record<TransactionStatus, {
   refunded: {
     label: "Remboursé",
     icon: RotateCcw,
-    className: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    className:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
   },
 }
 
-const typeConfig: Record<TransactionType, {
-  label: string
-  icon: typeof CreditCard
-  className: string
-}> = {
+const typeConfig: Record<
+  TransactionType,
+  {
+    label: string
+    icon: typeof CreditCard
+    className: string
+  }
+> = {
   stripe: {
     label: "Stripe",
     icon: CreditCard,
-    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+    className:
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   },
   manual: {
     label: "Manuel",
     icon: Banknote,
-    className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    className:
+      "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
   },
 }
 
@@ -113,10 +124,12 @@ const StatusBadge = ({ status }: { status: TransactionStatus }) => {
   const Icon = config.icon
 
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-      config.className
-    )}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+        config.className,
+      )}
+    >
       <Icon className="h-3.5 w-3.5" />
       {config.label}
     </span>
@@ -128,20 +141,31 @@ const TypeBadge = ({ type }: { type: TransactionType }) => {
   const Icon = config.icon
 
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-      config.className
-    )}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
+        config.className,
+      )}
+    >
       <Icon className="h-3.5 w-3.5" />
       {config.label}
     </span>
   )
 }
 
-const TableSkeleton = ({ rows = 5, showUserColumn = false }: { rows?: number; showUserColumn?: boolean }) => (
+const TableSkeleton = ({
+  rows = 5,
+  showUserColumn = false,
+}: {
+  rows?: number
+  showUserColumn?: boolean
+}) => (
   <div className="space-y-3">
     {Array.from({ length: rows }).map((_, i) => (
-      <div key={i} className="flex items-center gap-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50">
+      <div
+        key={i}
+        className="flex items-center gap-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50"
+      >
         <Skeleton className="h-10 w-10 rounded-full" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-4 w-32" />
@@ -166,7 +190,8 @@ export const TransactionTable = ({
   onEditTransaction,
   onDeleteTransaction,
 }: TransactionTableProps) => {
-  const showActionsColumn = showUserColumn && (onEditTransaction || onDeleteTransaction)
+  const showActionsColumn =
+    showUserColumn && (onEditTransaction || onDeleteTransaction)
   if (isLoading && transactions.length === 0) {
     return <TableSkeleton rows={5} showUserColumn={showUserColumn} />
   }
@@ -204,10 +229,10 @@ export const TransactionTable = ({
               )}
               <TableHead className="font-semibold">Type</TableHead>
               <TableHead className="font-semibold">Statut</TableHead>
-              <TableHead className="text-right font-semibold">Montant</TableHead>
-              {showActionsColumn && (
-                <TableHead className="w-12"></TableHead>
-              )}
+              <TableHead className="text-right font-semibold">
+                Montant
+              </TableHead>
+              {showActionsColumn && <TableHead className="w-12"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -235,7 +260,10 @@ export const TransactionTable = ({
                       {transaction.product?.name || "Produit inconnu"}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {transaction.durationDays} jours · {transaction.accessType === "exam" ? "Examens" : "Entraînement"}
+                      {transaction.durationDays} jours ·{" "}
+                      {transaction.accessType === "exam"
+                        ? "Examens"
+                        : "Entraînement"}
                     </p>
                   </div>
                 </TableCell>
@@ -258,13 +286,18 @@ export const TransactionTable = ({
                   <StatusBadge status={transaction.status} />
                 </TableCell>
                 <TableCell className="text-right">
-                  <span className={cn(
-                    "text-lg font-bold",
-                    transaction.status === "completed"
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-gray-900 dark:text-white"
-                  )}>
-                    {formatCurrency(transaction.amountPaid, transaction.currency)}
+                  <span
+                    className={cn(
+                      "text-lg font-bold",
+                      transaction.status === "completed"
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-gray-900 dark:text-white",
+                    )}
+                  >
+                    {formatCurrency(
+                      transaction.amountPaid,
+                      transaction.currency,
+                    )}
                   </span>
                 </TableCell>
                 {showActionsColumn && (
