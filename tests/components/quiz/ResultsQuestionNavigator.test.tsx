@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ResultsQuestionNavigator } from "@/components/quiz/results/results-question-navigator"
 import type { QuestionResultItem } from "@/components/quiz/results/types"
 
