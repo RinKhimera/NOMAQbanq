@@ -10,9 +10,7 @@ vi.mock("motion/react", async () => {
 
 describe("AnswerOption", () => {
   it("affiche la lettre et le texte de l'option", () => {
-    render(
-      <AnswerOption option="Paris" index={0} state="default" />,
-    )
+    render(<AnswerOption option="Paris" index={0} state="default" />)
 
     expect(screen.getByText("A")).toBeInTheDocument()
     expect(screen.getByText("Paris")).toBeInTheDocument()
@@ -32,18 +30,14 @@ describe("AnswerOption", () => {
   })
 
   it("applique le style par défaut correctement", () => {
-    render(
-      <AnswerOption option="Paris" index={0} state="default" />,
-    )
+    render(<AnswerOption option="Paris" index={0} state="default" />)
 
     const container = screen.getByText("Paris").closest("div")
     expect(container?.className).toContain("border-gray-200")
   })
 
   it("applique le style sélectionné correctement", () => {
-    render(
-      <AnswerOption option="Paris" index={0} state="selected" />,
-    )
+    render(<AnswerOption option="Paris" index={0} state="selected" />)
 
     const container = screen.getByText("Paris").closest("div")
     expect(container?.className).toContain("bg-blue-50")
@@ -51,9 +45,7 @@ describe("AnswerOption", () => {
   })
 
   it("applique le style correct correctement", () => {
-    render(
-      <AnswerOption option="Paris" index={0} state="correct" />,
-    )
+    render(<AnswerOption option="Paris" index={0} state="correct" />)
 
     const container = screen.getByText("Paris").closest("div")
     expect(container?.className).toContain("bg-green-50")
@@ -61,9 +53,7 @@ describe("AnswerOption", () => {
   })
 
   it("applique le style user-incorrect correctement", () => {
-    render(
-      <AnswerOption option="Lyon" index={1} state="user-incorrect" />,
-    )
+    render(<AnswerOption option="Lyon" index={1} state="user-incorrect" />)
 
     const container = screen.getByText("Lyon").closest("div")
     expect(container?.className).toContain("bg-red-100")
@@ -71,9 +61,7 @@ describe("AnswerOption", () => {
   })
 
   it("applique le style user-correct correctement", () => {
-    render(
-      <AnswerOption option="Paris" index={0} state="user-correct" />,
-    )
+    render(<AnswerOption option="Paris" index={0} state="user-correct" />)
 
     const container = screen.getByText("Paris").closest("div")
     expect(container?.className).toContain("bg-green-100")
@@ -81,9 +69,7 @@ describe("AnswerOption", () => {
   })
 
   it("applique le style incorrect (review) correctement", () => {
-    render(
-      <AnswerOption option="Marseille" index={2} state="incorrect" />,
-    )
+    render(<AnswerOption option="Marseille" index={2} state="incorrect" />)
 
     const container = screen.getByText("Marseille").closest("div")
     expect(container?.className).toContain("bg-gray-50")
@@ -107,9 +93,7 @@ describe("AnswerOption", () => {
   })
 
   it("ne rend pas de bouton quand onClick est absent (readonly)", () => {
-    render(
-      <AnswerOption option="Paris" index={0} state="correct" />,
-    )
+    render(<AnswerOption option="Paris" index={0} state="correct" />)
 
     expect(screen.queryByTestId("answer-option-0")).not.toBeInTheDocument()
     expect(screen.getByText("Paris")).toBeInTheDocument()
@@ -205,18 +189,14 @@ describe("AnswerOption", () => {
   })
 
   it("applique font-medium pour les réponses correctes", () => {
-    render(
-      <AnswerOption option="Paris" index={0} state="correct" />,
-    )
+    render(<AnswerOption option="Paris" index={0} state="correct" />)
 
     const textSpan = screen.getByText("Paris")
     expect(textSpan.className).toContain("font-medium")
   })
 
   it("applique font-normal pour les réponses par défaut", () => {
-    render(
-      <AnswerOption option="Paris" index={0} state="default" />,
-    )
+    render(<AnswerOption option="Paris" index={0} state="default" />)
 
     const textSpan = screen.getByText("Paris")
     expect(textSpan.className).toContain("font-normal")

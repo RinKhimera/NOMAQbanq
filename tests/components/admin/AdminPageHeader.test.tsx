@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react"
-import { type ReactNode, ComponentPropsWithoutRef } from "react"
+import { ComponentPropsWithoutRef, type ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 
@@ -90,9 +90,7 @@ describe("AdminPageHeader", () => {
       />,
     )
 
-    expect(
-      screen.getByText("Créez et gérez vos examens"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Créez et gérez vos examens")).toBeInTheDocument()
   })
 
   it("affiche l'icône passée en composant", () => {

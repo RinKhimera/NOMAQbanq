@@ -6,11 +6,9 @@ type MatchMediaListener = (event: { matches: boolean }) => void
 
 function createMatchMediaMock(matches: boolean) {
   const listeners: MatchMediaListener[] = []
-  const addEventListener = vi.fn(
-    (_event: string, cb: MatchMediaListener) => {
-      listeners.push(cb)
-    },
-  )
+  const addEventListener = vi.fn((_event: string, cb: MatchMediaListener) => {
+    listeners.push(cb)
+  })
   const removeEventListener = vi.fn(
     (_event: string, cb: MatchMediaListener) => {
       const idx = listeners.indexOf(cb)

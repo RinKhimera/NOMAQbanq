@@ -59,18 +59,14 @@ describe("PauseDialog", () => {
   it("affiche les informations sur la première moitié complétée", () => {
     render(<PauseDialog {...defaultProps} midpoint={50} totalQuestions={100} />)
 
-    expect(
-      screen.getByText("Première moitié complétée"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Première moitié complétée")).toBeInTheDocument()
     expect(screen.getByText(/Questions 1 à 50/)).toBeInTheDocument()
   })
 
   it("affiche les informations sur la seconde moitié verrouillée", () => {
     render(<PauseDialog {...defaultProps} midpoint={50} totalQuestions={100} />)
 
-    expect(
-      screen.getByText("Seconde moitié verrouillée"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Seconde moitié verrouillée")).toBeInTheDocument()
     expect(screen.getByText(/Questions 51 à 100/)).toBeInTheDocument()
   })
 

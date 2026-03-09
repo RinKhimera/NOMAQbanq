@@ -83,32 +83,24 @@ describe("ResultsQuestionNavigator", () => {
   it("affiche l'astuce quand showTips est vrai", () => {
     render(<ResultsQuestionNavigator {...defaultProps} showTips={true} />)
 
-    expect(
-      screen.getByText(/Cliquez sur un numéro/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Cliquez sur un numéro/)).toBeInTheDocument()
   })
 
   it("n'affiche pas l'astuce quand showTips est faux", () => {
     render(<ResultsQuestionNavigator {...defaultProps} showTips={false} />)
 
-    expect(
-      screen.queryByText(/Cliquez sur un numéro/),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/Cliquez sur un numéro/)).not.toBeInTheDocument()
   })
 
   it("rend la variante mobile avec le bouton FAB", () => {
-    render(
-      <ResultsQuestionNavigator {...defaultProps} variant="mobile" />,
-    )
+    render(<ResultsQuestionNavigator {...defaultProps} variant="mobile" />)
 
     const fabBtn = screen.getByLabelText("Navigation des questions")
     expect(fabBtn).toBeInTheDocument()
   })
 
   it("ouvre le panneau mobile au clic sur le FAB", () => {
-    render(
-      <ResultsQuestionNavigator {...defaultProps} variant="mobile" />,
-    )
+    render(<ResultsQuestionNavigator {...defaultProps} variant="mobile" />)
 
     fireEvent.click(screen.getByLabelText("Navigation des questions"))
 
@@ -117,9 +109,7 @@ describe("ResultsQuestionNavigator", () => {
   })
 
   it("ferme le panneau mobile et navigue au clic sur un numéro", () => {
-    render(
-      <ResultsQuestionNavigator {...defaultProps} variant="mobile" />,
-    )
+    render(<ResultsQuestionNavigator {...defaultProps} variant="mobile" />)
 
     // Open panel
     fireEvent.click(screen.getByLabelText("Navigation des questions"))
@@ -129,12 +119,7 @@ describe("ResultsQuestionNavigator", () => {
   })
 
   it("applique l'accent color emerald correctement", () => {
-    render(
-      <ResultsQuestionNavigator
-        {...defaultProps}
-        accentColor="emerald"
-      />,
-    )
+    render(<ResultsQuestionNavigator {...defaultProps} accentColor="emerald" />)
 
     expect(screen.getByText("Navigation")).toBeInTheDocument()
   })

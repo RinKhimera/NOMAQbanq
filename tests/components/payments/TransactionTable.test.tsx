@@ -1,8 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import type { Transaction } from "@/components/shared/payments/transaction-table"
 import { TransactionTable } from "@/components/shared/payments/transaction-table"
-import type { ReactNode } from "react"
 
 // Mock motion/react
 vi.mock("motion/react", async () => {
@@ -53,9 +53,7 @@ describe("TransactionTable", () => {
     it("affiche le message vide par défaut", () => {
       render(<TransactionTable transactions={[]} />)
 
-      expect(
-        screen.getByText("Aucune transaction trouvée"),
-      ).toBeInTheDocument()
+      expect(screen.getByText("Aucune transaction trouvée")).toBeInTheDocument()
     })
 
     it("affiche un message vide personnalisé", () => {
@@ -97,9 +95,7 @@ describe("TransactionTable", () => {
       const transaction = makeTransaction()
       render(<TransactionTable transactions={[transaction]} />)
 
-      expect(
-        screen.getByText("Accès Examens 30 jours"),
-      ).toBeInTheDocument()
+      expect(screen.getByText("Accès Examens 30 jours")).toBeInTheDocument()
       expect(screen.getByText("date-1700000000000")).toBeInTheDocument()
       expect(screen.getByText("time-1700000000000")).toBeInTheDocument()
       expect(screen.getByText(/30 jours · Examens/)).toBeInTheDocument()
@@ -123,9 +119,7 @@ describe("TransactionTable", () => {
       ]
       render(<TransactionTable transactions={transactions} />)
 
-      expect(
-        screen.getByText("Accès Examens 30 jours"),
-      ).toBeInTheDocument()
+      expect(screen.getByText("Accès Examens 30 jours")).toBeInTheDocument()
       expect(screen.getByText("Accès Entraînement")).toBeInTheDocument()
     })
 
@@ -137,7 +131,10 @@ describe("TransactionTable", () => {
     })
 
     it("affiche le montant formaté", () => {
-      const transaction = makeTransaction({ amountPaid: 10000, currency: "CAD" })
+      const transaction = makeTransaction({
+        amountPaid: 10000,
+        currency: "CAD",
+      })
       render(<TransactionTable transactions={[transaction]} />)
 
       expect(screen.getByText("100 CAD")).toBeInTheDocument()
@@ -194,10 +191,7 @@ describe("TransactionTable", () => {
     it("affiche la colonne utilisateur quand showUserColumn est true", () => {
       const transaction = makeTransaction()
       render(
-        <TransactionTable
-          transactions={[transaction]}
-          showUserColumn={true}
-        />,
+        <TransactionTable transactions={[transaction]} showUserColumn={true} />,
       )
 
       expect(screen.getByText("Jean Dupont")).toBeInTheDocument()
@@ -207,10 +201,7 @@ describe("TransactionTable", () => {
     it("affiche l'en-tête Utilisateur quand showUserColumn est true", () => {
       const transaction = makeTransaction()
       render(
-        <TransactionTable
-          transactions={[transaction]}
-          showUserColumn={true}
-        />,
+        <TransactionTable transactions={[transaction]} showUserColumn={true} />,
       )
 
       expect(screen.getByText("Utilisateur")).toBeInTheDocument()
@@ -227,10 +218,7 @@ describe("TransactionTable", () => {
     it("affiche 'Utilisateur' quand user est null", () => {
       const transaction = makeTransaction({ user: null })
       render(
-        <TransactionTable
-          transactions={[transaction]}
-          showUserColumn={true}
-        />,
+        <TransactionTable transactions={[transaction]} showUserColumn={true} />,
       )
 
       // Le fallback pour user.name est "Utilisateur" (texte de l'en-tête ET du fallback)
@@ -268,10 +256,7 @@ describe("TransactionTable", () => {
 
     it("n'affiche pas le bouton sans onLoadMore", () => {
       render(
-        <TransactionTable
-          transactions={[makeTransaction()]}
-          hasMore={true}
-        />,
+        <TransactionTable transactions={[makeTransaction()]} hasMore={true} />,
       )
 
       expect(screen.queryByText("Charger plus")).not.toBeInTheDocument()
@@ -325,9 +310,7 @@ describe("TransactionTable", () => {
 
   describe("en-têtes de table", () => {
     it("affiche les en-têtes de base", () => {
-      render(
-        <TransactionTable transactions={[makeTransaction()]} />,
-      )
+      render(<TransactionTable transactions={[makeTransaction()]} />)
 
       expect(screen.getByText("Date")).toBeInTheDocument()
       expect(screen.getByText("Produit")).toBeInTheDocument()

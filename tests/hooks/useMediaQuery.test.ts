@@ -39,9 +39,7 @@ describe("useMediaQuery", () => {
     const mql = createMatchMediaMock(true)
     window.matchMedia = vi.fn().mockReturnValue(mql)
 
-    const { result } = renderHook(() =>
-      useMediaQuery("(min-width: 1024px)"),
-    )
+    const { result } = renderHook(() => useMediaQuery("(min-width: 1024px)"))
 
     expect(result.current).toBe(true)
   })
@@ -50,9 +48,7 @@ describe("useMediaQuery", () => {
     const mql = createMatchMediaMock(false)
     window.matchMedia = vi.fn().mockReturnValue(mql)
 
-    const { result } = renderHook(() =>
-      useMediaQuery("(min-width: 1024px)"),
-    )
+    const { result } = renderHook(() => useMediaQuery("(min-width: 1024px)"))
 
     expect(result.current).toBe(false)
   })
@@ -61,9 +57,7 @@ describe("useMediaQuery", () => {
     const mql = createMatchMediaMock(false)
     window.matchMedia = vi.fn().mockReturnValue(mql)
 
-    const { result } = renderHook(() =>
-      useMediaQuery("(min-width: 1024px)"),
-    )
+    const { result } = renderHook(() => useMediaQuery("(min-width: 1024px)"))
 
     expect(result.current).toBe(false)
 
@@ -108,9 +102,7 @@ describe("useMediaQuery", () => {
     const mql = createMatchMediaMock(false)
     window.matchMedia = vi.fn().mockReturnValue(mql)
 
-    const { unmount } = renderHook(() =>
-      useMediaQuery("(min-width: 768px)"),
-    )
+    const { unmount } = renderHook(() => useMediaQuery("(min-width: 768px)"))
 
     unmount()
 

@@ -21,15 +21,15 @@ vi.mock("next/image", () => ({
 // Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>
-      {children}
-    </a>
+    <a href={href}>{children}</a>
   ),
 }))
 
 // Mock Radix DropdownMenu to render inline (no portal)
 vi.mock("@/components/ui/dropdown-menu", () => ({
-  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenu: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
     <div data-testid="dropdown-trigger">{children}</div>
   ),
@@ -85,9 +85,7 @@ describe("ExamActions", () => {
   it("affiche le bouton de déclenchement du menu", () => {
     render(<ExamActions exam={createMockExam()} {...defaultCallbacks} />)
 
-    expect(
-      screen.getByLabelText("Actions de l'examen"),
-    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Actions de l'examen")).toBeInTheDocument()
   })
 
   it("affiche le lien 'Voir les détails'", () => {
@@ -130,9 +128,7 @@ describe("ExamActions", () => {
   it("appelle onEdit au clic sur 'Modifier'", () => {
     const onEdit = vi.fn()
     const exam = createMockExam()
-    render(
-      <ExamActions exam={exam} {...defaultCallbacks} onEdit={onEdit} />,
-    )
+    render(<ExamActions exam={exam} {...defaultCallbacks} onEdit={onEdit} />)
 
     fireEvent.click(screen.getByText("Modifier"))
 

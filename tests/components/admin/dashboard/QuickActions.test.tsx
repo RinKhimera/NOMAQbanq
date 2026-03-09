@@ -36,17 +36,13 @@ describe("QuickActions", () => {
     expect(screen.getByText("Ajouter une question")).toBeInTheDocument()
     expect(screen.getByText("Créer un examen")).toBeInTheDocument()
     expect(screen.getByText("Gérer les utilisateurs")).toBeInTheDocument()
-    expect(
-      screen.getByText("Enregistrer un paiement"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Enregistrer un paiement")).toBeInTheDocument()
   })
 
   it("contient un lien vers la page des questions", () => {
     render(<QuickActions />)
 
-    const link = screen
-      .getByText("Ajouter une question")
-      .closest("a")
+    const link = screen.getByText("Ajouter une question").closest("a")
     expect(link?.getAttribute("href")).toBe("/admin/questions")
   })
 
@@ -60,9 +56,7 @@ describe("QuickActions", () => {
   it("contient un lien vers la page des utilisateurs", () => {
     render(<QuickActions />)
 
-    const link = screen
-      .getByText("Gérer les utilisateurs")
-      .closest("a")
+    const link = screen.getByText("Gérer les utilisateurs").closest("a")
     expect(link?.getAttribute("href")).toBe("/admin/users")
   })
 
@@ -85,21 +79,15 @@ describe("QuickActions", () => {
     expect(paymentAction).not.toBeNull()
 
     // Ne devrait pas être un lien
-    const paymentLink = screen
-      .getByText("Enregistrer un paiement")
-      .closest("a")
+    const paymentLink = screen.getByText("Enregistrer un paiement").closest("a")
     expect(paymentLink).toBeNull()
   })
 
   it("rend les 3 premières actions comme des liens", () => {
     render(<QuickActions />)
 
-    expect(
-      screen.getByText("Ajouter une question").closest("a"),
-    ).not.toBeNull()
-    expect(
-      screen.getByText("Créer un examen").closest("a"),
-    ).not.toBeNull()
+    expect(screen.getByText("Ajouter une question").closest("a")).not.toBeNull()
+    expect(screen.getByText("Créer un examen").closest("a")).not.toBeNull()
     expect(
       screen.getByText("Gérer les utilisateurs").closest("a"),
     ).not.toBeNull()

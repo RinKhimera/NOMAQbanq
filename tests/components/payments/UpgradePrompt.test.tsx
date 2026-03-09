@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { UpgradePrompt } from "@/components/shared/payments/upgrade-prompt"
-import type { ReactNode } from "react"
 
 // Mock motion/react
 vi.mock("motion/react", async () => {
@@ -28,9 +28,7 @@ describe("UpgradePrompt", () => {
     it("affiche le titre pour les examens", () => {
       render(<UpgradePrompt accessType="exam" />)
 
-      expect(
-        screen.getByText("Accès aux examens requis"),
-      ).toBeInTheDocument()
+      expect(screen.getByText("Accès aux examens requis")).toBeInTheDocument()
     })
 
     it("affiche la description par défaut pour les examens", () => {
@@ -88,9 +86,7 @@ describe("UpgradePrompt", () => {
         screen.getByText("Mode tuteur avec explications"),
       ).toBeInTheDocument()
       expect(screen.getByText("Filtrage par domaine")).toBeInTheDocument()
-      expect(
-        screen.getByText("Progression personnalisée"),
-      ).toBeInTheDocument()
+      expect(screen.getByText("Progression personnalisée")).toBeInTheDocument()
     })
   })
 

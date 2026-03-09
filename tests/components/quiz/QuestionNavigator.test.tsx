@@ -74,10 +74,7 @@ describe("QuestionNavigator", () => {
 
   it("ne navigue pas vers une question verrouillée", () => {
     render(
-      <QuestionNavigator
-        {...defaultProps}
-        isQuestionLocked={(i) => i === 3}
-      />,
+      <QuestionNavigator {...defaultProps} isQuestionLocked={(i) => i === 3} />,
     )
 
     // Question 4 (index 3) should be locked, disabled buttons should not trigger navigation
@@ -92,15 +89,17 @@ describe("QuestionNavigator", () => {
 
   it("affiche le compteur de questions marquées et permet le filtrage", () => {
     const flagged = new Set(["q1", "q3"])
-    render(
-      <QuestionNavigator {...defaultProps} flaggedQuestions={flagged} />,
-    )
+    render(<QuestionNavigator {...defaultProps} flaggedQuestions={flagged} />)
 
     // The flag filter button exists with count "2"
     // Find it by the flag icon context - the button with items-center gap
-    const flagFilterBtns = screen.getAllByRole("button").filter(
-      (btn) => btn.className.includes("items-center") && btn.className.includes("gap-1"),
-    )
+    const flagFilterBtns = screen
+      .getAllByRole("button")
+      .filter(
+        (btn) =>
+          btn.className.includes("items-center") &&
+          btn.className.includes("gap-1"),
+      )
     expect(flagFilterBtns.length).toBeGreaterThan(0)
 
     // Click the flag filter
@@ -108,9 +107,9 @@ describe("QuestionNavigator", () => {
 
     // After filtering, only flagged questions should appear (q1 -> index 1 -> "2", q3 -> index 3 -> "4")
     // Non-flagged question "1" (index 0) should not be in the grid
-    const gridButtons = screen.getAllByRole("button").filter(
-      (btn) => btn.textContent && /^\d+$/.test(btn.textContent.trim()),
-    )
+    const gridButtons = screen
+      .getAllByRole("button")
+      .filter((btn) => btn.textContent && /^\d+$/.test(btn.textContent.trim()))
     const gridNumbers = gridButtons.map((btn) => btn.textContent!.trim())
     expect(gridNumbers).toContain("2")
     expect(gridNumbers).toContain("4")
@@ -129,10 +128,7 @@ describe("QuestionNavigator", () => {
 
   it("affiche la légende Verrouillée quand isQuestionLocked est défini", () => {
     render(
-      <QuestionNavigator
-        {...defaultProps}
-        isQuestionLocked={(i) => i > 2}
-      />,
+      <QuestionNavigator {...defaultProps} isQuestionLocked={(i) => i > 2} />,
     )
 
     expect(screen.getByText("Verrouillée")).toBeInTheDocument()

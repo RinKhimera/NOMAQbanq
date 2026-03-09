@@ -37,14 +37,18 @@ describe("FinishDialog", () => {
   })
 
   it("affiche le compteur de questions répondues", () => {
-    render(<FinishDialog {...defaultProps} answeredCount={8} totalQuestions={10} />)
+    render(
+      <FinishDialog {...defaultProps} answeredCount={8} totalQuestions={10} />,
+    )
 
     expect(screen.getByText("8/10")).toBeInTheDocument()
     expect(screen.getByText("Répondues")).toBeInTheDocument()
   })
 
   it("affiche l'avertissement de questions non répondues", () => {
-    render(<FinishDialog {...defaultProps} answeredCount={7} totalQuestions={10} />)
+    render(
+      <FinishDialog {...defaultProps} answeredCount={7} totalQuestions={10} />,
+    )
 
     expect(screen.getByText(/3 questions/)).toBeInTheDocument()
     expect(screen.getByText(/non répondues/)).toBeInTheDocument()
@@ -148,7 +152,9 @@ describe("FinishDialog", () => {
 
     expect(screen.queryByText("Terminer la session ?")).not.toBeInTheDocument()
     // AlertDialog with open=false should not render content
-    expect(container.querySelector("[data-slot='alert-dialog-content']")).toBeNull()
+    expect(
+      container.querySelector("[data-slot='alert-dialog-content']"),
+    ).toBeNull()
   })
 
   it("affiche l'avertissement singulier pour 1 question non répondue", () => {

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { PremiumPricingCard } from "@/components/shared/payments/premium-pricing-card"
-import type { ReactNode } from "react"
 
 // Mock motion/react
 vi.mock("motion/react", async () => {
@@ -105,9 +105,7 @@ describe("PremiumPricingCard", () => {
     )
 
     expect(
-      screen.getByText(
-        "Accès complet examens + entraînement pendant 6 mois",
-      ),
+      screen.getByText("Accès complet examens + entraînement pendant 6 mois"),
     ).toBeInTheDocument()
   })
 
@@ -147,9 +145,7 @@ describe("PremiumPricingCard", () => {
     expect(
       screen.getByText("Mode tuteur avec explications"),
     ).toBeInTheDocument()
-    expect(
-      screen.getByText("Filtrage par domaine médical"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Filtrage par domaine médical")).toBeInTheDocument()
   })
 
   it("affiche les fonctionnalités partagées premium", () => {

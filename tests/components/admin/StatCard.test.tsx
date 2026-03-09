@@ -45,9 +45,7 @@ describe("StatCard", () => {
     render(<StatCard {...baseProps} />)
 
     expect(screen.getByText("Questions disponibles")).toBeInTheDocument()
-    expect(
-      screen.getByText("Base de données QCM médicaux"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Base de données QCM médicaux")).toBeInTheDocument()
   })
 
   it("affiche l'icône passée en prop", () => {

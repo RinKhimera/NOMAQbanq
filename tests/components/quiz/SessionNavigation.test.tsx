@@ -35,7 +35,11 @@ describe("SessionNavigation", () => {
 
   it("affiche le bouton Terminer à la dernière question", () => {
     render(
-      <SessionNavigation {...defaultProps} currentIndex={9} totalQuestions={10} />,
+      <SessionNavigation
+        {...defaultProps}
+        currentIndex={9}
+        totalQuestions={10}
+      />,
     )
 
     expect(screen.getByTestId("btn-finish")).toBeInTheDocument()
@@ -101,7 +105,11 @@ describe("SessionNavigation", () => {
   it("appelle onPrevious au clic sur le bouton précédent", () => {
     const onPrevious = vi.fn()
     render(
-      <SessionNavigation {...defaultProps} currentIndex={3} onPrevious={onPrevious} />,
+      <SessionNavigation
+        {...defaultProps}
+        currentIndex={3}
+        onPrevious={onPrevious}
+      />,
     )
 
     fireEvent.click(screen.getByTestId("btn-previous"))

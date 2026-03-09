@@ -20,15 +20,15 @@ vi.mock("next/image", () => ({
 // Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>
-      {children}
-    </a>
+    <a href={href}>{children}</a>
   ),
 }))
 
 // Mock Radix DropdownMenu to render inline (no portal)
 vi.mock("@/components/ui/dropdown-menu", () => ({
-  DropdownMenu: ({ children }: { children: ReactNode }) => <div data-testid="dropdown">{children}</div>,
+  DropdownMenu: ({ children }: { children: ReactNode }) => (
+    <div data-testid="dropdown">{children}</div>
+  ),
   DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
     <div data-testid="dropdown-trigger">{children}</div>
   ),
@@ -39,7 +39,11 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
     children,
     checked,
     onCheckedChange,
-  }: { children: ReactNode; checked?: boolean; onCheckedChange?: (checked: boolean) => void }) => (
+  }: {
+    children: ReactNode
+    checked?: boolean
+    onCheckedChange?: (checked: boolean) => void
+  }) => (
     <button
       role="menuitemcheckbox"
       aria-checked={checked}
@@ -52,9 +56,7 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 
 describe("ExamStatusFilter", () => {
   it("affiche le bouton 'Filtrer par statut'", () => {
-    render(
-      <ExamStatusFilter selectedStatuses={[]} onStatusChange={vi.fn()} />,
-    )
+    render(<ExamStatusFilter selectedStatuses={[]} onStatusChange={vi.fn()} />)
 
     // Le texte apparait dans le bouton et dans le header du dropdown
     const elements = screen.getAllByText("Filtrer par statut")
@@ -62,9 +64,7 @@ describe("ExamStatusFilter", () => {
   })
 
   it("affiche tous les labels de statut", () => {
-    render(
-      <ExamStatusFilter selectedStatuses={[]} onStatusChange={vi.fn()} />,
-    )
+    render(<ExamStatusFilter selectedStatuses={[]} onStatusChange={vi.fn()} />)
 
     expect(screen.getByText("En cours")).toBeInTheDocument()
     expect(screen.getByText("À venir")).toBeInTheDocument()
@@ -73,9 +73,7 @@ describe("ExamStatusFilter", () => {
   })
 
   it("affiche les boutons 'Tout' et 'Aucun'", () => {
-    render(
-      <ExamStatusFilter selectedStatuses={[]} onStatusChange={vi.fn()} />,
-    )
+    render(<ExamStatusFilter selectedStatuses={[]} onStatusChange={vi.fn()} />)
 
     expect(screen.getByText("Tout")).toBeInTheDocument()
     expect(screen.getByText("Aucun")).toBeInTheDocument()

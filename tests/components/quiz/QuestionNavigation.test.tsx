@@ -8,18 +8,30 @@ import { createMockQuestionDoc } from "../../helpers/mocks"
 // Mock @radix-ui/react-dropdown-menu to render content directly
 vi.mock("@radix-ui/react-dropdown-menu", () => {
   return {
-    Root: ({ children }: { children: ReactNode }) => <div data-testid="dropdown-root">{children}</div>,
-    Trigger: ({ children, asChild }: { children: ReactNode; asChild?: boolean }) => {
+    Root: ({ children }: { children: ReactNode }) => (
+      <div data-testid="dropdown-root">{children}</div>
+    ),
+    Trigger: ({
+      children,
+      asChild,
+    }: {
+      children: ReactNode
+      asChild?: boolean
+    }) => {
       if (asChild) return children
       return <button>{children}</button>
     },
     Portal: ({ children }: { children: ReactNode }) => <>{children}</>,
     Content: ({ children }: { children: ReactNode }) => (
-      <div data-testid="dropdown-content">
-        {children}
-      </div>
+      <div data-testid="dropdown-content">{children}</div>
     ),
-    Item: ({ children, onClick }: { children: ReactNode; onClick?: MouseEventHandler }) => (
+    Item: ({
+      children,
+      onClick,
+    }: {
+      children: ReactNode
+      onClick?: MouseEventHandler
+    }) => (
       <div role="menuitem" onClick={onClick}>
         {children}
       </div>

@@ -32,11 +32,26 @@ vi.mock("next/navigation", () => ({
 
 describe("QuizResults", () => {
   const questions = [
-    createMockQuestionDoc({ _id: "q1" as Id<"questions">, question: "Question 1" }),
-    createMockQuestionDoc({ _id: "q2" as Id<"questions">, question: "Question 2" }),
-    createMockQuestionDoc({ _id: "q3" as Id<"questions">, question: "Question 3" }),
-    createMockQuestionDoc({ _id: "q4" as Id<"questions">, question: "Question 4" }),
-    createMockQuestionDoc({ _id: "q5" as Id<"questions">, question: "Question 5" }),
+    createMockQuestionDoc({
+      _id: "q1" as Id<"questions">,
+      question: "Question 1",
+    }),
+    createMockQuestionDoc({
+      _id: "q2" as Id<"questions">,
+      question: "Question 2",
+    }),
+    createMockQuestionDoc({
+      _id: "q3" as Id<"questions">,
+      question: "Question 3",
+    }),
+    createMockQuestionDoc({
+      _id: "q4" as Id<"questions">,
+      question: "Question 4",
+    }),
+    createMockQuestionDoc({
+      _id: "q5" as Id<"questions">,
+      question: "Question 5",
+    }),
   ]
 
   const defaultProps = {

@@ -33,9 +33,7 @@ class MockIntersectionObserver {
 
   // Helper pour simuler un changement de visibilite
   trigger(isIntersecting: boolean) {
-    this.callback([
-      { isIntersecting } as IntersectionObserverEntry,
-    ])
+    this.callback([{ isIntersecting } as IntersectionObserverEntry])
   }
 }
 

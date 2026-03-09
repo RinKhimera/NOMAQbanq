@@ -44,14 +44,10 @@ const createExpiringAccess = (
 
 describe("AlertsPanel", () => {
   it("affiche l'état vide quand il n'y a pas d'alertes", () => {
-    render(
-      <AlertsPanel expiringAccess={[]} failedPaymentsCount={0} />,
-    )
+    render(<AlertsPanel expiringAccess={[]} failedPaymentsCount={0} />)
 
     expect(screen.getByText("Tout va bien")).toBeInTheDocument()
-    expect(
-      screen.getByText("Aucune alerte à signaler"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Aucune alerte à signaler")).toBeInTheDocument()
   })
 
   it("affiche le titre 'Alertes' dans les deux cas", () => {
@@ -77,24 +73,18 @@ describe("AlertsPanel", () => {
       />,
     )
 
-    expect(
-      screen.getByText("Accès examens expirant"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Accès examens expirant")).toBeInTheDocument()
   })
 
   it("affiche une alerte pour les accès entraînement expirant", () => {
     render(
       <AlertsPanel
-        expiringAccess={[
-          createExpiringAccess({ accessType: "training" }),
-        ]}
+        expiringAccess={[createExpiringAccess({ accessType: "training" })]}
         failedPaymentsCount={0}
       />,
     )
 
-    expect(
-      screen.getByText("Accès entraînement expirant"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Accès entraînement expirant")).toBeInTheDocument()
   })
 
   it("affiche la description pour un seul utilisateur avec accès expirant", () => {
@@ -111,9 +101,7 @@ describe("AlertsPanel", () => {
       />,
     )
 
-    expect(
-      screen.getByText("Marie Martin - 5j restants"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Marie Martin - 5j restants")).toBeInTheDocument()
   })
 
   it("affiche la description au singulier pour 1 jour restant", () => {
@@ -130,9 +118,7 @@ describe("AlertsPanel", () => {
       />,
     )
 
-    expect(
-      screen.getByText("Paul Tremblay - 1j restant"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Paul Tremblay - 1j restant")).toBeInTheDocument()
   })
 
   it("affiche la description pour plusieurs utilisateurs", () => {
@@ -156,15 +142,11 @@ describe("AlertsPanel", () => {
       />,
     )
 
-    expect(
-      screen.getByText("3 utilisateurs, 2j minimum"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("3 utilisateurs, 2j minimum")).toBeInTheDocument()
   })
 
   it("affiche l'alerte de paiements échoués au singulier", () => {
-    render(
-      <AlertsPanel expiringAccess={[]} failedPaymentsCount={1} />,
-    )
+    render(<AlertsPanel expiringAccess={[]} failedPaymentsCount={1} />)
 
     expect(screen.getByText("Paiements échoués")).toBeInTheDocument()
     expect(
@@ -173,9 +155,7 @@ describe("AlertsPanel", () => {
   })
 
   it("affiche l'alerte de paiements échoués au pluriel", () => {
-    render(
-      <AlertsPanel expiringAccess={[]} failedPaymentsCount={4} />,
-    )
+    render(<AlertsPanel expiringAccess={[]} failedPaymentsCount={4} />)
 
     expect(
       screen.getByText("4 paiements ces 7 derniers jours"),
@@ -202,9 +182,7 @@ describe("AlertsPanel", () => {
   it("crée des liens vers les pages appropriées", () => {
     const { container } = render(
       <AlertsPanel
-        expiringAccess={[
-          createExpiringAccess({ accessType: "exam" }),
-        ]}
+        expiringAccess={[createExpiringAccess({ accessType: "exam" })]}
         failedPaymentsCount={2}
       />,
     )
@@ -230,8 +208,6 @@ describe("AlertsPanel", () => {
       />,
     )
 
-    expect(
-      screen.getByText("1 utilisateur - 3j restants"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("1 utilisateur - 3j restants")).toBeInTheDocument()
   })
 })

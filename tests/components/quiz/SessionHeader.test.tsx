@@ -69,9 +69,7 @@ vi.mock("motion/react", () => ({
 // Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>
-      {children}
-    </a>
+    <a href={href}>{children}</a>
   ),
 }))
 
@@ -194,10 +192,7 @@ describe("SessionHeader", () => {
 
   it("n'affiche pas le bouton pause quand canTakePause est faux", () => {
     render(
-      <SessionHeader
-        {...defaultProps}
-        examActions={{ canTakePause: false }}
-      />,
+      <SessionHeader {...defaultProps} examActions={{ canTakePause: false }} />,
     )
 
     expect(

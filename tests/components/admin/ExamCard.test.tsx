@@ -59,18 +59,30 @@ vi.mock("next/image", () => ({
 // Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>
-      {children}
-    </a>
+    <a href={href}>{children}</a>
   ),
 }))
 
 // Mock Radix DropdownMenu to render inline (no portal) - used by ExamActions
 vi.mock("@/components/ui/dropdown-menu", () => ({
-  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuItem: ({ children, onClick, asChild }: { children: ReactNode; onClick?: () => void; asChild?: boolean }) => {
+  DropdownMenu: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  DropdownMenuItem: ({
+    children,
+    onClick,
+    asChild,
+  }: {
+    children: ReactNode
+    onClick?: () => void
+    asChild?: boolean
+  }) => {
     if (asChild) return <div onClick={onClick}>{children}</div>
     return (
       <button role="menuitem" onClick={onClick}>

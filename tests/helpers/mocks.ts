@@ -1,7 +1,7 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 import { vi } from "vitest"
-import type { Doc, Id } from "@/convex/_generated/dataModel"
 import type { SessionQuestion } from "@/components/quiz/session/types"
+import type { Doc, Id } from "@/convex/_generated/dataModel"
 
 // ===== Router Mock =====
 export const mockRouter = (

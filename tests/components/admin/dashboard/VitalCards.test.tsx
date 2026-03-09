@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react"
-import { type ReactNode, ComponentPropsWithoutRef } from "react"
+import { ComponentPropsWithoutRef, type ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { AdminVitalCards } from "@/components/admin/dashboard/vital-cards"
 
@@ -107,9 +107,7 @@ describe("AdminVitalCards", () => {
   it("masque la carte XAF quand les revenus sont à zéro", () => {
     render(<AdminVitalCards {...noXAFProps} />)
 
-    expect(
-      screen.queryByText("Revenus XAF (30j)"),
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText("Revenus XAF (30j)")).not.toBeInTheDocument()
   })
 
   it("affiche la carte des utilisateurs", () => {
@@ -145,9 +143,7 @@ describe("AdminVitalCards", () => {
 
     expect(screen.getByText("Accès expirant")).toBeInTheDocument()
     expect(screen.getByText("3")).toBeInTheDocument()
-    expect(
-      screen.getByText("Dans les 7 prochains jours"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Dans les 7 prochains jours")).toBeInTheDocument()
   })
 
   it("n'affiche pas l'indicateur d'alerte quand expiringAccessCount est zéro", () => {

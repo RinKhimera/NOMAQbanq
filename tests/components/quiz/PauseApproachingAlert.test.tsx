@@ -29,18 +29,14 @@ describe("PauseApproachingAlert", () => {
   it("affiche l'alerte quand questionsRemaining <= 10", () => {
     render(<PauseApproachingAlert {...defaultProps} questionsRemaining={8} />)
 
-    expect(
-      screen.getByText("☕ Pause obligatoire à venir"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("☕ Pause obligatoire à venir")).toBeInTheDocument()
   })
 
   it("affiche le message de répondre X questions supplémentaires", () => {
     render(<PauseApproachingAlert {...defaultProps} questionsRemaining={5} />)
 
     expect(
-      screen.getByText(
-        /Répondez à 5 questions supplémentaires/,
-      ),
+      screen.getByText(/Répondez à 5 questions supplémentaires/),
     ).toBeInTheDocument()
   })
 
@@ -48,9 +44,7 @@ describe("PauseApproachingAlert", () => {
     render(<PauseApproachingAlert {...defaultProps} questionsRemaining={1} />)
 
     expect(
-      screen.getByText(
-        /Répondez à 1 dernière question/,
-      ),
+      screen.getByText(/Répondez à 1 dernière question/),
     ).toBeInTheDocument()
   })
 
@@ -120,9 +114,7 @@ describe("PauseApproachingAlert", () => {
       />,
     )
 
-    expect(
-      screen.getByText(/Questions 51 à 100 seront/),
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Questions 51 à 100 seront/)).toBeInTheDocument()
   })
 
   it("affiche le compteur de progression des questions", () => {

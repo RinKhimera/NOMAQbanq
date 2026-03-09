@@ -1,7 +1,10 @@
 import { render, screen } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
-import { AccessBadge, getAccessStatus } from "@/components/shared/payments/access-badge"
 import type { ReactNode } from "react"
+import { describe, expect, it, vi } from "vitest"
+import {
+  AccessBadge,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
 
 // Mock motion/react
 vi.mock("motion/react", async () => {
@@ -31,30 +34,22 @@ vi.mock("@/lib/format", () => ({
 describe("AccessBadge", () => {
   describe("rendu pour chaque statut", () => {
     it("affiche 'Actif' pour le statut active", () => {
-      render(
-        <AccessBadge accessType="exam" status="active" />,
-      )
+      render(<AccessBadge accessType="exam" status="active" />)
       expect(screen.getByText("Actif")).toBeInTheDocument()
     })
 
     it("affiche 'Expire bientôt' pour le statut expiring", () => {
-      render(
-        <AccessBadge accessType="exam" status="expiring" />,
-      )
+      render(<AccessBadge accessType="exam" status="expiring" />)
       expect(screen.getByText("Expire bientôt")).toBeInTheDocument()
     })
 
     it("affiche 'Expiré' pour le statut expired", () => {
-      render(
-        <AccessBadge accessType="exam" status="expired" />,
-      )
+      render(<AccessBadge accessType="exam" status="expired" />)
       expect(screen.getByText("Expiré")).toBeInTheDocument()
     })
 
     it("affiche 'Aucun accès' pour le statut none", () => {
-      render(
-        <AccessBadge accessType="exam" status="none" />,
-      )
+      render(<AccessBadge accessType="exam" status="none" />)
       expect(screen.getByText("Aucun accès")).toBeInTheDocument()
     })
   })
@@ -90,24 +85,12 @@ describe("AccessBadge", () => {
 
   describe("showDetails", () => {
     it("affiche le label du type d'accès exam quand showDetails est true", () => {
-      render(
-        <AccessBadge
-          accessType="exam"
-          status="active"
-          showDetails
-        />,
-      )
+      render(<AccessBadge accessType="exam" status="active" showDetails />)
       expect(screen.getByText(/Examens/)).toBeInTheDocument()
     })
 
     it("affiche le label du type d'accès training quand showDetails est true", () => {
-      render(
-        <AccessBadge
-          accessType="training"
-          status="active"
-          showDetails
-        />,
-      )
+      render(<AccessBadge accessType="training" status="active" showDetails />)
       expect(screen.getByText(/Entraînement/)).toBeInTheDocument()
     })
 
@@ -185,30 +168,20 @@ describe("AccessBadge", () => {
   describe("affichage des jours restants", () => {
     it("affiche les jours restants pour le statut expiring", () => {
       render(
-        <AccessBadge
-          accessType="exam"
-          status="expiring"
-          daysRemaining={3}
-        />,
+        <AccessBadge accessType="exam" status="expiring" daysRemaining={3} />,
       )
       expect(screen.getByText("3j restants")).toBeInTheDocument()
     })
 
     it("affiche les jours restants pour le statut active", () => {
       render(
-        <AccessBadge
-          accessType="exam"
-          status="active"
-          daysRemaining={45}
-        />,
+        <AccessBadge accessType="exam" status="active" daysRemaining={45} />,
       )
       expect(screen.getByText("45j restants")).toBeInTheDocument()
     })
 
     it("affiche le label par défaut sans daysRemaining pour active", () => {
-      render(
-        <AccessBadge accessType="exam" status="active" />,
-      )
+      render(<AccessBadge accessType="exam" status="active" />)
       expect(screen.getByText("Actif")).toBeInTheDocument()
     })
   })

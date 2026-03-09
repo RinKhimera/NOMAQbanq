@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { PricingCard } from "@/components/shared/payments/pricing-card"
-import type { ReactNode } from "react"
 
 // Mock motion/react
 vi.mock("motion/react", async () => {
@@ -83,9 +83,7 @@ describe("PricingCard", () => {
     ).toBeInTheDocument()
     expect(screen.getByText("Mode chronométré réaliste")).toBeInTheDocument()
     expect(screen.getByText("Correction détaillée")).toBeInTheDocument()
-    expect(
-      screen.getByText("Statistiques de performance"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Statistiques de performance")).toBeInTheDocument()
   })
 
   it("affiche les fonctionnalités pour le type training", () => {
@@ -98,9 +96,7 @@ describe("PricingCard", () => {
     expect(
       screen.getByText("Mode tuteur avec explications"),
     ).toBeInTheDocument()
-    expect(
-      screen.getByText("Filtrage par domaine médical"),
-    ).toBeInTheDocument()
+    expect(screen.getByText("Filtrage par domaine médical")).toBeInTheDocument()
     expect(screen.getByText("Suivi de progression")).toBeInTheDocument()
   })
 

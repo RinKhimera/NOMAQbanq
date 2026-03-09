@@ -26,9 +26,7 @@ describe("SessionToolbar", () => {
   })
 
   it("n'affiche pas le bouton calculatrice quand showCalculator est faux", () => {
-    render(
-      <SessionToolbar showCalculator={false} showLabValues={false} />,
-    )
+    render(<SessionToolbar showCalculator={false} showLabValues={false} />)
 
     expect(screen.queryByTestId("btn-calculator")).not.toBeInTheDocument()
   })
@@ -62,9 +60,7 @@ describe("SessionToolbar", () => {
   })
 
   it("n'affiche pas le bouton valeurs de labo quand showLabValues est faux", () => {
-    render(
-      <SessionToolbar showCalculator={false} showLabValues={false} />,
-    )
+    render(<SessionToolbar showCalculator={false} showLabValues={false} />)
 
     expect(screen.queryByTestId("btn-lab-values")).not.toBeInTheDocument()
   })
@@ -79,9 +75,7 @@ describe("SessionToolbar", () => {
       />,
     )
 
-    expect(
-      screen.getByLabelText("Ouvrir la calculatrice"),
-    ).toBeInTheDocument()
+    expect(screen.getByLabelText("Ouvrir la calculatrice")).toBeInTheDocument()
     expect(
       screen.getByLabelText("Ouvrir les valeurs de laboratoire"),
     ).toBeInTheDocument()
