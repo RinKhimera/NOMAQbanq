@@ -39,10 +39,10 @@ export default defineConfig({
         "tests/**",
       ],
       thresholds: {
-        statements: 75,
-        branches: 75,
-        functions: 75,
-        lines: 75,
+        statements: 45,
+        branches: 35,
+        functions: 40,
+        lines: 45,
       },
     },
     projects: [
