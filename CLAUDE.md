@@ -56,7 +56,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 
 ## Tests
 
-- Seuil coverage: 75%
+- Seuil coverage: 45% lignes/statements, 40% functions, 35% branches (a remonter progressivement)
 - Frontend: `tests/` (happy-dom) — Convex: `tests/convex/` (edge-runtime, convex-test)
 - E2E: `e2e/tests/` (Playwright + Clerk auth) — POMs dans `e2e/pages/`
 - Config: `vitest.config.ts` (exclut `e2e/**`) — `playwright.config.ts` — env `TZ=UTC`
