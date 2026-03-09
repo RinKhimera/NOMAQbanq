@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
 import type { SessionAnswer } from "@/components/quiz/session/types"

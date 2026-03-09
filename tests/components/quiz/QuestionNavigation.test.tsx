@@ -1,24 +1,26 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import type { MouseEventHandler, ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import QuestionNavigation from "@/components/quiz/question-navigation"
+import type { Id } from "@/convex/_generated/dataModel"
 import { createMockQuestionDoc } from "../../helpers/mocks"
 
 // Mock @radix-ui/react-dropdown-menu to render content directly
 vi.mock("@radix-ui/react-dropdown-menu", () => {
   return {
-    Root: ({ children }: any) => <div data-testid="dropdown-root">{children}</div>,
-    Trigger: ({ children, asChild, ...props }: any) => {
+    Root: ({ children }: { children: ReactNode }) => <div data-testid="dropdown-root">{children}</div>,
+    Trigger: ({ children, asChild }: { children: ReactNode; asChild?: boolean }) => {
       if (asChild) return children
-      return <button {...props}>{children}</button>
+      return <button>{children}</button>
     },
-    Portal: ({ children }: any) => <>{children}</>,
-    Content: ({ children, ...props }: any) => (
-      <div data-testid="dropdown-content" {...props}>
+    Portal: ({ children }: { children: ReactNode }) => <>{children}</>,
+    Content: ({ children }: { children: ReactNode }) => (
+      <div data-testid="dropdown-content">
         {children}
       </div>
     ),
-    Item: ({ children, onClick, ...props }: any) => (
-      <div role="menuitem" onClick={onClick} {...props}>
+    Item: ({ children, onClick }: { children: ReactNode; onClick?: MouseEventHandler }) => (
+      <div role="menuitem" onClick={onClick}>
         {children}
       </div>
     ),
@@ -28,15 +30,15 @@ vi.mock("@radix-ui/react-dropdown-menu", () => {
 describe("QuestionNavigation", () => {
   const questions = [
     createMockQuestionDoc({
-      _id: "q1" as any,
+      _id: "q1" as Id<"questions">,
       correctAnswer: "Paris",
     }),
     createMockQuestionDoc({
-      _id: "q2" as any,
+      _id: "q2" as Id<"questions">,
       correctAnswer: "Lyon",
     }),
     createMockQuestionDoc({
-      _id: "q3" as any,
+      _id: "q3" as Id<"questions">,
       correctAnswer: "Marseille",
     }),
   ]

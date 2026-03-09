@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { QuickActions } from "@/components/admin/dashboard/quick-actions"
 
@@ -17,10 +18,8 @@ vi.mock("next/image", () => ({
 
 // Mock next/link
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: any) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
   ),
 }))
 
@@ -43,7 +42,7 @@ describe("QuickActions", () => {
   })
 
   it("contient un lien vers la page des questions", () => {
-    const { container } = render(<QuickActions />)
+    render(<QuickActions />)
 
     const link = screen
       .getByText("Ajouter une question")

@@ -1,5 +1,5 @@
 import { render, screen } from "@testing-library/react"
-import { ComponentPropsWithoutRef } from "react"
+import { type ReactNode, ComponentPropsWithoutRef } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { AdminVitalCards } from "@/components/admin/dashboard/vital-cards"
 
@@ -56,10 +56,8 @@ vi.mock("next/image", () => ({
 
 // Mock next/link
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: any) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
   ),
 }))
 

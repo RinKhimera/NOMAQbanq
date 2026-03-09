@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { StatCard } from "@/components/admin/stat-card"
 
@@ -17,10 +18,8 @@ vi.mock("next/image", () => ({
 
 // Mock next/link
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: any) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
   ),
 }))
 
@@ -64,7 +63,7 @@ describe("StatCard", () => {
   })
 
   it("applique le style par défaut quand variant n'est pas spécifié", () => {
-    const { container } = render(<StatCard {...baseProps} />)
+    render(<StatCard {...baseProps} />)
 
     // Le variant default utilise variant="outline" pour le Badge
     // La CardDescription ne devrait PAS avoir la classe "text-foreground"
@@ -74,7 +73,7 @@ describe("StatCard", () => {
   })
 
   it("applique le style primary quand variant='primary'", () => {
-    const { container } = render(<StatCard {...baseProps} variant="primary" />)
+    render(<StatCard {...baseProps} variant="primary" />)
 
     // La CardDescription devrait avoir la classe "text-foreground font-semibold"
     const description = screen.getByText("Total Questions")

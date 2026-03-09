@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import type { ComponentPropsWithoutRef } from "react"
+import type { ComponentPropsWithoutRef, ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { SessionHeader } from "@/components/quiz/session/session-header"
 import type { SessionConfig } from "@/components/quiz/session/types"
@@ -68,8 +68,8 @@ vi.mock("motion/react", () => ({
 
 // Mock next/link
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: any) => (
-    <a href={href} {...props}>
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>
       {children}
     </a>
   ),

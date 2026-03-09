@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import ExamStatusBadge from "@/components/admin/exam-status-badge"
 import { ExamStatus } from "@/lib/exam-status"
@@ -18,10 +19,8 @@ vi.mock("next/image", () => ({
 
 // Mock next/link
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: any) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
   ),
 }))
 

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { ExamActions } from "@/components/admin/exam-actions"
 import { Id } from "@/convex/_generated/dataModel"
@@ -19,8 +20,8 @@ vi.mock("next/image", () => ({
 
 // Mock next/link
 vi.mock("next/link", () => ({
-  default: ({ children, href, ...props }: any) => (
-    <a href={href} {...props}>
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>
       {children}
     </a>
   ),
@@ -28,24 +29,27 @@ vi.mock("next/link", () => ({
 
 // Mock Radix DropdownMenu to render inline (no portal)
 vi.mock("@/components/ui/dropdown-menu", () => ({
-  DropdownMenu: ({ children }: any) => <div>{children}</div>,
-  DropdownMenuTrigger: ({ children, asChild }: any) => (
+  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
     <div data-testid="dropdown-trigger">{children}</div>
   ),
-  DropdownMenuContent: ({ children }: any) => (
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => (
     <div data-testid="dropdown-content">{children}</div>
   ),
   DropdownMenuItem: ({
     children,
     onClick,
     asChild,
-    ...props
-  }: any) => {
+  }: {
+    children: ReactNode
+    onClick?: () => void
+    asChild?: boolean
+  }) => {
     if (asChild) {
       return <div onClick={onClick}>{children}</div>
     }
     return (
-      <button role="menuitem" onClick={onClick} {...props}>
+      <button role="menuitem" onClick={onClick}>
         {children}
       </button>
     )
