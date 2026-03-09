@@ -209,11 +209,11 @@ export const getExamWithQuestions = query({
 
     return {
       ...exam,
-      questions: questions.filter((q) => q !== null).map((q) =>
-        isUserAdmin
-          ? q
-          : { ...q, correctAnswer: "", explanation: "" },
-      ),
+      questions: questions
+        .filter((q) => q !== null)
+        .map((q) =>
+          isUserAdmin ? q : { ...q, correctAnswer: "", explanation: "" },
+        ),
     }
   },
 })
@@ -702,13 +702,19 @@ export const getParticipantExamResults = query({
           username: v.optional(v.string()),
           email: v.string(),
           image: v.string(),
-        })
+        }),
       ),
     }),
     v.object({
       error: v.literal("NOT_COMPLETED"),
       message: v.string(),
-      status: v.optional(v.union(v.literal("in_progress"), v.literal("completed"), v.literal("auto_submitted"))),
+      status: v.optional(
+        v.union(
+          v.literal("in_progress"),
+          v.literal("completed"),
+          v.literal("auto_submitted"),
+        ),
+      ),
       exam: v.object({
         _id: v.id("exams"),
         title: v.string(),
@@ -725,7 +731,7 @@ export const getParticipantExamResults = query({
           username: v.optional(v.string()),
           email: v.string(),
           image: v.string(),
-        })
+        }),
       ),
     }),
     v.object({
@@ -743,11 +749,13 @@ export const getParticipantExamResults = query({
         score: v.number(),
         completedAt: v.number(),
         startedAt: v.optional(v.number()),
-        answers: v.array(v.object({
-          questionId: v.id("questions"),
-          selectedAnswer: v.string(),
-          isCorrect: v.boolean(),
-        })),
+        answers: v.array(
+          v.object({
+            questionId: v.id("questions"),
+            selectedAnswer: v.string(),
+            isCorrect: v.boolean(),
+          }),
+        ),
       }),
       participantUser: v.union(
         v.null(),
@@ -757,21 +765,31 @@ export const getParticipantExamResults = query({
           username: v.optional(v.string()),
           email: v.string(),
           image: v.string(),
-        })
+        }),
       ),
-      questions: v.array(v.object({
-        _id: v.id("questions"),
-        _creationTime: v.number(),
-        question: v.string(),
-        images: v.optional(v.array(v.object({ url: v.string(), storagePath: v.string(), order: v.number() }))),
-        options: v.array(v.string()),
-        correctAnswer: v.string(),
-        explanation: v.string(),
-        references: v.optional(v.array(v.string())),
-        objectifCMC: v.string(),
-        domain: v.string(),
-      })),
-    })
+      questions: v.array(
+        v.object({
+          _id: v.id("questions"),
+          _creationTime: v.number(),
+          question: v.string(),
+          images: v.optional(
+            v.array(
+              v.object({
+                url: v.string(),
+                storagePath: v.string(),
+                order: v.number(),
+              }),
+            ),
+          ),
+          options: v.array(v.string()),
+          correctAnswer: v.string(),
+          explanation: v.string(),
+          references: v.optional(v.array(v.string())),
+          objectifCMC: v.string(),
+          domain: v.string(),
+        }),
+      ),
+    }),
   ),
   handler: async (ctx, args) => {
     const currentUser = await getCurrentUserOrNull(ctx)
@@ -916,7 +934,9 @@ export const getParticipantExamResults = query({
             image: participantUser.image,
           }
         : null,
-      questions: questions.filter((q): q is NonNullable<typeof q> => q !== null),
+      questions: questions.filter(
+        (q): q is NonNullable<typeof q> => q !== null,
+      ),
     }
   },
 })
@@ -951,9 +971,7 @@ export const getAllExams = query({
     const exams = await ctx.db.query("exams").order("desc").take(100)
 
     // Read participation counts from aggregation table (lightweight)
-    const allStats = await ctx.db
-      .query("examParticipationStats")
-      .take(1000)
+    const allStats = await ctx.db.query("examParticipationStats").take(1000)
 
     const participationCountMap = new Map<string, number>()
     for (const stat of allStats) {
@@ -1025,7 +1043,7 @@ export const closeExpiredParticipations = internalMutation({
     )
 
     // Build a map of participationId -> answers
-    const answersMap = new Map<string, typeof allAnswersArrays[0]>()
+    const answersMap = new Map<string, (typeof allAnswersArrays)[0]>()
     for (let i = 0; i < expiredParticipations.length; i++) {
       answersMap.set(expiredParticipations[i]._id, allAnswersArrays[i])
     }
@@ -1102,7 +1120,7 @@ export const migrateExamParticipationStats = internalMutation({
     let statsCreated = 0
     for (const [examId, count] of countMap) {
       await ctx.db.insert("examParticipationStats", {
-        examId: examId as typeof allParticipations[0]["examId"],
+        examId: examId as (typeof allParticipations)[0]["examId"],
         count,
       })
       statsCreated++

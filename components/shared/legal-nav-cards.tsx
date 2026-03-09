@@ -1,13 +1,13 @@
 "use client"
 
-import Link from "next/link"
-import { motion } from "motion/react"
 import {
+  IconArrowRight,
+  IconCookie,
   IconFileText,
   IconShield,
-  IconCookie,
-  IconArrowRight,
 } from "@tabler/icons-react"
+import { motion } from "motion/react"
+import Link from "next/link"
 
 type PageType = "conditions" | "confidentialite" | "cookies"
 
@@ -54,7 +54,7 @@ const pageConfig: Record<
 
 export const LegalNavCards = ({ currentPage }: LegalNavCardsProps) => {
   const otherPages = (Object.keys(pageConfig) as PageType[]).filter(
-    (page) => page !== currentPage
+    (page) => page !== currentPage,
   )
 
   return (

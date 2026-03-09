@@ -1,8 +1,8 @@
 "use client"
 
-import dynamic from "next/dynamic"
 import { TrendingUp } from "lucide-react"
 import { motion } from "motion/react"
+import dynamic from "next/dynamic"
 import { Skeleton } from "@/components/ui/skeleton"
 
 interface ScoreHistoryItem {

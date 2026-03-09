@@ -261,7 +261,9 @@ export const getMyTransactions = query({
       .paginate(args.paginationOpts)
 
     // Filtrer les transactions "pending" (checkouts non complétés)
-    const filteredPage = transactions.page.filter((tx) => tx.status !== "pending")
+    const filteredPage = transactions.page.filter(
+      (tx) => tx.status !== "pending",
+    )
 
     // Enrichir avec les détails du produit (batch fetch pour éviter N+1)
     const productIds = filteredPage.map((tx) => tx.productId)
@@ -354,7 +356,9 @@ export const getAllTransactions = query({
       ...tx,
       user: userMap.get(tx.userId) ?? null,
       product: productMap.get(tx.productId) ?? null,
-      recordedByUser: tx.recordedBy ? userMap.get(tx.recordedBy) ?? null : null,
+      recordedByUser: tx.recordedBy
+        ? (userMap.get(tx.recordedBy) ?? null)
+        : null,
     }))
 
     // Filtrer côté client si plusieurs filtres sont combinés
@@ -382,7 +386,10 @@ export const getAllTransactions = query({
 export const getTransactionStats = query({
   args: {},
   returns: v.object({
-    revenueByCurrency: v.record(v.string(), v.object({ total: v.number(), recent: v.number() })),
+    revenueByCurrency: v.record(
+      v.string(),
+      v.object({ total: v.number(), recent: v.number() }),
+    ),
     totalTransactions: v.number(),
     recentTransactions: v.number(),
     stripeTransactions: v.number(),
@@ -406,10 +413,11 @@ export const getTransactionStats = query({
     )
 
     // Grouper les revenus par devise
-    const revenueByCurrency: Record<string, { total: number; recent: number }> = {
-      CAD: { total: 0, recent: 0 },
-      XAF: { total: 0, recent: 0 },
-    }
+    const revenueByCurrency: Record<string, { total: number; recent: number }> =
+      {
+        CAD: { total: 0, recent: 0 },
+        XAF: { total: 0, recent: 0 },
+      }
 
     for (const tx of completedTransactions) {
       const currency = tx.currency || "CAD"
@@ -489,7 +497,9 @@ export const getExpiringAccess = query({
         userId: access.userId,
         accessType: access.accessType,
         expiresAt: access.expiresAt,
-        daysRemaining: Math.ceil((access.expiresAt - now) / (24 * 60 * 60 * 1000)),
+        daysRemaining: Math.ceil(
+          (access.expiresAt - now) / (24 * 60 * 60 * 1000),
+        ),
         user: user
           ? {
               name: user.name,
@@ -545,7 +555,8 @@ export const getRevenueByDay = query({
         if (!byDayCurrency[currency]) {
           byDayCurrency[currency] = {}
         }
-        byDayCurrency[currency][day] = (byDayCurrency[currency][day] ?? 0) + tx.amountPaid
+        byDayCurrency[currency][day] =
+          (byDayCurrency[currency][day] ?? 0) + tx.amountPaid
       }
     }
 
@@ -904,8 +915,20 @@ export const recordManualPayment = mutation({
     if (isCombo) {
       // Combo: accorder les DEUX types d'accès
       await Promise.all([
-        updateUserAccess(ctx, args.userId, "exam", accessExpiresAt, transactionId),
-        updateUserAccess(ctx, args.userId, "training", accessExpiresAt, transactionId),
+        updateUserAccess(
+          ctx,
+          args.userId,
+          "exam",
+          accessExpiresAt,
+          transactionId,
+        ),
+        updateUserAccess(
+          ctx,
+          args.userId,
+          "training",
+          accessExpiresAt,
+          transactionId,
+        ),
       ])
     } else {
       // Non-combo: un seul type d'accès
@@ -1045,7 +1068,8 @@ export const getTransactionAccessImpact = query({
       .unique()
 
     // Vérifier si cette transaction est la dernière (lastTransactionId)
-    const isLastTransaction = userAccess?.lastTransactionId === args.transactionId
+    const isLastTransaction =
+      userAccess?.lastTransactionId === args.transactionId
 
     return {
       willRevokeAccess: isLastTransaction,
@@ -1083,7 +1107,9 @@ export const updateManualTransaction = mutation({
 
     // Vérifier que c'est une transaction manuelle
     if (transaction.type !== "manual") {
-      throw Errors.invalidState("Seules les transactions manuelles peuvent être modifiées")
+      throw Errors.invalidState(
+        "Seules les transactions manuelles peuvent être modifiées",
+      )
     }
 
     // Si le statut passe à "refunded", révoquer l'accès
@@ -1123,7 +1149,9 @@ export const deleteManualTransaction = mutation({
 
     // Vérifier que c'est une transaction manuelle
     if (transaction.type !== "manual") {
-      throw Errors.invalidState("Seules les transactions manuelles peuvent être supprimées")
+      throw Errors.invalidState(
+        "Seules les transactions manuelles peuvent être supprimées",
+      )
     }
 
     // Vérifier l'impact sur l'accès et révoquer si nécessaire
@@ -1146,12 +1174,18 @@ export const deleteManualTransaction = mutation({
  */
 const handleAccessRevocation = async (
   ctx: MutationCtx,
-  transaction: { _id: Id<"transactions">; userId: Id<"users">; accessType: "exam" | "training" },
+  transaction: {
+    _id: Id<"transactions">
+    userId: Id<"users">
+    accessType: "exam" | "training"
+  },
 ): Promise<boolean> => {
   const userAccess = await ctx.db
     .query("userAccess")
     .withIndex("by_userId_accessType", (q) =>
-      q.eq("userId", transaction.userId).eq("accessType", transaction.accessType),
+      q
+        .eq("userId", transaction.userId)
+        .eq("accessType", transaction.accessType),
     )
     .unique()
 

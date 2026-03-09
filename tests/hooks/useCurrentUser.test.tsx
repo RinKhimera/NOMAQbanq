@@ -1,8 +1,8 @@
 import { renderHook } from "@testing-library/react"
 import { useConvexAuth, useQuery } from "convex/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { api } from "@/convex/_generated/api"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 
 // Mock convex/react
 vi.mock("convex/react", () => ({

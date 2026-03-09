@@ -1,27 +1,27 @@
 "use client"
 
-import { useState, useCallback, useEffect, useTransition } from "react"
-import { useQuery, usePaginatedQuery } from "convex/react"
-import { DateRange } from "react-day-picker"
-import { useSearchParams, useRouter } from "next/navigation"
 import { IconUsers } from "@tabler/icons-react"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import { usePaginatedQuery, useQuery } from "convex/react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useCallback, useEffect, useState, useTransition } from "react"
+import { DateRange } from "react-day-picker"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ExportUsersButton } from "@/components/admin/export-users-button"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
+import { UserSidePanel } from "./_components/user-side-panel"
+import {
+  type AccessStatusFilter,
+  type RoleFilter,
+  UsersFilterBar,
+} from "./_components/users-filter-bar"
 import { UsersStatsRow } from "./_components/users-stats-row"
 import {
-  UsersFilterBar,
-  type RoleFilter,
-  type AccessStatusFilter,
-} from "./_components/users-filter-bar"
-import {
-  UsersTable,
   type EnrichedUser,
   type SortBy,
   type SortOrder,
+  UsersTable,
 } from "./_components/users-table"
-import { UserSidePanel } from "./_components/user-side-panel"
 
 export default function UsersPage() {
   const router = useRouter()
@@ -73,7 +73,7 @@ export default function UsersPage() {
       sortBy,
       sortOrder,
     },
-    { initialNumItems: 50 }
+    { initialNumItems: 50 },
   )
 
   // All users for export (legacy query)
@@ -93,7 +93,7 @@ export default function UsersPage() {
         }
       })
     },
-    [sortBy, startTransition]
+    [sortBy, startTransition],
   )
 
   const handleUserSelect = useCallback(

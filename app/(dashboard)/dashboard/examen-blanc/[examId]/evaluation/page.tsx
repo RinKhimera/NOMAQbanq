@@ -13,17 +13,16 @@ import {
 import { AnimatePresence, motion } from "motion/react"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useIsVisible } from "@/hooks/use-is-visible"
 import { toast } from "sonner"
 import { Calculator } from "@/components/quiz/calculator"
 import { LabValues } from "@/components/quiz/lab-values"
 import { PauseApproachingAlert } from "@/components/quiz/pause-approaching-alert"
 import { PauseDialog } from "@/components/quiz/pause-dialog"
 import { QuestionCard } from "@/components/quiz/question-card"
-import { SessionHeader } from "@/components/quiz/session/session-header"
-import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
-import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { FinishDialog } from "@/components/quiz/session/finish-dialog"
+import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
+import { SessionHeader } from "@/components/quiz/session/session-header"
+import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -34,19 +33,20 @@ import {
 } from "@/components/ui/dialog"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { CalculatorProvider } from "@/hooks/useCalculator"
 import {
+  clearAnswersFromStorage,
+  loadAnswersFromStorage,
+  saveAnswersToStorage,
+} from "@/lib/exam-storage"
+import {
   PausePhase,
+  isTimeCritical as checkTimeCritical,
+  isTimeRunningOut as checkTimeRunningOut,
   isQuestionAccessible,
   shouldTriggerPause,
-  isTimeRunningOut as checkTimeRunningOut,
-  isTimeCritical as checkTimeCritical,
 } from "@/lib/exam-timer"
-import {
-  saveAnswersToStorage,
-  loadAnswersFromStorage,
-  clearAnswersFromStorage,
-} from "@/lib/exam-storage"
 
 const AssessmentPage = () => {
   const params = useParams()
@@ -57,7 +57,7 @@ const AssessmentPage = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(
-    new Set()
+    new Set(),
   )
   const [serverStartTime, setServerStartTime] = useState<number | null>(null)
   const [timeRemaining, setTimeRemaining] = useState(0)
@@ -70,10 +70,10 @@ const AssessmentPage = () => {
 
   // Pause-related state
   const [pausePhase, setPausePhase] = useState<PausePhase | undefined>(
-    undefined
+    undefined,
   )
   const [pauseStartedAt, setPauseStartedAt] = useState<number | undefined>(
-    undefined
+    undefined,
   )
   const [totalPauseDurationMs, setTotalPauseDurationMs] = useState<number>(0)
   const [showPauseDialog, setShowPauseDialog] = useState(false)
@@ -82,9 +82,18 @@ const AssessmentPage = () => {
   const pauseTriggeredRef = useRef(false)
 
   const { isAuthenticated } = useConvexAuth()
-  const examWithQuestions = useQuery(api.exams.getExamWithQuestions, isAuthenticated ? { examId } : "skip")
-  const examSession = useQuery(api.exams.getExamSession, isAuthenticated ? { examId } : "skip")
-  const pauseStatus = useQuery(api.examPause.getPauseStatus, isAuthenticated ? { examId } : "skip")
+  const examWithQuestions = useQuery(
+    api.exams.getExamWithQuestions,
+    isAuthenticated ? { examId } : "skip",
+  )
+  const examSession = useQuery(
+    api.exams.getExamSession,
+    isAuthenticated ? { examId } : "skip",
+  )
+  const pauseStatus = useQuery(
+    api.examPause.getPauseStatus,
+    isAuthenticated ? { examId } : "skip",
+  )
   const startExam = useMutation(api.exams.startExam)
   const submitAnswers = useMutation(api.exams.submitExamAnswers)
   const startPauseMutation = useMutation(api.examPause.startPause)
@@ -153,13 +162,16 @@ const AssessmentPage = () => {
         if (remaining <= 0) {
           // Charger les réponses depuis localStorage
           const savedAnswers = loadAnswersFromStorage(examId)
-          const hasAnswers = savedAnswers && Object.keys(savedAnswers).length > 0
+          const hasAnswers =
+            savedAnswers && Object.keys(savedAnswers).length > 0
 
           const formattedAnswers = hasAnswers
-            ? Object.entries(savedAnswers).map(([questionId, selectedAnswer]) => ({
-                questionId: questionId as Id<"questions">,
-                selectedAnswer,
-              }))
+            ? Object.entries(savedAnswers).map(
+                ([questionId, selectedAnswer]) => ({
+                  questionId: questionId as Id<"questions">,
+                  selectedAnswer,
+                }),
+              )
             : [] // Pas de réponses = tableau vide = score 0
 
           // Soumettre automatiquement (même sans réponses pour fermer la session)
@@ -173,9 +185,13 @@ const AssessmentPage = () => {
               hasCompletedRef.current = true
               clearAnswersFromStorage(examId)
               if (hasAnswers) {
-                toast.success("Temps écoulé ! Vos réponses ont été enregistrées automatiquement.")
+                toast.success(
+                  "Temps écoulé ! Vos réponses ont été enregistrées automatiquement.",
+                )
               } else {
-                toast.warning("Session expirée. Aucune réponse n'a été trouvée.")
+                toast.warning(
+                  "Session expirée. Aucune réponse n'a été trouvée.",
+                )
               }
               router.push("/dashboard/examen-blanc")
             })
@@ -210,7 +226,14 @@ const AssessmentPage = () => {
     }
 
     initializeSession()
-  }, [examWithQuestions, examSession, router, isSubmitting, examId, submitAnswers])
+  }, [
+    examWithQuestions,
+    examSession,
+    router,
+    isSubmitting,
+    examId,
+    submitAnswers,
+  ])
 
   // Handle starting the pause
   const handleStartPause = useCallback(
@@ -229,7 +252,7 @@ const AssessmentPage = () => {
         toast.error("Erreur lors du démarrage de la pause")
       }
     },
-    [examId, startPauseMutation]
+    [examId, startPauseMutation],
   )
 
   const handleEarlyPauseClick = () => {
@@ -284,7 +307,7 @@ const AssessmentPage = () => {
 
       if (result.isPauseCutShort) {
         toast.success(
-          "Pause écourtée - Toutes les questions sont maintenant déverrouillées !"
+          "Pause écourtée - Toutes les questions sont maintenant déverrouillées !",
         )
       } else {
         toast.success("Pause terminée - Continuez l'examen !")
@@ -321,7 +344,7 @@ const AssessmentPage = () => {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Erreur lors du démarrage de l'examen"
+          : "Erreur lors du démarrage de l'examen",
       )
       router.push("/dashboard/examen-blanc")
     }
@@ -337,7 +360,7 @@ const AssessmentPage = () => {
         ([questionId, selectedAnswer]) => ({
           questionId: questionId as Id<"questions">,
           selectedAnswer,
-        })
+        }),
       )
 
       await submitAnswers({
@@ -350,7 +373,7 @@ const AssessmentPage = () => {
       clearAnswersFromStorage(examId)
 
       toast.success(
-        "Temps écoulé ! Vos réponses ont été enregistrées automatiquement."
+        "Temps écoulé ! Vos réponses ont été enregistrées automatiquement.",
       )
       router.push("/dashboard/examen-blanc")
     } catch (error) {
@@ -419,7 +442,7 @@ const AssessmentPage = () => {
       if (document.hidden) {
         toast.warning(
           "Attention ! Changer d'onglet est détecté. Restez sur cette page.",
-          { duration: 5000 }
+          { duration: 5000 },
         )
       }
     }
@@ -441,7 +464,7 @@ const AssessmentPage = () => {
     const accessCheck = isQuestionAccessible(
       currentQuestionIndex,
       totalQuestions,
-      pausePhase
+      pausePhase,
     )
     if (!accessCheck.allowed) {
       toast.error(accessCheck.reason || "Question verrouillée")
@@ -502,7 +525,7 @@ const AssessmentPage = () => {
       .filter((q) => q)
       .map((q) => q!._id) || []
   const firstWaveAnsweredCount = firstWaveQuestionIds.filter(
-    (id) => answers[id]
+    (id) => answers[id],
   ).length
   const firstWaveRemainingCount = midpoint - firstWaveAnsweredCount
 
@@ -518,7 +541,7 @@ const AssessmentPage = () => {
           questionId: questionId as Id<"questions">,
           selectedAnswer,
           isFlagged: flaggedQuestions.has(questionId),
-        })
+        }),
       )
 
       await submitAnswers({
@@ -530,7 +553,7 @@ const AssessmentPage = () => {
       clearAnswersFromStorage(examId)
 
       toast.success(
-        "Examen terminé ! Vos réponses ont été enregistrées avec succès."
+        "Examen terminé ! Vos réponses ont été enregistrées avec succès.",
       )
       router.push("/dashboard/examen-blanc")
     } catch (error) {
@@ -604,8 +627,12 @@ const AssessmentPage = () => {
         icon={<FileText className="h-5 w-5 text-white" />}
         backUrl="/dashboard/examen-blanc"
         examActions={{
-          onTakePause: pauseStatus?.enablePause && pausePhase === "before_pause" ? handleEarlyPauseClick : undefined,
-          canTakePause: pauseStatus?.enablePause && pausePhase === "before_pause",
+          onTakePause:
+            pauseStatus?.enablePause && pausePhase === "before_pause"
+              ? handleEarlyPauseClick
+              : undefined,
+          canTakePause:
+            pauseStatus?.enablePause && pausePhase === "before_pause",
         }}
       />
 
@@ -665,6 +692,7 @@ const AssessmentPage = () => {
                   currentQuestionIndex === 0 ||
                   isQuestionLocked(currentQuestionIndex - 1)
                 }
+                data-testid="btn-previous"
                 className="flex items-center gap-2"
               >
                 {isQuestionLocked(currentQuestionIndex - 1) ? (
@@ -693,6 +721,7 @@ const AssessmentPage = () => {
               {currentQuestionIndex === totalQuestions - 1 ? (
                 <Button
                   onClick={() => setShowSubmitDialog(true)}
+                  data-testid="btn-finish"
                   className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
                   <CheckCircle className="h-4 w-4" />
@@ -702,6 +731,7 @@ const AssessmentPage = () => {
                 <Button
                   onClick={() => goToQuestion(currentQuestionIndex + 1)}
                   disabled={isQuestionLocked(currentQuestionIndex + 1)}
+                  data-testid="btn-next"
                   className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
                   {isQuestionLocked(currentQuestionIndex + 1) ? (
@@ -751,7 +781,9 @@ const AssessmentPage = () => {
           <div className="hidden lg:block">
             <div ref={desktopNavRef} className="h-1" />
             <QuestionNavigator
-              questions={examWithQuestions.questions.filter((q): q is NonNullable<typeof q> => q !== null)}
+              questions={examWithQuestions.questions.filter(
+                (q): q is NonNullable<typeof q> => q !== null,
+              )}
               answers={navigatorAnswers}
               flaggedQuestions={flaggedQuestions}
               currentIndex={currentQuestionIndex}
@@ -773,7 +805,9 @@ const AssessmentPage = () => {
         showNavFab={!isDesktopNavVisible}
         navFab={
           <QuestionNavigator
-            questions={examWithQuestions.questions.filter((q): q is NonNullable<typeof q> => q !== null)}
+            questions={examWithQuestions.questions.filter(
+              (q): q is NonNullable<typeof q> => q !== null,
+            )}
             answers={navigatorAnswers}
             flaggedQuestions={flaggedQuestions}
             currentIndex={currentQuestionIndex}
@@ -792,10 +826,7 @@ const AssessmentPage = () => {
       />
 
       {/* Lab Values Dialog */}
-      <LabValues
-        isOpen={isLabValuesOpen}
-        onOpenChange={setIsLabValuesOpen}
-      />
+      <LabValues isOpen={isLabValuesOpen} onOpenChange={setIsLabValuesOpen} />
 
       {/* Finish Dialog */}
       <FinishDialog

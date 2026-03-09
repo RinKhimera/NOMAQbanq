@@ -1,19 +1,11 @@
 "use client"
 
 import { useQuery } from "convex/react"
-import {
-  CheckCircle,
-  Clock,
-  Home,
-  Target,
-  Trophy,
-  XCircle,
-} from "lucide-react"
+import { CheckCircle, Clock, Home, Target, Trophy, XCircle } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useMemo, useState } from "react"
-import { useIsVisible } from "@/hooks/use-is-visible"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
@@ -21,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
 import { Doc, Id } from "@/convex/_generated/dataModel"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { cn } from "@/lib/utils"
 
 type Question = Doc<"questions">
@@ -73,26 +66,31 @@ const ExamResultsPage = () => {
     // Créer un map des réponses par questionId pour un accès rapide
     const answersMap = new Map(
       examResults.participant.answers.map(
-        (a: { questionId: Id<"questions">; selectedAnswer: string; isCorrect: boolean }) =>
-          [a.questionId, a] as const,
+        (a: {
+          questionId: Id<"questions">
+          selectedAnswer: string
+          isCorrect: boolean
+        }) => [a.questionId, a] as const,
       ),
     )
 
-    const questionResults: QuestionResult[] = questions.map((question: Question) => {
-      const userAnswerData = answersMap.get(question._id)
-      const userAnswer = userAnswerData?.selectedAnswer ?? null
-      const isCorrect = userAnswerData?.isCorrect ?? false
-      const isAnswered = userAnswer !== null
+    const questionResults: QuestionResult[] = questions.map(
+      (question: Question) => {
+        const userAnswerData = answersMap.get(question._id)
+        const userAnswer = userAnswerData?.selectedAnswer ?? null
+        const isCorrect = userAnswerData?.isCorrect ?? false
+        const isAnswered = userAnswer !== null
 
-      if (isAnswered) {
-        if (isCorrect) correct++
-        else incorrect++
-      } else {
-        unanswered++
-      }
+        if (isAnswered) {
+          if (isCorrect) correct++
+          else incorrect++
+        } else {
+          unanswered++
+        }
 
-      return { question, userAnswer, isCorrect, isAnswered }
-    })
+        return { question, userAnswer, isCorrect, isAnswered }
+      },
+    )
 
     const totalQuestions = questions.length
     const scorePercentage = examResults.participant.score
@@ -203,9 +201,7 @@ const ExamResultsPage = () => {
   // Pre-build index map to avoid O(n²) indexOf inside .map()
   // Not a real perf concern at current exam sizes (~200 questions max),
   // but avoids the quadratic pattern for correctness.
-  const resultIndexMap = new Map(
-    results.questionResults.map((r, i) => [r, i]),
-  )
+  const resultIndexMap = new Map(results.questionResults.map((r, i) => [r, i]))
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-600 dark:text-green-400"
@@ -249,7 +245,9 @@ const ExamResultsPage = () => {
                   Résultats de l&apos;examen
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {examResults && "exam" in examResults ? examResults.exam.title : ""}
+                  {examResults && "exam" in examResults
+                    ? examResults.exam.title
+                    : ""}
                 </p>
               </div>
             </div>

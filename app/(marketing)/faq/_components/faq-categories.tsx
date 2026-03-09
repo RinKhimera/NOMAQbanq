@@ -1,8 +1,8 @@
 "use client"
 
-import { useMemo } from "react"
-import { motion } from "motion/react"
 import { SearchX } from "lucide-react"
+import { motion } from "motion/react"
+import { useMemo } from "react"
 import {
   Accordion,
   AccordionContent,
@@ -26,7 +26,7 @@ export const FaqCategories = ({
     return faqCategories
       .filter(
         (category) =>
-          activeCategory === "all" || category.id === activeCategory
+          activeCategory === "all" || category.id === activeCategory,
       )
       .map((category) => ({
         ...category,
@@ -34,7 +34,7 @@ export const FaqCategories = ({
           (faq) =>
             !query ||
             faq.q.toLowerCase().includes(query) ||
-            faq.a.toLowerCase().includes(query)
+            faq.a.toLowerCase().includes(query),
         ),
       }))
       .filter((category) => category.questions.length > 0)
@@ -42,7 +42,7 @@ export const FaqCategories = ({
 
   const totalResults = filteredCategories.reduce(
     (acc, cat) => acc + cat.questions.length,
-    0
+    0,
   )
 
   if (filteredCategories.length === 0) {
@@ -77,7 +77,7 @@ export const FaqCategories = ({
 
       {/* Subtle animated orbs */}
       <div className="absolute top-20 -left-32 h-64 w-64 rounded-full bg-linear-to-br from-blue-200/40 to-indigo-300/40 blur-3xl dark:from-blue-900/20 dark:to-indigo-900/20" />
-      <div className="absolute bottom-40 -right-32 h-72 w-72 rounded-full bg-linear-to-br from-purple-200/40 to-pink-300/40 blur-3xl dark:from-purple-900/20 dark:to-pink-900/20" />
+      <div className="absolute -right-32 bottom-40 h-72 w-72 rounded-full bg-linear-to-br from-purple-200/40 to-pink-300/40 blur-3xl dark:from-purple-900/20 dark:to-pink-900/20" />
       <div className="absolute top-1/2 left-1/4 h-48 w-48 rounded-full bg-linear-to-br from-emerald-200/30 to-teal-300/30 blur-3xl dark:from-emerald-900/15 dark:to-teal-900/15" />
 
       {/* Grid pattern overlay */}

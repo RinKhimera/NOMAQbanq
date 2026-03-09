@@ -35,7 +35,10 @@ export function ExamQuestionsModal({
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const { isAuthenticated } = useConvexAuth()
-  const exam = useQuery(api.exams.getExamWithQuestions, isAuthenticated ? { examId } : "skip")
+  const exam = useQuery(
+    api.exams.getExamWithQuestions,
+    isAuthenticated ? { examId } : "skip",
+  )
 
   const questions = exam?.questions?.filter((q) => q !== null) || []
   const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)

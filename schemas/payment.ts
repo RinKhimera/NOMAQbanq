@@ -67,7 +67,7 @@ export const manualPaymentSchema = z
     {
       message: "Montant invalide pour la devise sélectionnée",
       path: ["amountInput"],
-    }
+    },
   )
 
 export type ManualPaymentFormValues = z.infer<typeof manualPaymentSchema>
@@ -103,7 +103,7 @@ export const editTransactionSchema = z
     {
       message: "Montant invalide pour la devise sélectionnée",
       path: ["amountInput"],
-    }
+    },
   )
 
 export type EditTransactionFormValues = z.infer<typeof editTransactionSchema>

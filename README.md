@@ -32,21 +32,21 @@ NOMAQbanq is a modern medical exam preparation web application, offering a compr
 
 ## 🚀 Tech Stack
 
-| Category | Technologies |
-|----------|-------------|
-| **Framework** | [Next.js 16](https://nextjs.org/) (App Router, Turbopack) |
-| **Language** | [TypeScript](https://www.typescriptlang.org/) |
-| **UI** | [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/) |
-| **Backend** | [Convex](https://convex.dev/) (Real-time BaaS) |
-| **Auth** | [Clerk](https://clerk.com/) (webhooks + roles) |
-| **Payments** | [Stripe](https://stripe.com/) (webhooks) |
-| **Media** | [Bunny CDN](https://bunny.net/) (avatars, question images) |
-| **Monitoring** | [Sentry](https://sentry.io/) (error tracking) |
-| **Animations** | [motion](https://motion.dev/) |
-| **Charts** | [Recharts](https://recharts.org/) |
-| **Forms** | [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/) |
-| **Icons** | [Tabler Icons](https://tabler.io/icons) (primary) + [Lucide](https://lucide.dev/) (secondary) |
-| **Testing** | [Vitest](https://vitest.dev/) + [Testing Library](https://testing-library.com/) + [convex-test](https://docs.convex.dev/testing) |
+| Category       | Technologies                                                                                                                     |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Framework**  | [Next.js 16](https://nextjs.org/) (App Router, Turbopack)                                                                        |
+| **Language**   | [TypeScript](https://www.typescriptlang.org/)                                                                                    |
+| **UI**         | [Tailwind CSS v4](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)                                                |
+| **Backend**    | [Convex](https://convex.dev/) (Real-time BaaS)                                                                                   |
+| **Auth**       | [Clerk](https://clerk.com/) (webhooks + roles)                                                                                   |
+| **Payments**   | [Stripe](https://stripe.com/) (webhooks)                                                                                         |
+| **Media**      | [Bunny CDN](https://bunny.net/) (avatars, question images)                                                                       |
+| **Monitoring** | [Sentry](https://sentry.io/) (error tracking)                                                                                    |
+| **Animations** | [motion](https://motion.dev/)                                                                                                    |
+| **Charts**     | [Recharts](https://recharts.org/)                                                                                                |
+| **Forms**      | [React Hook Form](https://react-hook-form.com/) + [Zod](https://zod.dev/)                                                        |
+| **Icons**      | [Tabler Icons](https://tabler.io/icons) (primary) + [Lucide](https://lucide.dev/) (secondary)                                    |
+| **Testing**    | [Vitest](https://vitest.dev/) + [Testing Library](https://testing-library.com/) + [convex-test](https://docs.convex.dev/testing) |
 
 ## 📋 Prerequisites
 

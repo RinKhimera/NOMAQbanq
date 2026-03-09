@@ -13,8 +13,16 @@ export default defineConfig({
   test: {
     env: { TZ: "UTC" },
     globals: true,
+    exclude: ["e2e/**", "node_modules/**"],
     coverage: {
       provider: "v8",
+      include: [
+        "convex/**/*.ts",
+        "lib/**/*.ts",
+        "hooks/**/*.ts",
+        "components/**/*.tsx",
+        "schemas/**/*.ts",
+      ],
       reporter: ["text", "json", "html"],
       exclude: [
         "node_modules/**",

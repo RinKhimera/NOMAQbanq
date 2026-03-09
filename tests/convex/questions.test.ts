@@ -388,26 +388,35 @@ describe("questions", () => {
       }
 
       // Première page (2 items par page)
-      const page1 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 2, cursor: null },
-      })
+      const page1 = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 2, cursor: null },
+        },
+      )
 
       expect(page1.page).toHaveLength(2)
       expect(page1.isDone).toBe(false)
       expect(page1.continueCursor).toBeTruthy()
 
       // Deuxième page
-      const page2 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 2, cursor: page1.continueCursor },
-      })
+      const page2 = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 2, cursor: page1.continueCursor },
+        },
+      )
 
       expect(page2.page).toHaveLength(2)
       expect(page2.isDone).toBe(false)
 
       // Troisième page (dernière)
-      const page3 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 2, cursor: page2.continueCursor },
-      })
+      const page3 = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 2, cursor: page2.continueCursor },
+        },
+      )
 
       expect(page3.page).toHaveLength(1) // 5 % 2 = 1
       expect(page3.isDone).toBe(true)
@@ -435,10 +444,13 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 10, cursor: null },
-        domain: "Cardiologie",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          domain: "Cardiologie",
+        },
+      )
 
       expect(result.page).toHaveLength(1)
       expect(result.page[0].domain).toBe("Cardiologie")
@@ -466,10 +478,13 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 10, cursor: null },
-        searchQuery: "infarctus",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          searchQuery: "infarctus",
+        },
+      )
 
       expect(result.page).toHaveLength(1)
       expect(result.page[0].question).toContain("infarctus")
@@ -498,11 +513,14 @@ describe("questions", () => {
       })
 
       // Search for "infarctus" in Cardiologie domain
-      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 10, cursor: null },
-        domain: "Cardiologie",
-        searchQuery: "infarctus",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          domain: "Cardiologie",
+          searchQuery: "infarctus",
+        },
+      )
 
       expect(result.page).toHaveLength(1)
       expect(result.page[0].domain).toBe("Cardiologie")
@@ -617,8 +635,16 @@ describe("questions", () => {
       await t.run(async (ctx) => {
         await ctx.db.patch(questionId, {
           images: [
-            { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
-            { url: "https://cdn.example.com/img2.jpg", storagePath: "q/img2.jpg", order: 1 },
+            {
+              url: "https://cdn.example.com/img1.jpg",
+              storagePath: "q/img1.jpg",
+              order: 0,
+            },
+            {
+              url: "https://cdn.example.com/img2.jpg",
+              storagePath: "q/img2.jpg",
+              order: 1,
+            },
           ],
         })
       })
@@ -671,18 +697,33 @@ describe("questions", () => {
       await t.run(async (ctx) => {
         await ctx.db.patch(questionId, {
           images: [
-            { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
-            { url: "https://cdn.example.com/img2.jpg", storagePath: "q/img2.jpg", order: 1 },
-            { url: "https://cdn.example.com/img3.jpg", storagePath: "q/img3.jpg", order: 2 },
+            {
+              url: "https://cdn.example.com/img1.jpg",
+              storagePath: "q/img1.jpg",
+              order: 0,
+            },
+            {
+              url: "https://cdn.example.com/img2.jpg",
+              storagePath: "q/img2.jpg",
+              order: 1,
+            },
+            {
+              url: "https://cdn.example.com/img3.jpg",
+              storagePath: "q/img3.jpg",
+              order: 2,
+            },
           ],
         })
       })
 
       // Reorder: swap first and last
-      const result = await asAdmin.mutation(api.questions.reorderQuestionImages, {
-        questionId,
-        orderedStoragePaths: ["q/img3.jpg", "q/img2.jpg", "q/img1.jpg"],
-      })
+      const result = await asAdmin.mutation(
+        api.questions.reorderQuestionImages,
+        {
+          questionId,
+          orderedStoragePaths: ["q/img3.jpg", "q/img2.jpg", "q/img1.jpg"],
+        },
+      )
 
       expect(result.success).toBe(true)
 
@@ -714,17 +755,32 @@ describe("questions", () => {
       await t.run(async (ctx) => {
         await ctx.db.patch(questionId, {
           images: [
-            { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
-            { url: "https://cdn.example.com/img2.jpg", storagePath: "q/img2.jpg", order: 1 },
+            {
+              url: "https://cdn.example.com/img1.jpg",
+              storagePath: "q/img1.jpg",
+              order: 0,
+            },
+            {
+              url: "https://cdn.example.com/img2.jpg",
+              storagePath: "q/img2.jpg",
+              order: 1,
+            },
           ],
         })
       })
 
       // Reorder with non-existent path (should be filtered out)
-      const result = await asAdmin.mutation(api.questions.reorderQuestionImages, {
-        questionId,
-        orderedStoragePaths: ["q/img2.jpg", "q/nonexistent.jpg", "q/img1.jpg"],
-      })
+      const result = await asAdmin.mutation(
+        api.questions.reorderQuestionImages,
+        {
+          questionId,
+          orderedStoragePaths: [
+            "q/img2.jpg",
+            "q/nonexistent.jpg",
+            "q/img1.jpg",
+          ],
+        },
+      )
 
       expect(result.success).toBe(true)
 
@@ -798,9 +854,21 @@ describe("questions", () => {
       const result = await asAdmin.action(api.questions.setQuestionImages, {
         questionId,
         images: [
-          { url: "https://cdn.example.com/img2.jpg", storagePath: "q/img2.jpg", order: 2 },
-          { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
-          { url: "https://cdn.example.com/img3.jpg", storagePath: "q/img3.jpg", order: 1 },
+          {
+            url: "https://cdn.example.com/img2.jpg",
+            storagePath: "q/img2.jpg",
+            order: 2,
+          },
+          {
+            url: "https://cdn.example.com/img1.jpg",
+            storagePath: "q/img1.jpg",
+            order: 0,
+          },
+          {
+            url: "https://cdn.example.com/img3.jpg",
+            storagePath: "q/img3.jpg",
+            order: 1,
+          },
         ],
       })
 
@@ -831,8 +899,16 @@ describe("questions", () => {
       await t.run(async (ctx) => {
         await ctx.db.patch(questionId, {
           images: [
-            { url: "https://cdn.example.com/old1.jpg", storagePath: "q/old1.jpg", order: 0 },
-            { url: "https://cdn.example.com/old2.jpg", storagePath: "q/old2.jpg", order: 1 },
+            {
+              url: "https://cdn.example.com/old1.jpg",
+              storagePath: "q/old1.jpg",
+              order: 0,
+            },
+            {
+              url: "https://cdn.example.com/old2.jpg",
+              storagePath: "q/old2.jpg",
+              order: 1,
+            },
           ],
         })
       })
@@ -841,9 +917,21 @@ describe("questions", () => {
       const result = await asAdmin.action(api.questions.setQuestionImages, {
         questionId,
         images: [
-          { url: "https://cdn.example.com/old1.jpg", storagePath: "q/old1.jpg", order: 0 },
-          { url: "https://cdn.example.com/old2.jpg", storagePath: "q/old2.jpg", order: 1 },
-          { url: "https://cdn.example.com/new1.jpg", storagePath: "q/new1.jpg", order: 2 },
+          {
+            url: "https://cdn.example.com/old1.jpg",
+            storagePath: "q/old1.jpg",
+            order: 0,
+          },
+          {
+            url: "https://cdn.example.com/old2.jpg",
+            storagePath: "q/old2.jpg",
+            order: 1,
+          },
+          {
+            url: "https://cdn.example.com/new1.jpg",
+            storagePath: "q/new1.jpg",
+            order: 2,
+          },
         ],
       })
 
@@ -852,9 +940,15 @@ describe("questions", () => {
       // Verify images updated
       const question = await t.run(async (ctx) => ctx.db.get(questionId))
       expect(question?.images).toHaveLength(3)
-      expect(question?.images?.some((img) => img.storagePath === "q/old1.jpg")).toBe(true)
-      expect(question?.images?.some((img) => img.storagePath === "q/old2.jpg")).toBe(true)
-      expect(question?.images?.some((img) => img.storagePath === "q/new1.jpg")).toBe(true)
+      expect(
+        question?.images?.some((img) => img.storagePath === "q/old1.jpg"),
+      ).toBe(true)
+      expect(
+        question?.images?.some((img) => img.storagePath === "q/old2.jpg"),
+      ).toBe(true)
+      expect(
+        question?.images?.some((img) => img.storagePath === "q/new1.jpg"),
+      ).toBe(true)
     })
 
     it("gère le cas sans images initiales", async () => {
@@ -874,7 +968,11 @@ describe("questions", () => {
       const result = await asAdmin.action(api.questions.setQuestionImages, {
         questionId,
         images: [
-          { url: "https://cdn.example.com/img1.jpg", storagePath: "q/img1.jpg", order: 0 },
+          {
+            url: "https://cdn.example.com/img1.jpg",
+            storagePath: "q/img1.jpg",
+            order: 0,
+          },
         ],
       })
 
@@ -968,7 +1066,7 @@ describe("questions", () => {
           explanation: "E",
           objectifCMC: "O",
           domain: "Domain",
-        }
+        },
       )
 
       // Ajouter une image via la mutation (met à jour les stats d'agrégation)
@@ -1156,7 +1254,10 @@ describe("questions", () => {
         })
       })
 
-      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {})
+      const result = await asAdmin.action(
+        api.questions.getAllQuestionsForExport,
+        {},
+      )
 
       expect(result).toHaveLength(1)
       expect(result[0].question).toBe("Question export")
@@ -1187,9 +1288,12 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
-        domain: "Cardiologie",
-      })
+      const result = await asAdmin.action(
+        api.questions.getAllQuestionsForExport,
+        {
+          domain: "Cardiologie",
+        },
+      )
 
       expect(result).toHaveLength(1)
       expect(result[0].domain).toBe("Cardiologie")
@@ -1217,9 +1321,12 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
-        searchQuery: "infarctus",
-      })
+      const result = await asAdmin.action(
+        api.questions.getAllQuestionsForExport,
+        {
+          searchQuery: "infarctus",
+        },
+      )
 
       expect(result).toHaveLength(1)
       expect(result[0].question).toContain("infarctus")
@@ -1240,14 +1347,17 @@ describe("questions", () => {
       })
 
       // Question avec images
-      const withImagesId = await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Avec images",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "O",
-        domain: "Domain",
-      })
+      const withImagesId = await asAdmin.mutation(
+        api.questions.createQuestion,
+        {
+          question: "Avec images",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "E",
+          objectifCMC: "O",
+          domain: "Domain",
+        },
+      )
 
       await t.run(async (ctx) => {
         await ctx.db.patch(withImagesId, {
@@ -1261,9 +1371,12 @@ describe("questions", () => {
         })
       })
 
-      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
-        hasImages: true,
-      })
+      const result = await asAdmin.action(
+        api.questions.getAllQuestionsForExport,
+        {
+          hasImages: true,
+        },
+      )
 
       expect(result).toHaveLength(1)
       expect(result[0].question).toBe("Avec images")
@@ -1284,14 +1397,17 @@ describe("questions", () => {
       })
 
       // Question avec images
-      const withImagesId = await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Avec images",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "O",
-        domain: "Domain",
-      })
+      const withImagesId = await asAdmin.mutation(
+        api.questions.createQuestion,
+        {
+          question: "Avec images",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "E",
+          objectifCMC: "O",
+          domain: "Domain",
+        },
+      )
 
       await t.run(async (ctx) => {
         await ctx.db.patch(withImagesId, {
@@ -1305,9 +1421,12 @@ describe("questions", () => {
         })
       })
 
-      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
-        hasImages: false,
-      })
+      const result = await asAdmin.action(
+        api.questions.getAllQuestionsForExport,
+        {
+          hasImages: false,
+        },
+      )
 
       expect(result).toHaveLength(1)
       expect(result[0].question).toBe("Sans images")
@@ -1337,7 +1456,7 @@ describe("questions", () => {
           explanation: "E",
           objectifCMC: "O",
           domain: "Cardiologie",
-        }
+        },
       )
 
       await t.run(async (ctx) => {
@@ -1362,11 +1481,14 @@ describe("questions", () => {
         domain: "Neurologie",
       })
 
-      const result = await asAdmin.action(api.questions.getAllQuestionsForExport, {
-        searchQuery: "infarctus",
-        domain: "Cardiologie",
-        hasImages: true,
-      })
+      const result = await asAdmin.action(
+        api.questions.getAllQuestionsForExport,
+        {
+          searchQuery: "infarctus",
+          domain: "Cardiologie",
+          hasImages: true,
+        },
+      )
 
       expect(result).toHaveLength(1)
       expect(result[0].question).toBe("Infarctus avec ECG")
@@ -1396,10 +1518,13 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
-        paginationOpts: { numItems: 10, cursor: null },
-        searchQuery: "infarctus",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithFilters,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          searchQuery: "infarctus",
+        },
+      )
 
       expect(result.page).toHaveLength(1)
       expect(result.page[0].question).toContain("infarctus")
@@ -1427,10 +1552,13 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
-        paginationOpts: { numItems: 10, cursor: null },
-        searchQuery: "cardiaque",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithFilters,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          searchQuery: "cardiaque",
+        },
+      )
 
       expect(result.page).toHaveLength(1)
       expect(result.page[0].objectifCMC).toContain("cardiaque")
@@ -1449,14 +1577,17 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const withImagesId = await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Avec images",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "O",
-        domain: "Domain",
-      })
+      const withImagesId = await asAdmin.mutation(
+        api.questions.createQuestion,
+        {
+          question: "Avec images",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "E",
+          objectifCMC: "O",
+          domain: "Domain",
+        },
+      )
 
       await t.run(async (ctx) => {
         await ctx.db.patch(withImagesId, {
@@ -1470,10 +1601,13 @@ describe("questions", () => {
         })
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
-        paginationOpts: { numItems: 10, cursor: null },
-        hasImages: true,
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithFilters,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          hasImages: true,
+        },
+      )
 
       expect(result.page).toHaveLength(1)
       expect(result.page[0].question).toBe("Avec images")
@@ -1492,14 +1626,17 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const withImagesId = await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Avec images",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "O",
-        domain: "Domain",
-      })
+      const withImagesId = await asAdmin.mutation(
+        api.questions.createQuestion,
+        {
+          question: "Avec images",
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "E",
+          objectifCMC: "O",
+          domain: "Domain",
+        },
+      )
 
       await t.run(async (ctx) => {
         await ctx.db.patch(withImagesId, {
@@ -1513,10 +1650,13 @@ describe("questions", () => {
         })
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
-        paginationOpts: { numItems: 10, cursor: null },
-        hasImages: false,
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithFilters,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          hasImages: false,
+        },
+      )
 
       expect(result.page).toHaveLength(1)
       expect(result.page[0].question).toBe("Sans images")
@@ -1544,11 +1684,14 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
-        paginationOpts: { numItems: 10, cursor: null },
-        sortBy: "question",
-        sortOrder: "asc",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithFilters,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          sortBy: "question",
+          sortOrder: "asc",
+        },
+      )
 
       expect(result.page[0].question).toBe("Anémie falciforme")
       expect(result.page[1].question).toBe("Zébrure cutanée")
@@ -1576,11 +1719,14 @@ describe("questions", () => {
         domain: "Allergie",
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
-        paginationOpts: { numItems: 10, cursor: null },
-        sortBy: "domain",
-        sortOrder: "asc",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithFilters,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          sortBy: "domain",
+          sortOrder: "asc",
+        },
+      )
 
       expect(result.page[0].domain).toBe("Allergie")
       expect(result.page[1].domain).toBe("Zoonose")
@@ -1608,11 +1754,14 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
-        paginationOpts: { numItems: 10, cursor: null },
-        sortBy: "_creationTime",
-        sortOrder: "asc",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithFilters,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          sortBy: "_creationTime",
+          sortOrder: "asc",
+        },
+      )
 
       expect(result.page[0].question).toBe("Première question")
       expect(result.page[1].question).toBe("Deuxième question")
@@ -1678,9 +1827,12 @@ describe("questions", () => {
         })
       }
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
-        paginationOpts: { numItems: 10, cursor: null },
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithFilters,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+        },
+      )
 
       expect(result.page).toHaveLength(3)
       expect(result.isDone).toBe(true)
@@ -1700,7 +1852,7 @@ describe("questions", () => {
           explanation: "E",
           objectifCMC: "O",
           domain: "Cardiologie",
-        }
+        },
       )
 
       await t.run(async (ctx) => {
@@ -1735,7 +1887,7 @@ describe("questions", () => {
           explanation: "E",
           objectifCMC: "O",
           domain: "Neurologie",
-        }
+        },
       )
 
       await t.run(async (ctx) => {
@@ -1750,11 +1902,14 @@ describe("questions", () => {
         })
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithFilters, {
-        paginationOpts: { numItems: 10, cursor: null },
-        domain: "Cardiologie",
-        hasImages: true,
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithFilters,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          domain: "Cardiologie",
+          hasImages: true,
+        },
+      )
 
       expect(result.page).toHaveLength(1)
       expect(result.page[0].question).toBe("ECG infarctus")
@@ -1784,7 +1939,7 @@ describe("questions", () => {
             storagePath: "q/img.jpg",
             order: 0,
           },
-        })
+        }),
       ).rejects.toThrow("Accès non autorisé")
     })
 
@@ -1810,7 +1965,7 @@ describe("questions", () => {
             storagePath: "q/img.jpg",
             order: 0,
           },
-        })
+        }),
       ).rejects.toThrow("NOT_FOUND")
     })
 
@@ -1963,7 +2118,7 @@ describe("questions", () => {
         asUser.action(api.questions.removeQuestionImage, {
           questionId,
           storagePath: "q/img.jpg",
-        })
+        }),
       ).rejects.toThrow("Accès non autorisé")
     })
 
@@ -1985,7 +2140,7 @@ describe("questions", () => {
         asAdmin.action(api.questions.removeQuestionImage, {
           questionId,
           storagePath: "q/img.jpg",
-        })
+        }),
       ).rejects.toThrow("Question non trouvée")
     })
 
@@ -2018,7 +2173,7 @@ describe("questions", () => {
         asAdmin.action(api.questions.removeQuestionImage, {
           questionId,
           storagePath: "q/nonexistent.jpg",
-        })
+        }),
       ).rejects.toThrow("Image non trouvée")
     })
 
@@ -2100,29 +2255,38 @@ describe("questions", () => {
       }
 
       // Page 1
-      const page1 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 2, cursor: null },
-        searchQuery: "infarctus",
-      })
+      const page1 = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 2, cursor: null },
+          searchQuery: "infarctus",
+        },
+      )
 
       expect(page1.page).toHaveLength(2)
       expect(page1.isDone).toBe(false)
       expect(page1.continueCursor).toBeTruthy()
 
       // Page 2
-      const page2 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 2, cursor: page1.continueCursor },
-        searchQuery: "infarctus",
-      })
+      const page2 = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 2, cursor: page1.continueCursor },
+          searchQuery: "infarctus",
+        },
+      )
 
       expect(page2.page).toHaveLength(2)
       expect(page2.isDone).toBe(false)
 
       // Page 3
-      const page3 = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 2, cursor: page2.continueCursor },
-        searchQuery: "infarctus",
-      })
+      const page3 = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 2, cursor: page2.continueCursor },
+          searchQuery: "infarctus",
+        },
+      )
 
       expect(page3.page).toHaveLength(1)
       expect(page3.isDone).toBe(true)
@@ -2141,10 +2305,13 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 10, cursor: null },
-        searchQuery: "infarctus",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          searchQuery: "infarctus",
+        },
+      )
 
       expect(result.page).toHaveLength(1)
     })
@@ -2162,10 +2329,13 @@ describe("questions", () => {
         domain: "Domain",
       })
 
-      const result = await asAdmin.query(api.questions.getQuestionsWithPagination, {
-        paginationOpts: { numItems: 10, cursor: null },
-        searchQuery: "cardiovasculaires",
-      })
+      const result = await asAdmin.query(
+        api.questions.getQuestionsWithPagination,
+        {
+          paginationOpts: { numItems: 10, cursor: null },
+          searchQuery: "cardiovasculaires",
+        },
+      )
 
       expect(result.page).toHaveLength(1)
     })

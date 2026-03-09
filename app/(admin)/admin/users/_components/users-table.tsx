@@ -68,7 +68,7 @@ function AccessBadge({
     return (
       <Badge
         variant="outline"
-        className="text-gray-400 border-gray-200 dark:border-gray-700"
+        className="border-gray-200 text-gray-400 dark:border-gray-700"
       >
         {type === "exam" ? "Exam" : "Train"}: -
       </Badge>
@@ -228,7 +228,7 @@ export function UsersTable({
                       className={cn(
                         "font-medium",
                         !user.name || user.name === "null null"
-                          ? "italic text-gray-400"
+                          ? "text-gray-400 italic"
                           : "text-gray-900 dark:text-white",
                       )}
                     >

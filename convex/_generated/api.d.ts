@@ -25,6 +25,7 @@ import type * as payments from "../payments.js";
 import type * as questions from "../questions.js";
 import type * as rateLimit from "../rateLimit.js";
 import type * as stripe from "../stripe.js";
+import type * as testing from "../testing.js";
 import type * as training from "../training.js";
 import type * as users from "../users.js";
 
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   questions: typeof questions;
   rateLimit: typeof rateLimit;
   stripe: typeof stripe;
+  testing: typeof testing;
   training: typeof training;
   users: typeof users;
 }>;

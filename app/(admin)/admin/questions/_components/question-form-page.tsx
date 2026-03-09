@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect, startTransition } from "react"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useAction, useMutation, useQuery } from "convex/react"
 import {
@@ -16,10 +15,12 @@ import {
   Save,
   Target,
 } from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { startTransition, useEffect, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
+import { QuestionImageUploader } from "@/components/admin/question-image-uploader"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -50,6 +51,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { cn } from "@/lib/utils"
 import {
   QuestionFormValues,
   filterValidOptions,
@@ -57,8 +59,6 @@ import {
   questionFormSchema,
   validateCorrectAnswer,
 } from "@/schemas"
-import { cn } from "@/lib/utils"
-import { QuestionImageUploader } from "@/components/admin/question-image-uploader"
 import { ObjectifCMCCombobox } from "./objectif-cmc-combobox"
 
 interface QuestionImage {
@@ -81,7 +81,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
   // Queries
   const question = useQuery(
     api.questions.getQuestionById,
-    mode === "edit" && questionId ? { questionId } : "skip"
+    mode === "edit" && questionId ? { questionId } : "skip",
   )
 
   // Mutations
@@ -114,7 +114,9 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
         ...question.options,
         ...Array(5 - question.options.length).fill(""),
       ].slice(0, 5)
-      const paddedReferences = question.references?.length ? question.references : [""]
+      const paddedReferences = question.references?.length
+        ? question.references
+        : [""]
 
       form.reset({
         question: question.question,
@@ -240,7 +242,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
       toast.error(
         mode === "create"
           ? "Erreur lors de la création"
-          : "Erreur lors de la mise à jour"
+          : "Erreur lors de la mise à jour",
       )
     }
   }
@@ -280,7 +282,8 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
               <CardTitle className="text-lg">Contenu de la question</CardTitle>
             </div>
             <CardDescription className="text-blue-100">
-              Saisissez le texte de la question et ajoutez des images si nécessaire
+              Saisissez le texte de la question et ajoutez des images si
+              nécessaire
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 p-6">
@@ -350,7 +353,8 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
               <CardTitle className="text-lg">Options de réponse</CardTitle>
             </div>
             <CardDescription className="text-violet-100">
-              Saisissez les options et cliquez sur la lettre pour marquer la bonne réponse
+              Saisissez les options et cliquez sur la lettre pour marquer la
+              bonne réponse
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 p-6">
@@ -375,7 +379,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                               ? "cursor-pointer border-emerald-500 bg-emerald-500 text-white"
                               : option.trim()
                                 ? "cursor-pointer border-gray-300 bg-white text-gray-600 hover:border-violet-400 hover:bg-violet-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                                : "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-600"
+                                : "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-600",
                           )}
                         >
                           {correctAnswer === option && option.trim() ? (
@@ -392,15 +396,15 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
                             "border-gray-200 bg-white transition-colors focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800",
                             correctAnswer === option && option.trim()
                               ? "border-emerald-400 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-900/20"
-                              : ""
+                              : "",
                           )}
                         />
                       </div>
                     ))}
                   </div>
                   <FormDescription className="mt-4 text-xs">
-                    Cliquez sur la lettre pour marquer la bonne réponse.
-                    Minimum 4 options, maximum 5.
+                    Cliquez sur la lettre pour marquer la bonne réponse. Minimum
+                    4 options, maximum 5.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -417,7 +421,8 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
               <CardTitle className="text-lg">Classification</CardTitle>
             </div>
             <CardDescription className="text-emerald-100">
-              Définissez le domaine médical et l&apos;objectif CMC de la question
+              Définissez le domaine médical et l&apos;objectif CMC de la
+              question
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6">
@@ -490,7 +495,8 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-gray-700 dark:text-gray-300">
-                    Texte de l&apos;explication <span className="text-red-500">*</span>
+                    Texte de l&apos;explication{" "}
+                    <span className="text-red-500">*</span>
                   </FormLabel>
                   <FormControl>
                     <Textarea
@@ -516,7 +522,9 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-5 w-5" />
-                <CardTitle className="text-lg">Références bibliographiques</CardTitle>
+                <CardTitle className="text-lg">
+                  Références bibliographiques
+                </CardTitle>
               </div>
               <Button
                 type="button"

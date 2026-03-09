@@ -1,17 +1,17 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
 import {
   ChevronLeft,
   ChevronRight,
-  Star,
-  Quote,
-  Play,
   Pause,
+  Play,
+  Quote,
+  Star,
 } from "lucide-react"
-import { testimonials } from "@/data/testimonials"
-import { Button } from "@/components/ui/button"
 import Image from "next/image"
+import { useCallback, useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { testimonials } from "@/data/testimonials"
 
 export default function TestimonialsCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -24,7 +24,7 @@ export default function TestimonialsCarousel() {
 
       // Not transitioning, proceed with the transition
       setCurrentIndex((prevIndex) =>
-        prevIndex === testimonials.length - 1 ? 0 : prevIndex + 1
+        prevIndex === testimonials.length - 1 ? 0 : prevIndex + 1,
       )
       setTimeout(() => setIsTransitioning(false), 600)
       return true
@@ -47,7 +47,7 @@ export default function TestimonialsCarousel() {
     setIsAutoPlaying(false)
     setIsTransitioning(true)
     setCurrentIndex(
-      currentIndex === 0 ? testimonials.length - 1 : currentIndex - 1
+      currentIndex === 0 ? testimonials.length - 1 : currentIndex - 1,
     )
     setTimeout(() => setIsTransitioning(false), 600)
   }
@@ -63,7 +63,7 @@ export default function TestimonialsCarousel() {
   const currentTestimonial = testimonials[currentIndex]
 
   return (
-    <div className="relative max-w-5xl mx-auto">
+    <div className="relative mx-auto max-w-5xl">
       {/* Main Testimonial Display */}
       <div className="relative overflow-hidden rounded-3xl">
         {/* Background with gradient overlay */}
@@ -71,20 +71,20 @@ export default function TestimonialsCarousel() {
         <div className="absolute inset-0 bg-black/20"></div>
 
         {/* Animated background elements */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden">
-          <div className="absolute -top-20 -left-20 w-40 h-40 bg-white/10 rounded-full blur-2xl animate-float"></div>
+        <div className="absolute top-0 left-0 h-full w-full overflow-hidden">
+          <div className="animate-float absolute -top-20 -left-20 h-40 w-40 rounded-full bg-white/10 blur-2xl"></div>
           <div
-            className="absolute -bottom-20 -right-20 w-48 h-48 bg-white/10 rounded-full blur-2xl animate-float"
+            className="animate-float absolute -right-20 -bottom-20 h-48 w-48 rounded-full bg-white/10 blur-2xl"
             style={{ animationDelay: "2s" }}
           ></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-white/5 rounded-full blur-xl"></div>
+          <div className="absolute top-1/2 left-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white/5 blur-xl"></div>
         </div>
 
         {/* Content Container */}
         <div className="relative z-10 p-12 md:p-16">
           {/* Quote Icon */}
-          <div className="flex justify-center mb-8">
-            <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center shadow-2xl">
+          <div className="mb-8 flex justify-center">
+            <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/20 shadow-2xl backdrop-blur-sm">
               <Quote className="h-10 w-10 text-white" />
             </div>
           </div>
@@ -92,21 +92,18 @@ export default function TestimonialsCarousel() {
           {/* Testimonial Content with Smart Animation */}
           <div
             key={currentIndex}
-            className={`
-              text-center transition-all duration-600 ease-out transform
-              ${
-                isTransitioning
-                  ? "opacity-0 translate-y-8 scale-95"
-                  : "opacity-100 translate-y-0 scale-100"
-              }
-            `}
+            className={`transform text-center transition-all duration-600 ease-out ${
+              isTransitioning
+                ? "translate-y-8 scale-95 opacity-0"
+                : "translate-y-0 scale-100 opacity-100"
+            } `}
           >
             {/* Stars Rating */}
-            <div className="flex justify-center items-center space-x-2 mb-8">
+            <div className="mb-8 flex items-center justify-center space-x-2">
               {[...Array(currentTestimonial.rating)].map((_, i) => (
                 <Star
                   key={i}
-                  className="h-6 w-6 text-yellow-300 fill-current drop-shadow-lg animate-fade-in-scale"
+                  className="animate-fade-in-scale h-6 w-6 fill-current text-yellow-300 drop-shadow-lg"
                   style={{ animationDelay: `${i * 0.1}s` }}
                 />
               ))}
@@ -114,7 +111,7 @@ export default function TestimonialsCarousel() {
 
             {/* Testimonial Text */}
             <blockquote className="mb-12">
-              <p className="text-xl md:text-2xl text-white leading-relaxed italic font-medium max-w-4xl mx-auto">
+              <p className="mx-auto max-w-4xl text-xl leading-relaxed font-medium text-white italic md:text-2xl">
                 &quot;{currentTestimonial.content}&quot;
               </p>
             </blockquote>
@@ -123,20 +120,20 @@ export default function TestimonialsCarousel() {
             <div className="flex items-center justify-center space-x-6">
               <div className="relative">
                 {/* Avatar glow effect */}
-                <div className="absolute inset-0 bg-linear-to-br from-blue-400 to-indigo-600 rounded-full blur-lg opacity-60 animate-pulse-glow"></div>
+                <div className="animate-pulse-glow absolute inset-0 rounded-full bg-linear-to-br from-blue-400 to-indigo-600 opacity-60 blur-lg"></div>
                 <Image
                   src={currentTestimonial.avatar}
                   alt={currentTestimonial.name}
-                  className="relative w-20 h-20 rounded-full object-cover border-4 border-white/30 shadow-2xl"
+                  className="relative h-20 w-20 rounded-full border-4 border-white/30 object-cover shadow-2xl"
                   width={80}
                   height={80}
                 />
               </div>
               <div className="text-left">
-                <p className="text-2xl font-bold text-white mb-2">
+                <p className="mb-2 text-2xl font-bold text-white">
                   {currentTestimonial.name}
                 </p>
-                <p className="text-blue-200 font-semibold text-lg">
+                <p className="text-lg font-semibold text-blue-200">
                   {currentTestimonial.role}
                 </p>
               </div>
@@ -146,14 +143,14 @@ export default function TestimonialsCarousel() {
       </div>
 
       {/* Navigation Controls */}
-      <div className="flex justify-between items-center mt-8">
+      <div className="mt-8 flex items-center justify-between">
         {/* Previous Button */}
         <Button
           variant="outline"
           size="icon"
           onClick={handlePrevious}
           disabled={isTransitioning}
-          className="w-14 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-gray-200 hover:bg-white hover:border-blue-400 hover:text-blue-600 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="h-14 w-14 transform rounded-2xl border-2 border-gray-200 bg-white/90 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:border-blue-400 hover:bg-white hover:text-blue-600 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ChevronLeft className="h-6 w-6" />
         </Button>
@@ -167,15 +164,11 @@ export default function TestimonialsCarousel() {
                 key={index}
                 onClick={() => goToSlide(index)}
                 disabled={isTransitioning}
-                className={`
-                  transition-all duration-300 rounded-full
-                  ${
-                    index === currentIndex
-                      ? "w-12 h-4 bg-linear-to-r from-blue-500 to-indigo-600 shadow-lg"
-                      : "w-4 h-4 bg-gray-300 hover:bg-gray-400 hover:scale-125"
-                  }
-                  disabled:cursor-not-allowed
-                `}
+                className={`rounded-full transition-all duration-300 ${
+                  index === currentIndex
+                    ? "h-4 w-12 bg-linear-to-r from-blue-500 to-indigo-600 shadow-lg"
+                    : "h-4 w-4 bg-gray-300 hover:scale-125 hover:bg-gray-400"
+                } disabled:cursor-not-allowed`}
               />
             ))}
           </div>
@@ -185,16 +178,16 @@ export default function TestimonialsCarousel() {
             variant="outline"
             size="sm"
             onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-            className="bg-white/90 backdrop-blur-sm border border-gray-200 hover:bg-white hover:border-blue-400 px-4 py-2 rounded-xl font-medium transition-all duration-300"
+            className="rounded-xl border border-gray-200 bg-white/90 px-4 py-2 font-medium backdrop-blur-sm transition-all duration-300 hover:border-blue-400 hover:bg-white"
           >
             {isAutoPlaying ? (
               <>
-                <Pause className="h-4 w-4 mr-2" />
+                <Pause className="mr-2 h-4 w-4" />
                 Pause
               </>
             ) : (
               <>
-                <Play className="h-4 w-4 mr-2" />
+                <Play className="mr-2 h-4 w-4" />
                 Play
               </>
             )}
@@ -207,23 +200,23 @@ export default function TestimonialsCarousel() {
           size="icon"
           onClick={handleNext}
           disabled={isTransitioning}
-          className="w-14 h-14 rounded-2xl bg-white/90 backdrop-blur-sm border-2 border-gray-200 hover:bg-white hover:border-blue-400 hover:text-blue-600 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="h-14 w-14 transform rounded-2xl border-2 border-gray-200 bg-white/90 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:border-blue-400 hover:bg-white hover:text-blue-600 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ChevronRight className="h-6 w-6" />
         </Button>
       </div>
 
       {/* Progress Bar */}
-      <div className="mt-8 w-full max-w-md mx-auto">
-        <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+      <div className="mx-auto mt-8 w-full max-w-md">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
           <div
-            className="bg-linear-to-r from-blue-500 to-indigo-600 h-2 rounded-full transition-all duration-500 ease-out shadow-lg"
+            className="h-2 rounded-full bg-linear-to-r from-blue-500 to-indigo-600 shadow-lg transition-all duration-500 ease-out"
             style={{
               width: `${((currentIndex + 1) / testimonials.length) * 100}%`,
             }}
           />
         </div>
-        <div className="flex justify-between mt-3 text-sm text-gray-600">
+        <div className="mt-3 flex justify-between text-sm text-gray-600">
           <span className="font-medium">
             {currentIndex + 1} / {testimonials.length}
           </span>

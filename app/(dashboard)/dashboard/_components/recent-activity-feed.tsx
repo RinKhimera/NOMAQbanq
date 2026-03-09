@@ -11,8 +11,8 @@ import {
 } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
-import { Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
+import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 
 interface RecentExam {
@@ -165,9 +165,7 @@ export const RecentActivityFeed = ({
               Vos résultats apparaîtront ici après chaque examen
             </p>
             <Button asChild className="mt-4 bg-blue-500 hover:bg-blue-600">
-              <Link href="/dashboard/examen-blanc">
-                Passer un examen
-              </Link>
+              <Link href="/dashboard/examen-blanc">Passer un examen</Link>
             </Button>
           </div>
         )}

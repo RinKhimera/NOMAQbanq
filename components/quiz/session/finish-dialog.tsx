@@ -1,6 +1,6 @@
 "use client"
 
-import { Flag, Loader2, AlertTriangle, Clock } from "lucide-react"
+import { AlertTriangle, Clock, Flag, Loader2 } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,8 +11,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { cn } from "@/lib/utils"
 import { formatExamTime } from "@/lib/exam-timer"
+import { cn } from "@/lib/utils"
 import type { FinishDialogProps } from "./types"
 
 export const FinishDialog = ({
@@ -36,7 +36,7 @@ export const FinishDialog = ({
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2 font-display text-xl">
+          <AlertDialogTitle className="font-display flex items-center gap-2 text-xl">
             {mode === "exam" ? "Soumettre l'examen ?" : "Terminer la session ?"}
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
@@ -76,7 +76,7 @@ export const FinishDialog = ({
                             ? "text-red-600 dark:text-red-400"
                             : timeRemaining < 10 * 60 * 1000
                               ? "text-amber-600 dark:text-amber-400"
-                              : "text-gray-700 dark:text-gray-300"
+                              : "text-gray-700 dark:text-gray-300",
                         )}
                       >
                         {formatExamTime(timeRemaining)}
@@ -93,8 +93,14 @@ export const FinishDialog = ({
                     <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                       <p className="text-sm text-amber-800 dark:text-amber-200">
-                        <strong>{unansweredCount} question{unansweredCount > 1 ? "s" : ""}</strong>{" "}
-                        non répondue{unansweredCount > 1 ? "s" : ""} sera{unansweredCount > 1 ? "ont" : ""} comptée{unansweredCount > 1 ? "s" : ""} comme incorrecte{unansweredCount > 1 ? "s" : ""}.
+                        <strong>
+                          {unansweredCount} question
+                          {unansweredCount > 1 ? "s" : ""}
+                        </strong>{" "}
+                        non répondue{unansweredCount > 1 ? "s" : ""} sera
+                        {unansweredCount > 1 ? "ont" : ""} comptée
+                        {unansweredCount > 1 ? "s" : ""} comme incorrecte
+                        {unansweredCount > 1 ? "s" : ""}.
                       </p>
                     </div>
                   )}
@@ -102,7 +108,12 @@ export const FinishDialog = ({
                     <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
                       <Flag className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
                       <p className="text-sm text-blue-800 dark:text-blue-200">
-                        Vous avez <strong>{flaggedCount} question{flaggedCount > 1 ? "s" : ""} marquée{flaggedCount > 1 ? "s" : ""}</strong> pour révision.
+                        Vous avez{" "}
+                        <strong>
+                          {flaggedCount} question{flaggedCount > 1 ? "s" : ""}{" "}
+                          marquée{flaggedCount > 1 ? "s" : ""}
+                        </strong>{" "}
+                        pour révision.
                       </p>
                     </div>
                   )}
@@ -124,7 +135,7 @@ export const FinishDialog = ({
             className={cn(
               mode === "exam"
                 ? "bg-blue-600 hover:bg-blue-700"
-                : "bg-emerald-600 hover:bg-emerald-700"
+                : "bg-emerald-600 hover:bg-emerald-700",
             )}
           >
             {isSubmitting ? (

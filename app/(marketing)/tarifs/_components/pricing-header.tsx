@@ -1,7 +1,7 @@
 "use client"
 
+import { Award, CheckCircle, Sparkles, Star, Users } from "lucide-react"
 import { motion } from "motion/react"
-import { Sparkles, Star, Users, Award, CheckCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 
 export const PricingHeader = () => {
@@ -17,9 +17,9 @@ export const PricingHeader = () => {
       <div className="absolute inset-0 bg-linear-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20" />
 
       {/* Animated orbs */}
-      <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-600/20 blur-3xl animate-float" />
+      <div className="animate-float absolute -top-40 -right-40 h-80 w-80 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-600/20 blur-3xl" />
       <div
-        className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-linear-to-br from-purple-400/20 to-pink-600/20 blur-3xl animate-float"
+        className="animate-float absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-linear-to-br from-purple-400/20 to-pink-600/20 blur-3xl"
         style={{ animationDelay: "2s" }}
       />
 
@@ -39,7 +39,10 @@ export const PricingHeader = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            <Badge variant="badge" className="mb-8 px-6 py-3 text-sm font-semibold">
+            <Badge
+              variant="badge"
+              className="mb-8 px-6 py-3 text-sm font-semibold"
+            >
               <Sparkles className="mr-2 h-4 w-4" />
               Tarifs simples et transparents
             </Badge>
@@ -63,8 +66,9 @@ export const PricingHeader = () => {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-body-lg mx-auto max-w-2xl text-gray-600 dark:text-gray-300"
           >
-            Investissez dans votre réussite avec nos formules d{"'"}accès flexibles.
-            Économisez avec les offres 6 mois et préparez-vous sereinement à l{"'"}EACMC.
+            Investissez dans votre réussite avec nos formules d{"'"}accès
+            flexibles. Économisez avec les offres 6 mois et préparez-vous
+            sereinement à l{"'"}EACMC.
           </motion.p>
 
           {/* Trust indicators */}

@@ -1,11 +1,11 @@
 "use client"
 
 import { useConvexAuth, useQuery } from "convex/react"
-import { motion } from "motion/react"
 import { Brain, Sparkles } from "lucide-react"
+import { motion } from "motion/react"
 import { api } from "@/convex/_generated/api"
-import { TrainingConfigForm } from "./_components/training-config-form"
 import { ResumeSessionCard } from "./_components/resume-session-card"
+import { TrainingConfigForm } from "./_components/training-config-form"
 import { TrainingHistorySection } from "./_components/training-history-section"
 import { TrainingPaywall } from "./_components/training-paywall"
 
@@ -15,17 +15,17 @@ export default function EntrainementPage() {
   // Skip queries until authenticated to avoid race condition on page reload
   const hasAccess = useQuery(
     api.payments.hasTrainingAccess,
-    isAuthenticated ? undefined : "skip"
+    isAuthenticated ? undefined : "skip",
   )
   const activeSession = useQuery(
     api.training.getActiveTrainingSession,
-    isAuthenticated ? undefined : "skip"
+    isAuthenticated ? undefined : "skip",
   )
   const domains = useQuery(api.training.getAvailableDomains)
   const objectifs = useQuery(api.training.getAvailableObjectifsCMC, {})
   const stats = useQuery(
     api.training.getTrainingStats,
-    isAuthenticated ? undefined : "skip"
+    isAuthenticated ? undefined : "skip",
   )
 
   // Loading state (auth loading or data loading)
@@ -46,8 +46,8 @@ export default function EntrainementPage() {
     <div className="min-h-screen">
       {/* Background gradient mesh */}
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -left-1/4 -top-1/4 h-150 w-150 rounded-full bg-linear-to-br from-emerald-100/40 to-teal-100/40 blur-3xl dark:from-emerald-900/20 dark:to-teal-900/20" />
-        <div className="absolute -bottom-1/4 -right-1/4 h-125 w-125 rounded-full bg-linear-to-br from-cyan-100/30 to-emerald-100/30 blur-3xl dark:from-cyan-900/15 dark:to-emerald-900/15" />
+        <div className="absolute -top-1/4 -left-1/4 h-150 w-150 rounded-full bg-linear-to-br from-emerald-100/40 to-teal-100/40 blur-3xl dark:from-emerald-900/20 dark:to-teal-900/20" />
+        <div className="absolute -right-1/4 -bottom-1/4 h-125 w-125 rounded-full bg-linear-to-br from-cyan-100/30 to-emerald-100/30 blur-3xl dark:from-cyan-900/15 dark:to-emerald-900/15" />
       </div>
 
       <div className="container mx-auto max-w-6xl px-4 py-8">
@@ -67,7 +67,7 @@ export default function EntrainementPage() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                className="absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 shadow-md"
+                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 shadow-md"
               >
                 <Sparkles className="h-3.5 w-3.5 text-amber-900" />
               </motion.div>
@@ -174,7 +174,7 @@ export default function EntrainementPage() {
             <div className="sticky top-24 space-y-6">
               {/* Tips card */}
               <div className="overflow-hidden rounded-2xl border border-gray-200/60 bg-white/70 p-6 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/70">
-                <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="font-display mb-4 text-lg font-semibold text-gray-900 dark:text-white">
                   Conseils pour réussir
                 </h3>
                 <ul className="space-y-3 text-sm text-gray-600 dark:text-gray-400">

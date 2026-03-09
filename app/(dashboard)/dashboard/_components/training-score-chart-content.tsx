@@ -264,10 +264,7 @@ export const TrainingScoreChartContent = ({
       </div>
 
       {/* Tabs */}
-      <Tabs
-        defaultValue="evolution"
-        className="[&_svg_*:focus]:outline-none"
-      >
+      <Tabs defaultValue="evolution" className="[&_svg_*:focus]:outline-none">
         <TabsList className="mb-4">
           <TabsTrigger value="evolution" className="cursor-pointer gap-1.5">
             <LineChart className="h-4 w-4" />

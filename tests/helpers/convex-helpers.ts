@@ -1,7 +1,9 @@
 import { convexTest } from "convex-test"
+import { api } from "../../convex/_generated/api"
 import type { Id } from "../../convex/_generated/dataModel"
 
 type TestContext = ReturnType<typeof convexTest>
+type AdminContext = Awaited<ReturnType<typeof createAdminUser>>
 
 // ===== Admin User =====
 export const createAdminUser = async (t: TestContext) => {
@@ -106,5 +108,50 @@ export const grantAccess = async (
       expiresAt: Date.now() + 86400000,
       lastTransactionId: transactionId,
     })
+  })
+}
+
+// ===== Training Access (shorthand) =====
+export const grantTrainingAccess = async (
+  t: TestContext,
+  userId: Id<"users">,
+) => grantAccess(t, userId, "training")
+
+// ===== Create Questions =====
+export const createQuestions = async (
+  t: TestContext,
+  admin: AdminContext,
+  count: number,
+  domain: string = "Cardiologie",
+) => {
+  const ids: Id<"questions">[] = []
+  for (let i = 0; i < count; i++) {
+    const id = await admin.asAdmin.mutation(api.questions.createQuestion, {
+      question: `Question ${i + 1}`,
+      options: ["A", "B", "C", "D"],
+      correctAnswer: "A",
+      explanation: `Explication ${i + 1}`,
+      objectifCMC: `Objectif ${i + 1}`,
+      domain,
+    })
+    ids.push(id)
+  }
+  return ids
+}
+
+// ===== Create Exam With Pause =====
+export const createExamWithPause = async (
+  t: TestContext,
+  admin: AdminContext,
+  questionIds: Id<"questions">[],
+  pauseDurationMinutes: number = 15,
+) => {
+  return await admin.asAdmin.mutation(api.exams.createExam, {
+    title: "Examen avec pause",
+    startDate: Date.now() - 1000,
+    endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    questionIds,
+    enablePause: true,
+    pauseDurationMinutes,
   })
 }

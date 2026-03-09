@@ -1,13 +1,15 @@
 import { readFileSync, writeFileSync } from "node:fs"
-import { resolve, dirname } from "node:path"
+import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
-import sharp from "sharp"
 import pngToIco from "png-to-ico"
+import sharp from "sharp"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, "..")
 
-const svgSource = readFileSync(resolve(root, "public/icons/concept_4_abstract_n.svg"))
+const svgSource = readFileSync(
+  resolve(root, "public/icons/concept_4_abstract_n.svg"),
+)
 
 // --- Generate PNGs ---
 const sizes = [
@@ -34,7 +36,7 @@ let svgContent = svgSource.toString("utf-8")
 // Add class="bg" to the background rect
 svgContent = svgContent.replace(
   '<rect width="512" height="512" fill="url(#bgGrad)" rx="64"/>',
-  '<rect class="bg" width="512" height="512" fill="url(#bgGrad)" rx="64"/>'
+  '<rect class="bg" width="512" height="512" fill="url(#bgGrad)" rx="64"/>',
 )
 
 // Insert dark mode <style> after <defs>...</defs>

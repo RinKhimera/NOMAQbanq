@@ -1,12 +1,10 @@
 "use client"
 
-import { useState } from "react"
 import { useMutation, useQuery } from "convex/react"
+import { AlertTriangle, Info, Loader2, Trash2 } from "lucide-react"
 import { motion } from "motion/react"
-import { Trash2, AlertTriangle, Loader2, Info } from "lucide-react"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
-import { formatCurrency, formatShortDate } from "@/lib/format"
+import { useState } from "react"
+import { toast } from "sonner"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +15,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { toast } from "sonner"
+import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
+import { formatCurrency, formatShortDate } from "@/lib/format"
 import type { Transaction } from "./transaction-table"
 
 interface DeleteTransactionDialogProps {
@@ -38,7 +38,9 @@ export const DeleteTransactionDialog = ({
   const deleteTransaction = useMutation(api.payments.deleteManualTransaction)
   const accessImpact = useQuery(
     api.payments.getTransactionAccessImpact,
-    transaction ? { transactionId: transaction._id as Id<"transactions"> } : "skip"
+    transaction
+      ? { transactionId: transaction._id as Id<"transactions"> }
+      : "skip",
   )
 
   const handleDelete = async () => {
@@ -58,7 +60,8 @@ export const DeleteTransactionDialog = ({
       onOpenChange(false)
       onSuccess?.()
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Erreur inconnue"
+      const errorMessage =
+        error instanceof Error ? error.message : "Erreur inconnue"
       toast.error(errorMessage)
       console.error(error)
     } finally {
@@ -89,7 +92,9 @@ export const DeleteTransactionDialog = ({
         <div className="my-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-500 dark:text-gray-400">Utilisateur</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                Utilisateur
+              </span>
               <span className="font-medium text-gray-900 dark:text-white">
                 {transaction.user?.name || "Inconnu"}
               </span>
@@ -129,8 +134,11 @@ export const DeleteTransactionDialog = ({
               </p>
               <p className="mt-1 text-sm text-red-700 dark:text-red-300">
                 Cette suppression révoquera l{"'"}accès{" "}
-                {accessImpact?.accessType === "exam" ? "aux examens" : "à l'entraînement"}{" "}
-                de l{"'"}utilisateur car c{"'"}est sa dernière transaction pour ce type d{"'"}accès.
+                {accessImpact?.accessType === "exam"
+                  ? "aux examens"
+                  : "à l'entraînement"}{" "}
+                de l{"'"}utilisateur car c{"'"}est sa dernière transaction pour
+                ce type d{"'"}accès.
               </p>
             </div>
           </motion.div>
@@ -146,7 +154,8 @@ export const DeleteTransactionDialog = ({
                 Accès non affecté
               </p>
               <p className="mt-1 text-sm text-blue-700 dark:text-blue-300">
-                L{"'"}accès de l{"'"}utilisateur ne sera pas affecté car d{"'"}autres transactions plus récentes maintiennent son accès actif.
+                L{"'"}accès de l{"'"}utilisateur ne sera pas affecté car d{"'"}
+                autres transactions plus récentes maintiennent son accès actif.
               </p>
             </div>
           </motion.div>

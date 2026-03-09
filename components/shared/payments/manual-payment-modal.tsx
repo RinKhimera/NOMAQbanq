@@ -253,10 +253,7 @@ export const ManualPaymentModal = ({
                                 </Button>
                               </FormControl>
                             </PopoverTrigger>
-                            <PopoverContent
-                              className="w-100 p-0"
-                              align="start"
-                            >
+                            <PopoverContent className="w-100 p-0" align="start">
                               <Command>
                                 <CommandInput placeholder="Rechercher par nom ou email..." />
                                 <CommandEmpty>

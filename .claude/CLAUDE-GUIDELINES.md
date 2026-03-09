@@ -14,11 +14,11 @@ Ce document définit les règles à suivre pour maintenir le fichier `CLAUDE.md`
 
 ### 2. Structure WHAT / WHY / HOW
 
-| Section | Contenu |
-|---------|---------|
-| **WHAT** | Stack, structure projet, architecture |
-| **WHY** | Raison d'être des choix techniques, cycle de vie |
-| **HOW** | Commandes, patterns de code, workflows |
+| Section  | Contenu                                          |
+| -------- | ------------------------------------------------ |
+| **WHAT** | Stack, structure projet, architecture            |
+| **WHY**  | Raison d'être des choix techniques, cycle de vie |
+| **HOW**  | Commandes, patterns de code, workflows           |
 
 ### 3. Informations à Inclure
 
@@ -32,28 +32,32 @@ Ce document définit les règles à suivre pour maintenir le fichier `CLAUDE.md`
 
 ### 4. Informations à Exclure
 
-| Type | Raison |
-|------|--------|
+| Type                      | Raison                                 |
+| ------------------------- | -------------------------------------- |
 | Variables d'environnement | Sécurité + redondant avec .env.example |
-| Liste des dépendances | Déjà dans package.json |
-| Enums/types complets | Source de vérité = schema.ts |
-| Index de base de données | Disponible dans schema.ts |
-| Conventions génériques | Évidentes pour un dev expérimenté |
-| Exemples de code verbeux | Préférer références fichiers |
+| Liste des dépendances     | Déjà dans package.json                 |
+| Enums/types complets      | Source de vérité = schema.ts           |
+| Index de base de données  | Disponible dans schema.ts              |
+| Conventions génériques    | Évidentes pour un dev expérimenté      |
+| Exemples de code verbeux  | Préférer références fichiers           |
 
 ### 5. Références vs Copie
 
 **Préférer** :
+
 ```markdown
 Voir `convex/lib/validation.ts:validatePostOwnership()`
 ```
 
 **Éviter** :
-```markdown
+
+````markdown
 ```typescript
 // 20 lignes de code copiées
 ```
-```
+````
+
+````
 
 ---
 
@@ -63,9 +67,10 @@ Utiliser le format suivant pour les règles qui causent des bugs si ignorées :
 
 ```markdown
 **IMPORTANT - [Nom Court]** : Description concise. Voir `fichier:fonction()`.
-```
+````
 
 Exemples :
+
 - Ownership XOR (userId OU organizationId)
 - Montants en cents
 - Utiliser `_creationTime` pas `createdAt`
@@ -88,12 +93,14 @@ Avant de modifier CLAUDE.md, vérifier :
 ## Quand Mettre à Jour
 
 ### Ajouter une info quand :
+
 - Un nouveau pattern critique est introduit
 - Un piège a causé un bug en session
 - Une commande importante est ajoutée
 - La structure du projet change significativement
 
 ### Supprimer une info quand :
+
 - Une fonctionnalité est retirée
 - L'info devient redondante
 - L'info n'est plus applicable
@@ -115,11 +122,11 @@ Avant de modifier CLAUDE.md, vérifier :
 
 ### `.claude/rules/` (chargés automatiquement par path)
 
-| Fichier | Scope | Contenu |
-|---------|-------|---------|
-| `convex-backend.md` | `convex/**` | Auth helpers, errors, rate limits, crons, HTTP actions, analytics, accès payant |
-| `admin-ui.md` | `app/(admin)/**`, `components/admin/**` | Master-detail, stat cards, filtres |
-| `seo.md` | `app/(marketing)/**`, SEO files | Metadata, pages marketing |
+| Fichier             | Scope                                   | Contenu                                                                         |
+| ------------------- | --------------------------------------- | ------------------------------------------------------------------------------- |
+| `convex-backend.md` | `convex/**`                             | Auth helpers, errors, rate limits, crons, HTTP actions, analytics, accès payant |
+| `admin-ui.md`       | `app/(admin)/**`, `components/admin/**` | Master-detail, stat cards, filtres                                              |
+| `seo.md`            | `app/(marketing)/**`, SEO files         | Metadata, pages marketing                                                       |
 
 ### Où ajouter un nouveau pattern ?
 

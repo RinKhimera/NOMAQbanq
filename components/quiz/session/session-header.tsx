@@ -1,13 +1,13 @@
 "use client"
 
-import Link from "next/link"
-import { motion } from "motion/react"
 import { CheckCircle, Clock, Pause } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { motion } from "motion/react"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { cn } from "@/lib/utils"
 import { formatExamTime } from "@/lib/exam-timer"
+import { cn } from "@/lib/utils"
 import type { SessionHeaderProps } from "./types"
 import { accentColors } from "./types"
 
@@ -43,12 +43,12 @@ export const SessionHeader = ({
                 "flex h-10 w-10 items-center justify-center rounded-xl shadow-md",
                 config.accentColor === "blue"
                   ? "bg-linear-to-br from-blue-500 to-indigo-600"
-                  : "bg-linear-to-br from-emerald-500 to-teal-600"
+                  : "bg-linear-to-br from-emerald-500 to-teal-600",
               )}
             >
               {icon}
             </div>
-            <span className="hidden font-display text-lg font-semibold text-gray-900 sm:block dark:text-white">
+            <span className="font-display hidden text-lg font-semibold text-gray-900 sm:block dark:text-white">
               {title}
             </span>
           </Link>
@@ -64,7 +64,7 @@ export const SessionHeader = ({
                     ? "animate-pulse border-2 border-red-400 bg-red-100 text-red-700 dark:border-red-500 dark:bg-red-900/30 dark:text-red-300"
                     : config.isTimeRunningOut
                       ? "border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                      : "border border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                      : "border border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200",
                 )}
               >
                 <Clock className="h-4 w-4" />
@@ -85,7 +85,7 @@ export const SessionHeader = ({
                   "h-2",
                   config.accentColor === "blue"
                     ? "[&>div]:bg-linear-to-r [&>div]:from-blue-500 [&>div]:to-indigo-500"
-                    : "[&>div]:bg-linear-to-r [&>div]:from-emerald-500 [&>div]:to-teal-500"
+                    : "[&>div]:bg-linear-to-r [&>div]:from-emerald-500 [&>div]:to-teal-500",
                 )}
               />
               <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -114,12 +114,13 @@ export const SessionHeader = ({
             <Button
               onClick={onFinish}
               size="sm"
+              data-testid="btn-header-finish"
               aria-label="Terminer l'examen"
               className={cn(
                 "gap-2 shadow-md",
                 config.accentColor === "blue"
                   ? "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                  : "bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                  : "bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700",
               )}
             >
               <CheckCircle className="h-4 w-4" aria-hidden="true" />

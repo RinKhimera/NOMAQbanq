@@ -190,7 +190,8 @@ export default function EditQuestionDialog({
         images.length !== originalImages.length ||
         images.some(
           (img, i) =>
-            !originalImages[i] || img.storagePath !== originalImages[i].storagePath,
+            !originalImages[i] ||
+            img.storagePath !== originalImages[i].storagePath,
         )
 
       if (imagesChanged) {

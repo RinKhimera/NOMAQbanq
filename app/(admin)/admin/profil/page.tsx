@@ -1,12 +1,12 @@
 "use client"
 
 import { useConvexAuth, useQuery } from "convex/react"
-import { api } from "@/convex/_generated/api"
 import { ProfileHeader } from "@/app/(dashboard)/dashboard/profil/_components/profile-header"
 import { ProfilePersonalInfo } from "@/app/(dashboard)/dashboard/profil/_components/profile-personal-info"
 import { ProfilePreferences } from "@/app/(dashboard)/dashboard/profil/_components/profile-preferences"
 import { ProfileSecurity } from "@/app/(dashboard)/dashboard/profil/_components/profile-security"
 import { ProfileSkeleton } from "@/app/(dashboard)/dashboard/profil/_components/profile-skeleton"
+import { api } from "@/convex/_generated/api"
 
 export default function AdminProfilPage() {
   const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()

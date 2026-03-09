@@ -26,12 +26,12 @@ npm install stripe @stripe/stripe-js
 
 ### Produits disponibles
 
-| Code | Nom | Prix | Durée | Type d'accès |
-|------|-----|------|-------|--------------|
-| `exam_access` | Accès Examens - 1 mois | 50 CAD | 30 jours | exam |
-| `training_access` | Accès Entraînement - 1 mois | 50 CAD | 30 jours | training |
-| `exam_access_promo` | Accès Examens - 6 mois | 200 CAD | 180 jours | exam |
-| `training_access_promo` | Accès Entraînement - 6 mois | 200 CAD | 180 jours | training |
+| Code                    | Nom                         | Prix    | Durée     | Type d'accès |
+| ----------------------- | --------------------------- | ------- | --------- | ------------ |
+| `exam_access`           | Accès Examens - 1 mois      | 50 CAD  | 30 jours  | exam         |
+| `training_access`       | Accès Entraînement - 1 mois | 50 CAD  | 30 jours  | training     |
+| `exam_access_promo`     | Accès Examens - 6 mois      | 200 CAD | 180 jours | exam         |
+| `training_access_promo` | Accès Entraînement - 6 mois | 200 CAD | 180 jours | training     |
 
 ### Flux de paiement Stripe
 
@@ -49,6 +49,7 @@ npm install stripe @stripe/stripe-js
 ### Cumul du temps
 
 Si un utilisateur a déjà un accès actif et achète à nouveau :
+
 - Le nouveau temps est **ajouté** à l'expiration existante
 - Exemple : 15 jours restants + 30 jours achetés = 45 jours total
 
@@ -59,6 +60,7 @@ Si un utilisateur a déjà un accès actif et achète à nouveau :
 ### Queries - Accès utilisateur
 
 #### `payments.hasExamAccess`
+
 Vérifie si l'utilisateur a un accès actif aux examens.
 
 ```typescript
@@ -70,6 +72,7 @@ const hasAccess = useQuery(api.payments.hasExamAccess)
 ```
 
 #### `payments.hasTrainingAccess`
+
 Vérifie si l'utilisateur a un accès actif à l'entraînement.
 
 ```typescript
@@ -78,6 +81,7 @@ const hasAccess = useQuery(api.payments.hasTrainingAccess)
 ```
 
 #### `payments.getMyAccessStatus`
+
 Récupère le statut complet des accès de l'utilisateur.
 
 ```typescript
@@ -92,6 +96,7 @@ const accessStatus = useQuery(api.payments.getMyAccessStatus)
 ### Queries - Produits
 
 #### `payments.getAvailableProducts`
+
 Liste tous les produits actifs disponibles à l'achat.
 
 ```typescript
@@ -113,6 +118,7 @@ const products = useQuery(api.payments.getAvailableProducts)
 ### Queries - Transactions utilisateur
 
 #### `payments.getMyTransactions`
+
 Historique des transactions de l'utilisateur connecté (paginé).
 
 ```typescript
@@ -121,7 +127,7 @@ import { usePaginatedQuery } from "convex/react"
 const { results, status, loadMore } = usePaginatedQuery(
   api.payments.getMyTransactions,
   {},
-  { initialNumItems: 10 }
+  { initialNumItems: 10 },
 )
 // Returns paginated:
 // {
@@ -141,6 +147,7 @@ const { results, status, loadMore } = usePaginatedQuery(
 ### Actions Stripe
 
 #### `stripe.createCheckoutSession`
+
 Crée une session de paiement Stripe et retourne l'URL de redirection.
 
 ```typescript
@@ -153,7 +160,11 @@ const createCheckout = useAction(api.stripe.createCheckoutSession)
 const handleBuy = async (productCode: string) => {
   try {
     const { checkoutUrl, sessionId } = await createCheckout({
-      productCode: productCode as "exam_access" | "training_access" | "exam_access_promo" | "training_access_promo",
+      productCode: productCode as
+        | "exam_access"
+        | "training_access"
+        | "exam_access_promo"
+        | "training_access_promo",
       successUrl: `${window.location.origin}/payment/success`,
       cancelUrl: `${window.location.origin}/pricing`,
     })
@@ -168,6 +179,7 @@ const handleBuy = async (productCode: string) => {
 ```
 
 #### `stripe.verifyCheckoutSession`
+
 Vérifie le statut d'une session après retour de Stripe (page de succès).
 
 ```typescript
@@ -188,6 +200,7 @@ const result = await verifySession({ sessionId })
 ```
 
 #### `stripe.createCustomerPortalSession`
+
 Crée une session pour le portail client Stripe (gestion des factures).
 
 ```typescript
@@ -206,22 +219,24 @@ const handleManageBilling = async () => {
 ## Queries Admin
 
 #### `payments.getAllTransactions`
+
 Toutes les transactions avec filtres (admin seulement).
 
 ```typescript
 const { results, status, loadMore } = usePaginatedQuery(
   api.payments.getAllTransactions,
   {
-    type: "stripe",           // Optionnel: "stripe" | "manual"
-    status: "completed",      // Optionnel: "pending" | "completed" | "failed" | "refunded"
-    userId: userId            // Optionnel: Id<"users">
+    type: "stripe", // Optionnel: "stripe" | "manual"
+    status: "completed", // Optionnel: "pending" | "completed" | "failed" | "refunded"
+    userId: userId, // Optionnel: Id<"users">
   },
-  { initialNumItems: 20 }
+  { initialNumItems: 20 },
 )
 // Returns enriched transactions with user and product details
 ```
 
 #### `payments.getTransactionStats`
+
 Statistiques pour le dashboard admin.
 
 ```typescript
@@ -238,6 +253,7 @@ const stats = useQuery(api.payments.getTransactionStats)
 ```
 
 #### `payments.getUserAccessStatus`
+
 Statut d'accès d'un utilisateur spécifique (admin).
 
 ```typescript
@@ -248,22 +264,24 @@ const userAccess = useQuery(api.payments.getUserAccessStatus, { userId })
 ### Mutations Admin
 
 #### `payments.recordManualPayment`
+
 Enregistre un paiement manuel (cash, Interac, etc.).
 
 ```typescript
 const recordPayment = useMutation(api.payments.recordManualPayment)
 
 await recordPayment({
-  userId: userId,                    // Id<"users">
-  productCode: "exam_access",        // ProductCode
-  amountPaid: 5000,                  // En cents
+  userId: userId, // Id<"users">
+  productCode: "exam_access", // ProductCode
+  amountPaid: 5000, // En cents
   currency: "CAD",
-  paymentMethod: "interac",          // "cash" | "interac" | "virement" | etc.
-  notes: "Paiement reçu le 15 janvier"  // Optionnel
+  paymentMethod: "interac", // "cash" | "interac" | "virement" | etc.
+  notes: "Paiement reçu le 15 janvier", // Optionnel
 })
 ```
 
 #### `payments.upsertProduct`
+
 Crée ou met à jour un produit (admin, nécessite auth).
 
 ```typescript
@@ -278,7 +296,7 @@ await upsertProduct({
   accessType: "exam",
   stripeProductId: "prod_xxx",
   stripePriceId: "price_xxx",
-  isActive: true
+  isActive: true,
 })
 ```
 
@@ -291,11 +309,13 @@ await upsertProduct({
 **Objectif** : Afficher les produits et permettre l'achat.
 
 **Fonctions utilisées** :
+
 - `useQuery(api.payments.getAvailableProducts)` - Liste des produits
 - `useQuery(api.payments.getMyAccessStatus)` - Accès actuels (pour afficher "Déjà actif")
 - `useAction(api.stripe.createCheckoutSession)` - Lancer le paiement
 
 **UI suggérée** :
+
 - Grille de cartes produits
 - Badge "Actif jusqu'au XX" si l'utilisateur a déjà l'accès
 - Bouton "Acheter" ou "Prolonger" selon le statut
@@ -306,16 +326,19 @@ await upsertProduct({
 **Objectif** : Confirmer le paiement après retour de Stripe.
 
 **Fonctions utilisées** :
+
 - `useAction(api.stripe.verifyCheckoutSession)` - Vérifier le paiement
 - `useQuery(api.payments.getMyAccessStatus)` - Afficher le nouvel accès
 
 **UI suggérée** :
+
 - État de chargement pendant la vérification
 - Message de succès avec détails (produit, montant)
 - Lien vers le dashboard ou les examens/training
 - Gestion de l'erreur si session invalide
 
 **Code exemple** :
+
 ```typescript
 "use client"
 
@@ -357,11 +380,13 @@ export default function PaymentSuccessPage() {
 **Objectif** : Voir ses accès et gérer la facturation.
 
 **Fonctions utilisées** :
+
 - `useQuery(api.payments.getMyAccessStatus)` - Statut des accès
 - `usePaginatedQuery(api.payments.getMyTransactions)` - Historique
 - `useAction(api.stripe.createCustomerPortalSession)` - Portail Stripe
 
 **UI suggérée** :
+
 - Section "Mes accès" avec dates d'expiration
 - Bouton "Prolonger" si accès actif mais bientôt expiré
 - Historique des transactions en tableau
@@ -372,11 +397,13 @@ export default function PaymentSuccessPage() {
 **Objectif** : Voir toutes les transactions et enregistrer des paiements manuels.
 
 **Fonctions utilisées** :
+
 - `usePaginatedQuery(api.payments.getAllTransactions)` - Liste
 - `useQuery(api.payments.getTransactionStats)` - Stats
 - `useMutation(api.payments.recordManualPayment)` - Paiement manuel
 
 **UI suggérée** :
+
 - Cards avec stats (revenus, transactions)
 - Filtres (type, status, utilisateur)
 - Tableau des transactions
@@ -387,6 +414,7 @@ export default function PaymentSuccessPage() {
 **Ajout** : Section accès de l'utilisateur.
 
 **Fonctions utilisées** :
+
 - `useQuery(api.payments.getUserAccessStatus, { userId })` - Accès
 - `useMutation(api.payments.recordManualPayment)` - Ajouter accès
 
@@ -395,6 +423,7 @@ export default function PaymentSuccessPage() {
 ## Composants suggérés
 
 ### AccessBadge
+
 Affiche le statut d'accès avec couleur.
 
 ```typescript
@@ -418,6 +447,7 @@ function AccessBadge({ accessType, expiresAt, daysRemaining }: AccessBadgeProps)
 ```
 
 ### PricingCard
+
 Carte produit pour la page pricing.
 
 ```typescript
@@ -430,6 +460,7 @@ type PricingCardProps = {
 ```
 
 ### TransactionRow
+
 Ligne de transaction pour les tableaux.
 
 ---
@@ -439,6 +470,7 @@ Ligne de transaction pour les tableaux.
 ### Protéger les routes
 
 Les vérifications d'accès sont déjà faites côté backend dans :
+
 - `exams.startExam` - Vérifie `userAccess` pour "exam"
 - `questions.getLearningBankQuestions` - Vérifie `userAccess` pour "training"
 
@@ -514,7 +546,7 @@ export function formatExpiration(timestamp: number): string {
 export function formatTimeRemaining(timestamp: number): string {
   return formatDistanceToNow(new Date(timestamp), {
     locale: fr,
-    addSuffix: true
+    addSuffix: true,
   })
 }
 

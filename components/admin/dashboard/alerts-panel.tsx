@@ -1,14 +1,14 @@
 "use client"
 
-import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   IconAlertTriangle,
-  IconClock,
-  IconCreditCardOff,
   IconChevronRight,
   IconCircleCheck,
+  IconClock,
+  IconCreditCardOff,
 } from "@tabler/icons-react"
+import Link from "next/link"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 interface ExpiringAccess {
@@ -52,18 +52,18 @@ function AlertItem({
       className={cn(
         "group flex items-center gap-3 rounded-xl border border-transparent p-3 transition-all duration-200",
         bgColor,
-        "hover:border-gray-200 dark:hover:border-gray-700"
+        "hover:border-gray-200 dark:hover:border-gray-700",
       )}
     >
       <div
         className={cn(
           "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-          iconColor
+          iconColor,
         )}
       >
         <Icon className="h-5 w-5" />
       </div>
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <p className="text-sm font-medium text-gray-900 dark:text-white">
             {title}
@@ -89,10 +89,10 @@ export function AlertsPanel({
 
   // Group expiring access by type
   const expiringExamAccess = expiringAccess.filter(
-    (a) => a.accessType === "exam"
+    (a) => a.accessType === "exam",
   )
   const expiringTrainingAccess = expiringAccess.filter(
-    (a) => a.accessType === "training"
+    (a) => a.accessType === "training",
   )
 
   const getExpiringDescription = (items: ExpiringAccess[]) => {

@@ -1,11 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { motion } from "motion/react"
-import dynamic from "next/dynamic"
 import {
   Calendar,
   Check,
@@ -18,8 +15,11 @@ import {
   User,
   Zap,
 } from "lucide-react"
-import { toast } from "sonner"
+import { motion } from "motion/react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
+import { useState } from "react"
+import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -34,8 +34,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
-import { cn, getInitials } from "@/lib/utils"
 import { formatExpiration } from "@/lib/format"
+import { cn, getInitials } from "@/lib/utils"
 
 // Lazy-load ManualPaymentModal to reduce initial bundle size
 const ManualPaymentModal = dynamic(
@@ -274,8 +274,13 @@ function PanelContent({ userId }: { userId: Id<"users"> }) {
     )
   }
 
-  const { user, examAccess, trainingAccess, recentTransactions, totalTransactionCount } =
-    panelData
+  const {
+    user,
+    examAccess,
+    trainingAccess,
+    recentTransactions,
+    totalTransactionCount,
+  } = panelData
 
   return (
     <>
@@ -381,7 +386,11 @@ function PanelContent({ userId }: { userId: Id<"users"> }) {
             </h4>
             {totalTransactionCount > 0 && (
               <Link href={`/admin/users/${userId}`}>
-                <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 gap-1 px-2 text-xs"
+                >
                   Voir tout ({totalTransactionCount})
                   <ExternalLink className="h-3 w-3" />
                 </Button>
@@ -429,10 +438,7 @@ export function UserSidePanel({
 }: UserSidePanelProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-105 overflow-y-auto sm:max-w-105"
-      >
+      <SheetContent side="right" className="w-105 overflow-y-auto sm:max-w-105">
         <SheetHeader className="sr-only">
           <SheetTitle>Détails de l&apos;utilisateur</SheetTitle>
           <SheetDescription>

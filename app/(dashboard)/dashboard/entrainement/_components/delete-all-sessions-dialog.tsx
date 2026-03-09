@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
 import { useMutation } from "convex/react"
+import { AlertTriangle, Loader2, Trash2 } from "lucide-react"
 import { motion } from "motion/react"
-import { Trash2, AlertTriangle, Loader2 } from "lucide-react"
-import { api } from "@/convex/_generated/api"
+import { useState } from "react"
+import { toast } from "sonner"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { toast } from "sonner"
+import { api } from "@/convex/_generated/api"
 
 interface DeleteAllSessionsDialogProps {
   open: boolean

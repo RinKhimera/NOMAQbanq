@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useCallback, useMemo } from "react"
-import { motion, AnimatePresence } from "motion/react"
-import { List, Flag, X, Lock } from "lucide-react"
+import { Flag, List, Lock, X } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+import { useCallback, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { QuestionNavigatorProps } from "./types"
@@ -38,7 +38,7 @@ export const QuestionNavigator = ({
 
       return { isAnswered, isFlagged, isCurrent, isLocked }
     },
-    [questions, answers, flaggedQuestions, currentIndex, isQuestionLocked]
+    [questions, answers, flaggedQuestions, currentIndex, isQuestionLocked],
   )
 
   const filteredIndices = useMemo(
@@ -49,7 +49,7 @@ export const QuestionNavigator = ({
             .filter(({ id }) => flaggedQuestions.has(id.toString()))
             .map(({ index }) => index)
         : questions.map((_, i) => i),
-    [questions, flaggedQuestions, showFlaggedOnly]
+    [questions, flaggedQuestions, showFlaggedOnly],
   )
 
   const handleNavigate = useCallback(
@@ -62,14 +62,21 @@ export const QuestionNavigator = ({
         setIsOpen(false)
       }
     },
-    [onNavigate, variant, getQuestionState]
+    [onNavigate, variant, getQuestionState],
   )
 
   // Stats section - shared between desktop and mobile
   const statsSection = (
     <div className="flex items-center justify-between text-sm">
       <span className="text-gray-600 dark:text-gray-400">
-        <span className={cn("font-semibold", accentColor === "emerald" ? "text-emerald-600 dark:text-emerald-400" : "text-blue-600 dark:text-blue-400")}>
+        <span
+          className={cn(
+            "font-semibold",
+            accentColor === "emerald"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-blue-600 dark:text-blue-400",
+          )}
+        >
           {answeredCount}
         </span>
         /{questions.length} répondues
@@ -81,10 +88,12 @@ export const QuestionNavigator = ({
             "flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors",
             showFlaggedOnly
               ? colors.flagFilter
-              : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800",
           )}
         >
-          <Flag className={cn("h-3 w-3", showFlaggedOnly && "fill-amber-500")} />
+          <Flag
+            className={cn("h-3 w-3", showFlaggedOnly && "fill-amber-500")}
+          />
           {flaggedCount}
         </button>
       )}
@@ -96,7 +105,7 @@ export const QuestionNavigator = ({
     <div
       className={cn(
         "grid gap-1.5",
-        questions.length > 15 ? "grid-cols-6" : "grid-cols-5"
+        questions.length > 15 ? "grid-cols-6" : "grid-cols-5",
       )}
     >
       {filteredIndices.map((index) => {
@@ -112,21 +121,18 @@ export const QuestionNavigator = ({
             disabled={isLocked}
             className={cn(
               "relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-xs font-medium transition-all",
-              isCurrent && `ring-2 ${colors.ring} ${colors.ringOffset} dark:ring-offset-gray-900`,
+              isCurrent &&
+                `ring-2 ${colors.ring} ${colors.ringOffset} dark:ring-offset-gray-900`,
               isLocked
                 ? "cursor-not-allowed bg-gray-200 text-gray-400 opacity-60 dark:bg-gray-700 dark:text-gray-500"
                 : isAnswered
                   ? colors.answered
-                  : colors.unanswered
+                  : colors.unanswered,
             )}
           >
-            {isLocked ? (
-              <Lock className="h-3.5 w-3.5" />
-            ) : (
-              index + 1
-            )}
+            {isLocked ? <Lock className="h-3.5 w-3.5" /> : index + 1}
             {isFlagged && !isLocked && (
-              <Flag className="absolute -right-0.5 -top-0.5 h-3 w-3 fill-amber-500 text-amber-500" />
+              <Flag className="absolute -top-0.5 -right-0.5 h-3 w-3 fill-amber-500 text-amber-500" />
             )}
           </button>
         )
@@ -142,7 +148,14 @@ export const QuestionNavigator = ({
       </p>
       <div className="grid grid-cols-2 gap-2 text-xs">
         <div className="flex items-center gap-2">
-          <div className={cn("h-3 w-3 rounded", accentColor === "emerald" ? "bg-emerald-100 dark:bg-emerald-900/40" : "bg-green-100 dark:bg-green-900/40")} />
+          <div
+            className={cn(
+              "h-3 w-3 rounded",
+              accentColor === "emerald"
+                ? "bg-emerald-100 dark:bg-emerald-900/40"
+                : "bg-green-100 dark:bg-green-900/40",
+            )}
+          />
           <span className="text-gray-600 dark:text-gray-400">Répondue</span>
         </div>
         <div className="flex items-center gap-2">
@@ -151,12 +164,17 @@ export const QuestionNavigator = ({
         </div>
         <div className="flex items-center gap-2">
           <div className="relative h-3 w-3 rounded bg-gray-100 dark:bg-gray-800">
-            <Flag className="absolute -right-0.5 -top-0.5 h-2 w-2 fill-amber-500 text-amber-500" />
+            <Flag className="absolute -top-0.5 -right-0.5 h-2 w-2 fill-amber-500 text-amber-500" />
           </div>
           <span className="text-gray-600 dark:text-gray-400">Marquée</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className={cn("h-3 w-3 rounded bg-gray-100 ring-2 dark:bg-gray-800", colors.ring)} />
+          <div
+            className={cn(
+              "h-3 w-3 rounded bg-gray-100 ring-2 dark:bg-gray-800",
+              colors.ring,
+            )}
+          />
           <span className="text-gray-600 dark:text-gray-400">Actuelle</span>
         </div>
         {isQuestionLocked && (
@@ -164,7 +182,9 @@ export const QuestionNavigator = ({
             <div className="flex h-3 w-3 items-center justify-center rounded bg-gray-200 dark:bg-gray-700">
               <Lock className="h-2 w-2 text-gray-400" />
             </div>
-            <span className="text-gray-600 dark:text-gray-400">Verrouillée</span>
+            <span className="text-gray-600 dark:text-gray-400">
+              Verrouillée
+            </span>
           </div>
         )}
       </div>
@@ -175,7 +195,8 @@ export const QuestionNavigator = ({
   const tipsSection = (
     <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        <strong>Astuce :</strong> Utilisez les flèches ← → pour naviguer, F pour marquer
+        <strong>Astuce :</strong> Utilisez les flèches ← → pour naviguer, F pour
+        marquer
       </p>
     </div>
   )
@@ -186,7 +207,7 @@ export const QuestionNavigator = ({
       <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-clip rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
         {/* Fixed header */}
         <div className="shrink-0">
-          <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="font-display mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             Navigation
           </h3>
           {statsSection}
@@ -217,7 +238,7 @@ export const QuestionNavigator = ({
           "h-12 w-12 rounded-full shadow-lg",
           accentColor === "emerald"
             ? "bg-linear-to-r from-emerald-600 to-teal-600 shadow-emerald-500/20 hover:from-emerald-700 hover:to-teal-700"
-            : "bg-linear-to-r from-blue-600 to-indigo-600 shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700"
+            : "bg-linear-to-r from-blue-600 to-indigo-600 shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700",
         )}
       >
         <List className="h-5 w-5" />
@@ -241,7 +262,7 @@ export const QuestionNavigator = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.15 }}
-              className="fixed bottom-68 right-6 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-xl dark:border-gray-700/60 dark:bg-gray-900"
+              className="fixed right-6 bottom-68 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-xl dark:border-gray-700/60 dark:bg-gray-900"
             >
               {/* Header - fixed */}
               <div className="border-b border-gray-200/60 bg-white p-4 dark:border-gray-700/60 dark:bg-gray-900">

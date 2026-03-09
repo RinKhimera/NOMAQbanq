@@ -1,15 +1,15 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-import { motion } from "motion/react"
 import {
-  IconUsers,
-  IconUserPlus,
   IconClipboardCheck,
-  IconSparkles,
-  IconCurrencyDollar,
   IconCoin,
+  IconCurrencyDollar,
+  IconSparkles,
+  IconUserPlus,
+  IconUsers,
 } from "@tabler/icons-react"
+import { motion } from "motion/react"
+import { cn } from "@/lib/utils"
 
 interface StatCardProps {
   label: string
@@ -109,7 +109,7 @@ function StatCard({
         />
 
         {/* Glow effect on hover */}
-        <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
+        <div className="absolute -top-8 -right-8 h-32 w-32 rounded-full bg-linear-to-br from-current to-transparent opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-10" />
 
         {/* Header */}
         <div className="relative mb-3 flex items-center justify-between">
@@ -162,10 +162,12 @@ function StatCard({
         </p>
 
         {/* Subtitle - always reserve space for consistent height */}
-        <p className={cn(
-          "mt-1 text-xs text-gray-500 dark:text-gray-500",
-          !subtitle && "invisible"
-        )}>
+        <p
+          className={cn(
+            "mt-1 text-xs text-gray-500 dark:text-gray-500",
+            !subtitle && "invisible",
+          )}
+        >
           {subtitle || "placeholder"}
         </p>
 
@@ -217,11 +219,13 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
   }
 
   const formatXAF = (amount: number) => {
-    return new Intl.NumberFormat("fr-FR", {
-      style: "decimal",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount / 100) + " XAF"
+    return (
+      new Intl.NumberFormat("fr-FR", {
+        style: "decimal",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount / 100) + " XAF"
+    )
   }
 
   const hasXAFRevenue = stats?.revenueByCurrency.XAF.recent ?? 0 > 0
@@ -240,10 +244,12 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
   }
 
   return (
-    <div className={cn(
-      "grid grid-cols-1 gap-4 sm:grid-cols-2",
-      hasXAFRevenue ? "lg:grid-cols-6" : "lg:grid-cols-5"
-    )}>
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-4 sm:grid-cols-2",
+        hasXAFRevenue ? "lg:grid-cols-6" : "lg:grid-cols-5",
+      )}
+    >
       <StatCard
         label="Total utilisateurs"
         value={stats.totalUsers.toLocaleString("fr-CA")}
@@ -300,7 +306,10 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
         value={formatCAD(stats.revenueByCurrency.CAD.recent)}
         trend={
           stats.revenueByCurrency.CAD.trend !== 0
-            ? { value: stats.revenueByCurrency.CAD.trend, isPositive: stats.revenueByCurrency.CAD.trend > 0 }
+            ? {
+                value: stats.revenueByCurrency.CAD.trend,
+                isPositive: stats.revenueByCurrency.CAD.trend > 0,
+              }
             : undefined
         }
         color="slate"
@@ -315,7 +324,10 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
           value={formatXAF(stats.revenueByCurrency.XAF.recent)}
           trend={
             stats.revenueByCurrency.XAF.trend !== 0
-              ? { value: stats.revenueByCurrency.XAF.trend, isPositive: stats.revenueByCurrency.XAF.trend > 0 }
+              ? {
+                  value: stats.revenueByCurrency.XAF.trend,
+                  isPositive: stats.revenueByCurrency.XAF.trend > 0,
+                }
               : undefined
           }
           color="teal"

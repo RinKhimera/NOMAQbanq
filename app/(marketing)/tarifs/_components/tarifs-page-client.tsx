@@ -1,11 +1,11 @@
 "use client"
 
+import { ArrowRight, Clock, RefreshCw, Shield, Zap } from "lucide-react"
 import { motion } from "motion/react"
-import { ArrowRight, Shield, Zap, Clock, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { PricingHeader } from "./pricing-header"
 import { PricingGrid } from "./pricing-grid"
+import { PricingHeader } from "./pricing-header"
 
 const guarantees = [
   {
@@ -40,19 +40,20 @@ export default function TarifsPageClient() {
       <PricingGrid />
 
       {/* Guarantees section */}
-      <section className="py-20 bg-linear-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+      <section className="bg-linear-to-br from-gray-50 to-white py-20 dark:from-gray-900 dark:to-gray-800">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-12"
+            className="mb-12 text-center"
           >
-            <h2 className="font-display text-display-md text-gray-900 dark:text-white mb-4">
+            <h2 className="font-display text-display-md mb-4 text-gray-900 dark:text-white">
               Pourquoi nous faire confiance ?
             </h2>
-            <p className="text-body-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Nous nous engageons à vous offrir la meilleure expérience de préparation à l{"'"}EACMC.
+            <p className="text-body-lg mx-auto max-w-2xl text-gray-600 dark:text-gray-300">
+              Nous nous engageons à vous offrir la meilleure expérience de
+              préparation à l{"'"}EACMC.
             </p>
           </motion.div>
 
@@ -92,9 +93,9 @@ export default function TarifsPageClient() {
         <div className="absolute inset-0 bg-black/20" />
 
         {/* Animated background */}
-        <div className="absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl animate-float" />
+        <div className="animate-float absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
         <div
-          className="absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-white/10 blur-3xl animate-float"
+          className="animate-float absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-white/10 blur-3xl"
           style={{ animationDelay: "2s" }}
         />
 
@@ -108,8 +109,8 @@ export default function TarifsPageClient() {
               Prêt à commencer votre préparation ?
             </h2>
             <p className="text-body-lg mx-auto mb-10 max-w-2xl text-blue-100">
-              Rejoignez des milliers de candidats qui ont réussi grâce à NOMAQbanq.
-              Commencez dès maintenant avec un accès instantané.
+              Rejoignez des milliers de candidats qui ont réussi grâce à
+              NOMAQbanq. Commencez dès maintenant avec un accès instantané.
             </p>
 
             <div className="flex flex-col justify-center gap-4 sm:flex-row">

@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useMemo } from "react"
-import { AnimatePresence, motion } from "motion/react"
 import { List, X } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import type { ResultsNavigatorProps } from "./types"
@@ -21,7 +21,9 @@ export const ResultsQuestionNavigator = ({
 
   const stats = useMemo(() => {
     const correct = questionResults.filter((r) => r.isCorrect).length
-    const incorrect = questionResults.filter((r) => !r.isCorrect && r.isAnswered).length
+    const incorrect = questionResults.filter(
+      (r) => !r.isCorrect && r.isAnswered,
+    ).length
     const unanswered = questionResults.filter((r) => !r.isAnswered).length
     return { correct, incorrect, unanswered }
   }, [questionResults])
@@ -38,7 +40,7 @@ export const ResultsQuestionNavigator = ({
     <div
       className={cn(
         "grid gap-1.5",
-        questionResults.length > 15 ? "grid-cols-6" : "grid-cols-5"
+        questionResults.length > 15 ? "grid-cols-6" : "grid-cols-5",
       )}
     >
       {questionResults.map((result, index) => (
@@ -51,7 +53,7 @@ export const ResultsQuestionNavigator = ({
               ? colors.correct
               : !result.isAnswered
                 ? colors.unanswered
-                : colors.incorrect
+                : colors.incorrect,
           )}
         >
           {index + 1}
@@ -97,7 +99,7 @@ export const ResultsQuestionNavigator = ({
       <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-clip rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
         {/* Fixed header */}
         <div className="shrink-0">
-          <h3 className="mb-4 font-display text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 className="font-display mb-4 text-lg font-semibold text-gray-900 dark:text-white">
             Navigation
           </h3>
           <div className="mb-4 flex items-center justify-between text-sm">
@@ -111,9 +113,7 @@ export const ResultsQuestionNavigator = ({
         </div>
 
         {/* Scrollable grid */}
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {navigationGrid}
-        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">{navigationGrid}</div>
 
         {/* Fixed footer */}
         <div className="shrink-0">
@@ -121,7 +121,8 @@ export const ResultsQuestionNavigator = ({
           {showTips && (
             <div className={cn("mt-4 rounded-lg p-3", colors.tipBg)}>
               <p className="text-xs text-gray-600 dark:text-gray-400">
-                <strong>Astuce :</strong> Cliquez sur un numéro pour accéder directement à la question
+                <strong>Astuce :</strong> Cliquez sur un numéro pour accéder
+                directement à la question
               </p>
             </div>
           )}
@@ -160,7 +161,7 @@ export const ResultsQuestionNavigator = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ duration: 0.15 }}
-              className="fixed bottom-68 right-6 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-xl dark:border-gray-700/60 dark:bg-gray-900"
+              className="fixed right-6 bottom-68 z-50 w-72 overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-xl dark:border-gray-700/60 dark:bg-gray-900"
             >
               {/* Header - fixed */}
               <div className="border-b border-gray-200/60 bg-white p-4 dark:border-gray-700/60 dark:bg-gray-900">
@@ -197,17 +198,38 @@ export const ResultsQuestionNavigator = ({
               <div className="border-t border-gray-200/60 bg-white p-4 dark:border-gray-700/60 dark:bg-gray-900">
                 <div className="grid grid-cols-3 gap-2 text-xs">
                   <div className="flex items-center gap-1.5">
-                    <div className={cn("h-2.5 w-2.5 rounded", colors.legendCorrect)} />
-                    <span className="text-gray-500 dark:text-gray-400">{stats.correct}</span>
+                    <div
+                      className={cn(
+                        "h-2.5 w-2.5 rounded",
+                        colors.legendCorrect,
+                      )}
+                    />
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {stats.correct}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <div className={cn("h-2.5 w-2.5 rounded", colors.legendIncorrect)} />
-                    <span className="text-gray-500 dark:text-gray-400">{stats.incorrect}</span>
+                    <div
+                      className={cn(
+                        "h-2.5 w-2.5 rounded",
+                        colors.legendIncorrect,
+                      )}
+                    />
+                    <span className="text-gray-500 dark:text-gray-400">
+                      {stats.incorrect}
+                    </span>
                   </div>
                   {stats.unanswered > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <div className={cn("h-2.5 w-2.5 rounded", colors.legendUnanswered)} />
-                      <span className="text-gray-500 dark:text-gray-400">{stats.unanswered}</span>
+                      <div
+                        className={cn(
+                          "h-2.5 w-2.5 rounded",
+                          colors.legendUnanswered,
+                        )}
+                      />
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {stats.unanswered}
+                      </span>
                     </div>
                   )}
                 </div>

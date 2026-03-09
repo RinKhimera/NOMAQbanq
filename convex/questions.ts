@@ -57,7 +57,13 @@ const paginatedQuestionsValidator = v.object({
   continueCursor: v.string(),
   isDone: v.boolean(),
   splitCursor: v.optional(v.union(v.string(), v.null())),
-  pageStatus: v.optional(v.union(v.literal("SplitRecommended"), v.literal("SplitRequired"), v.null())),
+  pageStatus: v.optional(
+    v.union(
+      v.literal("SplitRecommended"),
+      v.literal("SplitRequired"),
+      v.null(),
+    ),
+  ),
 })
 
 // ============================================
@@ -119,7 +125,9 @@ const decrementDomainCount = async (ctx: MutationCtx, domain: string) => {
     }
   } else {
     // Stats désynchronisées - le domaine devrait exister
-    console.warn(`[questionStats] Domaine "${domain}" introuvable lors du décrement`)
+    console.warn(
+      `[questionStats] Domaine "${domain}" introuvable lors du décrement`,
+    )
   }
 
   // Mettre à jour le total
@@ -155,7 +163,9 @@ const transferDomainCount = async (
       await ctx.db.patch(oldDomainStat._id, { count: oldDomainStat.count - 1 })
     }
   } else {
-    console.warn(`[questionStats] Ancien domaine "${oldDomain}" introuvable lors du transfert`)
+    console.warn(
+      `[questionStats] Ancien domaine "${oldDomain}" introuvable lors du transfert`,
+    )
   }
 
   // Incrémenter le nouveau domaine
@@ -526,7 +536,6 @@ export const updateQuestion = mutation({
   },
 })
 
-
 // Pagination + Filtres pour l'admin (CURSOR-BASED) - Version legacy
 // Note: Cursor-based pagination is optimal for index-based queries.
 // When search or complex filters are applied, we need to collect first then paginate in memory.
@@ -618,8 +627,8 @@ export const getQuestionsWithFilters = query({
         v.literal("_creationTime"),
         v.literal("question"),
         v.literal("domain"),
-        v.literal("objectifCMC")
-      )
+        v.literal("objectifCMC"),
+      ),
     ),
     sortOrder: v.optional(v.union(v.literal("asc"), v.literal("desc"))),
   },
@@ -664,7 +673,7 @@ export const getQuestionsWithFilters = query({
         filtered = filtered.filter(
           (q) =>
             q.question.toLowerCase().includes(lowerQuery) ||
-            q.objectifCMC.toLowerCase().includes(lowerQuery)
+            q.objectifCMC.toLowerCase().includes(lowerQuery),
         )
       }
 
@@ -721,10 +730,7 @@ export const getQuestionsWithFilters = query({
         .paginate(paginationOpts)
     }
 
-    return await ctx.db
-      .query("questions")
-      .order(order)
-      .paginate(paginationOpts)
+    return await ctx.db.query("questions").order(order).paginate(paginationOpts)
   },
 })
 
@@ -838,9 +844,7 @@ export const _getQuestionsPageForExport = internalQuery({
         .withIndex("by_domain", (q) => q.eq("domain", domain))
         .take(startOffset + batchSize)
     } else {
-      questions = await ctx.db
-        .query("questions")
-        .take(startOffset + batchSize)
+      questions = await ctx.db.query("questions").take(startOffset + batchSize)
     }
 
     let batch = questions.slice(startOffset)
@@ -881,7 +885,6 @@ export const _getQuestionsPageForExport = internalQuery({
       continueCursor: isDone ? "" : (startOffset + batchSize).toString(),
       isDone,
     }
-
   },
 })
 
@@ -905,7 +908,7 @@ export const getAllQuestionsForExport = action({
       domain: v.string(),
       hasImages: v.boolean(),
       imagesCount: v.number(),
-    })
+    }),
   ),
   handler: async (ctx, args) => {
     // Vérifier l'authentification admin
@@ -958,7 +961,6 @@ export const getAllQuestionsForExport = action({
     return allResults
   },
 })
-
 
 // Obtenir des questions aléatoires (optimisé pour quiz marketing)
 // Mutation car utilise Math.random() (non déterministe, interdit dans les queries)
@@ -1040,7 +1042,8 @@ export const scoreQuizAnswers = mutation({
       const question = questions[i]
       if (!question) continue
 
-      const isCorrect = args.answers[i].selectedAnswer === question.correctAnswer
+      const isCorrect =
+        args.answers[i].selectedAnswer === question.correctAnswer
       if (isCorrect) score++
 
       questionResults.push({
@@ -1082,7 +1085,9 @@ export const addQuestionImage = mutation({
     }
 
     const currentImages = question.images || []
-    const newImages = [...currentImages, args.image].sort((a, b) => a.order - b.order)
+    const newImages = [...currentImages, args.image].sort(
+      (a, b) => a.order - b.order,
+    )
 
     await ctx.db.patch(args.questionId, { images: newImages })
 
@@ -1111,7 +1116,9 @@ export const _removeQuestionImageData = internalMutation({
     }
 
     const currentImages = question.images || []
-    const imageToRemove = currentImages.find((img) => img.storagePath === args.storagePath)
+    const imageToRemove = currentImages.find(
+      (img) => img.storagePath === args.storagePath,
+    )
 
     if (!imageToRemove) {
       throw new Error("Image non trouvée")
@@ -1262,7 +1269,9 @@ export const setQuestionImages = action({
     )
 
     // Supprimer les anciennes images du storage Bunny
-    await Promise.all(pathsToDelete.map((path: string) => deleteFromBunny(path)))
+    await Promise.all(
+      pathsToDelete.map((path: string) => deleteFromBunny(path)),
+    )
 
     return { success: true }
   },
@@ -1381,4 +1390,3 @@ export const migrateAggregationStats = internalMutation({
     }
   },
 })
-

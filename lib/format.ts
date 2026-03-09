@@ -6,16 +6,21 @@ import { fr } from "date-fns/locale"
  * XAF: pas de décimales, symbole après le montant
  * CAD: format standard canadien-français
  */
-export const formatCurrency = (amountCents: number, currency = "CAD"): string => {
+export const formatCurrency = (
+  amountCents: number,
+  currency = "CAD",
+): string => {
   const amount = amountCents / 100
 
   if (currency === "XAF") {
     // XAF n'a pas de sous-unités, affichage avec espace comme séparateur de milliers
-    return new Intl.NumberFormat("fr-FR", {
-      style: "decimal",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount) + " XAF"
+    return (
+      new Intl.NumberFormat("fr-FR", {
+        style: "decimal",
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(amount) + " XAF"
+    )
   }
 
   return new Intl.NumberFormat("fr-CA", {

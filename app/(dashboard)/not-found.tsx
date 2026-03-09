@@ -1,7 +1,7 @@
 "use client"
 
+import { IconArrowLeft, IconCompass, IconHome } from "@tabler/icons-react"
 import Link from "next/link"
-import { IconArrowLeft, IconHome, IconCompass } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 
 export default function DashboardNotFound() {

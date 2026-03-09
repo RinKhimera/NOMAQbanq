@@ -134,7 +134,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
 
   const handlePreviewClick = (
     e: React.MouseEvent,
-    questionId: QuestionRow["_id"]
+    questionId: QuestionRow["_id"],
   ) => {
     e.stopPropagation()
     setPreviewQuestionId(questionId)
@@ -156,7 +156,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
     <div
       className={cn(
         "overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900",
-        className
+        className,
       )}
     >
       <Table>
@@ -231,7 +231,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                     : isHighlighted
                       ? "bg-blue-50/50 shadow-[inset_3px_0_0_0_rgb(59,130,246)] dark:bg-blue-900/20"
                       : "hover:bg-gray-50/50 dark:hover:bg-gray-800/30",
-                  isDisabled && "opacity-50"
+                  isDisabled && "opacity-50",
                 )}
               >
                 {/* Checkbox for select mode */}
@@ -256,12 +256,15 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                 <TableCell>
                   <Badge
                     variant="secondary"
-                    className={cn("font-medium", getDomainColor(question.domain))}
+                    className={cn(
+                      "font-medium",
+                      getDomainColor(question.domain),
+                    )}
                   >
                     {truncateText(question.domain, 20)}
                   </Badge>
                 </TableCell>
-                <TableCell className="hidden text-gray-600 dark:text-gray-400 md:table-cell">
+                <TableCell className="hidden text-gray-600 md:table-cell dark:text-gray-400">
                   <span className="line-clamp-1">
                     {truncateText(question.objectifCMC, 40)}
                   </span>
@@ -307,7 +310,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                               year: "numeric",
                               hour: "2-digit",
                               minute: "2-digit",
-                            }
+                            },
                           )}
                         </p>
                       </TooltipContent>

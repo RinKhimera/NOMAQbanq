@@ -39,16 +39,10 @@ const { filterMotionProps } = vi.hoisted(() => {
 // Mock motion/react
 vi.mock("motion/react", () => ({
   motion: {
-    div: ({
-      children,
-      ...props
-    }: ComponentPropsWithoutRef<"div">) => (
+    div: ({ children, ...props }: ComponentPropsWithoutRef<"div">) => (
       <div {...filterMotionProps(props)}>{children}</div>
     ),
-    button: ({
-      children,
-      ...props
-    }: ComponentPropsWithoutRef<"button">) => (
+    button: ({ children, ...props }: ComponentPropsWithoutRef<"button">) => (
       <button {...filterMotionProps(props)}>{children}</button>
     ),
   },

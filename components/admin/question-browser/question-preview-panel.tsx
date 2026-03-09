@@ -1,11 +1,8 @@
 "use client"
 
-import { useState } from "react"
 import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { motion } from "motion/react"
-import Image from "next/image"
 import {
   BookOpen,
   Calendar,
@@ -15,6 +12,9 @@ import {
   ExternalLink,
   ImageIcon,
 } from "lucide-react"
+import { motion } from "motion/react"
+import Image from "next/image"
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -163,7 +163,7 @@ function PanelContent({ questionId }: { questionId: Id<"questions"> }) {
                   "flex items-start gap-3 rounded-lg border p-3 transition-colors",
                   isCorrect
                     ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-900/20"
-                    : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50"
+                    : "border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/50",
                 )}
               >
                 <div
@@ -171,7 +171,7 @@ function PanelContent({ questionId }: { questionId: Id<"questions"> }) {
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                     isCorrect
                       ? "bg-emerald-500 text-white"
-                      : "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400"
+                      : "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
                   )}
                 >
                   {isCorrect ? <Check className="h-3.5 w-3.5" /> : letter}
@@ -181,7 +181,7 @@ function PanelContent({ questionId }: { questionId: Id<"questions"> }) {
                     "text-sm leading-relaxed",
                     isCorrect
                       ? "font-medium text-emerald-800 dark:text-emerald-300"
-                      : "text-gray-700 dark:text-gray-300"
+                      : "text-gray-700 dark:text-gray-300",
                   )}
                 >
                   {option}
@@ -273,10 +273,7 @@ export function QuestionPreviewPanel({
 }: QuestionPreviewPanelProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-105 overflow-y-auto sm:max-w-105"
-      >
+      <SheetContent side="right" className="w-105 overflow-y-auto sm:max-w-105">
         <SheetHeader className="sr-only">
           <SheetTitle>Prévisualisation de la question</SheetTitle>
           <SheetDescription>

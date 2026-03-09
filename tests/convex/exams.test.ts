@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it } from "vitest"
 import { api, internal } from "../../convex/_generated/api"
 import { Id } from "../../convex/_generated/dataModel"
 import schema from "../../convex/schema"
-import { createAdminUser, createRegularUser, grantAccess, clearProductCache } from "../helpers/convex-helpers"
+import {
+  clearProductCache,
+  createAdminUser,
+  createRegularUser,
+  grantAccess,
+} from "../helpers/convex-helpers"
 
 // Import des modules Convex pour convexTest (Vite spécifique)
 const modules = import.meta.glob("../../convex/**/*.ts")
@@ -43,7 +48,6 @@ describe("exams", () => {
           startDate: Date.now(),
           endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
           questionIds: [],
-
         }),
       ).rejects.toThrow("Accès non autorisé")
     })
@@ -59,7 +63,6 @@ describe("exams", () => {
         startDate: Date.now(),
         endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       expect(examId).toBeDefined()
@@ -87,7 +90,6 @@ describe("exams", () => {
         startDate: Date.now(),
         endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
         questionIds,
-
       })
 
       const exams = await admin.asAdmin.query(api.exams.getAllExams)
@@ -145,7 +147,6 @@ describe("exams", () => {
         startDate: Date.now(),
         endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       await admin.asAdmin.mutation(api.exams.updateExam, {
@@ -155,7 +156,6 @@ describe("exams", () => {
         startDate: Date.now(),
         endDate: Date.now() + 14 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       const exams = await admin.asAdmin.query(api.exams.getAllExams)
@@ -175,7 +175,6 @@ describe("exams", () => {
         startDate: Date.now(),
         endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       let exams = await admin.asAdmin.query(api.exams.getAllExams)
@@ -199,7 +198,6 @@ describe("exams", () => {
         startDate: Date.now(),
         endDate: Date.now() + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Vérifier que l'examen est actif
@@ -233,7 +231,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Examen pas encore commencé
@@ -242,7 +239,6 @@ describe("exams", () => {
         startDate: now + 24 * 60 * 60 * 1000,
         endDate: now + 14 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Examen terminé
@@ -251,13 +247,14 @@ describe("exams", () => {
         startDate: now - 14 * 24 * 60 * 60 * 1000,
         endDate: now - 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Accorder l'accès exam à l'utilisateur
       await grantAccess(t, user.userId, "exam")
 
-      const availableExams = await user.asUser.query(api.exams.getMyAvailableExams)
+      const availableExams = await user.asUser.query(
+        api.exams.getMyAvailableExams,
+      )
       expect(availableExams).toHaveLength(1)
       expect(availableExams[0].title).toBe("Examen actif")
     })
@@ -277,7 +274,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Accorder l'accès exam à user1 seulement
@@ -309,7 +305,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       const result = await user.asUser.mutation(api.exams.startExam, { examId })
@@ -363,7 +358,6 @@ describe("exams", () => {
         startDate: now + 24 * 60 * 60 * 1000,
         endDate: now + 14 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       await expect(
@@ -430,7 +424,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1, q2],
-
       })
 
       // Démarrer l'examen
@@ -462,7 +455,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Sans démarrer l'examen
@@ -489,7 +481,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Démarrer et soumettre une première fois
@@ -535,7 +526,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1],
-
       })
 
       // User1 répond correctement (100%)
@@ -579,7 +569,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Vérifier le compteur avant participation
@@ -609,10 +598,11 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1, q2],
-
       })
 
-      const result = await admin.asAdmin.query(api.exams.getExamWithQuestions, { examId })
+      const result = await admin.asAdmin.query(api.exams.getExamWithQuestions, {
+        examId,
+      })
       expect(result).not.toBeNull()
       expect(result!.title).toBe("Examen avec questions")
       expect(result!.questions).toHaveLength(2)
@@ -867,23 +857,32 @@ describe("exams", () => {
       await user.asUser.mutation(api.exams.startExam, { examId })
 
       // Question 0 et 1 (avant midpoint) devraient être accessibles
-      const access0 = await user.asUser.query(api.examPause.validateQuestionAccess, {
-        examId,
-        questionIndex: 0,
-      })
+      const access0 = await user.asUser.query(
+        api.examPause.validateQuestionAccess,
+        {
+          examId,
+          questionIndex: 0,
+        },
+      )
       expect(access0.allowed).toBe(true)
 
-      const access1 = await user.asUser.query(api.examPause.validateQuestionAccess, {
-        examId,
-        questionIndex: 1,
-      })
+      const access1 = await user.asUser.query(
+        api.examPause.validateQuestionAccess,
+        {
+          examId,
+          questionIndex: 1,
+        },
+      )
       expect(access1.allowed).toBe(true)
 
       // Question 2 et 3 (après midpoint) devraient être bloquées
-      const access2 = await user.asUser.query(api.examPause.validateQuestionAccess, {
-        examId,
-        questionIndex: 2,
-      })
+      const access2 = await user.asUser.query(
+        api.examPause.validateQuestionAccess,
+        {
+          examId,
+          questionIndex: 2,
+        },
+      )
       expect(access2.allowed).toBe(false)
       expect(access2.reason).toContain("déverrouillée après la pause")
     })
@@ -913,10 +912,13 @@ describe("exams", () => {
         manualTrigger: true,
       })
 
-      const access = await user.asUser.query(api.examPause.validateQuestionAccess, {
-        examId,
-        questionIndex: 0,
-      })
+      const access = await user.asUser.query(
+        api.examPause.validateQuestionAccess,
+        {
+          examId,
+          questionIndex: 0,
+        },
+      )
       expect(access.allowed).toBe(false)
       expect(access.reason).toContain("verrouillées pendant la pause")
     })
@@ -949,16 +951,22 @@ describe("exams", () => {
       })
       await user.asUser.mutation(api.examPause.resumeFromPause, { examId })
 
-      const access0 = await user.asUser.query(api.examPause.validateQuestionAccess, {
-        examId,
-        questionIndex: 0,
-      })
+      const access0 = await user.asUser.query(
+        api.examPause.validateQuestionAccess,
+        {
+          examId,
+          questionIndex: 0,
+        },
+      )
       expect(access0.allowed).toBe(true)
 
-      const access1 = await user.asUser.query(api.examPause.validateQuestionAccess, {
-        examId,
-        questionIndex: 1,
-      })
+      const access1 = await user.asUser.query(
+        api.examPause.validateQuestionAccess,
+        {
+          examId,
+          questionIndex: 1,
+        },
+      )
       expect(access1.allowed).toBe(true)
     })
 
@@ -983,10 +991,13 @@ describe("exams", () => {
 
       await user.asUser.mutation(api.exams.startExam, { examId })
 
-      const access = await user.asUser.query(api.examPause.validateQuestionAccess, {
-        examId,
-        questionIndex: 0,
-      })
+      const access = await user.asUser.query(
+        api.examPause.validateQuestionAccess,
+        {
+          examId,
+          questionIndex: 0,
+        },
+      )
       expect(access.allowed).toBe(true)
     })
   })
@@ -1015,7 +1026,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1],
-
       })
 
       // Avant participation
@@ -1062,7 +1072,6 @@ describe("exams", () => {
         startDate: now - 2000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1],
-
       })
 
       await admin.asAdmin.mutation(api.exams.createExam, {
@@ -1070,7 +1079,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1],
-
       })
 
       // Compléter le premier examen
@@ -1080,7 +1088,9 @@ describe("exams", () => {
         answers: [{ questionId: q1, selectedAnswer: "A" }],
       })
 
-      const recentExams = await user.asUser.query(api.examStats.getMyRecentExams)
+      const recentExams = await user.asUser.query(
+        api.examStats.getMyRecentExams,
+      )
       expect(recentExams).toHaveLength(2)
       // Le premier (complété) devrait être en tête
       expect(recentExams[0].title).toBe("Examen 1")
@@ -1113,11 +1123,12 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1],
-
       })
 
       // Avant participation
-      let exams = await user.asUser.query(api.examStats.getAllExamsWithUserParticipation)
+      let exams = await user.asUser.query(
+        api.examStats.getAllExamsWithUserParticipation,
+      )
       expect(exams).toHaveLength(1)
       expect(exams[0].userHasTaken).toBe(false)
       expect(exams[0].userParticipation).toBeNull()
@@ -1129,7 +1140,9 @@ describe("exams", () => {
         answers: [{ questionId: q1, selectedAnswer: "A" }],
       })
 
-      exams = await user.asUser.query(api.examStats.getAllExamsWithUserParticipation)
+      exams = await user.asUser.query(
+        api.examStats.getAllExamsWithUserParticipation,
+      )
       expect(exams[0].userHasTaken).toBe(true)
       expect(exams[0].userParticipation?.status).toBe("completed")
       expect(exams[0].userParticipation?.score).toBe(100)
@@ -1146,10 +1159,11 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
-      const exams = await t.query(api.examStats.getAllExamsWithUserParticipation)
+      const exams = await t.query(
+        api.examStats.getAllExamsWithUserParticipation,
+      )
       expect(exams).toHaveLength(1)
       expect(exams[0].userHasTaken).toBe(false)
     })
@@ -1171,16 +1185,18 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Démarrer mais ne pas soumettre
       await user.asUser.mutation(api.exams.startExam, { examId })
 
-      const result = await admin.asAdmin.query(api.exams.getParticipantExamResults, {
-        examId,
-        userId: user.userId,
-      })
+      const result = await admin.asAdmin.query(
+        api.exams.getParticipantExamResults,
+        {
+          examId,
+          userId: user.userId,
+        },
+      )
 
       expect(result).not.toBeNull()
       expect(result?.error).toBe("NOT_COMPLETED")
@@ -1198,13 +1214,15 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
-      const result = await admin.asAdmin.query(api.exams.getParticipantExamResults, {
-        examId,
-        userId: user.userId,
-      })
+      const result = await admin.asAdmin.query(
+        api.exams.getParticipantExamResults,
+        {
+          examId,
+          userId: user.userId,
+        },
+      )
 
       expect(result).not.toBeNull()
       expect(result?.error).toBe("NO_PARTICIPATION")
@@ -1225,7 +1243,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000, // Pas encore terminé
         questionIds: [questionId],
-
       })
 
       await user.asUser.mutation(api.exams.startExam, { examId })
@@ -1235,10 +1252,13 @@ describe("exams", () => {
       })
 
       // L'utilisateur essaie de voir ses résultats pendant l'examen
-      const result = await user.asUser.query(api.exams.getParticipantExamResults, {
-        examId,
-        userId: user.userId,
-      })
+      const result = await user.asUser.query(
+        api.exams.getParticipantExamResults,
+        {
+          examId,
+          userId: user.userId,
+        },
+      )
 
       // Pendant l'examen, les non-admins ne peuvent pas voir les résultats
       expect(result).toBeNull()
@@ -1256,7 +1276,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       const result = await t.query(api.exams.getParticipantExamResults, {
@@ -1280,14 +1299,16 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now - 100, // Terminé
         questionIds: [questionId],
-
       })
 
       // User1 essaie de voir les résultats de user2
-      const result = await user1.asUser.query(api.exams.getParticipantExamResults, {
-        examId,
-        userId: user2.userId,
-      })
+      const result = await user1.asUser.query(
+        api.exams.getParticipantExamResults,
+        {
+          examId,
+          userId: user2.userId,
+        },
+      )
 
       expect(result).toBeNull()
     })
@@ -1306,7 +1327,6 @@ describe("exams", () => {
         startDate: now - 2000,
         endDate: now - 1000, // Terminé
         questionIds: [questionId],
-
       })
 
       // Simuler une participation en insérant directement
@@ -1321,9 +1341,12 @@ describe("exams", () => {
         })
       })
 
-      const leaderboard = await user.asUser.query(api.examStats.getExamLeaderboard, {
-        examId,
-      })
+      const leaderboard = await user.asUser.query(
+        api.examStats.getExamLeaderboard,
+        {
+          examId,
+        },
+      )
 
       expect(leaderboard).toHaveLength(1)
     })
@@ -1339,10 +1362,11 @@ describe("exams", () => {
         startDate: now - 2000,
         endDate: now - 1000,
         questionIds: [questionId],
-
       })
 
-      const leaderboard = await t.query(api.examStats.getExamLeaderboard, { examId })
+      const leaderboard = await t.query(api.examStats.getExamLeaderboard, {
+        examId,
+      })
       expect(leaderboard).toEqual([])
     })
   })
@@ -1520,7 +1544,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [questionId],
-
       })
 
       // Participer à l'examen
@@ -1531,7 +1554,9 @@ describe("exams", () => {
       })
 
       // Supprimer l'examen
-      const result = await admin.asAdmin.mutation(api.exams.deleteExam, { examId })
+      const result = await admin.asAdmin.mutation(api.exams.deleteExam, {
+        examId,
+      })
 
       expect(result.success).toBe(true)
       expect(result.deletedParticipations).toBe(1)
@@ -1577,7 +1602,6 @@ describe("exams", () => {
         startDate: now - 2000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1],
-
       })
 
       // Create second exam
@@ -1586,7 +1610,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1],
-
       })
 
       // Complete exam1 first (100%)
@@ -1638,14 +1661,13 @@ describe("exams", () => {
           startDate: now - 1000,
           endDate: now + 7 * 24 * 60 * 60 * 1000,
           questionIds: [q1],
-
         })
 
         await user.asUser.mutation(api.exams.startExam, { examId })
         await user.asUser.mutation(api.exams.submitExamAnswers, {
           examId,
           answers: [{ questionId: q1, selectedAnswer: "A" }],
-          })
+        })
       }
 
       const history = await user.asUser.query(api.examStats.getMyScoreHistory)
@@ -1674,7 +1696,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1],
-
       })
 
       await user.asUser.mutation(api.exams.startExam, { examId })
@@ -1713,7 +1734,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000,
         questionIds: [q1],
-
       })
 
       // Start but don't complete
@@ -1833,7 +1853,6 @@ describe("exams", () => {
         startDate: now - 1000,
         endDate: now + 7 * 24 * 60 * 60 * 1000, // Not expired
         questionIds: [q1],
-
       })
 
       await user.asUser.mutation(api.exams.startExam, { examId })

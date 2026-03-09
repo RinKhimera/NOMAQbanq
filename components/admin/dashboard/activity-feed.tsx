@@ -1,15 +1,15 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
-  IconUserPlus,
-  IconCreditCard,
-  IconChecks,
   IconActivity,
+  IconChecks,
+  IconCreditCard,
+  IconUserPlus,
 } from "@tabler/icons-react"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
 type Activity =
@@ -49,7 +49,8 @@ interface ActivityFeedProps {
 const activityConfig = {
   user_signup: {
     icon: IconUserPlus,
-    color: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+    color:
+      "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
     label: "Nouvelle inscription",
   },
   payment: {
@@ -59,7 +60,8 @@ const activityConfig = {
   },
   exam_completed: {
     icon: IconChecks,
-    color: "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+    color:
+      "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
     label: "Examen complété",
   },
 }
@@ -140,7 +142,7 @@ function ActivityItem({ activity }: { activity: Activity }) {
                     ? "text-emerald-600 dark:text-emerald-400"
                     : activity.data.score >= 50
                       ? "text-amber-600 dark:text-amber-400"
-                      : "text-rose-600 dark:text-rose-400"
+                      : "text-rose-600 dark:text-rose-400",
                 )}
               >
                 ({activity.data.score}%)
@@ -156,7 +158,7 @@ function ActivityItem({ activity }: { activity: Activity }) {
       <div
         className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-transform group-hover:scale-105",
-          config.color
+          config.color,
         )}
       >
         <Icon className="h-4 w-4" />
@@ -209,7 +211,10 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
         <ScrollArea className="h-80 px-4 pb-4">
           <div className="space-y-1">
             {activities.map((activity, index) => (
-              <ActivityItem key={`${activity.type}-${index}`} activity={activity} />
+              <ActivityItem
+                key={`${activity.type}-${index}`}
+                activity={activity}
+              />
             ))}
           </div>
         </ScrollArea>

@@ -4,10 +4,10 @@ import { IconPhoto, IconZoomIn } from "@tabler/icons-react"
 import Image from "next/image"
 import { useState } from "react"
 import Lightbox from "yet-another-react-lightbox"
-import Zoom from "yet-another-react-lightbox/plugins/zoom"
 import Counter from "yet-another-react-lightbox/plugins/counter"
-import "yet-another-react-lightbox/styles.css"
 import "yet-another-react-lightbox/plugins/counter.css"
+import Zoom from "yet-another-react-lightbox/plugins/zoom"
+import "yet-another-react-lightbox/styles.css"
 import { cn } from "@/lib/utils"
 
 // ============================================
@@ -94,7 +94,7 @@ export const QuestionImageGallery = ({
           type="button"
           onClick={() => openLightbox(0)}
           className={cn(
-            "group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-blue-500",
+            "group bg-muted relative cursor-pointer overflow-hidden rounded-lg border transition-all hover:ring-2 hover:ring-blue-500",
             sizeClasses[size],
             className,
           )}
@@ -136,8 +136,12 @@ export const QuestionImageGallery = ({
             type="button"
             onClick={() => openLightbox(index)}
             className={cn(
-              "group relative cursor-pointer overflow-hidden rounded-lg border bg-muted transition-all hover:ring-2 hover:ring-blue-500",
-              size === "sm" ? "h-16 w-16" : size === "md" ? "h-24 w-24" : "h-32 w-32",
+              "group bg-muted relative cursor-pointer overflow-hidden rounded-lg border transition-all hover:ring-2 hover:ring-blue-500",
+              size === "sm"
+                ? "h-16 w-16"
+                : size === "md"
+                  ? "h-24 w-24"
+                  : "h-32 w-32",
             )}
           >
             <Image

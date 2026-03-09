@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { OnboardingGuard } from "@/components/shared/onboarding-guard"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import {
-  mockRouter,
-  mockCurrentUser,
   createMockUserDoc,
+  mockCurrentUser,
+  mockRouter,
 } from "../helpers/mocks"
 
 // Mock hooks

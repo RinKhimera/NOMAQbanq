@@ -1,8 +1,8 @@
 import { convexTest } from "convex-test"
 import { describe, expect, it } from "vitest"
+import { batchGetByIds, batchGetOrderedByIds } from "@/convex/lib/batchFetch"
 import { Id } from "../../../convex/_generated/dataModel"
 import schema from "../../../convex/schema"
-import { batchGetByIds, batchGetOrderedByIds } from "@/convex/lib/batchFetch"
 
 const modules = import.meta.glob("../../../convex/**/*.ts")
 
@@ -107,7 +107,10 @@ describe("batchFetch", () => {
 
       // Batch fetch with one existing and one non-existing ID
       const result = await t.run(async (ctx) => {
-        const map = await batchGetByIds(ctx, "users", [deletedUserId, existingUserId])
+        const map = await batchGetByIds(ctx, "users", [
+          deletedUserId,
+          existingUserId,
+        ])
         return {
           size: map.size,
           hasDeleted: map.has(deletedUserId),
@@ -250,7 +253,11 @@ describe("batchFetch", () => {
       })
 
       const result = await t.run(async (ctx) => {
-        return await batchGetOrderedByIds(ctx, "users", [userId, userId, userId])
+        return await batchGetOrderedByIds(ctx, "users", [
+          userId,
+          userId,
+          userId,
+        ])
       })
 
       // Should have 3 entries (preserves duplicates)

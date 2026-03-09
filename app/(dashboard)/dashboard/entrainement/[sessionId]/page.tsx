@@ -1,31 +1,31 @@
 "use client"
 
+import { useConvexAuth, useMutation, useQuery } from "convex/react"
+import { AlertTriangle, Brain, Loader2 } from "lucide-react"
+import { AnimatePresence, motion } from "motion/react"
+import { useParams, useRouter } from "next/navigation"
 import {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
   useActionState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
   useTransition,
 } from "react"
-import { useIsVisible } from "@/hooks/use-is-visible"
-import { useConvexAuth, useQuery, useMutation } from "convex/react"
-import { useRouter, useParams } from "next/navigation"
-import { motion, AnimatePresence } from "motion/react"
-import { Brain, Loader2, AlertTriangle } from "lucide-react"
-import { api } from "@/convex/_generated/api"
-import type { Id } from "@/convex/_generated/dataModel"
-import { Button } from "@/components/ui/button"
-import { QuestionCard } from "@/components/quiz/question-card"
+import { toast } from "sonner"
 import { Calculator } from "@/components/quiz/calculator"
 import { LabValues } from "@/components/quiz/lab-values"
-import { SessionHeader } from "@/components/quiz/session/session-header"
-import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
-import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
-import { SessionNavigation } from "@/components/quiz/session/session-navigation"
+import { QuestionCard } from "@/components/quiz/question-card"
 import { FinishDialog } from "@/components/quiz/session/finish-dialog"
+import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
+import { SessionHeader } from "@/components/quiz/session/session-header"
+import { SessionNavigation } from "@/components/quiz/session/session-navigation"
+import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
+import { Button } from "@/components/ui/button"
+import { api } from "@/convex/_generated/api"
+import type { Id } from "@/convex/_generated/dataModel"
+import { useIsVisible } from "@/hooks/use-is-visible"
 import { CalculatorProvider } from "@/hooks/useCalculator"
-import { toast } from "sonner"
 
 const TrainingSessionPage = () => {
   const router = useRouter()
@@ -38,7 +38,7 @@ const TrainingSessionPage = () => {
   // State
   const [currentIndex, setCurrentIndex] = useState(0)
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(
-    new Set()
+    new Set(),
   )
   const [showFinishDialog, setShowFinishDialog] = useState(false)
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
@@ -47,7 +47,7 @@ const TrainingSessionPage = () => {
   // Skip query until authenticated to avoid race condition on page reload
   const sessionData = useQuery(
     api.training.getTrainingSessionById,
-    isAuthenticated ? { sessionId } : "skip"
+    isAuthenticated ? { sessionId } : "skip",
   )
 
   // Mutations
@@ -57,14 +57,16 @@ const TrainingSessionPage = () => {
   // Derived state - filter out null values from questions
   const questions = useMemo(() => {
     if (!sessionData?.questions) return []
-    type SessionQuestion = NonNullable<(typeof sessionData)["questions"]>[number]
+    type SessionQuestion = NonNullable<
+      (typeof sessionData)["questions"]
+    >[number]
     return sessionData.questions.filter(
-      (q: SessionQuestion | null): q is SessionQuestion => q !== null
+      (q: SessionQuestion | null): q is SessionQuestion => q !== null,
     )
   }, [sessionData?.questions])
   const answers = useMemo(
     () => sessionData?.answers ?? {},
-    [sessionData?.answers]
+    [sessionData?.answers],
   )
   const currentQuestion = questions[currentIndex]
   const totalQuestions = questions.length
@@ -90,11 +92,13 @@ const TrainingSessionPage = () => {
       } catch (error) {
         toast.error("Erreur", {
           description:
-            error instanceof Error ? error.message : "Impossible de sauvegarder",
+            error instanceof Error
+              ? error.message
+              : "Impossible de sauvegarder",
         })
       }
     },
-    [currentQuestion, saveAnswer, sessionId]
+    [currentQuestion, saveAnswer, sessionId],
   )
 
   // Navigation
@@ -104,7 +108,7 @@ const TrainingSessionPage = () => {
         setCurrentIndex(index)
       }
     },
-    [totalQuestions]
+    [totalQuestions],
   )
 
   const goNext = useCallback(() => {
@@ -158,7 +162,7 @@ const TrainingSessionPage = () => {
         setShowFinishDialog(false)
       }
     },
-    { success: false }
+    { success: false },
   )
 
   // Handle navigation or finish based on position
@@ -220,7 +224,7 @@ const TrainingSessionPage = () => {
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-900/20">
           <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-amber-500" />
-          <h1 className="mb-2 font-display text-xl font-bold text-amber-900 dark:text-amber-100">
+          <h1 className="font-display mb-2 text-xl font-bold text-amber-900 dark:text-amber-100">
             Session expirée
           </h1>
           <p className="mb-6 text-amber-700 dark:text-amber-300">
@@ -362,10 +366,7 @@ const TrainingSessionPage = () => {
       />
 
       {/* Lab Values Dialog */}
-      <LabValues
-        isOpen={isLabValuesOpen}
-        onOpenChange={setIsLabValuesOpen}
-      />
+      <LabValues isOpen={isLabValuesOpen} onOpenChange={setIsLabValuesOpen} />
 
       {/* Finish confirmation dialog */}
       <FinishDialog
