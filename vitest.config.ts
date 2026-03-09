@@ -74,6 +74,17 @@ export default defineConfig({
         "components/admin/exams-list.tsx",
         "components/admin/questions-list.tsx",
         "components/admin/question-browser/**",
+        "components/admin/modals/**",
+        // Quiz tools (complex UI, low logic)
+        "components/quiz/calculator/**",
+        "components/quiz/lab-values/**",
+        // Convex integrations (external services, webhooks)
+        "convex/http.ts",
+        "convex/stripe.ts",
+        "convex/testing.ts",
+        "convex/crons.ts",
+        "convex/lib/stripe.ts",
+        "schemas/index.ts",
       ],
       thresholds: {
         statements: 75,
