@@ -1,6 +1,7 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 import { vi } from "vitest"
-import type { Doc } from "@/convex/_generated/dataModel"
+import type { Doc, Id } from "@/convex/_generated/dataModel"
+import type { SessionQuestion } from "@/components/quiz/session/types"
 
 // ===== Router Mock =====
 export const mockRouter = (
@@ -60,3 +61,33 @@ export const createMockUserDoc = (
     externalId: "clerk_test",
     ...overrides,
   }) as Doc<"users">
+
+// ===== Question Doc Factory =====
+export const createMockQuestionDoc = (
+  overrides?: Partial<Doc<"questions">>,
+): Doc<"questions"> =>
+  ({
+    _id: "q1" as Id<"questions">,
+    _creationTime: Date.now(),
+    question: "Quelle est la capitale de la France ?",
+    options: ["Paris", "Lyon", "Marseille", "Bordeaux"],
+    correctAnswer: "Paris",
+    explanation: "Paris est la capitale de la France.",
+    objectifCMC: "Objectif 1",
+    domain: "Général",
+    ...overrides,
+  }) as Doc<"questions">
+
+// ===== Session Question Factory =====
+export const createMockSessionQuestion = (
+  overrides?: Partial<SessionQuestion>,
+): SessionQuestion => ({
+  _id: "q1" as Id<"questions">,
+  question: "Quelle est la capitale de la France ?",
+  options: ["Paris", "Lyon", "Marseille", "Bordeaux"],
+  correctAnswer: "Paris",
+  explanation: "Paris est la capitale de la France.",
+  objectifCMC: "Objectif 1",
+  domain: "Général",
+  ...overrides,
+})
