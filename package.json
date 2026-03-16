@@ -102,7 +102,7 @@
     "@vitest/ui": "4.0.18",
     "baseline-browser-mapping": "^2.10.0",
     "convex-test": "^0.0.41",
-    "eslint": "^9",
+    "eslint": "^10",
     "eslint-config-next": "16.1.6",
     "eslint-plugin-tailwind-canonical-classes": "^1.2.0",
     "happy-dom": "^20.7.0",
