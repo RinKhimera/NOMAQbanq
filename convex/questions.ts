@@ -362,6 +362,14 @@ export const createQuestion = mutation({
       domain: args.domain,
     })
 
+    // Dual-write (M1) : créer aussi la ligne questionExplanations.
+    // Atomique grâce aux mutations Convex transactionnelles.
+    await ctx.db.insert("questionExplanations", {
+      questionId,
+      explanation: args.explanation,
+      references: args.references,
+    })
+
     // Mettre à jour les stats d'agrégation
     await incrementDomainCount(ctx, args.domain)
     await incrementObjectifCMCCount(ctx, normalizedObjectif, args.domain)
@@ -465,6 +473,17 @@ export const deleteQuestion = mutation({
       throw Errors.notFound("Question")
     }
 
+    // Dual-delete (M1) : supprimer d'abord la ligne questionExplanations
+    // associée si elle existe (peut ne pas exister si pas encore backfillée).
+    // Atomique : les deux deletes sont dans la même mutation.
+    const explanationRow = await ctx.db
+      .query("questionExplanations")
+      .withIndex("by_question", (q) => q.eq("questionId", args.id))
+      .unique()
+    if (explanationRow) {
+      await ctx.db.delete(explanationRow._id)
+    }
+
     await ctx.db.delete(args.id)
 
     // Mettre à jour les stats d'agrégation
@@ -511,6 +530,41 @@ export const updateQuestion = mutation({
     )
 
     await ctx.db.patch(id, filteredData)
+
+    // Dual-write (M1) : maintenir la cohérence avec questionExplanations
+    // si explanation ou references a changé.
+    if (
+      updateData.explanation !== undefined ||
+      updateData.references !== undefined
+    ) {
+      const existingExplanationRow = await ctx.db
+        .query("questionExplanations")
+        .withIndex("by_question", (q) => q.eq("questionId", id))
+        .unique()
+
+      if (existingExplanationRow) {
+        // Patch ciblé : ne mettre à jour que les champs fournis
+        const explanationPatch: {
+          explanation?: string
+          references?: string[]
+        } = {}
+        if (updateData.explanation !== undefined) {
+          explanationPatch.explanation = updateData.explanation
+        }
+        if (updateData.references !== undefined) {
+          explanationPatch.references = updateData.references
+        }
+        await ctx.db.patch(existingExplanationRow._id, explanationPatch)
+      } else {
+        // Question pas encore backfillée : créer la ligne maintenant avec
+        // les valeurs effectives (mises à jour ou existantes).
+        await ctx.db.insert("questionExplanations", {
+          questionId: id,
+          explanation: updateData.explanation ?? existingQuestion.explanation,
+          references: updateData.references ?? existingQuestion.references,
+        })
+      }
+    }
 
     // Si le domaine a changé, mettre à jour les stats domaine
     if (args.domain !== undefined && args.domain !== existingQuestion.domain) {

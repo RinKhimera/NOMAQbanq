@@ -67,6 +67,37 @@ describe("questions", () => {
       const questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions[0].references).toEqual(["Ref 1", "Ref 2"])
     })
+
+    it("dual-write M1 : crée aussi une ligne questionExplanations", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question avec explication détaillée",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "B",
+        explanation: "Une explication détaillée pour la review",
+        references: ["https://ref1.com", "https://ref2.com"],
+        objectifCMC: "Diagnostic",
+        domain: "Cardiologie",
+      })
+
+      const explanationRow = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+      })
+
+      expect(explanationRow).not.toBeNull()
+      expect(explanationRow?.explanation).toBe(
+        "Une explication détaillée pour la review",
+      )
+      expect(explanationRow?.references).toEqual([
+        "https://ref1.com",
+        "https://ref2.com",
+      ])
+    })
   })
 
   describe("getAllQuestions", () => {
@@ -158,6 +189,114 @@ describe("questions", () => {
       // Les autres champs restent inchangés
       expect(questions[0].explanation).toBe("Explication")
     })
+
+    it("dual-write M1 : met à jour questionExplanations quand explanation change", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "Explication originale",
+        objectifCMC: "Objectif",
+        domain: "Domain",
+      })
+
+      await asAdmin.mutation(api.questions.updateQuestion, {
+        id: questionId,
+        explanation: "Explication mise à jour",
+        references: ["https://new-ref.com"],
+      })
+
+      const explanationRow = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+      })
+
+      expect(explanationRow?.explanation).toBe("Explication mise à jour")
+      expect(explanationRow?.references).toEqual(["https://new-ref.com"])
+    })
+
+    it("dual-write M1 : ne touche pas questionExplanations si ces champs sont absents du patch", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "Explication originale",
+        objectifCMC: "Objectif",
+        domain: "Domain",
+      })
+
+      const before = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+      })
+
+      await asAdmin.mutation(api.questions.updateQuestion, {
+        id: questionId,
+        question: "Question modifiée",
+        correctAnswer: "B",
+      })
+
+      const after = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+      })
+
+      // Même _id (pas de re-création), même contenu
+      expect(after?._id).toBe(before?._id)
+      expect(after?.explanation).toBe("Explication originale")
+    })
+
+    it("dual-write M1 : crée la ligne questionExplanations si elle manque (cas migration partielle)", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question pré-migration simulée",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "Original",
+        objectifCMC: "Objectif",
+        domain: "Domain",
+      })
+
+      // Simuler une question pas encore backfillée en supprimant
+      // manuellement la ligne questionExplanations.
+      await t.run(async (ctx) => {
+        const row = await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+        if (row) await ctx.db.delete(row._id)
+      })
+
+      // Update qui touche explanation → doit recréer la ligne
+      await asAdmin.mutation(api.questions.updateQuestion, {
+        id: questionId,
+        explanation: "Nouvelle explication via update",
+      })
+
+      const recreated = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+      })
+
+      expect(recreated).not.toBeNull()
+      expect(recreated?.explanation).toBe("Nouvelle explication via update")
+    })
   })
 
   describe("deleteQuestion", () => {
@@ -203,6 +342,68 @@ describe("questions", () => {
       // Vérifier que la question a été supprimée
       questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions).toHaveLength(0)
+    })
+
+    it("dual-delete M1 : supprime aussi la ligne questionExplanations", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "À supprimer",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "Explication",
+        objectifCMC: "Objectif",
+        domain: "Domain",
+      })
+
+      // Vérifier que la ligne questionExplanations existe
+      const before = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+      })
+      expect(before).not.toBeNull()
+
+      await asAdmin.mutation(api.questions.deleteQuestion, { id: questionId })
+
+      // Vérifier que la ligne questionExplanations a aussi disparu
+      const after = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+      })
+      expect(after).toBeNull()
+    })
+
+    it("dual-delete M1 : ne plante pas si la ligne questionExplanations n'existe pas (cas migration partielle)", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const questionId = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Question pré-migration",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "Explication",
+        objectifCMC: "Objectif",
+        domain: "Domain",
+      })
+
+      // Simuler une question pas encore backfillée
+      await t.run(async (ctx) => {
+        const row = await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+        if (row) await ctx.db.delete(row._id)
+      })
+
+      // delete doit réussir sans throw même sans ligne questionExplanations
+      await expect(
+        asAdmin.mutation(api.questions.deleteQuestion, { id: questionId }),
+      ).resolves.toBeNull()
     })
   })
 
