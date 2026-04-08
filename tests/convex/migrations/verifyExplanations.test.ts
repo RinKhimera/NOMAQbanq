@@ -12,7 +12,7 @@ describe("migrations/verifyExplanations", () => {
     it("retourne isValid=true sur une base vide", async () => {
       const t = convexTest(schema, modules)
 
-      const result = await t.query(
+      const result = await t.action(
         internal.migrations.verifyExplanations.verifyExplanationsInvariant,
         {},
       )
@@ -42,7 +42,7 @@ describe("migrations/verifyExplanations", () => {
         })
       }
 
-      const result = await t.query(
+      const result = await t.action(
         internal.migrations.verifyExplanations.verifyExplanationsInvariant,
         {},
       )
@@ -76,7 +76,7 @@ describe("migrations/verifyExplanations", () => {
         if (row) await ctx.db.delete(row._id)
       })
 
-      const result = await t.query(
+      const result = await t.action(
         internal.migrations.verifyExplanations.verifyExplanationsInvariant,
         {},
       )
@@ -112,7 +112,7 @@ describe("migrations/verifyExplanations", () => {
         return row?._id
       })
 
-      const result = await t.query(
+      const result = await t.action(
         internal.migrations.verifyExplanations.verifyExplanationsInvariant,
         {},
       )
@@ -146,7 +146,7 @@ describe("migrations/verifyExplanations", () => {
         })
       })
 
-      const result = await t.query(
+      const result = await t.action(
         internal.migrations.verifyExplanations.verifyExplanationsInvariant,
         {},
       )
@@ -158,12 +158,12 @@ describe("migrations/verifyExplanations", () => {
       expect(result.issues.duplicateQuestionIds).toContain(questionId)
     })
 
-    it("retourne truncated=true et isValid=false si la limit est atteinte", async () => {
+    it("traite plusieurs batches sans erreur (couvre la pagination)", async () => {
       const t = convexTest(schema, modules)
       const { asAdmin } = await createAdminUser(t)
 
-      // Créer 3 questions, mais on va lire avec limit=2
-      for (let i = 0; i < 3; i++) {
+      // Créer 5 questions, on va lire avec batchSize=2 → 3 batches
+      for (let i = 0; i < 5; i++) {
         await asAdmin.mutation(api.questions.createQuestion, {
           question: `Question ${i + 1}`,
           options: ["A", "B", "C", "D"],
@@ -174,15 +174,15 @@ describe("migrations/verifyExplanations", () => {
         })
       }
 
-      const result = await t.query(
+      const result = await t.action(
         internal.migrations.verifyExplanations.verifyExplanationsInvariant,
-        { limit: 2 },
+        { batchSize: 2 },
       )
 
-      expect(result.truncated).toBe(true)
-      // Quand truncated, isValid doit être false par sécurité (on ne sait
-      // pas si les docs non lus introduisent des anomalies)
-      expect(result.isValid).toBe(false)
+      expect(result.questionsCount).toBe(5)
+      expect(result.explanationsCount).toBe(5)
+      expect(result.isValid).toBe(true)
+      expect(result.truncated).toBe(false)
     })
   })
 })
