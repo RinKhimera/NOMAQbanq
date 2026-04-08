@@ -53,3 +53,54 @@ export const batchGetOrderedByIds = async <T extends TableNames>(
   // For ordered results, we fetch all (no deduplication to preserve indices)
   return Promise.all(ids.map((id) => ctx.db.get(id)))
 }
+
+/**
+ * Batch fetch explanations by their `questionId` via the `by_question` index.
+ * Returns a Map keyed by questionId for O(1) lookups.
+ *
+ * Uses parallel indexed lookups (no N+1) because each `.unique()` on the
+ * `by_question` index is a single indexed read. Missing entries (questions
+ * whose backfill hasn't run yet, or questions legitimately without an
+ * explanation row) are simply absent from the Map — callers should default
+ * to empty string / undefined.
+ *
+ * @example
+ * const explanationsMap = await batchGetExplanationsByQuestionIds(ctx, questionIds)
+ * const explanation = explanationsMap.get(someQuestionId)?.explanation ?? ""
+ */
+export const batchGetExplanationsByQuestionIds = async (
+  ctx: QueryCtx,
+  questionIds: Id<"questions">[],
+): Promise<
+  Map<
+    Id<"questions">,
+    { explanation: string; references: string[] | undefined }
+  >
+> => {
+  // Deduplicate to avoid redundant lookups for the same question.
+  const uniqueIds = [...new Set(questionIds)]
+
+  const rows = await Promise.all(
+    uniqueIds.map((questionId) =>
+      ctx.db
+        .query("questionExplanations")
+        .withIndex("by_question", (q) => q.eq("questionId", questionId))
+        .unique(),
+    ),
+  )
+
+  const map = new Map<
+    Id<"questions">,
+    { explanation: string; references: string[] | undefined }
+  >()
+  for (let i = 0; i < uniqueIds.length; i++) {
+    const row = rows[i]
+    if (row) {
+      map.set(uniqueIds[i], {
+        explanation: row.explanation,
+        references: row.references,
+      })
+    }
+  }
+  return map
+}

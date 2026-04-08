@@ -124,6 +124,8 @@ const QuestionExplanation = ({
 // ===== Main QuestionCard Component =====
 export const QuestionCard = ({
   question,
+  lazyExplanation,
+  lazyReferences,
   variant = "default",
   selectedAnswer,
   onAnswerSelect,
@@ -143,6 +145,12 @@ export const QuestionCard = ({
   actions = [],
   className,
 }: QuestionCardProps) => {
+  // PR B : l'explication peut venir soit du document question (legacy,
+  // encore présente pendant PR B pour les queries qui la joignent côté
+  // serveur), soit d'une prop lazy fournie par la page résultats qui
+  // fetche via getQuestionExplanations quand l'user déplie la carte.
+  const effectiveExplanation = lazyExplanation ?? question.explanation
+  const effectiveReferences = lazyReferences ?? question.references
   // Determine card styling based on variant and state
   const getCardStyles = () => {
     if (variant === "review") {
@@ -440,14 +448,28 @@ export const QuestionCard = ({
         )}
       </AnimatePresence>
 
-      {/* Explanation and references (for review variant when expanded) */}
+      {/* Explanation and references (for review variant when expanded).
+          PR B : effectiveExplanation peut être undefined si la query lazy
+          n'a pas encore rendu les données. On affiche un skeleton dans ce
+          cas pour ne pas faire sauter la UI. */}
       <AnimatePresence>
         {isReviewVariant && isExpanded && (
           <div className="mt-4">
-            <QuestionExplanation
-              explanation={question.explanation}
-              references={question.references}
-            />
+            {effectiveExplanation !== undefined ? (
+              <QuestionExplanation
+                explanation={effectiveExplanation}
+                references={effectiveReferences}
+              />
+            ) : (
+              <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-900/20">
+                <div className="mb-2 h-4 w-32 animate-pulse rounded bg-blue-200 dark:bg-blue-800" />
+                <div className="space-y-2">
+                  <div className="h-3 w-full animate-pulse rounded bg-blue-200/60 dark:bg-blue-800/60" />
+                  <div className="h-3 w-11/12 animate-pulse rounded bg-blue-200/60 dark:bg-blue-800/60" />
+                  <div className="h-3 w-3/4 animate-pulse rounded bg-blue-200/60 dark:bg-blue-800/60" />
+                </div>
+              </div>
+            )}
           </div>
         )}
       </AnimatePresence>

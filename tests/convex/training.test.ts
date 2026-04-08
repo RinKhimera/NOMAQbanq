@@ -929,7 +929,7 @@ describe("training", () => {
       }
     })
 
-    it("revele correctAnswer/explanation pour session completed", async () => {
+    it("revele correctAnswer pour session completed (explanation lazy-loaded via getQuestionExplanations)", async () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
       const { userId, asUser } = await createRegularUser(t)
@@ -947,9 +947,13 @@ describe("training", () => {
       })
 
       expect(result).not.toBeNull()
+      // PR B : correctAnswer est révélé pour les sessions complétées.
+      // explanation/references sont maintenant lazy-loadés via
+      // exams.getQuestionExplanations (plus présents dans ce retour).
       for (const q of result!.questions) {
         expect("correctAnswer" in q).toBe(true)
-        expect("explanation" in q).toBe(true)
+        expect("explanation" in q).toBe(false)
+        expect("references" in q).toBe(false)
       }
     })
 

@@ -1,7 +1,22 @@
-import { Doc } from "@/convex/_generated/dataModel"
+import type { Doc } from "@/convex/_generated/dataModel"
 
 // ===== Variant Types =====
 export type QuestionCardVariant = "default" | "exam" | "review"
+
+// ===== Question shape =====
+// Subset of Doc<"questions"> that QuestionCard actually needs. Defined as a
+// separate type so pages can pass questions loaded from queries that don't
+// return the full `explanation`/`references` fields (since PR B, these are
+// lazy-loaded via getQuestionExplanations).
+// Using Omit<Doc<"questions">, ...> keeps us in sync automatically with the
+// Convex schema while tolerating that some server responses strip explanation.
+export type QuestionCardQuestion = Omit<
+  Doc<"questions">,
+  "explanation" | "references"
+> & {
+  explanation?: string
+  references?: string[]
+}
 
 // ===== Action Types =====
 export type QuestionActionType =
@@ -42,8 +57,16 @@ export type AnswerOptionProps = {
 
 // ===== Main Component Props =====
 export type QuestionCardProps = {
-  /** The question data from Convex */
-  question: Doc<"questions">
+  /** The question data. Since PR B, explanation/references are optional
+   *  and lazy-loaded via getQuestionExplanations — pass them explicitly
+   *  on the question object or via the `lazyExplanation` prop below. */
+  question: QuestionCardQuestion
+
+  /** Lazy-loaded explanation/references. If provided, these take priority
+   *  over `question.explanation` and `question.references`. Used by the
+   *  review pages that fetch explanations on expand via a separate query. */
+  lazyExplanation?: string
+  lazyReferences?: string[]
 
   /** Display variant - determines overall layout and behavior */
   variant?: QuestionCardVariant
@@ -95,7 +118,7 @@ export type QuestionCardProps = {
 
 // ===== Sub-component Props =====
 export type QuestionHeaderProps = {
-  question: Doc<"questions">
+  question: QuestionCardQuestion
   questionNumber?: number
   showDomainBadge?: boolean
   showObjectifBadge?: boolean
@@ -103,7 +126,7 @@ export type QuestionHeaderProps = {
 }
 
 export type QuestionContentProps = {
-  question: Doc<"questions">
+  question: QuestionCardQuestion
   showImage?: boolean
   truncate?: boolean
 }

@@ -11,7 +11,10 @@ import {
 } from "./_generated/server"
 import type { MutationCtx } from "./_generated/server"
 import { getAdminUserOrThrow } from "./lib/auth"
-import { batchGetOrderedByIds } from "./lib/batchFetch"
+import {
+  batchGetExplanationsByQuestionIds,
+  batchGetOrderedByIds,
+} from "./lib/batchFetch"
 import { deleteFromBunny } from "./lib/bunny"
 import { Errors } from "./lib/errors"
 
@@ -794,13 +797,30 @@ export const getQuestionsWithFilters = query({
 })
 
 // Récupérer une question par son ID (pour le panel et l'édition)
+// PR B : l'explanation/references viennent désormais de questionExplanations
+// (jointure transparente côté serveur). Le shape de retour est inchangé
+// pour garder la compatibilité avec le frontend.
 export const getQuestionById = query({
   args: { questionId: v.id("questions") },
   returns: v.union(v.null(), questionDocValidator),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
-    return await ctx.db.get(args.questionId)
+    const question = await ctx.db.get(args.questionId)
+    if (!question) return null
+
+    const explanationRow = await ctx.db
+      .query("questionExplanations")
+      .withIndex("by_question", (q) => q.eq("questionId", args.questionId))
+      .unique()
+
+    // Merge : les valeurs de questionExplanations prennent la priorité.
+    // Fallback sur les anciens champs de questions (dual-write M1 actif).
+    return {
+      ...question,
+      explanation: explanationRow?.explanation ?? question.explanation ?? "",
+      references: explanationRow?.references ?? question.references,
+    }
   },
 })
 
@@ -871,20 +891,29 @@ export const _getQuestionsPageForExport = internalQuery({
         result = await ctx.db.query("questions").paginate(paginationOpts)
       }
 
+      // PR B : jointure depuis questionExplanations
+      const explanationsMap = await batchGetExplanationsByQuestionIds(
+        ctx,
+        result.page.map((q) => q._id),
+      )
+
       return {
-        page: result.page.map((q) => ({
-          _id: q._id,
-          _creationTime: q._creationTime,
-          question: q.question,
-          options: q.options,
-          correctAnswer: q.correctAnswer,
-          explanation: q.explanation,
-          references: q.references || [],
-          objectifCMC: q.objectifCMC,
-          domain: q.domain,
-          hasImages: (q.images && q.images.length > 0) || false,
-          imagesCount: q.images?.length || 0,
-        })),
+        page: result.page.map((q) => {
+          const joined = explanationsMap.get(q._id)
+          return {
+            _id: q._id,
+            _creationTime: q._creationTime,
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correctAnswer,
+            explanation: joined?.explanation ?? q.explanation ?? "",
+            references: joined?.references ?? q.references ?? [],
+            objectifCMC: q.objectifCMC,
+            domain: q.domain,
+            hasImages: (q.images && q.images.length > 0) || false,
+            imagesCount: q.images?.length || 0,
+          }
+        }),
         continueCursor: result.continueCursor,
         isDone: result.isDone,
       }
@@ -927,20 +956,29 @@ export const _getQuestionsPageForExport = internalQuery({
     const page = batch.slice(0, paginationOpts.numItems)
     const isDone = questions.length < startOffset + batchSize
 
+    // PR B : jointure depuis questionExplanations
+    const explanationsMap = await batchGetExplanationsByQuestionIds(
+      ctx,
+      page.map((q) => q._id),
+    )
+
     return {
-      page: page.map((q) => ({
-        _id: q._id,
-        _creationTime: q._creationTime,
-        question: q.question,
-        options: q.options,
-        correctAnswer: q.correctAnswer,
-        explanation: q.explanation,
-        references: q.references || [],
-        objectifCMC: q.objectifCMC,
-        domain: q.domain,
-        hasImages: (q.images && q.images.length > 0) || false,
-        imagesCount: q.images?.length || 0,
-      })),
+      page: page.map((q) => {
+        const joined = explanationsMap.get(q._id)
+        return {
+          _id: q._id,
+          _creationTime: q._creationTime,
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          explanation: joined?.explanation ?? q.explanation ?? "",
+          references: joined?.references ?? q.references ?? [],
+          objectifCMC: q.objectifCMC,
+          domain: q.domain,
+          hasImages: (q.images && q.images.length > 0) || false,
+          imagesCount: q.images?.length || 0,
+        }
+      }),
       continueCursor: isDone ? "" : (startOffset + batchSize).toString(),
       isDone,
     }
@@ -1094,6 +1132,13 @@ export const scoreQuizAnswers = mutation({
     const questionIds = args.answers.map((a) => a.questionId)
     const questions = await batchGetOrderedByIds(ctx, "questions", questionIds)
 
+    // PR B : jointure depuis questionExplanations pour éviter de dépendre
+    // des champs legacy explanation/references dans questions.
+    const explanationsMap = await batchGetExplanationsByQuestionIds(
+      ctx,
+      questionIds,
+    )
+
     let score = 0
     const questionResults = []
 
@@ -1105,12 +1150,13 @@ export const scoreQuizAnswers = mutation({
         args.answers[i].selectedAnswer === question.correctAnswer
       if (isCorrect) score++
 
+      const joined = explanationsMap.get(question._id)
       questionResults.push({
         questionId: question._id,
         isCorrect,
         correctAnswer: question.correctAnswer,
-        explanation: question.explanation,
-        references: question.references ?? [],
+        explanation: joined?.explanation ?? question.explanation ?? "",
+        references: joined?.references ?? question.references ?? [],
       })
     }
 

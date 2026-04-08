@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dialog"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
-import { Doc } from "@/convex/_generated/dataModel"
 
 type ExamQuestionsModalProps = {
   examId: Id<"exams">
@@ -30,8 +29,12 @@ export function ExamQuestionsModal({
   onOpenChange,
 }: ExamQuestionsModalProps) {
   const [currentPage, setCurrentPage] = useState(0)
-  const [selectedQuestion, setSelectedQuestion] =
-    useState<Doc<"questions"> | null>(null)
+  // PR B : getExamWithQuestions ne retourne plus explanation/references.
+  // On stocke juste l'ID sélectionné et on refetch le doc complet via
+  // getQuestionById (qui joint questionExplanations côté serveur) lors
+  // de l'ouverture du dialog de détails.
+  const [selectedQuestionId, setSelectedQuestionId] =
+    useState<Id<"questions"> | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const { isAuthenticated } = useConvexAuth()
@@ -40,14 +43,19 @@ export function ExamQuestionsModal({
     isAuthenticated ? { examId } : "skip",
   )
 
-  const questions = exam?.questions?.filter((q) => q !== null) || []
+  const selectedQuestion = useQuery(
+    api.questions.getQuestionById,
+    selectedQuestionId ? { questionId: selectedQuestionId } : "skip",
+  )
+
+  const questions = exam?.questions ?? []
   const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)
   const startIndex = currentPage * QUESTIONS_PER_PAGE
   const endIndex = startIndex + QUESTIONS_PER_PAGE
   const currentQuestions = questions.slice(startIndex, endIndex)
 
-  const handleViewDetails = (question: Doc<"questions">) => {
-    setSelectedQuestion(question)
+  const handleViewDetails = (questionId: Id<"questions">) => {
+    setSelectedQuestionId(questionId)
     setIsDetailsOpen(true)
   }
 
@@ -90,7 +98,9 @@ export function ExamQuestionsModal({
                       questionNumber={questionNumber}
                       showCorrectAnswer={true}
                       showImage={false}
-                      actions={[createViewAction(() => handleViewDetails(q))]}
+                      actions={[
+                        createViewAction(() => handleViewDetails(q._id)),
+                      ]}
                     />
                   )
                 })
@@ -129,7 +139,8 @@ export function ExamQuestionsModal({
         </DialogContent>
       </Dialog>
 
-      {/* Question Details Dialog */}
+      {/* Question Details Dialog — loads full question doc (with explanation
+          joined from questionExplanations) via getQuestionById */}
       {selectedQuestion && (
         <QuestionDetailsDialog
           question={selectedQuestion}

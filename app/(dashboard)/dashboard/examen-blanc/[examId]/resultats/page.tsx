@@ -7,16 +7,19 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useMemo, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
+import type { QuestionCardQuestion } from "@/components/quiz/question-card/types"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { api } from "@/convex/_generated/api"
-import { Doc, Id } from "@/convex/_generated/dataModel"
+import { Id } from "@/convex/_generated/dataModel"
 import { useIsVisible } from "@/hooks/use-is-visible"
 import { cn } from "@/lib/utils"
 
-type Question = Doc<"questions">
+// PR B : Question ne contient plus explanation/references (lazy-loadés via
+// getQuestionExplanations quand l'utilisateur déplie une carte).
+type Question = QuestionCardQuestion
 
 interface QuestionResult {
   question: Question
@@ -52,13 +55,42 @@ const ExamResultsPage = () => {
     currentUser ? { examId, userId: currentUser._id } : "skip",
   )
 
+  // PR B : lazy-load des explications pour les questions actuellement
+  // dépliées uniquement. La query se re-exécute à chaque nouvelle expansion.
+  const expandedQuestionIds = useMemo((): Id<"questions">[] => {
+    if (!examResults || "error" in examResults) return []
+    return [...expandedQuestions]
+      .map((index) => examResults.questions[index]?._id)
+      .filter((id): id is Id<"questions"> => id !== undefined)
+  }, [examResults, expandedQuestions])
+
+  const lazyExplanations = useQuery(
+    api.exams.getQuestionExplanations,
+    expandedQuestionIds.length > 0
+      ? { questionIds: expandedQuestionIds }
+      : "skip",
+  )
+
+  const explanationsMap = useMemo(() => {
+    const map = new Map<
+      Id<"questions">,
+      { explanation: string; references?: string[] }
+    >()
+    if (!lazyExplanations) return map
+    for (const row of lazyExplanations) {
+      map.set(row.questionId, {
+        explanation: row.explanation,
+        references: row.references,
+      })
+    }
+    return map
+  }, [lazyExplanations])
+
   // Calculate results
   const results = useMemo((): ExamResults | null => {
     if (!examResults || "error" in examResults) return null
 
-    const questions = examResults.questions.filter(
-      (q: Question | null): q is Question => q !== null,
-    )
+    const questions: Question[] = examResults.questions
     let correct = 0
     let incorrect = 0
     let unanswered = 0
@@ -443,6 +475,12 @@ const ExamResultsPage = () => {
                       <QuestionCard
                         variant="review"
                         question={result.question}
+                        lazyExplanation={
+                          explanationsMap.get(result.question._id)?.explanation
+                        }
+                        lazyReferences={
+                          explanationsMap.get(result.question._id)?.references
+                        }
                         questionNumber={originalIndex + 1}
                         userAnswer={result.userAnswer}
                         isExpanded={expandedQuestions.has(originalIndex)}

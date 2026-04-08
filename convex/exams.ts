@@ -1,11 +1,16 @@
 import { v } from "convex/values"
+import type { Id } from "./_generated/dataModel"
 import { internalMutation, mutation, query } from "./_generated/server"
 import {
   getAdminUserOrThrow,
   getCurrentUserOrNull,
   getCurrentUserOrThrow,
 } from "./lib/auth"
-import { batchGetByIds, batchGetOrderedByIds } from "./lib/batchFetch"
+import {
+  batchGetByIds,
+  batchGetExplanationsByQuestionIds,
+  batchGetOrderedByIds,
+} from "./lib/batchFetch"
 import { Errors } from "./lib/errors"
 import {
   deleteExamParticipationStats,
@@ -153,7 +158,11 @@ export const deleteExam = mutation({
 })
 
 // Récupérer un examen par ID avec ses questions
-// Masque correctAnswer et explanation pour les non-admins
+// PR B : explanation/references sont retirés du retour. Ces champs doivent
+// être lazy-loadés via exams.getQuestionExplanations pour les vues qui les
+// affichent (page résultats). Pour la prise d'examen et l'édition admin,
+// ces champs ne sont pas nécessaires et étaient déjà blankés pour non-admin.
+// correctAnswer reste masqué pour les non-admins (anti-triche).
 export const getExamWithQuestions = query({
   args: { examId: v.id("exams") },
   returns: v.object({
@@ -185,11 +194,8 @@ export const getExamWithQuestions = query({
         ),
         options: v.array(v.string()),
         correctAnswer: v.string(),
-        explanation: v.string(),
-        references: v.optional(v.array(v.string())),
         objectifCMC: v.string(),
         domain: v.string(),
-        // PR A : ajouté par la migration backfillHasImagesComputed
         hasImagesComputed: v.optional(v.boolean()),
       }),
     ),
@@ -212,10 +218,19 @@ export const getExamWithQuestions = query({
     return {
       ...exam,
       questions: questions
-        .filter((q) => q !== null)
-        .map((q) =>
-          isUserAdmin ? q : { ...q, correctAnswer: "", explanation: "" },
-        ),
+        .filter((q): q is NonNullable<typeof q> => q !== null)
+        .map((q) => ({
+          _id: q._id,
+          _creationTime: q._creationTime,
+          question: q.question,
+          images: q.images,
+          options: q.options,
+          // correctAnswer masqué pour non-admin (anti-triche pendant l'exam)
+          correctAnswer: isUserAdmin ? q.correctAnswer : "",
+          objectifCMC: q.objectifCMC,
+          domain: q.domain,
+          hasImagesComputed: q.hasImagesComputed,
+        })),
     }
   },
 })
@@ -785,11 +800,8 @@ export const getParticipantExamResults = query({
           ),
           options: v.array(v.string()),
           correctAnswer: v.string(),
-          explanation: v.string(),
-          references: v.optional(v.array(v.string())),
           objectifCMC: v.string(),
           domain: v.string(),
-          // PR A : ajouté par la migration backfillHasImagesComputed
           hasImagesComputed: v.optional(v.boolean()),
         }),
       ),
@@ -938,10 +950,138 @@ export const getParticipantExamResults = query({
             image: participantUser.image,
           }
         : null,
-      questions: questions.filter(
-        (q): q is NonNullable<typeof q> => q !== null,
-      ),
+      // PR B : on retire explanation/references du shape retourné —
+      // ces champs doivent être lazy-loadés via getQuestionExplanations
+      // quand l'utilisateur déplie une question dans le frontend.
+      questions: questions
+        .filter((q): q is NonNullable<typeof q> => q !== null)
+        .map((q) => ({
+          _id: q._id,
+          _creationTime: q._creationTime,
+          question: q.question,
+          images: q.images,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          objectifCMC: q.objectifCMC,
+          domain: q.domain,
+          hasImagesComputed: q.hasImagesComputed,
+        })),
     }
+  },
+})
+
+/**
+ * PR B — Query lazy pour récupérer les explications de questions à la demande.
+ *
+ * Appelée par les pages de résultats (examen et training) uniquement quand
+ * l'utilisateur déplie une carte de question. Évite de charger toutes les
+ * explications à l'ouverture de la page.
+ *
+ * **Sécurité** : l'utilisateur doit prouver son accès aux questions demandées.
+ * Un user ne peut voir une explication que si :
+ * 1. Il est admin (bypass)
+ * 2. Il a au moins une participation COMPLÉTÉE à un examen contenant toutes
+ *    les questions demandées, OU
+ * 3. Il a au moins une session de training COMPLÉTÉE contenant toutes les
+ *    questions demandées
+ *
+ * Les IDs non autorisés sont silencieusement absents du résultat (pas de fuite
+ * d'info sur l'existence ou non d'une question).
+ *
+ * Retourne un tableau d'objets `{ questionId, explanation, references }` —
+ * les questions non trouvées ou non autorisées sont absentes. Le frontend
+ * construit un Map côté client pour les lookups O(1).
+ */
+export const getQuestionExplanations = query({
+  args: {
+    questionIds: v.array(v.id("questions")),
+  },
+  returns: v.array(
+    v.object({
+      questionId: v.id("questions"),
+      explanation: v.string(),
+      references: v.optional(v.array(v.string())),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (args.questionIds.length === 0) return []
+
+    const user = await getCurrentUserOrNull(ctx)
+    if (!user) return []
+
+    const requestedIds = new Set(args.questionIds)
+    const authorizedIds = new Set<Id<"questions">>()
+
+    if (user.role === "admin") {
+      // Admin bypass : accès total
+      for (const id of requestedIds) authorizedIds.add(id)
+    } else {
+      // Collecter les questionIds auxquels l'utilisateur a prouvé un accès
+      // via ses participations/sessions COMPLÉTÉES. Borné à 100 exams +
+      // 100 training sessions — largement suffisant pour un étudiant normal
+      // qui ne fait qu'une poignée d'examens et sessions par an.
+      const [examParticipations, trainingParticipations] = await Promise.all([
+        ctx.db
+          .query("examParticipations")
+          .withIndex("by_user", (q) => q.eq("userId", user._id))
+          .take(100),
+        ctx.db
+          .query("trainingParticipations")
+          .withIndex("by_user_status", (q) =>
+            q.eq("userId", user._id).eq("status", "completed"),
+          )
+          .take(100),
+      ])
+
+      // Collecter les IDs de tous les examens complétés par l'user
+      const completedExamIds = examParticipations
+        .filter(
+          (p) =>
+            p.status === "completed" || p.status === "auto_submitted",
+        )
+        .map((p) => p.examId)
+
+      // Fetch les exams complétés en parallèle pour récupérer leurs questionIds
+      const exams = await Promise.all(
+        completedExamIds.map((id) => ctx.db.get(id)),
+      )
+
+      // Ajouter tous les questionIds des exams auxquels il a participé
+      for (const exam of exams) {
+        if (!exam) continue
+        for (const qId of exam.questionIds) {
+          if (requestedIds.has(qId)) authorizedIds.add(qId)
+        }
+      }
+
+      // Ajouter tous les questionIds des sessions de training complétées
+      for (const session of trainingParticipations) {
+        for (const qId of session.questionIds) {
+          if (requestedIds.has(qId)) authorizedIds.add(qId)
+        }
+      }
+    }
+
+    if (authorizedIds.size === 0) return []
+
+    // Batch fetch des explications pour les IDs autorisés
+    const explanationsMap = await batchGetExplanationsByQuestionIds(ctx, [
+      ...authorizedIds,
+    ])
+
+    const result: {
+      questionId: Id<"questions">
+      explanation: string
+      references: string[] | undefined
+    }[] = []
+    for (const [questionId, data] of explanationsMap) {
+      result.push({
+        questionId,
+        explanation: data.explanation,
+        references: data.references,
+      })
+    }
+    return result
   },
 })
 

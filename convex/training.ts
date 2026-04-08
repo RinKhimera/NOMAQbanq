@@ -127,11 +127,8 @@ export const getTrainingSessionById = query({
           ),
           options: v.array(v.string()),
           correctAnswer: v.optional(v.string()),
-          explanation: v.optional(v.string()),
-          references: v.optional(v.array(v.string())),
           objectifCMC: v.string(),
           domain: v.string(),
-          // PR A : ajouté par la migration backfillHasImagesComputed
           hasImagesComputed: v.optional(v.boolean()),
         }),
       ),
@@ -170,26 +167,26 @@ export const getTrainingSessionById = query({
 
     const isCompleted = session.status === "completed"
 
-    // Pour les sessions en cours, masquer les réponses correctes (anti-triche)
+    // PR B : explanation/references sont retirés du retour dans les DEUX cas
+    // (session en cours ET complétée). Pour la review des sessions complétées,
+    // le frontend lazy-loade via getQuestionExplanations. correctAnswer reste
+    // complètement absent (spread conditionnel) pendant les sessions en
+    // cours — anti-triche. Le validator marque correctAnswer comme optional.
     const questions = rawQuestions
       .filter((q): q is NonNullable<typeof q> => q !== null)
-      .map((q) => {
-        if (isCompleted) {
-          return q // Session terminée : retourner tout
-        }
-        // Session en cours : masquer correctAnswer et explanation
-        return {
-          _id: q._id,
-          _creationTime: q._creationTime,
-          question: q.question,
-          images: q.images,
-          options: q.options,
-          objectifCMC: q.objectifCMC,
-          domain: q.domain,
-          references: q.references,
-          // correctAnswer et explanation sont omis
-        }
-      })
+      .map((q) => ({
+        _id: q._id,
+        _creationTime: q._creationTime,
+        question: q.question,
+        images: q.images,
+        options: q.options,
+        // Spread conditionnel : le champ est complètement absent du doc si
+        // la session n'est pas complétée (vs présent-mais-undefined).
+        ...(isCompleted && { correctAnswer: q.correctAnswer }),
+        objectifCMC: q.objectifCMC,
+        domain: q.domain,
+        hasImagesComputed: q.hasImagesComputed,
+      }))
 
     return {
       session,
@@ -290,11 +287,8 @@ export const getTrainingSessionResults = query({
           ),
           options: v.array(v.string()),
           correctAnswer: v.string(),
-          explanation: v.string(),
-          references: v.optional(v.array(v.string())),
           objectifCMC: v.string(),
           domain: v.string(),
-          // PR A : ajouté par la migration backfillHasImagesComputed
           hasImagesComputed: v.optional(v.boolean()),
         }),
       ),
@@ -317,15 +311,27 @@ export const getTrainingSessionResults = query({
       return { error: "SESSION_NOT_COMPLETED" as const }
     }
 
-    // Récupérer toutes les questions avec détails complets (batch fetch)
+    // PR B : explanation/references sont retirés du retour — lazy-loadés
+    // côté frontend via getQuestionExplanations quand l'user déplie une
+    // question dans la page résultats.
     const rawQuestions = await batchGetOrderedByIds(
       ctx,
       "questions",
       session.questionIds,
     )
-    const questions = rawQuestions.filter(
-      (q): q is NonNullable<typeof q> => q !== null,
-    )
+    const questions = rawQuestions
+      .filter((q): q is NonNullable<typeof q> => q !== null)
+      .map((q) => ({
+        _id: q._id,
+        _creationTime: q._creationTime,
+        question: q.question,
+        images: q.images,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        objectifCMC: q.objectifCMC,
+        domain: q.domain,
+        hasImagesComputed: q.hasImagesComputed,
+      }))
 
     // Récupérer toutes les réponses (limited to max questions)
     const answers = await ctx.db

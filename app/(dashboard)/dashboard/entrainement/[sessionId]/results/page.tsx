@@ -18,14 +18,19 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
+import type { QuestionCardQuestion } from "@/components/quiz/question-card/types"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { api } from "@/convex/_generated/api"
-import type { Doc, Id } from "@/convex/_generated/dataModel"
+import type { Id } from "@/convex/_generated/dataModel"
 import { useIsVisible } from "@/hooks/use-is-visible"
 import { cn } from "@/lib/utils"
+
+// PR B : Question ne contient plus explanation/references (lazy-loadés via
+// getQuestionExplanations quand l'utilisateur déplie une carte).
+type TrainingQuestion = QuestionCardQuestion
 
 export default function TrainingResultsPage() {
   const router = useRouter()
@@ -56,16 +61,48 @@ export default function TrainingResultsPage() {
     if (!results || "error" in results) {
       return {
         session: null,
-        questions: [] as Doc<"questions">[],
+        questions: [] as TrainingQuestion[],
         answers: {} as AnswerRecord,
       }
     }
     return {
       session: results.session,
-      questions: results.questions as Doc<"questions">[],
+      questions: results.questions as TrainingQuestion[],
       answers: results.answers as AnswerRecord,
     }
   }, [results])
+
+  // PR B : lazy-load des explications pour les questions dépliées.
+  // getQuestionExplanations vérifie que la session de training couvre
+  // ces questions (sécurité côté serveur).
+  const expandedQuestionIds = useMemo((): Id<"questions">[] => {
+    if (!questions.length) return []
+    return questions
+      .filter((q) => expandedQuestions.has(q._id.toString()))
+      .map((q) => q._id)
+  }, [questions, expandedQuestions])
+
+  const lazyExplanations = useQuery(
+    api.exams.getQuestionExplanations,
+    expandedQuestionIds.length > 0
+      ? { questionIds: expandedQuestionIds }
+      : "skip",
+  )
+
+  const explanationsMap = useMemo(() => {
+    const map = new Map<
+      Id<"questions">,
+      { explanation: string; references?: string[] }
+    >()
+    if (!lazyExplanations) return map
+    for (const row of lazyExplanations) {
+      map.set(row.questionId, {
+        explanation: row.explanation,
+        references: row.references,
+      })
+    }
+    return map
+  }, [lazyExplanations])
 
   // Stats
   const stats = useMemo(() => {
@@ -443,6 +480,12 @@ export default function TrainingResultsPage() {
                     >
                       <QuestionCard
                         question={question}
+                        lazyExplanation={
+                          explanationsMap.get(question._id)?.explanation
+                        }
+                        lazyReferences={
+                          explanationsMap.get(question._id)?.references
+                        }
                         variant="review"
                         questionNumber={originalIndex + 1}
                         userAnswer={userAnswer}
