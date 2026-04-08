@@ -15,6 +15,7 @@
 e2e/test-results/
 e2e/playwright-report/
 e2e/.auth/
+/.playwright-cli/
 
 # next.js
 /.next/
@@ -49,6 +50,5 @@ next-env.d.ts
 /.claude/memory/
 /.claude/*.local.*
 README-REFACTOR.md
-.gitignore
 # Sentry Config File
 .env.sentry-build-plugin

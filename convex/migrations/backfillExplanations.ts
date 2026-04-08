@@ -83,9 +83,14 @@ export const backfillExplanations = internalMutation({
         continue
       }
 
+      // PR C : `question.explanation` est désormais optional (le champ a pu
+      // être physiquement retiré par la migration cleanupOldFieldsFromQuestions).
+      // En pratique, après PR C ce chemin ne devrait jamais être emprunté car
+      // toute question créée via createQuestion a déjà sa ligne questionExplanations.
+      // Fallback défensif sur empty string pour tolérer une re-run idempotente.
       await ctx.db.insert("questionExplanations", {
         questionId: question._id,
-        explanation: question.explanation,
+        explanation: question.explanation ?? "",
         references: question.references,
       })
       processed++

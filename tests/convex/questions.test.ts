@@ -48,7 +48,7 @@ describe("questions", () => {
       )
     })
 
-    it("crée une question avec références", async () => {
+    it("crée une question avec références (stockées dans questionExplanations)", async () => {
       const t = convexTest(schema, modules)
       const { asAdmin } = await createAdminUser(t)
 
@@ -64,8 +64,14 @@ describe("questions", () => {
 
       expect(questionId).toBeDefined()
 
-      const questions = await asAdmin.query(api.questions.getAllQuestions)
-      expect(questions[0].references).toEqual(["Ref 1", "Ref 2"])
+      // PR C : references vivent dans questionExplanations, plus dans questions.
+      const explanationRow = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+      })
+      expect(explanationRow?.references).toEqual(["Ref 1", "Ref 2"])
     })
 
     it("dual-write M1 : crée aussi une ligne questionExplanations", async () => {
@@ -186,8 +192,16 @@ describe("questions", () => {
       const questions = await asAdmin.query(api.questions.getAllQuestions)
       expect(questions[0].question).toBe("Question modifiée")
       expect(questions[0].correctAnswer).toBe("B")
-      // Les autres champs restent inchangés
-      expect(questions[0].explanation).toBe("Explication")
+
+      // PR C : explanation vit dans questionExplanations (inchangée car
+      // le patch ne l'a pas touchée).
+      const explanationRow = await t.run(async (ctx) => {
+        return await ctx.db
+          .query("questionExplanations")
+          .withIndex("by_question", (q) => q.eq("questionId", questionId))
+          .unique()
+      })
+      expect(explanationRow?.explanation).toBe("Explication")
     })
 
     it("dual-write M1 : met à jour questionExplanations quand explanation change", async () => {

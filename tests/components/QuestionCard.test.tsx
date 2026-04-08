@@ -149,7 +149,9 @@ describe("QuestionCard", () => {
       )
 
       expect(screen.getByText(/Explication :/i)).toBeInTheDocument()
-      expect(screen.getByText(mockQuestion.explanation)).toBeInTheDocument()
+      // mockQuestion.explanation est toujours défini dans cette fixture.
+      // Depuis PR C, le type Doc<"questions"> rend explanation optional.
+      expect(screen.getByText(mockQuestion.explanation!)).toBeInTheDocument()
     })
 
     it("affiche les indicateurs de correction quand étendu", () => {

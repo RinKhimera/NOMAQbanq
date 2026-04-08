@@ -29,9 +29,15 @@ const questionImageValidator = v.object({
 })
 
 // Validator complet pour un document question
-// Note : hasImagesComputed est optionnel pendant le backfill
-// (migrations/backfillHasImagesComputed). Deviendra toujours présent
-// une fois le backfill terminé.
+// Notes :
+// - `hasImagesComputed` est optional pendant le backfill PR A.
+// - PR C : `explanation` et `references` sont optional car ils ont été
+//   physiquement déplacés vers `questionExplanations`. Les queries qui
+//   doivent retourner l'explication (getQuestionById, _getQuestionsPageForExport,
+//   scoreQuizAnswers) joignent désormais depuis questionExplanations.
+//   Le validator accepte undefined pour le listing direct (getAllQuestions,
+//   getQuestionsWithFilters paginated) qui ne joignent pas et ne paient
+//   plus le coût des explications.
 const questionDocValidator = v.object({
   _id: v.id("questions"),
   _creationTime: v.number(),
@@ -39,7 +45,7 @@ const questionDocValidator = v.object({
   images: v.optional(v.array(questionImageValidator)),
   options: v.array(v.string()),
   correctAnswer: v.string(),
-  explanation: v.string(),
+  explanation: v.optional(v.string()),
   references: v.optional(v.array(v.string())),
   objectifCMC: v.string(),
   domain: v.string(),
@@ -360,12 +366,12 @@ export const createQuestion = mutation({
     // Normaliser l'objectifCMC (trim + majuscule initiale)
     const normalizedObjectif = normalizeObjectifCMC(args.objectifCMC)
 
+    // PR C (cutover) : on n'écrit plus `explanation` / `references` dans la
+    // table `questions`. Ces champs vivent exclusivement dans `questionExplanations`.
     const questionId = await ctx.db.insert("questions", {
       question: args.question,
       options: args.options,
       correctAnswer: args.correctAnswer,
-      explanation: args.explanation,
-      references: args.references,
       objectifCMC: normalizedObjectif,
       domain: args.domain,
       // hasImagesComputed alimente le searchIndex (filterField).
@@ -373,8 +379,8 @@ export const createQuestion = mutation({
       hasImagesComputed: false,
     })
 
-    // Dual-write (M1) : créer aussi la ligne questionExplanations.
-    // Atomique grâce aux mutations Convex transactionnelles.
+    // Source de vérité pour explanation/references. Atomique avec l'insert
+    // ci-dessus grâce aux mutations Convex transactionnelles.
     await ctx.db.insert("questionExplanations", {
       questionId,
       explanation: args.explanation,
@@ -535,15 +541,23 @@ export const updateQuestion = mutation({
       updateData.objectifCMC = normalizeObjectifCMC(updateData.objectifCMC)
     }
 
+    // PR C (cutover) : `explanation` / `references` ne sont plus écrits dans
+    // la table `questions`. On les extrait du patch appliqué à `questions`
+    // (ils sont gérés séparément ci-dessous sur `questionExplanations`).
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { explanation, references, ...questionPatch } = updateData
+
     // Filtrer les valeurs undefined
     const filteredData = Object.fromEntries(
-      Object.entries(updateData).filter(([, value]) => value !== undefined),
+      Object.entries(questionPatch).filter(([, value]) => value !== undefined),
     )
 
-    await ctx.db.patch(id, filteredData)
+    if (Object.keys(filteredData).length > 0) {
+      await ctx.db.patch(id, filteredData)
+    }
 
-    // Dual-write (M1) : maintenir la cohérence avec questionExplanations
-    // si explanation ou references a changé.
+    // Source de vérité : maintenir la cohérence avec questionExplanations
+    // si explanation ou references est dans le patch.
     if (
       updateData.explanation !== undefined ||
       updateData.references !== undefined
@@ -567,11 +581,16 @@ export const updateQuestion = mutation({
         }
         await ctx.db.patch(existingExplanationRow._id, explanationPatch)
       } else {
-        // Question pas encore backfillée : créer la ligne maintenant avec
-        // les valeurs effectives (mises à jour ou existantes).
+        // Defensive safety net : toute question devrait avoir une ligne
+        // questionExplanations (invariant vérifié en M2 avant PR C). Ce chemin
+        // ne doit plus être emprunté en temps normal, mais on tolère et on
+        // recrée la ligne plutôt que d'échouer silencieusement. Fallback sur
+        // l'ancien champ `existingQuestion.explanation` (peut être undefined
+        // après le cleanup) → empty string si absent.
         await ctx.db.insert("questionExplanations", {
           questionId: id,
-          explanation: updateData.explanation ?? existingQuestion.explanation,
+          explanation:
+            updateData.explanation ?? existingQuestion.explanation ?? "",
           references: updateData.references ?? existingQuestion.references,
         })
       }
