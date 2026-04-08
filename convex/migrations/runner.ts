@@ -18,8 +18,11 @@ import type { MutationCtx } from "../_generated/server"
  * })
  * ```
  *
- * Statut consultable via :
- *   npx convex run migrations/runner:getMigrationStatus '{"name":"myMigration"}'
+ * Statut consultable via le dashboard Convex :
+ *   Functions → migrations/runner → getMigrationStatus
+ *   Args: { "name": "myMigration" }
+ *
+ * (Alternative CLI : npx convex run migrations/runner:getMigrationStatus '{"name":"myMigration"}')
  */
 
 // ============================================================
@@ -134,8 +137,8 @@ export const failMigrationRow = async (
  * Récupérer l'état d'une migration (générique, fonctionne pour n'importe
  * quel nom de migration).
  *
- * Usage CLI :
- *   npx convex run migrations/runner:getMigrationStatus '{"name":"backfillExplanations"}'
+ * Dashboard : Functions → migrations/runner → getMigrationStatus
+ *   Args: { "name": "backfillExplanations" }
  */
 export const getMigrationStatus = internalQuery({
   args: { name: v.string() },
@@ -169,8 +172,8 @@ export const getMigrationStatus = internalQuery({
 /**
  * Réinitialiser manuellement une ligne de migration (pour debug ou re-run forcée).
  *
- * Usage CLI :
- *   npx convex run migrations/runner:resetMigration '{"name":"backfillExplanations"}'
+ * Dashboard : Functions → migrations/runner → resetMigration
+ *   Args: { "name": "backfillExplanations" }
  */
 export const resetMigration = internalMutation({
   args: { name: v.string() },

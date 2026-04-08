@@ -25,14 +25,22 @@ import {
  * - **Tracking** : la progression est persistée dans la table `migrations`
  *   et consultable via `migrations/runner:getMigrationStatus`.
  *
- * Usage CLI :
+ * Exécution recommandée — via le dashboard Convex :
+ *   1. Sélectionner explicitement le déploiement cible (dev d'abord, prod ensuite)
+ *   2. Onglet Functions → migrations/backfillExplanations → backfillExplanations
+ *   3. Lancer sans arguments (les valeurs par défaut conviennent)
+ *   Le worker se reschedule automatiquement jusqu'à `isDone: true`.
+ *
+ * Status check (dashboard) :
+ *   Functions → migrations/runner → getMigrationStatus
+ *   Args: { "name": "backfillExplanations" }
+ *
+ * Reset pour re-run forcée (dashboard) :
+ *   Functions → migrations/runner → resetMigration
+ *   Args: { "name": "backfillExplanations" }
+ *
+ * Alternative CLI (si tu sais ce que tu fais et quel deployment est actif) :
  *   npx convex run migrations/backfillExplanations:backfillExplanations
- *
- * Status check :
- *   npx convex run migrations/runner:getMigrationStatus '{"name":"backfillExplanations"}'
- *
- * Reset (pour re-run forcée) :
- *   npx convex run migrations/runner:resetMigration '{"name":"backfillExplanations"}'
  */
 
 const MIGRATION_NAME = "backfillExplanations"
