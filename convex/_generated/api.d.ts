@@ -22,6 +22,7 @@ import type * as lib_errors from "../lib/errors.js";
 import type * as lib_examStats from "../lib/examStats.js";
 import type * as lib_stripe from "../lib/stripe.js";
 import type * as migrations_backfillExplanations from "../migrations/backfillExplanations.js";
+import type * as migrations_backfillHasImagesComputed from "../migrations/backfillHasImagesComputed.js";
 import type * as migrations_runner from "../migrations/runner.js";
 import type * as migrations_verifyExplanations from "../migrations/verifyExplanations.js";
 import type * as payments from "../payments.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   "lib/examStats": typeof lib_examStats;
   "lib/stripe": typeof lib_stripe;
   "migrations/backfillExplanations": typeof migrations_backfillExplanations;
+  "migrations/backfillHasImagesComputed": typeof migrations_backfillHasImagesComputed;
   "migrations/runner": typeof migrations_runner;
   "migrations/verifyExplanations": typeof migrations_verifyExplanations;
   payments: typeof payments;

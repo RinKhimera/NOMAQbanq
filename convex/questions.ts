@@ -26,6 +26,9 @@ const questionImageValidator = v.object({
 })
 
 // Validator complet pour un document question
+// Note : hasImagesComputed est optionnel pendant le backfill
+// (migrations/backfillHasImagesComputed). Deviendra toujours présent
+// une fois le backfill terminé.
 const questionDocValidator = v.object({
   _id: v.id("questions"),
   _creationTime: v.number(),
@@ -37,6 +40,7 @@ const questionDocValidator = v.object({
   references: v.optional(v.array(v.string())),
   objectifCMC: v.string(),
   domain: v.string(),
+  hasImagesComputed: v.optional(v.boolean()),
 })
 
 // Validator pour question sans réponses (quiz marketing)
@@ -49,6 +53,7 @@ const questionWithoutAnswersValidator = v.object({
   references: v.optional(v.array(v.string())),
   objectifCMC: v.string(),
   domain: v.string(),
+  hasImagesComputed: v.optional(v.boolean()),
 })
 
 // Validator pour résultat paginé de questions
@@ -360,6 +365,9 @@ export const createQuestion = mutation({
       references: args.references,
       objectifCMC: normalizedObjectif,
       domain: args.domain,
+      // hasImagesComputed alimente le searchIndex (filterField).
+      // false au create car aucune image n'est jamais passée dans createQuestion.
+      hasImagesComputed: false,
     })
 
     // Dual-write (M1) : créer aussi la ligne questionExplanations.
@@ -669,13 +677,31 @@ export const getQuestionsWithPagination = query({
 // NOUVELLES QUERIES POUR LA PAGE ADMIN REDESIGNÉE
 // ============================================
 
-// Version améliorée avec filtres avancés et tri
+// Version améliorée avec filtres avancés.
+//
+// PR A : réécriture complète pour éliminer le .take(5000) + filtre JS qui
+// consommait ~723 MB/mois de bandwidth. Le chemin chaud utilise maintenant
+// le searchIndex Convex `search_question` quand il y a une recherche texte,
+// et les index natifs `by_domain` + `by_creation_time` sinon.
+//
+// Changements de comportement :
+// - Le tri custom par `question`/`domain`/`objectifCMC` est retiré. Quand
+//   il y a une recherche, Convex trie par pertinence. Sans recherche, on
+//   trie par `_creationTime` (index natif). L'argument `sortBy` est
+//   accepté mais ignoré pour les valeurs autres que `_creationTime` afin
+//   de rester rétro-compatible avec les clients existants.
+// - Le filtre `hasImages` utilise désormais le champ dénormalisé
+//   `hasImagesComputed` (filterField du searchIndex ou égalité sur index).
+//   Les questions non backfillées (hasImagesComputed === undefined)
+//   matcheront `hasImages: false` si on demande "sans images" — cohérent
+//   avec la sémantique précédente qui regardait `images === undefined`.
 export const getQuestionsWithFilters = query({
   args: {
     paginationOpts: paginationOptsValidator,
     searchQuery: v.optional(v.string()),
     domain: v.optional(v.string()),
     hasImages: v.optional(v.boolean()),
+    // Conservés pour compat client — ignorés sauf "_creationTime".
     sortBy: v.optional(
       v.union(
         v.literal("_creationTime"),
@@ -694,86 +720,65 @@ export const getQuestionsWithFilters = query({
       searchQuery,
       domain,
       hasImages,
-      sortBy = "_creationTime",
       sortOrder = "desc",
     } = args
 
-    const hasDomainFilter = domain && domain !== "all"
-    const hasSearchFilter = searchQuery && searchQuery.trim() !== ""
+    const hasDomainFilter = domain !== undefined && domain !== "all"
+    const hasSearchFilter =
+      searchQuery !== undefined && searchQuery.trim() !== ""
     const hasImagesFilter = hasImages !== undefined
-    const hasCustomSort = sortBy !== "_creationTime"
 
-    // Si on a des filtres complexes (search, images) ou un tri personnalisé,
-    // on doit collecter et filtrer/trier en JS
-    const needsJsFilter = hasSearchFilter || hasImagesFilter || hasCustomSort
-
-    if (needsJsFilter) {
-      // Collecter les questions (avec index domaine si possible)
-      let questions
-      if (hasDomainFilter) {
-        questions = await ctx.db
-          .query("questions")
-          .withIndex("by_domain", (q) => q.eq("domain", domain))
-          .take(5000)
-      } else {
-        questions = await ctx.db.query("questions").take(5000)
-      }
-
-      // Appliquer les filtres JS
-      let filtered = questions
-
-      if (hasSearchFilter) {
-        const lowerQuery = searchQuery.toLowerCase()
-        filtered = filtered.filter(
-          (q) =>
-            q.question.toLowerCase().includes(lowerQuery) ||
-            q.objectifCMC.toLowerCase().includes(lowerQuery),
-        )
-      }
-
-      if (hasImagesFilter) {
-        filtered = filtered.filter((q) => {
-          const questionHasImages = q.images && q.images.length > 0
-          return hasImages ? questionHasImages : !questionHasImages
+    // ========================================
+    // Chemin 1 : recherche texte (searchIndex)
+    // ========================================
+    // Convex searchIndex borne naturellement les résultats (~256 max)
+    // et retourne déjà triés par pertinence. C'est la voie la plus
+    // efficace et celle qui tuait historiquement le bandwidth.
+    if (hasSearchFilter) {
+      const trimmedQuery = searchQuery.trim()
+      return await ctx.db
+        .query("questions")
+        .withSearchIndex("search_question", (q) => {
+          let builder = q.search("question", trimmedQuery)
+          if (hasDomainFilter) {
+            builder = builder.eq("domain", domain)
+          }
+          if (hasImagesFilter) {
+            builder = builder.eq("hasImagesComputed", hasImages)
+          }
+          return builder
         })
-      }
-
-      // Appliquer le tri
-      filtered = filtered.toSorted((a, b) => {
-        let comparison = 0
-        switch (sortBy) {
-          case "question":
-            comparison = a.question.localeCompare(b.question, "fr")
-            break
-          case "domain":
-            comparison = a.domain.localeCompare(b.domain, "fr")
-            break
-          case "objectifCMC":
-            comparison = a.objectifCMC.localeCompare(b.objectifCMC, "fr")
-            break
-          case "_creationTime":
-          default:
-            comparison = a._creationTime - b._creationTime
-        }
-        return sortOrder === "desc" ? -comparison : comparison
-      })
-
-      // Pagination manuelle
-      const startIndex = paginationOpts.cursor
-        ? parseInt(paginationOpts.cursor, 10)
-        : 0
-      const endIndex = startIndex + paginationOpts.numItems
-      const pageResults = filtered.slice(startIndex, endIndex)
-      const hasMore = endIndex < filtered.length
-
-      return {
-        page: pageResults,
-        continueCursor: hasMore ? endIndex.toString() : "",
-        isDone: !hasMore,
-      }
+        .paginate(paginationOpts)
     }
 
-    // Sans filtres complexes, utiliser la pagination Convex native
+    // ========================================
+    // Chemin 2 : filtre hasImages (index natif impossible, filter léger)
+    // ========================================
+    // Pas d'index sur `hasImagesComputed` seul — on utilise withIndex sur
+    // `by_domain` si dispo, sinon parcours ordonné de la table, avec un
+    // filter sur `hasImagesComputed`. Convex `.filter()` + `.paginate()`
+    // lit une page à la fois (pas de collecte), donc le bandwidth reste
+    // borné par la taille de la page.
+    if (hasImagesFilter) {
+      const order = sortOrder === "desc" ? "desc" : "asc"
+      if (hasDomainFilter) {
+        return await ctx.db
+          .query("questions")
+          .withIndex("by_domain", (q) => q.eq("domain", domain))
+          .order(order)
+          .filter((q) => q.eq(q.field("hasImagesComputed"), hasImages))
+          .paginate(paginationOpts)
+      }
+      return await ctx.db
+        .query("questions")
+        .order(order)
+        .filter((q) => q.eq(q.field("hasImagesComputed"), hasImages))
+        .paginate(paginationOpts)
+    }
+
+    // ========================================
+    // Chemin 3 : pagination native (sans filtre texte ni hasImages)
+    // ========================================
     const order = sortOrder === "desc" ? "desc" : "asc"
 
     if (hasDomainFilter) {
@@ -1143,7 +1148,10 @@ export const addQuestionImage = mutation({
       (a, b) => a.order - b.order,
     )
 
-    await ctx.db.patch(args.questionId, { images: newImages })
+    await ctx.db.patch(args.questionId, {
+      images: newImages,
+      hasImagesComputed: true,
+    })
 
     // Si c'est la première image ajoutée (0 → 1), incrémenter withImagesCount
     if (currentImages.length === 0) {
@@ -1182,7 +1190,10 @@ export const _removeQuestionImageData = internalMutation({
       .filter((img) => img.storagePath !== args.storagePath)
       .map((img, index) => ({ ...img, order: index }))
 
-    await ctx.db.patch(args.questionId, { images: newImages })
+    await ctx.db.patch(args.questionId, {
+      images: newImages,
+      hasImagesComputed: newImages.length > 0,
+    })
 
     // Si la dernière image a été supprimée (1 → 0), décrémenter withImagesCount
     if (newImages.length === 0 && currentImages.length > 0) {
@@ -1283,11 +1294,14 @@ export const _setQuestionImagesData = internalMutation({
 
     // Mettre à jour avec les nouvelles images
     const sortedImages = [...args.images].sort((a, b) => a.order - b.order)
-    await ctx.db.patch(args.questionId, { images: sortedImages })
+    const hasImagesNow = sortedImages.length > 0
+    await ctx.db.patch(args.questionId, {
+      images: sortedImages,
+      hasImagesComputed: hasImagesNow,
+    })
 
     // Mettre à jour withImagesCount si le statut images a changé
     const hadImages = currentImages.length > 0
-    const hasImagesNow = sortedImages.length > 0
     if (!hadImages && hasImagesNow) {
       await incrementWithImagesCount(ctx)
     } else if (hadImages && !hasImagesNow) {

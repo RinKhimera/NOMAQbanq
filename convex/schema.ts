@@ -35,9 +35,21 @@ export default defineSchema({
     references: v.optional(v.array(v.string())),
     objectifCMC: v.string(),
     domain: v.string(),
+    // Champ dénormalisé pour filtrer "avec/sans images" via searchIndex
+    // sans scanner la table. Maintenu par create/update/setQuestionImages/
+    // addQuestionImage/removeQuestionImage. Optionnel pour accepter les
+    // anciens documents pendant le backfill (migration backfillHasImagesComputed).
+    hasImagesComputed: v.optional(v.boolean()),
   })
     .index("by_domain", ["domain"])
-    .index("by_objectifCMC", ["objectifCMC"]),
+    .index("by_objectifCMC", ["objectifCMC"])
+    // Search index Convex pour recherche full-text sur `question` avec
+    // filtres sur domain et hasImagesComputed. Remplace l'ancien .take(5000)
+    // + filtre JS de getQuestionsWithFilters.
+    .searchIndex("search_question", {
+      searchField: "question",
+      filterFields: ["domain", "hasImagesComputed"],
+    }),
 
   // Table dédiée aux explications et références des questions (split bandwidth).
   // Sortie de la table `questions` pour ne plus payer le coût de lecture des

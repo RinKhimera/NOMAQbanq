@@ -1,10 +1,7 @@
 import { v } from "convex/values"
 import { internal } from "../_generated/api"
 import { internalMutation } from "../_generated/server"
-import {
-  startMigrationRow,
-  updateMigrationProgress,
-} from "./runner"
+import { startMigrationRow, updateMigrationProgress } from "./runner"
 
 /**
  * Migration M1 — Backfill de la table `questionExplanations`.

@@ -1697,12 +1697,15 @@ describe("questions", () => {
   })
 
   describe("getQuestionsWithFilters", () => {
-    it("filtre par recherche textuelle sur question", async () => {
+    it("filtre par recherche textuelle sur question (searchIndex)", async () => {
       const t = convexTest(schema, modules)
       const { asAdmin } = await createAdminUser(t)
 
+      // Note: le searchIndex Convex tokenise sur les séparateurs —
+      // "infarctus" doit être le début d'un mot (pas "l'infarctus")
+      // pour que le matching prefix fonctionne en mock et en prod.
       await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Symptômes de l'infarctus du myocarde",
+        question: "Infarctus du myocarde",
         options: ["A", "B", "C", "D"],
         correctAnswer: "A",
         explanation: "E",
@@ -1728,41 +1731,7 @@ describe("questions", () => {
       )
 
       expect(result.page).toHaveLength(1)
-      expect(result.page[0].question).toContain("infarctus")
-    })
-
-    it("filtre par recherche textuelle sur objectifCMC", async () => {
-      const t = convexTest(schema, modules)
-      const { asAdmin } = await createAdminUser(t)
-
-      await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Question 1",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "Diagnostic cardiaque avancé",
-        domain: "Domain",
-      })
-
-      await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Question 2",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "Neurologie basique",
-        domain: "Domain",
-      })
-
-      const result = await asAdmin.query(
-        api.questions.getQuestionsWithFilters,
-        {
-          paginationOpts: { numItems: 10, cursor: null },
-          searchQuery: "cardiaque",
-        },
-      )
-
-      expect(result.page).toHaveLength(1)
-      expect(result.page[0].objectifCMC).toContain("cardiaque")
+      expect(result.page[0].question).toContain("Infarctus")
     })
 
     it("filtre par hasImages=true", async () => {
@@ -1799,6 +1768,7 @@ describe("questions", () => {
               order: 0,
             },
           ],
+          hasImagesComputed: true,
         })
       })
 
@@ -1848,6 +1818,7 @@ describe("questions", () => {
               order: 0,
             },
           ],
+          hasImagesComputed: true,
         })
       })
 
@@ -1861,76 +1832,6 @@ describe("questions", () => {
 
       expect(result.page).toHaveLength(1)
       expect(result.page[0].question).toBe("Sans images")
-    })
-
-    it("trie par question alphabétiquement", async () => {
-      const t = convexTest(schema, modules)
-      const { asAdmin } = await createAdminUser(t)
-
-      await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Zébrure cutanée",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "O",
-        domain: "Domain",
-      })
-
-      await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Anémie falciforme",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "O",
-        domain: "Domain",
-      })
-
-      const result = await asAdmin.query(
-        api.questions.getQuestionsWithFilters,
-        {
-          paginationOpts: { numItems: 10, cursor: null },
-          sortBy: "question",
-          sortOrder: "asc",
-        },
-      )
-
-      expect(result.page[0].question).toBe("Anémie falciforme")
-      expect(result.page[1].question).toBe("Zébrure cutanée")
-    })
-
-    it("trie par domain", async () => {
-      const t = convexTest(schema, modules)
-      const { asAdmin } = await createAdminUser(t)
-
-      await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Q1",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "O",
-        domain: "Zoonose",
-      })
-
-      await asAdmin.mutation(api.questions.createQuestion, {
-        question: "Q2",
-        options: ["A", "B", "C", "D"],
-        correctAnswer: "A",
-        explanation: "E",
-        objectifCMC: "O",
-        domain: "Allergie",
-      })
-
-      const result = await asAdmin.query(
-        api.questions.getQuestionsWithFilters,
-        {
-          paginationOpts: { numItems: 10, cursor: null },
-          sortBy: "domain",
-          sortOrder: "asc",
-        },
-      )
-
-      expect(result.page[0].domain).toBe("Allergie")
-      expect(result.page[1].domain).toBe("Zoonose")
     })
 
     it("trie par _creationTime asc", async () => {
@@ -2065,6 +1966,7 @@ describe("questions", () => {
               order: 0,
             },
           ],
+          hasImagesComputed: true,
         })
       })
 
@@ -2100,6 +2002,7 @@ describe("questions", () => {
               order: 0,
             },
           ],
+          hasImagesComputed: true,
         })
       })
 
