@@ -106,7 +106,7 @@
     "eslint-config-next": "16.1.6",
     "eslint-plugin-tailwind-canonical-classes": "^1.2.0",
     "happy-dom": "^20.7.0",
-    "jsdom": "^28.1.0",
+    "jsdom": "^29.0.0",
     "png-to-ico": "^3.0.1",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
