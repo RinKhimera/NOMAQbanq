@@ -189,6 +189,8 @@ export const getExamWithQuestions = query({
         references: v.optional(v.array(v.string())),
         objectifCMC: v.string(),
         domain: v.string(),
+        // PR A : ajouté par la migration backfillHasImagesComputed
+        hasImagesComputed: v.optional(v.boolean()),
       }),
     ),
   }),
@@ -787,6 +789,8 @@ export const getParticipantExamResults = query({
           references: v.optional(v.array(v.string())),
           objectifCMC: v.string(),
           domain: v.string(),
+          // PR A : ajouté par la migration backfillHasImagesComputed
+          hasImagesComputed: v.optional(v.boolean()),
         }),
       ),
     }),

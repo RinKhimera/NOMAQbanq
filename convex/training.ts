@@ -131,6 +131,8 @@ export const getTrainingSessionById = query({
           references: v.optional(v.array(v.string())),
           objectifCMC: v.string(),
           domain: v.string(),
+          // PR A : ajouté par la migration backfillHasImagesComputed
+          hasImagesComputed: v.optional(v.boolean()),
         }),
       ),
       answers: v.any(),
@@ -292,6 +294,8 @@ export const getTrainingSessionResults = query({
           references: v.optional(v.array(v.string())),
           objectifCMC: v.string(),
           domain: v.string(),
+          // PR A : ajouté par la migration backfillHasImagesComputed
+          hasImagesComputed: v.optional(v.boolean()),
         }),
       ),
       answers: v.any(),
