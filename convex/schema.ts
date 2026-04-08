@@ -39,6 +39,16 @@ export default defineSchema({
     .index("by_domain", ["domain"])
     .index("by_objectifCMC", ["objectifCMC"]),
 
+  // Table dédiée aux explications et références des questions (split bandwidth).
+  // Sortie de la table `questions` pour ne plus payer le coût de lecture des
+  // explications longues sur les listings, filtres, prises d'examens et trainings.
+  // Invariant : exactement une ligne par question (1:1 via questionId).
+  questionExplanations: defineTable({
+    questionId: v.id("questions"),
+    explanation: v.string(),
+    references: v.optional(v.array(v.string())),
+  }).index("by_question", ["questionId"]),
+
   // Table d'agrégation pour les statistiques de questions (optimisation)
   questionStats: defineTable({
     domain: v.string(), // Nom du domaine ou "__total__" pour le total
@@ -249,4 +259,25 @@ export default defineSchema({
     count: v.number(), // Number of uploads in current window
     windowStart: v.number(), // Timestamp when window started
   }).index("by_clerk_type", ["clerkId", "uploadType"]),
+
+  // ============================================
+  // MIGRATIONS TRACKING
+  // ============================================
+
+  // Suivi de l'état des migrations longues (backfills, cleanups paginés).
+  // Permet la reprise sur cursor et la traçabilité opérationnelle.
+  migrations: defineTable({
+    name: v.string(), // Identifiant unique de la migration
+    status: v.union(
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("failed"),
+    ),
+    cursor: v.optional(v.string()), // Cursor de pagination courant
+    processedCount: v.number(), // Nombre de documents traités
+    totalCount: v.optional(v.number()), // Total estimé (peut être inconnu)
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+  }).index("by_name", ["name"]),
 })
