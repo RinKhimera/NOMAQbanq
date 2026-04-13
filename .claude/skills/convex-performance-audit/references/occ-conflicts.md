@@ -41,8 +41,8 @@ Narrower reads mean fewer false conflicts.
 
 ```ts
 // Bad: broad scan creates a wide conflict surface
-const allTasks = await ctx.db.query("tasks").collect();
-const mine = allTasks.filter((t) => t.ownerId === userId);
+const allTasks = await ctx.db.query("tasks").collect()
+const mine = allTasks.filter((t) => t.ownerId === userId)
 ```
 
 ```ts
@@ -50,7 +50,7 @@ const mine = allTasks.filter((t) => t.ownerId === userId);
 const mine = await ctx.db
   .query("tasks")
   .withIndex("by_owner", (q) => q.eq("ownerId", userId))
-  .collect();
+  .collect()
 ```
 
 ### 2. Split hot documents
@@ -59,16 +59,16 @@ When many writers target the same document, split the contention point.
 
 ```ts
 // Bad: every vote increments the same counter document
-const counter = await ctx.db.get(pollCounterId);
-await ctx.db.patch(pollCounterId, { count: counter!.count + 1 });
+const counter = await ctx.db.get(pollCounterId)
+await ctx.db.patch(pollCounterId, { count: counter!.count + 1 })
 ```
 
 ```ts
 // Good: shard the counter across multiple documents, aggregate on read
-const shardIndex = Math.floor(Math.random() * SHARD_COUNT);
-const shardId = shardIds[shardIndex];
-const shard = await ctx.db.get(shardId);
-await ctx.db.patch(shardId, { count: shard!.count + 1 });
+const shardIndex = Math.floor(Math.random() * SHARD_COUNT)
+const shardId = shardIds[shardIndex]
+const shard = await ctx.db.get(shardId)
+await ctx.db.patch(shardId, { count: shard!.count + 1 })
 ```
 
 Aggregate the shards in a query or scheduled job when you need the total.
@@ -79,13 +79,13 @@ Writes that do not change data still participate in conflict detection and trigg
 
 ```ts
 // Bad: patches even when nothing changed
-await ctx.db.patch(doc._id, { status: args.status });
+await ctx.db.patch(doc._id, { status: args.status })
 ```
 
 ```ts
 // Good: only write when the value actually differs
 if (doc.status !== args.status) {
-  await ctx.db.patch(doc._id, { status: args.status });
+  await ctx.db.patch(doc._id, { status: args.status })
 }
 ```
 
@@ -95,17 +95,17 @@ If a mutation does primary work plus secondary bookkeeping (analytics, notificat
 
 ```ts
 // Bad: analytics update in the same transaction as the user action
-await ctx.db.patch(userId, { lastActiveAt: Date.now() });
-await ctx.db.insert("analytics", { event: "action", userId, ts: Date.now() });
+await ctx.db.patch(userId, { lastActiveAt: Date.now() })
+await ctx.db.insert("analytics", { event: "action", userId, ts: Date.now() })
 ```
 
 ```ts
 // Good: schedule the bookkeeping so the primary transaction is smaller
-await ctx.db.patch(userId, { lastActiveAt: Date.now() });
+await ctx.db.patch(userId, { lastActiveAt: Date.now() })
 await ctx.scheduler.runAfter(0, internal.analytics.recordEvent, {
   event: "action",
   userId,
-});
+})
 ```
 
 ### 5. Combine competing writes

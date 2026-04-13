@@ -86,9 +86,9 @@ The most common auth task is checking identity in Convex functions.
 export const getMyProfile = query({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.userId);
+    return await ctx.db.get(args.userId)
   },
-});
+})
 ```
 
 ```ts
@@ -96,17 +96,17 @@ export const getMyProfile = query({
 export const getMyProfile = query({
   args: {},
   handler: async (ctx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
+    const identity = await ctx.auth.getUserIdentity()
+    if (!identity) throw new Error("Not authenticated")
 
     return await ctx.db
       .query("users")
       .withIndex("by_tokenIdentifier", (q) =>
-        q.eq("tokenIdentifier", identity.tokenIdentifier)
+        q.eq("tokenIdentifier", identity.tokenIdentifier),
       )
-      .unique();
+      .unique()
   },
-});
+})
 ```
 
 ## Workflow

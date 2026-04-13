@@ -79,8 +79,7 @@ posts: defineTable({
 users: defineTable({
   name: v.string(),
   email: v.string(),
-})
-  .index("by_email", ["email"])
+}).index("by_email", ["email"])
 ```
 
 ## Breaking Changes: The Deployment Workflow

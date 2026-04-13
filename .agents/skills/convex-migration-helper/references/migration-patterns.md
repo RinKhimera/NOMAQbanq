@@ -16,10 +16,10 @@ export const addDefaultRole = migrations.define({
   table: "users",
   migrateOne: async (ctx, user) => {
     if (user.role === undefined) {
-      await ctx.db.patch(user._id, { role: "user" });
+      await ctx.db.patch(user._id, { role: "user" })
     }
   },
-});
+})
 
 // Deploy 2: After migration completes, make it required
 users: defineTable({
@@ -41,10 +41,10 @@ export const removeIsPro = migrations.define({
   table: "teams",
   migrateOne: async (ctx, team) => {
     if (team.isPro !== undefined) {
-      await ctx.db.patch(team._id, { isPro: undefined });
+      await ctx.db.patch(team._id, { isPro: undefined })
     }
   },
-});
+})
 
 // Deploy 2: Remove isPro from schema entirely
 ```
@@ -65,10 +65,10 @@ export const convertToEnum = migrations.define({
       await ctx.db.patch(team._id, {
         plan: team.isPro ? "pro" : "basic",
         isPro: undefined,
-      });
+      })
     }
   },
-});
+})
 
 // Deploy 2: Remove isPro from schema, make plan required
 ```
@@ -79,23 +79,23 @@ export const convertToEnum = migrations.define({
 export const extractPreferences = migrations.define({
   table: "users",
   migrateOne: async (ctx, user) => {
-    if (user.preferences === undefined) return;
+    if (user.preferences === undefined) return
 
     const existing = await ctx.db
       .query("userPreferences")
       .withIndex("by_user", (q) => q.eq("userId", user._id))
-      .first();
+      .first()
 
     if (!existing) {
       await ctx.db.insert("userPreferences", {
         userId: user._id,
         ...user.preferences,
-      });
+      })
     }
 
-    await ctx.db.patch(user._id, { preferences: undefined });
+    await ctx.db.patch(user._id, { preferences: undefined })
   },
-});
+})
 ```
 
 Make sure your code is already writing to the new `userPreferences` table for new users before running this migration, so you don't miss documents created during the migration window.
@@ -109,13 +109,13 @@ export const deleteOrphanedEmbeddings = migrations.define({
     const chunk = await ctx.db
       .query("chunks")
       .withIndex("by_embedding", (q) => q.eq("embeddingId", doc._id))
-      .first();
+      .first()
 
     if (!chunk) {
-      await ctx.db.delete(doc._id);
+      await ctx.db.delete(doc._id)
     }
   },
-});
+})
 ```
 
 ## Zero-Downtime Strategies
@@ -172,8 +172,8 @@ This avoids duplicating writes, which is useful when having two copies of data c
 ```typescript
 // Good: reading both formats, preferring new
 function getTeamPlan(team: Doc<"teams">): "basic" | "pro" {
-  if (team.plan !== undefined) return team.plan;
-  return team.isPro ? "pro" : "basic";
+  if (team.plan !== undefined) return team.plan
+  return team.isPro ? "pro" : "basic"
 }
 ```
 
@@ -182,18 +182,18 @@ function getTeamPlan(team: Doc<"teams">): "basic" | "pro" {
 For small tables (a few thousand documents at most), you can migrate in a single `internalMutation` without the component:
 
 ```typescript
-import { internalMutation } from "./_generated/server";
+import { internalMutation } from "./_generated/server"
 
 export const backfillSmallTable = internalMutation({
   handler: async (ctx) => {
-    const docs = await ctx.db.query("smallConfig").collect();
+    const docs = await ctx.db.query("smallConfig").collect()
     for (const doc of docs) {
       if (doc.newField === undefined) {
-        await ctx.db.patch(doc._id, { newField: "default" });
+        await ctx.db.patch(doc._id, { newField: "default" })
       }
     }
   },
-});
+})
 ```
 
 ```bash
@@ -207,21 +207,21 @@ Only use `.collect()` when you are certain the table is small. For anything larg
 Query to check remaining unmigrated documents:
 
 ```typescript
-import { query } from "./_generated/server";
+import { query } from "./_generated/server"
 
 export const verifyMigration = query({
   handler: async (ctx) => {
     const remaining = await ctx.db
       .query("users")
       .filter((q) => q.eq(q.field("role"), undefined))
-      .take(10);
+      .take(10)
 
     return {
       complete: remaining.length === 0,
       sampleRemaining: remaining.map((u) => u._id),
-    };
+    }
   },
-});
+})
 ```
 
 Or use the component's built-in status monitoring:

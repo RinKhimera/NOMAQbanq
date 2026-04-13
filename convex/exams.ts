@@ -1036,8 +1036,7 @@ export const getQuestionExplanations = query({
       // Collecter les IDs de tous les examens complétés par l'user
       const completedExamIds = examParticipations
         .filter(
-          (p) =>
-            p.status === "completed" || p.status === "auto_submitted",
+          (p) => p.status === "completed" || p.status === "auto_submitted",
         )
         .map((p) => p.examId)
 
