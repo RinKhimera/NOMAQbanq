@@ -4,30 +4,67 @@ import {
   Activity,
   ArrowRight,
   Baby,
+  Bean,
+  Bone,
+  BookOpen,
   Brain,
+  BrainCircuit,
+  Bug,
+  Droplet,
+  Droplets,
+  Ear,
+  Eye,
+  Fingerprint,
+  Flame,
+  Hand,
   Heart,
-  Sun as Lung,
+  LayoutGrid,
+  Scissors,
+  Shield,
+  Stethoscope,
   Users,
+  Wind,
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Domain } from "@/types"
 
-const iconMap = {
-  Heart,
-  Lung,
-  Brain,
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Activity,
   Baby,
+  Bean,
+  BookOpen,
+  Bone,
+  Brain,
+  BrainCircuit,
+  Bug,
+  Droplet,
+  Droplets,
+  Ear,
+  Eye,
+  Fingerprint,
+  Flame,
+  Hand,
+  Heart,
+  LayoutGrid,
+  Scissors,
+  Shield,
+  Stethoscope,
   Users,
+  Wind,
 }
 
 interface DomainCardProps {
-  domain: Domain
+  domain: {
+    title: string
+    description: string
+    icon: string
+    questionsCount: number
+    slug: string
+  }
 }
 
 export default function DomainCard({ domain }: DomainCardProps) {
-  const IconComponent = iconMap[domain.icon as keyof typeof iconMap]
+  const IconComponent = iconMap[domain.icon] ?? BookOpen
 
   return (
     <div className="group card-modern relative transform overflow-hidden p-8 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl">

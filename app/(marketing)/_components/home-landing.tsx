@@ -20,8 +20,11 @@ import Image from "next/image"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useMarketingStats } from "@/hooks/useMarketingStats"
 
 export default function HomeLanding() {
+  const { stats, isLoading } = useMarketingStats()
   // Features section data
   const features = [
     {
@@ -152,9 +155,13 @@ export default function HomeLanding() {
                         />
                       ))}
                     </div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      2000+ candidats satisfaits
-                    </p>
+                    {isLoading ? (
+                      <Skeleton className="h-4 w-40" />
+                    ) : (
+                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        {stats?.totalUsers ?? "200+"} candidats satisfaits
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -297,9 +304,9 @@ export default function HomeLanding() {
                   En vous familiarisant minutieusement avec les objectifs du
                   CMC, vous pouvez vous assurer d&apos;être adéquatement préparé
                   à répondre aux attentes de la profession médicale. NOMAQbanq
-                  contient plus de 2800+ questions basées sur les objectifs du
-                  CMC, fournissant un contenu à haut rendement pour vous aider à
-                  réussir vos examens.
+                  contient plus de {stats?.totalQuestions ?? "3000+"} questions
+                  basées sur les objectifs du CMC, fournissant un contenu à haut
+                  rendement pour vous aider à réussir vos examens.
                 </p>
               </div>
 
@@ -328,7 +335,7 @@ export default function HomeLanding() {
                   <div className="relative z-10">
                     <div className="mb-8 flex items-start justify-between">
                       <div className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold backdrop-blur-sm">
-                        PLUS DE 2800+ QUESTIONS
+                        PLUS DE {stats?.totalQuestions ?? "3000+"} QUESTIONS
                       </div>
                     </div>
 
@@ -398,8 +405,7 @@ export default function HomeLanding() {
               Commencez votre préparation dès aujourd&apos;hui
             </h2>
             <p className="text-body-lg mx-auto mb-12 max-w-2xl text-blue-100">
-              Rejoignez les milliers de candidats qui ont réussi grâce à
-              NOMAQbanq
+              Rejoignez les candidats qui ont réussi grâce à NOMAQbanq
             </p>
             <div className="flex flex-col justify-center gap-6 sm:flex-row">
               <Link href="/auth/sign-up">

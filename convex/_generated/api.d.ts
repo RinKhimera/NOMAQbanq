@@ -21,6 +21,7 @@ import type * as lib_bunny from "../lib/bunny.js";
 import type * as lib_errors from "../lib/errors.js";
 import type * as lib_examStats from "../lib/examStats.js";
 import type * as lib_stripe from "../lib/stripe.js";
+import type * as marketing from "../marketing.js";
 import type * as migrations_backfillExplanations from "../migrations/backfillExplanations.js";
 import type * as migrations_backfillHasImagesComputed from "../migrations/backfillHasImagesComputed.js";
 import type * as migrations_cleanupOldFieldsFromQuestions from "../migrations/cleanupOldFieldsFromQuestions.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   "lib/errors": typeof lib_errors;
   "lib/examStats": typeof lib_examStats;
   "lib/stripe": typeof lib_stripe;
+  marketing: typeof marketing;
   "migrations/backfillExplanations": typeof migrations_backfillExplanations;
   "migrations/backfillHasImagesComputed": typeof migrations_backfillHasImagesComputed;
   "migrations/cleanupOldFieldsFromQuestions": typeof migrations_cleanupOldFieldsFromQuestions;

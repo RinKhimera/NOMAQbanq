@@ -52,7 +52,7 @@ export const faqCategories: FaqCategory[] = [
     questions: [
       {
         q: "Quels sont les types d'accès disponibles ?",
-        a: "Nous proposons deux types d'accès : l'Accès Examens (examens simulés en mode réaliste) et l'Accès Entraînement (banque de 5000+ questions avec mode tuteur). Chaque type est disponible en formule 1 mois (50 CAD) ou 6 mois (200 CAD, soit ~33% d'économie).",
+        a: "Nous proposons deux types d'accès : l'Accès Examens (examens simulés en mode réaliste) et l'Accès Entraînement (banque de 3000+ questions avec mode tuteur). Chaque type est disponible en formule 1 mois (50 CAD) ou 6 mois (200 CAD, soit ~33% d'économie).",
       },
       {
         q: "Y a-t-il une période d'essai gratuite ?",
@@ -76,7 +76,7 @@ export const faqCategories: FaqCategory[] = [
     questions: [
       {
         q: "Combien de questions sont disponibles ?",
-        a: "Notre banque contient plus de 5 000 questions couvrant tous les domaines de l'EACMC Partie I : médecine interne, chirurgie, pédiatrie, obstétrique-gynécologie, psychiatrie, et bien plus encore.",
+        a: "Notre banque contient plus de 3 000 questions couvrant tous les domaines de l'EACMC Partie I : médecine interne, chirurgie, pédiatrie, obstétrique-gynécologie, psychiatrie, et bien plus encore.",
       },
       {
         q: "Les questions sont-elles mises à jour régulièrement ?",

@@ -1,8 +1,11 @@
 "use client"
 
 import { Heart, Star } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useMarketingStats } from "@/hooks/useMarketingStats"
 
 export default function AboutStory() {
+  const { stats, isLoading } = useMarketingStats()
   return (
     <div className="mb-20">
       <div className="animate-slide-in-left">
@@ -26,9 +29,9 @@ export default function AboutStory() {
             francophones.
           </p>
           <p>
-            Aujourd&apos;hui, nous accompagnons des milliers de candidats vers
-            la réussite, avec un taux de succès de 85% parmi nos utilisateurs
-            actifs.
+            Aujourd&apos;hui, nous accompagnons des centaines de candidats vers
+            la réussite, avec un taux de succès de {stats?.successRate ?? "85%"}{" "}
+            parmi nos utilisateurs actifs.
           </p>
         </div>
 
@@ -50,9 +53,14 @@ export default function AboutStory() {
                 />
               ))}
             </div>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              Plus de 4000 candidats nous font confiance
-            </p>
+            {isLoading ? (
+              <Skeleton className="h-4 w-48" />
+            ) : (
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Plus de {stats?.totalUsers ?? "200+"} candidats nous font
+                confiance
+              </p>
+            )}
           </div>
         </div>
       </div>

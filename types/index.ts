@@ -1,16 +1,6 @@
 import { LucideIcon } from "lucide-react"
 import { Doc } from "@/convex/_generated/dataModel"
 
-// ===== Domain Types =====
-export interface Domain {
-  id: string
-  title: string
-  description: string
-  icon: string
-  questionsCount: number
-  slug: string
-}
-
 // ===== Testimonial Types =====
 export interface Testimonial {
   id: string

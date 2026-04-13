@@ -3,42 +3,42 @@ import { Testimonial } from "@/types"
 export const testimonials: Testimonial[] = [
   {
     id: "1",
-    name: "Dr. Marie Dubois",
-    role: "Résidente en médecine interne, Montréal",
+    name: "Ariane Nkoulou",
+    role: "Diplômée internationale, Cameroun → Montréal",
     avatar:
       "https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=150",
     content:
-      "NOMAQbanq m'a permis de réussir l'EACMC du premier coup ! Les questions sont très représentatives de l'examen et les explications détaillées m'ont aidée à combler mes lacunes. Je recommande vivement cette plateforme à tous les candidats francophones.",
+      "En tant qu'IMG, j'avais besoin d'une ressource en français adaptée au contexte canadien. Le mode tuteur avec les explications détaillées m'a vraiment aidée à comprendre la logique derrière chaque réponse. J'ai réussi l'EACMC du premier coup.",
     rating: 5,
   },
   {
     id: "2",
-    name: "Dr. Ahmed Benali",
-    role: "Diplômé international, Ottawa",
+    name: "Émile Gauthier",
+    role: "Étudiant en médecine, Université Laval",
     avatar:
       "https://images.pexels.com/photos/6749778/pexels-photo-6749778.jpeg?auto=compress&cs=tinysrgb&w=150",
     content:
-      "En tant que diplômé international, j'avais besoin d'une préparation adaptée au contexte canadien. Cette plateforme m'a donné la confiance nécessaire pour réussir. L'interface est intuitive et le contenu de qualité exceptionnelle.",
+      "Les 23 domaines couverts et le suivi de progression m'ont permis d'identifier rapidement mes faiblesses en cardiologie et en neurologie. Les moyens mnémotechniques sont un vrai plus pour retenir les diagnostics différentiels.",
     rating: 5,
   },
   {
     id: "3",
-    name: "Dr. Sophie Tremblay",
-    role: "Médecin de famille, Québec",
+    name: "Samira Belkacem",
+    role: "Diplômée internationale, Algérie → Ottawa",
     avatar:
       "https://images.pexels.com/photos/5452293/pexels-photo-5452293.jpeg?auto=compress&cs=tinysrgb&w=150",
     content:
-      "J'étais vraiment inquiète d'utiliser une application en ligne que je ne connaissais pas. Cependant, après avoir essayé NOMAQbanq, j'ai pu apprendre les bases en environ 10 minutes. La banque de questions est très simple et facile à utiliser.",
-    rating: 5,
+      "La banque de questions est très complète et bien organisée par discipline. Le mode chronométré m'a aidée à gérer mon temps le jour de l'examen. Une plateforme essentielle pour les candidats francophones.",
+    rating: 4,
   },
   {
     id: "4",
-    name: "Dr. Jean-François Côté",
-    role: "Résident en chirurgie, Sherbrooke",
+    name: "Dr. Marc-Antoine Duval",
+    role: "Résident en médecine familiale, Toronto",
     avatar:
       "https://images.pexels.com/photos/6749777/pexels-photo-6749777.jpeg?auto=compress&cs=tinysrgb&w=150",
     content:
-      "La qualité des questions et des explications est remarquable. NOMAQbanq m'a aidé à identifier mes points faibles et à les améliorer systématiquement. C'est un outil indispensable pour la préparation à l'EACMC.",
+      "Les examens blancs reproduisent fidèlement les conditions réelles de l'EACMC. J'ai utilisé NOMAQbanq pendant trois mois de préparation intensive et les tableaux de synthèse m'ont fait gagner un temps précieux dans mes révisions.",
     rating: 5,
   },
 ]

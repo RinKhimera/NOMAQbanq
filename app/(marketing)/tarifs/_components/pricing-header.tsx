@@ -3,12 +3,28 @@
 import { Award, CheckCircle, Sparkles, Star, Users } from "lucide-react"
 import { motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useMarketingStats } from "@/hooks/useMarketingStats"
 
 export const PricingHeader = () => {
-  const stats = [
-    { icon: Users, value: "2000+", label: "Candidats satisfaits" },
-    { icon: Award, value: "85%", label: "Taux de réussite" },
-    { icon: CheckCircle, value: "5000+", label: "Questions disponibles" },
+  const { stats: marketingStats, isLoading } = useMarketingStats()
+
+  const statItems = [
+    {
+      icon: Users,
+      value: marketingStats?.totalUsers,
+      label: "Candidats satisfaits",
+    },
+    {
+      icon: Award,
+      value: marketingStats?.successRate,
+      label: "Taux de réussite",
+    },
+    {
+      icon: CheckCircle,
+      value: marketingStats?.totalQuestions,
+      label: "Questions disponibles",
+    },
   ]
 
   return (
@@ -78,7 +94,7 @@ export const PricingHeader = () => {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-12 flex flex-wrap items-center justify-center gap-8"
           >
-            {stats.map((stat, index) => (
+            {statItems.map((stat, index) => (
               <div
                 key={index}
                 className="flex items-center gap-3 rounded-2xl bg-white/80 px-5 py-3 shadow-lg backdrop-blur dark:bg-gray-800/80"
@@ -87,9 +103,13 @@ export const PricingHeader = () => {
                   <stat.icon className="h-5 w-5 text-white" />
                 </div>
                 <div className="text-left">
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {stat.value}
-                  </p>
+                  {isLoading ? (
+                    <Skeleton className="mb-1 h-6 w-16" />
+                  ) : (
+                    <p className="text-lg font-bold text-gray-900 dark:text-white">
+                      {stat.value}
+                    </p>
+                  )}
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {stat.label}
                   </p>
@@ -114,7 +134,7 @@ export const PricingHeader = () => {
               ))}
             </div>
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              4.9/5 basé sur 500+ avis
+              4.9/5
             </span>
           </motion.div>
         </div>

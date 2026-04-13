@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     template: "%s | NOMAQbanq",
   },
   description:
-    "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM, examens blancs et suivi de progression pour réussir votre examen.",
+    "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM, examens blancs et suivi de progression pour réussir votre examen.",
   keywords: [
     "EACMC",
     "EACMC Partie 1",
@@ -54,7 +54,7 @@ export const metadata: Metadata = {
     siteName: "NOMAQbanq",
     title: "NOMAQbanq - Préparation EACMC Partie I",
     description:
-      "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM pour réussir votre examen.",
+      "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM pour réussir votre examen.",
     images: [
       {
         url: "/images/home-image.jpg",
@@ -68,7 +68,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "NOMAQbanq - Préparation EACMC Partie I",
     description:
-      "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM pour réussir votre examen.",
+      "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM pour réussir votre examen.",
     images: ["/images/home-image.jpg"],
   },
   robots: {
@@ -102,7 +102,7 @@ const organizationSchema = {
   url: baseUrl,
   logo: `${baseUrl}/icon.svg`,
   description:
-    "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM, examens blancs et suivi de progression.",
+    "Première plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM, examens blancs et suivi de progression.",
   contactPoint: {
     "@type": "ContactPoint",
     email: "nomaqbanq@outlook.com",

@@ -2,9 +2,9 @@ import { Metadata } from "next"
 import HomeLanding from "./_components/home-landing"
 
 export const metadata: Metadata = {
-  title: "Préparation EACMC Partie I - 5000+ QCM francophones",
+  title: "Préparation EACMC Partie I - 3000+ QCM francophones",
   description:
-    "NOMAQbanq : la première plateforme francophone pour préparer l'EACMC Partie I. Plus de 5000 QCM, examens blancs, modes tuteur et chronomètre. Rejoignez des milliers de candidats satisfaits.",
+    "NOMAQbanq : la première plateforme francophone pour préparer l'EACMC Partie I. Plus de 3000 QCM, examens blancs, modes tuteur et chronomètre. Rejoignez des candidats satisfaits.",
   alternates: {
     canonical: "https://nomaqbanq.ca",
     languages: {
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "NOMAQbanq - Préparation EACMC Partie I",
     description:
-      "Première plateforme francophone de préparation à l'EACMC. Plus de 5000 QCM, examens blancs et suivi de progression pour réussir votre examen.",
+      "Première plateforme francophone de préparation à l'EACMC. Plus de 3000 QCM, examens blancs et suivi de progression pour réussir votre examen.",
     images: [
       {
         url: "/images/home-image.jpg",
