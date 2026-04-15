@@ -2463,6 +2463,10 @@ describe("questions", () => {
     // Clés réservées utilisées dans convex/questions.ts
     const GLOBAL_OBJECTIF_KEY = "__all__"
 
+    // Helper utilisé dans les tests ci-dessous. On évite `.withIndex()` ici
+    // parce que `ReturnType<typeof convexTest>` est générique et ne connaît
+    // pas les index du schéma (TypeScript fallback sur SystemIndexes).
+    // `.filter()` + JS filter sur la table de test suffit et reste type-safe.
     const countFor = async (
       t: ReturnType<typeof convexTest>,
       objectifCMC: string,
@@ -2471,8 +2475,11 @@ describe("questions", () => {
       t.run(async (ctx) => {
         const row = await ctx.db
           .query("objectifCMCStats")
-          .withIndex("by_objectifCMC_domain", (q) =>
-            q.eq("objectifCMC", objectifCMC).eq("domain", domain),
+          .filter((q) =>
+            q.and(
+              q.eq(q.field("objectifCMC"), objectifCMC),
+              q.eq(q.field("domain"), domain),
+            ),
           )
           .unique()
         return row?.count ?? 0
