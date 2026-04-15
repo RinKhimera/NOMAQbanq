@@ -18,268 +18,128 @@ import {
   shouldTriggerPause,
 } from "@/lib/exam-timer"
 
+const ONE_HOUR_MS = 3600000
+const ONE_HOUR_S = 3600
+
 describe("Exam Timer Utilities", () => {
   describe("calculateTimeRemaining", () => {
-    it("should calculate remaining time correctly", () => {
-      const serverStartTime = 1000000
-      const completionTimeSeconds = 3600 // 1 hour
-      const currentTime = 1000000 + 1800000 // 30 minutes later
-
-      const result = calculateTimeRemaining(
-        serverStartTime,
-        completionTimeSeconds,
-        currentTime,
+    it.each([
+      { label: "partial (30 min in)", elapsed: 1800000, expected: 1800000 },
+      { label: "just started", elapsed: 0, expected: ONE_HOUR_MS },
+      { label: "exactly at limit", elapsed: ONE_HOUR_MS, expected: 0 },
+      { label: "beyond limit (expired)", elapsed: 4000000, expected: 0 },
+    ])("$label", ({ elapsed, expected }) => {
+      const start = 1000000
+      expect(calculateTimeRemaining(start, ONE_HOUR_S, start + elapsed)).toBe(
+        expected,
       )
-
-      expect(result).toBe(1800000) // 30 minutes remaining
-    })
-
-    it("should return 0 when time has expired", () => {
-      const serverStartTime = 1000000
-      const completionTimeSeconds = 3600 // 1 hour
-      const currentTime = 1000000 + 4000000 // More than 1 hour later
-
-      const result = calculateTimeRemaining(
-        serverStartTime,
-        completionTimeSeconds,
-        currentTime,
-      )
-
-      expect(result).toBe(0)
-    })
-
-    it("should return full time when just started", () => {
-      const serverStartTime = 1000000
-      const completionTimeSeconds = 3600 // 1 hour
-      const currentTime = 1000000 // Same time
-
-      const result = calculateTimeRemaining(
-        serverStartTime,
-        completionTimeSeconds,
-        currentTime,
-      )
-
-      expect(result).toBe(3600000) // Full 1 hour
-    })
-
-    it("should handle exact boundary time", () => {
-      const serverStartTime = 1000000
-      const completionTimeSeconds = 3600 // 1 hour
-      const currentTime = 1000000 + 3600000 // Exactly 1 hour later
-
-      const result = calculateTimeRemaining(
-        serverStartTime,
-        completionTimeSeconds,
-        currentTime,
-      )
-
-      expect(result).toBe(0)
     })
   })
 
   describe("shouldAutoSubmit", () => {
-    it("should return true when time is 0", () => {
-      expect(shouldAutoSubmit(0)).toBe(true)
-    })
-
-    it("should return false when time remains", () => {
-      expect(shouldAutoSubmit(1000)).toBe(false)
-    })
-
-    it("should return false for 1ms remaining", () => {
-      expect(shouldAutoSubmit(1)).toBe(false)
-    })
-
-    it("should return true for negative time (edge case)", () => {
-      expect(shouldAutoSubmit(-1000)).toBe(true)
+    it.each([
+      { timeRemaining: 0, expected: true },
+      { timeRemaining: 1, expected: false },
+      { timeRemaining: 1000, expected: false },
+      { timeRemaining: -1000, expected: true }, // negative edge case
+    ])("returns $expected when timeRemaining=$timeRemaining", ({
+      timeRemaining,
+      expected,
+    }) => {
+      expect(shouldAutoSubmit(timeRemaining)).toBe(expected)
     })
   })
 
   describe("formatExamTime", () => {
-    it("should format 0ms as 00:00:00", () => {
-      expect(formatExamTime(0)).toBe("00:00:00")
-    })
-
-    it("should format 1 hour correctly", () => {
-      expect(formatExamTime(3600000)).toBe("01:00:00")
-    })
-
-    it("should format 1 hour 30 minutes 45 seconds", () => {
-      const ms = (1 * 60 * 60 + 30 * 60 + 45) * 1000
-      expect(formatExamTime(ms)).toBe("01:30:45")
-    })
-
-    it("should format seconds only", () => {
-      expect(formatExamTime(45000)).toBe("00:00:45")
-    })
-
-    it("should format minutes and seconds", () => {
-      expect(formatExamTime(125000)).toBe("00:02:05")
-    })
-
-    it("should handle large values (10+ hours)", () => {
-      const ms = 12 * 60 * 60 * 1000 + 34 * 60 * 1000 + 56 * 1000
-      expect(formatExamTime(ms)).toBe("12:34:56")
-    })
-
-    it("should pad single digits with zeros", () => {
-      const ms = (1 * 60 * 60 + 5 * 60 + 9) * 1000
-      expect(formatExamTime(ms)).toBe("01:05:09")
+    it.each([
+      { ms: 0, expected: "00:00:00" },
+      { ms: 45000, expected: "00:00:45" },
+      { ms: 125000, expected: "00:02:05" },
+      { ms: ONE_HOUR_MS, expected: "01:00:00" },
+      { ms: (1 * 3600 + 5 * 60 + 9) * 1000, expected: "01:05:09" }, // pad single digits
+      { ms: (1 * 3600 + 30 * 60 + 45) * 1000, expected: "01:30:45" },
+      { ms: (12 * 3600 + 34 * 60 + 56) * 1000, expected: "12:34:56" },
+    ])("formats $ms ms as $expected", ({ ms, expected }) => {
+      expect(formatExamTime(ms)).toBe(expected)
     })
   })
 
   describe("isWithinGracePeriod", () => {
-    const maxTimeMs = 3600000 // 1 hour
+    const max = ONE_HOUR_MS
 
-    describe("manual submission (5s grace)", () => {
-      it("should return true when within time limit", () => {
-        expect(isWithinGracePeriod(3000000, maxTimeMs, false)).toBe(true)
-      })
+    it.each([
+      // Manual submission → 5s grace
+      { elapsed: 3000000, isAuto: false, expected: true },
+      { elapsed: max, isAuto: false, expected: true }, // exact limit
+      { elapsed: max + 5000, isAuto: false, expected: true }, // exact grace
+      { elapsed: max + 6000, isAuto: false, expected: false }, // beyond
+      // Auto submission → 30s grace
+      { elapsed: max + 25000, isAuto: true, expected: true },
+      { elapsed: max + 30000, isAuto: true, expected: true },
+      { elapsed: max + 31000, isAuto: true, expected: false },
+    ])(
+      "elapsed=$elapsed isAuto=$isAuto → $expected",
+      ({ elapsed, isAuto, expected }) => {
+        expect(isWithinGracePeriod(elapsed, max, isAuto)).toBe(expected)
+      },
+    )
+  })
 
-      it("should return true at exact time limit", () => {
-        expect(isWithinGracePeriod(maxTimeMs, maxTimeMs, false)).toBe(true)
-      })
-
-      it("should return true within 5s grace period", () => {
-        expect(isWithinGracePeriod(maxTimeMs + 4000, maxTimeMs, false)).toBe(
-          true,
-        )
-      })
-
-      it("should return true at exactly 5s grace", () => {
-        expect(isWithinGracePeriod(maxTimeMs + 5000, maxTimeMs, false)).toBe(
-          true,
-        )
-      })
-
-      it("should return false beyond 5s grace", () => {
-        expect(isWithinGracePeriod(maxTimeMs + 6000, maxTimeMs, false)).toBe(
-          false,
-        )
-      })
-    })
-
-    describe("auto submission (30s grace)", () => {
-      it("should return true within 30s grace period", () => {
-        expect(isWithinGracePeriod(maxTimeMs + 25000, maxTimeMs, true)).toBe(
-          true,
-        )
-      })
-
-      it("should return true at exactly 30s grace", () => {
-        expect(isWithinGracePeriod(maxTimeMs + 30000, maxTimeMs, true)).toBe(
-          true,
-        )
-      })
-
-      it("should return false beyond 30s grace", () => {
-        expect(isWithinGracePeriod(maxTimeMs + 31000, maxTimeMs, true)).toBe(
-          false,
-        )
-      })
+  describe("isTimeRunningOut (< 10 min)", () => {
+    it.each([
+      { ms: 11 * 60 * 1000, expected: false },
+      { ms: 10 * 60 * 1000, expected: false }, // exactly 10 min → false
+      { ms: 9 * 60 * 1000 + 59000, expected: true },
+      { ms: 5 * 60 * 1000, expected: true },
+      { ms: 0, expected: true },
+    ])("$ms ms → $expected", ({ ms, expected }) => {
+      expect(isTimeRunningOut(ms)).toBe(expected)
     })
   })
 
-  describe("isTimeRunningOut", () => {
-    it("should return false for time > 10 minutes", () => {
-      expect(isTimeRunningOut(11 * 60 * 1000)).toBe(false)
-    })
-
-    it("should return false for exactly 10 minutes", () => {
-      expect(isTimeRunningOut(10 * 60 * 1000)).toBe(false)
-    })
-
-    it("should return true for less than 10 minutes", () => {
-      expect(isTimeRunningOut(9 * 60 * 1000 + 59000)).toBe(true)
-    })
-
-    it("should return true for 5 minutes", () => {
-      expect(isTimeRunningOut(5 * 60 * 1000)).toBe(true)
-    })
-
-    it("should return true for 0", () => {
-      expect(isTimeRunningOut(0)).toBe(true)
-    })
-  })
-
-  describe("isTimeCritical", () => {
-    it("should return false for time > 5 minutes", () => {
-      expect(isTimeCritical(6 * 60 * 1000)).toBe(false)
-    })
-
-    it("should return false for exactly 5 minutes", () => {
-      expect(isTimeCritical(5 * 60 * 1000)).toBe(false)
-    })
-
-    it("should return true for less than 5 minutes", () => {
-      expect(isTimeCritical(4 * 60 * 1000 + 59000)).toBe(true)
-    })
-
-    it("should return true for 1 minute", () => {
-      expect(isTimeCritical(60 * 1000)).toBe(true)
-    })
-
-    it("should return true for 0", () => {
-      expect(isTimeCritical(0)).toBe(true)
+  describe("isTimeCritical (< 5 min)", () => {
+    it.each([
+      { ms: 6 * 60 * 1000, expected: false },
+      { ms: 5 * 60 * 1000, expected: false }, // exactly 5 min → false
+      { ms: 4 * 60 * 1000 + 59000, expected: true },
+      { ms: 60 * 1000, expected: true },
+      { ms: 0, expected: true },
+    ])("$ms ms → $expected", ({ ms, expected }) => {
+      expect(isTimeCritical(ms)).toBe(expected)
     })
   })
 
   describe("calculateProgress", () => {
-    it("should return 0 for first question of many", () => {
-      // Index 0, question 1 of 10 = 10%
-      expect(calculateProgress(0, 10)).toBe(10)
-    })
+    it.each([
+      { index: 0, total: 10, expected: 10 },
+      { index: 4, total: 10, expected: 50 },
+      { index: 9, total: 10, expected: 100 },
+      { index: 0, total: 1, expected: 100 }, // single question
+      { index: 0, total: 0, expected: 0 }, // empty exam
+    ])(
+      "question $index of $total → $expected%",
+      ({ index, total, expected }) => {
+        expect(calculateProgress(index, total)).toBe(expected)
+      },
+    )
 
-    it("should return 100 for last question", () => {
-      expect(calculateProgress(9, 10)).toBe(100)
-    })
-
-    it("should return 50 for middle question", () => {
-      expect(calculateProgress(4, 10)).toBe(50)
-    })
-
-    it("should handle single question exam", () => {
-      expect(calculateProgress(0, 1)).toBe(100)
-    })
-
-    it("should return 0 for empty exam", () => {
-      expect(calculateProgress(0, 0)).toBe(0)
-    })
-
-    it("should handle non-round percentages", () => {
-      // Question 1 of 3 = 33.33...%
+    it("handles non-round percentages", () => {
       expect(calculateProgress(0, 3)).toBeCloseTo(33.33, 1)
     })
   })
 
   describe("calculateScorePercentage", () => {
-    it("should return 100 for perfect score", () => {
-      expect(calculateScorePercentage(10, 10)).toBe(100)
-    })
-
-    it("should return 0 for no correct answers", () => {
-      expect(calculateScorePercentage(0, 10)).toBe(0)
-    })
-
-    it("should return 50 for half correct", () => {
-      expect(calculateScorePercentage(5, 10)).toBe(50)
-    })
-
-    it("should round to nearest integer", () => {
-      // 7/10 = 70%
-      expect(calculateScorePercentage(7, 10)).toBe(70)
-      // 2/3 = 66.67% -> 67%
-      expect(calculateScorePercentage(2, 3)).toBe(67)
-      // 1/3 = 33.33% -> 33%
-      expect(calculateScorePercentage(1, 3)).toBe(33)
-    })
-
-    it("should handle 0 total questions", () => {
-      expect(calculateScorePercentage(0, 0)).toBe(0)
-    })
-
-    it("should handle large exam", () => {
-      expect(calculateScorePercentage(175, 230)).toBe(76)
+    it.each([
+      { score: 10, total: 10, expected: 100 },
+      { score: 0, total: 10, expected: 0 },
+      { score: 5, total: 10, expected: 50 },
+      { score: 7, total: 10, expected: 70 },
+      { score: 2, total: 3, expected: 67 }, // rounds up
+      { score: 1, total: 3, expected: 33 }, // rounds down
+      { score: 0, total: 0, expected: 0 },
+      { score: 175, total: 230, expected: 76 }, // large exam
+    ])("$score/$total → $expected%", ({ score, total, expected }) => {
+      expect(calculateScorePercentage(score, total)).toBe(expected)
     })
   })
 })
@@ -289,308 +149,145 @@ describe("Exam Timer Utilities", () => {
 // ==========================================
 
 describe("Pause Functionality Utilities", () => {
-  describe("shouldTriggerPause", () => {
-    it("should return false when less than 50% time has elapsed", () => {
-      const serverStartTime = 1000000
-      const completionTimeSeconds = 3600 // 1 hour
-      const currentTime = serverStartTime + 1000000 // ~27.78% elapsed
-
+  describe("shouldTriggerPause (>= 50% elapsed)", () => {
+    it.each([
+      { label: "0% elapsed (start)", elapsedMs: 0, expected: false },
+      { label: "~28% elapsed", elapsedMs: 1000000, expected: false },
+      { label: "exactly 50%", elapsedMs: 1800000, expected: true },
+      { label: "~69% elapsed", elapsedMs: 2500000, expected: true },
+    ])("$label", ({ elapsedMs, expected }) => {
+      const start = 1000000
       expect(
-        shouldTriggerPause(serverStartTime, completionTimeSeconds, currentTime),
-      ).toBe(false)
-    })
-
-    it("should return true when exactly 50% time has elapsed", () => {
-      const serverStartTime = 1000000
-      const completionTimeSeconds = 3600 // 1 hour = 3600000ms
-      const currentTime = serverStartTime + 1800000 // exactly 50%
-
-      expect(
-        shouldTriggerPause(serverStartTime, completionTimeSeconds, currentTime),
-      ).toBe(true)
-    })
-
-    it("should return true when more than 50% time has elapsed", () => {
-      const serverStartTime = 1000000
-      const completionTimeSeconds = 3600 // 1 hour
-      const currentTime = serverStartTime + 2500000 // ~69% elapsed
-
-      expect(
-        shouldTriggerPause(serverStartTime, completionTimeSeconds, currentTime),
-      ).toBe(true)
-    })
-
-    it("should return false at exam start", () => {
-      const serverStartTime = 1000000
-      const completionTimeSeconds = 3600
-      const currentTime = serverStartTime
-
-      expect(
-        shouldTriggerPause(serverStartTime, completionTimeSeconds, currentTime),
-      ).toBe(false)
+        shouldTriggerPause(start, ONE_HOUR_S, start + elapsedMs),
+      ).toBe(expected)
     })
   })
 
   describe("calculatePauseTimeRemaining", () => {
-    it("should return full pause time at start", () => {
-      const pauseStartedAt = 1000000
-      const pauseDurationMinutes = 15
-      const currentTime = pauseStartedAt
+    const start = 1000000
+    const DURATION = 15
 
+    it.each([
+      { label: "at start", elapsedMs: 0, expected: 15 * 60 * 1000 },
+      { label: "5 min in", elapsedMs: 5 * 60 * 1000, expected: 10 * 60 * 1000 },
+      { label: "exactly at end", elapsedMs: 15 * 60 * 1000, expected: 0 },
+      { label: "past end", elapsedMs: 20 * 60 * 1000, expected: 0 },
+    ])("$label → $expected ms", ({ elapsedMs, expected }) => {
       expect(
-        calculatePauseTimeRemaining(
-          pauseStartedAt,
-          pauseDurationMinutes,
-          currentTime,
-        ),
-      ).toBe(15 * 60 * 1000) // 15 minutes in ms
-    })
-
-    it("should calculate remaining time correctly", () => {
-      const pauseStartedAt = 1000000
-      const pauseDurationMinutes = 15
-      const currentTime = pauseStartedAt + 5 * 60 * 1000 // 5 minutes later
-
-      expect(
-        calculatePauseTimeRemaining(
-          pauseStartedAt,
-          pauseDurationMinutes,
-          currentTime,
-        ),
-      ).toBe(10 * 60 * 1000) // 10 minutes remaining
-    })
-
-    it("should return 0 when pause time has expired", () => {
-      const pauseStartedAt = 1000000
-      const pauseDurationMinutes = 15
-      const currentTime = pauseStartedAt + 20 * 60 * 1000 // 20 minutes later
-
-      expect(
-        calculatePauseTimeRemaining(
-          pauseStartedAt,
-          pauseDurationMinutes,
-          currentTime,
-        ),
-      ).toBe(0)
-    })
-
-    it("should return 0 at exact expiration", () => {
-      const pauseStartedAt = 1000000
-      const pauseDurationMinutes = 15
-      const currentTime = pauseStartedAt + 15 * 60 * 1000 // exactly 15 minutes
-
-      expect(
-        calculatePauseTimeRemaining(
-          pauseStartedAt,
-          pauseDurationMinutes,
-          currentTime,
-        ),
-      ).toBe(0)
+        calculatePauseTimeRemaining(start, DURATION, start + elapsedMs),
+      ).toBe(expected)
     })
   })
 
   describe("isPauseExpired", () => {
-    it("should return false when pause time remains", () => {
-      const pauseStartedAt = 1000000
-      const pauseDurationMinutes = 15
-      const currentTime = pauseStartedAt + 5 * 60 * 1000
+    const start = 1000000
 
-      expect(
-        isPauseExpired(pauseStartedAt, pauseDurationMinutes, currentTime),
-      ).toBe(false)
-    })
-
-    it("should return true when pause time has expired", () => {
-      const pauseStartedAt = 1000000
-      const pauseDurationMinutes = 15
-      const currentTime = pauseStartedAt + 16 * 60 * 1000
-
-      expect(
-        isPauseExpired(pauseStartedAt, pauseDurationMinutes, currentTime),
-      ).toBe(true)
-    })
-
-    it("should return true at exact expiration", () => {
-      const pauseStartedAt = 1000000
-      const pauseDurationMinutes = 15
-      const currentTime = pauseStartedAt + 15 * 60 * 1000
-
-      expect(
-        isPauseExpired(pauseStartedAt, pauseDurationMinutes, currentTime),
-      ).toBe(true)
+    it.each([
+      { label: "pause remaining", elapsedMs: 5 * 60 * 1000, expected: false },
+      { label: "exact expiration", elapsedMs: 15 * 60 * 1000, expected: true },
+      { label: "past expiration", elapsedMs: 16 * 60 * 1000, expected: true },
+    ])("$label → $expected", ({ elapsedMs, expected }) => {
+      expect(isPauseExpired(start, 15, start + elapsedMs)).toBe(expected)
     })
   })
 
   describe("isQuestionAccessible", () => {
-    describe("before_pause phase", () => {
-      it("should allow access to questions in first half", () => {
-        const result = isQuestionAccessible(0, 100, "before_pause")
-        expect(result.allowed).toBe(true)
-      })
+    it.each([
+      // before_pause : accès aux questions du premier tiers (indices < moitié)
+      { index: 0, total: 100, phase: "before_pause" as const, allowed: true },
+      { index: 49, total: 100, phase: "before_pause" as const, allowed: true },
+      { index: 50, total: 100, phase: "before_pause" as const, allowed: false },
+      { index: 99, total: 100, phase: "before_pause" as const, allowed: false },
+      // during_pause : jamais
+      { index: 0, total: 100, phase: "during_pause" as const, allowed: false },
+      { index: 50, total: 100, phase: "during_pause" as const, allowed: false },
+      { index: 99, total: 100, phase: "during_pause" as const, allowed: false },
+      // after_pause : toujours
+      { index: 0, total: 100, phase: "after_pause" as const, allowed: true },
+      { index: 50, total: 100, phase: "after_pause" as const, allowed: true },
+      { index: 99, total: 100, phase: "after_pause" as const, allowed: true },
+      // undefined : toujours
+      { index: 0, total: 100, phase: undefined, allowed: true },
+      { index: 99, total: 100, phase: undefined, allowed: true },
+    ])(
+      "index=$index total=$total phase=$phase → allowed=$allowed",
+      ({ index, total, phase, allowed }) => {
+        expect(isQuestionAccessible(index, total, phase).allowed).toBe(allowed)
+      },
+    )
 
-      it("should allow access to question just before midpoint", () => {
-        const result = isQuestionAccessible(49, 100, "before_pause")
-        expect(result.allowed).toBe(true)
-      })
-
-      it("should deny access to questions in second half", () => {
-        const result = isQuestionAccessible(50, 100, "before_pause")
-        expect(result.allowed).toBe(false)
-        expect(result.reason).toContain("déverrouillée après la pause")
-      })
-
-      it("should deny access to last question", () => {
-        const result = isQuestionAccessible(99, 100, "before_pause")
-        expect(result.allowed).toBe(false)
-      })
+    it("fournit une raison avant pause", () => {
+      const result = isQuestionAccessible(50, 100, "before_pause")
+      expect(result.reason).toContain("déverrouillée après la pause")
     })
 
-    describe("during_pause phase", () => {
-      it("should deny access to all questions", () => {
-        expect(isQuestionAccessible(0, 100, "during_pause").allowed).toBe(false)
-        expect(isQuestionAccessible(50, 100, "during_pause").allowed).toBe(
-          false,
-        )
-        expect(isQuestionAccessible(99, 100, "during_pause").allowed).toBe(
-          false,
-        )
-      })
-
-      it("should provide appropriate reason", () => {
-        const result = isQuestionAccessible(25, 100, "during_pause")
-        expect(result.reason).toContain("pendant la pause")
-      })
+    it("fournit une raison pendant pause", () => {
+      const result = isQuestionAccessible(25, 100, "during_pause")
+      expect(result.reason).toContain("pendant la pause")
     })
 
-    describe("after_pause phase", () => {
-      it("should allow access to all questions", () => {
-        expect(isQuestionAccessible(0, 100, "after_pause").allowed).toBe(true)
-        expect(isQuestionAccessible(50, 100, "after_pause").allowed).toBe(true)
-        expect(isQuestionAccessible(99, 100, "after_pause").allowed).toBe(true)
-      })
-    })
-
-    describe("undefined pause phase", () => {
-      it("should allow access to all questions when no pause phase", () => {
-        expect(isQuestionAccessible(0, 100, undefined).allowed).toBe(true)
-        expect(isQuestionAccessible(99, 100, undefined).allowed).toBe(true)
-      })
-    })
-
-    describe("edge cases", () => {
-      it("should handle odd number of questions", () => {
-        // 101 questions -> midpoint is 50
-        expect(isQuestionAccessible(49, 101, "before_pause").allowed).toBe(true)
-        expect(isQuestionAccessible(50, 101, "before_pause").allowed).toBe(
-          false,
-        )
-      })
-
-      it("should handle small exams", () => {
-        // 10 questions -> midpoint is 5
-        expect(isQuestionAccessible(4, 10, "before_pause").allowed).toBe(true)
-        expect(isQuestionAccessible(5, 10, "before_pause").allowed).toBe(false)
-      })
+    it("gère nombre impair et petits examens", () => {
+      // 101 questions → midpoint 50
+      expect(isQuestionAccessible(49, 101, "before_pause").allowed).toBe(true)
+      expect(isQuestionAccessible(50, 101, "before_pause").allowed).toBe(false)
+      // 10 questions → midpoint 5
+      expect(isQuestionAccessible(4, 10, "before_pause").allowed).toBe(true)
+      expect(isQuestionAccessible(5, 10, "before_pause").allowed).toBe(false)
     })
   })
 
   describe("getAccessibleQuestionRange", () => {
-    it("should return full range when no pause phase", () => {
-      const result = getAccessibleQuestionRange(100, undefined)
-      expect(result).toEqual({ start: 0, end: 99 })
-    })
-
-    it("should return full range after pause", () => {
-      const result = getAccessibleQuestionRange(100, "after_pause")
-      expect(result).toEqual({ start: 0, end: 99 })
-    })
-
-    it("should return first half range before pause", () => {
-      const result = getAccessibleQuestionRange(100, "before_pause")
-      expect(result).toEqual({ start: 0, end: 49 })
-    })
-
-    it("should return empty range during pause", () => {
-      const result = getAccessibleQuestionRange(100, "during_pause")
-      expect(result).toEqual({ start: -1, end: -1 })
-    })
-
-    it("should handle odd number of questions", () => {
-      const result = getAccessibleQuestionRange(101, "before_pause")
-      expect(result).toEqual({ start: 0, end: 49 }) // midpoint is 50, so 0-49 accessible
-    })
+    it.each([
+      { phase: undefined, total: 100, start: 0, end: 99 },
+      { phase: "after_pause" as const, total: 100, start: 0, end: 99 },
+      { phase: "before_pause" as const, total: 100, start: 0, end: 49 },
+      { phase: "during_pause" as const, total: 100, start: -1, end: -1 },
+      // Nombre impair : midpoint = 50
+      { phase: "before_pause" as const, total: 101, start: 0, end: 49 },
+    ])(
+      "phase=$phase total=$total → [$start,$end]",
+      ({ phase, total, start, end }) => {
+        expect(getAccessibleQuestionRange(total, phase)).toEqual({ start, end })
+      },
+    )
   })
 
   describe("formatPauseTime", () => {
-    it("should format 15 minutes correctly", () => {
-      expect(formatPauseTime(15 * 60 * 1000)).toBe("15:00")
-    })
-
-    it("should format 5 minutes 30 seconds correctly", () => {
-      expect(formatPauseTime(5 * 60 * 1000 + 30 * 1000)).toBe("05:30")
-    })
-
-    it("should format 0 time correctly", () => {
-      expect(formatPauseTime(0)).toBe("00:00")
-    })
-
-    it("should format single digit minutes with leading zero", () => {
-      expect(formatPauseTime(3 * 60 * 1000 + 45 * 1000)).toBe("03:45")
-    })
-
-    it("should handle 1 hour (60 minutes)", () => {
-      expect(formatPauseTime(60 * 60 * 1000)).toBe("60:00")
+    it.each([
+      { ms: 0, expected: "00:00" },
+      { ms: 3 * 60 * 1000 + 45 * 1000, expected: "03:45" }, // pad zero
+      { ms: 5 * 60 * 1000 + 30 * 1000, expected: "05:30" },
+      { ms: 15 * 60 * 1000, expected: "15:00" },
+      { ms: 60 * 60 * 1000, expected: "60:00" }, // > 60 min format
+    ])("$ms ms → $expected", ({ ms, expected }) => {
+      expect(formatPauseTime(ms)).toBe(expected)
     })
   })
 
   describe("questionsUntilPause", () => {
-    it("should return correct count at start", () => {
-      expect(questionsUntilPause(0, 100)).toBe(49) // midpoint at 50, so 49 questions until pause
-    })
-
-    it("should return correct count near midpoint", () => {
-      expect(questionsUntilPause(48, 100)).toBe(1)
-    })
-
-    it("should return 0 at midpoint", () => {
-      expect(questionsUntilPause(49, 100)).toBe(0)
-    })
-
-    it("should return 0 after midpoint", () => {
-      expect(questionsUntilPause(60, 100)).toBe(0)
-    })
-
-    it("should handle odd question count", () => {
-      expect(questionsUntilPause(0, 101)).toBe(49) // midpoint is 50
+    it.each([
+      { index: 0, total: 100, expected: 49 }, // midpoint=50
+      { index: 48, total: 100, expected: 1 },
+      { index: 49, total: 100, expected: 0 }, // at midpoint
+      { index: 60, total: 100, expected: 0 }, // past midpoint
+      { index: 0, total: 101, expected: 49 }, // odd count
+    ])("index=$index total=$total → $expected", ({ index, total, expected }) => {
+      expect(questionsUntilPause(index, total)).toBe(expected)
     })
   })
 
-  describe("isApproachingPause", () => {
-    it("should return false at start of exam", () => {
-      expect(isApproachingPause(0, 100)).toBe(false)
-    })
-
-    it("should return true within 10 questions of pause", () => {
-      expect(isApproachingPause(40, 100)).toBe(true) // 9 questions until pause
-      expect(isApproachingPause(45, 100)).toBe(true) // 4 questions until pause
-    })
-
-    it("should return false at exactly 11 questions before pause", () => {
-      expect(isApproachingPause(38, 100)).toBe(false) // 11 questions until pause
-    })
-
-    it("should return false at midpoint", () => {
-      expect(isApproachingPause(50, 100)).toBe(false)
-    })
-
-    it("should return false after midpoint", () => {
-      expect(isApproachingPause(60, 100)).toBe(false)
-    })
-
-    it("should handle small exams", () => {
-      // 20 questions -> midpoint at 10
-      expect(isApproachingPause(0, 20)).toBe(true) // 9 questions until pause
-      expect(isApproachingPause(5, 20)).toBe(true) // 4 questions until pause
+  describe("isApproachingPause (< 10 questions away)", () => {
+    it.each([
+      { index: 0, total: 100, expected: false }, // far from pause
+      { index: 38, total: 100, expected: false }, // 11 away
+      { index: 40, total: 100, expected: true }, // 9 away
+      { index: 45, total: 100, expected: true }, // 4 away
+      { index: 50, total: 100, expected: false }, // at midpoint
+      { index: 60, total: 100, expected: false }, // past midpoint
+      { index: 0, total: 20, expected: true }, // small exam, midpoint=10
+      { index: 5, total: 20, expected: true },
+    ])("index=$index total=$total → $expected", ({ index, total, expected }) => {
+      expect(isApproachingPause(index, total)).toBe(expected)
     })
   })
 })
