@@ -17,85 +17,11 @@ beforeEach(() => {
 })
 
 describe("userAccess - Gestion des accès payants", () => {
+  // Création/extension simple d'accès et révocation ponctuelle sont couverts
+  // dans payments.test.ts (recordManualPayment, updateManualTransaction).
+  // On garde ici les scénarios d'intégration qui traversent plusieurs
+  // mutations (accès combiné, flux startExam, getExpiringAccess).
   describe("Création d'accès via paiement manuel", () => {
-    it("crée un enregistrement userAccess après paiement", async () => {
-      const t = convexTest(schema, modules)
-      const admin = await createAdminUser(t)
-      const user = await createRegularUser(t)
-      await getOrCreateProduct(t, "exam")
-
-      await admin.asAdmin.mutation(api.payments.recordManualPayment, {
-        userId: user.userId,
-        productCode: "exam_access",
-        amountPaid: 5000,
-        currency: "CAD",
-        paymentMethod: "interac",
-      })
-
-      // Vérifier que l'accès a été créé
-      const access = await t.run(async (ctx) => {
-        return await ctx.db
-          .query("userAccess")
-          .withIndex("by_userId_accessType", (q) =>
-            q.eq("userId", user.userId).eq("accessType", "exam"),
-          )
-          .unique()
-      })
-
-      expect(access).not.toBeNull()
-      expect(access?.accessType).toBe("exam")
-      expect(access?.expiresAt).toBeGreaterThan(Date.now())
-    })
-
-    it("étend l'accès existant si nouvelle transaction", async () => {
-      const t = convexTest(schema, modules)
-      const admin = await createAdminUser(t)
-      const user = await createRegularUser(t)
-      await getOrCreateProduct(t, "exam")
-
-      // Premier paiement
-      await admin.asAdmin.mutation(api.payments.recordManualPayment, {
-        userId: user.userId,
-        productCode: "exam_access",
-        amountPaid: 5000,
-        currency: "CAD",
-        paymentMethod: "interac",
-      })
-
-      const firstAccess = await t.run(async (ctx) => {
-        return await ctx.db
-          .query("userAccess")
-          .withIndex("by_userId_accessType", (q) =>
-            q.eq("userId", user.userId).eq("accessType", "exam"),
-          )
-          .unique()
-      })
-
-      // Deuxième paiement
-      await admin.asAdmin.mutation(api.payments.recordManualPayment, {
-        userId: user.userId,
-        productCode: "exam_access",
-        amountPaid: 5000,
-        currency: "CAD",
-        paymentMethod: "cash",
-      })
-
-      const extendedAccess = await t.run(async (ctx) => {
-        return await ctx.db
-          .query("userAccess")
-          .withIndex("by_userId_accessType", (q) =>
-            q.eq("userId", user.userId).eq("accessType", "exam"),
-          )
-          .unique()
-      })
-
-      // L'accès doit être étendu (pas dupliqué)
-      expect(extendedAccess).not.toBeNull()
-      expect(extendedAccess?.expiresAt).toBeGreaterThan(
-        firstAccess?.expiresAt ?? 0,
-      )
-    })
-
     it("gère les deux types d'accès indépendamment", async () => {
       const t = convexTest(schema, modules)
       const admin = await createAdminUser(t)
@@ -300,105 +226,9 @@ describe("userAccess - Gestion des accès payants", () => {
     })
   })
 
-  describe("Révocation d'accès", () => {
-    it("supprime l'accès quand la dernière transaction est refundée", async () => {
-      const t = convexTest(schema, modules)
-      const admin = await createAdminUser(t)
-      const user = await createRegularUser(t)
-      await getOrCreateProduct(t, "exam")
-
-      // Créer un paiement
-      await admin.asAdmin.mutation(api.payments.recordManualPayment, {
-        userId: user.userId,
-        productCode: "exam_access",
-        amountPaid: 5000,
-        currency: "CAD",
-        paymentMethod: "interac",
-      })
-
-      // Récupérer la transaction
-      const transaction = await t.run(async (ctx) => {
-        return await ctx.db
-          .query("transactions")
-          .withIndex("by_userId", (q) => q.eq("userId", user.userId))
-          .first()
-      })
-
-      // Refund la transaction via updateManualTransaction
-      await admin.asAdmin.mutation(api.payments.updateManualTransaction, {
-        transactionId: transaction!._id,
-        amountPaid: 5000,
-        currency: "CAD",
-        paymentMethod: "interac",
-        status: "refunded",
-      })
-
-      // L'accès doit être supprimé
-      const access = await t.run(async (ctx) => {
-        return await ctx.db
-          .query("userAccess")
-          .withIndex("by_userId_accessType", (q) =>
-            q.eq("userId", user.userId).eq("accessType", "exam"),
-          )
-          .unique()
-      })
-
-      expect(access).toBeNull()
-    })
-
-    it("conserve l'accès si une transaction plus récente existe", async () => {
-      const t = convexTest(schema, modules)
-      const admin = await createAdminUser(t)
-      const user = await createRegularUser(t)
-      await getOrCreateProduct(t, "exam")
-
-      // Premier paiement
-      await admin.asAdmin.mutation(api.payments.recordManualPayment, {
-        userId: user.userId,
-        productCode: "exam_access",
-        amountPaid: 5000,
-        currency: "CAD",
-        paymentMethod: "interac",
-      })
-
-      const firstTransaction = await t.run(async (ctx) => {
-        return await ctx.db
-          .query("transactions")
-          .withIndex("by_userId", (q) => q.eq("userId", user.userId))
-          .first()
-      })
-
-      // Deuxième paiement
-      await admin.asAdmin.mutation(api.payments.recordManualPayment, {
-        userId: user.userId,
-        productCode: "exam_access",
-        amountPaid: 5000,
-        currency: "CAD",
-        paymentMethod: "cash",
-      })
-
-      // Refund la première transaction (pas la dernière) via updateManualTransaction
-      await admin.asAdmin.mutation(api.payments.updateManualTransaction, {
-        transactionId: firstTransaction!._id,
-        amountPaid: 5000,
-        currency: "CAD",
-        paymentMethod: "interac",
-        status: "refunded",
-      })
-
-      // L'accès doit être conservé (car la 2e transaction est la dernière)
-      const access = await t.run(async (ctx) => {
-        return await ctx.db
-          .query("userAccess")
-          .withIndex("by_userId_accessType", (q) =>
-            q.eq("userId", user.userId).eq("accessType", "exam"),
-          )
-          .unique()
-      })
-
-      expect(access).not.toBeNull()
-    })
-  })
+  // Révocation via updateManualTransaction/deleteManualTransaction est
+  // couverte dans payments.test.ts (willRevokeAccess, updateManualTransaction,
+  // deleteManualTransaction).
 
   describe("Requêtes d'accès", () => {
     it("retourne les accès expirant bientôt", async () => {

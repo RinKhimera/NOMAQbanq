@@ -63,9 +63,19 @@ export const createMockUserDoc = (
   }) as Doc<"users">
 
 // ===== Question Doc Factory =====
+// Retourne un doc enrichi : Doc<"questions"> + explanation/references joints.
+// Côté prod, explanation/references vivent dans questionExplanations et sont
+// merge-joints par le serveur (getQuestionById, scoreQuizAnswers,
+// _getQuestionsPageForExport). Les composants review/results reçoivent donc
+// un objet enrichi — ce factory reflète cette shape pour les tests.
+export type MockQuestionDoc = Doc<"questions"> & {
+  explanation: string
+  references?: string[]
+}
+
 export const createMockQuestionDoc = (
-  overrides?: Partial<Doc<"questions">>,
-): Doc<"questions"> =>
+  overrides?: Partial<MockQuestionDoc>,
+): MockQuestionDoc =>
   ({
     _id: "q1" as Id<"questions">,
     _creationTime: Date.now(),
@@ -76,7 +86,7 @@ export const createMockQuestionDoc = (
     objectifCMC: "Objectif 1",
     domain: "Général",
     ...overrides,
-  }) as Doc<"questions">
+  }) as MockQuestionDoc
 
 // ===== Session Question Factory =====
 export const createMockSessionQuestion = (
