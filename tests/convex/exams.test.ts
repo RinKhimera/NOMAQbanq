@@ -1770,7 +1770,6 @@ describe("exams", () => {
           question: "Test question",
           options: ["A", "B", "C", "D"],
           correctAnswer: "A",
-          explanation: "Test",
           objectifCMC: "Test",
           domain: "Test",
         })
@@ -1886,7 +1885,6 @@ describe("exams", () => {
           question: "Q1",
           options: ["A", "B", "C", "D"],
           correctAnswer: "A",
-          explanation: "E1",
           objectifCMC: "O1",
           domain: "Test",
         })
@@ -1897,7 +1895,6 @@ describe("exams", () => {
           question: "Q2",
           options: ["A", "B", "C", "D"],
           correctAnswer: "B",
-          explanation: "E2",
           objectifCMC: "O2",
           domain: "Test",
         })
@@ -1970,7 +1967,6 @@ describe("exams", () => {
           question: "Test question",
           options: ["A", "B", "C", "D"],
           correctAnswer: "A",
-          explanation: "Test",
           objectifCMC: "Test",
           domain: "Test",
         })

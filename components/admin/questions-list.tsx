@@ -1,6 +1,6 @@
 "use client"
 
-import { useMutation, usePaginatedQuery } from "convex/react"
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react"
 import { BookOpen, Filter, Loader2, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -31,15 +31,15 @@ import {
 } from "@/components/ui/select"
 import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
-import { Doc, Id } from "@/convex/_generated/dataModel"
+import { Id } from "@/convex/_generated/dataModel"
 import EditQuestionDialog from "./edit-question-dialog"
 
 export default function QuestionsList() {
   const [selectedDomain, setSelectedDomain] = useState("Tous les domaines")
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
-  const [editingQuestion, setEditingQuestion] =
-    useState<Doc<"questions"> | null>(null)
+  const [editingQuestionId, setEditingQuestionId] =
+    useState<Id<"questions"> | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [questionToDelete, setQuestionToDelete] = useState<string | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -68,8 +68,13 @@ export default function QuestionsList() {
 
   const domainOptions = ["Tous les domaines", ...MEDICAL_DOMAINS]
 
-  const handleEdit = (question: Doc<"questions">) => {
-    setEditingQuestion(question)
+  const editingQuestion = useQuery(
+    api.questions.getQuestionById,
+    editingQuestionId ? { questionId: editingQuestionId } : "skip",
+  )
+
+  const handleEdit = (questionId: Id<"questions">) => {
+    setEditingQuestionId(questionId)
     setIsEditDialogOpen(true)
   }
 
@@ -149,7 +154,7 @@ export default function QuestionsList() {
             question={question}
             questionNumber={index + 1}
             actions={[
-              createEditAction(() => handleEdit(question)),
+              createEditAction(() => handleEdit(question._id)),
               createPermanentDeleteAction(() =>
                 handleDeleteClick(question._id),
               ),
@@ -195,7 +200,7 @@ export default function QuestionsList() {
 
       {/* Dialogue d'édition */}
       <EditQuestionDialog
-        question={editingQuestion}
+        question={editingQuestion ?? null}
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
       />

@@ -1,5 +1,6 @@
 "use client"
 
+import type { FunctionReturnType } from "convex/server"
 import { CheckCircle, Eye, Target } from "lucide-react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
@@ -10,10 +11,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Doc } from "@/convex/_generated/dataModel"
+import type { api } from "@/convex/_generated/api"
+
+type QuestionWithExplanation = NonNullable<
+  FunctionReturnType<typeof api.questions.getQuestionById>
+>
 
 interface QuestionDetailsDialogProps {
-  question: Doc<"questions"> | null
+  question: QuestionWithExplanation | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }

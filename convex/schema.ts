@@ -31,14 +31,6 @@ export default defineSchema({
     ),
     options: v.array(v.string()),
     correctAnswer: v.string(),
-    // PR C (cutover) : `explanation` et `references` ont été physiquement
-    // sortis de la table `questions` vers `questionExplanations`. Ils sont
-    // déclarés optional ici pour permettre à la migration de cleanup
-    // (migrations/cleanupOldFieldsFromQuestions) d'appeler ctx.db.replace()
-    // en retirant ces champs. Une fois le cleanup confirmé en prod, ces
-    // deux lignes pourront être retirées entièrement du schéma (PR C+1).
-    explanation: v.optional(v.string()),
-    references: v.optional(v.array(v.string())),
     objectifCMC: v.string(),
     domain: v.string(),
     // Champ dénormalisé pour filtrer "avec/sans images" via searchIndex

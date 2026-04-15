@@ -58,7 +58,14 @@ vi.mock("next/image", () => ({
   ),
 }))
 
-const mockQuestion: Doc<"questions"> = {
+// QuestionCard accepte `QuestionCardQuestion` (Doc<"questions"> étendu avec
+// explanation/references optionnels, lazy-loaded côté serveur via
+// questionExplanations). On enrichit le doc avec ces deux champs pour couvrir
+// le variant "review".
+const mockQuestion: Doc<"questions"> & {
+  explanation: string
+  references?: string[]
+} = {
   _id: "q1" as Id<"questions">,
   _creationTime: Date.now(),
   question: "Quelle est la capitale de la France ?",
@@ -149,9 +156,7 @@ describe("QuestionCard", () => {
       )
 
       expect(screen.getByText(/Explication :/i)).toBeInTheDocument()
-      // mockQuestion.explanation est toujours défini dans cette fixture.
-      // Depuis PR C, le type Doc<"questions"> rend explanation optional.
-      expect(screen.getByText(mockQuestion.explanation!)).toBeInTheDocument()
+      expect(screen.getByText(mockQuestion.explanation)).toBeInTheDocument()
     })
 
     it("affiche les indicateurs de correction quand étendu", () => {

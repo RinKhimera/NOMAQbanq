@@ -149,7 +149,6 @@ describe("userAccess - Gestion des accès payants", () => {
           question: "Test question",
           options: ["A", "B", "C", "D"],
           correctAnswer: "A",
-          explanation: "Test",
           domain: "Test",
           objectifCMC: "OBJ1",
         })
@@ -189,7 +188,6 @@ describe("userAccess - Gestion des accès payants", () => {
           question: "Test question",
           options: ["A", "B", "C", "D"],
           correctAnswer: "A",
-          explanation: "Test",
           domain: "Test",
           objectifCMC: "OBJ1",
         })
@@ -222,7 +220,6 @@ describe("userAccess - Gestion des accès payants", () => {
           question: "Test question",
           options: ["A", "B", "C", "D"],
           correctAnswer: "A",
-          explanation: "Test",
           domain: "Test",
           objectifCMC: "OBJ1",
         })
@@ -281,7 +278,6 @@ describe("userAccess - Gestion des accès payants", () => {
           question: "Test question",
           options: ["A", "B", "C", "D"],
           correctAnswer: "A",
-          explanation: "Test",
           domain: "Test",
           objectifCMC: "OBJ1",
         })

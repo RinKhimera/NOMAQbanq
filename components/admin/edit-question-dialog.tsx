@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useAction, useMutation } from "convex/react"
+import type { FunctionReturnType } from "convex/server"
 import { Check, Minus, Plus } from "lucide-react"
 import { useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
@@ -40,7 +41,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { MEDICAL_DOMAINS } from "@/constants"
 import { api } from "@/convex/_generated/api"
-import { Doc, Id } from "@/convex/_generated/dataModel"
+import { Id } from "@/convex/_generated/dataModel"
 import {
   QuestionFormValues,
   filterValidOptions,
@@ -49,8 +50,12 @@ import {
   validateCorrectAnswer,
 } from "@/schemas"
 
+type QuestionWithExplanation = NonNullable<
+  FunctionReturnType<typeof api.questions.getQuestionById>
+>
+
 type EditQuestionDialogProps = {
-  question: Doc<"questions"> | null
+  question: QuestionWithExplanation | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -85,9 +90,8 @@ export default function EditQuestionDialog({
     name: "correctAnswer",
   })
 
-  const [prevQuestion, setPrevQuestion] = useState<Doc<"questions"> | null>(
-    null,
-  )
+  const [prevQuestion, setPrevQuestion] =
+    useState<QuestionWithExplanation | null>(null)
   const [prevOpen, setPrevOpen] = useState(false)
 
   if (question && open && (question !== prevQuestion || open !== prevOpen)) {

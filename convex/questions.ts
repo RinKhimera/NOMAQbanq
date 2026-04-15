@@ -28,16 +28,11 @@ const questionImageValidator = v.object({
   order: v.number(),
 })
 
-// Validator complet pour un document question
-// Notes :
-// - `hasImagesComputed` est optional pendant le backfill PR A.
-// - PR C : `explanation` et `references` sont optional car ils ont été
-//   physiquement déplacés vers `questionExplanations`. Les queries qui
-//   doivent retourner l'explication (getQuestionById, _getQuestionsPageForExport,
-//   scoreQuizAnswers) joignent désormais depuis questionExplanations.
-//   Le validator accepte undefined pour le listing direct (getAllQuestions,
-//   getQuestionsWithFilters paginated) qui ne joignent pas et ne paient
-//   plus le coût des explications.
+// Validator complet pour un document question.
+// `explanation` et `references` vivent dans la table `questionExplanations`
+// (split bandwidth). Les queries qui doivent les retourner joignent
+// explicitement depuis questionExplanations (getQuestionById,
+// _getQuestionsPageForExport, scoreQuizAnswers).
 const questionDocValidator = v.object({
   _id: v.id("questions"),
   _creationTime: v.number(),
@@ -45,8 +40,6 @@ const questionDocValidator = v.object({
   images: v.optional(v.array(questionImageValidator)),
   options: v.array(v.string()),
   correctAnswer: v.string(),
-  explanation: v.optional(v.string()),
-  references: v.optional(v.array(v.string())),
   objectifCMC: v.string(),
   domain: v.string(),
   hasImagesComputed: v.optional(v.boolean()),
@@ -59,7 +52,6 @@ const questionWithoutAnswersValidator = v.object({
   question: v.string(),
   images: v.optional(v.array(questionImageValidator)),
   options: v.array(v.string()),
-  references: v.optional(v.array(v.string())),
   objectifCMC: v.string(),
   domain: v.string(),
   hasImagesComputed: v.optional(v.boolean()),
@@ -541,9 +533,9 @@ export const updateQuestion = mutation({
       updateData.objectifCMC = normalizeObjectifCMC(updateData.objectifCMC)
     }
 
-    // PR C (cutover) : `explanation` / `references` ne sont plus écrits dans
-    // la table `questions`. On les extrait du patch appliqué à `questions`
-    // (ils sont gérés séparément ci-dessous sur `questionExplanations`).
+    // `explanation` / `references` vivent dans `questionExplanations`.
+    // On les extrait du patch appliqué à `questions` (gérés séparément
+    // ci-dessous).
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { explanation, references, ...questionPatch } = updateData
 
@@ -582,16 +574,12 @@ export const updateQuestion = mutation({
         await ctx.db.patch(existingExplanationRow._id, explanationPatch)
       } else {
         // Defensive safety net : toute question devrait avoir une ligne
-        // questionExplanations (invariant vérifié en M2 avant PR C). Ce chemin
-        // ne doit plus être emprunté en temps normal, mais on tolère et on
-        // recrée la ligne plutôt que d'échouer silencieusement. Fallback sur
-        // l'ancien champ `existingQuestion.explanation` (peut être undefined
-        // après le cleanup) → empty string si absent.
+        // questionExplanations. On recrée la ligne plutôt que d'échouer
+        // silencieusement.
         await ctx.db.insert("questionExplanations", {
           questionId: id,
-          explanation:
-            updateData.explanation ?? existingQuestion.explanation ?? "",
-          references: updateData.references ?? existingQuestion.references,
+          explanation: updateData.explanation ?? "",
+          references: updateData.references,
         })
       }
     }
@@ -815,13 +803,28 @@ export const getQuestionsWithFilters = query({
   },
 })
 
-// Récupérer une question par son ID (pour le panel et l'édition)
-// PR B : l'explanation/references viennent désormais de questionExplanations
-// (jointure transparente côté serveur). Le shape de retour est inchangé
-// pour garder la compatibilité avec le frontend.
+// Récupérer une question par son ID (pour le panel et l'édition).
+// L'explanation/references viennent de questionExplanations (jointure
+// transparente côté serveur). Le shape de retour est inchangé pour garder
+// la compatibilité avec le frontend.
 export const getQuestionById = query({
   args: { questionId: v.id("questions") },
-  returns: v.union(v.null(), questionDocValidator),
+  returns: v.union(
+    v.null(),
+    v.object({
+      _id: v.id("questions"),
+      _creationTime: v.number(),
+      question: v.string(),
+      images: v.optional(v.array(questionImageValidator)),
+      options: v.array(v.string()),
+      correctAnswer: v.string(),
+      objectifCMC: v.string(),
+      domain: v.string(),
+      hasImagesComputed: v.optional(v.boolean()),
+      explanation: v.string(),
+      references: v.optional(v.array(v.string())),
+    }),
+  ),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
 
@@ -833,12 +836,10 @@ export const getQuestionById = query({
       .withIndex("by_question", (q) => q.eq("questionId", args.questionId))
       .unique()
 
-    // Merge : les valeurs de questionExplanations prennent la priorité.
-    // Fallback sur les anciens champs de questions (dual-write M1 actif).
     return {
       ...question,
-      explanation: explanationRow?.explanation ?? question.explanation ?? "",
-      references: explanationRow?.references ?? question.references,
+      explanation: explanationRow?.explanation ?? "",
+      references: explanationRow?.references,
     }
   },
 })
@@ -910,7 +911,7 @@ export const _getQuestionsPageForExport = internalQuery({
         result = await ctx.db.query("questions").paginate(paginationOpts)
       }
 
-      // PR B : jointure depuis questionExplanations
+      // Jointure depuis questionExplanations
       const explanationsMap = await batchGetExplanationsByQuestionIds(
         ctx,
         result.page.map((q) => q._id),
@@ -925,8 +926,8 @@ export const _getQuestionsPageForExport = internalQuery({
             question: q.question,
             options: q.options,
             correctAnswer: q.correctAnswer,
-            explanation: joined?.explanation ?? q.explanation ?? "",
-            references: joined?.references ?? q.references ?? [],
+            explanation: joined?.explanation ?? "",
+            references: joined?.references ?? [],
             objectifCMC: q.objectifCMC,
             domain: q.domain,
             hasImages: (q.images && q.images.length > 0) || false,
@@ -975,7 +976,7 @@ export const _getQuestionsPageForExport = internalQuery({
     const page = batch.slice(0, paginationOpts.numItems)
     const isDone = questions.length < startOffset + batchSize
 
-    // PR B : jointure depuis questionExplanations
+    // Jointure depuis questionExplanations
     const explanationsMap = await batchGetExplanationsByQuestionIds(
       ctx,
       page.map((q) => q._id),
@@ -990,8 +991,8 @@ export const _getQuestionsPageForExport = internalQuery({
           question: q.question,
           options: q.options,
           correctAnswer: q.correctAnswer,
-          explanation: joined?.explanation ?? q.explanation ?? "",
-          references: joined?.references ?? q.references ?? [],
+          explanation: joined?.explanation ?? "",
+          references: joined?.references ?? [],
           objectifCMC: q.objectifCMC,
           domain: q.domain,
           hasImages: (q.images && q.images.length > 0) || false,
@@ -1110,10 +1111,12 @@ export const getRandomQuestions = mutation({
       ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
     }
 
-    // Retourner sans correctAnswer ni explanation (quiz public)
+    // Retourner sans correctAnswer (quiz public). L'explanation vit dans
+    // questionExplanations et n'est pas jointe ici — elle sera renvoyée
+    // après soumission via scoreQuizAnswers.
     return shuffled.slice(0, Math.min(args.count, shuffled.length)).map((q) => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { correctAnswer, explanation, ...rest } = q
+      const { correctAnswer, ...rest } = q
       return rest
     })
   },
@@ -1151,8 +1154,8 @@ export const scoreQuizAnswers = mutation({
     const questionIds = args.answers.map((a) => a.questionId)
     const questions = await batchGetOrderedByIds(ctx, "questions", questionIds)
 
-    // PR B : jointure depuis questionExplanations pour éviter de dépendre
-    // des champs legacy explanation/references dans questions.
+    // Jointure depuis questionExplanations pour récupérer
+    // explanation/references (qui ne sont plus dans `questions`).
     const explanationsMap = await batchGetExplanationsByQuestionIds(
       ctx,
       questionIds,
@@ -1174,8 +1177,8 @@ export const scoreQuizAnswers = mutation({
         questionId: question._id,
         isCorrect,
         correctAnswer: question.correctAnswer,
-        explanation: joined?.explanation ?? question.explanation ?? "",
-        references: joined?.references ?? question.references ?? [],
+        explanation: joined?.explanation ?? "",
+        references: joined?.references ?? [],
       })
     }
 
