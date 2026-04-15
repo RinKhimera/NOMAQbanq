@@ -87,7 +87,10 @@ const QuestionExplanation = ({
       className="space-y-4 overflow-hidden"
     >
       {/* Explanation */}
-      <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 backdrop-blur-sm dark:border-blue-800 dark:bg-blue-900/20">
+      <div
+        data-testid="explanation-content"
+        className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 backdrop-blur-sm dark:border-blue-800 dark:bg-blue-900/20"
+      >
         <h4 className="mb-2 text-sm font-semibold text-blue-900 sm:text-base dark:text-blue-100">
           Explication :
         </h4>

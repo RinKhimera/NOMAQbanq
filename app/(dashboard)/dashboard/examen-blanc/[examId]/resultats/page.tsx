@@ -318,6 +318,7 @@ const ExamResultsPage = () => {
                 <div className="text-center md:text-left">
                   <div className="mb-2 flex items-center justify-center gap-3 md:justify-start">
                     <motion.span
+                      data-testid="score-percentage"
                       initial={{ scale: 0.5, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{
@@ -339,6 +340,7 @@ const ExamResultsPage = () => {
                   </p>
                   <div className="mt-3">
                     <Badge
+                      data-testid="score-badge"
                       className={cn(
                         "px-4 py-1 text-sm font-semibold",
                         results.isPassing
@@ -430,6 +432,7 @@ const ExamResultsPage = () => {
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Button
+                  data-testid="btn-filter-incorrect"
                   variant={showOnlyIncorrect ? "default" : "outline"}
                   onClick={() => setShowOnlyIncorrect(!showOnlyIncorrect)}
                   className="flex items-center gap-2"

@@ -73,6 +73,26 @@ export class ExamenBlancPage extends BasePage {
     return (await timer.textContent()) ?? ""
   }
 
+  /** Parse timer "HH:MM:SS" text and return remaining time in milliseconds */
+  async getTimerMs(): Promise<number> {
+    const text = await this.getTimerText()
+    const match = text.match(/(\d{2}):(\d{2}):(\d{2})/)
+    if (!match) return 0
+    const [, h, m, s] = match
+    return (Number(h) * 3600 + Number(m) * 60 + Number(s)) * 1000
+  }
+
+  /** Answer and navigate through `count` questions (for auto-submit scenarios) */
+  async answerAllQuestions(count: number) {
+    for (let i = 1; i <= count; i++) {
+      await this.waitForQuestion(i)
+      await this.selectAnswer(0)
+      if (i < count) {
+        await this.nextQuestion()
+      }
+    }
+  }
+
   async waitForQuestion(questionNum: number) {
     await expect(
       this.page.getByText(new RegExp(`Question ${questionNum} /`)),

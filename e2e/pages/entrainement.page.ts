@@ -111,4 +111,32 @@ export class EntrainementPage extends BasePage {
     const scoreElement = this.page.locator("text=/\\d+%/").first()
     return (await scoreElement.textContent()) ?? ""
   }
+
+  /** Navigate to results page; assumes finishSession has already redirected */
+  async gotoResultsFromCurrentUrl() {
+    await expect(this.page).toHaveURL(/\/results/, { timeout: 15_000 })
+    await expect(
+      this.page.getByRole("heading", { name: "Résultats" }),
+    ).toBeVisible({ timeout: 15_000 })
+  }
+
+  /** Click a navigator item (shared ResultsQuestionNavigator testid) */
+  async clickNavItem(index: number) {
+    await this.page
+      .getByTestId(`results-nav-item-${index}`)
+      .first()
+      .click()
+  }
+
+  /**
+   * Wait for the explanation of the question at `index` (0-based) to be
+   * lazy-loaded with non-empty text. Review-variant QuestionCard renders the
+   * explanation inside its expanded block, identifiable by data-testid.
+   */
+  async waitForExplanation(index: number) {
+    const questionCard = this.page.locator(`#question-${index + 1}`)
+    const explanation = questionCard.getByTestId("explanation-content")
+    await expect(explanation).toBeVisible({ timeout: 10_000 })
+    await expect(explanation).not.toBeEmpty()
+  }
 }

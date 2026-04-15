@@ -11,9 +11,12 @@ test.describe("Pages d'erreur", () => {
   }) => {
     await page.goto("/page-inexistante-xyz-123")
 
-    // Should show 404 content
+    // Should show 404 content (the heading "404" + subtitle "Page introuvable"
+    // both match the regex — use .first() to avoid strict mode violation)
     await expect(
-      page.getByText(/404|Page introuvable|Page non trouvée|Not Found/i),
+      page
+        .getByText(/404|Page introuvable|Page non trouvée|Not Found/i)
+        .first(),
     ).toBeVisible({ timeout: 15_000 })
   })
 

@@ -114,4 +114,62 @@ test.describe("Examen Blanc — pause obligatoire", () => {
       timeout: 10_000,
     })
   })
+
+  test("le pause-timer compte pendant la pause (totalPauseDurationMs avance)", async ({
+    page,
+  }) => {
+    await examen.goto()
+    await examen.clickStartExam()
+    await examen.confirmStart()
+    await examen.acceptWarningOrResume()
+
+    // Trigger pause by answering until the dialog appears
+    let pauseAppeared = false
+    for (let i = 0; i < 120; i++) {
+      const pauseTimer = page.locator("[data-testid='pause-timer']")
+      pauseAppeared = await pauseTimer
+        .isVisible({ timeout: 1_000 })
+        .catch(() => false)
+      if (pauseAppeared) break
+
+      const answerOption = page.locator("[data-testid='answer-option-0']")
+      const hasOption = await answerOption
+        .isVisible({ timeout: 2_000 })
+        .catch(() => false)
+      if (!hasOption) break
+
+      await answerOption.click()
+      await examen.nextQuestion()
+    }
+
+    if (!pauseAppeared) {
+      test.skip(true, "Aucun examen avec pause active disponible")
+      return
+    }
+
+    const pauseTimer = page.locator("[data-testid='pause-timer']")
+    const parseTimer = (text: string): number => {
+      const match = text.match(/(\d+)[^\d]+(\d+)/)
+      if (!match) return 0
+      return Number(match[1]) * 60 + Number(match[2])
+    }
+
+    const initialText = (await pauseTimer.textContent()) ?? ""
+    const initialSeconds = parseTimer(initialText)
+
+    await page.waitForTimeout(3_000)
+
+    const laterText = (await pauseTimer.textContent()) ?? ""
+    const laterSeconds = parseTimer(laterText)
+
+    // Pause timer should count UP by at least 2 seconds (accounting for jitter)
+    expect(laterSeconds).toBeGreaterThan(initialSeconds)
+    expect(laterSeconds - initialSeconds).toBeGreaterThanOrEqual(2)
+
+    // Resume to leave the fixture in a known state for downstream tests
+    const resumeBtn = page.locator("[data-testid='btn-resume-exam']")
+    if (await resumeBtn.isVisible().catch(() => false)) {
+      await resumeBtn.click()
+    }
+  })
 })

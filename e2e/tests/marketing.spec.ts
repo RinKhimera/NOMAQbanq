@@ -22,8 +22,11 @@ test.describe("Pages marketing (publiques)", () => {
       page.getByRole("link", { name: "Essayez NOMAQbanq" }),
     ).toBeVisible()
 
-    // Trust indicator
-    await expect(page.getByText("2000+ candidats satisfaits")).toBeVisible()
+    // Trust indicator — stats are dynamic from Convex (fallback "200+"),
+    // so match the suffix instead of a hardcoded number
+    await expect(
+      page.getByText(/candidats satisfaits/).first(),
+    ).toBeVisible()
   })
 
   test("la page d'accueil affiche les features", async ({ page }) => {
@@ -38,7 +41,9 @@ test.describe("Pages marketing (publiques)", () => {
     ]
 
     for (const title of featureTitles) {
-      await expect(page.getByText(title)).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText(title).first()).toBeVisible({
+        timeout: 15_000,
+      })
     }
   })
 
@@ -48,7 +53,7 @@ test.describe("Pages marketing (publiques)", () => {
     await page.goto("/tarifs")
 
     await expect(
-      page.getByText("Choisissez votre plan de préparation"),
+      page.getByText("Choisissez votre plan de préparation").first(),
     ).toBeVisible({ timeout: 15_000 })
 
     await expect(
@@ -57,7 +62,7 @@ test.describe("Pages marketing (publiques)", () => {
         .first(),
     ).toBeVisible()
 
-    await expect(page.getByText(/Paiement sécurisé/)).toBeVisible()
+    await expect(page.getByText(/Paiement sécurisé/).first()).toBeVisible()
   })
 
   test("la page FAQ affiche les accordeons et la recherche", async ({
@@ -114,27 +119,22 @@ test.describe("Pages marketing (publiques)", () => {
     await expect(quizLink).toHaveAttribute("href", "/evaluation/quiz")
   })
 
-  test("la page confidentialite charge correctement", async ({ page }) => {
-    await page.goto("/confidentialite")
+  test("les pages légales (confidentialité, conditions, cookies) chargent", async ({
+    page,
+  }) => {
+    // Smoke test unique pour les 3 pages légales au lieu de 3 tests séparés.
+    // Ces pages sont statiques, une assertion minimale suffit.
+    const legalPages = [
+      { url: "/confidentialite", heading: "Politique de confidentialité" },
+      { url: "/conditions", heading: "Conditions d'utilisation" },
+      { url: "/cookies", heading: "Politique de cookies" },
+    ]
 
-    await expect(page.getByText("Politique de confidentialité")).toBeVisible({
-      timeout: 15_000,
-    })
-  })
-
-  test("la page conditions charge correctement", async ({ page }) => {
-    await page.goto("/conditions")
-
-    await expect(page.getByText("Conditions d'utilisation")).toBeVisible({
-      timeout: 15_000,
-    })
-  })
-
-  test("la page cookies charge correctement", async ({ page }) => {
-    await page.goto("/cookies")
-
-    await expect(page.getByText("Politique de cookies")).toBeVisible({
-      timeout: 15_000,
-    })
+    for (const { url, heading } of legalPages) {
+      await page.goto(url)
+      await expect(
+        page.getByRole("heading", { name: heading }),
+      ).toBeVisible({ timeout: 15_000 })
+    }
   })
 })

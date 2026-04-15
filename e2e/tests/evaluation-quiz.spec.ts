@@ -71,7 +71,11 @@ test.describe("Evaluation gratuite — quiz public", () => {
 
     // Answer all questions (up to 10)
     for (let i = 0; i < 10; i++) {
-      await page.locator("[data-testid='answer-option-0']").click()
+      // Scroll the answer into the middle of the viewport first so the sticky
+      // marketing header (fixed, z-50) doesn't intercept the click
+      const answer = page.locator("[data-testid='answer-option-0']")
+      await answer.scrollIntoViewIfNeeded()
+      await answer.click()
 
       const nextBtn = page.getByRole("button", {
         name: "Question suivante",
@@ -83,6 +87,7 @@ test.describe("Evaluation gratuite — quiz public", () => {
       const isLast = await resultsBtn.isVisible().catch(() => false)
       if (isLast) break
 
+      await nextBtn.scrollIntoViewIfNeeded()
       await nextBtn.click()
       await expect(page.locator("[data-testid='answer-option-0']")).toBeVisible(
         { timeout: 10_000 },
@@ -106,7 +111,9 @@ test.describe("Evaluation gratuite — quiz public", () => {
 
     // Answer all questions quickly
     for (let i = 0; i < 10; i++) {
-      await page.locator("[data-testid='answer-option-0']").click()
+      const answer = page.locator("[data-testid='answer-option-0']")
+      await answer.scrollIntoViewIfNeeded()
+      await answer.click()
 
       const resultsBtn = page.getByRole("button", {
         name: "Voir les résultats",
@@ -114,17 +121,27 @@ test.describe("Evaluation gratuite — quiz public", () => {
       const isLast = await resultsBtn.isVisible().catch(() => false)
 
       if (isLast) {
+        await resultsBtn.scrollIntoViewIfNeeded()
         await resultsBtn.click()
         break
       }
 
-      await page.getByRole("button", { name: "Question suivante" }).click()
+      const nextBtn = page.getByRole("button", { name: "Question suivante" })
+      await nextBtn.scrollIntoViewIfNeeded()
+      await nextBtn.click()
       await expect(page.locator("[data-testid='answer-option-0']")).toBeVisible(
         { timeout: 10_000 },
       )
     }
 
-    // Results page should show score
-    await expect(page.getByText(/\d+%/)).toBeVisible({ timeout: 15_000 })
+    // Results page should show score — review cards can also contain percentage
+    // text, so scope to the score summary card via the "Score" label
+    await expect(
+      page
+        .locator("div")
+        .filter({ has: page.getByText("Score", { exact: true }) })
+        .getByText(/\d+%/)
+        .first(),
+    ).toBeVisible({ timeout: 15_000 })
   })
 })

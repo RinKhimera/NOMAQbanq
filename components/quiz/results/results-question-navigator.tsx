@@ -46,6 +46,14 @@ export const ResultsQuestionNavigator = ({
       {questionResults.map((result, index) => (
         <button
           key={index}
+          data-testid={`results-nav-item-${index}`}
+          data-state={
+            result.isCorrect
+              ? "correct"
+              : !result.isAnswered
+                ? "unanswered"
+                : "incorrect"
+          }
           onClick={() => handleNavigate(index)}
           className={cn(
             "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-xs font-medium transition-colors",

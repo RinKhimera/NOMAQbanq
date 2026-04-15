@@ -24,4 +24,14 @@ export class BasePage {
       this.page.locator("[data-sonner-toast]").filter({ hasText: message }),
     ).toBeVisible({ timeout: 5_000 })
   }
+
+  /**
+   * Click helper resistant to Convex real-time re-renders that detach the DOM.
+   * Waits for visibility, performs a trial click to stabilize layout, then clicks.
+   */
+  async safeClick(locator: Locator) {
+    await locator.waitFor({ state: "visible", timeout: 10_000 })
+    await locator.click({ trial: true })
+    await locator.click()
+  }
 }
