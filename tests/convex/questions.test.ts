@@ -2458,4 +2458,129 @@ describe("questions", () => {
       expect(result.page).toHaveLength(1)
     })
   })
+
+  describe("objectifCMCStats aggregation", () => {
+    // Clés réservées utilisées dans convex/questions.ts
+    const GLOBAL_OBJECTIF_KEY = "__all__"
+
+    const countFor = async (
+      t: ReturnType<typeof convexTest>,
+      objectifCMC: string,
+      domain: string,
+    ) =>
+      t.run(async (ctx) => {
+        const row = await ctx.db
+          .query("objectifCMCStats")
+          .withIndex("by_objectifCMC_domain", (q) =>
+            q.eq("objectifCMC", objectifCMC).eq("domain", domain),
+          )
+          .unique()
+        return row?.count ?? 0
+      })
+
+    it("crée une ligne par (objectifCMC, domain) + une ligne __all__ à la création", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "Hypertension",
+        domain: "Cardiologie",
+      })
+
+      expect(await countFor(t, "Hypertension", "Cardiologie")).toBe(1)
+      expect(await countFor(t, "Hypertension", GLOBAL_OBJECTIF_KEY)).toBe(1)
+    })
+
+    it("incrémente plusieurs questions sur le même (objectif, domain)", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      for (let i = 0; i < 3; i++) {
+        await asAdmin.mutation(api.questions.createQuestion, {
+          question: `Q${i}`,
+          options: ["A", "B", "C", "D"],
+          correctAnswer: "A",
+          explanation: "E",
+          objectifCMC: "Hypertension",
+          domain: "Cardiologie",
+        })
+      }
+
+      expect(await countFor(t, "Hypertension", "Cardiologie")).toBe(3)
+      expect(await countFor(t, "Hypertension", GLOBAL_OBJECTIF_KEY)).toBe(3)
+    })
+
+    it("décrémente à la suppression", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const id = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "Hypertension",
+        domain: "Cardiologie",
+      })
+
+      expect(await countFor(t, "Hypertension", "Cardiologie")).toBe(1)
+
+      await asAdmin.mutation(api.questions.deleteQuestion, { id })
+
+      expect(await countFor(t, "Hypertension", "Cardiologie")).toBe(0)
+      expect(await countFor(t, "Hypertension", GLOBAL_OBJECTIF_KEY)).toBe(0)
+    })
+
+    it("bascule la stat quand updateQuestion change objectifCMC", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const id = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "Hypertension",
+        domain: "Cardiologie",
+      })
+
+      await asAdmin.mutation(api.questions.updateQuestion, {
+        id,
+        objectifCMC: "Diabète",
+      })
+
+      expect(await countFor(t, "Hypertension", "Cardiologie")).toBe(0)
+      expect(await countFor(t, "Hypertension", GLOBAL_OBJECTIF_KEY)).toBe(0)
+      expect(await countFor(t, "Diabète", "Cardiologie")).toBe(1)
+      expect(await countFor(t, "Diabète", GLOBAL_OBJECTIF_KEY)).toBe(1)
+    })
+
+    it("bascule la stat quand updateQuestion change de domaine", async () => {
+      const t = convexTest(schema, modules)
+      const { asAdmin } = await createAdminUser(t)
+
+      const id = await asAdmin.mutation(api.questions.createQuestion, {
+        question: "Q",
+        options: ["A", "B", "C", "D"],
+        correctAnswer: "A",
+        explanation: "E",
+        objectifCMC: "Hypertension",
+        domain: "Cardiologie",
+      })
+
+      await asAdmin.mutation(api.questions.updateQuestion, {
+        id,
+        domain: "Endocrinologie",
+      })
+
+      expect(await countFor(t, "Hypertension", "Cardiologie")).toBe(0)
+      expect(await countFor(t, "Hypertension", "Endocrinologie")).toBe(1)
+      // __all__ reste à 1 (l'objectif est encore présent globalement)
+      expect(await countFor(t, "Hypertension", GLOBAL_OBJECTIF_KEY)).toBe(1)
+    })
+  })
 })

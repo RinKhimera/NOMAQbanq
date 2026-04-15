@@ -2016,4 +2016,165 @@ describe("exams", () => {
       expect(result.processedCount).toBe(2)
     })
   })
+
+  describe("getQuestionExplanations", () => {
+    it("retourne [] si non connecté", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const q1 = await createQuestion(t, admin, 1)
+
+      const result = await t.query(api.exams.getQuestionExplanations, {
+        questionIds: [q1],
+      })
+
+      expect(result).toEqual([])
+    })
+
+    it("retourne [] si liste d'IDs vide", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+
+      const result = await admin.asAdmin.query(
+        api.exams.getQuestionExplanations,
+        { questionIds: [] },
+      )
+
+      expect(result).toEqual([])
+    })
+
+    it("admin a accès à toutes les explications demandées", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const q1 = await createQuestion(t, admin, 1)
+      const q2 = await createQuestion(t, admin, 2)
+
+      const result = await admin.asAdmin.query(
+        api.exams.getQuestionExplanations,
+        { questionIds: [q1, q2] },
+      )
+
+      expect(result).toHaveLength(2)
+      const byId = new Map(result.map((r) => [r.questionId, r]))
+      expect(byId.get(q1)?.explanation).toBe("Explication 1")
+      expect(byId.get(q2)?.explanation).toBe("Explication 2")
+    })
+
+    it("user voit les explications des exams qu'il a complétés", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const q1 = await createQuestion(t, admin, 1)
+      const q2 = await createQuestion(t, admin, 2)
+
+      await grantAccess(t, user.userId, "exam")
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1, q2],
+      })
+
+      await user.asUser.mutation(api.exams.startExam, { examId })
+      // Terminer l'examen (status → completed)
+      await t.run(async (ctx) => {
+        const participation = await ctx.db
+          .query("examParticipations")
+          .withIndex("by_exam_user", (q) =>
+            q.eq("examId", examId).eq("userId", user.userId),
+          )
+          .unique()
+        await ctx.db.patch(participation!._id, { status: "completed" })
+      })
+
+      const result = await user.asUser.query(
+        api.exams.getQuestionExplanations,
+        { questionIds: [q1, q2] },
+      )
+
+      expect(result).toHaveLength(2)
+    })
+
+    it("user n'a PAS accès aux questions des exams in_progress", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const q1 = await createQuestion(t, admin, 1)
+
+      await grantAccess(t, user.userId, "exam")
+
+      const now = Date.now()
+      const examId = await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen en cours",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+      })
+
+      // Laisser le status par défaut in_progress
+      await user.asUser.mutation(api.exams.startExam, { examId })
+
+      const result = await user.asUser.query(
+        api.exams.getQuestionExplanations,
+        { questionIds: [q1] },
+      )
+
+      expect(result).toEqual([])
+    })
+
+    it("user n'a PAS accès aux questions d'exams auxquels il n'a pas participé", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const q1 = await createQuestion(t, admin, 1)
+
+      const now = Date.now()
+      await admin.asAdmin.mutation(api.exams.createExam, {
+        title: "Examen auquel user n'a pas participé",
+        startDate: now - 1000,
+        endDate: now + 7 * 24 * 60 * 60 * 1000,
+        questionIds: [q1],
+      })
+
+      const result = await user.asUser.query(
+        api.exams.getQuestionExplanations,
+        { questionIds: [q1] },
+      )
+
+      expect(result).toEqual([])
+    })
+
+    it("user voit les explications des trainings complétés", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const user = await createRegularUser(t)
+      const q1 = await createQuestion(t, admin, 1)
+
+      await grantAccess(t, user.userId, "training")
+
+      // Créer une session training complétée côté DB
+      await t.run(async (ctx) => {
+        await ctx.db.insert("trainingParticipations", {
+          userId: user.userId,
+          questionCount: 1,
+          questionIds: [q1],
+          score: 100,
+          status: "completed",
+          startedAt: Date.now() - 1000,
+          completedAt: Date.now(),
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000,
+        })
+      })
+
+      const result = await user.asUser.query(
+        api.exams.getQuestionExplanations,
+        { questionIds: [q1] },
+      )
+
+      expect(result).toHaveLength(1)
+      expect(result[0].questionId).toBe(q1)
+      expect(result[0].explanation).toBe("Explication 1")
+    })
+  })
 })

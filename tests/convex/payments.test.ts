@@ -1734,4 +1734,211 @@ describe("payments", () => {
       expect(products[0].name).toBe("Accès Examens") // Le premier nom est conservé
     })
   })
+
+  describe("isCombo (premium product: grants exam + training)", () => {
+    // Helper : insère un produit combo (premium_access) dans la DB de test
+    const insertComboProduct = async (t: ReturnType<typeof convexTest>) =>
+      t.run(async (ctx) =>
+        ctx.db.insert("products", {
+          code: "premium_access",
+          name: "Premium",
+          description: "Exam + Training",
+          priceCAD: 9000,
+          durationDays: 60,
+          // accessType reste nominal (exam) — isCombo écrase le comportement
+          accessType: "exam",
+          stripeProductId: "prod_premium",
+          stripePriceId: "price_premium",
+          isActive: true,
+          isCombo: true,
+        }),
+      )
+
+    it("recordManualPayment accorde exam + training pour un produit combo", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const { userId } = await createRegularUser(t)
+      await insertComboProduct(t)
+
+      const result = await admin.asAdmin.mutation(
+        api.payments.recordManualPayment,
+        {
+          userId,
+          productCode: "premium_access",
+          amountPaid: 9000,
+          currency: "CAD",
+          paymentMethod: "interac",
+        },
+      )
+
+      expect(result.success).toBe(true)
+
+      const allAccess = await t.run(async (ctx) =>
+        ctx.db
+          .query("userAccess")
+          .withIndex("by_userId", (q) => q.eq("userId", userId))
+          .collect(),
+      )
+
+      expect(allAccess).toHaveLength(2)
+      const types = allAccess.map((a) => a.accessType).sort()
+      expect(types).toEqual(["exam", "training"])
+
+      // Les deux accès ont la même date d'expiration
+      const [a, b] = allAccess
+      expect(a.expiresAt).toBe(b.expiresAt)
+    })
+
+    it("le combo ne cumule pas le temps (toujours depuis maintenant)", async () => {
+      const t = convexTest(schema, modules)
+      const admin = await createAdminUser(t)
+      const { userId } = await createRegularUser(t)
+      await insertComboProduct(t)
+
+      // Premier achat combo
+      await admin.asAdmin.mutation(api.payments.recordManualPayment, {
+        userId,
+        productCode: "premium_access",
+        amountPaid: 9000,
+        currency: "CAD",
+        paymentMethod: "interac",
+      })
+
+      const firstAccess = await t.run(async (ctx) =>
+        ctx.db
+          .query("userAccess")
+          .withIndex("by_userId_accessType", (q) =>
+            q.eq("userId", userId).eq("accessType", "exam"),
+          )
+          .unique(),
+      )
+
+      // Second achat combo — le combo RECALCULE depuis maintenant (pas cumul)
+      await admin.asAdmin.mutation(api.payments.recordManualPayment, {
+        userId,
+        productCode: "premium_access",
+        amountPaid: 9000,
+        currency: "CAD",
+        paymentMethod: "interac",
+      })
+
+      const secondAccess = await t.run(async (ctx) =>
+        ctx.db
+          .query("userAccess")
+          .withIndex("by_userId_accessType", (q) =>
+            q.eq("userId", userId).eq("accessType", "exam"),
+          )
+          .unique(),
+      )
+
+      // La nouvelle expiration doit être proche de now + 60j, pas first+60j
+      const deltaMs = Math.abs(
+        (secondAccess?.expiresAt ?? 0) - (firstAccess?.expiresAt ?? 0),
+      )
+      // L'écart entre les deux doit être petit (<5s, temps d'exécution du test)
+      // plutôt que d'être proche de 60j si cumul avait lieu.
+      expect(deltaMs).toBeLessThan(5000)
+    })
+
+    it("completeStripeTransaction sur pending combo accorde exam + training", async () => {
+      const t = convexTest(schema, modules)
+      const { userId } = await createRegularUser(t)
+      const productId = await insertComboProduct(t)
+
+      const now = Date.now()
+      const accessExpiresAt = now + 60 * 24 * 60 * 60 * 1000
+
+      // Créer une transaction pending Stripe combo
+      await t.run(async (ctx) => {
+        await ctx.db.insert("transactions", {
+          userId,
+          productId,
+          type: "stripe",
+          status: "pending",
+          amountPaid: 9000,
+          currency: "CAD",
+          stripeSessionId: "cs_combo_1",
+          accessType: "exam",
+          durationDays: 60,
+          accessExpiresAt,
+          createdAt: now,
+        })
+      })
+
+      const result = await t.mutation(
+        internal.payments.completeStripeTransaction,
+        {
+          stripeSessionId: "cs_combo_1",
+          stripePaymentIntentId: "pi_combo_1",
+          stripeEventId: "evt_combo_1",
+        },
+      )
+
+      expect(result.success).toBe(true)
+      expect(result.alreadyProcessed).toBeUndefined()
+
+      const allAccess = await t.run(async (ctx) =>
+        ctx.db
+          .query("userAccess")
+          .withIndex("by_userId", (q) => q.eq("userId", userId))
+          .collect(),
+      )
+
+      expect(allAccess).toHaveLength(2)
+      const types = allAccess.map((a) => a.accessType).sort()
+      expect(types).toEqual(["exam", "training"])
+    })
+
+    it("completeStripeTransaction est idempotent pour un combo (re-delivery webhook)", async () => {
+      const t = convexTest(schema, modules)
+      const { userId } = await createRegularUser(t)
+      const productId = await insertComboProduct(t)
+
+      const now = Date.now()
+      await t.run(async (ctx) => {
+        await ctx.db.insert("transactions", {
+          userId,
+          productId,
+          type: "stripe",
+          status: "pending",
+          amountPaid: 9000,
+          currency: "CAD",
+          stripeSessionId: "cs_combo_2",
+          accessType: "exam",
+          durationDays: 60,
+          accessExpiresAt: now + 60 * 24 * 60 * 60 * 1000,
+          createdAt: now,
+        })
+      })
+
+      // Premier appel (success)
+      await t.mutation(internal.payments.completeStripeTransaction, {
+        stripeSessionId: "cs_combo_2",
+        stripePaymentIntentId: "pi_combo_2",
+        stripeEventId: "evt_combo_2",
+      })
+
+      // Second appel avec même stripeEventId (re-delivery webhook)
+      const second = await t.mutation(
+        internal.payments.completeStripeTransaction,
+        {
+          stripeSessionId: "cs_combo_2",
+          stripePaymentIntentId: "pi_combo_2",
+          stripeEventId: "evt_combo_2",
+        },
+      )
+
+      expect(second.success).toBe(true)
+      expect(second.alreadyProcessed).toBe(true)
+
+      // Pas de duplication de userAccess
+      const allAccess = await t.run(async (ctx) =>
+        ctx.db
+          .query("userAccess")
+          .withIndex("by_userId", (q) => q.eq("userId", userId))
+          .collect(),
+      )
+      expect(allAccess).toHaveLength(2)
+    })
+  })
 })
