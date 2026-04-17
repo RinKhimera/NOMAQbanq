@@ -17,6 +17,13 @@ import {
 import { batchGetByIds } from "./lib/batchFetch"
 import { deleteFromBunny } from "./lib/bunny"
 import { decrementExamParticipationCount } from "./lib/examStats"
+import {
+  accessTypeValidator,
+  currencyValidator,
+  productCodeValidator,
+  transactionStatusValidator,
+  transactionTypeValidator,
+} from "./lib/validators"
 
 async function userByExternalId(ctx: QueryCtx, externalId: string) {
   return await ctx.db
@@ -919,22 +926,17 @@ export const getUserPanelData = query({
           _creationTime: v.number(),
           userId: v.id("users"),
           productId: v.id("products"),
-          type: v.union(v.literal("stripe"), v.literal("manual")),
-          status: v.union(
-            v.literal("pending"),
-            v.literal("completed"),
-            v.literal("failed"),
-            v.literal("refunded"),
-          ),
+          type: transactionTypeValidator,
+          status: transactionStatusValidator,
           amountPaid: v.number(),
-          currency: v.union(v.literal("CAD"), v.literal("XAF")),
+          currency: currencyValidator,
           stripeSessionId: v.optional(v.string()),
           stripePaymentIntentId: v.optional(v.string()),
           stripeEventId: v.optional(v.string()),
           paymentMethod: v.optional(v.string()),
           recordedBy: v.optional(v.id("users")),
           notes: v.optional(v.string()),
-          accessType: v.union(v.literal("exam"), v.literal("training")),
+          accessType: accessTypeValidator,
           durationDays: v.number(),
           accessExpiresAt: v.number(),
           createdAt: v.number(),
@@ -944,18 +946,12 @@ export const getUserPanelData = query({
             v.object({
               _id: v.id("products"),
               _creationTime: v.number(),
-              code: v.union(
-                v.literal("exam_access"),
-                v.literal("training_access"),
-                v.literal("exam_access_promo"),
-                v.literal("training_access_promo"),
-                v.literal("premium_access"),
-              ),
+              code: productCodeValidator,
               name: v.string(),
               description: v.string(),
               priceCAD: v.number(),
               durationDays: v.number(),
-              accessType: v.union(v.literal("exam"), v.literal("training")),
+              accessType: accessTypeValidator,
               stripeProductId: v.string(),
               stripePriceId: v.string(),
               isActive: v.boolean(),
@@ -1123,7 +1119,7 @@ export const getActiveExamAccessCount = query({
  */
 export const getMyAccess = query({
   args: {
-    accessType: v.union(v.literal("exam"), v.literal("training")),
+    accessType: accessTypeValidator,
   },
   returns: v.union(
     v.null(),
@@ -1131,7 +1127,7 @@ export const getMyAccess = query({
       _id: v.id("userAccess"),
       _creationTime: v.number(),
       userId: v.id("users"),
-      accessType: v.union(v.literal("exam"), v.literal("training")),
+      accessType: accessTypeValidator,
       expiresAt: v.number(),
       lastTransactionId: v.id("transactions"),
     }),

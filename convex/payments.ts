@@ -10,6 +10,13 @@ import {
 import type { MutationCtx } from "./_generated/server"
 import { hasValidAccess } from "./lib/access"
 import {
+  accessTypeValidator,
+  currencyValidator,
+  productCodeValidator,
+  transactionStatusValidator,
+  transactionTypeValidator,
+} from "./lib/validators"
+import {
   getAdminUserOrThrow,
   getCurrentUserOrNull,
   getCurrentUserOrThrow,
@@ -30,17 +37,6 @@ export type ProductCode =
 
 export type AccessType = "exam" | "training"
 
-const productCodeValidator = v.union(
-  v.literal("exam_access"),
-  v.literal("training_access"),
-  v.literal("exam_access_promo"),
-  v.literal("training_access_promo"),
-  v.literal("premium_access"),
-)
-
-const accessTypeValidator = v.union(v.literal("exam"), v.literal("training"))
-
-const currencyValidator = v.union(v.literal("CAD"), v.literal("XAF"))
 
 // ============================================
 // QUERIES - User Access
@@ -165,18 +161,12 @@ export const getAvailableProducts = query({
     v.object({
       _id: v.id("products"),
       _creationTime: v.number(),
-      code: v.union(
-        v.literal("exam_access"),
-        v.literal("training_access"),
-        v.literal("exam_access_promo"),
-        v.literal("training_access_promo"),
-        v.literal("premium_access"),
-      ),
+      code: productCodeValidator,
       name: v.string(),
       description: v.string(),
       priceCAD: v.number(),
       durationDays: v.number(),
-      accessType: v.union(v.literal("exam"), v.literal("training")),
+      accessType: accessTypeValidator,
       stripeProductId: v.string(),
       stripePriceId: v.string(),
       isActive: v.boolean(),
@@ -201,18 +191,12 @@ export const getProductByCode = internalQuery({
     v.object({
       _id: v.id("products"),
       _creationTime: v.number(),
-      code: v.union(
-        v.literal("exam_access"),
-        v.literal("training_access"),
-        v.literal("exam_access_promo"),
-        v.literal("training_access_promo"),
-        v.literal("premium_access"),
-      ),
+      code: productCodeValidator,
       name: v.string(),
       description: v.string(),
       priceCAD: v.number(),
       durationDays: v.number(),
-      accessType: v.union(v.literal("exam"), v.literal("training")),
+      accessType: accessTypeValidator,
       stripeProductId: v.string(),
       stripePriceId: v.string(),
       isActive: v.boolean(),
@@ -287,15 +271,8 @@ export const getMyTransactions = query({
 export const getAllTransactions = query({
   args: {
     paginationOpts: paginationOptsValidator,
-    type: v.optional(v.union(v.literal("stripe"), v.literal("manual"))),
-    status: v.optional(
-      v.union(
-        v.literal("pending"),
-        v.literal("completed"),
-        v.literal("failed"),
-        v.literal("refunded"),
-      ),
-    ),
+    type: v.optional(transactionTypeValidator),
+    status: v.optional(transactionStatusValidator),
     userId: v.optional(v.id("users")),
   },
   returns: v.object({
@@ -461,7 +438,7 @@ export const getExpiringAccess = query({
     v.object({
       _id: v.id("userAccess"),
       userId: v.id("users"),
-      accessType: v.union(v.literal("exam"), v.literal("training")),
+      accessType: accessTypeValidator,
       expiresAt: v.number(),
       daysRemaining: v.number(),
       user: v.union(
@@ -1048,7 +1025,7 @@ export const getTransactionAccessImpact = query({
   returns: v.object({
     willRevokeAccess: v.boolean(),
     currentAccessExpiresAt: v.union(v.null(), v.number()),
-    accessType: v.union(v.literal("exam"), v.literal("training")),
+    accessType: accessTypeValidator,
   }),
   handler: async (ctx, args) => {
     await getAdminUserOrThrow(ctx)
