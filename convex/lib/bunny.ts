@@ -5,7 +5,19 @@
  * - BUNNY_STORAGE_ZONE_NAME: Nom de la Storage Zone
  * - BUNNY_STORAGE_API_KEY: Mot de passe de la Storage Zone (AccessKey)
  * - BUNNY_CDN_HOSTNAME: Hostname de la Pull Zone (ex: "nomaqbank-media.b-cdn.net")
+ *
+ * Les helpers d'URL pures (getOptimizedImageUrl, getThumbnailUrl, …) vivent
+ * dans `bunny-urls.ts` et sont réutilisables côté frontend. Ils sont ré-exportés
+ * ici pour la compatibilité ascendante des imports existants.
  */
+
+export {
+  getAvatarUrl,
+  getOptimizedImageUrl,
+  getQuestionImageUrl,
+  getThumbnailUrl,
+  type ImageOptimizationParams,
+} from "./bunny-urls"
 
 // ============================================
 // TYPES
@@ -23,13 +35,6 @@ export type BunnyUploadError = {
 }
 
 export type BunnyResult = BunnyUploadResult | BunnyUploadError
-
-export type ImageOptimizationParams = {
-  width?: number
-  height?: number
-  quality?: number // 0-100, default 85
-  crop?: "fit" | "fill" | "scale"
-}
 
 // ============================================
 // CONFIGURATION
@@ -158,69 +163,6 @@ export const deleteFromBunny = async (
     console.error("Bunny delete error:", error)
     return false
   }
-}
-
-// ============================================
-// URL HELPERS
-// ============================================
-
-/**
- * Génère une URL CDN optimisée avec les paramètres Bunny Optimizer
- *
- * @param baseUrl - URL CDN de base
- * @param params - Paramètres d'optimisation
- * @returns URL avec paramètres de transformation
- */
-export const getOptimizedImageUrl = (
-  baseUrl: string,
-  params: ImageOptimizationParams,
-): string => {
-  const searchParams = new URLSearchParams()
-
-  if (params.width) searchParams.set("width", params.width.toString())
-  if (params.height) searchParams.set("height", params.height.toString())
-  if (params.quality) searchParams.set("quality", params.quality.toString())
-  if (params.crop) searchParams.set("crop", params.crop)
-
-  const queryString = searchParams.toString()
-  return queryString ? `${baseUrl}?${queryString}` : baseUrl
-}
-
-/**
- * Génère une URL thumbnail pour une image
- */
-export const getThumbnailUrl = (
-  baseUrl: string,
-  size: number = 200,
-): string => {
-  return getOptimizedImageUrl(baseUrl, {
-    width: size,
-    height: size,
-    crop: "fit",
-    quality: 80,
-  })
-}
-
-/**
- * Génère une URL pour affichage standard (questions)
- */
-export const getQuestionImageUrl = (baseUrl: string): string => {
-  return getOptimizedImageUrl(baseUrl, {
-    width: 800,
-    quality: 85,
-  })
-}
-
-/**
- * Génère une URL pour avatar utilisateur
- */
-export const getAvatarUrl = (baseUrl: string, size: number = 128): string => {
-  return getOptimizedImageUrl(baseUrl, {
-    width: size,
-    height: size,
-    crop: "fit",
-    quality: 85,
-  })
 }
 
 // ============================================
