@@ -762,13 +762,11 @@ export const getQuestionsWithFilters = query({
     }
 
     // ========================================
-    // Chemin 2 : filtre hasImages (index natif impossible, filter léger)
+    // Chemin 2 : filtre hasImages
     // ========================================
-    // Pas d'index sur `hasImagesComputed` seul — on utilise withIndex sur
-    // `by_domain` si dispo, sinon parcours ordonné de la table, avec un
-    // filter sur `hasImagesComputed`. Convex `.filter()` + `.paginate()`
-    // lit une page à la fois (pas de collecte), donc le bandwidth reste
-    // borné par la taille de la page.
+    // Avec domain : `by_domain` + `.filter()` (domain + hasImages composé
+    // rarement utile, on garde le scan borné par domaine).
+    // Sans domain : `by_hasImagesComputed` pour éviter le scan complet.
     if (hasImagesFilter) {
       const order = sortOrder === "desc" ? "desc" : "asc"
       if (hasDomainFilter) {
@@ -781,8 +779,10 @@ export const getQuestionsWithFilters = query({
       }
       return await ctx.db
         .query("questions")
+        .withIndex("by_hasImagesComputed", (q) =>
+          q.eq("hasImagesComputed", hasImages),
+        )
         .order(order)
-        .filter((q) => q.eq(q.field("hasImagesComputed"), hasImages))
         .paginate(paginationOpts)
     }
 

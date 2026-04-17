@@ -41,6 +41,7 @@ export default defineSchema({
   })
     .index("by_domain", ["domain"])
     .index("by_objectifCMC", ["objectifCMC"])
+    .index("by_hasImagesComputed", ["hasImagesComputed"])
     // Search index Convex pour recherche full-text sur `question` avec
     // filtres sur domain et hasImagesComputed. Remplace l'ancien .take(5000)
     // + filtre JS de getQuestionsWithFilters.
