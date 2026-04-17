@@ -2,6 +2,7 @@ import { v } from "convex/values"
 import { Id } from "./_generated/dataModel"
 import { mutation } from "./_generated/server"
 import { validatePauseTransition } from "./examPause"
+import { hasValidAccess } from "./lib/access"
 import { getAdminUserOrThrow, getCurrentUserOrThrow } from "./lib/auth"
 import { batchGetByIds } from "./lib/batchFetch"
 import { Errors } from "./lib/errors"
@@ -63,7 +64,7 @@ export const create = mutation({
         )
         .unique()
 
-      if (!examAccess || examAccess.expiresAt < Date.now()) {
+      if (!hasValidAccess(examAccess, Date.now())) {
         throw Errors.accessExpired("exam")
       }
     }

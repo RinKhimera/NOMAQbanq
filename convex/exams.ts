@@ -1,6 +1,7 @@
 import { v } from "convex/values"
 import type { Id } from "./_generated/dataModel"
 import { internalMutation, mutation, query } from "./_generated/server"
+import { hasValidAccess } from "./lib/access"
 import {
   getAdminUserOrThrow,
   getCurrentUserOrNull,
@@ -313,7 +314,7 @@ export const getMyAvailableExams = query({
       .unique()
 
     // Si pas d'accès actif, retourner liste vide
-    if (!examAccess || examAccess.expiresAt < now) {
+    if (!hasValidAccess(examAccess, now)) {
       return []
     }
 
@@ -363,7 +364,7 @@ export const startExam = mutation({
         )
         .unique()
 
-      if (!examAccess || examAccess.expiresAt < Date.now()) {
+      if (!hasValidAccess(examAccess, Date.now())) {
         throw Errors.accessExpired("exam")
       }
     }
@@ -512,7 +513,7 @@ export const submitExamAnswers = mutation({
         )
         .unique()
 
-      if (!examAccess || examAccess.expiresAt < now) {
+      if (!hasValidAccess(examAccess, now)) {
         throw Errors.accessExpired("exam")
       }
     }
@@ -1040,14 +1041,10 @@ export const getQuestionExplanations = query({
         )
         .map((p) => p.examId)
 
-      // Fetch les exams complétés en parallèle pour récupérer leurs questionIds
-      const exams = await Promise.all(
-        completedExamIds.map((id) => ctx.db.get(id)),
-      )
+      const examsMap = await batchGetByIds(ctx, "exams", completedExamIds)
 
       // Ajouter tous les questionIds des exams auxquels il a participé
-      for (const exam of exams) {
-        if (!exam) continue
+      for (const exam of examsMap.values()) {
         for (const qId of exam.questionIds) {
           if (requestedIds.has(qId)) authorizedIds.add(qId)
         }

@@ -1,6 +1,7 @@
 import { paginationOptsValidator } from "convex/server"
 import { v } from "convex/values"
 import { internalMutation, mutation, query } from "./_generated/server"
+import { hasValidAccess } from "./lib/access"
 import { getCurrentUserOrNull, getCurrentUserOrThrow } from "./lib/auth"
 import { batchGetOrderedByIds } from "./lib/batchFetch"
 import { Errors } from "./lib/errors"
@@ -652,7 +653,7 @@ export const createTrainingSession = mutation({
         )
         .unique()
 
-      if (!access || access.expiresAt < Date.now()) {
+      if (!hasValidAccess(access, Date.now())) {
         throw Errors.accessExpired("training")
       }
     }
@@ -776,7 +777,7 @@ export const saveTrainingAnswer = mutation({
         )
         .unique()
 
-      if (!access || access.expiresAt < Date.now()) {
+      if (!hasValidAccess(access, Date.now())) {
         throw Errors.accessExpired("training")
       }
     }
@@ -871,7 +872,7 @@ export const completeTrainingSession = mutation({
         )
         .unique()
 
-      if (!access || access.expiresAt < Date.now()) {
+      if (!hasValidAccess(access, Date.now())) {
         throw Errors.accessExpired("training")
       }
     }

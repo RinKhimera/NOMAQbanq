@@ -8,6 +8,7 @@ import {
   query,
 } from "./_generated/server"
 import type { MutationCtx } from "./_generated/server"
+import { hasValidAccess } from "./lib/access"
 import {
   getAdminUserOrThrow,
   getCurrentUserOrNull,
@@ -65,7 +66,7 @@ export const hasExamAccess = query({
       )
       .unique()
 
-    return access !== null && access.expiresAt > Date.now()
+    return hasValidAccess(access, Date.now())
   },
 })
 
@@ -88,7 +89,7 @@ export const hasTrainingAccess = query({
       )
       .unique()
 
-    return access !== null && access.expiresAt > Date.now()
+    return hasValidAccess(access, Date.now())
   },
 })
 
