@@ -767,8 +767,17 @@ export const getUsersWithFilters = query({
       new Map()
 
     {
-      // Always fetch access for enrichment (needed for access badges in UI)
-      const allAccess = await ctx.db.query("userAccess").take(2000)
+      // When the caller only cares about active/expiring access, we can skip
+      // expired rows at the DB level via `by_expiresAt` — typically much
+      // cheaper than scanning every userAccess doc.
+      const onlyActive =
+        accessStatus === "active" || accessStatus === "expiring"
+      const allAccess = onlyActive
+        ? await ctx.db
+            .query("userAccess")
+            .withIndex("by_expiresAt", (q) => q.gt("expiresAt", Date.now()))
+            .take(2000)
+        : await ctx.db.query("userAccess").take(2000)
 
       for (const access of allAccess) {
         const existing = accessMap.get(access.userId) || {}
