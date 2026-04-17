@@ -1066,7 +1066,7 @@ export const closeExpiredTrainingSessions = internalMutation({
 
     const expiredSessions = await ctx.db
       .query("trainingParticipations")
-      .withIndex("by_status_expiresAt", (q) =>
+      .withIndex("by_status_expiresAt_cleanup", (q) =>
         q.eq("status", "in_progress").lt("expiresAt", now),
       )
       .take(100)

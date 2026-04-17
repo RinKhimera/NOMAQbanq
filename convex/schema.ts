@@ -134,7 +134,7 @@ export default defineSchema({
     .index("by_user_status", ["userId", "status"])
     .index("by_status", ["status"])
     .index("by_expiresAt", ["expiresAt"])
-    .index("by_status_expiresAt", ["status", "expiresAt"]) // For cleanup crons
+    .index("by_status_expiresAt_cleanup", ["status", "expiresAt"]) // cron: close expired training sessions
     .index("by_user_startedAt", ["userId", "startedAt"]),
 
   trainingAnswers: defineTable({
