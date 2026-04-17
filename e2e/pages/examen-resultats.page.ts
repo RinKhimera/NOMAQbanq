@@ -33,10 +33,7 @@ export class ExamenResultatsPage extends BasePage {
   async clickNavigatorItem(index: number) {
     // The desktop nav is always in DOM (hidden on mobile via CSS). Use first()
     // in case the mobile FAB variant renders the same testid when opened.
-    await this.page
-      .getByTestId(`results-nav-item-${index}`)
-      .first()
-      .click()
+    await this.page.getByTestId(`results-nav-item-${index}`).first().click()
   }
 
   async getNavItemState(index: number): Promise<NavItemState> {

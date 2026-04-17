@@ -42,12 +42,12 @@ describe("Exam Timer Utilities", () => {
       { timeRemaining: 1, expected: false },
       { timeRemaining: 1000, expected: false },
       { timeRemaining: -1000, expected: true }, // negative edge case
-    ])("returns $expected when timeRemaining=$timeRemaining", ({
-      timeRemaining,
-      expected,
-    }) => {
-      expect(shouldAutoSubmit(timeRemaining)).toBe(expected)
-    })
+    ])(
+      "returns $expected when timeRemaining=$timeRemaining",
+      ({ timeRemaining, expected }) => {
+        expect(shouldAutoSubmit(timeRemaining)).toBe(expected)
+      },
+    )
   })
 
   describe("formatExamTime", () => {
@@ -157,9 +157,9 @@ describe("Pause Functionality Utilities", () => {
       { label: "~69% elapsed", elapsedMs: 2500000, expected: true },
     ])("$label", ({ elapsedMs, expected }) => {
       const start = 1000000
-      expect(
-        shouldTriggerPause(start, ONE_HOUR_S, start + elapsedMs),
-      ).toBe(expected)
+      expect(shouldTriggerPause(start, ONE_HOUR_S, start + elapsedMs)).toBe(
+        expected,
+      )
     })
   })
 
@@ -271,9 +271,12 @@ describe("Pause Functionality Utilities", () => {
       { index: 49, total: 100, expected: 0 }, // at midpoint
       { index: 60, total: 100, expected: 0 }, // past midpoint
       { index: 0, total: 101, expected: 49 }, // odd count
-    ])("index=$index total=$total → $expected", ({ index, total, expected }) => {
-      expect(questionsUntilPause(index, total)).toBe(expected)
-    })
+    ])(
+      "index=$index total=$total → $expected",
+      ({ index, total, expected }) => {
+        expect(questionsUntilPause(index, total)).toBe(expected)
+      },
+    )
   })
 
   describe("isApproachingPause (< 10 questions away)", () => {
@@ -286,8 +289,11 @@ describe("Pause Functionality Utilities", () => {
       { index: 60, total: 100, expected: false }, // past midpoint
       { index: 0, total: 20, expected: true }, // small exam, midpoint=10
       { index: 5, total: 20, expected: true },
-    ])("index=$index total=$total → $expected", ({ index, total, expected }) => {
-      expect(isApproachingPause(index, total)).toBe(expected)
-    })
+    ])(
+      "index=$index total=$total → $expected",
+      ({ index, total, expected }) => {
+        expect(isApproachingPause(index, total)).toBe(expected)
+      },
+    )
   })
 })

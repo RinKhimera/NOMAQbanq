@@ -24,9 +24,7 @@ test.describe("Pages marketing (publiques)", () => {
 
     // Trust indicator — stats are dynamic from Convex (fallback "200+"),
     // so match the suffix instead of a hardcoded number
-    await expect(
-      page.getByText(/candidats satisfaits/).first(),
-    ).toBeVisible()
+    await expect(page.getByText(/candidats satisfaits/).first()).toBeVisible()
   })
 
   test("la page d'accueil affiche les features", async ({ page }) => {
@@ -132,9 +130,9 @@ test.describe("Pages marketing (publiques)", () => {
 
     for (const { url, heading } of legalPages) {
       await page.goto(url)
-      await expect(
-        page.getByRole("heading", { name: heading }),
-      ).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByRole("heading", { name: heading })).toBeVisible({
+        timeout: 15_000,
+      })
     }
   })
 })

@@ -122,10 +122,7 @@ export class EntrainementPage extends BasePage {
 
   /** Click a navigator item (shared ResultsQuestionNavigator testid) */
   async clickNavItem(index: number) {
-    await this.page
-      .getByTestId(`results-nav-item-${index}`)
-      .first()
-      .click()
+    await this.page.getByTestId(`results-nav-item-${index}`).first().click()
   }
 
   /**

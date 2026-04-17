@@ -16,7 +16,12 @@ test.describe("Examen Blanc — timer expiré et auto-submit", () => {
 
     // Skip if no active exam can be started (already passed, etc.)
     const startBtn = page.getByRole("button", { name: "Commencer l'examen" })
-    if (!(await startBtn.first().isVisible().catch(() => false))) {
+    if (
+      !(await startBtn
+        .first()
+        .isVisible()
+        .catch(() => false))
+    ) {
       test.skip(true, "Aucun examen actif à démarrer pour tester auto-submit")
       return
     }
