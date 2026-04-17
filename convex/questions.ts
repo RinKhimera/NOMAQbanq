@@ -9,7 +9,6 @@ import {
   mutation,
   query,
 } from "./_generated/server"
-import type { MutationCtx } from "./_generated/server"
 import { getAdminUserOrThrow } from "./lib/auth"
 import {
   batchGetExplanationsByQuestionIds,
@@ -17,6 +16,19 @@ import {
 } from "./lib/batchFetch"
 import { deleteFromBunny } from "./lib/bunny"
 import { Errors } from "./lib/errors"
+import {
+  GLOBAL_OBJECTIF_KEY,
+  TOTAL_DOMAIN_KEY,
+  decrementDomainCount,
+  decrementObjectifCMCCount,
+  decrementWithImagesCount,
+  incrementDomainCount,
+  incrementObjectifCMCCount,
+  incrementWithImagesCount,
+  normalizeObjectifCMC,
+  transferDomainCount,
+  transferObjectifCMCCount,
+} from "./lib/questionStats"
 
 // ============================================
 // TYPES POUR LES IMAGES
@@ -76,265 +88,6 @@ const paginatedQuestionsValidator = v.object({
 // HELPERS POUR LA GESTION DES STATS
 // ============================================
 
-const TOTAL_DOMAIN_KEY = "__total__"
-
-// Validation: empêcher l'utilisation de la clé réservée comme nom de domaine
-const validateDomain = (domain: string) => {
-  if (domain === TOTAL_DOMAIN_KEY) {
-    throw Errors.invalidInput(`Le domaine "${TOTAL_DOMAIN_KEY}" est réservé`)
-  }
-}
-
-// Helper: Incrémenter le compteur d'un domaine (et le total)
-const incrementDomainCount = async (ctx: MutationCtx, domain: string) => {
-  validateDomain(domain)
-  // Mettre à jour le compteur du domaine
-  const domainStat = await ctx.db
-    .query("questionStats")
-    .withIndex("by_domain", (q) => q.eq("domain", domain))
-    .unique()
-
-  if (domainStat) {
-    await ctx.db.patch(domainStat._id, { count: domainStat.count + 1 })
-  } else {
-    await ctx.db.insert("questionStats", { domain, count: 1 })
-  }
-
-  // Mettre à jour le total
-  const totalStat = await ctx.db
-    .query("questionStats")
-    .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
-    .unique()
-
-  if (totalStat) {
-    await ctx.db.patch(totalStat._id, { count: totalStat.count + 1 })
-  } else {
-    await ctx.db.insert("questionStats", { domain: TOTAL_DOMAIN_KEY, count: 1 })
-  }
-}
-
-// Helper: Décrémenter le compteur d'un domaine (et le total)
-const decrementDomainCount = async (ctx: MutationCtx, domain: string) => {
-  validateDomain(domain)
-
-  // Mettre à jour le compteur du domaine
-  const domainStat = await ctx.db
-    .query("questionStats")
-    .withIndex("by_domain", (q) => q.eq("domain", domain))
-    .unique()
-
-  if (domainStat) {
-    if (domainStat.count <= 1) {
-      await ctx.db.delete(domainStat._id)
-    } else {
-      await ctx.db.patch(domainStat._id, { count: domainStat.count - 1 })
-    }
-  } else {
-    // Stats désynchronisées - le domaine devrait exister
-    console.warn(
-      `[questionStats] Domaine "${domain}" introuvable lors du décrement`,
-    )
-  }
-
-  // Mettre à jour le total
-  const totalStat = await ctx.db
-    .query("questionStats")
-    .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
-    .unique()
-
-  if (totalStat && totalStat.count > 0) {
-    await ctx.db.patch(totalStat._id, { count: totalStat.count - 1 })
-  }
-}
-
-// Helper: Transférer le compteur d'un domaine à un autre (total inchangé)
-const transferDomainCount = async (
-  ctx: MutationCtx,
-  oldDomain: string,
-  newDomain: string,
-) => {
-  validateDomain(oldDomain)
-  validateDomain(newDomain)
-
-  // Décrémenter l'ancien domaine
-  const oldDomainStat = await ctx.db
-    .query("questionStats")
-    .withIndex("by_domain", (q) => q.eq("domain", oldDomain))
-    .unique()
-
-  if (oldDomainStat) {
-    if (oldDomainStat.count <= 1) {
-      await ctx.db.delete(oldDomainStat._id)
-    } else {
-      await ctx.db.patch(oldDomainStat._id, { count: oldDomainStat.count - 1 })
-    }
-  } else {
-    console.warn(
-      `[questionStats] Ancien domaine "${oldDomain}" introuvable lors du transfert`,
-    )
-  }
-
-  // Incrémenter le nouveau domaine
-  const newDomainStat = await ctx.db
-    .query("questionStats")
-    .withIndex("by_domain", (q) => q.eq("domain", newDomain))
-    .unique()
-
-  if (newDomainStat) {
-    await ctx.db.patch(newDomainStat._id, { count: newDomainStat.count + 1 })
-  } else {
-    await ctx.db.insert("questionStats", { domain: newDomain, count: 1 })
-  }
-}
-
-// ============================================
-// HELPERS POUR LES STATS OBJECTIFS CMC
-// ============================================
-
-const GLOBAL_OBJECTIF_KEY = "__all__"
-
-// Helper: Incrémenter le compteur d'un objectifCMC (domaine-specific + global)
-const incrementObjectifCMCCount = async (
-  ctx: MutationCtx,
-  objectifCMC: string,
-  domain: string,
-) => {
-  const normalized = normalizeObjectifCMC(objectifCMC)
-  if (!normalized) return
-
-  // Incrémenter la ligne (objectifCMC, domain)
-  const domainStat = await ctx.db
-    .query("objectifCMCStats")
-    .withIndex("by_objectifCMC_domain", (q) =>
-      q.eq("objectifCMC", normalized).eq("domain", domain),
-    )
-    .unique()
-
-  if (domainStat) {
-    await ctx.db.patch(domainStat._id, { count: domainStat.count + 1 })
-  } else {
-    await ctx.db.insert("objectifCMCStats", {
-      objectifCMC: normalized,
-      domain,
-      count: 1,
-    })
-  }
-
-  // Incrémenter la ligne globale (objectifCMC, "__all__")
-  const globalStat = await ctx.db
-    .query("objectifCMCStats")
-    .withIndex("by_objectifCMC_domain", (q) =>
-      q.eq("objectifCMC", normalized).eq("domain", GLOBAL_OBJECTIF_KEY),
-    )
-    .unique()
-
-  if (globalStat) {
-    await ctx.db.patch(globalStat._id, { count: globalStat.count + 1 })
-  } else {
-    await ctx.db.insert("objectifCMCStats", {
-      objectifCMC: normalized,
-      domain: GLOBAL_OBJECTIF_KEY,
-      count: 1,
-    })
-  }
-}
-
-// Helper: Décrémenter le compteur d'un objectifCMC (domaine-specific + global)
-const decrementObjectifCMCCount = async (
-  ctx: MutationCtx,
-  objectifCMC: string,
-  domain: string,
-) => {
-  const normalized = normalizeObjectifCMC(objectifCMC)
-  if (!normalized) return
-
-  // Décrémenter la ligne (objectifCMC, domain)
-  const domainStat = await ctx.db
-    .query("objectifCMCStats")
-    .withIndex("by_objectifCMC_domain", (q) =>
-      q.eq("objectifCMC", normalized).eq("domain", domain),
-    )
-    .unique()
-
-  if (domainStat) {
-    if (domainStat.count <= 1) {
-      await ctx.db.delete(domainStat._id)
-    } else {
-      await ctx.db.patch(domainStat._id, { count: domainStat.count - 1 })
-    }
-  } else {
-    console.warn(
-      `[objectifCMCStats] Stat "${normalized}" / "${domain}" introuvable lors du décrement`,
-    )
-  }
-
-  // Décrémenter la ligne globale
-  const globalStat = await ctx.db
-    .query("objectifCMCStats")
-    .withIndex("by_objectifCMC_domain", (q) =>
-      q.eq("objectifCMC", normalized).eq("domain", GLOBAL_OBJECTIF_KEY),
-    )
-    .unique()
-
-  if (globalStat) {
-    if (globalStat.count <= 1) {
-      await ctx.db.delete(globalStat._id)
-    } else {
-      await ctx.db.patch(globalStat._id, { count: globalStat.count - 1 })
-    }
-  }
-}
-
-// Helper: Transférer le compteur objectifCMC quand objectifCMC et/ou domain changent
-const transferObjectifCMCCount = async (
-  ctx: MutationCtx,
-  oldObjectif: string,
-  newObjectif: string,
-  oldDomain: string,
-  newDomain: string,
-) => {
-  const oldNorm = normalizeObjectifCMC(oldObjectif)
-  const newNorm = normalizeObjectifCMC(newObjectif)
-
-  if (oldNorm === newNorm && oldDomain === newDomain) return
-
-  if (oldNorm) {
-    await decrementObjectifCMCCount(ctx, oldNorm, oldDomain)
-  }
-  if (newNorm) {
-    await incrementObjectifCMCCount(ctx, newNorm, newDomain)
-  }
-}
-
-// ============================================
-// HELPERS POUR LE COMPTEUR D'IMAGES
-// ============================================
-
-const incrementWithImagesCount = async (ctx: MutationCtx) => {
-  const totalStat = await ctx.db
-    .query("questionStats")
-    .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
-    .unique()
-
-  if (totalStat) {
-    await ctx.db.patch(totalStat._id, {
-      withImagesCount: (totalStat.withImagesCount ?? 0) + 1,
-    })
-  }
-}
-
-const decrementWithImagesCount = async (ctx: MutationCtx) => {
-  const totalStat = await ctx.db
-    .query("questionStats")
-    .withIndex("by_domain", (q) => q.eq("domain", TOTAL_DOMAIN_KEY))
-    .unique()
-
-  if (totalStat && (totalStat.withImagesCount ?? 0) > 0) {
-    await ctx.db.patch(totalStat._id, {
-      withImagesCount: (totalStat.withImagesCount ?? 0) - 1,
-    })
-  }
-}
 
 // ============================================
 // MUTATIONS CRUD QUESTIONS
@@ -1416,15 +1169,6 @@ export const setQuestionImages = action({
 // ============================================
 // HELPER: Normalisation objectifCMC
 // ============================================
-
-/**
- * Normalise un objectifCMC: trim + majuscule initiale
- */
-function normalizeObjectifCMC(value: string): string {
-  const trimmed = value.trim()
-  if (trimmed.length === 0) return trimmed
-  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1)
-}
 
 // ============================================
 // MIGRATION: Backfill objectifCMCStats + withImagesCount
