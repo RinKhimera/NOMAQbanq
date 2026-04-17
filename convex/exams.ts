@@ -1,5 +1,5 @@
 import { v } from "convex/values"
-import type { Id } from "./_generated/dataModel"
+import type { Doc, Id } from "./_generated/dataModel"
 import { internalMutation, mutation, query } from "./_generated/server"
 import { hasValidAccess } from "./lib/access"
 import {
@@ -442,6 +442,87 @@ export const startExam = mutation({
   },
 })
 
+type SubmittedAnswer = {
+  questionId: Id<"questions">
+  selectedAnswer: string
+  isFlagged?: boolean
+}
+
+const assertSubmissionTimingOk = (
+  participation: Doc<"examParticipations">,
+  exam: Doc<"exams">,
+  now: number,
+  isAutoSubmit: boolean,
+) => {
+  if (!participation.startedAt) {
+    throw Errors.invalidState("L'examen n'a pas encore été démarré")
+  }
+
+  let timeElapsed = now - participation.startedAt
+  if (participation.totalPauseDurationMs) {
+    timeElapsed -= participation.totalPauseDurationMs
+  }
+  const maxTimeAllowed = exam.completionTime * 1000
+
+  if (!isAutoSubmit) {
+    const gracePeriod = 5000
+    if (timeElapsed > maxTimeAllowed + gracePeriod) {
+      throw Errors.invalidState(
+        "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
+      )
+    }
+  } else if (timeElapsed > maxTimeAllowed) {
+    const minutesLate = Math.round((timeElapsed - maxTimeAllowed) / 60000)
+    console.warn(
+      `Session abandonnée auto-soumise: ${minutesLate} min de retard pour exam ${exam._id}`,
+    )
+  }
+}
+
+const assertPauseRestrictionsOk = (
+  exam: Doc<"exams">,
+  participation: Doc<"examParticipations">,
+  answers: SubmittedAnswer[],
+) => {
+  if (!exam.enablePause || !participation.pausePhase) return
+
+  const midpoint = Math.floor(exam.questionIds.length / 2)
+  const questionIdToIndex = new Map<Id<"questions">, number>()
+  exam.questionIds.forEach((qId, index) => questionIdToIndex.set(qId, index))
+
+  for (const answer of answers) {
+    const questionIndex = questionIdToIndex.get(answer.questionId)
+    if (questionIndex === undefined) continue
+
+    if (
+      participation.pausePhase === "before_pause" &&
+      questionIndex >= midpoint
+    ) {
+      throw Errors.invalidState(
+        `Tentative frauduleuse détectée : réponse soumise à une question verrouillée (Q${questionIndex + 1})`,
+      )
+    }
+    if (participation.pausePhase === "during_pause") {
+      throw Errors.invalidState(
+        "Soumission non autorisée pendant la pause. Veuillez reprendre l'examen.",
+      )
+    }
+  }
+}
+
+const scoreAnswers = (
+  answers: SubmittedAnswer[],
+  questionMap: Map<Id<"questions">, Doc<"questions">>,
+) =>
+  answers.map((answer) => ({
+    questionId: answer.questionId,
+    selectedAnswer: answer.selectedAnswer,
+    isCorrect:
+      questionMap.get(answer.questionId)?.correctAnswer ===
+      answer.selectedAnswer,
+    isFlagged: answer.isFlagged ?? false,
+  }))
+
 /**
  * Submit exam answers using normalized tables
  * Writes to examAnswers table instead of embedded array
@@ -476,10 +557,6 @@ export const submitExamAnswers = mutation({
       throw Errors.invalidState("L'examen n'est pas disponible à cette période")
     }
 
-    // Note: L'autorisation est vérifiée via userAccess plus bas
-    // Les admins sont exemptés du check
-
-    // Find participation in V2 tables
     const participation = await ctx.db
       .query("examParticipations")
       .withIndex("by_exam_user", (q) =>
@@ -491,20 +568,18 @@ export const submitExamAnswers = mutation({
       throw Errors.notFound("Participation")
     }
 
-    // Vérifier que la session est en cours
     if (
       participation.status === "completed" ||
       participation.status === "auto_submitted"
     ) {
       throw Errors.invalidState("Vous avez déjà passé cet examen")
     }
-
     if (participation.status !== "in_progress") {
       throw Errors.invalidState("Cette session d'examen n'est plus active")
     }
 
-    // Re-verify exam access at submission time (admin bypass)
-    // This check runs after session validation to provide appropriate error messages
+    // Re-verify exam access at submission time (admin bypass) — runs after
+    // session validation to surface the most specific error first.
     if (user.role !== "admin") {
       const examAccess = await ctx.db
         .query("userAccess")
@@ -518,88 +593,18 @@ export const submitExamAnswers = mutation({
       }
     }
 
-    // Vérifier le temps écoulé côté serveur
-    if (!participation.startedAt) {
-      throw Errors.invalidState("L'examen n'a pas encore été démarré")
-    }
-    let timeElapsed = now - participation.startedAt
+    assertSubmissionTimingOk(participation, exam, now, args.isAutoSubmit ?? false)
+    assertPauseRestrictionsOk(exam, participation, args.answers)
 
-    // Subtract pause duration from elapsed time
-    if (participation.totalPauseDurationMs) {
-      timeElapsed = timeElapsed - participation.totalPauseDurationMs
-    }
-
-    const maxTimeAllowed = exam.completionTime * 1000
-
-    // Pour les auto-submits (sessions abandonnées), on accepte toujours
-    // Pour les soumissions manuelles, on garde un grace period de 5 secondes
-    if (!args.isAutoSubmit) {
-      const gracePeriod = 5000
-      if (timeElapsed > maxTimeAllowed + gracePeriod) {
-        throw Errors.invalidState(
-          "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
-        )
-      }
-    } else if (timeElapsed > maxTimeAllowed) {
-      // Session abandonnée - loguer mais accepter
-      const minutesLate = Math.round((timeElapsed - maxTimeAllowed) / 60000)
-      console.warn(
-        `Session abandonnée auto-soumise: ${minutesLate} min de retard pour exam ${args.examId}`,
-      )
-    }
-
-    // PAUSE VALIDATION
-    if (exam.enablePause && participation.pausePhase) {
-      const totalQuestions = exam.questionIds.length
-      const midpoint = Math.floor(totalQuestions / 2)
-
-      const questionIdToIndex = new Map<string, number>()
-      exam.questionIds.forEach((qId, index) => {
-        questionIdToIndex.set(qId, index)
-      })
-
-      for (const answer of args.answers) {
-        const questionIndex = questionIdToIndex.get(answer.questionId)
-        if (questionIndex === undefined) continue
-
-        if (
-          participation.pausePhase === "before_pause" &&
-          questionIndex >= midpoint
-        ) {
-          throw Errors.invalidState(
-            `Tentative frauduleuse détectée : réponse soumise à une question verrouillée (Q${questionIndex + 1})`,
-          )
-        }
-
-        if (participation.pausePhase === "during_pause") {
-          throw Errors.invalidState(
-            "Soumission non autorisée pendant la pause. Veuillez reprendre l'examen.",
-          )
-        }
-      }
-    }
-
-    // Calculer le score — toujours vérifier côté serveur
     const questionMap = await batchGetByIds(ctx, "questions", exam.questionIds)
+    const scoredAnswers = scoreAnswers(args.answers, questionMap)
 
-    const answersWithCorrectness = args.answers.map((answer) => {
-      const question = questionMap.get(answer.questionId)
-      const isCorrect = question?.correctAnswer === answer.selectedAnswer
-      return {
-        questionId: answer.questionId,
-        selectedAnswer: answer.selectedAnswer,
-        isCorrect,
-        isFlagged: answer.isFlagged ?? false,
-      }
-    })
-
-    const score = answersWithCorrectness.filter((a) => a.isCorrect).length
+    const correctAnswers = scoredAnswers.filter((a) => a.isCorrect).length
     const totalQuestions = exam.questionIds.length
-    const percentage = Math.round((score / totalQuestions) * 100)
+    const percentage = Math.round((correctAnswers / totalQuestions) * 100)
 
-    // Save answers to examAnswers table (parallel writes)
     await Promise.all(
-      answersWithCorrectness.map((answer) =>
+      scoredAnswers.map((answer) =>
         ctx.db.insert("examAnswers", {
           participationId: participation._id,
           questionId: answer.questionId,
@@ -610,18 +615,15 @@ export const submitExamAnswers = mutation({
       ),
     )
 
-    // Update participation status
-    const finalStatus = args.isAutoSubmit ? "auto_submitted" : "completed"
-
     await ctx.db.patch(participation._id, {
       score: percentage,
       completedAt: now,
-      status: finalStatus,
+      status: args.isAutoSubmit ? "auto_submitted" : "completed",
     })
 
     return {
       score: percentage,
-      correctAnswers: score,
+      correctAnswers,
       totalQuestions,
     }
   },
