@@ -249,6 +249,25 @@ http.route({
       return jsonResponse({ error: "Accès non autorisé" }, 403, request)
     }
 
+    const rateLimitResult = await ctx.runQuery(
+      internal.rateLimit.checkUploadRateLimit,
+      {
+        clerkId: identity.subject,
+        uploadType: "question-image",
+      },
+    )
+
+    if (!rateLimitResult.allowed) {
+      return jsonResponse(
+        {
+          error: `Limite d'uploads atteinte. Réessayez dans ${rateLimitResult.retryAfterMinutes} minute(s).`,
+          retryAfterMs: rateLimitResult.retryAfterMs,
+        },
+        429,
+        request,
+      )
+    }
+
     try {
       const formData = await request.formData()
       const file = formData.get("file") as File | null
@@ -284,6 +303,11 @@ http.route({
       if (!result.success) {
         return jsonResponse({ error: result.error }, 500, request)
       }
+
+      await ctx.runMutation(internal.rateLimit.incrementUploadCount, {
+        clerkId: identity.subject,
+        uploadType: "question-image",
+      })
 
       return jsonResponse(
         {

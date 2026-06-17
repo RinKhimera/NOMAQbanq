@@ -1,5 +1,12 @@
 import { defineSchema, defineTable } from "convex/server"
 import { v } from "convex/values"
+import {
+  accessTypeValidator,
+  currencyValidator,
+  productCodeValidator,
+  transactionStatusValidator,
+  transactionTypeValidator,
+} from "./lib/validators"
 
 export default defineSchema({
   users: defineTable({
@@ -41,6 +48,7 @@ export default defineSchema({
   })
     .index("by_domain", ["domain"])
     .index("by_objectifCMC", ["objectifCMC"])
+    .index("by_hasImagesComputed", ["hasImagesComputed"])
     // Search index Convex pour recherche full-text sur `question` avec
     // filtres sur domain et hasImagesComputed. Remplace l'ancien .take(5000)
     // + filtre JS de getQuestionsWithFilters.
@@ -126,7 +134,7 @@ export default defineSchema({
     .index("by_user_status", ["userId", "status"])
     .index("by_status", ["status"])
     .index("by_expiresAt", ["expiresAt"])
-    .index("by_status_expiresAt", ["status", "expiresAt"]) // For cleanup crons
+    .index("by_status_expiresAt_cleanup", ["status", "expiresAt"]) // cron: close expired training sessions
     .index("by_user_startedAt", ["userId", "startedAt"]),
 
   trainingAnswers: defineTable({
@@ -187,18 +195,12 @@ export default defineSchema({
   // ============================================
 
   products: defineTable({
-    code: v.union(
-      v.literal("exam_access"),
-      v.literal("training_access"),
-      v.literal("exam_access_promo"),
-      v.literal("training_access_promo"),
-      v.literal("premium_access"),
-    ),
+    code: productCodeValidator,
     name: v.string(),
     description: v.string(),
     priceCAD: v.number(), // Prix en cents (5000 = 50$)
     durationDays: v.number(), // 30 ou 180
-    accessType: v.union(v.literal("exam"), v.literal("training")),
+    accessType: accessTypeValidator,
     stripeProductId: v.string(),
     stripePriceId: v.string(),
     isActive: v.boolean(),
@@ -212,16 +214,11 @@ export default defineSchema({
     userId: v.id("users"),
     productId: v.id("products"),
 
-    type: v.union(v.literal("stripe"), v.literal("manual")),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("completed"),
-      v.literal("failed"),
-      v.literal("refunded"),
-    ),
+    type: transactionTypeValidator,
+    status: transactionStatusValidator,
 
     amountPaid: v.number(), // Montant en cents
-    currency: v.union(v.literal("CAD"), v.literal("XAF")),
+    currency: currencyValidator,
 
     // Stripe (optionnel pour manual)
     stripeSessionId: v.optional(v.string()),
@@ -233,7 +230,7 @@ export default defineSchema({
     recordedBy: v.optional(v.id("users")), // Admin qui a enregistré
     notes: v.optional(v.string()),
 
-    accessType: v.union(v.literal("exam"), v.literal("training")),
+    accessType: accessTypeValidator,
     durationDays: v.number(),
     accessExpiresAt: v.number(), // Timestamp d'expiration calculé
 
@@ -251,7 +248,7 @@ export default defineSchema({
 
   userAccess: defineTable({
     userId: v.id("users"),
-    accessType: v.union(v.literal("exam"), v.literal("training")),
+    accessType: accessTypeValidator,
     expiresAt: v.number(),
     lastTransactionId: v.id("transactions"),
   })

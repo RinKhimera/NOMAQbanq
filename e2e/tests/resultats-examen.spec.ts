@@ -17,7 +17,12 @@ test.describe("Examen Blanc — page de résultats", () => {
     const resultsLink = page.getByRole("button", {
       name: "Consulter les résultats",
     })
-    if (!(await resultsLink.first().isVisible().catch(() => false))) {
+    if (
+      !(await resultsLink
+        .first()
+        .isVisible()
+        .catch(() => false))
+    ) {
       test.skip(true, "Aucun examen complété pour afficher des résultats")
       return
     }
@@ -82,14 +87,18 @@ test.describe("Examen Blanc — page de résultats", () => {
     page,
   }) => {
     // The first review card is expanded by default (expandedQuestions = new Set([0]))
-    const firstOption = page.locator("#question-1 [data-testid^='answer-option-']").first()
+    const firstOption = page
+      .locator("#question-1 [data-testid^='answer-option-']")
+      .first()
     if (!(await firstOption.isVisible().catch(() => false))) {
       test.skip(true, "Question 1 non dépliée par défaut")
       return
     }
 
     // Capture current state of answer-option-1 (not the correct one hopefully)
-    const targetOption = page.locator("#question-1 [data-testid='answer-option-1']")
+    const targetOption = page.locator(
+      "#question-1 [data-testid='answer-option-1']",
+    )
     const initialSelected = await targetOption.getAttribute("data-selected")
 
     // Attempt to click — in review variant, onAnswerSelect is not wired up

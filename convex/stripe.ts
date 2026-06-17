@@ -12,18 +12,7 @@ import { Id } from "./_generated/dataModel"
 import { action } from "./_generated/server"
 import { Errors } from "./lib/errors"
 import { getStripe } from "./lib/stripe"
-
-// ============================================
-// TYPE DEFINITIONS
-// ============================================
-
-const productCodeValidator = v.union(
-  v.literal("exam_access"),
-  v.literal("training_access"),
-  v.literal("exam_access_promo"),
-  v.literal("training_access_promo"),
-  v.literal("premium_access"),
-)
+import { productCodeValidator } from "./lib/validators"
 
 // ============================================
 // ACTIONS - Checkout

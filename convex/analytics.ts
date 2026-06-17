@@ -2,6 +2,7 @@ import { v } from "convex/values"
 import { query } from "./_generated/server"
 import { getAdminUserOrThrow } from "./lib/auth"
 import { batchGetByIds } from "./lib/batchFetch"
+import { transactionTypeValidator } from "./lib/validators"
 
 // ============================================
 // ADMIN DASHBOARD ANALYTICS
@@ -38,7 +39,7 @@ export const getRecentActivity = query({
           amount: v.number(),
           currency: v.string(),
           productName: v.string(),
-          paymentType: v.union(v.literal("stripe"), v.literal("manual")),
+          paymentType: transactionTypeValidator,
         }),
       }),
       v.object({
