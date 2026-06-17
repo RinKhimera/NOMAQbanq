@@ -21,8 +21,13 @@ describe("loadServerEnv", () => {
   })
 
   it("throws when a required var is missing", () => {
-    const { BETTER_AUTH_SECRET: _omitted, ...rest } = valid
-    expect(() => loadServerEnv(rest)).toThrow(/BETTER_AUTH_SECRET/)
+    expect(() =>
+      loadServerEnv({
+        DATABASE_URL: valid.DATABASE_URL,
+        DATABASE_URL_UNPOOLED: valid.DATABASE_URL_UNPOOLED,
+        BETTER_AUTH_URL: valid.BETTER_AUTH_URL,
+      }),
+    ).toThrow(/BETTER_AUTH_SECRET/)
   })
 
   it("treats an empty string as missing", () => {
