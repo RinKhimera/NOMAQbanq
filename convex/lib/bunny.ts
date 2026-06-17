@@ -7,7 +7,7 @@
  * - BUNNY_CDN_HOSTNAME: Hostname de la Pull Zone (ex: "nomaqbank-media.b-cdn.net")
  *
  * Les helpers d'URL pures (getOptimizedImageUrl, getThumbnailUrl, …) vivent
- * dans `bunny-urls.ts` et sont réutilisables côté frontend. Ils sont ré-exportés
+ * dans `bunnyUrls.ts` et sont réutilisables côté frontend. Ils sont ré-exportés
  * ici pour la compatibilité ascendante des imports existants.
  */
 
@@ -17,7 +17,7 @@ export {
   getQuestionImageUrl,
   getThumbnailUrl,
   type ImageOptimizationParams,
-} from "./bunny-urls"
+} from "./bunnyUrls"
 
 // ============================================
 // TYPES
