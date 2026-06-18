@@ -243,10 +243,13 @@ fractionnaire avant cast `integer` · `TZ=UTC`.
   nextCookies()]` (**`nextCookies()` en dernier**), `baseURL: env.BETTER_AUTH_URL`, importe le `db` partagé.
 - `lib/auth-client.ts` : `adminClient()` + exports. Guards `lib/auth-guards.ts` (+ garde 401/403 dédiée
   pour les route handlers). Rôles via `lib/permissions.ts` **passé au plugin admin**.
-- **⚠️ Re-login email/mdp (à vérifier avant phase 4)** : un user migré n'a **pas** de ligne `account`.
-  Vérifier si le flux « mot de passe oublié » de Better Auth (`^1.6.19`) fonctionne sans compte
-  credential préexistant. Sinon → **pré-créer des `account`** (`providerId:'credential'`, sans mot de
-  passe) **ou** un flux dédié « revendiquer mon compte / définir le mot de passe » au 1er login.
+- **✅ Re-login email/mdp (VÉRIFIÉ empiriquement sur `develop`, B5 résolu, Better Auth `^1.6.19`)** :
+  un user migré n'a **pas** de ligne `account`. Spike `scripts/verify-relogin.ts` sur un user de forme
+  migrée (`email_verified=true`, 0 `account`) : `requestPasswordReset` (sans credential préexistant)
+  → OK ; `resetPassword(token)` → **crée à la demande** un `account` `providerId:'credential'` avec
+  hash (longueur 161) ; `signInEmail` avec le nouveau mdp → OK, **même `user.id` préservé**.
+  ⇒ **AUCUN backfill de credentials nécessaire** : le « mot de passe oublié » suffit pour la vague de
+  re-login. (Dépendance restante : **accès prod SES** avant d'envoyer en masse — encore en sandbox.)
 - Gotchas : cf. `references/02-better-auth.md` (cookieCache ne cache pas `role`, anti-énumération
   sign-up, `setPassword` vs `changePassword`, 1er admin via script, etc.).
 
