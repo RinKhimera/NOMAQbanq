@@ -1,55 +1,27 @@
 import { render, screen } from "@testing-library/react"
-import { useConvexAuth, useQuery } from "convex/react"
 import { describe, expect, it, vi } from "vitest"
-import AdminProtection from "@/components/admin-protection"
-import { mockConvexAuth } from "../helpers/mocks"
 
-// Mock convex/react
-vi.mock("convex/react", () => ({
-  useQuery: vi.fn(),
-  useConvexAuth: vi.fn(),
+import AdminProtection from "@/components/admin-protection"
+import { authClient } from "@/lib/auth-client"
+
+import { createMockBetterAuthUser, mockAuthSession } from "../helpers/mocks"
+
+// Mock le client Better Auth : `AdminProtection` lit le rôle via
+// `authClient.useSession()`.
+vi.mock("@/lib/auth-client", () => ({
+  authClient: {
+    useSession: vi.fn(),
+  },
 }))
 
+const mockedUseSession = vi.mocked(authClient.useSession)
+
 describe("AdminProtection", () => {
-  it("affiche un loader pendant le chargement de l'auth", () => {
-    vi.mocked(useConvexAuth).mockReturnValue(
-      mockConvexAuth({ isLoading: true }),
+  it("affiche un loader pendant le chargement de la session", () => {
+    mockedUseSession.mockReturnValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockAuthSession({ isPending: true }) as any,
     )
-    vi.mocked(useQuery).mockReturnValue(undefined)
-
-    render(
-      <AdminProtection>
-        <div>Contenu Admin</div>
-      </AdminProtection>,
-    )
-
-    expect(
-      screen.getByText(/Vérification des permissions/i),
-    ).toBeInTheDocument()
-  })
-
-  it("affiche un loader pendant le chargement de la query", () => {
-    vi.mocked(useConvexAuth).mockReturnValue(
-      mockConvexAuth({ isAuthenticated: true }),
-    )
-    vi.mocked(useQuery).mockReturnValue(undefined)
-
-    render(
-      <AdminProtection>
-        <div>Contenu Admin</div>
-      </AdminProtection>,
-    )
-
-    expect(
-      screen.getByText(/Vérification des permissions/i),
-    ).toBeInTheDocument()
-  })
-
-  it("affiche un loader quand l'auth charge ET la query est indéfinie", () => {
-    vi.mocked(useConvexAuth).mockReturnValue(
-      mockConvexAuth({ isLoading: true }),
-    )
-    vi.mocked(useQuery).mockReturnValue(undefined)
 
     render(
       <AdminProtection>
@@ -65,8 +37,10 @@ describe("AdminProtection", () => {
   })
 
   it("affiche un message d'accès refusé si l'utilisateur n'est pas connecté", () => {
-    vi.mocked(useConvexAuth).mockReturnValue(mockConvexAuth())
-    vi.mocked(useQuery).mockReturnValue(undefined)
+    mockedUseSession.mockReturnValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockAuthSession({ data: null, isPending: false }) as any,
+    )
 
     render(
       <AdminProtection>
@@ -79,10 +53,11 @@ describe("AdminProtection", () => {
   })
 
   it("affiche un message d'accès refusé si l'utilisateur n'est pas admin", () => {
-    vi.mocked(useConvexAuth).mockReturnValue(
-      mockConvexAuth({ isAuthenticated: true }),
+    const user = createMockBetterAuthUser({ role: "user" })
+    mockedUseSession.mockReturnValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockAuthSession({ data: { user }, isPending: false }) as any,
     )
-    vi.mocked(useQuery).mockReturnValue(false)
 
     render(
       <AdminProtection>
@@ -99,10 +74,11 @@ describe("AdminProtection", () => {
   })
 
   it("affiche le contenu si l'utilisateur est admin", () => {
-    vi.mocked(useConvexAuth).mockReturnValue(
-      mockConvexAuth({ isAuthenticated: true }),
+    const user = createMockBetterAuthUser({ role: "admin" })
+    mockedUseSession.mockReturnValue(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockAuthSession({ data: { user }, isPending: false }) as any,
     )
-    vi.mocked(useQuery).mockReturnValue(true)
 
     render(
       <AdminProtection>

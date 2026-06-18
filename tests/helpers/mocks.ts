@@ -30,9 +30,56 @@ export const mockConvexAuth = (
   ...overrides,
 })
 
+// ===== Better Auth User Mock =====
+// Forme exposée par `authClient.useSession().data.user` (cf. lib/auth-client.ts).
+export type BetterAuthUser = {
+  id: string
+  name: string
+  email: string
+  emailVerified: boolean
+  image?: string | null
+  role: "user" | "admin"
+  username: string | null
+  bio: string | null
+}
+
+export const createMockBetterAuthUser = (
+  overrides?: Partial<BetterAuthUser>,
+): BetterAuthUser => ({
+  id: "test_user_id",
+  name: "Test User",
+  email: "test@example.com",
+  emailVerified: true,
+  image: "https://example.com/avatar.png",
+  role: "user",
+  username: null,
+  bio: null,
+  ...overrides,
+})
+
+// ===== Better Auth Session Mock =====
+// Forme retournée par `authClient.useSession()` : { data, isPending, error }.
+type AuthSessionState = {
+  data: { user: BetterAuthUser } | null
+  isPending: boolean
+  error: null
+}
+
+export const mockAuthSession = (
+  overrides?: Partial<AuthSessionState>,
+): AuthSessionState => ({
+  data: null,
+  isPending: false,
+  error: null,
+  ...overrides,
+})
+
 // ===== Current User Hook Mock =====
+// Reflète la forme retournée par `useCurrentUser` (wrapper de Better Auth).
+// On garde une forme simple (BetterAuthUser) ; les tests castent au besoin vers
+// le type inféré exact du hook au point d'appel de `mockReturnValue`.
 type CurrentUserReturn = {
-  currentUser: Doc<"users"> | null | undefined
+  currentUser: BetterAuthUser | null | undefined
   isLoading: boolean
   isAuthenticated: boolean
 }
@@ -45,22 +92,6 @@ export const mockCurrentUser = (
   isAuthenticated: false,
   ...overrides,
 })
-
-// ===== User Doc Factory =====
-export const createMockUserDoc = (
-  overrides?: Partial<Doc<"users">>,
-): Doc<"users"> =>
-  ({
-    _id: "test_user_id" as Doc<"users">["_id"],
-    _creationTime: Date.now(),
-    name: "Test User",
-    email: "test@example.com",
-    image: "https://example.com/avatar.png",
-    role: "user" as const,
-    tokenIdentifier: "https://clerk.dev|test_user",
-    externalId: "clerk_test",
-    ...overrides,
-  }) as Doc<"users">
 
 // ===== Question Doc Factory =====
 // Retourne un doc enrichi : Doc<"questions"> + explanation/references joints.

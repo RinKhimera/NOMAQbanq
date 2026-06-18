@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { OnboardingGuard } from "@/components/shared/onboarding-guard"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import {
-  createMockUserDoc,
+  createMockBetterAuthUser,
   mockCurrentUser,
   mockRouter,
 } from "../helpers/mocks"
@@ -19,6 +19,13 @@ vi.mock("next/navigation", () => ({
   useRouter: vi.fn(),
 }))
 
+// `mockCurrentUser` retourne une forme simplifiée ; le hook réel renvoie le type
+// inféré (plus riche) de Better Auth. On cast au point d'injection du mock.
+const setCurrentUser = (value: ReturnType<typeof mockCurrentUser>) =>
+  vi
+    .mocked(useCurrentUser)
+    .mockReturnValue(value as ReturnType<typeof useCurrentUser>)
+
 describe("OnboardingGuard", () => {
   const mockReplace = vi.fn()
 
@@ -28,9 +35,7 @@ describe("OnboardingGuard", () => {
   })
 
   it("ne fait rien si le chargement est en cours", () => {
-    vi.mocked(useCurrentUser).mockReturnValue(
-      mockCurrentUser({ isLoading: true }),
-    )
+    setCurrentUser(mockCurrentUser({ isLoading: true }))
 
     render(<OnboardingGuard />)
 
@@ -38,7 +43,7 @@ describe("OnboardingGuard", () => {
   })
 
   it("ne fait rien si l'utilisateur n'est pas connecté", () => {
-    vi.mocked(useCurrentUser).mockReturnValue(mockCurrentUser())
+    setCurrentUser(mockCurrentUser())
 
     render(<OnboardingGuard />)
 
@@ -46,9 +51,9 @@ describe("OnboardingGuard", () => {
   })
 
   it("redirige vers onboarding si l'utilisateur n'a pas de username", () => {
-    vi.mocked(useCurrentUser).mockReturnValue(
+    setCurrentUser(
       mockCurrentUser({
-        currentUser: createMockUserDoc({ username: undefined }),
+        currentUser: createMockBetterAuthUser({ username: null }),
         isAuthenticated: true,
       }),
     )
@@ -60,9 +65,9 @@ describe("OnboardingGuard", () => {
   })
 
   it("redirige vers dashboard si l'utilisateur a un username et est sur la page onboarding", () => {
-    vi.mocked(useCurrentUser).mockReturnValue(
+    setCurrentUser(
       mockCurrentUser({
-        currentUser: createMockUserDoc({ username: "testuser" }),
+        currentUser: createMockBetterAuthUser({ username: "testuser" }),
         isAuthenticated: true,
       }),
     )
@@ -74,9 +79,9 @@ describe("OnboardingGuard", () => {
   })
 
   it("ne fait rien si l'utilisateur a un username et est sur le dashboard", () => {
-    vi.mocked(useCurrentUser).mockReturnValue(
+    setCurrentUser(
       mockCurrentUser({
-        currentUser: createMockUserDoc({ username: "testuser" }),
+        currentUser: createMockBetterAuthUser({ username: "testuser" }),
         isAuthenticated: true,
       }),
     )
@@ -88,9 +93,9 @@ describe("OnboardingGuard", () => {
   })
 
   it("ne redirige pas si l'utilisateur a un username et est sur une autre page", () => {
-    vi.mocked(useCurrentUser).mockReturnValue(
+    setCurrentUser(
       mockCurrentUser({
-        currentUser: createMockUserDoc({ username: "testuser" }),
+        currentUser: createMockBetterAuthUser({ username: "testuser" }),
         isAuthenticated: true,
       }),
     )
