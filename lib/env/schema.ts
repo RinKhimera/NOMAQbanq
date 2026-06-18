@@ -23,6 +23,14 @@ export const buildServerSchema = () =>
     // Filled in Phase 4 (Better Auth Google provider); optional until then.
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
+    // AWS SES (emails transactionnels) — optionnelles : l'app démarre sans,
+    // `sendEmail` lève une erreur claire à l'usage si une valeur requise manque.
+    SES_REGION: z.string().optional(),
+    SES_ACCESS_KEY_ID: z.string().optional(),
+    SES_SECRET_ACCESS_KEY: z.string().optional(),
+    EMAIL_FROM: z.string().optional(),
+    SES_CONFIGURATION_SET: z.string().optional(),
+    EMAIL_OVERRIDE_TO: z.string().optional(),
   })
 
 const formatError = (e: z.ZodError) =>

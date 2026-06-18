@@ -22,6 +22,7 @@ export default defineConfig({
         "hooks/**/*.ts",
         "components/**/*.tsx",
         "schemas/**/*.ts",
+        "email/**/*.{ts,tsx}",
       ],
       reporter: ["text", "json", "html"],
       exclude: [
@@ -37,6 +38,7 @@ export default defineConfig({
         "app/**/not-found.tsx",
         "providers/**",
         "tests/**",
+        "lib/auth.ts",
         // Layout/Navigation (pas de logique metier)
         "components/shared/app-sidebar.tsx",
         "components/shared/site-header.tsx",
