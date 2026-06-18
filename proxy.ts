@@ -1,22 +1,29 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server"
+import { getSessionCookie } from "better-auth/cookies"
 import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
 
-const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/admin(.*)"])
-const isPublicRoute = createRouteMatcher(["/", "/a-propos", "/domaines"])
+// Check OPTIMISTE de présence du cookie de session (pas de validation DB ici — rapide,
+// edge-friendly). La vraie vérification (et le rôle admin) se fait dans la DAL/guards
+// (`requireSession`/`requireRole`) côté Server Component. Défense en profondeur.
+const PROTECTED = [/^\/dashboard(?:\/|$)/, /^\/admin(?:\/|$)/]
+const PUBLIC_ONLY = [/^\/$/, /^\/a-propos$/, /^\/domaines$/]
 
-export default clerkMiddleware(async (auth, req) => {
-  const { userId } = await auth()
+export default function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
+  const hasSession = Boolean(getSessionCookie(request))
 
-  // Si l'utilisateur est connecté et tente d'accéder aux pages vitrine
-  if (userId && isPublicRoute(req)) {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+  // Connecté sur une page vitrine → renvoyer vers l'app.
+  if (hasSession && PUBLIC_ONLY.some((re) => re.test(pathname))) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
   }
 
-  // Protection des routes protégées
-  if (isProtectedRoute(req)) {
-    await auth.protect()
+  // Non connecté sur une route protégée → renvoyer vers la connexion.
+  if (!hasSession && PROTECTED.some((re) => re.test(pathname))) {
+    return NextResponse.redirect(new URL("/auth/sign-in", request.url))
   }
-})
+
+  return NextResponse.next()
+}
 
 export const config = {
   matcher: [

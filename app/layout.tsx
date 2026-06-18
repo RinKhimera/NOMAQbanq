@@ -135,7 +135,6 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://clerk.nomaqbanq.ca" />
         <link rel="preconnect" href="https://cdn.nomaqbanq.ca" />
       </head>
       <body

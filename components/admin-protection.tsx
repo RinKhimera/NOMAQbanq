@@ -1,25 +1,20 @@
 "use client"
 
-import { useConvexAuth, useQuery } from "convex/react"
 import { AlertTriangle, Loader2, Shield } from "lucide-react"
-import { api } from "@/convex/_generated/api"
+
+import { authClient } from "@/lib/auth-client"
 
 interface AdminProtectionProps {
   children: React.ReactNode
 }
 
+// Garde CLIENT (défense en profondeur). La protection serveur fait foi : les layouts
+// admin appellent `requireRole(['admin'])` côté Server Component.
 export default function AdminProtection({ children }: AdminProtectionProps) {
-  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
+  const { data, isPending } = authClient.useSession()
+  const isAdmin = data?.user?.role === "admin"
 
-  // Skip query until Clerk auth is ready to avoid race condition on page reload
-  const isAdmin = useQuery(
-    api.users.isCurrentUserAdmin,
-    isAuthenticated ? undefined : "skip",
-  )
-
-  // Loading state: only show loader while auth is loading OR while query is loading
-  // Don't show loader if user is simply not authenticated (that's a denial case)
-  if (isAuthLoading || (isAuthenticated && isAdmin === undefined)) {
+  if (isPending) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
