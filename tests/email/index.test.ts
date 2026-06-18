@@ -29,5 +29,6 @@ describe("email domain helpers", () => {
   it("sendResetPassword uses the reset subject", async () => {
     await sendResetPassword({ to: "u@x.com", url: "https://x/r" })
     expect(firstArg().subject).toContain("Réinitialisation")
+    expect(firstArg().react).toBeTruthy()
   })
 })
