@@ -42,6 +42,7 @@ export const questionExplanations = pgTable("question_explanations", {
     .references(() => questions.id, { onDelete: "cascade" }),
   explanation: text("explanation").notNull(),
   references: jsonb("references").$type<string[]>(),
+  imagePath: text("image_path"), // figure d'explication (review only); URL dérivée au rendu
 })
 
 // Replaces the Convex `images[]` jsonb array (queryable child rows).
@@ -54,7 +55,6 @@ export const questionImages = pgTable(
     questionId: text("question_id")
       .notNull()
       .references(() => questions.id, { onDelete: "cascade" }),
-    url: text("url").notNull(),
     storagePath: text("storage_path").notNull(),
     position: integer("position").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
