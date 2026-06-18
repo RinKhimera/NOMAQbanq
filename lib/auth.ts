@@ -1,5 +1,7 @@
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { nextCookies } from "better-auth/next-js"
+import { admin } from "better-auth/plugins/admin"
 
 import { db } from "@/db"
 import * as schema from "@/db/schema"
@@ -9,6 +11,12 @@ import { env } from "@/lib/env/server"
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
   baseURL: env.BETTER_AUTH_URL,
+  // Serverless: la table rate_limit (déjà créée) survit aux instances. Actif en prod uniquement.
+  rateLimit: { storage: "database" },
+  // Rattache automatiquement Google aux users migrés (même email) en préservant leur id.
+  account: {
+    accountLinking: { enabled: true, trustedProviders: ["google"] },
+  },
   emailAndPassword: {
     enabled: true,
     // ⚠️ requireEmailVerification : NON défini ici. L'enforcement de la vérification et
@@ -30,6 +38,10 @@ export const auth = betterAuth({
       clientSecret: env.GOOGLE_CLIENT_SECRET ?? "",
     },
   },
+  plugins: [
+    admin({ defaultRole: "user", adminRoles: ["admin"] }),
+    nextCookies(), // ⚠️ DOIT rester le dernier plugin
+  ],
 })
 
 export type Session = typeof auth.$Infer.Session
