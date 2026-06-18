@@ -156,7 +156,7 @@ export default function MockExamDetailsPage() {
       <ExamDetails
         examId={examId}
         isAdmin={false}
-        currentUserId={currentUser?._id}
+        currentUserId={currentUser?.id as Id<"users"> | undefined}
       />
 
       <ExamQuestionsModal

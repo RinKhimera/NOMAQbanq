@@ -1,11 +1,10 @@
 "use client"
 
-import { SignOutButton } from "@clerk/clerk-react"
 import { LayoutDashboard, LogOut, Monitor, Moon, Sun, User } from "lucide-react"
 import { useTheme } from "next-themes"
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -15,6 +14,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { authClient } from "@/lib/auth-client"
 
 interface NavigationItem {
   name: string
@@ -43,10 +43,17 @@ export const MobileMenu = ({
   isAuthenticated,
 }: MobileMenuProps) => {
   const pathname = usePathname()
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
 
   const handleLinkClick = () => {
     onOpenChange(false)
+  }
+
+  const handleSignOut = async () => {
+    onOpenChange(false)
+    await authClient.signOut()
+    router.push("/auth/sign-in")
   }
 
   return (
@@ -186,15 +193,14 @@ export const MobileMenu = ({
                     Profil
                   </Button>
 
-                  <SignOutButton>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-xl font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50"
-                    >
-                      <LogOut className="mr-3 size-4" />
-                      Déconnexion
-                    </Button>
-                  </SignOutButton>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start rounded-xl font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/50"
+                    onClick={handleSignOut}
+                  >
+                    <LogOut className="mr-3 size-4" />
+                    Déconnexion
+                  </Button>
                 </div>
               </div>
             ) : (

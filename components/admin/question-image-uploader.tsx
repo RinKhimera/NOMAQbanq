@@ -1,6 +1,5 @@
 "use client"
 
-import { useAuth } from "@clerk/nextjs"
 import {
   DndContext,
   DragEndEvent,
@@ -27,7 +26,7 @@ import {
 } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
 import Image from "next/image"
-import { useCallback, useRef, useState } from "react"
+import { useCallback, useState } from "react"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
 import { Progress } from "@/components/ui/progress"
@@ -201,7 +200,12 @@ export const QuestionImageUploader = ({
   maxImages = 10,
   disabled = false,
 }: QuestionImageUploaderProps) => {
-  const { getToken } = useAuth()
+  // TODO(Phase 7): rebrancher l'upload sur la route Bunny
+  // Le pipeline d'upload (Convex HTTP action + token Clerk) est démantelé pendant
+  // la migration. `questionId` reste dans l'API du composant mais l'upload et la
+  // suppression sont désactivés tant que la route Bunny n'est pas rebranchée.
+  // (Le réordonnancement local via `onImagesChange` reste actif.)
+  void questionId
   const [uploadingImages, setUploadingImages] = useState<UploadingImage[]>([])
 
   const sensors = useSensors(
@@ -213,152 +217,16 @@ export const QuestionImageUploader = ({
 
   const canAddMore = images.length + uploadingImages.length < maxImages
 
-  // Refs pour les valeurs stables dans le callback
-  const imagesRef = useRef(images)
-  imagesRef.current = images
-
-  // Upload d'une image vers Bunny
-  const uploadImage = useCallback(
-    async (file: File, index: number): Promise<QuestionImage | null> => {
-      const uploadId = `upload-${Date.now()}-${index}`
-
-      setUploadingImages((prev) => [
-        ...prev,
-        {
-          id: uploadId,
-          file,
-          preview: URL.createObjectURL(file),
-          progress: 0,
-          status: "uploading",
-        },
-      ])
-
-      try {
-        const token = await getToken({ template: "convex" })
-        const formData = new FormData()
-        formData.append("file", file)
-        formData.append("questionId", questionId)
-        formData.append(
-          "imageIndex",
-          (imagesRef.current.length + index).toString(),
-        )
-
-        // Simuler le progress (les fetch ne supportent pas nativement le progress)
-        const progressInterval = setInterval(() => {
-          setUploadingImages((prev) =>
-            prev.map((img) =>
-              img.id === uploadId && img.progress < 90
-                ? { ...img, progress: img.progress + 10 }
-                : img,
-            ),
-          )
-        }, 200)
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_CONVEX_URL?.replace(".cloud", ".site")}/api/upload/question-image`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            body: formData,
-          },
-        )
-
-        clearInterval(progressInterval)
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || "Erreur lors de l'upload")
-        }
-
-        const result = await response.json()
-
-        // Marquer comme terminé
-        setUploadingImages((prev) =>
-          prev.map((img) =>
-            img.id === uploadId
-              ? { ...img, progress: 100, status: "done" }
-              : img,
-          ),
-        )
-
-        // Nettoyer après un court délai
-        setTimeout(() => {
-          setUploadingImages((prev) =>
-            prev.filter((img) => img.id !== uploadId),
-          )
-        }, 500)
-
-        return {
-          url: result.url,
-          storagePath: result.storagePath,
-          order: imagesRef.current.length + index,
-        }
-      } catch (error) {
-        console.error("Upload error:", error)
-
-        setUploadingImages((prev) =>
-          prev.map((img) =>
-            img.id === uploadId
-              ? {
-                  ...img,
-                  status: "error",
-                  error: error instanceof Error ? error.message : "Erreur",
-                }
-              : img,
-          ),
-        )
-
-        return null
-      }
-    },
-    [getToken, questionId],
-  )
-
-  // Gestion du drop
+  // Gestion du drop (no-op pendant la migration)
   const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      if (disabled) return
+    (acceptedFiles: File[]) => {
+      if (disabled || acceptedFiles.length === 0) return
 
-      const remainingSlots = maxImages - images.length - uploadingImages.length
-      const filesToUpload = acceptedFiles.slice(0, remainingSlots)
-
-      if (filesToUpload.length < acceptedFiles.length) {
-        toast.warning(
-          `Seulement ${remainingSlots} image(s) peuvent être ajoutée(s)`,
-        )
-      }
-
-      // Upload en parallèle
-      const uploadPromises = filesToUpload.map((file, index) =>
-        uploadImage(file, index),
+      toast.info(
+        "Le téléversement est en cours de migration et sera disponible prochainement.",
       )
-
-      const results = await Promise.all(uploadPromises)
-      const successfulUploads = results.filter(
-        (r): r is QuestionImage => r !== null,
-      )
-
-      if (successfulUploads.length > 0) {
-        const newImages = [...images, ...successfulUploads].map(
-          (img, index) => ({
-            ...img,
-            order: index,
-          }),
-        )
-        onImagesChange(newImages)
-        toast.success(`${successfulUploads.length} image(s) ajoutée(s)`)
-      }
     },
-    [
-      disabled,
-      images,
-      maxImages,
-      onImagesChange,
-      uploadImage,
-      uploadingImages.length,
-    ],
+    [disabled],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -389,35 +257,12 @@ export const QuestionImageUploader = ({
     }
   }
 
-  // Supprimer une image
-  const handleRemove = async (storagePath: string) => {
-    try {
-      const token = await getToken({ template: "convex" })
-
-      // Supprimer de Bunny
-      await fetch(
-        `${process.env.NEXT_PUBLIC_CONVEX_URL?.replace(".cloud", ".site")}/api/upload/question-image`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ storagePath }),
-        },
-      )
-
-      // Mettre à jour localement
-      const newImages = images
-        .filter((img) => img.storagePath !== storagePath)
-        .map((img, index) => ({ ...img, order: index }))
-
-      onImagesChange(newImages)
-      toast.success("Image supprimée")
-    } catch (error) {
-      console.error("Delete error:", error)
-      toast.error("Erreur lors de la suppression")
-    }
+  // Supprimer une image (no-op pendant la migration)
+  // TODO(Phase 7): rebrancher la suppression sur la route Bunny (prend `storagePath`)
+  const handleRemove = () => {
+    toast.info(
+      "Le téléversement est en cours de migration et sera disponible prochainement.",
+    )
   }
 
   // Annuler un upload en attente ou en erreur
@@ -474,7 +319,7 @@ export const QuestionImageUploader = ({
                 <SortableImageItem
                   key={image.storagePath}
                   image={image}
-                  onRemove={() => handleRemove(image.storagePath)}
+                  onRemove={() => handleRemove()}
                   disabled={disabled}
                 />
               ))}

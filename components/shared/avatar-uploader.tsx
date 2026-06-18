@@ -1,6 +1,5 @@
 "use client"
 
-import { useAuth } from "@clerk/nextjs"
 import { IconCamera, IconCheck, IconUpload, IconX } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
 import Image from "next/image"
@@ -32,65 +31,6 @@ type AvatarUploaderProps = {
 }
 
 // ============================================
-// CROP IMAGE HELPER
-// ============================================
-
-const createImage = (url: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const image = document.createElement("img")
-    image.addEventListener("load", () => resolve(image))
-    image.addEventListener("error", (error) => reject(error))
-    image.setAttribute("crossOrigin", "anonymous")
-    image.src = url
-  })
-
-const getCroppedImg = async (
-  imageSrc: string,
-  pixelCrop: Area,
-): Promise<Blob> => {
-  const image = await createImage(imageSrc)
-  const canvas = document.createElement("canvas")
-  const ctx = canvas.getContext("2d")
-
-  if (!ctx) {
-    throw new Error("No 2d context")
-  }
-
-  // Set canvas size to desired output (square for avatar)
-  const outputSize = 400
-  canvas.width = outputSize
-  canvas.height = outputSize
-
-  // Draw the cropped image
-  ctx.drawImage(
-    image,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    outputSize,
-    outputSize,
-  )
-
-  // Convert canvas to blob
-  return new Promise((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (blob) {
-          resolve(blob)
-        } else {
-          reject(new Error("Canvas is empty"))
-        }
-      },
-      "image/jpeg",
-      0.9,
-    )
-  })
-}
-
-// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -100,8 +40,9 @@ export const AvatarUploader = ({
   size = "md",
   disabled = false,
 }: AvatarUploaderProps) => {
-  const { getToken } = useAuth()
-  const [isUploading, setIsUploading] = useState(false)
+  // TODO(Phase 7): redevient un état piloté par l'upload une fois la route Bunny
+  // rebranchée. Constant pour l'instant (no-op de téléversement).
+  const isUploading = false
   const [cropDialogOpen, setCropDialogOpen] = useState(false)
   const [imageSrc, setImageSrc] = useState<string | null>(null)
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 })
@@ -148,62 +89,25 @@ export const AvatarUploader = ({
     setCroppedAreaPixels(croppedAreaPixels)
   }, [])
 
-  // Upload cropped image
-  const handleSaveCrop = async () => {
+  // TODO(Phase 7): rebrancher l'upload sur la route Bunny
+  // Le pipeline d'upload (Convex HTTP action + token Clerk) est démantelé pendant
+  // la migration. `onAvatarChange` reste dans l'API du composant mais n'est pas
+  // déclenché tant que la route Bunny n'est pas rebranchée.
+  void onAvatarChange
+
+  // Upload cropped image (no-op pendant la migration)
+  const handleSaveCrop = () => {
     if (!imageSrc || !croppedAreaPixels) return
 
-    setIsUploading(true)
+    toast.info(
+      "Le téléversement est en cours de migration et sera disponible prochainement.",
+    )
 
-    try {
-      // Get cropped image blob
-      const croppedBlob = await getCroppedImg(imageSrc, croppedAreaPixels)
-
-      // Create file from blob
-      const file = new File([croppedBlob], "avatar.jpg", { type: "image/jpeg" })
-
-      // Get auth token
-      const token = await getToken({ template: "convex" })
-
-      // Create form data
-      const formData = new FormData()
-      formData.append("file", file)
-
-      // Upload to Bunny via Convex HTTP action
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_CONVEX_URL?.replace(".cloud", ".site")}/api/upload/avatar`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        },
-      )
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || "Erreur lors de l'upload")
-      }
-
-      const result = await response.json()
-
-      // Update parent component
-      onAvatarChange(result.url)
-      toast.success("Photo de profil mise à jour")
-
-      // Close dialog and reset
-      setCropDialogOpen(false)
-      setImageSrc(null)
-      setCrop({ x: 0, y: 0 })
-      setZoom(1)
-    } catch (error) {
-      console.error("Avatar upload error:", error)
-      toast.error(
-        error instanceof Error ? error.message : "Erreur lors de l'upload",
-      )
-    } finally {
-      setIsUploading(false)
-    }
+    // Close dialog and reset
+    setCropDialogOpen(false)
+    setImageSrc(null)
+    setCrop({ x: 0, y: 0 })
+    setZoom(1)
   }
 
   const handleCancel = () => {

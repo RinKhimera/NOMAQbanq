@@ -1,11 +1,10 @@
 "use client"
 
-import { SignOutButton } from "@clerk/clerk-react"
 import { LayoutDashboard, LogOut, Menu, User } from "lucide-react"
 import { motion } from "motion/react"
 import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import ThemeToggle from "@/components/shared/theme-toggle"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -19,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
+import { authClient } from "@/lib/auth-client"
 import { MobileMenu } from "./mobile-menu"
 import { useHeaderScroll } from "./use-header-scroll"
 
@@ -36,6 +36,12 @@ export const MarketingHeader = () => {
   const { isVisible, isScrolled } = useHeaderScroll()
   const { currentUser, isAuthenticated } = useCurrentUser()
   const pathname = usePathname()
+  const router = useRouter()
+
+  const handleSignOut = async () => {
+    await authClient.signOut()
+    router.push("/auth/sign-in")
+  }
 
   // Fermer le dropdown utilisateur au scroll
   useEffect(() => {
@@ -152,7 +158,7 @@ export const MarketingHeader = () => {
                     >
                       <Avatar className="size-10 transition-transform duration-300 hover:scale-105">
                         <AvatarImage
-                          src={currentUser.image}
+                          src={currentUser.image ?? undefined}
                           alt={currentUser.name}
                         />
                         <AvatarFallback className="bg-linear-to-br from-blue-600 to-indigo-600 text-white">
@@ -192,12 +198,13 @@ export const MarketingHeader = () => {
                       <span>Profil</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <SignOutButton>
-                      <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600">
-                        <LogOut className="mr-2 size-4" />
-                        <span>Déconnexion</span>
-                      </DropdownMenuItem>
-                    </SignOutButton>
+                    <DropdownMenuItem
+                      className="cursor-pointer text-red-600 focus:text-red-600"
+                      onClick={handleSignOut}
+                    >
+                      <LogOut className="mr-2 size-4" />
+                      <span>Déconnexion</span>
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : (

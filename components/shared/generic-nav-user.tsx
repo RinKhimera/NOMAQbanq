@@ -1,6 +1,5 @@
 "use client"
 
-import { SignOutButton } from "@clerk/clerk-react"
 import { IconDotsVertical, IconLogout } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
@@ -20,6 +19,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
+import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 
 interface NavUserProps {
@@ -108,6 +108,11 @@ export const GenericNavUser = ({
       .slice(0, 2)
   }
 
+  const handleSignOut = async () => {
+    await authClient.signOut()
+    router.push("/auth/sign-in")
+  }
+
   return (
     <SidebarMenu>
       <SidebarMenuItem>
@@ -133,7 +138,10 @@ export const GenericNavUser = ({
                     : "ring-blue-500/30 group-hover/avatar:ring-blue-500/50",
                 )}
               >
-                <AvatarImage src={currentUser.image} alt={currentUser.name} />
+                <AvatarImage
+                  src={currentUser.image ?? undefined}
+                  alt={currentUser.name}
+                />
                 <AvatarFallback
                   className={cn(
                     "rounded-lg font-semibold",
@@ -170,7 +178,10 @@ export const GenericNavUser = ({
                     requireAdmin ? "ring-orange-500/30" : "ring-blue-500/30",
                   )}
                 >
-                  <AvatarImage src={currentUser.image} alt={currentUser.name} />
+                  <AvatarImage
+                  src={currentUser.image ?? undefined}
+                  alt={currentUser.name}
+                />
                   <AvatarFallback
                     className={cn(
                       "rounded-lg font-semibold",
@@ -198,15 +209,14 @@ export const GenericNavUser = ({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator className="my-1" />
-            <SignOutButton>
-              <DropdownMenuItem
-                variant="destructive"
-                className="cursor-pointer rounded-lg"
-              >
-                <IconLogout className="size-4" />
-                <span>Se déconnecter</span>
-              </DropdownMenuItem>
-            </SignOutButton>
+            <DropdownMenuItem
+              variant="destructive"
+              className="cursor-pointer rounded-lg"
+              onClick={handleSignOut}
+            >
+              <IconLogout className="size-4" />
+              <span>Se déconnecter</span>
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

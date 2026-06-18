@@ -1,17 +1,54 @@
 "use client"
 
-import { useClerk } from "@clerk/nextjs"
-import { IconExternalLink, IconKey, IconShield } from "@tabler/icons-react"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { IconKey, IconShield } from "@tabler/icons-react"
 import { motion, useReducedMotion } from "motion/react"
+import { useForm } from "react-hook-form"
+import { toast } from "sonner"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form"
+import { Input } from "@/components/ui/input"
+import { authClient } from "@/lib/auth-client"
+import {
+  type ChangePasswordFormValues,
+  changePasswordSchema,
+} from "@/schemas/auth"
 
 export const ProfileSecurity = () => {
-  const { openUserProfile } = useClerk()
   const prefersReducedMotion = useReducedMotion()
 
-  const handleSecurityClick = () => {
-    openUserProfile()
+  const form = useForm<ChangePasswordFormValues>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  })
+
+  const onSubmit = async (values: ChangePasswordFormValues) => {
+    const { error } = await authClient.changePassword({
+      currentPassword: values.currentPassword,
+      newPassword: values.newPassword,
+      revokeOtherSessions: true,
+    })
+
+    if (error) {
+      toast.error(error.message ?? "Échec de la modification du mot de passe")
+      return
+    }
+
+    toast.success("Mot de passe modifié avec succès")
+    form.reset()
   }
 
   const motionProps = prefersReducedMotion
@@ -25,6 +62,8 @@ export const ProfileSecurity = () => {
           ease: [0.16, 1, 0.3, 1] as const,
         },
       }
+
+  const isSubmitting = form.formState.isSubmitting
 
   return (
     <motion.div {...motionProps}>
@@ -51,21 +90,106 @@ export const ProfileSecurity = () => {
                   Mot de passe
                 </h4>
                 <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
-                  Votre mot de passe est géré de manière sécurisée par notre
-                  système d{"'"}authentification. Cliquez ci-dessous pour
-                  modifier vos paramètres de sécurité.
+                  Modifiez votre mot de passe ci-dessous. Par sécurité, vos
+                  autres sessions seront déconnectées.
                 </p>
-                <Button
-                  onClick={handleSecurityClick}
-                  variant="outline"
-                  className="mt-4 rounded-xl border-orange-200 text-orange-700 hover:bg-orange-100 hover:text-orange-800 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-900/40"
-                >
-                  <IconKey className="mr-2 h-4 w-4" />
-                  Gérer la sécurité
-                  <IconExternalLink className="ml-2 h-4 w-4" />
-                </Button>
+
+                <Form {...form}>
+                  <form
+                    onSubmit={form.handleSubmit(onSubmit)}
+                    className="mt-4 space-y-4"
+                    noValidate
+                  >
+                    <FormField
+                      control={form.control}
+                      name="currentPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Mot de passe actuel</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              autoComplete="current-password"
+                              placeholder="••••••••"
+                              data-testid="security-current-password"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="newPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Nouveau mot de passe</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              autoComplete="new-password"
+                              placeholder="••••••••"
+                              data-testid="security-new-password"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="confirmPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            Confirmer le nouveau mot de passe
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type="password"
+                              autoComplete="new-password"
+                              placeholder="••••••••"
+                              data-testid="security-confirm-password"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <Button
+                      type="submit"
+                      variant="outline"
+                      disabled={isSubmitting}
+                      className="rounded-xl border-orange-200 text-orange-700 hover:bg-orange-100 hover:text-orange-800 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-900/40"
+                      data-testid="security-submit"
+                    >
+                      <IconKey className="mr-2 h-4 w-4" />
+                      {isSubmitting
+                        ? "Modification..."
+                        : "Modifier le mot de passe"}
+                    </Button>
+                  </form>
+                </Form>
               </div>
             </div>
+          </div>
+
+          {/* TODO(Phase 7): gérer les comptes connectés (Google, etc.) — pas
+              d'équivalent direct Better Auth dans cette phase. */}
+          <div className="mt-4 rounded-xl border border-dashed border-gray-200 p-5 dark:border-gray-700">
+            <h4 className="font-semibold text-gray-900 dark:text-white">
+              Comptes connectés
+            </h4>
+            <p className="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+              La gestion des comptes connectés (Google) sera disponible
+              prochainement.
+            </p>
           </div>
         </CardContent>
       </Card>
