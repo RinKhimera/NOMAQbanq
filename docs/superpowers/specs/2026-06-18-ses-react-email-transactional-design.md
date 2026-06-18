@@ -285,3 +285,23 @@ Objectif : rester au-dessus du seuil de couverture 75 % du projet.
 - Session migration : décider `requireEmailVerification` + backfill `emailVerified`.
 - Éventuel webhook SNS → DB si un besoin produit d'agir sur les bounces apparaît.
 - Page UI « Vérifiez votre courriel » + flux de reset côté frontend (hors de ce lot).
+
+## Addendum (2026-06-18) — Identifiants dual-mode (OIDC en prod)
+
+Suite à la recommandation AWS d'éviter les clés long-lived, `email/client.ts` résout
+désormais les identifiants selon l'environnement (`resolveCredentials()`) :
+
+- **Prod (Vercel)** : si `AWS_ROLE_ARN` est défini → fédération **OIDC** via
+  `awsCredentialsProvider({ roleArn })` (`@vercel/oidc-aws-credentials-provider`) →
+  identifiants **temporaires**, aucun secret stocké. Mécanisme = `sts:AssumeRoleWithWebIdentity`,
+  PAS IAM Roles Anywhere (inadapté au serverless Vercel).
+- **Local/dev** : sinon, clés statiques scopées `ses:SendEmail`
+  (`SES_ACCESS_KEY_ID`/`SES_SECRET_ACCESS_KEY`). L'OIDC ne fonctionne pas en local
+  (pas de token Vercel), d'où le fallback.
+- Sinon → erreur explicite.
+
+Setup AWS/Vercel pour la prod : créer un **OIDC Identity Provider** dans IAM
+(`https://oidc.vercel.com/[team]`, audience `https://vercel.com/[team]`), un **rôle IAM**
+avec trust policy OIDC + policy `ses:SendEmail`, puis définir `AWS_ROLE_ARN` (et fixer
+`AWS_REGION`, instable par défaut sur Vercel) dans les env vars du projet Vercel.
+Nouvelle var optionnelle : `AWS_ROLE_ARN`.
