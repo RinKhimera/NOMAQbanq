@@ -19,6 +19,6 @@ describe("email templates", () => {
       createElement(ResetPasswordEmail, { url: "https://nomaqbanq.ca/r?token=xyz" }),
     )
     expect(html).toContain("https://nomaqbanq.ca/r?token=xyz")
-    expect(html).toContain("mot de passe")
+    expect(html).toContain("Réinitialiser mon mot de passe")
   })
 })
