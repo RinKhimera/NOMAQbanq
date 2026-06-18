@@ -1,11 +1,11 @@
-"use client"
-
-import { SignIn } from "@clerk/nextjs"
 import { ArrowRight, Shield, Sparkles, Zap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+
+import { SignInForm } from "./_components/sign-in-form"
 
 export default function ConnexionPage() {
   return (
@@ -104,7 +104,7 @@ export default function ConnexionPage() {
             </div>
           </div>
 
-          {/* Right side - SignIn component with decorative background - Shown first on mobile */}
+          {/* Right side - Sign-in form with decorative background - Shown first on mobile */}
           <div
             className="animate-slide-in-right relative order-first lg:order-last"
             style={{ animationDelay: "0.2s" }}
@@ -114,7 +114,7 @@ export default function ConnexionPage() {
             <div className="absolute -bottom-10 -left-10 h-64 w-64 rounded-full bg-linear-to-br from-purple-400/20 to-pink-400/20 blur-3xl"></div>
 
             {/* Card container */}
-            <div className="relative z-10 flex flex-col items-center rounded-3xl border border-white/20 bg-white/60 p-8 shadow-2xl backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/60">
+            <div className="relative z-10 mx-auto flex w-full max-w-md flex-col items-center rounded-3xl border border-white/20 bg-white/60 p-8 shadow-2xl backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/60">
               <div className="mb-6 w-full text-center">
                 <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg">
                   <Shield className="h-8 w-8 text-white" />
@@ -128,9 +128,7 @@ export default function ConnexionPage() {
                 </p>
               </div>
 
-              <div className="flex w-full justify-center">
-                <SignIn path="/auth/sign-in" />
-              </div>
+              <SignInForm />
 
               {/* Trust indicators */}
               <div className="mt-6 flex w-full items-center justify-center gap-4 border-t border-gray-200 pt-6 dark:border-gray-700">

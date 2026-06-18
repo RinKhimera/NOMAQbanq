@@ -1,9 +1,9 @@
-"use client"
-
-import { SignUp } from "@clerk/nextjs"
 import { Award, CheckCircle, Shield, Sparkles, Star } from "lucide-react"
 import Image from "next/image"
+
 import { Badge } from "@/components/ui/badge"
+
+import { SignUpForm } from "./_components/sign-up-form"
 
 export default function InscriptionPage() {
   return (
@@ -119,7 +119,7 @@ export default function InscriptionPage() {
             </div>
           </div>
 
-          {/* Right side - SignUp component with decorative background - Shown first on mobile */}
+          {/* Right side - Sign-up form with decorative background - Shown first on mobile */}
           <div
             className="animate-slide-in-right relative order-first lg:order-last"
             style={{ animationDelay: "0.2s" }}
@@ -129,7 +129,7 @@ export default function InscriptionPage() {
             <div className="absolute -bottom-10 -left-10 h-64 w-64 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-400/20 blur-3xl"></div>
 
             {/* Card container */}
-            <div className="relative z-10 flex flex-col items-center rounded-3xl border border-white/20 bg-white/60 p-8 shadow-2xl backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/60">
+            <div className="relative z-10 mx-auto flex w-full max-w-md flex-col items-center rounded-3xl border border-white/20 bg-white/60 p-8 shadow-2xl backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/60">
               <div className="mb-6 w-full text-center">
                 <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-green-500 to-emerald-600 shadow-lg">
                   <Sparkles className="h-8 w-8 text-white" />
@@ -142,9 +142,7 @@ export default function InscriptionPage() {
                 </p>
               </div>
 
-              <div className="flex w-full justify-center">
-                <SignUp path="/auth/sign-up" />
-              </div>
+              <SignUpForm />
 
               {/* Benefits footer */}
               <div className="mt-6 w-full space-y-3 border-t border-gray-200 pt-6 dark:border-gray-700">
