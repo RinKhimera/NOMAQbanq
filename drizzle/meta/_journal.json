@@ -8,6 +8,13 @@
       "when": 1781735384863,
       "tag": "0000_first_garia",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781762329944,
+      "tag": "0001_opposite_marvel_apes",
+      "breakpoints": true
     }
   ]
 }
