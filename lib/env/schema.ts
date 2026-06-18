@@ -31,8 +31,6 @@ export const buildServerSchema = () =>
     EMAIL_FROM: z.string().optional(),
     SES_CONFIGURATION_SET: z.string().optional(),
     EMAIL_OVERRIDE_TO: z.string().optional(),
-    // Prod Vercel : ARN du rôle IAM assumé via OIDC (remplace les clés statiques). Vide en local.
-    AWS_ROLE_ARN: z.string().optional(),
   })
 
 const formatError = (e: z.ZodError) =>

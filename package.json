@@ -64,7 +64,6 @@
     "@tanstack/react-table": "^8.21.3",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@vercel/functions": "^3.7.1",
-    "@vercel/oidc-aws-credentials-provider": "^3.1.4",
     "better-auth": "^1.6.19",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
