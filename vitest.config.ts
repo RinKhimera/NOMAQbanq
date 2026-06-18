@@ -1,9 +1,19 @@
 import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
+import { realpathSync } from "fs"
 import path from "path"
 import { defineConfig } from "vitest/config"
 
+// Sur Windows, process.cwd() garde la casse "logique" du dossier tel qu'il a ete
+// ouvert (ex. NOMAqBANK), alors que Node/V8 rapporte la casse REELLE du disque
+// (nomaqbank) dans les URLs de modules. La couverture v8 compare ces URLs a
+// config.root de facon sensible a la casse : si elles different, tous les
+// resultats sont juges "externes" et rejetes -> 0% partout (Windows uniquement ;
+// la CI Linux n'est pas affectee). On force la casse reelle du disque.
+const root = realpathSync.native(path.resolve(__dirname))
+
 export default defineConfig({
+  root,
   plugins: [react(), tailwindcss()],
   css: {
     // Désactiver le PostCSS config externe pour Vitest
@@ -123,7 +133,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./"),
+      "@": root,
     },
   },
 })

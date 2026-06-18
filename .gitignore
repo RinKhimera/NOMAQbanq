@@ -45,6 +45,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# convex → neon migration snapshot (PROD PII — never commit)
+/convex-snapshot.zip
+/convex-snapshot/
+
 # specific folders and files
 /.cursor
 /.claude/memory/
