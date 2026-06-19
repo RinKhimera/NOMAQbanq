@@ -113,7 +113,7 @@ export default defineConfig({
           environment: "happy-dom",
           setupFiles: ["./vitest.setup.ts"],
           include: ["tests/**/*.test.{ts,tsx}"],
-          exclude: ["tests/convex/**"],
+          exclude: ["tests/convex/**", "tests/integration/**"],
         },
       },
       {
@@ -129,11 +129,28 @@ export default defineConfig({
           },
         },
       },
+      {
+        // Tests d'intégration DAL/Actions contre une vraie branche Neon jetable.
+        // Opt-in : lancés UNIQUEMENT via `bun run test:integration` (orchestrateur
+        // qui crée la branche + pose INTEGRATION_BRANCH/HOST). Exclus de `bun run test`.
+        extends: true,
+        test: {
+          name: "integration",
+          environment: "node",
+          include: ["tests/integration/**/*.test.ts"],
+          setupFiles: ["./vitest.setup.integration.ts"],
+          fileParallelism: false,
+          testTimeout: 30_000,
+          hookTimeout: 30_000,
+        },
+      },
     ],
   },
   resolve: {
     alias: {
       "@": root,
+      // `server-only` lève hors RSC → stub en environnement de test.
+      "server-only": path.resolve(root, "tests/helpers/server-only-stub.ts"),
     },
   },
 })
