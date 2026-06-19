@@ -1,3 +1,4 @@
+import { getAccessStatus } from "@/features/payments/dal"
 import { getCurrentUser } from "@/features/users/dal"
 import { ProfileHeader } from "./_components/profile-header"
 import { ProfilePersonalInfo } from "./_components/profile-personal-info"
@@ -24,6 +25,8 @@ export default async function ProfilPage() {
     )
   }
 
+  const accessStatus = await getAccessStatus()
+
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header with avatar */}
@@ -38,8 +41,7 @@ export default async function ProfilPage() {
         <ProfileSecurity />
 
         {/* Subscription summary */}
-        {/* TODO(5.2): brancher l'accès réel (domaine payments) */}
-        <ProfileSubscriptionCard accessStatus={null} />
+        <ProfileSubscriptionCard accessStatus={accessStatus} />
       </div>
 
       {/* Preferences - coming soon */}
