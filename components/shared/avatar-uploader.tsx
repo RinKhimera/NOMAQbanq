@@ -24,8 +24,8 @@ import { cn } from "@/lib/utils"
 // ============================================
 
 type AvatarUploaderProps = {
-  currentAvatarUrl?: string
-  onAvatarChange: (newUrl: string) => void
+  currentAvatarUrl?: string | null
+  onAvatarChange?: (newUrl: string) => void
   size?: "sm" | "md" | "lg"
   disabled?: boolean
 }

@@ -1,29 +1,11 @@
-"use client"
-
-import { useConvexAuth, useQuery } from "convex/react"
 import { ProfileHeader } from "@/app/(dashboard)/dashboard/profil/_components/profile-header"
 import { ProfilePersonalInfo } from "@/app/(dashboard)/dashboard/profil/_components/profile-personal-info"
 import { ProfilePreferences } from "@/app/(dashboard)/dashboard/profil/_components/profile-preferences"
 import { ProfileSecurity } from "@/app/(dashboard)/dashboard/profil/_components/profile-security"
-import { ProfileSkeleton } from "@/app/(dashboard)/dashboard/profil/_components/profile-skeleton"
-import { api } from "@/convex/_generated/api"
+import { getCurrentUser } from "@/features/users/dal"
 
-export default function AdminProfilPage() {
-  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
-
-  // Skip queries until authenticated to avoid race condition on page reload
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? undefined : "skip",
-  )
-
-  // Handle avatar change - Convex reactivity automatically refreshes the UI
-  const handleAvatarChange = () => {}
-
-  // Loading state
-  if (isAuthLoading || currentUser === undefined) {
-    return <ProfileSkeleton />
-  }
+export default async function AdminProfilPage() {
+  const currentUser = await getCurrentUser()
 
   // Error state - user not found
   if (!currentUser) {
@@ -44,7 +26,7 @@ export default function AdminProfilPage() {
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header with avatar */}
-      <ProfileHeader user={currentUser} onAvatarChange={handleAvatarChange} />
+      <ProfileHeader user={currentUser} />
 
       {/* Personal information - editable */}
       <ProfilePersonalInfo user={currentUser} />

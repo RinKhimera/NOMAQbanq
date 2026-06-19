@@ -1,35 +1,12 @@
-"use client"
-
-import { useConvexAuth, useQuery } from "convex/react"
-import { api } from "@/convex/_generated/api"
+import { getCurrentUser } from "@/features/users/dal"
 import { ProfileHeader } from "./_components/profile-header"
 import { ProfilePersonalInfo } from "./_components/profile-personal-info"
 import { ProfilePreferences } from "./_components/profile-preferences"
 import { ProfileSecurity } from "./_components/profile-security"
-import { ProfileSkeleton } from "./_components/profile-skeleton"
 import { ProfileSubscriptionCard } from "./_components/profile-subscription-card"
 
-export default function ProfilPage() {
-  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
-
-  // Skip queries until authenticated to avoid race condition on page reload
-  const currentUser = useQuery(
-    api.users.getCurrentUser,
-    isAuthenticated ? undefined : "skip",
-  )
-
-  const accessStatus = useQuery(
-    api.payments.getMyAccessStatus,
-    isAuthenticated ? undefined : "skip",
-  )
-
-  // Handle avatar change - Convex reactivity automatically refreshes the UI
-  const handleAvatarChange = () => {}
-
-  // Loading state
-  if (isAuthLoading || currentUser === undefined) {
-    return <ProfileSkeleton />
-  }
+export default async function ProfilPage() {
+  const currentUser = await getCurrentUser()
 
   // Error state - user not found
   if (!currentUser) {
@@ -50,7 +27,7 @@ export default function ProfilPage() {
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header with avatar */}
-      <ProfileHeader user={currentUser} onAvatarChange={handleAvatarChange} />
+      <ProfileHeader user={currentUser} />
 
       {/* Personal information - editable */}
       <ProfilePersonalInfo user={currentUser} />
@@ -61,7 +38,8 @@ export default function ProfilPage() {
         <ProfileSecurity />
 
         {/* Subscription summary */}
-        <ProfileSubscriptionCard accessStatus={accessStatus ?? null} />
+        {/* TODO(5.2): brancher l'accès réel (domaine payments) */}
+        <ProfileSubscriptionCard accessStatus={null} />
       </div>
 
       {/* Preferences - coming soon */}

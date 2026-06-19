@@ -1,7 +1,6 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation } from "convex/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { useForm } from "react-hook-form"
@@ -25,14 +24,13 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { api } from "@/convex/_generated/api"
+import { updateProfile } from "@/features/users/actions"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { UserFormValues, userFormSchema } from "@/schemas/user"
 
 export default function OnboardingPage() {
   const { currentUser, isLoading } = useCurrentUser()
   const router = useRouter()
-  const updateProfile = useMutation(api.users.updateUserProfile)
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),

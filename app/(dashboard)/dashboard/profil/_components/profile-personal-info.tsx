@@ -1,45 +1,27 @@
 "use client"
 
 import { IconAt, IconFileText, IconUser } from "@tabler/icons-react"
-import { useMutation } from "convex/react"
 import { User } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { z } from "zod"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { api } from "@/convex/_generated/api"
-import { Doc } from "@/convex/_generated/dataModel"
+import { updateProfile } from "@/features/users/actions"
+import { CurrentUser } from "@/features/users/dal"
+import {
+  bioSchema,
+  nameSchema,
+  usernameSchema,
+} from "@/features/users/schemas"
 import { InlineEditField } from "./inline-edit-field"
 
 type ProfilePersonalInfoProps = {
-  user: Doc<"users">
+  user: CurrentUser
 }
-
-// Validation schemas
-const nameSchema = z
-  .string()
-  .trim()
-  .min(2, "Le nom doit contenir au moins 2 caractères")
-  .max(50, "Le nom ne peut pas dépasser 50 caractères")
-
-const usernameSchema = z
-  .string()
-  .trim()
-  .min(3, "Le nom d'utilisateur doit contenir au moins 3 caractères")
-  .max(20, "Le nom d'utilisateur ne peut pas dépasser 20 caractères")
-  .transform((v) => v.toLowerCase())
-  .refine((v) => /^[a-z0-9_]+$/.test(v), {
-    error: "Caractères autorisés: lettres, chiffres, underscore",
-  })
-
-const bioSchema = z
-  .string()
-  .trim()
-  .max(200, "La biographie ne peut pas dépasser 200 caractères")
 
 export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
   const prefersReducedMotion = useReducedMotion()
-  const updateProfile = useMutation(api.users.updateUserProfile)
+  const router = useRouter()
 
   const handleSaveField = async (
     fieldName: "name" | "username" | "bio",
@@ -49,11 +31,13 @@ export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
       const result = await updateProfile({
         name: fieldName === "name" ? value : user.name,
         username: fieldName === "username" ? value : user.username || "",
-        bio: fieldName === "bio" ? value || undefined : user.bio,
+        bio:
+          fieldName === "bio" ? value || undefined : user.bio ?? undefined,
       })
 
       if (result.success) {
         toast.success("Modification enregistrée")
+        router.refresh()
         return { success: true }
       } else {
         return {

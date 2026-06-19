@@ -6,19 +6,19 @@ import { fr } from "date-fns/locale"
 import { motion, useReducedMotion } from "motion/react"
 import { AvatarUploader } from "@/components/shared/avatar-uploader"
 import { Badge } from "@/components/ui/badge"
-import { Doc } from "@/convex/_generated/dataModel"
+import { CurrentUser } from "@/features/users/dal"
 import { cn } from "@/lib/utils"
 
 type ProfileHeaderProps = {
-  user: Doc<"users">
-  onAvatarChange: (newUrl: string) => void
+  user: CurrentUser
+  onAvatarChange?: (newUrl: string) => void
 }
 
-export const ProfileHeader = ({ user, onAvatarChange }: ProfileHeaderProps) => {
+export const ProfileHeader = ({ user }: ProfileHeaderProps) => {
   const prefersReducedMotion = useReducedMotion()
 
-  const registrationDate = user._creationTime
-    ? format(new Date(user._creationTime), "d MMMM yyyy", { locale: fr })
+  const registrationDate = user.createdAt
+    ? format(user.createdAt, "d MMMM yyyy", { locale: fr })
     : null
 
   const motionProps = prefersReducedMotion
@@ -65,8 +65,7 @@ export const ProfileHeader = ({ user, onAvatarChange }: ProfileHeaderProps) => {
 
             <div className="relative rounded-2xl bg-white/50 p-1.5 shadow-lg ring-1 ring-white/50 backdrop-blur-sm dark:bg-gray-900/50 dark:ring-gray-800/50">
               <AvatarUploader
-                currentAvatarUrl={user.image}
-                onAvatarChange={onAvatarChange}
+                currentAvatarUrl={user.image ?? undefined}
                 size="lg"
               />
             </div>
