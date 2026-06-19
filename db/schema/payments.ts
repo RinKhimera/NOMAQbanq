@@ -80,7 +80,9 @@ export const transactions = pgTable(
     accessExpiresAt: timestamp("access_expires_at", {
       withTimezone: true,
     }).notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    // precision: 3 (ms) → s'aligne sur la précision de JS Date, sinon la
+    // pagination keyset (curseur ms vs colonne µs) saute/dédouble des lignes.
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
       .defaultNow()
       .notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),

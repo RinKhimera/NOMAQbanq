@@ -13,6 +13,7 @@ export const transactionStatus = pgEnum("transaction_status", [
   "pending",
   "completed",
   "failed",
+  "refunded",
 ])
 export const currency = pgEnum("currency", ["CAD", "XAF"])
 export const examParticipationStatus = pgEnum("exam_participation_status", [
