@@ -40,12 +40,17 @@ export const auth = betterAuth({
     sendOnSignUp: true, // l'email part à l'inscription ; n'impose rien sans requireEmailVerification
     autoSignInAfterVerification: true,
   },
-  socialProviders: {
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: env.GOOGLE_CLIENT_SECRET ?? "",
-    },
-  },
+  // Google configuré UNIQUEMENT si les deux creds sont présents — évite le
+  // `clientId: ""` qui cassait Google silencieusement (review N3).
+  socialProviders:
+    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
+      ? {
+          google: {
+            clientId: env.GOOGLE_CLIENT_ID,
+            clientSecret: env.GOOGLE_CLIENT_SECRET,
+          },
+        }
+      : {},
   plugins: [
     admin({ defaultRole: "user", adminRoles: ["admin"] }),
     nextCookies(), // ⚠️ DOIT rester le dernier plugin

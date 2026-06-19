@@ -18,7 +18,10 @@ export const buildServerSchema = () =>
   z.object({
     DATABASE_URL: required("DATABASE_URL"), // pooled (runtime)
     DATABASE_URL_UNPOOLED: required("DATABASE_URL_UNPOOLED"), // direct (migrations)
-    BETTER_AUTH_SECRET: required("BETTER_AUTH_SECRET"),
+    BETTER_AUTH_SECRET: required("BETTER_AUTH_SECRET").min(
+      32,
+      "BETTER_AUTH_SECRET : au moins 32 caractères requis",
+    ),
     BETTER_AUTH_URL: requiredUrl("BETTER_AUTH_URL"),
     // Filled in Phase 4 (Better Auth Google provider); optional until then.
     GOOGLE_CLIENT_ID: z.string().optional(),
