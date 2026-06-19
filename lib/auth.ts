@@ -27,8 +27,10 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    // ⚠️ requireEmailVerification : NON défini ici. L'enforcement de la vérification et
-    //    le backfill `emailVerified` des users migrés sont gérés par la session migration.
+    // Bloque la connexion d'un compte email/mdp non vérifié (review M2). N'affecte
+    // PAS Google (emailVerified=true) ni les users migrés (déjà email_verified=true) ;
+    // ne concerne que les nouvelles inscriptions email.
+    requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
       await sendResetPassword({ to: user.email, url })
     },

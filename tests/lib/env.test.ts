@@ -5,7 +5,7 @@ import { loadServerEnv, stripEmpty } from "@/lib/env/schema"
 const valid = {
   DATABASE_URL: "postgresql://u:p@host/db",
   DATABASE_URL_UNPOOLED: "postgresql://u:p@host/db",
-  BETTER_AUTH_SECRET: "a-secret-value",
+  BETTER_AUTH_SECRET: "a-secret-value-of-at-least-32-characters",
   BETTER_AUTH_URL: "http://localhost:3000",
 }
 
@@ -34,5 +34,11 @@ describe("loadServerEnv", () => {
     expect(() => loadServerEnv({ ...valid, BETTER_AUTH_URL: "" })).toThrow(
       /BETTER_AUTH_URL/,
     )
+  })
+
+  it("rejects a BETTER_AUTH_SECRET shorter than 32 chars", () => {
+    expect(() =>
+      loadServerEnv({ ...valid, BETTER_AUTH_SECRET: "too-short" }),
+    ).toThrow(/BETTER_AUTH_SECRET/)
   })
 })
