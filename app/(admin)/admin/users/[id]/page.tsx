@@ -1,78 +1,29 @@
-"use client"
-
-import { usePaginatedQuery, useQuery } from "convex/react"
-import { ArrowLeft, CreditCard, User } from "lucide-react"
-import { motion } from "motion/react"
-import dynamic from "next/dynamic"
+import { ArrowLeft, User } from "lucide-react"
 import Link from "next/link"
-import { useParams } from "next/navigation"
-import { useState } from "react"
-import { TransactionTable } from "@/components/shared/payments/transaction-table"
+
 import { Button } from "@/components/ui/button"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
-import { UserAccessSection } from "./_components/user-access-section"
-import { UserInfoCard } from "./_components/user-info-card"
+  getAccessStatus,
+  getAllTransactions,
+  getAvailableProducts,
+} from "@/features/payments/dal"
+import { getSelectableUsers, getUserForAdmin } from "@/features/users/dal"
+import { requireRole } from "@/lib/auth-guards"
 
-// Lazy-load ManualPaymentModal to reduce initial bundle size
-const ManualPaymentModal = dynamic(
-  () =>
-    import("@/components/shared/payments/manual-payment-modal").then((mod) => ({
-      default: mod.ManualPaymentModal,
-    })),
-  { ssr: false },
-)
+import { UserDetailClient } from "./user-detail-client"
 
-const PageSkeleton = () => (
-  <div className="space-y-6">
-    <div className="flex items-center gap-4">
-      <Skeleton className="h-9 w-9 rounded-xl" />
-      <Skeleton className="h-8 w-48" />
-    </div>
-    <div className="grid gap-6 lg:grid-cols-3">
-      <Skeleton className="h-80 rounded-2xl lg:col-span-1" />
-      <div className="space-y-6 lg:col-span-2">
-        <Skeleton className="h-48 rounded-2xl" />
-        <Skeleton className="h-64 rounded-2xl" />
-      </div>
-    </div>
-  </div>
-)
+export default async function AdminUserDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  // H3 (IDOR) : garde admin explicite avant de manipuler un userId arbitraire,
+  // en plus du layout admin et des gardes internes du DAL.
+  await requireRole(["admin"])
+  const { id } = await params
 
-export default function AdminUserDetailPage() {
-  const params = useParams()
-  const userId = params.id as Id<"users">
-
-  const [showManualPaymentModal, setShowManualPaymentModal] = useState(false)
-
-  const user = useQuery(api.users.getUserById, { userId })
-  const {
-    results: transactions,
-    status: txStatus,
-    loadMore,
-  } = usePaginatedQuery(
-    api.payments.getAllTransactions,
-    { userId },
-    { initialNumItems: 10 },
-  )
-
-  if (user === undefined) {
-    return (
-      <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-        <PageSkeleton />
-      </div>
-    )
-  }
-
-  if (user === null) {
+  const user = await getUserForAdmin(id)
+  if (!user) {
     return (
       <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
         <div className="flex items-center gap-4">
@@ -100,81 +51,21 @@ export default function AdminUserDetailPage() {
     )
   }
 
+  const [access, txPage, products, selectableUsers] = await Promise.all([
+    getAccessStatus(id),
+    getAllTransactions({ userId: id, limit: 10 }),
+    getAvailableProducts(),
+    getSelectableUsers(),
+  ])
+
   return (
-    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* Header with back button */}
-      <div className="flex items-center gap-4">
-        <Link href="/admin/users">
-          <Button variant="outline" size="icon" className="rounded-xl">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Détails de l{"'"}utilisateur
-          </h1>
-          <p className="text-muted-foreground">
-            Consultez et gérez les informations de cet utilisateur
-          </p>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left column - User info */}
-        <div className="lg:col-span-1">
-          <UserInfoCard user={user} />
-        </div>
-
-        {/* Right column - Access and transactions */}
-        <div className="space-y-6 lg:col-span-2">
-          {/* Access status */}
-          <UserAccessSection
-            userId={userId}
-            onAddAccess={() => setShowManualPaymentModal(true)}
-          />
-
-          {/* Transaction history */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card className="rounded-2xl border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="h-5 w-5 text-slate-600" />
-                  Historique des transactions
-                </CardTitle>
-                <CardDescription>
-                  Paiements et achats de cet utilisateur
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <TransactionTable
-                  transactions={transactions || []}
-                  isLoading={txStatus === "LoadingFirstPage"}
-                  onLoadMore={() => loadMore(10)}
-                  hasMore={txStatus === "CanLoadMore"}
-                  emptyMessage="Aucune transaction pour cet utilisateur"
-                />
-              </CardContent>
-            </Card>
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Manual payment modal - lazy loaded on demand */}
-      {showManualPaymentModal && (
-        <ManualPaymentModal
-          open={showManualPaymentModal}
-          onOpenChange={setShowManualPaymentModal}
-          defaultUserId={userId}
-          onSuccess={() => {
-            // Will auto-refresh due to Convex reactivity
-          }}
-        />
-      )}
-    </div>
+    <UserDetailClient
+      user={user}
+      initialAccess={access ?? { examAccess: null, trainingAccess: null }}
+      initialTransactions={txPage.items}
+      initialCursor={txPage.nextCursor}
+      products={products}
+      selectableUsers={selectableUsers}
+    />
   )
 }

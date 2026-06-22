@@ -9,26 +9,18 @@ import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import type { AdminUserDetail } from "@/features/users/dal"
 import { cn } from "@/lib/utils"
 
 interface UserInfoCardProps {
-  user: {
-    _id: string
-    name?: string
-    email?: string
-    username?: string
-    image?: string
-    role?: "admin" | "user"
-    bio?: string
-    _creationTime: number
-  }
+  user: AdminUserDetail
 }
 
 export const UserInfoCard = ({ user }: UserInfoCardProps) => {
   const [copied, setCopied] = useState(false)
 
   const handleCopyId = async () => {
-    await navigator.clipboard.writeText(user._id)
+    await navigator.clipboard.writeText(user.id)
     setCopied(true)
     toast.success("ID copié dans le presse-papier")
     setTimeout(() => setCopied(false), 2000)
@@ -55,7 +47,7 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
         {/* Avatar and basic info */}
         <div className="flex flex-col items-center text-center sm:flex-row sm:items-end sm:text-left">
           <Avatar className="h-24 w-24 border-4 border-white shadow-xl dark:border-gray-900">
-            <AvatarImage src={user.image} alt={user.name} />
+            <AvatarImage src={user.image ?? undefined} alt={user.name} />
             <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-2xl font-bold text-white">
               {initials}
             </AvatarFallback>
@@ -109,7 +101,7 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
                 Inscrit le
               </p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {format(new Date(user._creationTime), "d MMMM yyyy", {
+                {format(new Date(user.createdAt), "d MMMM yyyy", {
                   locale: fr,
                 })}
               </p>
@@ -134,7 +126,7 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
               ID Utilisateur
             </p>
             <p className="truncate font-mono text-sm text-gray-700 dark:text-gray-300">
-              {user._id}
+              {user.id}
             </p>
           </div>
           <Button

@@ -29,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import type { AdminTransactionView } from "@/features/payments/dal"
 import { formatCurrency, formatShortDate, formatTimeOnly } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -66,6 +67,28 @@ interface TransactionTableProps {
 }
 
 export type { Transaction }
+
+// Adapte le modèle DAL admin (id Drizzle) au contrat `_id` de la table. Partagé
+// par la page transactions et la page détail utilisateur.
+export const adminTransactionToRow = (
+  tx: AdminTransactionView,
+): Transaction => ({
+  _id: tx.id,
+  type: tx.type,
+  status: tx.status,
+  amountPaid: tx.amountPaid,
+  currency: tx.currency,
+  accessType: tx.accessType,
+  durationDays: tx.durationDays,
+  createdAt: tx.createdAt,
+  completedAt: tx.completedAt,
+  paymentMethod: tx.paymentMethod,
+  notes: tx.notes,
+  product: tx.product ? { _id: tx.product.id, name: tx.product.name } : null,
+  user: tx.user
+    ? { _id: tx.user.id, name: tx.user.name, email: tx.user.email }
+    : null,
+})
 
 const statusConfig: Record<
   TransactionStatus,

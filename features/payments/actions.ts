@@ -8,11 +8,13 @@ import { products, transactions } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 
 import {
+  getAccessStatus,
   getAllTransactions,
   getMyTransactions,
   getTransactionAccessImpact,
   getTransactionStats,
   type AccessImpact,
+  type AccessStatus,
   type AdminTransactionsPage,
   type MyTransactionsPage,
   type TransactionStatsView,
@@ -68,6 +70,18 @@ export const loadTransactionAccessImpact = async (
 ): Promise<AccessImpact | null> => {
   await requireRole(["admin"])
   return getTransactionAccessImpact(transactionId)
+}
+
+/**
+ * [Admin] Statut d'accès (exam/training) d'un utilisateur donné — rechargé après
+ * un octroi manuel sur la page détail. Garde admin (IDOR : userId arbitraire).
+ */
+export const loadUserAccessStatus = async (
+  userId: string,
+): Promise<AccessStatus> => {
+  await requireRole(["admin"])
+  const status = await getAccessStatus(userId)
+  return status ?? { examAccess: null, trainingAccess: null }
 }
 
 const revalidatePaymentsAdmin = () => {

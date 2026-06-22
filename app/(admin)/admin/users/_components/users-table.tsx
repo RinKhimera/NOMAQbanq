@@ -20,10 +20,10 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Id } from "@/convex/_generated/dataModel"
+import type { AdminUserRow } from "@/features/users/dal"
 import { cn, getInitials } from "@/lib/utils"
 
-export type SortBy = "name" | "role" | "_creationTime"
+export type SortBy = "name" | "role" | "createdAt"
 export type SortOrder = "asc" | "desc"
 
 interface AccessInfo {
@@ -31,22 +31,11 @@ interface AccessInfo {
   daysRemaining: number
 }
 
-export interface EnrichedUser {
-  _id: Id<"users">
-  _creationTime: number
-  name: string
-  username?: string
-  email: string
-  image: string
-  bio?: string
-  role: "admin" | "user"
-  examAccess: AccessInfo | null
-  trainingAccess: AccessInfo | null
-}
+export type EnrichedUser = AdminUserRow
 
 interface UsersTableProps {
   users: EnrichedUser[]
-  selectedUserId: Id<"users"> | null
+  selectedUserId: string | null
   onUserSelect: (user: EnrichedUser) => void
   sortBy: SortBy
   sortOrder: SortOrder
@@ -188,11 +177,11 @@ export function UsersTable({
             <TableHead className="hidden lg:table-cell">
               <Button
                 variant="ghost"
-                onClick={() => onSort("_creationTime")}
+                onClick={() => onSort("createdAt")}
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
                 Inscrit
-                {getSortIcon("_creationTime")}
+                {getSortIcon("createdAt")}
               </Button>
             </TableHead>
           </TableRow>
@@ -200,11 +189,11 @@ export function UsersTable({
         <TableBody>
           {users.map((user, index) => (
             <TableRow
-              key={user._id}
+              key={user.id}
               onClick={() => onUserSelect(user)}
               className={cn(
                 "cursor-pointer transition-all duration-150",
-                selectedUserId === user._id
+                selectedUserId === user.id
                   ? "border-l-2 border-l-blue-500 bg-blue-50/50 dark:bg-blue-900/20"
                   : "hover:bg-gray-50/50 dark:hover:bg-gray-800/30",
               )}
@@ -216,7 +205,7 @@ export function UsersTable({
                 <div className="flex items-center gap-3">
                   <Avatar className="h-9 w-9 border border-gray-100 dark:border-gray-800">
                     <AvatarImage
-                      src={user.image}
+                      src={user.image ?? undefined}
                       alt={user.name || "Utilisateur"}
                     />
                     <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-xs font-medium text-white">
@@ -270,12 +259,12 @@ export function UsersTable({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="cursor-help">
-                        {formatRelativeDate(user._creationTime)}
+                        {formatRelativeDate(user.createdAt)}
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>
-                        {new Date(user._creationTime).toLocaleDateString(
+                        {new Date(user.createdAt).toLocaleDateString(
                           "fr-CA",
                           {
                             day: "numeric",

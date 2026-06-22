@@ -1,6 +1,5 @@
 "use client"
 
-import { useQuery } from "convex/react"
 import { Calendar, Clock, Plus, Sparkles, Zap } from "lucide-react"
 import { motion } from "motion/react"
 import {
@@ -9,14 +8,13 @@ import {
 } from "@/components/shared/payments/access-badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import type { AccessInfo } from "@/features/payments/dal"
 import { formatExpiration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface UserAccessSectionProps {
-  userId: Id<"users">
+  examAccess: AccessInfo
+  trainingAccess: AccessInfo
   onAddAccess: () => void
 }
 
@@ -123,26 +121,10 @@ const AccessCard = ({
 }
 
 export const UserAccessSection = ({
-  userId,
+  examAccess,
+  trainingAccess,
   onAddAccess,
 }: UserAccessSectionProps) => {
-  const accessStatus = useQuery(api.payments.getUserAccessStatus, { userId })
-
-  if (accessStatus === undefined) {
-    return (
-      <div className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-lg dark:border-gray-700/50 dark:bg-gray-900">
-        <div className="mb-4 flex items-center justify-between">
-          <Skeleton className="h-6 w-32" />
-          <Skeleton className="h-9 w-32" />
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Skeleton className="h-32 rounded-xl" />
-          <Skeleton className="h-32 rounded-xl" />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -167,11 +149,8 @@ export const UserAccessSection = ({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <AccessCard type="exam" access={accessStatus?.examAccess ?? null} />
-        <AccessCard
-          type="training"
-          access={accessStatus?.trainingAccess ?? null}
-        />
+        <AccessCard type="exam" access={examAccess} />
+        <AccessCard type="training" access={trainingAccess} />
       </div>
     </motion.div>
   )

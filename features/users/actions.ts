@@ -5,10 +5,39 @@ import { revalidatePath } from "next/cache"
 
 import { db } from "@/db"
 import { user } from "@/db/schema"
+import {
+  getUserPanelData,
+  getUsersWithFilters,
+  type AdminUsersPage,
+  type UserPanelData,
+  type UsersFilters,
+} from "@/features/users/dal"
 import { profileSchema } from "@/features/users/schemas"
-import { requireSession } from "@/lib/auth-guards"
+import { requireRole, requireSession } from "@/lib/auth-guards"
 
 export type UpdateProfileResult = { success: boolean; error?: string }
+
+/**
+ * [Admin] Charge une page de la liste filtrée (changement de filtre/tri/recherche
+ * et « charger plus » côté client). Garde admin redoublée (la DAL garde aussi).
+ */
+export const loadUsersPage = async (
+  filters: UsersFilters,
+): Promise<AdminUsersPage> => {
+  await requireRole(["admin"])
+  return getUsersWithFilters(filters)
+}
+
+/**
+ * [Admin] Données du panneau latéral d'un utilisateur (chargées à l'ouverture).
+ * `null` si introuvable.
+ */
+export const loadUserPanelData = async (
+  userId: string,
+): Promise<UserPanelData | null> => {
+  await requireRole(["admin"])
+  return getUserPanelData(userId)
+}
 
 // Appelée directement depuis le client (édition inline + onboarding) :
 // authz → zod → unicité username → update → revalidation.

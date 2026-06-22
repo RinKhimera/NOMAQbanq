@@ -10,6 +10,7 @@ import { DeleteTransactionDialog } from "@/components/shared/payments/delete-tra
 import { EditTransactionModal } from "@/components/shared/payments/edit-transaction-modal"
 import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
 import {
+  adminTransactionToRow,
   type Transaction,
   TransactionTable,
 } from "@/components/shared/payments/transaction-table"
@@ -32,25 +33,6 @@ import {
 } from "./transaction-filters"
 import { TransactionStats } from "./transaction-stats"
 
-// Adapte le modèle DAL (id Drizzle) au contrat `_id` partagé de TransactionTable.
-const toTableTransaction = (tx: AdminTransactionView): Transaction => ({
-  _id: tx.id,
-  type: tx.type,
-  status: tx.status,
-  amountPaid: tx.amountPaid,
-  currency: tx.currency,
-  accessType: tx.accessType,
-  durationDays: tx.durationDays,
-  createdAt: tx.createdAt,
-  completedAt: tx.completedAt,
-  paymentMethod: tx.paymentMethod,
-  notes: tx.notes,
-  product: tx.product ? { _id: tx.product.id, name: tx.product.name } : null,
-  user: tx.user
-    ? { _id: tx.user.id, name: tx.user.name, email: tx.user.email }
-    : null,
-})
-
 interface TransactionsManagerProps {
   initialItems: AdminTransactionView[]
   initialCursor: string | null
@@ -72,7 +54,7 @@ export const TransactionsManager = ({
   const [searchQuery, setSearchQuery] = useState("")
 
   const [items, setItems] = useState<Transaction[]>(() =>
-    initialItems.map(toTableTransaction),
+    initialItems.map(adminTransactionToRow),
   )
   const [cursor, setCursor] = useState<string | null>(initialCursor)
   const [stats, setStats] = useState<TransactionStatsView>(initialStats)
@@ -95,7 +77,7 @@ export const TransactionsManager = ({
         type: type === "all" ? undefined : type,
         status: status === "all" ? undefined : status,
       })
-      setItems(page.items.map(toTableTransaction))
+      setItems(page.items.map(adminTransactionToRow))
       setCursor(page.nextCursor)
     })
   }
@@ -125,7 +107,7 @@ export const TransactionsManager = ({
         status: statusFilter === "all" ? undefined : statusFilter,
         cursor,
       })
-      setItems((prev) => [...prev, ...page.items.map(toTableTransaction)])
+      setItems((prev) => [...prev, ...page.items.map(adminTransactionToRow)])
       setCursor(page.nextCursor)
     })
   }
@@ -140,7 +122,7 @@ export const TransactionsManager = ({
         }),
         loadTransactionStats(),
       ])
-      setItems(page.items.map(toTableTransaction))
+      setItems(page.items.map(adminTransactionToRow))
       setCursor(page.nextCursor)
       setStats(freshStats)
     })

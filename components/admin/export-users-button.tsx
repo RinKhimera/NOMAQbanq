@@ -11,10 +11,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Doc } from "@/convex/_generated/dataModel"
+import type { ExportUser } from "@/features/users/dal"
 
 interface ExportUsersButtonProps {
-  users: Doc<"users">[]
+  users: ExportUser[]
 }
 
 export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
@@ -46,7 +46,7 @@ export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
       "Nom d'utilisateur": user.username || "N/A",
       Email: user.email,
       Rôle: user.role === "admin" ? "Administrateur" : "Étudiant",
-      "Date d'inscription": formatDate(user._creationTime),
+      "Date d'inscription": formatDate(user.createdAt),
       Bio: user.bio || "",
     }))
   }

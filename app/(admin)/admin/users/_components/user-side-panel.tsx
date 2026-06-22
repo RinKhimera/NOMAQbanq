@@ -1,6 +1,5 @@
 "use client"
 
-import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
@@ -18,7 +17,7 @@ import {
 import { motion } from "motion/react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -32,8 +31,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import type { ProductView } from "@/features/payments/dal"
+import { loadUserPanelData } from "@/features/users/actions"
+import type {
+  PanelTransaction,
+  SelectableUser,
+  UserPanelData,
+} from "@/features/users/dal"
 import { formatExpiration } from "@/lib/format"
 import { cn, getInitials } from "@/lib/utils"
 
@@ -47,9 +51,13 @@ const ManualPaymentModal = dynamic(
 )
 
 interface UserSidePanelProps {
-  userId: Id<"users"> | null
+  userId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  products: ProductView[]
+  users: SelectableUser[]
+  /** Appelé après un octroi d'accès → laisse le parent rafraîchir la liste. */
+  onMutated?: () => void
 }
 
 const accessTypeConfig = {
@@ -159,17 +167,7 @@ function AccessCard({
 function TransactionItem({
   transaction,
 }: {
-  transaction: {
-    _id: Id<"transactions">
-    _creationTime: number
-    status: "pending" | "completed" | "failed" | "refunded"
-    amountPaid: number
-    currency: string
-    type: "stripe" | "manual"
-    product: {
-      name: string
-    } | null
-  }
+  transaction: PanelTransaction
 }) {
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat("fr-CA", {
@@ -217,7 +215,7 @@ function TransactionItem({
             {transaction.product?.name ?? "Produit inconnu"}
           </p>
           <p className="text-xs text-gray-500">
-            {format(new Date(transaction._creationTime), "d MMM yyyy", {
+            {format(new Date(transaction.createdAt), "d MMM yyyy", {
               locale: fr,
             })}
           </p>
@@ -230,9 +228,39 @@ function TransactionItem({
   )
 }
 
-function PanelContent({ userId }: { userId: Id<"users"> }) {
+function PanelContent({
+  userId,
+  products,
+  users,
+  onMutated,
+}: {
+  userId: string
+  products: ProductView[]
+  users: SelectableUser[]
+  onMutated?: () => void
+}) {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const panelData = useQuery(api.users.getUserPanelData, { userId })
+  const [panelData, setPanelData] = useState<UserPanelData | null | undefined>(
+    undefined,
+  )
+
+  // Recharge les données du panel (depuis un handler, après un octroi d'accès).
+  const refresh = () => {
+    setPanelData(undefined)
+    loadUserPanelData(userId).then(setPanelData)
+  }
+  // Chargement initial. `PanelContent` est monté avec `key={userId}` → un nouvel
+  // utilisateur = nouveau montage (état `undefined` = skeleton), pas de setState
+  // synchrone dans l'effet (uniquement dans le callback async).
+  useEffect(() => {
+    let active = true
+    loadUserPanelData(userId).then((d) => {
+      if (active) setPanelData(d)
+    })
+    return () => {
+      active = false
+    }
+  }, [userId])
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(userId)
@@ -292,7 +320,10 @@ function PanelContent({ userId }: { userId: Id<"users"> }) {
         {/* User Header */}
         <div className="flex flex-col items-center pt-2">
           <Avatar className="h-20 w-20 border-4 border-white shadow-lg dark:border-gray-800">
-            <AvatarImage src={user.image} alt={user.name || "Utilisateur"} />
+            <AvatarImage
+              src={user.image ?? undefined}
+              alt={user.name || "Utilisateur"}
+            />
             <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-xl font-semibold text-white">
               {getInitials(user.name)}
             </AvatarFallback>
@@ -330,7 +361,7 @@ function PanelContent({ userId }: { userId: Id<"users"> }) {
             <Calendar className="h-4 w-4 text-gray-400" />
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Inscrit le{" "}
-              {format(new Date(user._creationTime), "d MMMM yyyy", {
+              {format(new Date(user.createdAt), "d MMMM yyyy", {
                 locale: fr,
               })}
             </span>
@@ -404,7 +435,7 @@ function PanelContent({ userId }: { userId: Id<"users"> }) {
           ) : (
             <div className="space-y-2">
               {recentTransactions.map((tx) => (
-                <TransactionItem key={tx._id} transaction={tx} />
+                <TransactionItem key={tx.id} transaction={tx} />
               ))}
             </div>
           )}
@@ -425,6 +456,12 @@ function PanelContent({ userId }: { userId: Id<"users"> }) {
           open={showPaymentModal}
           onOpenChange={setShowPaymentModal}
           defaultUserId={userId}
+          products={products}
+          users={users}
+          onSuccess={() => {
+            refresh()
+            onMutated?.()
+          }}
         />
       )}
     </>
@@ -435,6 +472,9 @@ export function UserSidePanel({
   userId,
   open,
   onOpenChange,
+  products,
+  users,
+  onMutated,
 }: UserSidePanelProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -446,7 +486,13 @@ export function UserSidePanel({
           </SheetDescription>
         </SheetHeader>
         {userId ? (
-          <PanelContent userId={userId} />
+          <PanelContent
+            key={userId}
+            userId={userId}
+            products={products}
+            users={users}
+            onMutated={onMutated}
+          />
         ) : (
           <div className="flex h-full items-center justify-center">
             <p className="text-gray-500">Sélectionnez un utilisateur</p>
