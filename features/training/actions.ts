@@ -4,7 +4,12 @@ import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 import { db } from "@/db"
-import { questions, trainingSessionItems, trainingSessions } from "@/db/schema"
+import {
+  questions,
+  trainingSessionItems,
+  trainingSessions,
+  user,
+} from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
@@ -80,55 +85,13 @@ export const createTrainingSession = async (
   const { questionCount, domain, objectifsCMCs } = parsed.data
 
   try {
-    if (!isAdmin) {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
-      const [rl] = await db
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(trainingSessions)
-        .where(
-          and(
-            eq(trainingSessions.userId, userId),
-            gt(trainingSessions.startedAt, oneHourAgo),
-          ),
-        )
-      if ((rl?.n ?? 0) >= MAX_SESSIONS_PER_HOUR) {
-        return fail(
-          "Trop de sessions créées récemment. Réessayez dans une heure.",
-        )
-      }
-      if (!(await hasAccess("training"))) {
-        return fail("Votre accès à l'entraînement a expiré.")
-      }
+    // Accès payant : hors verrou (ne court pas avec lui-même ; bypass admin).
+    if (!isAdmin && !(await hasAccess("training"))) {
+      return fail("Votre accès à l'entraînement a expiré.")
     }
 
-    // Session en cours : refus si non expirée, sinon on l'abandonne.
-    const [existing] = await db
-      .select({
-        id: trainingSessions.id,
-        expiresAt: trainingSessions.expiresAt,
-      })
-      .from(trainingSessions)
-      .where(
-        and(
-          eq(trainingSessions.userId, userId),
-          eq(trainingSessions.status, "in_progress"),
-        ),
-      )
-      .limit(1)
-    if (existing) {
-      if (existing.expiresAt.getTime() >= Date.now()) {
-        return fail(
-          "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
-        )
-      }
-      await db
-        .update(trainingSessions)
-        .set({ status: "abandoned" })
-        .where(eq(trainingSessions.id, existing.id))
-    }
-
-    // Sélection des questions (domaine + objectifs CMC, logique ET, insensible à
-    // la casse). `count` puis échantillon aléatoire borné.
+    // Sélection des questions (domaine + objectifs CMC, logique ET, insensible
+    // à la casse).
     const objLower = objectifsCMCs
       ?.map((o) => o.trim().toLowerCase())
       .filter(Boolean)
@@ -140,28 +103,75 @@ export const createTrainingSession = async (
         : undefined,
     )
 
-    const [avail] = await db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
-      .from(questions)
-      .where(where)
-    if ((avail?.n ?? 0) < questionCount) {
-      return fail(
-        `Seulement ${avail?.n ?? 0} questions disponibles. Réduisez le nombre demandé.`,
-      )
-    }
-
-    const picked = await db
-      .select({ id: questions.id })
-      .from(questions)
-      .where(where)
-      .orderBy(sql`random()`)
-      .limit(questionCount)
-
     const now = new Date()
     const expiresAt = new Date(now.getTime() + SESSION_EXPIRATION_MS)
     const sessionId = createId()
 
+    // Verrou de ligne user : sérialise les créations concurrentes du même
+    // utilisateur. Rate-limit + « session déjà en cours » + sélection + insert
+    // deviennent atomiques (sinon, deux requêtes simultanées → 2 sessions
+    // actives / dépassement de limite — Postgres ne sérialise pas comme Convex).
     await db.transaction(async (tx) => {
+      await tx
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.id, userId))
+        .for("update")
+
+      if (!isAdmin) {
+        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+        const [rl] = await tx
+          .select({ n: sql<number>`count(*)`.mapWith(Number) })
+          .from(trainingSessions)
+          .where(
+            and(
+              eq(trainingSessions.userId, userId),
+              gt(trainingSessions.startedAt, oneHourAgo),
+            ),
+          )
+        if ((rl?.n ?? 0) >= MAX_SESSIONS_PER_HOUR) {
+          throw new Error("RATE_LIMIT")
+        }
+      }
+
+      const [existing] = await tx
+        .select({
+          id: trainingSessions.id,
+          expiresAt: trainingSessions.expiresAt,
+        })
+        .from(trainingSessions)
+        .where(
+          and(
+            eq(trainingSessions.userId, userId),
+            eq(trainingSessions.status, "in_progress"),
+          ),
+        )
+        .limit(1)
+      if (existing) {
+        if (existing.expiresAt.getTime() >= Date.now()) {
+          throw new Error("ACTIVE_EXISTS")
+        }
+        await tx
+          .update(trainingSessions)
+          .set({ status: "abandoned" })
+          .where(eq(trainingSessions.id, existing.id))
+      }
+
+      const [avail] = await tx
+        .select({ n: sql<number>`count(*)`.mapWith(Number) })
+        .from(questions)
+        .where(where)
+      if ((avail?.n ?? 0) < questionCount) {
+        throw new Error(`NOT_ENOUGH:${avail?.n ?? 0}`)
+      }
+
+      const picked = await tx
+        .select({ id: questions.id })
+        .from(questions)
+        .where(where)
+        .orderBy(sql`random()`)
+        .limit(questionCount)
+
       await tx.insert(trainingSessions).values({
         id: sessionId,
         userId,
@@ -184,6 +194,23 @@ export const createTrainingSession = async (
     revalidatePath("/dashboard/entrainement")
     return { success: true, sessionId }
   } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === "RATE_LIMIT") {
+        return fail(
+          "Trop de sessions créées récemment. Réessayez dans une heure.",
+        )
+      }
+      if (error.message === "ACTIVE_EXISTS") {
+        return fail(
+          "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
+        )
+      }
+      if (error.message.startsWith("NOT_ENOUGH:")) {
+        return fail(
+          `Seulement ${error.message.split(":")[1]} questions disponibles. Réduisez le nombre demandé.`,
+        )
+      }
+    }
     logDev("[createTrainingSession]", error)
     return fail("Erreur serveur. Réessayez.")
   }

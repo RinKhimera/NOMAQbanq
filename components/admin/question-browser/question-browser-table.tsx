@@ -165,35 +165,12 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
             {/* Checkbox column for select mode */}
             {isSelectMode && <TableHead className="w-12.5 pl-4" />}
             <TableHead className="w-12.5 pl-4">#</TableHead>
-            <TableHead className="min-w-75">
-              <Button
-                variant="ghost"
-                onClick={() => handleSort("question")}
-                className="h-auto p-0 font-semibold hover:bg-transparent"
-              >
-                Question
-                {getSortIcon("question")}
-              </Button>
-            </TableHead>
-            <TableHead className="w-37.5">
-              <Button
-                variant="ghost"
-                onClick={() => handleSort("domain")}
-                className="h-auto p-0 font-semibold hover:bg-transparent"
-              >
-                Domaine
-                {getSortIcon("domain")}
-              </Button>
-            </TableHead>
-            <TableHead className="hidden w-45 md:table-cell">
-              <Button
-                variant="ghost"
-                onClick={() => handleSort("objectifCMC")}
-                className="h-auto p-0 font-semibold hover:bg-transparent"
-              >
-                Objectif CMC
-                {getSortIcon("objectifCMC")}
-              </Button>
+            {/* Tri keyset sur la date uniquement (les autres colonnes ne sont
+                pas triables côté DAL — pas d'indicateur trompeur). */}
+            <TableHead className="min-w-75 font-semibold">Question</TableHead>
+            <TableHead className="w-37.5 font-semibold">Domaine</TableHead>
+            <TableHead className="hidden w-45 font-semibold md:table-cell">
+              Objectif CMC
             </TableHead>
             <TableHead className="w-20 text-center">Images</TableHead>
             <TableHead className="hidden w-30 lg:table-cell">

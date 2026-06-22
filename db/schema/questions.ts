@@ -21,10 +21,14 @@ export const questions = pgTable(
     objectifCmc: text("objectif_cmc").notNull(),
     domain: text("domain").notNull(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
+    // precision 3 (ms) : la pagination keyset encode le curseur via toISOString
+    // (ms) ; le driver pg tronque aussi les lectures à la ms. Sans cette borne,
+    // `defaultNow()` écrit en µs et des lignes sont sautées aux frontières de
+    // page (même classe que le bug H2 sur transactions.created_at).
+    createdAt: timestamp("created_at", { withTimezone: true, precision: 3 })
       .defaultNow()
       .notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true })
+    updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 })
       .defaultNow()
       .notNull()
       .$onUpdate(() => new Date()),

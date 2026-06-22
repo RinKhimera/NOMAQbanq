@@ -240,3 +240,27 @@ describe("domaines + objectifs (config form)", () => {
     expect(objectifs.find((o) => o.objectif === OBJ)?.count).toBe(8)
   })
 })
+
+describe("IDOR / propriété", () => {
+  it("un autre utilisateur ne peut ni lire ni répondre à la session d'autrui", async () => {
+    // Session créée par USER_ID (admin via beforeEach).
+    const res = await createTrainingSession({ questionCount: 5, domain: DOMAIN })
+    expect(res.success).toBe(true)
+    if (!res.success) return
+    const sid = res.sessionId
+
+    // Bascule sur un intrus (non-admin, non-propriétaire).
+    vi.mocked(getCurrentSession).mockResolvedValue({
+      user: { id: `intruder-${suffix}`, role: "user" },
+    } as never)
+
+    expect(await getTrainingSessionById(sid)).toBeNull()
+    expect(await getTrainingSessionResults(sid)).toBeNull()
+    const save = await saveTrainingAnswer({
+      sessionId: sid,
+      questionId: createId(),
+      selectedAnswer: "A",
+    })
+    expect(save.success).toBe(false)
+  })
+})
