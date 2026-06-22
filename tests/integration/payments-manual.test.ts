@@ -31,6 +31,7 @@ const users = {
   cumul: createId(),
   combo: createId(),
   comboMax: createId(),
+  comboDelete: createId(),
   revoke: createId(),
 }
 const seedTxId = createId() // FK pour l'accès pré-existant (scénarios cumul/comboMax)
@@ -170,24 +171,37 @@ describe("revokeAccessIfLast", () => {
 
     // txA n'est plus la dernière → pas de révocation.
     const notLast = await db.transaction((tx) =>
-      revokeAccessIfLast(tx, {
-        id: txA,
-        userId: users.revoke,
-        accessType: "exam",
-      }),
+      revokeAccessIfLast(tx, { id: txA, userId: users.revoke }),
     )
     expect(notLast).toBe(false)
     expect(await readExpiry(users.revoke, "exam")).not.toBeNull()
 
     // txB est la dernière → révocation.
     const last = await db.transaction((tx) =>
-      revokeAccessIfLast(tx, {
-        id: txB,
-        userId: users.revoke,
-        accessType: "exam",
-      }),
+      revokeAccessIfLast(tx, { id: txB, userId: users.revoke }),
     )
     expect(last).toBe(true)
     expect(await readExpiry(users.revoke, "exam")).toBeNull()
+  })
+
+  it("combo : révoque exam ET training, puis la transaction peut être supprimée (régression FK restrict)", async () => {
+    // Un combo pose lastTransactionId=txId sur exam ET training. Révoquer un seul
+    // type laisserait l'autre ligne référencer la tx → DELETE bloqué (FK restrict).
+    const txId = await grant(users.comboDelete, pCombo)
+    expect(daysFromNow(await readExpiry(users.comboDelete, "exam"))).toBe(90)
+    expect(daysFromNow(await readExpiry(users.comboDelete, "training"))).toBe(90)
+
+    await db.transaction(async (tx) => {
+      const revoked = await revokeAccessIfLast(tx, {
+        id: txId,
+        userId: users.comboDelete,
+      })
+      expect(revoked).toBe(true)
+      // Ne doit PAS lever de violation de clé étrangère.
+      await tx.delete(transactions).where(eq(transactions.id, txId))
+    })
+
+    expect(await readExpiry(users.comboDelete, "exam")).toBeNull()
+    expect(await readExpiry(users.comboDelete, "training")).toBeNull()
   })
 })

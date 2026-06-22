@@ -63,8 +63,13 @@ export const getAccessStatus = cache(
 )
 
 /**
- * Gating : `true` si admin (bypass) ou accès valide pour le type donné.
- * Remplace `hasExamAccess` / `hasTrainingAccess`. `userId` optionnel → défaut = session.
+ * Gating d'accès pour le type donné.
+ * - **Sans `userId`** (cas par défaut) : garde l'utilisateur **courant** (session).
+ *   Les admins bypassent (ils accèdent à tout).
+ * - **Avec `userId`** : interroge l'entitlement RÉEL de cette cible précise — **pas**
+ *   de bypass sur le rôle de la cible (sinon `hasAccess("exam", adminId)` mentirait
+ *   sur ce qu'a réellement acheté la cible). L'autorisation de consulter une cible
+ *   arbitraire relève de l'appelant (page admin `requireRole`).
  */
 export const hasAccess = async (
   type: "exam" | "training",
@@ -76,13 +81,6 @@ export const hasAccess = async (
     if (!session?.user) return false
     if (session.user.role === "admin") return true
     targetId = session.user.id
-  } else {
-    const [u] = await db
-      .select({ role: user.role })
-      .from(user)
-      .where(eq(user.id, targetId))
-      .limit(1)
-    if (u?.role === "admin") return true
   }
 
   const [row] = await db
@@ -211,6 +209,7 @@ export const getMyTransactions = async ({
   const session = await requireSession()
   const userId = session.user.id
 
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100)
   const decoded = cursor ? decodeCursor(cursor) : null
 
   // Prédicat "après le curseur" dans l'ordre (createdAt DESC, id DESC) :
@@ -253,10 +252,10 @@ export const getMyTransactions = async ({
     .leftJoin(products, eq(products.id, transactions.productId))
     .where(where)
     .orderBy(desc(transactions.createdAt), desc(transactions.id))
-    .limit(limit + 1)
+    .limit(safeLimit + 1)
 
-  const hasMore = rows.length > limit
-  const pageRows = hasMore ? rows.slice(0, limit) : rows
+  const hasMore = rows.length > safeLimit
+  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows
 
   const items: MyTransactionView[] = pageRows.map((r) => ({
     id: r.id,
@@ -336,6 +335,7 @@ export const getAllTransactions = async ({
 } = {}): Promise<AdminTransactionsPage> => {
   await requireRole(["admin"])
 
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100)
   const decoded = cursor ? decodeCursor(cursor) : null
   const afterCursor = decoded
     ? or(
@@ -379,10 +379,10 @@ export const getAllTransactions = async ({
     .leftJoin(products, eq(products.id, transactions.productId))
     .where(where)
     .orderBy(desc(transactions.createdAt), desc(transactions.id))
-    .limit(limit + 1)
+    .limit(safeLimit + 1)
 
-  const hasMore = rows.length > limit
-  const pageRows = hasMore ? rows.slice(0, limit) : rows
+  const hasMore = rows.length > safeLimit
+  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows
 
   const items: AdminTransactionView[] = pageRows.map((r) => ({
     id: r.id,

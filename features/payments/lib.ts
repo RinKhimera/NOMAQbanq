@@ -126,13 +126,20 @@ export async function grantManualAccess(
 }
 
 /**
- * Révoque l'accès SEULEMENT si la transaction donnée est la dernière à l'avoir accordé
+ * Révoque TOUTES les lignes d'accès que cette transaction a accordées en dernier
  * (`userAccess.lastTransactionId === transaction.id`). À appeler DANS `db.transaction`.
- * Verrou utilisateur cohérent avec `grantManualAccess`. Retourne `true` si révoqué.
+ * Verrou utilisateur cohérent avec `grantManualAccess`. Retourne `true` si au moins
+ * une ligne a été supprimée.
+ *
+ * IMPORTANT (combo) : un produit combo pose `lastTransactionId = tx.id` sur exam ET
+ * training. On ne peut donc pas se limiter à `transaction.accessType` : la ligne de
+ * l'autre type garderait la FK `last_transaction_id` (NOT NULL, onDelete: restrict) et
+ * **bloquerait la suppression de la transaction**. On filtre donc par `lastTransactionId`
+ * (et non par type), ce qui couvre combo comme non-combo.
  */
 export async function revokeAccessIfLast(
   tx: Tx,
-  transaction: { id: string; userId: string; accessType: "exam" | "training" },
+  transaction: { id: string; userId: string },
 ): Promise<boolean> {
   await tx
     .select({ id: user.id })
@@ -140,17 +147,15 @@ export async function revokeAccessIfLast(
     .where(eq(user.id, transaction.userId))
     .for("update")
 
-  const existing = await readAccess(tx, transaction.userId, transaction.accessType)
-  if (existing && existing.lastTransactionId === transaction.id) {
-    await tx
-      .delete(userAccess)
-      .where(
-        and(
-          eq(userAccess.userId, transaction.userId),
-          eq(userAccess.accessType, transaction.accessType),
-        ),
-      )
-    return true
-  }
-  return false
+  const deleted = await tx
+    .delete(userAccess)
+    .where(
+      and(
+        eq(userAccess.userId, transaction.userId),
+        eq(userAccess.lastTransactionId, transaction.id),
+      ),
+    )
+    .returning({ accessType: userAccess.accessType })
+
+  return deleted.length > 0
 }

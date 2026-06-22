@@ -148,6 +148,10 @@ export const getUsersWithFilters = async ({
 }: UsersFilters = {}): Promise<AdminUsersPage> => {
   await requireRole(["admin"])
 
+  // Bornes dures (la règle « max 1000 docs » s'applique même si l'appelant ment).
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100)
+  const safeOffset = Math.max(0, Math.floor(offset))
+
   const exam = alias(userAccess, "exam_access")
   const training = alias(userAccess, "training_access")
 
@@ -202,12 +206,14 @@ export const getUsersWithFilters = async ({
     accessPredicate,
   )
 
-  // Tri : nom insensible à la casse (lower) ; tie-break stable par id.
+  // Tri : nom insensible à la casse (lower) ; rôle casté en texte (ordre
+  // alphabétique « admin » < « user », sinon Postgres trierait par ordre de
+  // déclaration de l'enum [user, admin]) ; tie-break stable par id.
   const sortCol =
     sortBy === "createdAt"
       ? user.createdAt
       : sortBy === "role"
-        ? user.role
+        ? sql`${user.role}::text`
         : sql`lower(${user.name})`
   const dir = sortOrder === "desc" ? desc : asc
 
@@ -235,11 +241,11 @@ export const getUsersWithFilters = async ({
     )
     .where(where)
     .orderBy(dir(sortCol), dir(user.id))
-    .limit(limit + 1)
-    .offset(offset)
+    .limit(safeLimit + 1)
+    .offset(safeOffset)
 
-  const hasMore = rows.length > limit
-  const pageRows = hasMore ? rows.slice(0, limit) : rows
+  const hasMore = rows.length > safeLimit
+  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows
   const nowMs = now.getTime()
 
   const items: AdminUserRow[] = pageRows.map((r) => ({
@@ -255,7 +261,7 @@ export const getUsersWithFilters = async ({
     trainingAccess: toAccessInfo(r.trainingExpiresAt, nowMs),
   }))
 
-  return { items, nextOffset: hasMore ? offset + limit : null }
+  return { items, nextOffset: hasMore ? safeOffset + safeLimit : null }
 }
 
 // ============================================

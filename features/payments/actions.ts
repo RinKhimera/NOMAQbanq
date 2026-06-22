@@ -1,6 +1,6 @@
 "use server"
 
-import { eq } from "drizzle-orm"
+import { asc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 
 import { db } from "@/db"
@@ -115,6 +115,9 @@ export const recordManualPayment = async (
 
   try {
     const transactionId = await db.transaction(async (tx) => {
+      // `products.code` n'a pas (encore) de contrainte UNIQUE → `ORDER BY id`
+      // rend le choix déterministe en cas de doublon (contrainte ajoutée à la
+      // bascule, une fois les tests d'intégration rendus upsert-safe).
       const [product] = await tx
         .select({
           id: products.id,
@@ -124,6 +127,7 @@ export const recordManualPayment = async (
         })
         .from(products)
         .where(eq(products.code, data.productCode))
+        .orderBy(asc(products.id))
         .limit(1)
       if (!product) throw new Error("PRODUCT_NOT_FOUND")
 
@@ -180,7 +184,6 @@ export const updateManualTransaction = async (
           userId: transactions.userId,
           type: transactions.type,
           status: transactions.status,
-          accessType: transactions.accessType,
         })
         .from(transactions)
         .where(eq(transactions.id, data.transactionId))
@@ -192,7 +195,6 @@ export const updateManualTransaction = async (
         await revokeAccessIfLast(tx, {
           id: transaction.id,
           userId: transaction.userId,
-          accessType: transaction.accessType,
         })
       }
 
@@ -247,7 +249,6 @@ export const deleteManualTransaction = async (
           id: transactions.id,
           userId: transactions.userId,
           type: transactions.type,
-          accessType: transactions.accessType,
         })
         .from(transactions)
         .where(eq(transactions.id, transactionId))
@@ -258,7 +259,6 @@ export const deleteManualTransaction = async (
       const revoked = await revokeAccessIfLast(tx, {
         id: transaction.id,
         userId: transaction.userId,
-        accessType: transaction.accessType,
       })
       await tx.delete(transactions).where(eq(transactions.id, transactionId))
       return revoked
