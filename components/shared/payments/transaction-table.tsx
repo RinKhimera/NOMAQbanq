@@ -35,6 +35,9 @@ import { cn } from "@/lib/utils"
 type TransactionStatus = "pending" | "completed" | "failed" | "refunded"
 type TransactionType = "stripe" | "manual"
 
+// NOTE migration : `_id` est un champ-pont temporaire qui porte l'id Drizzle
+// (cuid). Conservé tant que des écrans Convex non convertis (admin users/[id])
+// partagent ce composant. Renommage `_id`→`id` prévu en 5.6 (purge Convex).
 interface Transaction {
   _id: string
   type: TransactionType
@@ -44,9 +47,9 @@ interface Transaction {
   accessType: "exam" | "training"
   durationDays: number
   createdAt: number
-  completedAt?: number
-  paymentMethod?: string
-  notes?: string
+  completedAt?: number | null
+  paymentMethod?: string | null
+  notes?: string | null
   product?: { _id: string; name: string } | null
   user?: { _id: string; name: string; email: string } | null
 }

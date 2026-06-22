@@ -1,10 +1,11 @@
 import "server-only"
 
-import { and, eq, isNull } from "drizzle-orm"
+import { and, asc, eq, isNull, ne } from "drizzle-orm"
 import { cache } from "react"
 
 import { db } from "@/db"
 import { user } from "@/db/schema"
+import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 
 // Lecture fraîche de l'utilisateur courant depuis Neon (pas la session cachée) :
@@ -33,3 +34,24 @@ export const getCurrentUser = cache(async () => {
 })
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
+
+export type SelectableUser = { id: string; name: string; email: string }
+
+/**
+ * [Admin] Liste des utilisateurs non-admin sélectionnables (combobox du paiement
+ * manuel). Remplace `getAllUsers` Convex. Colonnes minimales, exclut les admins
+ * et les comptes supprimés, triés par nom. Borné à 500 (parité Convex `.take(500)`)
+ * — au-delà, prévoir une recherche serveur paginée.
+ */
+export const getSelectableUsers = cache(
+  async (): Promise<SelectableUser[]> => {
+    await requireRole(["admin"])
+
+    return db
+      .select({ id: user.id, name: user.name, email: user.email })
+      .from(user)
+      .where(and(ne(user.role, "admin"), isNull(user.deletedAt)))
+      .orderBy(asc(user.name))
+      .limit(500)
+  },
+)

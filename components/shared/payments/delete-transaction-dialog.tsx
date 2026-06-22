@@ -1,9 +1,8 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
 import { AlertTriangle, Info, Loader2, Trash2 } from "lucide-react"
 import { motion } from "motion/react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -15,8 +14,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import {
+  deleteManualTransaction,
+  loadTransactionAccessImpact,
+} from "@/features/payments/actions"
+import type { AccessImpact } from "@/features/payments/dal"
 import { formatCurrency, formatShortDate } from "@/lib/format"
 import type { Transaction } from "./transaction-table"
 
@@ -34,23 +36,29 @@ export const DeleteTransactionDialog = ({
   onSuccess,
 }: DeleteTransactionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false)
+  const [accessImpact, setAccessImpact] = useState<AccessImpact | null>(null)
 
-  const deleteTransaction = useMutation(api.payments.deleteManualTransaction)
-  const accessImpact = useQuery(
-    api.payments.getTransactionAccessImpact,
-    transaction
-      ? { transactionId: transaction._id as Id<"transactions"> }
-      : "skip",
-  )
+  // Impact d'accès chargé à l'ouverture (avertissement de révocation).
+  useEffect(() => {
+    if (transaction && open) {
+      loadTransactionAccessImpact(transaction._id).then(setAccessImpact)
+    } else {
+      setAccessImpact(null)
+    }
+  }, [transaction, open])
 
   const handleDelete = async () => {
     if (!transaction) return
 
     setIsDeleting(true)
     try {
-      const result = await deleteTransaction({
-        transactionId: transaction._id as Id<"transactions">,
-      })
+      const result = await deleteManualTransaction(transaction._id)
+
+      if (!result.success) {
+        toast.error(result.error ?? "Erreur lors de la suppression")
+        setIsDeleting(false)
+        return
+      }
 
       const message = result.accessRevoked
         ? "Transaction supprimée et accès révoqué"
@@ -60,9 +68,7 @@ export const DeleteTransactionDialog = ({
       onOpenChange(false)
       onSuccess?.()
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Erreur inconnue"
-      toast.error(errorMessage)
+      toast.error("Erreur lors de la suppression")
       console.error(error)
     } finally {
       setIsDeleting(false)

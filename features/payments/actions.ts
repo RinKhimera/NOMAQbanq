@@ -7,7 +7,16 @@ import { db } from "@/db"
 import { products, transactions } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 
-import { getMyTransactions, type MyTransactionsPage } from "./dal"
+import {
+  getAllTransactions,
+  getMyTransactions,
+  getTransactionAccessImpact,
+  getTransactionStats,
+  type AccessImpact,
+  type AdminTransactionsPage,
+  type MyTransactionsPage,
+  type TransactionStatsView,
+} from "./dal"
 import { grantManualAccess, revokeAccessIfLast } from "./lib"
 import {
   recordManualPaymentSchema,
@@ -25,6 +34,40 @@ export const loadMoreMyTransactions = async (
 ): Promise<MyTransactionsPage> => {
   await requireSession()
   return getMyTransactions({ cursor })
+}
+
+/**
+ * [Admin] Charge une page de l'historique global (filtres + pagination keyset).
+ * Appelée côté client au changement de filtre et au « charger plus ». La garde
+ * admin est dans `getAllTransactions`, redoublée ici par cohérence avec les
+ * mutations.
+ */
+export const loadAdminTransactions = async (params: {
+  cursor?: string | null
+  type?: "stripe" | "manual"
+  status?: "pending" | "completed" | "failed" | "refunded"
+  userId?: string
+}): Promise<AdminTransactionsPage> => {
+  await requireRole(["admin"])
+  return getAllTransactions(params)
+}
+
+/** [Admin] Statistiques transactions — rafraîchies après une mutation. */
+export const loadTransactionStats =
+  async (): Promise<TransactionStatsView> => {
+    await requireRole(["admin"])
+    return getTransactionStats()
+  }
+
+/**
+ * [Admin] Impact d'accès d'une transaction (le modal édition/suppression l'appelle
+ * à l'ouverture pour afficher l'avertissement de révocation). `null` si introuvable.
+ */
+export const loadTransactionAccessImpact = async (
+  transactionId: string,
+): Promise<AccessImpact | null> => {
+  await requireRole(["admin"])
+  return getTransactionAccessImpact(transactionId)
 }
 
 const revalidatePaymentsAdmin = () => {

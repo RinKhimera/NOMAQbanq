@@ -1,7 +1,6 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQuery } from "convex/react"
 import {
   AlertTriangle,
   Banknote,
@@ -43,8 +42,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import {
+  loadTransactionAccessImpact,
+  updateManualTransaction,
+} from "@/features/payments/actions"
+import type { AccessImpact } from "@/features/payments/dal"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
@@ -111,14 +113,16 @@ export const EditTransactionModal = ({
 }: EditTransactionModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
+  const [accessImpact, setAccessImpact] = useState<AccessImpact | null>(null)
 
-  const updateTransaction = useMutation(api.payments.updateManualTransaction)
-  const accessImpact = useQuery(
-    api.payments.getTransactionAccessImpact,
-    transaction
-      ? { transactionId: transaction._id as Id<"transactions"> }
-      : "skip",
-  )
+  // Impact d'accès chargé à l'ouverture (sert l'avertissement de révocation).
+  useEffect(() => {
+    if (transaction && open) {
+      loadTransactionAccessImpact(transaction._id).then(setAccessImpact)
+    } else {
+      setAccessImpact(null)
+    }
+  }, [transaction, open])
 
   const form = useForm<EditTransactionFormValues>({
     resolver: zodResolver(editTransactionSchema),
@@ -165,14 +169,20 @@ export const EditTransactionModal = ({
         return
       }
 
-      await updateTransaction({
-        transactionId: transaction._id as Id<"transactions">,
+      const result = await updateManualTransaction({
+        transactionId: transaction._id,
         amountPaid: amountCents,
         currency: data.currency,
         paymentMethod: data.paymentMethod,
         notes: data.notes || undefined,
         status: data.status,
       })
+
+      if (!result.success) {
+        toast.error(result.error ?? "Erreur lors de la modification")
+        setIsSubmitting(false)
+        return
+      }
 
       setShowSuccess(true)
       setTimeout(() => {
@@ -187,9 +197,7 @@ export const EditTransactionModal = ({
           : "Transaction modifiée avec succès"
       toast.success(message)
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Erreur inconnue"
-      toast.error(errorMessage)
+      toast.error("Erreur lors de la modification")
       console.error(error)
     } finally {
       setIsSubmitting(false)

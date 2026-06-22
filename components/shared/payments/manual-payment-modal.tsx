@@ -1,7 +1,6 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQuery } from "convex/react"
 import {
   Banknote,
   Check,
@@ -56,21 +55,29 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import { recordManualPayment } from "@/features/payments/actions"
+import type { ProductView } from "@/features/payments/dal"
+import type { SelectableUser } from "@/features/users/dal"
 import { parseAmountToCents } from "@/lib/currency"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
   type ManualPaymentFormValues,
-  type ProductCode,
   manualPaymentSchema,
 } from "@/schemas/payment"
 
 interface ManualPaymentModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  defaultUserId?: Id<"users">
+  /**
+   * Produits + utilisateurs sélectionnables, fournis par le Server Component parent
+   * (page admin transactions). Optionnels (défaut `[]`) tant que des écrans Convex
+   * non convertis (dashboard, panneau user) montent ce modal sans les fournir —
+   * il y est alors non fonctionnel, conformément à la bascule Option C.
+   */
+  products?: ProductView[]
+  users?: SelectableUser[]
+  defaultUserId?: string
   onSuccess?: () => void
 }
 
@@ -89,16 +96,14 @@ const currencies = [
 export const ManualPaymentModal = ({
   open,
   onOpenChange,
+  products = [],
+  users = [],
   defaultUserId,
   onSuccess,
 }: ManualPaymentModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [userPopoverOpen, setUserPopoverOpen] = useState(false)
-
-  const products = useQuery(api.payments.getAvailableProducts)
-  const users = useQuery(api.users.getAllUsers)
-  const recordPayment = useMutation(api.payments.recordManualPayment)
 
   const form = useForm<ManualPaymentFormValues>({
     resolver: zodResolver(manualPaymentSchema),
@@ -112,7 +117,7 @@ export const ManualPaymentModal = ({
     },
   })
 
-  const selectedProduct = products?.find(
+  const selectedProduct = products.find(
     (p) => p.code === form.watch("productCode"),
   )
 
@@ -127,14 +132,22 @@ export const ManualPaymentModal = ({
         return
       }
 
-      await recordPayment({
-        userId: data.userId as Id<"users">,
-        productCode: data.productCode as ProductCode,
+      const result = await recordManualPayment({
+        userId: data.userId,
+        productCode: data.productCode,
         amountPaid: amountCents,
         currency: data.currency,
         paymentMethod: data.paymentMethod,
         notes: data.notes || undefined,
       })
+
+      if (!result.success) {
+        toast.error(
+          result.error ?? "Erreur lors de l'enregistrement du paiement",
+        )
+        setIsSubmitting(false)
+        return
+      }
 
       setShowSuccess(true)
       setTimeout(() => {
@@ -146,13 +159,7 @@ export const ManualPaymentModal = ({
 
       toast.success("Paiement enregistré avec succès")
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Erreur inconnue"
-      if (errorMessage.includes("non trouvé")) {
-        toast.error("Utilisateur ou produit non trouvé")
-      } else {
-        toast.error("Erreur lors de l'enregistrement du paiement")
-      }
+      toast.error("Erreur lors de l'enregistrement du paiement")
       console.error(error)
     } finally {
       setIsSubmitting(false)
@@ -221,8 +228,8 @@ export const ManualPaymentModal = ({
                     control={form.control}
                     name="userId"
                     render={({ field }) => {
-                      const selectedUser = users?.find(
-                        (u) => u._id === field.value,
+                      const selectedUser = users.find(
+                        (u) => u.id === field.value,
                       )
                       return (
                         <FormItem>
@@ -261,36 +268,32 @@ export const ManualPaymentModal = ({
                                 </CommandEmpty>
                                 <CommandGroup>
                                   <ScrollArea className="h-72">
-                                    {users
-                                      ?.filter((user) => user.role !== "admin")
-                                      .map((user) => (
-                                        <CommandItem
-                                          key={user._id}
-                                          value={`${user.name} ${user.email}`}
-                                          onSelect={() => {
-                                            field.onChange(user._id)
-                                            setUserPopoverOpen(false)
-                                          }}
-                                          className="cursor-pointer"
-                                        >
-                                          <Check
-                                            className={cn(
-                                              "mr-2 h-4 w-4",
-                                              field.value === user._id
-                                                ? "opacity-100"
-                                                : "opacity-0",
-                                            )}
-                                          />
-                                          <div className="flex-1">
-                                            <p className="font-medium">
-                                              {user.name}
-                                            </p>
-                                            <p className="text-muted-foreground text-xs">
-                                              {user.email}
-                                            </p>
-                                          </div>
-                                        </CommandItem>
-                                      ))}
+                                    {users.map((u) => (
+                                      <CommandItem
+                                        key={u.id}
+                                        value={`${u.name} ${u.email}`}
+                                        onSelect={() => {
+                                          field.onChange(u.id)
+                                          setUserPopoverOpen(false)
+                                        }}
+                                        className="cursor-pointer"
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            field.value === u.id
+                                              ? "opacity-100"
+                                              : "opacity-0",
+                                          )}
+                                        />
+                                        <div className="flex-1">
+                                          <p className="font-medium">{u.name}</p>
+                                          <p className="text-muted-foreground text-xs">
+                                            {u.email}
+                                          </p>
+                                        </div>
+                                      </CommandItem>
+                                    ))}
                                   </ScrollArea>
                                 </CommandGroup>
                               </Command>
@@ -327,7 +330,7 @@ export const ManualPaymentModal = ({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {products?.map((product) => (
+                            {products.map((product) => (
                               <SelectItem
                                 key={product.code}
                                 value={product.code}

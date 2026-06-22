@@ -1,6 +1,5 @@
 "use client"
 
-import { useQuery } from "convex/react"
 import {
   Banknote,
   Coins,
@@ -9,8 +8,7 @@ import {
   TrendingUp,
 } from "lucide-react"
 import { motion } from "motion/react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/convex/_generated/api"
+import type { TransactionStatsView } from "@/features/payments/dal"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -23,30 +21,7 @@ interface StatCardConfig {
   format: (value: number) => string
 }
 
-export const TransactionStats = () => {
-  const stats = useQuery(api.payments.getTransactionStats)
-
-  if (stats === undefined) {
-    return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, index) => (
-          <div
-            key={index}
-            className="rounded-2xl border bg-white p-6 dark:bg-gray-900"
-          >
-            <div className="flex items-center gap-4">
-              <Skeleton className="h-14 w-14 rounded-xl" />
-              <div className="space-y-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-8 w-20" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
+export const TransactionStats = ({ stats }: { stats: TransactionStatsView }) => {
   const hasXAFRevenue = stats.revenueByCurrency.XAF.total > 0
 
   // Construction déclarative des cartes selon les devises présentes (pattern React idiomatique)
