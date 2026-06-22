@@ -12,7 +12,15 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
   baseURL: env.BETTER_AUTH_URL,
   // Serverless: la table rate_limit (déjà créée) survit aux instances. Actif en prod uniquement.
-  rateLimit: { storage: "database" },
+  // customRules : l'endpoint de reset n'est pas couvert par les limites par défaut → on le
+  // borne (3 demandes / minute / IP) pour éviter le spam de courriels SES (review M4).
+  rateLimit: {
+    storage: "database",
+    customRules: {
+      "/request-password-reset": { window: 60, max: 3 },
+      "/forget-password": { window: 60, max: 3 },
+    },
+  },
   // Rattache automatiquement Google aux users migrés (même email) en préservant leur id.
   account: {
     accountLinking: { enabled: true, trustedProviders: ["google"] },
