@@ -1,0 +1,441 @@
+"use server"
+
+import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
+import { revalidatePath } from "next/cache"
+
+import { db } from "@/db"
+import { questions, trainingSessionItems, trainingSessions } from "@/db/schema"
+import { requireSession } from "@/lib/auth-guards"
+import { createId } from "@/lib/ids"
+
+import { hasAccess } from "../payments/dal"
+import {
+  getAvailableObjectifsCMC,
+  getTrainingHistory,
+  type ObjectifsView,
+  type TrainingHistoryPage,
+} from "./dal"
+import {
+  createTrainingSessionSchema,
+  saveTrainingAnswerSchema,
+  type CreateTrainingSessionInput,
+  type SaveTrainingAnswerInput,
+} from "./schemas"
+
+const SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000 // 24 h
+const MAX_SESSIONS_PER_HOUR = 10
+
+const fail = (error: string) => ({ success: false as const, error })
+
+const logDev = (tag: string, error: unknown) => {
+  if (process.env.NODE_ENV !== "production") console.error(tag, error)
+}
+
+// ============================================
+// Lectures (wrappers pour composants clients)
+// ============================================
+
+/** [Auth] Page d'historique (« voir plus »). */
+export const loadTrainingHistory = async (args: {
+  cursor?: string | null
+  limit?: number
+}): Promise<TrainingHistoryPage> => {
+  await requireSession()
+  return getTrainingHistory(args)
+}
+
+/** [Auth] Objectifs CMC filtrés par domaine (re-requête du formulaire). */
+export const loadAvailableObjectifsCMC = async (
+  domain?: string,
+): Promise<ObjectifsView> => {
+  await requireSession()
+  return getAvailableObjectifsCMC(domain)
+}
+
+// ============================================
+// Écritures
+// ============================================
+
+export type CreateTrainingSessionResult =
+  | { success: true; sessionId: string }
+  | { success: false; error: string }
+
+/**
+ * [Auth] Crée une session : sélectionne N questions aléatoires (domaine +
+ * objectifs CMC optionnels), insère la session + un item par question (position
+ * ordonnée, réponse nulle). Garde accès training (bypass admin) + rate-limit
+ * 10/h + refus si session en cours non expirée. Atomique.
+ */
+export const createTrainingSession = async (
+  input: CreateTrainingSessionInput,
+): Promise<CreateTrainingSessionResult> => {
+  const session = await requireSession()
+  const userId = session.user.id
+  const isAdmin = session.user.role === "admin"
+
+  const parsed = createTrainingSessionSchema.safeParse(input)
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
+  }
+  const { questionCount, domain, objectifsCMCs } = parsed.data
+
+  try {
+    if (!isAdmin) {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+      const [rl] = await db
+        .select({ n: sql<number>`count(*)`.mapWith(Number) })
+        .from(trainingSessions)
+        .where(
+          and(
+            eq(trainingSessions.userId, userId),
+            gt(trainingSessions.startedAt, oneHourAgo),
+          ),
+        )
+      if ((rl?.n ?? 0) >= MAX_SESSIONS_PER_HOUR) {
+        return fail(
+          "Trop de sessions créées récemment. Réessayez dans une heure.",
+        )
+      }
+      if (!(await hasAccess("training"))) {
+        return fail("Votre accès à l'entraînement a expiré.")
+      }
+    }
+
+    // Session en cours : refus si non expirée, sinon on l'abandonne.
+    const [existing] = await db
+      .select({
+        id: trainingSessions.id,
+        expiresAt: trainingSessions.expiresAt,
+      })
+      .from(trainingSessions)
+      .where(
+        and(
+          eq(trainingSessions.userId, userId),
+          eq(trainingSessions.status, "in_progress"),
+        ),
+      )
+      .limit(1)
+    if (existing) {
+      if (existing.expiresAt.getTime() >= Date.now()) {
+        return fail(
+          "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
+        )
+      }
+      await db
+        .update(trainingSessions)
+        .set({ status: "abandoned" })
+        .where(eq(trainingSessions.id, existing.id))
+    }
+
+    // Sélection des questions (domaine + objectifs CMC, logique ET, insensible à
+    // la casse). `count` puis échantillon aléatoire borné.
+    const objLower = objectifsCMCs
+      ?.map((o) => o.trim().toLowerCase())
+      .filter(Boolean)
+    const where = and(
+      isNull(questions.deletedAt),
+      domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
+      objLower?.length
+        ? inArray(sql`lower(${questions.objectifCmc})`, objLower)
+        : undefined,
+    )
+
+    const [avail] = await db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(questions)
+      .where(where)
+    if ((avail?.n ?? 0) < questionCount) {
+      return fail(
+        `Seulement ${avail?.n ?? 0} questions disponibles. Réduisez le nombre demandé.`,
+      )
+    }
+
+    const picked = await db
+      .select({ id: questions.id })
+      .from(questions)
+      .where(where)
+      .orderBy(sql`random()`)
+      .limit(questionCount)
+
+    const now = new Date()
+    const expiresAt = new Date(now.getTime() + SESSION_EXPIRATION_MS)
+    const sessionId = createId()
+
+    await db.transaction(async (tx) => {
+      await tx.insert(trainingSessions).values({
+        id: sessionId,
+        userId,
+        status: "in_progress",
+        domain: domain && domain !== "all" ? domain : null,
+        objectifCmc: null,
+        questionCount,
+        startedAt: now,
+        expiresAt,
+      })
+      await tx.insert(trainingSessionItems).values(
+        picked.map((p, idx) => ({
+          sessionId,
+          questionId: p.id,
+          position: idx,
+        })),
+      )
+    })
+
+    revalidatePath("/dashboard/entrainement")
+    return { success: true, sessionId }
+  } catch (error) {
+    logDev("[createTrainingSession]", error)
+    return fail("Erreur serveur. Réessayez.")
+  }
+}
+
+export type SaveTrainingAnswerResult =
+  | { success: true; isCorrect: boolean }
+  | { success: false; error: string }
+
+/**
+ * [Auth] Enregistre/met à jour la réponse d'un item (l'item existe déjà depuis
+ * la création). Vérifie propriété + statut + expiration + accès. Pas de
+ * revalidate (le client met à jour son état optimiste).
+ */
+export const saveTrainingAnswer = async (
+  input: SaveTrainingAnswerInput,
+): Promise<SaveTrainingAnswerResult> => {
+  const session = await requireSession()
+
+  const parsed = saveTrainingAnswerSchema.safeParse(input)
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
+  }
+  const { sessionId, questionId, selectedAnswer } = parsed.data
+
+  try {
+    const [s] = await db
+      .select({
+        userId: trainingSessions.userId,
+        status: trainingSessions.status,
+        expiresAt: trainingSessions.expiresAt,
+      })
+      .from(trainingSessions)
+      .where(eq(trainingSessions.id, sessionId))
+      .limit(1)
+    if (!s) return fail("Session introuvable")
+    if (s.userId !== session.user.id) {
+      return fail("Cette session ne vous appartient pas")
+    }
+    if (s.status !== "in_progress") {
+      return fail("Cette session n'est plus active")
+    }
+    if (s.expiresAt.getTime() < Date.now()) {
+      await db
+        .update(trainingSessions)
+        .set({ status: "abandoned" })
+        .where(eq(trainingSessions.id, sessionId))
+      return fail("Cette session a expiré")
+    }
+    if (session.user.role !== "admin" && !(await hasAccess("training"))) {
+      return fail("Votre accès à l'entraînement a expiré.")
+    }
+
+    // L'item doit appartenir à la session (sinon question hors session).
+    const [item] = await db
+      .select({
+        itemId: trainingSessionItems.id,
+        correctAnswer: questions.correctAnswer,
+      })
+      .from(trainingSessionItems)
+      .innerJoin(questions, eq(questions.id, trainingSessionItems.questionId))
+      .where(
+        and(
+          eq(trainingSessionItems.sessionId, sessionId),
+          eq(trainingSessionItems.questionId, questionId),
+        ),
+      )
+      .limit(1)
+    if (!item) return fail("Cette question ne fait pas partie de la session")
+
+    const isCorrect = selectedAnswer === item.correctAnswer
+    await db
+      .update(trainingSessionItems)
+      .set({ selectedAnswer, isCorrect, answeredAt: new Date() })
+      .where(eq(trainingSessionItems.id, item.itemId))
+
+    return { success: true, isCorrect }
+  } catch (error) {
+    logDev("[saveTrainingAnswer]", error)
+    return fail("Erreur serveur. Réessayez.")
+  }
+}
+
+export type CompleteTrainingSessionResult =
+  | {
+      success: true
+      score: number
+      correctCount: number
+      totalQuestions: number
+    }
+  | { success: false; error: string }
+
+/** [Auth] Termine la session : calcule le score (% de bonnes réponses). */
+export const completeTrainingSession = async ({
+  sessionId,
+}: {
+  sessionId: string
+}): Promise<CompleteTrainingSessionResult> => {
+  const session = await requireSession()
+  if (!sessionId) return fail("Session requise")
+
+  try {
+    const [s] = await db
+      .select({
+        userId: trainingSessions.userId,
+        status: trainingSessions.status,
+        questionCount: trainingSessions.questionCount,
+      })
+      .from(trainingSessions)
+      .where(eq(trainingSessions.id, sessionId))
+      .limit(1)
+    if (!s) return fail("Session introuvable")
+    if (s.userId !== session.user.id) {
+      return fail("Cette session ne vous appartient pas")
+    }
+    if (s.status !== "in_progress") {
+      return fail("Cette session n'est plus active")
+    }
+    if (session.user.role !== "admin" && !(await hasAccess("training"))) {
+      return fail("Votre accès à l'entraînement a expiré.")
+    }
+
+    const [c] = await db
+      .select({
+        correct:
+          sql<number>`count(*) filter (where ${trainingSessionItems.isCorrect})`.mapWith(
+            Number,
+          ),
+      })
+      .from(trainingSessionItems)
+      .where(eq(trainingSessionItems.sessionId, sessionId))
+
+    const correctCount = c?.correct ?? 0
+    const totalQuestions = s.questionCount
+    const score =
+      totalQuestions > 0
+        ? Math.round((correctCount / totalQuestions) * 100)
+        : 0
+
+    await db
+      .update(trainingSessions)
+      .set({ status: "completed", score, completedAt: new Date() })
+      .where(eq(trainingSessions.id, sessionId))
+
+    revalidatePath("/dashboard/entrainement")
+    return { success: true, score, correctCount, totalQuestions }
+  } catch (error) {
+    logDev("[completeTrainingSession]", error)
+    return fail("Erreur serveur. Réessayez.")
+  }
+}
+
+/** [Auth] Abandonne une session en cours. */
+export const abandonTrainingSession = async ({
+  sessionId,
+}: {
+  sessionId: string
+}): Promise<{ success: boolean; error?: string }> => {
+  const session = await requireSession()
+  if (!sessionId) return fail("Session requise")
+
+  try {
+    const [s] = await db
+      .select({
+        userId: trainingSessions.userId,
+        status: trainingSessions.status,
+      })
+      .from(trainingSessions)
+      .where(eq(trainingSessions.id, sessionId))
+      .limit(1)
+    if (!s) return fail("Session introuvable")
+    if (s.userId !== session.user.id) {
+      return fail("Cette session ne vous appartient pas")
+    }
+    if (s.status !== "in_progress") {
+      return fail("Cette session n'est pas en cours")
+    }
+
+    await db
+      .update(trainingSessions)
+      .set({ status: "abandoned" })
+      .where(eq(trainingSessions.id, sessionId))
+
+    revalidatePath("/dashboard/entrainement")
+    return { success: true }
+  } catch (error) {
+    logDev("[abandonTrainingSession]", error)
+    return fail("Erreur serveur. Réessayez.")
+  }
+}
+
+/** [Auth] Supprime une session terminée/abandonnée (items en cascade FK). */
+export const deleteTrainingSession = async ({
+  sessionId,
+}: {
+  sessionId: string
+}): Promise<{ success: boolean; error?: string }> => {
+  const session = await requireSession()
+  if (!sessionId) return fail("Session requise")
+
+  try {
+    const [s] = await db
+      .select({
+        userId: trainingSessions.userId,
+        status: trainingSessions.status,
+      })
+      .from(trainingSessions)
+      .where(eq(trainingSessions.id, sessionId))
+      .limit(1)
+    if (!s) return fail("Session introuvable")
+    if (s.userId !== session.user.id) {
+      return fail("Cette session ne vous appartient pas")
+    }
+    if (s.status === "in_progress") {
+      return fail(
+        "Impossible de supprimer une session en cours. Terminez-la ou abandonnez-la d'abord.",
+      )
+    }
+
+    await db.delete(trainingSessions).where(eq(trainingSessions.id, sessionId))
+
+    revalidatePath("/dashboard/entrainement")
+    return { success: true }
+  } catch (error) {
+    logDev("[deleteTrainingSession]", error)
+    return fail("Erreur serveur. Réessayez.")
+  }
+}
+
+/** [Auth] Supprime toutes les sessions terminées/abandonnées de l'utilisateur. */
+export const deleteAllTrainingSessions = async (): Promise<{
+  success: boolean
+  deletedCount: number
+  error?: string
+}> => {
+  const session = await requireSession()
+
+  try {
+    const deleted = await db
+      .delete(trainingSessions)
+      .where(
+        and(
+          eq(trainingSessions.userId, session.user.id),
+          inArray(trainingSessions.status, ["completed", "abandoned"]),
+        ),
+      )
+      .returning({ id: trainingSessions.id })
+
+    revalidatePath("/dashboard/entrainement")
+    return { success: true, deletedCount: deleted.length }
+  } catch (error) {
+    logDev("[deleteAllTrainingSessions]", error)
+    return { success: false, deletedCount: 0, error: "Erreur serveur." }
+  }
+}
