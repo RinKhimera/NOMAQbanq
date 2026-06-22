@@ -1,7 +1,6 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useAction, useMutation, useQuery } from "convex/react"
 import {
   ArrowLeft,
   BookOpen,
@@ -49,8 +48,14 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { MEDICAL_DOMAINS } from "@/constants"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import {
+  createQuestion,
+  loadQuestionById,
+  setQuestionImages,
+  updateQuestion,
+} from "@/features/questions/actions"
+import type { QuestionDetail } from "@/features/questions/dal"
+import { cdnUrl } from "@/lib/cdn"
 import { cn } from "@/lib/utils"
 import {
   QuestionFormValues,
@@ -69,7 +74,7 @@ interface QuestionImage {
 
 interface QuestionFormPageProps {
   mode: "create" | "edit"
-  questionId?: Id<"questions">
+  questionId?: string
 }
 
 export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
@@ -78,16 +83,22 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
   const [options, setOptions] = useState<string[]>(["", "", "", "", ""])
   const [images, setImages] = useState<QuestionImage[]>([])
 
-  // Queries
-  const question = useQuery(
-    api.questions.getQuestionById,
-    mode === "edit" && questionId ? { questionId } : "skip",
+  // Détail question (mode édition) via Server Action. `undefined` = en cours,
+  // `null` = introuvable. setState uniquement dans le callback async (le mode
+  // « create » n'utilise jamais ces branches, voir les gardes `mode === "edit"`).
+  const [question, setQuestion] = useState<QuestionDetail | null | undefined>(
+    mode === "edit" ? undefined : null,
   )
-
-  // Mutations
-  const createQuestion = useMutation(api.questions.createQuestion)
-  const updateQuestion = useMutation(api.questions.updateQuestion)
-  const setQuestionImages = useAction(api.questions.setQuestionImages)
+  useEffect(() => {
+    if (mode !== "edit" || !questionId) return
+    let active = true
+    loadQuestionById(questionId).then((q) => {
+      if (active) setQuestion(q)
+    })
+    return () => {
+      active = false
+    }
+  }, [mode, questionId])
 
   const form = useForm<QuestionFormValues>({
     resolver: zodResolver(questionFormSchema),
@@ -128,11 +139,19 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
         domain: question.domain,
       })
 
-      // Batch local state updates as non-urgent
+      // Batch local state updates as non-urgent. Les images du DAL
+      // (`{id, storagePath, position}`) sont mappées vers le format local
+      // (`{url, storagePath, order}`) ; l'URL est dérivée du CDN public.
       startTransition(() => {
         setOptions(paddedOptions)
         setReferences(paddedReferences)
-        setImages(question.images || [])
+        setImages(
+          question.images.map((img) => ({
+            url: cdnUrl(img.storagePath),
+            storagePath: img.storagePath,
+            order: img.position,
+          })),
+        )
       })
     }
   }, [mode, question, form])
@@ -187,8 +206,14 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
 
       const filteredReferences = filterValidReferences(references)
 
+      const imagePayload = images.map((img, idx) => ({
+        storagePath: img.storagePath,
+        order: idx,
+        url: img.url,
+      }))
+
       if (mode === "create") {
-        const newQuestionId = await createQuestion({
+        const res = await createQuestion({
           question: values.question,
           options: filteredOptions,
           correctAnswer: values.correctAnswer,
@@ -197,23 +222,20 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
           objectifCMC: values.objectifCMC,
           domain: values.domain,
         })
+        if (!res.success) {
+          toast.error(res.error ?? "Erreur lors de la création")
+          return
+        }
 
-        // Save images if any
-        if (images.length > 0) {
-          await setQuestionImages({
-            questionId: newQuestionId,
-            images: images.map((img, idx) => ({
-              url: img.url,
-              storagePath: img.storagePath,
-              order: idx,
-            })),
-          })
+        // Save images if any (uploader masqué en création → généralement vide)
+        if (imagePayload.length > 0) {
+          await setQuestionImages({ questionId: res.id, images: imagePayload })
         }
 
         toast.success("Question créée avec succès !")
         router.push("/admin/questions")
       } else if (mode === "edit" && questionId) {
-        await updateQuestion({
+        const res = await updateQuestion({
           id: questionId,
           question: values.question,
           options: filteredOptions,
@@ -223,16 +245,23 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
           objectifCMC: values.objectifCMC,
           domain: values.domain,
         })
+        if (!res.success) {
+          toast.error(res.error ?? "Erreur lors de la mise à jour")
+          return
+        }
 
-        // Update images
-        await setQuestionImages({
-          questionId,
-          images: images.map((img, idx) => ({
-            url: img.url,
-            storagePath: img.storagePath,
-            order: idx,
-          })),
-        })
+        // Persiste l'ordre des images (le réordonnancement local reste actif ;
+        // upload/suppression Bunny = Phase 7).
+        if (imagePayload.length > 0) {
+          const imgRes = await setQuestionImages({
+            questionId,
+            images: imagePayload,
+          })
+          if (!imgRes.success) {
+            toast.error(imgRes.error ?? "Images non enregistrées")
+            return
+          }
+        }
 
         toast.success("Question mise à jour avec succès !")
         router.push("/admin/questions")

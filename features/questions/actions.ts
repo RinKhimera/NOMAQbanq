@@ -13,6 +13,7 @@ import {
   getQuestionById,
   getQuestionsForExport,
   getQuestionsWithFilters,
+  getUniqueObjectifsCMC,
   type QuestionDetail,
   type QuestionExportRow,
   type QuestionFiltersInput,
@@ -54,6 +55,12 @@ export const loadQuestionById = async (
 export const loadAllQuestionIds = async (): Promise<string[]> => {
   await requireRole(["admin"])
   return getAllQuestionIds()
+}
+
+/** [Admin] Objectifs CMC distincts (combobox du formulaire création/édition). */
+export const loadUniqueObjectifsCMC = async (): Promise<string[]> => {
+  await requireRole(["admin"])
+  return getUniqueObjectifsCMC()
 }
 
 /** [Admin] Questions filtrées pour l'export (CSV/XLSX/JSON). */

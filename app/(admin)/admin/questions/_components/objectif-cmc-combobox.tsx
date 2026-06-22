@@ -1,8 +1,7 @@
 "use client"
 
-import { useQuery } from "convex/react"
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Command,
@@ -17,7 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { api } from "@/convex/_generated/api"
+import { loadUniqueObjectifsCMC } from "@/features/questions/actions"
 import { cn } from "@/lib/utils"
 
 interface ObjectifCMCComboboxProps {
@@ -36,8 +35,19 @@ export function ObjectifCMCCombobox({
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState("")
 
-  const objectifs = useQuery(api.questions.getUniqueObjectifsCMC)
-  const isLoading = objectifs === undefined
+  // Objectifs CMC distincts via Server Action (remplace useQuery). setState
+  // uniquement dans le callback async → pas de set-state-in-effect synchrone.
+  const [objectifs, setObjectifs] = useState<string[] | null>(null)
+  useEffect(() => {
+    let active = true
+    loadUniqueObjectifsCMC().then((list) => {
+      if (active) setObjectifs(list)
+    })
+    return () => {
+      active = false
+    }
+  }, [])
+  const isLoading = objectifs === null
 
   // Filter objectifs based on search
   const filteredObjectifs = useMemo(() => {
