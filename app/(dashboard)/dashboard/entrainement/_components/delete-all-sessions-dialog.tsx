@@ -1,6 +1,5 @@
 "use client"
 
-import { useMutation } from "convex/react"
 import { AlertTriangle, Loader2, Trash2 } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
@@ -15,7 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { api } from "@/convex/_generated/api"
+import { deleteAllTrainingSessions } from "@/features/training/actions"
 
 interface DeleteAllSessionsDialogProps {
   open: boolean
@@ -30,12 +29,14 @@ export const DeleteAllSessionsDialog = ({
 }: DeleteAllSessionsDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false)
 
-  const deleteAllSessions = useMutation(api.training.deleteAllTrainingSessions)
-
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      const result = await deleteAllSessions({})
+      const result = await deleteAllTrainingSessions()
+      if (!result.success) {
+        toast.error(result.error ?? "Erreur lors de la suppression")
+        return
+      }
       toast.success(
         `${result.deletedCount} session${result.deletedCount > 1 ? "s" : ""} supprimée${result.deletedCount > 1 ? "s" : ""}`,
       )

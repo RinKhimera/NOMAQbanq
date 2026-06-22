@@ -1,11 +1,10 @@
 "use client"
 
 import { IconTargetArrow } from "@tabler/icons-react"
-import { useMutation, useQuery } from "convex/react"
 import { Layers, Loader2, Play, Target } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
-import { useActionState, useState, useTransition } from "react"
+import { useActionState, useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,7 +15,10 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import { api } from "@/convex/_generated/api"
+import {
+  createTrainingSession,
+  loadAvailableObjectifsCMC,
+} from "@/features/training/actions"
 import { cn } from "@/lib/utils"
 import { ObjectifsCMCMultiSelect } from "./objectifs-cmc-multi-select"
 
@@ -38,13 +40,22 @@ export const TrainingConfigForm = ({
   const [selectedDomain, setSelectedDomain] = useState<string>("all")
   const [selectedObjectifs, setSelectedObjectifs] = useState<string[]>([])
 
-  const createSession = useMutation(api.training.createTrainingSession)
+  // Objectifs filtrés par domaine via Server Action (remplace useQuery réactif).
+  // Initialisés avec la prop (tous domaines = état initial). setState seulement
+  // dans le callback de transition → pas de set-state-in-effect synchrone.
+  const [filteredObjectifs, setFilteredObjectifs] = useState<{
+    objectifs: { objectif: string; count: number }[]
+  }>({ objectifs })
+  const [isObjLoading, startObjLoad] = useTransition()
 
-  // Query pour objectifs filtrés par domaine
-  const filteredObjectifs = useQuery(
-    api.training.getAvailableObjectifsCMC,
-    selectedDomain !== "all" ? { domain: selectedDomain } : {},
-  )
+  useEffect(() => {
+    startObjLoad(async () => {
+      const res = await loadAvailableObjectifsCMC(
+        selectedDomain === "all" ? undefined : selectedDomain,
+      )
+      setFilteredObjectifs(res)
+    })
+  }, [selectedDomain])
 
   const selectedDomainQuestions =
     selectedDomain === "all"
@@ -72,12 +83,17 @@ export const TrainingConfigForm = ({
     if (!isValidCount) return null
 
     try {
-      const result = await createSession({
+      const result = await createTrainingSession({
         questionCount,
         domain: selectedDomain === "all" ? undefined : selectedDomain,
         objectifsCMCs:
           selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
       })
+
+      if (!result.success) {
+        toast.error("Erreur", { description: result.error })
+        return null
+      }
 
       toast.success("Session créée !", {
         description: `${questionCount} questions sélectionnées`,
@@ -226,10 +242,10 @@ export const TrainingConfigForm = ({
           </div>
 
           <ObjectifsCMCMultiSelect
-            objectifs={filteredObjectifs?.objectifs ?? objectifs}
+            objectifs={filteredObjectifs.objectifs}
             selectedObjectifs={selectedObjectifs}
             onChange={setSelectedObjectifs}
-            isLoading={filteredObjectifs === undefined}
+            isLoading={isObjLoading}
             maxSelections={10}
           />
 

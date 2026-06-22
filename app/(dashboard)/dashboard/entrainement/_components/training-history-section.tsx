@@ -1,6 +1,5 @@
 "use client"
 
-import { useConvexAuth, usePaginatedQuery } from "convex/react"
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
@@ -15,7 +14,7 @@ import {
 } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -24,20 +23,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import { loadTrainingHistory } from "@/features/training/actions"
+import type {
+  TrainingHistoryItem,
+  TrainingHistoryPage,
+} from "@/features/training/dal"
 import { cn } from "@/lib/utils"
 import { DeleteAllSessionsDialog } from "./delete-all-sessions-dialog"
 import { DeleteSessionDialog } from "./delete-session-dialog"
 
-interface Session {
-  _id: Id<"trainingParticipations">
-  questionCount: number
-  score: number
-  domain?: string
-  completedAt?: number
-  startedAt: number
-}
+type Session = TrainingHistoryItem
 
 const getScoreColor = (score: number) => {
   if (score >= 80) return "text-emerald-600 dark:text-emerald-400"
@@ -53,33 +48,49 @@ const getScoreBg = (score: number) => {
   return "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800"
 }
 
-export const TrainingHistorySection = () => {
+export const TrainingHistorySection = ({
+  initialHistory,
+}: {
+  initialHistory: TrainingHistoryPage
+}) => {
   const router = useRouter()
-  const { isAuthenticated } = useConvexAuth()
 
   // Delete dialog state
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false)
 
-  // Skip query until authenticated to avoid race condition on page reload
-  const {
-    results: sessions,
-    status,
-    loadMore,
-  } = usePaginatedQuery(
-    api.training.getTrainingHistory,
-    isAuthenticated ? {} : "skip",
-    { initialNumItems: 5 },
-  )
+  // Liste paginée keyset : 1re page côté serveur, « voir plus » via Server Action.
+  const [sessions, setSessions] = useState<Session[]>(initialHistory.items)
+  const [cursor, setCursor] = useState<string | null>(initialHistory.nextCursor)
+  const [isLoadingMore, startLoadMore] = useTransition()
 
-  const isLoading = status === "LoadingFirstPage"
-  const hasMore = status === "CanLoadMore"
-  const isLoadingMore = status === "LoadingMore"
+  const isLoading = false
+  const hasMore = cursor !== null
+
+  const loadMore = () => {
+    if (cursor === null) return
+    startLoadMore(async () => {
+      const page = await loadTrainingHistory({ cursor, limit: 5 })
+      setSessions((prev) => [...prev, ...page.items])
+      setCursor(page.nextCursor)
+    })
+  }
 
   const handleDeleteSession = (session: Session) => {
     setSelectedSession(session)
     setShowDeleteDialog(true)
+  }
+
+  // Après suppression : retirer localement + rafraîchir (stats d'en-tête serveur).
+  const handleDeleted = (id: string) => {
+    setSessions((prev) => prev.filter((s) => s.id !== id))
+    router.refresh()
+  }
+
+  const handleDeletedAll = () => {
+    setSessions([])
+    router.refresh()
   }
 
   return (
@@ -137,7 +148,7 @@ export const TrainingHistorySection = () => {
             <div className="space-y-2">
               {sessions.map((session, index) => (
                 <motion.div
-                  key={session._id}
+                  key={session.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
@@ -147,7 +158,7 @@ export const TrainingHistorySection = () => {
                   <button
                     onClick={() =>
                       router.push(
-                        `/dashboard/entrainement/${session._id}/results`,
+                        `/dashboard/entrainement/${session.id}/results`,
                       )
                     }
                     className="flex flex-1 cursor-pointer items-center gap-4 text-left"
@@ -221,7 +232,7 @@ export const TrainingHistorySection = () => {
                       <DropdownMenuItem
                         onClick={() =>
                           router.push(
-                            `/dashboard/entrainement/${session._id}/results`,
+                            `/dashboard/entrainement/${session.id}/results`,
                           )
                         }
                       >
@@ -246,7 +257,7 @@ export const TrainingHistorySection = () => {
                 <div className="pt-2">
                   <Button
                     variant="ghost"
-                    onClick={() => loadMore(5)}
+                    onClick={loadMore}
                     disabled={isLoadingMore}
                     className="w-full text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
                   >
@@ -271,12 +282,16 @@ export const TrainingHistorySection = () => {
         session={selectedSession}
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
-        onSuccess={() => setSelectedSession(null)}
+        onSuccess={() => {
+          if (selectedSession) handleDeleted(selectedSession.id)
+          setSelectedSession(null)
+        }}
       />
 
       <DeleteAllSessionsDialog
         open={showDeleteAllDialog}
         onOpenChange={setShowDeleteAllDialog}
+        onSuccess={handleDeletedAll}
       />
     </>
   )

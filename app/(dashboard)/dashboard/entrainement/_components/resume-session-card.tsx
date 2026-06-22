@@ -1,6 +1,5 @@
 "use client"
 
-import { useMutation } from "convex/react"
 import { AlertCircle, Clock, Loader2, Play, X } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
@@ -18,11 +17,10 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import { api } from "@/convex/_generated/api"
-import type { Doc } from "@/convex/_generated/dataModel"
+import { abandonTrainingSession } from "@/features/training/actions"
 
 interface ResumeSessionCardProps {
-  session: Doc<"trainingParticipations">
+  session: { id: string; questionCount: number; domain: string | null }
   remainingTimeMs: number
 }
 
@@ -44,8 +42,6 @@ export const ResumeSessionCard = ({
   const [remainingTime, setRemainingTime] = useState(initialRemainingTime)
   const [isAbandoning, setIsAbandoning] = useState(false)
 
-  const abandonSession = useMutation(api.training.abandonTrainingSession)
-
   // Update remaining time every minute
   useEffect(() => {
     const interval = setInterval(() => {
@@ -56,17 +52,21 @@ export const ResumeSessionCard = ({
   }, [])
 
   const handleResume = () => {
-    router.push(`/dashboard/entrainement/${session._id}`)
+    router.push(`/dashboard/entrainement/${session.id}`)
   }
 
   const handleAbandon = async () => {
     setIsAbandoning(true)
     try {
-      await abandonSession({ sessionId: session._id })
+      const res = await abandonTrainingSession({ sessionId: session.id })
+      if (!res.success) {
+        toast.error("Erreur", { description: res.error })
+        return
+      }
       toast.success("Session abandonnée", {
         description: "Vous pouvez maintenant commencer une nouvelle session",
       })
-      // Page will re-render automatically via Convex reactivity
+      router.refresh() // re-fetch côté serveur (plus de réactivité Convex)
     } catch (error) {
       toast.error("Erreur", {
         description:
