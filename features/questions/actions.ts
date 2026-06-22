@@ -13,11 +13,14 @@ import {
   getQuestionById,
   getQuestionsForExport,
   getQuestionsWithFilters,
+  getQuizAnswerKey,
+  getRandomQuizQuestions,
   getUniqueObjectifsCMC,
   type QuestionDetail,
   type QuestionExportRow,
   type QuestionFiltersInput,
   type QuestionsPage,
+  type QuizQuestionView,
 } from "./dal"
 import { normalizeObjectifCMC } from "./lib"
 import {
@@ -61,6 +64,65 @@ export const loadAllQuestionIds = async (): Promise<string[]> => {
 export const loadUniqueObjectifsCMC = async (): Promise<string[]> => {
   await requireRole(["admin"])
   return getUniqueObjectifsCMC()
+}
+
+// ============================================
+// [Public] Quiz marketing (sans auth)
+// ============================================
+
+/**
+ * [Public] Questions aléatoires pour le quiz d'évaluation marketing. Sans garde
+ * (page publique). La DAL masque `correctAnswer`/`explanation`.
+ */
+export const loadRandomQuizQuestions = async (args: {
+  count: number
+  domain?: string
+}): Promise<QuizQuestionView[]> => {
+  return getRandomQuizQuestions(args)
+}
+
+export type QuizQuestionResult = {
+  questionId: string
+  isCorrect: boolean
+  correctAnswer: string
+  explanation: string
+  references: string[]
+}
+
+export type QuizScore = {
+  score: number
+  totalQuestions: number
+  questionResults: QuizQuestionResult[]
+}
+
+/**
+ * [Public] Score le quiz marketing côté serveur. Sans garde (page publique).
+ * La clé de correction n'est révélée qu'au moment de la soumission (parité avec
+ * l'ancienne mutation Convex publique). Borne anti-abus sur la taille du lot.
+ */
+export const scoreQuizAnswers = async (args: {
+  answers: { questionId: string; selectedAnswer: string | null }[]
+}): Promise<QuizScore> => {
+  const answers = args.answers.slice(0, 50)
+  const keyMap = await getQuizAnswerKey(answers.map((a) => a.questionId))
+
+  let score = 0
+  const questionResults: QuizQuestionResult[] = []
+  for (const a of answers) {
+    const key = keyMap.get(a.questionId)
+    if (!key) continue
+    const isCorrect = a.selectedAnswer === key.correctAnswer
+    if (isCorrect) score++
+    questionResults.push({
+      questionId: a.questionId,
+      isCorrect,
+      correctAnswer: key.correctAnswer,
+      explanation: key.explanation,
+      references: key.references,
+    })
+  }
+
+  return { score, totalQuestions: questionResults.length, questionResults }
 }
 
 /** [Admin] Questions filtrées pour l'export (CSV/XLSX/JSON). */

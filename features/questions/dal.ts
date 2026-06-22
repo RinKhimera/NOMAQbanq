@@ -19,6 +19,7 @@ import {
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
+import { cdnUrl } from "@/lib/cdn"
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
@@ -306,6 +307,145 @@ export const getAllQuestionIds = async (): Promise<string[]> => {
     .where(isNull(questions.deletedAt))
     .limit(5000)
   return rows.map((r) => r.id)
+}
+
+// ============================================
+// [Public] Quiz marketing (sans auth)
+// ============================================
+
+export type QuizImageView = {
+  url: string
+  storagePath: string
+  order: number
+}
+
+// Forme « pont » alignée sur le doc Convex (`_id`/`_creationTime`/`images`) pour
+// rester assignable à `Omit<Doc<"questions">, "correctAnswer" | "explanation">`
+// — les composants quiz partagés (QuestionCard/QuizResults) consomment encore
+// ce contrat tant que les écrans examen/entraînement ne sont pas migrés.
+export type QuizQuestionView = {
+  _id: string
+  _creationTime: number
+  question: string
+  options: string[]
+  objectifCMC: string
+  domain: string
+  images: QuizImageView[]
+}
+
+/**
+ * [Public] Questions aléatoires pour le quiz d'évaluation marketing. Aucune
+ * garde (page publique). Masque `correctAnswer` et `explanation` (renvoyés
+ * seulement après soumission via la clé de correction). `ORDER BY random()`
+ * suffit pour la banque (~3000 questions, hors chemin chaud). Images jointes
+ * (URL CDN) pour l'affichage.
+ */
+export const getRandomQuizQuestions = async ({
+  count,
+  domain,
+}: {
+  count: number
+  domain?: string
+}): Promise<QuizQuestionView[]> => {
+  const safeCount = clamp(count, 1, 50)
+  const where = and(
+    isNull(questions.deletedAt),
+    domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
+  )
+
+  const rows = await db
+    .select({
+      id: questions.id,
+      question: questions.question,
+      options: questions.options,
+      objectifCMC: questions.objectifCmc,
+      domain: questions.domain,
+      createdAt: questions.createdAt,
+    })
+    .from(questions)
+    .where(where)
+    .orderBy(sql`random()`)
+    .limit(safeCount)
+  if (rows.length === 0) return []
+
+  const imgs = await db
+    .select({
+      questionId: questionImages.questionId,
+      storagePath: questionImages.storagePath,
+      position: questionImages.position,
+    })
+    .from(questionImages)
+    .where(
+      inArray(
+        questionImages.questionId,
+        rows.map((r) => r.id),
+      ),
+    )
+    .orderBy(asc(questionImages.position))
+
+  const imgMap = new Map<string, QuizImageView[]>()
+  for (const img of imgs) {
+    const list = imgMap.get(img.questionId) ?? []
+    list.push({
+      url: cdnUrl(img.storagePath),
+      storagePath: img.storagePath,
+      order: img.position,
+    })
+    imgMap.set(img.questionId, list)
+  }
+
+  return rows.map((r) => ({
+    _id: r.id,
+    _creationTime: r.createdAt.getTime(),
+    question: r.question,
+    options: r.options,
+    objectifCMC: r.objectifCMC,
+    domain: r.domain,
+    images: imgMap.get(r.id) ?? [],
+  }))
+}
+
+export type QuizAnswerKey = {
+  id: string
+  correctAnswer: string
+  explanation: string
+  references: string[]
+}
+
+/**
+ * [Public] Clé de correction (correctAnswer + explication + références) pour un
+ * lot d'ids. Utilisée par le scoring du quiz APRÈS soumission. Joint
+ * `questionExplanations`. Borné par l'appelant (longueur du quiz).
+ */
+export const getQuizAnswerKey = async (
+  questionIds: string[],
+): Promise<Map<string, QuizAnswerKey>> => {
+  if (questionIds.length === 0) return new Map()
+
+  const rows = await db
+    .select({
+      id: questions.id,
+      correctAnswer: questions.correctAnswer,
+      explanation: questionExplanations.explanation,
+      references: questionExplanations.references,
+    })
+    .from(questions)
+    .leftJoin(
+      questionExplanations,
+      eq(questionExplanations.questionId, questions.id),
+    )
+    .where(and(inArray(questions.id, questionIds), isNull(questions.deletedAt)))
+
+  const map = new Map<string, QuizAnswerKey>()
+  for (const r of rows) {
+    map.set(r.id, {
+      id: r.id,
+      correctAnswer: r.correctAnswer,
+      explanation: r.explanation ?? "",
+      references: r.references ?? [],
+    })
+  }
+  return map
 }
 
 // ============================================

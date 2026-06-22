@@ -1,16 +1,21 @@
 "use client"
 
-import { useMutation } from "convex/react"
 import { ArrowRight } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
 import QuizProgress from "@/components/quiz/quiz-progress"
 import QuizResults from "@/components/quiz/quiz-results"
 import { Button } from "@/components/ui/button"
-import { api } from "@/convex/_generated/api"
 import type { Doc } from "@/convex/_generated/dataModel"
+import {
+  loadRandomQuizQuestions,
+  scoreQuizAnswers,
+} from "@/features/questions/actions"
+import type { QuizQuestionView } from "@/features/questions/dal"
 
-type QuizQuestion = Omit<Doc<"questions">, "correctAnswer" | "explanation">
+// Forme renvoyée par le DAL public (sans correctAnswer/explanation), assignable
+// au contrat `Doc<"questions">` des composants quiz partagés via cast.
+type QuizQuestion = QuizQuestionView
 
 interface QuizState {
   currentQuestion: number
@@ -21,8 +26,6 @@ interface QuizState {
 }
 
 export default function QuizPage() {
-  const getQuestionsMut = useMutation(api.questions.getRandomQuestions)
-  const scoreQuizMut = useMutation(api.questions.scoreQuizAnswers)
   const topOfQuizRef = useRef<HTMLDivElement>(null)
   const questionsLoadedRef = useRef(false)
   const scoringTriggeredRef = useRef(false)
@@ -48,7 +51,7 @@ export default function QuizPage() {
     if (questionsLoadedRef.current) return
     questionsLoadedRef.current = true
 
-    getQuestionsMut({ count: 10 }).then((questions) => {
+    loadRandomQuizQuestions({ count: 10 }).then((questions) => {
       setQuizQuestions(questions)
       if (questions.length > 0 && questions.length < 10) {
         setQuizState((prev) => ({
@@ -59,7 +62,7 @@ export default function QuizPage() {
         }))
       }
     })
-  }, [getQuestionsMut])
+  }, [])
 
   // Timer - utiliser setInterval pour décrémenter le temps
   useEffect(() => {
@@ -89,28 +92,25 @@ export default function QuizPage() {
       selectedAnswer: quizState.userAnswers[i],
     }))
 
-    scoreQuizMut({ answers }).then((result) => {
+    scoreQuizAnswers({ answers }).then((result) => {
       // Merge quizQuestions (text, options) with scored results (correctAnswer, explanation)
       const resultMap = new Map(
         result.questionResults.map((r) => [r.questionId, r]),
       )
       const merged = quizQuestions!.map((q) => {
         const scored = resultMap.get(q._id)
+        // Bridge migration : `_id` est un string Drizzle, le contrat partagé
+        // QuizResults attend `Id<"questions">` (brand Convex). Pont via unknown.
         return {
           ...q,
           correctAnswer: scored?.correctAnswer ?? "",
           explanation: scored?.explanation ?? "",
           references: scored?.references ?? [],
-        } as Doc<"questions">
+        } as unknown as Doc<"questions">
       })
       setScoredResults({ score: result.score, mergedQuestions: merged })
     })
-  }, [
-    quizState.isCompleted,
-    quizQuestions,
-    quizState.userAnswers,
-    scoreQuizMut,
-  ])
+  }, [quizState.isCompleted, quizQuestions, quizState.userAnswers])
 
   // Scroll vers le haut quand la question change
   useEffect(() => {
@@ -207,7 +207,7 @@ export default function QuizPage() {
 
         <QuestionCard
           variant="exam"
-          question={currentQ as Doc<"questions">}
+          question={currentQ as unknown as Doc<"questions">}
           selectedAnswer={currentAnswer}
           onAnswerSelect={handleAnswerSelect}
           showImage={true}
