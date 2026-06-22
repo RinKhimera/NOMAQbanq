@@ -1,8 +1,8 @@
 "use client"
 
-import { useQuery } from "convex/react"
 import { useCallback } from "react"
-import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
+import { loadAllQuestionIds } from "@/features/questions/actions"
 import { cn } from "@/lib/utils"
 import { QuestionBrowserProvider } from "./question-browser-context"
 import { QuestionBrowserPanel } from "./question-browser-panel"
@@ -24,30 +24,24 @@ function QuestionBrowserContent({
   renderPanel,
   className,
 }: QuestionBrowserProps) {
-  // Query for all question IDs (used for auto-complete)
-  const allQuestionIds = useQuery(
-    api.questions.getAllQuestionIds,
-    mode === "select" ? {} : "skip",
-  )
+  // Auto-complete (mode select) : récupère les ids à la demande via Server Action
+  // (plus de chargement réactif de 5000 ids au montage).
+  const handleAutoComplete = useCallback(async () => {
+    if (!onSelectionChange || !maxSelection) return
 
-  // Handle auto-complete for select mode
-  const handleAutoComplete = useCallback(() => {
-    if (!allQuestionIds || !onSelectionChange || !maxSelection) return
-
-    const remaining = maxSelection - (selectedIds?.length || 0)
+    const selected = selectedIds ?? []
+    const remaining = maxSelection - selected.length
     if (remaining <= 0) return
 
-    // Filter out already selected questions
-    const availableIds = allQuestionIds.filter(
-      (id) => !selectedIds?.includes(id),
-    )
+    const allIds = await loadAllQuestionIds()
+    const selectedSet = new Set<string>(selected)
+    const available = allIds.filter((id) => !selectedSet.has(id))
 
-    // Shuffle and take the needed amount
-    const shuffled = [...availableIds].sort(() => Math.random() - 0.5)
-    const randomIds = shuffled.slice(0, remaining)
+    const shuffled = [...available].sort(() => Math.random() - 0.5)
+    const randomIds = shuffled.slice(0, remaining) as Id<"questions">[]
 
-    onSelectionChange([...(selectedIds || []), ...randomIds])
-  }, [allQuestionIds, selectedIds, onSelectionChange, maxSelection])
+    onSelectionChange([...selected, ...randomIds])
+  }, [selectedIds, onSelectionChange, maxSelection])
 
   return (
     <div className={cn("flex flex-col gap-4", className)}>

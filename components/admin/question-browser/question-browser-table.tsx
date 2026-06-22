@@ -212,8 +212,8 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
         </TableHeader>
         <TableBody>
           {questions.map((question, index) => {
-            const hasImages = question.images && question.images.length > 0
-            const imagesCount = question.images?.length || 0
+            const imagesCount = question.imageCount
+            const hasImages = imagesCount > 0
             const questionIsSelected = isSelected(question._id)
             const isDisabled = !questionIsSelected && isQuotaReached
             const isHighlighted =

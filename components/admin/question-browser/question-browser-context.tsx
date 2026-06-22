@@ -1,6 +1,5 @@
 "use client"
 
-import { usePaginatedQuery } from "convex/react"
 import {
   createContext,
   useCallback,
@@ -8,9 +7,11 @@ import {
   useEffect,
   useMemo,
   useState,
+  useTransition,
 } from "react"
-import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { loadQuestionsPage } from "@/features/questions/actions"
+import type { QuestionListItem } from "@/features/questions/dal"
 import {
   QuestionBrowserContextState,
   QuestionBrowserMode,
@@ -83,28 +84,67 @@ export function QuestionBrowserProvider({
     onFiltersChange?.(filters)
   }, [filters, onFiltersChange])
 
-  // Fetch questions with filters
-  const {
-    results: questions,
-    status,
-    loadMore: loadMoreFn,
-  } = usePaginatedQuery(
-    api.questions.getQuestionsWithFilters,
-    {
-      searchQuery: debouncedSearchQuery || undefined,
+  // Données : pagination keyset via Server Action (remplace usePaginatedQuery).
+  const [questions, setQuestions] = useState<QuestionRow[]>([])
+  const [cursor, setCursor] = useState<string | null>(null)
+  const [hasLoaded, setHasLoaded] = useState(false)
+  const [, startReload] = useTransition()
+  const [isLoadingMore, startLoadMore] = useTransition()
+
+  const toRow = (q: QuestionListItem): QuestionRow => ({
+    _id: q.id as Id<"questions">,
+    _creationTime: q.createdAt,
+    question: q.question,
+    domain: q.domain,
+    objectifCMC: q.objectifCMC,
+    options: q.options,
+    imageCount: q.imageCount,
+  })
+
+  const queryArgs = useMemo(
+    () => ({
+      search: debouncedSearchQuery || undefined,
       domain: filters.domain !== "all" ? filters.domain : undefined,
       hasImages:
-        filters.hasImages === "all" ? undefined : filters.hasImages === "with",
-      sortBy: filters.sortBy,
+        filters.hasImages === "all"
+          ? undefined
+          : filters.hasImages === "with",
       sortOrder: filters.sortOrder,
-    },
-    { initialNumItems: 50 },
+    }),
+    [debouncedSearchQuery, filters.domain, filters.hasImages, filters.sortOrder],
   )
 
+  // Recharge la 1re page à chaque changement de filtre effectif (+ au montage).
+  useEffect(() => {
+    startReload(async () => {
+      const page = await loadQuestionsPage({ ...queryArgs, limit: 50 })
+      setQuestions(page.items.map(toRow))
+      setCursor(page.nextCursor)
+      setHasLoaded(true)
+    })
+  }, [queryArgs])
+
+  const reload = useCallback(() => {
+    startReload(async () => {
+      const page = await loadQuestionsPage({ ...queryArgs, limit: 50 })
+      setQuestions(page.items.map(toRow))
+      setCursor(page.nextCursor)
+      setHasLoaded(true)
+    })
+  }, [queryArgs])
+
+  const loadMore = useCallback(() => {
+    if (cursor === null) return
+    startLoadMore(async () => {
+      const page = await loadQuestionsPage({ ...queryArgs, cursor, limit: 50 })
+      setQuestions((prev) => [...prev, ...page.items.map(toRow)])
+      setCursor(page.nextCursor)
+    })
+  }, [cursor, queryArgs])
+
   // Computed states
-  const isLoading = status === "LoadingFirstPage"
-  const canLoadMore = status === "CanLoadMore"
-  const isLoadingMore = status === "LoadingMore"
+  const isLoading = !hasLoaded
+  const canLoadMore = cursor !== null
   const isSearching =
     filters.searchQuery !== debouncedSearchQuery && !!filters.searchQuery
 
@@ -163,13 +203,6 @@ export function QuestionBrowserProvider({
     [selectedIds],
   )
 
-  // Load more wrapper
-  const loadMore = useCallback(() => {
-    if (canLoadMore) {
-      loadMoreFn(50)
-    }
-  }, [canLoadMore, loadMoreFn])
-
   // Context value
   const value = useMemo<QuestionBrowserContextState>(
     () => ({
@@ -199,12 +232,13 @@ export function QuestionBrowserProvider({
       mode,
 
       // Data
-      questions: questions as QuestionRow[],
+      questions,
       isLoading,
       canLoadMore,
       loadMore,
       isLoadingMore,
       isSearching,
+      reload,
     }),
     [
       filters,
@@ -227,6 +261,7 @@ export function QuestionBrowserProvider({
       loadMore,
       isLoadingMore,
       isSearching,
+      reload,
     ],
   )
 

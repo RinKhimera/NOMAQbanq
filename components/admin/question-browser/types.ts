@@ -36,7 +36,8 @@ export interface QuestionRow {
   domain: string
   objectifCMC: string
   options: string[]
-  images?: QuestionImage[]
+  /** Nombre d'images (la liste n'a plus besoin des URLs — cf. DAL `imageCount`). */
+  imageCount: number
 }
 
 // Component mode
@@ -109,6 +110,8 @@ export interface QuestionBrowserContextState {
   loadMore: () => void
   isLoadingMore: boolean
   isSearching: boolean
+  /** Recharge la 1re page des filtres courants (après une suppression). */
+  reload: () => void
 }
 
 // Sub-component props

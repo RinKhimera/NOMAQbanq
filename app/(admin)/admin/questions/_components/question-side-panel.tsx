@@ -1,6 +1,5 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
@@ -19,8 +18,9 @@ import {
 import { motion } from "motion/react"
 import Image from "next/image"
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { useQuestionBrowser } from "@/components/admin/question-browser"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,8 +41,10 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
+import { deleteQuestion, loadQuestionById } from "@/features/questions/actions"
+import type { QuestionDetail } from "@/features/questions/dal"
+import { cdnUrl } from "@/lib/cdn"
 import { cn } from "@/lib/utils"
 
 interface QuestionSidePanelProps {
@@ -92,9 +94,24 @@ function PanelContent({
   const [isReferencesOpen, setIsReferencesOpen] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [question, setQuestion] = useState<QuestionDetail | null | undefined>(
+    undefined,
+  )
+  // `reload` recharge la liste du browser (ce panel est rendu via renderPanel,
+  // donc à l'intérieur du QuestionBrowserProvider).
+  const { reload } = useQuestionBrowser()
 
-  const question = useQuery(api.questions.getQuestionById, { questionId })
-  const deleteQuestion = useMutation(api.questions.deleteQuestion)
+  // Monté avec key={questionId} → un nouvel id = remontage (état undefined =
+  // skeleton), pas de setState synchrone dans l'effet.
+  useEffect(() => {
+    let active = true
+    loadQuestionById(questionId).then((q) => {
+      if (active) setQuestion(q)
+    })
+    return () => {
+      active = false
+    }
+  }, [questionId])
 
   const handleCopyId = () => {
     navigator.clipboard.writeText(questionId)
@@ -103,16 +120,16 @@ function PanelContent({
 
   const handleDelete = async () => {
     setIsDeleting(true)
-    try {
-      await deleteQuestion({ id: questionId })
-      toast.success("Question supprimée")
-      setShowDeleteDialog(false)
-      onDeleted?.()
-    } catch {
-      toast.error("Erreur lors de la suppression")
-    } finally {
-      setIsDeleting(false)
+    const res = await deleteQuestion(questionId)
+    setIsDeleting(false)
+    if (!res.success) {
+      toast.error(res.error ?? "Erreur lors de la suppression")
+      return
     }
+    toast.success("Question supprimée")
+    setShowDeleteDialog(false)
+    reload()
+    onDeleted?.()
   }
 
   if (question === undefined) {
@@ -127,7 +144,7 @@ function PanelContent({
     )
   }
 
-  const hasImages = question.images && question.images.length > 0
+  const hasImages = question.images.length > 0
   const hasReferences = question.references && question.references.length > 0
 
   return (
@@ -169,20 +186,20 @@ function PanelContent({
             <div className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4 text-gray-500" />
               <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                Images ({question.images!.length})
+                Images ({question.images.length})
               </h4>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {question.images!.map((img, idx) => (
+              {question.images.map((img, idx) => (
                 <a
-                  key={idx}
-                  href={img.url}
+                  key={img.id}
+                  href={cdnUrl(img.storagePath)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group relative aspect-video overflow-hidden rounded-lg border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800"
                 >
                   <Image
-                    src={img.url}
+                    src={cdnUrl(img.storagePath)}
                     alt={`Image ${idx + 1}`}
                     fill
                     className="object-cover transition-transform group-hover:scale-105"
@@ -307,13 +324,9 @@ function PanelContent({
             <Calendar className="h-4 w-4 text-gray-400" />
             <span className="text-sm text-gray-700 dark:text-gray-300">
               Créée le{" "}
-              {format(
-                new Date(question._creationTime),
-                "d MMMM yyyy 'à' HH:mm",
-                {
-                  locale: fr,
-                },
-              )}
+              {format(new Date(question.createdAt), "d MMMM yyyy 'à' HH:mm", {
+                locale: fr,
+              })}
             </span>
           </div>
           <div className="flex items-center justify-between pt-1">
@@ -398,7 +411,11 @@ export function QuestionSidePanel({
           </SheetDescription>
         </SheetHeader>
         {questionId ? (
-          <PanelContent questionId={questionId} onDeleted={onDeleted} />
+          <PanelContent
+            key={questionId}
+            questionId={questionId}
+            onDeleted={onDeleted}
+          />
         ) : (
           <div className="flex h-full items-center justify-center">
             <p className="text-gray-500">Sélectionnez une question</p>

@@ -9,7 +9,12 @@ import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
 import {
+  getAllQuestionIds,
+  getQuestionById,
+  getQuestionsForExport,
   getQuestionsWithFilters,
+  type QuestionDetail,
+  type QuestionExportRow,
   type QuestionFiltersInput,
   type QuestionsPage,
 } from "./dal"
@@ -35,6 +40,30 @@ export const loadQuestionsPage = async (
 ): Promise<QuestionsPage> => {
   await requireRole(["admin"])
   return getQuestionsWithFilters(filters)
+}
+
+/** [Admin] Détail complet d'une question (panel / édition). `null` si introuvable. */
+export const loadQuestionById = async (
+  id: string,
+): Promise<QuestionDetail | null> => {
+  await requireRole(["admin"])
+  return getQuestionById(id)
+}
+
+/** [Admin] Tous les ids de questions (auto-complete sélection examen). */
+export const loadAllQuestionIds = async (): Promise<string[]> => {
+  await requireRole(["admin"])
+  return getAllQuestionIds()
+}
+
+/** [Admin] Questions filtrées pour l'export (CSV/XLSX/JSON). */
+export const loadQuestionsForExport = async (filters: {
+  search?: string
+  domain?: string
+  hasImages?: boolean
+}): Promise<QuestionExportRow[]> => {
+  await requireRole(["admin"])
+  return getQuestionsForExport(filters)
 }
 
 export type CreateQuestionResult =

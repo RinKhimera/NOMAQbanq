@@ -1,6 +1,5 @@
 "use client"
 
-import { useAction } from "convex/react"
 import {
   Download,
   FileJson,
@@ -20,21 +19,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { api } from "@/convex/_generated/api"
-
-type ExportQuestion = {
-  _id: string
-  _creationTime: number
-  question: string
-  options: string[]
-  correctAnswer: string
-  explanation: string
-  references: string[]
-  objectifCMC: string
-  domain: string
-  hasImages: boolean
-  imagesCount: number
-}
+import { loadQuestionsForExport } from "@/features/questions/actions"
+import type { QuestionExportRow as ExportQuestion } from "@/features/questions/dal"
 
 interface ExportQuestionsButtonProps {
   searchQuery?: string
@@ -51,16 +37,14 @@ export function ExportQuestionsButton({
 }: ExportQuestionsButtonProps) {
   const [isExporting, setIsExporting] = useState(false)
 
-  const exportQuestions = useAction(api.questions.getAllQuestionsForExport)
-
   const fetchAndExport = async (format: "csv" | "json" | "xlsx") => {
     setIsExporting(true)
     try {
-      const questions = (await exportQuestions({
-        searchQuery: searchQuery || undefined,
+      const questions = await loadQuestionsForExport({
+        search: searchQuery || undefined,
         domain: domain === "all" ? undefined : domain,
         hasImages,
-      })) as ExportQuestion[]
+      })
 
       if (questions.length === 0) {
         toast.error("Aucune question à exporter")
@@ -106,7 +90,7 @@ export function ExportQuestionsButton({
     ]
 
     const rows = questions.map((q) => [
-      q._id,
+      q.id,
       `"${q.question.replace(/"/g, '""')}"`,
       q.options[0] ? `"${q.options[0].replace(/"/g, '""')}"` : "",
       q.options[1] ? `"${q.options[1].replace(/"/g, '""')}"` : "",
@@ -120,7 +104,7 @@ export function ExportQuestionsButton({
       `"${q.references.join("; ").replace(/"/g, '""')}"`,
       q.hasImages ? "Oui" : "Non",
       q.imagesCount,
-      new Date(q._creationTime).toISOString(),
+      new Date(q.createdAt).toISOString(),
     ])
 
     const csvContent = [
@@ -147,7 +131,7 @@ export function ExportQuestionsButton({
 
   const exportAsXLSX = (questions: ExportQuestion[]) => {
     const data = questions.map((q) => ({
-      ID: q._id,
+      ID: q.id,
       Question: q.question,
       "Option A": q.options[0] || "",
       "Option B": q.options[1] || "",
@@ -161,7 +145,7 @@ export function ExportQuestionsButton({
       Références: q.references.join("; "),
       "Avec images": q.hasImages ? "Oui" : "Non",
       "Nombre d'images": q.imagesCount,
-      "Date de création": new Date(q._creationTime).toLocaleDateString(
+      "Date de création": new Date(q.createdAt).toLocaleDateString(
         "fr-FR",
         { day: "2-digit", month: "2-digit", year: "numeric" },
       ),
