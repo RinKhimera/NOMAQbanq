@@ -110,25 +110,30 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
       return
     }
 
-    const result = await createExam({
-      title: values.title,
-      description: values.description,
-      startDate: values.startDate.getTime(),
-      endDate: values.endDate.getTime(),
-      questionIds: selectedQuestions,
-      enablePause: values.enablePause ?? false,
-      pauseDurationMinutes: values.enablePause
-        ? values.pauseDurationMinutes
-        : undefined,
-    })
+    try {
+      const result = await createExam({
+        title: values.title,
+        description: values.description,
+        startDate: values.startDate.getTime(),
+        endDate: values.endDate.getTime(),
+        questionIds: selectedQuestions,
+        enablePause: values.enablePause ?? false,
+        pauseDurationMinutes: values.enablePause
+          ? values.pauseDurationMinutes
+          : undefined,
+      })
 
-    if (!result.success) {
-      toast.error(result.error)
-      return
+      if (!result.success) {
+        toast.error(result.error)
+        return
+      }
+
+      toast.success("Examen créé avec succès")
+      router.push("/admin/exams")
+    } catch (error) {
+      console.error("createExam", error)
+      toast.error("Erreur lors de la création de l'examen")
     }
-
-    toast.success("Examen créé avec succès")
-    router.push("/admin/exams")
   }
 
   const handleQuestionSelectionChange = (questions: Id<"questions">[]) => {

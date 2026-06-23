@@ -422,7 +422,21 @@ describe("IDOR / accès", () => {
     expect(await getParticipantExamResults(noPauseId, STUDENT_ID)).toBeNull()
   })
 
-  it("updateExam refusé si l'examen a des participations", async () => {
+  it("updateExam autorise une édition de métadonnées même avec participations (set inchangé)", async () => {
+    asAdmin()
+    const now = Date.now()
+    const res = await updateExam({
+      id: noPauseId,
+      title: `Titre maj ${suffix}`,
+      startDate: now - 1000,
+      endDate: now + DAY,
+      questionIds: examQIds, // jeu de questions inchangé
+      enablePause: false,
+    })
+    expect(res.success).toBe(true)
+  })
+
+  it("updateExam refuse un changement du jeu de questions si participations", async () => {
     asAdmin()
     const now = Date.now()
     const res = await updateExam({
@@ -430,7 +444,7 @@ describe("IDOR / accès", () => {
       title: `Nope ${suffix}`,
       startDate: now - 1000,
       endDate: now + DAY,
-      questionIds: examQIds,
+      questionIds: examQIds.slice(0, 5), // set modifié (5 ≠ 6)
       enablePause: false,
     })
     expect(res.success).toBe(false)

@@ -133,9 +133,12 @@ export const createExam = async (
 }
 
 /**
- * [Admin] Met à jour un examen et remplace l'ensemble de ses questions.
- * Recalcule `completionTime`. Refuse si l'examen a déjà des participations
- * (modifier le jeu de questions fausserait les scores enregistrés).
+ * [Admin] Met à jour un examen. Les **métadonnées** (titre, description, dates,
+ * pause) restent modifiables en tout temps — parité avec l'ancien Convex.
+ * Le **jeu de questions** ne peut être remplacé qu'avant toute participation
+ * (le changer ensuite fausserait les scores déjà enregistrés) : si l'examen a
+ * des participations et que le set envoyé diffère du set courant, refus
+ * (`HAS_PARTICIPATIONS`). Recalcule `completionTime`.
  */
 export const updateExam = async (
   input: UpdateExamInput,
@@ -166,12 +169,6 @@ export const updateExam = async (
         .limit(1)
       if (!exam) throw new Error("NOT_FOUND")
 
-      const [parts] = await tx
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(examParticipations)
-        .where(eq(examParticipations.examId, id))
-      if ((parts?.n ?? 0) > 0) throw new Error("HAS_PARTICIPATIONS")
-
       const [valid] = await tx
         .select({ n: sql<number>`count(*)`.mapWith(Number) })
         .from(questions)
@@ -183,6 +180,29 @@ export const updateExam = async (
         )
       if ((valid?.n ?? 0) !== questionIds.length) {
         throw new Error("INVALID_QUESTIONS")
+      }
+
+      const [parts] = await tx
+        .select({ n: sql<number>`count(*)`.mapWith(Number) })
+        .from(examParticipations)
+        .where(eq(examParticipations.examId, id))
+      const hasParticipations = (parts?.n ?? 0) > 0
+
+      // Une fois des participations enregistrées, le jeu de questions est figé
+      // (le changer fausserait les scores déjà calculés). Refus uniquement si le
+      // set envoyé diffère du set courant (ordre compris) ; les métadonnées,
+      // elles, restent modifiables.
+      if (hasParticipations) {
+        const current = await tx
+          .select({ questionId: examQuestions.questionId })
+          .from(examQuestions)
+          .where(eq(examQuestions.examId, id))
+          .orderBy(asc(examQuestions.position))
+        const currentIds = current.map((r) => r.questionId)
+        const unchanged =
+          currentIds.length === questionIds.length &&
+          currentIds.every((qid, i) => qid === questionIds[i])
+        if (!unchanged) throw new Error("HAS_PARTICIPATIONS")
       }
 
       await tx
@@ -198,14 +218,18 @@ export const updateExam = async (
         })
         .where(eq(exams.id, id))
 
-      await tx.delete(examQuestions).where(eq(examQuestions.examId, id))
-      await tx.insert(examQuestions).values(
-        questionIds.map((questionId, position) => ({
-          examId: id,
-          questionId,
-          position,
-        })),
-      )
+      // Réécriture de la table de jonction uniquement sans participations
+      // (sinon le set est garanti inchangé ci-dessus → rien à faire).
+      if (!hasParticipations) {
+        await tx.delete(examQuestions).where(eq(examQuestions.examId, id))
+        await tx.insert(examQuestions).values(
+          questionIds.map((questionId, position) => ({
+            examId: id,
+            questionId,
+            position,
+          })),
+        )
+      }
     })
 
     revalidatePath("/admin/exams")

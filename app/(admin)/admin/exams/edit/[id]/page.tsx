@@ -20,7 +20,7 @@ export default async function AdminEditExamPage({
     <ExamEditForm
       examId={id}
       exam={data.exam}
-      questions={data.questions}
+      questionIds={data.questions.map((q) => q._id)}
       candidates={candidates}
     />
   )

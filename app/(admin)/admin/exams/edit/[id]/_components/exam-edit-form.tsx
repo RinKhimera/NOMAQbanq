@@ -50,11 +50,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Id } from "@/convex/_generated/dataModel"
 import { updateExam } from "@/features/exams/actions"
-import type {
-  EligibleCandidate,
-  ExamQuestionView,
-  ExamWithQuestions,
-} from "@/features/exams/dal"
+import type { EligibleCandidate, ExamWithQuestions } from "@/features/exams/dal"
 import { cn } from "@/lib/utils"
 import {
   ExamFormValues,
@@ -67,21 +63,22 @@ import { EligibleCandidatesCard } from "../../../_components/eligible-candidates
 interface ExamEditFormProps {
   examId: string
   exam: NonNullable<ExamWithQuestions>["exam"]
-  questions: ExamQuestionView[]
+  /** IDs des questions de l'examen, ordonnés par position (forme « pont »). */
+  questionIds: string[]
   candidates: EligibleCandidate[]
 }
 
 export function ExamEditForm({
   examId,
   exam,
-  questions,
+  questionIds,
   candidates,
 }: ExamEditFormProps) {
   const router = useRouter()
 
   // Les données viennent du Server Component (props) → initialisation synchrone,
   // plus de `useQuery`/`form.reset` différé. `_id` Drizzle = `string`.
-  const initialQuestionIds = questions.map((q) => q._id) as Id<"questions">[]
+  const initialQuestionIds = questionIds as Id<"questions">[]
   const [selectedQuestions, setSelectedQuestions] =
     useState<Id<"questions">[]>(initialQuestionIds)
 
@@ -130,31 +127,38 @@ export function ExamEditForm({
       return
     }
 
-    const result = await updateExam({
-      id: examId,
-      title: values.title,
-      description: values.description,
-      startDate: values.startDate.getTime(),
-      endDate: values.endDate.getTime(),
-      questionIds: questionsToValidate,
-      enablePause: values.enablePause ?? false,
-      pauseDurationMinutes: values.enablePause
-        ? values.pauseDurationMinutes
-        : undefined,
-    })
+    try {
+      const result = await updateExam({
+        id: examId,
+        title: values.title,
+        description: values.description,
+        startDate: values.startDate.getTime(),
+        endDate: values.endDate.getTime(),
+        questionIds: questionsToValidate,
+        enablePause: values.enablePause ?? false,
+        pauseDurationMinutes: values.enablePause
+          ? values.pauseDurationMinutes
+          : undefined,
+      })
 
-    if (!result.success) {
-      toast.error(result.error ?? "Erreur lors de la modification de l'examen")
-      return
+      if (!result.success) {
+        toast.error(
+          result.error ?? "Erreur lors de la modification de l'examen",
+        )
+        return
+      }
+
+      toast.success("Examen modifié avec succès")
+      router.push("/admin/exams")
+    } catch (error) {
+      console.error("updateExam", error)
+      toast.error("Erreur lors de la modification de l'examen")
     }
-
-    toast.success("Examen modifié avec succès")
-    router.push("/admin/exams")
   }
 
-  const handleQuestionSelectionChange = (questionIds: Id<"questions">[]) => {
-    setSelectedQuestions(questionIds)
-    form.setValue("questionIds", questionIds)
+  const handleQuestionSelectionChange = (ids: Id<"questions">[]) => {
+    setSelectedQuestions(ids)
+    form.setValue("questionIds", ids)
   }
 
   const handleEnablePauseChange = (checked: boolean) => {
