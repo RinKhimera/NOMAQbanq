@@ -5,7 +5,6 @@ import {
   IconChevronRight,
   IconUsers,
 } from "@tabler/icons-react"
-import { useQuery } from "convex/react"
 import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -22,10 +21,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import { api } from "@/convex/_generated/api"
+import type { EligibleCandidate } from "@/features/exams/dal"
 import { cn } from "@/lib/utils"
 
 interface EligibleCandidatesCardProps {
+  /** Candidats éligibles (chargés côté serveur via `getEligibleExamCandidates`). */
+  candidates: EligibleCandidate[]
   /** Nombre maximum de candidats à afficher initialement */
   initialLimit?: number
   /** Mode compact (moins d'espace, pas de description) */
@@ -35,48 +36,17 @@ interface EligibleCandidatesCardProps {
 }
 
 export function EligibleCandidatesCard({
+  candidates,
   initialLimit = 5,
   compact = false,
   className,
 }: EligibleCandidatesCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const eligibleCandidates = useQuery(api.users.getUsersWithActiveExamAccess, {
-    limit: 50,
-  })
-
-  const isLoading = eligibleCandidates === undefined
-
-  if (isLoading) {
-    return (
-      <Card className={cn("animate-pulse", className)}>
-        <CardHeader className={cn(compact ? "pb-2" : "")}>
-          <div className="flex items-center gap-2">
-            <div className="h-5 w-5 rounded bg-gray-200 dark:bg-gray-700" />
-            <div className="h-5 w-32 rounded bg-gray-200 dark:bg-gray-700" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-gray-200 dark:bg-gray-700" />
-                <div className="flex-1 space-y-1">
-                  <div className="h-4 w-24 rounded bg-gray-200 dark:bg-gray-700" />
-                  <div className="h-3 w-32 rounded bg-gray-200 dark:bg-gray-700" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const total = eligibleCandidates.length
+  const total = candidates.length
   const displayedCandidates = isExpanded
-    ? eligibleCandidates
-    : eligibleCandidates.slice(0, initialLimit)
+    ? candidates
+    : candidates.slice(0, initialLimit)
   const hasMore = total > initialLimit
 
   return (
@@ -124,7 +94,7 @@ export function EligibleCandidatesCard({
             <div className="space-y-2">
               {displayedCandidates.map((candidate) => (
                 <CandidateRow
-                  key={candidate.user._id}
+                  key={candidate.user.id}
                   candidate={candidate}
                   compact={compact}
                 />
@@ -161,17 +131,7 @@ export function EligibleCandidatesCard({
 }
 
 interface CandidateRowProps {
-  candidate: {
-    user: {
-      _id: string
-      name: string | undefined
-      email: string | undefined
-      image: string | undefined
-      username: string | undefined
-    }
-    expiresAt: number
-    daysRemaining: number
-  }
+  candidate: EligibleCandidate
   compact?: boolean
 }
 
@@ -195,7 +155,7 @@ function CandidateRow({ candidate, compact }: CandidateRowProps) {
       )}
     >
       <Avatar className={cn("h-8 w-8", compact && "h-7 w-7")}>
-        <AvatarImage src={user.image} alt={user.name || "User"} />
+        <AvatarImage src={user.image ?? undefined} alt={user.name || "User"} />
         <AvatarFallback className="bg-teal-100 text-xs text-teal-700 dark:bg-teal-900 dark:text-teal-300">
           {initials}
         </AvatarFallback>
