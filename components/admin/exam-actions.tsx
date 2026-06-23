@@ -10,15 +10,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Id } from "@/convex/_generated/dataModel"
-import { ExamWithoutParticipants } from "@/types"
+import type { AdminExamListItem } from "@/features/exams/dal"
 
 interface ExamActionsProps {
-  exam: ExamWithoutParticipants
-  onDeactivate: (exam: ExamWithoutParticipants) => void
-  onReactivate: (examId: Id<"exams">) => void
-  onEdit: (exam: ExamWithoutParticipants) => void
-  onDelete: (exam: ExamWithoutParticipants) => void
+  exam: AdminExamListItem
+  onDeactivate: (exam: AdminExamListItem) => void
+  onReactivate: (examId: string) => void
+  onEdit: (exam: AdminExamListItem) => void
+  onDelete: (exam: AdminExamListItem) => void
 }
 
 export function ExamActions({
@@ -43,7 +42,7 @@ export function ExamActions({
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem asChild>
           <Link
-            href={`/admin/exams/${exam._id}`}
+            href={`/admin/exams/${exam.id}`}
             className="flex items-center gap-2"
           >
             <Eye className="h-4 w-4" />
@@ -69,7 +68,7 @@ export function ExamActions({
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem
-            onClick={() => onReactivate(exam._id)}
+            onClick={() => onReactivate(exam.id)}
             className="flex items-center gap-2"
           >
             <Play className="h-4 w-4" />

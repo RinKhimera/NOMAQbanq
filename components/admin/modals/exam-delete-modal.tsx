@@ -9,10 +9,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ExamWithoutParticipants } from "@/types"
+import type { AdminExamListItem } from "@/features/exams/dal"
 
 interface ExamDeleteModalProps {
-  exam: ExamWithoutParticipants | null
+  exam: AdminExamListItem | null
   isOpen: boolean
   onClose: () => void
   onConfirm: () => void

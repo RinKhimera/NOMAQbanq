@@ -1,6 +1,5 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
 import { FileText, Plus, Search } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
@@ -18,52 +17,44 @@ import {
 } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import {
+  deactivateExam,
+  deleteExam,
+  reactivateExam,
+} from "@/features/exams/actions"
+import type { AdminExamListItem } from "@/features/exams/dal"
 import { ExamStatus, getExamStatus } from "@/lib/exam-status"
-import { ExamWithoutParticipants } from "@/types"
 import { ExamCard } from "./exam-card"
 import { ExamStatusFilter } from "./exam-status-filter"
 
 interface ExamsListProps {
-  onExamSelect?: (examId: Id<"exams">) => void
+  exams: AdminExamListItem[]
+  onExamSelect?: (examId: string) => void
 }
 
-export function ExamsList({ onExamSelect }: ExamsListProps = {}) {
+export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
   const router = useRouter()
 
-  // États des modales
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
-  // États des données
-  const [selectedExam, setSelectedExam] =
-    useState<ExamWithoutParticipants | null>(null)
+  const [selectedExam, setSelectedExam] = useState<AdminExamListItem | null>(
+    null,
+  )
   const [selectedStatuses, setSelectedStatuses] = useState<ExamStatus[]>([])
   const [searchQuery, setSearchQuery] = useState("")
+  const [isPending, setIsPending] = useState(false)
 
-  // Convex queries et mutations
-  const exams = useQuery(api.exams.getAllExams)
-  const deactivateExam = useMutation(api.exams.deactivateExam)
-  const reactivateExam = useMutation(api.exams.reactivateExam)
-  const deleteExam = useMutation(api.exams.deleteExam)
-
-  // Filtrage des examens par statut et recherche
   const filteredExams = useMemo(() => {
-    if (!exams) return []
-
     let result = exams
 
-    // Filtre par statut
     if (selectedStatuses.length > 0) {
-      result = result.filter((exam) => {
-        const status = getExamStatus(exam)
-        return selectedStatuses.includes(status)
-      })
+      result = result.filter((exam) =>
+        selectedStatuses.includes(getExamStatus(exam)),
+      )
     }
 
-    // Filtre par recherche
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
       result = result.filter(
@@ -76,75 +67,67 @@ export function ExamsList({ onExamSelect }: ExamsListProps = {}) {
     return result
   }, [exams, selectedStatuses, searchQuery])
 
-  // Handlers pour les actions
-  const handleDeactivate = async (exam: ExamWithoutParticipants) => {
-    const status = getExamStatus(exam)
-    if (status === "active") {
+  const handleDeactivate = async (exam: AdminExamListItem) => {
+    if (getExamStatus(exam) === "active") {
       setSelectedExam(exam)
       setShowDeactivateDialog(true)
     } else {
-      await performDeactivate(exam._id)
+      await performDeactivate(exam.id)
     }
   }
 
-  const performDeactivate = async (examId: Id<"exams">) => {
-    try {
-      await deactivateExam({ examId })
+  const performDeactivate = async (examId: string) => {
+    setIsPending(true)
+    const res = await deactivateExam({ examId })
+    setIsPending(false)
+    if (res.success) {
       toast.success("Examen désactivé avec succès")
       setShowDeactivateDialog(false)
       setSelectedExam(null)
-    } catch {
-      toast.error("Erreur lors de la désactivation")
+      router.refresh()
+    } else {
+      toast.error(res.error ?? "Erreur lors de la désactivation")
     }
   }
 
-  const handleReactivate = async (examId: Id<"exams">) => {
-    try {
-      await reactivateExam({ examId })
+  const handleReactivate = async (examId: string) => {
+    const res = await reactivateExam({ examId })
+    if (res.success) {
       toast.success("Examen réactivé avec succès")
-    } catch {
-      toast.error("Erreur lors de la réactivation")
+      router.refresh()
+    } else {
+      toast.error(res.error ?? "Erreur lors de la réactivation")
     }
   }
 
-  const handleEdit = (exam: ExamWithoutParticipants) => {
-    const status = getExamStatus(exam)
-    if (status === "active") {
+  const handleEdit = (exam: AdminExamListItem) => {
+    if (getExamStatus(exam) === "active") {
       setSelectedExam(exam)
       setShowEditDialog(true)
     } else {
-      router.push(`/admin/exams/edit/${exam._id}`)
+      router.push(`/admin/exams/edit/${exam.id}`)
     }
   }
 
-  const handleDelete = (exam: ExamWithoutParticipants) => {
+  const handleDelete = (exam: AdminExamListItem) => {
     setSelectedExam(exam)
     setShowDeleteDialog(true)
   }
 
-  const performDelete = async (examId: Id<"exams">) => {
-    try {
-      await deleteExam({ examId })
+  const performDelete = async (examId: string) => {
+    setIsPending(true)
+    const res = await deleteExam({ examId })
+    setIsPending(false)
+    if (res.success) {
       toast.success("Examen supprimé avec succès")
       setShowDeleteDialog(false)
       setSelectedExam(null)
-    } catch {
-      toast.error("Erreur lors de la suppression")
+      router.refresh()
+    } else {
+      toast.error(res.error ?? "Erreur lors de la suppression")
     }
   }
 
-  // États de chargement
-  if (!exams) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Chargement...</CardTitle>
-        </CardHeader>
-      </Card>
-    )
-  }
-
-  // État vide
   if (exams.length === 0) {
     return (
       <EmptyState
@@ -206,7 +189,7 @@ export function ExamsList({ onExamSelect }: ExamsListProps = {}) {
           <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             {filteredExams.map((exam) => (
               <ExamCard
-                key={exam._id}
+                key={exam.id}
                 exam={exam}
                 onView={onExamSelect}
                 onDeactivate={handleDeactivate}
@@ -233,8 +216,8 @@ export function ExamsList({ onExamSelect }: ExamsListProps = {}) {
         exam={selectedExam}
         isOpen={showDeactivateDialog}
         onClose={() => setShowDeactivateDialog(false)}
-        onConfirm={() => selectedExam && performDeactivate(selectedExam._id)}
-        isLoading={false}
+        onConfirm={() => selectedExam && performDeactivate(selectedExam.id)}
+        isLoading={isPending}
       />
 
       <ExamEditModal
@@ -243,7 +226,7 @@ export function ExamsList({ onExamSelect }: ExamsListProps = {}) {
         onClose={() => setShowEditDialog(false)}
         onConfirm={() => {
           if (selectedExam) {
-            router.push(`/admin/exams/edit/${selectedExam._id}`)
+            router.push(`/admin/exams/edit/${selectedExam.id}`)
           }
         }}
       />
@@ -252,8 +235,8 @@ export function ExamsList({ onExamSelect }: ExamsListProps = {}) {
         exam={selectedExam}
         isOpen={showDeleteDialog}
         onClose={() => setShowDeleteDialog(false)}
-        onConfirm={() => selectedExam && performDelete(selectedExam._id)}
-        isLoading={false}
+        onConfirm={() => selectedExam && performDelete(selectedExam.id)}
+        isLoading={isPending}
       />
     </Card>
   )

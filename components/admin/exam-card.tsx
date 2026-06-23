@@ -4,19 +4,18 @@ import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { Calendar, Clock, FileText, Users } from "lucide-react"
 import { motion } from "motion/react"
-import { Id } from "@/convex/_generated/dataModel"
+import type { AdminExamListItem } from "@/features/exams/dal"
 import { getExamStatus } from "@/lib/exam-status"
-import { ExamWithoutParticipants } from "@/types"
 import { ExamActions } from "./exam-actions"
 import ExamStatusBadge from "./exam-status-badge"
 
 interface ExamCardProps {
-  exam: ExamWithoutParticipants
-  onView?: (examId: Id<"exams">) => void
-  onDeactivate: (exam: ExamWithoutParticipants) => void
-  onReactivate: (examId: Id<"exams">) => void
-  onEdit: (exam: ExamWithoutParticipants) => void
-  onDelete: (exam: ExamWithoutParticipants) => void
+  exam: AdminExamListItem
+  onView?: (examId: string) => void
+  onDeactivate: (exam: AdminExamListItem) => void
+  onReactivate: (examId: string) => void
+  onEdit: (exam: AdminExamListItem) => void
+  onDelete: (exam: AdminExamListItem) => void
 }
 
 export function ExamCard({
@@ -31,7 +30,7 @@ export function ExamCard({
 
   const handleCardClick = () => {
     if (onView) {
-      onView(exam._id)
+      onView(exam.id)
     }
   }
 
@@ -93,7 +92,7 @@ export function ExamCard({
         <StatItem
           icon={<FileText className="h-4 w-4" />}
           label="Questions"
-          value={exam.questionIds.length.toString()}
+          value={exam.questionCount.toString()}
         />
         <StatItem
           icon={<Users className="h-4 w-4" />}

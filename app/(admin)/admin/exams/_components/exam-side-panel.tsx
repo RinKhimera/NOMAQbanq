@@ -12,7 +12,6 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react"
-import { useConvexAuth, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { AnimatePresence, motion } from "motion/react"
@@ -27,33 +26,23 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import type { AdminExamListItem } from "@/features/exams/dal"
 import { EXAM_STATUS_CONFIG, getExamStatus } from "@/lib/exam-status"
 import { cn } from "@/lib/utils"
 
 interface ExamSidePanelProps {
-  examId: Id<"exams"> | null
+  exam: AdminExamListItem | null
+  eligibleCount: number
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
 export function ExamSidePanel({
-  examId,
+  exam,
+  eligibleCount,
   open,
   onOpenChange,
 }: ExamSidePanelProps) {
-  const { isAuthenticated } = useConvexAuth()
-  const exam = useQuery(
-    api.exams.getExamWithQuestions,
-    isAuthenticated && examId ? { examId } : "skip",
-  )
-
-  const eligibleCount = useQuery(api.users.getActiveExamAccessCount)
-
-  const isLoading = examId && exam === undefined
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -61,7 +50,7 @@ export function ExamSidePanel({
         side="right"
         hideCloseButton
       >
-        {/* Accessible title for loading/empty states */}
+        {/* Accessible title for empty state */}
         {!exam && (
           <VisuallyHidden.Root>
             <SheetHeader>
@@ -73,13 +62,11 @@ export function ExamSidePanel({
           </VisuallyHidden.Root>
         )}
         <AnimatePresence mode="wait">
-          {isLoading ? (
-            <PanelSkeleton key="skeleton" />
-          ) : exam ? (
+          {exam ? (
             <PanelContent
-              key={exam._id}
+              key={exam.id}
               exam={exam}
-              eligibleCount={eligibleCount ?? 0}
+              eligibleCount={eligibleCount}
               onClose={() => onOpenChange(false)}
             />
           ) : (
@@ -88,27 +75,6 @@ export function ExamSidePanel({
         </AnimatePresence>
       </SheetContent>
     </Sheet>
-  )
-}
-
-function PanelSkeleton() {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="space-y-6 p-6"
-    >
-      <div className="flex items-start gap-4">
-        <Skeleton className="h-16 w-16 rounded-2xl" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-6 w-3/4" />
-          <Skeleton className="h-4 w-1/2" />
-        </div>
-      </div>
-      <Skeleton className="h-24 w-full rounded-xl" />
-      <Skeleton className="h-32 w-full rounded-xl" />
-    </motion.div>
   )
 }
 
@@ -129,18 +95,7 @@ function EmptyState() {
 }
 
 interface PanelContentProps {
-  exam: {
-    _id: Id<"exams">
-    title: string
-    description?: string
-    startDate: number
-    endDate: number
-    questionIds: Id<"questions">[]
-    isActive: boolean
-    enablePause?: boolean
-    pauseDurationMinutes?: number
-    completionTime: number
-  }
+  exam: AdminExamListItem
   eligibleCount: number
   onClose: () => void
 }
@@ -245,7 +200,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
           <StatCard
             icon={<IconQuestionMark className="h-4 w-4" />}
             label="Questions"
-            value={exam.questionIds.length.toString()}
+            value={exam.questionCount.toString()}
             color="violet"
           />
           <StatCard
@@ -314,7 +269,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
       <div className="border-t border-gray-200/60 bg-white/80 p-4 backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
         <div className="flex gap-3">
           <Button variant="outline" className="flex-1" asChild>
-            <Link href={`/admin/exams/${exam._id}`}>
+            <Link href={`/admin/exams/${exam.id}`}>
               <IconExternalLink className="mr-2 h-4 w-4" />
               Voir détails
             </Link>
@@ -323,7 +278,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
             className="flex-1 bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
             asChild
           >
-            <Link href={`/admin/exams/edit/${exam._id}`}>
+            <Link href={`/admin/exams/edit/${exam.id}`}>
               <IconEdit className="mr-2 h-4 w-4" />
               Modifier
             </Link>

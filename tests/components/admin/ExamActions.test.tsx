@@ -2,8 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { ExamActions } from "@/components/admin/exam-actions"
-import { Id } from "@/convex/_generated/dataModel"
-import { ExamWithoutParticipants } from "@/types"
+import type { AdminExamListItem } from "@/features/exams/dal"
 
 // Mock motion/react
 vi.mock("motion/react", async () => {
@@ -58,21 +57,22 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 }))
 
 const createMockExam = (
-  overrides: Partial<ExamWithoutParticipants> = {},
-): ExamWithoutParticipants =>
-  ({
-    _id: "exam456" as Id<"exams">,
-    _creationTime: Date.now(),
-    title: "Examen Neurologie",
-    startDate: Date.now(),
-    endDate: Date.now() + 86400000,
-    questionIds: [],
-    completionTime: 60,
-    isActive: true,
-    createdBy: "user1" as Id<"users">,
-    participantCount: 10,
-    ...overrides,
-  }) as ExamWithoutParticipants
+  overrides: Partial<AdminExamListItem> = {},
+): AdminExamListItem => ({
+  id: "exam456",
+  title: "Examen Neurologie",
+  description: null,
+  startDate: Date.now(),
+  endDate: Date.now() + 86400000,
+  questionCount: 0,
+  completionTime: 60,
+  isActive: true,
+  enablePause: false,
+  pauseDurationMinutes: null,
+  participantCount: 10,
+  createdAt: Date.now(),
+  ...overrides,
+})
 
 describe("ExamActions", () => {
   const defaultCallbacks = {
@@ -164,7 +164,7 @@ describe("ExamActions", () => {
 
     fireEvent.click(screen.getByText("Réactiver"))
 
-    expect(onReactivate).toHaveBeenCalledWith(exam._id)
+    expect(onReactivate).toHaveBeenCalledWith(exam.id)
   })
 
   it("appelle onDelete au clic sur 'Supprimer'", () => {

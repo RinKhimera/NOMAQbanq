@@ -2,8 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { ComponentPropsWithoutRef, type ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { ExamCard } from "@/components/admin/exam-card"
-import { Id } from "@/convex/_generated/dataModel"
-import { ExamWithoutParticipants } from "@/types"
+import type { AdminExamListItem } from "@/features/exams/dal"
 
 // Hoist the filter function so it's available inside vi.mock
 const { filterMotionProps } = vi.hoisted(() => {
@@ -94,26 +93,22 @@ vi.mock("@/components/ui/dropdown-menu", () => ({
 }))
 
 const createMockExam = (
-  overrides: Partial<ExamWithoutParticipants> = {},
-): ExamWithoutParticipants =>
-  ({
-    _id: "exam123" as Id<"exams">,
-    _creationTime: Date.now(),
-    title: "Examen de cardiologie",
-    description: "Un examen complet sur la cardiologie",
-    startDate: new Date("2025-01-15").getTime(),
-    endDate: new Date("2025-02-15").getTime(),
-    questionIds: [
-      "q1" as Id<"questions">,
-      "q2" as Id<"questions">,
-      "q3" as Id<"questions">,
-    ],
-    completionTime: 120,
-    isActive: true,
-    createdBy: "user1" as Id<"users">,
-    participantCount: 45,
-    ...overrides,
-  }) as ExamWithoutParticipants
+  overrides: Partial<AdminExamListItem> = {},
+): AdminExamListItem => ({
+  id: "exam123",
+  title: "Examen de cardiologie",
+  description: "Un examen complet sur la cardiologie",
+  startDate: new Date("2025-01-15").getTime(),
+  endDate: new Date("2025-02-15").getTime(),
+  questionCount: 3,
+  completionTime: 120,
+  isActive: true,
+  enablePause: false,
+  pauseDurationMinutes: null,
+  participantCount: 45,
+  createdAt: Date.now(),
+  ...overrides,
+})
 
 const defaultCallbacks = {
   onView: vi.fn(),
