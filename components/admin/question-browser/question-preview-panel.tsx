@@ -1,6 +1,5 @@
 "use client"
 
-import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
@@ -14,7 +13,7 @@ import {
 } from "lucide-react"
 import { motion } from "motion/react"
 import Image from "next/image"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,12 +24,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import { loadQuestionById } from "@/features/questions/actions"
+import type { QuestionDetail } from "@/features/questions/dal"
+import { cdnUrl } from "@/lib/cdn"
 import { cn } from "@/lib/utils"
 
 interface QuestionPreviewPanelProps {
-  questionId: Id<"questions"> | null
+  questionId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -59,23 +59,38 @@ function PanelSkeleton() {
   )
 }
 
-function PanelContent({ questionId }: { questionId: Id<"questions"> }) {
+function PanelContent({ questionId }: { questionId: string }) {
   const [isExplanationOpen, setIsExplanationOpen] = useState(true)
   const [isReferencesOpen, setIsReferencesOpen] = useState(false)
+  const [state, setState] = useState<{
+    id: string
+    q: QuestionDetail | null
+  } | null>(null)
 
-  const question = useQuery(api.questions.getQuestionById, { questionId })
+  useEffect(() => {
+    let active = true
+    loadQuestionById(questionId).then((q) => {
+      if (active) setState({ id: questionId, q })
+    })
+    return () => {
+      active = false
+    }
+  }, [questionId])
 
-  if (question === undefined) {
+  // Tant que l'état chargé ne correspond pas à l'id courant → squelette
+  // (évite un setState synchrone de reset dans l'effet).
+  const loaded = state?.id === questionId ? state : null
+  if (!loaded) {
     return <PanelSkeleton />
   }
-
-  if (!question) {
+  if (!loaded.q) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-gray-500">Question non trouvée</p>
       </div>
     )
   }
+  const question = loaded.q
 
   const hasImages = question.images && question.images.length > 0
   const hasReferences = question.references && question.references.length > 0
@@ -125,13 +140,13 @@ function PanelContent({ questionId }: { questionId: Id<"questions"> }) {
             {question.images!.map((img, idx) => (
               <a
                 key={idx}
-                href={img.url}
+                href={cdnUrl(img.storagePath)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="group relative aspect-video overflow-hidden rounded-lg border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-800"
               >
                 <Image
-                  src={img.url}
+                  src={cdnUrl(img.storagePath)}
                   alt={`Image ${idx + 1}`}
                   fill
                   className="object-cover transition-transform group-hover:scale-105"
@@ -256,7 +271,7 @@ function PanelContent({ questionId }: { questionId: Id<"questions"> }) {
           <Calendar className="h-4 w-4 text-gray-400" />
           <span className="text-sm text-gray-700 dark:text-gray-300">
             Créée le{" "}
-            {format(new Date(question._creationTime), "d MMMM yyyy 'à' HH:mm", {
+            {format(new Date(question.createdAt), "d MMMM yyyy 'à' HH:mm", {
               locale: fr,
             })}
           </span>

@@ -868,6 +868,62 @@ export const getActiveExamAccessCount = cache(async (): Promise<number> => {
   return row?.n ?? 0
 })
 
+export type EligibleCandidate = {
+  user: {
+    id: string
+    name: string
+    email: string
+    image: string | null
+    username: string | null
+  }
+  expiresAt: number
+  daysRemaining: number
+}
+
+/**
+ * [Admin] Utilisateurs avec un accès examen actif (candidats éligibles, page
+ * détails). Remplace `users.getUsersWithActiveExamAccess`.
+ */
+export const getEligibleExamCandidates = cache(
+  async (): Promise<EligibleCandidate[]> => {
+    await requireRole(["admin"])
+    const now = Date.now()
+    const rows = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        expiresAt: userAccess.expiresAt,
+      })
+      .from(userAccess)
+      .innerJoin(user, eq(user.id, userAccess.userId))
+      .where(
+        and(
+          eq(userAccess.accessType, "exam"),
+          gt(userAccess.expiresAt, new Date(now)),
+        ),
+      )
+      .orderBy(asc(userAccess.expiresAt))
+      .limit(100)
+
+    return rows.map((r) => ({
+      user: {
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        image: r.image ?? null,
+        username: null,
+      },
+      expiresAt: r.expiresAt.getTime(),
+      daysRemaining: Math.max(
+        0,
+        Math.ceil((r.expiresAt.getTime() - now) / (24 * 60 * 60 * 1000)),
+      ),
+    }))
+  },
+)
+
 // ============================================
 // Leaderboard
 // ============================================

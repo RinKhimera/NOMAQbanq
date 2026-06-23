@@ -7,7 +7,6 @@ import {
   IconSearch,
   IconUsers,
 } from "@tabler/icons-react"
-import { useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { motion } from "motion/react"
@@ -23,61 +22,29 @@ import {
 } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { api } from "@/convex/_generated/api"
+import type { EligibleCandidate } from "@/features/exams/dal"
 import { cn } from "@/lib/utils"
 
-export function EligibleCandidatesSection() {
+export function EligibleCandidatesSection({
+  candidates,
+}: {
+  candidates: EligibleCandidate[]
+}) {
   const [searchQuery, setSearchQuery] = useState("")
 
-  const eligibleCandidates = useQuery(api.users.getUsersWithActiveExamAccess, {
-    limit: 100,
-  })
-
-  const isLoading = eligibleCandidates === undefined
-
   const filteredCandidates = useMemo(() => {
-    if (!eligibleCandidates) return []
-    if (!searchQuery.trim()) return eligibleCandidates
+    if (!searchQuery.trim()) return candidates
 
     const query = searchQuery.toLowerCase()
-    return eligibleCandidates.filter(
+    return candidates.filter(
       (c) =>
         c.user.name?.toLowerCase().includes(query) ||
         c.user.email?.toLowerCase().includes(query) ||
         c.user.username?.toLowerCase().includes(query),
     )
-  }, [eligibleCandidates, searchQuery])
+  }, [candidates, searchQuery])
 
-  if (isLoading) {
-    return (
-      <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
-        <CardHeader className="border-b bg-linear-to-r from-teal-500 to-cyan-500 text-white">
-          <div className="flex items-center gap-2">
-            <IconUsers className="h-5 w-5" />
-            <CardTitle className="text-lg">Candidats éligibles</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div
-                key={i}
-                className="flex animate-pulse items-center gap-4 rounded-xl bg-gray-100 p-4 dark:bg-gray-800"
-              >
-                <div className="h-12 w-12 rounded-full bg-gray-200 dark:bg-gray-700" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700" />
-                  <div className="h-3 w-48 rounded bg-gray-200 dark:bg-gray-700" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const total = eligibleCandidates?.length ?? 0
+  const total = candidates.length
 
   return (
     <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
@@ -141,7 +108,7 @@ export function EligibleCandidatesSection() {
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {filteredCandidates.map((candidate, index) => (
                 <CandidateRow
-                  key={candidate.user._id}
+                  key={candidate.user.id}
                   candidate={candidate}
                   index={index}
                 />
@@ -155,17 +122,7 @@ export function EligibleCandidatesSection() {
 }
 
 interface CandidateRowProps {
-  candidate: {
-    user: {
-      _id: string
-      name: string | undefined
-      email: string | undefined
-      image: string | undefined
-      username: string | undefined
-    }
-    expiresAt: number
-    daysRemaining: number
-  }
+  candidate: EligibleCandidate
   index: number
 }
 
@@ -193,7 +150,7 @@ function CandidateRow({ candidate, index }: CandidateRowProps) {
       )}
     >
       <Avatar className="h-12 w-12 border-2 border-teal-100 shadow-sm dark:border-teal-800">
-        <AvatarImage src={user.image} alt={user.name || "User"} />
+        <AvatarImage src={user.image ?? undefined} alt={user.name || "User"} />
         <AvatarFallback className="bg-linear-to-br from-teal-500 to-cyan-500 text-sm font-semibold text-white">
           {initials}
         </AvatarFallback>

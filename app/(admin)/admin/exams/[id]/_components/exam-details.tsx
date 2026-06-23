@@ -1,6 +1,3 @@
-"use client"
-
-import { useConvexAuth, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { Calendar, Clock, FileText } from "lucide-react"
@@ -12,39 +9,33 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import type {
+  EligibleCandidate,
+  ExamWithQuestions,
+  LeaderboardEntry,
+} from "@/features/exams/dal"
 import { getExamStatus } from "@/lib/exam-status"
 import { EligibleCandidatesSection } from "./eligible-candidates-section"
 import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
 
+type ExamMeta = NonNullable<ExamWithQuestions>["exam"]
+
 interface ExamDetailsProps {
-  examId: Id<"exams">
+  exam: ExamMeta
+  leaderboard: LeaderboardEntry[]
+  candidates: EligibleCandidate[]
   isAdmin?: boolean
-  currentUserId?: Id<"users">
+  currentUserId?: string
 }
 
 export function ExamDetails({
-  examId,
+  exam,
+  leaderboard,
+  candidates,
   isAdmin = false,
   currentUserId,
 }: ExamDetailsProps) {
-  const { isAuthenticated } = useConvexAuth()
-  const exam = useQuery(
-    api.exams.getExamWithQuestions,
-    isAuthenticated ? { examId } : "skip",
-  )
-
-  if (!exam) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Chargement...</CardTitle>
-        </CardHeader>
-      </Card>
-    )
-  }
   const status = getExamStatus(exam)
 
   return (
@@ -93,7 +84,7 @@ export function ExamDetails({
               <div>
                 <p className="text-sm font-medium">Questions</p>
                 <p className="text-muted-foreground text-sm">
-                  {exam.questionIds.length} questions
+                  {exam.questionCount} questions
                 </p>
               </div>
             </div>
@@ -101,12 +92,13 @@ export function ExamDetails({
         </CardContent>
       </Card>
 
-      <ExamSectionStats examId={examId} />
+      <ExamSectionStats leaderboard={leaderboard} />
 
-      {isAdmin && <EligibleCandidatesSection />}
+      {isAdmin && <EligibleCandidatesSection candidates={candidates} />}
 
       <ExamLeaderboard
-        examId={examId}
+        examId={exam.id}
+        leaderboard={leaderboard}
         isAdmin={isAdmin}
         currentUserId={currentUserId}
       />

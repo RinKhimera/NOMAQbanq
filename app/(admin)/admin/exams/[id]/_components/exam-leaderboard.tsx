@@ -1,10 +1,10 @@
 "use client"
 
-import { useMutation, useQuery } from "convex/react"
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { Eye, MoreVertical, Trash2 } from "lucide-react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 import {
@@ -34,31 +34,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import { deleteParticipation } from "@/features/exams/actions"
+import type { LeaderboardEntry } from "@/features/exams/dal"
 import { getInitials } from "@/lib/utils"
 
 interface ParticipantToDelete {
-  participationId: Id<"examParticipations">
+  participationId: string
   userName: string
   score: number
 }
 
 interface ExamLeaderboardProps {
-  examId: Id<"exams">
+  examId: string
+  leaderboard: LeaderboardEntry[]
   isAdmin?: boolean
-  currentUserId?: Id<"users">
+  currentUserId?: string
 }
 
 export function ExamLeaderboard({
   examId,
+  leaderboard,
   isAdmin = false,
   currentUserId,
 }: ExamLeaderboardProps) {
-  const leaderboard = useQuery(api.examStats.getExamLeaderboard, { examId })
-  const deleteParticipation = useMutation(
-    api.examParticipations.deleteParticipation,
-  )
+  const router = useRouter()
 
   const [participantToDelete, setParticipantToDelete] =
     useState<ParticipantToDelete | null>(null)
@@ -72,21 +71,22 @@ export function ExamLeaderboard({
     if (!participantToDelete) return
 
     setIsDeleting(true)
-    try {
-      await deleteParticipation({
-        participationId: participantToDelete.participationId,
-      })
+    const res = await deleteParticipation({
+      participationId: participantToDelete.participationId,
+    })
+    setIsDeleting(false)
+    if (res.success) {
       toast.success("Participation supprimée avec succès")
       setParticipantToDelete(null)
-    } catch (error) {
-      console.error("Erreur lors de la suppression:", error)
-      toast.error("Erreur lors de la suppression de la participation")
-    } finally {
-      setIsDeleting(false)
+      router.refresh()
+    } else {
+      toast.error(
+        res.error ?? "Erreur lors de la suppression de la participation",
+      )
     }
   }
 
-  if (!leaderboard || leaderboard.length === 0) return null
+  if (leaderboard.length === 0) return null
 
   return (
     <Card className="@container">
@@ -122,7 +122,7 @@ export function ExamLeaderboard({
                   </div>
                   <Avatar className="size-9 shrink-0 @sm:size-10">
                     <AvatarImage
-                      src={entry.user?.image}
+                      src={entry.user?.image ?? undefined}
                       alt={entry.user?.name || "Avatar"}
                     />
                     <AvatarFallback>{initials}</AvatarFallback>
@@ -131,9 +131,11 @@ export function ExamLeaderboard({
                     <p className="truncate text-sm font-medium @sm:text-base">
                       {entry.user?.name}
                     </p>
-                    <p className="text-muted-foreground truncate text-xs @sm:text-sm">
-                      @{entry.user?.username}
-                    </p>
+                    {entry.user?.username && (
+                      <p className="text-muted-foreground truncate text-xs @sm:text-sm">
+                        @{entry.user.username}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -144,9 +146,10 @@ export function ExamLeaderboard({
                       {entry.score}%
                     </p>
                     <p className="text-muted-foreground hidden text-xs @md:block">
-                      {format(new Date(entry.completedAt), "Pp", {
-                        locale: fr,
-                      })}
+                      {entry.completedAt &&
+                        format(new Date(entry.completedAt), "Pp", {
+                          locale: fr,
+                        })}
                     </p>
                   </div>
 
@@ -154,7 +157,7 @@ export function ExamLeaderboard({
                   {entry.user && (
                     <>
                       <div className="hidden items-center gap-1 @md:flex">
-                        {(isAdmin || entry.user._id === currentUserId) && (
+                        {(isAdmin || entry.user.id === currentUserId) && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -164,7 +167,7 @@ export function ExamLeaderboard({
                             <Link
                               href={
                                 isAdmin
-                                  ? `/admin/exams/${examId}/results/${entry.user._id}`
+                                  ? `/admin/exams/${examId}/results/${entry.user.id}`
                                   : `/dashboard/examen-blanc/${examId}/resultats`
                               }
                               title={`Voir les résultats de ${entry.user.name}`}
@@ -206,12 +209,12 @@ export function ExamLeaderboard({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {(isAdmin || entry.user._id === currentUserId) && (
+                            {(isAdmin || entry.user.id === currentUserId) && (
                               <DropdownMenuItem asChild>
                                 <Link
                                   href={
                                     isAdmin
-                                      ? `/admin/exams/${examId}/results/${entry.user._id}`
+                                      ? `/admin/exams/${examId}/results/${entry.user.id}`
                                       : `/dashboard/examen-blanc/${examId}/resultats`
                                   }
                                   className="flex items-center gap-2"
@@ -224,7 +227,7 @@ export function ExamLeaderboard({
                             {isAdmin && (
                               <>
                                 {(isAdmin ||
-                                  entry.user._id === currentUserId) && (
+                                  entry.user.id === currentUserId) && (
                                   <DropdownMenuSeparator />
                                 )}
                                 <DropdownMenuItem

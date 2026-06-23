@@ -1,6 +1,5 @@
 "use client"
 
-import { useConvexAuth, useQuery } from "convex/react"
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react"
 import { useState } from "react"
 import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
@@ -12,51 +11,45 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { api } from "@/convex/_generated/api"
-import { Id } from "@/convex/_generated/dataModel"
+import type { ExamQuestionView } from "@/features/exams/dal"
+import { loadQuestionById } from "@/features/questions/actions"
+import type { QuestionDetail } from "@/features/questions/dal"
 
 type ExamQuestionsModalProps = {
-  examId: Id<"exams">
+  questions: ExamQuestionView[]
   open: boolean
   onOpenChange: (open: boolean) => void
+  // Le détail par question charge le doc complet via loadQuestionById (admin
+  // only). Désactivé côté étudiant.
+  enableDetails?: boolean
 }
 
 const QUESTIONS_PER_PAGE = 10
 
 export function ExamQuestionsModal({
-  examId,
+  questions,
   open,
   onOpenChange,
+  enableDetails = false,
 }: ExamQuestionsModalProps) {
   const [currentPage, setCurrentPage] = useState(0)
-  // PR B : getExamWithQuestions ne retourne plus explanation/references.
-  // On stocke juste l'ID sélectionné et on refetch le doc complet via
-  // getQuestionById (qui joint questionExplanations côté serveur) lors
-  // de l'ouverture du dialog de détails.
-  const [selectedQuestionId, setSelectedQuestionId] =
-    useState<Id<"questions"> | null>(null)
+  // Détails à la demande : on charge le doc complet (avec explication jointe
+  // côté serveur) via loadQuestionById quand l'admin ouvre une question.
+  const [selectedQuestion, setSelectedQuestion] =
+    useState<QuestionDetail | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
-  const { isAuthenticated } = useConvexAuth()
-  const exam = useQuery(
-    api.exams.getExamWithQuestions,
-    isAuthenticated ? { examId } : "skip",
-  )
-
-  const selectedQuestion = useQuery(
-    api.questions.getQuestionById,
-    selectedQuestionId ? { questionId: selectedQuestionId } : "skip",
-  )
-
-  const questions = exam?.questions ?? []
   const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)
   const startIndex = currentPage * QUESTIONS_PER_PAGE
-  const endIndex = startIndex + QUESTIONS_PER_PAGE
-  const currentQuestions = questions.slice(startIndex, endIndex)
+  const currentQuestions = questions.slice(
+    startIndex,
+    startIndex + QUESTIONS_PER_PAGE,
+  )
 
-  const handleViewDetails = (questionId: Id<"questions">) => {
-    setSelectedQuestionId(questionId)
+  const handleViewDetails = async (questionId: string) => {
     setIsDetailsOpen(true)
+    const q = await loadQuestionById(questionId)
+    setSelectedQuestion(q)
   }
 
   return (
@@ -87,23 +80,21 @@ export function ExamQuestionsModal({
                   Aucune question trouvée
                 </div>
               ) : (
-                currentQuestions.map((q, index) => {
-                  const questionNumber = startIndex + index + 1
-
-                  return (
-                    <QuestionCard
-                      key={q._id}
-                      variant="default"
-                      question={q}
-                      questionNumber={questionNumber}
-                      showCorrectAnswer={true}
-                      showImage={false}
-                      actions={[
-                        createViewAction(() => handleViewDetails(q._id)),
-                      ]}
-                    />
-                  )
-                })
+                currentQuestions.map((q, index) => (
+                  <QuestionCard
+                    key={q._id}
+                    variant="default"
+                    question={q as never}
+                    questionNumber={startIndex + index + 1}
+                    showCorrectAnswer={true}
+                    showImage={false}
+                    actions={
+                      enableDetails
+                        ? [createViewAction(() => handleViewDetails(q._id))]
+                        : []
+                    }
+                  />
+                ))
               )}
             </div>
           </div>
@@ -139,8 +130,6 @@ export function ExamQuestionsModal({
         </DialogContent>
       </Dialog>
 
-      {/* Question Details Dialog — loads full question doc (with explanation
-          joined from questionExplanations) via getQuestionById */}
       {selectedQuestion && (
         <QuestionDetailsDialog
           question={selectedQuestion}

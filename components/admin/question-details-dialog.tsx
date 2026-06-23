@@ -1,6 +1,5 @@
 "use client"
 
-import type { FunctionReturnType } from "convex/server"
 import { CheckCircle, Eye, Target } from "lucide-react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
@@ -11,14 +10,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { api } from "@/convex/_generated/api"
-
-type QuestionWithExplanation = NonNullable<
-  FunctionReturnType<typeof api.questions.getQuestionById>
->
+import type { QuestionDetail } from "@/features/questions/dal"
+import { cdnUrl } from "@/lib/cdn"
 
 interface QuestionDetailsDialogProps {
-  question: QuestionWithExplanation | null
+  question: QuestionDetail | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -70,7 +66,7 @@ export default function QuestionDetailsDialog({
                     {question.images.map((img, index) => (
                       <Image
                         key={img.storagePath || index}
-                        src={img.url}
+                        src={cdnUrl(img.storagePath)}
                         alt={`Question illustration ${index + 1}`}
                         width={300}
                         height={200}
