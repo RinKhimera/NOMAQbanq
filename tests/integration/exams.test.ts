@@ -2,11 +2,15 @@ import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
+  examAnswers,
+  examParticipations,
   exams,
   products,
   questionExplanations,
   questionImages,
   questions,
+  trainingSessionItems,
+  trainingSessions,
   transactions,
   user,
   userAccess,
@@ -50,8 +54,8 @@ const STUDENT_ID = createId()
 const INTRUDER_ID = createId()
 const NOACCESS_ID = createId()
 const PID = createId()
-// 7 questions : q0..q5 servent aux examens, q6 = témoin « non autorisé ».
-const qIds = Array.from({ length: 7 }, () => createId())
+// 8 questions : q0..q5 examens, q6 = témoin non autorisé, q7 = training seul.
+const qIds = Array.from({ length: 8 }, () => createId())
 const examQIds = qIds.slice(0, 6)
 
 const setSession = (id: string, role: "user" | "admin") =>
@@ -88,6 +92,7 @@ const grantExamAccess = async (userId: string) => {
 const makeExam = async (opts: {
   questionIds: string[]
   enablePause?: boolean
+  startDate?: number
   endDate?: number
   pauseDurationMinutes?: number
 }): Promise<string> => {
@@ -95,7 +100,7 @@ const makeExam = async (opts: {
   const now = Date.now()
   const res = await createExam({
     title: `Exam ${suffix} ${createId().slice(0, 4)}`,
-    startDate: now - 3600_000,
+    startDate: opts.startDate ?? now - 3600_000,
     endDate: opts.endDate ?? now + 3600_000,
     questionIds: opts.questionIds,
     enablePause: opts.enablePause ?? false,
@@ -128,6 +133,7 @@ beforeAll(async () => {
     stripePriceId: `price_${suffix}`,
   })
   await grantExamAccess(STUDENT_ID)
+  await grantExamAccess(INTRUDER_ID)
 
   await db.insert(questions).values(
     qIds.map((id, i) => ({
@@ -159,6 +165,10 @@ beforeAll(async () => {
 afterAll(async () => {
   // Supprimer les examens cascade participations/réponses/jonctions.
   await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
+  // Sessions training (cascade items) avant les questions (FK restrict sur items).
+  await db
+    .delete(trainingSessions)
+    .where(eq(trainingSessions.userId, STUDENT_ID))
   const uids = [ADMIN_ID, STUDENT_ID, INTRUDER_ID, NOACCESS_ID]
   await db.delete(userAccess).where(inArray(userAccess.userId, uids))
   await db.delete(transactions).where(inArray(transactions.userId, uids))
@@ -440,5 +450,125 @@ describe("deleteParticipation (admin)", () => {
 
     const after = await getParticipantExamResults(noPauseId, STUDENT_ID)
     expect(after && "error" in after && after.error).toBe("NO_PARTICIPATION")
+  })
+})
+
+describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
+  let pastExamId: string
+
+  beforeAll(async () => {
+    const now = Date.now()
+    // Examen terminé (endDate dans le passé) + participation complétée seedée
+    // directement (startExam refuserait hors fenêtre).
+    pastExamId = await makeExam({
+      questionIds: examQIds,
+      startDate: now - 3 * DAY,
+      endDate: now - DAY,
+    })
+    const partId = createId()
+    await db.insert(examParticipations).values({
+      id: partId,
+      examId: pastExamId,
+      userId: STUDENT_ID,
+      status: "completed",
+      score: 50,
+      startedAt: new Date(now - 3 * DAY + 1000),
+      completedAt: new Date(now - 2 * DAY),
+    })
+    await db.insert(examAnswers).values([
+      {
+        id: createId(),
+        participationId: partId,
+        questionId: examQIds[0],
+        selectedAnswer: "A",
+        isCorrect: true,
+      },
+      {
+        id: createId(),
+        participationId: partId,
+        questionId: examQIds[1],
+        selectedAnswer: "B",
+        isCorrect: false,
+      },
+    ])
+    // Session training complétée contenant q7 → autorise q7 via le branch training
+    // de getExamQuestionExplanations (q7 n'appartient à aucun examen).
+    const tsId = createId()
+    await db.insert(trainingSessions).values({
+      id: tsId,
+      userId: STUDENT_ID,
+      status: "completed",
+      questionCount: 1,
+      startedAt: new Date(now - DAY),
+      completedAt: new Date(now - DAY + 1000),
+      expiresAt: new Date(now + DAY),
+    })
+    await db.insert(trainingSessionItems).values({
+      id: createId(),
+      sessionId: tsId,
+      questionId: qIds[7],
+      position: 0,
+      selectedAnswer: "A",
+      isCorrect: true,
+    })
+  })
+
+  it("étudiant : ses propres résultats sont visibles après endDate", async () => {
+    asStudent()
+    const r = await getParticipantExamResults(pastExamId, STUDENT_ID)
+    expect(r && "participant" in r).toBe(true)
+    if (!r || "error" in r) return
+    expect(r.participant.score).toBe(50)
+  })
+
+  it("leaderboard après endDate : un participant le voit", async () => {
+    asStudent()
+    const lb = await getExamLeaderboard(pastExamId)
+    expect(lb.some((e) => e.user?.id === STUDENT_ID)).toBe(true)
+  })
+
+  it("leaderboard après endDate : non-participant avec accès le voit", async () => {
+    asIntruder() // accès exam, aucune participation
+    expect(
+      (await getExamLeaderboard(pastExamId)).length,
+    ).toBeGreaterThanOrEqual(1)
+  })
+
+  it("leaderboard après endDate : non-participant sans accès → []", async () => {
+    asNoAccess()
+    expect(await getExamLeaderboard(pastExamId)).toEqual([])
+  })
+
+  it("explications autorisées via une session de training complétée", async () => {
+    asStudent()
+    expect(await getExamQuestionExplanations([qIds[7]])).toHaveLength(1)
+  })
+
+  it("submit non-auto hors budget-temps → refus ; auto-submit accepté", async () => {
+    const activeId = await makeExam({ questionIds: examQIds })
+    await db.insert(examParticipations).values({
+      id: createId(),
+      examId: activeId,
+      userId: STUDENT_ID,
+      status: "in_progress",
+      score: 0,
+      startedAt: new Date(Date.now() - 10 * DAY), // budget largement dépassé
+    })
+    asStudent()
+    const ids = (await getExamWithQuestions(activeId))!.questions.map(
+      (q) => q._id,
+    )
+    const ko = await submitExamAnswers({
+      examId: activeId,
+      answers: [{ questionId: ids[0], selectedAnswer: "A" }],
+    })
+    expect(ko.success).toBe(false)
+
+    const ok = await submitExamAnswers({
+      examId: activeId,
+      answers: [{ questionId: ids[0], selectedAnswer: "A" }],
+      isAutoSubmit: true,
+    })
+    expect(ok.success).toBe(true)
   })
 })

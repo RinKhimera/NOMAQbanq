@@ -562,6 +562,13 @@ export const submitExamAnswers = async (
         }
       }
 
+      // Dédup par questionId (dernière réponse gagne) : un doublon dans le
+      // payload ferait échouer l'INSERT … ON CONFLICT (erreur Postgres 21000,
+      // « affecte 2× la même ligne ») et donc toute la soumission.
+      const deduped = [
+        ...new Map(answers.map((a) => [a.questionId, a])).values(),
+      ]
+
       // Score serveur. Seules les réponses appartenant à l'examen comptent et
       // sont persistées. Non répondues = fausses (dénominateur = total examen).
       let correctAnswers = 0
@@ -573,7 +580,7 @@ export const submitExamAnswers = async (
         isCorrect: boolean
         isFlagged: boolean
       }[] = []
-      for (const a of answers) {
+      for (const a of deduped) {
         if (!correctMap.has(a.questionId)) continue
         const isCorrect = correctMap.get(a.questionId) === a.selectedAnswer
         if (isCorrect) correctAnswers++
