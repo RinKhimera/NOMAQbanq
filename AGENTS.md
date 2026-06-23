@@ -101,6 +101,7 @@ Regles specialisees dans `.claude/rules/`:
 | Fichier             | Scope                                                   | Contenu                                                                 |
 | ------------------- | ------------------------------------------------------- | ----------------------------------------------------------------------- |
 | `convex-backend.md` | `convex/**`                                             | Auth, errors, rate limits, crons, HTTP actions, analytics, acces payant |
+| `data-layer.md`     | `features/**`, `app/**`, `components/**`, `tests/integration/**` | DAL Drizzle, Server Actions, forme-pont quiz, gotchas ESLint/SonarLint, cleanup tests |
 | `admin-ui.md`       | `app/(admin)/**`, `components/admin/**`                 | Master-detail, stat cards, filtres                                      |
 | `seo.md`            | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts` | Metadata, pages marketing                                               |
 | `e2e-testing.md`    | `e2e/**`, `playwright.config.ts`, `components/quiz/**`  | Playwright, data-testid, Clerk auth, selectors, Convex real-time        |
