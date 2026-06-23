@@ -151,52 +151,63 @@ function AssessmentPage({
     }
   }, [examId])
 
-  // Auto-submit quand le temps est écoulé.
-  const handleAutoSubmit = useCallback(async () => {
-    if (isSubmitting || hasCompletedRef.current) return
+  // Auto-submit quand le temps est écoulé. `answersOverride` permet de soumettre
+  // une source explicite : à la reprise d'une session déjà expirée, le state
+  // `answers` n'est pas encore restauré (restauration différée via
+  // startTransition) → on relit le localStorage pour ne pas soumettre vide.
+  const handleAutoSubmit = useCallback(
+    async (answersOverride?: Record<string, string>) => {
+      if (isSubmitting || hasCompletedRef.current) return
 
-    setIsSubmitting(true)
-    try {
-      const formattedAnswers = Object.entries(answers).map(
-        ([questionId, selectedAnswer]) => ({ questionId, selectedAnswer }),
-      )
-      const result = await submitExamAnswers({
-        examId,
-        answers: formattedAnswers,
-        isAutoSubmit: true,
-      })
-
-      if (result.success) {
-        hasCompletedRef.current = true
-        clearAnswersFromStorage(examId)
-        toast.success(
-          "Temps écoulé ! Vos réponses ont été enregistrées automatiquement.",
+      setIsSubmitting(true)
+      try {
+        const source = answersOverride ?? answers
+        const formattedAnswers = Object.entries(source).map(
+          ([questionId, selectedAnswer]) => ({ questionId, selectedAnswer }),
         )
-        router.push("/dashboard/examen-blanc")
-        return
-      }
+        const result = await submitExamAnswers({
+          examId,
+          answers: formattedAnswers,
+          isAutoSubmit: true,
+        })
 
-      // Échecs « terminaux » : la session est de toute façon close → on sort.
-      if (
-        result.error.includes("Temps écoulé") ||
-        result.error.includes("déjà passé") ||
-        result.error.includes("plus active")
-      ) {
+        if (result.success) {
+          hasCompletedRef.current = true
+          clearAnswersFromStorage(examId)
+          if (formattedAnswers.length > 0) {
+            toast.success(
+              "Temps écoulé ! Vos réponses ont été enregistrées automatiquement.",
+            )
+          } else {
+            toast.warning("Session expirée. Aucune réponse n'a été trouvée.")
+          }
+          router.push("/dashboard/examen-blanc")
+          return
+        }
+
+        // Échecs « terminaux » : la session est de toute façon close → on sort.
+        if (
+          result.error.includes("Temps écoulé") ||
+          result.error.includes("déjà passé") ||
+          result.error.includes("plus active")
+        ) {
+          clearAnswersFromStorage(examId)
+          toast.error("Le temps est écoulé. Redirection...")
+          router.push("/dashboard/examen-blanc")
+        } else {
+          toast.error(result.error)
+        }
+      } catch (error) {
+        console.error("Erreur auto-submit:", error)
         clearAnswersFromStorage(examId)
         toast.error("Le temps est écoulé. Redirection...")
         router.push("/dashboard/examen-blanc")
-      } else {
-        toast.error(result.error)
+      } finally {
+        setIsSubmitting(false)
       }
-    } catch (error) {
-      console.error("Erreur auto-submit:", error)
-      clearAnswersFromStorage(examId)
-      toast.error("Le temps est écoulé. Redirection...")
-      router.push("/dashboard/examen-blanc")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }, [answers, examId, router, isSubmitting])
+    },
+    [answers, examId, router, isSubmitting],
+  )
 
   // Initialisation au montage : redirection si déjà soumis, auto-submit si le
   // temps est déjà écoulé à la reprise, sinon toast de reprise. Les valeurs
@@ -224,7 +235,9 @@ function AssessmentPage({
           Date.now(),
         ) - (initialSession.totalPauseDurationMs ?? 0)
       if (rem <= 0) {
-        handleAutoSubmit()
+        // Relire le localStorage : le state `answers` n'est pas encore restauré
+        // au montage (restauration différée) → sinon soumission vide = score 0.
+        handleAutoSubmit(loadAnswersFromStorage(examId) ?? {})
         return
       }
       toast.info("Session reprise - Le timer continue")
@@ -493,6 +506,22 @@ function AssessmentPage({
   Object.entries(answers).forEach(([id, answer]) => {
     navigatorAnswers[id] = { selectedAnswer: answer }
   })
+
+  // Session déjà soumise : l'effet d'init redirige — on évite de flasher l'UI
+  // d'examen une frame en affichant un écran de redirection.
+  const alreadySubmitted =
+    initialSession?.status === "completed" ||
+    initialSession?.status === "auto_submitted"
+  if (alreadySubmitted) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600" />
+          <p className="text-gray-600 dark:text-gray-400">Redirection...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
