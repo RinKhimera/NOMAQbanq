@@ -1,11 +1,6 @@
-import { setupClerkTestingToken } from "@clerk/testing/playwright"
 import { expect, test } from "@playwright/test"
 
 test.describe("Pages d'erreur", () => {
-  test.beforeEach(async ({ page }) => {
-    await setupClerkTestingToken({ page })
-  })
-
   test("une page 404 s'affiche pour une route inexistante", async ({
     page,
   }) => {

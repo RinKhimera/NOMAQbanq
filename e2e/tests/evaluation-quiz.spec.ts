@@ -1,13 +1,8 @@
-import { setupClerkTestingToken } from "@clerk/testing/playwright"
 import { expect, test } from "@playwright/test"
 
 test.describe("Evaluation gratuite — quiz public", () => {
   test.describe.configure({ mode: "serial" })
   test.setTimeout(60_000)
-
-  test.beforeEach(async ({ page }) => {
-    await setupClerkTestingToken({ page })
-  })
 
   test("le quiz charge et affiche la premiere question", async ({ page }) => {
     await page.goto("/evaluation/quiz")

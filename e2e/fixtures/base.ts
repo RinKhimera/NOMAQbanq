@@ -9,9 +9,8 @@ type Fixtures = {
   examen: ExamenBlancPage
   examenResultats: ExamenResultatsPage
   /**
-   * POST /e2e/reset-exam on the Convex HTTP site. Useful to reset mid-test
-   * without relying on global setup only. Requires E2E_RESET_SECRET +
-   * NEXT_PUBLIC_CONVEX_URL in the env.
+   * POST /api/e2e (action "reset-exam"). Réinitialise l'examen en cours de test
+   * sans dépendre du global setup. Requiert `E2E_RESET_SECRET` dans l'env.
    */
   resetExamState: (userEmail: string) => Promise<void>
 }
@@ -27,19 +26,17 @@ export const test = base.extend<Fixtures>({
     await use(new ExamenResultatsPage(page))
   },
   resetExamState: async ({ request }, use) => {
-    const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
     const secret = process.env.E2E_RESET_SECRET
 
     const reset = async (userEmail: string) => {
-      if (!convexUrl || !secret) {
+      if (!secret) {
         console.warn(
-          "[e2e fixtures] NEXT_PUBLIC_CONVEX_URL or E2E_RESET_SECRET missing — skipping reset",
+          "[e2e fixtures] E2E_RESET_SECRET manquant — reset ignoré",
         )
         return
       }
-      const siteUrl = convexUrl.replace(".convex.cloud", ".convex.site")
-      await request.post(`${siteUrl}/e2e/reset-exam`, {
-        data: { secret, userEmail },
+      await request.post("/api/e2e", {
+        data: { secret, action: "reset-exam", userEmail },
         failOnStatusCode: false,
       })
     }

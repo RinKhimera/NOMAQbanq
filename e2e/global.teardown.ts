@@ -1,58 +1,41 @@
 import { test as teardown } from "@playwright/test"
 
-teardown("reset exam participation", async ({ request }) => {
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
-  const resetSecret = process.env.E2E_RESET_SECRET
+// Réinitialise l'état d'examen + nettoie les données de test préfixées via la
+// route support Drizzle `/api/e2e` (remplace les routes Convex `/e2e/*`).
 
-  if (!convexUrl || !resetSecret) {
-    console.log("Skipping exam reset: missing CONVEX_URL or E2E_RESET_SECRET")
+teardown("reset exam participation", async ({ request }) => {
+  const secret = process.env.E2E_RESET_SECRET
+  if (!secret) {
+    console.log("Skipping exam reset: E2E_RESET_SECRET manquant")
     return
   }
 
-  const resetUrl = convexUrl.replace(".convex.cloud", ".convex.site")
-
-  for (const email of [
-    process.env.E2E_CLERK_USER_USERNAME!,
-    process.env.E2E_CLERK_ADMIN_USERNAME!,
+  for (const userEmail of [
+    process.env.E2E_USER_EMAIL!,
+    process.env.E2E_ADMIN_EMAIL!,
   ]) {
-    try {
-      const response = await request.post(`${resetUrl}/e2e/reset-exam`, {
-        headers: { "Content-Type": "application/json" },
-        data: { secret: resetSecret, userEmail: email },
-      })
-      if (response.ok()) {
-        console.log(`Exam reset for ${email}: OK`)
-      } else {
-        console.warn(`Exam reset failed for ${email}:`, response.status())
-      }
-    } catch (error) {
-      console.warn(`Exam reset error for ${email} (non-blocking):`, error)
-    }
+    const response = await request.post("/api/e2e", {
+      data: { secret, action: "reset-exam", userEmail },
+      failOnStatusCode: false,
+    })
+    console.log(`Exam reset for ${userEmail}: ${response.status()}`)
   }
 })
 
 teardown("cleanup e2e test data", async ({ request }) => {
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL
-  const resetSecret = process.env.E2E_RESET_SECRET
-
-  if (!convexUrl || !resetSecret) {
-    console.log("Skipping E2E cleanup: missing env vars")
+  const secret = process.env.E2E_RESET_SECRET
+  if (!secret) {
+    console.log("Skipping E2E cleanup: E2E_RESET_SECRET manquant")
     return
   }
 
-  const resetUrl = convexUrl.replace(".convex.cloud", ".convex.site")
-
-  try {
-    const response = await request.post(`${resetUrl}/e2e/cleanup`, {
-      headers: { "Content-Type": "application/json" },
-      data: { secret: resetSecret, prefix: "[E2E]" },
-    })
-    if (response.ok()) {
-      console.log("E2E cleanup: OK")
-    } else {
-      console.warn("E2E cleanup failed:", response.status())
-    }
-  } catch (error) {
-    console.warn("E2E cleanup error (non-blocking):", error)
+  const response = await request.post("/api/e2e", {
+    data: { secret, action: "cleanup", prefix: "[E2E]" },
+    failOnStatusCode: false,
+  })
+  if (response.ok()) {
+    console.log("E2E cleanup:", await response.json())
+  } else {
+    console.warn("E2E cleanup failed:", response.status())
   }
 })

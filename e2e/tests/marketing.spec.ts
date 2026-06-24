@@ -1,11 +1,6 @@
-import { setupClerkTestingToken } from "@clerk/testing/playwright"
 import { expect, test } from "@playwright/test"
 
 test.describe("Pages marketing (publiques)", () => {
-  test.beforeEach(async ({ page }) => {
-    await setupClerkTestingToken({ page })
-  })
-
   test("la page d'accueil affiche le hero et les CTAs", async ({ page }) => {
     await page.goto("/")
 

@@ -41,6 +41,10 @@ export const buildServerSchema = () =>
     // Cron Vercel — secret partagé (Vercel l'envoie en `Authorization: Bearer`).
     // Optionnel : sans lui, la route cron répond 401 (fail-closed).
     CRON_SECRET: z.string().optional(),
+    // Support E2E (reset/cleanup des données de test sur develop). Optionnel :
+    // sans lui la route `/api/e2e` répond 404. NE JAMAIS définir en prod Vercel
+    // (la route refuse aussi si `VERCEL_ENV === "production"`).
+    E2E_RESET_SECRET: z.string().optional(),
     // Bunny.net (stockage médias avatars/images questions) — optionnelles :
     // l'app démarre sans, `getBunnyConfig()` lève une erreur claire à l'usage si
     // une valeur manque. Les trois vont ensemble (cf. `.refine` ci-dessous).

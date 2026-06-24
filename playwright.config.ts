@@ -1,6 +1,11 @@
 import { defineConfig, devices } from "@playwright/test"
+import { config } from "dotenv"
 import path from "path"
 import { fileURLToPath } from "url"
+
+// Charge .env.local dans le PROCESS DE TEST (E2E_*_EMAIL/PASSWORD, E2E_RESET_SECRET,
+// PLAYWRIGHT_BASE_URL). N'écrase pas les vars déjà présentes (secrets CI prioritaires).
+config({ path: ".env.local" })
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
