@@ -46,6 +46,8 @@ export const getMarketingStats = cache(async (): Promise<MarketingStats> => {
   const [users] = await db
     .select({ n: sql<number>`count(*)`.mapWith(Number) })
     .from(user)
+    // Exclut les comptes supprimés (cohérent avec questions + getAdminStats).
+    .where(isNull(user.deletedAt))
 
   return {
     totalQuestions: formatMarketingStat(totalQuestions),

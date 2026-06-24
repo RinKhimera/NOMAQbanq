@@ -169,15 +169,18 @@ describe("getAdminStats", () => {
 
 describe("getRevenueByDay", () => {
   it("30 jours par devise, somme = transactions complétées de la fenêtre (delta)", async () => {
+    const before = new Date().toISOString().slice(0, 10)
     const r = await getRevenueByDay()
+    const after = new Date().toISOString().slice(0, 10)
     expect(r.CAD).toHaveLength(30)
     expect(r.XAF).toHaveLength(30)
     // TX1 (CAD aujourd'hui) dans la fenêtre ; TX3 (CAD -45j) hors fenêtre.
     expect(sumRevenue(r.CAD) - sumRevenue(baseRevenue.CAD)).toBe(5000)
     // TX2 (XAF -2j) dans la fenêtre.
     expect(sumRevenue(r.XAF) - sumRevenue(baseRevenue.XAF)).toBe(300000)
-    // Aujourd'hui = dernier bucket.
-    expect(r.CAD.at(-1)?.date).toBe(new Date().toISOString().slice(0, 10))
+    // Dernier bucket = aujourd'hui (UTC). before/after encadrent le `now` interne
+    // du DAL → robuste au passage de minuit UTC pendant le test.
+    expect([before, after]).toContain(r.CAD.at(-1)?.date)
   })
 })
 

@@ -1108,6 +1108,8 @@ export const getMyRecentExams = cache(async (): Promise<MyRecentExam[]> => {
     })
     .from(exams)
     .where(eq(exams.isActive, true))
+    // Ordre stable : rend déterministe le sous-ensemble retenu au-delà de 200.
+    .orderBy(desc(exams.startDate))
     .limit(200)
   if (activeExams.length === 0) return []
 
