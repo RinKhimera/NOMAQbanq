@@ -4,7 +4,6 @@ import {
   IconCirclePlusFilled,
   type Icon as TablerIcon,
 } from "@tabler/icons-react"
-import { useQuery } from "convex/react"
 import { type LucideIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -16,7 +15,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { api } from "@/convex/_generated/api"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { cn } from "@/lib/utils"
 
 type IconType = TablerIcon | LucideIcon
@@ -38,7 +37,8 @@ export const NavSecondary = ({
   ...props
 }: NavSecondaryProps) => {
   const pathname = usePathname()
-  const isCurrentUserAdmin = useQuery(api.users.isCurrentUserAdmin)
+  const { currentUser } = useCurrentUser()
+  const isCurrentUserAdmin = currentUser?.role === "admin"
 
   const isOnAdminPage = pathname.startsWith("/admin")
   const isOnDashboardPage = pathname.startsWith("/dashboard")
