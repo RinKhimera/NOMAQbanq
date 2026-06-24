@@ -38,6 +38,9 @@ export const buildServerSchema = () =>
     // (`getStripe`/webhook) lève une erreur claire à l'usage si une valeur manque.
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    // Cron Vercel — secret partagé (Vercel l'envoie en `Authorization: Bearer`).
+    // Optionnel : sans lui, la route cron répond 401 (fail-closed).
+    CRON_SECRET: z.string().optional(),
   })
     // Garde-fou déploiement : dès que le checkout peut encaisser (clé secrète
     // présente), le webhook DOIT pouvoir vérifier sa signature — sinon les

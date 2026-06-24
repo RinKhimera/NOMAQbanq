@@ -1,0 +1,45 @@
+import { closeExpiredExamParticipations } from "@/features/exams/cron"
+import { closeExpiredTrainingSessions } from "@/features/training/cron"
+import { env } from "@/lib/env/server"
+
+// Accès DB → runtime Node.
+export const runtime = "nodejs"
+
+/**
+ * Cron Vercel (horaire) : ferme les participations d'examen et les sessions
+ * d'entraînement expirées. Remplace les 2 crons Convex (`close-expired-exam-
+ * participations` + `close-expired-training-sessions`), fusionnés en une route
+ * (Postgres n'a pas la contention qui justifiait le décalage :00/:30 de Convex).
+ *
+ * Sécurité : Vercel envoie `Authorization: Bearer ${CRON_SECRET}` sur les requêtes
+ * cron. Fail-closed : sans `CRON_SECRET` configuré, on répond 401 (jamais ouvert).
+ *
+ * ⚠️ Config déploiement : `vercel.json` planifie `/api/cron/close-expired` ;
+ * définir `CRON_SECRET` côté Vercel. Fréquence horaire ⇒ plan Pro (Hobby = 1×/jour).
+ */
+export async function GET(request: Request) {
+  const authHeader = request.headers.get("authorization")
+  if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+    return new Response("Unauthorized", { status: 401 })
+  }
+
+  try {
+    const [examParticipations, trainingSessions] = await Promise.all([
+      closeExpiredExamParticipations(),
+      closeExpiredTrainingSessions(),
+    ])
+
+    if (examParticipations.closedCount > 0 || trainingSessions.closedCount > 0) {
+      console.log(
+        `[cron close-expired] examens fermés=${examParticipations.closedCount} ` +
+          `sessions fermées=${trainingSessions.closedCount}`,
+      )
+    }
+
+    return Response.json({ examParticipations, trainingSessions })
+  } catch (error) {
+    // Erreur inattendue (DB…) → 500 ; Vercel logue + réessaie à la prochaine heure.
+    console.error("[cron close-expired] échec", error)
+    return new Response("Cron handler error", { status: 500 })
+  }
+}
