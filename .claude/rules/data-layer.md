@@ -67,3 +67,22 @@ qui le câblent). Remplace progressivement `convex-backend.md`.
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants
   automatiquement.
+
+## PII / frontière serveur-client
+
+Pas de `experimental_taint*` (React) : activer `experimental.taint` dans
+`next.config` bascule TOUT le répertoire `app` sur le canal React **experimental**
+— tradeoff disproportionné en prod pour une app React stable. La protection PII
+repose sur la **modélisation** (recommandation officielle Next), à maintenir :
+
+- **DAL `server-only` + colonnes ciblées** : ne JAMAIS `select()` une colonne
+  secrète (`password`, `account.{accessToken,refreshToken,idToken}`,
+  `session.token`, `ipAddress`, `userAgent`) pour de la donnée destinée au client.
+  Les tables Better Auth `account`/`session` ne sont lues par aucun DAL métier.
+- **Session brute jamais propagée au client** : `getCurrentSession`/
+  `requireSession`/`requireRole` renvoient l'objet session Better Auth (qui porte
+  `session.token`) — l'utiliser comme garde ou en extraire `session.user.id`/
+  `role` UNIQUEMENT. Ne pas passer la session entière (ni `session.session`) en
+  prop d'un composant client.
+- Les emails/noms qui atteignent le client (profil de l'utilisateur, listes admin,
+  activity feed) sont des affichages **volontaires** — ne pas les « durcir ».

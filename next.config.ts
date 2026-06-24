@@ -4,6 +4,13 @@ import type { NextConfig } from "next"
 const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["@tabler/icons-react", "lucide-react", "recharts"],
+    // Uploads d'images via Server Actions (avatars, images de questions) : le
+    // défaut 1 Mo est sous notre limite de 5 Mo/fichier. 6 Mo couvre 5 Mo + le
+    // surcoût d'encodage multipart. La taille reste re-validée par fichier côté
+    // serveur (`validateImageFile`) ; ceci n'est qu'un plafond de transport.
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
   },
   images: {
     remotePatterns: [

@@ -6,7 +6,16 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
+import {
+  generateQuestionImagePath,
+  getExtensionFromMimeType,
+  isBunnyConfigured,
+  tryDeleteFromBunny,
+  uploadToBunny,
+  validateImageFile,
+} from "@/lib/bunny"
 import { createId } from "@/lib/ids"
+import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
 
 import {
   getAllQuestionIds,
@@ -309,8 +318,11 @@ export const setQuestionImages = async (
         .map((o) => o.storagePath)
     })
 
-    // TODO(Phase 7) : supprimer `removedPaths` du CDN Bunny (uploaders neutralisés).
-    void removedPaths
+    // Supprime du CDN Bunny les images retirées (best-effort, après commit DB).
+    // Un échec de suppression CDN ne doit pas faire échouer la persistance.
+    if (removedPaths.length > 0) {
+      await Promise.all(removedPaths.map((p) => tryDeleteFromBunny(p)))
+    }
     revalidatePath("/admin/questions")
     return { success: true }
   } catch (error) {
@@ -320,4 +332,89 @@ export const setQuestionImages = async (
     logDev("[setQuestionImages]", error)
     return fail("Erreur serveur. Réessayez.")
   }
+}
+
+// Anti path-traversal : un id légitime (createId) ne contient que des caractères
+// d'URL sûrs ; on rejette tout le reste avant de l'interpoler dans le chemin.
+const QUESTION_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
+
+export type UploadQuestionImageResult =
+  | { success: true; url: string; storagePath: string }
+  | { success: false; error: string }
+
+/**
+ * [Admin] Téléverse une image de question vers Bunny et renvoie son `storagePath`.
+ * NE persiste PAS en base : `setQuestionImages` enregistre la liste finale au
+ * moment de l'enregistrement du formulaire (et nettoie les chemins retirés).
+ * Remplace la route Convex HTTP `/api/upload/question-image`.
+ *
+ * Sécurité : garde admin ; `questionId` validé (anti path-traversal) et son
+ * existence vérifiée ; extension dérivée du MIME (jamais de l'input client) ;
+ * rate-limit 50/h consommé atomiquement.
+ */
+export const uploadQuestionImage = async (
+  formData: FormData,
+): Promise<UploadQuestionImageResult> => {
+  const session = await requireRole(["admin"])
+
+  const file = formData.get("file")
+  const questionId = formData.get("questionId")
+  const rawIndex = formData.get("imageIndex")
+
+  if (!(file instanceof File)) {
+    return { success: false, error: "Fichier manquant" }
+  }
+  if (typeof questionId !== "string" || !QUESTION_ID_RE.test(questionId)) {
+    return { success: false, error: "Question invalide" }
+  }
+  const imageIndex = Math.max(
+    0,
+    Math.min(
+      999,
+      Number.parseInt(typeof rawIndex === "string" ? rawIndex : "", 10) || 0,
+    ),
+  )
+
+  const validationError = validateImageFile(file.type, file.size)
+  if (validationError) {
+    return { success: false, error: validationError }
+  }
+
+  if (!isBunnyConfigured()) {
+    return {
+      success: false,
+      error: "Le téléversement d'images n'est pas configuré.",
+    }
+  }
+
+  // La question doit exister et ne pas être supprimée (évite des orphelins CDN).
+  const [q] = await db
+    .select({ id: questions.id })
+    .from(questions)
+    .where(and(eq(questions.id, questionId), isNull(questions.deletedAt)))
+    .limit(1)
+  if (!q) {
+    return { success: false, error: "Question introuvable" }
+  }
+
+  const limit = await consumeUploadRateLimit(session.user.id, "question-image")
+  if (!limit.allowed) {
+    return {
+      success: false,
+      error: `Limite d'uploads atteinte. Réessayez dans ${limit.retryAfterMinutes} minute(s).`,
+    }
+  }
+
+  const storagePath = generateQuestionImagePath(
+    questionId,
+    imageIndex,
+    getExtensionFromMimeType(file.type),
+  )
+
+  const result = await uploadToBunny(await file.arrayBuffer(), storagePath)
+  if (!result.success) {
+    return { success: false, error: result.error }
+  }
+
+  return { success: true, url: result.url, storagePath: result.storagePath }
 }

@@ -41,6 +41,12 @@ export const buildServerSchema = () =>
     // Cron Vercel — secret partagé (Vercel l'envoie en `Authorization: Bearer`).
     // Optionnel : sans lui, la route cron répond 401 (fail-closed).
     CRON_SECRET: z.string().optional(),
+    // Bunny.net (stockage médias avatars/images questions) — optionnelles :
+    // l'app démarre sans, `getBunnyConfig()` lève une erreur claire à l'usage si
+    // une valeur manque. Les trois vont ensemble (cf. `.refine` ci-dessous).
+    BUNNY_STORAGE_ZONE_NAME: z.string().optional(),
+    BUNNY_STORAGE_API_KEY: z.string().optional(),
+    BUNNY_CDN_HOSTNAME: z.string().optional(),
   })
     // Garde-fou déploiement : dès que le checkout peut encaisser (clé secrète
     // présente), le webhook DOIT pouvoir vérifier sa signature — sinon les
@@ -50,6 +56,24 @@ export const buildServerSchema = () =>
         "STRIPE_WEBHOOK_SECRET : requise dès que STRIPE_SECRET_KEY est définie (sinon paiements encaissés sans fulfillment)",
       path: ["STRIPE_WEBHOOK_SECRET"],
     })
+    // Garde-fou : la config Bunny est tout-ou-rien. Dès qu'une des trois vars est
+    // présente, les trois doivent l'être (sinon `getBunnyConfig` lèverait à
+    // l'usage avec une config partielle trompeuse).
+    .refine(
+      (e) => {
+        const set = [
+          e.BUNNY_STORAGE_ZONE_NAME,
+          e.BUNNY_STORAGE_API_KEY,
+          e.BUNNY_CDN_HOSTNAME,
+        ].filter(Boolean).length
+        return set === 0 || set === 3
+      },
+      {
+        error:
+          "Configuration Bunny incomplète : BUNNY_STORAGE_ZONE_NAME, BUNNY_STORAGE_API_KEY et BUNNY_CDN_HOSTNAME doivent être définies ensemble",
+        path: ["BUNNY_STORAGE_ZONE_NAME"],
+      },
+    )
 
 const formatError = (e: z.ZodError) =>
   `❌ Variables d'environnement invalides :\n` +

@@ -14,6 +14,11 @@ vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(),
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+// Évite tout appel réseau vers Bunny ; `setQuestionImages` doit déléguer la
+// suppression CDN des chemins retirés à `tryDeleteFromBunny`.
+vi.mock("@/lib/bunny", () => ({
+  tryDeleteFromBunny: vi.fn().mockResolvedValue(undefined),
+}))
 
 import {
   createQuestion,
@@ -26,6 +31,7 @@ import {
   getQuestionsWithFilters,
 } from "@/features/questions/dal"
 import { requireRole } from "@/lib/auth-guards"
+import { tryDeleteFromBunny } from "@/lib/bunny"
 
 const suffix = createId().slice(0, 8)
 const DOMAIN = `ADOM-${suffix}`
@@ -128,6 +134,7 @@ describe("setQuestionImages", () => {
     expect(q?.images.map((i) => i.storagePath)).toEqual(["a.jpg", "b.jpg"])
 
     // Remplacement par un seul fichier → l'ancien "a.jpg" disparaît.
+    vi.mocked(tryDeleteFromBunny).mockClear()
     const r2 = await setQuestionImages({
       questionId: id,
       images: [{ storagePath: "b.jpg", order: 0 }],
@@ -135,5 +142,8 @@ describe("setQuestionImages", () => {
     expect(r2.success).toBe(true)
     q = await getQuestionById(id)
     expect(q?.images.map((i) => i.storagePath)).toEqual(["b.jpg"])
+    // Le chemin retiré ("a.jpg") est supprimé du CDN ; "b.jpg" (conservé) non.
+    expect(vi.mocked(tryDeleteFromBunny)).toHaveBeenCalledWith("a.jpg")
+    expect(vi.mocked(tryDeleteFromBunny)).not.toHaveBeenCalledWith("b.jpg")
   })
 })

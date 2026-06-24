@@ -250,17 +250,17 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
           return
         }
 
-        // Persiste l'ordre des images (le réordonnancement local reste actif ;
-        // upload/suppression Bunny = Phase 7).
-        if (imagePayload.length > 0) {
-          const imgRes = await setQuestionImages({
-            questionId,
-            images: imagePayload,
-          })
-          if (!imgRes.success) {
-            toast.error(imgRes.error ?? "Images non enregistrées")
-            return
-          }
+        // Persiste la liste complète des images (ordre + ajouts + retraits).
+        // Toujours appelé en édition, même avec une liste vide : sinon la
+        // suppression de toutes les images ne serait jamais enregistrée (et les
+        // fichiers retirés jamais supprimés du CDN).
+        const imgRes = await setQuestionImages({
+          questionId,
+          images: imagePayload,
+        })
+        if (!imgRes.success) {
+          toast.error(imgRes.error ?? "Images non enregistrées")
+          return
         }
 
         toast.success("Question mise à jour avec succès !")

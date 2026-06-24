@@ -3,6 +3,7 @@
 import { IconCamera, IconCheck, IconUpload, IconX } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
 import { useDropzone } from "react-dropzone"
 import Cropper, { Area, Point } from "react-easy-crop"
@@ -17,6 +18,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider"
+import { uploadAvatar } from "@/features/users/actions"
+import { getCroppedImageBlob } from "@/lib/crop-image"
 import { cn } from "@/lib/utils"
 
 // ============================================
@@ -40,14 +43,17 @@ export const AvatarUploader = ({
   size = "md",
   disabled = false,
 }: AvatarUploaderProps) => {
-  // TODO(Phase 7): redevient un état piloté par l'upload une fois la route Bunny
-  // rebranchée. Constant pour l'instant (no-op de téléversement).
-  const isUploading = false
+  const router = useRouter()
+  const [isUploading, setIsUploading] = useState(false)
+  // URL optimiste après upload (précède le rafraîchissement serveur).
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null)
   const [cropDialogOpen, setCropDialogOpen] = useState(false)
   const [imageSrc, setImageSrc] = useState<string | null>(null)
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
+
+  const shownAvatarUrl = uploadedUrl ?? currentAvatarUrl
 
   const sizeClasses = {
     sm: "h-16 w-16",
@@ -89,28 +95,41 @@ export const AvatarUploader = ({
     setCroppedAreaPixels(croppedAreaPixels)
   }, [])
 
-  // TODO(Phase 7): rebrancher l'upload sur la route Bunny
-  // Le pipeline d'upload (Convex HTTP action + token Clerk) est démantelé pendant
-  // la migration. `onAvatarChange` reste dans l'API du composant mais n'est pas
-  // déclenché tant que la route Bunny n'est pas rebranchée.
-  void onAvatarChange
+  // Recadre côté client, téléverse via le Server Action `uploadAvatar`, puis
+  // rafraîchit les données serveur (le Server Component parent re-fetch l'image).
+  const handleSaveCrop = async () => {
+    if (!imageSrc || !croppedAreaPixels || isUploading) return
 
-  // Upload cropped image (no-op pendant la migration)
-  const handleSaveCrop = () => {
-    if (!imageSrc || !croppedAreaPixels) return
+    setIsUploading(true)
+    try {
+      const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels)
+      const formData = new FormData()
+      formData.append("file", blob, "avatar.jpg")
 
-    toast.info(
-      "Le téléversement est en cours de migration et sera disponible prochainement.",
-    )
+      const result = await uploadAvatar(formData)
+      if (!result.success) {
+        toast.error(result.error)
+        return
+      }
 
-    // Close dialog and reset
-    setCropDialogOpen(false)
-    setImageSrc(null)
-    setCrop({ x: 0, y: 0 })
-    setZoom(1)
+      setUploadedUrl(result.url)
+      onAvatarChange?.(result.url)
+      toast.success("Photo de profil mise à jour")
+
+      setCropDialogOpen(false)
+      setImageSrc(null)
+      setCrop({ x: 0, y: 0 })
+      setZoom(1)
+      router.refresh()
+    } catch {
+      toast.error("Échec du téléversement. Réessayez.")
+    } finally {
+      setIsUploading(false)
+    }
   }
 
   const handleCancel = () => {
+    if (isUploading) return
     setCropDialogOpen(false)
     setImageSrc(null)
     setCrop({ x: 0, y: 0 })
@@ -132,9 +151,9 @@ export const AvatarUploader = ({
         <input {...getInputProps()} />
 
         {/* Current avatar or placeholder */}
-        {currentAvatarUrl ? (
+        {shownAvatarUrl ? (
           <Image
-            src={currentAvatarUrl}
+            src={shownAvatarUrl}
             alt="Avatar"
             fill
             className="object-cover"

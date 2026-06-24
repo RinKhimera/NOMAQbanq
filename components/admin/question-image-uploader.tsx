@@ -26,10 +26,15 @@ import {
 } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
 import Image from "next/image"
-import { useCallback, useState } from "react"
+import {
+  useCallback,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
-import { Progress } from "@/components/ui/progress"
+import { uploadQuestionImage } from "@/features/questions/actions"
 import { cn } from "@/lib/utils"
 
 // ============================================
@@ -54,7 +59,9 @@ type UploadingImage = {
 type QuestionImageUploaderProps = {
   questionId: string
   images: QuestionImage[]
-  onImagesChange: (images: QuestionImage[]) => void
+  // Accepte une valeur OU un updater fonctionnel (le parent passe `setImages`) :
+  // permet d'enchaîner plusieurs uploads concurrents sans écraser l'état.
+  onImagesChange: Dispatch<SetStateAction<QuestionImage[]>>
   maxImages?: number
   disabled?: boolean
 }
@@ -158,8 +165,7 @@ const UploadingImageItem = ({
       {item.status === "uploading" && (
         <>
           <Loader2 className="h-6 w-6 animate-spin text-white" />
-          <Progress value={item.progress} className="mt-2 h-1.5 w-3/4" />
-          <span className="mt-1 text-xs text-white">{item.progress}%</span>
+          <span className="mt-1 text-xs text-white">Téléversement…</span>
         </>
       )}
 
@@ -200,12 +206,6 @@ export const QuestionImageUploader = ({
   maxImages = 10,
   disabled = false,
 }: QuestionImageUploaderProps) => {
-  // TODO(Phase 7): rebrancher l'upload sur la route Bunny
-  // Le pipeline d'upload (Convex HTTP action + token Clerk) est démantelé pendant
-  // la migration. `questionId` reste dans l'API du composant mais l'upload et la
-  // suppression sont désactivés tant que la route Bunny n'est pas rebranchée.
-  // (Le réordonnancement local via `onImagesChange` reste actif.)
-  void questionId
   const [uploadingImages, setUploadingImages] = useState<UploadingImage[]>([])
 
   const sensors = useSensors(
@@ -217,16 +217,76 @@ export const QuestionImageUploader = ({
 
   const canAddMore = images.length + uploadingImages.length < maxImages
 
-  // Gestion du drop (no-op pendant la migration)
+  // Téléverse chaque fichier déposé via le Server Action `uploadQuestionImage`,
+  // puis ajoute le résultat (url + storagePath) à la liste persistée au save.
+  // Updates fonctionnels (`onImagesChange`/`setUploadingImages`) → sûrs même avec
+  // plusieurs uploads en parallèle. La persistance DB et la suppression CDN des
+  // images retirées se font dans `setQuestionImages` à l'enregistrement.
   const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[]) => {
       if (disabled || acceptedFiles.length === 0) return
 
-      toast.info(
-        "Le téléversement est en cours de migration et sera disponible prochainement.",
-      )
+      const remaining = maxImages - images.length - uploadingImages.length
+      const files = acceptedFiles.slice(0, Math.max(0, remaining))
+      if (files.length === 0) {
+        toast.error(`Maximum ${maxImages} images atteint`)
+        return
+      }
+
+      const stamp = Date.now()
+      const queued: UploadingImage[] = files.map((file, i) => ({
+        id: `${stamp}-${i}-${file.name}`,
+        file,
+        preview: URL.createObjectURL(file),
+        progress: 0,
+        status: "uploading",
+      }))
+      setUploadingImages((prev) => [...prev, ...queued])
+
+      for (const item of queued) {
+        const formData = new FormData()
+        formData.append("file", item.file)
+        formData.append("questionId", questionId)
+
+        try {
+          const result = await uploadQuestionImage(formData)
+          if (!result.success) {
+            toast.error(result.error)
+            setUploadingImages((prev) =>
+              prev.map((u) =>
+                u.id === item.id
+                  ? { ...u, status: "error", error: result.error }
+                  : u,
+              ),
+            )
+            continue
+          }
+
+          onImagesChange((prev) => [
+            ...prev,
+            {
+              url: result.url,
+              storagePath: result.storagePath,
+              order: prev.length,
+            },
+          ])
+          setUploadingImages((prev) => {
+            URL.revokeObjectURL(item.preview)
+            return prev.filter((u) => u.id !== item.id)
+          })
+        } catch {
+          toast.error("Échec du téléversement. Réessayez.")
+          setUploadingImages((prev) =>
+            prev.map((u) =>
+              u.id === item.id
+                ? { ...u, status: "error", error: "Erreur réseau" }
+                : u,
+            ),
+          )
+        }
+      }
     },
-    [disabled],
+    [disabled, maxImages, images.length, uploadingImages.length, questionId, onImagesChange],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -257,11 +317,14 @@ export const QuestionImageUploader = ({
     }
   }
 
-  // Supprimer une image (no-op pendant la migration)
-  // TODO(Phase 7): rebrancher la suppression sur la route Bunny (prend `storagePath`)
-  const handleRemove = () => {
-    toast.info(
-      "Le téléversement est en cours de migration et sera disponible prochainement.",
+  // Retire l'image de la liste locale (ré-indexe l'ordre). La suppression réelle
+  // du fichier sur le CDN Bunny est déléguée à `setQuestionImages` au moment de
+  // l'enregistrement (chemins retirés calculés côté serveur).
+  const handleRemove = (storagePath: string) => {
+    onImagesChange((prev) =>
+      prev
+        .filter((img) => img.storagePath !== storagePath)
+        .map((img, index) => ({ ...img, order: index })),
     )
   }
 
@@ -319,7 +382,7 @@ export const QuestionImageUploader = ({
                 <SortableImageItem
                   key={image.storagePath}
                   image={image}
-                  onRemove={() => handleRemove()}
+                  onRemove={() => handleRemove(image.storagePath)}
                   disabled={disabled}
                 />
               ))}
