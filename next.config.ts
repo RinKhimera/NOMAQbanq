@@ -4,19 +4,10 @@ import type { NextConfig } from "next"
 const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["@tabler/icons-react", "lucide-react", "recharts"],
-    // Uploads d'images via Server Actions (avatars, images de questions) : le
-    // défaut 1 Mo est sous notre limite de 5 Mo/fichier. 6 Mo couvre 5 Mo + le
-    // surcoût d'encodage multipart. La taille reste re-validée par fichier côté
-    // serveur (`validateImageFile`) ; ceci n'est qu'un plafond de transport.
-    // ⚠️ Ce plafond est GLOBAL : il s'applique aussi aux 2 Server Actions
-    // PUBLIQUES (`loadRandomQuizQuestions`, `scoreQuizAnswers`), qui acceptent
-    // donc désormais des corps jusqu'à 6 Mo. Le rate-limit IP de ces endpoints
-    // publics (dette F1, avant déploiement public) doit borner cet abus ; à la
-    // bascule prod, envisager de déporter l'upload d'images question vers un
-    // route handler pour revenir au défaut 1 Mo.
-    serverActions: {
-      bodySizeLimit: "6mb",
-    },
+    // NB : plus de `serverActions.bodySizeLimit` — les uploads passent en
+    // presigned POST direct vers S3 (le fichier ne transite plus par les Server
+    // Actions). Retour au défaut, ce qui clôt la dette F1 (les actions publiques
+    // `loadRandomQuizQuestions`/`scoreQuizAnswers` n'acceptent plus 6 Mo de corps).
   },
   images: {
     remotePatterns: [
@@ -33,8 +24,10 @@ const nextConfig: NextConfig = {
         hostname: "images.clerk.dev",
       },
       {
+        // Domaine par défaut de la distribution CloudFront — utile pour tester en
+        // preview avant la bascule DNS (NEXT_PUBLIC_CDN_HOSTNAME=dxxxx.cloudfront.net).
         protocol: "https",
-        hostname: "*.b-cdn.net",
+        hostname: "*.cloudfront.net",
       },
       {
         protocol: "https",
