@@ -1,6 +1,17 @@
 import "server-only"
 
-import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm"
 import { cache } from "react"
 
 import { db } from "@/db"
@@ -285,6 +296,92 @@ export const getTrainingStats = cache(async (): Promise<TrainingStats> => {
     averageScore: row?.averageScore ?? 0,
   }
 })
+
+// ============================================
+// Historique de score (graphique dashboard)
+// ============================================
+
+export type TrainingScoreHistory = {
+  sessions: {
+    sessionId: string
+    score: number
+    completedAt: number
+    questionCount: number
+    domain: string
+  }[]
+  domainPerformance: {
+    domain: string
+    averageScore: number
+    sessionCount: number
+  }[]
+}
+
+/**
+ * Historique de score d'entraînement pour le dashboard : 10 dernières sessions
+ * complétées (ordre chronologique ASC) + score moyen par domaine (top 10).
+ * `domain` null → « Tous domaines » (parité Convex). Remplace
+ * `training.getMyTrainingScoreHistory`. Vide si non connecté.
+ */
+export const getMyTrainingScoreHistory = cache(
+  async (): Promise<TrainingScoreHistory> => {
+    const session = await getCurrentSession()
+    if (!session?.user) return { sessions: [], domainPerformance: [] }
+    const uid = session.user.id
+
+    const completedWhere = and(
+      eq(trainingSessions.userId, uid),
+      eq(trainingSessions.status, "completed"),
+    )
+
+    // 10 dernières complétées : lecture DESC + reverse → ASC chronologique.
+    const recent = await db
+      .select({
+        id: trainingSessions.id,
+        score: trainingSessions.score,
+        completedAt: trainingSessions.completedAt,
+        questionCount: trainingSessions.questionCount,
+        domain: trainingSessions.domain,
+      })
+      .from(trainingSessions)
+      .where(and(completedWhere, isNotNull(trainingSessions.completedAt)))
+      .orderBy(desc(trainingSessions.completedAt))
+      .limit(10)
+
+    const sessions = recent.reverse().map((s) => ({
+      sessionId: s.id,
+      score: s.score ?? 0,
+      completedAt: s.completedAt?.getTime() ?? 0,
+      questionCount: s.questionCount,
+      domain: s.domain ?? "Tous domaines",
+    }))
+
+    // Score moyen par domaine sur toutes les sessions complétées, top 10.
+    const domainKey = sql<string>`coalesce(${trainingSessions.domain}, 'Tous domaines')`
+    const domainRows = await db
+      .select({
+        domain: domainKey,
+        averageScore:
+          sql<number>`coalesce(round(avg(${trainingSessions.score})), 0)`.mapWith(
+            Number,
+          ),
+        sessionCount: sql<number>`count(*)`.mapWith(Number),
+      })
+      .from(trainingSessions)
+      .where(completedWhere)
+      .groupBy(domainKey)
+      .orderBy(desc(sql`avg(${trainingSessions.score})`))
+      .limit(10)
+
+    return {
+      sessions,
+      domainPerformance: domainRows.map((r) => ({
+        domain: r.domain,
+        averageScore: r.averageScore,
+        sessionCount: r.sessionCount,
+      })),
+    }
+  },
+)
 
 // ============================================
 // Domaines + objectifs CMC (config form)

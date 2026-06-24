@@ -29,6 +29,7 @@ import {
   getActiveTrainingSession,
   getAvailableDomains,
   getAvailableObjectifsCMC,
+  getMyTrainingScoreHistory,
   getTrainingHistory,
   getTrainingSessionById,
   getTrainingSessionResults,
@@ -238,6 +239,72 @@ describe("domaines + objectifs (config form)", () => {
   it("getAvailableObjectifsCMC filtre par domaine", async () => {
     const { objectifs } = await getAvailableObjectifsCMC(DOMAIN)
     expect(objectifs.find((o) => o.objectif === OBJ)?.count).toBe(8)
+  })
+})
+
+describe("getMyTrainingScoreHistory (graphique dashboard)", () => {
+  const DASH_DOM = `DASHTRAIN-${suffix}`
+  const ts1 = createId()
+  const ts2 = createId()
+  const ts3 = createId()
+
+  beforeAll(async () => {
+    const now = Date.now()
+    const at = (days: number) => new Date(now - days * 24 * 3600_000)
+    await db.insert(trainingSessions).values([
+      {
+        id: ts1,
+        userId: USER_ID,
+        status: "completed",
+        domain: DASH_DOM,
+        questionCount: 5,
+        score: 60,
+        startedAt: at(10),
+        completedAt: at(10),
+        expiresAt: new Date(now),
+      },
+      {
+        id: ts2,
+        userId: USER_ID,
+        status: "completed",
+        domain: DASH_DOM,
+        questionCount: 5,
+        score: 90,
+        startedAt: at(9),
+        completedAt: at(9),
+        expiresAt: new Date(now),
+      },
+      {
+        id: ts3,
+        userId: USER_ID,
+        status: "completed",
+        domain: null, // → « Tous domaines »
+        questionCount: 5,
+        score: 30,
+        startedAt: at(8),
+        completedAt: at(8),
+        expiresAt: new Date(now),
+      },
+    ])
+  })
+
+  it("sessions en ordre chronologique ASC + domaine null → « Tous domaines »", async () => {
+    asAdmin()
+    const { sessions } = await getMyTrainingScoreHistory()
+    const i1 = sessions.findIndex((s) => s.sessionId === ts1)
+    const i2 = sessions.findIndex((s) => s.sessionId === ts2)
+    const i3 = sessions.findIndex((s) => s.sessionId === ts3)
+    expect(i1).toBeGreaterThanOrEqual(0)
+    expect(i1).toBeLessThan(i2)
+    expect(i2).toBeLessThan(i3)
+    expect(sessions[i3]).toMatchObject({ domain: "Tous domaines", score: 30 })
+  })
+
+  it("domainPerformance : score moyen par domaine", async () => {
+    asAdmin()
+    const { domainPerformance } = await getMyTrainingScoreHistory()
+    const mine = domainPerformance.find((d) => d.domain === DASH_DOM)
+    expect(mine).toMatchObject({ averageScore: 75, sessionCount: 2 }) // round((60+90)/2)
   })
 })
 

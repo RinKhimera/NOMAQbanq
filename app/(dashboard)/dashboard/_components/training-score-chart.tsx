@@ -5,10 +5,9 @@ import { motion } from "motion/react"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { Id } from "@/convex/_generated/dataModel"
 
 interface TrainingSessionItem {
-  sessionId: Id<"trainingParticipations">
+  sessionId: string
   score: number
   completedAt: number
   questionCount: number

@@ -12,11 +12,10 @@ import {
 import { motion } from "motion/react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Id } from "@/convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 
 interface RecentExam {
-  _id: Id<"exams">
+  id: string
   title: string
   startDate: number
   endDate: number
@@ -85,12 +84,12 @@ export const RecentActivityFeed = ({
 
             return (
               <motion.div
-                key={exam._id}
+                key={exam.id}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.4, delay: 0.6 + index * 0.1 }}
               >
-                <Link href={`/dashboard/examen-blanc/${exam._id}/resultats`}>
+                <Link href={`/dashboard/examen-blanc/${exam.id}/resultats`}>
                   <div className="group relative flex items-center gap-4 rounded-xl border border-gray-200/50 bg-white/80 p-4 backdrop-blur-sm transition-all duration-300 hover:border-gray-300 hover:shadow-md dark:border-gray-700/50 dark:bg-gray-900/80 dark:hover:border-gray-600">
                     {/* Timeline dot */}
                     <div className="absolute top-1/2 -left-0.75 -translate-y-1/2">

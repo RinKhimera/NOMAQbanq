@@ -14,21 +14,14 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 interface Exam {
-  _id: string
+  id: string
   title: string
-  questionIds: string[]
-  completionTime: number
 }
 
 interface TrainingStats {
   totalSessions: number
   totalQuestions: number
   averageScore: number
-  recentSessions: Array<{
-    score: number
-    completedAt: number | undefined
-    questionCount: number
-  }>
 }
 
 interface NextActionsPanelProps {

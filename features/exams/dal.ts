@@ -1,4 +1,15 @@
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm"
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  lte,
+  sql,
+} from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
@@ -1010,3 +1021,208 @@ export const getExamLeaderboard = async (
     completedAt: r.completedAt?.getTime() ?? null,
   }))
 }
+
+// ============================================
+// Dashboard étudiant (5.6b)
+// ============================================
+
+export type MyDashboardStats = {
+  availableExamsCount: number
+  completedExamsCount: number
+  averageScore: number
+}
+
+/**
+ * Stats résumé du dashboard étudiant. `availableExamsCount` = nombre d'examens
+ * actifs (sans filtre de fenêtre, parité Convex) si l'utilisateur a un accès
+ * examen actif, sinon 0 — `hasAccess(uid)` interroge l'entitlement réel (pas de
+ * bypass admin, comme l'original). Moyenne sur les participations complétées.
+ * `null` si non connecté. Remplace `examStats.getMyDashboardStats`.
+ */
+export const getMyDashboardStats = cache(
+  async (): Promise<MyDashboardStats | null> => {
+    const session = await getCurrentSession()
+    if (!session?.user) return null
+    const uid = session.user.id
+
+    const hasExamAccess = await hasAccess("exam", uid)
+
+    const [agg] = await db
+      .select({
+        completed:
+          sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted'))`.mapWith(
+            Number,
+          ),
+        averageScore: sql<number>`coalesce(round(avg(${examParticipations.score}) filter (where ${examParticipations.status} in ('completed','auto_submitted'))), 0)`.mapWith(
+          Number,
+        ),
+      })
+      .from(examParticipations)
+      .where(eq(examParticipations.userId, uid))
+
+    let availableExamsCount = 0
+    if (hasExamAccess) {
+      const [c] = await db
+        .select({ n: sql<number>`count(*)`.mapWith(Number) })
+        .from(exams)
+        .where(eq(exams.isActive, true))
+      availableExamsCount = c?.n ?? 0
+    }
+
+    return {
+      availableExamsCount,
+      completedExamsCount: agg?.completed ?? 0,
+      averageScore: agg?.averageScore ?? 0,
+    }
+  },
+)
+
+export type MyRecentExam = {
+  id: string
+  title: string
+  startDate: number
+  endDate: number
+  isCompleted: boolean
+  score: number | null
+  completedAt: number | null
+}
+
+/**
+ * Examens actifs de l'utilisateur (accès examen requis), enrichis du statut de
+ * participation, complétés d'abord (par date desc), 5 max. Remplace
+ * `examStats.getMyRecentExams`. `[]` sans accès / non connecté.
+ */
+export const getMyRecentExams = cache(async (): Promise<MyRecentExam[]> => {
+  const session = await getCurrentSession()
+  if (!session?.user) return []
+  const uid = session.user.id
+
+  if (!(await hasAccess("exam", uid))) return []
+
+  const activeExams = await db
+    .select({
+      id: exams.id,
+      title: exams.title,
+      startDate: exams.startDate,
+      endDate: exams.endDate,
+    })
+    .from(exams)
+    .where(eq(exams.isActive, true))
+    .limit(200)
+  if (activeExams.length === 0) return []
+
+  const examIds = activeExams.map((e) => e.id)
+  const parts = await db
+    .select({
+      examId: examParticipations.examId,
+      status: examParticipations.status,
+      score: examParticipations.score,
+      completedAt: examParticipations.completedAt,
+    })
+    .from(examParticipations)
+    .where(
+      and(
+        eq(examParticipations.userId, uid),
+        inArray(examParticipations.examId, examIds),
+      ),
+    )
+  const partMap = new Map(parts.map((p) => [p.examId, p]))
+
+  return activeExams
+    .map((e) => {
+      const p = partMap.get(e.id)
+      const isCompleted =
+        p?.status === "completed" || p?.status === "auto_submitted"
+      return {
+        id: e.id,
+        title: e.title,
+        startDate: e.startDate.getTime(),
+        endDate: e.endDate.getTime(),
+        isCompleted,
+        score: isCompleted ? (p?.score ?? null) : null,
+        completedAt: p?.completedAt?.getTime() ?? null,
+      }
+    })
+    .sort((a, b) => {
+      if (a.completedAt && b.completedAt) return b.completedAt - a.completedAt
+      if (a.completedAt && !b.completedAt) return -1
+      if (!a.completedAt && b.completedAt) return 1
+      return b.startDate - a.startDate
+    })
+    .slice(0, 5)
+})
+
+export type MyScoreHistoryItem = {
+  examId: string
+  examTitle: string
+  score: number
+  completedAt: number
+}
+
+/**
+ * 10 derniers examens complétés (ordre chronologique ASC pour le graphique).
+ * Lecture DESC + `reverse()`. Remplace `examStats.getMyScoreHistory`.
+ */
+export const getMyScoreHistory = cache(
+  async (): Promise<MyScoreHistoryItem[]> => {
+    const session = await getCurrentSession()
+    if (!session?.user) return []
+    const uid = session.user.id
+
+    const rows = await db
+      .select({
+        examId: examParticipations.examId,
+        examTitle: exams.title,
+        score: examParticipations.score,
+        completedAt: examParticipations.completedAt,
+      })
+      .from(examParticipations)
+      .innerJoin(exams, eq(exams.id, examParticipations.examId))
+      .where(
+        and(
+          eq(examParticipations.userId, uid),
+          inArray(examParticipations.status, ["completed", "auto_submitted"]),
+          isNotNull(examParticipations.completedAt),
+        ),
+      )
+      .orderBy(desc(examParticipations.completedAt))
+      .limit(10)
+
+    return rows.reverse().map((r) => ({
+      examId: r.examId,
+      examTitle: r.examTitle,
+      score: r.score,
+      completedAt: r.completedAt?.getTime() ?? 0,
+    }))
+  },
+)
+
+export type MyAvailableExam = { id: string; title: string }
+
+/**
+ * Examens actifs DANS la fenêtre de dates. Admin : tous ; user : seulement avec
+ * accès examen actif. Sert au panneau « prochaines actions » (compte). Remplace
+ * `exams.getMyAvailableExams`. `[]` sans accès / non connecté.
+ */
+export const getMyAvailableExams = cache(
+  async (): Promise<MyAvailableExam[]> => {
+    const session = await getCurrentSession()
+    if (!session?.user) return []
+    const isAdmin = session.user.role === "admin"
+
+    if (!isAdmin && !(await hasAccess("exam", session.user.id))) return []
+
+    const now = new Date()
+    return db
+      .select({ id: exams.id, title: exams.title })
+      .from(exams)
+      .where(
+        and(
+          eq(exams.isActive, true),
+          lte(exams.startDate, now),
+          gte(exams.endDate, now),
+        ),
+      )
+      .limit(100)
+  },
+)

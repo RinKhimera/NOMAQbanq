@@ -18,10 +18,9 @@ import {
   YAxis,
 } from "recharts"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import type { Id } from "@/convex/_generated/dataModel"
 
 interface TrainingSessionItem {
-  sessionId: Id<"trainingParticipations">
+  sessionId: string
   score: number
   completedAt: number
   questionCount: number
