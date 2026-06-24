@@ -11,8 +11,6 @@ export const stripEmpty = (
 
 const required = (label: string) =>
   z.string({ error: `${label} : requise mais manquante ou vide` })
-const requiredUrl = (label: string) =>
-  z.url({ error: `${label} : URL invalide ou manquante` })
 
 export const buildServerSchema = () =>
   z.object({
@@ -22,7 +20,10 @@ export const buildServerSchema = () =>
       32,
       "BETTER_AUTH_SECRET : au moins 32 caractères requis",
     ),
-    BETTER_AUTH_URL: requiredUrl("BETTER_AUTH_URL"),
+    // Optionnel : sur Vercel, dérivée à l'exécution via `getBaseUrl()`
+    // (lib/base-url.ts) depuis VERCEL_PROJECT_PRODUCTION_URL / VERCEL_BRANCH_URL.
+    // Sert d'override explicite (dev local → http://localhost:3000, ou pin manuel).
+    BETTER_AUTH_URL: z.url({ error: "BETTER_AUTH_URL : URL invalide" }).optional(),
     // Filled in Phase 4 (Better Auth Google provider); optional until then.
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),

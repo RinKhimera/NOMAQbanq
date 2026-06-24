@@ -1,0 +1,38 @@
+<h2>Q3 — L'expérience « vérifiez votre courriel » + renvoi de lien</h2>
+<p class="subtitle">Deux moments en ont besoin : (1) juste après l'inscription, (2) quand un compte non vérifié tente de se connecter (erreur <code>EMAIL_NOT_VERIFIED</code>). Voici l'écran ; la question est <b>où il vit</b>.</p>
+
+<style>
+  .ve-card { max-width:380px; margin:6px auto 0; border:1px solid var(--border,#2a2a2a); border-radius:16px; padding:26px 24px; background:rgba(255,255,255,.02); text-align:center; }
+  .ve-ic { font-size:34px; margin-bottom:10px; }
+  .ve-card h3 { margin:0 0 8px; font-size:17px; }
+  .ve-card p { font-size:13px; line-height:1.5; opacity:.85; margin:0 0 16px; }
+  .ve-card .em { color:#3b82f6; font-weight:600; }
+  .ve-btn { display:block; width:100%; padding:10px; border-radius:10px; font-size:13px; font-weight:600; margin-top:8px; border:1px solid var(--border,#2a2a2a); }
+  .ve-btn.primary { background:linear-gradient(90deg,#2563eb,#4f46e5); color:#fff; border:none; }
+  .ve-foot { font-size:12px; opacity:.6; margin-top:14px; }
+</style>
+
+<div class="ve-card">
+  <div class="ve-ic">📬</div>
+  <h3>Confirmez votre adresse courriel</h3>
+  <p>Nous avons envoyé un lien de confirmation à <span class="em">astridenanou@gmail.com</span>. Cliquez-le pour activer votre compte.</p>
+  <button class="ve-btn primary">Renvoyer le lien</button>
+  <button class="ve-btn">Modifier l'adresse / retour</button>
+  <p class="ve-foot">Pas reçu ? Vérifiez les indésirables, ou renvoyez le lien (limité à quelques essais).</p>
+</div>
+
+<p class="label" style="margin-top:22px;">Où vit cet écran ?</p>
+<div class="options">
+  <div class="option" data-choice="inline" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content"><h3>État « inline » dans les forms (recommandé)</h3>
+      <p>Le form d'inscription bascule vers cet état après succès ; le form de connexion l'affiche sur <code>EMAIL_NOT_VERIFIED</code>. L'adresse vient des champs déjà saisis — <b>jamais dans l'URL</b>. Aucune nouvelle route.</p></div>
+  </div>
+  <div class="option" data-choice="route" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content"><h3>Page dédiée <code>/auth/verifier-courriel</code></h3>
+      <p>Cohérent avec les autres pages auth, partageable/rechargeable. Mais il faut passer l'email (query <code>?email=</code> = petite fuite + falsifiable) ou un state de navigation fragile.</p></div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:18px;font-size:12px;">À noter — j'inclus aussi, sauf objection : activer <code>emailVerification.sendOnSignIn: true</code> (renvoi auto du lien à la connexion d'un compte non vérifié) + un bouton « renvoyer » manuel via <code>authClient.sendVerificationEmail</code>. Le renvoi sera borné comme le reset (anti-spam SES).</p>

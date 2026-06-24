@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import { products, transactions } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
-import { env } from "@/lib/env/server"
+import { getBaseUrl } from "@/lib/base-url"
 import { createId } from "@/lib/ids"
 import { getStripe } from "@/lib/stripe"
 
@@ -299,7 +299,7 @@ const safePath = (p: unknown, fallback: string): string =>
     ? p
     : fallback
 
-const appBase = () => env.BETTER_AUTH_URL.replace(/\/$/, "")
+const appBase = getBaseUrl
 
 export type CheckoutResult = { checkoutUrl: string } | { error: string }
 

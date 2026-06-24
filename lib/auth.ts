@@ -6,11 +6,12 @@ import { admin } from "better-auth/plugins/admin"
 import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { sendResetPassword, sendVerificationEmail } from "@/email"
+import { getBaseUrl } from "@/lib/base-url"
 import { env } from "@/lib/env/server"
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema }),
-  baseURL: env.BETTER_AUTH_URL,
+  baseURL: getBaseUrl(),
   // Serverless: la table rate_limit (déjà créée) survit aux instances. Actif en prod uniquement.
   // customRules : l'endpoint de reset n'est pas couvert par les limites par défaut → on le
   // borne (3 demandes / minute / IP) pour éviter le spam de courriels SES (review M4).

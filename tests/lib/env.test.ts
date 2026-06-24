@@ -31,9 +31,25 @@ describe("loadServerEnv", () => {
   })
 
   it("treats an empty string as missing", () => {
-    expect(() => loadServerEnv({ ...valid, BETTER_AUTH_URL: "" })).toThrow(
-      /BETTER_AUTH_URL/,
+    expect(() => loadServerEnv({ ...valid, DATABASE_URL: "" })).toThrow(
+      /DATABASE_URL/,
     )
+  })
+
+  it("allows BETTER_AUTH_URL to be omitted (derived at runtime)", () => {
+    expect(
+      loadServerEnv({
+        DATABASE_URL: valid.DATABASE_URL,
+        DATABASE_URL_UNPOOLED: valid.DATABASE_URL_UNPOOLED,
+        BETTER_AUTH_SECRET: valid.BETTER_AUTH_SECRET,
+      }).BETTER_AUTH_URL,
+    ).toBeUndefined()
+  })
+
+  it("rejects a malformed BETTER_AUTH_URL", () => {
+    expect(() =>
+      loadServerEnv({ ...valid, BETTER_AUTH_URL: "not-a-url" }),
+    ).toThrow(/BETTER_AUTH_URL/)
   })
 
   it("rejects a BETTER_AUTH_SECRET shorter than 32 chars", () => {

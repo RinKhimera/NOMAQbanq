@@ -1,10 +1,8 @@
 import { ArrowRight, Shield, Sparkles, Zap } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
-
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-
 import { SignInForm } from "./_components/sign-in-form"
 
 export default function ConnexionPage() {
@@ -26,7 +24,11 @@ export default function ConnexionPage() {
               <h1 className="font-display text-display-lg leading-tight text-gray-900 dark:text-white">
                 Bon retour !
                 <span className="gradient-text block">Continuez votre</span>
-                <span className="gradient-text block">apprentissage.</span>
+                {/* pb : le line-height serré (0.95) + background-clip:text rognent
+                    les jambages (p, g) du dégradé — on rend la zone de peinture. */}
+                <span className="gradient-text block pb-[0.2em]">
+                  apprentissage.
+                </span>
               </h1>
 
               <p className="text-body-lg max-w-lg leading-relaxed text-gray-600 dark:text-gray-300">
