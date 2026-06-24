@@ -40,7 +40,6 @@ const eslintConfig = defineConfig([
     "**/dist/**",
     "**/build/**",
     "**/coverage/**",
-    "**/convex/_generated/**",
     "**/*.tmp",
     "**/*.temp",
     ".env*",

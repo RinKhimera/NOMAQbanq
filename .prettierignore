@@ -3,7 +3,6 @@ out
 build
 node_modules
 bun.lock
-convex/_generated
 .agents
 coverage
 e2e/test-results
