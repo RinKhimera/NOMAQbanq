@@ -46,12 +46,6 @@ export const buildServerSchema = () =>
     // sans lui la route `/api/e2e` répond 404. NE JAMAIS définir en prod Vercel
     // (la route refuse aussi si `VERCEL_ENV === "production"`).
     E2E_RESET_SECRET: z.string().optional(),
-    // Bunny.net (stockage médias avatars/images questions) — optionnelles :
-    // l'app démarre sans, `getBunnyConfig()` lève une erreur claire à l'usage si
-    // une valeur manque. Les trois vont ensemble (cf. `.refine` ci-dessous).
-    BUNNY_STORAGE_ZONE_NAME: z.string().optional(),
-    BUNNY_STORAGE_API_KEY: z.string().optional(),
-    BUNNY_CDN_HOSTNAME: z.string().optional(),
     // AWS S3 (stockage médias) — optionnelles : l'app démarre sans, `lib/aws.ts`
     // lève une erreur claire à l'usage. ROLE_ARN+BUCKET vont ensemble (refine).
     // Auth via OIDC (AWS_ROLE_ARN) en prod/preview. AWS_REGION pinné (Vercel le
@@ -70,24 +64,6 @@ export const buildServerSchema = () =>
         "STRIPE_WEBHOOK_SECRET : requise dès que STRIPE_SECRET_KEY est définie (sinon paiements encaissés sans fulfillment)",
       path: ["STRIPE_WEBHOOK_SECRET"],
     })
-    // Garde-fou : la config Bunny est tout-ou-rien. Dès qu'une des trois vars est
-    // présente, les trois doivent l'être (sinon `getBunnyConfig` lèverait à
-    // l'usage avec une config partielle trompeuse).
-    .refine(
-      (e) => {
-        const set = [
-          e.BUNNY_STORAGE_ZONE_NAME,
-          e.BUNNY_STORAGE_API_KEY,
-          e.BUNNY_CDN_HOSTNAME,
-        ].filter(Boolean).length
-        return set === 0 || set === 3
-      },
-      {
-        error:
-          "Configuration Bunny incomplète : BUNNY_STORAGE_ZONE_NAME, BUNNY_STORAGE_API_KEY et BUNNY_CDN_HOSTNAME doivent être définies ensemble",
-        path: ["BUNNY_STORAGE_ZONE_NAME"],
-      },
-    )
     // Garde-fou : ROLE_ARN et BUCKET vont ensemble. (AWS_REGION exclu du refine :
     // Vercel le définit automatiquement, donc sa présence seule n'indique rien.)
     .refine(
