@@ -14,15 +14,16 @@ import {
 } from "@/features/users/dal"
 import { profileSchema } from "@/features/users/schemas"
 import { requireRole, requireSession } from "@/lib/auth-guards"
+import { createPresignedUpload } from "@/lib/aws"
+import { cdnUrl } from "@/lib/cdn"
 import {
   avatarStoragePathFromUrl,
   generateAvatarPath,
   getExtensionFromMimeType,
-  isBunnyConfigured,
-  tryDeleteFromBunny,
-  uploadToBunny,
+  isStorageConfigured,
+  tryDeleteFromStorage,
   validateImageFile,
-} from "@/lib/bunny"
+} from "@/lib/storage"
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
 
 export type UpdateProfileResult = { success: boolean; error?: string }
@@ -106,37 +107,32 @@ export const updateProfile = async (input: {
   return { success: true }
 }
 
-export type UploadAvatarResult =
-  | { success: true; url: string }
+export type CreateUploadResult =
+  | {
+      success: true
+      url: string
+      fields: Record<string, string>
+      storagePath: string
+    }
   | { success: false; error: string }
 
 /**
- * Téléverse l'avatar de l'utilisateur courant vers Bunny et met à jour
- * `user.image`. Server Action (CSRF + auth intégrés ; même origine, pas de CORS).
- * Remplace la route Convex HTTP `/api/upload/avatar`.
- *
- * Sécurité : `userId` vient de la session (jamais du client) → chemin de
- * stockage non falsifiable. Validation content-type/taille avant upload.
- * Rate-limit 5/h consommé atomiquement. L'ancien avatar n'est supprimé du CDN
- * que s'il était hébergé chez nous (best-effort).
+ * Étape 1 de l'upload avatar : garde session → validation type/taille →
+ * rate-limit (5/h) → presigned POST S3 (`avatars/{userId}/…`). Le `userId` vient
+ * de la session (jamais du client) → chemin non falsifiable. Le fichier ne
+ * transite PAS par le serveur.
  */
-export const uploadAvatar = async (
-  formData: FormData,
-): Promise<UploadAvatarResult> => {
+export const createAvatarUpload = async (input: {
+  contentType: string
+  size: number
+}): Promise<CreateUploadResult> => {
   const session = await requireSession()
   const userId = session.user.id
 
-  const file = formData.get("file")
-  if (!(file instanceof File)) {
-    return { success: false, error: "Fichier manquant" }
-  }
+  const validationError = validateImageFile(input.contentType, input.size)
+  if (validationError) return { success: false, error: validationError }
 
-  const validationError = validateImageFile(file.type, file.size)
-  if (validationError) {
-    return { success: false, error: validationError }
-  }
-
-  if (!isBunnyConfigured()) {
+  if (!isStorageConfigured()) {
     return {
       success: false,
       error: "Le téléversement d'images n'est pas configuré.",
@@ -151,42 +147,69 @@ export const uploadAvatar = async (
     }
   }
 
-  // Ancien avatar (pour suppression CDN au remplacement).
+  const storagePath = generateAvatarPath(
+    userId,
+    getExtensionFromMimeType(input.contentType),
+  )
+  try {
+    const { url, fields } = await createPresignedUpload(
+      storagePath,
+      input.contentType,
+    )
+    return { success: true, url, fields, storagePath }
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[createAvatarUpload]", error)
+    }
+    return { success: false, error: "Erreur serveur. Réessayez." }
+  }
+}
+
+// Un chemin d'avatar légitime : `avatars/{id}/{timestamp}.{ext}`.
+const AVATAR_PATH_RE = /^avatars\/[A-Za-z0-9_-]{1,64}\/\d+\.(jpg|png|webp)$/
+
+/**
+ * Étape 2 : après l'upload S3 réussi, persiste `user.image` = `cdnUrl(storagePath)`.
+ * Le `storagePath` DOIT appartenir au préfixe de l'utilisateur courant (re-vérifié)
+ * → non falsifiable. Supprime l'ancien avatar s'il nous appartient. En cas
+ * d'échec DB, nettoie l'objet S3 fraîchement uploadé (pas d'orphelin).
+ */
+export const confirmAvatarUpload = async (input: {
+  storagePath: string
+}): Promise<UpdateProfileResult & { url?: string }> => {
+  const session = await requireSession()
+  const userId = session.user.id
+
+  if (
+    !AVATAR_PATH_RE.test(input.storagePath) ||
+    !input.storagePath.startsWith(`avatars/${userId}/`)
+  ) {
+    return { success: false, error: "Chemin d'avatar invalide" }
+  }
+
   const [current] = await db
     .select({ image: user.image })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1)
 
-  const storagePath = generateAvatarPath(
-    userId,
-    getExtensionFromMimeType(file.type),
-  )
-
-  const result = await uploadToBunny(await file.arrayBuffer(), storagePath)
-  if (!result.success) {
-    return { success: false, error: result.error }
-  }
-
+  const newUrl = cdnUrl(input.storagePath)
   try {
-    await db.update(user).set({ image: result.url }).where(eq(user.id, userId))
+    await db.update(user).set({ image: newUrl }).where(eq(user.id, userId))
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
-      console.error("[uploadAvatar]", error)
+      console.error("[confirmAvatarUpload]", error)
     }
-    // L'objet est déjà sur le CDN mais le profil n'a pas été mis à jour :
-    // nettoyer pour ne pas laisser d'orphelin.
-    await tryDeleteFromBunny(storagePath)
+    await tryDeleteFromStorage(input.storagePath)
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 
-  // Supprime l'ancien avatar uniquement s'il nous appartient (CDN Bunny).
   const oldPath = avatarStoragePathFromUrl(current?.image)
-  if (oldPath && oldPath !== storagePath) {
-    await tryDeleteFromBunny(oldPath)
+  if (oldPath && oldPath !== input.storagePath) {
+    await tryDeleteFromStorage(oldPath)
   }
 
   revalidatePath("/dashboard/profil")
   revalidatePath("/admin/profil")
-  return { success: true, url: result.url }
+  return { success: true, url: newUrl }
 }

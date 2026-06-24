@@ -18,7 +18,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider"
-import { uploadAvatar } from "@/features/users/actions"
+import { confirmAvatarUpload, createAvatarUpload } from "@/features/users/actions"
+import { cdnUrl } from "@/lib/cdn"
 import { getCroppedImageBlob } from "@/lib/crop-image"
 import { cn } from "@/lib/utils"
 
@@ -103,17 +104,39 @@ export const AvatarUploader = ({
     setIsUploading(true)
     try {
       const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels)
-      const formData = new FormData()
-      formData.append("file", blob, "avatar.jpg")
 
-      const result = await uploadAvatar(formData)
-      if (!result.success) {
-        toast.error(result.error)
+      // Étape 1 : presigned POST. Étape 2 : POST direct vers S3. Étape 3 :
+      // `confirmAvatarUpload` persiste `user.image` (re-vérifie le préfixe).
+      const presign = await createAvatarUpload({
+        contentType: blob.type || "image/jpeg",
+        size: blob.size,
+      })
+      if (!presign.success) {
+        toast.error(presign.error)
         return
       }
 
-      setUploadedUrl(result.url)
-      onAvatarChange?.(result.url)
+      const s3Form = new FormData()
+      Object.entries(presign.fields).forEach(([k, v]) => s3Form.append(k, v))
+      s3Form.append("file", blob, "avatar.jpg") // "file" en dernier
+
+      const s3Res = await fetch(presign.url, { method: "POST", body: s3Form })
+      if (!s3Res.ok) {
+        toast.error("Échec du téléversement. Réessayez.")
+        return
+      }
+
+      const confirmed = await confirmAvatarUpload({
+        storagePath: presign.storagePath,
+      })
+      if (!confirmed.success) {
+        toast.error(confirmed.error ?? "Erreur serveur. Réessayez.")
+        return
+      }
+
+      const newUrl = cdnUrl(presign.storagePath)
+      setUploadedUrl(newUrl)
+      onAvatarChange?.(newUrl)
       toast.success("Photo de profil mise à jour")
 
       setCropDialogOpen(false)

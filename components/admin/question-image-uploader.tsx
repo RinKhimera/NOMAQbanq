@@ -36,7 +36,7 @@ import {
 } from "react"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
-import { uploadQuestionImage } from "@/features/questions/actions"
+import { createQuestionImageUpload } from "@/features/questions/actions"
 import { cdnUrl } from "@/lib/cdn"
 import { cn } from "@/lib/utils"
 
@@ -258,19 +258,46 @@ export const QuestionImageUploader = ({
       queued.forEach((q) => previewUrlsRef.current.add(q.preview))
       setUploadingImages((prev) => [...prev, ...queued])
 
-      for (const item of queued) {
-        const formData = new FormData()
-        formData.append("file", item.file)
-        formData.append("questionId", questionId)
-
+      for (let i = 0; i < queued.length; i++) {
+        const item = queued[i]
         try {
-          const result = await uploadQuestionImage(formData)
-          if (!result.success) {
-            toast.error(result.error)
+          // Étape 1 : presigned POST (garde admin + rate-limit + validation
+          // serveur). Étape 2 : POST direct du fichier vers S3. Étape 3 : la
+          // persistance DB est faite par `setQuestionImages` au save.
+          const presign = await createQuestionImageUpload({
+            questionId,
+            imageIndex: images.length + i,
+            contentType: item.file.type,
+            size: item.file.size,
+          })
+          if (!presign.success) {
+            toast.error(presign.error)
             setUploadingImages((prev) =>
               prev.map((u) =>
                 u.id === item.id
-                  ? { ...u, status: "error", error: result.error }
+                  ? { ...u, status: "error", error: presign.error }
+                  : u,
+              ),
+            )
+            continue
+          }
+
+          const s3Form = new FormData()
+          Object.entries(presign.fields).forEach(([k, v]) =>
+            s3Form.append(k, v),
+          )
+          s3Form.append("file", item.file) // "file" en dernier (exigence S3 POST)
+
+          const s3Res = await fetch(presign.url, {
+            method: "POST",
+            body: s3Form,
+          })
+          if (!s3Res.ok) {
+            toast.error("Échec du téléversement. Réessayez.")
+            setUploadingImages((prev) =>
+              prev.map((u) =>
+                u.id === item.id
+                  ? { ...u, status: "error", error: "Échec S3" }
                   : u,
               ),
             )
@@ -282,10 +309,9 @@ export const QuestionImageUploader = ({
             {
               // URL d'affichage dérivée du CDN public (`cdnUrl`) — MÊME hôte que
               // l'affichage au reload (`question-form-page` mappe aussi via
-              // `cdnUrl`). Ne pas utiliser `result.url` (hôte serveur
-              // `BUNNY_CDN_HOSTNAME`), qui pourrait diverger et casser l'image.
-              url: cdnUrl(result.storagePath),
-              storagePath: result.storagePath,
+              // `cdnUrl`).
+              url: cdnUrl(presign.storagePath),
+              storagePath: presign.storagePath,
               order: prev.length,
             },
           ])

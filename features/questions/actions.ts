@@ -6,15 +6,15 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
+import { createPresignedUpload } from "@/lib/aws"
+import { createId } from "@/lib/ids"
 import {
   generateQuestionImagePath,
   getExtensionFromMimeType,
-  isBunnyConfigured,
-  tryDeleteFromBunny,
-  uploadToBunny,
+  isStorageConfigured,
+  tryDeleteFromStorage,
   validateImageFile,
-} from "@/lib/bunny"
-import { createId } from "@/lib/ids"
+} from "@/lib/storage"
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
 
 import {
@@ -321,7 +321,7 @@ export const setQuestionImages = async (
     // Supprime du CDN Bunny les images retirées (best-effort, après commit DB).
     // Un échec de suppression CDN ne doit pas faire échouer la persistance.
     if (removedPaths.length > 0) {
-      await Promise.all(removedPaths.map((p) => tryDeleteFromBunny(p)))
+      await Promise.all(removedPaths.map((p) => tryDeleteFromStorage(p)))
     }
     revalidatePath("/admin/questions")
     return { success: true }
@@ -338,49 +338,47 @@ export const setQuestionImages = async (
 // d'URL sûrs ; on rejette tout le reste avant de l'interpoler dans le chemin.
 const QUESTION_ID_RE = /^[A-Za-z0-9_-]{1,64}$/
 
-export type UploadQuestionImageResult =
-  | { success: true; url: string; storagePath: string }
+export type CreateQuestionImageUploadResult =
+  | {
+      success: true
+      url: string
+      fields: Record<string, string>
+      storagePath: string
+    }
   | { success: false; error: string }
 
 /**
- * [Admin] Téléverse une image de question vers Bunny et renvoie son `storagePath`.
- * NE persiste PAS en base : `setQuestionImages` enregistre la liste finale au
- * moment de l'enregistrement du formulaire (et nettoie les chemins retirés).
- * Remplace la route Convex HTTP `/api/upload/question-image`.
- *
- * Sécurité : garde admin ; `questionId` validé (anti path-traversal) et son
- * existence vérifiée ; extension dérivée du MIME (jamais de l'input client) ;
- * rate-limit 50/h consommé atomiquement.
+ * [Admin] Étape 1 de l'upload d'image question : garde admin → questionId validé
+ * (anti path-traversal) + existant → validation type/taille → rate-limit (50/h) →
+ * presigned POST S3 (`questions/{questionId}/…`). Ne persiste PAS : la liste
+ * finale est enregistrée par `setQuestionImages` au save du formulaire. Le fichier
+ * ne transite PAS par le serveur.
  */
-export const uploadQuestionImage = async (
-  formData: FormData,
-): Promise<UploadQuestionImageResult> => {
+export const createQuestionImageUpload = async (input: {
+  questionId: string
+  imageIndex: number
+  contentType: string
+  size: number
+}): Promise<CreateQuestionImageUploadResult> => {
   const session = await requireRole(["admin"])
 
-  const file = formData.get("file")
-  const questionId = formData.get("questionId")
-  const rawIndex = formData.get("imageIndex")
-
-  if (!(file instanceof File)) {
-    return { success: false, error: "Fichier manquant" }
-  }
-  if (typeof questionId !== "string" || !QUESTION_ID_RE.test(questionId)) {
+  if (!QUESTION_ID_RE.test(input.questionId)) {
     return { success: false, error: "Question invalide" }
   }
   const imageIndex = Math.max(
     0,
     Math.min(
       999,
-      Number.parseInt(typeof rawIndex === "string" ? rawIndex : "", 10) || 0,
+      Number.isFinite(input.imageIndex) ? Math.trunc(input.imageIndex) : 0,
     ),
   )
 
-  const validationError = validateImageFile(file.type, file.size)
+  const validationError = validateImageFile(input.contentType, input.size)
   if (validationError) {
     return { success: false, error: validationError }
   }
 
-  if (!isBunnyConfigured()) {
+  if (!isStorageConfigured()) {
     return {
       success: false,
       error: "Le téléversement d'images n'est pas configuré.",
@@ -391,7 +389,7 @@ export const uploadQuestionImage = async (
   const [q] = await db
     .select({ id: questions.id })
     .from(questions)
-    .where(and(eq(questions.id, questionId), isNull(questions.deletedAt)))
+    .where(and(eq(questions.id, input.questionId), isNull(questions.deletedAt)))
     .limit(1)
   if (!q) {
     return { success: false, error: "Question introuvable" }
@@ -406,15 +404,18 @@ export const uploadQuestionImage = async (
   }
 
   const storagePath = generateQuestionImagePath(
-    questionId,
+    input.questionId,
     imageIndex,
-    getExtensionFromMimeType(file.type),
+    getExtensionFromMimeType(input.contentType),
   )
-
-  const result = await uploadToBunny(await file.arrayBuffer(), storagePath)
-  if (!result.success) {
-    return { success: false, error: result.error }
+  try {
+    const { url, fields } = await createPresignedUpload(
+      storagePath,
+      input.contentType,
+    )
+    return { success: true, url, fields, storagePath }
+  } catch (error) {
+    logDev("[createQuestionImageUpload]", error)
+    return { success: false, error: "Erreur serveur. Réessayez." }
   }
-
-  return { success: true, url: result.url, storagePath: result.storagePath }
 }
