@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { getAccessStatus, getAvailableProducts } from "@/features/payments/dal"
 import TarifsPageClient from "./_components/tarifs-page-client"
 
 export const metadata: Metadata = {
@@ -15,6 +16,11 @@ export const metadata: Metadata = {
   },
 }
 
-export default function TarifsPage() {
-  return <TarifsPageClient />
+export default async function TarifsPage() {
+  // Produits publics + accès courant (null si visiteur non connecté).
+  const [products, accessStatus] = await Promise.all([
+    getAvailableProducts(),
+    getAccessStatus(),
+  ])
+  return <TarifsPageClient products={products} accessStatus={accessStatus} />
 }

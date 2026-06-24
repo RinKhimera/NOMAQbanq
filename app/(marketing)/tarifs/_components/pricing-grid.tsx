@@ -1,47 +1,42 @@
 "use client"
 
-import { useAction, useQuery } from "convex/react"
-import { ConvexError } from "convex/values"
 import { AlertCircle, PackageX, Sparkles, Zap } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
+
 import {
   AccessBadge,
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
 import { PremiumPricingCard } from "@/components/shared/payments/premium-pricing-card"
 import { PricingCard } from "@/components/shared/payments/pricing-card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { api } from "@/convex/_generated/api"
-import type { ErrorCode } from "@/convex/lib/errors"
+import { createStripeCheckout } from "@/features/payments/actions"
+import type { AccessStatus, ProductView } from "@/features/payments/dal"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { cn } from "@/lib/utils"
 
 type AccessFilter = "all" | "exam" | "training"
 
-export const PricingGrid = () => {
+interface PricingGridProps {
+  products: ProductView[]
+  accessStatus: AccessStatus | null
+}
+
+export const PricingGrid = ({ products, accessStatus }: PricingGridProps) => {
   const [filter, setFilter] = useState<AccessFilter>("all")
   const [loadingProduct, setLoadingProduct] = useState<string | null>(null)
   const router = useRouter()
 
   const { isAuthenticated, isLoading: isAuthLoading } = useCurrentUser()
-  const products = useQuery(api.payments.getAvailableProducts)
-  const accessStatus = useQuery(
-    api.payments.getMyAccessStatus,
-    isAuthenticated ? {} : "skip",
-  )
-  const createCheckout = useAction(api.stripe.createCheckoutSession)
 
   const handlePurchase = async (productCode: string) => {
-    // Attendre que l'état d'authentification soit déterminé
-    if (isAuthLoading) {
-      return
-    }
+    // Attendre que l'état d'authentification soit déterminé.
+    if (isAuthLoading) return
 
-    // Rediriger vers l'authentification si non connecté
+    // Rediriger vers l'inscription si non connecté.
     if (!isAuthenticated) {
       router.push("/auth/sign-up")
       return
@@ -49,36 +44,19 @@ export const PricingGrid = () => {
 
     setLoadingProduct(productCode)
     try {
-      const { checkoutUrl } = await createCheckout({
-        productCode: productCode as
-          | "exam_access"
-          | "training_access"
-          | "exam_access_promo"
-          | "training_access_promo"
-          | "premium_access",
-        successUrl: `${window.location.origin}/dashboard/payment/success`,
-        cancelUrl: `${window.location.origin}/tarifs`,
+      const res = await createStripeCheckout({
+        productCode,
+        successPath: "/dashboard/payment/success",
+        cancelPath: "/tarifs",
       })
-
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl
+      if ("error" in res) {
+        toast.error(res.error)
+        return
       }
-    } catch (error) {
-      console.error("Erreur lors de la création du checkout:", error)
-
-      // Gérer l'erreur d'authentification (défense en profondeur)
-      if (error instanceof ConvexError) {
-        const data = error.data as { code?: ErrorCode; message?: string }
-        if (data.code === "UNAUTHENTICATED") {
-          router.push("/auth/sign-up")
-          return
-        }
-      }
-
+      window.location.href = res.checkoutUrl
+    } catch {
       if (!navigator.onLine) {
         toast.error("Pas de connexion internet. Vérifiez votre réseau.")
-      } else if (error instanceof Error && error.message) {
-        toast.error(error.message)
       } else {
         toast.error("Une erreur est survenue. Veuillez réessayer.")
       }
@@ -112,33 +90,6 @@ export const PricingGrid = () => {
     return accessType === "exam"
       ? accessStatus.examAccess
       : accessStatus.trainingAccess
-  }
-
-  if (!products) {
-    return (
-      <section className="py-16">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-12 flex justify-center">
-            <Skeleton className="h-12 w-80 rounded-full" />
-          </div>
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="rounded-3xl border p-8">
-                <Skeleton className="mb-4 h-8 w-32" />
-                <Skeleton className="mb-2 h-12 w-24" />
-                <Skeleton className="mb-6 h-4 w-full" />
-                <div className="space-y-3">
-                  {[...Array(4)].map((_, j) => (
-                    <Skeleton key={j} className="h-4 w-full" />
-                  ))}
-                </div>
-                <Skeleton className="mt-8 h-14 w-full rounded-2xl" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    )
   }
 
   if (products.length === 0) {
@@ -291,7 +242,7 @@ export const PricingGrid = () => {
         >
           {sortedProducts?.map((product, index) => (
             <PricingCard
-              key={product._id}
+              key={product.id}
               product={product}
               isPopular={isPopular(product.code)}
               currentAccess={getCurrentAccess(product.accessType)}

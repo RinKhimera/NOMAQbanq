@@ -30,7 +30,7 @@ vi.mock("@/lib/format", () => ({
 }))
 
 const bundleProduct = {
-  _id: "prod_bundle",
+  id: "prod_bundle",
   code: "combo-180",
   name: "Pack Premium 6 mois",
   description: "Accès complet examens + entraînement pendant 6 mois",

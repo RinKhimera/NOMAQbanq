@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 import { AccessBadge, getAccessStatus } from "./access-badge"
 
 interface Product {
-  _id: string
+  id: string
   code: string
   name: string
   description: string

@@ -1,13 +1,13 @@
 "use client"
 
-import { useAction, useQuery } from "convex/react"
 import { ArrowRight, Brain, Check, Loader2, Lock, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { useActionState, useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { api } from "@/convex/_generated/api"
+import { createStripeCheckout } from "@/features/payments/actions"
+import type { ProductView } from "@/features/payments/dal"
 import { formatCurrency } from "@/lib/format"
 
 const FEATURES = [
@@ -19,34 +19,27 @@ const FEATURES = [
   "Suivi de progression en temps réel",
 ]
 
-export const TrainingPaywall = () => {
-  const products = useQuery(api.payments.getAvailableProducts)
-  const createCheckout = useAction(api.stripe.createCheckoutSession)
-
-  // Find the training product (non-promo first, then promo as backup)
-  const trainingProduct =
-    products?.find(
-      (p) => p.accessType === "training" && !p.code.includes("promo"),
-    ) ?? products?.find((p) => p.accessType === "training")
-
+export const TrainingPaywall = ({
+  product,
+}: {
+  product: ProductView | null
+}) => {
   const [, startTransition] = useTransition()
   const [, purchaseAction, isPending] = useActionState(async () => {
-    if (!trainingProduct) return null
+    if (!product) return null
 
     try {
-      const { checkoutUrl } = await createCheckout({
-        productCode: trainingProduct.code as
-          | "training_access"
-          | "training_access_promo",
-        successUrl: `${window.location.origin}/dashboard/entrainement`,
-        cancelUrl: `${window.location.origin}/dashboard/entrainement`,
+      const res = await createStripeCheckout({
+        productCode: product.code,
+        successPath: "/dashboard/entrainement",
+        cancelPath: "/dashboard/entrainement",
       })
-
-      if (checkoutUrl) {
-        window.location.href = checkoutUrl
+      if ("error" in res) {
+        toast.error(res.error)
+        return null
       }
-    } catch (error) {
-      console.error("Erreur lors de la création du checkout:", error)
+      window.location.href = res.checkoutUrl
+    } catch {
       toast.error("Une erreur est survenue. Veuillez réessayer.")
     }
 
@@ -115,7 +108,7 @@ export const TrainingPaywall = () => {
               </div>
 
               {/* Price section */}
-              {trainingProduct ? (
+              {product ? (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -125,12 +118,12 @@ export const TrainingPaywall = () => {
                   <div className="mb-2 flex items-center justify-center gap-2">
                     <Sparkles className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                     <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
-                      Accès {trainingProduct.durationDays} jours
+                      Accès {product.durationDays} jours
                     </span>
                   </div>
                   <div className="flex items-baseline justify-center gap-2">
                     <span className="font-display text-5xl font-black text-emerald-600 dark:text-emerald-400">
-                      {formatCurrency(trainingProduct.priceCAD)}
+                      {formatCurrency(product.priceCAD)}
                     </span>
                     <span className="text-lg text-gray-500 dark:text-gray-400">
                       CAD
@@ -150,7 +143,7 @@ export const TrainingPaywall = () => {
               <div className="space-y-4">
                 <Button
                   onClick={() => startTransition(purchaseAction)}
-                  disabled={isPending || !trainingProduct}
+                  disabled={isPending || !product}
                   size="lg"
                   className="h-14 w-full rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30"
                 >

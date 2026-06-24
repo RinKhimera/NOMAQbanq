@@ -30,7 +30,7 @@ vi.mock("@/lib/format", () => ({
 }))
 
 const baseProduct = {
-  _id: "prod_1",
+  id: "prod_1",
   code: "exam-30",
   name: "Accès Examens 30 jours",
   description: "Accès complet aux examens simulés pendant 30 jours",
@@ -40,7 +40,7 @@ const baseProduct = {
 }
 
 const trainingProduct = {
-  _id: "prod_2",
+  id: "prod_2",
   code: "training-30",
   name: "Accès Entraînement 30 jours",
   description: "Accès complet à la banque d'entraînement",

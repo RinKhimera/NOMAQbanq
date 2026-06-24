@@ -1,4 +1,4 @@
-import { hasAccess } from "@/features/payments/dal"
+import { getAvailableProducts, hasAccess } from "@/features/payments/dal"
 import {
   getActiveTrainingSession,
   getAvailableDomains,
@@ -15,7 +15,15 @@ import { TrainingPaywall } from "./_components/training-paywall"
 // interactions (création, réponses, pagination) passent par des Server Actions.
 export default async function EntrainementPage() {
   if (!(await hasAccess("training"))) {
-    return <TrainingPaywall />
+    // Produit d'accès training (non-promo d'abord, promo en repli).
+    const products = await getAvailableProducts()
+    const trainingProduct =
+      products.find(
+        (p) => p.accessType === "training" && !p.code.includes("promo"),
+      ) ??
+      products.find((p) => p.accessType === "training") ??
+      null
+    return <TrainingPaywall product={trainingProduct} />
   }
 
   const [activeSession, domains, objectifs, stats, initialHistory] =
