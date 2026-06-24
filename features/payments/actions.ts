@@ -6,6 +6,9 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import { products, transactions } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
+import { env } from "@/lib/env/server"
+import { createId } from "@/lib/ids"
+import { getStripe } from "@/lib/stripe"
 
 import {
   getAccessStatus,
@@ -280,5 +283,184 @@ export const deleteManualTransaction = async (
       console.error("[deleteManualTransaction]", error)
     }
     return { success: false, error: "Erreur serveur. Réessayez." }
+  }
+}
+
+// ============================================
+// Stripe (checkout / vérification / portail)
+// ============================================
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+// N'accepte qu'un chemin interne (anti open-redirect via les URLs Stripe) :
+// commence par "/" mais pas "//" (qui serait un //host externe).
+const safePath = (p: unknown, fallback: string): string =>
+  typeof p === "string" && p.startsWith("/") && !p.startsWith("//")
+    ? p
+    : fallback
+
+const appBase = () => env.BETTER_AUTH_URL.replace(/\/$/, "")
+
+export type CheckoutResult = { checkoutUrl: string } | { error: string }
+
+/**
+ * Crée une session Stripe Checkout (paiement unique) pour le produit demandé et
+ * insère la transaction `pending`. Remplace `stripe.createCheckoutSession` Convex.
+ * `successPath`/`cancelPath` sont des chemins internes (validés) ; les URLs absolues
+ * sont reconstruites côté serveur depuis `BETTER_AUTH_URL`. L'accès n'est accordé
+ * qu'au webhook (`checkout.session.completed`).
+ */
+export const createStripeCheckout = async (input: {
+  productCode: string
+  successPath: string
+  cancelPath: string
+}): Promise<CheckoutResult> => {
+  const session = await requireSession()
+
+  const codes = products.code.enumValues as readonly string[]
+  if (!codes.includes(input.productCode)) return { error: "Produit invalide" }
+  const productCode =
+    input.productCode as (typeof products.code.enumValues)[number]
+
+  const [product] = await db
+    .select({
+      id: products.id,
+      stripePriceId: products.stripePriceId,
+      priceCad: products.priceCad,
+      accessType: products.accessType,
+      durationDays: products.durationDays,
+      isCombo: products.isCombo,
+      isActive: products.isActive,
+    })
+    .from(products)
+    .where(eq(products.code, productCode))
+    .orderBy(asc(products.id))
+    .limit(1)
+  if (!product) return { error: "Produit introuvable" }
+  if (!product.isActive) return { error: "Ce produit n'est plus disponible" }
+
+  try {
+    const stripe = getStripe()
+    const base = appBase()
+    const checkout = await stripe.checkout.sessions.create({
+      mode: "payment",
+      customer_email: session.user.email,
+      // Force la création d'un customer Stripe (nécessaire au portail de facturation).
+      customer_creation: "always",
+      line_items: [{ price: product.stripePriceId, quantity: 1 }],
+      metadata: {
+        userId: session.user.id,
+        productId: product.id,
+        productCode,
+        accessType: product.accessType,
+        durationDays: String(product.durationDays),
+        isCombo: product.isCombo ? "true" : "false",
+      },
+      success_url: `${base}${safePath(input.successPath, "/dashboard")}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${base}${safePath(input.cancelPath, "/tarifs")}`,
+      allow_promotion_codes: true,
+    })
+    if (!checkout.url) {
+      return { error: "Échec de création de la session de paiement" }
+    }
+
+    const now = new Date()
+    await db.insert(transactions).values({
+      id: createId(),
+      userId: session.user.id,
+      productId: product.id,
+      type: "stripe",
+      status: "pending",
+      amountPaid: product.priceCad,
+      currency: "CAD",
+      stripeSessionId: checkout.id,
+      accessType: product.accessType,
+      durationDays: product.durationDays,
+      // Provisoire : l'expiration définitive est recalculée au fulfillment (webhook).
+      accessExpiresAt: new Date(now.getTime() + product.durationDays * DAY_MS),
+      createdAt: now,
+    })
+
+    return { checkoutUrl: checkout.url }
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[createStripeCheckout]", error)
+    }
+    return { error: "Erreur lors de la création du paiement. Réessayez." }
+  }
+}
+
+export type VerifyCheckoutResult =
+  | {
+      success: true
+      status: string
+      amountTotal: number | null
+      currency: string | null
+    }
+  | { success: false; error: string }
+
+/**
+ * Vérifie le statut d'une session Checkout (page de succès). Remplace
+ * `stripe.verifyCheckoutSession` Convex, durci : refuse la session si elle
+ * n'appartient pas à l'utilisateur courant (anti-IDOR via `metadata.userId`).
+ * Le crédit d'accès reste géré par le webhook, pas ici.
+ */
+export const verifyStripeCheckout = async (
+  sessionId: string,
+): Promise<VerifyCheckoutResult> => {
+  const session = await requireSession()
+  if (!sessionId) return { success: false, error: "Session invalide" }
+
+  try {
+    const stripe = getStripe()
+    const checkout = await stripe.checkout.sessions.retrieve(sessionId)
+    if (checkout.metadata?.userId !== session.user.id) {
+      return { success: false, error: "Session non trouvée ou invalide" }
+    }
+    return {
+      success: true,
+      status: checkout.payment_status,
+      amountTotal: checkout.amount_total,
+      currency: checkout.currency,
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[verifyStripeCheckout]", error)
+    }
+    return { success: false, error: "Session non trouvée ou invalide" }
+  }
+}
+
+export type PortalResult = { portalUrl: string } | { error: string }
+
+/**
+ * Ouvre le portail de facturation Stripe de l'utilisateur (gestion factures /
+ * moyens de paiement). Remplace `stripe.createCustomerPortalSession` Convex.
+ * `returnPath` = chemin interne validé.
+ */
+export const createCustomerPortal = async (
+  returnPath: string,
+): Promise<PortalResult> => {
+  const session = await requireSession()
+
+  try {
+    const stripe = getStripe()
+    const customers = await stripe.customers.list({
+      email: session.user.email,
+      limit: 1,
+    })
+    if (customers.data.length === 0) {
+      return { error: "Aucun historique de paiement Stripe" }
+    }
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customers.data[0].id,
+      return_url: `${appBase()}${safePath(returnPath, "/dashboard/abonnements")}`,
+    })
+    return { portalUrl: portal.url }
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[createCustomerPortal]", error)
+    }
+    return { error: "Impossible d'ouvrir le portail de facturation. Réessayez." }
   }
 }

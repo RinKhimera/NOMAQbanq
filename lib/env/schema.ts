@@ -34,6 +34,10 @@ export const buildServerSchema = () =>
     EMAIL_FROM: z.string().optional(),
     SES_CONFIGURATION_SET: z.string().optional(),
     EMAIL_OVERRIDE_TO: z.string().optional(),
+    // Stripe (paiements) — optionnelles : l'app démarre sans, le code Stripe
+    // (`getStripe`/webhook) lève une erreur claire à l'usage si une valeur manque.
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
   })
 
 const formatError = (e: z.ZodError) =>
