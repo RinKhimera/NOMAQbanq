@@ -28,6 +28,8 @@ import { Loader2 } from "lucide-react"
 import Image from "next/image"
 import {
   useCallback,
+  useEffect,
+  useRef,
   useState,
   type Dispatch,
   type SetStateAction,
@@ -35,6 +37,7 @@ import {
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
 import { uploadQuestionImage } from "@/features/questions/actions"
+import { cdnUrl } from "@/lib/cdn"
 import { cn } from "@/lib/utils"
 
 // ============================================
@@ -208,6 +211,17 @@ export const QuestionImageUploader = ({
 }: QuestionImageUploaderProps) => {
   const [uploadingImages, setUploadingImages] = useState<UploadingImage[]>([])
 
+  // Suit les object-URLs de prévisualisation pour les révoquer au démontage
+  // (sinon fuite mémoire si le formulaire est quitté pendant/après un upload).
+  const previewUrlsRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    const urls = previewUrlsRef.current
+    return () => {
+      urls.forEach((u) => URL.revokeObjectURL(u))
+      urls.clear()
+    }
+  }, [])
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -241,6 +255,7 @@ export const QuestionImageUploader = ({
         progress: 0,
         status: "uploading",
       }))
+      queued.forEach((q) => previewUrlsRef.current.add(q.preview))
       setUploadingImages((prev) => [...prev, ...queued])
 
       for (const item of queued) {
@@ -265,13 +280,18 @@ export const QuestionImageUploader = ({
           onImagesChange((prev) => [
             ...prev,
             {
-              url: result.url,
+              // URL d'affichage dérivée du CDN public (`cdnUrl`) — MÊME hôte que
+              // l'affichage au reload (`question-form-page` mappe aussi via
+              // `cdnUrl`). Ne pas utiliser `result.url` (hôte serveur
+              // `BUNNY_CDN_HOSTNAME`), qui pourrait diverger et casser l'image.
+              url: cdnUrl(result.storagePath),
               storagePath: result.storagePath,
               order: prev.length,
             },
           ])
           setUploadingImages((prev) => {
             URL.revokeObjectURL(item.preview)
+            previewUrlsRef.current.delete(item.preview)
             return prev.filter((u) => u.id !== item.id)
           })
         } catch {
@@ -334,6 +354,7 @@ export const QuestionImageUploader = ({
       const item = prev.find((img) => img.id === uploadId)
       if (item) {
         URL.revokeObjectURL(item.preview)
+        previewUrlsRef.current.delete(item.preview)
       }
       return prev.filter((img) => img.id !== uploadId)
     })

@@ -18,8 +18,16 @@ export const runtime = "nodejs"
  * définir `CRON_SECRET` côté Vercel. Fréquence horaire ⇒ plan Pro (Hobby = 1×/jour).
  */
 export async function GET(request: Request) {
+  // Secret absent = misconfiguration (cron inopérant) : on le signale, là où une
+  // requête forgée reçoit juste un 401 muet. Fail-closed dans les deux cas.
+  if (!env.CRON_SECRET) {
+    console.error(
+      "[cron close-expired] CRON_SECRET non configuré — cron inopérant (401). Définir CRON_SECRET côté Vercel.",
+    )
+    return new Response("Unauthorized", { status: 401 })
+  }
   const authHeader = request.headers.get("authorization")
-  if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
+  if (authHeader !== `Bearer ${env.CRON_SECRET}`) {
     return new Response("Unauthorized", { status: 401 })
   }
 

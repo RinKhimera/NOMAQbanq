@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
     // défaut 1 Mo est sous notre limite de 5 Mo/fichier. 6 Mo couvre 5 Mo + le
     // surcoût d'encodage multipart. La taille reste re-validée par fichier côté
     // serveur (`validateImageFile`) ; ceci n'est qu'un plafond de transport.
+    // ⚠️ Ce plafond est GLOBAL : il s'applique aussi aux 2 Server Actions
+    // PUBLIQUES (`loadRandomQuizQuestions`, `scoreQuizAnswers`), qui acceptent
+    // donc désormais des corps jusqu'à 6 Mo. Le rate-limit IP de ces endpoints
+    // publics (dette F1, avant déploiement public) doit borner cet abus ; à la
+    // bascule prod, envisager de déporter l'upload d'images question vers un
+    // route handler pour revenir au défaut 1 Mo.
     serverActions: {
       bodySizeLimit: "6mb",
     },
