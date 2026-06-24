@@ -6,16 +6,20 @@ import { env } from "@/lib/env/server"
 export const runtime = "nodejs"
 
 /**
- * Cron Vercel (horaire) : ferme les participations d'examen et les sessions
- * d'entraînement expirées. Remplace les 2 crons Convex (`close-expired-exam-
- * participations` + `close-expired-training-sessions`), fusionnés en une route
- * (Postgres n'a pas la contention qui justifiait le décalage :00/:30 de Convex).
+ * Cron : ferme les participations d'examen et les sessions d'entraînement
+ * expirées. Remplace les 2 crons Convex (`close-expired-exam-participations` +
+ * `close-expired-training-sessions`), fusionnés en une route (Postgres n'a pas la
+ * contention qui justifiait le décalage :00/:30 de Convex).
  *
- * Sécurité : Vercel envoie `Authorization: Bearer ${CRON_SECRET}` sur les requêtes
- * cron. Fail-closed : sans `CRON_SECRET` configuré, on répond 401 (jamais ouvert).
+ * Sécurité : l'appelant doit envoyer `Authorization: Bearer ${CRON_SECRET}`.
+ * Fail-closed : sans `CRON_SECRET` configuré, on répond 401 (jamais ouvert).
  *
- * ⚠️ Config déploiement : `vercel.json` planifie `/api/cron/close-expired` ;
- * définir `CRON_SECRET` côté Vercel. Fréquence horaire ⇒ plan Pro (Hobby = 1×/jour).
+ * ⚠️ Planification (plan Vercel Hobby — pas de cron horaire) :
+ *   - `vercel.json` déclenche cet endpoint 1×/jour (`0 0 * * *`) = plancher garanti.
+ *   - `.github/workflows/cron-hourly.yml` le rappelle chaque heure (best-effort).
+ *   Définir `CRON_SECRET` côté Vercel ET en secret GitHub (+ variable
+ *   `CRON_ENDPOINT_URL`). Vercel envoie automatiquement le bearer ; le workflow
+ *   GitHub l'ajoute explicitement.
  */
 export async function GET(request: Request) {
   // Secret absent = misconfiguration (cron inopérant) : on le signale, là où une

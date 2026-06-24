@@ -1,0 +1,57 @@
+name: Cron — close expired (hourly)
+
+# Vercel Hobby ne permet qu'UN cron quotidien (cf. vercel.json = "0 0 * * *", le
+# filet de sécurité). Ce workflow appelle le MÊME endpoint chaque heure pour
+# fermer à temps les participations d'examen et sessions d'entraînement expirées.
+#
+# Prérequis (Settings → Secrets and variables → Actions) :
+#   - secret   CRON_SECRET        : identique à la variable CRON_SECRET sur Vercel
+#   - variable CRON_ENDPOINT_URL  : URL complète déployée,
+#                                   ex. https://nomaqbanq.ca/api/cron/close-expired
+#
+# Notes :
+#   - Les crons GitHub Actions ne s'exécutent QUE sur la branche par défaut (main)
+#     et sont « best-effort » (déclenchement parfois différé de quelques minutes) ;
+#     le cron Vercel quotidien reste le plancher garanti.
+#   - workflow_dispatch permet un déclenchement manuel pour tester.
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+# Évite les exécutions qui se chevauchent si une requête traîne.
+concurrency:
+  group: cron-close-expired
+  cancel-in-progress: false
+
+jobs:
+  trigger:
+    name: Hit /api/cron/close-expired
+    runs-on: ubuntu-latest
+    steps:
+      - name: Vérifier la configuration
+        env:
+          CRON_ENDPOINT_URL: ${{ vars.CRON_ENDPOINT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_ENDPOINT_URL" ]; then
+            echo "::error::Variable CRON_ENDPOINT_URL manquante (Settings → Variables)."
+            exit 1
+          fi
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::Secret CRON_SECRET manquant (Settings → Secrets)."
+            exit 1
+          fi
+
+      - name: Appeler l'endpoint cron
+        env:
+          CRON_ENDPOINT_URL: ${{ vars.CRON_ENDPOINT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail-with-body --show-error --silent \
+            --retry 3 --retry-delay 10 --retry-all-errors \
+            --max-time 60 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "$CRON_ENDPOINT_URL"
+          echo
