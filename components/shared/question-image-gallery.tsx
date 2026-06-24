@@ -28,27 +28,6 @@ type QuestionImageGalleryProps = {
 }
 
 // ============================================
-// HELPER: Build optimized URL
-// ============================================
-
-const getOptimizedUrl = (url: string, width: number = 800): string => {
-  // Si c'est une URL Bunny CDN, ajouter les paramètres d'optimisation
-  if (url.includes("b-cdn.net")) {
-    const separator = url.includes("?") ? "&" : "?"
-    return `${url}${separator}width=${width}&quality=85`
-  }
-  return url
-}
-
-const getThumbnailUrl = (url: string, size: number = 200): string => {
-  if (url.includes("b-cdn.net")) {
-    const separator = url.includes("?") ? "&" : "?"
-    return `${url}${separator}width=${size}&height=${size}&crop=fit&quality=80`
-  }
-  return url
-}
-
-// ============================================
 // MAIN COMPONENT
 // ============================================
 
@@ -77,7 +56,7 @@ export const QuestionImageGallery = ({
   const remainingCount = allImages.length - maxDisplay
 
   const lightboxSlides = allImages.map((img) => ({
-    src: getOptimizedUrl(img.url, 1200),
+    src: img.url,
     alt: `Image ${img.order + 1}`,
   }))
 
@@ -100,7 +79,7 @@ export const QuestionImageGallery = ({
           )}
         >
           <Image
-            src={getThumbnailUrl(allImages[0].url)}
+            src={allImages[0].url}
             alt="Image de la question"
             fill
             className="object-cover"
@@ -145,7 +124,7 @@ export const QuestionImageGallery = ({
             )}
           >
             <Image
-              src={getThumbnailUrl(image.url)}
+              src={image.url}
               alt={`Image ${index + 1}`}
               fill
               className="object-cover"

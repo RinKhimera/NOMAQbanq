@@ -48,7 +48,7 @@ vi.mock("yet-another-react-lightbox/plugins/counter.css", () => ({}))
 
 const createMockImages = (count: number): QuestionImage[] =>
   Array.from({ length: count }, (_, i) => ({
-    url: `https://example.b-cdn.net/image${i + 1}.jpg`,
+    url: `https://cdn.nomaqbanq.ca/questions/q1/image${i + 1}.jpg`,
     storagePath: `questions/q1/image${i + 1}.jpg`,
     order: i,
   }))
@@ -68,6 +68,14 @@ describe("QuestionImageGallery", () => {
 
       const renderedImages = screen.getAllByTestId("next-image")
       expect(renderedImages).toHaveLength(1)
+    })
+
+    it("sert l'URL telle quelle (aucune transformation CDN)", () => {
+      const images = createMockImages(1)
+      render(<QuestionImageGallery images={images} />)
+      const img = screen.getByTestId("next-image")
+      expect(img).toHaveAttribute("src", images[0].url)
+      expect(img.getAttribute("src")).not.toContain("?width=")
     })
 
     it("opens lightbox when single image is clicked", () => {
