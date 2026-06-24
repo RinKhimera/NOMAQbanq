@@ -52,6 +52,15 @@ export const buildServerSchema = () =>
     BUNNY_STORAGE_ZONE_NAME: z.string().optional(),
     BUNNY_STORAGE_API_KEY: z.string().optional(),
     BUNNY_CDN_HOSTNAME: z.string().optional(),
+    // AWS S3 (stockage médias) — optionnelles : l'app démarre sans, `lib/aws.ts`
+    // lève une erreur claire à l'usage. ROLE_ARN+BUCKET vont ensemble (refine).
+    // Auth via OIDC (AWS_ROLE_ARN) en prod/preview. AWS_REGION pinné (Vercel le
+    // définit dynamiquement sinon). Clés statiques = fallback dev local.
+    AWS_REGION: z.string().optional(),
+    AWS_ROLE_ARN: z.string().optional(),
+    S3_BUCKET: z.string().optional(),
+    AWS_ACCESS_KEY_ID: z.string().optional(),
+    AWS_SECRET_ACCESS_KEY: z.string().optional(),
   })
     // Garde-fou déploiement : dès que le checkout peut encaisser (clé secrète
     // présente), le webhook DOIT pouvoir vérifier sa signature — sinon les
@@ -77,6 +86,19 @@ export const buildServerSchema = () =>
         error:
           "Configuration Bunny incomplète : BUNNY_STORAGE_ZONE_NAME, BUNNY_STORAGE_API_KEY et BUNNY_CDN_HOSTNAME doivent être définies ensemble",
         path: ["BUNNY_STORAGE_ZONE_NAME"],
+      },
+    )
+    // Garde-fou : ROLE_ARN et BUCKET vont ensemble. (AWS_REGION exclu du refine :
+    // Vercel le définit automatiquement, donc sa présence seule n'indique rien.)
+    .refine(
+      (e) => {
+        const set = [e.AWS_ROLE_ARN, e.S3_BUCKET].filter(Boolean).length
+        return set === 0 || set === 2
+      },
+      {
+        error:
+          "Configuration AWS S3 incomplète : AWS_ROLE_ARN et S3_BUCKET doivent être définis ensemble (et AWS_REGION pinné)",
+        path: ["S3_BUCKET"],
       },
     )
 

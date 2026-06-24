@@ -57,4 +57,21 @@ describe("loadServerEnv", () => {
       loadServerEnv({ ...valid, BETTER_AUTH_SECRET: "too-short" }),
     ).toThrow(/BETTER_AUTH_SECRET/)
   })
+
+  it("accepte une config AWS S3 complète", () => {
+    expect(
+      loadServerEnv({
+        ...valid,
+        AWS_REGION: "us-east-2",
+        AWS_ROLE_ARN: "arn:aws:iam::1:role/x",
+        S3_BUCKET: "nomaq-media",
+      }).S3_BUCKET,
+    ).toBe("nomaq-media")
+  })
+
+  it("rejette une config AWS S3 partielle (role sans bucket)", () => {
+    expect(() =>
+      loadServerEnv({ ...valid, AWS_ROLE_ARN: "arn:aws:iam::1:role/x" }),
+    ).toThrow(/AWS S3 incompl/)
+  })
 })
