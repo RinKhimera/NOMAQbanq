@@ -1,6 +1,5 @@
 "use client"
 
-import { useAction } from "convex/react"
 import {
   ArrowRight,
   Calendar,
@@ -46,8 +45,10 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { api } from "@/convex/_generated/api"
-import { loadMoreMyTransactions } from "@/features/payments/actions"
+import {
+  createCustomerPortal,
+  loadMoreMyTransactions,
+} from "@/features/payments/actions"
 import type {
   AccessStatus,
   MyTransactionsPage,
@@ -235,8 +236,6 @@ export const AbonnementsClient = ({
   initialTransactions: MyTransactionsPage
   products: ProductView[]
 }) => {
-  const createPortal = useAction(api.stripe.createCustomerPortalSession)
-
   const [items, setItems] = useState<MyTransactionView[]>(
     initialTransactions.items,
   )
@@ -262,30 +261,23 @@ export const AbonnementsClient = ({
 
   const [, openPortalAction, isLoadingPortal] = useActionState(
     async () => {
-      try {
-        const { portalUrl } = await createPortal({
-          returnUrl: `${window.location.origin}/dashboard/abonnements`,
-        })
-        window.location.href = portalUrl
-        return { success: true }
-      } catch (error) {
-        console.error("Erreur portail:", error)
-
-        const errorMessage = error instanceof Error ? error.message : ""
-
+      const res = await createCustomerPortal("/dashboard/abonnements")
+      if ("error" in res) {
         if (!navigator.onLine) {
           toast.error("Pas de connexion internet. Vérifiez votre réseau.")
-        } else if (errorMessage.includes("Aucun historique de paiement")) {
+        } else if (res.error.includes("Aucun historique")) {
           toast.error(
             "Aucun achat effectué. Effectuez un premier achat pour accéder à vos factures.",
           )
         } else {
-          toast.error("Impossible d'ouvrir le portail de facturation")
+          toast.error(res.error)
         }
-        return { success: false, error: errorMessage }
+        return { success: false }
       }
+      window.location.href = res.portalUrl
+      return { success: true }
     },
-    { success: false, error: undefined },
+    { success: false },
   )
 
   const hasProductsToUpsell = products.length > 0

@@ -1,6 +1,5 @@
 "use client"
 
-import { useAction, useConvexAuth } from "convex/react"
 import {
   ArrowRight,
   CheckCircle,
@@ -24,7 +23,7 @@ import {
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
 import { Button } from "@/components/ui/button"
-import { api } from "@/convex/_generated/api"
+import { verifyStripeCheckout } from "@/features/payments/actions"
 import type { AccessStatus } from "@/features/payments/dal"
 import { formatCurrency } from "@/lib/format"
 
@@ -34,7 +33,6 @@ interface VerificationResult {
   success: boolean
   status: string
   customerEmail?: string | null
-  metadata?: Record<string, string> | null
   amountTotal?: number | null
   currency?: string | null
 }
@@ -46,7 +44,6 @@ export const PaymentSuccessContent = ({
 }) => {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session_id")
-  const { isAuthenticated, isLoading: isAuthLoading } = useConvexAuth()
 
   const [state, setState] = useState<VerificationState>(() =>
     sessionId ? "loading" : "error",
@@ -54,33 +51,36 @@ export const PaymentSuccessContent = ({
   const [result, setResult] = useState<VerificationResult | null>(null)
   const [retryCount, setRetryCount] = useState(0)
 
-  const verifySession = useAction(api.stripe.verifyCheckoutSession)
-
   useEffect(() => {
-    // Wait for auth to be ready before verifying
-    if (!sessionId || isAuthLoading || !isAuthenticated) return
+    // La page est sous /dashboard (session garantie par le layout) ; l'action
+    // `verifyStripeCheckout` revérifie côté serveur (+ appartenance de la session).
+    if (!sessionId) return
 
     let timeoutId: NodeJS.Timeout | undefined
     let isCancelled = false
 
     const verify = async () => {
       try {
-        const res = await verifySession({ sessionId })
+        const res = await verifyStripeCheckout(sessionId)
 
         if (isCancelled) return
 
-        const verificationResult: VerificationResult = {
-          success: res.success,
+        if (!res.success) {
+          setResult({ success: false, status: "error" })
+          setState("error")
+          return
+        }
+
+        setResult({
+          success: true,
           status: String(res.status),
           customerEmail: res.customerEmail,
-          metadata: res.metadata,
           amountTotal: res.amountTotal,
           currency: res.currency,
-        }
-        setResult(verificationResult)
+        })
 
-        // payment_status from Stripe is "paid", "unpaid", or "no_payment_required"
-        if (res.success) {
+        // payment_status Stripe : "paid", "unpaid" ou "no_payment_required".
+        if (res.status === "paid" || res.status === "no_payment_required") {
           setState("success")
         } else if (String(res.status) === "unpaid") {
           // Webhook might not have processed yet
@@ -111,7 +111,7 @@ export const PaymentSuccessContent = ({
       isCancelled = true
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [sessionId, retryCount, verifySession, isAuthLoading, isAuthenticated])
+  }, [sessionId, retryCount])
 
   const handleRetry = () => {
     setState("loading")

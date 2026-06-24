@@ -396,6 +396,7 @@ export type VerifyCheckoutResult =
       status: string
       amountTotal: number | null
       currency: string | null
+      customerEmail: string | null
     }
   | { success: false; error: string }
 
@@ -422,6 +423,7 @@ export const verifyStripeCheckout = async (
       status: checkout.payment_status,
       amountTotal: checkout.amount_total,
       currency: checkout.currency,
+      customerEmail: checkout.customer_email,
     }
   } catch (error) {
     if (process.env.NODE_ENV !== "production") {
