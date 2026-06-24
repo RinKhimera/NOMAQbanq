@@ -30,7 +30,7 @@ const createExpiringAccess = (
     name?: string | null
   } = {},
 ) => ({
-  _id: `access-${Math.random()}`,
+  id: `access-${Math.random()}`,
   userId: "user1",
   accessType: overrides.accessType ?? ("exam" as const),
   daysRemaining: overrides.daysRemaining ?? 3,

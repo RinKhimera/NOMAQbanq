@@ -1,29 +1,40 @@
-import { renderHook } from "@testing-library/react"
-import { useQuery } from "convex/react"
+import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+
 import { useMarketingStats } from "@/hooks/useMarketingStats"
 
-// Mock convex/react
-vi.mock("convex/react", () => ({
-  useQuery: vi.fn(),
+// Le hook appelle la Server Action `loadMarketingStats` (remplace `useQuery`
+// Convex depuis 5.6a). On la mocke → le module réel (qui tire le DAL + `db`)
+// n'est jamais chargé en environnement happy-dom.
+vi.mock("@/features/marketing/actions", () => ({
+  loadMarketingStats: vi.fn(),
 }))
 
-// Mock api pour vérifier les appels
-vi.mock("@/convex/_generated/api", () => ({
-  api: {
-    marketing: {
-      getMarketingStats: "getMarketingStats",
-    },
-  },
-}))
+import { loadMarketingStats } from "@/features/marketing/actions"
+import type { MarketingStats } from "@/features/marketing/dal"
+
+const mockStats: MarketingStats = {
+  totalQuestions: "3000+",
+  totalUsers: "200+",
+  totalDomains: 12,
+  successRate: "85%",
+  rating: "4.9/5",
+  topDomains: [
+    { domain: "Cardiologie", count: 500 },
+    { domain: "Neurologie", count: 300 },
+  ],
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
 })
 
 describe("useMarketingStats", () => {
-  it("retourne isLoading=true tant que la query n'a pas répondu", () => {
-    vi.mocked(useQuery).mockReturnValue(undefined)
+  it("retourne isLoading=true tant que l'action n'a pas répondu", () => {
+    // Promesse jamais résolue → reste en chargement.
+    vi.mocked(loadMarketingStats).mockReturnValue(
+      new Promise<MarketingStats>(() => {}),
+    )
 
     const { result } = renderHook(() => useMarketingStats())
 
@@ -31,32 +42,20 @@ describe("useMarketingStats", () => {
     expect(result.current.stats).toBeUndefined()
   })
 
-  it("retourne les stats et isLoading=false quand la query répond", () => {
-    const mockStats = {
-      totalQuestions: "3000+",
-      totalUsers: "200+",
-      totalDomains: 12,
-      successRate: "85%",
-      rating: "4.9/5",
-      topDomains: [
-        { domain: "Cardiologie", count: 500 },
-        { domain: "Neurologie", count: 300 },
-      ],
-    }
-    vi.mocked(useQuery).mockReturnValue(mockStats)
+  it("retourne les stats et isLoading=false quand l'action répond", async () => {
+    vi.mocked(loadMarketingStats).mockResolvedValue(mockStats)
 
     const { result } = renderHook(() => useMarketingStats())
 
-    expect(result.current.isLoading).toBe(false)
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
     expect(result.current.stats).toEqual(mockStats)
   })
 
-  it("ne skip jamais la query (stats publiques, pas d'auth requise)", () => {
-    vi.mocked(useQuery).mockReturnValue(undefined)
+  it("appelle l'action au montage (stats publiques, pas d'auth requise)", () => {
+    vi.mocked(loadMarketingStats).mockResolvedValue(mockStats)
 
     renderHook(() => useMarketingStats())
 
-    // useQuery appelé sans argument "skip" → la query part toujours
-    expect(useQuery).toHaveBeenCalledWith("getMarketingStats")
+    expect(loadMarketingStats).toHaveBeenCalledTimes(1)
   })
 })

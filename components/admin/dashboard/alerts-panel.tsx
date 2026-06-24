@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
 interface ExpiringAccess {
-  _id: string
+  id: string
   userId: string
   accessType: "exam" | "training"
   daysRemaining: number

@@ -19,7 +19,14 @@ import { alias } from "drizzle-orm/pg-core"
 import { cache } from "react"
 
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
+import {
+  examParticipations,
+  exams,
+  products,
+  transactions,
+  user,
+  userAccess,
+} from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 
@@ -567,4 +574,65 @@ export const getUsersForExport = async (): Promise<ExportUser[]> => {
     .limit(1000)
 
   return rows.map((r) => ({ ...r, createdAt: r.createdAt.getTime() }))
+}
+
+// ============================================
+// [Admin] Stats globales (dashboard admin)
+// ============================================
+
+export type AdminStats = {
+  totalUsers: number
+  adminCount: number
+  regularUserCount: number
+  totalExams: number
+  activeExams: number
+  totalParticipations: number
+}
+
+/**
+ * [Admin] Compteurs globaux du dashboard admin : utilisateurs (non supprimés, par
+ * rôle — cohérent avec `getUsersStats`), examens (total + actifs en fenêtre),
+ * participations. Remplace `users.getAdminStats` (qui chargeait jusqu'à 1000
+ * users / 500 exams / 2000 participations en JS) par des `count(*)` SQL.
+ */
+export const getAdminStats = async (): Promise<AdminStats> => {
+  await requireRole(["admin"])
+  const now = new Date()
+
+  const [userRow, examRow, partRow] = await Promise.all([
+    db
+      .select({
+        total: sql<number>`count(*)`.mapWith(Number),
+        admins:
+          sql<number>`count(*) filter (where ${user.role} = 'admin')`.mapWith(
+            Number,
+          ),
+        regular:
+          sql<number>`count(*) filter (where ${user.role} = 'user')`.mapWith(
+            Number,
+          ),
+      })
+      .from(user)
+      .where(isNull(user.deletedAt)),
+    db
+      .select({
+        total: sql<number>`count(*)`.mapWith(Number),
+        active: sql<number>`count(*) filter (where ${exams.isActive} and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
+          Number,
+        ),
+      })
+      .from(exams),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(examParticipations),
+  ])
+
+  return {
+    totalUsers: userRow[0]?.total ?? 0,
+    adminCount: userRow[0]?.admins ?? 0,
+    regularUserCount: userRow[0]?.regular ?? 0,
+    totalExams: examRow[0]?.total ?? 0,
+    activeExams: examRow[0]?.active ?? 0,
+    totalParticipations: partRow[0]?.n ?? 0,
+  }
 }

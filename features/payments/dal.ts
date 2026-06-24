@@ -1,6 +1,6 @@
 import "server-only"
 
-import { and, asc, desc, eq, lt, ne, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, lt, ne, or, sql } from "drizzle-orm"
 import { cache } from "react"
 
 import { db } from "@/db"
@@ -538,4 +538,114 @@ export const getTransactionAccessImpact = async (
     currentAccessExpiresAt: access ? access.expiresAt.getTime() : null,
     accessType: tx.accessType,
   }
+}
+
+// ============================================
+// [Admin] Revenus par jour (graphique dashboard)
+// ============================================
+
+export type RevenueByDay = {
+  CAD: { date: string; revenue: number }[]
+  XAF: { date: string; revenue: number }[]
+}
+
+/**
+ * [Admin] Revenus quotidiens (transactions complétées) des `days` derniers jours,
+ * par devise, chaque jour présent (0 si aucun). Remplace `getRevenueByDay` (qui
+ * filtrait 2000 lignes en JS) : agrégation SQL `GROUP BY (jour UTC, devise)` puis
+ * remplissage des jours manquants. Jours en UTC (TZ=UTC en prod/CI).
+ */
+export const getRevenueByDay = async (days = 30): Promise<RevenueByDay> => {
+  await requireRole(["admin"])
+
+  const safeDays = Math.min(Math.max(1, Math.floor(days)), 365)
+  const now = Date.now()
+  const startDate = new Date(now - safeDays * DAY_MS)
+
+  const dayExpr = sql<string>`to_char(${transactions.completedAt} at time zone 'UTC', 'YYYY-MM-DD')`
+  const rows = await db
+    .select({
+      day: dayExpr,
+      currency: transactions.currency,
+      revenue:
+        sql<number>`coalesce(sum(${transactions.amountPaid}), 0)`.mapWith(
+          Number,
+        ),
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.status, "completed"),
+        gt(transactions.completedAt, startDate),
+      ),
+    )
+    .groupBy(dayExpr, transactions.currency)
+
+  const byCurrency: Record<"CAD" | "XAF", Record<string, number>> = {
+    CAD: {},
+    XAF: {},
+  }
+  for (const r of rows) byCurrency[r.currency][r.day] = r.revenue
+
+  const buildDays = (data: Record<string, number>) => {
+    const result: { date: string; revenue: number }[] = []
+    for (let i = safeDays - 1; i >= 0; i--) {
+      const day = new Date(now - i * DAY_MS).toISOString().slice(0, 10)
+      result.push({ date: day, revenue: data[day] ?? 0 })
+    }
+    return result
+  }
+
+  return { CAD: buildDays(byCurrency.CAD), XAF: buildDays(byCurrency.XAF) }
+}
+
+// ============================================
+// [Admin] Accès expirant (alertes dashboard)
+// ============================================
+
+export type ExpiringAccessItem = {
+  id: string
+  userId: string
+  accessType: "exam" | "training"
+  /** Epoch ms. */
+  expiresAt: number
+  daysRemaining: number
+  user: { name: string; email: string } | null
+}
+
+/**
+ * [Admin] Accès expirant dans les 7 prochains jours (encore actifs), avec
+ * l'utilisateur (jointure, pas de N+1), triés par échéance. Remplace
+ * `getExpiringAccess`. Borné à 200.
+ */
+export const getExpiringAccess = async (): Promise<ExpiringAccessItem[]> => {
+  await requireRole(["admin"])
+
+  const now = Date.now()
+  const nowDate = new Date(now)
+  const in7d = new Date(now + 7 * DAY_MS)
+
+  const rows = await db
+    .select({
+      id: userAccess.id,
+      userId: userAccess.userId,
+      accessType: userAccess.accessType,
+      expiresAt: userAccess.expiresAt,
+      name: user.name,
+      email: user.email,
+    })
+    .from(userAccess)
+    .innerJoin(user, eq(user.id, userAccess.userId))
+    .where(and(gt(userAccess.expiresAt, nowDate), lt(userAccess.expiresAt, in7d)))
+    .orderBy(asc(userAccess.expiresAt))
+    .limit(200)
+
+  return rows.map((r) => ({
+    id: r.id,
+    userId: r.userId,
+    accessType: r.accessType,
+    expiresAt: r.expiresAt.getTime(),
+    daysRemaining: Math.ceil((r.expiresAt.getTime() - now) / DAY_MS),
+    user: { name: r.name, email: r.email },
+  }))
 }
