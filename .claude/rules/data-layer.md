@@ -42,6 +42,14 @@ qui le câblent). Remplace progressivement `convex-backend.md`.
 - **`onConflictDoUpdate`** : dédupliquer le tableau de `values` par la clé de
   conflit AVANT l'insert. Un doublon dans un seul INSERT → **Postgres 21000**
   (« ON CONFLICT … affecte 2× la même ligne ») = toute la soumission échoue.
+- **Upload médias (presigned POST)** : l'upload passe par S3 en direct, pas par
+  le serveur. Pattern : Server Action gardé → validation type + rate-limit
+  consommé À L'ÉTAPE PRESIGN → `createPresignedUpload(storagePath, contentType)`
+  (clé dérivée serveur, non falsifiable). Le client POST le fichier à S3, puis un
+  Server Action persiste le `storagePath` (avatars : `confirmAvatarUpload`, qui
+  re-vérifie le préfixe `avatars/{ownId}/` anti-IDOR ; images question :
+  `setQuestionImages` au save). Suppression CDN via `tryDeleteFromStorage`
+  (best-effort, après commit DB). Voir `lib/aws.ts` / `lib/storage.ts`.
 
 ## Écrans (Server Component + wrapper client)
 

@@ -12,7 +12,7 @@ Plateforme francophone de preparation a l'EACMC Partie I. 3000+ QCM, examens bla
 
 ## Stack
 
-Next.js 16 (App Router) · React 19 · TypeScript · Drizzle ORM · Neon Postgres · Better Auth · Tailwind v4 · shadcn/ui · Bunny CDN · Stripe · Vitest
+Next.js 16 (App Router) · React 19 · TypeScript · Drizzle ORM · Neon Postgres · Better Auth · Tailwind v4 · shadcn/ui · AWS S3 + CloudFront · Stripe · Vitest
 
 > Backend historiquement Convex + Clerk : **migré** vers Drizzle/Neon + Better Auth (Convex et `@clerk/*` retirés). Voir `.claude/rules/data-layer.md`.
 
@@ -47,7 +47,7 @@ app/(marketing)/           # Pages marketing + _components/
 app/api/                   # Route handlers: auth/[...all], stripe/webhook, cron/close-expired, e2e
 features/<domaine>/        # Backend: {schemas,dal,actions,lib,cron}.ts (users/payments/questions/exams/training/analytics/marketing)
 db/                        # Drizzle: schema/** (tables/enums), index.ts (pg Pool)
-lib/                       # auth.ts (Better Auth), dal.ts, auth-guards.ts, bunny.ts, stripe.ts, cdn.ts, ids.ts, env/
+lib/                       # auth.ts (Better Auth), dal.ts, auth-guards.ts, aws.ts, storage.ts, stripe.ts, cdn.ts, ids.ts, env/
 components/ui/             # shadcn/ui
 components/quiz/           # Quiz: question-card, calculator, session/
 components/admin/          # Dashboard admin, modals, question-browser
@@ -89,7 +89,8 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **useActionState** : Toujours dans `startTransition()` ou via `<form action={...}>`
 - **Prettier** : Import order enforce: 1) node/npm 2) @/ 3) relatifs
 - **Sentry** : Tunnel route a `/monitoring` dans next.config.ts
-- **Image domains** : pexels.com, \*.b-cdn.net, cdn.nomaqbanq.ca (next.config.ts)
+- **Image domains** : pexels.com, \*.cloudfront.net, cdn.nomaqbanq.ca (next.config.ts)
+- **Uploads médias** : presigned POST direct navigateur→S3 (`lib/aws.ts` + `lib/storage.ts`) ; rate-limit + validation à l'étape presign ; jamais via Server Action proxy
 - **ESM** : `"type": "module"` — pas de `__dirname`, utiliser `fileURLToPath(import.meta.url)`
 - **Env** : valide via zod (`lib/env/schema.ts`) ; nouvelles vars optionnelles + erreur claire a l'usage
 - **data-testid** : Obligatoire sur composants quiz interactifs (`components/quiz/`). Convention : `answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`

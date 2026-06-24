@@ -42,7 +42,7 @@ NOMAQbanq is a modern medical exam preparation web application, offering a compr
 | **Database**   | [Neon](https://neon.tech/) Postgres + [Drizzle ORM](https://orm.drizzle.team/) (`pg` Pool)                              |
 | **Auth**       | [Better Auth](https://better-auth.com/) (email/password + Google, admin roles)                                          |
 | **Payments**   | [Stripe](https://stripe.com/) (Checkout Sessions + webhooks)                                                            |
-| **Media**      | [Bunny CDN](https://bunny.net/) (avatars, question images)                                                              |
+| **Media**      | [AWS S3](https://aws.amazon.com/s3/) + [CloudFront](https://aws.amazon.com/cloudfront/) (avatars, question images)       |
 | **Email**      | [AWS SES](https://aws.amazon.com/ses/) + [React Email](https://react.email/)                                            |
 | **Monitoring** | [Sentry](https://sentry.io/) (error tracking)                                                                           |
 | **Animations** | [motion](https://motion.dev/)                                                                                           |
@@ -80,7 +80,7 @@ Copy the example file and fill in your keys:
 cp .env.example .env.local
 ```
 
-See [`.env.example`](.env.example) for all variables. Required: `DATABASE_URL` (pooled) + `DATABASE_URL_UNPOOLED` (direct, for migrations), `BETTER_AUTH_SECRET`. Optional: Google OAuth, AWS SES, Stripe, Bunny CDN, Sentry.
+See [`.env.example`](.env.example) for all variables. Required: `DATABASE_URL` (pooled) + `DATABASE_URL_UNPOOLED` (direct, for migrations), `BETTER_AUTH_SECRET`. Optional: Google OAuth, AWS SES, Stripe, AWS S3, Sentry.
 
 4. **Apply database migrations**
 
@@ -109,7 +109,7 @@ NOMAQbanq/
 ├── features/                     # Backend per domain: {schemas,dal,actions,lib,cron}.ts
 │   ├── users/  payments/  questions/  exams/  training/  analytics/  marketing/
 ├── db/                           # Drizzle: schema/** (tables, enums) + index.ts (pg Pool)
-├── lib/                          # auth, dal, auth-guards, bunny, stripe, cdn, ids, env
+├── lib/                          # auth, dal, auth-guards, aws, storage, stripe, cdn, ids, env
 ├── components/
 │   ├── ui/                       # shadcn/ui components
 │   ├── shared/                   # Shared components (sidebar, nav, payments)
@@ -156,7 +156,7 @@ The project uses Next.js route groups to organize the application:
 - **Neon Postgres** accessed via **Drizzle ORM** (a single `pg` Pool at module scope — Vercel Fluid Compute)
 - **Data Access Layer** (`features/<domain>/dal.ts`): `server-only` reads, React `cache()`, targeted columns, keyset pagination
 - **Server Actions** (`features/<domain>/actions.ts`): writes guarded by auth + Zod, `revalidatePath`, row-locking for per-user concurrency
-- **Route handlers** (`app/api/**`): Stripe webhook, hourly cron (close expired exams/training), Bunny uploads, E2E support
+- **Route handlers** (`app/api/**`): Stripe webhook, hourly cron (close expired exams/training), E2E support
 - **Cron** hitting `app/api/cron/close-expired`: `vercel.json` daily (Hobby plan floor) + a GitHub Actions workflow (`cron-hourly.yml`) that calls it hourly
 
 ### Authentication
@@ -174,7 +174,7 @@ The project uses Next.js route groups to organize the application:
 
 ### Media
 
-- **Bunny CDN** for file storage and delivery (`lib/bunny.ts`)
+- **AWS S3 + CloudFront** for file storage & delivery (`lib/storage.ts` + `lib/aws.ts`); uploads via presigned POST (direct browser→S3), reads via CloudFront (private bucket + OAC)
 - Avatar uploads (rate limited: 5/hour) + question images (admin only, 50/hour)
 - Uploads via Server Actions; display URLs derived from the storage path (`lib/cdn.ts`)
 
@@ -240,7 +240,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - [Stripe](https://stripe.com/) - Payment Processing
 - [shadcn/ui](https://ui.shadcn.com/) - UI Components
 - [Tailwind CSS](https://tailwindcss.com/) - CSS Framework
-- [Bunny CDN](https://bunny.net/) - Media Storage
+- [AWS S3 + CloudFront](https://aws.amazon.com/s3/) - Media Storage
 - [Sentry](https://sentry.io/) - Error Monitoring
 
 ---
