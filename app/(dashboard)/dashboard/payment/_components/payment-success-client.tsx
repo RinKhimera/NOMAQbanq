@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 
@@ -43,6 +43,7 @@ export const PaymentSuccessContent = ({
   accessStatus: AccessStatus
 }) => {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const sessionId = searchParams.get("session_id")
 
   const [state, setState] = useState<VerificationState>(() =>
@@ -82,6 +83,9 @@ export const PaymentSuccessContent = ({
         // payment_status Stripe : "paid", "unpaid" ou "no_payment_required".
         if (res.status === "paid" || res.status === "no_payment_required") {
           setState("success")
+          // Re-fetch du Server Component parent : repeuple `accessStatus` une fois
+          // le webhook passé (plus de réactivité Convex live).
+          router.refresh()
         } else if (String(res.status) === "unpaid") {
           // Webhook might not have processed yet
           if (retryCount < 3) {
@@ -111,7 +115,7 @@ export const PaymentSuccessContent = ({
       isCancelled = true
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [sessionId, retryCount])
+  }, [sessionId, retryCount, router])
 
   const handleRetry = () => {
     setState("loading")

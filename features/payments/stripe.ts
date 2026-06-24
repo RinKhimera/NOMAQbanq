@@ -174,11 +174,22 @@ export async function failStripeTransaction(params: {
     if (!pending) return { status: "not_found" }
     if (pending.status === "completed") return { status: "already_processed" }
 
-    await tx
+    // UPDATE gardé `status='pending'` : si la ligne a été complétée entre la
+    // lecture et l'écriture (course théorique — Stripe n'émet jamais `expired`
+    // après `completed`), l'UPDATE est un no-op et on ne révoque rien.
+    const updated = await tx
       .update(transactions)
       .set({ status: "failed", stripeEventId: params.stripeEventId })
-      .where(eq(transactions.id, pending.id))
+      .where(
+        and(
+          eq(transactions.id, pending.id),
+          eq(transactions.status, "pending"),
+        ),
+      )
+      .returning({ id: transactions.id })
 
-    return { status: "failed" }
+    return updated.length > 0
+      ? { status: "failed" }
+      : { status: "already_processed" }
   })
 }

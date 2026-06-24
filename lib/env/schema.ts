@@ -39,6 +39,14 @@ export const buildServerSchema = () =>
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
   })
+    // Garde-fou déploiement : dès que le checkout peut encaisser (clé secrète
+    // présente), le webhook DOIT pouvoir vérifier sa signature — sinon les
+    // paiements sont débités sans fulfillment (accès jamais accordé).
+    .refine((e) => !(e.STRIPE_SECRET_KEY && !e.STRIPE_WEBHOOK_SECRET), {
+      error:
+        "STRIPE_WEBHOOK_SECRET : requise dès que STRIPE_SECRET_KEY est définie (sinon paiements encaissés sans fulfillment)",
+      path: ["STRIPE_WEBHOOK_SECRET"],
+    })
 
 const formatError = (e: z.ZodError) =>
   `❌ Variables d'environnement invalides :\n` +
