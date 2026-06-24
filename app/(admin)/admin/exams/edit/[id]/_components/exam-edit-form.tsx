@@ -48,7 +48,6 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { Id } from "@/convex/_generated/dataModel"
 import { updateExam } from "@/features/exams/actions"
 import type { EligibleCandidate, ExamWithQuestions } from "@/features/exams/dal"
 import { cn } from "@/lib/utils"
@@ -78,9 +77,9 @@ export function ExamEditForm({
 
   // Les données viennent du Server Component (props) → initialisation synchrone,
   // plus de `useQuery`/`form.reset` différé. `_id` Drizzle = `string`.
-  const initialQuestionIds = questionIds as Id<"questions">[]
+  const initialQuestionIds = questionIds
   const [selectedQuestions, setSelectedQuestions] =
-    useState<Id<"questions">[]>(initialQuestionIds)
+    useState<string[]>(initialQuestionIds)
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
@@ -156,7 +155,7 @@ export function ExamEditForm({
     }
   }
 
-  const handleQuestionSelectionChange = (ids: Id<"questions">[]) => {
+  const handleQuestionSelectionChange = (ids: string[]) => {
     setSelectedQuestions(ids)
     form.setValue("questionIds", ids)
   }

@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback } from "react"
-import { Id } from "@/convex/_generated/dataModel"
 import { loadAllQuestionIds } from "@/features/questions/actions"
 import { cn } from "@/lib/utils"
 import { QuestionBrowserProvider } from "./question-browser-context"
@@ -38,7 +37,7 @@ function QuestionBrowserContent({
     const available = allIds.filter((id) => !selectedSet.has(id))
 
     const shuffled = [...available].sort(() => Math.random() - 0.5)
-    const randomIds = shuffled.slice(0, remaining) as Id<"questions">[]
+    const randomIds = shuffled.slice(0, remaining)
 
     onSelectionChange([...selected, ...randomIds])
   }, [selectedIds, onSelectionChange, maxSelection])

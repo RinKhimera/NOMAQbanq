@@ -1,5 +1,4 @@
 import { LucideIcon } from "lucide-react"
-import { Doc } from "@/convex/_generated/dataModel"
 
 // ===== Testimonial Types =====
 export interface Testimonial {
@@ -13,6 +12,27 @@ export interface Testimonial {
 
 // ===== Exam Types =====
 export type ExamStatus = "active" | "upcoming" | "completed" | "inactive"
+
+/**
+ * Forme native d'un examen (post-migration Convex→Drizzle). Reprend la
+ * convention `_id` / `_creationTime` de l'ancien `Doc<"exams">` ainsi que les
+ * colonnes de la table `exams` (le champ `participants` n'existe plus depuis le
+ * schéma V2 normalisé).
+ */
+export type ExamDoc = {
+  _id: string
+  _creationTime: number
+  title: string
+  description?: string
+  startDate: number
+  endDate: number
+  questionIds: string[]
+  completionTime: number
+  enablePause?: boolean
+  pauseDurationMinutes?: number
+  isActive: boolean
+  createdBy: string
+}
 
 export type ExamStatusConfig = {
   label: string
@@ -32,7 +52,7 @@ export type ExamStatItem = {
  * Exam type without embedded participants (V2 normalized schema)
  * Use this for admin list views and other places that don't need participant details
  */
-export type ExamWithoutParticipants = Omit<Doc<"exams">, "participants"> & {
+export type ExamWithoutParticipants = ExamDoc & {
   participantCount: number
 }
 
@@ -40,7 +60,7 @@ export type ExamWithoutParticipants = Omit<Doc<"exams">, "participants"> & {
  * Exam with user's participation status (V2)
  * Used by examen-blanc page to show "already taken" status
  */
-export type ExamWithUserParticipation = Omit<Doc<"exams">, "participants"> & {
+export type ExamWithUserParticipation = ExamDoc & {
   userHasTaken: boolean
   userParticipation: {
     status: "in_progress" | "completed" | "auto_submitted" | undefined

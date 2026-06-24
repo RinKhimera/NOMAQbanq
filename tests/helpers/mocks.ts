@@ -1,7 +1,7 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
 import { vi } from "vitest"
+import type { QuestionDoc } from "@/components/quiz/question-card/types"
 import type { SessionQuestion } from "@/components/quiz/session/types"
-import type { Doc, Id } from "@/convex/_generated/dataModel"
 
 // ===== Router Mock =====
 export const mockRouter = (
@@ -13,20 +13,6 @@ export const mockRouter = (
   back: vi.fn(),
   forward: vi.fn(),
   prefetch: vi.fn(),
-  ...overrides,
-})
-
-// ===== ConvexAuth Mock =====
-type ConvexAuthState = {
-  isAuthenticated: boolean
-  isLoading: boolean
-}
-
-export const mockConvexAuth = (
-  overrides?: Partial<ConvexAuthState>,
-): ConvexAuthState => ({
-  isAuthenticated: false,
-  isLoading: false,
   ...overrides,
 })
 
@@ -94,36 +80,32 @@ export const mockCurrentUser = (
 })
 
 // ===== Question Doc Factory =====
-// Retourne un doc enrichi : Doc<"questions"> + explanation/references joints.
-// Côté prod, explanation/references vivent dans questionExplanations et sont
-// merge-joints par le serveur (getQuestionById, scoreQuizAnswers,
-// _getQuestionsPageForExport). Les composants review/results reçoivent donc
-// un objet enrichi — ce factory reflète cette shape pour les tests.
-export type MockQuestionDoc = Doc<"questions"> & {
-  explanation: string
-  references?: string[]
-}
+// Retourne un doc enrichi : QuestionDoc inclut explanation (requis) +
+// references (optionnel). Côté prod, explanation/references vivent dans
+// questionExplanations et sont merge-joints par le serveur (getQuestionById,
+// scoreQuizAnswers, _getQuestionsPageForExport). Les composants review/results
+// reçoivent donc un objet enrichi — ce factory reflète cette shape pour les tests.
+export type MockQuestionDoc = QuestionDoc
 
 export const createMockQuestionDoc = (
   overrides?: Partial<MockQuestionDoc>,
-): MockQuestionDoc =>
-  ({
-    _id: "q1" as Id<"questions">,
-    _creationTime: Date.now(),
-    question: "Quelle est la capitale de la France ?",
-    options: ["Paris", "Lyon", "Marseille", "Bordeaux"],
-    correctAnswer: "Paris",
-    explanation: "Paris est la capitale de la France.",
-    objectifCMC: "Objectif 1",
-    domain: "Général",
-    ...overrides,
-  }) as MockQuestionDoc
+): MockQuestionDoc => ({
+  _id: "q1",
+  _creationTime: Date.now(),
+  question: "Quelle est la capitale de la France ?",
+  options: ["Paris", "Lyon", "Marseille", "Bordeaux"],
+  correctAnswer: "Paris",
+  explanation: "Paris est la capitale de la France.",
+  objectifCMC: "Objectif 1",
+  domain: "Général",
+  ...overrides,
+})
 
 // ===== Session Question Factory =====
 export const createMockSessionQuestion = (
   overrides?: Partial<SessionQuestion>,
 ): SessionQuestion => ({
-  _id: "q1" as Id<"questions">,
+  _id: "q1",
   question: "Quelle est la capitale de la France ?",
   options: ["Paris", "Lyon", "Marseille", "Bordeaux"],
   correctAnswer: "Paris",

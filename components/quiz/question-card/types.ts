@@ -1,17 +1,30 @@
-import type { Doc } from "@/convex/_generated/dataModel"
-
 // ===== Variant Types =====
 export type QuestionCardVariant = "default" | "exam" | "review"
 
 // ===== Question shape =====
-// Subset of Doc<"questions"> that QuestionCard actually needs. Defined as a
-// separate type so pages can pass questions loaded from queries that don't
-// return the full `explanation`/`references` fields (since PR B, these are
-// lazy-loaded via getQuestionExplanations).
-// Using Omit<Doc<"questions">, ...> keeps us in sync automatically with the
-// Convex schema while tolerating that some server responses strip explanation.
+// Forme native (post-migration Convex→Drizzle) d'une question telle que la
+// consomment les composants quiz partagés. Conserve la convention `_id` /
+// `_creationTime` de la « forme pont » renvoyée par les DAL Drizzle, sans
+// dépendre des types générés Convex.
+export type QuestionDoc = {
+  _id: string
+  _creationTime?: number
+  question: string
+  options: string[]
+  correctAnswer: string
+  domain: string
+  objectifCMC: string
+  explanation: string
+  references?: string[]
+  images?: Array<{ url: string; storagePath: string; order: number }>
+}
+
+// Sous-ensemble de QuestionDoc que QuestionCard accepte réellement. Défini comme
+// type séparé pour que les pages puissent passer des questions chargées par des
+// requêtes qui ne renvoient pas les champs `explanation`/`references` (depuis
+// PR B, ils sont lazy-loadés via getQuestionExplanations).
 export type QuestionCardQuestion = Omit<
-  Doc<"questions">,
+  QuestionDoc,
   "explanation" | "references"
 > & {
   explanation?: string

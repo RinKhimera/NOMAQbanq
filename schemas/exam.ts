@@ -1,5 +1,4 @@
 import * as z from "zod"
-import { Id } from "@/convex/_generated/dataModel"
 
 export const examFormSchema = z
   .object({
@@ -16,7 +15,7 @@ export const examFormSchema = z
       .min(10, "Minimum 10 questions")
       .max(230, "Maximum 230 questions"),
     questionIds: z
-      .array(z.custom<Id<"questions">>())
+      .array(z.string())
       .min(1, "Sélectionnez au moins une question"),
     // Pause settings (for 100+ questions)
     enablePause: z.boolean().optional(),
@@ -58,7 +57,7 @@ export type ExamFormValues = z.infer<typeof examFormSchema>
 
 // Helper pour valider que le nombre de questions sélectionnées correspond au nombre requis
 export const validateQuestionCount = (
-  selectedQuestions: Id<"questions">[],
+  selectedQuestions: string[],
   requiredCount: number,
 ) => {
   return selectedQuestions.length === requiredCount

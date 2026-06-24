@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import type { MouseEventHandler, ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import QuestionNavigation from "@/components/quiz/question-navigation"
-import type { Id } from "@/convex/_generated/dataModel"
 import { createMockQuestionDoc } from "../../helpers/mocks"
 
 // Mock @radix-ui/react-dropdown-menu to render content directly
@@ -42,15 +41,15 @@ vi.mock("@radix-ui/react-dropdown-menu", () => {
 describe("QuestionNavigation", () => {
   const questions = [
     createMockQuestionDoc({
-      _id: "q1" as Id<"questions">,
+      _id: "q1",
       correctAnswer: "Paris",
     }),
     createMockQuestionDoc({
-      _id: "q2" as Id<"questions">,
+      _id: "q2",
       correctAnswer: "Lyon",
     }),
     createMockQuestionDoc({
-      _id: "q3" as Id<"questions">,
+      _id: "q3",
       correctAnswer: "Marseille",
     }),
   ]

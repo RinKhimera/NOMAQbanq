@@ -1,5 +1,3 @@
-import type { Id } from "@/convex/_generated/dataModel"
-
 // Session modes
 export type SessionMode = "training" | "exam"
 
@@ -31,7 +29,7 @@ export interface SessionConfig {
 
 // Question types
 export interface SessionQuestion {
-  _id: Id<"questions">
+  _id: string
   question: string
   options: string[]
   correctAnswer: string

@@ -52,7 +52,6 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { Id } from "@/convex/_generated/dataModel"
 import { createExam } from "@/features/exams/actions"
 import type { EligibleCandidate } from "@/features/exams/dal"
 import { cn } from "@/lib/utils"
@@ -71,9 +70,7 @@ interface ExamCreateFormProps {
 
 export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
   const router = useRouter()
-  const [selectedQuestions, setSelectedQuestions] = useState<Id<"questions">[]>(
-    [],
-  )
+  const [selectedQuestions, setSelectedQuestions] = useState<string[]>([])
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
@@ -136,7 +133,7 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
     }
   }
 
-  const handleQuestionSelectionChange = (questions: Id<"questions">[]) => {
+  const handleQuestionSelectionChange = (questions: string[]) => {
     setSelectedQuestions(questions)
     form.setValue("questionIds", questions)
   }

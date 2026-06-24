@@ -9,7 +9,6 @@ import {
   useState,
   useTransition,
 } from "react"
-import { Id } from "@/convex/_generated/dataModel"
 import { loadQuestionsPage } from "@/features/questions/actions"
 import type { QuestionListItem } from "@/features/questions/dal"
 import {
@@ -28,12 +27,12 @@ interface QuestionBrowserProviderProps {
   children: React.ReactNode
   mode: QuestionBrowserMode
   // Selection (mode select)
-  selectedIds?: Id<"questions">[]
-  onSelectionChange?: (ids: Id<"questions">[]) => void
+  selectedIds?: string[]
+  onSelectionChange?: (ids: string[]) => void
   maxSelection?: number
   // Preview (mode browse - controlled)
-  externalPreviewId?: Id<"questions"> | null
-  onPreviewChange?: (id: Id<"questions"> | null) => void
+  externalPreviewId?: string | null
+  onPreviewChange?: (id: string | null) => void
   // Filters callback
   onFiltersChange?: (filters: QuestionFilters) => void
 }
@@ -62,8 +61,9 @@ export function QuestionBrowserProvider({
   }, [filters.searchQuery])
 
   // Preview panel state (internal, used when not controlled)
-  const [internalPreviewId, setInternalPreviewId] =
-    useState<Id<"questions"> | null>(null)
+  const [internalPreviewId, setInternalPreviewId] = useState<string | null>(
+    null,
+  )
 
   // Use external or internal preview based on props (controlled/uncontrolled)
   const previewQuestionId =
@@ -71,9 +71,7 @@ export function QuestionBrowserProvider({
   const setPreviewQuestionId = onPreviewChange ?? setInternalPreviewId
 
   // Internal selection state (used when not controlled externally)
-  const [internalSelectedIds, setInternalSelectedIds] = useState<
-    Id<"questions">[]
-  >([])
+  const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>([])
 
   // Use external or internal selection based on mode and props
   const selectedIds = externalSelectedIds ?? internalSelectedIds
@@ -92,7 +90,7 @@ export function QuestionBrowserProvider({
   const [isLoadingMore, startLoadMore] = useTransition()
 
   const toRow = (q: QuestionListItem): QuestionRow => ({
-    _id: q.id as Id<"questions">,
+    _id: q.id,
     _creationTime: q.createdAt,
     question: q.question,
     domain: q.domain,
@@ -183,7 +181,7 @@ export function QuestionBrowserProvider({
 
   // Selection helpers
   const toggleSelection = useCallback(
-    (id: Id<"questions">) => {
+    (id: string) => {
       const isSelected = selectedIds.includes(id)
       if (isSelected) {
         setSelectedIds(selectedIds.filter((selectedId) => selectedId !== id))
@@ -199,7 +197,7 @@ export function QuestionBrowserProvider({
   }, [setSelectedIds])
 
   const isSelected = useCallback(
-    (id: Id<"questions">) => selectedIds.includes(id),
+    (id: string) => selectedIds.includes(id),
     [selectedIds],
   )
 

@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { ComponentPropsWithoutRef } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { QuestionCard } from "@/components/quiz/question-card"
-import { Doc, Id } from "@/convex/_generated/dataModel"
+import type { QuestionDoc } from "@/components/quiz/question-card/types"
 
 // Props Framer Motion à exclure du DOM (hoisted pour être disponible dans vi.mock)
 const { filterMotionProps } = vi.hoisted(() => {
@@ -58,15 +58,12 @@ vi.mock("next/image", () => ({
   ),
 }))
 
-// QuestionCard accepte `QuestionCardQuestion` (Doc<"questions"> étendu avec
+// QuestionCard accepte `QuestionCardQuestion` (QuestionDoc avec
 // explanation/references optionnels, lazy-loaded côté serveur via
-// questionExplanations). On enrichit le doc avec ces deux champs pour couvrir
-// le variant "review".
-const mockQuestion: Doc<"questions"> & {
-  explanation: string
-  references?: string[]
-} = {
-  _id: "q1" as Id<"questions">,
+// questionExplanations). `QuestionDoc` porte déjà `explanation` (requis) et
+// `references` (optionnel), ce qui couvre le variant "review".
+const mockQuestion: QuestionDoc = {
+  _id: "q1",
   _creationTime: Date.now(),
   question: "Quelle est la capitale de la France ?",
   options: ["Paris", "Lyon", "Marseille", "Bordeaux"],

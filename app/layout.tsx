@@ -3,7 +3,6 @@ import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google"
 import { JsonLd } from "@/components/seo/json-ld"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
-import ConvexClientProvider from "@/providers/convex-client-provider"
 import "./globals.css"
 
 const geistSans = Geist({
@@ -148,7 +147,7 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <ConvexClientProvider>{children}</ConvexClientProvider>
+          {children}
           <Toaster richColors />
         </ThemeProvider>
       </body>

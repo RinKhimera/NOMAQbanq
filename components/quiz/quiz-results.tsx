@@ -3,14 +3,14 @@
 import { Eye, EyeOff, RotateCcw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import type { QuestionDoc } from "@/components/quiz/question-card/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Doc } from "@/convex/_generated/dataModel"
 import { QuestionCard } from "./question-card"
 import QuestionNavigation from "./question-navigation"
 
 interface QuizResultsProps {
-  questions: Doc<"questions">[]
+  questions: QuestionDoc[]
   userAnswers: (string | null)[]
   score: number
   timeRemaining: number

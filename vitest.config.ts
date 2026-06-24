@@ -27,7 +27,6 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: [
-        "convex/**/*.ts",
         "lib/**/*.ts",
         "hooks/**/*.ts",
         "components/**/*.tsx",
@@ -37,8 +36,6 @@ export default defineConfig({
       reporter: ["text", "json", "html"],
       exclude: [
         "node_modules/**",
-        "convex/_generated/**",
-        "convex/schema.ts",
         "**/*.config.*",
         "**/*.d.ts",
         "components/ui/**",
@@ -90,12 +87,6 @@ export default defineConfig({
         // Quiz tools (complex UI, low logic)
         "components/quiz/calculator/**",
         "components/quiz/lab-values/**",
-        // Convex integrations (external services, webhooks)
-        "convex/http.ts",
-        "convex/stripe.ts",
-        "convex/testing.ts",
-        "convex/crons.ts",
-        "convex/lib/stripe.ts",
         "schemas/index.ts",
       ],
       thresholds: {
@@ -113,20 +104,7 @@ export default defineConfig({
           environment: "happy-dom",
           setupFiles: ["./vitest.setup.ts"],
           include: ["tests/**/*.test.{ts,tsx}"],
-          exclude: ["tests/convex/**", "tests/integration/**"],
-        },
-      },
-      {
-        extends: true,
-        test: {
-          name: "convex",
-          environment: "edge-runtime",
-          include: ["tests/convex/**/*.test.ts"],
-          server: {
-            deps: {
-              inline: ["convex-test"],
-            },
-          },
+          exclude: ["tests/integration/**"],
         },
       },
       {

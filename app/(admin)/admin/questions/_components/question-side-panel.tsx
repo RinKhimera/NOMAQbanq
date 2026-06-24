@@ -41,14 +41,13 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Id } from "@/convex/_generated/dataModel"
 import { deleteQuestion, loadQuestionById } from "@/features/questions/actions"
 import type { QuestionDetail } from "@/features/questions/dal"
 import { cdnUrl } from "@/lib/cdn"
 import { cn } from "@/lib/utils"
 
 interface QuestionSidePanelProps {
-  questionId: Id<"questions"> | null
+  questionId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
   onDeleted?: () => void
@@ -87,7 +86,7 @@ function PanelContent({
   questionId,
   onDeleted,
 }: {
-  questionId: Id<"questions">
+  questionId: string
   onDeleted?: () => void
 }) {
   const [isExplanationOpen, setIsExplanationOpen] = useState(true)

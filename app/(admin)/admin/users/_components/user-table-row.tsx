@@ -5,15 +5,29 @@ import { fr } from "date-fns/locale"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { TableCell, TableRow } from "@/components/ui/table"
-import { Doc } from "@/convex/_generated/dataModel"
 import { getInitials } from "@/lib/utils"
 
+/**
+ * Forme structurelle d'un utilisateur telle que consommée par cette ligne de
+ * tableau. Reprend la convention Convex (`_id` / `_creationTime`) pour rester
+ * compatible avec les call-sites existants (la donnée provient d'un cast).
+ */
+type UserRow = {
+  _id: string
+  _creationTime: number
+  name: string
+  email: string
+  image: string
+  username?: string
+  role: "admin" | "user"
+}
+
 interface UserTableRowProps {
-  user: Doc<"users">
+  user: UserRow
   index: number
   page: number
   limit: number
-  onUserClick: (user: Doc<"users">) => void
+  onUserClick: (user: UserRow) => void
 }
 
 export function UserTableRow({

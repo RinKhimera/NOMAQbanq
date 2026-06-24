@@ -1,7 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import QuizResults from "@/components/quiz/quiz-results"
-import type { Id } from "@/convex/_generated/dataModel"
 import { createMockQuestionDoc } from "../../helpers/mocks"
 
 // Mock motion/react - import the shared factory
@@ -33,23 +32,23 @@ vi.mock("next/navigation", () => ({
 describe("QuizResults", () => {
   const questions = [
     createMockQuestionDoc({
-      _id: "q1" as Id<"questions">,
+      _id: "q1",
       question: "Question 1",
     }),
     createMockQuestionDoc({
-      _id: "q2" as Id<"questions">,
+      _id: "q2",
       question: "Question 2",
     }),
     createMockQuestionDoc({
-      _id: "q3" as Id<"questions">,
+      _id: "q3",
       question: "Question 3",
     }),
     createMockQuestionDoc({
-      _id: "q4" as Id<"questions">,
+      _id: "q4",
       question: "Question 4",
     }),
     createMockQuestionDoc({
-      _id: "q5" as Id<"questions">,
+      _id: "q5",
       question: "Question 5",
     }),
   ]

@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-import { Id } from "@/convex/_generated/dataModel"
 import {
   examFormSchema,
   getDefaultPauseDuration,
@@ -257,17 +256,17 @@ describe("Exam Schema", () => {
 
   describe("validateQuestionCount", () => {
     it("should return true when counts match", () => {
-      const selected = ["q1", "q2", "q3"] as Id<"questions">[]
+      const selected = ["q1", "q2", "q3"]
       expect(validateQuestionCount(selected, 3)).toBe(true)
     })
 
     it("should return false when too few questions", () => {
-      const selected = ["q1", "q2"] as Id<"questions">[]
+      const selected = ["q1", "q2"]
       expect(validateQuestionCount(selected, 3)).toBe(false)
     })
 
     it("should return false when too many questions", () => {
-      const selected = ["q1", "q2", "q3", "q4"] as Id<"questions">[]
+      const selected = ["q1", "q2", "q3", "q4"]
       expect(validateQuestionCount(selected, 3)).toBe(false)
     })
 
@@ -280,7 +279,7 @@ describe("Exam Schema", () => {
     })
 
     it("should handle large question counts", () => {
-      const selected = Array(230).fill("q") as Id<"questions">[]
+      const selected = Array(230).fill("q") as string[]
       expect(validateQuestionCount(selected, 230)).toBe(true)
     })
   })

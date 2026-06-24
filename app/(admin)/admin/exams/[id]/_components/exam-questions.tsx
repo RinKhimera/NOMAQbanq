@@ -2,6 +2,7 @@
 
 import { FileText } from "lucide-react"
 import { QuestionCard } from "@/components/quiz/question-card"
+import type { QuestionDoc } from "@/components/quiz/question-card/types"
 import {
   Card,
   CardContent,
@@ -9,12 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Doc } from "@/convex/_generated/dataModel"
 
 export function ExamQuestions({
   examQuestions,
 }: {
-  examQuestions: Doc<"questions">[]
+  examQuestions: QuestionDoc[]
 }) {
   return (
     <Card>

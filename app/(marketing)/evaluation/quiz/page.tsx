@@ -5,8 +5,11 @@ import { useEffect, useRef, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
 import QuizProgress from "@/components/quiz/quiz-progress"
 import QuizResults from "@/components/quiz/quiz-results"
+import type {
+  QuestionCardQuestion,
+  QuestionDoc,
+} from "@/components/quiz/question-card/types"
 import { Button } from "@/components/ui/button"
-import type { Doc } from "@/convex/_generated/dataModel"
 import {
   loadRandomQuizQuestions,
   scoreQuizAnswers,
@@ -14,7 +17,7 @@ import {
 import type { QuizQuestionView } from "@/features/questions/dal"
 
 // Forme renvoyée par le DAL public (sans correctAnswer/explanation), assignable
-// au contrat `Doc<"questions">` des composants quiz partagés via cast.
+// au contrat `QuestionDoc` des composants quiz partagés via cast.
 type QuizQuestion = QuizQuestionView
 
 interface QuizState {
@@ -35,7 +38,7 @@ export default function QuizPage() {
   )
   const [scoredResults, setScoredResults] = useState<{
     score: number
-    mergedQuestions: Doc<"questions">[]
+    mergedQuestions: QuestionDoc[]
   } | null>(null)
 
   const [quizState, setQuizState] = useState<QuizState>({
@@ -99,14 +102,12 @@ export default function QuizPage() {
       )
       const merged = quizQuestions!.map((q) => {
         const scored = resultMap.get(q._id)
-        // Bridge migration : `_id` est un string Drizzle, le contrat partagé
-        // QuizResults attend `Id<"questions">` (brand Convex). Pont via unknown.
         return {
           ...q,
           correctAnswer: scored?.correctAnswer ?? "",
           explanation: scored?.explanation ?? "",
           references: scored?.references ?? [],
-        } as unknown as Doc<"questions">
+        } satisfies QuestionDoc
       })
       setScoredResults({ score: result.score, mergedQuestions: merged })
     })
@@ -207,7 +208,7 @@ export default function QuizPage() {
 
         <QuestionCard
           variant="exam"
-          question={currentQ as unknown as Doc<"questions">}
+          question={currentQ as unknown as QuestionCardQuestion}
           selectedAnswer={currentAnswer}
           onAnswerSelect={handleAnswerSelect}
           showImage={true}

@@ -13,7 +13,6 @@ import {
   defaultFilters,
 } from "@/components/admin/question-browser"
 import { Button } from "@/components/ui/button"
-import { Id } from "@/convex/_generated/dataModel"
 import type { QuestionStatsEnriched } from "@/features/questions/dal"
 
 import { ExportQuestionsButton } from "./export-questions-button"
@@ -23,18 +22,17 @@ import { QuestionsStatsRow } from "./questions-stats-row"
 export function QuestionsManager({ stats }: { stats: QuestionStatsEnriched }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const initialQuestionId = searchParams.get(
-    "question",
-  ) as Id<"questions"> | null
+  const initialQuestionId = searchParams.get("question")
 
-  const [selectedQuestionId, setSelectedQuestionId] =
-    useState<Id<"questions"> | null>(initialQuestionId)
+  const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(
+    initialQuestionId,
+  )
   const [currentFilters, setCurrentFilters] =
     useState<QuestionFilters>(defaultFilters)
   const [, startTransition] = useTransition()
 
   const handlePreviewChange = useCallback(
-    (id: Id<"questions"> | null) => {
+    (id: string | null) => {
       startTransition(() => {
         setSelectedQuestionId(id)
         const url = new URL(window.location.href)

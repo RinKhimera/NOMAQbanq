@@ -1,5 +1,4 @@
 import { ReactNode } from "react"
-import { Id } from "@/convex/_generated/dataModel"
 
 // Filter types
 export type ImageFilter = "all" | "with" | "without"
@@ -30,7 +29,7 @@ export interface QuestionImage {
 }
 
 export interface QuestionRow {
-  _id: Id<"questions">
+  _id: string
   _creationTime: number
   question: string
   domain: string
@@ -45,7 +44,7 @@ export type QuestionBrowserMode = "browse" | "select"
 
 // Panel render props
 export interface PanelRenderProps {
-  questionId: Id<"questions"> | null
+  questionId: string | null
   onClose: () => void
 }
 
@@ -55,13 +54,13 @@ export interface QuestionBrowserProps {
   mode: QuestionBrowserMode
 
   // Mode select props
-  selectedIds?: Id<"questions">[]
-  onSelectionChange?: (ids: Id<"questions">[]) => void
+  selectedIds?: string[]
+  onSelectionChange?: (ids: string[]) => void
   maxSelection?: number
 
   // Mode browse - controlled preview state (pour URL sync)
-  previewQuestionId?: Id<"questions"> | null
-  onPreviewChange?: (id: Id<"questions"> | null) => void
+  previewQuestionId?: string | null
+  onPreviewChange?: (id: string | null) => void
 
   // Callback pour exposer les filtres (pour export)
   onFiltersChange?: (filters: QuestionFilters) => void
@@ -89,16 +88,16 @@ export interface QuestionBrowserContextState {
   handleSort: (field: SortBy) => void
 
   // Selection (only in select mode)
-  selectedIds: Id<"questions">[]
-  toggleSelection: (id: Id<"questions">) => void
+  selectedIds: string[]
+  toggleSelection: (id: string) => void
   clearSelection: () => void
-  isSelected: (id: Id<"questions">) => boolean
+  isSelected: (id: string) => boolean
   isQuotaReached: boolean
   maxSelection: number
 
   // Preview panel
-  previewQuestionId: Id<"questions"> | null
-  setPreviewQuestionId: (id: Id<"questions"> | null) => void
+  previewQuestionId: string | null
+  setPreviewQuestionId: (id: string | null) => void
 
   // Mode
   mode: QuestionBrowserMode

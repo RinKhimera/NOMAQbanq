@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
 import type { SessionAnswer } from "@/components/quiz/session/types"
-import type { Id } from "@/convex/_generated/dataModel"
 
 // Mock motion/react - import the shared factory
 vi.mock("motion/react", async () => {
@@ -12,7 +11,7 @@ vi.mock("motion/react", async () => {
 
 const createQuestions = (count: number) =>
   Array.from({ length: count }, (_, i) => ({
-    _id: `q${i}` as Id<"questions">,
+    _id: `q${i}`,
   }))
 
 describe("QuestionNavigator", () => {
