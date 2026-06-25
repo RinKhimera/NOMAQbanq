@@ -7,6 +7,8 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 
+import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -18,11 +20,16 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { authClient } from "@/lib/auth-client"
+import { type MappedAuthError, mapAuthError } from "@/lib/auth-errors"
 import { type SignInFormValues, signInSchema } from "@/schemas/auth"
 
 export const SignInForm = () => {
   const router = useRouter()
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [error, setError] = useState<MappedAuthError | null>(null)
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<
+    string | null
+  >(null)
 
   const form = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
@@ -30,14 +37,21 @@ export const SignInForm = () => {
   })
 
   const onSubmit = async (values: SignInFormValues) => {
-    const { error } = await authClient.signIn.email({
+    setError(null)
+    const { error: signInError } = await authClient.signIn.email({
       email: values.email,
       password: values.password,
       rememberMe: true,
     })
 
-    if (error) {
-      toast.error(error.message ?? "Échec de la connexion")
+    if (signInError) {
+      const mapped = mapAuthError(signInError)
+      if (mapped.kind === "email_not_verified") {
+        // sendOnSignIn a déjà renvoyé le lien côté serveur.
+        setPendingVerificationEmail(values.email)
+        return
+      }
+      setError(mapped)
       return
     }
 
@@ -47,17 +61,21 @@ export const SignInForm = () => {
 
   const handleGoogle = async () => {
     setIsGoogleLoading(true)
-    const { error } = await authClient.signIn.social({
+    const { error: googleError } = await authClient.signIn.social({
       provider: "google",
       callbackURL: "/dashboard",
     })
-    if (error) {
-      toast.error(error.message ?? "Échec de la connexion avec Google")
+    if (googleError) {
+      toast.error(googleError.message ?? "Échec de la connexion avec Google")
       setIsGoogleLoading(false)
     }
   }
 
   const isSubmitting = form.formState.isSubmitting
+
+  if (pendingVerificationEmail) {
+    return <CheckEmailNotice email={pendingVerificationEmail} mode="verify" />
+  }
 
   return (
     <div className="w-full space-y-5">
@@ -95,6 +113,35 @@ export const SignInForm = () => {
         <span className="text-muted-foreground text-xs">ou</span>
         <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
       </div>
+
+      {error && (
+        <Alert variant="destructive" data-testid="auth-error-alert">
+          <AlertTitle>Connexion impossible</AlertTitle>
+          <AlertDescription>
+            {error.kind === "invalid_credentials" ? (
+              <div className="space-y-1">
+                <p>Vérifiez votre courriel et votre mot de passe.</p>
+                <p>
+                  Inscrit avec Google ? Utilisez « Continuer avec Google »
+                  ci-dessus.
+                </p>
+                <p>
+                  Vous n'avez pas encore de mot de passe ?{" "}
+                  <Link
+                    href="/auth/forgot-password"
+                    className="font-medium underline"
+                  >
+                    Réinitialisez-le
+                  </Link>
+                  .
+                </p>
+              </div>
+            ) : (
+              <p>{error.message}</p>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Form {...form}>
         <form
