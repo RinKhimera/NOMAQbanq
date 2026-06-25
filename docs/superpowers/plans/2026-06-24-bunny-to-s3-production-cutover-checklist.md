@@ -21,10 +21,30 @@
       résumé du script, et spot-check `curl -I https://dn5nrir6z5nr7.cloudfront.net/<clé>`.
 - [ ] **Abaisser le TTL DNS** de `cdn.nomaqbanq.ca` chez Porkbun (ex. 300 s),
       ~24 h avant la bascule.
+- [ ] **Répéter l'import de données à blanc** : export Convex de test →
+      `bun scripts/import-from-convex.ts` sur une branche Neon **jetable** → vérifier
+      le tableau de comptes (de-risque le run prod réel).
 - [ ] (Optionnel) **Revue antagoniste** des correctifs (domaine + orphelins).
 
-## B. Bascule (fenêtre creuse, à faire en quelques minutes)
+## B. Bascule (fenêtre de maintenance)
 
+> Fais l'**import des données en dernier** (au plus près du go-live) pour ne pas
+> perdre les écritures Convex faites entre-temps. L'import
+> (`scripts/import-from-convex.ts`) est idempotent (`onConflictDoNothing`) et a
+> déjà servi pour `develop`.
+
+- [ ] **(Optionnel) Figer/limiter les écritures Convex** pendant la fenêtre.
+- [ ] **Export Convex final** → décompresser dans `convex-snapshot/`
+      (⚠️ PII : reste local, déjà gitignoré ; ne jamais committer).
+- [ ] **Schéma base production** : pointer temporairement `DATABASE_URL_UNPOOLED`
+      sur la branche Neon **production**, puis `bun run db:migrate`.
+- [ ] **Importer les données** : `bun scripts/import-from-convex.ts` (cible la branche
+      production via `DATABASE_URL_UNPOOLED`) → vérifier le tableau de comptes (questions,
+      user, exams…) + orphelins ignorés. *(Remettre `DATABASE_URL_UNPOOLED` sur develop
+      après, pour le dev local.)*
+- [ ] **Copie média sur la base production** : `bun scripts/migrate-media-to-s3.ts`
+      pointé sur la base **production** (idempotent → copie tout média référencé pas
+      encore sur S3).
 - [ ] **Nettoyer les env vars Production** : retirer les morts Convex/Clerk,
       vérifier `BETTER_AUTH_URL` prod = domaine canonique, retirer tout override
       Preview-only (`NEXT_PUBLIC_CDN_HOSTNAME`, `BETTER_AUTH_URL=…vercel.app`) qui
