@@ -38,16 +38,26 @@ const read = (table: string): Doc[] => {
 const ms = (n: number | null | undefined): Date | null =>
   n == null ? null : new Date(n)
 
+const insertedCount: Record<string, number> = {}
+
 const insertBatched = async (
   table: any,
   rows: any[],
   label: string,
 ): Promise<void> => {
+  let inserted = 0
   for (let i = 0; i < rows.length; i += BATCH) {
     const chunk = rows.slice(i, i + BATCH)
-    if (chunk.length > 0) await db.insert(table).values(chunk).onConflictDoNothing()
+    if (chunk.length === 0) continue
+    const res = await db.insert(table).values(chunk).onConflictDoNothing()
+    inserted += res.rowCount ?? 0
   }
-  console.log(`[ok] ${label}: ${rows.length} lignes`)
+  insertedCount[label] = inserted
+  const drop = rows.length - inserted
+  console.log(
+    `[ok] ${label}: ${inserted}/${rows.length} insérée(s)` +
+      (drop > 0 ? ` ⚠️  ${drop} ignorée(s) sur conflit` : ""),
+  )
 }
 
 const report: Record<string, number> = {}
@@ -268,8 +278,14 @@ async function main() {
   await insertBatched(schema.userAccess, userAccess, "user_access")
   report.user_access = userAccess.length
 
-  // 10. exam_participations
-  const participations: any[] = []
+  // 10. exam_participations — dédupliqué par (examId, userId) AVANT insert.
+  // La table impose unique(exam_id, user_id) ; sans dédup explicite,
+  // onConflictDoNothing dropperait un doublon ET ses exam_answers dangleraient
+  // (violation FK -> crash de l'import). On garde la "meilleure" : score le plus
+  // élevé, puis complétion la plus récente. participationIds est construit depuis
+  // l'ensemble DÉDUPLIQUÉ -> les réponses du doublon écarté sont aussi exclues.
+  const partByKey = new Map<string, any>()
+  let partDupes = 0
   for (const d of read("examParticipations")) {
     if (!examIds.has(d.examId)) {
       note(`examParticipation ${d._id}: exam ${d.examId} absent -> ignoré`)
@@ -279,7 +295,7 @@ async function main() {
       note(`examParticipation ${d._id}: user ${d.userId} absent -> ignoré`)
       continue
     }
-    participations.push({
+    const row = {
       id: d._id,
       examId: d.examId,
       userId: d.userId,
@@ -293,11 +309,37 @@ async function main() {
       isPauseCutShort: d.isPauseCutShort ?? null,
       totalPauseDurationMs: d.totalPauseDurationMs ?? null,
       createdAt: ms(d._creationTime),
-    })
+    }
+    const key = `${d.examId}::${d.userId}`
+    const prev = partByKey.get(key)
+    if (!prev) {
+      partByKey.set(key, row)
+      continue
+    }
+    partDupes++
+    const prevScore = prev.score ?? -1
+    const rowScore = row.score ?? -1
+    const better =
+      rowScore !== prevScore
+        ? rowScore > prevScore
+        : (row.completedAt?.getTime() ?? 0) > (prev.completedAt?.getTime() ?? 0)
+    if (better) partByKey.set(key, row)
+    note(
+      `examParticipation doublon (exam ${d.examId}, user ${d.userId}) -> 1 gardée (meilleur score/complétion)`,
+    )
   }
+  const participations = [...partByKey.values()]
   const participationIds = new Set(participations.map((p) => p.id))
-  await insertBatched(schema.examParticipations, participations, "exam_participations")
+  await insertBatched(
+    schema.examParticipations,
+    participations,
+    "exam_participations",
+  )
   report.exam_participations = participations.length
+  if (partDupes > 0)
+    console.log(
+      `[info] ${partDupes} participation(s) en doublon (exam,user) dédupliquée(s)`,
+    )
 
   // 11. exam_answers
   const examAnswers: any[] = []
@@ -384,9 +426,20 @@ async function main() {
   await insertBatched(schema.trainingSessionItems, items, "training_session_items")
   report.training_session_items = items.length
 
-  console.log("\n=== RÉSUMÉ IMPORT ===")
-  console.table(report)
-  console.log(`Orphelins/doublons ignorés: ${dropped.length}`)
+  console.log("\n=== RÉSUMÉ IMPORT (inséré / tenté) ===")
+  const summary = Object.keys(report).map((k) => ({
+    table: k,
+    tenté: report[k],
+    inséré: insertedCount[k] ?? report[k],
+    droppé: report[k] - (insertedCount[k] ?? report[k]),
+  }))
+  console.table(summary)
+  const totalDropped = summary.reduce((s, r) => s + r.droppé, 0)
+  if (totalDropped > 0)
+    console.warn(
+      `⚠️  ${totalDropped} ligne(s) droppée(s) silencieusement sur conflit (déjà présent / contrainte unique) — voir les [ok] ci-dessus.`,
+    )
+  console.log(`Orphelins/doublons FK ignorés: ${dropped.length}`)
   await pool.end()
 }
 
