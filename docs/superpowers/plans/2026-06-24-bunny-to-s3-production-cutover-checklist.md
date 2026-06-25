@@ -10,9 +10,10 @@
 
 ## A. Préparation (sans impact prod)
 
-- [ ] **Env vars vérifiées** (Vercel Preview/Prod : `AWS_REGION`, `AWS_ROLE_ARN`,
-      `S3_BUCKET` ; clés statiques `AWS_ACCESS_KEY_ID/SECRET` **uniquement** en
-      local, jamais sur Vercel).
+- [ ] **Env vars vérifiées** (Vercel Preview/Prod : `S3_REGION`=`us-east-2`,
+      `AWS_ROLE_ARN`, `S3_BUCKET` ; clés statiques `AWS_ACCESS_KEY_ID/SECRET`
+      **uniquement** en local, jamais sur Vercel). ⚠️ Région nommée `S3_REGION`
+      (PAS `AWS_REGION`, réservée par le runtime Lambda de Vercel).
 - [ ] **IAM rôle `nomaqbanq-s3-media`** : `tmp/*` (PutObject/DeleteObject) +
       `GetObject` sur `tmp/*` appliqués, **et règle Lifecycle S3 `tmp/` (expire 1 j)**
       active. (Sans ça, l'upload prod casse / les orphelins s'accumulent.)
@@ -48,7 +49,7 @@ images de questions, figures d'explication) depuis l'API Bunny Storage vers S3,
 
 1. **Remettre temporairement** dans `.env.local` : `BUNNY_STORAGE_ZONE_NAME`,
    `BUNNY_STORAGE_API_KEY` (+ `BUNNY_STORAGE_HOST` si zone régionale, ex.
-   `ny.storage.bunnycdn.com`). Les vars S3 (`AWS_REGION`, `S3_BUCKET`,
+   `ny.storage.bunnycdn.com`). Les vars S3 (`S3_REGION`, `S3_BUCKET`,
    `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) sont déjà là (dev local).
 2. **Dry-run** (aucune écriture) :
    ```bash

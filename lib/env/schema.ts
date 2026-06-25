@@ -47,10 +47,12 @@ export const buildServerSchema = () =>
     // (la route refuse aussi si `VERCEL_ENV === "production"`).
     E2E_RESET_SECRET: z.string().optional(),
     // AWS S3 (stockage médias) — optionnelles : l'app démarre sans, `lib/aws.ts`
-    // lève une erreur claire à l'usage. ROLE_ARN+BUCKET vont ensemble (refine).
-    // Auth via OIDC (AWS_ROLE_ARN) en prod/preview. AWS_REGION pinné (Vercel le
-    // définit dynamiquement sinon). Clés statiques = fallback dev local.
-    AWS_REGION: z.string().optional(),
+    // lève une erreur claire à l'usage. REGION+ROLE_ARN+BUCKET vont ensemble (refine).
+    // Auth via OIDC (AWS_ROLE_ARN) en prod/preview. Clés statiques = fallback dev local.
+    // ⚠️ Région = `S3_REGION` (PAS `AWS_REGION`) : sur Vercel/Lambda, `AWS_REGION` est
+    // une var réservée du runtime (région de la fonction) qui primerait sur la nôtre
+    // → on signerait pour la mauvaise région (403). `S3_REGION` est sous notre contrôle.
+    S3_REGION: z.string().optional(),
     AWS_ROLE_ARN: z.string().optional(),
     S3_BUCKET: z.string().optional(),
     AWS_ACCESS_KEY_ID: z.string().optional(),
@@ -64,23 +66,24 @@ export const buildServerSchema = () =>
         "STRIPE_WEBHOOK_SECRET : requise dès que STRIPE_SECRET_KEY est définie (sinon paiements encaissés sans fulfillment)",
       path: ["STRIPE_WEBHOOK_SECRET"],
     })
-    // Garde-fou S3 : un bucket exige des credentials, et AWS_ROLE_ARN (var
-    // S3-spécifique) exige un bucket. (AWS_REGION exclu du refine : Vercel le
-    // définit automatiquement.) Credentials = OIDC (AWS_ROLE_ARN) en prod/preview,
-    // OU clés statiques (AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY) en dev local.
+    // Garde-fou S3 : un bucket exige une région + des credentials, et AWS_ROLE_ARN
+    // (var S3-spécifique) exige un bucket. `S3_REGION` est INCLUS (sans région le
+    // presign signe pour la mauvaise région). Credentials = OIDC (AWS_ROLE_ARN) en
+    // prod/preview, OU clés statiques (AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY) dev.
     .refine(
       (e) => {
         if (e.S3_BUCKET) {
           return Boolean(
-            e.AWS_ROLE_ARN ||
-              (e.AWS_ACCESS_KEY_ID && e.AWS_SECRET_ACCESS_KEY),
+            e.S3_REGION &&
+              (e.AWS_ROLE_ARN ||
+                (e.AWS_ACCESS_KEY_ID && e.AWS_SECRET_ACCESS_KEY)),
           )
         }
         return !e.AWS_ROLE_ARN
       },
       {
         error:
-          "Configuration AWS S3 incomplète : S3_BUCKET nécessite des credentials (AWS_ROLE_ARN pour OIDC prod/preview, ou AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY pour le dev local) ; et AWS_ROLE_ARN nécessite S3_BUCKET",
+          "Configuration AWS S3 incomplète : S3_BUCKET nécessite S3_REGION + des credentials (AWS_ROLE_ARN pour OIDC prod/preview, ou AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY pour le dev local) ; et AWS_ROLE_ARN nécessite S3_BUCKET",
         path: ["S3_BUCKET"],
       },
     )

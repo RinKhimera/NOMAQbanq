@@ -7,7 +7,7 @@ vi.mock("@/lib/aws", () => ({ deleteFromS3: vi.fn() }))
 // pour ne pas exiger DATABASE_URL & co dans ce test unitaire frontend.
 vi.mock("@/lib/env/server", () => ({
   env: {
-    AWS_REGION: "us-east-2",
+    S3_REGION: "us-east-2",
     AWS_ROLE_ARN: "arn:aws:iam::1:role/x",
     S3_BUCKET: "nomaq-media",
   },

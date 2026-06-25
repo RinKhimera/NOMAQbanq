@@ -43,11 +43,11 @@ const resolveCredentials = () => {
 }
 
 const getClient = (): S3Client => {
-  if (!env.AWS_REGION) {
-    throw new Error("Configuration AWS manquante (AWS_REGION).")
+  if (!env.S3_REGION) {
+    throw new Error("Configuration AWS manquante (S3_REGION).")
   }
   client ??= new S3Client({
-    region: env.AWS_REGION,
+    region: env.S3_REGION,
     credentials: resolveCredentials(),
   })
   return client

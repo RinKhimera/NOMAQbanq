@@ -15,7 +15,7 @@
  *   DATABASE_URL (ou DATABASE_URL_UNPOOLED)
  *   BUNNY_STORAGE_ZONE_NAME, BUNNY_STORAGE_API_KEY   (à remettre temporairement)
  *   BUNNY_STORAGE_HOST   (optionnel, défaut storage.bunnycdn.com ; régional si besoin)
- *   AWS_REGION, S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+ *   S3_REGION, S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
  *   NEXT_PUBLIC_CDN_HOSTNAME   (optionnel, défaut cdn.nomaqbanq.ca — sert à
  *                               reconnaître les clés d'avatar dans user.image)
  *
@@ -45,7 +45,7 @@ const CDN_HOST = process.env.NEXT_PUBLIC_CDN_HOSTNAME ?? "cdn.nomaqbanq.ca"
 const BUCKET = need("S3_BUCKET")
 
 const s3 = new S3Client({
-  region: need("AWS_REGION"),
+  region: need("S3_REGION"),
   credentials: {
     accessKeyId: need("AWS_ACCESS_KEY_ID"),
     secretAccessKey: need("AWS_SECRET_ACCESS_KEY"),
@@ -173,7 +173,7 @@ const main = async (): Promise<void> => {
     `Mode : ${DRY_RUN ? "DRY-RUN (aucune écriture ; « copiés » = à copier)" : FORCE ? "RÉEL (--force)" : "RÉEL"}`,
   )
   console.log(`Source Bunny : ${BUNNY_HOST}/${BUNNY_ZONE}`)
-  console.log(`Cible S3 : ${BUCKET} (${process.env.AWS_REGION})\n`)
+  console.log(`Cible S3 : ${BUCKET} (${process.env.S3_REGION})\n`)
 
   const keys = await collectKeys()
   console.log(`Clés référencées en base : ${keys.length}`)

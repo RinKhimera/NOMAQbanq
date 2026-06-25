@@ -62,7 +62,7 @@ describe("loadServerEnv", () => {
     expect(
       loadServerEnv({
         ...valid,
-        AWS_REGION: "us-east-2",
+        S3_REGION: "us-east-2",
         AWS_ROLE_ARN: "arn:aws:iam::1:role/x",
         S3_BUCKET: "nomaq-media",
       }).S3_BUCKET,
@@ -79,7 +79,7 @@ describe("loadServerEnv", () => {
     expect(
       loadServerEnv({
         ...valid,
-        AWS_REGION: "us-east-2",
+        S3_REGION: "us-east-2",
         S3_BUCKET: "nomaq-media",
         AWS_ACCESS_KEY_ID: "AKIA_DEV",
         AWS_SECRET_ACCESS_KEY: "dev-secret",
@@ -89,7 +89,17 @@ describe("loadServerEnv", () => {
 
   it("rejette un bucket S3 sans credentials (ni role ni clés statiques)", () => {
     expect(() =>
-      loadServerEnv({ ...valid, AWS_REGION: "us-east-2", S3_BUCKET: "nomaq-media" }),
+      loadServerEnv({ ...valid, S3_REGION: "us-east-2", S3_BUCKET: "nomaq-media" }),
+    ).toThrow(/AWS S3 incompl/)
+  })
+
+  it("rejette un bucket S3 sans région (S3_REGION manquante)", () => {
+    expect(() =>
+      loadServerEnv({
+        ...valid,
+        S3_BUCKET: "nomaq-media",
+        AWS_ROLE_ARN: "arn:aws:iam::1:role/x",
+      }),
     ).toThrow(/AWS S3 incompl/)
   })
 })
