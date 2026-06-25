@@ -33,6 +33,11 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "cdn.nomaqbanq.ca",
       },
+      {
+        // Avatars OAuth Google (user.image = URL lh3.googleusercontent.com).
+        protocol: "https",
+        hostname: "lh3.googleusercontent.com",
+      },
     ],
   },
 }

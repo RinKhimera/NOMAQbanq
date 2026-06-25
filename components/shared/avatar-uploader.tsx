@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider"
 import { confirmAvatarUpload, createAvatarUpload } from "@/features/users/actions"
-import { cdnUrl } from "@/lib/cdn"
+import { cdnUrl, resolveAvatarUrl } from "@/lib/cdn"
 import { getCroppedImageBlob } from "@/lib/crop-image"
 import { cn } from "@/lib/utils"
 
@@ -54,7 +54,9 @@ export const AvatarUploader = ({
   const [zoom, setZoom] = useState(1)
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
 
-  const shownAvatarUrl = uploadedUrl ?? currentAvatarUrl
+  // `currentAvatarUrl` (= user.image) peut être une clé S3 ou une URL Google :
+  // on la résout en URL absolue pour next/image. `uploadedUrl` est déjà une URL CDN.
+  const shownAvatarUrl = uploadedUrl ?? resolveAvatarUrl(currentAvatarUrl)
 
   const sizeClasses = {
     sm: "h-16 w-16",
