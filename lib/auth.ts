@@ -20,6 +20,8 @@ export const auth = betterAuth({
     customRules: {
       "/request-password-reset": { window: 60, max: 3 },
       "/forget-password": { window: 60, max: 3 },
+      // Renvoi de vérification : borné comme le reset (anti-spam SES).
+      "/send-verification-email": { window: 60, max: 3 },
     },
   },
   // Rattache automatiquement Google aux users migrés (même email) en préservant leur id.
@@ -50,6 +52,9 @@ export const auth = betterAuth({
     },
     sendOnSignUp: true, // l'email part à l'inscription ; n'impose rien sans requireEmailVerification
     autoSignInAfterVerification: true,
+    // Compte non vérifié qui tente de se connecter → renvoi auto du lien (puis
+    // erreur EMAIL_NOT_VERIFIED). Débloque la « zone grise » des nouveaux inscrits.
+    sendOnSignIn: true,
   },
   // Google configuré UNIQUEMENT si les deux creds sont présents — évite le
   // `clientId: ""` qui cassait Google silencieusement (review N3).
