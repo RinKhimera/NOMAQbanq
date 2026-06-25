@@ -73,6 +73,18 @@ export type TestBranch = {
   host: string
 }
 
+/**
+ * Force `sslmode=verify-full` dans l'URI renvoyé par Neon (qui sort en
+ * `sslmode=require`). Neon utilise des certificats publiquement signés, donc
+ * verify-full = comportement déjà appliqué par `pg`, mais explicite : ça évite
+ * le warning pg-connection-string (« require » deviendra du chiffré-non-vérifié
+ * en pg v9). Remplacement chirurgical : ne touche pas au mot de passe.
+ */
+const withVerifyFullSsl = (uri: string): string =>
+  /[?&]sslmode=/i.test(uri)
+    ? uri.replace(/([?&]sslmode=)[^&]*/i, "$1verify-full")
+    : `${uri}${uri.includes("?") ? "&" : "?"}sslmode=verify-full`
+
 export const createTestBranch = async (): Promise<TestBranch> => {
   const parent = (await listBranches()).find((b) => b.name === PARENT_BRANCH)
   if (!parent) {
@@ -90,8 +102,9 @@ export const createTestBranch = async (): Promise<TestBranch> => {
   })
   await waitForOperations(created.operations)
 
-  const connectionUri = created.connection_uris?.[0]?.connection_uri
-  if (!connectionUri) throw new Error("Réponse Neon sans connection_uri.")
+  const rawUri = created.connection_uris?.[0]?.connection_uri
+  if (!rawUri) throw new Error("Réponse Neon sans connection_uri.")
+  const connectionUri = withVerifyFullSsl(rawUri)
   return { id: created.branch.id, name, connectionUri, host: new URL(connectionUri).host }
 }
 
