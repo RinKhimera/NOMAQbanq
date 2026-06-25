@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { startTransition, useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { QuestionImageUploader } from "@/components/admin/question-image-uploader"
@@ -77,15 +77,57 @@ interface QuestionFormPageProps {
   questionId?: string
 }
 
-export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
-  const router = useRouter()
-  const [references, setReferences] = useState<string[]>([""])
-  const [options, setOptions] = useState<string[]>(["", "", "", "", ""])
-  const [images, setImages] = useState<QuestionImage[]>([])
+// QCM = 4 ou 5 options : on complète à 5 cases (puis on tronque) pour la grille.
+const padOptions = (opts: string[]): string[] =>
+  [...opts, ...Array(Math.max(0, 5 - opts.length)).fill("")].slice(0, 5)
 
-  // Détail question (mode édition) via Server Action. `undefined` = en cours,
-  // `null` = introuvable. setState uniquement dans le callback async (le mode
-  // « create » n'utilise jamais ces branches, voir les gardes `mode === "edit"`).
+const initialReferences = (refs: string[] | null | undefined): string[] =>
+  refs?.length ? refs : [""]
+
+// Images du DAL (`{storagePath, position}`) → format local (`{url, storagePath,
+// order}`) ; l'URL d'affichage est dérivée du CDN public.
+const toLocalImages = (q: QuestionDetail): QuestionImage[] =>
+  q.images.map((img) => ({
+    url: cdnUrl(img.storagePath),
+    storagePath: img.storagePath,
+    order: img.position,
+  }))
+
+// Valeurs initiales SYNCHRONES du formulaire RHF. En édition, dérivées de la
+// question déjà chargée → le Radix Select du domaine reçoit `field.value` dès le
+// 1er rendu (pas de transition « vide → valeur » qui empêchait l'affichage).
+const buildDefaultValues = (q?: QuestionDetail): QuestionFormValues =>
+  q
+    ? {
+        question: q.question,
+        options: padOptions(q.options),
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation,
+        references: initialReferences(q.references),
+        objectifCMC: q.objectifCMC,
+        domain: q.domain,
+      }
+    : {
+        question: "",
+        options: ["", "", "", "", ""],
+        correctAnswer: "",
+        explanation: "",
+        references: [""],
+        objectifCMC: "",
+        domain: "",
+      }
+
+/**
+ * Loader/garde : en édition, charge la question via Server Action puis monte le
+ * formulaire UNE fois les données prêtes. Ce découpage est volontaire — il permet
+ * à `QuestionForm` d'initialiser `useForm({ defaultValues })` de façon synchrone
+ * avec la bonne valeur de domaine (cause racine du Bug 1 : un Radix Select
+ * contrôlé n'affiche pas une valeur posée tardivement après le montage).
+ */
+export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
+  // `undefined` = chargement en cours, `null` = introuvable. En création on saute
+  // directement au formulaire (pas de fetch). setState uniquement dans le callback
+  // async (jamais synchrone dans l'effet).
   const [question, setQuestion] = useState<QuestionDetail | null | undefined>(
     mode === "edit" ? undefined : null,
   )
@@ -100,80 +142,69 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
     }
   }, [mode, questionId])
 
-  // En édition, la question arrive de façon asynchrone. La prop `values` de RHF
-  // (mémoïsée sur `question`) re-synchronise TOUS les champs au chargement — y
-  // compris les composants contrôlés comme le Radix Select du domaine, que
-  // `form.reset(...)` posé dans un effet ne peuplait PAS (cause racine du Bug 1 :
-  // domaine vide → zod échoue → submit bloqué en silence). `undefined` en mode
-  // création → RHF garde les `defaultValues`.
-  const editValues = useMemo<QuestionFormValues | undefined>(() => {
-    if (mode !== "edit" || !question) return undefined
-    const paddedOptions = [
-      ...question.options,
-      ...Array(5 - question.options.length).fill(""),
-    ].slice(0, 5)
-    const paddedReferences = question.references?.length
-      ? question.references
-      : [""]
-    return {
-      question: question.question,
-      options: paddedOptions,
-      correctAnswer: question.correctAnswer,
-      explanation: question.explanation,
-      references: paddedReferences,
-      objectifCMC: question.objectifCMC,
-      domain: question.domain,
-    }
-  }, [mode, question])
+  if (mode === "edit" && question === undefined) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    )
+  }
+
+  if (mode === "edit" && question === null) {
+    return (
+      <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
+        <p className="text-lg text-gray-500">Question non trouvée</p>
+        <Link href="/admin/questions">
+          <Button variant="outline" className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Retour à la liste
+          </Button>
+        </Link>
+      </div>
+    )
+  }
+
+  // `key` : un id de question distinct (ou « create ») remonte le formulaire et
+  // ré-initialise proprement ses valeurs par défaut.
+  return (
+    <QuestionForm
+      key={question?.id ?? "create"}
+      mode={mode}
+      questionId={questionId}
+      question={question ?? undefined}
+    />
+  )
+}
+
+interface QuestionFormProps {
+  mode: "create" | "edit"
+  questionId?: string
+  question?: QuestionDetail
+}
+
+function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
+  const router = useRouter()
+  // État local initialisé SYNCHRONEMENT depuis la question (lazy initial state) —
+  // plus d'effet de pré-remplissage ni de `form.reset`.
+  const [references, setReferences] = useState<string[]>(() =>
+    question ? initialReferences(question.references) : [""],
+  )
+  const [options, setOptions] = useState<string[]>(() =>
+    question ? padOptions(question.options) : ["", "", "", "", ""],
+  )
+  const [images, setImages] = useState<QuestionImage[]>(() =>
+    question ? toLocalImages(question) : [],
+  )
 
   const form = useForm<QuestionFormValues>({
     resolver: zodResolver(questionFormSchema),
-    defaultValues: {
-      question: "",
-      options: ["", "", "", "", ""],
-      correctAnswer: "",
-      explanation: "",
-      references: [""],
-      objectifCMC: "",
-      domain: "",
-    },
-    values: editValues,
+    defaultValues: buildDefaultValues(question),
   })
 
   const correctAnswer = useWatch({
     control: form.control,
     name: "correctAnswer",
   })
-
-  // Alimente l'état LOCAL (options/références/images) à partir de la question
-  // chargée. Les valeurs du formulaire RHF, elles, sont synchronisées par la prop
-  // `values` ci-dessus (plus de `form.reset`). setState non-urgents (startTransition)
-  // → respecte `react-hooks/set-state-in-effect`.
-  useEffect(() => {
-    if (mode === "edit" && question) {
-      const paddedOptions = [
-        ...question.options,
-        ...Array(5 - question.options.length).fill(""),
-      ].slice(0, 5)
-      const paddedReferences = question.references?.length
-        ? question.references
-        : [""]
-
-      // Les images du DAL (`{id, storagePath, position}`) sont mappées vers le
-      // format local (`{url, storagePath, order}`) ; l'URL est dérivée du CDN.
-      startTransition(() => {
-        setOptions(paddedOptions)
-        setReferences(paddedReferences)
-        setImages(
-          question.images.map((img) => ({
-            url: cdnUrl(img.storagePath),
-            storagePath: img.storagePath,
-            order: img.position,
-          })),
-        )
-      })
-    }
-  }, [mode, question])
 
   const addReference = () => {
     const newReferences = [...references, ""]
@@ -307,30 +338,6 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
     )
     firstInvalid?.scrollIntoView?.({ behavior: "smooth", block: "center" })
     firstInvalid?.focus?.({ preventScroll: true })
-  }
-
-  // Loading state for edit mode
-  if (mode === "edit" && question === undefined) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
-      </div>
-    )
-  }
-
-  // Not found state for edit mode
-  if (mode === "edit" && question === null) {
-    return (
-      <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
-        <p className="text-lg text-gray-500">Question non trouvée</p>
-        <Link href="/admin/questions">
-          <Button variant="outline" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Retour à la liste
-          </Button>
-        </Link>
-      </div>
-    )
   }
 
   return (

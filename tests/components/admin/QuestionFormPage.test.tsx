@@ -107,8 +107,9 @@ describe("QuestionFormPage — édition", () => {
     // visible garantit que TOUS les champs (dont le domaine) sont peuplés.
     await screen.findByDisplayValue("Quelle est la capitale du foie ?")
 
-    // Le composant contrôlé du domaine reçoit bien la valeur pré-remplie (c'est
-    // ce que `form.reset` dans un effet ne faisait PAS — cause racine du Bug 1).
+    // Le composant contrôlé du domaine reçoit la valeur dès le 1er rendu (le
+    // formulaire est monté avec des `defaultValues` synchrones dérivés de la
+    // question chargée — c'est ce qui débloque l'affichage du Radix Select).
     expect(
       screen.getByTestId("domain-select").getAttribute("data-value"),
     ).toBe("Cardiologie")
