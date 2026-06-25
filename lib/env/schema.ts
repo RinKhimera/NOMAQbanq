@@ -57,6 +57,12 @@ export const buildServerSchema = () =>
     S3_BUCKET: z.string().optional(),
     AWS_ACCESS_KEY_ID: z.string().optional(),
     AWS_SECRET_ACCESS_KEY: z.string().optional(),
+    // Mode maintenance (« blocus ») — `MAINTENANCE_MODE="1"` → `proxy.ts` répond
+    // 503 partout (gel des écritures, ex. pendant la bascule Convex → Neon).
+    // Lu DIRECTEMENT par `proxy.ts` (qui reste autonome) ; déclaré ici pour
+    // documentation/validation. Token de contournement ops optionnel (smoke-test).
+    MAINTENANCE_MODE: z.string().optional(),
+    MAINTENANCE_BYPASS_TOKEN: z.string().optional(),
   })
     // Garde-fou déploiement : dès que le checkout peut encaisser (clé secrète
     // présente), le webhook DOIT pouvoir vérifier sa signature — sinon les
