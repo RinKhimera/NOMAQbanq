@@ -8,7 +8,7 @@ import { env } from "@/lib/env/server"
  * Version d'API Stripe centralisée (alignée sur le SDK `stripe` installé).
  * Mettre à jour ici lors d'une montée de version du package.
  */
-export const STRIPE_API_VERSION = "2026-02-25.clover" as const
+export const STRIPE_API_VERSION = "2026-06-24.dahlia" as const
 
 let client: Stripe | null = null
 
