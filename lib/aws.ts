@@ -1,6 +1,10 @@
 import "server-only"
 
-import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3"
+import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  S3Client,
+} from "@aws-sdk/client-s3"
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post"
 import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider"
 
@@ -66,6 +70,25 @@ export const createPresignedUpload = async (
     Fields: { "Content-Type": contentType },
   })
   return { url, fields }
+}
+
+/**
+ * Copie un objet dans le même bucket (`tmp/…` → `questions/…` au save d'une
+ * question). Contrairement à `deleteFromS3`, lève en cas d'échec : on ne doit
+ * jamais persister un chemin final dont l'objet n'existe pas. Les clés sont
+ * dérivées serveur (URL-safe) ; l'appelant valide via `assertSafeStoragePath`.
+ */
+export const copyInS3 = async (
+  fromKey: string,
+  toKey: string,
+): Promise<void> => {
+  await getClient().send(
+    new CopyObjectCommand({
+      Bucket: getBucket(),
+      CopySource: `${getBucket()}/${fromKey}`,
+      Key: toKey,
+    }),
+  )
 }
 
 /** Supprime un objet S3 (idempotent : 204 même si absent). Best-effort. */

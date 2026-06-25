@@ -14,15 +14,23 @@ vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(),
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
-// Évite tout appel réseau S3 ; `setQuestionImages` doit déléguer la suppression
-// CDN des chemins retirés à `tryDeleteFromStorage`.
+// Évite tout appel réseau S3 ; `setQuestionImages` doit copier `tmp/`→`questions/`
+// via `copyInS3` et déléguer la suppression des chemins retirés/tmp à
+// `tryDeleteFromStorage`.
 vi.mock("@/lib/aws", () => ({
   createPresignedUpload: vi.fn(),
   deleteFromS3: vi.fn(),
+  copyInS3: vi.fn().mockResolvedValue(undefined),
 }))
-vi.mock("@/lib/storage", () => ({
-  tryDeleteFromStorage: vi.fn().mockResolvedValue(undefined),
-}))
+// Mock PARTIEL : on neutralise seulement `tryDeleteFromStorage` (best-effort) ;
+// les helpers purs (`finalPathFromTmp`, `assertSafeStoragePath`) restent RÉELS.
+vi.mock("@/lib/storage", async (orig) => {
+  const actual = await orig<typeof import("@/lib/storage")>()
+  return {
+    ...actual,
+    tryDeleteFromStorage: vi.fn().mockResolvedValue(undefined),
+  }
+})
 
 import {
   createQuestion,
@@ -35,6 +43,7 @@ import {
   getQuestionsWithFilters,
 } from "@/features/questions/dal"
 import { requireRole } from "@/lib/auth-guards"
+import { copyInS3 } from "@/lib/aws"
 import { tryDeleteFromStorage } from "@/lib/storage"
 
 const suffix = createId().slice(0, 8)
@@ -149,5 +158,47 @@ describe("setQuestionImages", () => {
     // Le chemin retiré ("a.jpg") est supprimé du CDN ; "b.jpg" (conservé) non.
     expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith("a.jpg")
     expect(vi.mocked(tryDeleteFromStorage)).not.toHaveBeenCalledWith("b.jpg")
+  })
+
+  it("copie tmp/ → questions/ au save, persiste le chemin FINAL, nettoie le tmp", async () => {
+    const id = await makeOne()
+    vi.mocked(copyInS3).mockClear()
+    vi.mocked(tryDeleteFromStorage).mockClear()
+
+    const tmpPath = `tmp/questions/${id}/1700000000000-0.jpg`
+    const finalPath = `questions/${id}/1700000000000-0.jpg`
+
+    const res = await setQuestionImages({
+      questionId: id,
+      images: [{ storagePath: tmpPath, order: 0 }],
+    })
+    expect(res.success).toBe(true)
+
+    // L'objet est copié du tampon vers son chemin final.
+    expect(vi.mocked(copyInS3)).toHaveBeenCalledWith(tmpPath, finalPath)
+
+    // C'est le chemin FINAL (et non le tmp/) qui est persisté.
+    const q = await getQuestionById(id)
+    expect(q?.images.map((i) => i.storagePath)).toEqual([finalPath])
+
+    // La source tmp/ est nettoyée best-effort après commit (la Lifecycle reste
+    // le filet de sécurité).
+    expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith(tmpPath)
+  })
+
+  it("ne copie PAS une image déjà finale (préfixe questions/)", async () => {
+    const id = await makeOne()
+    vi.mocked(copyInS3).mockClear()
+
+    const res = await setQuestionImages({
+      questionId: id,
+      images: [{ storagePath: `questions/${id}/already.jpg`, order: 0 }],
+    })
+    expect(res.success).toBe(true)
+    expect(vi.mocked(copyInS3)).not.toHaveBeenCalled()
+    const q = await getQuestionById(id)
+    expect(q?.images.map((i) => i.storagePath)).toEqual([
+      `questions/${id}/already.jpg`,
+    ])
   })
 })

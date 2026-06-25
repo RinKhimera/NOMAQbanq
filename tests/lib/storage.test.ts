@@ -16,8 +16,10 @@ vi.mock("@/lib/env/server", () => ({
 import {
   assertSafeStoragePath,
   avatarStoragePathFromUrl,
+  finalPathFromTmp,
   generateAvatarPath,
   generateQuestionImagePath,
+  generateQuestionImageTmpPath,
   getExtensionFromMimeType,
   validateImageFile,
 } from "@/lib/storage"
@@ -30,6 +32,26 @@ describe("path helpers", () => {
   })
   it("génère un chemin d'avatar préfixé", () => {
     expect(generateAvatarPath("u1", "jpg")).toMatch(/^avatars\/u1\/\d+\.jpg$/)
+  })
+  it("génère un chemin TAMPON tmp/ pour image question", () => {
+    expect(generateQuestionImageTmpPath("q1", 2, ".PNG")).toMatch(
+      /^tmp\/questions\/q1\/\d+-2\.png$/,
+    )
+  })
+  it("dérive le chemin final en retirant le préfixe tmp/", () => {
+    expect(finalPathFromTmp("tmp/questions/q1/123-0.png")).toBe(
+      "questions/q1/123-0.png",
+    )
+  })
+  it("finalPathFromTmp est idempotent sur un chemin déjà final", () => {
+    expect(finalPathFromTmp("questions/q1/123-0.png")).toBe(
+      "questions/q1/123-0.png",
+    )
+  })
+  it("le chemin tampon reste sûr (assertSafeStoragePath)", () => {
+    expect(() =>
+      assertSafeStoragePath(generateQuestionImageTmpPath("q1", 0, "jpg")),
+    ).not.toThrow()
   })
   it("mappe le MIME vers l'extension", () => {
     expect(getExtensionFromMimeType("image/webp")).toBe("webp")

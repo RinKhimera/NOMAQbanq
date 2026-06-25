@@ -31,6 +31,7 @@ vi.mock("@/lib/aws", () => ({
     }),
   ),
   deleteFromS3: vi.fn().mockResolvedValue(true),
+  copyInS3: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock("@/lib/storage", async (orig) => {
   const actual = await orig<typeof import("@/lib/storage")>()
@@ -157,7 +158,7 @@ describe("createQuestionImageUpload", () => {
     } as never)
   })
 
-  it("presign vers un chemin lié au questionId existant", async () => {
+  it("presign vers le TAMPON tmp/ lié au questionId existant (anti-orphelins)", async () => {
     const qid = await seedQuestion()
     const res = await createQuestionImageUpload({
       questionId: qid,
@@ -167,7 +168,9 @@ describe("createQuestionImageUpload", () => {
     })
     expect(res.success).toBe(true)
     if (res.success) {
-      expect(res.storagePath.startsWith(`questions/${qid}/`)).toBe(true)
+      // L'upload vise `tmp/…` (copié vers `questions/…` au save), jamais
+      // directement le vrai dossier.
+      expect(res.storagePath.startsWith(`tmp/questions/${qid}/`)).toBe(true)
     }
     expect(vi.mocked(createPresignedUpload)).toHaveBeenCalled()
   })

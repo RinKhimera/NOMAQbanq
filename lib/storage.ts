@@ -66,6 +66,30 @@ export const generateQuestionImagePath = (
   return `questions/${questionId}/${Date.now()}-${index}.${cleanExt}`
 }
 
+/**
+ * Chemin TAMPON (`tmp/questions/{id}/…`) pour un upload d'image question avant
+ * persistance. L'upload presigned vise ce préfixe ; au save, l'objet est copié
+ * vers son chemin final (`questions/{id}/…`, cf. `finalPathFromTmp`) et le tmp/
+ * est laissé expirer par une règle Lifecycle S3 → aucun orphelin ne s'accumule
+ * jamais dans le vrai dossier (anti-orphelins « approche C »).
+ */
+export const generateQuestionImageTmpPath = (
+  questionId: string,
+  index: number,
+  extension: string,
+): string => {
+  const cleanExt = extension.replace(/^\./, "").toLowerCase()
+  return `tmp/questions/${questionId}/${Date.now()}-${index}.${cleanExt}`
+}
+
+/**
+ * Chemin final dérivé d'un chemin tampon : retire le préfixe `tmp/`
+ * (`tmp/questions/{id}/x.jpg` → `questions/{id}/x.jpg`). Idempotent sur un
+ * chemin déjà final.
+ */
+export const finalPathFromTmp = (tmpPath: string): string =>
+  tmpPath.startsWith("tmp/") ? tmpPath.slice("tmp/".length) : tmpPath
+
 export const generateAvatarPath = (
   userId: string,
   extension: string,

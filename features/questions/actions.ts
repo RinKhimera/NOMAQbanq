@@ -6,10 +6,12 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
-import { createPresignedUpload } from "@/lib/aws"
+import { copyInS3, createPresignedUpload } from "@/lib/aws"
 import { createId } from "@/lib/ids"
 import {
-  generateQuestionImagePath,
+  assertSafeStoragePath,
+  finalPathFromTmp,
+  generateQuestionImageTmpPath,
   getExtensionFromMimeType,
   isStorageConfigured,
   tryDeleteFromStorage,
@@ -270,8 +272,14 @@ export const deleteQuestion = async (
 
 /**
  * [Admin] Remplace l'ensemble des images d'une question (storagePath + position).
- * Les chemins retirés sont calculés pour suppression Bunny — déléguée à la Phase 7
- * (uploaders neutralisés). Atomique.
+ *
+ * Anti-orphelins (« approche C ») : les nouveaux uploads arrivent sous `tmp/` →
+ * on les COPIE vers leur chemin final (`questions/{id}/…`) puis on persiste le
+ * chemin FINAL. Les images déjà persistées (préfixe `questions/…`) restent
+ * inchangées. Les chemins finaux RETIRÉS et les sources `tmp/` sont supprimés
+ * best-effort après commit (la Lifecycle S3 reste le filet de sécurité sur tmp/).
+ * Si l'écriture DB échoue après une copie, les objets finaux fraîchement copiés
+ * sont supprimés (pas d'orphelin dans `questions/`, cf. `confirmAvatarUpload`).
  */
 export const setQuestionImages = async (
   input: SetQuestionImagesInput,
@@ -283,6 +291,34 @@ export const setQuestionImages = async (
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
   const { questionId, images } = parsed.data
+
+  // Chemin final de chaque image entrante : tampon `tmp/…` → à copier ;
+  // chemin déjà final (`questions/…`) → conservé tel quel.
+  const planned = images.map((img) => {
+    const isTmp = img.storagePath.startsWith("tmp/")
+    return {
+      order: img.order,
+      finalPath: isTmp ? finalPathFromTmp(img.storagePath) : img.storagePath,
+      tmpPath: isTmp ? img.storagePath : null,
+    }
+  })
+
+  // Copie tmp → final AVANT toute écriture DB. En cas d'échec, on retire les
+  // copies déjà faites (pas d'orphelin dans `questions/`) puis on échoue.
+  const copiedFinalPaths: string[] = []
+  try {
+    for (const p of planned) {
+      if (!p.tmpPath) continue
+      assertSafeStoragePath(p.tmpPath)
+      assertSafeStoragePath(p.finalPath)
+      await copyInS3(p.tmpPath, p.finalPath)
+      copiedFinalPaths.push(p.finalPath)
+    }
+  } catch (error) {
+    logDev("[setQuestionImages] copy", error)
+    await Promise.all(copiedFinalPaths.map((p) => tryDeleteFromStorage(p)))
+    return fail("Erreur serveur. Réessayez.")
+  }
 
   try {
     const removedPaths = await db.transaction(async (tx) => {
@@ -302,30 +338,34 @@ export const setQuestionImages = async (
         .delete(questionImages)
         .where(eq(questionImages.questionId, questionId))
 
-      if (images.length > 0) {
+      if (planned.length > 0) {
         await tx.insert(questionImages).values(
-          images.map((img) => ({
+          planned.map((p) => ({
             questionId,
-            storagePath: img.storagePath,
-            position: img.order,
+            storagePath: p.finalPath,
+            position: p.order,
           })),
         )
       }
 
-      const newPaths = new Set(images.map((i) => i.storagePath))
+      const newPaths = new Set(planned.map((p) => p.finalPath))
       return old
         .filter((o) => !newPaths.has(o.storagePath))
         .map((o) => o.storagePath)
     })
 
-    // Supprime du CDN Bunny les images retirées (best-effort, après commit DB).
+    // Best-effort après commit DB : chemins finaux retirés + sources tmp/ copiées.
     // Un échec de suppression CDN ne doit pas faire échouer la persistance.
-    if (removedPaths.length > 0) {
-      await Promise.all(removedPaths.map((p) => tryDeleteFromStorage(p)))
+    const tmpSources = planned.flatMap((p) => (p.tmpPath ? [p.tmpPath] : []))
+    const toDelete = [...removedPaths, ...tmpSources]
+    if (toDelete.length > 0) {
+      await Promise.all(toDelete.map((p) => tryDeleteFromStorage(p)))
     }
     revalidatePath("/admin/questions")
     return { success: true }
   } catch (error) {
+    // Copie réussie mais écriture DB échouée → supprime les finaux copiés.
+    await Promise.all(copiedFinalPaths.map((p) => tryDeleteFromStorage(p)))
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
       return fail("Question introuvable")
     }
@@ -350,9 +390,10 @@ export type CreateQuestionImageUploadResult =
 /**
  * [Admin] Étape 1 de l'upload d'image question : garde admin → questionId validé
  * (anti path-traversal) + existant → validation type/taille → rate-limit (50/h) →
- * presigned POST S3 (`questions/{questionId}/…`). Ne persiste PAS : la liste
- * finale est enregistrée par `setQuestionImages` au save du formulaire. Le fichier
- * ne transite PAS par le serveur.
+ * presigned POST S3 vers le TAMPON `tmp/questions/{questionId}/…`. Ne persiste
+ * PAS : au save, `setQuestionImages` copie `tmp/` → `questions/` et enregistre le
+ * chemin final ; un upload non sauvegardé reste dans `tmp/` et expire (Lifecycle),
+ * sans jamais polluer le vrai dossier. Le fichier ne transite PAS par le serveur.
  */
 export const createQuestionImageUpload = async (input: {
   questionId: string
@@ -403,7 +444,7 @@ export const createQuestionImageUpload = async (input: {
     }
   }
 
-  const storagePath = generateQuestionImagePath(
+  const storagePath = generateQuestionImageTmpPath(
     input.questionId,
     imageIndex,
     getExtensionFromMimeType(input.contentType),
