@@ -50,6 +50,7 @@ export default defineConfig({
       testMatch: [
         /marketing\.spec\.ts/,
         /auth\.spec\.ts/,
+        /auth-ux\.spec\.ts/,
         /evaluation-quiz\.spec\.ts/,
         /error-states\.spec\.ts/,
       ],
