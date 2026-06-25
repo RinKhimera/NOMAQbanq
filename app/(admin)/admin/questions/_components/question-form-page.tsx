@@ -16,7 +16,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { startTransition, useEffect, useState } from "react"
+import { startTransition, useEffect, useMemo, useState } from "react"
 import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { QuestionImageUploader } from "@/components/admin/question-image-uploader"
@@ -100,6 +100,32 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
     }
   }, [mode, questionId])
 
+  // En édition, la question arrive de façon asynchrone. La prop `values` de RHF
+  // (mémoïsée sur `question`) re-synchronise TOUS les champs au chargement — y
+  // compris les composants contrôlés comme le Radix Select du domaine, que
+  // `form.reset(...)` posé dans un effet ne peuplait PAS (cause racine du Bug 1 :
+  // domaine vide → zod échoue → submit bloqué en silence). `undefined` en mode
+  // création → RHF garde les `defaultValues`.
+  const editValues = useMemo<QuestionFormValues | undefined>(() => {
+    if (mode !== "edit" || !question) return undefined
+    const paddedOptions = [
+      ...question.options,
+      ...Array(5 - question.options.length).fill(""),
+    ].slice(0, 5)
+    const paddedReferences = question.references?.length
+      ? question.references
+      : [""]
+    return {
+      question: question.question,
+      options: paddedOptions,
+      correctAnswer: question.correctAnswer,
+      explanation: question.explanation,
+      references: paddedReferences,
+      objectifCMC: question.objectifCMC,
+      domain: question.domain,
+    }
+  }, [mode, question])
+
   const form = useForm<QuestionFormValues>({
     resolver: zodResolver(questionFormSchema),
     defaultValues: {
@@ -111,6 +137,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
       objectifCMC: "",
       domain: "",
     },
+    values: editValues,
   })
 
   const correctAnswer = useWatch({
@@ -118,7 +145,10 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
     name: "correctAnswer",
   })
 
-  // Pre-fill form in edit mode
+  // Alimente l'état LOCAL (options/références/images) à partir de la question
+  // chargée. Les valeurs du formulaire RHF, elles, sont synchronisées par la prop
+  // `values` ci-dessus (plus de `form.reset`). setState non-urgents (startTransition)
+  // → respecte `react-hooks/set-state-in-effect`.
   useEffect(() => {
     if (mode === "edit" && question) {
       const paddedOptions = [
@@ -129,19 +159,8 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
         ? question.references
         : [""]
 
-      form.reset({
-        question: question.question,
-        options: paddedOptions,
-        correctAnswer: question.correctAnswer,
-        explanation: question.explanation,
-        references: paddedReferences,
-        objectifCMC: question.objectifCMC,
-        domain: question.domain,
-      })
-
-      // Batch local state updates as non-urgent. Les images du DAL
-      // (`{id, storagePath, position}`) sont mappées vers le format local
-      // (`{url, storagePath, order}`) ; l'URL est dérivée du CDN public.
+      // Les images du DAL (`{id, storagePath, position}`) sont mappées vers le
+      // format local (`{url, storagePath, order}`) ; l'URL est dérivée du CDN.
       startTransition(() => {
         setOptions(paddedOptions)
         setReferences(paddedReferences)
@@ -154,7 +173,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
         )
       })
     }
-  }, [mode, question, form])
+  }, [mode, question])
 
   const addReference = () => {
     const newReferences = [...references, ""]
@@ -276,6 +295,20 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
     }
   }
 
+  // Échec de validation zod : plus jamais silencieux. On prévient via toast et on
+  // amène le 1er champ invalide à l'écran — le bouton submit est sticky en bas, et
+  // les messages d'erreur (ex. « Le domaine est obligatoire ») peuvent être hors
+  // champ de vision. `aria-invalid` est posé par `FormControl` sur chaque champ.
+  const onError = () => {
+    toast.error("Veuillez corriger les champs en rouge.")
+    if (typeof document === "undefined") return
+    const firstInvalid = document.querySelector<HTMLElement>(
+      '[aria-invalid="true"]',
+    )
+    firstInvalid?.scrollIntoView?.({ behavior: "smooth", block: "center" })
+    firstInvalid?.focus?.({ preventScroll: true })
+  }
+
   // Loading state for edit mode
   if (mode === "edit" && question === undefined) {
     return (
@@ -302,7 +335,10 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form
+        onSubmit={form.handleSubmit(onSubmit, onError)}
+        className="space-y-6"
+      >
         {/* Question Text & Images */}
         <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
           <CardHeader className="border-b bg-linear-to-r from-blue-600 to-indigo-600 text-white">
