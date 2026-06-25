@@ -8,58 +8,57 @@
 > CloudFront `dn5nrir6z5nr7.cloudfront.net`, cert ACM `cdn.nomaqbanq.ca` (us-east-1),
 > DNS chez **Porkbun**.
 
-## A. Préparation (sans impact prod)
+> **Stratégie retenue : cutover en une fenêtre, « déployer-en-maintenance = le
+> gel ».** Le déploiement de la nouvelle app (avec `MAINTENANCE_MODE=1`) remplace
+> l'app Convex → Convex cesse d'être écrit. On snapshot Convex **APRÈS** ce
+> déploiement : aucune écriture n'est perdue (impossible avec import-avant-deploy,
+> où l'ancienne app reste live et diverge). Blocus = `proxy.ts` (cf. AGENTS / mémoire).
 
-- [ ] **Env vars vérifiées** (Vercel Preview/Prod : `S3_REGION`=`us-east-2`,
-      `AWS_ROLE_ARN`, `S3_BUCKET` ; clés statiques `AWS_ACCESS_KEY_ID/SECRET`
-      **uniquement** en local, jamais sur Vercel). ⚠️ Région nommée `S3_REGION`
-      (PAS `AWS_REGION`, réservée par le runtime Lambda de Vercel).
-- [ ] **IAM rôle `nomaqbanq-s3-media`** : `tmp/*` (PutObject/DeleteObject) +
-      `GetObject` sur `tmp/*` appliqués, **et règle Lifecycle S3 `tmp/` (expire 1 j)**
-      active. (Sans ça, l'upload prod casse / les orphelins s'accumulent.)
-- [ ] **Copier les données Bunny → S3** (cf. §C) + **vérifier** : comptes du
-      résumé du script, et spot-check `curl -I https://dn5nrir6z5nr7.cloudfront.net/<clé>`.
-- [ ] **Abaisser le TTL DNS** de `cdn.nomaqbanq.ca` chez Porkbun (ex. 300 s),
-      ~24 h avant la bascule.
-- [ ] **Répéter l'import de données à blanc** : export Convex de test →
-      `bun scripts/import-from-convex.ts` sur une branche Neon **jetable** → vérifier
-      le tableau de comptes (de-risque le run prod réel).
-- [ ] (Optionnel) **Revue antagoniste** des correctifs (domaine + orphelins).
+## A. Préparation (sans impact prod — à l'avance)
 
-## B. Bascule (fenêtre de maintenance)
+- [ ] **Env vars Vercel Production** : `S3_REGION=us-east-2`, `AWS_ROLE_ARN`,
+      `S3_BUCKET` ; clés statiques `AWS_ACCESS_KEY_ID/SECRET` **jamais** sur Vercel.
+      ⚠️ Région nommée `S3_REGION` (PAS `AWS_REGION`, réservée par le runtime).
+- [ ] **IAM rôle `nomaqbanq-s3-media`** : ajouter `tmp/*` (PutObject/DeleteObject) +
+      `GetObject` sur `tmp/*` (source de CopyObject), **et règle Lifecycle S3 `tmp/`
+      (expire 1 j)** active. (Sans ça l'upload prod casse / orphelins s'accumulent.)
+- [ ] **Pré-copier les médias Bunny → S3** (cf. §C) — idempotent, ré-exécuté en B
+      pour rattraper. Spot-check `curl -I https://dn5nrir6z5nr7.cloudfront.net/<clé>`.
+- [ ] **Migrer le SCHÉMA de la base production Neon (vide)** : pointer
+      `DATABASE_URL_UNPOOLED` sur la branche **production**, `bun run db:migrate`,
+      puis **remettre** `DATABASE_URL_UNPOOLED` sur develop (dev local).
+- [ ] **Préparer le blocus** : poser sur Vercel Production `MAINTENANCE_MODE=1` et
+      `MAINTENANCE_BYPASS_TOKEN=<secret>` (NE PAS redéployer maintenant — ça prendra
+      effet au déploiement de B).
+- [ ] **Abaisser le TTL DNS** de `cdn.nomaqbanq.ca` chez Porkbun (~300 s), ~24 h avant.
+- [ ] **Import à blanc** sur une branche Neon **jetable** (dé-risque le run réel).
 
-> Fais l'**import des données en dernier** (au plus près du go-live) pour ne pas
-> perdre les écritures Convex faites entre-temps. L'import
-> (`scripts/import-from-convex.ts`) est idempotent (`onConflictDoNothing`) et a
-> déjà servi pour `develop`.
+## B. Bascule (fenêtre unique)
 
-- [ ] **(Optionnel) Figer/limiter les écritures Convex** pendant la fenêtre.
-- [ ] **Export Convex final** → décompresser dans `convex-snapshot/`
-      (⚠️ PII : reste local, déjà gitignoré ; ne jamais committer).
-- [ ] **Schéma base production** : pointer temporairement `DATABASE_URL_UNPOOLED`
-      sur la branche Neon **production**, puis `bun run db:migrate`.
+> L'import (`scripts/import-from-convex.ts`) est idempotent (`onConflictDoNothing`)
+> et a déjà servi pour `develop`. Rollback tant que le DNS n'est pas basculé :
+> re-promouvoir l'ancien déploiement Convex sur Vercel.
+
+- [ ] **Merge `migration/drizzle-neon` → `main` + déploiement** (avec
+      `MAINTENANCE_MODE=1` actif) → la nouvelle app sert **503 partout** (Server
+      Actions gelées) et **remplace l'app Convex → Convex figé**.
+- [ ] **Export Convex final** → décompresser dans `convex-snapshot/` (⚠️ PII : local,
+      gitignoré ; ne jamais committer). Convex étant figé, le snapshot est cohérent.
 - [ ] **Importer les données** : `bun scripts/import-from-convex.ts` (cible la branche
-      production via `DATABASE_URL_UNPOOLED`) → vérifier le tableau de comptes (questions,
-      user, exams…) + orphelins ignorés. *(Remettre `DATABASE_URL_UNPOOLED` sur develop
-      après, pour le dev local.)*
-- [ ] **Copie média sur la base production** : `bun scripts/migrate-media-to-s3.ts`
-      pointé sur la base **production** (idempotent → copie tout média référencé pas
-      encore sur S3).
-- [ ] **Nettoyer les env vars Production** : retirer les morts Convex/Clerk,
-      vérifier `BETTER_AUTH_URL` prod = domaine canonique, retirer tout override
-      Preview-only (`NEXT_PUBLIC_CDN_HOSTNAME`, `BETTER_AUTH_URL=…vercel.app`) qui
-      traînerait en prod.
-- [ ] **Merge `migration/drizzle-neon` → `main`** + déploiement production.
+      production via `DATABASE_URL_UNPOOLED`) → vérifier le tableau de comptes
+      (questions, user, exams…) + orphelins ignorés. *(Remettre `DATABASE_URL_UNPOOLED`
+      sur develop après.)*
+- [ ] **Copie média finale sur la base production** : `bun scripts/migrate-media-to-s3.ts`
+      pointé prod (idempotent → rattrape tout média référencé pas encore sur S3).
 - [ ] **Flip DNS Porkbun** : `cdn.nomaqbanq.ca` (CNAME) → `dn5nrir6z5nr7.cloudfront.net`.
-- [ ] **Copie incrémentale finale** Bunny → S3 (`bun scripts/migrate-media-to-s3.ts`)
-      pour rattraper les derniers uploads via l'ancienne appli.
-- [ ] **Smoke test prod** : upload avatar + image de question (en édition),
-      affichage via `cdn.nomaqbanq.ca`, `curl -I` (200 + `x-content-type-options: nosniff`).
-
-> ⚠️ Fenêtre entre *déploiement* et *flip DNS* : un upload juste après le déploiement
-> part sur S3 mais s'affiche via `cdn`→Bunny → 404 temporaire. Mitigation : TTL bas
-> + enchaîner B rapidement (ou figer brièvement les uploads admin). Volume faible →
-> négligeable.
+- [ ] **Smoke test via bypass** : `https://<prod>/?bypass=<token>` (pose le cookie) →
+      upload avatar + image de question (édition), affichage via `cdn.nomaqbanq.ca`,
+      `curl -I` (200 + `x-content-type-options: nosniff`).
+- [ ] **Lever le blocus + nettoyer l'env Production en un seul redéploiement** :
+      retirer `MAINTENANCE_MODE` + `MAINTENANCE_BYPASS_TOKEN`, retirer les morts
+      Convex/Clerk, vérifier `BETTER_AUTH_URL` = domaine canonique, retirer tout
+      override Preview-only (`NEXT_PUBLIC_CDN_HOSTNAME`, `BETTER_AUTH_URL=…vercel.app`)
+      → redéploiement → **app ouverte à tous sur Neon**.
 
 ## C. Migration des données — script piloté par la base
 
