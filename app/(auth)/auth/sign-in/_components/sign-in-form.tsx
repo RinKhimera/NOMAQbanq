@@ -126,7 +126,7 @@ export const SignInForm = () => {
                   ci-dessus.
                 </p>
                 <p>
-                  Vous n'avez pas encore de mot de passe ?{" "}
+                  Vous n&apos;avez pas encore de mot de passe ?{" "}
                   <Link
                     href="/auth/forgot-password"
                     className="font-medium underline"

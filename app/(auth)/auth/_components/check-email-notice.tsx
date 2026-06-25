@@ -66,14 +66,14 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
         </h3>
         {mode === "signup" ? (
           <p className="text-muted-foreground text-sm">
-            Si <span className="font-medium">{email}</span> n'est pas déjà
-            associée à un compte, un lien de confirmation vient d'y être envoyé.
-            Cliquez-le pour activer votre compte.
+            Si <span className="font-medium">{email}</span> n&apos;est pas déjà
+            associée à un compte, un lien de confirmation vient d&apos;y être
+            envoyé. Cliquez-le pour activer votre compte.
           </p>
         ) : (
           <p className="text-muted-foreground text-sm">
-            Votre compte n'est pas encore activé. Nous venons de renvoyer un lien
-            de confirmation à <span className="font-medium">{email}</span>.
+            Votre compte n&apos;est pas encore activé. Nous venons de renvoyer un
+            lien de confirmation à <span className="font-medium">{email}</span>.
           </p>
         )}
       </div>

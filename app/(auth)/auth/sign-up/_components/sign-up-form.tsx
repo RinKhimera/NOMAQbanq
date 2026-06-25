@@ -2,11 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
-import { toast } from "sonner"
 
+import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -18,11 +18,13 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { authClient } from "@/lib/auth-client"
+import { type MappedAuthError, mapAuthError } from "@/lib/auth-errors"
 import { type SignUpFormValues, signUpSchema } from "@/schemas/auth"
 
 export const SignUpForm = () => {
-  const router = useRouter()
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [error, setError] = useState<MappedAuthError | null>(null)
+  const [submittedEmail, setSubmittedEmail] = useState<string | null>(null)
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -30,35 +32,41 @@ export const SignUpForm = () => {
   })
 
   const onSubmit = async (values: SignUpFormValues) => {
-    const { error } = await authClient.signUp.email({
+    setError(null)
+    const { error: signUpError } = await authClient.signUp.email({
       name: values.name,
       email: values.email,
       password: values.password,
       callbackURL: "/dashboard",
     })
 
-    if (error) {
-      toast.error(error.message ?? "Échec de l'inscription")
+    if (signUpError) {
+      setError(mapAuthError(signUpError))
       return
     }
 
-    toast.success("Compte créé avec succès")
-    router.push("/dashboard")
+    // Avec requireEmailVerification, aucune session n'est créée : on n'envoie
+    // PAS vers /dashboard (rebond garanti). On affiche « vérifiez votre courriel ».
+    setSubmittedEmail(values.email)
   }
 
   const handleGoogle = async () => {
     setIsGoogleLoading(true)
-    const { error } = await authClient.signIn.social({
+    const { error: googleError } = await authClient.signIn.social({
       provider: "google",
       callbackURL: "/dashboard",
     })
-    if (error) {
-      toast.error(error.message ?? "Échec de l'inscription avec Google")
+    if (googleError) {
+      setError(mapAuthError(googleError))
       setIsGoogleLoading(false)
     }
   }
 
   const isSubmitting = form.formState.isSubmitting
+
+  if (submittedEmail) {
+    return <CheckEmailNotice email={submittedEmail} mode="signup" />
+  }
 
   return (
     <div className="w-full space-y-5">
@@ -96,6 +104,15 @@ export const SignUpForm = () => {
         <span className="text-muted-foreground text-xs">ou</span>
         <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
       </div>
+
+      {error && (
+        <Alert variant="destructive" data-testid="auth-error-alert">
+          <AlertTitle>Inscription impossible</AlertTitle>
+          <AlertDescription>
+            <p>{error.message}</p>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Form {...form}>
         <form
