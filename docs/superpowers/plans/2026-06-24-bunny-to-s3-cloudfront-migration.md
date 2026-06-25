@@ -1,5 +1,12 @@
 # Migration Bunny → AWS S3 + CloudFront — Implementation Plan
 
+> **⚠️ Obsolète sur un point (note 2026-06-25) :** la variable de région est
+> **`S3_REGION`**, PAS `AWS_REGION`. `AWS_REGION` est réservée par le runtime
+> Lambda/Vercel (région d'exécution) et primerait → presign signé pour la
+> mauvaise région → **403**. Partout ci-dessous où ce plan écrit `AWS_REGION`
+> (`vercel env add`, schéma env, `new S3Client`…), lire `S3_REGION`. La checklist
+> de bascule (`2026-06-24-bunny-to-s3-production-cutover-checklist.md`) fait foi.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Remplacer Bunny Storage + Bunny CDN par AWS S3 (privé, us-east-2) + CloudFront (OAC), avec upload direct navigateur→S3 par presigned POST et auth AWS via Vercel OIDC, sans aucune migration de schéma DB.

@@ -226,4 +226,40 @@ describe("setQuestionImages", () => {
     const q = await getQuestionById(id)
     expect(q?.images).toEqual([])
   })
+
+  it("copie OK mais écriture DB en échec → nettoie les finaux copiés, pas d'orphelin (F4)", async () => {
+    // Question inexistante : la transaction lève `Q_NOT_FOUND` APRÈS la copie
+    // tmp/ → final. Le final déjà copié DOIT alors être supprimé (sinon orphelin
+    // dans `questions/`). C'est le cœur de la garantie anti-orphelin sur l'échec DB.
+    const ghost = createId()
+    vi.mocked(copyInS3).mockClear()
+    vi.mocked(tryDeleteFromStorage).mockClear()
+
+    const tmpPath = `tmp/questions/${ghost}/1700000000000-0.jpg`
+    const finalPath = `questions/${ghost}/1700000000000-0.jpg`
+
+    const res = await setQuestionImages({
+      questionId: ghost,
+      images: [{ storagePath: tmpPath, order: 0 }],
+    })
+    expect(res.success).toBe(false)
+    // La copie a bien eu lieu (avant l'écriture DB)…
+    expect(vi.mocked(copyInS3)).toHaveBeenCalledWith(tmpPath, finalPath)
+    // …puis le final copié est nettoyé, l'écriture DB ayant échoué.
+    expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith(finalPath)
+  })
+
+  it("rejette un storagePath malformé (path traversal) sans aucune I/O S3 (F4)", async () => {
+    const id = await makeOne()
+    vi.mocked(copyInS3).mockClear()
+    vi.mocked(tryDeleteFromStorage).mockClear()
+
+    const res = await setQuestionImages({
+      questionId: id,
+      images: [{ storagePath: `questions/${id}/../../etc/passwd`, order: 0 }],
+    })
+    expect(res.success).toBe(false)
+    expect(vi.mocked(copyInS3)).not.toHaveBeenCalled()
+    expect(vi.mocked(tryDeleteFromStorage)).not.toHaveBeenCalled()
+  })
 })

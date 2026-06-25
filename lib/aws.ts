@@ -22,20 +22,41 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 // 5 Mo (aligne avec validateImageFile)
 
 let client: S3Client | undefined
 
-// Clés statiques explicites (user IAM dédié, dev local) prioritaires ; sinon
-// OIDC → rôle IAM (prod/preview Vercel, aucun secret long-vécu).
+// Sur Vercel (prod/preview), l'auth AWS DOIT passer par l'OIDC (rôle IAM) :
+// des clés statiques posées par erreur sur Vercel ne doivent JAMAIS
+// court-circuiter l'OIDC en silence (F3). On ne retient donc les clés statiques
+// que HORS Vercel (dev local, où l'OIDC n'est pas disponible). `VERCEL` vaut
+// "1" sur tous les déploiements Vercel ; le dev local (`bun dev`) ne la pose pas.
 const resolveCredentials = () => {
-  if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY) {
+  const onVercel = process.env.VERCEL === "1"
+  const hasStatic = Boolean(env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY)
+
+  if (onVercel && hasStatic) {
+    console.warn(
+      "[aws] Clés statiques AWS présentes sur Vercel — ignorées au profit de l'OIDC (AWS_ROLE_ARN). À retirer des variables Vercel.",
+    )
+  }
+
+  // Hors Vercel (dev local) : clés statiques prioritaires (OIDC indisponible).
+  if (!onVercel && env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY) {
     return {
       accessKeyId: env.AWS_ACCESS_KEY_ID,
       secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
     }
   }
+  // Prod/preview Vercel (ou dev sans clés) : OIDC → rôle IAM.
   if (env.AWS_ROLE_ARN) {
     return awsCredentialsProvider({
       roleArn: env.AWS_ROLE_ARN,
       audience: "sts.amazonaws.com",
     })
+  }
+  // Dernier recours (ex. Vercel sans rôle, ou config partielle) : clés statiques.
+  if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY) {
+    return {
+      accessKeyId: env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+    }
   }
   throw new Error(
     "Configuration AWS manquante (AWS_ROLE_ARN pour OIDC, ou AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY pour le dev local).",
