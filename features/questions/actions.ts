@@ -303,14 +303,30 @@ export const setQuestionImages = async (
     }
   })
 
+  // Garde de sécurité : valider TOUS les chemins (pas seulement les `tmp/`). Tout
+  // chemin final DOIT appartenir au préfixe de CETTE question — les `tmp/` y sont
+  // mappés par `finalPathFromTmp`, les images conservées y sont déjà. Sans ça, un
+  // `storagePath` étranger forgé (`questions/AUTRE_ID/x.jpg`) serait stocké sur
+  // cette question puis supprimé de S3 à l'édition suivante → suppression croisée
+  // de l'image d'une autre question (admin-only, défense en profondeur).
+  const finalPrefix = `questions/${questionId}/`
+  try {
+    for (const p of planned) {
+      if (p.tmpPath) assertSafeStoragePath(p.tmpPath)
+      assertSafeStoragePath(p.finalPath)
+      if (!p.finalPath.startsWith(finalPrefix)) throw new Error("BAD_PREFIX")
+    }
+  } catch (error) {
+    logDev("[setQuestionImages] validate", error)
+    return fail("Chemin d'image invalide")
+  }
+
   // Copie tmp → final AVANT toute écriture DB. En cas d'échec, on retire les
   // copies déjà faites (pas d'orphelin dans `questions/`) puis on échoue.
   const copiedFinalPaths: string[] = []
   try {
     for (const p of planned) {
       if (!p.tmpPath) continue
-      assertSafeStoragePath(p.tmpPath)
-      assertSafeStoragePath(p.finalPath)
       await copyInS3(p.tmpPath, p.finalPath)
       copiedFinalPaths.push(p.finalPath)
     }

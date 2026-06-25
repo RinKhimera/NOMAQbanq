@@ -134,30 +134,34 @@ describe("deleteQuestion (soft)", () => {
 describe("setQuestionImages", () => {
   it("remplace l'ensemble des images (positions)", async () => {
     const id = await makeOne()
+    // Chemins réalistes : une image conservée porte toujours le préfixe de SA
+    // question (`questions/{id}/…`) — la garde de préfixe le requiert.
+    const a = `questions/${id}/a.jpg`
+    const b = `questions/${id}/b.jpg`
 
     const r1 = await setQuestionImages({
       questionId: id,
       images: [
-        { storagePath: "a.jpg", order: 0 },
-        { storagePath: "b.jpg", order: 1 },
+        { storagePath: a, order: 0 },
+        { storagePath: b, order: 1 },
       ],
     })
     expect(r1.success).toBe(true)
     let q = await getQuestionById(id)
-    expect(q?.images.map((i) => i.storagePath)).toEqual(["a.jpg", "b.jpg"])
+    expect(q?.images.map((i) => i.storagePath)).toEqual([a, b])
 
-    // Remplacement par un seul fichier → l'ancien "a.jpg" disparaît.
+    // Remplacement par un seul fichier → l'ancien a.jpg disparaît.
     vi.mocked(tryDeleteFromStorage).mockClear()
     const r2 = await setQuestionImages({
       questionId: id,
-      images: [{ storagePath: "b.jpg", order: 0 }],
+      images: [{ storagePath: b, order: 0 }],
     })
     expect(r2.success).toBe(true)
     q = await getQuestionById(id)
-    expect(q?.images.map((i) => i.storagePath)).toEqual(["b.jpg"])
-    // Le chemin retiré ("a.jpg") est supprimé du CDN ; "b.jpg" (conservé) non.
-    expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith("a.jpg")
-    expect(vi.mocked(tryDeleteFromStorage)).not.toHaveBeenCalledWith("b.jpg")
+    expect(q?.images.map((i) => i.storagePath)).toEqual([b])
+    // Le chemin retiré (a) est supprimé du CDN ; b (conservé) non.
+    expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith(a)
+    expect(vi.mocked(tryDeleteFromStorage)).not.toHaveBeenCalledWith(b)
   })
 
   it("copie tmp/ → questions/ au save, persiste le chemin FINAL, nettoie le tmp", async () => {
@@ -200,5 +204,26 @@ describe("setQuestionImages", () => {
     expect(q?.images.map((i) => i.storagePath)).toEqual([
       `questions/${id}/already.jpg`,
     ])
+  })
+
+  it("rejette un storagePath final hors du préfixe de la question (F2)", async () => {
+    const id = await makeOne()
+    const other = await makeOne()
+    vi.mocked(copyInS3).mockClear()
+    vi.mocked(tryDeleteFromStorage).mockClear()
+
+    // Chemin étranger BIEN FORMÉ : appartient à une AUTRE question. Sans garde, il
+    // serait stocké puis supprimé du CDN à l'édition suivante (suppression croisée).
+    const res = await setQuestionImages({
+      questionId: id,
+      images: [{ storagePath: `questions/${other}/x.jpg`, order: 0 }],
+    })
+    expect(res.success).toBe(false)
+    // Aucune I/O S3 ne doit avoir lieu (ni copie, ni suppression).
+    expect(vi.mocked(copyInS3)).not.toHaveBeenCalled()
+    expect(vi.mocked(tryDeleteFromStorage)).not.toHaveBeenCalled()
+    // La question reste sans image (rien n'a été persisté).
+    const q = await getQuestionById(id)
+    expect(q?.images).toEqual([])
   })
 })
