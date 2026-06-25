@@ -64,16 +64,23 @@ export const buildServerSchema = () =>
         "STRIPE_WEBHOOK_SECRET : requise dès que STRIPE_SECRET_KEY est définie (sinon paiements encaissés sans fulfillment)",
       path: ["STRIPE_WEBHOOK_SECRET"],
     })
-    // Garde-fou : ROLE_ARN et BUCKET vont ensemble. (AWS_REGION exclu du refine :
-    // Vercel le définit automatiquement, donc sa présence seule n'indique rien.)
+    // Garde-fou S3 : un bucket exige des credentials, et AWS_ROLE_ARN (var
+    // S3-spécifique) exige un bucket. (AWS_REGION exclu du refine : Vercel le
+    // définit automatiquement.) Credentials = OIDC (AWS_ROLE_ARN) en prod/preview,
+    // OU clés statiques (AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY) en dev local.
     .refine(
       (e) => {
-        const set = [e.AWS_ROLE_ARN, e.S3_BUCKET].filter(Boolean).length
-        return set === 0 || set === 2
+        if (e.S3_BUCKET) {
+          return Boolean(
+            e.AWS_ROLE_ARN ||
+              (e.AWS_ACCESS_KEY_ID && e.AWS_SECRET_ACCESS_KEY),
+          )
+        }
+        return !e.AWS_ROLE_ARN
       },
       {
         error:
-          "Configuration AWS S3 incomplète : AWS_ROLE_ARN et S3_BUCKET doivent être définis ensemble (et AWS_REGION pinné)",
+          "Configuration AWS S3 incomplète : S3_BUCKET nécessite des credentials (AWS_ROLE_ARN pour OIDC prod/preview, ou AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY pour le dev local) ; et AWS_ROLE_ARN nécessite S3_BUCKET",
         path: ["S3_BUCKET"],
       },
     )

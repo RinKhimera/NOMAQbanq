@@ -14,26 +14,41 @@ import { env } from "@/lib/env/server"
  * Couche AWS S3 bas-niveau (server-only) : client + presigned POST (upload
  * direct navigateur→S3) + suppression d'objet. La sécurité des chemins et les
  * helpers de domaine vivent dans `lib/storage.ts`. Auth via Vercel OIDC → rôle
- * IAM (aucun secret long-vécu en prod ; clés statiques = fallback dev local
- * géré par la chaîne de credentials par défaut du SDK).
+ * IAM (aucun secret long-vécu en prod ; clés statiques explicites = fallback
+ * dev local, cf. `resolveCredentials`).
  */
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024 // 5 Mo (aligne avec validateImageFile)
 
 let client: S3Client | undefined
 
+// Clés statiques explicites (user IAM dédié, dev local) prioritaires ; sinon
+// OIDC → rôle IAM (prod/preview Vercel, aucun secret long-vécu).
+const resolveCredentials = () => {
+  if (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY) {
+    return {
+      accessKeyId: env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
+    }
+  }
+  if (env.AWS_ROLE_ARN) {
+    return awsCredentialsProvider({
+      roleArn: env.AWS_ROLE_ARN,
+      audience: "sts.amazonaws.com",
+    })
+  }
+  throw new Error(
+    "Configuration AWS manquante (AWS_ROLE_ARN pour OIDC, ou AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY pour le dev local).",
+  )
+}
+
 const getClient = (): S3Client => {
-  if (!env.AWS_REGION || !env.AWS_ROLE_ARN) {
-    throw new Error(
-      "Configuration AWS manquante (AWS_REGION, AWS_ROLE_ARN, S3_BUCKET).",
-    )
+  if (!env.AWS_REGION) {
+    throw new Error("Configuration AWS manquante (AWS_REGION).")
   }
   client ??= new S3Client({
     region: env.AWS_REGION,
-    credentials: awsCredentialsProvider({
-      roleArn: env.AWS_ROLE_ARN,
-      audience: "sts.amazonaws.com",
-    }),
+    credentials: resolveCredentials(),
   })
   return client
 }

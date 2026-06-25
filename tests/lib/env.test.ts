@@ -74,4 +74,22 @@ describe("loadServerEnv", () => {
       loadServerEnv({ ...valid, AWS_ROLE_ARN: "arn:aws:iam::1:role/x" }),
     ).toThrow(/AWS S3 incompl/)
   })
+
+  it("accepte une config AWS S3 par clés statiques (dev local, sans role)", () => {
+    expect(
+      loadServerEnv({
+        ...valid,
+        AWS_REGION: "us-east-2",
+        S3_BUCKET: "nomaq-media",
+        AWS_ACCESS_KEY_ID: "AKIA_DEV",
+        AWS_SECRET_ACCESS_KEY: "dev-secret",
+      }).S3_BUCKET,
+    ).toBe("nomaq-media")
+  })
+
+  it("rejette un bucket S3 sans credentials (ni role ni clés statiques)", () => {
+    expect(() =>
+      loadServerEnv({ ...valid, AWS_REGION: "us-east-2", S3_BUCKET: "nomaq-media" }),
+    ).toThrow(/AWS S3 incompl/)
+  })
 })

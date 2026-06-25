@@ -10,9 +10,18 @@ import { env } from "@/lib/env/server"
  * réseau S3 (presign, delete) sont dans `lib/aws.ts`. Porté de `lib/bunny.ts`.
  */
 
-/** `true` si les trois vars S3 sont présentes (upload possible). */
+/**
+ * `true` si S3 est utilisable : région + bucket + des credentials — soit OIDC
+ * (`AWS_ROLE_ARN`, prod/preview), soit clés statiques (`AWS_ACCESS_KEY_ID` +
+ * `AWS_SECRET_ACCESS_KEY`, dev local).
+ */
 export const isStorageConfigured = (): boolean =>
-  Boolean(env.AWS_REGION && env.AWS_ROLE_ARN && env.S3_BUCKET)
+  Boolean(
+    env.AWS_REGION &&
+      env.S3_BUCKET &&
+      (env.AWS_ROLE_ARN ||
+        (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY)),
+  )
 
 // ---------- Path safety (anti path-traversal / SSRF) ----------
 
