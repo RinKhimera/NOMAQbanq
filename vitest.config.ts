@@ -46,6 +46,18 @@ export default defineConfig({
         "providers/**",
         "tests/**",
         "lib/auth.ts",
+        // Infra server-only (I/O) : couverte par les tests d'integration
+        // (uploads/stripe/rate-limit) ou config triviale ; non testable en
+        // happy-dom.
+        "lib/aws.ts",
+        "lib/stripe.ts",
+        "lib/upload-rate-limit.ts",
+        "lib/auth-guards.ts",
+        "lib/dal.ts",
+        "lib/auth-client.ts",
+        "lib/env/server.ts",
+        // Recadrage image : canvas/Image natifs non rendus par happy-dom.
+        "lib/crop-image.ts",
         // Layout/Navigation (pas de logique metier)
         "components/shared/app-sidebar.tsx",
         "components/shared/site-header.tsx",
@@ -90,10 +102,10 @@ export default defineConfig({
         "schemas/index.ts",
       ],
       thresholds: {
-        statements: 75,
-        branches: 75,
-        functions: 75,
-        lines: 75,
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
       },
     },
     projects: [
