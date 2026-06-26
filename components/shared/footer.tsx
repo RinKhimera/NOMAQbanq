@@ -42,7 +42,7 @@ export default function Footer() {
                   href="#"
                   className="flex h-12 w-12 transform items-center justify-center rounded-2xl bg-gray-800 transition-all duration-300 hover:scale-110 hover:bg-linear-to-br hover:from-blue-600 hover:to-indigo-600"
                 >
-                  <Icon className="h-5 w-5" />
+                  <Icon className="h-6 w-6" />
                 </a>
               ))}
             </div>
