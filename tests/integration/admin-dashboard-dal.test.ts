@@ -136,46 +136,44 @@ beforeAll(async () => {
     createdAt: new Date(o.createdAt),
     completedAt: o.completedAt ? new Date(o.completedAt) : null,
   })
-  await db
-    .insert(transactions)
-    .values([
-      tx({
-        id: TX1,
-        userId: B,
-        status: "completed",
-        currency: "CAD",
-        amountPaid: 5000,
-        createdAt: now,
-        completedAt: now,
-      }),
-      tx({
-        id: TX2,
-        userId: B,
-        status: "completed",
-        currency: "XAF",
-        amountPaid: 300000,
-        createdAt: now - 2 * DAY,
-        completedAt: now - 2 * DAY,
-      }),
-      tx({
-        id: TX3,
-        userId: C,
-        status: "completed",
-        currency: "CAD",
-        amountPaid: 1000,
-        createdAt: now - 45 * DAY,
-        completedAt: now - 45 * DAY,
-      }),
-      tx({
-        id: TX_FAIL,
-        userId: B,
-        status: "failed",
-        currency: "CAD",
-        amountPaid: 9999,
-        createdAt: now - DAY,
-        completedAt: null,
-      }),
-    ])
+  await db.insert(transactions).values([
+    tx({
+      id: TX1,
+      userId: B,
+      status: "completed",
+      currency: "CAD",
+      amountPaid: 5000,
+      createdAt: now,
+      completedAt: now,
+    }),
+    tx({
+      id: TX2,
+      userId: B,
+      status: "completed",
+      currency: "XAF",
+      amountPaid: 300000,
+      createdAt: now - 2 * DAY,
+      completedAt: now - 2 * DAY,
+    }),
+    tx({
+      id: TX3,
+      userId: C,
+      status: "completed",
+      currency: "CAD",
+      amountPaid: 1000,
+      createdAt: now - 45 * DAY,
+      completedAt: now - 45 * DAY,
+    }),
+    tx({
+      id: TX_FAIL,
+      userId: B,
+      status: "failed",
+      currency: "CAD",
+      amountPaid: 9999,
+      createdAt: now - DAY,
+      completedAt: null,
+    }),
+  ])
   await db.insert(userAccess).values([
     {
       id: ACC1,

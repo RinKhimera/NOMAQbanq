@@ -147,11 +147,11 @@ training_access_promo, premium_access) · `access_type`(exam,training) ·
 (`exam_id`,`position`)** · index `question_id`.
 
 **`exam_participations`** — `id` PK · `exam_id` (FK CASCADE) · `user_id` (FK CASCADE) · `score` (int,
-défaut 0) · `status` (défaut in_progress) · `started_at?` · **`completed_at?`** (null tant que non
+défaut 0) · `status` (défaut in*progress) · `started_at?` · **`completed_at?`** (null tant que non
 soumis — l'import convertit l'ancien `0 → NULL`) · `pause_phase?` · `pause_started_at?` ·
 `pause_ended_at?` · `is_pause_cut_short?` · `total_pause_duration_ms?` (bigint) · `created_at`.
-**UNIQUE (`exam_id`,`user_id`)** (D6). Index : exam, user, status. _(Scoring = `correct_answer ===
-selected_answer`, texte exact ; pause 100 % serveur, multi-onglets sûr.)_
+**UNIQUE (`exam_id`,`user_id`)** (D6). Index : exam, user, status. *(Scoring = `correct_answer ===
+selected_answer`, texte exact ; pause 100 % serveur, multi-onglets sûr.)\_
 
 **`exam_answers`** — `id` PK · `participation_id` (FK CASCADE) · `question_id` (FK RESTRICT) ·
 `selected_answer` (texte) · `is_correct` · `is_flagged` (défaut false) · `created_at`. **UNIQUE

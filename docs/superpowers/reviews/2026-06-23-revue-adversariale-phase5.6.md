@@ -177,12 +177,12 @@ l'appel et comparer à ça, ou accepter `[avant-dernier, dernier]` bucket.
    examen absent. L'`innerJoin` est sûr.
 
 5. **Test training : fragilité « 10 plus récentes »** — Suspecté : `getMyTrainingScoreHistory`
-   ne renvoie que les 10 sessions complétées les plus récentes ; si USER_ID accumule ≥ 8 sessions
+   ne renvoie que les 10 sessions complétées les plus récentes ; si USER*ID accumule ≥ 8 sessions
    complétées à `now` dans les describes précédents, ts1/ts2/ts3 (J-8/9/10) sortiraient de la
    fenêtre → `findIndex` = -1 → échec. **Disculpé** : USER_ID est l'unique user du fichier ; la
    seule session complétée par action (`completeTrainingSession`, `tests/integration/training.test.ts:154`)
    est **supprimée** par `deleteTrainingSession` (ligne 206, describe « gardes ») avant le describe
-   score-history ; la session `s2` est _abandonnée_, pas complétée. Au moment du test, USER_ID n'a
+   score-history ; la session `s2` est \_abandonnée*, pas complétée. Au moment du test, USER_ID n'a
    que ts1/ts2/ts3 → ordre stable. (Note : couplage d'exécution latent — si un futur test complète
    des sessions pour USER_ID au-dessus de ce describe, il casse. Pas un bug actuel.)
 
