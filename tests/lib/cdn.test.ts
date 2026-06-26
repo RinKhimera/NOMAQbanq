@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { CDN_HOST, cdnUrl, resolveAvatarUrl } from "@/lib/cdn"
 
 describe("cdnUrl", () => {

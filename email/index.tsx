@@ -2,7 +2,13 @@ import { sendEmail } from "./send"
 import { ResetPasswordEmail } from "./templates/reset-password-email"
 import { VerificationEmail } from "./templates/verification-email"
 
-export function sendVerificationEmail({ to, url }: { to: string; url: string }) {
+export function sendVerificationEmail({
+  to,
+  url,
+}: {
+  to: string
+  url: string
+}) {
   return sendEmail({
     to,
     subject: "Vérifiez votre adresse courriel — NOMAQbanq",

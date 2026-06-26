@@ -18,13 +18,18 @@ type NeonOperation = { id: string; status: string }
 
 const requiredEnv = (name: string): string => {
   const value = process.env[name]?.trim()
-  if (!value) throw new Error(`${name} manquante (.env.local en local, secret en CI).`)
+  if (!value)
+    throw new Error(`${name} manquante (.env.local en local, secret en CI).`)
   return value
 }
 
 const projectId = () => requiredEnv("NEON_PROJECT_ID")
 
-const api = async <T>(method: string, path: string, body?: unknown): Promise<T> => {
+const api = async <T>(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<T> => {
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     headers: {
@@ -35,12 +40,16 @@ const api = async <T>(method: string, path: string, body?: unknown): Promise<T> 
     signal: AbortSignal.timeout(30_000),
   })
   if (!res.ok) {
-    throw new Error(`Neon API ${method} ${path} → HTTP ${res.status} : ${await res.text()}`)
+    throw new Error(
+      `Neon API ${method} ${path} → HTTP ${res.status} : ${await res.text()}`,
+    )
   }
   return res.json() as Promise<T>
 }
 
-const waitForOperations = async (operations: NeonOperation[] | undefined): Promise<void> => {
+const waitForOperations = async (
+  operations: NeonOperation[] | undefined,
+): Promise<void> => {
   const deadline = Date.now() + 120_000
   for (const op of operations ?? []) {
     for (;;) {
@@ -49,10 +58,15 @@ const waitForOperations = async (operations: NeonOperation[] | undefined): Promi
         `/projects/${projectId()}/operations/${op.id}`,
       )
       if (operation.status === "finished") break
-      if (["failed", "error", "cancelled", "skipped"].includes(operation.status)) {
-        throw new Error(`Opération Neon ${op.id} en état « ${operation.status} ».`)
+      if (
+        ["failed", "error", "cancelled", "skipped"].includes(operation.status)
+      ) {
+        throw new Error(
+          `Opération Neon ${op.id} en état « ${operation.status} ».`,
+        )
       }
-      if (Date.now() > deadline) throw new Error("Timeout (120 s) en attendant Neon.")
+      if (Date.now() > deadline)
+        throw new Error("Timeout (120 s) en attendant Neon.")
       await new Promise((r) => setTimeout(r, 2000))
     }
   }
@@ -88,7 +102,9 @@ const withVerifyFullSsl = (uri: string): string =>
 export const createTestBranch = async (): Promise<TestBranch> => {
   const parent = (await listBranches()).find((b) => b.name === PARENT_BRANCH)
   if (!parent) {
-    throw new Error(`Branche parente « ${PARENT_BRANCH} » introuvable dans le projet Neon.`)
+    throw new Error(
+      `Branche parente « ${PARENT_BRANCH} » introuvable dans le projet Neon.`,
+    )
   }
 
   const name = `test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -105,7 +121,12 @@ export const createTestBranch = async (): Promise<TestBranch> => {
   const rawUri = created.connection_uris?.[0]?.connection_uri
   if (!rawUri) throw new Error("Réponse Neon sans connection_uri.")
   const connectionUri = withVerifyFullSsl(rawUri)
-  return { id: created.branch.id, name, connectionUri, host: new URL(connectionUri).host }
+  return {
+    id: created.branch.id,
+    name,
+    connectionUri,
+    host: new URL(connectionUri).host,
+  }
 }
 
 export const deleteBranch = async (branchId: string): Promise<void> => {
@@ -120,7 +141,8 @@ export const deleteBranch = async (branchId: string): Promise<void> => {
 export const cleanupStaleTestBranches = async (): Promise<string[]> => {
   const cutoff = Date.now() - STALE_AFTER_MS
   const stale = (await listBranches()).filter(
-    (b) => b.name.startsWith("test-") && new Date(b.created_at).getTime() < cutoff,
+    (b) =>
+      b.name.startsWith("test-") && new Date(b.created_at).getTime() < cutoff,
   )
   for (const b of stale) await deleteBranch(b.id)
   return stale.map((b) => b.name)
@@ -129,7 +151,8 @@ export const cleanupStaleTestBranches = async (): Promise<string[]> => {
 const isDirectRun = process.argv[1]?.endsWith("neon-api.ts") ?? false
 if (isDirectRun && process.argv.includes("--smoke")) {
   const removed = await cleanupStaleTestBranches()
-  if (removed.length > 0) console.log(`orphelines supprimées : ${removed.join(", ")}`)
+  if (removed.length > 0)
+    console.log(`orphelines supprimées : ${removed.join(", ")}`)
   const branch = await createTestBranch()
   console.log(`créée : ${branch.name} | host : ${branch.host}`)
   await deleteBranch(branch.id)

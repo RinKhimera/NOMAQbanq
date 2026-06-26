@@ -4,15 +4,14 @@ import { IconReceipt } from "@tabler/icons-react"
 import { Plus } from "lucide-react"
 import { motion } from "motion/react"
 import { useMemo, useState, useTransition } from "react"
-
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { DeleteTransactionDialog } from "@/components/shared/payments/delete-transaction-dialog"
 import { EditTransactionModal } from "@/components/shared/payments/edit-transaction-modal"
 import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
 import {
-  adminTransactionToRow,
   type Transaction,
   TransactionTable,
+  adminTransactionToRow,
 } from "@/components/shared/payments/transaction-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,7 +24,6 @@ import type {
   TransactionStatsView,
 } from "@/features/payments/dal"
 import type { SelectableUser } from "@/features/users/dal"
-
 import {
   TransactionFilters,
   type TransactionStatusFilter,

@@ -1,8 +1,14 @@
 import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
+import {
+  type TransactionStatsView,
+  getAllTransactions,
+  getTransactionAccessImpact,
+  getTransactionStats,
+} from "@/features/payments/dal"
+import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
 // `cache()` de React → identité (pas de contexte RSC en test node).
@@ -15,14 +21,6 @@ vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
-
-import {
-  getAllTransactions,
-  getTransactionAccessImpact,
-  getTransactionStats,
-  type TransactionStatsView,
-} from "@/features/payments/dal"
-import { requireRole } from "@/lib/auth-guards"
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)
@@ -168,12 +166,22 @@ describe("getTransactionStats (agrégation SQL FILTER + fenêtre 30j)", () => {
     const after = await getTransactionStats()
 
     // CAD : total = 10000 + 5000 + 1 (remboursée et pending exclues).
-    expect(after.revenueByCurrency.CAD.total - baseline.revenueByCurrency.CAD.total).toBe(15001)
+    expect(
+      after.revenueByCurrency.CAD.total - baseline.revenueByCurrency.CAD.total,
+    ).toBe(15001)
     // CAD récent (≤30j) : 5000 + 1 (la 10000 est vieille de 60j).
-    expect(after.revenueByCurrency.CAD.recent - baseline.revenueByCurrency.CAD.recent).toBe(5001)
+    expect(
+      after.revenueByCurrency.CAD.recent -
+        baseline.revenueByCurrency.CAD.recent,
+    ).toBe(5001)
     // XAF : total et récent = 300000.
-    expect(after.revenueByCurrency.XAF.total - baseline.revenueByCurrency.XAF.total).toBe(300000)
-    expect(after.revenueByCurrency.XAF.recent - baseline.revenueByCurrency.XAF.recent).toBe(300000)
+    expect(
+      after.revenueByCurrency.XAF.total - baseline.revenueByCurrency.XAF.total,
+    ).toBe(300000)
+    expect(
+      after.revenueByCurrency.XAF.recent -
+        baseline.revenueByCurrency.XAF.recent,
+    ).toBe(300000)
 
     // Compteurs (complétées uniquement).
     expect(after.totalTransactions - baseline.totalTransactions).toBe(4)
@@ -186,7 +194,9 @@ describe("getAllTransactions (admin : filtres + keyset)", () => {
   it("renvoie toutes les transactions de l'utilisateur, jointures user/produit peuplées", async () => {
     const page = await getAllTransactions({ userId: uid })
     expect(page.items).toHaveLength(6)
-    expect(page.items.every((t) => t.user?.email === `admin-${suffix}@test.invalid`)).toBe(true)
+    expect(
+      page.items.every((t) => t.user?.email === `admin-${suffix}@test.invalid`),
+    ).toBe(true)
     expect(page.items.every((t) => t.product?.name === "Exam")).toBe(true)
   })
 

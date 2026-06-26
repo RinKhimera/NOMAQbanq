@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { getBaseUrl } from "@/lib/base-url"
 
 const { envMock } = vi.hoisted(() => ({
   envMock: { current: {} as Record<string, string | undefined> },
@@ -9,8 +10,6 @@ vi.mock("@/lib/env/server", () => ({
     return envMock.current
   },
 }))
-
-import { getBaseUrl } from "@/lib/base-url"
 
 const VERCEL_KEYS = [
   "VERCEL_ENV",

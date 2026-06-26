@@ -1,6 +1,5 @@
 import { ArrowLeft, User } from "lucide-react"
 import Link from "next/link"
-
 import { Button } from "@/components/ui/button"
 import {
   getAccessStatus,
@@ -9,7 +8,6 @@ import {
 } from "@/features/payments/dal"
 import { getSelectableUsers, getUserForAdmin } from "@/features/users/dal"
 import { requireRole } from "@/lib/auth-guards"
-
 import { UserDetailClient } from "./user-detail-client"
 
 export default async function AdminUserDetailPage({

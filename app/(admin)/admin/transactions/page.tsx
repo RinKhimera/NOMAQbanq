@@ -4,7 +4,6 @@ import {
   getTransactionStats,
 } from "@/features/payments/dal"
 import { getSelectableUsers } from "@/features/users/dal"
-
 import { TransactionsManager } from "./_components/transactions-manager"
 
 // Données initiales chargées côté serveur (DAL admin, garde `requireRole` interne).

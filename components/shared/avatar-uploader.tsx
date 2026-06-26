@@ -18,7 +18,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider"
-import { confirmAvatarUpload, createAvatarUpload } from "@/features/users/actions"
+import {
+  confirmAvatarUpload,
+  createAvatarUpload,
+} from "@/features/users/actions"
 import { cdnUrl, resolveAvatarUrl } from "@/lib/cdn"
 import { getCroppedImageBlob } from "@/lib/crop-image"
 import { cn } from "@/lib/utils"

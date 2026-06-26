@@ -4,12 +4,11 @@ import { ArrowLeft, CreditCard } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { useState, useTransition } from "react"
-
 import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
 import {
-  adminTransactionToRow,
   type Transaction,
   TransactionTable,
+  adminTransactionToRow,
 } from "@/components/shared/payments/transaction-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,7 +28,6 @@ import type {
   ProductView,
 } from "@/features/payments/dal"
 import type { AdminUserDetail, SelectableUser } from "@/features/users/dal"
-
 import { UserAccessSection } from "./_components/user-access-section"
 import { UserInfoCard } from "./_components/user-info-card"
 

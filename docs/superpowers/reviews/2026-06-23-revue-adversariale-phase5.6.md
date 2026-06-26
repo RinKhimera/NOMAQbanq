@@ -29,18 +29,19 @@ ni corruption.** Les findings sont des durcissements UX/robustesse, pas des bloq
 
 ## 2. Findings (triés par sévérité)
 
-| #   | Sév | fichier:ligne | problème | régression ? |
-| --- | --- | ------------- | -------- | ------------ |
-| 1   | 🟡 basse | `app/(admin)/admin/page.tsx` ; `app/(dashboard)/dashboard/page.tsx` | Server Components async **sans `loading.tsx`** → squelette de chargement perdu ; `AdminDashboardSkeleton` orphelin | OUI (UX) |
-| 2   | ℹ️ info | `features/exams/dal.ts:1110-1111` | `getMyRecentExams` : `.limit(200)` **sans `orderBy`** → sous-ensemble non-déterministe (Convex utilisait l'ordre d'index stable) | Marginale |
-| 3   | ℹ️ info | `features/marketing/dal.ts:48` | `getMarketingStats` : `totalUsers` ne filtre pas `deletedAt`, alors que `totalQuestions` filtre `isNull(deletedAt)` — incohérence interne | NON |
-| 4   | ℹ️ info | `tests/integration/admin-dashboard-dal.test.ts:180` | Assertion recalcule `new Date()` au temps d'assertion vs `now` capturé dans le DAL → flake possible au passage de minuit UTC | NON (test) |
+| #   | Sév      | fichier:ligne                                                       | problème                                                                                                                                  | régression ? |
+| --- | -------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| 1   | 🟡 basse | `app/(admin)/admin/page.tsx` ; `app/(dashboard)/dashboard/page.tsx` | Server Components async **sans `loading.tsx`** → squelette de chargement perdu ; `AdminDashboardSkeleton` orphelin                        | OUI (UX)     |
+| 2   | ℹ️ info  | `features/exams/dal.ts:1110-1111`                                   | `getMyRecentExams` : `.limit(200)` **sans `orderBy`** → sous-ensemble non-déterministe (Convex utilisait l'ordre d'index stable)          | Marginale    |
+| 3   | ℹ️ info  | `features/marketing/dal.ts:48`                                      | `getMarketingStats` : `totalUsers` ne filtre pas `deletedAt`, alors que `totalQuestions` filtre `isNull(deletedAt)` — incohérence interne | NON          |
+| 4   | ℹ️ info  | `tests/integration/admin-dashboard-dal.test.ts:180`                 | Assertion recalcule `new Date()` au temps d'assertion vs `now` capturé dans le DAL → flake possible au passage de minuit UTC              | NON (test)   |
 
 ## 3. Détail par finding
 
 ### 1 — 🟡 Perte du squelette de chargement (pages devenues SSR bloquant)
 
 **Code**
+
 - `app/(admin)/admin/page.tsx` : l'ancienne page `"use client"` rendait
   `<AdminDashboardSkeleton/>` tant que `adminStats | questionStats | transactionStats` étaient
   `undefined` (chargement Convex). La nouvelle page est un `export default async function` qui
@@ -70,11 +71,13 @@ squelettes existants, restaure la parité UX.
 ### 2 — ℹ️ `getMyRecentExams` : `.limit(200)` sans `orderBy`
 
 **Code** — `features/exams/dal.ts:1108-1111`
+
 ```
 .from(exams)
 .where(eq(exams.isActive, true))
 .limit(200)
 ```
+
 Convex (`convex/examStats.ts:280-285`) : `query("exams").withIndex("by_isActive", eq true).take(200)`
 — parcours d'index, donc ordre **stable et déterministe**.
 
@@ -96,11 +99,13 @@ sous-ensemble déterministe. À l'échelle actuelle (examens blancs peu nombreux
 ### 3 — ℹ️ `getMarketingStats` : `totalUsers` ne filtre pas `deletedAt`
 
 **Code** — `features/marketing/dal.ts:44-49`
+
 ```
 const [users] = await db
   .select({ n: sql<number>`count(*)`.mapWith(Number) })
   .from(user)          // ← pas de .where(isNull(user.deletedAt))
 ```
+
 À comparer avec le comptage des questions juste au-dessus
 (`features/marketing/dal.ts:30-35`) qui filtre `isNull(questions.deletedAt)`, et avec
 `getAdminStats` (`features/users/dal.ts`) / `getUsersStats` qui excluent les users soft-deleted.
@@ -121,9 +126,11 @@ les autres comptages de users du DAL.
 ### 4 — ℹ️ Assertion de date fragile (flake minuit UTC)
 
 **Code** — `tests/integration/admin-dashboard-dal.test.ts:180`
+
 ```
 expect(r.CAD.at(-1)?.date).toBe(new Date().toISOString().slice(0, 10))
 ```
+
 Le dernier bucket de `getRevenueByDay` est calculé à partir du `now` capturé **dans** le DAL au
 moment de l'appel ; l'assertion recalcule `new Date()` indépendamment.
 
@@ -175,7 +182,7 @@ l'appel et comparer à ça, ou accepter `[avant-dernier, dernier]` bucket.
    fenêtre → `findIndex` = -1 → échec. **Disculpé** : USER_ID est l'unique user du fichier ; la
    seule session complétée par action (`completeTrainingSession`, `tests/integration/training.test.ts:154`)
    est **supprimée** par `deleteTrainingSession` (ligne 206, describe « gardes ») avant le describe
-   score-history ; la session `s2` est *abandonnée*, pas complétée. Au moment du test, USER_ID n'a
+   score-history ; la session `s2` est _abandonnée_, pas complétée. Au moment du test, USER_ID n'a
    que ts1/ts2/ts3 → ordre stable. (Note : couplage d'exécution latent — si un futur test complète
    des sessions pour USER_ID au-dessus de ce describe, il casse. Pas un bug actuel.)
 
@@ -205,7 +212,7 @@ l'appel et comparer à ça, ou accepter `[avant-dernier, dernier]` bucket.
 
 10. **`getRecentActivity` trie par `completedAt` vs Convex par `_creationTime`** — Drizzle ordonne
     les 5 paiements/examens par `completedAt desc` ; Convex par ordre d'insertion puis utilise
-    `completedAt` comme timestamp. **Disculpé** : Drizzle est *plus* correct (ordonne par le champ
+    `completedAt` comme timestamp. **Disculpé** : Drizzle est _plus_ correct (ordonne par le champ
     affiché) ; écart immatériel (createdAt ≈ completedAt pour les transactions). Correction, pas
     régression.
 
@@ -222,13 +229,13 @@ données sérialisables ; la modale de paiement manuel rafraîchit bien le dashb
 
 ### Tableau de correctifs priorisé
 
-| Priorité | Finding | Action |
-| -------- | ------- | ------ |
-| À corriger maintenant | — | (aucun) |
-| Avant la bascule (purge Convex / prod) | #1 | Ajouter `loading.tsx` pour `/admin` et `/dashboard` (restaure le squelette) |
-| Polish | #2 | `orderBy` sur le `.limit(200)` de `getMyRecentExams` |
-| Polish | #3 | Filtrer `deletedAt` sur `totalUsers` marketing (cohérence) |
-| Polish | #4 | Stabiliser l'assertion de date du test admin-dashboard |
+| Priorité                               | Finding | Action                                                                      |
+| -------------------------------------- | ------- | --------------------------------------------------------------------------- |
+| À corriger maintenant                  | —       | (aucun)                                                                     |
+| Avant la bascule (purge Convex / prod) | #1      | Ajouter `loading.tsx` pour `/admin` et `/dashboard` (restaure le squelette) |
+| Polish                                 | #2      | `orderBy` sur le `.limit(200)` de `getMyRecentExams`                        |
+| Polish                                 | #3      | Filtrer `deletedAt` sur `totalUsers` marketing (cohérence)                  |
+| Polish                                 | #4      | Stabiliser l'assertion de date du test admin-dashboard                      |
 
 ## 6. Confirmations de sûreté opérationnelle
 

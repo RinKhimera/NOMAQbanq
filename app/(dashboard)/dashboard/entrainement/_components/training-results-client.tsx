@@ -13,7 +13,6 @@ import {
 import { motion } from "motion/react"
 import Link from "next/link"
 import { useCallback, useMemo, useState } from "react"
-
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
@@ -23,10 +22,7 @@ import type { TrainingResultsView } from "@/features/training/dal"
 import { useIsVisible } from "@/hooks/use-is-visible"
 import { cn } from "@/lib/utils"
 
-type ResultsData = Exclude<
-  NonNullable<TrainingResultsView>,
-  { error: string }
->
+type ResultsData = Exclude<NonNullable<TrainingResultsView>, { error: string }>
 
 export function TrainingResultsClient({ results }: { results: ResultsData }) {
   const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
@@ -196,7 +192,10 @@ export function TrainingResultsClient({ results }: { results: ResultsData }) {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", damping: 10, delay: 0.2 }}
-                    className={cn("font-display text-7xl font-black", scoreColor)}
+                    className={cn(
+                      "font-display text-7xl font-black",
+                      scoreColor,
+                    )}
                   >
                     {stats.score}%
                   </motion.div>

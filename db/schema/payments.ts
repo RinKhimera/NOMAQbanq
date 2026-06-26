@@ -8,9 +8,7 @@ import {
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core"
-
 import { createId } from "@/lib/ids"
-
 import { user } from "./auth"
 import {
   accessType,

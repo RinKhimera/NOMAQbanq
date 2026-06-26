@@ -1,8 +1,6 @@
-import "server-only"
-
 import { and, asc, desc, eq, gt, lt, ne, or, sql } from "drizzle-orm"
 import { cache } from "react"
-
+import "server-only"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
@@ -86,7 +84,9 @@ export const hasAccess = async (
   const [row] = await db
     .select({ expiresAt: userAccess.expiresAt })
     .from(userAccess)
-    .where(and(eq(userAccess.userId, targetId), eq(userAccess.accessType, type)))
+    .where(
+      and(eq(userAccess.userId, targetId), eq(userAccess.accessType, type)),
+    )
     .limit(1)
 
   return Boolean(row) && row.expiresAt.getTime() > Date.now()
@@ -115,29 +115,27 @@ export type ProductView = {
  * Mappe `priceCad` → `priceCAD` (nom attendu par l'UI). Borné : ordre stable,
  * peu de produits. `cache()` pour dédupliquer par render.
  */
-export const getAvailableProducts = cache(
-  async (): Promise<ProductView[]> => {
-    const rows = await db
-      .select({
-        id: products.id,
-        code: products.code,
-        name: products.name,
-        description: products.description,
-        priceCAD: products.priceCad,
-        durationDays: products.durationDays,
-        accessType: products.accessType,
-        isCombo: products.isCombo,
-        stripeProductId: products.stripeProductId,
-        stripePriceId: products.stripePriceId,
-      })
-      .from(products)
-      .where(eq(products.isActive, true))
-      .orderBy(asc(products.priceCad), asc(products.id))
-      .limit(50)
+export const getAvailableProducts = cache(async (): Promise<ProductView[]> => {
+  const rows = await db
+    .select({
+      id: products.id,
+      code: products.code,
+      name: products.name,
+      description: products.description,
+      priceCAD: products.priceCad,
+      durationDays: products.durationDays,
+      accessType: products.accessType,
+      isCombo: products.isCombo,
+      stripeProductId: products.stripeProductId,
+      stripePriceId: products.stripePriceId,
+    })
+    .from(products)
+    .where(eq(products.isActive, true))
+    .orderBy(asc(products.priceCad), asc(products.id))
+    .limit(50)
 
-    return rows
-  },
-)
+  return rows
+})
 
 // ============================================
 // Historique des transactions (pagination keyset)
@@ -174,7 +172,9 @@ export type MyTransactionsPage = {
 const encodeCursor = (createdAt: Date, id: string): string =>
   Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64")
 
-const decodeCursor = (cursor: string): { createdAt: Date; id: string } | null => {
+const decodeCursor = (
+  cursor: string,
+): { createdAt: Date; id: string } | null => {
   try {
     const decoded = Buffer.from(cursor, "base64").toString("utf8")
     const sep = decoded.indexOf("|")
@@ -636,7 +636,9 @@ export const getExpiringAccess = async (): Promise<ExpiringAccessItem[]> => {
     })
     .from(userAccess)
     .innerJoin(user, eq(user.id, userAccess.userId))
-    .where(and(gt(userAccess.expiresAt, nowDate), lt(userAccess.expiresAt, in7d)))
+    .where(
+      and(gt(userAccess.expiresAt, nowDate), lt(userAccess.expiresAt, in7d)),
+    )
     .orderBy(asc(userAccess.expiresAt))
     .limit(200)
 

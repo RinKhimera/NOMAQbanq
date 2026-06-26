@@ -1,6 +1,5 @@
 import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import {
   examAnswers,
@@ -12,15 +11,14 @@ import {
   trainingSessions,
   user,
 } from "@/db/schema"
+import { closeExpiredExamParticipations } from "@/features/exams/cron"
+import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
   return { ...actual, cache: (fn: unknown) => fn }
 })
-
-import { closeExpiredExamParticipations } from "@/features/exams/cron"
-import { closeExpiredTrainingSessions } from "@/features/training/cron"
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)
@@ -73,11 +71,13 @@ beforeAll(async () => {
   await db
     .insert(exams)
     .values([mkExam(examPast, -DAY), mkExam(examFuture, DAY)])
-  await db.insert(examQuestions).values(
-    [examPast, examFuture].flatMap((examId) =>
-      qIds.map((questionId, position) => ({ examId, questionId, position })),
-    ),
-  )
+  await db
+    .insert(examQuestions)
+    .values(
+      [examPast, examFuture].flatMap((examId) =>
+        qIds.map((questionId, position) => ({ examId, questionId, position })),
+      ),
+    )
 
   await db.insert(examParticipations).values([
     {
@@ -168,7 +168,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.delete(exams).where(eq(exams.createdBy, U1)) // cascade questions/participations/answers
-  await db.delete(trainingSessions).where(inArray(trainingSessions.userId, USERS))
+  await db
+    .delete(trainingSessions)
+    .where(inArray(trainingSessions.userId, USERS))
   await db.delete(questions).where(inArray(questions.id, qIds))
   await db.delete(user).where(inArray(user.id, USERS))
 })

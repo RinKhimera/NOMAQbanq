@@ -1,6 +1,13 @@
 import { eq, inArray } from "drizzle-orm"
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
-
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest"
 import { db } from "@/db"
 import {
   questionExplanations,
@@ -9,15 +16,6 @@ import {
   trainingSessions,
   user,
 } from "@/db/schema"
-import { createId } from "@/lib/ids"
-
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
-vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
-
 import {
   abandonTrainingSession,
   completeTrainingSession,
@@ -36,6 +34,14 @@ import {
   getTrainingStats,
 } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
+import { createId } from "@/lib/ids"
+
+vi.mock("react", async (orig) => {
+  const actual = await orig<typeof import("react")>()
+  return { ...actual, cache: (fn: unknown) => fn }
+})
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const suffix = createId().slice(0, 8)
 const USER_ID = createId()
@@ -74,9 +80,11 @@ beforeAll(async () => {
       references: i === 0 ? ["Ref 1"] : null,
     })),
   )
-  await db.insert(questionImages).values([
-    { questionId: qIds[0], storagePath: `t/${suffix}/0.jpg`, position: 0 },
-  ])
+  await db
+    .insert(questionImages)
+    .values([
+      { questionId: qIds[0], storagePath: `t/${suffix}/0.jpg`, position: 0 },
+    ])
 })
 
 beforeEach(() => {
@@ -85,7 +93,9 @@ beforeEach(() => {
 
 afterAll(async () => {
   await db.delete(trainingSessions).where(eq(trainingSessions.userId, USER_ID))
-  await db.delete(questionImages).where(inArray(questionImages.questionId, qIds))
+  await db
+    .delete(questionImages)
+    .where(inArray(questionImages.questionId, qIds))
   await db
     .delete(questionExplanations)
     .where(inArray(questionExplanations.questionId, qIds))
@@ -95,7 +105,10 @@ afterAll(async () => {
 
 describe("parcours complet (création → réponses → fin → résultats)", () => {
   it("createTrainingSession : crée la session + 5 items", async () => {
-    const res = await createTrainingSession({ questionCount: 5, domain: DOMAIN })
+    const res = await createTrainingSession({
+      questionCount: 5,
+      domain: DOMAIN,
+    })
     expect(res.success).toBe(true)
     if (!res.success) return
     activeSessionId = res.sessionId
@@ -209,7 +222,10 @@ describe("gardes", () => {
   })
 
   it("refuse si pas assez de questions disponibles", async () => {
-    const res = await createTrainingSession({ questionCount: 20, domain: DOMAIN })
+    const res = await createTrainingSession({
+      questionCount: 20,
+      domain: DOMAIN,
+    })
     expect(res.success).toBe(false)
   })
 
@@ -311,7 +327,10 @@ describe("getMyTrainingScoreHistory (graphique dashboard)", () => {
 describe("IDOR / propriété", () => {
   it("un autre utilisateur ne peut ni lire ni répondre à la session d'autrui", async () => {
     // Session créée par USER_ID (admin via beforeEach).
-    const res = await createTrainingSession({ questionCount: 5, domain: DOMAIN })
+    const res = await createTrainingSession({
+      questionCount: 5,
+      domain: DOMAIN,
+    })
     expect(res.success).toBe(true)
     if (!res.success) return
     const sid = res.sessionId

@@ -4,7 +4,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import Link from "next/link"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
-
 import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"

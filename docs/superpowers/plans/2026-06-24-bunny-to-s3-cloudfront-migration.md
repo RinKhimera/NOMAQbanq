@@ -91,7 +91,9 @@ Vérif : `aws s3api get-bucket-cors --bucket <BUCKET>`.
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
-        "StringEquals": { "oidc.vercel.com/<TEAM_SLUG>:aud": "sts.amazonaws.com" },
+        "StringEquals": {
+          "oidc.vercel.com/<TEAM_SLUG>:aud": "sts.amazonaws.com"
+        },
         "StringLike": {
           "oidc.vercel.com/<TEAM_SLUG>:sub": [
             "owner:<TEAM_SLUG>:project:<PROJECT>:environment:production",
@@ -154,7 +156,7 @@ aws cloudfront create-origin-access-control --origin-access-control-config \
   Name=nomaqbanq-oac,SigningProtocol=sigv4,SigningBehavior=always,OriginAccessControlOriginType=s3
 ```
 
-- [ ] **Step 3: Créer la distribution** (origine = bucket, alias `cdn.nomaqbanq.ca`, cert ACM, OAC, compression, response-headers-policy avec `X-Content-Type-Options: nosniff` + cache long). Via Console (plus simple pour ce JSON volumineux) ou `aws cloudfront create-distribution --distribution-config file://dist.json`. Récupère le *Distribution domain name* (`dxxxx.cloudfront.net`).
+- [ ] **Step 3: Créer la distribution** (origine = bucket, alias `cdn.nomaqbanq.ca`, cert ACM, OAC, compression, response-headers-policy avec `X-Content-Type-Options: nosniff` + cache long). Via Console (plus simple pour ce JSON volumineux) ou `aws cloudfront create-distribution --distribution-config file://dist.json`. Récupère le _Distribution domain name_ (`dxxxx.cloudfront.net`).
 
 - [ ] **Step 4: Bucket policy autorisant CloudFront (OAC) à lire**
 
@@ -213,6 +215,7 @@ vercel env add S3_BUCKET preview            # -> <BUCKET>
 ### Task 1.1: Installer les paquets AWS
 
 **Files:**
+
 - Modify: `package.json` (via gestionnaire)
 
 - [ ] **Step 1: Installer**
@@ -236,6 +239,7 @@ git commit -m "chore(deps): add AWS S3 SDK + Vercel OIDC credentials provider"
 ### Task 1.2: Ajouter les vars S3 au schéma env (additif, Bunny conservé)
 
 **Files:**
+
 - Modify: `lib/env/schema.ts`
 - Test: `tests/lib/env.test.ts`
 
@@ -244,22 +248,22 @@ git commit -m "chore(deps): add AWS S3 SDK + Vercel OIDC credentials provider"
 Ajoute dans `tests/lib/env.test.ts`, dans `describe("loadServerEnv")` :
 
 ```ts
-  it("accepte une config AWS S3 complète", () => {
-    expect(
-      loadServerEnv({
-        ...valid,
-        AWS_REGION: "us-east-2",
-        AWS_ROLE_ARN: "arn:aws:iam::1:role/x",
-        S3_BUCKET: "nomaq-media",
-      }).S3_BUCKET,
-    ).toBe("nomaq-media")
-  })
+it("accepte une config AWS S3 complète", () => {
+  expect(
+    loadServerEnv({
+      ...valid,
+      AWS_REGION: "us-east-2",
+      AWS_ROLE_ARN: "arn:aws:iam::1:role/x",
+      S3_BUCKET: "nomaq-media",
+    }).S3_BUCKET,
+  ).toBe("nomaq-media")
+})
 
-  it("rejette une config AWS S3 partielle (role sans bucket)", () => {
-    expect(() =>
-      loadServerEnv({ ...valid, AWS_ROLE_ARN: "arn:aws:iam::1:role/x" }),
-    ).toThrow(/AWS S3 incompl/)
-  })
+it("rejette une config AWS S3 partielle (role sans bucket)", () => {
+  expect(() =>
+    loadServerEnv({ ...valid, AWS_ROLE_ARN: "arn:aws:iam::1:role/x" }),
+  ).toThrow(/AWS S3 incompl/)
+})
 ```
 
 - [ ] **Step 2: Lancer pour voir échouer**
@@ -316,6 +320,7 @@ git commit -m "feat(env): add AWS S3 vars (AWS_REGION/ROLE_ARN/S3_BUCKET) with a
 ### Task 1.3: Exporter `CDN_HOST` et accepter `NEXT_PUBLIC_CDN_HOSTNAME`
 
 **Files:**
+
 - Modify: `lib/cdn.ts`
 
 - [ ] **Step 1: Remplacer le contenu de `lib/cdn.ts`**
@@ -352,17 +357,16 @@ git commit -m "feat(cdn): export CDN_HOST, accept NEXT_PUBLIC_CDN_HOSTNAME (fall
 ### Task 2.1: Créer `lib/aws.ts` (client S3 + presigned POST + delete)
 
 **Files:**
+
 - Create: `lib/aws.ts`
 
 - [ ] **Step 1: Écrire le module**
 
 ```ts
-import "server-only"
-
 import { DeleteObjectCommand, S3Client } from "@aws-sdk/client-s3"
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post"
 import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider"
-
+import "server-only"
 import { env } from "@/lib/env/server"
 
 /**
@@ -456,6 +460,7 @@ git commit -m "feat(storage): add lib/aws.ts (S3 client via OIDC, presigned POST
 ### Task 2.2: Créer `lib/storage.ts` (helpers de domaine, portés de `lib/bunny.ts`)
 
 **Files:**
+
 - Create: `lib/storage.ts`
 - Test: `tests/lib/storage.test.ts`
 
@@ -465,11 +470,6 @@ Crée `tests/lib/storage.test.ts` :
 
 ```ts
 import { describe, expect, it, vi } from "vitest"
-
-vi.mock("server-only", () => ({}))
-// Évite de charger le SDK AWS dans ce test unitaire des helpers purs.
-vi.mock("@/lib/aws", () => ({ deleteFromS3: vi.fn() }))
-
 import {
   assertSafeStoragePath,
   avatarStoragePathFromUrl,
@@ -478,6 +478,10 @@ import {
   getExtensionFromMimeType,
   validateImageFile,
 } from "@/lib/storage"
+
+vi.mock("server-only", () => ({}))
+// Évite de charger le SDK AWS dans ce test unitaire des helpers purs.
+vi.mock("@/lib/aws", () => ({ deleteFromS3: vi.fn() }))
 
 describe("path helpers", () => {
   it("génère un chemin d'image question préfixé", () => {
@@ -531,7 +535,9 @@ describe("validateImageFile", () => {
     expect(validateImageFile("application/pdf", 1000)).toContain("Format")
   })
   it("refuse un fichier trop volumineux", () => {
-    expect(validateImageFile("image/png", 6 * 1024 * 1024)).toContain("volumineux")
+    expect(validateImageFile("image/png", 6 * 1024 * 1024)).toContain(
+      "volumineux",
+    )
   })
 })
 ```
@@ -545,7 +551,6 @@ Expected: FAIL (`@/lib/storage` n'existe pas encore).
 
 ```ts
 import "server-only"
-
 import { deleteFromS3 } from "@/lib/aws"
 import { CDN_HOST } from "@/lib/cdn"
 import { env } from "@/lib/env/server"
@@ -692,6 +697,7 @@ git commit -m "feat(storage): add lib/storage.ts (path helpers, validation, best
 ### Task 3.1: Avatar — `createAvatarUpload` + `confirmAvatarUpload`
 
 **Files:**
+
 - Modify: `features/users/actions.ts`
 - Test: `tests/integration/uploads-actions.test.ts`
 
@@ -833,6 +839,14 @@ export const confirmAvatarUpload = async (input: {
 Remplace l'en-tête de mock de `tests/integration/uploads-actions.test.ts` (lignes 25-44) par :
 
 ```ts
+import { createQuestionImageUpload } from "@/features/questions/actions"
+import {
+  confirmAvatarUpload,
+  createAvatarUpload,
+} from "@/features/users/actions"
+import { requireRole, requireSession } from "@/lib/auth-guards"
+import { createPresignedUpload } from "@/lib/aws"
+
 // Mock PARTIEL de storage : garde les helpers purs RÉELS ; force la config
 // présente et neutralise la suppression réseau.
 vi.mock("@/lib/aws", () => ({
@@ -852,16 +866,6 @@ vi.mock("@/lib/storage", async (orig) => {
     tryDeleteFromStorage: vi.fn().mockResolvedValue(undefined),
   }
 })
-
-import {
-  createQuestionImageUpload,
-} from "@/features/questions/actions"
-import {
-  confirmAvatarUpload,
-  createAvatarUpload,
-} from "@/features/users/actions"
-import { requireRole, requireSession } from "@/lib/auth-guards"
-import { createPresignedUpload } from "@/lib/aws"
 ```
 
 Remplace tout le `describe("uploadAvatar", …)` par :
@@ -948,6 +952,7 @@ git commit -m "feat(users): avatar upload via presigned POST (createAvatarUpload
 ### Task 3.2: Question images — `createQuestionImageUpload` + delete S3
 
 **Files:**
+
 - Modify: `features/questions/actions.ts`
 - Test: `tests/integration/uploads-actions.test.ts`, `tests/integration/questions-actions.test.ts`
 
@@ -957,6 +962,7 @@ Remplace l'import depuis `@/lib/bunny` (lignes 9-16) par :
 
 ```ts
 import { createPresignedUpload } from "@/lib/aws"
+import { createId } from "@/lib/ids"
 import {
   generateQuestionImagePath,
   getExtensionFromMimeType,
@@ -964,16 +970,15 @@ import {
   tryDeleteFromStorage,
   validateImageFile,
 } from "@/lib/storage"
-import { createId } from "@/lib/ids"
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
 ```
 
 Dans `setQuestionImages`, remplace l'appel de suppression :
 
 ```ts
-    if (removedPaths.length > 0) {
-      await Promise.all(removedPaths.map((p) => tryDeleteFromStorage(p)))
-    }
+if (removedPaths.length > 0) {
+  await Promise.all(removedPaths.map((p) => tryDeleteFromStorage(p)))
+}
 ```
 
 Supprime `UploadQuestionImageResult` et toute la fonction `uploadQuestionImage`, et mets à la place (en gardant `QUESTION_ID_RE`) :
@@ -1008,7 +1013,10 @@ export const createQuestionImageUpload = async (input: {
   }
   const imageIndex = Math.max(
     0,
-    Math.min(999, Number.isFinite(input.imageIndex) ? Math.trunc(input.imageIndex) : 0),
+    Math.min(
+      999,
+      Number.isFinite(input.imageIndex) ? Math.trunc(input.imageIndex) : 0,
+    ),
   )
 
   const validationError = validateImageFile(input.contentType, input.size)
@@ -1134,10 +1142,10 @@ import { tryDeleteFromStorage } from "@/lib/storage"
 puis les deux assertions (lignes ~137, 146-147) :
 
 ```ts
-    vi.mocked(tryDeleteFromStorage).mockClear()
-    // …
-    expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith("a.jpg")
-    expect(vi.mocked(tryDeleteFromStorage)).not.toHaveBeenCalledWith("b.jpg")
+vi.mocked(tryDeleteFromStorage).mockClear()
+// …
+expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith("a.jpg")
+expect(vi.mocked(tryDeleteFromStorage)).not.toHaveBeenCalledWith("b.jpg")
 ```
 
 - [ ] **Step 4: Lancer les tests d'intégration**
@@ -1166,6 +1174,7 @@ git commit -m "feat(questions): image upload via presigned POST + S3 delete in s
 ### Task 4.1: `question-image-uploader.tsx` — upload 2 étapes
 
 **Files:**
+
 - Modify: `components/admin/question-image-uploader.tsx`
 
 - [ ] **Step 1: Remplacer l'import de l'action**
@@ -1180,73 +1189,69 @@ import { cdnUrl } from "@/lib/cdn"
 Remplace le bloc `for (const item of queued) { … }` par :
 
 ```ts
-      for (let i = 0; i < queued.length; i++) {
-        const item = queued[i]
-        try {
-          const presign = await createQuestionImageUpload({
-            questionId,
-            imageIndex: images.length + i,
-            contentType: item.file.type,
-            size: item.file.size,
-          })
-          if (!presign.success) {
-            toast.error(presign.error)
-            setUploadingImages((prev) =>
-              prev.map((u) =>
-                u.id === item.id
-                  ? { ...u, status: "error", error: presign.error }
-                  : u,
-              ),
-            )
-            continue
-          }
+for (let i = 0; i < queued.length; i++) {
+  const item = queued[i]
+  try {
+    const presign = await createQuestionImageUpload({
+      questionId,
+      imageIndex: images.length + i,
+      contentType: item.file.type,
+      size: item.file.size,
+    })
+    if (!presign.success) {
+      toast.error(presign.error)
+      setUploadingImages((prev) =>
+        prev.map((u) =>
+          u.id === item.id
+            ? { ...u, status: "error", error: presign.error }
+            : u,
+        ),
+      )
+      continue
+    }
 
-          const s3Form = new FormData()
-          Object.entries(presign.fields).forEach(([k, v]) =>
-            s3Form.append(k, v),
-          )
-          s3Form.append("file", item.file) // "file" en dernier (exigence S3 POST)
+    const s3Form = new FormData()
+    Object.entries(presign.fields).forEach(([k, v]) => s3Form.append(k, v))
+    s3Form.append("file", item.file) // "file" en dernier (exigence S3 POST)
 
-          const s3Res = await fetch(presign.url, {
-            method: "POST",
-            body: s3Form,
-          })
-          if (!s3Res.ok) {
-            toast.error("Échec du téléversement. Réessayez.")
-            setUploadingImages((prev) =>
-              prev.map((u) =>
-                u.id === item.id
-                  ? { ...u, status: "error", error: "Échec S3" }
-                  : u,
-              ),
-            )
-            continue
-          }
+    const s3Res = await fetch(presign.url, {
+      method: "POST",
+      body: s3Form,
+    })
+    if (!s3Res.ok) {
+      toast.error("Échec du téléversement. Réessayez.")
+      setUploadingImages((prev) =>
+        prev.map((u) =>
+          u.id === item.id ? { ...u, status: "error", error: "Échec S3" } : u,
+        ),
+      )
+      continue
+    }
 
-          onImagesChange((prev) => [
-            ...prev,
-            {
-              url: cdnUrl(presign.storagePath),
-              storagePath: presign.storagePath,
-              order: prev.length,
-            },
-          ])
-          setUploadingImages((prev) => {
-            URL.revokeObjectURL(item.preview)
-            previewUrlsRef.current.delete(item.preview)
-            return prev.filter((u) => u.id !== item.id)
-          })
-        } catch {
-          toast.error("Échec du téléversement. Réessayez.")
-          setUploadingImages((prev) =>
-            prev.map((u) =>
-              u.id === item.id
-                ? { ...u, status: "error", error: "Erreur réseau" }
-                : u,
-            ),
-          )
-        }
-      }
+    onImagesChange((prev) => [
+      ...prev,
+      {
+        url: cdnUrl(presign.storagePath),
+        storagePath: presign.storagePath,
+        order: prev.length,
+      },
+    ])
+    setUploadingImages((prev) => {
+      URL.revokeObjectURL(item.preview)
+      previewUrlsRef.current.delete(item.preview)
+      return prev.filter((u) => u.id !== item.id)
+    })
+  } catch {
+    toast.error("Échec du téléversement. Réessayez.")
+    setUploadingImages((prev) =>
+      prev.map((u) =>
+        u.id === item.id
+          ? { ...u, status: "error", error: "Erreur réseau" }
+          : u,
+      ),
+    )
+  }
+}
 ```
 
 - [ ] **Step 3: Vérifier compilation + lint**
@@ -1264,12 +1269,16 @@ git commit -m "feat(admin): question image uploader uses presigned POST (2-step 
 ### Task 4.2: `avatar-uploader.tsx` — upload 2 étapes + confirm
 
 **Files:**
+
 - Modify: `components/shared/avatar-uploader.tsx`
 
 - [ ] **Step 1: Remplacer l'import de l'action**
 
 ```ts
-import { confirmAvatarUpload, createAvatarUpload } from "@/features/users/actions"
+import {
+  confirmAvatarUpload,
+  createAvatarUpload,
+} from "@/features/users/actions"
 import { cdnUrl } from "@/lib/cdn"
 ```
 
@@ -1278,52 +1287,52 @@ import { cdnUrl } from "@/lib/cdn"
 Remplace le `try { … } catch { … }` interne par :
 
 ```ts
-    setIsUploading(true)
-    try {
-      const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels)
+setIsUploading(true)
+try {
+  const blob = await getCroppedImageBlob(imageSrc, croppedAreaPixels)
 
-      const presign = await createAvatarUpload({
-        contentType: blob.type || "image/jpeg",
-        size: blob.size,
-      })
-      if (!presign.success) {
-        toast.error(presign.error)
-        return
-      }
+  const presign = await createAvatarUpload({
+    contentType: blob.type || "image/jpeg",
+    size: blob.size,
+  })
+  if (!presign.success) {
+    toast.error(presign.error)
+    return
+  }
 
-      const s3Form = new FormData()
-      Object.entries(presign.fields).forEach(([k, v]) => s3Form.append(k, v))
-      s3Form.append("file", blob, "avatar.jpg") // "file" en dernier
+  const s3Form = new FormData()
+  Object.entries(presign.fields).forEach(([k, v]) => s3Form.append(k, v))
+  s3Form.append("file", blob, "avatar.jpg") // "file" en dernier
 
-      const s3Res = await fetch(presign.url, { method: "POST", body: s3Form })
-      if (!s3Res.ok) {
-        toast.error("Échec du téléversement. Réessayez.")
-        return
-      }
+  const s3Res = await fetch(presign.url, { method: "POST", body: s3Form })
+  if (!s3Res.ok) {
+    toast.error("Échec du téléversement. Réessayez.")
+    return
+  }
 
-      const confirmed = await confirmAvatarUpload({
-        storagePath: presign.storagePath,
-      })
-      if (!confirmed.success) {
-        toast.error(confirmed.error ?? "Erreur serveur. Réessayez.")
-        return
-      }
+  const confirmed = await confirmAvatarUpload({
+    storagePath: presign.storagePath,
+  })
+  if (!confirmed.success) {
+    toast.error(confirmed.error ?? "Erreur serveur. Réessayez.")
+    return
+  }
 
-      const newUrl = cdnUrl(presign.storagePath)
-      setUploadedUrl(newUrl)
-      onAvatarChange?.(newUrl)
-      toast.success("Photo de profil mise à jour")
+  const newUrl = cdnUrl(presign.storagePath)
+  setUploadedUrl(newUrl)
+  onAvatarChange?.(newUrl)
+  toast.success("Photo de profil mise à jour")
 
-      setCropDialogOpen(false)
-      setImageSrc(null)
-      setCrop({ x: 0, y: 0 })
-      setZoom(1)
-      router.refresh()
-    } catch {
-      toast.error("Échec du téléversement. Réessayez.")
-    } finally {
-      setIsUploading(false)
-    }
+  setCropDialogOpen(false)
+  setImageSrc(null)
+  setCrop({ x: 0, y: 0 })
+  setZoom(1)
+  router.refresh()
+} catch {
+  toast.error("Échec du téléversement. Réessayez.")
+} finally {
+  setIsUploading(false)
+}
 ```
 
 - [ ] **Step 3: Vérifier compilation + lint**
@@ -1341,6 +1350,7 @@ git commit -m "feat(profile): avatar uploader uses presigned POST + confirm step
 ### Task 4.3: `question-image-gallery.tsx` — retirer les helpers Bunny morts
 
 **Files:**
+
 - Modify: `components/shared/question-image-gallery.tsx`
 - Test: `tests/components/QuestionImageGallery.test.tsx`
 
@@ -1381,10 +1391,10 @@ Supprime les fonctions `getOptimizedUrl` et `getThumbnailUrl` (lignes 30-49) et 
 - `lightboxSlides` :
 
 ```ts
-  const lightboxSlides = allImages.map((img) => ({
-    src: img.url,
-    alt: `Image ${img.order + 1}`,
-  }))
+const lightboxSlides = allImages.map((img) => ({
+  src: img.url,
+  alt: `Image ${img.order + 1}`,
+}))
 ```
 
 - image unique (`allImages[0]`) :
@@ -1427,6 +1437,7 @@ git commit -m "refactor(gallery): drop dead Bunny optimizer helpers, serve raw C
 ### Task 5.1: Supprimer `lib/bunny.ts` et les vars Bunny
 
 **Files:**
+
 - Delete: `lib/bunny.ts`
 - Modify: `lib/env/schema.ts`, `lib/cdn.ts`, `tests/lib/env.test.ts`
 
@@ -1467,6 +1478,7 @@ git commit -m "chore(storage): remove lib/bunny.ts and BUNNY_* env vars (S3 cuto
 ### Task 5.2: `next.config.ts` — image domains + retrait du bodySizeLimit
 
 **Files:**
+
 - Modify: `next.config.ts`
 
 - [ ] **Step 1: Retirer `*.b-cdn.net` des `remotePatterns`**
@@ -1501,6 +1513,7 @@ git commit -m "chore(next): drop b-cdn.net image domain and 6mb serverActions li
 ### Task 5.3: `.env.example` — section AWS S3
 
 **Files:**
+
 - Modify: `.env.example`
 
 - [ ] **Step 1: Remplacer la section Bunny**
@@ -1533,6 +1546,7 @@ git commit -m "docs(env): swap Bunny example vars for AWS S3 + CloudFront"
 ### Task 5.4: Docs (AGENTS.md, README.md, règle data-layer)
 
 **Files:**
+
 - Modify: `AGENTS.md`, `README.md`, `.claude/rules/data-layer.md`
 
 - [ ] **Step 1: `AGENTS.md`**
@@ -1609,7 +1623,7 @@ Expected: `0 differences found` (ou seulement des fichiers attendus). Corrige le
 
 - [ ] **Step 1: Abaisser le TTL** de l'enregistrement `cdn.nomaqbanq.ca` (ex. 300 s) chez le registrar, attendre la propagation.
 - [ ] **Step 2: Déployer le code S3** en production (merge de la branche + déploiement Vercel ; vars d'env Phase 0.4 présentes).
-- [ ] **Step 3: Basculer le DNS** : pointer `cdn.nomaqbanq.ca` (CNAME) du pull zone Bunny vers le *Distribution domain name* CloudFront (`dxxxx.cloudfront.net`).
+- [ ] **Step 3: Basculer le DNS** : pointer `cdn.nomaqbanq.ca` (CNAME) du pull zone Bunny vers le _Distribution domain name_ CloudFront (`dxxxx.cloudfront.net`).
 - [ ] **Step 4: Copie incrémentale finale** (rattrape les uploads de dernière minute via l'ancien code) :
 
 ```bash
@@ -1632,6 +1646,7 @@ rclone copy bunny:/ s3:<BUCKET>/ --progress
 ## Self-Review (rempli par l'auteur du plan)
 
 **Couverture spec ↔ tâches :**
+
 - Bucket privé + OAC + CloudFront + ACM us-east-1 → Phase 0 (0.1, 0.3). ✅
 - Presigned POST (conditions taille/type) → `lib/aws.ts` (2.1) + actions (3.1, 3.2). ✅
 - OIDC → rôle IAM (trust + policy least-priv) → Phase 0.2 + `lib/aws.ts`. ✅

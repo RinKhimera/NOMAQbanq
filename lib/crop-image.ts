@@ -8,9 +8,7 @@ const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
     const img = new Image()
     img.addEventListener("load", () => resolve(img))
-    img.addEventListener("error", () =>
-      reject(new Error("Image illisible")),
-    )
+    img.addEventListener("error", () => reject(new Error("Image illisible")))
     img.src = src
   })
 

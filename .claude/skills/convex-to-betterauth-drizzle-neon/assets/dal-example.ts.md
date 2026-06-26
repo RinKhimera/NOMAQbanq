@@ -5,24 +5,22 @@ interdit l'import côté client. `cache()` dédoublonne par requête. `taint` em
 
 ```ts
 // lib/dal.ts
-import { headers } from 'next/headers';
-import { cache, experimental_taintObjectReference } from 'react';
-
-import 'server-only';
-
-import { auth } from '@/lib/auth';
+import { headers } from "next/headers"
+import { cache, experimental_taintObjectReference } from "react"
+import "server-only"
+import { auth } from "@/lib/auth"
 
 export const getCurrentSession = cache(async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await auth.api.getSession({ headers: await headers() })
   if (session?.user) {
     // Empêche de passer l'objet session complet (PII) à un Client Component.
     experimental_taintObjectReference(
-      'Ne pas exposer la session complète au client. Utiliser un sous-ensemble explicite.',
+      "Ne pas exposer la session complète au client. Utiliser un sous-ensemble explicite.",
       session.user,
-    );
+    )
   }
-  return session;
-});
+  return session
+})
 ```
 
 > `experimental_taintObjectReference` exige `experimental.taint: true` dans `next.config.ts`.
@@ -32,11 +30,10 @@ Exemple de lecture métier (avec filtre soft-delete si tu l'as adopté) :
 
 ```ts
 // features/posts/dal/get-posts.ts
-import { and, desc, eq, isNull } from 'drizzle-orm';
-import 'server-only';
-
-import { db } from '@/db';
-import { posts } from '@/db/schema/posts';
+import { and, desc, eq, isNull } from "drizzle-orm"
+import "server-only"
+import { db } from "@/db"
+import { posts } from "@/db/schema/posts"
 
 export const getPublishedPostsByAuthor = async (authorId: string) =>
   db
@@ -45,11 +42,11 @@ export const getPublishedPostsByAuthor = async (authorId: string) =>
     .where(
       and(
         eq(posts.authorId, authorId),
-        eq(posts.status, 'published'),
+        eq(posts.status, "published"),
         isNull(posts.deletedAt), // filtre soft-delete — retire si pas de soft delete
       ),
     )
-    .orderBy(desc(posts.createdAt));
+    .orderBy(desc(posts.createdAt))
 ```
 
 > Remplace chaque `query` Convex par une fonction de ce type. Un Server Component fait

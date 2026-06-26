@@ -11,6 +11,7 @@
 **Spec de référence:** [docs/superpowers/specs/2026-06-24-refonte-ux-auth-email-mdp-design.md](../specs/2026-06-24-refonte-ux-auth-email-mdp-design.md)
 
 **Faits vérifiés (ne pas re-deviner):**
+
 - `error.code` côté client Better Auth = clé `UPPER_SNAKE` (`INVALID_EMAIL_OR_PASSWORD`, `EMAIL_NOT_VERIFIED`, `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`). `error.status` = code HTTP (429 sur rate-limit). Source : `node_modules/@better-auth/core/dist/error/index.mjs`.
 - Endpoint resend : `POST /send-verification-email`, body `{ email, callbackURL? }` → client `authClient.sendVerificationEmail({ email, callbackURL })`. Source : `node_modules/better-auth/dist/api/routes/email-verification.mjs:36-42`.
 - `sendOnSignIn: true` fait renvoyer le lien automatiquement quand un compte non vérifié tente de se connecter, puis lève `EMAIL_NOT_VERIFIED`. Source : `sign-in.mjs:230-242`.
@@ -22,24 +23,25 @@
 
 ## Structure des fichiers
 
-| Fichier | Rôle | Action |
-|---|---|---|
-| `lib/auth-errors.ts` | Mapping pur `error → { kind, message }` FR | Créer |
-| `tests/lib/auth-errors.test.ts` | Tests unitaires du mapping | Créer |
-| `lib/auth.ts` | Config Better Auth | Modifier (additif) |
-| `app/(auth)/auth/_components/check-email-notice.tsx` | UI « vérifiez votre courriel » + renvoi | Créer |
-| `tests/components/auth/check-email-notice.test.tsx` | Tests composant | Créer |
-| `app/(auth)/auth/sign-in/_components/sign-in-form.tsx` | Alerte inline + bascule vérif | Modifier |
-| `tests/components/auth/sign-in-form.test.tsx` | Tests form connexion | Créer |
-| `app/(auth)/auth/sign-up/_components/sign-up-form.tsx` | Bascule check-email + alerte | Modifier |
-| `tests/components/auth/sign-up-form.test.tsx` | Tests form inscription | Créer |
-| `e2e/tests/auth-ux.spec.ts` | E2E parcours auth | Créer |
+| Fichier                                                | Rôle                                       | Action             |
+| ------------------------------------------------------ | ------------------------------------------ | ------------------ |
+| `lib/auth-errors.ts`                                   | Mapping pur `error → { kind, message }` FR | Créer              |
+| `tests/lib/auth-errors.test.ts`                        | Tests unitaires du mapping                 | Créer              |
+| `lib/auth.ts`                                          | Config Better Auth                         | Modifier (additif) |
+| `app/(auth)/auth/_components/check-email-notice.tsx`   | UI « vérifiez votre courriel » + renvoi    | Créer              |
+| `tests/components/auth/check-email-notice.test.tsx`    | Tests composant                            | Créer              |
+| `app/(auth)/auth/sign-in/_components/sign-in-form.tsx` | Alerte inline + bascule vérif              | Modifier           |
+| `tests/components/auth/sign-in-form.test.tsx`          | Tests form connexion                       | Créer              |
+| `app/(auth)/auth/sign-up/_components/sign-up-form.tsx` | Bascule check-email + alerte               | Modifier           |
+| `tests/components/auth/sign-up-form.test.tsx`          | Tests form inscription                     | Créer              |
+| `e2e/tests/auth-ux.spec.ts`                            | E2E parcours auth                          | Créer              |
 
 ---
 
 ## Task 1: Helper de mapping d'erreurs `lib/auth-errors.ts`
 
 **Files:**
+
 - Create: `lib/auth-errors.ts`
 - Test: `tests/lib/auth-errors.test.ts`
 
@@ -49,7 +51,6 @@ Create `tests/lib/auth-errors.test.ts` :
 
 ```ts
 import { describe, expect, it } from "vitest"
-
 import { mapAuthError } from "@/lib/auth-errors"
 
 describe("mapAuthError", () => {
@@ -176,6 +177,7 @@ git commit -m "feat(auth): helper FR de mapping des erreurs Better Auth"
 ## Task 2: Config Better Auth — `sendOnSignIn` + rate-limit du renvoi
 
 **Files:**
+
 - Modify: `lib/auth.ts`
 
 > Note : `lib/auth.ts` importe `server-only`, le pool pg, SES et l'env — il n'est PAS testable en happy-dom. Vérification par type-check + revue de diff (pas de test unitaire).
@@ -238,6 +240,7 @@ git commit -m "feat(auth): sendOnSignIn + rate-limit du renvoi de verification"
 ## Task 3: Composant `CheckEmailNotice`
 
 **Files:**
+
 - Create: `app/(auth)/auth/_components/check-email-notice.tsx`
 - Test: `tests/components/auth/check-email-notice.test.tsx`
 
@@ -250,7 +253,6 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
 
 const sendVerificationEmail = vi.fn()
@@ -284,7 +286,9 @@ describe("CheckEmailNotice", () => {
     render(<CheckEmailNotice email="astrid@example.com" mode="signup" />)
     expect(screen.getByTestId("auth-check-email")).toBeInTheDocument()
     expect(screen.getByText(/astrid@example.com/)).toBeInTheDocument()
-    expect(screen.getByText(/Vérifiez votre boîte courriel/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Vérifiez votre boîte courriel/),
+    ).toBeInTheDocument()
   })
 
   it("renvoie le lien puis désactive le bouton (cooldown)", async () => {
@@ -330,7 +334,6 @@ import { Mail } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-
 import { Button } from "@/components/ui/button"
 import { authClient } from "@/lib/auth-client"
 import { mapAuthError } from "@/lib/auth-errors"
@@ -382,7 +385,7 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
       className="w-full space-y-5 text-center"
       data-testid="auth-check-email"
     >
-      <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg">
+      <div className="bg-linear-to-br mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl from-blue-500 to-indigo-600 shadow-lg">
         <Mail className="h-7 w-7 text-white" />
       </div>
 
@@ -391,15 +394,15 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
           {title}
         </h3>
         {mode === "signup" ? (
-          <p className="text-muted-foreground text-sm">
+          <p className="text-sm text-muted-foreground">
             Si <span className="font-medium">{email}</span> n'est pas déjà
             associée à un compte, un lien de confirmation vient d'y être envoyé.
             Cliquez-le pour activer votre compte.
           </p>
         ) : (
-          <p className="text-muted-foreground text-sm">
-            Votre compte n'est pas encore activé. Nous venons de renvoyer un lien
-            de confirmation à <span className="font-medium">{email}</span>.
+          <p className="text-sm text-muted-foreground">
+            Votre compte n'est pas encore activé. Nous venons de renvoyer un
+            lien de confirmation à <span className="font-medium">{email}</span>.
           </p>
         )}
       </div>
@@ -416,7 +419,7 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
       </Button>
 
       {mode === "signup" && (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-sm text-muted-foreground">
           Vous avez déjà un compte ?{" "}
           <Link
             href="/auth/sign-in"
@@ -427,7 +430,7 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
         </p>
       )}
 
-      <p className="text-muted-foreground text-xs">
+      <p className="text-xs text-muted-foreground">
         Pas reçu ? Vérifiez vos indésirables.
       </p>
     </div>
@@ -452,6 +455,7 @@ git commit -m "feat(auth): composant CheckEmailNotice (verif + renvoi borne)"
 ## Task 4: Form de connexion — alerte inline + bascule vérification
 
 **Files:**
+
 - Modify: `app/(auth)/auth/sign-in/_components/sign-in-form.tsx`
 - Test: `tests/components/auth/sign-in-form.test.tsx`
 
@@ -464,7 +468,6 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { SignInForm } from "@/app/(auth)/auth/sign-in/_components/sign-in-form"
 
 const signInEmail = vi.fn()
@@ -551,7 +554,6 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-
 import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -619,9 +621,7 @@ export const SignInForm = () => {
   const isSubmitting = form.formState.isSubmitting
 
   if (pendingVerificationEmail) {
-    return (
-      <CheckEmailNotice email={pendingVerificationEmail} mode="verify" />
-    )
+    return <CheckEmailNotice email={pendingVerificationEmail} mode="verify" />
   }
 
   return (
@@ -657,7 +657,7 @@ export const SignInForm = () => {
 
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-        <span className="text-muted-foreground text-xs">ou</span>
+        <span className="text-xs text-muted-foreground">ou</span>
         <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
       </div>
 
@@ -746,7 +746,7 @@ export const SignInForm = () => {
 
           <Button
             type="submit"
-            className="w-full rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 font-semibold text-white hover:from-blue-700 hover:to-indigo-700"
+            className="bg-linear-to-r w-full rounded-xl from-blue-600 to-indigo-600 font-semibold text-white hover:from-blue-700 hover:to-indigo-700"
             disabled={isSubmitting || isGoogleLoading}
             data-testid="auth-submit"
           >
@@ -755,7 +755,7 @@ export const SignInForm = () => {
         </form>
       </Form>
 
-      <p className="text-muted-foreground text-center text-sm">
+      <p className="text-center text-sm text-muted-foreground">
         Nouveau sur NOMAQbanq ?{" "}
         <Link
           href="/auth/sign-up"
@@ -786,6 +786,7 @@ git commit -m "feat(auth): guidage actionnable a la connexion + bascule verifica
 ## Task 5: Form d'inscription — bascule check-email + alerte
 
 **Files:**
+
 - Modify: `app/(auth)/auth/sign-up/_components/sign-up-form.tsx`
 - Test: `tests/components/auth/sign-up-form.test.tsx`
 
@@ -798,7 +799,6 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { SignUpForm } from "@/app/(auth)/auth/sign-up/_components/sign-up-form"
 
 const signUpEmail = vi.fn()
@@ -872,7 +872,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import Link from "next/link"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
-
 import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -969,7 +968,7 @@ export const SignUpForm = () => {
 
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-        <span className="text-muted-foreground text-xs">ou</span>
+        <span className="text-xs text-muted-foreground">ou</span>
         <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
       </div>
 
@@ -1050,7 +1049,7 @@ export const SignUpForm = () => {
 
           <Button
             type="submit"
-            className="w-full rounded-xl bg-linear-to-r from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
+            className="bg-linear-to-r w-full rounded-xl from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
             disabled={isSubmitting || isGoogleLoading}
             data-testid="auth-submit"
           >
@@ -1059,7 +1058,7 @@ export const SignUpForm = () => {
         </form>
       </Form>
 
-      <p className="text-muted-foreground text-center text-sm">
+      <p className="text-center text-sm text-muted-foreground">
         Vous avez déjà un compte ?{" "}
         <Link
           href="/auth/sign-in"
@@ -1095,6 +1094,7 @@ git commit -m "feat(auth): inscription -> ecran verification courriel (fin du re
 ## Task 6: Tests E2E du parcours auth
 
 **Files:**
+
 - Create: `e2e/tests/auth-ux.spec.ts`
 
 > Ces tests tournent dans un contexte **non authentifié** (override `storageState`). Ils n'exigent pas de seed DB ni de livraison d'email réelle : on vérifie l'UI. **Lancer en ciblé** (pas toute la suite) — cf. préférence E2E courts.

@@ -21,10 +21,16 @@ export function EmailLayout({
     <Html lang="fr">
       <Head />
       <Preview>{preview}</Preview>
-      <Body style={{ backgroundColor: "#f4f4f5", fontFamily: "Arial, sans-serif" }}>
-        <Container style={{ margin: "0 auto", maxWidth: "480px", padding: "24px" }}>
+      <Body
+        style={{ backgroundColor: "#f4f4f5", fontFamily: "Arial, sans-serif" }}
+      >
+        <Container
+          style={{ margin: "0 auto", maxWidth: "480px", padding: "24px" }}
+        >
           <Section>
-            <Text style={{ fontSize: "20px", fontWeight: "bold", color: "#18181b" }}>
+            <Text
+              style={{ fontSize: "20px", fontWeight: "bold", color: "#18181b" }}
+            >
               NOMAQbanq
             </Text>
           </Section>

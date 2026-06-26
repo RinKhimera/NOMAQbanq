@@ -2,7 +2,6 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
 
 const sendVerificationEmail = vi.fn()
@@ -36,7 +35,9 @@ describe("CheckEmailNotice", () => {
     render(<CheckEmailNotice email="astrid@example.com" mode="signup" />)
     expect(screen.getByTestId("auth-check-email")).toBeInTheDocument()
     expect(screen.getByText(/astrid@example.com/)).toBeInTheDocument()
-    expect(screen.getByText(/Vérifiez votre boîte courriel/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Vérifiez votre boîte courriel/),
+    ).toBeInTheDocument()
   })
 
   it("renvoie le lien puis désactive le bouton (cooldown)", async () => {

@@ -1,9 +1,7 @@
 import { renderHook } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { authClient } from "@/lib/auth-client"
-
 import { createMockBetterAuthUser, mockAuthSession } from "../helpers/mocks"
 
 // Mock le client Better Auth : `useCurrentUser` est désormais un simple wrapper

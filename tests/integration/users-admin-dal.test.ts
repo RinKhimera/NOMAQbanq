@@ -1,8 +1,14 @@
 import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
+import {
+  type UsersStatsView,
+  getUserPanelData,
+  getUsersStats,
+  getUsersWithFilters,
+} from "@/features/users/dal"
+import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
@@ -13,14 +19,6 @@ vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
-
-import {
-  getUsersStats,
-  getUsersWithFilters,
-  getUserPanelData,
-  type UsersStatsView,
-} from "@/features/users/dal"
-import { requireRole } from "@/lib/auth-guards"
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8) // jeton unique → isole mes users via `search`
@@ -46,11 +44,32 @@ beforeAll(async () => {
   baseline = await getUsersStats()
 
   await db.insert(user).values([
-    { id: uActiveExam, name: `Zeta ${suffix}`, email: `active-${suffix}@test.invalid` },
-    { id: uExpiringTrain, name: `Alpha ${suffix}`, email: `expiring-${suffix}@test.invalid` },
-    { id: uExpired, name: `Mu ${suffix}`, email: `expired-${suffix}@test.invalid` },
-    { id: uNever, name: `Beta ${suffix}`, email: `never-${suffix}@test.invalid` },
-    { id: uAdmin, name: `Omega ${suffix}`, email: `admin-${suffix}@test.invalid`, role: "admin" },
+    {
+      id: uActiveExam,
+      name: `Zeta ${suffix}`,
+      email: `active-${suffix}@test.invalid`,
+    },
+    {
+      id: uExpiringTrain,
+      name: `Alpha ${suffix}`,
+      email: `expiring-${suffix}@test.invalid`,
+    },
+    {
+      id: uExpired,
+      name: `Mu ${suffix}`,
+      email: `expired-${suffix}@test.invalid`,
+    },
+    {
+      id: uNever,
+      name: `Beta ${suffix}`,
+      email: `never-${suffix}@test.invalid`,
+    },
+    {
+      id: uAdmin,
+      name: `Omega ${suffix}`,
+      email: `admin-${suffix}@test.invalid`,
+      role: "admin",
+    },
   ])
 
   await db.insert(products).values({
@@ -128,24 +147,38 @@ describe("getUsersWithFilters (filtres SQL)", () => {
   })
 
   it("accessStatus=active → exam actif + training expirant", async () => {
-    const page = await getUsersWithFilters({ search: suffix, accessStatus: "active" })
+    const page = await getUsersWithFilters({
+      search: suffix,
+      accessStatus: "active",
+    })
     const ids = page.items.map((u) => u.id)
     expect(new Set(ids)).toEqual(new Set([uActiveExam, uExpiringTrain]))
   })
 
   it("accessStatus=expiring → seulement le training à 3j", async () => {
-    const page = await getUsersWithFilters({ search: suffix, accessStatus: "expiring" })
+    const page = await getUsersWithFilters({
+      search: suffix,
+      accessStatus: "expiring",
+    })
     expect(page.items.map((u) => u.id)).toEqual([uExpiringTrain])
   })
 
   it("accessStatus=expired → a une ligne d'accès mais aucune active", async () => {
-    const page = await getUsersWithFilters({ search: suffix, accessStatus: "expired" })
+    const page = await getUsersWithFilters({
+      search: suffix,
+      accessStatus: "expired",
+    })
     expect(page.items.map((u) => u.id)).toEqual([uExpired])
   })
 
   it("accessStatus=never → les users sans aucune ligne d'accès", async () => {
-    const page = await getUsersWithFilters({ search: suffix, accessStatus: "never" })
-    expect(new Set(page.items.map((u) => u.id))).toEqual(new Set([uNever, uAdmin]))
+    const page = await getUsersWithFilters({
+      search: suffix,
+      accessStatus: "never",
+    })
+    expect(new Set(page.items.map((u) => u.id))).toEqual(
+      new Set([uNever, uAdmin]),
+    )
   })
 
   it("filtre role=admin", async () => {
@@ -187,7 +220,10 @@ describe("getUsersStats (agrégats, delta vs baseline)", () => {
     expect(after.activeTrainingAccess - baseline.activeTrainingAccess).toBe(1)
     expect(after.examExpiringCount - baseline.examExpiringCount).toBe(0)
     expect(after.trainingExpiringCount - baseline.trainingExpiringCount).toBe(1)
-    expect(after.revenueByCurrency.CAD.recent - baseline.revenueByCurrency.CAD.recent).toBe(3000)
+    expect(
+      after.revenueByCurrency.CAD.recent -
+        baseline.revenueByCurrency.CAD.recent,
+    ).toBe(3000)
   })
 })
 

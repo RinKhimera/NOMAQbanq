@@ -1,6 +1,5 @@
 import { and, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-
 import { db } from "@/db"
 import { uploadRateLimits, user } from "@/db/schema"
 import { createId } from "@/lib/ids"
@@ -39,7 +38,9 @@ afterAll(async () => {
 describe("consumeUploadRateLimit", () => {
   it("autorise jusqu'à la limite avatar (5/h) puis bloque sans consommer", async () => {
     for (let i = 0; i < 5; i++) {
-      expect((await consumeUploadRateLimit(userId, "avatar")).allowed).toBe(true)
+      expect((await consumeUploadRateLimit(userId, "avatar")).allowed).toBe(
+        true,
+      )
     }
     expect(await countFor("avatar")).toBe(5)
 

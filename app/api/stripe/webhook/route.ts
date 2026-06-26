@@ -1,5 +1,4 @@
 import type Stripe from "stripe"
-
 import {
   completeStripeTransaction,
   failStripeTransaction,
@@ -47,7 +46,9 @@ export async function POST(request: Request) {
     )
   } catch (error) {
     console.error("[stripe webhook] signature invalide", error)
-    return new Response("Webhook signature verification failed", { status: 400 })
+    return new Response("Webhook signature verification failed", {
+      status: 400,
+    })
   }
 
   try {

@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
+import { getAccessStatus, getMyTransactions } from "@/features/payments/dal"
+import { requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
 // `cache()` de React → identité (pas de contexte RSC en test node).
@@ -12,9 +13,6 @@ vi.mock("react", async (orig) => {
 })
 // Session mockée : on isole la logique DB.
 vi.mock("@/lib/auth-guards", () => ({ requireSession: vi.fn() }))
-
-import { getAccessStatus, getMyTransactions } from "@/features/payments/dal"
-import { requireSession } from "@/lib/auth-guards"
 
 const DAY = 24 * 60 * 60 * 1000
 const uid = createId()
@@ -131,7 +129,10 @@ describe("getMyTransactions (pagination keyset)", () => {
     expect(page1.items).toHaveLength(2)
     expect(page1.nextCursor).not.toBeNull()
 
-    const page2 = await getMyTransactions({ cursor: page1.nextCursor, limit: 2 })
+    const page2 = await getMyTransactions({
+      cursor: page1.nextCursor,
+      limit: 2,
+    })
 
     const all = [...page1.items, ...page2.items]
     const ids = all.map((t) => t.id)

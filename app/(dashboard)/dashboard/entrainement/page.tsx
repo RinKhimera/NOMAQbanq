@@ -6,7 +6,6 @@ import {
   getTrainingHistory,
   getTrainingStats,
 } from "@/features/training/dal"
-
 import { EntrainementClient } from "./_components/entrainement-client"
 import { TrainingPaywall } from "./_components/training-paywall"
 

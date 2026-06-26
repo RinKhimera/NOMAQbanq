@@ -1,6 +1,5 @@
 import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import {
   examParticipations,
@@ -10,14 +9,6 @@ import {
   user,
   userAccess,
 } from "@/db/schema"
-import { createId } from "@/lib/ids"
-
-vi.mock("react", async (orig) => {
-  const actual = await orig<typeof import("react")>()
-  return { ...actual, cache: (fn: unknown) => fn }
-})
-vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
-
 import {
   getMyAvailableExams,
   getMyDashboardStats,
@@ -25,6 +16,13 @@ import {
   getMyScoreHistory,
 } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
+import { createId } from "@/lib/ids"
+
+vi.mock("react", async (orig) => {
+  const actual = await orig<typeof import("react")>()
+  return { ...actual, cache: (fn: unknown) => fn }
+})
+vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)

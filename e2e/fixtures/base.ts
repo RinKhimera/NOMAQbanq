@@ -30,9 +30,7 @@ export const test = base.extend<Fixtures>({
 
     const reset = async (userEmail: string) => {
       if (!secret) {
-        console.warn(
-          "[e2e fixtures] E2E_RESET_SECRET manquant — reset ignoré",
-        )
+        console.warn("[e2e fixtures] E2E_RESET_SECRET manquant — reset ignoré")
         return
       }
       await request.post("/api/e2e", {

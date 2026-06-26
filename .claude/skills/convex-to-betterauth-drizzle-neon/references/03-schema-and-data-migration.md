@@ -27,9 +27,9 @@ Convex `defineTable` → Drizzle `pgTable`. Organise par domaine sous `db/schema
 Convex génère les `_id`. Ici, génère-les côté code. Helper `lib/ids.ts` :
 
 ```ts
-import { randomUUID } from 'node:crypto';
+import { randomUUID } from "node:crypto"
 
-export const createId = () => randomUUID();
+export const createId = () => randomUUID()
 // + éventuellement un createPublicId(len) avec un alphabet sans 0/O/I/l pour les URLs publiques.
 ```
 
@@ -78,9 +78,9 @@ const rows = jsonl.map((doc) => ({
   id: idMap.get(doc._id) ?? doc._id,
   // ...mappe chaque champ...
   createdAt: new Date(doc._creationTime),
-}));
+}))
 for (const batch of chunk(rows, 500)) {
-  await db.insert(table).values(batch).onConflictDoNothing();
+  await db.insert(table).values(batch).onConflictDoNothing()
 }
 ```
 

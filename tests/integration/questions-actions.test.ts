@@ -1,9 +1,21 @@
 import { inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
+import {
+  createQuestion,
+  deleteQuestion,
+  setQuestionImages,
+  updateQuestion,
+} from "@/features/questions/actions"
+import {
+  getQuestionById,
+  getQuestionsWithFilters,
+} from "@/features/questions/dal"
+import { requireRole } from "@/lib/auth-guards"
+import { copyInS3 } from "@/lib/aws"
 import { createId } from "@/lib/ids"
+import { tryDeleteFromStorage } from "@/lib/storage"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -31,20 +43,6 @@ vi.mock("@/lib/storage", async (orig) => {
     tryDeleteFromStorage: vi.fn().mockResolvedValue(undefined),
   }
 })
-
-import {
-  createQuestion,
-  deleteQuestion,
-  setQuestionImages,
-  updateQuestion,
-} from "@/features/questions/actions"
-import {
-  getQuestionById,
-  getQuestionsWithFilters,
-} from "@/features/questions/dal"
-import { requireRole } from "@/lib/auth-guards"
-import { copyInS3 } from "@/lib/aws"
-import { tryDeleteFromStorage } from "@/lib/storage"
 
 const suffix = createId().slice(0, 8)
 const DOMAIN = `ADOM-${suffix}`

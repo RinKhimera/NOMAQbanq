@@ -2,7 +2,6 @@
 
 import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
-
 import { db } from "@/db"
 import {
   questions,
@@ -12,19 +11,18 @@ import {
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
-
 import { hasAccess } from "../payments/dal"
 import {
-  getAvailableObjectifsCMC,
-  getTrainingHistory,
   type ObjectifsView,
   type TrainingHistoryPage,
+  getAvailableObjectifsCMC,
+  getTrainingHistory,
 } from "./dal"
 import {
-  createTrainingSessionSchema,
-  saveTrainingAnswerSchema,
   type CreateTrainingSessionInput,
   type SaveTrainingAnswerInput,
+  createTrainingSessionSchema,
+  saveTrainingAnswerSchema,
 } from "./schemas"
 
 const SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000 // 24 h
@@ -346,9 +344,7 @@ export const completeTrainingSession = async ({
     const correctCount = c?.correct ?? 0
     const totalQuestions = s.questionCount
     const score =
-      totalQuestions > 0
-        ? Math.round((correctCount / totalQuestions) * 100)
-        : 0
+      totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0
 
     await db
       .update(trainingSessions)

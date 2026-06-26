@@ -1,7 +1,6 @@
 "use client"
 
 import { Brain, CheckCircle2, Percent, Target } from "lucide-react"
-
 import type {
   MyAvailableExam,
   MyDashboardStats,
@@ -13,7 +12,6 @@ import type {
   TrainingScoreHistory,
   TrainingStats,
 } from "@/features/training/dal"
-
 import { DashboardHero } from "./dashboard-hero"
 import { NextActionsPanel } from "./next-actions-panel"
 import { QuickAccessGrid } from "./quick-access-grid"
@@ -56,7 +54,9 @@ export const DashboardClient = ({
 }: DashboardClientProps) => {
   const completionRate =
     stats.availableExamsCount > 0
-      ? Math.round((stats.completedExamsCount / stats.availableExamsCount) * 100)
+      ? Math.round(
+          (stats.completedExamsCount / stats.availableExamsCount) * 100,
+        )
       : 0
 
   return (
@@ -78,7 +78,9 @@ export const DashboardClient = ({
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <VitalCard
             label="Score moyen"
-            value={stats.completedExamsCount > 0 ? `${stats.averageScore}%` : "—"}
+            value={
+              stats.completedExamsCount > 0 ? `${stats.averageScore}%` : "—"
+            }
             icon={Percent}
             color="blue"
             delay={0.1}

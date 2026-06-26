@@ -2,7 +2,6 @@
 
 import { and, eq, isNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
-
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
@@ -18,8 +17,12 @@ import {
   validateImageFile,
 } from "@/lib/storage"
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
-
 import {
+  type QuestionDetail,
+  type QuestionExportRow,
+  type QuestionFiltersInput,
+  type QuestionsPage,
+  type QuizQuestionView,
   getAllQuestionIds,
   getQuestionById,
   getQuestionsForExport,
@@ -27,20 +30,15 @@ import {
   getQuizAnswerKey,
   getRandomQuizQuestions,
   getUniqueObjectifsCMC,
-  type QuestionDetail,
-  type QuestionExportRow,
-  type QuestionFiltersInput,
-  type QuestionsPage,
-  type QuizQuestionView,
 } from "./dal"
 import { normalizeObjectifCMC } from "./lib"
 import {
-  createQuestionSchema,
-  setQuestionImagesSchema,
-  updateQuestionSchema,
   type CreateQuestionInput,
   type SetQuestionImagesInput,
   type UpdateQuestionInput,
+  createQuestionSchema,
+  setQuestionImagesSchema,
+  updateQuestionSchema,
 } from "./schemas"
 
 const fail = (error: string) => ({ success: false as const, error })

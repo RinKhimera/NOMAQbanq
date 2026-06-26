@@ -31,7 +31,8 @@ async function main() {
       return
     }
     case "confirm": {
-      if (!arg1 || !arg2) throw new Error("usage: confirm <token> <newPassword>")
+      if (!arg1 || !arg2)
+        throw new Error("usage: confirm <token> <newPassword>")
       await auth.api.resetPassword({ body: { token: arg1, newPassword: arg2 } })
       console.log("[confirm] resetPassword OK")
       return
@@ -41,7 +42,12 @@ async function main() {
       const res = await auth.api.signInEmail({
         body: { email: arg1, password: arg2 },
       })
-      console.log("[signin] OK — user.id:", res.user.id, "email:", res.user.email)
+      console.log(
+        "[signin] OK — user.id:",
+        res.user.id,
+        "email:",
+        res.user.email,
+      )
       return
     }
     default:

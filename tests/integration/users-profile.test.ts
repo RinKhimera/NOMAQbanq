@@ -1,15 +1,13 @@
 import { eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import { user } from "@/db/schema"
+import { updateProfile } from "@/features/users/actions"
+import { requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
 vi.mock("@/lib/auth-guards", () => ({ requireSession: vi.fn() }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
-
-import { updateProfile } from "@/features/users/actions"
-import { requireSession } from "@/lib/auth-guards"
 
 const editorId = createId()
 const otherId = createId()

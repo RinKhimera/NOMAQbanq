@@ -3,12 +3,12 @@
 import { ArrowRight } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
-import QuizProgress from "@/components/quiz/quiz-progress"
-import QuizResults from "@/components/quiz/quiz-results"
 import type {
   QuestionCardQuestion,
   QuestionDoc,
 } from "@/components/quiz/question-card/types"
+import QuizProgress from "@/components/quiz/quiz-progress"
+import QuizResults from "@/components/quiz/quiz-results"
 import { Button } from "@/components/ui/button"
 import {
   loadRandomQuizQuestions,

@@ -8,7 +8,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core"
-
 import { userRole } from "./enums"
 
 export const user = pgTable(

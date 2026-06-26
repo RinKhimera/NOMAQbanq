@@ -15,7 +15,8 @@ bun add @neondatabase/serverless
 ## Choix du client DB — selon le runtime
 
 > ⚠️ **Le bon driver dépend de comment l'hébergeur traite ton code** (source : skill `neon-postgres`
-> + doc Neon « choose-connection »). C'est le point le plus souvent mal transposé.
+>
+> - doc Neon « choose-connection »). C'est le point le plus souvent mal transposé.
 
 - **Runtime long/partagé (Vercel Fluid Compute, Neon Functions, conteneur, VPS) — DÉFAUT recommandé**
   → **un seul `pg` Pool (`drizzle-orm/node-postgres`) au scope module**, réutilisé entre les requêtes.
@@ -38,15 +39,15 @@ Gabarits : `assets/db-index.ts.md` (client `pg` unique — **défaut Vercel**) e
 ```ts
 // Mutation atomique (remplace une mutation Convex multi-write).
 // Avec le client `pg` par défaut, db.transaction(...) suffit — pas de client séparé.
-import { db } from '@/db';
+import { db } from "@/db"
 
 await db.transaction(async (tx) => {
-  await tx.insert(orders).values(order);
+  await tx.insert(orders).values(order)
   await tx
     .update(inventory)
     .set({ qty: sql`${inventory.qty} - 1` })
-    .where(eq(inventory.id, id));
-});
+    .where(eq(inventory.id, id))
+})
 ```
 
 > Convex enveloppait chaque `mutation` dans une transaction implicite. Ici l'atomicité est

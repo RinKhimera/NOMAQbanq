@@ -7,14 +7,14 @@ Convex planifie via `crons.ts`. Sur Vercel, un cron = **deux choses** :
 1. Une entrée dans `vercel.ts` (source de vérité des schedules) :
 
    ```ts
-   import { type VercelConfig } from '@vercel/config/v1';
+   import { type VercelConfig } from "@vercel/config/v1"
 
    export const config: VercelConfig = {
-     framework: 'nextjs',
+     framework: "nextjs",
      crons: [
-       { path: '/api/cron/expire-posts', schedule: '0 4 * * *' }, // cron UTC
+       { path: "/api/cron/expire-posts", schedule: "0 4 * * *" }, // cron UTC
      ],
-   };
+   }
    ```
 
 2. Un **route handler** `app/api/cron/expire-posts/route.ts`, **authentifié par `CRON_SECRET`**
@@ -22,18 +22,18 @@ Convex planifie via `crons.ts`. Sur Vercel, un cron = **deux choses** :
    `assets/cron-route-example.ts.md`.
 
 ```ts
-import { db } from '@/db';
-import { env } from '@/lib/env/server';
+import { db } from "@/db"
+import { env } from "@/lib/env/server"
 
 export const GET = async (request: Request) => {
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get("authorization")
   // Fail-closed : sans secret configuré, on refuse tout (jamais « Bearer undefined »).
   if (!env.CRON_SECRET || authHeader !== `Bearer ${env.CRON_SECRET}`) {
-    return new Response('Unauthorized', { status: 401 });
+    return new Response("Unauthorized", { status: 401 })
   }
   // ... travail idempotent (UPDATE/DELETE bornés) ...
-  return Response.json({ ok: true });
-};
+  return Response.json({ ok: true })
+}
 ```
 
 Notes :
@@ -53,32 +53,35 @@ Chaque `httpAction` devient un fichier `app/api/<chemin>/route.ts` exportant `GE
 C'est l'invariant n°1. Gabarit : `assets/webhook-route-example.ts.md` (Stripe).
 
 ```ts
-import { headers } from 'next/headers';
-
-import { env } from '@/lib/env/server';
-import { stripe } from '@/lib/stripe';
+import { headers } from "next/headers"
+import { env } from "@/lib/env/server"
+import { stripe } from "@/lib/stripe"
 
 export const POST = async (req: Request) => {
-  const body = await req.text(); // corps BRUT (pas req.json()) pour la signature
-  const signature = (await headers()).get('stripe-signature');
-  if (!signature) return new Response('Signature manquante', { status: 400 });
+  const body = await req.text() // corps BRUT (pas req.json()) pour la signature
+  const signature = (await headers()).get("stripe-signature")
+  if (!signature) return new Response("Signature manquante", { status: 400 })
 
-  let event;
+  let event
   try {
-    event = stripe.webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET ?? '');
+    event = stripe.webhooks.constructEvent(
+      body,
+      signature,
+      env.STRIPE_WEBHOOK_SECRET ?? "",
+    )
   } catch (err) {
-    return new Response(`Signature invalide`, { status: 400 });
+    return new Response(`Signature invalide`, { status: 400 })
   }
 
   switch (event.type) {
-    case 'checkout.session.completed': {
-      /* ... */ break;
+    case "checkout.session.completed": {
+      /* ... */ break
     }
     default:
-      break;
+      break
   }
-  return Response.json({ received: true });
-};
+  return Response.json({ received: true })
+}
 ```
 
 Principes (valables pour tout webhook, pas que Stripe) :

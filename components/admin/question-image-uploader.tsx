@@ -27,12 +27,12 @@ import {
 import { Loader2 } from "lucide-react"
 import Image from "next/image"
 import {
+  type Dispatch,
+  type SetStateAction,
   useCallback,
   useEffect,
   useRef,
   useState,
-  type Dispatch,
-  type SetStateAction,
 } from "react"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
@@ -332,7 +332,14 @@ export const QuestionImageUploader = ({
         }
       }
     },
-    [disabled, maxImages, images.length, uploadingImages.length, questionId, onImagesChange],
+    [
+      disabled,
+      maxImages,
+      images.length,
+      uploadingImages.length,
+      questionId,
+      onImagesChange,
+    ],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({

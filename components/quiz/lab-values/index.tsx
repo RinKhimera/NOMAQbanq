@@ -170,7 +170,7 @@ export const LabValues = ({ isOpen, onOpenChange }: LabValuesProps) => {
           </div>
 
           {/* Category pills */}
-          <div className="scrollbar-none mt-4 flex gap-1 overflow-x-auto pb-1">
+          <div className="mt-4 flex scrollbar-none gap-1 overflow-x-auto pb-1">
             {LAB_VALUES_DATA.map((category) => (
               <CategoryPill
                 key={category.id}
@@ -196,7 +196,7 @@ export const LabValues = ({ isOpen, onOpenChange }: LabValuesProps) => {
         </div>
 
         {/* Values list - Scrollable area with fixed height */}
-        <div className="scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={`${activeCategory}-${unitSystem}`}

@@ -1,12 +1,11 @@
 import { and, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
 import {
+  type ProductForGrant,
   grantManualAccess,
   revokeAccessIfLast,
-  type ProductForGrant,
 } from "@/features/payments/lib"
 import { createId } from "@/lib/ids"
 
@@ -189,7 +188,9 @@ describe("revokeAccessIfLast", () => {
     // type laisserait l'autre ligne référencer la tx → DELETE bloqué (FK restrict).
     const txId = await grant(users.comboDelete, pCombo)
     expect(daysFromNow(await readExpiry(users.comboDelete, "exam"))).toBe(90)
-    expect(daysFromNow(await readExpiry(users.comboDelete, "training"))).toBe(90)
+    expect(daysFromNow(await readExpiry(users.comboDelete, "training"))).toBe(
+      90,
+    )
 
     await db.transaction(async (tx) => {
       const revoked = await revokeAccessIfLast(tx, {

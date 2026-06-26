@@ -35,14 +35,14 @@ On migre vers **AWS S3 (us-east-2) privé + CloudFront (OAC)**, avec un upload
 
 ### Décisions actées (brainstorming)
 
-| Décision | Choix |
-| --- | --- |
-| Mécanisme d'upload | **Presigned POST** (direct navigateur → S3) |
-| Auth AWS | **Vercel OIDC → rôle IAM** |
-| Domaine CDN | **Réutiliser `cdn.nomaqbanq.ca`** |
-| Bascule | **Copie one-shot (rclone) + bascule DNS** |
-| Région S3 | **us-east-2 (Ohio)** |
-| Volume actuel | **< 1 Go** (copie triviale) |
+| Décision            | Choix                                                           |
+| ------------------- | --------------------------------------------------------------- |
+| Mécanisme d'upload  | **Presigned POST** (direct navigateur → S3)                     |
+| Auth AWS            | **Vercel OIDC → rôle IAM**                                      |
+| Domaine CDN         | **Réutiliser `cdn.nomaqbanq.ca`**                               |
+| Bascule             | **Copie one-shot (rclone) + bascule DNS**                       |
+| Région S3           | **us-east-2 (Ohio)**                                            |
+| Volume actuel       | **< 1 Go** (copie triviale)                                     |
 | Optimisation images | **`next/image` + originaux en lightbox** (pas de transform CDN) |
 
 ## 2. Architecture cible
@@ -59,12 +59,12 @@ Affichage (lecture) :
                                           (cache long + Brotli/Gzip + nosniff)
 ```
 
-- **Bucket S3** : privé, *Block Public Access* activé. Aucune ACL/policy
+- **Bucket S3** : privé, _Block Public Access_ activé. Aucune ACL/policy
   publique. Seul CloudFront lit, via une **bucket policy conditionnée sur l'ARN
   de la distribution** (Origin Access Control / OAC).
 - **CloudFront** : alias `cdn.nomaqbanq.ca`, certificat **ACM en us-east-1**
   (exigence CloudFront, indépendante de la région du bucket), compression
-  activée, *response-headers-policy* : `Cache-Control` long immutable +
+  activée, _response-headers-policy_ : `Cache-Control` long immutable +
   `X-Content-Type-Options: nosniff`.
 - **Layout des clés d'objets identique à Bunny** (clé de la transparence) :
   - `questions/{questionId}/{timestamp}-{index}.{ext}`
@@ -104,7 +104,8 @@ const s3 = new S3Client({
 ```
 
 **IdP OIDC (AWS Console → IAM → Identity Providers)**
-- Provider URL : `https://oidc.vercel.com/<TEAM_SLUG>` (issuer mode *Team*).
+
+- Provider URL : `https://oidc.vercel.com/<TEAM_SLUG>` (issuer mode _Team_).
 - Audience : `https://vercel.com/<TEAM_SLUG>` **et** `sts.amazonaws.com` (audience
   custom utilisée par `awsCredentialsProvider`).
 
@@ -174,11 +175,11 @@ import { createPresignedPost } from "@aws-sdk/s3-presigned-post"
 
 const { url, fields } = await createPresignedPost(s3, {
   Bucket: process.env.S3_BUCKET!,
-  Key: storagePath,                 // dérivé serveur (non falsifiable)
-  Expires: 60,                      // secondes
+  Key: storagePath, // dérivé serveur (non falsifiable)
+  Expires: 60, // secondes
   Conditions: [
     ["content-length-range", 1, 5 * 1024 * 1024], // 1 o .. 5 Mo
-    ["eq", "$Content-Type", contentType],         // image/jpeg|png|webp validé serveur
+    ["eq", "$Content-Type", contentType], // image/jpeg|png|webp validé serveur
   ],
   Fields: { "Content-Type": contentType },
 })
@@ -190,13 +191,14 @@ Côté client (flux 2 étapes) :
 ```ts
 const fd = new FormData()
 Object.entries(fields).forEach(([k, v]) => fd.append(k, v))
-fd.append("file", file)            // "file" en dernier (exigence S3 POST)
+fd.append("file", file) // "file" en dernier (exigence S3 POST)
 const res = await fetch(url, { method: "POST", body: fd }) // 204 = OK
 ```
 
 ## 6. Changements de code (par zone)
 
 ### Couche stockage
+
 - **Renommer `lib/bunny.ts` → `lib/storage.ts`** :
   - Retirer `uploadToBunny` (plus de proxy).
   - Ajouter `createPresignedUpload(storagePath, contentType)` → `{ url, fields }`.
@@ -213,6 +215,7 @@ const res = await fetch(url, { method: "POST", body: fd }) // 204 = OK
   (défaut `cdn.nomaqbanq.ca`).
 
 ### Server Actions
+
 - **`features/questions/actions.ts`** : `uploadQuestionImage` (proxy) →
   **`createQuestionImageUpload(formData|args)`**. Garde admin + validation
   `questionId` (regex anti-traversal) + existence en base + rate-limit (50/h) +
@@ -226,6 +229,7 @@ const res = await fetch(url, { method: "POST", body: fd }) // 204 = OK
   `cdnUrl(storagePath)`, supprime l'ancien avatar s'il nous appartient).
 
 ### Composants client (flux 2 étapes)
+
 - **`components/admin/question-image-uploader.tsx`** : `onDrop` → appelle
   `createQuestionImageUpload` → `POST` multipart vers S3 → sur `204`, ajoute
   `{ url: cdnUrl(storagePath), storagePath, order }` à la liste (persistée au
@@ -237,6 +241,7 @@ const res = await fetch(url, { method: "POST", body: fd }) // 204 = OK
   direct (vignettes via `next/image`, original en lightbox).
 
 ### Config / env
+
 - **`lib/env/schema.ts`** : retirer `BUNNY_STORAGE_ZONE_NAME`,
   `BUNNY_STORAGE_API_KEY`, `BUNNY_CDN_HOSTNAME` + leur `.refine`. Ajouter
   (optionnels) `AWS_REGION`, `AWS_ROLE_ARN`, `S3_BUCKET`,
@@ -252,6 +257,7 @@ const res = await fetch(url, { method: "POST", body: fd }) // 204 = OK
 - **`.env.example`**, **`.env.local`** : swap des variables Bunny → AWS.
 
 ### Docs
+
 - `AGENTS.md` : gotchas « Image domains », mention upload presigned.
 - `.claude/rules/data-layer.md` : note sur le pattern presigned upload + rate-limit
   à l'étape presign.
@@ -266,7 +272,7 @@ const res = await fetch(url, { method: "POST", body: fd }) // 204 = OK
   `["eq", "$Content-Type", …]`. S3 stocke et sert ce type ;
   `X-Content-Type-Options: nosniff` (CloudFront) empêche le navigateur de
   ré-interpréter un fichier en HTML/JS.
-  - *Trade-off assumé* : le presigned upload retire l'inspection des magic bytes
+  - _Trade-off assumé_ : le presigned upload retire l'inspection des magic bytes
     côté serveur. Le proxy actuel ne la faisait pas non plus (parité). Uploads
     réservés à des admins (images) ou utilisateurs authentifiés (avatars) ; pas
     de SVG ; `nosniff` actif → risque XSS stocké faible.
@@ -338,7 +344,7 @@ l'état précédent sans perte (la base n'a pas changé).
 ## 11. Risques & dette
 
 - **Orphelins** : un upload abandonné avant save laisse un objet S3 (parité avec
-  le comportement Bunny actuel). Option future : *lifecycle rule* S3 expirant les
+  le comportement Bunny actuel). Option future : _lifecycle rule_ S3 expirant les
   objets `questions/*` non référencés au-delà de N jours. → noté en dette, hors
   scope.
 - **`AWS_REGION`** auto-défini par Vercel → **pin explicite** `us-east-2`.

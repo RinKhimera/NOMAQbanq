@@ -287,7 +287,9 @@ export const ManualPaymentModal = ({
                                           )}
                                         />
                                         <div className="flex-1">
-                                          <p className="font-medium">{u.name}</p>
+                                          <p className="font-medium">
+                                            {u.name}
+                                          </p>
                                           <p className="text-muted-foreground text-xs">
                                             {u.email}
                                           </p>

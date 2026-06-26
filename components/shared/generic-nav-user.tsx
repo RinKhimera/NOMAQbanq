@@ -179,9 +179,9 @@ export const GenericNavUser = ({
                   )}
                 >
                   <AvatarImage
-                  src={currentUser.image ?? undefined}
-                  alt={currentUser.name}
-                />
+                    src={currentUser.image ?? undefined}
+                    alt={currentUser.name}
+                  />
                   <AvatarFallback
                     className={cn(
                       "rounded-lg font-semibold",

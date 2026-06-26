@@ -146,7 +146,9 @@ const migrateOne = async (key: string): Promise<Result> => {
     )
     return "copied"
   } catch (error) {
-    console.error(`  ✗ ${key}: ${error instanceof Error ? error.message : error}`)
+    console.error(
+      `  ✗ ${key}: ${error instanceof Error ? error.message : error}`,
+    )
     return "error"
   }
 }

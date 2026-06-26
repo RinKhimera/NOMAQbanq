@@ -17,7 +17,6 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-
 import {
   AccessBadge,
   getAccessStatus,

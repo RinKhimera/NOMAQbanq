@@ -21,7 +21,11 @@ interface StatCardConfig {
   format: (value: number) => string
 }
 
-export const TransactionStats = ({ stats }: { stats: TransactionStatsView }) => {
+export const TransactionStats = ({
+  stats,
+}: {
+  stats: TransactionStatsView
+}) => {
   const hasXAFRevenue = stats.revenueByCurrency.XAF.total > 0
 
   // Construction déclarative des cartes selon les devises présentes (pattern React idiomatique)

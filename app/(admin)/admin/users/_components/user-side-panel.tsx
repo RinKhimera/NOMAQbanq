@@ -164,11 +164,7 @@ function AccessCard({
   )
 }
 
-function TransactionItem({
-  transaction,
-}: {
-  transaction: PanelTransaction
-}) {
+function TransactionItem({ transaction }: { transaction: PanelTransaction }) {
   const formatCurrency = (amount: number, currency: string) => {
     return new Intl.NumberFormat("fr-CA", {
       style: "currency",

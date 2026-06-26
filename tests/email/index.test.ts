@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { sendResetPassword, sendVerificationEmail } from "@/email"
 
 const { sendEmailSpy } = vi.hoisted(() => ({ sendEmailSpy: vi.fn() }))
 vi.mock("@/email/send", () => ({ sendEmail: sendEmailSpy }))
-
-import { sendResetPassword, sendVerificationEmail } from "@/email"
 
 interface Arg {
   to: string

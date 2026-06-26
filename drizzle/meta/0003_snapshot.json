@@ -110,12 +110,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -261,12 +257,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -276,9 +268,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -409,16 +399,12 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "user_username_unique": {
           "name": "user_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username"
-          ]
+          "columns": ["username"]
         }
       },
       "policies": {},
@@ -578,12 +564,8 @@
           "name": "exam_answers_participation_id_exam_participations_id_fk",
           "tableFrom": "exam_answers",
           "tableTo": "exam_participations",
-          "columnsFrom": [
-            "participation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["participation_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -591,12 +573,8 @@
           "name": "exam_answers_question_id_questions_id_fk",
           "tableFrom": "exam_answers",
           "tableTo": "questions",
-          "columnsFrom": [
-            "question_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["question_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -606,10 +584,7 @@
         "exam_answers_participation_question_unique": {
           "name": "exam_answers_participation_question_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "participation_id",
-            "question_id"
-          ]
+          "columns": ["participation_id", "question_id"]
         }
       },
       "policies": {},
@@ -756,12 +731,8 @@
           "name": "exam_participations_exam_id_exams_id_fk",
           "tableFrom": "exam_participations",
           "tableTo": "exams",
-          "columnsFrom": [
-            "exam_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exam_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -769,12 +740,8 @@
           "name": "exam_participations_user_id_user_id_fk",
           "tableFrom": "exam_participations",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -784,10 +751,7 @@
         "exam_participations_exam_user_unique": {
           "name": "exam_participations_exam_user_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "exam_id",
-            "user_id"
-          ]
+          "columns": ["exam_id", "user_id"]
         }
       },
       "policies": {},
@@ -839,12 +803,8 @@
           "name": "exam_questions_exam_id_exams_id_fk",
           "tableFrom": "exam_questions",
           "tableTo": "exams",
-          "columnsFrom": [
-            "exam_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exam_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -852,12 +812,8 @@
           "name": "exam_questions_question_id_questions_id_fk",
           "tableFrom": "exam_questions",
           "tableTo": "questions",
-          "columnsFrom": [
-            "question_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["question_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -865,20 +821,14 @@
       "compositePrimaryKeys": {
         "exam_questions_exam_id_question_id_pk": {
           "name": "exam_questions_exam_id_question_id_pk",
-          "columns": [
-            "exam_id",
-            "question_id"
-          ]
+          "columns": ["exam_id", "question_id"]
         }
       },
       "uniqueConstraints": {
         "exam_questions_exam_position_unique": {
           "name": "exam_questions_exam_position_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "exam_id",
-            "position"
-          ]
+          "columns": ["exam_id", "position"]
         }
       },
       "policies": {},
@@ -1054,12 +1004,8 @@
           "name": "exams_created_by_user_id_fk",
           "tableFrom": "exams",
           "tableTo": "user",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1105,12 +1051,8 @@
           "name": "question_explanations_question_id_questions_id_fk",
           "tableFrom": "question_explanations",
           "tableTo": "questions",
-          "columnsFrom": [
-            "question_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["question_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1179,12 +1121,8 @@
           "name": "question_images_question_id_questions_id_fk",
           "tableFrom": "question_images",
           "tableTo": "questions",
-          "columnsFrom": [
-            "question_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["question_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1379,12 +1317,8 @@
           "name": "training_session_items_session_id_training_sessions_id_fk",
           "tableFrom": "training_session_items",
           "tableTo": "training_sessions",
-          "columnsFrom": [
-            "session_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1392,12 +1326,8 @@
           "name": "training_session_items_question_id_questions_id_fk",
           "tableFrom": "training_session_items",
           "tableTo": "questions",
-          "columnsFrom": [
-            "question_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["question_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1407,18 +1337,12 @@
         "training_session_items_session_question_unique": {
           "name": "training_session_items_session_question_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "session_id",
-            "question_id"
-          ]
+          "columns": ["session_id", "question_id"]
         },
         "training_session_items_session_position_unique": {
           "name": "training_session_items_session_position_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "session_id",
-            "position"
-          ]
+          "columns": ["session_id", "position"]
         }
       },
       "policies": {},
@@ -1590,12 +1514,8 @@
           "name": "training_sessions_user_id_user_id_fk",
           "tableFrom": "training_sessions",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2006,12 +1926,8 @@
           "name": "transactions_user_id_user_id_fk",
           "tableFrom": "transactions",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2019,12 +1935,8 @@
           "name": "transactions_product_id_products_id_fk",
           "tableFrom": "transactions",
           "tableTo": "products",
-          "columnsFrom": [
-            "product_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["product_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -2032,12 +1944,8 @@
           "name": "transactions_recorded_by_user_id_fk",
           "tableFrom": "transactions",
           "tableTo": "user",
-          "columnsFrom": [
-            "recorded_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["recorded_by"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -2135,12 +2043,8 @@
           "name": "user_access_user_id_user_id_fk",
           "tableFrom": "user_access",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2148,12 +2052,8 @@
           "name": "user_access_last_transaction_id_transactions_id_fk",
           "tableFrom": "user_access",
           "tableTo": "transactions",
-          "columnsFrom": [
-            "last_transaction_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["last_transaction_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2163,10 +2063,7 @@
         "user_access_user_access_type_unique": {
           "name": "user_access_user_access_type_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "access_type"
-          ]
+          "columns": ["user_id", "access_type"]
         }
       },
       "policies": {},
@@ -2231,12 +2128,8 @@
           "name": "upload_rate_limits_user_id_user_id_fk",
           "tableFrom": "upload_rate_limits",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2246,10 +2139,7 @@
         "upload_rate_limits_user_type_unique": {
           "name": "upload_rate_limits_user_type_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "upload_type"
-          ]
+          "columns": ["user_id", "upload_type"]
         }
       },
       "policies": {},
@@ -2261,36 +2151,22 @@
     "public.access_type": {
       "name": "access_type",
       "schema": "public",
-      "values": [
-        "exam",
-        "training"
-      ]
+      "values": ["exam", "training"]
     },
     "public.currency": {
       "name": "currency",
       "schema": "public",
-      "values": [
-        "CAD",
-        "XAF"
-      ]
+      "values": ["CAD", "XAF"]
     },
     "public.exam_participation_status": {
       "name": "exam_participation_status",
       "schema": "public",
-      "values": [
-        "in_progress",
-        "completed",
-        "auto_submitted"
-      ]
+      "values": ["in_progress", "completed", "auto_submitted"]
     },
     "public.exam_pause_phase": {
       "name": "exam_pause_phase",
       "schema": "public",
-      "values": [
-        "before_pause",
-        "during_pause",
-        "after_pause"
-      ]
+      "values": ["before_pause", "during_pause", "after_pause"]
     },
     "public.product_code": {
       "name": "product_code",
@@ -2306,45 +2182,27 @@
     "public.training_status": {
       "name": "training_status",
       "schema": "public",
-      "values": [
-        "in_progress",
-        "completed",
-        "abandoned"
-      ]
+      "values": ["in_progress", "completed", "abandoned"]
     },
     "public.transaction_status": {
       "name": "transaction_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "completed",
-        "failed",
-        "refunded"
-      ]
+      "values": ["pending", "completed", "failed", "refunded"]
     },
     "public.transaction_type": {
       "name": "transaction_type",
       "schema": "public",
-      "values": [
-        "stripe",
-        "manual"
-      ]
+      "values": ["stripe", "manual"]
     },
     "public.upload_type": {
       "name": "upload_type",
       "schema": "public",
-      "values": [
-        "avatar",
-        "question-image"
-      ]
+      "values": ["avatar", "question-image"]
     },
     "public.user_role": {
       "name": "user_role",
       "schema": "public",
-      "values": [
-        "user",
-        "admin"
-      ]
+      "values": ["user", "admin"]
     }
   },
   "schemas": {},

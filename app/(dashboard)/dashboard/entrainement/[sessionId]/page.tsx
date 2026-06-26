@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation"
-
 import { getTrainingSessionById } from "@/features/training/dal"
 import { CalculatorProvider } from "@/hooks/useCalculator"
-
 import { TrainingSessionClient } from "../_components/training-session-client"
 
 interface TrainingSessionPageProps {

@@ -1,6 +1,5 @@
 import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import {
   examParticipations,
@@ -10,6 +9,14 @@ import {
   user,
   userAccess,
 } from "@/db/schema"
+import {
+  getDashboardTrends,
+  getFailedPaymentsCount,
+  getRecentActivity,
+} from "@/features/analytics/dal"
+import { getExpiringAccess, getRevenueByDay } from "@/features/payments/dal"
+import { getAdminStats } from "@/features/users/dal"
+import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
 // `cache()` React → identité (pas de contexte RSC en test node).
@@ -22,15 +29,6 @@ vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
-
-import {
-  getDashboardTrends,
-  getFailedPaymentsCount,
-  getRecentActivity,
-} from "@/features/analytics/dal"
-import { getExpiringAccess, getRevenueByDay } from "@/features/payments/dal"
-import { getAdminStats } from "@/features/users/dal"
-import { requireRole } from "@/lib/auth-guards"
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)
@@ -79,7 +77,12 @@ beforeAll(async () => {
       createdAt: new Date(now),
     },
     { id: B, name: name(B), email: email(B), createdAt: new Date(now) },
-    { id: C, name: name(C), email: email(C), createdAt: new Date(now - 45 * DAY) },
+    {
+      id: C,
+      name: name(C),
+      email: email(C),
+      createdAt: new Date(now - 45 * DAY),
+    },
   ])
   await db.insert(products).values({
     id: PID,
@@ -133,15 +136,61 @@ beforeAll(async () => {
     createdAt: new Date(o.createdAt),
     completedAt: o.completedAt ? new Date(o.completedAt) : null,
   })
-  await db.insert(transactions).values([
-    tx({ id: TX1, userId: B, status: "completed", currency: "CAD", amountPaid: 5000, createdAt: now, completedAt: now }),
-    tx({ id: TX2, userId: B, status: "completed", currency: "XAF", amountPaid: 300000, createdAt: now - 2 * DAY, completedAt: now - 2 * DAY }),
-    tx({ id: TX3, userId: C, status: "completed", currency: "CAD", amountPaid: 1000, createdAt: now - 45 * DAY, completedAt: now - 45 * DAY }),
-    tx({ id: TX_FAIL, userId: B, status: "failed", currency: "CAD", amountPaid: 9999, createdAt: now - DAY, completedAt: null }),
-  ])
+  await db
+    .insert(transactions)
+    .values([
+      tx({
+        id: TX1,
+        userId: B,
+        status: "completed",
+        currency: "CAD",
+        amountPaid: 5000,
+        createdAt: now,
+        completedAt: now,
+      }),
+      tx({
+        id: TX2,
+        userId: B,
+        status: "completed",
+        currency: "XAF",
+        amountPaid: 300000,
+        createdAt: now - 2 * DAY,
+        completedAt: now - 2 * DAY,
+      }),
+      tx({
+        id: TX3,
+        userId: C,
+        status: "completed",
+        currency: "CAD",
+        amountPaid: 1000,
+        createdAt: now - 45 * DAY,
+        completedAt: now - 45 * DAY,
+      }),
+      tx({
+        id: TX_FAIL,
+        userId: B,
+        status: "failed",
+        currency: "CAD",
+        amountPaid: 9999,
+        createdAt: now - DAY,
+        completedAt: null,
+      }),
+    ])
   await db.insert(userAccess).values([
-    { id: ACC1, userId: B, accessType: "exam", expiresAt: new Date(now + 3 * DAY), lastTransactionId: TX1 },
-    { id: ACC2, userId: C, accessType: "training", expiresAt: new Date(now + 30 * DAY), lastTransactionId: TX3 },
+    {
+      id: ACC1,
+      userId: B,
+      accessType: "exam",
+      expiresAt: new Date(now + 3 * DAY),
+      lastTransactionId: TX1,
+    },
+    {
+      id: ACC2,
+      userId: C,
+      accessType: "training",
+      expiresAt: new Date(now + 30 * DAY),
+      lastTransactionId: TX3,
+    },
   ])
 })
 
@@ -208,7 +257,8 @@ describe("getRecentActivity", () => {
       (a) => a.type === "payment" && a.data.productName === `Prod ${suffix}`,
     )
     const exam = acts.find(
-      (a) => a.type === "exam_completed" && a.data.examTitle === `Examen ${suffix}`,
+      (a) =>
+        a.type === "exam_completed" && a.data.examTitle === `Examen ${suffix}`,
     )
     expect(signup).toBeDefined()
     expect(payment).toBeDefined()
@@ -223,11 +273,17 @@ describe("getRecentActivity", () => {
 describe("getDashboardTrends", () => {
   it("revenus récents par devise + nouveaux users/participations (delta)", async () => {
     const t = await getDashboardTrends()
-    expect(t.revenueByCurrency.CAD.recent - baseTrends.revenueByCurrency.CAD.recent).toBe(5000)
-    expect(t.revenueByCurrency.XAF.recent - baseTrends.revenueByCurrency.XAF.recent).toBe(300000)
+    expect(
+      t.revenueByCurrency.CAD.recent - baseTrends.revenueByCurrency.CAD.recent,
+    ).toBe(5000)
+    expect(
+      t.revenueByCurrency.XAF.recent - baseTrends.revenueByCurrency.XAF.recent,
+    ).toBe(300000)
     // A et B créés maintenant (fenêtre récente) ; C il y a 45j (précédente).
     expect(t.recentUsersCount - baseTrends.recentUsersCount).toBe(2)
-    expect(t.recentParticipationsCount - baseTrends.recentParticipationsCount).toBe(1)
+    expect(
+      t.recentParticipationsCount - baseTrends.recentParticipationsCount,
+    ).toBe(1)
     expect(typeof t.usersTrend).toBe("number")
   })
 })

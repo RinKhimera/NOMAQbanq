@@ -1,5 +1,3 @@
-import "server-only"
-
 import {
   CopyObjectCommand,
   DeleteObjectCommand,
@@ -7,7 +5,7 @@ import {
 } from "@aws-sdk/client-s3"
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post"
 import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider"
-
+import "server-only"
 import { env } from "@/lib/env/server"
 
 /**

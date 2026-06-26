@@ -6,17 +6,16 @@ Toutes les lectures DB passent par une **DAL** (Data Access Layer) marquée `imp
 Jamais d'import de `db` depuis un Client Component. Gabarit : `assets/dal-example.ts.md`.
 
 ```ts
-import { and, eq, isNull } from 'drizzle-orm';
-import 'server-only';
-
-import { db } from '@/db';
-import { posts } from '@/db/schema/posts';
+import { and, eq, isNull } from "drizzle-orm"
+import "server-only"
+import { db } from "@/db"
+import { posts } from "@/db/schema/posts"
 
 export const getPostsByAuthor = async (authorId: string) =>
   db
     .select()
     .from(posts)
-    .where(and(eq(posts.authorId, authorId), isNull(posts.deletedAt))); // filtre soft-delete si applicable
+    .where(and(eq(posts.authorId, authorId), isNull(posts.deletedAt))) // filtre soft-delete si applicable
 ```
 
 - **Sessions aussi via la DAL** : wrappe `auth.api.getSession` dans un `cache(...)` React
@@ -31,53 +30,55 @@ Une Server Action = re-validation zod + autorisation + écriture + revalidation.
 `assets/server-action-example.ts.md`. Structure type :
 
 ```ts
-'use server';
-import { revalidatePath } from 'next/cache';
-
-import { eq } from 'drizzle-orm';
-
-import { db } from '@/db';
-import { posts } from '@/db/schema/posts';
-import { requireSession } from '@/lib/auth-guards';
-
-import { postSchema } from './schemas';
+"use server"
+import { eq } from "drizzle-orm"
+import { revalidatePath } from "next/cache"
+import { db } from "@/db"
+import { posts } from "@/db/schema/posts"
+import { requireSession } from "@/lib/auth-guards"
+import { postSchema } from "./schemas"
 
 export type UpdatePostState =
-  | { status: 'idle' }
-  | { status: 'success' }
-  | { status: 'error'; fieldErrors?: Record<string, string>; formError?: string };
+  | { status: "idle" }
+  | { status: "success" }
+  | {
+      status: "error"
+      fieldErrors?: Record<string, string>
+      formError?: string
+    }
 
 export const updatePost = async (
   _prev: UpdatePostState,
   formData: FormData,
 ): Promise<UpdatePostState> => {
-  const session = await requireSession(); // 1. authn/authz (jamais optionnel)
+  const session = await requireSession() // 1. authn/authz (jamais optionnel)
 
   const parsed = postSchema.safeParse({
     // 2. validation serveur (défense en profondeur)
-    title: formData.get('title'),
-    body: formData.get('body'),
-  });
+    title: formData.get("title"),
+    body: formData.get("body"),
+  })
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
+    const fieldErrors: Record<string, string> = {}
     for (const issue of parsed.error.issues) {
-      const f = issue.path[0];
-      if (typeof f === 'string') fieldErrors[f] = issue.message;
+      const f = issue.path[0]
+      if (typeof f === "string") fieldErrors[f] = issue.message
     }
-    return { status: 'error', fieldErrors };
+    return { status: "error", fieldErrors }
   }
 
   try {
     // 3. écriture
-    await db.update(posts).set(parsed.data).where(eq(posts.id, /* ... */ ''));
+    await db.update(posts).set(parsed.data).where(eq(posts.id, /* ... */ ""))
   } catch (error) {
-    if (process.env.NODE_ENV !== 'production') console.error('[updatePost]', error);
-    return { status: 'error', formError: 'Erreur serveur. Réessayez.' };
+    if (process.env.NODE_ENV !== "production")
+      console.error("[updatePost]", error)
+    return { status: "error", formError: "Erreur serveur. Réessayez." }
   }
 
-  revalidatePath('/posts'); // 4. fraîcheur explicite (cf. 05)
-  return { status: 'success' };
-};
+  revalidatePath("/posts") // 4. fraîcheur explicite (cf. 05)
+  return { status: "success" }
+}
 ```
 
 Règles dérivées de l'expérience du projet source :
@@ -100,29 +101,31 @@ Convex `useMutation` → l'un de ces deux patterns :
 
 ```tsx
 // A. Formulaire à champs (RHF + zodResolver est le standard)
-const [state, action, isPending] = useActionState(updatePost, { status: 'idle' });
-const form = useForm({ resolver: zodResolver(postSchema) });
+const [state, action, isPending] = useActionState(updatePost, {
+  status: "idle",
+})
+const form = useForm({ resolver: zodResolver(postSchema) })
 const onSubmit = form.handleSubmit((values) => {
-  const fd = new FormData();
-  fd.append('title', values.title);
-  startTransition(() => action(fd));
-});
+  const fd = new FormData()
+  fd.append("title", values.title)
+  startTransition(() => action(fd))
+})
 ```
 
 ```tsx
 // B. Dialog / bouton d'action SANS formulaire — appeler l'action inline dans startTransition
 // (évite la règle eslint react-hooks/set-state-in-effect : pas de setState dans un useEffect
 //  qui réagit à `state`).
-const [isPending, startTransition] = useTransition();
+const [isPending, startTransition] = useTransition()
 const confirm = () =>
   startTransition(async () => {
-    const result = await deletePost({ status: 'idle' }, fd);
-    if (result.status === 'success') {
-      toast.success('OK');
-      setOpen(false);
-      router.refresh();
-    } else if (result.formError) toast.error(result.formError);
-  });
+    const result = await deletePost({ status: "idle" }, fd)
+    if (result.status === "success") {
+      toast.success("OK")
+      setOpen(false)
+      router.refresh()
+    } else if (result.formError) toast.error(result.formError)
+  })
 ```
 
 ## Critère de fin de phase

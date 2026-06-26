@@ -1,5 +1,4 @@
 import { z } from "zod"
-
 import { currency, productCode } from "@/db/schema"
 
 export const recordManualPaymentSchema = z.object({

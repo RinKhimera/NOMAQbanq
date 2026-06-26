@@ -104,12 +104,15 @@ export function QuestionBrowserProvider({
       search: debouncedSearchQuery || undefined,
       domain: filters.domain !== "all" ? filters.domain : undefined,
       hasImages:
-        filters.hasImages === "all"
-          ? undefined
-          : filters.hasImages === "with",
+        filters.hasImages === "all" ? undefined : filters.hasImages === "with",
       sortOrder: filters.sortOrder,
     }),
-    [debouncedSearchQuery, filters.domain, filters.hasImages, filters.sortOrder],
+    [
+      debouncedSearchQuery,
+      filters.domain,
+      filters.hasImages,
+      filters.sortOrder,
+    ],
   )
 
   // Recharge la 1re page à chaque changement de filtre effectif (+ au montage).
