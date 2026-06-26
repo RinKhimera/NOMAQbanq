@@ -1,8 +1,15 @@
 import { inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
+import {
+  type QuestionStatsEnriched,
+  getQuestionById,
+  getQuestionStatsEnriched,
+  getQuestionsWithFilters,
+  getUniqueObjectifsCMC,
+} from "@/features/questions/dal"
+import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
@@ -13,15 +20,6 @@ vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
-
-import {
-  getQuestionById,
-  getQuestionStatsEnriched,
-  getQuestionsWithFilters,
-  getUniqueObjectifsCMC,
-  type QuestionStatsEnriched,
-} from "@/features/questions/dal"
-import { requireRole } from "@/lib/auth-guards"
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)

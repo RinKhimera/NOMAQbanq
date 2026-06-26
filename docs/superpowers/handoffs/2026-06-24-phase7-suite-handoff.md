@@ -4,8 +4,9 @@
 > `project_convex_to_drizzle_migration.md` (chargée auto via `MEMORY.md`, **à jour :
 > Phase 5 + 5.6 + 7a/7b Stripe + 7c crons TERMINÉS**) + skill
 > `convex-to-betterauth-drizzle-neon`. **Conventions** = `.claude/rules/data-layer.md`
-> + handoffs précédents (`docs/superpowers/handoffs/2026-06-23-phase5.5-handoff.md`
-> §2 conventions, §3 pièges — toujours valides). Ne PAS redemander ce qui y est.
+>
+> - handoffs précédents (`docs/superpowers/handoffs/2026-06-23-phase5.5-handoff.md`
+>   §2 conventions, §3 pièges — toujours valides). Ne PAS redemander ce qui y est.
 
 Branche : `migration/drizzle-neon` (jamais déployée). Neon dev = `develop`
 (`br-restless-morning-ad4uyo3t`, projet `lucky-waterfall-33371811`). **NE JAMAIS**
@@ -44,17 +45,19 @@ Crochets à activer : **opérationnel** (prod Neon intouchée, `.env.local` jama
 ## 3. Ce qui reste
 
 ### 7d — Uploaders Bunny (le gros morceau ; surface d'attaque réelle)
+
 Upload/suppression de fichiers vers **Bunny Storage Zone**, neutralisés pendant la
 migration (avatar 5.0, images questions 5.3 — réordonnancement local persisté via
 `setQuestionImages`, mais aucun PUT/DELETE Bunny).
 
 **À porter depuis Convex** :
+
 - `convex/lib/bunny.ts` → `lib/bunny.ts` (nouveau). Env : `BUNNY_STORAGE_ZONE_NAME`,
   `BUNNY_STORAGE_API_KEY`, `BUNNY_CDN_HOSTNAME` (à AJOUTER dans `lib/env/schema.ts`,
   optionnelles façon Stripe/SES). `uploadToBunny` (PUT Storage), suppression (DELETE
   Storage). L'affichage existe déjà : `lib/cdn.ts` `cdnUrl(storagePath)`.
 - `convex/http.ts` routes `POST /api/upload/avatar` (rate 5/h) + `POST /api/upload/
-  question-image` (admin, rate 50/h) → **route handlers Next** `app/api/upload/*` OU
+question-image` (admin, rate 50/h) → **route handlers Next** `app/api/upload/*` OU
   **Server Actions** (préférer Server Actions si le flux le permet ; sinon route
   multipart). Rate-limit : `convex/rateLimit.ts` à porter (table Drizzle ou Better Auth
   rate-limit, ou un simple compteur par user/fenêtre).
@@ -74,6 +77,7 @@ Modèle Proxéa réutilisable : repo `C:\Users\samue\Downloads\Code\proxea_v2`
 (`lib/bunny*.ts`, rule `storage-images.md`).
 
 ### 7e — Durcissement taint PII
+
 Appliquer `experimental_taintObjectReference` / `taintUniqueValue` (React) sur les
 champs PII renvoyés par les DAL (emails, tokens) pour empêcher leur fuite vers le
 bundle client. Identifier les DAL qui exposent du PII (`features/users`, `payments`,
@@ -81,6 +85,7 @@ leaderboard, analytics `getRecentActivity`) et tainter au point de retour serveu
 Mesure de défense en profondeur ; petit périmètre.
 
 ### Purge finale (APRÈS 7d+7e+revue)
+
 Préflight : **4 fichiers** `convex/react` restants, TOUS purge (aucun écran actif) :
 grappe questions morte `components/admin/{edit-question-dialog,question-form,
 questions-list}.tsx` + `providers/convex-client-provider.tsx` (shim no-auth). Étapes :
@@ -89,10 +94,11 @@ supprimer `convex/`, désinstaller deps `@clerk/*` + `convex`, retirer le shim p
 qu'aucun `import … convex/_generated` runtime ne subsiste (la plupart = types erasés).
 
 ## 4. Conventions (rappel — détail `.claude/rules/data-layer.md`)
+
 - `features/<domaine>/{schemas,dal,actions,lib,cron}.ts`. DAL `server-only` + `cache()`
-  + colonnes ciblées + self-guard. Actions `'use server'` → guard → zod → écriture →
-  `revalidatePath`. Mutations concurrentes : `db.transaction` + verrou de ligne
-  (`.for("update")`) ou **UPDATE gardé** sur le statut attendu (cf. crons 7c, fail Stripe).
+  - colonnes ciblées + self-guard. Actions `'use server'` → guard → zod → écriture →
+    `revalidatePath`. Mutations concurrentes : `db.transaction` + verrou de ligne
+    (`.for("update")`) ou **UPDATE gardé** sur le statut attendu (cf. crons 7c, fail Stripe).
 - Routes API (webhook/cron/upload) : `export const runtime = "nodejs"`, secret en
   `Authorization: Bearer`, **fail-closed** si secret absent, **500 sur erreur inattendue**
   (≠ 200-toujours) pour laisser le réessai. Le proxy laisse passer `/api/*` (seuls
@@ -105,6 +111,7 @@ qu'aucun `import … convex/_generated` runtime ne subsiste (la plupart = types 
   appartenance par id pour les listes). SonarLint (`typescript:Sxxxx`) = IDE-only, ignorer.
 
 ## 5. Différé / dette (avant la bascule prod — cf. mémoire pour le détail)
+
 - **Stripe #4** (politique remboursement Stripe) + **#5** (portail email).
 - `UNIQUE(products.code)` (rendre les tests d'intégration upsert-safe d'abord).
 - Protéger la branche Neon `production` (console). Accès prod **SES** (sortie sandbox).
@@ -113,6 +120,7 @@ qu'aucun `import … convex/_generated` runtime ne subsiste (la plupart = types 
 - N1 (waitUntil SES), N6 (neon.ts protection). Crons : **plan Vercel Pro** pour l'horaire.
 
 ## 6. Test E2E navigateur (réutilisable)
+
 Compte + examen de test sur `develop` (mémoire `reference-e2e-test-data-nomaq`) :
 `e2e.examen@nomaqtest.local` / `TestPassw0rd!` (admin). Pièges sign-in CSRF/onboarding
 (`username` requis) + app dev sur **:3001** si 3000 occupé. Méthode = skill

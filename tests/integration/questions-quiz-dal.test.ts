@@ -1,8 +1,12 @@
 import { inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
+import { scoreQuizAnswers } from "@/features/questions/actions"
+import {
+  getQuizAnswerKey,
+  getRandomQuizQuestions,
+} from "@/features/questions/dal"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
@@ -14,12 +18,6 @@ vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(),
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
-
-import { scoreQuizAnswers } from "@/features/questions/actions"
-import {
-  getQuizAnswerKey,
-  getRandomQuizQuestions,
-} from "@/features/questions/dal"
 
 const suffix = createId().slice(0, 8)
 const DOMAIN = `QUIZ-${suffix}`
@@ -123,9 +121,7 @@ describe("scoreQuizAnswers (action publique)", () => {
 
     expect(result.score).toBe(1)
     expect(result.totalQuestions).toBe(2)
-    const imgResult = result.questionResults.find(
-      (r) => r.questionId === qImg,
-    )
+    const imgResult = result.questionResults.find((r) => r.questionId === qImg)
     expect(imgResult).toMatchObject({
       isCorrect: true,
       correctAnswer: "A",

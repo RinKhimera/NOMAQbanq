@@ -13,57 +13,60 @@ const required = (label: string) =>
   z.string({ error: `${label} : requise mais manquante ou vide` })
 
 export const buildServerSchema = () =>
-  z.object({
-    DATABASE_URL: required("DATABASE_URL"), // pooled (runtime)
-    DATABASE_URL_UNPOOLED: required("DATABASE_URL_UNPOOLED"), // direct (migrations)
-    BETTER_AUTH_SECRET: required("BETTER_AUTH_SECRET").min(
-      32,
-      "BETTER_AUTH_SECRET : au moins 32 caractères requis",
-    ),
-    // Optionnel : sur Vercel, dérivée à l'exécution via `getBaseUrl()`
-    // (lib/base-url.ts) depuis VERCEL_PROJECT_PRODUCTION_URL / VERCEL_BRANCH_URL.
-    // Sert d'override explicite (dev local → http://localhost:3000, ou pin manuel).
-    BETTER_AUTH_URL: z.url({ error: "BETTER_AUTH_URL : URL invalide" }).optional(),
-    // Filled in Phase 4 (Better Auth Google provider); optional until then.
-    GOOGLE_CLIENT_ID: z.string().optional(),
-    GOOGLE_CLIENT_SECRET: z.string().optional(),
-    // AWS SES (emails transactionnels) — optionnelles : l'app démarre sans,
-    // `sendEmail` lève une erreur claire à l'usage si une valeur requise manque.
-    SES_REGION: z.string().optional(),
-    SES_ACCESS_KEY_ID: z.string().optional(),
-    SES_SECRET_ACCESS_KEY: z.string().optional(),
-    EMAIL_FROM: z.string().optional(),
-    SES_CONFIGURATION_SET: z.string().optional(),
-    EMAIL_OVERRIDE_TO: z.string().optional(),
-    // Stripe (paiements) — optionnelles : l'app démarre sans, le code Stripe
-    // (`getStripe`/webhook) lève une erreur claire à l'usage si une valeur manque.
-    STRIPE_SECRET_KEY: z.string().optional(),
-    STRIPE_WEBHOOK_SECRET: z.string().optional(),
-    // Cron Vercel — secret partagé (Vercel l'envoie en `Authorization: Bearer`).
-    // Optionnel : sans lui, la route cron répond 401 (fail-closed).
-    CRON_SECRET: z.string().optional(),
-    // Support E2E (reset/cleanup des données de test sur develop). Optionnel :
-    // sans lui la route `/api/e2e` répond 404. NE JAMAIS définir en prod Vercel
-    // (la route refuse aussi si `VERCEL_ENV === "production"`).
-    E2E_RESET_SECRET: z.string().optional(),
-    // AWS S3 (stockage médias) — optionnelles : l'app démarre sans, `lib/aws.ts`
-    // lève une erreur claire à l'usage. REGION+ROLE_ARN+BUCKET vont ensemble (refine).
-    // Auth via OIDC (AWS_ROLE_ARN) en prod/preview. Clés statiques = fallback dev local.
-    // ⚠️ Région = `S3_REGION` (PAS `AWS_REGION`) : sur Vercel/Lambda, `AWS_REGION` est
-    // une var réservée du runtime (région de la fonction) qui primerait sur la nôtre
-    // → on signerait pour la mauvaise région (403). `S3_REGION` est sous notre contrôle.
-    S3_REGION: z.string().optional(),
-    AWS_ROLE_ARN: z.string().optional(),
-    S3_BUCKET: z.string().optional(),
-    AWS_ACCESS_KEY_ID: z.string().optional(),
-    AWS_SECRET_ACCESS_KEY: z.string().optional(),
-    // Mode maintenance (« blocus ») — `MAINTENANCE_MODE="1"` → `proxy.ts` répond
-    // 503 partout (gel des écritures, ex. pendant la bascule Convex → Neon).
-    // Lu DIRECTEMENT par `proxy.ts` (qui reste autonome) ; déclaré ici pour
-    // documentation/validation. Token de contournement ops optionnel (smoke-test).
-    MAINTENANCE_MODE: z.string().optional(),
-    MAINTENANCE_BYPASS_TOKEN: z.string().optional(),
-  })
+  z
+    .object({
+      DATABASE_URL: required("DATABASE_URL"), // pooled (runtime)
+      DATABASE_URL_UNPOOLED: required("DATABASE_URL_UNPOOLED"), // direct (migrations)
+      BETTER_AUTH_SECRET: required("BETTER_AUTH_SECRET").min(
+        32,
+        "BETTER_AUTH_SECRET : au moins 32 caractères requis",
+      ),
+      // Optionnel : sur Vercel, dérivée à l'exécution via `getBaseUrl()`
+      // (lib/base-url.ts) depuis VERCEL_PROJECT_PRODUCTION_URL / VERCEL_BRANCH_URL.
+      // Sert d'override explicite (dev local → http://localhost:3000, ou pin manuel).
+      BETTER_AUTH_URL: z
+        .url({ error: "BETTER_AUTH_URL : URL invalide" })
+        .optional(),
+      // Filled in Phase 4 (Better Auth Google provider); optional until then.
+      GOOGLE_CLIENT_ID: z.string().optional(),
+      GOOGLE_CLIENT_SECRET: z.string().optional(),
+      // AWS SES (emails transactionnels) — optionnelles : l'app démarre sans,
+      // `sendEmail` lève une erreur claire à l'usage si une valeur requise manque.
+      SES_REGION: z.string().optional(),
+      SES_ACCESS_KEY_ID: z.string().optional(),
+      SES_SECRET_ACCESS_KEY: z.string().optional(),
+      EMAIL_FROM: z.string().optional(),
+      SES_CONFIGURATION_SET: z.string().optional(),
+      EMAIL_OVERRIDE_TO: z.string().optional(),
+      // Stripe (paiements) — optionnelles : l'app démarre sans, le code Stripe
+      // (`getStripe`/webhook) lève une erreur claire à l'usage si une valeur manque.
+      STRIPE_SECRET_KEY: z.string().optional(),
+      STRIPE_WEBHOOK_SECRET: z.string().optional(),
+      // Cron Vercel — secret partagé (Vercel l'envoie en `Authorization: Bearer`).
+      // Optionnel : sans lui, la route cron répond 401 (fail-closed).
+      CRON_SECRET: z.string().optional(),
+      // Support E2E (reset/cleanup des données de test sur develop). Optionnel :
+      // sans lui la route `/api/e2e` répond 404. NE JAMAIS définir en prod Vercel
+      // (la route refuse aussi si `VERCEL_ENV === "production"`).
+      E2E_RESET_SECRET: z.string().optional(),
+      // AWS S3 (stockage médias) — optionnelles : l'app démarre sans, `lib/aws.ts`
+      // lève une erreur claire à l'usage. REGION+ROLE_ARN+BUCKET vont ensemble (refine).
+      // Auth via OIDC (AWS_ROLE_ARN) en prod/preview. Clés statiques = fallback dev local.
+      // ⚠️ Région = `S3_REGION` (PAS `AWS_REGION`) : sur Vercel/Lambda, `AWS_REGION` est
+      // une var réservée du runtime (région de la fonction) qui primerait sur la nôtre
+      // → on signerait pour la mauvaise région (403). `S3_REGION` est sous notre contrôle.
+      S3_REGION: z.string().optional(),
+      AWS_ROLE_ARN: z.string().optional(),
+      S3_BUCKET: z.string().optional(),
+      AWS_ACCESS_KEY_ID: z.string().optional(),
+      AWS_SECRET_ACCESS_KEY: z.string().optional(),
+      // Mode maintenance (« blocus ») — `MAINTENANCE_MODE="1"` → `proxy.ts` répond
+      // 503 partout (gel des écritures, ex. pendant la bascule Convex → Neon).
+      // Lu DIRECTEMENT par `proxy.ts` (qui reste autonome) ; déclaré ici pour
+      // documentation/validation. Token de contournement ops optionnel (smoke-test).
+      MAINTENANCE_MODE: z.string().optional(),
+      MAINTENANCE_BYPASS_TOKEN: z.string().optional(),
+    })
     // Garde-fou déploiement : dès que le checkout peut encaisser (clé secrète
     // présente), le webhook DOIT pouvoir vérifier sa signature — sinon les
     // paiements sont débités sans fulfillment (accès jamais accordé).
@@ -81,8 +84,8 @@ export const buildServerSchema = () =>
         if (e.S3_BUCKET) {
           return Boolean(
             e.S3_REGION &&
-              (e.AWS_ROLE_ARN ||
-                (e.AWS_ACCESS_KEY_ID && e.AWS_SECRET_ACCESS_KEY)),
+            (e.AWS_ROLE_ARN ||
+              (e.AWS_ACCESS_KEY_ID && e.AWS_SECRET_ACCESS_KEY)),
           )
         }
         return !e.AWS_ROLE_ARN

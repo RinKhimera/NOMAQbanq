@@ -6,7 +6,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core"
-
 import { createId } from "@/lib/ids"
 
 export const questions = pgTable(

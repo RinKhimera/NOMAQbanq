@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -19,7 +18,10 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { authClient } from "@/lib/auth-client"
-import { type ResetPasswordFormValues, resetPasswordSchema } from "@/schemas/auth"
+import {
+  type ResetPasswordFormValues,
+  resetPasswordSchema,
+} from "@/schemas/auth"
 
 function ResetPasswordContent() {
   const router = useRouter()
@@ -69,8 +71,8 @@ function ResetPasswordContent() {
                   Lien invalide
                 </h2>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Ce lien de réinitialisation est invalide ou a expiré.
-                  Veuillez en demander un nouveau.
+                  Ce lien de réinitialisation est invalide ou a expiré. Veuillez
+                  en demander un nouveau.
                 </p>
                 <Link
                   href="/auth/forgot-password"

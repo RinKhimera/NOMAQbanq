@@ -29,14 +29,14 @@ C'est le remplacement direct de la réactivité Convex pour l'écrasante majorit
 
 ```ts
 // Dans la Server Action, après l'écriture :
-import { revalidateTag } from 'next/cache';
+import { revalidateTag } from "next/cache"
 
-revalidateTag('posts', 'max'); // ⚠️ Next 16 : 2ᵉ argument requis. Next ≤ 15 : revalidateTag('posts').
+revalidateTag("posts", "max") // ⚠️ Next 16 : 2ᵉ argument requis. Next ≤ 15 : revalidateTag('posts').
 ```
 
 ```ts
 // Dans la DAL, taguer la lecture pour que revalidateTag la cible :
-import { unstable_cache } from 'next/cache';
+import { unstable_cache } from "next/cache"
 
 // ou l'API `use cache` / cacheTag selon ta version de Next
 ```

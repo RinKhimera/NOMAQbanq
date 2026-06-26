@@ -6,20 +6,21 @@ Pool créé **une fois au scope module**, réutilisé par chaque requête de l'i
 directement — pas besoin d'un client transactionnel séparé.
 
 ```ts
-import { attachDatabasePool } from '@vercel/functions'; // ADAPT: retirer hors Vercel
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
+import { attachDatabasePool } from "@vercel/functions"
+// ADAPT: retirer hors Vercel
+import { drizzle } from "drizzle-orm/node-postgres"
+import { Pool } from "pg"
+import { env } from "@/lib/env/server"
+// ADAPT: ou process.env.DATABASE_URL
 
-import { env } from '@/lib/env/server'; // ADAPT: ou process.env.DATABASE_URL
-
-import * as schema from './schema';
+import * as schema from "./schema"
 
 // Créé une fois au scope module, réutilisé par chaque requête de l'instance.
-const pool = new Pool({ connectionString: env.DATABASE_URL, max: 5 }); // pooled (-pooler)
-attachDatabasePool(pool); // Vercel : laisse le runtime drainer les connexions idle
+const pool = new Pool({ connectionString: env.DATABASE_URL, max: 5 }) // pooled (-pooler)
+attachDatabasePool(pool) // Vercel : laisse le runtime drainer les connexions idle
 
-export const db = drizzle(pool, { schema });
-export type Db = typeof db;
+export const db = drizzle(pool, { schema })
+export type Db = typeof db
 ```
 
 > **Runtime isolé par requête (Netlify/Lambda)** : un pool TCP ne survit pas → utilise le driver HTTP

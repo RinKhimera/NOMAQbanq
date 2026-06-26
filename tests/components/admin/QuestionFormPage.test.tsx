@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
-
+import { QuestionFormPage } from "@/app/(admin)/admin/questions/_components/question-form-page"
 import type { QuestionDetail } from "@/features/questions/dal"
 
 // --- Mocks ----------------------------------------------------------------
@@ -73,8 +73,6 @@ vi.mock("@/components/ui/select", async () => {
   }
 })
 
-import { QuestionFormPage } from "@/app/(admin)/admin/questions/_components/question-form-page"
-
 const makeQuestion = (over: Partial<QuestionDetail> = {}): QuestionDetail => ({
   id: "q1",
   question: "Quelle est la capitale du foie ?",
@@ -110,9 +108,9 @@ describe("QuestionFormPage — édition", () => {
     // Le composant contrôlé du domaine reçoit la valeur dès le 1er rendu (le
     // formulaire est monté avec des `defaultValues` synchrones dérivés de la
     // question chargée — c'est ce qui débloque l'affichage du Radix Select).
-    expect(
-      screen.getByTestId("domain-select").getAttribute("data-value"),
-    ).toBe("Cardiologie")
+    expect(screen.getByTestId("domain-select").getAttribute("data-value")).toBe(
+      "Cardiologie",
+    )
 
     await user.click(
       await screen.findByRole("button", {

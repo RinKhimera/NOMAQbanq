@@ -16,29 +16,31 @@ Branche jamais déployée ; écrans Convex non convertis cassés au runtime = ac
 
 ## Synthèse des findings
 
-| # | Sévérité | Titre | Fichier |
-|---|----------|-------|---------|
-| H1 | **HAUTE** | Suppression d'une transaction **combo** impossible (FK `restrict` vs révocation mono-type) | `features/payments/{lib,actions}.ts` |
-| M1 | **MOYENNE** | `products.code` sans contrainte `UNIQUE` → résolution produit non déterministe | `db/schema/payments.ts`, `features/payments/actions.ts` |
-| M2 | **MOYENNE** | Server Actions forwardent un `limit`/`offset` client **non borné** au DAL | `features/payments/actions.ts`, `features/users/actions.ts` |
-| B1 | BASSE | `getAccessStatus`/`hasAccess` : zéro autorisation interne (defense-in-depth) ; `hasAccess` bypass sur le rôle de la **cible** | `features/payments/dal.ts` |
-| B2 | BASSE | Tri par `role` : ordre divergent (ordre d'enum Postgres vs chaîne Convex) | `features/users/dal.ts` |
-| B3 | BASSE | `amountPaid` : `0` accepté côté serveur alors que le client exige `> 0` | `features/payments/schemas.ts` |
-| I1 | INFO | Remboursement d'un combo ne révoque qu'un type (préservé de Convex, mais asymétrique) | `features/payments/actions.ts` |
+| #   | Sévérité    | Titre                                                                                                                         | Fichier                                                     |
+| --- | ----------- | ----------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| H1  | **HAUTE**   | Suppression d'une transaction **combo** impossible (FK `restrict` vs révocation mono-type)                                    | `features/payments/{lib,actions}.ts`                        |
+| M1  | **MOYENNE** | `products.code` sans contrainte `UNIQUE` → résolution produit non déterministe                                                | `db/schema/payments.ts`, `features/payments/actions.ts`     |
+| M2  | **MOYENNE** | Server Actions forwardent un `limit`/`offset` client **non borné** au DAL                                                     | `features/payments/actions.ts`, `features/users/actions.ts` |
+| B1  | BASSE       | `getAccessStatus`/`hasAccess` : zéro autorisation interne (defense-in-depth) ; `hasAccess` bypass sur le rôle de la **cible** | `features/payments/dal.ts`                                  |
+| B2  | BASSE       | Tri par `role` : ordre divergent (ordre d'enum Postgres vs chaîne Convex)                                                     | `features/users/dal.ts`                                     |
+| B3  | BASSE       | `amountPaid` : `0` accepté côté serveur alors que le client exige `> 0`                                                       | `features/payments/schemas.ts`                              |
+| I1  | INFO        | Remboursement d'un combo ne révoque qu'un type (préservé de Convex, mais asymétrique)                                         | `features/payments/actions.ts`                              |
 
 ---
 
 ## H1 — HAUTE : la suppression d'une transaction **combo** échoue systématiquement (FK `restrict`)
 
 **Fichiers** :
+
 - `features/payments/lib.ts:106-123` (octroi combo → écrit `lastTransactionId` sur **exam ET training**)
 - `features/payments/lib.ts:133-156` (`revokeAccessIfLast` ne traite **qu'un** `accessType`)
 - `features/payments/actions.ts:258-264` (`deleteManualTransaction` : revoke mono-type **puis** `delete`)
 - `db/schema/payments.ts:114-116` (`userAccess.lastTransactionId` → `transactions.id`, **`notNull` + `onDelete: "restrict"`**)
 
 ### Description
+
 Pour un produit `isCombo`, `grantManualAccess` accorde **les deux** accès et pose
-`lastTransactionId = <txId>` sur la ligne `user_access` *exam* **et** *training*
+`lastTransactionId = <txId>` sur la ligne `user_access` _exam_ **et** _training_
 (`lib.ts:106-123`, boucle `for (const accessType of types)`).
 
 La transaction stocke un **seul** `accessType` (`lib.ts:99`, `accessType: product.accessType`,
@@ -47,8 +49,9 @@ ex. `"exam"` pour `premium_access`). À la suppression :
 ```ts
 // features/payments/actions.ts:258-264
 const revoked = await revokeAccessIfLast(tx, {
-  id: transaction.id, userId: transaction.userId,
-  accessType: transaction.accessType,           // ← UN SEUL type (ex. "exam")
+  id: transaction.id,
+  userId: transaction.userId,
+  accessType: transaction.accessType, // ← UN SEUL type (ex. "exam")
 })
 await tx.delete(transactions).where(eq(transactions.id, transactionId))
 ```
@@ -65,6 +68,7 @@ cas normal juste après l'octroi. L'UI affiche une erreur opaque ; aucune action
 possible depuis l'admin.
 
 ### Pourquoi c'est une régression (et pas une sémantique préservée)
+
 En Convex, `userAccess.lastTransactionId` n'a **aucune** contrainte FK. `deleteManualTransaction`
 (`convex/payments.ts:1114-1143`) supprimait la tx **avec succès**, laissant simplement une
 référence pendante (dangling) sur la ligne training. Le port Drizzle ajoute une FK `restrict`
@@ -72,17 +76,24 @@ légitime, mais la logique de révocation mono-type n'a pas été adaptée → c
 Convex **casse** ici.
 
 ### Repro (test d'intégration prêt à l'emploi, branche Neon éphémère)
+
 Non couvert : `payments-manual.test.ts` teste `grantManualAccess` et `revokeAccessIfLast`
 **isolément** ; aucun test n'exécute le chemin complet `revoke → delete` sur un combo.
 
 ```ts
 it("supprime une transaction combo (revoke + delete)", async () => {
   const u = createId()
-  await db.insert(user).values({ id: u, name: "combo del", email: `cd-${createId()}@t.invalid` })
+  await db
+    .insert(user)
+    .values({ id: u, name: "combo del", email: `cd-${createId()}@t.invalid` })
   const txId = await db.transaction((tx) =>
     grantManualAccess(tx, {
-      userId: u, product: pCombo, amountPaid: 9000, currency: "CAD",
-      paymentMethod: "interac", recordedBy: u,
+      userId: u,
+      product: pCombo,
+      amountPaid: 9000,
+      currency: "CAD",
+      paymentMethod: "interac",
+      recordedBy: u,
     }),
   )
   // Reproduit deleteManualTransaction : revoke mono-type puis delete.
@@ -96,7 +107,9 @@ it("supprime une transaction combo (revoke + delete)", async () => {
 ```
 
 ### Correctif suggéré
+
 Réconcilier la révocation avec la sémantique combo. Au choix :
+
 1. Dans `deleteManualTransaction`/`updateManualTransaction`, **révoquer les deux types** quand
    la tx est combo (passer la liste des `accessType` réellement accordés, pas un seul), OU
 2. Avant le `DELETE`, **détacher** toute ligne `user_access` dont `lastTransactionId = txId`
@@ -112,11 +125,13 @@ Garder la cohérence avec I1 (remboursement combo).
 ## M1 — MOYENNE : `products.code` sans `UNIQUE` → résolution produit non déterministe
 
 **Fichiers** :
+
 - `db/schema/enums.ts:3-9` + `db/schema/payments.ts:29,48` (`code` = colonne + **index non unique**)
 - `features/payments/actions.ts:118-128` (`recordManualPayment` : lookup `eq(code) .limit(1)` **sans `orderBy`**)
 - Réf. Convex : `convex/payments.ts:836-838` et `:206-211` utilisaient `.withIndex("by_code").unique()`
 
 ### Description
+
 Côté Convex, la résolution d'un produit par code passait par `.unique()` : une **assertion
 runtime** garantissant l'unicité (throw si doublon). Le schéma Drizzle ne déclare qu'un
 `index("products_code_idx")` **non unique** (`payments.ts:48`). `recordManualPayment` fait :
@@ -136,12 +151,14 @@ actifs ; le `<Select>` du modal utilise `key={product.code}` (`manual-payment-mo
 Deux produits de même code ⇒ **clés React dupliquées** + entrée fantôme non sélectionnable.
 
 ### Impact
+
 Intégrité des données : la garantie d'unicité du code (invariant historique de l'app, porté par
 `.unique()` Convex) n'est plus appliquée nulle part. Contingent à l'existence d'un doublon — mais
 rien n'empêche d'en créer un, et le futur portage de `upsertProduct`/`seedProducts` (Convex) y
 serait exposé.
 
 ### Correctif suggéré
+
 Remplacer `index("products_code_idx")` par `uniqueIndex("products_code_unique")` (migration), et,
 défensivement, ajouter un `ORDER BY` déterministe dans le lookup. Cela restaure l'invariant et
 permet à un futur `onConflictDoUpdate({ target: products.code })` côté seed.
@@ -151,12 +168,14 @@ permet à un futur `onConflictDoUpdate({ target: products.code })` côté seed.
 ## M2 — MOYENNE : Server Actions forwardent `limit`/`offset`/filtres client **non bornés** au DAL
 
 **Fichiers** :
+
 - `features/payments/actions.ts:47-55` (`loadAdminTransactions(params)` → `getAllTransactions(params)`)
 - `features/payments/dal.ts:324-336` (`limit` paramétrable, défaut 20, **aucun plafond**)
 - `features/users/actions.ts:24-29` (`loadUsersPage(filters)` → `getUsersWithFilters(filters)`)
 - `features/users/dal.ts:138-148` (`limit`/`offset` paramétrables, **aucun plafond, aucun zod**)
 
 ### Description
+
 Les actions client-callable passent l'objet `params`/`filters` **tel quel** au DAL. Le type
 TypeScript de `loadAdminTransactions` n'expose pas `limit`, mais TS ne contraint pas le runtime :
 une requête forgée `{ type, status, limit: 100000 }` atteint `getAllTransactions` qui exécute
@@ -168,12 +187,14 @@ C'est une entorse directe à la règle « **IMPORTANT — Unbounded queries** : 
 c'est la **borne supérieure** qui manque.
 
 ### Impact
+
 Surface bornée à un **admin** (les deux actions sont derrière `requireRole(["admin"])`, et
 `requireRole` redirige les non-admins). Donc pas d'escalade ni de fuite cross-tenant : impact =
 auto-DoS / requête lourde déclenchable par un admin (ou un appel hors-UI authentifié admin). Réel
 mais à portée limitée → MOYENNE basse.
 
 ### Correctif suggéré
+
 Clamp serveur systématique : `const safeLimit = Math.min(Math.max(1, limit ?? 20), 100)` dans les
 DAL paginés, et valider `UsersFilters`/params via zod dans les actions (cohérent avec
 `recordManualPayment`/`updateManualTransaction`). Ne pas faire confiance au type pour borner le runtime.
@@ -185,12 +206,14 @@ DAL paginés, et valider `UsersFilters`/params via zod dans les actions (cohére
 **Fichiers** : `features/payments/dal.ts:34-63` (`getAccessStatus(userId?)`), `:69-95` (`hasAccess(type, userId?)`)
 
 ### Description
+
 Quand un `userId` explicite est fourni, ni `getAccessStatus` ni `hasAccess` ne vérifient que
 **l'appelant** a le droit de lire l'accès d'autrui. Pire, `hasAccess` applique le bypass admin sur
 le rôle de la **cible** (`dal.ts:80-86`) : `hasAccess("exam", X)` renvoie `true` si `X` est admin,
 quel que soit l'appelant.
 
 **État réel (mitigation)** — cette fois, **tous les chemins d'appel avec `userId` sont gardés en amont** :
+
 - `app/(admin)/layout.tsx:11` → `requireRole(["admin"])` (barrière serveur de tout le groupe admin) ;
 - `app/(admin)/admin/users/[id]/page.tsx:22` → `requireRole(["admin"])` explicite avant `getAccessStatus(id)` ;
 - `loadUserAccessStatus` (`actions.ts:79-85`) garde `requireRole`.
@@ -203,11 +226,13 @@ gardés, mais le **contrat dans le DAL** (« `userId` ⇒ admin ») n'est toujou
 de définition.
 
 ### Impact
+
 Aucun chemin exploitable aujourd'hui. Risque = un futur appelant (Server Action, route handler)
 qui passerait un `userId` client sans garde → fuite de statut d'accès / IDOR. Sévérité BASSE
 (latent).
 
 ### Correctif suggéré
+
 Mettre la garde **dans le DAL** : si `userId` est fourni et ≠ session courante, exiger
 `requireRole(["admin"])`. Et pour `hasAccess`, le bypass admin doit porter sur l'**appelant**, pas
 sur la cible.
@@ -219,8 +244,8 @@ sur la cible.
 **Fichier** : `features/users/dal.ts:206-212` (`sortBy === "role"` → `user.role`), réf. `convex/users.ts:836-839,849`
 
 `ORDER BY user.role` trie selon l'**ordre de l'enum** Postgres (`["user", "admin"]`,
-`enums.ts:35`) : asc ⇒ *user* puis *admin*. Convex triait `a.role`/`b.role` comme **chaînes**
-(`"admin" < "user"`) : asc ⇒ *admin* puis *user*. Le sens du tri par rôle est donc **inversé**
+`enums.ts:35`) : asc ⇒ _user_ puis _admin_. Convex triait `a.role`/`b.role` comme **chaînes**
+(`"admin" < "user"`) : asc ⇒ _admin_ puis _user_. Le sens du tri par rôle est donc **inversé**
 vs l'ancien comportement. Purement cosmétique (regroupement d'affichage d'un champ binaire), non
 couvert par les tests (qui ne testent que le tri par `name`). Correctif : `ORDER BY user.role::text`
 si la parité exacte est souhaitée.
@@ -258,9 +283,9 @@ Pas de violation de FK ici (la tx n'est pas supprimée).
   `node-postgres` + `pg.Pool`, donc `db.transaction()` = vraie transaction sur connexion dédiée ;
   `SELECT … FOR UPDATE` sur la ligne `user` (`lib.ts:61-66`, `:137-141`) verrouille et sérialise
   réellement deux octrois concurrents du même user, et grant vs revoke (même ordre de lock : ligne
-  `user` d'abord → pas de deadlock). Le cumul concurrent est correct. *(Le risque cité par la
+  `user` d'abord → pas de deadlock). Le cumul concurrent est correct. _(Le risque cité par la
   mission — un futur webhook Stripe écrivant `userAccess` sans verrouiller `user` — reste valable à
-  documenter, mais ce chemin n'existe pas encore en Drizzle.)*
+  documenter, mais ce chemin n'existe pas encore en Drizzle.)_
 
 - **FP-2 — Curseur keyset en ms vs colonne µs (saut/dédoublement).** Mitigé : `transactions.createdAt`
   est déclaré `timestamp({ precision: 3 })` (`payments.ts:85`), aligné sur la précision ms de
@@ -298,7 +323,7 @@ Pas de violation de FK ici (la tx n'est pas supprimée).
 - **FP-10 — Prédicat `accessStatus="expired"` mal formé.** Vérifié correct : les LEFT JOIN aliasés
   contraignent déjà `accessType`, donc `or(eq(exam.accessType,'exam'), eq(training.accessType,'training'))`
   = « a ≥ 1 ligne d'accès », combiné à « exam absent/expiré ET training absent/expiré »
-  (`users/dal.ts:171-177`). Un user *exam-expiré + training-actif* tombe bien en `active`, pas
+  (`users/dal.ts:171-177`). Un user _exam-expiré + training-actif_ tombe bien en `active`, pas
   `expired`. Conforme à Convex (`:812-818`) et couvert par les tests.
 
 - **FP-11 — Fuite d'info dans les erreurs.** Les actions renvoient des messages génériques

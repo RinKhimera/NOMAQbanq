@@ -8,11 +8,7 @@ import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { updateProfile } from "@/features/users/actions"
 import { CurrentUser } from "@/features/users/dal"
-import {
-  bioSchema,
-  nameSchema,
-  usernameSchema,
-} from "@/features/users/schemas"
+import { bioSchema, nameSchema, usernameSchema } from "@/features/users/schemas"
 import { InlineEditField } from "./inline-edit-field"
 
 type ProfilePersonalInfoProps = {
@@ -31,8 +27,7 @@ export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
       const result = await updateProfile({
         name: fieldName === "name" ? value : user.name,
         username: fieldName === "username" ? value : user.username || "",
-        bio:
-          fieldName === "bio" ? value || undefined : user.bio ?? undefined,
+        bio: fieldName === "bio" ? value || undefined : (user.bio ?? undefined),
       })
 
       if (result.success) {

@@ -1,13 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Idempotent one-shot import: Convex snapshot -> Neon (develop).
 // Usage: bun run scripts/import-from-convex.ts [snapshotDir=convex-snapshot]
-import { existsSync, readFileSync } from "node:fs"
-import { join } from "node:path"
-
 import { config } from "dotenv"
 import { drizzle } from "drizzle-orm/node-postgres"
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { Pool } from "pg"
-
 import * as schema from "@/db/schema"
 import { createId } from "@/lib/ids"
 
@@ -241,7 +239,8 @@ async function main() {
       stripePaymentIntentId: d.stripePaymentIntentId ?? null,
       stripeEventId: d.stripeEventId ?? null,
       paymentMethod: d.paymentMethod ?? null,
-      recordedBy: d.recordedBy && userIds.has(d.recordedBy) ? d.recordedBy : null,
+      recordedBy:
+        d.recordedBy && userIds.has(d.recordedBy) ? d.recordedBy : null,
       notes: d.notes ?? null,
       accessType: d.accessType,
       durationDays: d.durationDays,
@@ -262,7 +261,9 @@ async function main() {
       continue
     }
     if (!transactionIds.has(d.lastTransactionId)) {
-      note(`userAccess ${d._id}: transaction ${d.lastTransactionId} absente -> ignoré`)
+      note(
+        `userAccess ${d._id}: transaction ${d.lastTransactionId} absente -> ignoré`,
+      )
       continue
     }
     userAccess.push({
@@ -302,7 +303,8 @@ async function main() {
       score: d.score,
       status: d.status ?? "in_progress",
       startedAt: d.startedAt ? ms(d.startedAt) : null,
-      completedAt: d.completedAt && d.completedAt !== 0 ? ms(d.completedAt) : null,
+      completedAt:
+        d.completedAt && d.completedAt !== 0 ? ms(d.completedAt) : null,
       pausePhase: d.pausePhase ?? null,
       pauseStartedAt: d.pauseStartedAt ? ms(d.pauseStartedAt) : null,
       pauseEndedAt: d.pauseEndedAt ? ms(d.pauseEndedAt) : null,
@@ -389,13 +391,22 @@ async function main() {
       createdAt: ms(d._creationTime),
       updatedAt: ms(d._creationTime),
     })
-    sessionQuestionIds.set(d._id, Array.isArray(d.questionIds) ? d.questionIds : [])
+    sessionQuestionIds.set(
+      d._id,
+      Array.isArray(d.questionIds) ? d.questionIds : [],
+    )
   }
   const sessionIds = new Set(trainingSessions.map((s) => s.id))
-  await insertBatched(schema.trainingSessions, trainingSessions, "training_sessions")
+  await insertBatched(
+    schema.trainingSessions,
+    trainingSessions,
+    "training_sessions",
+  )
   report.training_sessions = trainingSessions.length
   if (skippedInProgress > 0)
-    console.log(`[info] ${skippedInProgress} sessions training in_progress non migrées`)
+    console.log(
+      `[info] ${skippedInProgress} sessions training in_progress non migrées`,
+    )
 
   // 13. training_session_items: build from session questionIds[], merge answers
   const answerByKey = new Map<string, Doc>()
@@ -423,7 +434,11 @@ async function main() {
       })
     })
   }
-  await insertBatched(schema.trainingSessionItems, items, "training_session_items")
+  await insertBatched(
+    schema.trainingSessionItems,
+    items,
+    "training_session_items",
+  )
   report.training_session_items = items.length
 
   console.log("\n=== RÉSUMÉ IMPORT (inséré / tenté) ===")

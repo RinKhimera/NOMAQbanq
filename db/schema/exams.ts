@@ -9,11 +9,9 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core"
-
 import { createId } from "@/lib/ids"
-
 import { user } from "./auth"
-import { examPausePhase, examParticipationStatus } from "./enums"
+import { examParticipationStatus, examPausePhase } from "./enums"
 import { questions } from "./questions"
 
 export const exams = pgTable(

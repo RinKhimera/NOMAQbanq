@@ -2,9 +2,7 @@
 import { SendEmailCommand } from "@aws-sdk/client-sesv2"
 import { render } from "@react-email/render"
 import type { ReactElement } from "react"
-
 import { env } from "@/lib/env/server"
-
 import { getSesClient } from "./client"
 
 export interface SendEmailInput {
@@ -24,7 +22,9 @@ export async function sendEmail({
 
   // Sandbox : redirige tous les envois vers une adresse vérifiée, sujet annoté.
   const recipient = env.EMAIL_OVERRIDE_TO ?? to
-  const finalSubject = env.EMAIL_OVERRIDE_TO ? `[DEV → ${to}] ${subject}` : subject
+  const finalSubject = env.EMAIL_OVERRIDE_TO
+    ? `[DEV → ${to}] ${subject}`
+    : subject
 
   const [html, text] = await Promise.all([
     render(react),

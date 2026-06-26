@@ -1,9 +1,12 @@
-import "server-only"
-
 import { and, eq, inArray, lt, sql } from "drizzle-orm"
-
+import "server-only"
 import { db } from "@/db"
-import { examAnswers, examParticipations, examQuestions, exams } from "@/db/schema"
+import {
+  examAnswers,
+  examParticipations,
+  examQuestions,
+  exams,
+} from "@/db/schema"
 
 export type CloseExpiredParticipationsResult = {
   closedCount: number
@@ -61,7 +64,9 @@ export async function closeExpiredExamParticipations(): Promise<CloseExpiredPart
       .where(inArray(examQuestions.examId, examIds))
       .groupBy(examQuestions.examId),
   ])
-  const correctMap = new Map(correctRows.map((r) => [r.participationId, r.correct]))
+  const correctMap = new Map(
+    correctRows.map((r) => [r.participationId, r.correct]),
+  )
   const totalMap = new Map(totalRows.map((r) => [r.examId, r.total]))
 
   let closedCount = 0

@@ -1,5 +1,4 @@
 import { Suspense } from "react"
-
 import { getAvailableProducts } from "@/features/payments/dal"
 import {
   getSelectableUsers,
@@ -7,7 +6,6 @@ import {
   getUsersStats,
   getUsersWithFilters,
 } from "@/features/users/dal"
-
 import { UsersManager } from "./_components/users-manager"
 
 // Données initiales côté serveur (DAL admin, garde `requireRole`). Le manager

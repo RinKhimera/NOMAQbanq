@@ -4,7 +4,6 @@ import { Mail } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-
 import { Button } from "@/components/ui/button"
 import { authClient } from "@/lib/auth-client"
 import { mapAuthError } from "@/lib/auth-errors"
@@ -72,8 +71,9 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
           </p>
         ) : (
           <p className="text-muted-foreground text-sm">
-            Votre compte n&apos;est pas encore activé. Nous venons de renvoyer un
-            lien de confirmation à <span className="font-medium">{email}</span>.
+            Votre compte n&apos;est pas encore activé. Nous venons de renvoyer
+            un lien de confirmation à{" "}
+            <span className="font-medium">{email}</span>.
           </p>
         )}
       </div>

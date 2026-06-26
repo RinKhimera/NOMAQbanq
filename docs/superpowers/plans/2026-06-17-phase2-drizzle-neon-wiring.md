@@ -19,17 +19,17 @@
 
 ## File Structure
 
-| File | Responsibility |
-|---|---|
-| `lib/ids.ts` | Application PK generator (`createId()` → UUID v4). Pure. |
-| `lib/env/schema.ts` | Pure zod env schema + `loadServerEnv()` (no Next/`server-only` imports). |
-| `lib/env/server.ts` | Boots & caches the validated server env (`export const env`). Server-only by convention. |
-| `db/schema/auth.ts` | Better Auth tables (moved from `lib/auth-schema.ts`). |
-| `db/schema/index.ts` | Schema barrel (`export *`) consumed by the client and Better Auth. |
-| `db/index.ts` | Single `pg` Pool + `drizzle()` client (`export const db`). |
-| `lib/auth.ts` | Better Auth instance — rewired to the shared `db` + `env` (minimal; full config in Phase 4). |
-| `drizzle/**` | Generated, versioned migration SQL. |
-| `tests/lib/ids.test.ts`, `tests/lib/env.test.ts` | Unit tests for the pure helpers. |
+| File                                             | Responsibility                                                                               |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `lib/ids.ts`                                     | Application PK generator (`createId()` → UUID v4). Pure.                                     |
+| `lib/env/schema.ts`                              | Pure zod env schema + `loadServerEnv()` (no Next/`server-only` imports).                     |
+| `lib/env/server.ts`                              | Boots & caches the validated server env (`export const env`). Server-only by convention.     |
+| `db/schema/auth.ts`                              | Better Auth tables (moved from `lib/auth-schema.ts`).                                        |
+| `db/schema/index.ts`                             | Schema barrel (`export *`) consumed by the client and Better Auth.                           |
+| `db/index.ts`                                    | Single `pg` Pool + `drizzle()` client (`export const db`).                                   |
+| `lib/auth.ts`                                    | Better Auth instance — rewired to the shared `db` + `env` (minimal; full config in Phase 4). |
+| `drizzle/**`                                     | Generated, versioned migration SQL.                                                          |
+| `tests/lib/ids.test.ts`, `tests/lib/env.test.ts` | Unit tests for the pure helpers.                                                             |
 
 > Out of scope for Phase 2 (later phases): domain tables/enums (Phase 3), Better Auth admin plugin + custom user fields + `rate_limit` (Phase 4), per-domain DB test harness (Phase 5).
 
@@ -38,20 +38,24 @@
 ### Task 0: Dependencies & db scripts
 
 **Files:**
+
 - Modify: `package.json` (deps + scripts)
 
 - [ ] **Step 1: Install runtime + tooling deps**
 
 Run:
+
 ```bash
 bun add @vercel/functions
 bun add -d dotenv
 ```
+
 Expected: `@vercel/functions` in `dependencies`, `dotenv` in `devDependencies`, `bun.lock` updated. (`drizzle-kit`, `zod`, `pg`, `@types/pg` are already present.)
 
 - [ ] **Step 2: Add Drizzle scripts to `package.json`**
 
 In the `"scripts"` block, add:
+
 ```json
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
@@ -71,15 +75,16 @@ git commit -m "chore(db): add @vercel/functions, dotenv, and drizzle-kit scripts
 ### Task 1: ID helper (`createId`)
 
 **Files:**
+
 - Create: `lib/ids.ts`
 - Test: `tests/lib/ids.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `tests/lib/ids.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest"
-
 import { createId } from "@/lib/ids"
 
 describe("createId", () => {
@@ -103,6 +108,7 @@ Expected: FAIL — cannot resolve `@/lib/ids`.
 - [ ] **Step 3: Write the minimal implementation**
 
 `lib/ids.ts`:
+
 ```ts
 import { randomUUID } from "node:crypto"
 
@@ -127,15 +133,16 @@ git commit -m "feat(db): add createId() UUID helper"
 ### Task 2: Env validation (`lib/env`)
 
 **Files:**
+
 - Create: `lib/env/schema.ts`, `lib/env/server.ts`
 - Test: `tests/lib/env.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `tests/lib/env.test.ts`:
+
 ```ts
 import { describe, expect, it } from "vitest"
-
 import { loadServerEnv, stripEmpty } from "@/lib/env/schema"
 
 const valid = {
@@ -177,6 +184,7 @@ Expected: FAIL — cannot resolve `@/lib/env/schema`.
 - [ ] **Step 3: Write the schema**
 
 `lib/env/schema.ts`:
+
 ```ts
 import { z } from "zod"
 
@@ -231,6 +239,7 @@ Expected: PASS (4 tests).
 - [ ] **Step 5: Add the server boot module**
 
 `lib/env/server.ts`:
+
 ```ts
 // NE PAS importer ce fichier depuis un composant 'use client'.
 import { loadServerEnv } from "./schema"
@@ -250,6 +259,7 @@ git commit -m "feat(env): zod-validated server env (fails boot on missing vars)"
 ### Task 3: Relocate the Better Auth schema into `db/schema/**`
 
 **Files:**
+
 - Move: `lib/auth-schema.ts` → `db/schema/auth.ts`
 - Create: `db/schema/index.ts`
 - Modify: `lib/auth.ts:5` (import path)
@@ -257,14 +267,17 @@ git commit -m "feat(env): zod-validated server env (fails boot on missing vars)"
 - [ ] **Step 1: Move the schema file (preserve history)**
 
 Run:
+
 ```bash
 git mv lib/auth-schema.ts db/schema/auth.ts
 ```
+
 Expected: `db/schema/auth.ts` exists, `lib/auth-schema.ts` gone. Content unchanged (the 4 tables + relations).
 
 - [ ] **Step 2: Create the schema barrel**
 
 `db/schema/index.ts`:
+
 ```ts
 export * from "./auth"
 ```
@@ -272,12 +285,15 @@ export * from "./auth"
 - [ ] **Step 3: Fix the import in `lib/auth.ts`**
 
 In `lib/auth.ts`, replace:
+
 ```ts
-import * as schema from "./auth-schema";
+import * as schema from "./auth-schema"
 ```
+
 with:
+
 ```ts
-import * as schema from "@/db/schema";
+import * as schema from "@/db/schema"
 ```
 
 - [ ] **Step 4: Verify type-check passes**
@@ -297,18 +313,18 @@ git commit -m "refactor(db): move Better Auth schema into db/schema and add barr
 ### Task 4: Single DB client (`db/index.ts`)
 
 **Files:**
+
 - Create: `db/index.ts`
 
 - [ ] **Step 1: Write the client**
 
 `db/index.ts`:
+
 ```ts
 import { attachDatabasePool } from "@vercel/functions"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
-
 import { env } from "@/lib/env/server"
-
 import * as schema from "./schema"
 
 // One pool created at module scope, reused across requests (Vercel Fluid Compute).
@@ -339,6 +355,7 @@ git commit -m "feat(db): single pg Pool drizzle client (Vercel Fluid Compute)"
 ### Task 5: Rewire `lib/auth.ts` to the shared client (minimal)
 
 **Files:**
+
 - Modify: `lib/auth.ts` (full file)
 
 > Minimal Phase-2 wiring only: shared `db`, `baseURL` from env. The admin plugin, email verification, `nextCookies()`, and `rate_limit` are Phase 4.
@@ -346,10 +363,10 @@ git commit -m "feat(db): single pg Pool drizzle client (Vercel Fluid Compute)"
 - [ ] **Step 1: Replace the file contents**
 
 `lib/auth.ts`:
+
 ```ts
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-
 import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { env } from "@/lib/env/server"
@@ -386,6 +403,7 @@ git commit -m "refactor(auth): use shared db client and env baseURL"
 ### Task 6: Generate & apply the first migration to `develop`
 
 **Files:**
+
 - Create: `drizzle/0000_*.sql` + `drizzle/meta/**` (generated)
 
 - [ ] **Step 1: Generate the migration from the schema**
@@ -405,9 +423,11 @@ Expected: applies cleanly, prints the applied migration name, no errors. (If SSL
 - [ ] **Step 4: Verify the tables exist on `develop`**
 
 Verify via the Neon MCP `run_sql` tool against project `lucky-waterfall-33371811`, branch `develop` (`br-restless-morning-ad4uyo3t`):
+
 ```sql
 SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;
 ```
+
 Expected rows include: `account`, `session`, `user`, `verification` (+ drizzle's `__drizzle_migrations`).
 
 - [ ] **Step 5: Commit**

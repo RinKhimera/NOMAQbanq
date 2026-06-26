@@ -41,7 +41,10 @@ export async function GET(request: Request) {
       closeExpiredTrainingSessions(),
     ])
 
-    if (examParticipations.closedCount > 0 || trainingSessions.closedCount > 0) {
+    if (
+      examParticipations.closedCount > 0 ||
+      trainingSessions.closedCount > 0
+    ) {
       console.log(
         `[cron close-expired] examens fermés=${examParticipations.closedCount} ` +
           `sessions fermées=${trainingSessions.closedCount}`,

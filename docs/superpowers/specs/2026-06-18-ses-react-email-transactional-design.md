@@ -38,16 +38,16 @@ de la politique d'enforcement de la vérification (réservée à une autre sessi
 
 ## 3. Décisions de cadrage (résolues)
 
-| Sujet | Décision |
-| --- | --- |
-| Fournisseur | AWS SES, région **`us-east-2`** (déduite du MAIL FROM `feedback-smtp.us-east-2.amazonses.com`). |
-| Transport | SDK **`@aws-sdk/client-sesv2`** (pas SMTP/nodemailer) — natif, léger en serverless. |
-| Architecture | Module `email/` dédié (cœur agnostique + adaptateur SES), templates séparés. |
-| Emplacement | Dossier **`email/` à la racine** (alias `@/email/*`, `@/*` → `./*`). |
-| Bounces/plaintes | **Liste de suppression compte SES (auto)** + configuration set pour métriques CloudWatch. Pas de webhook. |
-| Adresse From | `NOMAQbanq <noreply@nomaqbanq.ca>` (sous le domaine vérifié `nomaqbanq.ca`). |
-| Politique de vérif. | **Hors périmètre** — `requireEmailVerification` reste OFF, commenté pour la session migration. |
-| Sandbox | `EMAIL_OVERRIDE_TO` redirige les envois vers une adresse vérifiée le temps du sandbox. |
+| Sujet               | Décision                                                                                                  |
+| ------------------- | --------------------------------------------------------------------------------------------------------- |
+| Fournisseur         | AWS SES, région **`us-east-2`** (déduite du MAIL FROM `feedback-smtp.us-east-2.amazonses.com`).           |
+| Transport           | SDK **`@aws-sdk/client-sesv2`** (pas SMTP/nodemailer) — natif, léger en serverless.                       |
+| Architecture        | Module `email/` dédié (cœur agnostique + adaptateur SES), templates séparés.                              |
+| Emplacement         | Dossier **`email/` à la racine** (alias `@/email/*`, `@/*` → `./*`).                                      |
+| Bounces/plaintes    | **Liste de suppression compte SES (auto)** + configuration set pour métriques CloudWatch. Pas de webhook. |
+| Adresse From        | `NOMAQbanq <noreply@nomaqbanq.ca>` (sous le domaine vérifié `nomaqbanq.ca`).                              |
+| Politique de vérif. | **Hors périmètre** — `requireEmailVerification` reste OFF, commenté pour la session migration.            |
+| Sandbox             | `EMAIL_OVERRIDE_TO` redirige les envois vers une adresse vérifiée le temps du sandbox.                    |
 
 ### Distinction importante (identité vs From vs MAIL FROM)
 
@@ -90,14 +90,14 @@ démarre en dev/CI sans config SES ; `sendEmail` lève une erreur claire à l'us
 valeur requise manque. **Pas de préfixe `AWS_`** (réservé par Vercel/Lambda) — les
 credentials sont passés explicitement au client.
 
-| Variable | Requise pour envoyer | Défaut | Rôle |
-| --- | --- | --- | --- |
-| `SES_REGION` | non | `us-east-2` | Région SES. |
-| `SES_ACCESS_KEY_ID` | oui | — | Clé IAM (policy `ses:SendEmail`). |
-| `SES_SECRET_ACCESS_KEY` | oui | — | Secret IAM. |
-| `EMAIL_FROM` | oui | — | `NOMAQbanq <noreply@nomaqbanq.ca>`. |
-| `SES_CONFIGURATION_SET` | non | — | Nom du configuration set (métriques CloudWatch). |
-| `EMAIL_OVERRIDE_TO` | non | — | Si défini : redirige TOUS les envois vers cette adresse (sandbox). |
+| Variable                | Requise pour envoyer | Défaut      | Rôle                                                               |
+| ----------------------- | -------------------- | ----------- | ------------------------------------------------------------------ |
+| `SES_REGION`            | non                  | `us-east-2` | Région SES.                                                        |
+| `SES_ACCESS_KEY_ID`     | oui                  | —           | Clé IAM (policy `ses:SendEmail`).                                  |
+| `SES_SECRET_ACCESS_KEY` | oui                  | —           | Secret IAM.                                                        |
+| `EMAIL_FROM`            | oui                  | —           | `NOMAQbanq <noreply@nomaqbanq.ca>`.                                |
+| `SES_CONFIGURATION_SET` | non                  | —           | Nom du configuration set (métriques CloudWatch).                   |
+| `EMAIL_OVERRIDE_TO`     | non                  | —           | Si défini : redirige TOUS les envois vers cette adresse (sandbox). |
 
 Validation : `z.string().optional()` pour toutes (cohérent avec le pattern `stripEmpty`
 existant qui traite `""` comme absent).
@@ -105,6 +105,7 @@ existant qui traite `""` comme absent).
 ## 6. Détail des modules
 
 ### `email/client.ts`
+
 Singleton au scope module (comme le pool `db/index.ts`). Lève une erreur explicite si
 `SES_ACCESS_KEY_ID` / `SES_SECRET_ACCESS_KEY` manquent. Credentials passés **explicitement**.
 
@@ -116,7 +117,9 @@ import { env } from "@/lib/env/server"
 let client: SESv2Client | undefined
 export function getSesClient(): SESv2Client {
   if (!env.SES_ACCESS_KEY_ID || !env.SES_SECRET_ACCESS_KEY)
-    throw new Error("SES : SES_ACCESS_KEY_ID / SES_SECRET_ACCESS_KEY manquantes")
+    throw new Error(
+      "SES : SES_ACCESS_KEY_ID / SES_SECRET_ACCESS_KEY manquantes",
+    )
   client ??= new SESv2Client({
     region: env.SES_REGION ?? "us-east-2",
     credentials: {
@@ -129,6 +132,7 @@ export function getSesClient(): SESv2Client {
 ```
 
 ### `email/send.ts`
+
 Cœur générique. Rend le template en **HTML et texte** (meilleure délivrabilité), applique
 la redirection `EMAIL_OVERRIDE_TO` si présente, construit `SendEmailCommand`.
 
@@ -145,12 +149,18 @@ export interface SendEmailInput {
   react: ReactElement
 }
 
-export async function sendEmail({ to, subject, react }: SendEmailInput): Promise<string> {
+export async function sendEmail({
+  to,
+  subject,
+  react,
+}: SendEmailInput): Promise<string> {
   if (!env.EMAIL_FROM) throw new Error("EMAIL_FROM manquante")
 
   // Redirection sandbox : tout part vers EMAIL_OVERRIDE_TO, sujet annoté.
   const recipient = env.EMAIL_OVERRIDE_TO ?? to
-  const finalSubject = env.EMAIL_OVERRIDE_TO ? `[DEV → ${to}] ${subject}` : subject
+  const finalSubject = env.EMAIL_OVERRIDE_TO
+    ? `[DEV → ${to}] ${subject}`
+    : subject
 
   const [html, text] = await Promise.all([
     render(react),
@@ -183,6 +193,7 @@ export async function sendEmail({ to, subject, react }: SendEmailInput): Promise
 > l'option `{ plainText: true }` produit la version texte.
 
 ### Templates (`email/templates/`)
+
 `email-layout.tsx` : composant wrapper (`Html`/`Head`/`Body`/`Container`) avec en-tête de
 marque et pied de page FR, réutilisé par les deux emails. Composants importés de
 `@react-email/components`.
@@ -195,6 +206,7 @@ en clair** (au cas où le bouton ne s'affiche pas), une mention d'expiration, et
 - `reset-password-email.tsx` — props `{ url: string }`.
 
 ### `email/index.tsx`
+
 Helpers métier (fichier `.tsx` car instancie du JSX) :
 
 ```tsx
@@ -202,7 +214,13 @@ import { sendEmail } from "./send"
 import { ResetPasswordEmail } from "./templates/reset-password-email"
 import { VerificationEmail } from "./templates/verification-email"
 
-export function sendVerificationEmail({ to, url }: { to: string; url: string }) {
+export function sendVerificationEmail({
+  to,
+  url,
+}: {
+  to: string
+  url: string
+}) {
   return sendEmail({
     to,
     subject: "Vérifiez votre adresse courriel — NOMAQbanq",
@@ -278,7 +296,7 @@ Objectif : rester au-dessus du seuil de couverture 75 % du projet.
    ```
 3. **Sortie du sandbox** : demande d'accès production en cours côté AWS (réponse au support
    fournie). Tant qu'on est en sandbox : `EMAIL_OVERRIDE_TO=dixiades@gmail.com` (adresse
-   vérifiée) ou utiliser le *mailbox simulator* (`success@simulator.amazonses.com`, etc.).
+   vérifiée) ou utiliser le _mailbox simulator_ (`success@simulator.amazonses.com`, etc.).
 
 ## 11. Suite (après ce lot)
 

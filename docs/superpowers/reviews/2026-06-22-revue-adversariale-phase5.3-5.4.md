@@ -10,18 +10,18 @@
 
 ## 1. Tableau des trouvailles (trié par sévérité)
 
-| # | Sév. | Fichier:ligne | Problème | Régression ? |
-|---|------|---------------|----------|--------------|
-| F1 | 🔴 HAUTE (impact) | `features/questions/actions.ts:103`, `features/questions/dal.ts:420,343` | Moisson publique de la banque : `scoreQuizAnswers` renvoie `correctAnswer`+`explanation`+`references` pour des **ids arbitraires**, sans auth ni liaison à un quiz émis serveur ; `getRandomQuizQuestions` distribue des ids aléatoires. Combinés → exfiltration de toute la banque + explications par un anonyme. | **NON** — parité Convex |
-| F2 | 🟠 MOYENNE | `features/training/actions.ts:104‑128,164`, `db/schema/training.ts:42` | Garde « session déjà en cours » + rate-limit + insert **non atomiques** : 2 requêtes concurrentes créent 2 sessions `in_progress` (ou dépassent 10/h). | **OUI** vs Convex |
-| F3 | 🟠 MOYENNE | `features/questions/dal.ts:30,111,144`, `db/schema/questions.ts:24` | Keyset questions : curseur encodé en **précision ms** (`Date.toISOString`) vs colonne `created_at` en **µs** (`now()`). Lignes créées dans la même ms (import en masse) **sautées** aux frontières de page. Classe du bug H2 (revue 5.2). | **OUI** vs Convex |
-| F4 | 🟠 MOYENNE | `components/admin/question-browser/question-browser-table.tsx:169‑208`, `…/question-browser-context.tsx:104`, `features/questions/dal.ts:97` | Tri par colonne **cassé** : les en-têtes Question/Domaine/Objectif CMC déclenchent `handleSort` mais le DAL ignore `sortBy` et trie **toujours** par `createdAt`. L'indicateur de tri ment. | **OUI** (probable) |
-| F5 | 🟡 BASSE | `features/training/dal.ts:436‑444`, `features/training/actions.ts:263` | `isCorrect` exposé par réponse dans le payload **in-progress** + ré-réponse autorisée → la bonne réponse est dérivable par inspection réseau. (`correctAnswer` lui correctement masqué.) | NON — parité Convex |
-| F6 | 🟡 BASSE | `app/(admin)/admin/questions/_components/question-form-page.tsx:231,255` | En édition, **retirer toutes les images** n'est pas persisté : `setQuestionImages` n'est appelé que `if (length > 0)`. | Contexte Phase 7 |
-| F7 | 🟡 BASSE | `features/questions/dal.ts:554`, `…/export-questions-button.tsx:204` | Export borné à **5000** silencieusement ; le bouton affiche `totalCount`. Banque > 5000 ⇒ export tronqué sans signal. | Dette (≈ accepté) |
-| F8 | ℹ️ INFO | `app/(marketing)/evaluation/quiz/page.tsx:208` | Quiz public ne passe pas `showCorrectAnswer={false}` → défaut `true`. Sûr **uniquement** parce que le payload n'inclut pas `correctAnswer`. Fragilité. | NON |
-| F9 | ℹ️ INFO | `question-side-panel.tsx:377` | Copy « définitivement supprimée / irréversible » alors que `deleteQuestion` est un **soft-delete**. | Préexistant |
-| F10 | ℹ️ INFO | `tests/integration/training.test.ts:82,223`, `tests/integration/questions-dal.test.ts:93` | Trous de couverture : gardes non-admin de `saveTrainingAnswer`/`completeTrainingSession` jamais exercées (tests en admin) ; IDOR cross-user non testé ; test keyset utilise des `createdAt` espacés (ne couvre pas F3). | — |
+| #   | Sév.              | Fichier:ligne                                                                                                                                | Problème                                                                                                                                                                                                                                                                                                           | Régression ?            |
+| --- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
+| F1  | 🔴 HAUTE (impact) | `features/questions/actions.ts:103`, `features/questions/dal.ts:420,343`                                                                     | Moisson publique de la banque : `scoreQuizAnswers` renvoie `correctAnswer`+`explanation`+`references` pour des **ids arbitraires**, sans auth ni liaison à un quiz émis serveur ; `getRandomQuizQuestions` distribue des ids aléatoires. Combinés → exfiltration de toute la banque + explications par un anonyme. | **NON** — parité Convex |
+| F2  | 🟠 MOYENNE        | `features/training/actions.ts:104‑128,164`, `db/schema/training.ts:42`                                                                       | Garde « session déjà en cours » + rate-limit + insert **non atomiques** : 2 requêtes concurrentes créent 2 sessions `in_progress` (ou dépassent 10/h).                                                                                                                                                             | **OUI** vs Convex       |
+| F3  | 🟠 MOYENNE        | `features/questions/dal.ts:30,111,144`, `db/schema/questions.ts:24`                                                                          | Keyset questions : curseur encodé en **précision ms** (`Date.toISOString`) vs colonne `created_at` en **µs** (`now()`). Lignes créées dans la même ms (import en masse) **sautées** aux frontières de page. Classe du bug H2 (revue 5.2).                                                                          | **OUI** vs Convex       |
+| F4  | 🟠 MOYENNE        | `components/admin/question-browser/question-browser-table.tsx:169‑208`, `…/question-browser-context.tsx:104`, `features/questions/dal.ts:97` | Tri par colonne **cassé** : les en-têtes Question/Domaine/Objectif CMC déclenchent `handleSort` mais le DAL ignore `sortBy` et trie **toujours** par `createdAt`. L'indicateur de tri ment.                                                                                                                        | **OUI** (probable)      |
+| F5  | 🟡 BASSE          | `features/training/dal.ts:436‑444`, `features/training/actions.ts:263`                                                                       | `isCorrect` exposé par réponse dans le payload **in-progress** + ré-réponse autorisée → la bonne réponse est dérivable par inspection réseau. (`correctAnswer` lui correctement masqué.)                                                                                                                           | NON — parité Convex     |
+| F6  | 🟡 BASSE          | `app/(admin)/admin/questions/_components/question-form-page.tsx:231,255`                                                                     | En édition, **retirer toutes les images** n'est pas persisté : `setQuestionImages` n'est appelé que `if (length > 0)`.                                                                                                                                                                                             | Contexte Phase 7        |
+| F7  | 🟡 BASSE          | `features/questions/dal.ts:554`, `…/export-questions-button.tsx:204`                                                                         | Export borné à **5000** silencieusement ; le bouton affiche `totalCount`. Banque > 5000 ⇒ export tronqué sans signal.                                                                                                                                                                                              | Dette (≈ accepté)       |
+| F8  | ℹ️ INFO           | `app/(marketing)/evaluation/quiz/page.tsx:208`                                                                                               | Quiz public ne passe pas `showCorrectAnswer={false}` → défaut `true`. Sûr **uniquement** parce que le payload n'inclut pas `correctAnswer`. Fragilité.                                                                                                                                                             | NON                     |
+| F9  | ℹ️ INFO           | `question-side-panel.tsx:377`                                                                                                                | Copy « définitivement supprimée / irréversible » alors que `deleteQuestion` est un **soft-delete**.                                                                                                                                                                                                                | Préexistant             |
+| F10 | ℹ️ INFO           | `tests/integration/training.test.ts:82,223`, `tests/integration/questions-dal.test.ts:93`                                                    | Trous de couverture : gardes non-admin de `saveTrainingAnswer`/`completeTrainingSession` jamais exercées (tests en admin) ; IDOR cross-user non testé ; test keyset utilise des `createdAt` espacés (ne couvre pas F3).                                                                                            | —                       |
 
 ---
 
@@ -30,11 +30,13 @@
 ### 🔴 F1 — Moisson publique de la banque (clé de correction + explications pour ids arbitraires)
 
 **Code.**
+
 - `features/questions/actions.ts:103‑126` — `scoreQuizAnswers` : aucune garde, prend `answers[]` (borné `slice(0,50)` par appel mais **appels illimités**), résout via `getQuizAnswerKey`.
 - `features/questions/dal.ts:420‑449` — `getQuizAnswerKey(questionIds)` : `SELECT correctAnswer, explanation, references … WHERE id IN (…) AND deletedAt IS NULL`. Renvoie la clé pour **n'importe quel id non supprimé**, sans vérifier que l'id appartient à un quiz réellement servi à l'appelant.
 - `features/questions/dal.ts:343‑406` — `getRandomQuizQuestions` : aucune garde, renvoie `_id` de `count` (1..50) questions aléatoires.
 
 **Pourquoi c'est un vrai bug.** Les deux Server Actions sont des endpoints POST publics. Un attaquant anonyme :
+
 1. appelle `loadRandomQuizQuestions({count:50})` en boucle pour énumérer les `_id` (coupon-collector ≈ quelques centaines d'appels pour ~3000 questions) ;
 2. appelle `scoreQuizAnswers` avec ces ids (50/appel) pour récupérer `correctAnswer` + `explanation` + `references`.
 
@@ -63,6 +65,7 @@ Soit **~500 requêtes non authentifiées pour exfiltrer l'intégralité de la ba
 **Code.** `features/questions/dal.ts:30‑31` `encodeCursor = base64(createdAt.toISOString() + "|" + id)` (ISO = **ms**) ; prédicat `:111‑127` ; `orderBy (createdAt desc, id desc)` `:144‑160`. Schéma `db/schema/questions.ts:24` : `created_at … defaultNow()` → `now()` Postgres = **microsecondes**. Driver `db/index.ts` : `pg` (node-postgres) parse `timestamptz` en `Date` JS (**ms**, µs perdus en lecture).
 
 **Pourquoi c'est un vrai bug.** Le curseur est construit depuis un `Date` (ms) puis renvoyé comme paramètre ms, alors que la colonne porte des µs. Pour la ligne frontière `B` (created_at `…123456` µs), le curseur stocke `…123` (= `…123000` µs après décodage). Le prédicat page suivante `created_at < …123000 OR (= …123000 AND id < B.id)` :
+
 - exclut bien `B` (pas de **doublon**) ;
 - mais **saute** toute ligne `R` créée dans la même ms avec µs ∈ (`…123000`, `…123456`) : `R` trie après `B` (devrait être page suivante) mais ne satisfait ni `<` ni `=`.
 
@@ -150,11 +153,11 @@ Les tests **tournent vraiment contre Postgres** (seul `getCurrentSession`/`requi
 
 **Correctifs à planifier (non bloquants pour empiler, mais avant bascule publique) :**
 
-| Priorité | Correctif |
-|----------|-----------|
-| **Avant tout déploiement public** | **F1** — empêcher la moisson de la banque (token de quiz signé + rate-limit ; ne pas renvoyer `explanation`/`references` pour ids hors quiz). |
-| Avant cutover prod | **F2** — index partiel unique `in_progress` par user (atomicité). **F3** — précision µs du curseur keyset questions (ou garantir `created_at` ms ; **confirmer la stratégie d'import**). **F4** — tri par colonne (implémenter `sortBy` ou retirer les en-têtes trompeurs). |
-| Polish / durcissement | F5 (omettre `isCorrect` in-progress), F6 (clear images), F7 (signal troncature export), F8 (showCorrectAnswer explicite), F9 (copy soft-delete), F10 (tests non-admin + IDOR + keyset µs). |
+| Priorité                          | Correctif                                                                                                                                                                                                                                                                   |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Avant tout déploiement public** | **F1** — empêcher la moisson de la banque (token de quiz signé + rate-limit ; ne pas renvoyer `explanation`/`references` pour ids hors quiz).                                                                                                                               |
+| Avant cutover prod                | **F2** — index partiel unique `in_progress` par user (atomicité). **F3** — précision µs du curseur keyset questions (ou garantir `created_at` ms ; **confirmer la stratégie d'import**). **F4** — tri par colonne (implémenter `sortBy` ou retirer les en-têtes trompeurs). |
+| Polish / durcissement             | F5 (omettre `isCorrect` in-progress), F6 (clear images), F7 (signal troncature export), F8 (showCorrectAnswer explicite), F9 (copy soft-delete), F10 (tests non-admin + IDOR + keyset µs).                                                                                  |
 
 ---
 

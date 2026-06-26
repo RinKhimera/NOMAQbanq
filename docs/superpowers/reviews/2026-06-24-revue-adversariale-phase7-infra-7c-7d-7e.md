@@ -4,7 +4,7 @@
 - **Scope** :
   - 7c + 7d + 7e — **tous committés** (l'arbre de travail est propre : `git diff HEAD`
     est vide). Range effectif : `git diff 130e9b0..HEAD` = `ef52911` (cron Vercel)
-    + `bbd9afa` (uploaders Bunny + Server Actions + audit taint). 18 fichiers.
+    - `bbd9afa` (uploaders Bunny + Server Actions + audit taint). 18 fichiers.
   - Nouveaux fichiers lus en entier : `lib/bunny.ts`, `lib/crop-image.ts`,
     `lib/upload-rate-limit.ts`, `features/{exams,training}/cron.ts`,
     `app/api/cron/close-expired/route.ts`, `db/schema/ops.ts`,
@@ -22,23 +22,24 @@
 
 ## 2. Table des findings (triée par sévérité)
 
-| #   | Sév | fichier:ligne | problème | régression ? |
-| --- | --- | --- | --- | --- |
-| 1 | 🟠 | `tests/integration/questions-actions.test.ts:19-21` · (absence) | Toute la surface neuve `uploadAvatar` / `uploadQuestionImage` ship **sans test direct** (authz, validation, chemin dérivé serveur, ordre rate-limit/upload, cleanup orphelin). Bunny est mocké en bloc. | NON (code neuf) |
-| 2 | 🟡 | `features/users/actions.ts:146` · `lib/upload-rate-limit.ts:8-21` | Le slot rate-limit est consommé **avant** l'upload : un échec Bunny brûle un quota → 5 échecs réseau = avatar verrouillé ≤ 1 h. | OUI (Convex n'incrémentait qu'après succès) |
-| 3 | 🟡 | `next.config.ts:11-13` | `bodySizeLimit: "6mb"` est **global** : relève le plafond de transport des deux Server Actions **publiques non authentifiées** (`loadRandomQuizQuestions`, `scoreQuizAnswers`) de 1→6 Mo. | NON (config neuve) |
-| 4 | 🟡 | `lib/cdn.ts:4-8` vs `lib/bunny.ts:146` | URL d'image de question fraîche = `env.BUNNY_CDN_HOSTNAME` ; au rechargement = `cdnUrl()` = `NEXT_PUBLIC_BUNNY_CDN_HOSTNAME ?? "cdn.nomaqbanq.ca"`. Deux sources d'hôte CDN ; si elles divergent en prod, les images rechargées pointent ailleurs. | NON |
-| 5 | ℹ️ | `components/admin/question-image-uploader.tsx:240,274,335` | `URL.createObjectURL` des previews en état `error`/`pending` n'est révoqué qu'au succès ou à l'annulation manuelle : fuite mémoire si le composant démonte avec des items en erreur. | N/A |
-| 6 | ℹ️ | `features/users/actions.ts:155-187` | Double upload avatar concurrent (2 onglets) : les deux lisent le même ancien avatar, last-writer-wins en base, l'objet perdant reste orphelin sur le CDN. | N/A |
-| 7 | ℹ️ | `app/api/cron/close-expired/route.ts:21-24` · `lib/env/schema.ts:43` | `CRON_SECRET` absent ⇒ route 401 en permanence (fail-closed **correct**) mais le cron ne tourne jamais et rien ne le signale → fermetures auto silencieusement mortes. | N/A |
-| 8 | ℹ️ | `features/questions/actions.ts:305-313` · `features/questions/schemas.ts:39-51` | `setQuestionImages` n'attache pas `storagePath` à `questionId` ; un payload admin peut référencer le fichier d'une autre question, dont le retrait ultérieur déclenche `tryDeleteFromBunny` (admin-confiance, donc bas). | N/A |
-| 9 | ℹ️ | `lib/bunny.ts:271-285` | `validateImageFile` se fie au `file.type`/`file.size` client (pas de magic-bytes). Neutralisé en pratique (cf. faux positif XSS) ; sniffing serait du durcissement. | NON (parité Convex) |
+| #   | Sév | fichier:ligne                                                                   | problème                                                                                                                                                                                                                                           | régression ?                                |
+| --- | --- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| 1   | 🟠  | `tests/integration/questions-actions.test.ts:19-21` · (absence)                 | Toute la surface neuve `uploadAvatar` / `uploadQuestionImage` ship **sans test direct** (authz, validation, chemin dérivé serveur, ordre rate-limit/upload, cleanup orphelin). Bunny est mocké en bloc.                                            | NON (code neuf)                             |
+| 2   | 🟡  | `features/users/actions.ts:146` · `lib/upload-rate-limit.ts:8-21`               | Le slot rate-limit est consommé **avant** l'upload : un échec Bunny brûle un quota → 5 échecs réseau = avatar verrouillé ≤ 1 h.                                                                                                                    | OUI (Convex n'incrémentait qu'après succès) |
+| 3   | 🟡  | `next.config.ts:11-13`                                                          | `bodySizeLimit: "6mb"` est **global** : relève le plafond de transport des deux Server Actions **publiques non authentifiées** (`loadRandomQuizQuestions`, `scoreQuizAnswers`) de 1→6 Mo.                                                          | NON (config neuve)                          |
+| 4   | 🟡  | `lib/cdn.ts:4-8` vs `lib/bunny.ts:146`                                          | URL d'image de question fraîche = `env.BUNNY_CDN_HOSTNAME` ; au rechargement = `cdnUrl()` = `NEXT_PUBLIC_BUNNY_CDN_HOSTNAME ?? "cdn.nomaqbanq.ca"`. Deux sources d'hôte CDN ; si elles divergent en prod, les images rechargées pointent ailleurs. | NON                                         |
+| 5   | ℹ️  | `components/admin/question-image-uploader.tsx:240,274,335`                      | `URL.createObjectURL` des previews en état `error`/`pending` n'est révoqué qu'au succès ou à l'annulation manuelle : fuite mémoire si le composant démonte avec des items en erreur.                                                               | N/A                                         |
+| 6   | ℹ️  | `features/users/actions.ts:155-187`                                             | Double upload avatar concurrent (2 onglets) : les deux lisent le même ancien avatar, last-writer-wins en base, l'objet perdant reste orphelin sur le CDN.                                                                                          | N/A                                         |
+| 7   | ℹ️  | `app/api/cron/close-expired/route.ts:21-24` · `lib/env/schema.ts:43`            | `CRON_SECRET` absent ⇒ route 401 en permanence (fail-closed **correct**) mais le cron ne tourne jamais et rien ne le signale → fermetures auto silencieusement mortes.                                                                             | N/A                                         |
+| 8   | ℹ️  | `features/questions/actions.ts:305-313` · `features/questions/schemas.ts:39-51` | `setQuestionImages` n'attache pas `storagePath` à `questionId` ; un payload admin peut référencer le fichier d'une autre question, dont le retrait ultérieur déclenche `tryDeleteFromBunny` (admin-confiance, donc bas).                           | N/A                                         |
+| 9   | ℹ️  | `lib/bunny.ts:271-285`                                                          | `validateImageFile` se fie au `file.type`/`file.size` client (pas de magic-bytes). Neutralisé en pratique (cf. faux positif XSS) ; sniffing serait du durcissement.                                                                                | NON (parité Convex)                         |
 
 ---
 
 ## 3. Détail par finding
 
 ### 1 — 🟠 Surface d'upload neuve livrée sans test direct
+
 - **Code** : `tests/integration/questions-actions.test.ts:19-21` mocke `@/lib/bunny`
   intégralement et **n'appelle jamais** `uploadQuestionImage`. `uploadAvatar` n'est
   importé dans aucun test (vérifié par grep `uploadAvatar|uploadQuestionImage` sur
@@ -62,6 +63,7 @@
   et sous `avatars/`.
 
 ### 2 — 🟡 Slot rate-limit consommé avant l'upload (échec Bunny = quota brûlé)
+
 - **Code** : `features/users/actions.ts:146` (`consumeUploadRateLimit` …) puis `:166`
   (`uploadToBunny`). Idem `features/questions/actions.ts:400` puis `:414`. Tradeoff
   assumé et documenté en tête de `lib/upload-rate-limit.ts:8-21`.
@@ -69,14 +71,15 @@
   vérifiait le quota **avant** et n'incrémentait (`incrementUploadCount`) **qu'après**
   un upload réussi. Ici, 5 échecs Bunny consécutifs (réseau, 5xx) verrouillent
   l'avatar pour ≤ 1 h alors qu'aucun upload n'a abouti. Pour l'avatar, `validateImageFile`
-  passe avant le consume (`:134` < `:146`) donc seuls les fichiers *valides mais en
-  échec réseau* brûlent un slot — risque réel mais étroit, limites généreuses (5/h, 50/h).
+  passe avant le consume (`:134` < `:146`) donc seuls les fichiers _valides mais en
+  échec réseau_ brûlent un slot — risque réel mais étroit, limites généreuses (5/h, 50/h).
 - **Régression ?** OUI vs Convex — mais délibérée (l'atomicité ferme le TOCTOU).
 - **Correctif suggéré** : acceptable en l'état pour le lancement. Si l'UX gêne :
   re-créditer le slot sur échec `uploadToBunny` (un `UPDATE … count = count - 1` dans
   le chemin d'erreur), ou repasser à consume-après-succès en gardant le verrou.
 
 ### 3 — 🟡 `bodySizeLimit: "6mb"` global expose les Server Actions publiques
+
 - **Code** : `next.config.ts:11-13`. Actions sans garde : `loadRandomQuizQuestions`
   (`features/questions/actions.ts:86-91`) et `scoreQuizAnswers` (`:112-135`).
 - **Pourquoi c'est un vrai bug (mineur)** : le commentaire affirme « tout est
@@ -92,6 +95,7 @@
   tête des deux actions publiques.
 
 ### 4 — 🟡 Hôte CDN dérivé de deux sources distinctes (upload vs affichage)
+
 - **Code** : à l'upload, `uploadToBunny` renvoie `https://${env.BUNNY_CDN_HOSTNAME}/…`
   (`lib/bunny.ts:146`) repris tel quel dans l'uploader (`question-image-uploader.tsx:266-271`).
   Au rechargement/édition, l'URL est reconstruite par `cdnUrl(storagePath)` =
@@ -111,6 +115,7 @@
   `NEXT_PUBLIC_BUNNY_CDN_HOSTNAME` == hôte public de `BUNNY_CDN_HOSTNAME`.
 
 ### 5 — ℹ️ Fuite `URL.createObjectURL` sur démontage avec items en erreur
+
 - **Code** : `question-image-uploader.tsx:240` (création), révoqué seulement au succès
   (`:274`) ou à l'annulation manuelle (`:335`). Pas de `useEffect(() => () => …)` de
   nettoyage.
@@ -121,6 +126,7 @@
   `uploadingImages[].preview` restants.
 
 ### 6 — ℹ️ Orphelin avatar sous double upload concurrent
+
 - **Code** : `features/users/actions.ts:155` (lecture ancien) → `:166` (upload) →
   `:172` (update) → `:184-187` (suppression ancien).
 - **Pourquoi** : deux uploads simultanés (deux onglets) lisent le même `current.image`,
@@ -131,6 +137,7 @@
   orphelins, ou un upload idempotent par contenu.
 
 ### 7 — ℹ️ `CRON_SECRET` manquant ⇒ fermetures auto silencieusement inertes
+
 - **Code** : `app/api/cron/close-expired/route.ts:21-24` ; `CRON_SECRET` optionnel
   (`lib/env/schema.ts:43`).
 - **Pourquoi** : le fail-closed est **correct** (jamais ouvert), mais si la var est
@@ -141,6 +148,7 @@
   éventuellement une alerte Sentry si la route est appelée sans secret configuré.
 
 ### 8 — ℹ️ `storagePath` non lié à `questionId` dans `setQuestionImages`
+
 - **Code** : insert direct du `storagePath` client (`features/questions/actions.ts:305-313`) ;
   `setQuestionImagesSchema` ne valide pas le préfixe (`schemas.ts:39-51`).
 - **Pourquoi** : un admin malveillant peut « adopter » `questions/<autre>/x.jpg` dans la
@@ -151,6 +159,7 @@
   `questions/${questionId}/` côté action.
 
 ### 9 — ℹ️ Pas de validation magic-bytes
+
 - **Code** : `lib/bunny.ts:271-285`. Voir aussi le faux positif XSS ci-dessous qui
   explique pourquoi ce n'est **pas** exploitable.
 - **Correctif suggéré** (optionnel, durcissement) : sniffer les premiers octets
@@ -232,11 +241,11 @@ prod**, pas avant la purge.
 
 ### Table de correctifs priorisée
 
-| Priorité | Action |
-| --- | --- |
-| **Bloquant maintenant (avant purge)** | Aucun. |
-| **Avant bascule prod** | (1) Tests d'intégration `uploadAvatar`/`uploadQuestionImage` (authz, validation, chemin serveur, consume-avant-upload, cleanup orphelin). (7) Définir `CRON_SECRET` côté Vercel + confirmer plan Pro (cron horaire). (4) Aligner `BUNNY_CDN_HOSTNAME` (upload) et `NEXT_PUBLIC_BUNNY_CDN_HOSTNAME`/défaut `cdnUrl` (affichage) sur le même hôte. |
-| **Polish** | (5) Effet de nettoyage des object URLs au démontage. (2) Re-créditer un slot rate-limit sur échec Bunny (ou consume-après-succès). (8) Valider le préfixe `questions/${questionId}/` dans `setQuestionImages`. (9) Validation magic-bytes. (6) Stratégie orphelins avatar. |
+| Priorité                              | Action                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Bloquant maintenant (avant purge)** | Aucun.                                                                                                                                                                                                                                                                                                                                           |
+| **Avant bascule prod**                | (1) Tests d'intégration `uploadAvatar`/`uploadQuestionImage` (authz, validation, chemin serveur, consume-avant-upload, cleanup orphelin). (7) Définir `CRON_SECRET` côté Vercel + confirmer plan Pro (cron horaire). (4) Aligner `BUNNY_CDN_HOSTNAME` (upload) et `NEXT_PUBLIC_BUNNY_CDN_HOSTNAME`/défaut `cdnUrl` (affichage) sur le même hôte. |
+| **Polish**                            | (5) Effet de nettoyage des object URLs au démontage. (2) Re-créditer un slot rate-limit sur échec Bunny (ou consume-après-succès). (8) Valider le préfixe `questions/${questionId}/` dans `setQuestionImages`. (9) Validation magic-bytes. (6) Stratégie orphelins avatar.                                                                       |
 
 ---
 

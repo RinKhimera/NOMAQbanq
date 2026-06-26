@@ -4,42 +4,48 @@ Webhook entrant. **Vérifier la signature sur le corps BRUT avant toute logique 
 Stripe ; le principe vaut pour tout fournisseur.
 
 ```ts
-import { headers } from 'next/headers';
-
-import { env } from '@/lib/env/server';
-import { stripe } from '@/lib/stripe';
+import { headers } from "next/headers"
+import { env } from "@/lib/env/server"
+import { stripe } from "@/lib/stripe"
 
 // ADAPT: ton client fournisseur
 
 export const POST = async (req: Request) => {
-  const body = await req.text(); // ⚠️ corps BRUT, jamais req.json() avant vérif (la signature porte sur les octets)
-  const signature = (await headers()).get('stripe-signature');
-  if (!signature) return new Response('Signature manquante', { status: 400 });
+  const body = await req.text() // ⚠️ corps BRUT, jamais req.json() avant vérif (la signature porte sur les octets)
+  const signature = (await headers()).get("stripe-signature")
+  if (!signature) return new Response("Signature manquante", { status: 400 })
 
-  let event;
+  let event
   try {
-    event = stripe.webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET ?? '');
+    event = stripe.webhooks.constructEvent(
+      body,
+      signature,
+      env.STRIPE_WEBHOOK_SECRET ?? "",
+    )
   } catch (err) {
-    return new Response(`Signature invalide: ${err instanceof Error ? err.message : 'unknown'}`, {
-      status: 400,
-    });
+    return new Response(
+      `Signature invalide: ${err instanceof Error ? err.message : "unknown"}`,
+      {
+        status: 400,
+      },
+    )
   }
 
   // Logique métier APRÈS vérification uniquement.
   switch (event.type) {
-    case 'checkout.session.completed': {
+    case "checkout.session.completed": {
       // ADAPT: provisionner l'accès — source de vérité = cet événement validé, jamais le client.
-      break;
+      break
     }
-    case 'customer.subscription.deleted': {
-      break;
+    case "customer.subscription.deleted": {
+      break
     }
     default:
-      break;
+      break
   }
 
-  return Response.json({ received: true });
-};
+  return Response.json({ received: true })
+}
 ```
 
 Invariants pour tout webhook :

@@ -4,13 +4,14 @@
 
 **Goal:** Build a reusable `email/` module that sends transactional emails through AWS SES with React Email templates, wired into Better Auth's verification and password-reset callbacks.
 
-**Architecture:** A root `email/` directory with a thin SES client singleton, a generic `sendEmail()` core that renders React Email templates to HTML+text, French templates, and domain helpers (`sendVerificationEmail`, `sendResetPassword`). Better Auth calls the helpers. SES bounces/complaints are handled by SES's automatic account-level suppression list (no webhook). Verification *enforcement* (`requireEmailVerification` + migrated-user backfill) is intentionally out of scope.
+**Architecture:** A root `email/` directory with a thin SES client singleton, a generic `sendEmail()` core that renders React Email templates to HTML+text, French templates, and domain helpers (`sendVerificationEmail`, `sendResetPassword`). Better Auth calls the helpers. SES bounces/complaints are handled by SES's automatic account-level suppression list (no webhook). Verification _enforcement_ (`requireEmailVerification` + migrated-user backfill) is intentionally out of scope.
 
 **Tech Stack:** `@aws-sdk/client-sesv2`, `@react-email/components`, `@react-email/render`, Better Auth 1.6.19, Drizzle/Neon, Zod env validation, Vitest.
 
 **Spec:** [docs/superpowers/specs/2026-06-18-ses-react-email-transactional-design.md](../specs/2026-06-18-ses-react-email-transactional-design.md)
 
 **Conventions:**
+
 - Prettier import order is enforced: (1) node/npm, (2) `@/`, (3) relative — blank line between groups.
 - Run targeted tests via the npm script: `bun run test <path>` (never `bun test` — Bun's runner breaks `vi.hoisted`/`vi.mocked`).
 - All commits should end with the `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>` trailer (omitted from the `-m` examples below for brevity).
@@ -20,14 +21,17 @@
 ### Task 1: Install dependencies
 
 **Files:**
+
 - Modify: `package.json` (via `bun add`)
 
 - [ ] **Step 1: Install the three runtime packages**
 
 Run:
+
 ```bash
 bun add @aws-sdk/client-sesv2 @react-email/components @react-email/render
 ```
+
 Expected: `package.json` gains the three deps under `dependencies`; `bun.lock` updates; install succeeds.
 
 - [ ] **Step 2: Verify they resolve and type-check still passes**
@@ -47,6 +51,7 @@ git commit -m "build(email): add aws-sdk sesv2 + react-email deps"
 ### Task 2: Configuration — env vars + coverage scope
 
 **Files:**
+
 - Modify: `lib/env/schema.ts:17-26` (add SES fields to `buildServerSchema()`)
 - Modify: `.env.example` (append SES section)
 - Modify: `.env.local` (append SES section — NOT committed, gitignored)
@@ -137,6 +142,7 @@ git commit -m "config(email): add SES env vars + coverage scope for email/"
 ### Task 3: SES client singleton
 
 **Files:**
+
 - Create: `email/client.ts`
 - Test: `tests/email/client.test.ts`
 
@@ -206,14 +212,15 @@ Create `email/client.ts`:
 ```ts
 // Server-only. NE PAS importer depuis un composant 'use client'.
 import { SESv2Client } from "@aws-sdk/client-sesv2"
-
 import { env } from "@/lib/env/server"
 
 let client: SESv2Client | undefined
 
 export function getSesClient(): SESv2Client {
   if (!env.SES_ACCESS_KEY_ID || !env.SES_SECRET_ACCESS_KEY) {
-    throw new Error("SES : SES_ACCESS_KEY_ID / SES_SECRET_ACCESS_KEY manquantes")
+    throw new Error(
+      "SES : SES_ACCESS_KEY_ID / SES_SECRET_ACCESS_KEY manquantes",
+    )
   }
   client ??= new SESv2Client({
     region: env.SES_REGION ?? "us-east-2",
@@ -243,6 +250,7 @@ git commit -m "feat(email): SES client singleton with explicit credentials"
 ### Task 4: Generic `sendEmail` core
 
 **Files:**
+
 - Create: `email/send.ts`
 - Test: `tests/email/send.test.ts`
 
@@ -253,7 +261,6 @@ Create `tests/email/send.test.ts`:
 ```ts
 import { createElement } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { sendEmail } from "@/email/send"
 
 const { sendSpy, renderSpy, commandSpy } = vi.hoisted(() => ({
@@ -308,7 +315,11 @@ beforeEach(() => {
 
 describe("sendEmail", () => {
   it("builds the SES command with HTML and text bodies", async () => {
-    const id = await sendEmail({ to: "user@example.com", subject: "Sujet", react })
+    const id = await sendEmail({
+      to: "user@example.com",
+      subject: "Sujet",
+      react,
+    })
     expect(id).toBe("msg-123")
     const input = lastInput()
     expect(input.FromEmailAddress).toBe("NOMAQbanq <noreply@nomaqbanq.ca>")
@@ -330,7 +341,9 @@ describe("sendEmail", () => {
     await sendEmail({ to: "real@user.com", subject: "Sujet", react })
     const input = lastInput()
     expect(input.Destination.ToAddresses).toEqual(["dixiades@gmail.com"])
-    expect(input.Content.Simple.Subject.Data).toBe("[DEV → real@user.com] Sujet")
+    expect(input.Content.Simple.Subject.Data).toBe(
+      "[DEV → real@user.com] Sujet",
+    )
   })
 
   it("throws when EMAIL_FROM is missing", async () => {
@@ -356,9 +369,7 @@ Create `email/send.ts`:
 import { SendEmailCommand } from "@aws-sdk/client-sesv2"
 import { render } from "@react-email/render"
 import type { ReactElement } from "react"
-
 import { env } from "@/lib/env/server"
-
 import { getSesClient } from "./client"
 
 export interface SendEmailInput {
@@ -378,7 +389,9 @@ export async function sendEmail({
 
   // Sandbox : redirige tous les envois vers une adresse vérifiée, sujet annoté.
   const recipient = env.EMAIL_OVERRIDE_TO ?? to
-  const finalSubject = env.EMAIL_OVERRIDE_TO ? `[DEV → ${to}] ${subject}` : subject
+  const finalSubject = env.EMAIL_OVERRIDE_TO
+    ? `[DEV → ${to}] ${subject}`
+    : subject
 
   const [html, text] = await Promise.all([
     render(react),
@@ -425,6 +438,7 @@ git commit -m "feat(email): generic sendEmail core (render html+text, override, 
 ### Task 5: React Email templates
 
 **Files:**
+
 - Create: `email/templates/email-layout.tsx`
 - Create: `email/templates/verification-email.tsx`
 - Create: `email/templates/reset-password-email.tsx`
@@ -438,14 +452,15 @@ Create `tests/email/templates.test.ts`:
 import { render } from "@react-email/render"
 import { createElement } from "react"
 import { describe, expect, it } from "vitest"
-
 import { ResetPasswordEmail } from "@/email/templates/reset-password-email"
 import { VerificationEmail } from "@/email/templates/verification-email"
 
 describe("email templates", () => {
   it("verification email contains the url and FR copy", async () => {
     const html = await render(
-      createElement(VerificationEmail, { url: "https://nomaqbanq.ca/v?token=abc" }),
+      createElement(VerificationEmail, {
+        url: "https://nomaqbanq.ca/v?token=abc",
+      }),
     )
     expect(html).toContain("https://nomaqbanq.ca/v?token=abc")
     expect(html).toContain("Vérifier mon adresse")
@@ -453,7 +468,9 @@ describe("email templates", () => {
 
   it("reset password email contains the url and FR copy", async () => {
     const html = await render(
-      createElement(ResetPasswordEmail, { url: "https://nomaqbanq.ca/r?token=xyz" }),
+      createElement(ResetPasswordEmail, {
+        url: "https://nomaqbanq.ca/r?token=xyz",
+      }),
     )
     expect(html).toContain("https://nomaqbanq.ca/r?token=xyz")
     expect(html).toContain("mot de passe")
@@ -494,10 +511,16 @@ export function EmailLayout({
     <Html lang="fr">
       <Head />
       <Preview>{preview}</Preview>
-      <Body style={{ backgroundColor: "#f4f4f5", fontFamily: "Arial, sans-serif" }}>
-        <Container style={{ margin: "0 auto", maxWidth: "480px", padding: "24px" }}>
+      <Body
+        style={{ backgroundColor: "#f4f4f5", fontFamily: "Arial, sans-serif" }}
+      >
+        <Container
+          style={{ margin: "0 auto", maxWidth: "480px", padding: "24px" }}
+        >
           <Section>
-            <Text style={{ fontSize: "20px", fontWeight: "bold", color: "#18181b" }}>
+            <Text
+              style={{ fontSize: "20px", fontWeight: "bold", color: "#18181b" }}
+            >
               NOMAQbanq
             </Text>
           </Section>
@@ -519,7 +542,6 @@ Create `email/templates/verification-email.tsx`:
 
 ```tsx
 import { Button, Link, Section, Text } from "@react-email/components"
-
 import { EmailLayout } from "./email-layout"
 
 export function VerificationEmail({ url }: { url: string }) {
@@ -527,7 +549,8 @@ export function VerificationEmail({ url }: { url: string }) {
     <EmailLayout preview="Confirmez votre adresse courriel">
       <Section>
         <Text style={{ fontSize: "16px", color: "#18181b" }}>
-          Bienvenue ! Confirmez votre adresse courriel pour activer votre compte.
+          Bienvenue ! Confirmez votre adresse courriel pour activer votre
+          compte.
         </Text>
         <Button
           href={url}
@@ -543,11 +566,12 @@ export function VerificationEmail({ url }: { url: string }) {
           Vérifier mon adresse
         </Button>
         <Text style={{ fontSize: "13px", color: "#52525b" }}>
-          Ou copiez ce lien dans votre navigateur : <Link href={url}>{url}</Link>
+          Ou copiez ce lien dans votre navigateur :{" "}
+          <Link href={url}>{url}</Link>
         </Text>
         <Text style={{ fontSize: "13px", color: "#71717a" }}>
-          Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de cette
-          demande, ignorez ce message.
+          Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de
+          cette demande, ignorez ce message.
         </Text>
       </Section>
     </EmailLayout>
@@ -561,7 +585,6 @@ Create `email/templates/reset-password-email.tsx`:
 
 ```tsx
 import { Button, Link, Section, Text } from "@react-email/components"
-
 import { EmailLayout } from "./email-layout"
 
 export function ResetPasswordEmail({ url }: { url: string }) {
@@ -569,8 +592,8 @@ export function ResetPasswordEmail({ url }: { url: string }) {
     <EmailLayout preview="Réinitialisation de votre mot de passe">
       <Section>
         <Text style={{ fontSize: "16px", color: "#18181b" }}>
-          Vous avez demandé à réinitialiser votre mot de passe. Cliquez ci-dessous pour
-          en choisir un nouveau.
+          Vous avez demandé à réinitialiser votre mot de passe. Cliquez
+          ci-dessous pour en choisir un nouveau.
         </Text>
         <Button
           href={url}
@@ -586,11 +609,12 @@ export function ResetPasswordEmail({ url }: { url: string }) {
           Réinitialiser mon mot de passe
         </Button>
         <Text style={{ fontSize: "13px", color: "#52525b" }}>
-          Ou copiez ce lien dans votre navigateur : <Link href={url}>{url}</Link>
+          Ou copiez ce lien dans votre navigateur :{" "}
+          <Link href={url}>{url}</Link>
         </Text>
         <Text style={{ fontSize: "13px", color: "#71717a" }}>
-          Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de cette
-          demande, ignorez ce message ; votre mot de passe reste inchangé.
+          Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de
+          cette demande, ignorez ce message ; votre mot de passe reste inchangé.
         </Text>
       </Section>
     </EmailLayout>
@@ -602,6 +626,7 @@ export function ResetPasswordEmail({ url }: { url: string }) {
 
 Run: `bun run test tests/email/templates.test.ts`
 Expected: PASS (2 tests).
+
 > If the test fails to resolve `@react-email/components` due to ESM, add `"@react-email/components"` and `"@react-email/render"` to the frontend project's `test.server.deps.inline` array in `vitest.config.ts`, then re-run.
 
 - [ ] **Step 7: Commit**
@@ -616,6 +641,7 @@ git commit -m "feat(email): FR verification + reset-password React Email templat
 ### Task 6: Domain helpers
 
 **Files:**
+
 - Create: `email/index.tsx`
 - Test: `tests/email/index.test.ts`
 
@@ -625,11 +651,10 @@ Create `tests/email/index.test.ts`:
 
 ```ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { sendResetPassword, sendVerificationEmail } from "@/email"
 
 const { sendEmailSpy } = vi.hoisted(() => ({ sendEmailSpy: vi.fn() }))
 vi.mock("@/email/send", () => ({ sendEmail: sendEmailSpy }))
-
-import { sendResetPassword, sendVerificationEmail } from "@/email"
 
 interface Arg {
   to: string
@@ -673,7 +698,13 @@ import { sendEmail } from "./send"
 import { ResetPasswordEmail } from "./templates/reset-password-email"
 import { VerificationEmail } from "./templates/verification-email"
 
-export function sendVerificationEmail({ to, url }: { to: string; url: string }) {
+export function sendVerificationEmail({
+  to,
+  url,
+}: {
+  to: string
+  url: string
+}) {
   return sendEmail({
     to,
     subject: "Vérifiez votre adresse courriel — NOMAQbanq",
@@ -707,6 +738,7 @@ git commit -m "feat(email): sendVerificationEmail + sendResetPassword domain hel
 ### Task 7: Wire into Better Auth
 
 **Files:**
+
 - Modify: `lib/auth.ts`
 
 - [ ] **Step 1: Add the email helper import**
@@ -722,7 +754,6 @@ The import block becomes:
 ```ts
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-
 import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { sendResetPassword, sendVerificationEmail } from "@/email"
@@ -756,7 +787,6 @@ For reference, the full file should read:
 ```ts
 import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
-
 import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { sendResetPassword, sendVerificationEmail } from "@/email"
@@ -823,6 +853,7 @@ Expected: PASS (tsc clean, eslint `--max-warnings 0` clean).
 
 Run: `bun run test:coverage`
 Expected: PASS, all projects green, coverage thresholds (75% statements/branches/functions/lines) still met. `email/**` is now measured and should be well above threshold; `lib/auth.ts` is excluded.
+
 > If `email/**` reports below 75% on any metric, identify the uncovered lines from the report and add the missing assertion to the corresponding `tests/email/*.test.ts` file.
 
 - [ ] **Step 4: Manual sandbox smoke test (optional, requires real SES creds in `.env.local`)**

@@ -1,4 +1,14 @@
 import { describe, expect, it, vi } from "vitest"
+import {
+  assertSafeStoragePath,
+  avatarStoragePathFromUrl,
+  finalPathFromTmp,
+  generateAvatarPath,
+  generateQuestionImagePath,
+  generateQuestionImageTmpPath,
+  getExtensionFromMimeType,
+  validateImageFile,
+} from "@/lib/storage"
 
 vi.mock("server-only", () => ({}))
 // Évite de charger le SDK AWS dans ce test unitaire des helpers purs.
@@ -12,17 +22,6 @@ vi.mock("@/lib/env/server", () => ({
     S3_BUCKET: "nomaq-media",
   },
 }))
-
-import {
-  assertSafeStoragePath,
-  avatarStoragePathFromUrl,
-  finalPathFromTmp,
-  generateAvatarPath,
-  generateQuestionImagePath,
-  generateQuestionImageTmpPath,
-  getExtensionFromMimeType,
-  validateImageFile,
-} from "@/lib/storage"
 
 describe("path helpers", () => {
   it("génère un chemin d'image question préfixé", () => {

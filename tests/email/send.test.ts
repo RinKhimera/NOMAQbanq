@@ -1,6 +1,5 @@
 import { createElement } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { sendEmail } from "@/email/send"
 
 const { sendSpy, renderSpy, commandSpy } = vi.hoisted(() => ({
@@ -55,7 +54,11 @@ beforeEach(() => {
 
 describe("sendEmail", () => {
   it("builds the SES command with HTML and text bodies", async () => {
-    const id = await sendEmail({ to: "user@example.com", subject: "Sujet", react })
+    const id = await sendEmail({
+      to: "user@example.com",
+      subject: "Sujet",
+      react,
+    })
     expect(id).toBe("msg-123")
     const input = lastInput()
     expect(input.FromEmailAddress).toBe("NOMAQbanq <noreply@nomaqbanq.ca>")
@@ -77,7 +80,9 @@ describe("sendEmail", () => {
     await sendEmail({ to: "real@user.com", subject: "Sujet", react })
     const input = lastInput()
     expect(input.Destination.ToAddresses).toEqual(["dixiades@gmail.com"])
-    expect(input.Content.Simple.Subject.Data).toBe("[DEV → real@user.com] Sujet")
+    expect(input.Content.Simple.Subject.Data).toBe(
+      "[DEV → real@user.com] Sujet",
+    )
   })
 
   it("throws when EMAIL_FROM is missing", async () => {

@@ -1,7 +1,5 @@
-import "server-only"
-
 import { and, eq, inArray, lt, sql } from "drizzle-orm"
-
+import "server-only"
 import { db } from "@/db"
 import { trainingSessionItems, trainingSessions } from "@/db/schema"
 

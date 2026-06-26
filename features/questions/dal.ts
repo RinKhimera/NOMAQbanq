@@ -1,5 +1,3 @@
-import "server-only"
-
 import {
   and,
   asc,
@@ -15,7 +13,7 @@ import {
   or,
   sql,
 } from "drizzle-orm"
-
+import "server-only"
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
@@ -30,7 +28,9 @@ const escapeLike = (s: string) => s.replace(/[\\%_]/g, "\\$&")
 const encodeCursor = (createdAt: Date, id: string): string =>
   Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64")
 
-const decodeCursor = (cursor: string): { createdAt: Date; id: string } | null => {
+const decodeCursor = (
+  cursor: string,
+): { createdAt: Date; id: string } | null => {
   try {
     const decoded = Buffer.from(cursor, "base64").toString("utf8")
     const sep = decoded.indexOf("|")
@@ -293,9 +293,7 @@ export const getUniqueObjectifsCMC = async (): Promise<string[]> => {
     .from(questions)
     .where(isNull(questions.deletedAt))
     .limit(2000)
-  return rows
-    .map((r) => r.objectifCMC)
-    .sort((a, b) => a.localeCompare(b, "fr"))
+  return rows.map((r) => r.objectifCMC).sort((a, b) => a.localeCompare(b, "fr"))
 }
 
 /** [Admin] Tous les ids de questions (auto-complete sélection examen). Borné. */

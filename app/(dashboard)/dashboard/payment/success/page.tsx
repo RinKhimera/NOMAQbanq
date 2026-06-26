@@ -1,8 +1,6 @@
 import { Suspense } from "react"
-
 import { Skeleton } from "@/components/ui/skeleton"
 import { getAccessStatus } from "@/features/payments/dal"
-
 import { PaymentSuccessContent } from "../_components/payment-success-client"
 
 const LoadingFallback = () => (

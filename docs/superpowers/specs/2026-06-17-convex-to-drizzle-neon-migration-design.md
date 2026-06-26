@@ -20,18 +20,18 @@ Migration **incrémentale (strangler)** : Convex reste vivant jusqu'à la bascul
 
 ## 2. Décisions actées
 
-| # | Sujet | Décision |
-|---|---|---|
-| D1 | Méthodes d'auth Clerk | **Google OAuth + email/mot de passe** |
-| D2 | Hébergement | **Vercel** (Fluid Compute) + **Neon** |
-| D3 | Agrégats | **COUNT/EXISTS indexés** → suppression des 3 tables d'agrégats (+ cache sur hot paths publics) |
-| D4 | Degré de redesign | **Redesign sélectif** (normaliser, splitter, drop agrégats) |
-| D5 | Driver DB | **Un seul `pg` Pool (node-postgres)** au scope module (Vercel Fluid Compute) ; HTTP driver écarté |
-| D6 | Participation examen | **`UNIQUE(exam_id, user_id)`** (dédupliquer avant d'appliquer la contrainte) |
-| D7 | Soft-delete | **users** (soft-delete + anonymisation) · **questions** (archivage soft) · **exams** (`is_active`) |
-| D8 | IDs | **Réutiliser l'`_id` Convex comme PK `text`** → FK migrées sans id-map |
-| D9 | Entraînement | **Refait en 2 tables** : `training_sessions` + `training_session_items` (items créés au démarrage) ; sessions `in_progress` **abandonnées** à la bascule (non migrées) |
-| D10 | Bascule | **Fenêtre de maintenance finale** + **dev-first** : tout sur la branche Neon `develop`, puis `production` une fois validé |
+| #   | Sujet                 | Décision                                                                                                                                                               |
+| --- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Méthodes d'auth Clerk | **Google OAuth + email/mot de passe**                                                                                                                                  |
+| D2  | Hébergement           | **Vercel** (Fluid Compute) + **Neon**                                                                                                                                  |
+| D3  | Agrégats              | **COUNT/EXISTS indexés** → suppression des 3 tables d'agrégats (+ cache sur hot paths publics)                                                                         |
+| D4  | Degré de redesign     | **Redesign sélectif** (normaliser, splitter, drop agrégats)                                                                                                            |
+| D5  | Driver DB             | **Un seul `pg` Pool (node-postgres)** au scope module (Vercel Fluid Compute) ; HTTP driver écarté                                                                      |
+| D6  | Participation examen  | **`UNIQUE(exam_id, user_id)`** (dédupliquer avant d'appliquer la contrainte)                                                                                           |
+| D7  | Soft-delete           | **users** (soft-delete + anonymisation) · **questions** (archivage soft) · **exams** (`is_active`)                                                                     |
+| D8  | IDs                   | **Réutiliser l'`_id` Convex comme PK `text`** → FK migrées sans id-map                                                                                                 |
+| D9  | Entraînement          | **Refait en 2 tables** : `training_sessions` + `training_session_items` (items créés au démarrage) ; sessions `in_progress` **abandonnées** à la bascule (non migrées) |
+| D10 | Bascule               | **Fenêtre de maintenance finale** + **dev-first** : tout sur la branche Neon `develop`, puis `production` une fois validé                                              |
 
 ## 3. Architecture cible
 
@@ -105,6 +105,7 @@ training_access_promo, premium_access) · `access_type`(exam,training) ·
 **`role`** (user_role, défaut `user`) · `banned?` · `ban_reason?` · `ban_expires?` · `username?`
 (unique) · `bio?` · `avatar_storage_path?` · **`deleted_at?`** · **`anonymized_at?`** · `created_at` ·
 `updated_at`. Index : email (unique), username (unique), role.
+
 - `role`/`banned`/`ban_*` = **plugin admin** → déclarer en `additionalFields` dans la config.
 - On abandonne `token_identifier`/`external_id` (Clerk).
 - **Anonymisation RGPD** : poser `anonymized_at`, scrubber `name`/`bio`/`image`/`username`, et
@@ -118,9 +119,10 @@ training_access_promo, premium_access) · `access_type`(exam,training) ·
 
 **`questions`** (réutilise `_id`) — `id` PK · `question` · `correct_answer` · `options` (**jsonb**,
 4-5 chaînes) · `objectif_cmc` · `domain` · **`deleted_at?`** (archivage) · `created_at` · `updated_at`.
+
 - Index : `domain`, `objectif_cmc`.
 - **Full-text** : colonne générée `search_vector tsvector GENERATED ALWAYS AS
-  (to_tsvector('french', question)) STORED` + **index GIN** (remplace le `searchIndex` Convex).
+(to_tsvector('french', question)) STORED` + **index GIN** (remplace le `searchIndex` Convex).
 - **`has_images`** : dérivé via `EXISTS(question_images)` (booléen maintenu seulement si besoin perf).
 - **`hasImagesComputed` supprimé.**
 - **Règle DAL** : toute lecture de **sélection** (création examen, config training, browser) filtre
@@ -148,8 +150,8 @@ training_access_promo, premium_access) · `access_type`(exam,training) ·
 défaut 0) · `status` (défaut in_progress) · `started_at?` · **`completed_at?`** (null tant que non
 soumis — l'import convertit l'ancien `0 → NULL`) · `pause_phase?` · `pause_started_at?` ·
 `pause_ended_at?` · `is_pause_cut_short?` · `total_pause_duration_ms?` (bigint) · `created_at`.
-**UNIQUE (`exam_id`,`user_id`)** (D6). Index : exam, user, status. *(Scoring = `correct_answer ===
-selected_answer`, texte exact ; pause 100 % serveur, multi-onglets sûr.)*
+**UNIQUE (`exam_id`,`user_id`)** (D6). Index : exam, user, status. _(Scoring = `correct_answer ===
+selected_answer`, texte exact ; pause 100 % serveur, multi-onglets sûr.)_
 
 **`exam_answers`** — `id` PK · `participation_id` (FK CASCADE) · `question_id` (FK RESTRICT) ·
 `selected_answer` (texte) · `is_correct` · `is_flagged` (défaut false) · `created_at`. **UNIQUE
@@ -194,7 +196,7 @@ Modèle à 2 tables (vs `training_participations` + `trainingAnswers` éclatés)
 ### 4.7 Ops (`db/schema/ops.ts`)
 
 **`upload_rate_limits`** — `id` PK · `user_id` (FK CASCADE ; remplace `clerk_id`) · `upload_type` ·
-`count` · `window_start`. **UNIQUE (`user_id`,`upload_type`)**. *Non migré (éphémère).*
+`count` · `window_start`. **UNIQUE (`user_id`,`upload_type`)**. _Non migré (éphémère)._
 
 ### 4.8 Tables supprimées
 
@@ -208,8 +210,8 @@ Modèle à 2 tables (vs `training_participations` + `trainingAnswers` éclatés)
 1. Convex **read-only** (fenêtre de maintenance). `npx convex export --path convex-snapshot.zip`.
 2. `scripts/import-from-convex.ts` (Bun, `DATABASE_URL_UNPOOLED`), **dans l'ordre des FK** :
    `user → products → questions → question_explanations → question_images → exams → exam_questions →
-   transactions → user_access → exam_participations → exam_answers → training_sessions →
-   training_session_items`.
+transactions → user_access → exam_participations → exam_answers → training_sessions →
+training_session_items`.
 3. Mapping : `_id`→PK `text` · `_creationTime`(ms)→`created_at` · **`completedAt === 0 ? null`** ·
    `images[]`→`question_images` (position) · exam `questionIds[]`→`exam_questions` (position) ·
    training `questionIds[]`→`training_session_items` (position = index), puis `trainingAnswers`
@@ -240,7 +242,7 @@ fractionnaire avant cast `integer` · `TZ=UTC`.
 
 - `lib/auth.ts` : `emailAndPassword` (+ `requireEmailVerification`, `emailVerification`),
   `socialProviders.google`, `rateLimit.storage:'database'`, `plugins:[admin({ ac, roles }),
-  nextCookies()]` (**`nextCookies()` en dernier**), `baseURL: env.BETTER_AUTH_URL`, importe le `db` partagé.
+nextCookies()]` (**`nextCookies()` en dernier**), `baseURL: env.BETTER_AUTH_URL`, importe le `db` partagé.
 - `lib/auth-client.ts` : `adminClient()` + exports. Guards `lib/auth-guards.ts` (+ garde 401/403 dédiée
   pour les route handlers). Rôles via `lib/permissions.ts` **passé au plugin admin**.
 - **✅ Re-login email/mdp (VÉRIFIÉ empiriquement sur `develop`, B5 résolu, Better Auth `^1.6.19`)** :
@@ -257,23 +259,23 @@ fractionnaire avant cast `integer` · `TZ=UTC`.
 
 Aucun écran « live cross-user » (vérifié : pause examen 100 % serveur) → **aucun service temps réel managé**.
 
-| Écran | Stratégie |
-|---|---|
+| Écran                                                             | Stratégie                                                                                     |
+| ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | Profil, tarifs, abonnements, historiques, résultats, listes admin | **Server Component + DAL `await`** ; `revalidateTag` sur mutation (⚠️ Next 16 : 2ᵉ argument). |
-| Prise d'examen, prise d'entraînement, quiz marketing | **Fetch one-shot + état client + Server Actions** (`useActionState`/`useOptimistic`). |
-| Dashboards admin, leaderboard | **Revalidate + `router.refresh()`** ; polling optionnel. |
-| **Stats marketing publiques** (`getMarketingStats`) | **Cache** (ISR / `use cache` + revalidate) — pas un COUNT à chaque visite. |
+| Prise d'examen, prise d'entraînement, quiz marketing              | **Fetch one-shot + état client + Server Actions** (`useActionState`/`useOptimistic`).         |
+| Dashboards admin, leaderboard                                     | **Revalidate + `router.refresh()`** ; polling optionnel.                                      |
+| **Stats marketing publiques** (`getMarketingStats`)               | **Cache** (ISR / `use cache` + revalidate) — pas un COUNT à chaque visite.                    |
 
 ## 8. Crons, webhooks, uploads, secrets
 
-| Convex | Cible |
-|---|---|
-| cron `close-expired-exam-participations` (:00) | **Vercel Cron** → `app/api/cron/close-expired-exams/route.ts` (`CRON_SECRET`) |
-| cron `close-expired-training-sessions` (:30) | **Vercel Cron** → `app/api/cron/close-expired-training/route.ts` |
-| httpAction `/stripe` | `app/api/webhooks/stripe/route.ts` (signature) — ⚠️ **nouveau `STRIPE_WEBHOOK_SECRET`** (endpoint change) |
-| httpAction `/clerk` | **Supprimé** (Better Auth = source de vérité users) |
-| httpAction upload avatar / question-image | route handlers (session Better Auth + rate-limit + Bunny) |
-| httpAction `/e2e/*` | route handlers (`E2E_RESET_SECRET`) |
+| Convex                                         | Cible                                                                                                     |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| cron `close-expired-exam-participations` (:00) | **Vercel Cron** → `app/api/cron/close-expired-exams/route.ts` (`CRON_SECRET`)                             |
+| cron `close-expired-training-sessions` (:30)   | **Vercel Cron** → `app/api/cron/close-expired-training/route.ts`                                          |
+| httpAction `/stripe`                           | `app/api/webhooks/stripe/route.ts` (signature) — ⚠️ **nouveau `STRIPE_WEBHOOK_SECRET`** (endpoint change) |
+| httpAction `/clerk`                            | **Supprimé** (Better Auth = source de vérité users)                                                       |
+| httpAction upload avatar / question-image      | route handlers (session Better Auth + rate-limit + Bunny)                                                 |
+| httpAction `/e2e/*`                            | route handlers (`E2E_RESET_SECRET`)                                                                       |
 
 > **Pas de file/queue durable nécessaire** : le seul `ctx.scheduler` est un backfill jetable non porté.
 
@@ -285,6 +287,7 @@ Aucun écran « live cross-user » (vérifié : pause examen 100 % serveur) → 
 ## 9. Stratégie de tests
 
 Le backend est testé via `convex-test` (edge-runtime) ; seuil **coverage 75 %**. À refaire :
+
 - **DAL + Server Actions** : tests d'intégration sur une **branche Neon de test éphémère par run CI**
   (ou `pglite`/testcontainers en local), schéma appliqué via drizzle-kit.
 - **Migration des tests par domaine**, en même temps que la conversion (phase 5).
@@ -293,17 +296,17 @@ Le backend est testé via `convex-test` (edge-runtime) ; seuil **coverage 75 %**
 
 ## 10. Plan strangler par phases (dev-first)
 
-| Phase | Contenu | Vérif (gate) |
-|---|---|---|
-| **0** | Branche git `migration/drizzle-neon` ; protéger Neon `production` | — |
-| **1** ✅ | Inventaire + audit (ce doc) | fait |
-| **2** | `db/index.ts` (pg Pool), env zod, `drizzle.config.ts`, déplacer schéma auth → `db/schema/`, infra de tests DB, 1ʳᵉ migration sur **`develop`** | `build` ok |
-| **3** | Porter tout le schéma + **import de répétition sur `develop`** (Convex export) | counts concordants, 0 FK orpheline non expliquée |
-| **4** | Better Auth (instance/client/guards/rôles/`rate_limit`) + **résoudre le flux re-login email** (vérif Better Auth) ; plan bannière/email | guard protège une page test ; sign-in Google OK |
-| **5** | Convertir l'accès données **domaine par domaine** (DAL lectures → Server Actions écritures) **+ migrer les tests du domaine** : questions → exams → training → payments → admin | `tsc`+tests par domaine |
-| **6** | Refermer la réactivité (§7) | chaque écran a sa stratégie |
-| **7** | Crons (Vercel) + webhooks (Stripe, nouveau secret) + uploads (Bunny) + E2E (Better Auth) | webhooks signés OK |
-| **8 — BASCULE** | `proxy.ts`, headers, env prod ; **fenêtre de maintenance** : Convex read-only → export+import **réel sur `production`** → flip auth → retrait `convex/` + deps Clerk/Convex | `build`+`check`+tests verts, coverage ≥ 75 % |
+| Phase           | Contenu                                                                                                                                                                         | Vérif (gate)                                     |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **0**           | Branche git `migration/drizzle-neon` ; protéger Neon `production`                                                                                                               | —                                                |
+| **1** ✅        | Inventaire + audit (ce doc)                                                                                                                                                     | fait                                             |
+| **2**           | `db/index.ts` (pg Pool), env zod, `drizzle.config.ts`, déplacer schéma auth → `db/schema/`, infra de tests DB, 1ʳᵉ migration sur **`develop`**                                  | `build` ok                                       |
+| **3**           | Porter tout le schéma + **import de répétition sur `develop`** (Convex export)                                                                                                  | counts concordants, 0 FK orpheline non expliquée |
+| **4**           | Better Auth (instance/client/guards/rôles/`rate_limit`) + **résoudre le flux re-login email** (vérif Better Auth) ; plan bannière/email                                         | guard protège une page test ; sign-in Google OK  |
+| **5**           | Convertir l'accès données **domaine par domaine** (DAL lectures → Server Actions écritures) **+ migrer les tests du domaine** : questions → exams → training → payments → admin | `tsc`+tests par domaine                          |
+| **6**           | Refermer la réactivité (§7)                                                                                                                                                     | chaque écran a sa stratégie                      |
+| **7**           | Crons (Vercel) + webhooks (Stripe, nouveau secret) + uploads (Bunny) + E2E (Better Auth)                                                                                        | webhooks signés OK                               |
+| **8 — BASCULE** | `proxy.ts`, headers, env prod ; **fenêtre de maintenance** : Convex read-only → export+import **réel sur `production`** → flip auth → retrait `convex/` + deps Clerk/Convex     | `build`+`check`+tests verts, coverage ≥ 75 %     |
 
 **Garde-fou** : `bun run build` + `bun run check` + tests verts **après chaque phase**.
 

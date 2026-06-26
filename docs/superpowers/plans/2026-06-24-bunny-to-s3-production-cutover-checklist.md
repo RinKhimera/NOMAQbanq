@@ -46,8 +46,8 @@
       gitignoré ; ne jamais committer). Convex étant figé, le snapshot est cohérent.
 - [ ] **Importer les données** : `bun scripts/import-from-convex.ts` (cible la branche
       production via `DATABASE_URL_UNPOOLED`) → vérifier le tableau de comptes
-      (questions, user, exams…) + orphelins ignorés. *(Remettre `DATABASE_URL_UNPOOLED`
-      sur develop après.)*
+      (questions, user, exams…) + orphelins ignorés. _(Remettre `DATABASE_URL_UNPOOLED`
+      sur develop après.)_
 - [ ] **Copie média finale sur la base production** : `bun scripts/migrate-media-to-s3.ts`
       pointé prod (idempotent → rattrape tout média référencé pas encore sur S3).
 - [ ] **Flip DNS Porkbun** : `cdn.nomaqbanq.ca` (CNAME) → `dn5nrir6z5nr7.cloudfront.net`.

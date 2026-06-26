@@ -24,13 +24,13 @@
 
 ## 2. Tableau des findings (trié par sévérité)
 
-| #   | Sév | fichier:ligne                                                       | problème                                                                                                                 | régression ? |
-| --- | --- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| 1   | 🟠  | `lib/aws.ts:46-50` (vs `1284b9d`)                                   | `AWS_REGION` (var réservée Vercel/Lambda) cassait **toute** opération S3 en prod jusqu'à `25a1ab5`. Discipline de merge. | OUI (corrigée par `25a1ab5`) |
-| 2   | 🟡  | `features/questions/actions.ts:310-316,341-349`                      | `setQuestionImages` ne confine PAS la clé finale à `questions/{questionId}/` ; `assertSafeStoragePath` sauté pour les chemins non-`tmp/`. | NON          |
-| 3   | 🟡  | `lib/aws.ts:31-42` + `lib/env/schema.ts:73-89`                      | Clés statiques **prioritaires** sur l'OIDC, sans garde code : posées par erreur sur Vercel → OIDC court-circuité en silence. | NON          |
-| 4   | 🟡  | `tests/integration/questions-actions.test.ts:162-204`               | Trou de test : la branche « copie OK puis DB échoue → nettoyage des finaux » et le rejet d'un `storagePath` hostile ne sont pas couverts. | N/A          |
-| 5   | ℹ️  | `scripts/migrate-media-to-s3.ts:133-137` + doc plan obsolète         | `--dry-run` ne peut pas reporter « absent de Bunny » ; doc plan obsolète instruit encore `vercel env add AWS_REGION`.    | NON          |
+| #   | Sév | fichier:ligne                                                | problème                                                                                                                                  | régression ?                 |
+| --- | --- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| 1   | 🟠  | `lib/aws.ts:46-50` (vs `1284b9d`)                            | `AWS_REGION` (var réservée Vercel/Lambda) cassait **toute** opération S3 en prod jusqu'à `25a1ab5`. Discipline de merge.                  | OUI (corrigée par `25a1ab5`) |
+| 2   | 🟡  | `features/questions/actions.ts:310-316,341-349`              | `setQuestionImages` ne confine PAS la clé finale à `questions/{questionId}/` ; `assertSafeStoragePath` sauté pour les chemins non-`tmp/`. | NON                          |
+| 3   | 🟡  | `lib/aws.ts:31-42` + `lib/env/schema.ts:73-89`               | Clés statiques **prioritaires** sur l'OIDC, sans garde code : posées par erreur sur Vercel → OIDC court-circuité en silence.              | NON                          |
+| 4   | 🟡  | `tests/integration/questions-actions.test.ts:162-204`        | Trou de test : la branche « copie OK puis DB échoue → nettoyage des finaux » et le rejet d'un `storagePath` hostile ne sont pas couverts. | N/A                          |
+| 5   | ℹ️  | `scripts/migrate-media-to-s3.ts:133-137` + doc plan obsolète | `--dry-run` ne peut pas reporter « absent de Bunny » ; doc plan obsolète instruit encore `vercel env add AWS_REGION`.                     | NON                          |
 
 Aucun finding 🔴 à HEAD `25a1ab5`.
 
@@ -87,12 +87,12 @@ Aucun finding 🔴 à HEAD `25a1ab5`.
   sans confinement.
 - **Correctif suggéré** : avant insertion, asserter **tout** `finalPath` (sortir le
   `continue` du chemin de validation) et exiger
-  `finalPath.startsWith(\`questions/${questionId}/\`)` ; sinon `fail("Chemin invalide")`.
+  `finalPath.startsWith(\`questions/${questionId}/\`)`; sinon`fail("Chemin invalide")`.
 
 ### Finding 3 — 🟡 Clés statiques prioritaires sur l'OIDC sans garde code
 
 - **Code** : `lib/aws.ts:31-42` — `resolveCredentials` teste `AWS_ACCESS_KEY_ID &&
-  AWS_SECRET_ACCESS_KEY` **en premier**, l'OIDC (`AWS_ROLE_ARN`) seulement ensuite.
+AWS_SECRET_ACCESS_KEY` **en premier**, l'OIDC (`AWS_ROLE_ARN`) seulement ensuite.
   `lib/env/schema.ts:73-89` — le refine accepte `AWS_ROLE_ARN` **OU** les clés
   statiques, mais n'interdit pas d'avoir les deux.
 - **Pourquoi c'est un vrai bug (durcissement)** : si `AWS_ACCESS_KEY_ID/SECRET`
@@ -102,7 +102,7 @@ Aucun finding 🔴 à HEAD `25a1ab5`.
   tentée** : la checklist de bascule (`production-cutover-checklist.md:13-16`) dit
   explicitement « clés statiques **uniquement** en local, jamais sur Vercel », et
   c'est un choix pragmatique assumé (cf. mémoire projet). **Survie** : la garde est
-  *documentaire*, pas *codée* ; rien n'empêche la config dangereuse au runtime.
+  _documentaire_, pas _codée_ ; rien n'empêche la config dangereuse au runtime.
 - **Régression ?** **NON** — capacité nouvelle (commit `938c42b`), additive.
 - **Correctif suggéré** (optionnel) : en prod/preview Vercel (`process.env.VERCEL`),
   préférer l'OIDC et/ou refuser les clés statiques au chargement env (refine :
@@ -124,7 +124,7 @@ Aucun finding 🔴 à HEAD `25a1ab5`.
   (lecture : le `catch` supprime bien `copiedFinalPaths`), mais rien ne verrouille ce
   comportement contre une régression future. De plus, `QuestionFormPage.test.tsx:58-74`
   **stubbe entièrement le Radix Select** (l'environnement happy-dom ne le monte pas
-  fidèlement) : le test verrouille le *contrat de valeur synchrone* (`data-value`),
+  fidèlement) : le test verrouille le _contrat de valeur synchrone_ (`data-value`),
   pas le rendu Radix réel qui était la cause du Bug 1 — garantie plus faible que ce
   que le titre laisse croire (le fix lui-même a été vérifié navigateur, c'est noté
   dans le commentaire).
@@ -147,7 +147,7 @@ Aucun finding 🔴 à HEAD `25a1ab5`.
   Bunny) — confirmé sûr. **Survie** : le défaut est l'imprécision du compte, pas une
   écriture.
 - **Doc** : `docs/superpowers/plans/2026-06-24-bunny-to-s3-cloudfront-migration.md:192-193`
-  instruit encore `vercel env add AWS_REGION production` — suivre ce doc *obsolète*
+  instruit encore `vercel env add AWS_REGION production` — suivre ce doc _obsolète_
   pendant la bascule poserait la mauvaise var (non lue par le code) → S3 non configuré.
   La checklist canonique (`production-cutover-checklist.md`) est correcte ; le plan
   l'est plus.
@@ -160,17 +160,17 @@ Aucun finding 🔴 à HEAD `25a1ab5`.
 
 ## 4. Faux positifs écartés (suspecté → écarté, avec preuve)
 
-| Suspicion                                                                 | Écartée parce que                                                                                                                                                                                                                  |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Orphelin dans `questions/` si copie OK puis insert DB échoue**          | Le `catch` supprime `copiedFinalPaths` (`features/questions/actions.ts:366-368`). Orphelin seulement en **double-faute** (DB échoue **et** delete S3 échoue) — best-effort, acceptable. Réfuté.                                    |
-| **`copyInS3` avale les erreurs au lieu de lever**                         | `lib/aws.ts:93-105` : aucun try/catch, `await send(CopyObjectCommand)` propage. Le commentaire « lève en cas d'échec » est exact. L'appelant gère (`actions.ts:317-321`). Réfuté.                                                  |
-| **Path-traversal sur la clé finale (`tmp/../questions/autre/x`)**         | `assertSafeStoragePath` est appelé sur `tmpPath` **et** `finalPath` **avant** `copyInS3` (`actions.ts:312-313`) ; il bloque `..`, `//`, `\`, leading `/`, contrôle. La traversée ne passe pas. (Le confinement préfixe = Finding 2.) |
+| Suspicion                                                                          | Écartée parce que                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Orphelin dans `questions/` si copie OK puis insert DB échoue**                   | Le `catch` supprime `copiedFinalPaths` (`features/questions/actions.ts:366-368`). Orphelin seulement en **double-faute** (DB échoue **et** delete S3 échoue) — best-effort, acceptable. Réfuté.                                                                                                                                                                    |
+| **`copyInS3` avale les erreurs au lieu de lever**                                  | `lib/aws.ts:93-105` : aucun try/catch, `await send(CopyObjectCommand)` propage. Le commentaire « lève en cas d'échec » est exact. L'appelant gère (`actions.ts:317-321`). Réfuté.                                                                                                                                                                                  |
+| **Path-traversal sur la clé finale (`tmp/../questions/autre/x`)**                  | `assertSafeStoragePath` est appelé sur `tmpPath` **et** `finalPath` **avant** `copyInS3` (`actions.ts:312-313`) ; il bloque `..`, `//`, `\`, leading `/`, contrôle. La traversée ne passe pas. (Le confinement préfixe = Finding 2.)                                                                                                                               |
 | **XSS/SSRF via `resolveAvatarUrl` (data:/`//host`/http absolu passés tels quels)** | L'avatar est rendu via `next/image` (`avatar-uploader.tsx:180`), dont l'allowlist `remotePatterns` (`next.config.ts`) bloque les hôtes arbitraires (400). Un `data:`/SVG en contexte `<img>` n'exécute pas de script. Le pass-through d'URL absolue est **identique au comportement antérieur** (les URL complètes étaient déjà utilisées telles quelles). Réfuté. |
-| **`user.image` arbitrairement contrôlable = vecteur**                     | `image` n'est pas verrouillé (`input:false`) côté Better Auth, donc modifiable via `updateUser` — mais le seul point de rendu (next/image + allowlist) neutralise. Hors périmètre (comportement non modifié par ces commits). Réfuté. |
-| **Régression de save : Select domaine non pré-rempli en création / état perdu** | Création = `buildDefaultValues(undefined)` → defaults vides ; édition = montage de `QuestionForm` **après** chargement, `defaultValues` synchrones + `key={question.id}` (remount propre) ; `router.push` après save → pas de reset in-place nécessaire (`question-form-page.tsx:120-135,242-318`). Réfuté. |
-| **`useCurrentUser` fuit de la donnée sensible au client**                 | Ne fait que spread l'objet `data.user` Better Auth (id/name/email/image/role/username/bio) + résoudre `image` (`hooks/useCurrentUser.ts:13-21`) ; aucun token/`session.session` propagé. Forme inchangée. Réfuté.                  |
-| **`avatarKey` du script migre des URL Google**                            | `scripts/migrate-media-to-s3.ts:76-87` : `null` si `hostname !== CDN_HOST` et si hors préfixe `avatars/`. Google (`lh3.googleusercontent.com`) → `null`. Réfuté.                                                                   |
-| **Couverture des sources média par le script**                            | `collectKeys` (`:89-111`) lit `question_images.storage_path`, `question_explanations.image_path` (WHERE NOT NULL) et `user.image`. Les trois sources attendues sont couvertes. Réfuté.                                              |
+| **`user.image` arbitrairement contrôlable = vecteur**                              | `image` n'est pas verrouillé (`input:false`) côté Better Auth, donc modifiable via `updateUser` — mais le seul point de rendu (next/image + allowlist) neutralise. Hors périmètre (comportement non modifié par ces commits). Réfuté.                                                                                                                              |
+| **Régression de save : Select domaine non pré-rempli en création / état perdu**    | Création = `buildDefaultValues(undefined)` → defaults vides ; édition = montage de `QuestionForm` **après** chargement, `defaultValues` synchrones + `key={question.id}` (remount propre) ; `router.push` après save → pas de reset in-place nécessaire (`question-form-page.tsx:120-135,242-318`). Réfuté.                                                        |
+| **`useCurrentUser` fuit de la donnée sensible au client**                          | Ne fait que spread l'objet `data.user` Better Auth (id/name/email/image/role/username/bio) + résoudre `image` (`hooks/useCurrentUser.ts:13-21`) ; aucun token/`session.session` propagé. Forme inchangée. Réfuté.                                                                                                                                                  |
+| **`avatarKey` du script migre des URL Google**                                     | `scripts/migrate-media-to-s3.ts:76-87` : `null` si `hostname !== CDN_HOST` et si hors préfixe `avatars/`. Google (`lh3.googleusercontent.com`) → `null`. Réfuté.                                                                                                                                                                                                   |
+| **Couverture des sources média par le script**                                     | `collectKeys` (`:89-111`) lit `question_images.storage_path`, `question_explanations.image_path` (WHERE NOT NULL) et `user.image`. Les trois sources attendues sont couvertes. Réfuté.                                                                                                                                                                             |
 
 ---
 
@@ -190,14 +190,14 @@ opérations S3 en prod.
 
 ### Correctifs priorisés
 
-| Priorité                 | Finding | Action                                                                                                                                |
-| ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **Bloquant maintenant**  | 1       | Confirmer que la branche mergée pointe `25a1ab5`+ (pas `1284b9d`). Sur Vercel : `S3_REGION=us-east-2`, **pas** `AWS_REGION`.          |
-| **Avant cutover**        | 2       | Confiner `finalPath` à `questions/{questionId}/` + asserter tous les chemins (y compris non-`tmp/`) dans `setQuestionImages`.         |
-| **Avant cutover**        | (infra) | Vérifier (déjà dans la checklist) : règle **Lifecycle S3 `tmp/` (expire 1 j)** active + IAM `tmp/*` — sans elle, le tmp/ s'accumule.  |
-| **Polish**               | 3       | Garde code « pas de clés statiques sur Vercel » (refine ou warn), au-delà de la consigne documentaire.                               |
-| **Polish**               | 4       | Tests : branche copie-OK-puis-DB-échoue (nettoyage finaux) + rejet `storagePath` hostile dans `setQuestionImages`.                   |
-| **Polish**               | 5       | Dry-run distingue `missing` ; annoter le plan obsolète (`…-migration.md`) vers la checklist canonique.                               |
+| Priorité                | Finding | Action                                                                                                                               |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Bloquant maintenant** | 1       | Confirmer que la branche mergée pointe `25a1ab5`+ (pas `1284b9d`). Sur Vercel : `S3_REGION=us-east-2`, **pas** `AWS_REGION`.         |
+| **Avant cutover**       | 2       | Confiner `finalPath` à `questions/{questionId}/` + asserter tous les chemins (y compris non-`tmp/`) dans `setQuestionImages`.        |
+| **Avant cutover**       | (infra) | Vérifier (déjà dans la checklist) : règle **Lifecycle S3 `tmp/` (expire 1 j)** active + IAM `tmp/*` — sans elle, le tmp/ s'accumule. |
+| **Polish**              | 3       | Garde code « pas de clés statiques sur Vercel » (refine ou warn), au-delà de la consigne documentaire.                               |
+| **Polish**              | 4       | Tests : branche copie-OK-puis-DB-échoue (nettoyage finaux) + rejet `storagePath` hostile dans `setQuestionImages`.                   |
+| **Polish**              | 5       | Dry-run distingue `missing` ; annoter le plan obsolète (`…-migration.md`) vers la checklist canonique.                               |
 
 ---
 
@@ -207,11 +207,11 @@ opérations S3 en prod.
   rapport (`docs/superpowers/reviews/2026-06-25-revue-adversariale-correctifs-s3.md`),
   **non commité** (artefact jetable).
 - **Commandes exécutées** : `git log/diff/show/status` (lecture), `grep`, `bun run
-  check` (×2, exit 0), `bun run test` (frontend, exit 0).
+check` (×2, exit 0), `bun run test` (frontend, exit 0).
 - **NON exécuté** : `bun run test:integration` (créerait/détruirait une branche Neon
   éphémère). Aucune commande de déploiement/destructive.
 - **NON touché** : branches Neon `develop`/`production`, bucket S3, env Vercel. Le
-  contenu de `.env.local`/`.env*` n'a **jamais** été imprimé (seuls les *noms* de vars
+  contenu de `.env.local`/`.env*` n'a **jamais** été imprimé (seuls les _noms_ de vars
   via `.env.example` / `git show`).
 - **Mise en garde** : la revue s'est faite sur un HEAD **mouvant** (le commit `25a1ab5`
   a été créé par un travail parallèle pendant la revue). Toutes les conclusions valent

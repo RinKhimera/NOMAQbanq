@@ -50,12 +50,12 @@ d'email) **sans affaiblir l'anti-énumération ni `requireEmailVerification`**.
 
 ## Décisions de conception (validées)
 
-| # | Décision | Choix retenu |
-|---|----------|--------------|
-| Périmètre | A guidage connexion · B flux inscription · C vérif/renvoi · D mapping erreurs | **Les quatre** |
-| Q2 | Inscription doublon | **Générique honnête** (garder anti-énumération) |
-| Q3 | Écran « vérifiez votre courriel » | **État inline** dans les forms + `sendOnSignIn` + renvoi manuel |
-| Q4 | Échec de connexion | **Alerte inline persistante actionnable** |
+| #         | Décision                                                                      | Choix retenu                                                    |
+| --------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| Périmètre | A guidage connexion · B flux inscription · C vérif/renvoi · D mapping erreurs | **Les quatre**                                                  |
+| Q2        | Inscription doublon                                                           | **Générique honnête** (garder anti-énumération)                 |
+| Q3        | Écran « vérifiez votre courriel »                                             | **État inline** dans les forms + `sendOnSignIn` + renvoi manuel |
+| Q4        | Échec de connexion                                                            | **Alerte inline persistante actionnable**                       |
 
 Rejeté : révéler « courriel déjà utilisé » (énumération + toucherait à la config
 sécu M2). Reporté : campagne email « définissez votre mot de passe » aux 183
@@ -108,13 +108,13 @@ function mapAuthError(error: { code?: string; message?: string }): {
 }
 ```
 
-| `error.code` | `kind` | message FR |
-|---|---|---|
-| `INVALID_EMAIL_OR_PASSWORD` | `invalid_credentials` | (la copie est portée par l'alerte, cf. §5) |
-| `EMAIL_NOT_VERIFIED` | `email_not_verified` | (déclenche `CheckEmailNotice`, cf. §3) |
-| `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL` | `generic` | « Ce courriel ne peut pas être utilisé pour créer un compte. Essayez de vous connecter. » |
-| `TOO_MANY_REQUESTS` / 429 | `generic` | « Trop de tentatives. Réessayez dans une minute. » |
-| défaut | `generic` | « Une erreur est survenue. Veuillez réessayer. » |
+| `error.code`                            | `kind`                | message FR                                                                                |
+| --------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------- |
+| `INVALID_EMAIL_OR_PASSWORD`             | `invalid_credentials` | (la copie est portée par l'alerte, cf. §5)                                                |
+| `EMAIL_NOT_VERIFIED`                    | `email_not_verified`  | (déclenche `CheckEmailNotice`, cf. §3)                                                    |
+| `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL` | `generic`             | « Ce courriel ne peut pas être utilisé pour créer un compte. Essayez de vous connecter. » |
+| `TOO_MANY_REQUESTS` / 429               | `generic`             | « Trop de tentatives. Réessayez dans une minute. »                                        |
+| défaut                                  | `generic`             | « Une erreur est survenue. Veuillez réessayer. »                                          |
 
 `USER_ALREADY_EXISTS` est rarement levé (le doublon renvoie un faux succès), mais
 mappé par défense.
@@ -124,7 +124,10 @@ mappé par défense.
 `app/(auth)/auth/_components/check-email-notice.tsx`. Props :
 
 ```ts
-{ email: string; mode: "signup" | "verify" }
+{
+  email: string
+  mode: "signup" | "verify"
+}
 ```
 
 - Affiche l'adresse, un bouton **Renvoyer le lien**, un pied « Pas reçu ?
@@ -183,7 +186,7 @@ persiste et porte les liens d'action). Le toast reste pour le succès.
 
 ### 6. Cohérence forgot/reset
 
-Vérifier que la page [forgot-password](app/(auth)/auth/forgot-password/page.tsx)
+Vérifier que la page [forgot-password](<app/(auth)/auth/forgot-password/page.tsx>)
 affiche un message **générique** (« Si ce courriel existe, un lien de
 réinitialisation a été envoyé »). Better Auth renvoie déjà générique côté serveur ;
 aligner uniquement la copie si nécessaire. Aucune logique serveur à changer : le

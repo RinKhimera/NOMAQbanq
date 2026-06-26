@@ -1,8 +1,6 @@
-import "server-only"
-
 import { headers } from "next/headers"
 import { cache } from "react"
-
+import "server-only"
 import { auth } from "@/lib/auth"
 
 // Dédupliqué par render via React cache().

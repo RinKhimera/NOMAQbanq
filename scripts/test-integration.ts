@@ -4,11 +4,13 @@
  * branche en debug (ramassée par le housekeeping > 1 h). Lancer via
  * `bun run test:integration` (ou `bun scripts/test-integration.ts --keep`).
  */
-import { spawnSync } from "node:child_process"
-
 import { config } from "dotenv"
-
-import { cleanupStaleTestBranches, createTestBranch, deleteBranch } from "./neon-api"
+import { spawnSync } from "node:child_process"
+import {
+  cleanupStaleTestBranches,
+  createTestBranch,
+  deleteBranch,
+} from "./neon-api"
 
 config({ path: ".env.local" })
 
@@ -16,7 +18,9 @@ const keep = process.argv.includes("--keep")
 
 const removed = await cleanupStaleTestBranches()
 if (removed.length > 0) {
-  console.log(`[test-integration] branches orphelines supprimées : ${removed.join(", ")}`)
+  console.log(
+    `[test-integration] branches orphelines supprimées : ${removed.join(", ")}`,
+  )
 }
 
 console.log("[test-integration] création de la branche de test…")
@@ -45,7 +49,9 @@ try {
   exitCode = run("bunx", ["vitest", "run", "--project", "integration"], env)
 } finally {
   if (keep) {
-    console.log(`[test-integration] --keep : branche conservée → ${branch.name} (${branch.host})`)
+    console.log(
+      `[test-integration] --keep : branche conservée → ${branch.name} (${branch.host})`,
+    )
   } else {
     await deleteBranch(branch.id)
     console.log("[test-integration] branche supprimée.")

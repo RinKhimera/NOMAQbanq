@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { loadServerEnv, stripEmpty } from "@/lib/env/schema"
 
 const valid = {
@@ -89,7 +88,11 @@ describe("loadServerEnv", () => {
 
   it("rejette un bucket S3 sans credentials (ni role ni clés statiques)", () => {
     expect(() =>
-      loadServerEnv({ ...valid, S3_REGION: "us-east-2", S3_BUCKET: "nomaq-media" }),
+      loadServerEnv({
+        ...valid,
+        S3_REGION: "us-east-2",
+        S3_BUCKET: "nomaq-media",
+      }),
     ).toThrow(/AWS S3 incompl/)
   })
 

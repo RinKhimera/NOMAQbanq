@@ -18,7 +18,7 @@ qui le câblent). Remplace progressivement `convex-backend.md`.
   colonnes ciblées. Comptes via SQL live (`count(*) filter (where …)`), pas de
   tables d'agrégat.
 - **Forme « pont » quiz** : renvoyer `_id`/`_creationTime`/`images:{url,
-  storagePath,order}` pour rester assignable aux composants partagés
+storagePath,order}` pour rester assignable aux composants partagés
   (`QuestionCard`, `QuizResults`). `correctAnswer`/`explanation`/`references`
   **seulement quand autorisé** (admin, ou session/participation complétée) —
   anti-triche. Au point de montage : `question={q as never}` (l'`_id` Drizzle est

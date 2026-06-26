@@ -2,32 +2,30 @@
 
 import { asc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
-
 import { db } from "@/db"
 import { products, transactions } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getBaseUrl } from "@/lib/base-url"
 import { createId } from "@/lib/ids"
 import { getStripe } from "@/lib/stripe"
-
 import {
-  getAccessStatus,
-  getAllTransactions,
-  getMyTransactions,
-  getTransactionAccessImpact,
-  getTransactionStats,
   type AccessImpact,
   type AccessStatus,
   type AdminTransactionsPage,
   type MyTransactionsPage,
   type TransactionStatsView,
+  getAccessStatus,
+  getAllTransactions,
+  getMyTransactions,
+  getTransactionAccessImpact,
+  getTransactionStats,
 } from "./dal"
 import { grantManualAccess, revokeAccessIfLast } from "./lib"
 import {
-  recordManualPaymentSchema,
-  updateManualTransactionSchema,
   type RecordManualPaymentInput,
   type UpdateManualTransactionInput,
+  recordManualPaymentSchema,
+  updateManualTransactionSchema,
 } from "./schemas"
 
 /**
@@ -58,11 +56,10 @@ export const loadAdminTransactions = async (params: {
 }
 
 /** [Admin] Statistiques transactions — rafraîchies après une mutation. */
-export const loadTransactionStats =
-  async (): Promise<TransactionStatsView> => {
-    await requireRole(["admin"])
-    return getTransactionStats()
-  }
+export const loadTransactionStats = async (): Promise<TransactionStatsView> => {
+  await requireRole(["admin"])
+  return getTransactionStats()
+}
 
 /**
  * [Admin] Impact d'accès d'une transaction (le modal édition/suppression l'appelle
@@ -463,6 +460,8 @@ export const createCustomerPortal = async (
     if (process.env.NODE_ENV !== "production") {
       console.error("[createCustomerPortal]", error)
     }
-    return { error: "Impossible d'ouvrir le portail de facturation. Réessayez." }
+    return {
+      error: "Impossible d'ouvrir le portail de facturation. Réessayez.",
+    }
   }
 }

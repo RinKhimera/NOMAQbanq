@@ -1,7 +1,5 @@
-import "server-only"
-
 import { redirect } from "next/navigation"
-
+import "server-only"
 import { getCurrentSession } from "@/lib/dal"
 
 /** Page/Server Action : redirige vers la connexion si pas de session. */

@@ -4,7 +4,6 @@ import {
   getMyTransactions,
 } from "@/features/payments/dal"
 import { requireSession } from "@/lib/auth-guards"
-
 import { AbonnementsClient } from "../_components/abonnements-client"
 
 export default async function AbonnementsPage() {

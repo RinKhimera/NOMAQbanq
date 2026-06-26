@@ -1,6 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
+import { loadMarketingStats } from "@/features/marketing/actions"
+import type { MarketingStats } from "@/features/marketing/dal"
 import { useMarketingStats } from "@/hooks/useMarketingStats"
 
 // Le hook appelle la Server Action `loadMarketingStats` (remplace `useQuery`
@@ -9,9 +10,6 @@ import { useMarketingStats } from "@/hooks/useMarketingStats"
 vi.mock("@/features/marketing/actions", () => ({
   loadMarketingStats: vi.fn(),
 }))
-
-import { loadMarketingStats } from "@/features/marketing/actions"
-import type { MarketingStats } from "@/features/marketing/dal"
 
 const mockStats: MarketingStats = {
   totalQuestions: "3000+",

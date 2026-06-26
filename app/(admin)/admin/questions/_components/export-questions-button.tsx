@@ -145,10 +145,11 @@ export function ExportQuestionsButton({
       Références: q.references.join("; "),
       "Avec images": q.hasImages ? "Oui" : "Non",
       "Nombre d'images": q.imagesCount,
-      "Date de création": new Date(q.createdAt).toLocaleDateString(
-        "fr-FR",
-        { day: "2-digit", month: "2-digit", year: "numeric" },
-      ),
+      "Date de création": new Date(q.createdAt).toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }),
     }))
 
     const worksheet = utils.json_to_sheet(data)

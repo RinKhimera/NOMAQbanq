@@ -1,5 +1,4 @@
 import "server-only"
-
 import { deleteFromS3 } from "@/lib/aws"
 import { CDN_HOST } from "@/lib/cdn"
 import { env } from "@/lib/env/server"
@@ -18,9 +17,8 @@ import { env } from "@/lib/env/server"
 export const isStorageConfigured = (): boolean =>
   Boolean(
     env.S3_REGION &&
-      env.S3_BUCKET &&
-      (env.AWS_ROLE_ARN ||
-        (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY)),
+    env.S3_BUCKET &&
+    (env.AWS_ROLE_ARN || (env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY)),
   )
 
 // ---------- Path safety (anti path-traversal / SSRF) ----------

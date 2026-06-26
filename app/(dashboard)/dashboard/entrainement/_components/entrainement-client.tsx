@@ -2,7 +2,6 @@
 
 import { Brain, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
-
 import type {
   ActiveTrainingSession,
   DomainsView,
@@ -10,7 +9,6 @@ import type {
   TrainingHistoryPage,
   TrainingStats,
 } from "@/features/training/dal"
-
 import { ResumeSessionCard } from "./resume-session-card"
 import { TrainingConfigForm } from "./training-config-form"
 import { TrainingHistorySection } from "./training-history-section"

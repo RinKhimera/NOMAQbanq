@@ -26,21 +26,20 @@ bun add better-auth
 2. **Handler unique** `app/api/auth/[...all]/route.ts` :
 
    ```ts
-   import { toNextJsHandler } from 'better-auth/next-js';
+   import { toNextJsHandler } from "better-auth/next-js"
+   import { auth } from "@/lib/auth"
 
-   import { auth } from '@/lib/auth';
-
-   export const { GET, POST } = toNextJsHandler(auth);
+   export const { GET, POST } = toNextJsHandler(auth)
    ```
 
 3. **Client** `lib/auth-client.ts` :
 
    ```ts
-   import { adminClient } from 'better-auth/client/plugins';
-   import { createAuthClient } from 'better-auth/react';
+   import { adminClient } from "better-auth/client/plugins"
+   import { createAuthClient } from "better-auth/react"
 
-   export const authClient = createAuthClient({ plugins: [adminClient()] });
-   export const { signIn, signOut, signUp, useSession } = authClient;
+   export const authClient = createAuthClient({ plugins: [adminClient()] })
+   export const { signIn, signOut, signUp, useSession } = authClient
    ```
 
 4. **Tables** dans `db/schema/auth.ts` (gabarit `assets/schema-auth.ts.md`), incluses dans le glob

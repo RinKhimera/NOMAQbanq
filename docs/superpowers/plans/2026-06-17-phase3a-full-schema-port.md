@@ -27,15 +27,15 @@
 
 ## File Structure
 
-| File | Tables |
-|---|---|
-| `db/schema/enums.ts` | all `pgEnum`s |
-| `db/schema/questions.ts` | `questions`, `question_explanations`, `question_images` |
-| `db/schema/exams.ts` | `exams`, `exam_questions`, `exam_participations`, `exam_answers` |
-| `db/schema/training.ts` | `training_sessions`, `training_session_items` |
-| `db/schema/payments.ts` | `products`, `transactions`, `user_access` |
-| `db/schema/ops.ts` | `upload_rate_limits` |
-| `db/schema/index.ts` | barrel — re-export all (modified each task) |
+| File                     | Tables                                                           |
+| ------------------------ | ---------------------------------------------------------------- |
+| `db/schema/enums.ts`     | all `pgEnum`s                                                    |
+| `db/schema/questions.ts` | `questions`, `question_explanations`, `question_images`          |
+| `db/schema/exams.ts`     | `exams`, `exam_questions`, `exam_participations`, `exam_answers` |
+| `db/schema/training.ts`  | `training_sessions`, `training_session_items`                    |
+| `db/schema/payments.ts`  | `products`, `transactions`, `user_access`                        |
+| `db/schema/ops.ts`       | `upload_rate_limits`                                             |
+| `db/schema/index.ts`     | barrel — re-export all (modified each task)                      |
 
 ---
 
@@ -84,6 +84,7 @@ export const uploadType = pgEnum("upload_type", ["avatar", "question-image"])
 - [ ] **Step 2: Add to the barrel `db/schema/index.ts`**
 
 Append:
+
 ```ts
 export * from "./enums"
 ```
@@ -117,7 +118,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core"
-
 import { createId } from "@/lib/ids"
 
 export const questions = pgTable(
@@ -179,6 +179,7 @@ export const questionImages = pgTable(
 - [ ] **Step 2: Add to the barrel**
 
 Append to `db/schema/index.ts`:
+
 ```ts
 export * from "./questions"
 ```
@@ -215,11 +216,9 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core"
-
 import { createId } from "@/lib/ids"
-
 import { user } from "./auth"
-import { examPausePhase, examParticipationStatus } from "./enums"
+import { examParticipationStatus, examPausePhase } from "./enums"
 import { questions } from "./questions"
 
 export const exams = pgTable(
@@ -341,6 +340,7 @@ export const examAnswers = pgTable(
 - [ ] **Step 2: Add to the barrel**
 
 Append to `db/schema/index.ts`:
+
 ```ts
 export * from "./exams"
 ```
@@ -375,9 +375,7 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core"
-
 import { createId } from "@/lib/ids"
-
 import { user } from "./auth"
 import { trainingStatus } from "./enums"
 import { questions } from "./questions"
@@ -451,6 +449,7 @@ export const trainingSessionItems = pgTable(
 - [ ] **Step 2: Add to the barrel**
 
 Append to `db/schema/index.ts`:
+
 ```ts
 export * from "./training"
 ```
@@ -486,9 +485,7 @@ import {
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core"
-
 import { createId } from "@/lib/ids"
-
 import { user } from "./auth"
 import {
   accessType,
@@ -609,6 +606,7 @@ export const userAccess = pgTable(
 - [ ] **Step 2: Add to the barrel**
 
 Append to `db/schema/index.ts`:
+
 ```ts
 export * from "./payments"
 ```
@@ -634,10 +632,15 @@ git commit -m "feat(db): products, transactions, user_access schema"
 - [ ] **Step 1: Create `db/schema/ops.ts`**
 
 ```ts
-import { index, integer, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core"
-
+import {
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core"
 import { createId } from "@/lib/ids"
-
 import { user } from "./auth"
 import { uploadType } from "./enums"
 
@@ -665,6 +668,7 @@ export const uploadRateLimits = pgTable(
 - [ ] **Step 2: Add to the barrel**
 
 Append to `db/schema/index.ts`:
+
 ```ts
 export * from "./ops"
 ```
@@ -695,6 +699,7 @@ Expected: `drizzle/0001_<name>.sql` creating 9 enums (`CREATE TYPE`) and 13 tabl
 - [ ] **Step 2: Review the generated SQL**
 
 Open `drizzle/0001_*.sql`. Spot-check:
+
 - `exam_questions` composite PK `(exam_id, question_id)` + unique `(exam_id, position)`.
 - `exam_participations` unique `(exam_id, user_id)`.
 - `user_access` unique `(user_id, access_type)`.
@@ -710,15 +715,19 @@ Expected: applies cleanly. (SSL error → set `NODE_EXTRA_CA_CERTS`, see Prerequ
 - [ ] **Step 4: Verify on `develop` via Neon MCP**
 
 The controller verifies with the Neon MCP `run_sql` tool against project `lucky-waterfall-33371811`, branch `develop` (`br-restless-morning-ad4uyo3t`):
+
 ```sql
 SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename;
 ```
+
 Expected: the 13 domain tables above + the 4 auth tables (`account`, `session`, `user`, `verification`).
 
 And FK sanity:
+
 ```sql
 SELECT conname FROM pg_constraint WHERE contype = 'f' ORDER BY conname;
 ```
+
 Expected: FKs for exam_questions, exam_participations, exam_answers, question_explanations, question_images, training_session_items, transactions, user_access, etc.
 
 - [ ] **Step 5: Commit**

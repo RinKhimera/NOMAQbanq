@@ -1,5 +1,4 @@
 import { Button, Link, Section, Text } from "@react-email/components"
-
 import { EmailLayout } from "./email-layout"
 
 export function ResetPasswordEmail({ url }: { url: string }) {
@@ -7,8 +6,8 @@ export function ResetPasswordEmail({ url }: { url: string }) {
     <EmailLayout preview="Réinitialisation de votre mot de passe">
       <Section>
         <Text style={{ fontSize: "16px", color: "#18181b" }}>
-          Vous avez demandé à réinitialiser votre mot de passe. Cliquez ci-dessous pour
-          en choisir un nouveau.
+          Vous avez demandé à réinitialiser votre mot de passe. Cliquez
+          ci-dessous pour en choisir un nouveau.
         </Text>
         <Button
           href={url}
@@ -24,11 +23,12 @@ export function ResetPasswordEmail({ url }: { url: string }) {
           Réinitialiser mon mot de passe
         </Button>
         <Text style={{ fontSize: "13px", color: "#52525b" }}>
-          Ou copiez ce lien dans votre navigateur : <Link href={url}>{url}</Link>
+          Ou copiez ce lien dans votre navigateur :{" "}
+          <Link href={url}>{url}</Link>
         </Text>
         <Text style={{ fontSize: "13px", color: "#71717a" }}>
-          Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de cette
-          demande, ignorez ce message ; votre mot de passe reste inchangé.
+          Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de
+          cette demande, ignorez ce message ; votre mot de passe reste inchangé.
         </Text>
       </Section>
     </EmailLayout>

@@ -1,4 +1,4 @@
-import { test as setup, type Page } from "@playwright/test"
+import { type Page, test as setup } from "@playwright/test"
 import path from "path"
 import { fileURLToPath } from "url"
 

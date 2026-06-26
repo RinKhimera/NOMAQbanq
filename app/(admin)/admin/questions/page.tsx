@@ -1,7 +1,5 @@
 import { Suspense } from "react"
-
 import { getQuestionStatsEnriched } from "@/features/questions/dal"
-
 import { QuestionsManager } from "./_components/questions-manager"
 
 // Stats chargées côté serveur (DAL admin) ; le QuestionBrowser (client) gère

@@ -1,7 +1,12 @@
-import { index, integer, pgTable, text, timestamp, unique } from "drizzle-orm/pg-core"
-
+import {
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+} from "drizzle-orm/pg-core"
 import { createId } from "@/lib/ids"
-
 import { user } from "./auth"
 import { uploadType } from "./enums"
 

@@ -1053,9 +1053,10 @@ export const getMyDashboardStats = cache(
           sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted'))`.mapWith(
             Number,
           ),
-        averageScore: sql<number>`coalesce(round(avg(${examParticipations.score}) filter (where ${examParticipations.status} in ('completed','auto_submitted'))), 0)`.mapWith(
-          Number,
-        ),
+        averageScore:
+          sql<number>`coalesce(round(avg(${examParticipations.score}) filter (where ${examParticipations.status} in ('completed','auto_submitted'))), 0)`.mapWith(
+            Number,
+          ),
       })
       .from(examParticipations)
       .where(eq(examParticipations.userId, uid))

@@ -5,7 +5,7 @@
 
 **Goal:** Finish the Better Auth setup on top of the already-built SES email infra: admin plugin + roles, `nextCookies`, database rate limiting, automatic Google account-linking to migrated users, server-side guards, and an **empirically-verified re-login path** for migrated email/password users.
 
-**Architecture:** `lib/auth.ts` gains the `admin` + `nextCookies` plugins, `rateLimit.storage: 'database'`, and `account.accountLinking` (trusted Google). Reads go through a cached `getCurrentSession`; sensitive pages/actions call `requireSession`/`requireRole`. No new DB migration (role/banned/ban_*/rate_limit/impersonated_by already exist from Phase 3b). The SES email config (`sendVerificationEmail`/`sendResetPassword`) is kept as-is.
+**Architecture:** `lib/auth.ts` gains the `admin` + `nextCookies` plugins, `rateLimit.storage: 'database'`, and `account.accountLinking` (trusted Google). Reads go through a cached `getCurrentSession`; sensitive pages/actions call `requireSession`/`requireRole`. No new DB migration (role/banned/ban\_\*/rate_limit/impersonated_by already exist from Phase 3b). The SES email config (`sendVerificationEmail`/`sendResetPassword`) is kept as-is.
 
 **Tech Stack:** Better Auth ^1.6.19 (admin plugin) · Drizzle · Next.js 16 · Bun · Neon develop branch (has migrated prod users for empirical testing).
 
@@ -37,7 +37,6 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { nextCookies } from "better-auth/next-js"
 import { admin } from "better-auth/plugins/admin"
-
 import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { sendResetPassword, sendVerificationEmail } from "@/email"
@@ -126,11 +125,9 @@ git commit -m "feat(auth): auth client with admin plugin + exports"
 - [ ] **Step 1: Create `lib/dal.ts`** (cached session read; `server-only` lives here per the project pattern — NOT in `db/`):
 
 ```ts
-import "server-only"
-
 import { headers } from "next/headers"
 import { cache } from "react"
-
+import "server-only"
 import { auth } from "@/lib/auth"
 
 // Dédupliqué par render via React cache().
@@ -142,10 +139,8 @@ export const getCurrentSession = cache(async () => {
 - [ ] **Step 2: Create `lib/auth-guards.ts`** (redirecting guards for pages/Server Actions + a non-redirecting variant for route handlers):
 
 ```ts
-import "server-only"
-
 import { redirect } from "next/navigation"
-
+import "server-only"
 import { getCurrentSession } from "@/lib/dal"
 
 /** Page/Server Action : redirige vers la connexion si pas de session. */
@@ -187,19 +182,20 @@ git commit -m "feat(auth): cached session helper + requireSession/requireRole gu
 > This resolves the only open unknown (B5): does `resetPassword` create a credential `account` for a migrated email/password user who has none? We test it against a REAL migrated user on develop.
 
 - [ ] **Step 1: Pick a migrated test user** — via Neon MCP `run_sql` (branch develop), choose a non-admin migrated user email, e.g.:
+
 ```sql
 SELECT email FROM "user" WHERE role = 'user' ORDER BY created_at LIMIT 1;
 ```
+
 Confirm it has NO account row: `SELECT count(*) FROM account WHERE user_id = (SELECT id FROM "user" WHERE email = '<email>');` → expect 0.
 
 - [ ] **Step 2: Trigger + complete a password reset programmatically** — create `scripts/verify-relogin.ts`:
 
 ```ts
 import { config } from "dotenv"
+import { auth } from "@/lib/auth"
 
 config({ path: ".env.local" })
-
-import { auth } from "@/lib/auth"
 
 const email = process.argv[2]
 if (!email) throw new Error("usage: bun run scripts/verify-relogin.ts <email>")
@@ -237,6 +233,7 @@ main().catch((e) => {
 - [ ] **Step 4: Fetch the token** — via Neon MCP `run_sql` (develop): `SELECT identifier, value, expires_at FROM verification ORDER BY created_at DESC LIMIT 3;` — find the reset token for the test user.
 
 - [ ] **Step 5: Run step 3** — `bun run scripts/verify-relogin.ts <email> <token>`. Then check via MCP whether a credential account now exists:
+
 ```sql
 SELECT provider_id, (password IS NOT NULL) AS has_password
 FROM account WHERE user_id = (SELECT id FROM "user" WHERE email = '<email>');
@@ -267,6 +264,7 @@ Backfill a passwordless `credential` account for every migrated user so "forgot 
 - [ ] **Step 2:** `bun run test` → PASS (existing suite unaffected; auth has no new unit tests this phase).
 - [ ] **Step 3:** `bun run build` → PASS (the auth route + plugins compile).
 - [ ] **Step 4:** Tag completion:
+
 ```bash
 git commit --allow-empty -m "chore(migration): Phase 4 complete — Better Auth roles/guards + verified re-login"
 ```
@@ -277,7 +275,7 @@ git commit --allow-empty -m "chore(migration): Phase 4 complete — Better Auth 
 
 **1. Spec coverage (spec §6 + audit B5).** admin plugin + roles → Task 1 ✅; nextCookies (last) ✅; rate limit database ✅; Google account-linking to migrated users → Task 1 (doc-confirmed) ✅; guards + non-redirecting route variant → Task 3 ✅; email/password re-login empirically verified → Task 4 ✅ (+ conditional 4b). SES email infra kept as-is. SES sandbox cutover dependency flagged.
 
-**2. No new migration.** role/banned/ban_*/username/bio/impersonated_by/rate_limit all created in Phase 3b — confirmed on develop. Task 1 changes config only.
+**2. No new migration.** role/banned/ban\_\*/username/bio/impersonated_by/rate_limit all created in Phase 3b — confirmed on develop. Task 1 changes config only.
 
 **3. Placeholder scan.** Full code for auth.ts/auth-client.ts/dal.ts/auth-guards.ts/verify-relogin.ts. Task 4b is explicitly conditional on the Task 4 outcome (a real decision branch, not a vague TODO). ✅
 

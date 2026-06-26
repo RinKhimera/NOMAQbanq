@@ -1,5 +1,3 @@
-import "server-only"
-
 import {
   and,
   asc,
@@ -17,7 +15,7 @@ import {
 } from "drizzle-orm"
 import { alias } from "drizzle-orm/pg-core"
 import { cache } from "react"
-
+import "server-only"
 import { db } from "@/db"
 import {
   examParticipations,
@@ -73,7 +71,9 @@ export const getCurrentUser = cache(async () => {
   return row ?? null
 })
 
-export type CurrentUser = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
+export type CurrentUser = NonNullable<
+  Awaited<ReturnType<typeof getCurrentUser>>
+>
 
 export type SelectableUser = { id: string; name: string; email: string }
 
@@ -83,18 +83,16 @@ export type SelectableUser = { id: string; name: string; email: string }
  * et les comptes supprimés, triés par nom. Borné à 500 (parité Convex `.take(500)`)
  * — au-delà, prévoir une recherche serveur paginée.
  */
-export const getSelectableUsers = cache(
-  async (): Promise<SelectableUser[]> => {
-    await requireRole(["admin"])
+export const getSelectableUsers = cache(async (): Promise<SelectableUser[]> => {
+  await requireRole(["admin"])
 
-    return db
-      .select({ id: user.id, name: user.name, email: user.email })
-      .from(user)
-      .where(and(ne(user.role, "admin"), isNull(user.deletedAt)))
-      .orderBy(asc(user.name))
-      .limit(500)
-  },
-)
+  return db
+    .select({ id: user.id, name: user.name, email: user.email })
+    .from(user)
+    .where(and(ne(user.role, "admin"), isNull(user.deletedAt)))
+    .orderBy(asc(user.name))
+    .limit(500)
+})
 
 // ============================================
 // [Admin] Liste utilisateurs (filtres + tri + pagination)
@@ -168,10 +166,7 @@ export const getUsersWithFilters = async ({
   let accessPredicate
   switch (accessStatus) {
     case "active":
-      accessPredicate = or(
-        gt(exam.expiresAt, now),
-        gt(training.expiresAt, now),
-      )
+      accessPredicate = or(gt(exam.expiresAt, now), gt(training.expiresAt, now))
       break
     case "expiring":
       accessPredicate = or(
@@ -238,10 +233,7 @@ export const getUsersWithFilters = async ({
       trainingExpiresAt: training.expiresAt,
     })
     .from(user)
-    .leftJoin(
-      exam,
-      and(eq(exam.userId, user.id), eq(exam.accessType, "exam")),
-    )
+    .leftJoin(exam, and(eq(exam.userId, user.id), eq(exam.accessType, "exam")))
     .leftJoin(
       training,
       and(eq(training.userId, user.id), eq(training.accessType, "training")),
@@ -617,9 +609,10 @@ export const getAdminStats = async (): Promise<AdminStats> => {
     db
       .select({
         total: sql<number>`count(*)`.mapWith(Number),
-        active: sql<number>`count(*) filter (where ${exams.isActive} and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
-          Number,
-        ),
+        active:
+          sql<number>`count(*) filter (where ${exams.isActive} and ${exams.startDate} <= ${now} and ${exams.endDate} >= ${now})`.mapWith(
+            Number,
+          ),
       })
       .from(exams),
     db

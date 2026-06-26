@@ -1,6 +1,5 @@
 import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import {
   questionExplanations,
@@ -9,6 +8,13 @@ import {
   uploadRateLimits,
   user,
 } from "@/db/schema"
+import { createQuestionImageUpload } from "@/features/questions/actions"
+import {
+  confirmAvatarUpload,
+  createAvatarUpload,
+} from "@/features/users/actions"
+import { requireRole, requireSession } from "@/lib/auth-guards"
+import { createPresignedUpload } from "@/lib/aws"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
@@ -41,11 +47,6 @@ vi.mock("@/lib/storage", async (orig) => {
     tryDeleteFromStorage: vi.fn().mockResolvedValue(undefined),
   }
 })
-
-import { createQuestionImageUpload } from "@/features/questions/actions"
-import { confirmAvatarUpload, createAvatarUpload } from "@/features/users/actions"
-import { requireRole, requireSession } from "@/lib/auth-guards"
-import { createPresignedUpload } from "@/lib/aws"
 
 const userId = createId()
 const adminId = createId()

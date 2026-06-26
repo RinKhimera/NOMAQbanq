@@ -7,9 +7,7 @@ import {
   timestamp,
   unique,
 } from "drizzle-orm/pg-core"
-
 import { createId } from "@/lib/ids"
-
 import { user } from "./auth"
 import { trainingStatus } from "./enums"
 import { questions } from "./questions"

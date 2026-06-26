@@ -1,5 +1,3 @@
-import "server-only"
-
 import {
   and,
   asc,
@@ -13,7 +11,7 @@ import {
   sql,
 } from "drizzle-orm"
 import { cache } from "react"
-
+import "server-only"
 import { db } from "@/db"
 import {
   questionExplanations,
@@ -129,8 +127,8 @@ export type ActiveTrainingSession = {
 } | null
 
 /** Session `in_progress` de l'utilisateur courant (ou `null`). */
-export const getActiveTrainingSession =
-  cache(async (): Promise<ActiveTrainingSession> => {
+export const getActiveTrainingSession = cache(
+  async (): Promise<ActiveTrainingSession> => {
     const session = await getCurrentSession()
     if (!session?.user) return null
 
@@ -168,7 +166,8 @@ export const getActiveTrainingSession =
       canResume: !isExpired,
       remainingTimeMs: isExpired ? 0 : expiresMs - now,
     }
-  })
+  },
+)
 
 // ============================================
 // Historique (keyset)

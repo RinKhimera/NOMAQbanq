@@ -24,14 +24,14 @@ involontaires par rapport à Convex (fuite PII leaderboard corrigée, validation
 
 ## Tableau des trouvailles (par sévérité)
 
-| #  | Sév | fichier:ligne | problème | régression ? |
-|----|-----|---------------|----------|--------------|
-| F1 | 🟡 | `features/exams/actions.ts:595-607` · `features/exams/schemas.ts:60-72` | `questionId` dupliqué dans une soumission → `INSERT … ON CONFLICT` affecte 2× la même ligne → erreur Postgres → soumission échouée ; le `onConflictDoUpdate` donne une fausse impression d'idempotence | NON |
-| F2 | 🟡 | `features/exams/actions.ts:466-645` | Pas de cron portant `closeExpiredParticipations` : les participations `in_progress` d'examens expirés ne se ferment jamais (exclues du leaderboard/résultats) | OUI (partielle — non encore porté) |
-| F3 | 🟡 | `tests/integration/exams.test.ts` | Trous de test sur les branches d'autorisation les plus risquées (leaderboard après `endDate`, explications via training, résultats propres après `endDate`, `TIME_UP`) | N/A |
-| F4 | ℹ️ | `features/exams/actions.ts:463,529` | `isAutoSubmit` est piloté par le client → contourne le contrôle de budget-temps `TIME_UP` | NON (parité Convex) |
-| F5 | ℹ️ | `features/exams/dal.ts:138,183` ; `actions.ts:399-403` ; `dal.ts:264,902,941,951` | Divergences de comportement latentes vs Convex (non encore câblées) : tri/champ `status` de `getExamsWithParticipation`, champs pause omis du retour `startExam`, `correctAnswer` `undefined` vs `""`, `username` toujours `null`, leaderboard `[]` vs `notFound` + tie-break | NON (intentionnel/latent) |
-| F6 | ℹ️ | `db/schema/questions.ts:24-31` · `drizzle/0005_tired_caretaker.sql` | `SET DATA TYPE timestamp(3)` réécrit la table `questions` (lock ACCESS EXCLUSIVE bref) à la migration | NON (correctif H2) |
+| #   | Sév | fichier:ligne                                                                     | problème                                                                                                                                                                                                                                                                      | régression ?                       |
+| --- | --- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| F1  | 🟡  | `features/exams/actions.ts:595-607` · `features/exams/schemas.ts:60-72`           | `questionId` dupliqué dans une soumission → `INSERT … ON CONFLICT` affecte 2× la même ligne → erreur Postgres → soumission échouée ; le `onConflictDoUpdate` donne une fausse impression d'idempotence                                                                        | NON                                |
+| F2  | 🟡  | `features/exams/actions.ts:466-645`                                               | Pas de cron portant `closeExpiredParticipations` : les participations `in_progress` d'examens expirés ne se ferment jamais (exclues du leaderboard/résultats)                                                                                                                 | OUI (partielle — non encore porté) |
+| F3  | 🟡  | `tests/integration/exams.test.ts`                                                 | Trous de test sur les branches d'autorisation les plus risquées (leaderboard après `endDate`, explications via training, résultats propres après `endDate`, `TIME_UP`)                                                                                                        | N/A                                |
+| F4  | ℹ️  | `features/exams/actions.ts:463,529`                                               | `isAutoSubmit` est piloté par le client → contourne le contrôle de budget-temps `TIME_UP`                                                                                                                                                                                     | NON (parité Convex)                |
+| F5  | ℹ️  | `features/exams/dal.ts:138,183` ; `actions.ts:399-403` ; `dal.ts:264,902,941,951` | Divergences de comportement latentes vs Convex (non encore câblées) : tri/champ `status` de `getExamsWithParticipation`, champs pause omis du retour `startExam`, `correctAnswer` `undefined` vs `""`, `username` toujours `null`, leaderboard `[]` vs `notFound` + tie-break | NON (intentionnel/latent)          |
+| F6  | ℹ️  | `db/schema/questions.ts:24-31` · `drizzle/0005_tired_caretaker.sql`               | `SET DATA TYPE timestamp(3)` réécrit la table `questions` (lock ACCESS EXCLUSIVE bref) à la migration                                                                                                                                                                         | NON (correctif H2)                 |
 
 ---
 
@@ -52,8 +52,8 @@ await tx.insert(examAnswers).values(toInsert)
 pas** par `questionId`. La boucle [actions.ts:576-588](features/exams/actions.ts#L576-L588) pousse une ligne
 `toInsert` par réponse. Si le payload contient deux fois le même `questionId` (les deux appartenant à
 l'examen), `toInsert` contient deux lignes avec la même cible de conflit `(participationId, questionId)`.
-Postgres rejette alors l'`INSERT … ON CONFLICT DO UPDATE` avec *« command cannot affect row a second
-time »* (SQLSTATE 21000) → la transaction throw → capturée en `"Erreur serveur. Réessayez."`. Déclencheur
+Postgres rejette alors l'`INSERT … ON CONFLICT DO UPDATE` avec _« command cannot affect row a second
+time »_ (SQLSTATE 21000) → la transaction throw → capturée en `"Erreur serveur. Réessayez."`. Déclencheur
 concret : un client qui re-soumet/concatène, ou un appel direct de la Server Action (endpoint public
 authentifié) avec un doublon. Effet : soumission **bloquée** (rien n'est persisté, la transaction
 rollback), récupérable en re-soumettant dédupliqué. Pas d'inflation de score (l'`INSERT` échoue avant le
@@ -117,7 +117,7 @@ d'autorisation les plus susceptibles de cacher une régression ne sont pas exerc
    ([:378-381](tests/integration/exams.test.ts#L378-L381)). Les deux branches réellement délicates de
    [dal.ts:905-920](features/exams/dal.ts#L905-L920) ne le sont pas : (a) après `endDate`, **non-participant
    avec accès examen actif → doit voir** ; (b) après `endDate`, **ni participation ni accès → `[]`**.
-2. **Explications via session de training** — seule l'autorisation *via examen* est testée
+2. **Explications via session de training** — seule l'autorisation _via examen_ est testée
    ([:384-401](tests/integration/exams.test.ts#L384-L401)). La branche `viaTraining`
    [dal.ts:687-700](features/exams/dal.ts#L687-L700) (jointure `trainingSessionItems`/`trainingSessions`,
    statut `completed`) n'est jamais exercée.
@@ -200,33 +200,33 @@ plein trafic. Le correctif lui-même est **bon** : il aligne la précision sur l
 ## Faux positifs écartés (soupçonnés → disculpés)
 
 - **Cascade de `deleteExam` / `deleteParticipation` orpheline** (`actions.ts:241`, `:307-309`) —
-  *Disculpé* : `db.delete(exams)` s'appuie sur les FK `onDelete: "cascade"` de
+  _Disculpé_ : `db.delete(exams)` s'appuie sur les FK `onDelete: "cascade"` de
   [db/schema/exams.ts:59,80,113](db/schema/exams.ts#L59) (`examQuestions`→exams, `examParticipations`→exams,
   `examAnswers`→participations). La chaîne `exams → participations → answers` cascade bien ; idem
   `deleteParticipation → answers`.
-- **`onConflictDoUpdate` sans contrainte unique** — *Disculpé* : `unique("exam_answers_participation_question_unique")`
+- **`onConflictDoUpdate` sans contrainte unique** — _Disculpé_ : `unique("exam_answers_participation_question_unique")`
   existe [db/schema/exams.ts:125-128](db/schema/exams.ts#L125-L128). La cible de conflit est valide (le
   seul piège est le doublon intra-lot, cf. F1).
 - **`.limit(1)` sur les lectures d'accès `userAccess`** (`actions.ts:509-519`, `dal.ts:86-90`) —
-  *Disculpé* : `unique("user_access_user_access_type_unique").on(userId, accessType)`
+  _Disculpé_ : `unique("user_access_user_access_type_unique").on(userId, accessType)`
   [db/schema/payments.ts:126](db/schema/payments.ts#L126) garantit ≤ 1 ligne par `(user, type)`.
-- **Fuite `correctAnswer` en passation** (`dal.ts:239-265`) — *Disculpé* : `correctAnswer` n'est inclus
+- **Fuite `correctAnswer` en passation** (`dal.ts:239-265`) — _Disculpé_ : `correctAnswer` n'est inclus
   dans la réponse que `isAdmin` ([dal.ts:264](features/exams/dal.ts#L264)) ; le test scelle
   `not.toHaveProperty("correctAnswer")` pour l'étudiant. `explanation`/`references` ne sont même pas
   SELECT ici (lazy-load séparé et autorisé).
-- **Sur-autorisation cross-domaine `getExamQuestionExplanations`** (`dal.ts:672-708`) — *Disculpé* : la
+- **Sur-autorisation cross-domaine `getExamQuestionExplanations`** (`dal.ts:672-708`) — _Disculpé_ : la
   jointure `examQuestions ⋈ examParticipations` sur `examId` n'autorise une question que si l'utilisateur
   a une participation `completed`/`auto_submitted` à un examen **la contenant** — strictement la
   sémantique Convex (`convex/exams.ts:1026-1061`). Pas de fuite vers des questions non « gagnées ».
-- **Accès `getParticipantExamResults`** (`dal.ts:487-509`) — *Disculpé* : `!isAdmin && !isOwn → null`
+- **Accès `getParticipantExamResults`** (`dal.ts:487-509`) — _Disculpé_ : `!isAdmin && !isOwn → null`
   avant toute lecture, puis `!isAdmin && now < endDate → null`. Parité exacte avec
   `convex/exams.ts:819-848`. IDOR testé ([exams.test.ts:410-413](tests/integration/exams.test.ts#L410)).
 - **Anti-fraude pause « submit pendant during_pause sans réponse d'examen »** (`actions.ts:553-563`) —
-  *Soupçonné* : un submit avec `answers` vide en `during_pause` passe l'anti-fraude et complète l'examen.
-  *Disculpé comme non-régression* : comportement identique à Convex (`assertPauseRestrictionsOk` ne
+  _Soupçonné_ : un submit avec `answers` vide en `during_pause` passe l'anti-fraude et complète l'examen.
+  _Disculpé comme non-régression_ : comportement identique à Convex (`assertPauseRestrictionsOk` ne
   vérifie qu'à l'intérieur de la boucle sur `answers`), et l'effet est seulement de finaliser à score
   faible — pas une fuite ni une corruption.
-- **Score : dénominateur** (`actions.ts:546,590-593`) — *Disculpé* : `totalQuestions = examQs.length`
+- **Score : dénominateur** (`actions.ts:546,590-593`) — _Disculpé_ : `totalQuestions = examQs.length`
   (total examen) et les non-répondues comptent faux ; les réponses hors-examen sont **filtrées**
   (`!correctMap.has(...) continue`, [actions.ts:577](features/exams/actions.ts#L577)) au lieu d'être
   insérées comme chez Convex — amélioration, `correctAnswers` identique.
@@ -256,15 +256,15 @@ prochain commit) : porter le cron de fermeture (F2) et dédupliquer les réponse
 
 ### Correctifs priorisés
 
-| Priorité | Item | Action |
-|----------|------|--------|
-| **Bloquant** | — | _(aucun)_ |
-| **Avant cutover** | F2 | Porter `closeExpiredParticipations` (cron) avant prod du flux examen-blanc |
-| **Avant cutover** | F1 | Dédupliquer `answers` par `questionId` côté serveur (ou `.refine()` unicité) |
-| **Avant cutover** | F3 | Ajouter les 4 cas de test d'autorisation/budget-temps |
-| Polish | F5 | Au câblage 5.5b-2 : tri/`status` de `getExamsWithParticipation`, champs pause du retour `startExam`, contrat `correctAnswer` `undefined` |
-| Polish | F4 | Décider si le budget-temps doit être contraignant (sinon documenter le `isAutoSubmit` côté serveur) |
-| Polish | F6 | Exécuter la migration 0005 via dashboard hors trafic |
+| Priorité          | Item | Action                                                                                                                                   |
+| ----------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bloquant**      | —    | _(aucun)_                                                                                                                                |
+| **Avant cutover** | F2   | Porter `closeExpiredParticipations` (cron) avant prod du flux examen-blanc                                                               |
+| **Avant cutover** | F1   | Dédupliquer `answers` par `questionId` côté serveur (ou `.refine()` unicité)                                                             |
+| **Avant cutover** | F3   | Ajouter les 4 cas de test d'autorisation/budget-temps                                                                                    |
+| Polish            | F5   | Au câblage 5.5b-2 : tri/`status` de `getExamsWithParticipation`, champs pause du retour `startExam`, contrat `correctAnswer` `undefined` |
+| Polish            | F4   | Décider si le budget-temps doit être contraignant (sinon documenter le `isAutoSubmit` côté serveur)                                      |
+| Polish            | F6   | Exécuter la migration 0005 via dashboard hors trafic                                                                                     |
 
 ---
 

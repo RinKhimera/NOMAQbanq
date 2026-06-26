@@ -11,7 +11,6 @@ import {
   useTransition,
 } from "react"
 import { toast } from "sonner"
-
 import { Calculator } from "@/components/quiz/calculator"
 import { LabValues } from "@/components/quiz/lab-values"
 import { QuestionCard } from "@/components/quiz/question-card"
@@ -86,7 +85,10 @@ export const TrainingSessionClient = ({
       }
       setAnswers((prev) => ({
         ...prev,
-        [questionId]: { selectedAnswer: selectedOption, isCorrect: res.isCorrect },
+        [questionId]: {
+          selectedAnswer: selectedOption,
+          isCorrect: res.isCorrect,
+        },
       }))
     },
     [currentQuestion, sessionId],
@@ -124,17 +126,22 @@ export const TrainingSessionClient = ({
   const [, startTransition] = useTransition()
 
   // Fin de session
-  const [, finishAction, isSubmitting] = useActionState(async () => {
-    const res = await completeTrainingSession({ sessionId })
-    if (!res.success) {
-      toast.error("Erreur", { description: res.error })
-      setShowFinishDialog(false)
-      return { success: false }
-    }
-    toast.success("Session terminée !", { description: "Vos résultats sont prêts" })
-    router.push(`/dashboard/entrainement/${sessionId}/results`)
-    return { success: true }
-  }, { success: false })
+  const [, finishAction, isSubmitting] = useActionState(
+    async () => {
+      const res = await completeTrainingSession({ sessionId })
+      if (!res.success) {
+        toast.error("Erreur", { description: res.error })
+        setShowFinishDialog(false)
+        return { success: false }
+      }
+      toast.success("Session terminée !", {
+        description: "Vos résultats sont prêts",
+      })
+      router.push(`/dashboard/entrainement/${sessionId}/results`)
+      return { success: true }
+    },
+    { success: false },
+  )
 
   const handleNextOrFinish = useCallback(() => {
     if (isLastQuestion) setShowFinishDialog(true)
@@ -290,7 +297,10 @@ export const TrainingSessionClient = ({
       />
 
       {/* Calculator Dialog */}
-      <Calculator isOpen={isCalculatorOpen} onOpenChange={setIsCalculatorOpen} />
+      <Calculator
+        isOpen={isCalculatorOpen}
+        onOpenChange={setIsCalculatorOpen}
+      />
 
       {/* Lab Values Dialog */}
       <LabValues isOpen={isLabValuesOpen} onOpenChange={setIsLabValuesOpen} />

@@ -264,16 +264,13 @@ export function UsersTable({
                     </TooltipTrigger>
                     <TooltipContent>
                       <p>
-                        {new Date(user.createdAt).toLocaleDateString(
-                          "fr-CA",
-                          {
-                            day: "numeric",
-                            month: "long",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          },
-                        )}
+                        {new Date(user.createdAt).toLocaleDateString("fr-CA", {
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </p>
                     </TooltipContent>
                   </Tooltip>

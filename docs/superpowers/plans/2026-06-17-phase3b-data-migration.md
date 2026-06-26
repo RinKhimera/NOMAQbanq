@@ -49,7 +49,6 @@ import {
   text,
   timestamp,
 } from "drizzle-orm/pg-core"
-
 import { userRole } from "./enums"
 
 export const user = pgTable(
@@ -217,13 +216,11 @@ git commit -m "feat(db): extend user (admin fields) + image_path on explanations
 ```ts
 // Idempotent one-shot import: Convex snapshot -> Neon (develop).
 // Usage: bun run scripts/import-from-convex.ts [snapshotDir=convex-snapshot]
-import { existsSync, readFileSync } from "node:fs"
-import { join } from "node:path"
-
 import { config } from "dotenv"
 import { drizzle } from "drizzle-orm/node-postgres"
+import { existsSync, readFileSync } from "node:fs"
+import { join } from "node:path"
 import { Pool } from "pg"
-
 import * as schema from "@/db/schema"
 import { createId } from "@/lib/ids"
 
@@ -261,7 +258,8 @@ const insertBatched = async (
 ): Promise<void> => {
   for (let i = 0; i < rows.length; i += BATCH) {
     const chunk = rows.slice(i, i + BATCH)
-    if (chunk.length > 0) await db.insert(table).values(chunk).onConflictDoNothing()
+    if (chunk.length > 0)
+      await db.insert(table).values(chunk).onConflictDoNothing()
   }
   console.log(`[ok] ${label}: ${rows.length} lignes`)
 }
@@ -447,7 +445,8 @@ async function main() {
       stripePaymentIntentId: d.stripePaymentIntentId ?? null,
       stripeEventId: d.stripeEventId ?? null,
       paymentMethod: d.paymentMethod ?? null,
-      recordedBy: d.recordedBy && userIds.has(d.recordedBy) ? d.recordedBy : null,
+      recordedBy:
+        d.recordedBy && userIds.has(d.recordedBy) ? d.recordedBy : null,
       notes: d.notes ?? null,
       accessType: d.accessType,
       durationDays: d.durationDays,
@@ -468,7 +467,9 @@ async function main() {
       continue
     }
     if (!transactionIds.has(d.lastTransactionId)) {
-      note(`userAccess ${d._id}: transaction ${d.lastTransactionId} absente -> ignoré`)
+      note(
+        `userAccess ${d._id}: transaction ${d.lastTransactionId} absente -> ignoré`,
+      )
       continue
     }
     userAccess.push({
@@ -502,7 +503,8 @@ async function main() {
       score: d.score,
       status: d.status ?? "in_progress",
       startedAt: d.startedAt ? ms(d.startedAt) : null,
-      completedAt: d.completedAt && d.completedAt !== 0 ? ms(d.completedAt) : null,
+      completedAt:
+        d.completedAt && d.completedAt !== 0 ? ms(d.completedAt) : null,
       pausePhase: d.pausePhase ?? null,
       pauseStartedAt: d.pauseStartedAt ? ms(d.pauseStartedAt) : null,
       pauseEndedAt: d.pauseEndedAt ? ms(d.pauseEndedAt) : null,
@@ -512,7 +514,11 @@ async function main() {
     })
   }
   const participationIds = new Set(participations.map((p) => p.id))
-  await insertBatched(schema.examParticipations, participations, "exam_participations")
+  await insertBatched(
+    schema.examParticipations,
+    participations,
+    "exam_participations",
+  )
   report.exam_participations = participations.length
 
   // 11. exam_answers
@@ -563,13 +569,22 @@ async function main() {
       createdAt: ms(d._creationTime),
       updatedAt: ms(d._creationTime),
     })
-    sessionQuestionIds.set(d._id, Array.isArray(d.questionIds) ? d.questionIds : [])
+    sessionQuestionIds.set(
+      d._id,
+      Array.isArray(d.questionIds) ? d.questionIds : [],
+    )
   }
   const sessionIds = new Set(trainingSessions.map((s) => s.id))
-  await insertBatched(schema.trainingSessions, trainingSessions, "training_sessions")
+  await insertBatched(
+    schema.trainingSessions,
+    trainingSessions,
+    "training_sessions",
+  )
   report.training_sessions = trainingSessions.length
   if (skippedInProgress > 0)
-    console.log(`[info] ${skippedInProgress} sessions training in_progress non migrées`)
+    console.log(
+      `[info] ${skippedInProgress} sessions training in_progress non migrées`,
+    )
 
   // 13. training_session_items: build from session questionIds[], merge answers
   const answerByKey = new Map<string, Doc>()
@@ -597,7 +612,11 @@ async function main() {
       })
     })
   }
-  await insertBatched(schema.trainingSessionItems, items, "training_session_items")
+  await insertBatched(
+    schema.trainingSessionItems,
+    items,
+    "training_session_items",
+  )
   report.training_session_items = items.length
 
   console.log("\n=== RÉSUMÉ IMPORT ===")
@@ -650,6 +669,7 @@ UNION ALL SELECT 'transactions', count(*) FROM transactions
 UNION ALL SELECT 'user_access', count(*) FROM user_access
 ORDER BY t;
 ```
+
 Expected vs Convex source (allowing documented orphan/dedup drops): user ≈184, questions 2880, question_explanations 2880, exams 21, exam_participations ≤195, exam_answers ≤25221, training_sessions = 373 − (in_progress count), products 5, transactions ≤66, user_access ≤37. Any gap must be explained by an `[orphan]`/dedup log line from Step 1.
 
 - [ ] **Step 3: Orphan FK sanity (should all return 0)**
@@ -661,6 +681,7 @@ SELECT
   (SELECT count(*) FROM training_session_items i LEFT JOIN questions q ON q.id=i.question_id WHERE q.id IS NULL) AS train_item_orphans,
   (SELECT count(*) FROM user_access ua LEFT JOIN transactions t ON t.id=ua.last_transaction_id WHERE t.id IS NULL) AS access_tx_orphans;
 ```
+
 Expected: all `0` (FK constraints guarantee this; a non-zero would mean a constraint was missing).
 
 - [ ] **Step 4: Spot-check one exam's question order**
@@ -669,6 +690,7 @@ Expected: all `0` (FK constraints guarantee this; a non-zero would mean a constr
 SELECT position, question_id FROM exam_questions
 WHERE exam_id = (SELECT id FROM exams LIMIT 1) ORDER BY position;
 ```
+
 Expected: contiguous-ish positions starting at 0, matching the source exam's `questionIds[]` order.
 
 - [ ] **Step 5: Tag phase completion**

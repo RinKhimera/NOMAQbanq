@@ -1,5 +1,4 @@
 import { and, desc, eq, gt, ilike, lte, notExists } from "drizzle-orm"
-
 import { db } from "@/db"
 import {
   examAnswers,
@@ -155,7 +154,10 @@ async function cleanup(prefix: string) {
     )
     .returning({ id: questions.id })
 
-  return { deletedExams: examRows.length, deletedQuestions: questionRows.length }
+  return {
+    deletedExams: examRows.length,
+    deletedQuestions: questionRows.length,
+  }
 }
 
 export async function POST(request: Request) {

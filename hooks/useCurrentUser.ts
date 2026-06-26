@@ -14,9 +14,7 @@ export const useCurrentUser = () => {
   const user = data?.user ?? null
 
   return {
-    currentUser: user
-      ? { ...user, image: resolveAvatarUrl(user.image) }
-      : null,
+    currentUser: user ? { ...user, image: resolveAvatarUrl(user.image) } : null,
     isLoading: isPending,
     isAuthenticated: !!user,
   }

@@ -42,7 +42,7 @@ NOMAQbanq is a modern medical exam preparation web application, offering a compr
 | **Database**   | [Neon](https://neon.tech/) Postgres + [Drizzle ORM](https://orm.drizzle.team/) (`pg` Pool)                              |
 | **Auth**       | [Better Auth](https://better-auth.com/) (email/password + Google, admin roles)                                          |
 | **Payments**   | [Stripe](https://stripe.com/) (Checkout Sessions + webhooks)                                                            |
-| **Media**      | [AWS S3](https://aws.amazon.com/s3/) + [CloudFront](https://aws.amazon.com/cloudfront/) (avatars, question images)       |
+| **Media**      | [AWS S3](https://aws.amazon.com/s3/) + [CloudFront](https://aws.amazon.com/cloudfront/) (avatars, question images)      |
 | **Email**      | [AWS SES](https://aws.amazon.com/ses/) + [React Email](https://react.email/)                                            |
 | **Monitoring** | [Sentry](https://sentry.io/) (error tracking)                                                                           |
 | **Animations** | [motion](https://motion.dev/)                                                                                           |

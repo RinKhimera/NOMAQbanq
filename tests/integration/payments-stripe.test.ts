@@ -1,19 +1,17 @@
 import { and, eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
-
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
+import {
+  completeStripeTransaction,
+  failStripeTransaction,
+} from "@/features/payments/stripe"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
   return { ...actual, cache: (fn: unknown) => fn }
 })
-
-import {
-  completeStripeTransaction,
-  failStripeTransaction,
-} from "@/features/payments/stripe"
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)

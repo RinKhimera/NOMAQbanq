@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation"
-
 import { getTrainingSessionResults } from "@/features/training/dal"
-
 import { TrainingResultsClient } from "../../_components/training-results-client"
 
 interface TrainingResultsPageProps {
