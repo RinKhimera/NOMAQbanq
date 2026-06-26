@@ -6,6 +6,15 @@ on:
   pull_request:
     branches: [main, develop]
 
+# Un nouveau push sur une branche annule le run CI obsolète encore en cours.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least-privilege : le job ne fait que lire le repo.
+permissions:
+  contents: read
+
 jobs:
   quality:
     name: Quality Checks
@@ -17,6 +26,16 @@ jobs:
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.10
+
+      - name: Cache Bun install
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -30,13 +49,7 @@ jobs:
       - name: Format check
         run: bun run format:check
 
+      # `test:coverage` garde le seuil vitest à 80 % (échoue le CI sous la barre).
+      # C'est désormais le seul garde-fou de couverture : plus d'upload tiers.
       - name: Tests with coverage
         run: bun run test:coverage
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage/coverage-final.json
-          fail_ci_if_error: false
-          verbose: true
-          token: ${{ secrets.CODECOV_TOKEN }}

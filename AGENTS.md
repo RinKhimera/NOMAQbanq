@@ -35,7 +35,7 @@ bun run db:generate      # Drizzle: genere une migration depuis le schema
 bun run db:migrate       # Drizzle: applique les migrations (cible via DATABASE_URL_UNPOOLED)
 ```
 
-CI: `.github/workflows/ci.yml` — type-check -> lint -> test + coverage -> Codecov.
+CI: `.github/workflows/ci.yml` — type-check -> lint -> format:check -> test + coverage (seuil 80%, échoue sous la barre).
 
 ## Structure
 

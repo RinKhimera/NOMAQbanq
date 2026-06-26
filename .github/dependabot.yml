@@ -22,17 +22,12 @@ updates:
           - "next"
           - "react"
           - "react-dom"
-          - "convex"
       # Framework Next.js séparé (peut casser des choses)
       nextjs:
         patterns:
           - "next"
           - "react"
           - "react-dom"
-      # Convex séparé (backend critique)
-      convex:
-        patterns:
-          - "convex"
     labels:
       - "dependencies"
       - "automated"
