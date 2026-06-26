@@ -1,15 +1,12 @@
 "use client"
 
 import {
-  Facebook,
-  Instagram,
-  Linkedin,
-  Mail,
-  MapPin,
-  Phone,
-  Stethoscope,
-  Twitter,
-} from "lucide-react"
+  IconBrandFacebook,
+  IconBrandInstagram,
+  IconBrandLinkedin,
+  IconBrandX,
+} from "@tabler/icons-react"
+import { Mail, MapPin, Phone, Stethoscope } from "lucide-react"
 import Link from "next/link"
 import { FOOTER_LEGAL_LINKS, FOOTER_QUICK_LINKS } from "@/constants"
 
@@ -34,7 +31,12 @@ export default function Footer() {
               Partie I. Votre succès commence ici.
             </p>
             <div className="flex space-x-4">
-              {[Facebook, Twitter, Linkedin, Instagram].map((Icon, index) => (
+              {[
+                IconBrandFacebook,
+                IconBrandX,
+                IconBrandLinkedin,
+                IconBrandInstagram,
+              ].map((Icon, index) => (
                 <a
                   key={index}
                   href="#"
