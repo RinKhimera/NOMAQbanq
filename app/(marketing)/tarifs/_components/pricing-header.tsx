@@ -1,6 +1,6 @@
 "use client"
 
-import { Award, CheckCircle, Sparkles, Star, Users } from "lucide-react"
+import { Award, CircleCheckBig, Sparkles, Star, Users } from "lucide-react"
 import { motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,7 +21,7 @@ export const PricingHeader = () => {
       label: "Taux de réussite",
     },
     {
-      icon: CheckCircle,
+      icon: CircleCheckBig,
       value: marketingStats?.totalQuestions,
       label: "Questions disponibles",
     },

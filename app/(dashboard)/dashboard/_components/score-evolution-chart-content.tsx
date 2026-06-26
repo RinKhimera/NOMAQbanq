@@ -2,7 +2,7 @@
 
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { BarChart3, TrendingUp } from "lucide-react"
+import { ChartColumn, TrendingUp } from "lucide-react"
 import { motion } from "motion/react"
 import {
   Area,
@@ -74,7 +74,7 @@ const EmptyState = () => (
     className="flex h-full flex-col items-center justify-center gap-4 py-8"
   >
     <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 dark:bg-blue-900/30">
-      <BarChart3 className="h-8 w-8 text-blue-500" />
+      <ChartColumn className="h-8 w-8 text-blue-500" />
     </div>
     <div className="text-center">
       <p className="font-semibold text-gray-900 dark:text-white">

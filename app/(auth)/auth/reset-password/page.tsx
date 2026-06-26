@@ -1,7 +1,7 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { AlertTriangle, Shield } from "lucide-react"
+import { Shield, TriangleAlert } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense } from "react"
@@ -65,7 +65,7 @@ function ResetPasswordContent() {
             {!token ? (
               <div className="w-full space-y-5 text-center">
                 <div className="mb-2 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-red-500 to-orange-600 shadow-lg">
-                  <AlertTriangle className="h-8 w-8 text-white" />
+                  <TriangleAlert className="h-8 w-8 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                   Lien invalide

@@ -1,6 +1,6 @@
 "use client"
 
-import { Eye, MoreVertical, Pencil, Plus, Trash2 } from "lucide-react"
+import { EllipsisVertical, Eye, Pencil, Plus, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -76,7 +76,7 @@ export const QuestionActions = ({ actions }: QuestionActionsProps) => {
           size="icon"
           className="h-8 w-8 shrink-0 hover:bg-gray-100 dark:hover:bg-gray-700"
         >
-          <MoreVertical className="h-4 w-4" />
+          <EllipsisVertical className="h-4 w-4" />
           <span className="sr-only">Actions</span>
         </Button>
       </DropdownMenuTrigger>

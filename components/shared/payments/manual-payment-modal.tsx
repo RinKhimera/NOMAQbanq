@@ -4,12 +4,12 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import {
   Banknote,
   Check,
-  CheckCircle,
   ChevronsUpDown,
+  CircleCheckBig,
   CreditCard,
   DollarSign,
   FileText,
-  Loader2,
+  LoaderCircle,
   Package,
   User,
 } from "lucide-react"
@@ -184,7 +184,7 @@ export const ManualPaymentModal = ({
                 transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
                 className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg"
               >
-                <CheckCircle className="h-10 w-10 text-white" />
+                <CircleCheckBig className="h-10 w-10 text-white" />
               </motion.div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 Paiement enregistré !
@@ -512,7 +512,7 @@ export const ManualPaymentModal = ({
                     >
                       {isSubmitting ? (
                         <span className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
                           Enregistrement...
                         </span>
                       ) : (

@@ -6,12 +6,12 @@ import { fr } from "date-fns/locale"
 import {
   ArrowLeft,
   Calendar,
-  CheckCircle2,
+  CircleCheck,
   Clock,
   Coffee,
   FileText,
   Info,
-  Loader2,
+  LoaderCircle,
   Sparkles,
 } from "lucide-react"
 import Link from "next/link"
@@ -441,7 +441,7 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
                     </AlertTitle>
                     <AlertDescription className="mt-2 space-y-2 text-sm text-amber-800 dark:text-amber-200">
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                        <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                         <span>
                           <strong>Avant la pause :</strong> Seules les questions
                           1 à {Math.ceil(numberOfQuestions / 2)} sont
@@ -449,14 +449,14 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
                         </span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                        <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                         <span>
                           <strong>Pendant la pause :</strong> Toutes les
                           questions sont verrouillées
                         </span>
                       </div>
                       <div className="flex items-start gap-2">
-                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                        <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                         <span>
                           <strong>Après la pause :</strong> Toutes les{" "}
                           {numberOfQuestions} questions sont déverrouillées
@@ -527,7 +527,7 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
                 <div className="text-sm text-gray-500">
                   {selectedQuestions.length === numberOfQuestions ? (
                     <span className="flex items-center gap-1 text-emerald-600">
-                      <CheckCircle2 className="h-4 w-4" />
+                      <CircleCheck className="h-4 w-4" />
                       Prêt à créer
                     </span>
                   ) : (
@@ -556,7 +556,7 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
                   >
                     {form.formState.isSubmitting ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                         Création...
                       </>
                     ) : (

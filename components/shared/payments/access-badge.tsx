@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle, Clock, Sparkles, XCircle } from "lucide-react"
+import { CircleCheckBig, CircleX, Clock, Sparkles } from "lucide-react"
 import { formatExpiration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
@@ -18,7 +18,7 @@ interface AccessBadgeProps {
 
 const statusConfig = {
   active: {
-    icon: CheckCircle,
+    icon: CircleCheckBig,
     label: "Actif",
     bgClass:
       "bg-linear-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-500/20 dark:to-teal-500/20",
@@ -38,7 +38,7 @@ const statusConfig = {
     glowClass: "shadow-amber-500/20",
   },
   expired: {
-    icon: XCircle,
+    icon: CircleX,
     label: "Expiré",
     bgClass:
       "bg-linear-to-r from-red-500/10 to-rose-500/10 dark:from-red-500/20 dark:to-rose-500/20",

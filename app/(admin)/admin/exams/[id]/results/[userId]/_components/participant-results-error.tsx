@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, CheckCircle, Clock, Trophy, User } from "lucide-react"
+import { ArrowLeft, CircleCheckBig, Clock, Trophy, User } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -150,20 +150,20 @@ export function ParticipantResultsError({
             </h3>
             <ul className="space-y-3 text-gray-600 dark:text-gray-400">
               <li className="flex items-start gap-3">
-                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
+                <CircleCheckBig className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
                 <span>
                   Retournez au classement pour voir les autres participants
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
+                <CircleCheckBig className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
                 <span>
                   Les résultats seront disponibles une fois que le participant
                   aura terminé l&apos;examen
                 </span>
               </li>
               <li className="flex items-start gap-3">
-                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
+                <CircleCheckBig className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
                 <span>
                   Vérifiez la liste des participants pour voir qui a déjà
                   complété l&apos;examen

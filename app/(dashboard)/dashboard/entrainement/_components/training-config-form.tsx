@@ -1,7 +1,7 @@
 "use client"
 
 import { IconTargetArrow } from "@tabler/icons-react"
-import { Layers, Loader2, Play, Target } from "lucide-react"
+import { Layers, LoaderCircle, Play, Target } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useActionState, useEffect, useState, useTransition } from "react"
@@ -271,7 +271,7 @@ export const TrainingConfigForm = ({
         >
           {isPending ? (
             <>
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
               Création en cours...
             </>
           ) : (

@@ -1,6 +1,6 @@
 "use client"
 
-import { Edit, Eye, MoreHorizontal, Pause, Play, Trash2 } from "lucide-react"
+import { Ellipsis, Eye, Pause, Play, SquarePen, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -36,7 +36,7 @@ export function ExamActions({
           aria-label="Actions de l'examen"
           className="h-8 w-8 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
         >
-          <MoreHorizontal className="h-4 w-4" />
+          <Ellipsis className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
@@ -54,7 +54,7 @@ export function ExamActions({
           onClick={() => onEdit(exam)}
           className="flex items-center gap-2"
         >
-          <Edit className="h-4 w-4" />
+          <SquarePen className="h-4 w-4" />
           Modifier
         </DropdownMenuItem>
 

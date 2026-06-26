@@ -2,13 +2,13 @@
 
 import {
   ArrowLeft,
-  CheckCircle,
+  CircleCheckBig,
+  CircleX,
   Clock,
-  Filter,
+  Funnel,
   Plus,
   Target,
   Trophy,
-  XCircle,
 } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
@@ -212,7 +212,7 @@ export function TrainingResultsClient({ results }: { results: ResultsData }) {
                 <div className="flex flex-1 flex-wrap justify-center gap-6 sm:justify-end">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
-                      <CheckCircle className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
+                      <CircleCheckBig className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -226,7 +226,7 @@ export function TrainingResultsClient({ results }: { results: ResultsData }) {
 
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 dark:bg-red-900/30">
-                      <XCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                      <CircleX className="h-6 w-6 text-red-600 dark:text-red-400" />
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -302,7 +302,7 @@ export function TrainingResultsClient({ results }: { results: ResultsData }) {
                         "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300",
                     )}
                   >
-                    <Filter className="mr-2 h-4 w-4" />
+                    <Funnel className="mr-2 h-4 w-4" />
                     {showErrorsOnly
                       ? "Voir toutes"
                       : `Erreurs (${stats.incorrectCount + stats.unansweredCount})`}

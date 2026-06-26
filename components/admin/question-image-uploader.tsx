@@ -24,7 +24,7 @@ import {
   IconUpload,
   IconX,
 } from "@tabler/icons-react"
-import { Loader2 } from "lucide-react"
+import { LoaderCircle } from "lucide-react"
 import Image from "next/image"
 import {
   type Dispatch,
@@ -167,7 +167,7 @@ const UploadingImageItem = ({
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 p-2">
       {item.status === "uploading" && (
         <>
-          <Loader2 className="h-6 w-6 animate-spin text-white" />
+          <LoaderCircle className="h-6 w-6 animate-spin text-white" />
           <span className="mt-1 text-xs text-white">Téléversement…</span>
         </>
       )}

@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, ChevronsUpDown, Loader2, X } from "lucide-react"
+import { Check, ChevronsUpDown, LoaderCircle, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -114,7 +114,7 @@ export function ObjectifsCMCMultiSelect({
             <CommandList>
               {isLoading ? (
                 <div className="flex items-center justify-center p-4">
-                  <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                  <LoaderCircle className="h-4 w-4 animate-spin text-gray-400" />
                   <span className="ml-2 text-sm text-gray-500">
                     Chargement...
                   </span>

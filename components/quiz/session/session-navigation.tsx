@@ -1,9 +1,9 @@
 "use client"
 
 import {
-  CheckCircle,
   ChevronLeft,
   ChevronRight,
+  CircleCheckBig,
   Flag,
   Lock,
 } from "lucide-react"
@@ -79,7 +79,7 @@ export const SessionNavigation = ({
               : "bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700",
           )}
         >
-          <CheckCircle className="h-4 w-4" />
+          <CircleCheckBig className="h-4 w-4" />
           <span>Terminer</span>
         </Button>
       ) : (

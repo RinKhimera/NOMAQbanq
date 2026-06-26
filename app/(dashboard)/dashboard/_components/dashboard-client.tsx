@@ -1,6 +1,6 @@
 "use client"
 
-import { Brain, CheckCircle2, Percent, Target } from "lucide-react"
+import { Brain, CircleCheck, Percent, Target } from "lucide-react"
 import type {
   MyAvailableExam,
   MyDashboardStats,
@@ -92,7 +92,7 @@ export const DashboardClient = ({
           <VitalCard
             label="Examens complétés"
             value={stats.completedExamsCount}
-            icon={CheckCircle2}
+            icon={CircleCheck}
             color="green"
             delay={0.2}
             subtitle={`sur ${stats.availableExamsCount} disponibles`}

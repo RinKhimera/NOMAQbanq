@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertTriangle, Clock, Flag, Loader2 } from "lucide-react"
+import { Clock, Flag, LoaderCircle, TriangleAlert } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -91,7 +91,7 @@ export const FinishDialog = ({
                 <div className="space-y-2">
                   {hasUnanswered && (
                     <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                       <p className="text-sm text-amber-800 dark:text-amber-200">
                         <strong>
                           {unansweredCount} question
@@ -140,7 +140,7 @@ export const FinishDialog = ({
           >
             {isSubmitting ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                 {mode === "exam" ? "Soumission..." : "Calcul du score..."}
               </>
             ) : (

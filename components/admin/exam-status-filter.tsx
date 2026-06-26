@@ -1,6 +1,6 @@
 "use client"
 
-import { Filter } from "lucide-react"
+import { Funnel } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -42,7 +42,7 @@ export function ExamStatusFilter({
           variant="outline"
           className="text-muted-foreground justify-start gap-2 hover:text-blue-700 max-md:w-full dark:hover:text-white"
         >
-          <Filter className="h-4 w-4" />
+          <Funnel className="h-4 w-4" />
           Filtrer par statut
           {selectedStatuses.length > 0 && (
             <div className="ml-1 flex items-center gap-1">

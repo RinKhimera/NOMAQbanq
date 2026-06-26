@@ -2,15 +2,15 @@
 
 import {
   ArrowRight,
-  CheckCircle,
+  CircleCheckBig,
+  CircleX,
   Clock,
   CreditCard,
   FileText,
-  Home,
-  Loader2,
+  House,
+  LoaderCircle,
   PartyPopper,
   RefreshCw,
-  XCircle,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
@@ -135,7 +135,7 @@ export const PaymentSuccessContent = ({
           >
             <div className="mb-8 flex justify-center">
               <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50">
-                <Loader2 className="h-12 w-12 animate-spin text-blue-600 dark:text-blue-400" />
+                <LoaderCircle className="h-12 w-12 animate-spin text-blue-600 dark:text-blue-400" />
               </div>
             </div>
             <h1 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">
@@ -165,7 +165,7 @@ export const PaymentSuccessContent = ({
                   transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
                   className="flex h-28 w-28 items-center justify-center rounded-3xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-2xl shadow-emerald-500/30"
                 >
-                  <CheckCircle className="h-14 w-14 text-white" />
+                  <CircleCheckBig className="h-14 w-14 text-white" />
                 </motion.div>
                 {/* Confetti effect */}
                 <motion.div
@@ -367,7 +367,7 @@ export const PaymentSuccessContent = ({
                   variant="outline"
                   className="h-14 w-full rounded-2xl"
                 >
-                  <Home className="mr-2 h-5 w-5" />
+                  <House className="mr-2 h-5 w-5" />
                   Retour au dashboard
                 </Button>
               </Link>
@@ -386,7 +386,7 @@ export const PaymentSuccessContent = ({
           >
             <div className="mb-8 flex justify-center">
               <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-red-100 to-rose-100 dark:from-red-900/50 dark:to-rose-900/50">
-                <XCircle className="h-12 w-12 text-red-600 dark:text-red-400" />
+                <CircleX className="h-12 w-12 text-red-600 dark:text-red-400" />
               </div>
             </div>
 

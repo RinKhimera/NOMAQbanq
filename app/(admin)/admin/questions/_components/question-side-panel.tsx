@@ -3,7 +3,6 @@
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
-  AlertTriangle,
   BookOpen,
   Calendar,
   Check,
@@ -11,9 +10,10 @@ import {
   ChevronUp,
   Copy,
   ExternalLink,
-  ImageIcon,
+  Image as ImageIcon,
   Pencil,
   Trash2,
+  TriangleAlert,
 } from "lucide-react"
 import { motion } from "motion/react"
 import Image from "next/image"
@@ -370,7 +370,7 @@ function PanelContent({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
+              <TriangleAlert className="h-5 w-5 text-red-500" />
               Supprimer cette question ?
             </AlertDialogTitle>
             <AlertDialogDescription>

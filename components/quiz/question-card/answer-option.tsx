@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle, XCircle } from "lucide-react"
+import { CircleCheckBig, CircleX } from "lucide-react"
 import { motion } from "motion/react"
 import { cn } from "@/lib/utils"
 import type { AnswerOptionProps, AnswerState } from "./types"
@@ -79,7 +79,7 @@ export const AnswerOption = ({
 
       {/* Status icons */}
       {showCheckIcon && (
-        <CheckCircle
+        <CircleCheckBig
           className={cn(
             "shrink-0 text-green-600 dark:text-green-400",
             compact ? "h-4 w-4" : "h-5 w-5",
@@ -88,7 +88,7 @@ export const AnswerOption = ({
         />
       )}
       {showXIcon && (
-        <XCircle
+        <CircleX
           className={cn(
             "shrink-0 text-red-600 dark:text-red-400",
             compact ? "h-4 w-4" : "h-5 w-5",

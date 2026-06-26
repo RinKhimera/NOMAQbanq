@@ -9,7 +9,7 @@ import {
   Clock,
   Coffee,
   FileText,
-  Loader2,
+  LoaderCircle,
   Save,
 } from "lucide-react"
 import Link from "next/link"
@@ -564,7 +564,7 @@ export function ExamEditForm({
             >
               {form.formState.isSubmitting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                   Modification...
                 </>
               ) : (

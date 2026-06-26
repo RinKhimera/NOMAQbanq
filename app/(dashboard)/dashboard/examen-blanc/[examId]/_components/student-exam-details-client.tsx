@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, BarChart3, ListChecks } from "lucide-react"
+import { ArrowLeft, ChartColumn, ListChecks } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { ExamDetails } from "@/app/(admin)/admin/exams/[id]/_components/exam-details"
@@ -68,7 +68,7 @@ export function StudentExamDetailsClient({
               asChild
             >
               <Link href={`/dashboard/examen-blanc/${examId}/resultats`}>
-                <BarChart3 className="mr-2 h-4 w-4" />
+                <ChartColumn className="mr-2 h-4 w-4" />
                 Voir mes résultats
               </Link>
             </Button>

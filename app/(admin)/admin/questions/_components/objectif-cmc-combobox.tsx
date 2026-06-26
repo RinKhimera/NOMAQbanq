@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
+import { Check, ChevronsUpDown, LoaderCircle } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -109,7 +109,7 @@ export function ObjectifCMCCombobox({
           <CommandList>
             {isLoading ? (
               <div className="flex items-center justify-center p-4">
-                <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                <LoaderCircle className="h-4 w-4 animate-spin text-gray-400" />
                 <span className="ml-2 text-sm text-gray-500">
                   Chargement...
                 </span>

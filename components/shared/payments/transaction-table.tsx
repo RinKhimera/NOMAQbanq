@@ -2,15 +2,15 @@
 
 import {
   Banknote,
-  CheckCircle,
   ChevronDown,
+  CircleCheckBig,
+  CircleX,
   Clock,
   CreditCard,
-  MoreVertical,
+  EllipsisVertical,
   Pencil,
   RotateCcw,
   Trash2,
-  XCircle,
 } from "lucide-react"
 import { motion } from "motion/react"
 import { Button } from "@/components/ui/button"
@@ -94,13 +94,13 @@ const statusConfig: Record<
   TransactionStatus,
   {
     label: string
-    icon: typeof CheckCircle
+    icon: typeof CircleCheckBig
     className: string
   }
 > = {
   completed: {
     label: "Complété",
-    icon: CheckCircle,
+    icon: CircleCheckBig,
     className:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
   },
@@ -112,7 +112,7 @@ const statusConfig: Record<
   },
   failed: {
     label: "Échoué",
-    icon: XCircle,
+    icon: CircleX,
     className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
   },
   refunded: {
@@ -336,7 +336,7 @@ export const TransactionTable = ({
                             size="icon"
                             className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
                           >
-                            <MoreVertical className="h-4 w-4" />
+                            <EllipsisVertical className="h-4 w-4" />
                             <span className="sr-only">Actions</span>
                           </Button>
                         </DropdownMenuTrigger>

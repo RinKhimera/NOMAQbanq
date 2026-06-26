@@ -1,4 +1,4 @@
-import { Home, XCircle } from "lucide-react"
+import { CircleX, House } from "lucide-react"
 import Link from "next/link"
 import { ParticipantExamResultsView } from "@/components/quiz/results/participant-exam-results-view"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ export default async function MockExamResultsPage({
     return (
       <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
         <div className="text-center">
-          <XCircle className="mx-auto mb-4 h-16 w-16 text-red-500" />
+          <CircleX className="mx-auto mb-4 h-16 w-16 text-red-500" />
           <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
             Résultats non disponibles
           </h2>
@@ -45,7 +45,7 @@ export default async function MockExamResultsPage({
       score={data.participant.score}
       backHref="/dashboard/examen-blanc"
       backLabel="Tableau de bord"
-      backIcon={<Home className="h-4 w-4" />}
+      backIcon={<House className="h-4 w-4" />}
     />
   )
 }

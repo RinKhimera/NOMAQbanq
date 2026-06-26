@@ -4,11 +4,11 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import {
   ArrowLeft,
   BookOpen,
-  CheckCircle,
+  CircleCheckBig,
   FileText,
-  ImageIcon,
+  Image as ImageIcon,
   Info,
-  Loader2,
+  LoaderCircle,
   Minus,
   Plus,
   Save,
@@ -145,7 +145,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
   if (mode === "edit" && question === undefined) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <LoaderCircle className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     )
   }
@@ -421,7 +421,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
         <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
           <CardHeader className="border-b bg-linear-to-r from-violet-500 to-purple-500 text-white">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5" />
+              <CircleCheckBig className="h-5 w-5" />
               <CardTitle className="text-lg">Options de réponse</CardTitle>
             </div>
             <CardDescription className="text-violet-100">
@@ -455,7 +455,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
                           )}
                         >
                           {correctAnswer === option && option.trim() ? (
-                            <CheckCircle className="h-5 w-5" />
+                            <CircleCheckBig className="h-5 w-5" />
                           ) : (
                             String.fromCharCode(65 + index)
                           )}
@@ -661,7 +661,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
               >
                 {form.formState.isSubmitting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
                     {mode === "create" ? "Création..." : "Enregistrement..."}
                   </>
                 ) : (

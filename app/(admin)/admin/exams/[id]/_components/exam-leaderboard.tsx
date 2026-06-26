@@ -2,7 +2,7 @@
 
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { Eye, MoreVertical, Trash2 } from "lucide-react"
+import { EllipsisVertical, Eye, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -204,7 +204,7 @@ export function ExamLeaderboard({
                               size="icon"
                               className="h-8 w-8"
                             >
-                              <MoreVertical className="h-4 w-4" />
+                              <EllipsisVertical className="h-4 w-4" />
                               <span className="sr-only">Actions</span>
                             </Button>
                           </DropdownMenuTrigger>

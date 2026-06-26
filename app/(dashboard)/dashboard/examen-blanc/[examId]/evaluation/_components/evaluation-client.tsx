@@ -1,13 +1,13 @@
 "use client"
 
 import {
-  AlertTriangle,
-  CheckCircle,
+  CircleCheckBig,
   Coffee,
   FileText,
   Flag,
   Lock,
   ShieldAlert,
+  TriangleAlert,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useRouter } from "next/navigation"
@@ -630,7 +630,7 @@ function AssessmentPage({
                 )}
                 {pausePhase === "after_pause" && (
                   <span className="flex items-center gap-1 font-medium text-green-600 dark:text-green-400">
-                    <CheckCircle className="h-4 w-4" />
+                    <CircleCheckBig className="h-4 w-4" />
                     Toutes questions déverrouillées
                   </span>
                 )}
@@ -642,7 +642,7 @@ function AssessmentPage({
                   data-testid="btn-finish"
                   className="flex items-center gap-2 bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
-                  <CheckCircle className="h-4 w-4" />
+                  <CircleCheckBig className="h-4 w-4" />
                   Terminer
                 </Button>
               ) : (
@@ -776,7 +776,7 @@ function AssessmentPage({
 
               <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                   <div className="space-y-1 text-sm">
                     <p className="font-medium text-amber-800 dark:text-amber-200">
                       Conséquences importantes :
@@ -851,21 +851,21 @@ function AssessmentPage({
                 </h3>
                 <ul className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
                   <li className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                     <span>
                       <strong>Session unique :</strong> Une fois démarré, vous
                       ne pouvez pas redémarrer l&apos;examen
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                     <span>
                       <strong>Timer serveur :</strong> Le temps continue même si
                       vous rafraîchissez la page
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                     <span>
                       <strong>PAS de sauvegarde automatique :</strong> Vos
                       réponses ne sont enregistrées qu&apos;à la soumission
@@ -873,14 +873,14 @@ function AssessmentPage({
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                     <span>
                       <strong>Rafraîchir = Perte :</strong> Si vous
                       rafraîchissez la page, vos réponses cochées seront perdues
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                    <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                     <span>
                       <strong>Soumission auto :</strong> L&apos;examen sera
                       automatiquement soumis quand le temps est écoulé

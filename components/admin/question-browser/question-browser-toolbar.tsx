@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2, Search, X } from "lucide-react"
+import { LoaderCircle, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -32,7 +32,7 @@ export function QuestionBrowserToolbar({
         {/* Search */}
         <div className="relative flex-1">
           {isSearching ? (
-            <Loader2 className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+            <LoaderCircle className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
           ) : (
             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
           )}

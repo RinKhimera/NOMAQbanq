@@ -1,6 +1,6 @@
 "use client"
 
-import { Award, CheckCircle } from "lucide-react"
+import { Award, CircleCheckBig } from "lucide-react"
 import Image from "next/image"
 import AboutCTA from "./about-cta"
 import AboutHeader from "./about-header"
@@ -33,7 +33,7 @@ export default function AProposPageClient() {
             <div className="glass-card animate-float absolute -top-6 -right-6 z-20 rounded-2xl p-4 shadow-lg">
               <div className="flex items-center space-x-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-green-400 to-emerald-600">
-                  <CheckCircle className="h-6 w-6 text-white" />
+                  <CircleCheckBig className="h-6 w-6 text-white" />
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">

@@ -3,15 +3,15 @@
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
-  AlertTriangle,
   Award,
   CalendarClock,
   CalendarDays,
-  CheckCircle2,
+  CircleCheck,
+  CirclePlay,
   Clock,
   GraduationCap,
   Hourglass,
-  PlayCircle,
+  TriangleAlert,
   Trophy,
 } from "lucide-react"
 import { motion } from "motion/react"
@@ -145,7 +145,7 @@ const ExamCard = ({
           >
             {variant === "active" && (
               <>
-                <CheckCircle2 className="mr-1 h-3 w-3" />
+                <CircleCheck className="mr-1 h-3 w-3" />
                 Ouvert
               </>
             )}
@@ -240,7 +240,7 @@ const ExamCard = ({
                   disabled
                   className="w-full cursor-not-allowed bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
                 >
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CircleCheck className="mr-2 h-4 w-4" />
                   Déjà passé
                 </Button>
               ) : !isEligible ? (
@@ -260,7 +260,7 @@ const ExamCard = ({
                   onClick={() => onStart(exam.id)}
                   className="w-full cursor-pointer bg-linear-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md transition-all duration-200 hover:from-emerald-700 hover:to-teal-700 hover:shadow-lg"
                 >
-                  <PlayCircle className="mr-2 h-4 w-4" />
+                  <CirclePlay className="mr-2 h-4 w-4" />
                   Commencer l&apos;examen
                 </Button>
               )}
@@ -323,7 +323,7 @@ const SectionHeader = ({
       iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
       iconColor: "text-emerald-500",
       titleColor: "text-emerald-700 dark:text-emerald-400",
-      Icon: CheckCircle2,
+      Icon: CircleCheck,
     },
     upcoming: {
       iconBg: "bg-blue-100 dark:bg-blue-900/30",
@@ -652,7 +652,7 @@ export function ExamenBlancClient({
                 transition={{ type: "spring", stiffness: 200, damping: 15 }}
                 className="flex h-12 w-12 items-center justify-center rounded-full bg-linear-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30"
               >
-                <AlertTriangle className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                <TriangleAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
               </motion.div>
               Confirmer le début de l&apos;examen
             </DialogTitle>
@@ -716,7 +716,7 @@ export function ExamenBlancClient({
               onClick={confirmStartExam}
               className="bg-linear-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-lg transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl"
             >
-              <PlayCircle className="mr-2 h-4 w-4" />
+              <CirclePlay className="mr-2 h-4 w-4" />
               Commencer l&apos;examen
             </Button>
           </DialogFooter>

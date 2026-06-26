@@ -2,7 +2,7 @@
 
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { BarChart3, Brain, LineChart, TrendingUp } from "lucide-react"
+import { Brain, ChartColumn, ChartLine, TrendingUp } from "lucide-react"
 import { motion } from "motion/react"
 import {
   Area,
@@ -266,11 +266,11 @@ export const TrainingScoreChartContent = ({
       <Tabs defaultValue="evolution" className="[&_svg_*:focus]:outline-none">
         <TabsList className="mb-4">
           <TabsTrigger value="evolution" className="cursor-pointer gap-1.5">
-            <LineChart className="h-4 w-4" />
+            <ChartLine className="h-4 w-4" />
             Évolution
           </TabsTrigger>
           <TabsTrigger value="domains" className="cursor-pointer gap-1.5">
-            <BarChart3 className="h-4 w-4" />
+            <ChartColumn className="h-4 w-4" />
             Par domaine
           </TabsTrigger>
         </TabsList>

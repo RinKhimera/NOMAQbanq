@@ -1,13 +1,13 @@
 "use client"
 
 import {
-  CheckCircle,
+  CircleCheckBig,
+  CircleX,
   Clock,
   Target,
   TrendingUp,
   Trophy,
   User,
-  XCircle,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
@@ -340,7 +340,7 @@ export function ParticipantExamResultsView({
                 <div className="flex gap-4 md:gap-6">
                   <div className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60">
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <CircleCheckBig className="h-5 w-5 text-green-500" />
                       <span className="text-2xl font-bold text-green-600 dark:text-green-400">
                         {results.correct}
                       </span>
@@ -352,7 +352,7 @@ export function ParticipantExamResultsView({
 
                   <div className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60">
                     <div className="flex items-center gap-2">
-                      <XCircle className="h-5 w-5 text-red-500" />
+                      <CircleX className="h-5 w-5 text-red-500" />
                       <span className="text-2xl font-bold text-red-600 dark:text-red-400">
                         {results.incorrect}
                       </span>
@@ -421,7 +421,7 @@ export function ParticipantExamResultsView({
                   className="flex items-center gap-2"
                   size="sm"
                 >
-                  <XCircle className="h-4 w-4" />
+                  <CircleX className="h-4 w-4" />
                   Voir uniquement les erreurs
                   {showOnlyIncorrect && (
                     <Badge

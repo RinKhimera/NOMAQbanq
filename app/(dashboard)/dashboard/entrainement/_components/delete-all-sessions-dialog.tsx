@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertTriangle, Loader2, Trash2 } from "lucide-react"
+import { LoaderCircle, Trash2, TriangleAlert } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -79,7 +79,7 @@ export const DeleteAllSessionsDialog = ({
           transition={{ delay: 0.1 }}
           className="my-4 flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-900/20"
         >
-          <AlertTriangle className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+          <TriangleAlert className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
           <div>
             <p className="font-medium text-red-800 dark:text-red-200">
               Suppression définitive
@@ -102,7 +102,7 @@ export const DeleteAllSessionsDialog = ({
           >
             {isDeleting ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <LoaderCircle className="h-4 w-4 animate-spin" />
                 Suppression...
               </span>
             ) : (
