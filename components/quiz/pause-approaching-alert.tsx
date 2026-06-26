@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle, Coffee, Lock } from "lucide-react"
+import { CircleCheckBig, Coffee, Lock } from "lucide-react"
 import { motion } from "motion/react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -49,7 +49,7 @@ export const PauseApproachingAlert = ({
         )}
       >
         {allAnswered ? (
-          <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+          <CircleCheckBig className="h-5 w-5 text-green-600 dark:text-green-400" />
         ) : (
           <Coffee
             className={cn(

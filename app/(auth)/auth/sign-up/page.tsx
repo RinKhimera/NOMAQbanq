@@ -1,4 +1,4 @@
-import { Award, CheckCircle, Shield, Sparkles, Star } from "lucide-react"
+import { Award, CircleCheckBig, Shield, Sparkles, Star } from "lucide-react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { SignUpForm } from "./_components/sign-up-form"
@@ -37,7 +37,7 @@ export default function InscriptionPage() {
             <div className="space-y-6">
               <div className="flex items-center space-x-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-green-500 to-emerald-600 shadow-lg">
-                  <CheckCircle className="h-6 w-6 text-white" />
+                  <CircleCheckBig className="h-6 w-6 text-white" />
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">
@@ -145,7 +145,7 @@ export default function InscriptionPage() {
               {/* Benefits footer */}
               <div className="mt-6 w-full space-y-3 border-t border-gray-200 pt-6 dark:border-gray-700">
                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
+                  <CircleCheckBig className="h-4 w-4 text-green-500" />
                   <span>Aucune carte de crédit requise</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">

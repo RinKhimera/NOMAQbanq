@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Home, UserX } from "lucide-react"
+import { ArrowLeft, House, UserX } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 
@@ -42,7 +42,7 @@ export default function NotFound() {
               className="bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg transition-all duration-200 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
             >
               <Link href="/">
-                <Home className="mr-2 h-4 w-4" />
+                <House className="mr-2 h-4 w-4" />
                 Retour à l&apos;accueil
               </Link>
             </Button>

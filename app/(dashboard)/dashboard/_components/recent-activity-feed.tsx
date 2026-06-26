@@ -3,11 +3,11 @@
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
-  CheckCircle2,
   ChevronRight,
+  CircleCheck,
+  CircleX,
   Clock,
   GraduationCap,
-  XCircle,
 } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
@@ -111,9 +111,9 @@ export const RecentActivityFeed = ({
                       )}
                     >
                       {isPassing ? (
-                        <CheckCircle2 className="h-6 w-6 text-emerald-500" />
+                        <CircleCheck className="h-6 w-6 text-emerald-500" />
                       ) : (
-                        <XCircle className="h-6 w-6 text-red-500" />
+                        <CircleX className="h-6 w-6 text-red-500" />
                       )}
                     </div>
 

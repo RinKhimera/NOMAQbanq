@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircle, Clock, Loader2, Play, X } from "lucide-react"
+import { CircleAlert, Clock, LoaderCircle, Play, X } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -96,7 +96,7 @@ export const ResumeSessionCard = ({
       <div className="p-6">
         {/* Badge */}
         <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
-          <AlertCircle className="h-4 w-4" />
+          <CircleAlert className="h-4 w-4" />
           Session en cours
         </div>
 
@@ -156,7 +156,7 @@ export const ResumeSessionCard = ({
                 disabled={isAbandoning}
               >
                 {isAbandoning ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
                 ) : (
                   <X className="h-4 w-4" />
                 )}

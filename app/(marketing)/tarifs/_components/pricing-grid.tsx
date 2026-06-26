@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertCircle, PackageX, Sparkles, Zap } from "lucide-react"
+import { CircleAlert, PackageX, Sparkles, Zap } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
@@ -129,7 +129,7 @@ export const PricingGrid = ({ products, accessStatus }: PricingGridProps) => {
             >
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <CircleAlert className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   <span className="font-medium text-gray-900 dark:text-white">
                     Vos accès actuels
                   </span>

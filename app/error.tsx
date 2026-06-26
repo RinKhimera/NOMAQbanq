@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertTriangle, Home, RefreshCw } from "lucide-react"
+import { House, RefreshCw, TriangleAlert } from "lucide-react"
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,7 +22,7 @@ export default function Error({
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-            <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
+            <TriangleAlert className="h-8 w-8 text-red-600 dark:text-red-400" />
           </div>
           <CardTitle className="text-xl text-gray-900 dark:text-white">
             Oups ! Une erreur s&apos;est produite
@@ -62,7 +62,7 @@ export default function Error({
               variant="outline"
               className="flex items-center gap-2"
             >
-              <Home className="h-4 w-4" />
+              <House className="h-4 w-4" />
               Accueil
             </Button>
           </div>

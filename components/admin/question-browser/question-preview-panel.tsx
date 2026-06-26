@@ -9,7 +9,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
-  ImageIcon,
+  Image as ImageIcon,
 } from "lucide-react"
 import { motion } from "motion/react"
 import Image from "next/image"

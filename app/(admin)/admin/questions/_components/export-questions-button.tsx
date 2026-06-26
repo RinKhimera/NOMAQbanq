@@ -2,10 +2,10 @@
 
 import {
   Download,
-  FileJson,
+  FileBraces,
   FileSpreadsheet,
   FileText,
-  Loader2,
+  LoaderCircle,
 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -184,7 +184,7 @@ export function ExportQuestionsButton({
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="gap-2" disabled={isExporting}>
           {isExporting ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <LoaderCircle className="h-4 w-4 animate-spin" />
           ) : (
             <Download className="h-4 w-4" />
           )}
@@ -223,7 +223,7 @@ export function ExportQuestionsButton({
           onClick={() => fetchAndExport("json")}
           className="gap-2"
         >
-          <FileJson className="h-4 w-4 text-amber-600" />
+          <FileBraces className="h-4 w-4 text-amber-600" />
           <div className="flex flex-col">
             <span className="font-medium">JSON</span>
             <span className="text-muted-foreground text-xs">

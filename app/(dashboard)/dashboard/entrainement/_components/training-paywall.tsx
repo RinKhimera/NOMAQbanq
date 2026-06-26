@@ -1,6 +1,13 @@
 "use client"
 
-import { ArrowRight, Brain, Check, Loader2, Lock, Sparkles } from "lucide-react"
+import {
+  ArrowRight,
+  Brain,
+  Check,
+  LoaderCircle,
+  Lock,
+  Sparkles,
+} from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { useActionState, useTransition } from "react"
@@ -135,7 +142,7 @@ export const TrainingPaywall = ({
                 </motion.div>
               ) : (
                 <div className="mb-8 flex justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <LoaderCircle className="h-8 w-8 animate-spin text-gray-400" />
                 </div>
               )}
 
@@ -149,7 +156,7 @@ export const TrainingPaywall = ({
                 >
                   {isPending ? (
                     <>
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
                       Redirection vers le paiement...
                     </>
                   ) : (

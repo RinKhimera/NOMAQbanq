@@ -1,10 +1,10 @@
 "use client"
 
-import { BarChart3, BookOpen, Clock, Target } from "lucide-react"
+import { BookOpen, ChartColumn, Clock, Target } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useMarketingStats } from "@/hooks/useMarketingStats"
 
-const icons = [BookOpen, Target, Clock, BarChart3] as const
+const icons = [BookOpen, Target, Clock, ChartColumn] as const
 const colors = [
   "from-blue-500 to-indigo-600",
   "from-green-500 to-emerald-600",

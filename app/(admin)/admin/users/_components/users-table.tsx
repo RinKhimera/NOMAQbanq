@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
-import { ArrowDown, ArrowUp, ArrowUpDown, Loader2 } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -129,7 +129,7 @@ export function UsersTable({
     return (
       <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900">
         <div className="p-8 text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-gray-400" />
+          <LoaderCircle className="mx-auto h-8 w-8 animate-spin text-gray-400" />
           <p className="mt-2 text-sm text-gray-500">Chargement...</p>
         </div>
       </div>
@@ -290,7 +290,7 @@ export function UsersTable({
             disabled={isLoadingMore}
             className="gap-2"
           >
-            {isLoadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isLoadingMore && <LoaderCircle className="h-4 w-4 animate-spin" />}
             Charger plus d&apos;utilisateurs
           </Button>
         </div>

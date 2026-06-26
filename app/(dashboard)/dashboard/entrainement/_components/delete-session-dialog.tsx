@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
-import { AlertTriangle, Loader2, Target, Trash2 } from "lucide-react"
+import { LoaderCircle, Target, Trash2, TriangleAlert } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -146,7 +146,7 @@ export const DeleteSessionDialog = ({
           transition={{ delay: 0.2 }}
           className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20"
         >
-          <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
           <div>
             <p className="font-medium text-amber-800 dark:text-amber-200">
               Suppression définitive
@@ -169,7 +169,7 @@ export const DeleteSessionDialog = ({
           >
             {isDeleting ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <LoaderCircle className="h-4 w-4 animate-spin" />
                 Suppression...
               </span>
             ) : (

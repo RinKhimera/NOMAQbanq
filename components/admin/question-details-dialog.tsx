@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle, Eye, Target } from "lucide-react"
+import { CircleCheckBig, Eye, Target } from "lucide-react"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -103,7 +103,7 @@ export default function QuestionDetailsDialog({
                     </Badge>
                     <p className="flex-1 text-base leading-relaxed">{option}</p>
                     {option === question.correctAnswer && (
-                      <CheckCircle className="h-6 w-6 shrink-0 text-green-600" />
+                      <CircleCheckBig className="h-6 w-6 shrink-0 text-green-600" />
                     )}
                   </div>
                 ))}

@@ -7,8 +7,8 @@ import {
   ArrowUp,
   ArrowUpDown,
   Eye,
-  ImageIcon,
-  Loader2,
+  Image as ImageIcon,
+  LoaderCircle,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -330,7 +330,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
             disabled={isLoadingMore}
             className="gap-2"
           >
-            {isLoadingMore && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isLoadingMore && <LoaderCircle className="h-4 w-4 animate-spin" />}
             Charger plus de questions
           </Button>
         </div>

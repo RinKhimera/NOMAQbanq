@@ -1,6 +1,12 @@
 "use client"
 
-import { Clock, HelpCircle, MessageCircle, Shield, Star } from "lucide-react"
+import {
+  CircleQuestionMark,
+  Clock,
+  MessageCircle,
+  Shield,
+  Star,
+} from "lucide-react"
 import { motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 
@@ -43,7 +49,7 @@ export const FaqHeader = () => {
               variant="badge"
               className="mb-8 px-6 py-3 text-sm font-semibold"
             >
-              <HelpCircle className="mr-2 h-4 w-4" />
+              <CircleQuestionMark className="mr-2 h-4 w-4" />
               Centre d{"'"}aide
             </Badge>
           </motion.div>

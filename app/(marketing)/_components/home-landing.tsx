@@ -3,10 +3,10 @@
 import {
   ArrowRight,
   Award,
-  BarChart3,
   BookOpen,
   Brain,
-  CheckCircle,
+  ChartColumn,
+  CircleCheckBig,
   Play,
   RefreshCw,
   Settings,
@@ -52,7 +52,7 @@ export default function HomeLanding() {
         "Les disciplines (matières cliniques) sont placées dans un ordre systématique pour vous permettre de tester vos connaissances dans un domaine spécifique ou de réviser un sujet particulier",
     },
     {
-      icon: BarChart3,
+      icon: ChartColumn,
       title: "Suivi des performances",
       description:
         "Quel que soit le mode chronométré ou tuteur lors de l&apos;utilisation de la banque de questions, une série de commentaires sont fournis pour améliorer les performances de l&apos;utilisateur",
@@ -186,7 +186,7 @@ export default function HomeLanding() {
                 <div className="glass-card animate-float absolute -top-6 -left-6 z-20 rounded-2xl p-4 shadow-lg">
                   <div className="flex items-center space-x-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-green-400 to-emerald-600">
-                      <CheckCircle className="h-6 w-6 text-white" />
+                      <CircleCheckBig className="h-6 w-6 text-white" />
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white">
@@ -365,7 +365,7 @@ export default function HomeLanding() {
                           className="flex items-center space-x-3"
                         >
                           <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-400">
-                            <CheckCircle className="h-3 w-3 text-green-900" />
+                            <CircleCheckBig className="h-3 w-3 text-green-900" />
                           </div>
                           <span className="text-blue-50">{feature}</span>
                         </div>

@@ -4,10 +4,10 @@ import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 import {
   ChevronRight,
+  Ellipsis,
   Eye,
   History,
-  Loader2,
-  MoreHorizontal,
+  LoaderCircle,
   Target,
   Trash2,
   Trophy,
@@ -130,7 +130,7 @@ export const TrainingHistorySection = ({
         <div className="p-4">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              <LoaderCircle className="h-6 w-6 animate-spin text-gray-400" />
             </div>
           ) : sessions.length === 0 ? (
             <div className="py-12 text-center">
@@ -224,7 +224,7 @@ export const TrainingHistorySection = ({
                         className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <MoreHorizontal className="h-4 w-4" />
+                        <Ellipsis className="h-4 w-4" />
                         <span className="sr-only">Actions</span>
                       </Button>
                     </DropdownMenuTrigger>
@@ -263,7 +263,7 @@ export const TrainingHistorySection = ({
                   >
                     {isLoadingMore ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
                         Chargement...
                       </>
                     ) : (

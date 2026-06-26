@@ -2,10 +2,10 @@
 
 import {
   ArrowLeft,
+  Ellipsis,
   FileDown,
   FileText,
   ListChecks,
-  MoreHorizontal,
   Pencil,
 } from "lucide-react"
 import Link from "next/link"
@@ -89,7 +89,7 @@ export function ExamDetailsClient({
                 variant="outline"
                 className="gap-2 hover:text-blue-700 max-[500px]:w-full max-[500px]:justify-start dark:hover:text-white"
               >
-                <MoreHorizontal className="h-4 w-4" /> Exporter sous un format
+                <Ellipsis className="h-4 w-4" /> Exporter sous un format
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="bg-card w-full" align="start">

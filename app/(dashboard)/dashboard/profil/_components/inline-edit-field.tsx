@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { IconCheck, IconPencil, IconX } from "@tabler/icons-react"
-import { Loader2, type LucideIcon } from "lucide-react"
+import { LoaderCircle, type LucideIcon } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
@@ -243,7 +243,7 @@ export const InlineEditField = ({
                     )}
                   >
                     {isSaving ? (
-                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                      <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" />
                     ) : (
                       <IconCheck className="mr-1.5 h-4 w-4" />
                     )}

@@ -1,11 +1,11 @@
 "use client"
 
 import {
-  CheckCircle,
   ChevronDown,
   ChevronUp,
+  CircleCheckBig,
+  CircleX,
   Flag,
-  XCircle,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { QuestionImageGallery } from "@/components/shared/question-image-gallery"
@@ -179,14 +179,14 @@ export const QuestionCard = ({
 
     if (!wasAnswered) {
       return {
-        icon: <XCircle className="h-4 w-4 text-gray-400 sm:h-5 sm:w-5" />,
+        icon: <CircleX className="h-4 w-4 text-gray-400 sm:h-5 sm:w-5" />,
         text: "Non répondu",
         textColor: "text-gray-600 dark:text-gray-400",
       }
     } else if (isCorrect) {
       return {
         icon: (
-          <CheckCircle className="h-4 w-4 text-green-600 sm:h-5 sm:w-5 dark:text-green-400" />
+          <CircleCheckBig className="h-4 w-4 text-green-600 sm:h-5 sm:w-5 dark:text-green-400" />
         ),
         text: "Correct",
         textColor: "text-green-600 dark:text-green-400",
@@ -194,7 +194,7 @@ export const QuestionCard = ({
     } else {
       return {
         icon: (
-          <XCircle className="h-4 w-4 text-red-600 sm:h-5 sm:w-5 dark:text-red-400" />
+          <CircleX className="h-4 w-4 text-red-600 sm:h-5 sm:w-5 dark:text-red-400" />
         ),
         text: "Incorrect",
         textColor: "text-red-600 dark:text-red-400",

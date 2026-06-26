@@ -1,6 +1,6 @@
 "use client"
 
-import { Filter, Search, X } from "lucide-react"
+import { Funnel, Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -68,10 +68,10 @@ export const TransactionFilters = ({
         />
       </div>
 
-      {/* Filter icon on mobile */}
+      {/* Funnel icon on mobile */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 text-sm text-gray-500 sm:hidden dark:text-gray-400">
-          <Filter className="h-4 w-4" />
+          <Funnel className="h-4 w-4" />
           Filtres
         </div>
 

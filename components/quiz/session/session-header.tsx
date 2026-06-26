@@ -1,6 +1,6 @@
 "use client"
 
-import { CheckCircle, Clock, Pause } from "lucide-react"
+import { CircleCheckBig, Clock, Pause } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -123,7 +123,7 @@ export const SessionHeader = ({
                   : "bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700",
               )}
             >
-              <CheckCircle className="h-4 w-4" aria-hidden="true" />
+              <CircleCheckBig className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Terminer</span>
             </Button>
           </div>

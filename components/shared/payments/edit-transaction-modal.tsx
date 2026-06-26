@@ -2,15 +2,15 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import {
-  AlertTriangle,
   Banknote,
-  CheckCircle,
+  CircleCheckBig,
   CreditCard,
   DollarSign,
   FileText,
-  Loader2,
+  LoaderCircle,
   Package,
   Pencil,
+  TriangleAlert,
   User,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
@@ -224,7 +224,7 @@ export const EditTransactionModal = ({
                 transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
                 className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg"
               >
-                <CheckCircle className="h-10 w-10 text-white" />
+                <CircleCheckBig className="h-10 w-10 text-white" />
               </motion.div>
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 Modification enregistrée
@@ -481,7 +481,7 @@ export const EditTransactionModal = ({
                       animate={{ opacity: 1, y: 0 }}
                       className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20"
                     >
-                      <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500" />
+                      <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500" />
                       <div>
                         <p className="font-medium text-amber-800 dark:text-amber-200">
                           Attention : Révocation d{"'"}accès
@@ -520,7 +520,7 @@ export const EditTransactionModal = ({
                     >
                       {isSubmitting ? (
                         <span className="flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
                           Enregistrement...
                         </span>
                       ) : showRefundWarning ? (

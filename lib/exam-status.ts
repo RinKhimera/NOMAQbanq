@@ -1,4 +1,4 @@
-import { CheckCircle, Clock, PauseCircle, PlayCircle } from "lucide-react"
+import { CircleCheckBig, CirclePause, CirclePlay, Clock } from "lucide-react"
 import { ExamStatus, ExamStatusConfig } from "@/types"
 
 export type { ExamStatus, ExamStatusConfig }
@@ -8,7 +8,7 @@ export const EXAM_STATUS_CONFIG: Record<ExamStatus, ExamStatusConfig> = {
     label: "En cours",
     variant: "default",
     className: "bg-gray-200 dark:bg-gray-100 dark:text-gray-500 text-gray-700 ",
-    icon: PlayCircle,
+    icon: CirclePlay,
   },
   upcoming: {
     label: "À venir",
@@ -21,13 +21,13 @@ export const EXAM_STATUS_CONFIG: Record<ExamStatus, ExamStatusConfig> = {
     variant: "secondary",
     className:
       "bg-green-200 dark:bg-green-100 dark:text-green-500 text-green-700",
-    icon: CheckCircle,
+    icon: CircleCheckBig,
   },
   inactive: {
     label: "Désactivé",
     variant: "destructive",
     className: "bg-red-200 dark:bg-red-100 dark:text-red-500 text-red-700 ",
-    icon: PauseCircle,
+    icon: CirclePause,
   },
 }
 

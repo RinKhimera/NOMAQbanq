@@ -1,6 +1,6 @@
 "use client"
 
-import { AlertTriangle, Brain } from "lucide-react"
+import { Brain, TriangleAlert } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import {
@@ -174,7 +174,7 @@ export const TrainingSessionClient = ({
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
         <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-900/20">
-          <AlertTriangle className="mx-auto mb-4 h-12 w-12 text-amber-500" />
+          <TriangleAlert className="mx-auto mb-4 h-12 w-12 text-amber-500" />
           <h1 className="font-display mb-2 text-xl font-bold text-amber-900 dark:text-amber-100">
             Session expirée
           </h1>
