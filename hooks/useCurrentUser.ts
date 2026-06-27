@@ -1,3 +1,4 @@
+import { useMemo } from "react"
 import { authClient } from "@/lib/auth-client"
 import { resolveAvatarUrl } from "@/lib/cdn"
 
@@ -13,8 +14,13 @@ export const useCurrentUser = () => {
   const { data, isPending } = authClient.useSession()
   const user = data?.user ?? null
 
+  const currentUser = useMemo(
+    () => (user ? { ...user, image: resolveAvatarUrl(user.image) } : null),
+    [user],
+  )
+
   return {
-    currentUser: user ? { ...user, image: resolveAvatarUrl(user.image) } : null,
+    currentUser,
     isLoading: isPending,
     isAuthenticated: !!user,
   }

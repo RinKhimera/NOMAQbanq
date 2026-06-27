@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -38,17 +38,20 @@ export default function OnboardingPage() {
     mode: "onChange",
   })
 
+  const prefilled = useRef(false)
+
   useEffect(() => {
-    if (isLoading) return
-    if (!currentUser) return
+    if (isLoading || !currentUser) return
     if (currentUser.username) {
       router.replace("/dashboard")
       return
     }
+    if (prefilled.current) return
+    prefilled.current = true
     form.reset({
-      name: currentUser.name || "",
-      username: currentUser.username || "",
-      bio: currentUser.bio || "",
+      name: currentUser.name ?? "",
+      username: "",
+      bio: currentUser.bio ?? "",
     })
   }, [currentUser, isLoading, router, form])
 
