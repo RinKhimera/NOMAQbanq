@@ -15,22 +15,28 @@ vi.mock("sonner", () => ({
 
 describe("OnboardingPage", () => {
   const mockReplace = vi.fn()
+  const mockRefetch = vi.fn()
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(useRouter).mockReturnValue(mockRouter({ replace: mockReplace }))
+  const setUser = (username: string | null) =>
     vi.mocked(useCurrentUser).mockImplementation(
       () =>
         ({
           currentUser: createMockBetterAuthUser({
-            username: null,
+            username,
             name: "N.M.Y",
             bio: null,
           }),
           isLoading: false,
           isAuthenticated: true,
-        }) as ReturnType<typeof useCurrentUser>,
+          refetch: mockRefetch,
+        }) as unknown as ReturnType<typeof useCurrentUser>,
     )
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRefetch.mockResolvedValue(undefined)
+    vi.mocked(useRouter).mockReturnValue(mockRouter({ replace: mockReplace }))
+    setUser(null)
   })
 
   it("laisse saisir le username sans l'effacer (pas de boucle de reset)", () => {
@@ -44,7 +50,7 @@ describe("OnboardingPage", () => {
     expect(username.value).toBe("youssouf123")
   })
 
-  it("soumet le username saisi via updateProfile puis redirige", async () => {
+  it("resynchronise la session puis redirige après soumission réussie", async () => {
     vi.mocked(updateProfile).mockResolvedValue({ success: true })
 
     render(<OnboardingPage />)
@@ -62,18 +68,41 @@ describe("OnboardingPage", () => {
         expect.objectContaining({ username: "youssouf123" }),
       ),
     )
+
+    await waitFor(() =>
+      expect(mockRefetch).toHaveBeenCalledWith({
+        query: { disableCookieCache: true },
+      }),
+    )
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"))
+    expect(mockRefetch.mock.invocationCallOrder[0]).toBeLessThan(
+      mockReplace.mock.invocationCallOrder[0],
+    )
+  })
+
+  it("ne navigue pas si la soumission échoue", async () => {
+    vi.mocked(updateProfile).mockResolvedValue({
+      success: false,
+      error: "Ce nom d'utilisateur est déjà pris !",
+    })
+
+    render(<OnboardingPage />)
+
+    fireEvent.change(screen.getByPlaceholderText("Ex: Marie Dupont"), {
+      target: { value: "Youssouf N" },
+    })
+    fireEvent.change(screen.getByPlaceholderText("votre_nom_utilisateur"), {
+      target: { value: "youssouf123" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /terminer/i }))
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalled())
+    expect(mockRefetch).not.toHaveBeenCalled()
+    expect(mockReplace).not.toHaveBeenCalled()
   })
 
   it("redirige vers le dashboard si l'utilisateur a déjà un username", async () => {
-    vi.mocked(useCurrentUser).mockImplementation(
-      () =>
-        ({
-          currentUser: createMockBetterAuthUser({ username: "deja_pris" }),
-          isLoading: false,
-          isAuthenticated: true,
-        }) as ReturnType<typeof useCurrentUser>,
-    )
+    setUser("deja_pris")
 
     render(<OnboardingPage />)
 

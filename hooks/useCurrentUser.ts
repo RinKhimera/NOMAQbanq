@@ -11,7 +11,7 @@ import { resolveAvatarUrl } from "@/lib/cdn"
  * deviennent des URL CDN, les avatars OAuth (Google) restent intacts.
  */
 export const useCurrentUser = () => {
-  const { data, isPending } = authClient.useSession()
+  const { data, isPending, refetch } = authClient.useSession()
   const user = data?.user ?? null
 
   const currentUser = useMemo(
@@ -23,5 +23,6 @@ export const useCurrentUser = () => {
     currentUser,
     isLoading: isPending,
     isAuthenticated: !!user,
+    refetch,
   }
 }

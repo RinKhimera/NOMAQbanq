@@ -22,6 +22,7 @@ import {
   confirmAvatarUpload,
   createAvatarUpload,
 } from "@/features/users/actions"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { cdnUrl, resolveAvatarUrl } from "@/lib/cdn"
 import { getCroppedImageBlob } from "@/lib/crop-image"
 import { cn } from "@/lib/utils"
@@ -48,6 +49,7 @@ export const AvatarUploader = ({
   disabled = false,
 }: AvatarUploaderProps) => {
   const router = useRouter()
+  const { refetch } = useCurrentUser()
   const [isUploading, setIsUploading] = useState(false)
   // URL optimiste après upload (précède le rafraîchissement serveur).
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null)
@@ -148,6 +150,7 @@ export const AvatarUploader = ({
       setImageSrc(null)
       setCrop({ x: 0, y: 0 })
       setZoom(1)
+      await refetch({ query: { disableCookieCache: true } }).catch(() => {})
       router.refresh()
     } catch {
       toast.error("Échec du téléversement. Réessayez.")

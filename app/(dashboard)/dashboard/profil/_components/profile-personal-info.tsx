@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { updateProfile } from "@/features/users/actions"
 import { CurrentUser } from "@/features/users/dal"
 import { bioSchema, nameSchema, usernameSchema } from "@/features/users/schemas"
+import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { InlineEditField } from "./inline-edit-field"
 
 type ProfilePersonalInfoProps = {
@@ -18,6 +19,7 @@ type ProfilePersonalInfoProps = {
 export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
   const prefersReducedMotion = useReducedMotion()
   const router = useRouter()
+  const { refetch } = useCurrentUser()
 
   const handleSaveField = async (
     fieldName: "name" | "username" | "bio",
@@ -32,6 +34,7 @@ export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
 
       if (result.success) {
         toast.success("Modification enregistrée")
+        await refetch({ query: { disableCookieCache: true } }).catch(() => {})
         router.refresh()
         return { success: true }
       } else {

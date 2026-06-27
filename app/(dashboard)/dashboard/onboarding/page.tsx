@@ -29,7 +29,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { UserFormValues, userFormSchema } from "@/schemas/user"
 
 export default function OnboardingPage() {
-  const { currentUser, isLoading } = useCurrentUser()
+  const { currentUser, isLoading, refetch } = useCurrentUser()
   const router = useRouter()
 
   const form = useForm<UserFormValues>({
@@ -65,6 +65,7 @@ export default function OnboardingPage() {
 
       if (result.success) {
         toast.success("Profil complété !")
+        await refetch({ query: { disableCookieCache: true } }).catch(() => {})
         router.replace("/dashboard")
       } else {
         toast.error(result.error)
