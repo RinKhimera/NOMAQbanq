@@ -28,8 +28,8 @@ import { cn, getInitials } from "@/lib/utils"
 
 export interface ParticipantResultAnswer {
   questionId: string
-  selectedAnswer: string
-  isCorrect: boolean
+  selectedAnswer: string | null
+  isCorrect: boolean | null
 }
 
 interface ParticipantExamResultsViewProps {

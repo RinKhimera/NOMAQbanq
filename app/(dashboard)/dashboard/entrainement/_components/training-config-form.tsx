@@ -88,6 +88,7 @@ export const TrainingConfigForm = ({
         domain: selectedDomain === "all" ? undefined : selectedDomain,
         objectifsCMCs:
           selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
+        mode: "test",
       })
 
       if (!result.success) {
