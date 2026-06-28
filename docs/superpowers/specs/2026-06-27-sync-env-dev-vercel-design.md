@@ -16,9 +16,12 @@ variables `Preview` ou `Production`. Au passage : classifier les variables d'env
   devient la **source de vérité unique** et un **sur-ensemble** de `.env.local`.
 - **`NEON_API_KEY`** (accès API au compte Neon entier) : **stockée dans Vercel
   Dev** comme les autres (vrai « tout »). Risque accepté.
-- **Extras** : on ajoute `EMAIL_OVERRIDE_TO` à l'amorçage (redirige tous les
-  emails dev vers une adresse de test vérifiée). **Pas** de Stripe dev pour
-  l'instant (YAGNI).
+- **Extras** : on ajoute `EMAIL_OVERRIDE_TO=dixiades@gmail.com` à l'amorçage
+  (redirige tous les emails dev vers cette adresse de test). **Pas** de Stripe
+  dev pour l'instant (YAGNI).
+- **Wrapper** : nom `bun run env:sync` confirmé.
+- **Script de vérif (d)** : **validation jetable, non commitée** (scratchpad),
+  jouée une fois pour confirmer le résultat — pas un livrable du repo.
 
 ## Contexte (état réel constaté le 2026-06-27)
 
@@ -72,7 +75,7 @@ disparaissent naturellement (le *pull* régénère le fichier sans elles).
 
 ### ⚪ Absentes de `.env.local`, décision prise
 
-- `EMAIL_OVERRIDE_TO` — **on l'ajoute** (valeur = adresse de test vérifiée SES, fournie par l'utilisateur).
+- `EMAIL_OVERRIDE_TO` — **on l'ajoute**, valeur `dixiades@gmail.com` (adresse de test ; doit être vérifiée dans SES).
 - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` — **non** (paiements dev hors scope).
 - `MAINTENANCE_MODE` / `MAINTENANCE_BYPASS_TOKEN`, `NEXT_PUBLIC_BASE_URL`,
   `AWS_ROLE_ARN`, `INTEGRATION_*`, `PLAYWRIGHT_BASE_URL` — non requis en dev local
@@ -94,7 +97,7 @@ par construction.
 [n'importe quel PC : .env.local reconstruit]
 ```
 
-## Composants (4 livrables, chacun à responsabilité unique)
+## Composants (3 livrables commités + 1 validation jetable)
 
 ### (a) Script d'amorçage unique — `scripts/seed-vercel-dev-env.ts`
 
@@ -130,12 +133,17 @@ vercel link            # team rinkhimeras-projects → projet nomaqbank
 bun run env:sync
 ```
 
-### (d) Script de vérif — `scripts/check-env-sync.ts`
+### (d) Validation jetable — script de vérif (non commité, scratchpad)
 
 *Pull* dans un fichier temporaire, diffe les **clés** (pas les valeurs) contre
 `.env.local`, échoue s'il existe une clé « qui serait effacée » (présente en
-local, absente de Vercel Dev). Fige en garde-fou le diagnostic manuel utilisé
-pendant le design.
+local, absente de Vercel Dev). **Non commité** : créé dans le scratchpad, joué
+ponctuellement, puis supprimé. Sert à confirmer l'amorçage (zéro clé effaçable).
+
+> **Validé le 2026-06-27** (avant amorçage) : 24 clés locales / 15 clés Vercel
+> Dev → le script détecte correctement les 3 clés ajoutées par le *pull*
+> (`CRON_SECRET`, `NEXT_PUBLIC_SENTRY_DSN`, `VERCEL_OIDC_TOKEN`) et les **12**
+> clés à amorcer. Logique de diff confirmée fonctionnelle.
 
 ## Garde-fous & edge cases
 
@@ -159,7 +167,7 @@ pendant le design.
 
 1. Après amorçage : `vercel env ls development` liste l'ensemble des clés
    attendues (~28).
-2. `scripts/check-env-sync.ts` → **zéro** clé « effaçable ».
+2. La validation jetable (d) → **zéro** clé « effaçable ».
 3. Critère final : sauvegarder puis supprimer `.env.local`, lancer
    `bun run env:sync`, et `bun dev` + `bun run check` passent.
 
