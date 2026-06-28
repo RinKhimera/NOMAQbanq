@@ -14,6 +14,8 @@ export type UseQuizSessionOptions = {
   questions: QuizQuestion[]
   initialAnswers: AnswersMap
   initialFlags?: Set<string>
+  // État de pause initial (réhydraté depuis ExamSessionView à la reprise).
+  initialPause?: { isPaused: boolean; totalPauseDurationMs: number }
   mode: QuizMode
   callbacks: QuizCallbacks
 }
@@ -45,6 +47,11 @@ export type UseQuizSessionResult = {
   confirmFinish: (opts?: { isAutoSubmit?: boolean }) => Promise<void>
   setFinishDialogOpen: (open: boolean) => void
 
+  // Pause (rest break) — freezes the timer
+  isPaused: boolean
+  pause: () => Promise<void>
+  resume: () => Promise<void>
+
   // Timer (only when mode.timer is set)
   timer: {
     remainingMs: number
@@ -61,6 +68,7 @@ export function useQuizSession({
   questions,
   initialAnswers,
   initialFlags,
+  initialPause,
   mode,
   callbacks,
 }: UseQuizSessionOptions): UseQuizSessionResult {
@@ -76,6 +84,12 @@ export function useQuizSession({
   )
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [isSubmitting, startTransition] = useTransition()
+
+  // ---- Pause (rest break) ----
+  const [isPaused, setIsPaused] = useState(initialPause?.isPaused ?? false)
+  const [totalPauseDurationMs, setTotalPauseDurationMs] = useState(
+    initialPause?.totalPauseDurationMs ?? 0,
+  )
 
   const totalQuestions = questions.length
   const currentQuestion = questions[currentIndex]
@@ -157,6 +171,25 @@ export function useQuizSession({
     [currentQuestion, callbacks, mode.feedback],
   )
 
+  // ---- Pause / resume (rest break) ----
+
+  const pause = useCallback(async () => {
+    if (!callbacks.onPause || isPaused) return
+    const res = await callbacks.onPause()
+    if (res.ok) {
+      setIsPaused(true)
+    }
+  }, [callbacks, isPaused])
+
+  const resume = useCallback(async () => {
+    if (!callbacks.onResume || !isPaused) return
+    const res = await callbacks.onResume()
+    if (res.ok) {
+      setTotalPauseDurationMs((prev) => res.totalPauseDurationMs ?? prev)
+      setIsPaused(false)
+    }
+  }, [callbacks, isPaused])
+
   // ---- Finish ----
 
   const requestFinish = useCallback(() => {
@@ -225,8 +258,8 @@ export function useQuizSession({
   const timerResult = useExamTimer({
     serverStartTime: timerConfig?.serverStartTime ?? 0,
     totalSeconds: timerConfig?.totalSeconds ?? 0,
-    isPaused: false,
-    totalPauseDurationMs: 0,
+    isPaused,
+    totalPauseDurationMs,
     onExpire: stableOnExpire,
   })
 
@@ -253,6 +286,9 @@ export function useQuizSession({
     requestFinish,
     confirmFinish,
     setFinishDialogOpen,
+    isPaused,
+    pause,
+    resume,
     timer,
   }
 }

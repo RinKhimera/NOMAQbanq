@@ -46,5 +46,6 @@ export type QuizCallbacks = {
     isAutoSubmit: boolean
   }) => Promise<{ ok: boolean; redirectTo?: string }>
   onPause?: () => Promise<{ ok: boolean }>
-  onResume?: () => Promise<{ ok: boolean }>
+  // Le serveur renvoie la durée de pause cumulée et plafonnée.
+  onResume?: () => Promise<{ ok: boolean; totalPauseDurationMs?: number }>
 }

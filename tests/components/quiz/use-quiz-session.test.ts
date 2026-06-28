@@ -395,3 +395,161 @@ describe("useQuizSession — raccourcis clavier", () => {
     expect(result.current.currentIndex).toBe(0)
   })
 })
+
+describe("useQuizSession — pause (rest break)", () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it("isPaused initial dérive de initialPause", () => {
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        initialPause: { isPaused: true, totalPauseDurationMs: 5000 },
+        mode: makeMode(),
+        callbacks: makeCallbacks(),
+      }),
+    )
+    expect(result.current.isPaused).toBe(true)
+  })
+
+  it("isPaused vaut false par défaut sans initialPause", () => {
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode(),
+        callbacks: makeCallbacks(),
+      }),
+    )
+    expect(result.current.isPaused).toBe(false)
+  })
+
+  it("pause() appelle onPause, passe isPaused=true et gèle le timer", async () => {
+    const onPause = vi.fn().mockResolvedValue({ ok: true })
+    const start = Date.now()
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          timer: { serverStartTime: start, totalSeconds: 3600 },
+        }),
+        callbacks: makeCallbacks({ onPause }),
+      }),
+    )
+
+    // Avance un peu pour avoir une valeur de référence
+    await act(async () => {
+      vi.advanceTimersByTime(2000)
+    })
+    expect(result.current.isPaused).toBe(false)
+
+    await act(async () => {
+      await result.current.pause()
+    })
+    expect(onPause).toHaveBeenCalledTimes(1)
+    expect(result.current.isPaused).toBe(true)
+
+    const frozen = result.current.timer?.remainingMs
+    // Le timer est gelé : avancer le temps ne change rien
+    await act(async () => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(result.current.timer?.remainingMs).toBe(frozen)
+  })
+
+  it("pause() est un no-op si déjà en pause", async () => {
+    const onPause = vi.fn().mockResolvedValue({ ok: true })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        initialPause: { isPaused: true, totalPauseDurationMs: 0 },
+        mode: makeMode(),
+        callbacks: makeCallbacks({ onPause }),
+      }),
+    )
+    await act(async () => {
+      await result.current.pause()
+    })
+    expect(onPause).not.toHaveBeenCalled()
+  })
+
+  it("resume() applique le totalPauseDurationMs serveur et reprend le timer", async () => {
+    const onResume = vi
+      .fn()
+      .mockResolvedValue({ ok: true, totalPauseDurationMs: 30_000 })
+    const start = Date.now()
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        // Démarre en pause, sans offset cumulé
+        initialPause: { isPaused: true, totalPauseDurationMs: 0 },
+        mode: makeMode({
+          timer: { serverStartTime: start, totalSeconds: 3600 },
+        }),
+        callbacks: makeCallbacks({ onResume }),
+      }),
+    )
+    expect(result.current.isPaused).toBe(true)
+
+    await act(async () => {
+      await result.current.resume()
+    })
+    expect(onResume).toHaveBeenCalledTimes(1)
+    expect(result.current.isPaused).toBe(false)
+
+    // Le timer reprend : avancer le temps réduit remainingMs
+    const beforeTick = result.current.timer?.remainingMs ?? 0
+    await act(async () => {
+      vi.advanceTimersByTime(3000)
+    })
+    const afterTick = result.current.timer?.remainingMs ?? 0
+    expect(afterTick).toBeLessThan(beforeTick)
+
+    // L'offset de pause serveur (30s) est appliqué : remaining ≈ total + offset - elapsed.
+    // Avec 3600s total, ~3s écoulées et 30s de pause créditées, on doit rester
+    // au-dessus de (3600 - 5)s, donc > 3595s en ms.
+    expect(afterTick).toBeGreaterThan((3600 - 5) * 1000)
+  })
+
+  it("resume() est un no-op si pas en pause", async () => {
+    const onResume = vi.fn().mockResolvedValue({ ok: true })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode(),
+        callbacks: makeCallbacks({ onResume }),
+      }),
+    )
+    await act(async () => {
+      await result.current.resume()
+    })
+    expect(onResume).not.toHaveBeenCalled()
+  })
+
+  it("resume() conserve l'offset existant si le serveur ne renvoie pas de durée", async () => {
+    const onResume = vi.fn().mockResolvedValue({ ok: true }) // pas de totalPauseDurationMs
+    const start = Date.now()
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        initialPause: { isPaused: true, totalPauseDurationMs: 12_000 },
+        mode: makeMode({
+          timer: { serverStartTime: start, totalSeconds: 3600 },
+        }),
+        callbacks: makeCallbacks({ onResume }),
+      }),
+    )
+    await act(async () => {
+      await result.current.resume()
+    })
+    expect(result.current.isPaused).toBe(false)
+    // L'offset initial (12s) est conservé → remaining > (3600 - 5)s
+    expect(result.current.timer?.remainingMs).toBeGreaterThan((3600 - 5) * 1000)
+  })
+})
