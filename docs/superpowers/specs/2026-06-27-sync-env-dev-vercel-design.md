@@ -20,6 +20,10 @@ variables `Preview` ou `Production`. Au passage : classifier les variables d'env
   (redirige tous les emails dev vers cette adresse de test). **Pas** de Stripe
   dev pour l'instant (YAGNI).
 - **Wrapper** : nom `bun run env:sync` confirmé.
+- **Format du fichier généré** : `.env.local` **regroupé en sections** par
+  `scripts/sync-env.ts` (post-traitement du *pull*). Schéma **hybride** :
+  sections fonctionnelles (BD, Auth, SES, S3, Tests…) + **tag de tier 🟢/🟡**
+  dans chaque en-tête. Clés inconnues → section « Non classé » (rien de perdu).
 - **Script de vérif (d)** : **validation jetable, non commitée** (scratchpad),
   jouée une fois pour confirmer le résultat — pas un livrable du repo.
 
@@ -114,13 +118,48 @@ par construction.
 - `EMAIL_OVERRIDE_TO` : si absente de `.env.local`, le script demande/exige une
   valeur (adresse vérifiée SES) avant de l'ajouter.
 
-### (b) Wrapper de synchro — script `package.json`
+### (b) Wrapper de synchro **avec regroupement** — `scripts/sync-env.ts`
+
+Lancé via le script `package.json` :
 
 ```json
-"env:sync": "vercel env pull .env.local --environment=development --yes"
+"env:sync": "bun run scripts/sync-env.ts"
 ```
 
+`vercel env pull` écrit un fichier **plat** (pas de commentaires ni de
+regroupement). Pour obtenir un `.env.local` rangé sur chaque PC, le script
+post-traite le *pull* :
+
+1. `vercel env pull` vers un fichier **temporaire** (scope `development`).
+2. Parse chaque ligne en `(clé, ligne brute)` — la **ligne brute est réutilisée
+   telle quelle** (jamais de re-quoting → préserve `+ / & =` des secrets).
+3. Réordonne selon la **carte de groupes** (ci-dessous) et insère des en-têtes
+   `# === … (tier) ===` — schéma **hybride** : sections fonctionnelles + tag de
+   classification 🟢/🟡 dans l'en-tête.
+4. Toute clé absente de la carte → section **« Non classé »** en fin de fichier
+   (rien n'est perdu silencieusement ; `log` du nombre de clés non classées).
+5. Écrit `.env.local`.
+
 *La* commande à retenir, identique sur chaque PC.
+
+#### Carte de groupes (hybride fonctionnel + tier)
+
+| Section (en-tête) | Tier | Clés |
+| --- | --- | --- |
+| Base de données — Neon | 🟢 REQUIS | `DATABASE_URL`, `DATABASE_URL_UNPOOLED` |
+| Better Auth | 🟢 REQUIS | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` |
+| OAuth Google | 🟢 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
+| AWS SES — emails | 🟢 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `EMAIL_FROM`, `SES_CONFIGURATION_SET`, `EMAIL_OVERRIDE_TO` |
+| AWS S3 + CloudFront — médias | 🟢 | `S3_REGION`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEXT_PUBLIC_CDN_HOSTNAME` |
+| Cron Vercel | 🟢 | `CRON_SECRET` |
+| Sentry — monitoring | 🟡 build + 🟢 runtime | `SENTRY_AUTH_TOKEN` (build), `NEXT_PUBLIC_SENTRY_DSN` (runtime) |
+| Tests d'intégration — Neon API | 🟡 outillage | `NEON_API_KEY`, `NEON_PROJECT_ID` |
+| Tests E2E — Playwright | 🟡 tests | `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, `E2E_USER_EMAIL`, `E2E_USER_PASSWORD`, `E2E_RESET_SECRET` |
+| Vercel (auto-injecté) | — | `VERCEL_OIDC_TOKEN` |
+| Non classé | — | (toute clé inconnue, en fin de fichier) |
+
+La carte est le **point unique de catégorisation** ; la garder alignée sur
+`.env.example` quand une section est ajoutée.
 
 ### (c) Doc bootstrap (section README)
 
@@ -170,6 +209,10 @@ ponctuellement, puis supprimé. Sert à confirmer l'amorçage (zéro clé effaç
 2. La validation jetable (d) → **zéro** clé « effaçable ».
 3. Critère final : sauvegarder puis supprimer `.env.local`, lancer
    `bun run env:sync`, et `bun dev` + `bun run check` passent.
+4. Le `.env.local` généré est **regroupé en sections** avec en-têtes + tags de
+   tier ; section « Non classé » **vide** (sinon = une clé à ajouter à la carte).
+   Diff des **valeurs** (pas seulement des clés) avant/après `env:sync` =
+   identique (le regroupement ne modifie aucune valeur).
 
 ## Sécurité (acceptée)
 
