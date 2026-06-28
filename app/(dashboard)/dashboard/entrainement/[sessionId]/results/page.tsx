@@ -1,6 +1,11 @@
+import { ArrowLeft } from "lucide-react"
 import { redirect } from "next/navigation"
+import {
+  SessionResults,
+  SessionResultsHeader,
+} from "@/components/quiz/results/session-results"
+import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 import { getTrainingSessionResults } from "@/features/training/dal"
-import { TrainingResultsClient } from "../../_components/training-results-client"
 
 interface TrainingResultsPageProps {
   params: Promise<{ sessionId: string }>
@@ -19,5 +24,61 @@ export default async function TrainingResultsPage({
     redirect(`/dashboard/entrainement/${sessionId}`)
   }
 
-  return <TrainingResultsClient results={results} />
+  const { session, questions: rawQuestions, answers: rawAnswers } = results
+
+  // Map DAL output → QuizQuestion[] (training results include correctAnswer + explanation)
+  const questions: QuizQuestion[] = rawQuestions.map((q) => ({
+    _id: q._id,
+    question: q.question,
+    options: q.options,
+    images: q.images ?? [],
+    domain: q.domain ?? undefined,
+    objectifCMC: q.objectifCMC ?? undefined,
+    correctAnswer: q.correctAnswer,
+    explanation: q.explanation,
+    references: q.references,
+  }))
+
+  // Map TrainingAnswerRecord → AnswersMap
+  const answers: AnswersMap = {}
+  for (const [questionId, entry] of Object.entries(rawAnswers)) {
+    if (entry.selectedAnswer) {
+      answers[questionId] = {
+        selected: entry.selectedAnswer,
+        isCorrect: entry.isCorrect,
+      }
+    }
+  }
+
+  // Compute summary counts
+  const score = session.score
+  let correct = 0
+  let incorrect = 0
+  for (const entry of Object.values(rawAnswers)) {
+    if (!entry.selectedAnswer) continue
+    if (entry.isCorrect) correct++
+    else incorrect++
+  }
+  const unanswered = questions.length - Object.keys(rawAnswers).length
+
+  return (
+    <>
+      <SessionResultsHeader
+        title="Résultats"
+        subtitle="Session d'entraînement"
+        score={score}
+        backHref="/dashboard/entrainement"
+        backLabel="Retour"
+        backIcon={<ArrowLeft className="h-4 w-4" />}
+      />
+      <SessionResults
+        accent="emerald"
+        summary={{ score, correct, incorrect, unanswered }}
+        questions={questions}
+        answers={answers}
+        // Training results come eager (explanations embedded in questions),
+        // no loadExplanations needed.
+      />
+    </>
+  )
 }
