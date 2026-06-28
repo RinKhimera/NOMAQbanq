@@ -302,10 +302,8 @@ export type ExamSessionView = {
   startedAt: number | null
   completedAt: number | null
   score: number
-  pausePhase: "before_pause" | "during_pause" | "after_pause" | null
+  isPaused: boolean
   pauseStartedAt: number | null
-  pauseEndedAt: number | null
-  isPauseCutShort: boolean | null
   totalPauseDurationMs: number | null
 } | null
 
@@ -322,10 +320,7 @@ export const getExamSession = cache(
         startedAt: examParticipations.startedAt,
         completedAt: examParticipations.completedAt,
         score: examParticipations.score,
-        pausePhase: examParticipations.pausePhase,
         pauseStartedAt: examParticipations.pauseStartedAt,
-        pauseEndedAt: examParticipations.pauseEndedAt,
-        isPauseCutShort: examParticipations.isPauseCutShort,
         totalPauseDurationMs: examParticipations.totalPauseDurationMs,
       })
       .from(examParticipations)
@@ -344,91 +339,12 @@ export const getExamSession = cache(
       startedAt: p.startedAt?.getTime() ?? null,
       completedAt: p.completedAt?.getTime() ?? null,
       score: p.score,
-      pausePhase: p.pausePhase,
+      isPaused: p.pauseStartedAt != null,
       pauseStartedAt: p.pauseStartedAt?.getTime() ?? null,
-      pauseEndedAt: p.pauseEndedAt?.getTime() ?? null,
-      isPauseCutShort: p.isPauseCutShort,
       totalPauseDurationMs: p.totalPauseDurationMs,
     }
   },
 )
-
-// ============================================
-// État de pause (passation)
-// ============================================
-
-export type PauseStatusView = {
-  enablePause: boolean
-  pauseDurationMinutes: number
-  pausePhase: "before_pause" | "during_pause" | "after_pause" | null
-  pauseStartedAt: number | null
-  pauseEndedAt: number | null
-  isPauseCutShort: boolean | null
-  totalQuestions: number
-  midpoint: number
-  questionsBeforePause: number
-  questionsAfterPause: number
-} | null
-
-/**
- * Config + état de pause pour l'utilisateur courant. `midpoint = floor(n/2)`
- * (source de vérité serveur). `null` si non connecté / examen ou participation
- * absents. Remplace `examPause.getPauseStatus`.
- */
-export const getPauseStatus = async (
-  examId: string,
-): Promise<PauseStatusView> => {
-  const session = await getCurrentSession()
-  if (!session?.user) return null
-
-  const [exam] = await db
-    .select({
-      enablePause: exams.enablePause,
-      pauseDurationMinutes: exams.pauseDurationMinutes,
-      completionTime: exams.completionTime,
-    })
-    .from(exams)
-    .where(eq(exams.id, examId))
-    .limit(1)
-  if (!exam) return null
-
-  const [p] = await db
-    .select({
-      pausePhase: examParticipations.pausePhase,
-      pauseStartedAt: examParticipations.pauseStartedAt,
-      pauseEndedAt: examParticipations.pauseEndedAt,
-      isPauseCutShort: examParticipations.isPauseCutShort,
-    })
-    .from(examParticipations)
-    .where(
-      and(
-        eq(examParticipations.examId, examId),
-        eq(examParticipations.userId, session.user.id),
-      ),
-    )
-    .limit(1)
-  if (!p) return null
-
-  const [c] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(examQuestions)
-    .where(eq(examQuestions.examId, examId))
-  const totalQuestions = c?.n ?? 0
-  const midpoint = Math.floor(totalQuestions / 2)
-
-  return {
-    enablePause: exam.enablePause,
-    pauseDurationMinutes: exam.pauseDurationMinutes ?? 15,
-    pausePhase: p.pausePhase,
-    pauseStartedAt: p.pauseStartedAt?.getTime() ?? null,
-    pauseEndedAt: p.pauseEndedAt?.getTime() ?? null,
-    isPauseCutShort: p.isPauseCutShort,
-    totalQuestions,
-    midpoint,
-    questionsBeforePause: midpoint,
-    questionsAfterPause: totalQuestions - midpoint,
-  }
-}
 
 // ============================================
 // Résultats participant (étudiant après fin / admin)
@@ -466,8 +382,8 @@ export type ExamResultsView =
         startedAt: number | null
         answers: {
           questionId: string
-          selectedAnswer: string
-          isCorrect: boolean
+          selectedAnswer: string | null
+          isCorrect: boolean | null
         }[]
       }
       participantUser: ExamParticipantUser
@@ -641,8 +557,8 @@ export const getParticipantExamResults = async (
       startedAt: p.startedAt?.getTime() ?? null,
       answers: answerRows.map((a) => ({
         questionId: a.questionId,
-        selectedAnswer: a.selectedAnswer,
-        isCorrect: a.isCorrect,
+        selectedAnswer: a.selectedAnswer ?? null,
+        isCorrect: a.isCorrect ?? null,
       })),
     },
     participantUser,
@@ -658,6 +574,7 @@ export type QuestionExplanationView = {
   questionId: string
   explanation: string
   references?: string[]
+  explanationImages: { url: string; storagePath: string; order: number }[] // [F3 le peuplera ; vide tant que F3 absente]
 }
 
 /**
@@ -733,6 +650,7 @@ export const getExamQuestionExplanations = async (
     questionId: r.questionId,
     explanation: r.explanation,
     references: r.references ?? undefined,
+    explanationImages: [],
   }))
 }
 
