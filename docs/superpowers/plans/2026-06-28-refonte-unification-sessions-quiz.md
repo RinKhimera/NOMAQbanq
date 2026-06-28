@@ -1077,6 +1077,8 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 
 - [ ] **Step 1 : Implémenter** — props : `{ accent, summary: { score, correct, incorrect, unanswered }, questions: QuizQuestion[], answers: AnswersMap, loadExplanations?: (ids: string[]) => Promise<…>, participant?: { name; email; image } }`. Porter le rendu depuis `participant-exam-results-view.tsx` (récap + liste `QuestionCard variant="review"` + filtre « erreurs seulement » + `ResultsQuestionNavigator`) ; afficher `explanationImages` sous l'explication si présent ; carte participant si `participant`.
 
+- [ ] **Step 1b : ⚠️ Compat données historiques** — le composant **doit** traiter de façon identique « pas d'entrée dans `answers` pour une question » ET « `selected` absent/null » comme **« non répondu »**. Raison : les participations **antérieures** à cette refonte n'ont de ligne `examAnswers` que pour les questions répondues (l'ancien `startExam` ne pré-créait pas les lignes), alors que les nouvelles en ont une par question. Les deux cas doivent rendre exactement le même affichage « non répondu ». Ajouter un test de rendu avec un `answers` clairsemé (certaines questions absentes) → comptage non-répondues correct + navigateur cohérent.
+
 - [ ] **Step 2 : Brancher résultats examen** (`.../resultats/page.tsx` + admin `.../results/[userId]/page.tsx`) et **résultats entraînement** (`.../entrainement/[sessionId]/results/page.tsx`) sur `<SessionResults>`. Pour l'examen, `loadExplanations` = `loadExamQuestionExplanations` (lazy, désormais avec `explanationImages`).
 
 - [ ] **Step 3 : Vérifier** — Run: `bunx tsc --noEmit && bun run lint` → 0 erreur.
