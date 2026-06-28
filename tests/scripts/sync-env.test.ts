@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { groupEnv, keysOnlyIn, parseRawLines } from "@/scripts/sync-env"
 
 describe("parseRawLines", () => {

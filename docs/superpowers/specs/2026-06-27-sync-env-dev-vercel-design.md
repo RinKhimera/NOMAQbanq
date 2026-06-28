@@ -21,7 +21,7 @@ variables `Preview` ou `Production`. Au passage : classifier les variables d'env
   dev pour l'instant (YAGNI).
 - **Wrapper** : nom `bun run env:sync` confirmé.
 - **Format du fichier généré** : `.env.local` **regroupé en sections** par
-  `scripts/sync-env.ts` (post-traitement du *pull*). Schéma **hybride** :
+  `scripts/sync-env.ts` (post-traitement du _pull_). Schéma **hybride** :
   sections fonctionnelles (BD, Auth, SES, S3, Tests…) + **tag de tier 🟢/🟡**
   dans chaque en-tête. Clés inconnues → section « Non classé » (rien de perdu).
 - **Script de vérif (d)** : **validation jetable, non commitée** (scratchpad),
@@ -29,27 +29,27 @@ variables `Preview` ou `Production`. Au passage : classifier les variables d'env
 
 ## Contexte (état réel constaté le 2026-06-27)
 
-Projet Vercel lié en mode *repo* : `nomaqbank`
+Projet Vercel lié en mode _repo_ : `nomaqbank`
 (`prj_ZOmANdfKfJ9jm34HT5xVM4uLguyg`, team `rinkhimeras-projects` /
 `team_0TjTQybtkyhHcGIxbju0GM3e`). CLI Vercel v54.11.1. `.vercel/` est gitignored
 (donc absent après un `git clone`).
 
-### Déjà dans Vercel scope `Development` (se *pull* avec leurs valeurs — pas de souci « sensitive »)
+### Déjà dans Vercel scope `Development` (se _pull_ avec leurs valeurs — pas de souci « sensitive »)
 
 `DATABASE_URL`, `DATABASE_URL_UNPOOLED`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SES_REGION`, `SES_ACCESS_KEY_ID`,
 `SES_SECRET_ACCESS_KEY`, `EMAIL_FROM`, `SES_CONFIGURATION_SET`,
 `SENTRY_AUTH_TOKEN`, `CRON_SECRET` (absent du `.env.local` local),
 `NEXT_PUBLIC_SENTRY_DSN` (absent du `.env.local` local). Plus `VERCEL_OIDC_TOKEN`
-auto-injecté par le *pull* (~12 h).
+auto-injecté par le _pull_ (~12 h).
 
 ### Dans `.env.local` mais PAS dans Vercel Dev — **un `pull` les effacerait** (à amorcer)
 
-| Var | Catégorie |
-| --- | --- |
-| `S3_REGION`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEXT_PUBLIC_CDN_HOSTNAME` | Médias S3 dev (clés statiques dev) |
-| `NEON_API_KEY`, `NEON_PROJECT_ID` | Tests d'intégration (`scripts/neon-api.ts`) |
-| `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, `E2E_USER_EMAIL`, `E2E_USER_PASSWORD`, `E2E_RESET_SECRET` | Tests E2E Playwright |
+| Var                                                                                                | Catégorie                                   |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `S3_REGION`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEXT_PUBLIC_CDN_HOSTNAME` | Médias S3 dev (clés statiques dev)          |
+| `NEON_API_KEY`, `NEON_PROJECT_ID`                                                                  | Tests d'intégration (`scripts/neon-api.ts`) |
+| `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, `E2E_USER_EMAIL`, `E2E_USER_PASSWORD`, `E2E_RESET_SECRET` | Tests E2E Playwright                        |
 
 → **13 clés à amorcer** (ces 12 + `EMAIL_OVERRIDE_TO`).
 
@@ -75,7 +75,7 @@ auto-injecté par le *pull* (~12 h).
 
 `BUNNY_STORAGE_ZONE_NAME`, `BUNNY_STORAGE_API_KEY`, `BUNNY_CDN_HOSTNAME`
 (commentées) — migration Bunny → S3/CloudFront **terminée**, code mort. Elles
-disparaissent naturellement (le *pull* régénère le fichier sans elles).
+disparaissent naturellement (le _pull_ régénère le fichier sans elles).
 
 ### ⚪ Absentes de `.env.local`, décision prise
 
@@ -106,7 +106,7 @@ par construction.
 ### (a) Script d'amorçage unique — `scripts/seed-vercel-dev-env.ts`
 
 - Bun/tsx, **multiplateforme** (évite le couple `.ps1` + `.sh` et l'enfer du
-  *quoting* PowerShell/bash).
+  _quoting_ PowerShell/bash).
 - Lit les valeurs depuis le `.env.local` **actuel** ; pour chacune des 13 clés
   manquantes, exécute `vercel env add <KEY> development` en **non-sensitive**.
 - **Valeur passée par stdin**, jamais en argument positionnel (gère `+ / & =` des
@@ -128,7 +128,7 @@ Lancé via le script `package.json` :
 
 `vercel env pull` écrit un fichier **plat** (pas de commentaires ni de
 regroupement). Pour obtenir un `.env.local` rangé sur chaque PC, le script
-post-traite le *pull* :
+post-traite le _pull_ :
 
 1. `vercel env pull` vers un fichier **temporaire** (scope `development`).
 2. Parse chaque ligne en `(clé, ligne brute)` — la **ligne brute est réutilisée
@@ -140,23 +140,23 @@ post-traite le *pull* :
    (rien n'est perdu silencieusement ; `log` du nombre de clés non classées).
 5. Écrit `.env.local`.
 
-*La* commande à retenir, identique sur chaque PC.
+_La_ commande à retenir, identique sur chaque PC.
 
 #### Carte de groupes (hybride fonctionnel + tier)
 
-| Section (en-tête) | Tier | Clés |
-| --- | --- | --- |
-| Base de données — Neon | 🟢 REQUIS | `DATABASE_URL`, `DATABASE_URL_UNPOOLED` |
-| Better Auth | 🟢 REQUIS | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` |
-| OAuth Google | 🟢 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
-| AWS SES — emails | 🟢 | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `EMAIL_FROM`, `SES_CONFIGURATION_SET`, `EMAIL_OVERRIDE_TO` |
-| AWS S3 + CloudFront — médias | 🟢 | `S3_REGION`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEXT_PUBLIC_CDN_HOSTNAME` |
-| Cron Vercel | 🟢 | `CRON_SECRET` |
-| Sentry — monitoring | 🟡 build + 🟢 runtime | `SENTRY_AUTH_TOKEN` (build), `NEXT_PUBLIC_SENTRY_DSN` (runtime) |
-| Tests d'intégration — Neon API | 🟡 outillage | `NEON_API_KEY`, `NEON_PROJECT_ID` |
-| Tests E2E — Playwright | 🟡 tests | `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, `E2E_USER_EMAIL`, `E2E_USER_PASSWORD`, `E2E_RESET_SECRET` |
-| Vercel (auto-injecté) | — | `VERCEL_OIDC_TOKEN` |
-| Non classé | — | (toute clé inconnue, en fin de fichier) |
+| Section (en-tête)              | Tier                  | Clés                                                                                                                   |
+| ------------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Base de données — Neon         | 🟢 REQUIS             | `DATABASE_URL`, `DATABASE_URL_UNPOOLED`                                                                                |
+| Better Auth                    | 🟢 REQUIS             | `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`                                                                                |
+| OAuth Google                   | 🟢                    | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`                                                                             |
+| AWS SES — emails               | 🟢                    | `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`, `EMAIL_FROM`, `SES_CONFIGURATION_SET`, `EMAIL_OVERRIDE_TO` |
+| AWS S3 + CloudFront — médias   | 🟢                    | `S3_REGION`, `S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `NEXT_PUBLIC_CDN_HOSTNAME`                     |
+| Cron Vercel                    | 🟢                    | `CRON_SECRET`                                                                                                          |
+| Sentry — monitoring            | 🟡 build + 🟢 runtime | `SENTRY_AUTH_TOKEN` (build), `NEXT_PUBLIC_SENTRY_DSN` (runtime)                                                        |
+| Tests d'intégration — Neon API | 🟡 outillage          | `NEON_API_KEY`, `NEON_PROJECT_ID`                                                                                      |
+| Tests E2E — Playwright         | 🟡 tests              | `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD`, `E2E_USER_EMAIL`, `E2E_USER_PASSWORD`, `E2E_RESET_SECRET`                     |
+| Vercel (auto-injecté)          | —                     | `VERCEL_OIDC_TOKEN`                                                                                                    |
+| Non classé                     | —                     | (toute clé inconnue, en fin de fichier)                                                                                |
 
 La carte est le **point unique de catégorisation** ; la garder alignée sur
 `.env.example` quand une section est ajoutée.
@@ -174,13 +174,13 @@ bun run env:sync
 
 ### (d) Validation jetable — script de vérif (non commité, scratchpad)
 
-*Pull* dans un fichier temporaire, diffe les **clés** (pas les valeurs) contre
+_Pull_ dans un fichier temporaire, diffe les **clés** (pas les valeurs) contre
 `.env.local`, échoue s'il existe une clé « qui serait effacée » (présente en
 local, absente de Vercel Dev). **Non commité** : créé dans le scratchpad, joué
 ponctuellement, puis supprimé. Sert à confirmer l'amorçage (zéro clé effaçable).
 
 > **Validé le 2026-06-27** (avant amorçage) : 24 clés locales / 15 clés Vercel
-> Dev → le script détecte correctement les 3 clés ajoutées par le *pull*
+> Dev → le script détecte correctement les 3 clés ajoutées par le _pull_
 > (`CRON_SECRET`, `NEXT_PUBLIC_SENTRY_DSN`, `VERCEL_OIDC_TOKEN`) et les **12**
 > clés à amorcer. Logique de diff confirmée fonctionnelle.
 
@@ -188,9 +188,9 @@ ponctuellement, puis supprimé. Sert à confirmer l'amorçage (zéro clé effaç
 
 - **`vercel env pull` remplace tout le fichier** → désormais **sûr** car Vercel
   est le sur-ensemble. **Discipline** : toute nouvelle var dev doit être créée
-  AUSSI sur Vercel (`vercel env add … development`), sinon le prochain *pull*
+  AUSSI sur Vercel (`vercel env add … development`), sinon le prochain _pull_
   l'efface. Le script (d) sert de filet.
-- **Sensitivity** : ajouter en **non-sensitive** pour que les *pull* renvoient
+- **Sensitivity** : ajouter en **non-sensitive** pour que les _pull_ renvoient
   les valeurs — cohérent avec les 14 vars déjà en place. Confirmer le flag exact
   via `vercel env add --help` au moment de coder (la valeur par défaut et le nom
   du flag — `--sensitive` opt-in vs `--no-sensitive` — varient selon la version
@@ -218,7 +218,7 @@ ponctuellement, puis supprimé. Sert à confirmer l'amorçage (zéro clé effaç
 
 Tous les secrets dev (dont `NEON_API_KEY`, clés AWS) vivent dans Vercel Dev —
 lisibles par qui a accès `Development` au projet. `.env.local` reste gitignored.
-*Optionnel (suite)* : rotation des secrets qui ont traîné en clair sur plusieurs
+_Optionnel (suite)_ : rotation des secrets qui ont traîné en clair sur plusieurs
 copies de `.env.local`.
 
 ## Hors scope (YAGNI)

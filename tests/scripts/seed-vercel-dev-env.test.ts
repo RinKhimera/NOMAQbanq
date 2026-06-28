@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest"
-
 import { keysToSeed } from "@/scripts/seed-vercel-dev-env"
 
 describe("keysToSeed", () => {

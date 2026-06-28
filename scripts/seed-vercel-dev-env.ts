@@ -8,12 +8,11 @@
  * Lancer une fois depuis le PC qui possède le .env.local complet :
  *   bun scripts/seed-vercel-dev-env.ts
  */
+import { parse } from "dotenv"
 import { spawnSync } from "node:child_process"
 import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { parse } from "dotenv"
-
 import { parseRawLines } from "./sync-env"
 
 /** Clés à amorcer = présentes en local (valeur non vide) et absentes de Vercel. */
@@ -71,6 +70,5 @@ const main = (): void => {
   console.log("✓ Amorçage terminé. Vérifie : `vercel env ls development`.")
 }
 
-const isDirectRun =
-  process.argv[1]?.endsWith("seed-vercel-dev-env.ts") ?? false
+const isDirectRun = process.argv[1]?.endsWith("seed-vercel-dev-env.ts") ?? false
 if (isDirectRun) main()

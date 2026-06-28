@@ -29,6 +29,7 @@ Convention respectée (cf. `scripts/neon-api.ts`) : ESM, top-level guard `proces
 ## Task 1: Cœur de regroupement (`groupEnv`) — TDD
 
 **Files:**
+
 - Create: `scripts/sync-env.ts`
 - Test: `tests/scripts/sync-env.test.ts`
 
@@ -38,7 +39,6 @@ Create `tests/scripts/sync-env.test.ts` :
 
 ```ts
 import { describe, expect, it } from "vitest"
-
 import { groupEnv, keysOnlyIn, parseRawLines } from "@/scripts/sync-env"
 
 describe("parseRawLines", () => {
@@ -300,6 +300,7 @@ git commit -m "feat(env): script sync-env (pull + regroupement par sections)"
 ## Task 2: Câbler `env:sync` dans package.json
 
 **Files:**
+
 - Modify: `package.json:21`
 
 - [ ] **Step 1: Ajouter le script**
@@ -330,6 +331,7 @@ git commit -m "feat(env): script npm env:sync"
 ## Task 3: Script d'amorçage (`keysToSeed` + seed) — TDD
 
 **Files:**
+
 - Create: `scripts/seed-vercel-dev-env.ts`
 - Test: `tests/scripts/seed-vercel-dev-env.test.ts`
 
@@ -339,7 +341,6 @@ Create `tests/scripts/seed-vercel-dev-env.test.ts` :
 
 ```ts
 import { describe, expect, it } from "vitest"
-
 import { keysToSeed } from "@/scripts/seed-vercel-dev-env"
 
 describe("keysToSeed", () => {
@@ -378,12 +379,11 @@ Create `scripts/seed-vercel-dev-env.ts` :
  * Lancer une fois depuis le PC qui possède le .env.local complet :
  *   bun scripts/seed-vercel-dev-env.ts
  */
+import { parse } from "dotenv"
 import { spawnSync } from "node:child_process"
 import { mkdtempSync, readFileSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { parse } from "dotenv"
-
 import { parseRawLines } from "./sync-env"
 
 /** Clés à amorcer = présentes en local (valeur non vide) et absentes de Vercel. */
@@ -441,8 +441,7 @@ const main = (): void => {
   console.log("✓ Amorçage terminé. Vérifie : `vercel env ls development`.")
 }
 
-const isDirectRun =
-  process.argv[1]?.endsWith("seed-vercel-dev-env.ts") ?? false
+const isDirectRun = process.argv[1]?.endsWith("seed-vercel-dev-env.ts") ?? false
 if (isDirectRun) main()
 ```
 
@@ -463,13 +462,14 @@ git commit -m "feat(env): script d'amorçage seed-vercel-dev-env"
 ## Task 4: Documentation README
 
 **Files:**
+
 - Modify: `README.md` (section « 🛠️ Installation » et « 🎨 Available Scripts »)
 
 - [ ] **Step 1: Ajouter la sous-section de sync dans Installation**
 
 Dans `README.md`, juste après le bloc de l'étape 3 (la ligne se terminant par `Optional: Google OAuth, AWS SES, Stripe, AWS S3, Sentry.`), insérer :
 
-```markdown
+````markdown
 > **Team shortcut — sync env from Vercel.** Instead of filling `.env.local` by hand, pull the shared **development** environment from Vercel on any machine:
 >
 > ```bash
@@ -479,11 +479,11 @@ Dans `README.md`, juste après le bloc de l'étape 3 (la ligne se terminant par 
 > ```
 >
 > `bun run env:sync` regenerates `.env.local` (organized into commented sections) from Vercel's `Development` scope only — preview/production are never touched. It is safe to re-run, and **refuses to overwrite** if your local file has keys not yet on Vercel (add those with `vercel env add <KEY> development`, then re-run). Re-pull at the start of a session if the Vercel OIDC token (~12 h) has expired.
-```
+````
 
 - [ ] **Step 2: Ajouter l'entrée dans « Available Scripts »**
 
-Dans le bloc ```` ```bash ```` de la section « 🎨 Available Scripts », après la ligne `bun dev                  # Start dev server with Turbopack`, insérer :
+Dans le bloc ` ```bash ` de la section « 🎨 Available Scripts », après la ligne `bun dev                  # Start dev server with Turbopack`, insérer :
 
 ```
 bun run env:sync         # Pull & regroup .env.local from Vercel (development scope)
@@ -534,6 +534,7 @@ git commit -m "chore(env): format/lint des scripts env"
 ## Task 6: Amorçage réel de Vercel Dev (exécution, côté PC actuel)
 
 **Files:**
+
 - Modify: `.env.local` (gitignored — **ne sera pas commité**)
 
 > Pré-requis : être sur le PC qui possède le `.env.local` complet, `vercel login` + lien actifs (déjà le cas : projet `nomaqbank`, team `rinkhimeras-projects`). Cette tâche **mute le scope Development de Vercel** (écritures `development` uniquement).
@@ -621,7 +622,7 @@ rm .env.local.bak
 
 ## Notes de conception
 
-- **Le garde-fou de Task 2 remplace le « script de vérif jetable » (d) de la spec** : la sécurité anti-écrasement est désormais *intégrée et permanente* dans `env:sync` (refus si des clés locales manquent côté Vercel, override `--force`), plutôt qu'un script à part. Le critère d'acceptation #2 de la spec (« zéro clé effaçable ») se traduit par « `bun run env:sync` réussit sans `--force` » (Task 7, Step 2-3).
+- **Le garde-fou de Task 2 remplace le « script de vérif jetable » (d) de la spec** : la sécurité anti-écrasement est désormais _intégrée et permanente_ dans `env:sync` (refus si des clés locales manquent côté Vercel, override `--force`), plutôt qu'un script à part. Le critère d'acceptation #2 de la spec (« zéro clé effaçable ») se traduit par « `bun run env:sync` réussit sans `--force` » (Task 7, Step 2-3).
 - **Isolement preview/prod** : `seed` ne fait que `vercel env add <KEY> development` ; `sync` ne fait que `vercel env pull --environment=development`. Aucune commande ne cible preview/prod.
 - **Secrets hors argv** : `seed` passe chaque valeur via stdin (`input`), pas via `--value`, pour ne pas exposer les secrets dans la liste des process.
 - **Multiplateforme** : `spawnSync(..., { shell: true })` + chemin temp entre guillemets ; requis sous Windows pour exécuter `vercel.cmd` (Node récent bloque les `.cmd` sans `shell:true`).
@@ -631,6 +632,7 @@ rm .env.local.bak
 ## Self-Review
 
 **1. Spec coverage**
+
 - Source de vérité = Vercel Dev sur-ensemble → Tasks 1-3 + amorçage Task 6. ✅
 - Amorçage des 13 clés (12 + EMAIL_OVERRIDE_TO=dixiades@gmail.com) en `development` seul → Task 6. ✅
 - Wrapper `bun run env:sync` (pull + regroupement hybride fonctionnel/tier, « Non classé ») → Tasks 1-2. ✅
