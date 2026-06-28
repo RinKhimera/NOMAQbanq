@@ -82,6 +82,16 @@ cp .env.example .env.local
 
 See [`.env.example`](.env.example) for all variables. Required: `DATABASE_URL` (pooled) + `DATABASE_URL_UNPOOLED` (direct, for migrations), `BETTER_AUTH_SECRET`. Optional: Google OAuth, AWS SES, Stripe, AWS S3, Sentry.
 
+> **Team shortcut — sync env from Vercel.** Instead of filling `.env.local` by hand, pull the shared **development** environment from Vercel on any machine:
+>
+> ```bash
+> vercel login                 # once per machine
+> vercel link                  # select team rinkhimeras-projects → project nomaqbank
+> bun run env:sync             # writes a grouped .env.local from Vercel's Development scope
+> ```
+>
+> `bun run env:sync` regenerates `.env.local` (organized into commented sections) from Vercel's `Development` scope only — preview/production are never touched. It is safe to re-run, and **refuses to overwrite** if your local file has keys not yet on Vercel (add those with `vercel env add <KEY> development`, then re-run). Re-pull at the start of a session if the Vercel OIDC token (~12 h) has expired.
+
 4. **Apply database migrations**
 
 ```bash
@@ -129,6 +139,7 @@ NOMAQbanq/
 
 ```bash
 bun dev                  # Start dev server with Turbopack
+bun run env:sync         # Pull & regroup .env.local from Vercel (development scope)
 bun run build            # Production build
 bun run check            # Type check + lint (before commit)
 bun run lint:fix         # Automatically fix lint errors

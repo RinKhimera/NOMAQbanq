@@ -9,25 +9,28 @@ updates:
       time: "09:00"
       timezone: "America/Montreal"
     open-pull-requests-limit: 10
-    # Grouper les mises à jour pour éviter trop de PRs
+    # Grouper les mises à jour pour éviter trop de PRs.
+    # Ordre = priorité : une dépendance va dans le PREMIER groupe qui la capture.
     groups:
-      # Mises à jour mineures et patches groupées
+      # Framework critique en premier : isolé, toutes versions, pour review attentive
+      nextjs:
+        patterns:
+          - "next"
+          - "react"
+          - "react-dom"
+      # Tout le reste en minor + patch : 1 seule PR (idéale pour l'auto-merge)
       minor-and-patch:
         patterns:
           - "*"
         update-types:
           - "minor"
           - "patch"
-        exclude-patterns:
-          - "next"
-          - "react"
-          - "react-dom"
-      # Framework Next.js séparé (peut casser des choses)
-      nextjs:
+      # Tout le reste en major : 1 seule PR groupée (breaking, à reviewer ensemble)
+      major:
         patterns:
-          - "next"
-          - "react"
-          - "react-dom"
+          - "*"
+        update-types:
+          - "major"
     labels:
       - "dependencies"
       - "automated"
@@ -39,6 +42,11 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    # Toutes les actions dans une seule PR groupée au lieu d'une PR par action
+    groups:
+      actions:
+        patterns:
+          - "*"
     labels:
       - "dependencies"
       - "ci"
