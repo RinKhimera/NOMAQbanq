@@ -347,6 +347,49 @@ export const getExamSession = cache(
 )
 
 // ============================================
+// Réponses de passation (anti-triche : jamais isCorrect)
+// ============================================
+
+export type ExamAnswerForParticipation = {
+  questionId: string
+  selectedAnswer: string | null
+  isFlagged: boolean
+}
+
+/**
+ * Réponses enregistrées de la participation courante pour `examId`.
+ * Anti-triche : ne sélectionne JAMAIS `isCorrect`.
+ */
+export const getExamAnswersForParticipation = cache(
+  async (examId: string): Promise<ExamAnswerForParticipation[]> => {
+    const session = await getCurrentSession()
+    if (!session?.user) return []
+
+    const [p] = await db
+      .select({ id: examParticipations.id })
+      .from(examParticipations)
+      .where(
+        and(
+          eq(examParticipations.examId, examId),
+          eq(examParticipations.userId, session.user.id),
+        ),
+      )
+      .limit(1)
+    if (!p) return []
+
+    return db
+      .select({
+        questionId: examAnswers.questionId,
+        selectedAnswer: examAnswers.selectedAnswer,
+        isFlagged: examAnswers.isFlagged,
+        // NEVER select isCorrect (anti-cheat)
+      })
+      .from(examAnswers)
+      .where(eq(examAnswers.participationId, p.id))
+  },
+)
+
+// ============================================
 // Résultats participant (étudiant après fin / admin)
 // ============================================
 

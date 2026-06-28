@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation"
-import { getExamSession, getExamWithQuestions } from "@/features/exams/dal"
+import {
+  getExamAnswersForParticipation,
+  getExamSession,
+  getExamWithQuestions,
+} from "@/features/exams/dal"
 import { EvaluationClient } from "./_components/evaluation-client"
-
-// Hors composant : isole l'horloge (impure) du corps de rendu (react-hooks/purity).
-const currentTimeMs = () => Date.now()
 
 export default async function EvaluationPage({
   params,
@@ -14,7 +15,10 @@ export default async function EvaluationPage({
   const data = await getExamWithQuestions(examId)
   if (!data) notFound()
 
-  const session = await getExamSession(examId)
+  const [session, initialAnswersRaw] = await Promise.all([
+    getExamSession(examId),
+    getExamAnswersForParticipation(examId),
+  ])
 
   return (
     <EvaluationClient
@@ -27,7 +31,7 @@ export default async function EvaluationPage({
       }}
       questions={data.questions}
       initialSession={session}
-      initialNow={currentTimeMs()}
+      initialAnswersRaw={initialAnswersRaw}
     />
   )
 }
