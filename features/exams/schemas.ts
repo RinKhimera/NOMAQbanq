@@ -55,19 +55,22 @@ export const updateExamSchema = z
   .refine(uniqueQuestions, uniqueIssue)
 export type UpdateExamInput = z.infer<typeof updateExamSchema>
 
-// Soumission finale (anti-triche : le score est recalculé serveur). On borne le
-// nombre de réponses au plafond de questions par examen.
-export const submitExamAnswersSchema = z.object({
+export const saveExamAnswerSchema = z.object({
   examId: z.string().min(1),
-  answers: z
-    .array(
-      z.object({
-        questionId: z.string().min(1),
-        selectedAnswer: z.string().min(1),
-        isFlagged: z.boolean().optional(),
-      }),
-    )
-    .max(MAX_EXAM_QUESTIONS),
+  questionId: z.string().min(1),
+  selectedAnswer: z.string().min(1),
+})
+export type SaveExamAnswerInput = z.infer<typeof saveExamAnswerSchema>
+
+export const saveExamFlagSchema = z.object({
+  examId: z.string().min(1),
+  questionId: z.string().min(1),
+  isFlagged: z.boolean(),
+})
+export type SaveExamFlagInput = z.infer<typeof saveExamFlagSchema>
+
+export const finalizeExamSchema = z.object({
+  examId: z.string().min(1),
   isAutoSubmit: z.boolean().optional(),
 })
-export type SubmitExamAnswersInput = z.infer<typeof submitExamAnswersSchema>
+export type FinalizeExamInput = z.infer<typeof finalizeExamSchema>
