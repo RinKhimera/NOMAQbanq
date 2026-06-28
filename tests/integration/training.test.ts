@@ -108,6 +108,7 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
     const res = await createTrainingSession({
       questionCount: 5,
       domain: DOMAIN,
+      mode: "test",
     })
     expect(res.success).toBe(true)
     if (!res.success) return
@@ -149,9 +150,9 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
 
     const view = await getTrainingSessionById(activeSessionId)
     expect(Object.keys(view!.answers)).toHaveLength(2)
+    // Mode test in_progress : isCorrect masqué dans answers (anti-triche)
     expect(view?.answers[sessionQuestionIds[0]]).toEqual({
       selectedAnswer: "A",
-      isCorrect: true,
     })
   })
 
@@ -203,10 +204,10 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
 
 describe("gardes", () => {
   it("refuse une 2e session si une est déjà en cours", async () => {
-    const s2 = await createTrainingSession({ questionCount: 5 })
+    const s2 = await createTrainingSession({ questionCount: 5, mode: "test" })
     expect(s2.success).toBe(true)
 
-    const s3 = await createTrainingSession({ questionCount: 5 })
+    const s3 = await createTrainingSession({ questionCount: 5, mode: "test" })
     expect(s3.success).toBe(false)
 
     if (s2.success) {
@@ -225,6 +226,7 @@ describe("gardes", () => {
     const res = await createTrainingSession({
       questionCount: 20,
       domain: DOMAIN,
+      mode: "test",
     })
     expect(res.success).toBe(false)
   })
@@ -233,6 +235,7 @@ describe("gardes", () => {
     const res = await createTrainingSession({
       questionCount: 5,
       objectifsCMCs: [`ghost-${suffix}`],
+      mode: "test",
     })
     expect(res.success).toBe(false)
   })
@@ -241,7 +244,7 @@ describe("gardes", () => {
     vi.mocked(getCurrentSession).mockResolvedValue({
       user: { id: `ghost-${suffix}`, role: "user" },
     } as never)
-    const res = await createTrainingSession({ questionCount: 5 })
+    const res = await createTrainingSession({ questionCount: 5, mode: "test" })
     expect(res.success).toBe(false)
   })
 })
@@ -330,6 +333,7 @@ describe("IDOR / propriété", () => {
     const res = await createTrainingSession({
       questionCount: 5,
       domain: DOMAIN,
+      mode: "test",
     })
     expect(res.success).toBe(true)
     if (!res.success) return

@@ -4,6 +4,7 @@ import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import {
+  questionExplanations,
   questions,
   trainingSessionItems,
   trainingSessions,
@@ -80,7 +81,7 @@ export const createTrainingSession = async (
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
-  const { questionCount, domain, objectifsCMCs } = parsed.data
+  const { questionCount, domain, objectifsCMCs, mode } = parsed.data
 
   try {
     // Accès payant : hors verrou (ne court pas avec lui-même ; bypass admin).
@@ -174,6 +175,7 @@ export const createTrainingSession = async (
         id: sessionId,
         userId,
         status: "in_progress",
+        mode,
         domain: domain && domain !== "all" ? domain : null,
         objectifCmc: null,
         questionCount,
@@ -215,7 +217,15 @@ export const createTrainingSession = async (
 }
 
 export type SaveTrainingAnswerResult =
-  | { success: true; isCorrect: boolean }
+  | {
+      success: true
+      isCorrect: boolean
+      reveal?: {
+        correctAnswer: string
+        explanation?: string
+        references?: string[]
+      }
+    }
   | { success: false; error: string }
 
 /**
@@ -240,6 +250,7 @@ export const saveTrainingAnswer = async (
         userId: trainingSessions.userId,
         status: trainingSessions.status,
         expiresAt: trainingSessions.expiresAt,
+        mode: trainingSessions.mode,
       })
       .from(trainingSessions)
       .where(eq(trainingSessions.id, sessionId))
@@ -284,6 +295,27 @@ export const saveTrainingAnswer = async (
       .update(trainingSessionItems)
       .set({ selectedAnswer, isCorrect, answeredAt: new Date() })
       .where(eq(trainingSessionItems.id, item.itemId))
+
+    // Mode tuteur : révéler la bonne réponse + explication immédiatement.
+    if (s.mode === "tutor") {
+      const [exp] = await db
+        .select({
+          explanation: questionExplanations.explanation,
+          references: questionExplanations.references,
+        })
+        .from(questionExplanations)
+        .where(eq(questionExplanations.questionId, questionId))
+        .limit(1)
+      return {
+        success: true,
+        isCorrect,
+        reveal: {
+          correctAnswer: item.correctAnswer,
+          explanation: exp?.explanation ?? undefined,
+          references: exp?.references ?? undefined,
+        },
+      }
+    }
 
     return { success: true, isCorrect }
   } catch (error) {
