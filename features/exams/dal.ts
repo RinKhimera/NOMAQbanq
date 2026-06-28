@@ -698,6 +698,75 @@ export const getExamQuestionExplanations = async (
 }
 
 // ============================================
+// Confirmation post-soumission (C2)
+// ============================================
+
+export type ExamSubmissionSummary = {
+  examTitle: string
+  answeredCount: number
+  flaggedCount: number
+  endDate: number
+  status: "completed" | "auto_submitted"
+} | null
+
+/**
+ * Résumé post-soumission pour l'écran de confirmation `/soumis`.
+ * Renvoie `null` si l'utilisateur n'a pas de participation complétée/auto-soumise.
+ * Guarded : session courante uniquement (pas admin bypass — écran étudiant).
+ */
+export const getExamSubmissionSummary = cache(
+  async (examId: string): Promise<ExamSubmissionSummary> => {
+    const session = await getCurrentSession()
+    if (!session?.user) return null
+
+    const userId = session.user.id
+
+    const [row] = await db
+      .select({
+        title: exams.title,
+        endDate: exams.endDate,
+        participationId: examParticipations.id,
+        status: examParticipations.status,
+      })
+      .from(examParticipations)
+      .innerJoin(exams, eq(exams.id, examParticipations.examId))
+      .where(
+        and(
+          eq(examParticipations.examId, examId),
+          eq(examParticipations.userId, userId),
+          inArray(examParticipations.status, ["completed", "auto_submitted"]),
+        ),
+      )
+      .limit(1)
+
+    if (!row) return null
+
+    // Count answered and flagged questions for this participation
+    const [counts] = await db
+      .select({
+        answeredCount:
+          sql<number>`count(*) filter (where ${examAnswers.selectedAnswer} is not null)`.mapWith(
+            Number,
+          ),
+        flaggedCount:
+          sql<number>`count(*) filter (where ${examAnswers.isFlagged})`.mapWith(
+            Number,
+          ),
+      })
+      .from(examAnswers)
+      .where(eq(examAnswers.participationId, row.participationId))
+
+    return {
+      examTitle: row.title,
+      answeredCount: counts?.answeredCount ?? 0,
+      flaggedCount: counts?.flaggedCount ?? 0,
+      endDate: row.endDate.getTime(),
+      status: row.status as "completed" | "auto_submitted",
+    }
+  },
+)
+
+// ============================================
 // Admin : liste examens + comptes
 // ============================================
 
