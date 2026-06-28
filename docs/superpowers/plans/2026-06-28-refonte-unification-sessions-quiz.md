@@ -51,7 +51,7 @@ migration en production : drainer les participations `in_progress`
 
 **Front partagé (Phase B) — modifiés :**
 - `app/(dashboard)/dashboard/examen-blanc/[examId]/evaluation/_components/evaluation-client.tsx` — devient un fin wrapper de `<QuizRunner>`.
-- `app/(dashboard)/dashboard/entrainement/[sessionId]/_components/training-session-client.tsx` — idem.
+- `app/(dashboard)/dashboard/entrainement/_components/training-session-client.tsx` — idem.
 
 **Résultats & écrans (Phase C) — créés :**
 - `components/quiz/results/session-results.tsx` — résultats unifiés.
@@ -64,6 +64,15 @@ migration en production : drainer les participations `in_progress`
 ---
 
 # PHASE A — Schéma & backend
+
+> **⚠️ Note commits (gate `bun run check` = 0 erreur — revue #5) :** les tâches
+> A1→A8 forment une migration **interdépendante**. Ne committer une tâche que si
+> `bun run check` (tsc + eslint) passe ; sinon **regrouper** les commits
+> interdépendants en un seul commit vert. Les `Expected: erreurs uniquement dans …`
+> signalent des états transitoires à NE PAS committer isolément. En particulier,
+> le retrait de `submitExamAnswers` (A5) et `startPause`/`resumeFromPause` (A6)
+> **doit** s'accompagner de la migration des tests existants (**Task A10**) dans
+> le même changement, sinon la CI reste rouge.
 
 ## Task A1 : Migration de schéma
 
@@ -345,10 +354,14 @@ export const saveExamAnswer = async (
     if (!q) return fail("Cette question ne fait pas partie de l'examen.")
 
     const isCorrect = q.correctAnswer === selectedAnswer
-    await db
+    const updated = await db
       .update(examAnswers)
       .set({ selectedAnswer, isCorrect })
       .where(and(eq(examAnswers.participationId, p.id), eq(examAnswers.questionId, questionId)))
+      .returning({ id: examAnswers.id })
+    // ⚠️ 0 ligne = pas de ligne pré-créée (participation héritée / cutover sauté) → échec explicite,
+    // pas de faux succès silencieux (revue #8).
+    if (updated.length === 0) return fail("Réponse non enregistrée (session incohérente).")
 
     return { success: true } // ⚠️ ne JAMAIS renvoyer isCorrect (anti-triche)
   } catch (error) {
@@ -376,10 +389,12 @@ export const saveExamFlag = async (
       .limit(1)
     if (!p) return fail("Participation introuvable.")
     if (p.status !== "in_progress") return fail("Cette session d'examen n'est plus active.")
-    await db
+    const updated = await db
       .update(examAnswers)
       .set({ isFlagged })
       .where(and(eq(examAnswers.participationId, p.id), eq(examAnswers.questionId, questionId)))
+      .returning({ id: examAnswers.id })
+    if (updated.length === 0) return fail("Marquage non enregistré (session incohérente).")
     return { success: true }
   } catch (error) {
     logDev("[saveExamFlag]", error)
@@ -684,18 +699,16 @@ Supprimer le type `PauseStatusView` (et la fonction associée si présente) deve
 
 - [ ] **Step 2 : Ajouter `explanationImages` au canal explication examen**
 
-Repérer `QuestionExplanationView` et `getExamQuestionExplanations` (≈ ligne 660). Ajouter le champ au type :
+Repérer `QuestionExplanationView` et `getExamQuestionExplanations` (≈ ligne 660). **Ajout purement additif** (revue #6) : ne PAS modifier l'optionalité des champs existants (`references` reste tel quel), ajouter UNIQUEMENT `explanationImages` :
 
 ```ts
 export type QuestionExplanationView = {
-  questionId: string
-  explanation: string
-  references: string[]
+  // …champs existants inchangés (questionId, explanation, references)…
   explanationImages: { url: string; storagePath: string; order: number }[] // [F3 le peuplera ; vide tant que F3 absente]
 }
 ```
 
-Dans `getExamQuestionExplanations`, renvoyer `explanationImages: []` pour chaque entrée (le peuplement réel arrive en Feature 3 ; ici on prépare le canal). Vérifier que `loadExamQuestionExplanations` (actions) propage le champ.
+Dans `getExamQuestionExplanations`, ajouter `explanationImages: []` à chaque entrée renvoyée (le peuplement réel arrive en Feature 3 ; ici on prépare le canal) **sans toucher au mapping existant** (notamment le `references ?? …` ≈ ligne 735 — ne pas introduire de `?? undefined`). Vérifier que `loadExamQuestionExplanations` (actions) propage le champ. Lancer `bunx tsc --noEmit` : l'ajout ne doit créer **aucune** nouvelle erreur dans `dal.ts`.
 
 - [ ] **Step 3 : Compiler**
 
@@ -815,7 +828,41 @@ Mettre `TrainingAnswerRecord` en `isCorrect` optionnel :
 export type TrainingAnswerRecord = Record<string, { selectedAnswer: string; isCorrect?: boolean }>
 ```
 
-Et révéler `correctAnswer`/`explanation`/`explanationImages` dans `questionsView` seulement quand `reveal` (tuteur : items répondus ; en pratique on peut révéler par question via une map des items répondus). Pour les items **répondus en tuteur**, joindre `questionExplanations` et inclure `correctAnswer`. Garder le masquage complet en mode test in_progress.
+**⚠️ Révélation PAR ITEM (revue #3)** : en mode tuteur sur session `in_progress`,
+révéler `correctAnswer`/`explanation`/`explanationImages` dans `questionsView`
+**uniquement pour les questions répondues** — sinon on fuite les bonnes réponses
+des questions **non encore répondues**. Construire un set des questions répondues
+et gater par item :
+
+```ts
+const answeredIds = new Set(items.filter((i) => i.selectedAnswer !== null).map((i) => i.questionId))
+// reveal niveau session si complété ; sinon, en tuteur, reveal par item répondu UNIQUEMENT
+const canRevealItem = (qid: string) => s.status === "completed" || (s.mode === "tutor" && answeredIds.has(qid))
+// dans le map questionsView :
+//   ...(canRevealItem(i.questionId) ? { correctAnswer: i.correctAnswer, explanation: …, references: … } : {})
+```
+
+En mode test `in_progress` : masquage complet (aucun `correctAnswer`/`explanation`).
+
+- [ ] **Step 6b : Test anti-fuite tuteur (revue #3)**
+
+Ajouter à `training-mode.test.ts` : session **tuteur** `in_progress`, répondre à la
+question 0 seulement, puis `getTrainingSessionById` → la question 0 expose
+`correctAnswer`, mais la question 1 (non répondue) **n'expose PAS** `correctAnswer`.
+
+```ts
+it("tuteur in_progress : ne révèle correctAnswer que pour les questions répondues", async () => {
+  const { userId } = await seedUserWithTrainingAccess()
+  await asUser(userId, async () => {
+    const c = await createTrainingSession({ questionCount: 2, mode: "tutor" })
+    const v0 = await getTrainingSessionById(c.sessionId)
+    await saveTrainingAnswer({ sessionId: c.sessionId, questionId: v0!.questions[0]._id, selectedAnswer: v0!.questions[0].options[0] })
+    const v1 = await getTrainingSessionById(c.sessionId)
+    expect(v1!.questions[0].correctAnswer).toBeDefined()
+    expect(v1!.questions[1].correctAnswer).toBeUndefined() // non répondue → pas de fuite
+  })
+})
+```
 
 - [ ] **Step 7 : Lancer (succès)** — Run: `bun run test:integration -- training-mode` → PASS.
 
@@ -874,6 +921,53 @@ git commit -m "test: garde anti-triche paramétrée (passation examen + entraîn
 ```
 
 > **Feature 3** étendra ce test avec `kind='statement'`/`explanationImages`.
+
+---
+
+## Task A10 : Audit & migration des tests existants (⚠️ bloquant CI — revue #1)
+
+**Files:**
+- Modify: `tests/integration/exams.test.ts` (+ tout fichier référençant des symboles supprimés)
+
+> **Doit accompagner A5/A6** (mêmes commits ou immédiatement après) : `bun run check`
+> et `bun run test:integration` ne doivent jamais rester rouges.
+
+- [ ] **Step 1 : Auditer les références aux symboles supprimés**
+
+Rechercher (Grep) dans `tests/**` : `submitExamAnswers`, `startPause`,
+`resumeFromPause`, `getPauseStatus`, `pausePhase`, `isPauseCutShort`,
+`pauseEndedAt`, `isQuestionAccessible`, `shouldTriggerPause`, `exam-storage`,
+`ParticipantExamResultsView`, `TrainingResultsClient`. Lister tous les fichiers
+touchés (la revue a identifié au moins `tests/integration/exams.test.ts:23-26,38,244-368`).
+
+- [ ] **Step 2 : Migrer `tests/integration/exams.test.ts` vers la nouvelle API**
+
+Remplacer les scénarios `submitExamAnswers`/pause-phases par : `saveExamAnswer` →
+`finalizeExam` (score serveur) ; `pauseExam`/`resumeExam` (repos plafonné). Retirer
+les tests des phases supprimées (`before_pause`/`during_pause`/verrouillage). Les
+nouveaux scénarios existent déjà dans `exam-runner.test.ts` (A3–A6) — ici on
+**nettoie/aligne** l'ancien fichier (pas de duplication : fusionner ou supprimer
+les cas obsolètes).
+
+- [ ] **Step 3 : Test de compat « participation héritée » (revue #8 / cutover)**
+
+Ajouter un cas simulant une participation **antérieure** (insérer une
+`examParticipation` + des `examAnswers` **clairsemées**, sans pré-création) :
+`finalizeExam` calcule le score depuis les lignes existantes (pas de plantage) ;
+`saveExamAnswer` sur une question **sans** ligne pré-créée renvoie `success:false`
+(0 ligne mise à jour) au lieu d'un faux succès.
+
+- [ ] **Step 4 : Vérifier vert**
+
+Run: `bun run check && bun run test:integration`
+Expected: 0 erreur ; tous les tests verts.
+
+- [ ] **Step 5 : Commit**
+
+```bash
+git add tests/integration/
+git commit -m "test: migration des tests examen vers saveExamAnswer/finalizeExam/pause (revue #1) + compat héritée"
+```
 
 ---
 
@@ -1004,7 +1098,7 @@ it("navigation bornée + toggle flag", () => { /* goNext/goPrevious/goTo + toggl
 
 - [ ] **Step 2 : Lancer (échec)** — Run: `bun run test -- use-quiz-session` → FAIL.
 
-- [ ] **Step 3 : Implémenter le hook** — état : `currentIndex`, `answers: AnswersMap`, `flagged: Set<string>`, `revealed: Record<string, QuizRevealPayload>`, `finishDialogOpen`, `isSubmitting`. Handlers : `goNext/goPrevious/goTo` (bornés), `toggleFlag` (appelle `callbacks.onFlag`), `answerSelect(index)` (appelle `onAnswer` ; en succès met à jour `answers` ; si `reveal` et `mode.feedback==="immediate"`, stocke dans `revealed` et pose `isCorrect`), `requestFinish/confirmFinish` (appelle `onFinish` dans une transition). Raccourcis clavier (← → F) via `useEffect`. Exposer aussi `answeredCount`, `currentQuestion`. Si `mode.timer`, composer `useExamTimer` et exposer son état + brancher `onExpire → confirmFinish({isAutoSubmit:true})`.
+- [ ] **Step 3 : Implémenter le hook** — inputs : `{ questions, initialAnswers, initialFlags, mode, callbacks }`. État : `currentIndex`, `answers: AnswersMap` (init depuis `initialAnswers`), `flagged: Set<string>` (init depuis **`initialFlags`** — réhydratation des flags persistés, revue #2), `revealed: Record<string, QuizRevealPayload>`, `finishDialogOpen`, `isSubmitting`. Handlers : `goNext/goPrevious/goTo` (bornés), `toggleFlag` (appelle `callbacks.onFlag`), `answerSelect(index)` (appelle `onAnswer` ; en succès met à jour `answers` ; si `reveal` et `mode.feedback==="immediate"`, stocke dans `revealed` et pose `isCorrect`), `requestFinish/confirmFinish` (appelle `onFinish` dans une transition). Raccourcis clavier (← → F) via `useEffect`. Exposer aussi `answeredCount`, `currentQuestion`. Si `mode.timer`, composer `useExamTimer` et exposer son état + brancher `onExpire → confirmFinish({isAutoSubmit:true})`.
 
 - [ ] **Step 4 : Lancer (succès)** — Run: `bun run test -- use-quiz-session` → PASS.
 
@@ -1036,7 +1130,7 @@ it("navigation bornée + toggle flag", () => { /* goNext/goPrevious/goTo + toggl
 - Modify: `app/(dashboard)/dashboard/examen-blanc/[examId]/evaluation/_components/evaluation-client.tsx`
 - Modify: `.../evaluation/page.tsx` (props éventuelles : `initialAnswers`)
 
-- [ ] **Step 1 : Réduire `evaluation-client.tsx` à un wrapper** — construire `mode: QuizMode` (kind exam, accent blue, `timer` depuis `serverStartTime`+`completionTime`, `pause` = `enablePause ? "rest" : null`, `feedback: "deferred"`, `showMeta:false`), mapper `questions` (ExamQuestionView → QuizQuestion) et `initialAnswers` (depuis la participation : lire les `examAnswers` déjà saisies — exposer une DAL `getExamAnswersForParticipation` renvoyant `{questionId, selectedAnswer, isFlagged}` SANS `isCorrect`), et passer les callbacks :
+- [ ] **Step 1 : Réduire `evaluation-client.tsx` à un wrapper** — construire `mode: QuizMode` (kind exam, accent blue, `timer` depuis `serverStartTime`+`completionTime`, `pause` = `enablePause ? "rest" : null`, `feedback: "deferred"`, `showMeta:false`), mapper `questions` (ExamQuestionView → QuizQuestion) et `initialAnswers` (depuis la participation : lire les `examAnswers` déjà saisies — exposer une DAL `getExamAnswersForParticipation` renvoyant `{questionId, selectedAnswer, isFlagged}` SANS `isCorrect`), construire **`initialFlags`** = `Set` des `questionId` où `isFlagged` (réhydratation des flags — revue #2) et le passer à `<QuizRunner>`/`useQuizSession`, et passer les callbacks :
   - `onAnswer` → `saveExamAnswer` (renvoie `{ ok:true }`, jamais de reveal) ;
   - `onFlag` → `saveExamFlag` ;
   - `onFinish` → `finalizeExam` → `redirectTo` = `/dashboard/examen-blanc/${examId}/soumis` ;
@@ -1055,7 +1149,7 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task B6 : Brancher l'entraînement sur `<QuizRunner>`
 
 **Files:**
-- Modify: `app/(dashboard)/dashboard/entrainement/[sessionId]/_components/training-session-client.tsx`
+- Modify: `app/(dashboard)/dashboard/entrainement/_components/training-session-client.tsx`
 
 - [ ] **Step 1 : Réduire au wrapper** — `mode` (kind training, accent emerald, `timer:null`, `pause:null`, `feedback = session.mode === "tutor" ? "immediate" : "deferred"`, `showMeta:false`), `initialAnswers` depuis `initialData.answers` (forme `{selected, isCorrect?}`), callbacks :
   - `onAnswer` → `saveTrainingAnswer` → mapper `{ ok:true, reveal: res.reveal }` (reveal présent seulement en tuteur) ;

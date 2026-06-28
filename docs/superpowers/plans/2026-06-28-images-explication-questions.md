@@ -185,6 +185,7 @@ if (planned.length > 0) {
 - Modify: `features/exams/dal.ts` (`fetchImages:60`)
 - Modify: `features/training/dal.ts` (`fetchImages:98`)
 - Modify: `features/questions/dal.ts` (`getRandomQuizQuestions:369`, `getQuestionById` images:256)
+- Modify: `features/questions/dal.ts` (comptes/filtres ADMIN : `hasImagesSubquery`/`noImagesSubquery:49-60`, comptage `getQuestionsWithFilters:165-180`, `getQuestionStatsEnriched:499-512`, `getQuestionsForExport:598-613`)
 - Test: `tests/integration/explanation-images.test.ts`
 
 - [ ] **Step 1 : Test (échec attendu)** — vérifier qu'une image `explanation` n'apparaît jamais dans `images` d'énoncé :
@@ -221,6 +222,10 @@ const fetchImages = async (questionIds: string[], kind: "statement" | "explanati
 Importer `and`, `eq` si nécessaire. Les appels existants (`fetchImages(ids)`) restent corrects (défaut `statement`).
 
 - [ ] **Step 4 : Scoper `getRandomQuizQuestions` et `getQuestionById` (images d'énoncé)** — ajouter `eq(questionImages.kind, "statement")` à la clause `where` de la requête d'images dans `getRandomQuizQuestions` (`features/questions/dal.ts:369`) et dans `getQuestionById` (le `select` des `imgs`, ligne ~256).
+
+- [ ] **Step 4b : Scoper les comptes/filtres ADMIN à `statement` (revue #7)** — sinon `imageCount`/`hasImages`/stats conflateraient les images d'explication. Ajouter `eq(questionImages.kind, "statement")` à : `hasImagesSubquery`/`noImagesSubquery` (`:49-60`), le `select` de comptage de `getQuestionsWithFilters` (`:165-180`), le `count(distinct …)` de `getQuestionStatsEnriched` (`:499-512`), et le comptage de `getQuestionsForExport` (`:598-613`). Décision : ces compteurs reflètent les **images d'énoncé** (sens admin actuel).
+
+- [ ] **Step 4c : Étendre le test (verrouillage #7)** — dans `explanation-images.test.ts`, vérifier qu'une question n'ayant QUE des images `explanation` a `imageCount = 0` dans `getQuestionsWithFilters` et n'est PAS comptée dans `withImagesCount` (`getQuestionStatsEnriched`), tandis qu'une image `statement` l'est.
 
 - [ ] **Step 5 : Lancer (succès)** — Run: `bun run test:integration -- explanation-images` → PASS.
 
