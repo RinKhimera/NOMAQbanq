@@ -1,6 +1,14 @@
 /**
- * Tests d'intégration : saveExamAnswer + saveExamFlag + finalizeExam
- * Anti-triche, flagging, et flux complet de passation.
+ * Tests d'intégration : garde anti-triche de projection (tâche A9).
+ *
+ * Vérifie qu'aucun champ sensible n'est exposé au client par la couche DAL
+ * pendant une passation en cours :
+ *   - examen : `getExamWithQuestions` pour un étudiant (non-admin) avec accès actif ;
+ *   - entraînement mode test : `getTrainingSessionById` in_progress (questions +
+ *     entrée `answers` après une réponse).
+ *
+ * Garde paramétrée sur SENSITIVE — c'est le seul objet de ce fichier (le flux
+ * complet de passation est couvert par exam-runner.test.ts / training-mode.test.ts).
  */
 import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
@@ -8,21 +16,21 @@ import { db } from "@/db"
 import {
   exams,
   products,
+  questionExplanations,
   questions,
+  trainingSessions,
   transactions,
   user,
   userAccess,
 } from "@/db/schema"
-import {
-  finalizeExam,
-  pauseExam,
-  resumeExam,
-  saveExamAnswer,
-  saveExamFlag,
-  startExam,
-} from "@/features/exams/actions"
 import { createExam } from "@/features/exams/actions"
-import { getExamSession } from "@/features/exams/dal"
+import { getExamWithQuestions } from "@/features/exams/dal"
+import {
+  abandonTrainingSession,
+  createTrainingSession,
+  saveTrainingAnswer,
+} from "@/features/training/actions"
+import { getTrainingSessionById } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
@@ -33,11 +41,24 @@ vi.mock("react", async (orig) => {
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
+/**
+ * Champs jamais exposés au client tant qu'une session est en cours (non révélée).
+ */
+const SENSITIVE = [
+  "correctAnswer",
+  "explanation",
+  "references",
+  "isCorrect",
+  "explanationImages",
+] as const
+
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 const STUDENT_ID = createId()
 const PID = createId()
+const DOMAIN = `AC-${suffix}`
+const OBJ = `Obj AC ${suffix}`
 const qIds = Array.from({ length: 6 }, () => createId())
 
 const setSession = (id: string, role: "user" | "admin") =>
@@ -47,8 +68,13 @@ const setSession = (id: string, role: "user" | "admin") =>
 const asAdmin = () => setSession(ADMIN_ID, "admin")
 const asStudent = () => setSession(STUDENT_ID, "user")
 
+const expectNoSensitive = (obj: Record<string, unknown>) => {
+  for (const k of SENSITIVE) {
+    expect(obj[k]).toBeUndefined()
+  }
+}
+
 let examId: string
-let pauseExamId: string
 
 beforeAll(async () => {
   await db.insert(user).values([
@@ -83,20 +109,36 @@ beforeAll(async () => {
     durationDays: 90,
     accessExpiresAt: new Date(Date.now() + 90 * DAY),
   })
-  await db.insert(userAccess).values({
-    userId: STUDENT_ID,
-    accessType: "exam",
-    expiresAt: new Date(Date.now() + 10 * DAY),
-    lastTransactionId: txId,
-  })
+  // Accès actif examen ET entraînement pour l'étudiant.
+  await db.insert(userAccess).values([
+    {
+      userId: STUDENT_ID,
+      accessType: "exam",
+      expiresAt: new Date(Date.now() + 10 * DAY),
+      lastTransactionId: txId,
+    },
+    {
+      userId: STUDENT_ID,
+      accessType: "training",
+      expiresAt: new Date(Date.now() + 10 * DAY),
+      lastTransactionId: txId,
+    },
+  ])
   await db.insert(questions).values(
     qIds.map((id, i) => ({
       id,
       question: `AC Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj AC ${suffix}`,
-      domain: `AC-${suffix}`,
+      objectifCmc: OBJ,
+      domain: DOMAIN,
+    })),
+  )
+  await db.insert(questionExplanations).values(
+    qIds.map((id, i) => ({
+      questionId: id,
+      explanation: `Explication AC ${i} ${suffix}`,
+      references: i === 0 ? ["Ref AC 1"] : null,
     })),
   )
 
@@ -111,170 +153,82 @@ beforeAll(async () => {
   })
   if (!r1.success) throw new Error(r1.error)
   examId = r1.examId
-
-  const r2 = await createExam({
-    title: `AC Pause Exam ${suffix}`,
-    startDate: now - 3600_000,
-    endDate: now + 3600_000,
-    questionIds: qIds,
-    enablePause: true,
-    pauseDurationMinutes: 15,
-  })
-  if (!r2.success) throw new Error(r2.error)
-  pauseExamId = r2.examId
 })
 
 afterAll(async () => {
+  await db
+    .delete(trainingSessions)
+    .where(eq(trainingSessions.userId, STUDENT_ID))
   await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
   const uids = [ADMIN_ID, STUDENT_ID]
   await db.delete(userAccess).where(inArray(userAccess.userId, uids))
   await db.delete(transactions).where(inArray(transactions.userId, uids))
+  await db
+    .delete(questionExplanations)
+    .where(inArray(questionExplanations.questionId, qIds))
   await db.delete(questions).where(inArray(questions.id, qIds))
   await db.delete(products).where(eq(products.id, PID))
   await db.delete(user).where(inArray(user.id, uids))
 })
 
-describe("saveExamAnswer", () => {
-  beforeAll(async () => {
+describe("garde anti-triche : projection des champs sensibles", () => {
+  it("examen (non-admin) : getExamWithQuestions n'expose aucun champ sensible", async () => {
     asStudent()
-    await startExam({ examId })
-  })
+    const view = await getExamWithQuestions(examId)
+    expect(view).not.toBeNull()
+    expect(view!.questions.length).toBeGreaterThan(0)
 
-  it("saveExamAnswer enregistre la réponse correcte", async () => {
-    asStudent()
-    const res = await saveExamAnswer({
-      examId,
-      questionId: qIds[0],
-      selectedAnswer: "A",
-    })
-    expect(res.success).toBe(true)
-    // isCorrect ne doit pas être retourné (anti-triche)
-    expect(res).not.toHaveProperty("isCorrect")
-  })
-
-  it("saveExamAnswer enregistre une réponse incorrecte sans révéler l'info", async () => {
-    asStudent()
-    const res = await saveExamAnswer({
-      examId,
-      questionId: qIds[1],
-      selectedAnswer: "B",
-    })
-    expect(res.success).toBe(true)
-    expect(res).not.toHaveProperty("isCorrect")
-  })
-
-  it("saveExamAnswer refuse une question hors de l'examen", async () => {
-    asStudent()
-    const res = await saveExamAnswer({
-      examId,
-      questionId: createId(),
-      selectedAnswer: "A",
-    })
-    expect(res.success).toBe(false)
-  })
-})
-
-describe("saveExamFlag", () => {
-  it("saveExamFlag marque une question", async () => {
-    asStudent()
-    const res = await saveExamFlag({
-      examId,
-      questionId: qIds[2],
-      isFlagged: true,
-    })
-    expect(res.success).toBe(true)
-  })
-
-  it("saveExamFlag démarque une question", async () => {
-    asStudent()
-    const res = await saveExamFlag({
-      examId,
-      questionId: qIds[2],
-      isFlagged: false,
-    })
-    expect(res.success).toBe(true)
-  })
-})
-
-describe("finalizeExam", () => {
-  it("finalizeExam calcule le bon score (1/6 correct = 17%)", async () => {
-    asStudent()
-    // qIds[0] = A (correct), qIds[1] = B (incorrect), rest unanswered
-    const res = await finalizeExam({ examId })
-    expect(res.success).toBe(true)
-    if (!res.success) return
-    expect(res.correctAnswers).toBe(1)
-    expect(res.totalQuestions).toBe(6)
-    expect(res.score).toBe(17) // round(1/6 * 100)
-  })
-
-  it("finalizeExam refuse une 2e soumission (déjà complété)", async () => {
-    asStudent()
-    const res = await finalizeExam({ examId })
-    expect(res.success).toBe(false)
-    if (!res.success) {
-      expect(res.error).toContain("déjà")
+    for (const q of view!.questions) {
+      expectNoSensitive(q as Record<string, unknown>)
     }
   })
-})
 
-describe("pauseExam + resumeExam", () => {
-  beforeAll(async () => {
+  it("entraînement mode test in_progress : getTrainingSessionById n'expose aucun champ sensible", async () => {
     asStudent()
-    await startExam({ examId: pauseExamId })
-  })
-
-  it("pauseExam démarre la pause", async () => {
-    asStudent()
-    const res = await pauseExam({ examId: pauseExamId })
-    expect(res.success).toBe(true)
-    if (!res.success) return
-    expect(res.pauseStartedAt).toBeGreaterThan(0)
-    expect(res.pauseDurationMinutes).toBe(15)
-
-    const s = await getExamSession(pauseExamId)
-    expect(s?.isPaused).toBe(true)
-  })
-
-  it("saveExamAnswer refuse pendant la pause", async () => {
-    asStudent()
-    const res = await saveExamAnswer({
-      examId: pauseExamId,
-      questionId: qIds[0],
-      selectedAnswer: "A",
+    // questionCount min = 5 (schéma) ; 6 questions seedées dans ce domaine.
+    const c = await createTrainingSession({
+      questionCount: 5,
+      domain: DOMAIN,
+      mode: "test",
     })
-    expect(res.success).toBe(false)
-    expect(res.error).toContain("pause")
-  })
+    expect(c.success).toBe(true)
+    if (!c.success) return
+    const sessionId = c.sessionId
 
-  it("pauseExam refuse une 2e pause (déjà en pause)", async () => {
-    asStudent()
-    const res = await pauseExam({ examId: pauseExamId })
-    expect(res.success).toBe(false)
-  })
+    try {
+      const v0 = await getTrainingSessionById(sessionId)
+      expect(v0).not.toBeNull()
+      expect(v0!.questions.length).toBeGreaterThan(0)
 
-  it("resumeExam reprend l'examen", async () => {
-    asStudent()
-    const res = await resumeExam({ examId: pauseExamId })
-    expect(res.success).toBe(true)
-    if (!res.success) return
-    expect(res.totalPauseDurationMs).toBeGreaterThanOrEqual(0)
+      // Aucune question ne révèle de champ sensible avant réponse.
+      for (const q of v0!.questions) {
+        expectNoSensitive(q as Record<string, unknown>)
+      }
 
-    const s = await getExamSession(pauseExamId)
-    expect(s?.isPaused).toBe(false)
-  })
+      // Répondre à une question puis re-fetcher.
+      const q = v0!.questions[0]
+      await saveTrainingAnswer({
+        sessionId,
+        questionId: q._id,
+        selectedAnswer: q.options[0],
+      })
 
-  it("pauseExam refuse une 2e utilisation de pause", async () => {
-    asStudent()
-    // totalPauseDurationMs > 0 after resumeExam
-    const res = await pauseExam({ examId: pauseExamId })
-    expect(res.success).toBe(false)
-    expect(res.error).toContain("déjà")
-  })
+      const v1 = await getTrainingSessionById(sessionId)
+      expect(v1).not.toBeNull()
 
-  it("finalizeExam après pause réussit", async () => {
-    asStudent()
-    const res = await finalizeExam({ examId: pauseExamId })
-    expect(res.success).toBe(true)
+      // Les questions restent sans champ sensible (mode test in_progress).
+      for (const qv of v1!.questions) {
+        expectNoSensitive(qv as Record<string, unknown>)
+      }
+
+      // L'entrée answers contient selectedAnswer mais PAS isCorrect.
+      const entry = v1!.answers[q._id]
+      expect(entry?.selectedAnswer).toBeDefined()
+      expect(
+        (entry as Record<string, unknown> | undefined)?.isCorrect,
+      ).toBeUndefined()
+    } finally {
+      await abandonTrainingSession({ sessionId })
+    }
   })
 })
