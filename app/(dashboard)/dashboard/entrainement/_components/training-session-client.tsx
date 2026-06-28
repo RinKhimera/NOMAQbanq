@@ -1,34 +1,21 @@
 "use client"
 
-import { Brain, TriangleAlert } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
+import { TriangleAlert } from "lucide-react"
 import { useRouter } from "next/navigation"
-import {
-  useActionState,
-  useCallback,
-  useEffect,
-  useState,
-  useTransition,
-} from "react"
 import { toast } from "sonner"
-import { Calculator } from "@/components/quiz/calculator"
-import { LabValues } from "@/components/quiz/lab-values"
-import { QuestionCard } from "@/components/quiz/question-card"
-import { FinishDialog } from "@/components/quiz/session/finish-dialog"
-import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
-import { SessionHeader } from "@/components/quiz/session/session-header"
-import { SessionNavigation } from "@/components/quiz/session/session-navigation"
-import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
+import { QuizRunner } from "@/components/quiz/runner/quiz-runner"
+import type {
+  AnswersMap,
+  QuizCallbacks,
+  QuizMode,
+  QuizQuestion,
+} from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import {
   completeTrainingSession,
   saveTrainingAnswer,
 } from "@/features/training/actions"
-import type {
-  TrainingAnswerRecord,
-  TrainingSessionView,
-} from "@/features/training/dal"
-import { useIsVisible } from "@/hooks/use-is-visible"
+import type { TrainingSessionView } from "@/features/training/dal"
 
 type SessionData = NonNullable<TrainingSessionView>
 
@@ -42,134 +29,8 @@ export const TrainingSessionClient = ({
   initialData,
 }: TrainingSessionClientProps) => {
   const router = useRouter()
-  const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
 
-  // State
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [flaggedQuestions, setFlaggedQuestions] = useState<Set<string>>(
-    new Set(),
-  )
-  const [showFinishDialog, setShowFinishDialog] = useState(false)
-  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
-  const [isLabValuesOpen, setIsLabValuesOpen] = useState(false)
-
-  // Réponses : état client optimiste (plus de réactivité Convex). Initialisé
-  // depuis le serveur ; mis à jour à chaque saveTrainingAnswer.
-  const [answers, setAnswers] = useState<TrainingAnswerRecord>(
-    initialData.answers,
-  )
-
-  const questions = initialData.questions
-  const currentQuestion = questions[currentIndex]
-  const totalQuestions = questions.length
-
-  const answeredCount = Object.keys(answers).length
-  const isLastQuestion = currentIndex === totalQuestions - 1
-  const isFirstQuestion = currentIndex === 0
-
-  // Sauvegarde optimiste de la réponse courante.
-  const handleAnswerSelect = useCallback(
-    async (answerIndex: number) => {
-      if (!currentQuestion) return
-      const selectedOption = currentQuestion.options[answerIndex]
-      const questionId = currentQuestion._id
-
-      const res = await saveTrainingAnswer({
-        sessionId,
-        questionId,
-        selectedAnswer: selectedOption,
-      })
-      if (!res.success) {
-        toast.error("Erreur", { description: res.error })
-        return
-      }
-      setAnswers((prev) => ({
-        ...prev,
-        [questionId]: {
-          selectedAnswer: selectedOption,
-          isCorrect: res.isCorrect,
-        },
-      }))
-    },
-    [currentQuestion, sessionId],
-  )
-
-  // Navigation
-  const goToQuestion = useCallback(
-    (index: number) => {
-      if (index >= 0 && index < totalQuestions) {
-        setCurrentIndex(index)
-      }
-    },
-    [totalQuestions],
-  )
-
-  const goNext = useCallback(() => {
-    if (!isLastQuestion) setCurrentIndex((prev) => prev + 1)
-  }, [isLastQuestion])
-
-  const goPrevious = useCallback(() => {
-    if (!isFirstQuestion) setCurrentIndex((prev) => prev - 1)
-  }, [isFirstQuestion])
-
-  const toggleFlag = useCallback(() => {
-    if (!currentQuestion) return
-    setFlaggedQuestions((prev) => {
-      const newSet = new Set(prev)
-      const questionIdStr = currentQuestion._id
-      if (newSet.has(questionIdStr)) newSet.delete(questionIdStr)
-      else newSet.add(questionIdStr)
-      return newSet
-    })
-  }, [currentQuestion])
-
-  const [, startTransition] = useTransition()
-
-  // Fin de session
-  const [, finishAction, isSubmitting] = useActionState(
-    async () => {
-      const res = await completeTrainingSession({ sessionId })
-      if (!res.success) {
-        toast.error("Erreur", { description: res.error })
-        setShowFinishDialog(false)
-        return { success: false }
-      }
-      toast.success("Session terminée !", {
-        description: "Vos résultats sont prêts",
-      })
-      router.push(`/dashboard/entrainement/${sessionId}/results`)
-      return { success: true }
-    },
-    { success: false },
-  )
-
-  const handleNextOrFinish = useCallback(() => {
-    if (isLastQuestion) setShowFinishDialog(true)
-    else goNext()
-  }, [isLastQuestion, goNext])
-
-  // Navigation clavier
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (showFinishDialog) return
-      switch (e.key) {
-        case "ArrowRight":
-          goNext()
-          break
-        case "ArrowLeft":
-          goPrevious()
-          break
-        case "f":
-        case "F":
-          toggleFlag()
-          break
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [goNext, goPrevious, toggleFlag, showFinishDialog])
-
-  // Session expirée
+  // Session expirée — garde avant de rendre le runner
   if (initialData.isExpired) {
     return (
       <div className="flex min-h-screen items-center justify-center p-4">
@@ -192,130 +53,88 @@ export const TrainingSessionClient = ({
     )
   }
 
-  const currentAnswer = currentQuestion
-    ? answers[currentQuestion._id]?.selectedAnswer
-    : null
-  const isFlagged = currentQuestion
-    ? flaggedQuestions.has(currentQuestion._id)
-    : false
+  // Mapper TrainingSessionQuestion[] → QuizQuestion[]
+  const mappedQuestions: QuizQuestion[] = initialData.questions.map((q) => ({
+    _id: q._id,
+    question: q.question,
+    options: q.options,
+    domain: q.domain,
+    objectifCMC: q.objectifCMC,
+    images: q.images,
+    // Champs révélés uniquement en tuteur pour les questions déjà répondues
+    correctAnswer: q.correctAnswer,
+    explanation: q.explanation,
+    references: q.references,
+  }))
+
+  // Mapper TrainingAnswerRecord → AnswersMap
+  const initialAnswers: AnswersMap = {}
+  for (const [qid, a] of Object.entries(initialData.answers)) {
+    initialAnswers[qid] = {
+      selected: a.selectedAnswer,
+      isCorrect: a.isCorrect,
+    }
+  }
+
+  // Mode : feedback immédiat en tuteur, différé en test
+  const isTutor = initialData.session.mode === "tutor"
+
+  const mode: QuizMode = {
+    kind: "training",
+    accent: "emerald",
+    timer: null,
+    pause: null,
+    feedback: isTutor ? "immediate" : "deferred",
+    showMeta: false,
+    labels: { title: "Entraînement", finishCta: "Terminer" },
+    backUrl: "/dashboard/entrainement",
+  }
+
+  const callbacks: QuizCallbacks = {
+    onAnswer: async (questionId, selectedAnswer) => {
+      const res = await saveTrainingAnswer({
+        sessionId,
+        questionId,
+        selectedAnswer,
+      })
+      if (!res.success) {
+        return { ok: false, error: res.error }
+      }
+      // En mode tuteur, renvoyer le reveal (correctAnswer + explanation + references)
+      return {
+        ok: true,
+        reveal: res.reveal
+          ? {
+              correctAnswer: res.reveal.correctAnswer,
+              explanation: res.reveal.explanation ?? "",
+              references: res.reveal.references ?? [],
+            }
+          : undefined,
+      }
+    },
+    // Flags d'entraînement restent locaux — no-op serveur
+    onFlag: async () => {},
+    onFinish: async () => {
+      const res = await completeTrainingSession({ sessionId })
+      if (!res.success) {
+        toast.error("Erreur", { description: res.error })
+        return { ok: false }
+      }
+      toast.success("Session terminée !", {
+        description: "Vos résultats sont prêts",
+      })
+      const redirectTo = `/dashboard/entrainement/${sessionId}/results`
+      router.push(redirectTo)
+      return { ok: true, redirectTo }
+    },
+  }
 
   return (
-    <div className="min-h-screen bg-linear-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
-      {/* Header */}
-      <SessionHeader
-        config={{
-          mode: "training",
-          showTimer: false,
-          showCalculator: true,
-          showLabValues: true,
-          showFlagging: true,
-          accentColor: "emerald",
-        }}
-        currentIndex={currentIndex}
-        totalQuestions={totalQuestions}
-        answeredCount={answeredCount}
-        onFinish={() => setShowFinishDialog(true)}
-        title="Entraînement"
-        icon={<Brain className="h-5 w-5 text-white" />}
-        backUrl="/dashboard/entrainement"
-      />
-
-      {/* Main content */}
-      <div className="container mx-auto max-w-7xl px-4 py-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-          {/* Question area */}
-          <div className="space-y-6">
-            <AnimatePresence mode="wait">
-              {currentQuestion && (
-                <motion.div
-                  key={currentQuestion._id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <QuestionCard
-                    question={currentQuestion as never}
-                    variant="exam"
-                    questionNumber={currentIndex + 1}
-                    selectedAnswer={currentAnswer}
-                    onAnswerSelect={handleAnswerSelect}
-                    isFlagged={isFlagged}
-                    onFlagToggle={toggleFlag}
-                    showCorrectAnswer={false}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Navigation buttons */}
-            <SessionNavigation
-              currentIndex={currentIndex}
-              totalQuestions={totalQuestions}
-              isFlagged={isFlagged}
-              onPrevious={goPrevious}
-              onNext={handleNextOrFinish}
-              onToggleFlag={toggleFlag}
-              accentColor="emerald"
-            />
-          </div>
-
-          {/* Sidebar - Question navigator */}
-          <div className="hidden lg:block">
-            <div ref={desktopNavRef} className="h-1" />
-            <QuestionNavigator
-              questions={questions}
-              answers={answers}
-              flaggedQuestions={flaggedQuestions}
-              currentIndex={currentIndex}
-              onNavigate={goToQuestion}
-              accentColor="emerald"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Floating toolbar with nav FAB */}
-      <SessionToolbar
-        showCalculator={true}
-        onOpenCalculator={() => setIsCalculatorOpen(true)}
-        showLabValues={true}
-        onOpenLabValues={() => setIsLabValuesOpen(true)}
-        showScrollTop={true}
-        showNavFab={!isDesktopNavVisible}
-        navFab={
-          <QuestionNavigator
-            questions={questions}
-            answers={answers}
-            flaggedQuestions={flaggedQuestions}
-            currentIndex={currentIndex}
-            onNavigate={goToQuestion}
-            variant="mobile"
-            accentColor="emerald"
-          />
-        }
-      />
-
-      {/* Calculator Dialog */}
-      <Calculator
-        isOpen={isCalculatorOpen}
-        onOpenChange={setIsCalculatorOpen}
-      />
-
-      {/* Lab Values Dialog */}
-      <LabValues isOpen={isLabValuesOpen} onOpenChange={setIsLabValuesOpen} />
-
-      {/* Finish confirmation dialog */}
-      <FinishDialog
-        isOpen={showFinishDialog}
-        onOpenChange={setShowFinishDialog}
-        answeredCount={answeredCount}
-        totalQuestions={totalQuestions}
-        flaggedCount={flaggedQuestions.size}
-        isSubmitting={isSubmitting}
-        onConfirm={() => startTransition(() => finishAction())}
-        mode="training"
-      />
-    </div>
+    <QuizRunner
+      questions={mappedQuestions}
+      initialAnswers={initialAnswers}
+      mode={mode}
+      callbacks={callbacks}
+    />
   )
 }
