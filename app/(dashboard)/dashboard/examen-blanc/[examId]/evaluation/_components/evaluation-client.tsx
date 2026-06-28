@@ -257,38 +257,31 @@ export function EvaluationClient({
                     <li className="flex items-start gap-2">
                       <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                       <span>
-                        <strong>Session unique :</strong> Une fois démarré, vous
-                        ne pouvez pas redémarrer l&apos;examen
+                        <strong>Session unique :</strong> Une seule tentative
+                        autorisée — impossible de redémarrer l&apos;examen
                       </span>
                     </li>
                     <li className="flex items-start gap-2">
                       <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                       <span>
-                        <strong>Timer serveur :</strong> Le temps continue même
-                        si vous rafraîchissez la page
+                        <strong>Chrono serveur :</strong> Le chronomètre
+                        continue même si vous rafraîchissez ou fermez la page
                       </span>
                     </li>
                     <li className="flex items-start gap-2">
                       <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                       <span>
-                        <strong>Sauvegarde automatique :</strong> Vos réponses
-                        sont enregistrées immédiatement après chaque sélection
-                      </span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-                      <span>
-                        <strong>Soumission auto :</strong> L&apos;examen sera
-                        automatiquement soumis quand le temps est écoulé
+                        <strong>Soumission automatique :</strong> L&apos;examen
+                        est soumis automatiquement quand le temps est écoulé
                       </span>
                     </li>
                     {exam.enablePause && (
                       <li className="flex items-start gap-2">
                         <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
                         <span>
-                          <strong>Pause repos :</strong> Une pause de{" "}
-                          {pauseDurationMinutes} minutes est disponible (une
-                          seule utilisation)
+                          <strong>Pause repos disponible :</strong> Une pause
+                          optionnelle de {pauseDurationMinutes} minutes (le
+                          chrono se fige pendant la pause)
                         </span>
                       </li>
                     )}
