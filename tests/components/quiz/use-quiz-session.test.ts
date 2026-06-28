@@ -531,6 +531,54 @@ describe("useQuizSession — pause (rest break)", () => {
     expect(onResume).not.toHaveBeenCalled()
   })
 
+  it("pauseAlreadyUsed est vrai au montage quand initialPause.totalPauseDurationMs > 0", () => {
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        initialPause: { isPaused: false, totalPauseDurationMs: 30_000 },
+        mode: makeMode(),
+        callbacks: makeCallbacks(),
+      }),
+    )
+    expect(result.current.pauseAlreadyUsed).toBe(true)
+  })
+
+  it("pauseAlreadyUsed est faux au montage sans pause serveur enregistrée", () => {
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        initialPause: { isPaused: false, totalPauseDurationMs: 0 },
+        mode: makeMode(),
+        callbacks: makeCallbacks(),
+      }),
+    )
+    expect(result.current.pauseAlreadyUsed).toBe(false)
+  })
+
+  it("pauseAlreadyUsed devient vrai après un resume() réussi", async () => {
+    const onResume = vi
+      .fn()
+      .mockResolvedValue({ ok: true, totalPauseDurationMs: 30_000 })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        initialPause: { isPaused: true, totalPauseDurationMs: 0 },
+        mode: makeMode(),
+        callbacks: makeCallbacks({ onResume }),
+      }),
+    )
+    // Pause non encore consommée tant qu'on n'a pas repris (offset serveur = 0)
+    expect(result.current.pauseAlreadyUsed).toBe(false)
+
+    await act(async () => {
+      await result.current.resume()
+    })
+    expect(result.current.pauseAlreadyUsed).toBe(true)
+  })
+
   it("resume() conserve l'offset existant si le serveur ne renvoie pas de durée", async () => {
     const onResume = vi.fn().mockResolvedValue({ ok: true }) // pas de totalPauseDurationMs
     const start = Date.now()

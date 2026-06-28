@@ -49,6 +49,10 @@ export type UseQuizSessionResult = {
 
   // Pause (rest break) — freezes the timer
   isPaused: boolean
+  // True once the single rest pause has been consumed (used at mount if the
+  // server already recorded a pause, or after a successful resume). Lets the UI
+  // hide the pause button — the server only allows one pause.
+  pauseAlreadyUsed: boolean
   pause: () => Promise<void>
   resume: () => Promise<void>
 
@@ -89,6 +93,11 @@ export function useQuizSession({
   const [isPaused, setIsPaused] = useState(initialPause?.isPaused ?? false)
   const [totalPauseDurationMs, setTotalPauseDurationMs] = useState(
     initialPause?.totalPauseDurationMs ?? 0,
+  )
+  // The single rest pause is "used" if the server already recorded pause time,
+  // or once we successfully resume from a pause taken this session.
+  const [pauseAlreadyUsed, setPauseAlreadyUsed] = useState(
+    (initialPause?.totalPauseDurationMs ?? 0) > 0,
   )
 
   const totalQuestions = questions.length
@@ -187,6 +196,8 @@ export function useQuizSession({
     if (res.ok) {
       setTotalPauseDurationMs((prev) => res.totalPauseDurationMs ?? prev)
       setIsPaused(false)
+      // The single rest pause is now consumed — hide the pause control.
+      setPauseAlreadyUsed(true)
     }
   }, [callbacks, isPaused])
 
@@ -287,6 +298,7 @@ export function useQuizSession({
     confirmFinish,
     setFinishDialogOpen,
     isPaused,
+    pauseAlreadyUsed,
     pause,
     resume,
     timer,
