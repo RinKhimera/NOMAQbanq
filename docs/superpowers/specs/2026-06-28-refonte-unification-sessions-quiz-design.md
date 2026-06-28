@@ -1,8 +1,11 @@
 # Refonte & unification de l'expérience de passation et de résultats (examen / entraînement)
 
 **Date** : 2026-06-28
-**Statut** : design validé, prêt pour le plan d'implémentation
+**Statut** : design validé + revu (adversarial) et corrigé — prêt pour le plan
 **Auteur** : brainstorming Samuel + Claude
+**Révision** : revue adversariale 2026-06-28 — correctifs intégrés (fuite `isCorrect`
+mode test, canal d'images d'explication, cutover des sessions en vol, textes pause
+obsolètes, `quiz-results.tsx` conservé)
 
 ## Contexte
 
@@ -209,7 +212,10 @@ Un seul composant pour **examen-étudiant, examen-admin, entraînement**. Props 
 - filtre « erreurs seulement » + `ResultsQuestionNavigator`
 - **images d'explication** (Feature 3) : si `question.explanationImages` présent, les
   afficher dans la révision (jamais pendant la passation). Concerne aussi le rendu
-  `review` de `QuestionCard`.
+  `review` de `QuestionCard`. ⚠️ Elles arrivent par le **canal de l'explication**,
+  pas par le pont d'énoncé : côté examen, via le **loader lazy**
+  `loadExamQuestionExplanations` (et non l'`ExamQuestionView` eager) ; côté
+  entraînement, via `getTrainingSessionResults` (cf. Feature 3, constat #4).
 
 Remplace et supprime `ParticipantExamResultsView` et `TrainingResultsClient`.
 
@@ -285,6 +291,14 @@ pré-créée, `selectedAnswer` nullable).
   renvoie la révélation pour les items déjà répondus (déjà vus par l'étudiant) ;
   en **test**, aucune révélation avant complétion. Nouvelle frontière
   anti-triche, intentionnelle.
+- **⚠️ Correctif (revue #5) — fuite `isCorrect` en mode test** :
+  `getTrainingSessionById` ([`features/training/dal.ts:532-540`](../../../features/training/dal.ts#L532-L540))
+  construit aujourd'hui `answers` avec `isCorrect` pour **tout** item répondu,
+  quel que soit le mode (`correctAnswer` est gardé par `isCompleted`, mais pas
+  `isCorrect`). En **mode test sur session `in_progress`**, `isCorrect` ne doit
+  **PAS** être renvoyé (seul `selectedAnswer`) ; il n'est révélé qu'en mode tuteur
+  (items répondus) ou après complétion. La forme `AnswerState.isCorrect` est donc
+  optionnelle (déjà le cas dans le type canonique).
 
 ### D. Écran de confirmation (D5)
 
@@ -299,8 +313,10 @@ la page `resultats`).
    (lignes pré-créées non répondues).
 3. **Drop** `examParticipations.pausePhase`, `isPauseCutShort`, `pauseEndedAt`.
 
-Participations/examens *en cours* pendant le déploiement = cas-bord rare ; les
-colonnes droppées ne concernent que la mécanique de pause abandonnée.
+Participations/examens *en cours* pendant le déploiement : les colonnes droppées
+ne concernent que la mécanique de pause abandonnée, **mais** la pré-création des
+`examAnswers` introduit un risque de perte de données pour les sessions en vol —
+voir **§ G (Cutover)**.
 
 ### F. Nettoyage / suppressions
 
@@ -312,9 +328,28 @@ colonnes droppées ne concernent que la mécanique de pause abandonnée.
   `pause-dialog.tsx` (overlay de repos, sans phases).
 - `ParticipantExamResultsView` + `TrainingResultsClient` (fusionnés dans
   `<SessionResults>`).
-- Composants quiz « anciens/inutilisés » repérés à l'audit
-  (`question-navigation.tsx`, `quiz-results.tsx`) — à confirmer non-référencés
-  avant suppression.
+- `components/quiz/question-navigation.tsx` — à confirmer non-référencé avant
+  suppression. **⚠️ NE PAS supprimer `quiz-results.tsx`** : la revue (#8) confirme
+  qu'il est encore utilisé par le quiz vitrine.
+- **Textes obsolètes (revue #7)** : mettre à jour tout libellé (écran de
+  démarrage, copie admin) décrivant l'ancienne mécanique de pause (phases /
+  verrouillage par moitié), désormais fausse.
+
+### G. Cutover — sessions d'examen en vol (⚠️ revue #2 : risque de perte de données)
+
+L'ancien `startExam` ([`features/exams/actions.ts:433`](../../../features/exams/actions.ts#L433))
+ne pré-crée **pas** de lignes `examAnswers` (réponses en localStorage) ; le
+nouveau `finalizeExam` lit le score depuis ces lignes. Une participation
+`in_progress` au moment du déploiement n'aurait donc **aucune ligne** → **score 0
+et réponses perdues** (le localStorage n'est pas récupérable côté serveur).
+**Régression au cutover** si non traité.
+
+Stratégie : **drainer les participations `in_progress` avant la bascule** —
+clôturer/auto-soumettre les examens en cours, ou choisir une fenêtre sans examen
+actif (les examens blancs sont bornés par `startDate`/`endDate`). À défaut,
+prévoir un `finalizeExam` **tolérant** acceptant une dernière charge de réponses
+du client mid-examen (compat transitoire). **Le plan d'implémentation doit acter
+ce choix et l'ordonner AVANT** la bascule du contrôleur client / la migration.
 
 ## Gestion des erreurs / cas limites
 
@@ -339,6 +374,11 @@ colonnes droppées ne concernent que la mécanique de pause abandonnée.
   serveur, budget-temps), `pauseExam`/`resumeExam` (plafond), `createTraining`
   + `saveTrainingAnswer` (révélation tuteur vs test). Respecter l'ordre FK au
   cleanup (`examAnswers`/`trainingSessionItems` avant `questions`).
+- **Anti-triche (test paramétré unique, partagé F1/F3 — ajout revue)** : vérifie
+  qu'**AUCUN** de `{correctAnswer, explanation, references, isCorrect,
+  explanationImages}` n'atteint le client pendant la passation — examen, et
+  entraînement **mode test** — pour toutes les DAL de passation. Couvre les fuites
+  #1 (images d'explication) et #5 (`isCorrect`).
 - **E2E** (`e2e/`) : conserver les `data-testid` (`answer-option-{index}`,
   `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`) sur la nouvelle coquille ;
   scénarios examen (chrono via `page.clock`, pause, auto-submit, confirmation) et
