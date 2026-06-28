@@ -11,7 +11,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { createId } from "@/lib/ids"
 import { user } from "./auth"
-import { examParticipationStatus, examPausePhase } from "./enums"
+import { examParticipationStatus } from "./enums"
 import { questions } from "./questions"
 
 export const exams = pgTable(
@@ -83,10 +83,7 @@ export const examParticipations = pgTable(
     status: examParticipationStatus("status").default("in_progress").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    pausePhase: examPausePhase("pause_phase"),
     pauseStartedAt: timestamp("pause_started_at", { withTimezone: true }),
-    pauseEndedAt: timestamp("pause_ended_at", { withTimezone: true }),
-    isPauseCutShort: boolean("is_pause_cut_short"),
     totalPauseDurationMs: bigint("total_pause_duration_ms", { mode: "number" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -112,8 +109,8 @@ export const examAnswers = pgTable(
     questionId: text("question_id")
       .notNull()
       .references(() => questions.id, { onDelete: "restrict" }),
-    selectedAnswer: text("selected_answer").notNull(),
-    isCorrect: boolean("is_correct").notNull(),
+    selectedAnswer: text("selected_answer"),       // null tant que non répondu
+    isCorrect: boolean("is_correct"),              // null tant que non répondu
     isFlagged: boolean("is_flagged").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

@@ -43,6 +43,13 @@
       "when": 1782164653321,
       "tag": "0005_tired_caretaker",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1782671984801,
+      "tag": "0006_chubby_sheva_callister",
+      "breakpoints": true
     }
   ]
 }

@@ -31,5 +31,6 @@ export const trainingStatus = pgEnum("training_status", [
   "completed",
   "abandoned",
 ])
+export const trainingMode = pgEnum("training_mode", ["tutor", "test"])
 export const uploadType = pgEnum("upload_type", ["avatar", "question-image"])
 export const userRole = pgEnum("user_role", ["user", "admin"])
