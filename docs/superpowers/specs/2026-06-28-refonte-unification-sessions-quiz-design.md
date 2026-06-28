@@ -114,6 +114,8 @@ type QuizQuestion = {
   domain?: string; objectifCMC?: string
   // révélés UNIQUEMENT quand autorisé (tuteur en direct, ou correction)
   correctAnswer?: string; explanation?: string; references?: string[]
+  // images d'explication (cf. Feature 3) — révélées avec l'explication, jamais pendant la passation
+  explanationImages?: { url: string; storagePath: string; order: number }[]
 }
 type AnswerState = { selected: string; isCorrect?: boolean }
 type AnswersMap  = Record<string /*questionId*/, AnswerState>
@@ -205,8 +207,17 @@ Un seul composant pour **examen-étudiant, examen-admin, entraînement**. Props 
   l'examen, équivalent training pour l'entraînement
 - `participant?` : carte identité (vue admin)
 - filtre « erreurs seulement » + `ResultsQuestionNavigator`
+- **images d'explication** (Feature 3) : si `question.explanationImages` présent, les
+  afficher dans la révision (jamais pendant la passation). Concerne aussi le rendu
+  `review` de `QuestionCard`.
 
 Remplace et supprime `ParticipantExamResultsView` et `TrainingResultsClient`.
+
+> **Dépendance** : la spec
+> [`2026-06-28-images-explication-questions-design.md`](2026-06-28-images-explication-questions-design.md)
+> (Feature 3) ajoute `explanationImages` à la forme-pont des questions. Les deux
+> features sont découplées : si Feature 3 n'est pas encore livrée, le champ est
+> simplement absent (optionnel).
 
 ### Écrans d'entrée & confirmation (périmètre D8)
 
