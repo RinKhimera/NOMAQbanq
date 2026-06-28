@@ -77,9 +77,13 @@ function QuizRunnerInner({
     accentColor,
   } as const
 
-  // Pause button visible in header only when exam mode with pause=rest, not yet paused
+  // Pause button visible in header only when exam mode with pause=rest, the
+  // single rest pause hasn't been consumed yet, and not currently paused.
   const canTakePause =
-    mode.pause === "rest" && !session.isPaused && !!callbacks.onPause
+    mode.pause === "rest" &&
+    !session.isPaused &&
+    !session.pauseAlreadyUsed &&
+    !!callbacks.onPause
 
   const examActions =
     mode.kind === "exam" && canTakePause
@@ -137,15 +141,13 @@ function QuizRunnerInner({
 
   return (
     <div className="min-h-screen bg-linear-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
-      {/* Pause overlay — full-screen, blocks all content */}
+      {/* Pause overlay — full-screen opaque, blocks ALL question content */}
       {mode.pause === "rest" && session.isPaused && (
         <PauseDialog
           isOpen={true}
           onResume={handleResume}
           pauseStartedAt={localPauseStartedAt}
           pauseDurationMinutes={pauseDurationMinutes}
-          totalQuestions={totalQuestions}
-          midpoint={Math.ceil(totalQuestions / 2)}
           isResuming={isResuming}
         />
       )}

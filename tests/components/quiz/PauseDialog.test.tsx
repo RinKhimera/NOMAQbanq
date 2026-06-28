@@ -26,14 +26,27 @@ describe("PauseDialog", () => {
     onResume: vi.fn(),
     pauseStartedAt: Date.now(),
     pauseDurationMinutes: 10,
-    totalQuestions: 100,
-    midpoint: 50,
   }
 
-  it("affiche le titre Pause obligatoire", () => {
+  it("affiche le titre Pause de repos", () => {
     render(<PauseDialog {...defaultProps} />)
 
-    expect(screen.getByText("Pause obligatoire")).toBeInTheDocument()
+    expect(screen.getByText("Pause de repos")).toBeInTheDocument()
+  })
+
+  it("ne rend rien quand isOpen est faux", () => {
+    render(<PauseDialog {...defaultProps} isOpen={false} />)
+
+    expect(screen.queryByTestId("pause-overlay")).not.toBeInTheDocument()
+  })
+
+  it("rend un overlay plein écran bloquant (fixed inset-0)", () => {
+    render(<PauseDialog {...defaultProps} />)
+
+    const overlay = screen.getByTestId("pause-overlay")
+    expect(overlay).toBeInTheDocument()
+    expect(overlay).toHaveClass("fixed", "inset-0", "bg-background")
+    expect(overlay).toHaveAttribute("aria-modal", "true")
   })
 
   it("affiche la description de pause", () => {
@@ -56,18 +69,15 @@ describe("PauseDialog", () => {
     expect(screen.getByText("Progression de la pause")).toBeInTheDocument()
   })
 
-  it("affiche les informations sur la première moitié complétée", () => {
-    render(<PauseDialog {...defaultProps} midpoint={50} totalQuestions={100} />)
+  it("n'affiche plus le modèle abandonné de verrouillage par moitié", () => {
+    render(<PauseDialog {...defaultProps} />)
 
-    expect(screen.getByText("Première moitié complétée")).toBeInTheDocument()
-    expect(screen.getByText(/Questions 1 à 50/)).toBeInTheDocument()
-  })
-
-  it("affiche les informations sur la seconde moitié verrouillée", () => {
-    render(<PauseDialog {...defaultProps} midpoint={50} totalQuestions={100} />)
-
-    expect(screen.getByText("Seconde moitié verrouillée")).toBeInTheDocument()
-    expect(screen.getByText(/Questions 51 à 100/)).toBeInTheDocument()
+    expect(
+      screen.queryByText("Première moitié complétée"),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByText("Seconde moitié verrouillée"),
+    ).not.toBeInTheDocument()
   })
 
   it("affiche le bouton Reprendre l'examen", () => {
