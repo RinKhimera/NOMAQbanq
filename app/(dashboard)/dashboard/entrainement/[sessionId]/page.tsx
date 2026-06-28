@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation"
 import { getTrainingSessionById } from "@/features/training/dal"
-import { CalculatorProvider } from "@/hooks/useCalculator"
 import { TrainingSessionClient } from "../_components/training-session-client"
 
 interface TrainingSessionPageProps {
@@ -20,9 +19,6 @@ export default async function TrainingSessionPage({
     redirect(`/dashboard/entrainement/${sessionId}/results`)
   }
 
-  return (
-    <CalculatorProvider>
-      <TrainingSessionClient sessionId={sessionId} initialData={data} />
-    </CalculatorProvider>
-  )
+  // CalculatorProvider est fourni par <QuizRunner> (pas de provider externe).
+  return <TrainingSessionClient sessionId={sessionId} initialData={data} />
 }
