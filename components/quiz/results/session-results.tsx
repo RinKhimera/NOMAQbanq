@@ -429,10 +429,20 @@ export function SessionResults({
               </div>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={expandAll}>
+                <Button
+                  data-testid="btn-expand-all"
+                  variant="outline"
+                  size="sm"
+                  onClick={expandAll}
+                >
                   Tout déplier
                 </Button>
-                <Button variant="outline" size="sm" onClick={collapseAll}>
+                <Button
+                  data-testid="btn-collapse-all"
+                  variant="outline"
+                  size="sm"
+                  onClick={collapseAll}
+                >
                   Tout replier
                 </Button>
               </div>

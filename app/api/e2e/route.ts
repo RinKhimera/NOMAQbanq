@@ -5,12 +5,16 @@ import {
   examParticipations,
   examQuestions,
   exams,
+  products,
   questions,
   trainingSessionItems,
   trainingSessions,
+  transactions,
   user,
+  userAccess,
 } from "@/db/schema"
 import { env } from "@/lib/env/server"
+import { createId } from "@/lib/ids"
 
 // Accès DB → runtime Node.
 export const runtime = "nodejs"
@@ -25,6 +29,9 @@ export const runtime = "nodejs"
  *    rejouable.
  *  - `{ action: "cleanup", prefix }` : supprime les examens préfixés (cascade)
  *    et les questions préfixées NON référencées (FK restrict respectée).
+ *  - `{ action: "set-access", userEmail, accessType, grant }` : octroie (grant
+ *    true, défaut) ou révoque (false) un accès `exam`/`training`. Idempotent ;
+ *    l'octroi crée une transaction manuelle `[E2E]` si nécessaire (FK NOT NULL).
  *
  * Sécurité : fail-closed. La route répond 404 si `E2E_RESET_SECRET` absente OU
  * si on tourne sur la prod Vercel (`VERCEL_ENV === "production"`) — impossible à
@@ -160,6 +167,86 @@ async function cleanup(prefix: string) {
   }
 }
 
+/**
+ * Octroie ou révoque un accès (`exam`/`training`) pour un utilisateur.
+ * `userAccess.lastTransactionId` est NOT NULL (FK → transactions) : un octroi
+ * « depuis zéro » crée donc une transaction manuelle `[E2E]` complétée. Idempotent :
+ * si l'accès existe déjà, on prolonge simplement `expiresAt` (pas de nouvelle
+ * transaction). Révoquer = supprimer la ligne `userAccess` (la transaction reste).
+ */
+async function setAccess(
+  userEmail: string,
+  accessType: "exam" | "training",
+  grant: boolean,
+) {
+  const [u] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.email, userEmail))
+    .limit(1)
+  if (!u) return { userFound: false as const }
+
+  if (!grant) {
+    const rows = await db
+      .delete(userAccess)
+      .where(
+        and(eq(userAccess.userId, u.id), eq(userAccess.accessType, accessType)),
+      )
+      .returning({ id: userAccess.id })
+    return { userFound: true as const, action: "revoked", count: rows.length }
+  }
+
+  const expiresAt = new Date(Date.now() + 365 * DAY_MS)
+
+  const [existing] = await db
+    .select({ id: userAccess.id })
+    .from(userAccess)
+    .where(
+      and(eq(userAccess.userId, u.id), eq(userAccess.accessType, accessType)),
+    )
+    .limit(1)
+  if (existing) {
+    await db
+      .update(userAccess)
+      .set({ expiresAt })
+      .where(eq(userAccess.id, existing.id))
+    return { userFound: true as const, action: "extended" }
+  }
+
+  const [product] = await db
+    .select({ id: products.id })
+    .from(products)
+    .where(eq(products.accessType, accessType))
+    .limit(1)
+  if (!product) {
+    return { userFound: true as const, error: `no ${accessType} product` }
+  }
+
+  const now = new Date()
+  const txId = createId()
+  await db.insert(transactions).values({
+    id: txId,
+    userId: u.id,
+    productId: product.id,
+    type: "manual",
+    status: "completed",
+    amountPaid: 0,
+    currency: "CAD",
+    accessType,
+    durationDays: 365,
+    accessExpiresAt: expiresAt,
+    completedAt: now,
+    notes: "[E2E] grant-access",
+  })
+  await db.insert(userAccess).values({
+    userId: u.id,
+    accessType,
+    expiresAt,
+    lastTransactionId: txId,
+  })
+  return { userFound: true as const, action: "granted" }
+}
+
 export async function POST(request: Request) {
   if (isDisabled()) {
     return new Response("Not found", { status: 404 })
@@ -170,6 +257,8 @@ export async function POST(request: Request) {
     action?: string
     userEmail?: string
     prefix?: string
+    accessType?: "exam" | "training"
+    grant?: boolean
   }
   try {
     body = await request.json()
@@ -190,6 +279,19 @@ export async function POST(request: Request) {
     }
     if (body.action === "cleanup") {
       return Response.json(await cleanup(body.prefix ?? "[E2E]"))
+    }
+    if (body.action === "set-access") {
+      if (!body.userEmail) {
+        return new Response("userEmail requis", { status: 400 })
+      }
+      if (body.accessType !== "exam" && body.accessType !== "training") {
+        return new Response("accessType invalide (exam|training)", {
+          status: 400,
+        })
+      }
+      return Response.json(
+        await setAccess(body.userEmail, body.accessType, body.grant ?? true),
+      )
     }
     return new Response("action inconnue", { status: 400 })
   } catch (error) {

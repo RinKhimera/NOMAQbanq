@@ -30,6 +30,8 @@ export class DashboardPage extends BasePage {
   async clickQuickAccess(title: string) {
     const main = this.page.locator("main")
     await main.getByRole("link", { name: title }).click()
-    await this.page.waitForLoadState("networkidle")
+    // Pas de "networkidle" (jamais atteint en dev Next.js → hang). L'appelant
+    // asserte l'URL cible (qui a son propre retry).
+    await this.page.waitForLoadState("domcontentloaded")
   }
 }

@@ -10,13 +10,19 @@ export class BasePage {
   }
 
   async goto(path: string) {
+    // `page.goto` attend déjà l'événement "load". On NE PAS attendre
+    // "networkidle" : en dev Next.js (HMR websocket, tunnel Sentry, fetch des
+    // charts) le réseau n'atteint jamais l'état idle → `goto` pendait jusqu'au
+    // timeout de test. Les POM attendent ensuite un élément explicite
+    // (`waitForReady`), ce qui est la bonne synchronisation.
     await this.page.goto(path)
-    await this.page.waitForLoadState("networkidle")
   }
 
   async navigateVia(linkText: string) {
     await this.navSidebar.getByRole("link", { name: linkText }).click()
-    await this.page.waitForLoadState("networkidle")
+    // Navigation client (Link Next) → pas de rechargement complet. On laisse
+    // l'appelant asserter l'URL/élément cible (évite le hang "networkidle").
+    await this.page.waitForLoadState("domcontentloaded")
   }
 
   async expectToast(message: string | RegExp) {

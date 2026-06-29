@@ -49,7 +49,7 @@ export class ExamenResultatsPage extends BasePage {
   }
 
   async toggleFilterIncorrect() {
-    await this.page.getByTestId("btn-filter-incorrect").click()
+    await this.page.getByTestId("btn-filter-errors").click()
   }
 
   async countVisibleQuestions(): Promise<number> {

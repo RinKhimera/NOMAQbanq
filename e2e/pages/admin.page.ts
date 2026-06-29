@@ -29,6 +29,8 @@ export class AdminPage extends BasePage {
   async clickQuickAction(label: string) {
     const main = this.page.locator("main")
     await main.getByText(label, { exact: true }).click()
-    await this.page.waitForLoadState("networkidle")
+    // Pas de "networkidle" (jamais atteint en dev Next.js → hang). L'appelant
+    // asserte l'URL/élément cible (qui a son propre retry).
+    await this.page.waitForLoadState("domcontentloaded")
   }
 }
