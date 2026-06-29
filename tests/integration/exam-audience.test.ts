@@ -22,6 +22,8 @@ import {
   getExamLeaderboard,
   getExamWithQuestions,
   getExamsWithParticipation,
+  getMyAvailableExams,
+  getMyRecentExams,
 } from "@/features/exams/dal"
 import { searchSelectableUsers } from "@/features/users/dal"
 import { getCurrentSession } from "@/lib/dal"
@@ -541,5 +543,25 @@ describe("saveExamAnswer — la sélection octroie l'accès (D1)", () => {
       selectedAnswer: "A",
     })
     expect(res.success).toBe(true)
+  })
+})
+
+describe("dashboard étudiant — restreint masqué aux non-membres (D3)", () => {
+  it("getMyAvailableExams/getMyRecentExams : restreint visible pour un membre abonné, masqué pour un abonné non-membre", async () => {
+    // Restreint incluant SUBSCRIBER (qui a un abonnement actif) ; OUTSIDER est
+    // abonné mais hors audience → ne doit voir le restreint nulle part sur son
+    // dashboard. (getMyAvailableExams borné à 100 → présence/absence fiables.)
+    const examId = await makeRestrictedExam([SUBSCRIBER_ID])
+
+    asSubscriber() // abonné ET membre
+    expect((await getMyAvailableExams()).some((e) => e.id === examId)).toBe(
+      true,
+    )
+
+    asOutsider() // abonné mais NON-membre
+    expect((await getMyAvailableExams()).some((e) => e.id === examId)).toBe(
+      false,
+    )
+    expect((await getMyRecentExams()).some((e) => e.id === examId)).toBe(false)
   })
 })

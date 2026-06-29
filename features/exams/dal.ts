@@ -1167,6 +1167,24 @@ export type MyDashboardStats = {
  * bypass admin, comme l'original). Moyenne sur les participations complétées.
  * `null` si non connecté. Remplace `examStats.getMyDashboardStats`.
  */
+// Prédicat d'audience pour les lectures « mes examens » du dashboard : inclut
+// les examens ouverts (`subscribers`) et les examens restreints dont `uid` est
+// membre (EXISTS corrélé, indexé sur examAudience.userId). Masque les examens
+// restreints confidentiels aux non-membres, même abonnés (D3). Parité avec le
+// filtre de `getExamsWithParticipation`.
+const memberAudienceWhere = (uid: string) =>
+  or(
+    eq(exams.audienceType, "subscribers"),
+    exists(
+      db
+        .select({ x: sql`1` })
+        .from(examAudience)
+        .where(
+          and(eq(examAudience.examId, exams.id), eq(examAudience.userId, uid)),
+        ),
+    ),
+  )
+
 export const getMyDashboardStats = cache(
   async (): Promise<MyDashboardStats | null> => {
     const session = await getCurrentSession()
@@ -1194,7 +1212,7 @@ export const getMyDashboardStats = cache(
       const [c] = await db
         .select({ n: sql<number>`count(*)`.mapWith(Number) })
         .from(exams)
-        .where(eq(exams.isActive, true))
+        .where(and(eq(exams.isActive, true), memberAudienceWhere(uid)))
       availableExamsCount = c?.n ?? 0
     }
 
@@ -1236,7 +1254,7 @@ export const getMyRecentExams = cache(async (): Promise<MyRecentExam[]> => {
       endDate: exams.endDate,
     })
     .from(exams)
-    .where(eq(exams.isActive, true))
+    .where(and(eq(exams.isActive, true), memberAudienceWhere(uid)))
     // Ordre stable : rend déterministe le sous-ensemble retenu au-delà de 200.
     .orderBy(desc(exams.startDate))
     .limit(200)
@@ -1352,6 +1370,9 @@ export const getMyAvailableExams = cache(
           eq(exams.isActive, true),
           lte(exams.startDate, now),
           gte(exams.endDate, now),
+          // Admin : preview de tout (D3). Sinon : ouverts + restreints dont
+          // l'utilisateur est membre — masque les restreints aux non-membres.
+          isAdmin ? undefined : memberAudienceWhere(session.user.id),
         ),
       )
       .limit(100)
