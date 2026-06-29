@@ -24,6 +24,12 @@ export const examFormSchema = z
       .min(1, "Minimum 1 minute")
       .max(60, "Maximum 60 minutes")
       .optional(),
+    // Audience : ouvert aux abonnés (défaut) ou restreint à une liste choisie.
+    // Pas de `.default()` ici : un défaut zod ferait diverger l'input et l'output
+    // du schéma, cassant le typage du resolver `useForm<ExamFormValues>`. La
+    // valeur initiale est fournie par les `defaultValues` du formulaire.
+    audienceType: z.enum(["subscribers", "restricted"]),
+    audienceUserIds: z.array(z.string()),
   })
   .refine(
     (data) => {
@@ -50,6 +56,14 @@ export const examFormSchema = z
     {
       message: "La durée de pause est requise (1-60 minutes)",
       path: ["pauseDurationMinutes"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.audienceType === "subscribers" || data.audienceUserIds.length >= 1,
+    {
+      message: "Sélectionnez au moins un utilisateur",
+      path: ["audienceUserIds"],
     },
   )
 

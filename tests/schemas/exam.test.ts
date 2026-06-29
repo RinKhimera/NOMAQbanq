@@ -17,6 +17,8 @@ describe("Exam Schema", () => {
       endDate: nextWeek,
       numberOfQuestions: 50,
       questionIds: Array(50).fill("question_id_placeholder"),
+      audienceType: "subscribers" as const,
+      audienceUserIds: [] as string[],
     }
 
     describe("valid data", () => {
@@ -250,6 +252,53 @@ describe("Exam Schema", () => {
         }
         const result = examFormSchema.safeParse(valid)
         expect(result.success).toBe(true)
+      })
+    })
+
+    describe("audience validation", () => {
+      it("should accept subscribers audience with empty user list", () => {
+        const valid = {
+          ...validExam,
+          audienceType: "subscribers" as const,
+          audienceUserIds: [],
+        }
+        const result = examFormSchema.safeParse(valid)
+        expect(result.success).toBe(true)
+      })
+
+      it("should accept restricted audience with at least one user", () => {
+        const valid = {
+          ...validExam,
+          audienceType: "restricted" as const,
+          audienceUserIds: ["user_1"],
+        }
+        const result = examFormSchema.safeParse(valid)
+        expect(result.success).toBe(true)
+      })
+
+      it("should reject restricted audience with empty user list", () => {
+        const invalid = {
+          ...validExam,
+          audienceType: "restricted" as const,
+          audienceUserIds: [],
+        }
+        const result = examFormSchema.safeParse(invalid)
+        expect(result.success).toBe(false)
+        if (!result.success) {
+          expect(result.error.issues[0].message).toContain(
+            "au moins un utilisateur",
+          )
+        }
+      })
+
+      it("should reject an unknown audience type", () => {
+        const invalid = {
+          ...validExam,
+          audienceType: "everyone",
+          audienceUserIds: [],
+        }
+        const result = examFormSchema.safeParse(invalid)
+        expect(result.success).toBe(false)
       })
     })
   })
