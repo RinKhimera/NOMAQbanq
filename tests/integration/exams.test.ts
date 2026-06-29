@@ -417,11 +417,12 @@ describe("Leaderboard", () => {
 })
 
 describe("Explications lazy (autorisation)", () => {
-  it("étudiant autorisé sur une question d'examen complété", async () => {
+  it("étudiant : examen OUVERT complété → pas d'explication (anti-fuite avant endDate)", async () => {
+    // L'étudiant a complété noPauseId, mais cet examen est encore OUVERT
+    // (endDate dans le futur) → ses explications ne doivent pas être révélées
+    // avant l'ouverture des résultats. (Révélation testée après endDate plus bas.)
     asStudent()
-    const r = await getExamQuestionExplanations([qIds[0]])
-    expect(r).toHaveLength(1)
-    expect(r[0].explanation).toContain("Explication")
+    expect(await getExamQuestionExplanations([qIds[0]])).toEqual([])
   })
 
   it("étudiant non autorisé sur une question témoin (q6)", async () => {
@@ -581,6 +582,15 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
   it("explications autorisées via une session de training complétée", async () => {
     asStudent()
     expect(await getExamQuestionExplanations([qIds[7]])).toHaveLength(1)
+  })
+
+  it("explications révélées après endDate (examen CLOS complété)", async () => {
+    // L'étudiant a une participation complétée sur pastExamId (endDate passée)
+    // contenant examQIds → les explications sont désormais autorisées.
+    asStudent()
+    const r = await getExamQuestionExplanations([examQIds[0]])
+    expect(r).toHaveLength(1)
+    expect(r[0].explanation).toContain("Explication")
   })
 
   it("finalizeExam hors budget-temps → refus ; auto-submit accepté", async () => {

@@ -693,9 +693,16 @@ export type QuestionExplanationView = {
 
 /**
  * Explications à la demande (déplier une question dans les résultats). Sécurité :
- * admin (bypass) OU l'utilisateur a une participation/session COMPLÉTÉE
- * contenant la question. Les IDs non autorisés sont silencieusement absents.
- * Remplace `exams.getQuestionExplanations`.
+ * admin (bypass) OU l'utilisateur a une session de training COMPLÉTÉE contenant
+ * la question, OU une participation COMPLÉTÉE à un examen **CLOS** (`endDate`
+ * passée) contenant la question. Les IDs non autorisés sont silencieusement
+ * absents. Remplace `exams.getQuestionExplanations`.
+ *
+ * Anti-triche : la garde `endDate` sur la branche examen empêche un candidat qui
+ * termine tôt de tirer explications + références + images (= les bonnes réponses)
+ * AVANT l'ouverture des résultats et de les partager pendant la fenêtre d'examen.
+ * Parité avec `getParticipantExamResults` (résultats visibles après `endDate`).
+ * La branche training n'a PAS de garde temporelle (révélation à la complétion).
  */
 export const getExamQuestionExplanations = async (
   questionIds: string[],
@@ -711,6 +718,7 @@ export const getExamQuestionExplanations = async (
     authorized = requested
   } else {
     const uid = session.user.id
+    const nowDate = new Date()
     const [viaExam, viaTraining] = await Promise.all([
       db
         .selectDistinct({ questionId: examQuestions.questionId })
@@ -719,10 +727,14 @@ export const getExamQuestionExplanations = async (
           examParticipations,
           eq(examParticipations.examId, examQuestions.examId),
         )
+        .innerJoin(exams, eq(exams.id, examQuestions.examId))
         .where(
           and(
             eq(examParticipations.userId, uid),
             inArray(examParticipations.status, ["completed", "auto_submitted"]),
+            // Examen CLOS uniquement : pas de révélation avant l'ouverture des
+            // résultats (anti-fuite pendant la fenêtre d'examen).
+            lte(exams.endDate, nowDate),
             inArray(examQuestions.questionId, requested),
           ),
         ),
