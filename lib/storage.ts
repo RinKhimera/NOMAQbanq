@@ -74,19 +74,22 @@ export const generateQuestionImagePath = (
 }
 
 /**
- * Chemin TAMPON (`tmp/questions/{id}/…`) pour un upload d'image question avant
- * persistance. L'upload presigned vise ce préfixe ; au save, l'objet est copié
- * vers son chemin final (`questions/{id}/…`, cf. `finalPathFromTmp`) et le tmp/
- * est laissé expirer par une règle Lifecycle S3 → aucun orphelin ne s'accumule
- * jamais dans le vrai dossier (anti-orphelins « approche C »).
+ * Chemin TAMPON (`tmp/questions/{id}/{kind}/…`) pour un upload d'image question
+ * avant persistance. L'upload presigned vise ce préfixe ; au save, l'objet est
+ * copié vers son chemin final (`questions/{id}/{kind}/…`, cf. `finalPathFromTmp`)
+ * et le tmp/ est laissé expirer par une règle Lifecycle S3 → aucun orphelin ne
+ * s'accumule jamais dans le vrai dossier (anti-orphelins « approche C »). Le
+ * `kind` (`statement`/`explanation`) namespace les deux jeux d'images d'une même
+ * question pour éviter toute collision d'index.
  */
 export const generateQuestionImageTmpPath = (
   questionId: string,
+  kind: "statement" | "explanation",
   index: number,
   extension: string,
 ): string => {
   const cleanExt = extension.replace(/^\./, "").toLowerCase()
-  return `tmp/questions/${questionId}/${Date.now()}-${index}.${cleanExt}`
+  return `tmp/questions/${questionId}/${kind}/${Date.now()}-${index}.${cleanExt}`
 }
 
 /**
