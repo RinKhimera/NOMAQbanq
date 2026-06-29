@@ -72,6 +72,11 @@ export type TrainingSessionQuestion = {
   correctAnswer?: string
   explanation?: string
   references?: string[]
+  /**
+   * Images d'explication (`kind='explanation'`), révélées seulement à la
+   * correction (session complétée). Jamais sur le pont d'énoncé `images`.
+   */
+  explanationImages?: TrainingImageView[]
 }
 
 export type TrainingAnswerRecord = Record<
@@ -95,7 +100,10 @@ const groupImages = (
   return map
 }
 
-const fetchImages = async (questionIds: string[]) => {
+const fetchImages = async (
+  questionIds: string[],
+  kind: "statement" | "explanation" = "statement",
+) => {
   if (questionIds.length === 0) return new Map<string, TrainingImageView[]>()
   const rows = await db
     .select({
@@ -104,7 +112,12 @@ const fetchImages = async (questionIds: string[]) => {
       position: questionImages.position,
     })
     .from(questionImages)
-    .where(inArray(questionImages.questionId, questionIds))
+    .where(
+      and(
+        eq(questionImages.kind, kind),
+        inArray(questionImages.questionId, questionIds),
+      ),
+    )
     .orderBy(asc(questionImages.position))
   return groupImages(rows)
 }
@@ -646,7 +659,13 @@ export const getTrainingSessionResults = async (
     .where(eq(trainingSessionItems.sessionId, sessionId))
     .orderBy(asc(trainingSessionItems.position))
 
-  const imgMap = await fetchImages(items.map((i) => i.questionId))
+  const questionIds = items.map((i) => i.questionId)
+  // Session complétée → révélation : images d'énoncé ET d'explication. Le canal
+  // explication reste séparé du pont d'énoncé `images` (anti-fuite en passation).
+  const [imgMap, explImgMap] = await Promise.all([
+    fetchImages(questionIds),
+    fetchImages(questionIds, "explanation"),
+  ])
 
   const questionsView: TrainingSessionQuestion[] = items.map((i) => ({
     _id: i.questionId,
@@ -659,6 +678,7 @@ export const getTrainingSessionResults = async (
     correctAnswer: i.correctAnswer,
     explanation: i.explanation ?? "",
     references: i.references ?? [],
+    explanationImages: explImgMap.get(i.questionId) ?? [],
   }))
 
   const answers: TrainingAnswerRecord = {}

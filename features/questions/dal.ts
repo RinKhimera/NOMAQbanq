@@ -46,17 +46,29 @@ const decodeCursor = (
 
 // EXISTS / NOT EXISTS corrélé sur les images d'une question (filtre « avec/sans
 // images » sans colonne dénormalisée — remplace `hasImagesComputed` Convex).
+// Scopé `kind='statement'` : les compteurs/filtres admin reflètent les images
+// d'ÉNONCÉ (sens admin actuel), pas celles d'explication.
 const hasImagesSubquery = exists(
   db
     .select({ x: sql`1` })
     .from(questionImages)
-    .where(eq(questionImages.questionId, questions.id)),
+    .where(
+      and(
+        eq(questionImages.questionId, questions.id),
+        eq(questionImages.kind, "statement"),
+      ),
+    ),
 )
 const noImagesSubquery = notExists(
   db
     .select({ x: sql`1` })
     .from(questionImages)
-    .where(eq(questionImages.questionId, questions.id)),
+    .where(
+      and(
+        eq(questionImages.questionId, questions.id),
+        eq(questionImages.kind, "statement"),
+      ),
+    ),
 )
 
 // ============================================
@@ -170,9 +182,12 @@ export const getQuestionsWithFilters = async ({
         })
         .from(questionImages)
         .where(
-          inArray(
-            questionImages.questionId,
-            pageRows.map((r) => r.id),
+          and(
+            eq(questionImages.kind, "statement"),
+            inArray(
+              questionImages.questionId,
+              pageRows.map((r) => r.id),
+            ),
           ),
         )
         .groupBy(questionImages.questionId)
@@ -217,7 +232,10 @@ export type QuestionDetail = {
   createdAt: number
   explanation: string
   references: string[] | null
+  /** Images d'énoncé (`kind='statement'`). */
   images: QuestionImageView[]
+  /** Images d'explication (`kind='explanation'`), affichées à la correction. */
+  explanationImages: QuestionImageView[]
 }
 
 /**
@@ -253,15 +271,29 @@ export const getQuestionById = async (
     .where(eq(questionExplanations.questionId, id))
     .limit(1)
 
-  const imgs = await db
+  // Deux jeux d'images séparés par `kind` (énoncé vs explication).
+  const allImgs = await db
     .select({
       id: questionImages.id,
       storagePath: questionImages.storagePath,
       position: questionImages.position,
+      kind: questionImages.kind,
     })
     .from(questionImages)
     .where(eq(questionImages.questionId, id))
     .orderBy(asc(questionImages.position))
+
+  const images: QuestionImageView[] = []
+  const explanationImages: QuestionImageView[] = []
+  for (const img of allImgs) {
+    const view = {
+      id: img.id,
+      storagePath: img.storagePath,
+      position: img.position,
+    }
+    if (img.kind === "explanation") explanationImages.push(view)
+    else images.push(view)
+  }
 
   return {
     id: q.id,
@@ -273,7 +305,8 @@ export const getQuestionById = async (
     createdAt: q.createdAt.getTime(),
     explanation: expl?.explanation ?? "",
     references: expl?.references ?? null,
-    images: imgs,
+    images,
+    explanationImages,
   }
 }
 
@@ -374,9 +407,12 @@ export const getRandomQuizQuestions = async ({
     })
     .from(questionImages)
     .where(
-      inArray(
-        questionImages.questionId,
-        rows.map((r) => r.id),
+      and(
+        eq(questionImages.kind, "statement"),
+        inArray(
+          questionImages.questionId,
+          rows.map((r) => r.id),
+        ),
       ),
     )
     .orderBy(asc(questionImages.position))
@@ -408,12 +444,49 @@ export type QuizAnswerKey = {
   correctAnswer: string
   explanation: string
   references: string[]
+  explanationImages: QuizImageView[]
 }
 
 /**
- * [Public] Clé de correction (correctAnswer + explication + références) pour un
- * lot d'ids. Utilisée par le scoring du quiz APRÈS soumission. Joint
- * `questionExplanations`. Borné par l'appelant (longueur du quiz).
+ * Charge les images d'EXPLICATION (`kind='explanation'`) pour un lot d'ids,
+ * groupées par question, URL CDN dérivée. Canal de révélation (correction) —
+ * jamais sur le pont d'énoncé `images`. `Map` vide si aucun id.
+ */
+const fetchExplanationImages = async (
+  questionIds: string[],
+): Promise<Map<string, QuizImageView[]>> => {
+  const map = new Map<string, QuizImageView[]>()
+  if (questionIds.length === 0) return map
+  const rows = await db
+    .select({
+      questionId: questionImages.questionId,
+      storagePath: questionImages.storagePath,
+      position: questionImages.position,
+    })
+    .from(questionImages)
+    .where(
+      and(
+        eq(questionImages.kind, "explanation"),
+        inArray(questionImages.questionId, questionIds),
+      ),
+    )
+    .orderBy(asc(questionImages.position))
+  for (const img of rows) {
+    const list = map.get(img.questionId) ?? []
+    list.push({
+      url: cdnUrl(img.storagePath),
+      storagePath: img.storagePath,
+      order: img.position,
+    })
+    map.set(img.questionId, list)
+  }
+  return map
+}
+
+/**
+ * [Public] Clé de correction (correctAnswer + explication + références + images
+ * d'explication) pour un lot d'ids. Utilisée par le scoring du quiz APRÈS
+ * soumission. Joint `questionExplanations`. Borné par l'appelant (longueur du quiz).
  */
 export const getQuizAnswerKey = async (
   questionIds: string[],
@@ -434,6 +507,8 @@ export const getQuizAnswerKey = async (
     )
     .where(and(inArray(questions.id, questionIds), isNull(questions.deletedAt)))
 
+  const explImgMap = await fetchExplanationImages(rows.map((r) => r.id))
+
   const map = new Map<string, QuizAnswerKey>()
   for (const r of rows) {
     map.set(r.id, {
@@ -441,6 +516,7 @@ export const getQuizAnswerKey = async (
       correctAnswer: r.correctAnswer,
       explanation: r.explanation ?? "",
       references: r.references ?? [],
+      explanationImages: explImgMap.get(r.id) ?? [],
     })
   }
   return map
@@ -509,7 +585,9 @@ export const getQuestionStatsEnriched =
             eq(questions.id, questionImages.questionId),
             isNull(questions.deletedAt),
           ),
-        ),
+        )
+        // Scopé `statement` : `withImagesCount` = questions ayant ≥ 1 image d'énoncé.
+        .where(eq(questionImages.kind, "statement")),
     ])
 
     const totalCount = domainStats.reduce((s, d) => s + d.count, 0)
@@ -603,9 +681,12 @@ export const getQuestionsForExport = async ({
         })
         .from(questionImages)
         .where(
-          inArray(
-            questionImages.questionId,
-            rows.map((r) => r.id),
+          and(
+            eq(questionImages.kind, "statement"),
+            inArray(
+              questionImages.questionId,
+              rows.map((r) => r.id),
+            ),
           ),
         )
         .groupBy(questionImages.questionId)

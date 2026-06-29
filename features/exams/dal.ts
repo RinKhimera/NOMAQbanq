@@ -60,7 +60,10 @@ const groupImages = (
   return map
 }
 
-const fetchImages = async (questionIds: string[]) => {
+const fetchImages = async (
+  questionIds: string[],
+  kind: "statement" | "explanation" = "statement",
+) => {
   if (questionIds.length === 0) return new Map<string, ExamImageView[]>()
   const rows = await db
     .select({
@@ -69,7 +72,12 @@ const fetchImages = async (questionIds: string[]) => {
       position: questionImages.position,
     })
     .from(questionImages)
-    .where(inArray(questionImages.questionId, questionIds))
+    .where(
+      and(
+        eq(questionImages.kind, kind),
+        inArray(questionImages.questionId, questionIds),
+      ),
+    )
     .orderBy(asc(questionImages.position))
   return groupImages(rows)
 }
@@ -752,11 +760,15 @@ export const getExamQuestionExplanations = async (
     .from(questionExplanations)
     .where(inArray(questionExplanations.questionId, authorized))
 
+  // Images d'explication (`kind='explanation'`) sur le canal de révélation —
+  // jamais sur le pont d'énoncé. Lecture scopée via le même `fetchImages`.
+  const explImgMap = await fetchImages(authorized, "explanation")
+
   return rows.map((r) => ({
     questionId: r.questionId,
     explanation: r.explanation,
     references: r.references ?? undefined,
-    explanationImages: [],
+    explanationImages: explImgMap.get(r.questionId) ?? [],
   }))
 }
 
