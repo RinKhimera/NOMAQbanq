@@ -27,6 +27,9 @@ const examFields = {
     .min(MIN_PAUSE_MINUTES)
     .max(MAX_PAUSE_MINUTES)
     .optional(),
+  // Audience : ouvert aux abonnés (défaut) ou restreint à une liste choisie.
+  audienceType: z.enum(["subscribers", "restricted"]).default("subscribers"),
+  audienceUserIds: z.array(z.string().min(1)).max(5000).default([]),
 }
 
 const datesOrdered = (d: { startDate: number; endDate: number }) =>
@@ -42,18 +45,32 @@ const uniqueIssue = {
   message: "Des questions sont sélectionnées en double",
   path: ["questionIds"],
 }
+// Audience restreinte → au moins un utilisateur sélectionné.
+const audienceValid = (d: {
+  audienceType: "subscribers" | "restricted"
+  audienceUserIds: string[]
+}) => d.audienceType === "subscribers" || d.audienceUserIds.length >= 1
+const audienceIssue = {
+  message: "Sélectionnez au moins un utilisateur",
+  path: ["audienceUserIds"],
+}
 
 export const createExamSchema = z
   .object(examFields)
   .refine(datesOrdered, datesIssue)
   .refine(uniqueQuestions, uniqueIssue)
-export type CreateExamInput = z.infer<typeof createExamSchema>
+  .refine(audienceValid, audienceIssue)
+// `z.input` : les champs à défaut (`enablePause`, `audienceType`,
+// `audienceUserIds`) restent optionnels pour l'appelant ; le parse applique les
+// défauts et le corps d'action lit `parsed.data` (type de sortie complet).
+export type CreateExamInput = z.input<typeof createExamSchema>
 
 export const updateExamSchema = z
   .object({ id: z.string().min(1), ...examFields })
   .refine(datesOrdered, datesIssue)
   .refine(uniqueQuestions, uniqueIssue)
-export type UpdateExamInput = z.infer<typeof updateExamSchema>
+  .refine(audienceValid, audienceIssue)
+export type UpdateExamInput = z.input<typeof updateExamSchema>
 
 export const saveExamAnswerSchema = z.object({
   examId: z.string().min(1),
