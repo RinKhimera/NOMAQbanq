@@ -291,8 +291,10 @@ export const getQuestionById = async (
       storagePath: img.storagePath,
       position: img.position,
     }
+    // Catégorisation explicite par kind : un éventuel futur 3e kind n'irait PAS
+    // par défaut dans `images` (pont d'énoncé) — défense en profondeur anti-fuite.
     if (img.kind === "explanation") explanationImages.push(view)
-    else images.push(view)
+    else if (img.kind === "statement") images.push(view)
   }
 
   return {
