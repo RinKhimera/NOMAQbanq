@@ -570,8 +570,9 @@ describe("useQuizSession — pause (rest break)", () => {
         callbacks: makeCallbacks({ onResume }),
       }),
     )
-    // Pause non encore consommée tant qu'on n'a pas repris (offset serveur = 0)
-    expect(result.current.pauseAlreadyUsed).toBe(false)
+    // isPaused: true au montage → bouton pause déjà masqué même si offset serveur = 0
+    // (évite un flash du bouton sur rechargement en pleine pause)
+    expect(result.current.pauseAlreadyUsed).toBe(true)
 
     await act(async () => {
       await result.current.resume()

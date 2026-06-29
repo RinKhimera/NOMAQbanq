@@ -219,7 +219,7 @@ export const createTrainingSession = async (
 export type SaveTrainingAnswerResult =
   | {
       success: true
-      isCorrect: boolean
+      isCorrect?: boolean
       reveal?: {
         correctAnswer: string
         explanation?: string
@@ -317,7 +317,8 @@ export const saveTrainingAnswer = async (
       }
     }
 
-    return { success: true, isCorrect }
+    // Mode test : ne pas exposer isCorrect sur le fil réseau (anti-triche).
+    return { success: true }
   } catch (error) {
     logDev("[saveTrainingAnswer]", error)
     return fail("Erreur serveur. Réessayez.")

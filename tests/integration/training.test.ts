@@ -133,20 +133,23 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
     expect(view?.answers).toEqual({})
   })
 
-  it("saveTrainingAnswer : calcule isCorrect", async () => {
+  it("saveTrainingAnswer : enregistre la réponse (mode test — isCorrect non exposé)", async () => {
     const ok = await saveTrainingAnswer({
       sessionId: activeSessionId,
       questionId: sessionQuestionIds[0],
       selectedAnswer: "A",
     })
-    expect(ok).toEqual({ success: true, isCorrect: true })
+    // Mode test : isCorrect ne voyage pas sur le fil (anti-triche)
+    expect(ok).toEqual({ success: true })
+    expect((ok as Record<string, unknown>).isCorrect).toBeUndefined()
 
     const ko = await saveTrainingAnswer({
       sessionId: activeSessionId,
       questionId: sessionQuestionIds[1],
       selectedAnswer: "B",
     })
-    expect(ko).toEqual({ success: true, isCorrect: false })
+    expect(ko).toEqual({ success: true })
+    expect((ko as Record<string, unknown>).isCorrect).toBeUndefined()
 
     const view = await getTrainingSessionById(activeSessionId)
     expect(Object.keys(view!.answers)).toHaveLength(2)

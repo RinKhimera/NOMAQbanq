@@ -131,7 +131,8 @@ describe("mode entraînement", () => {
       })
       expect(res.success).toBe(true)
       if (!res.success) return
-      // In test mode, isCorrect is returned (used for internal state) but no reveal
+      // En mode test, isCorrect ne doit PAS voyager sur le fil réseau (anti-triche)
+      expect(res.isCorrect).toBeUndefined()
       expect(res.reveal).toBeUndefined()
     } finally {
       await abandonTrainingSession({ sessionId })

@@ -126,6 +126,9 @@ export function EvaluationClient({
       ? {
           isPaused: initialSession.isPaused,
           totalPauseDurationMs: initialSession.totalPauseDurationMs ?? 0,
+          // Timestamp serveur de début de pause (epoch ms) pour réhydrater le
+          // décompte overlay après un rechargement sans repartir de Date.now().
+          pauseStartedAtMs: initialSession.pauseStartedAt ?? undefined,
         }
       : undefined
 

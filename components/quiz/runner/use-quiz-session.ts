@@ -95,9 +95,13 @@ export function useQuizSession({
     initialPause?.totalPauseDurationMs ?? 0,
   )
   // The single rest pause is "used" if the server already recorded pause time,
-  // or once we successfully resume from a pause taken this session.
+  // OR if we are currently mid-pause on reload (totalPauseDurationMs is still 0
+  // until resume is credited, so we also check isPaused to avoid a flash of
+  // the pause button while the overlay is showing).
   const [pauseAlreadyUsed, setPauseAlreadyUsed] = useState(
-    (initialPause?.totalPauseDurationMs ?? 0) > 0,
+    () =>
+      (initialPause?.isPaused ?? false) ||
+      (initialPause?.totalPauseDurationMs ?? 0) > 0,
   )
 
   const totalQuestions = questions.length

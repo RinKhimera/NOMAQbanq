@@ -21,7 +21,12 @@ export interface QuizRunnerProps {
   questions: QuizQuestion[]
   initialAnswers: AnswersMap
   initialFlags?: Set<string>
-  initialPause?: { isPaused: boolean; totalPauseDurationMs: number }
+  initialPause?: {
+    isPaused: boolean
+    totalPauseDurationMs: number
+    /** Epoch ms de début de pause côté serveur — pour réhydrater le décompte overlay après rechargement. */
+    pauseStartedAtMs?: number
+  }
   /** Pause duration in minutes (for the pause overlay countdown). Default: 15. */
   pauseDurationMinutes?: number
   mode: QuizMode
@@ -45,9 +50,12 @@ function QuizRunnerInner({
   const [localPauseStartedAt, setLocalPauseStartedAt] = useState<
     number | undefined
   >(
-    // If resuming from a paused state, we don't have the original timestamp
-    // so we let the PauseDialog start from the current moment (conservative)
-    initialPause?.isPaused ? Date.now() : undefined,
+    // On reload-while-paused: use the server pauseStartedAt so the overlay
+    // countdown reflects real elapsed time. Fall back to Date.now() only if
+    // the server timestamp is absent (shouldn't happen with a healthy session).
+    initialPause?.isPaused
+      ? (initialPause.pauseStartedAtMs ?? Date.now())
+      : undefined,
   )
   const [isResuming, setIsResuming] = useState(false)
 
