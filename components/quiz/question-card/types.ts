@@ -17,6 +17,9 @@ export type QuestionDoc = {
   explanation: string
   references?: string[]
   images?: Array<{ url: string; storagePath: string; order: number }>
+  // Images d'explication (`kind='explanation'`) — rendues UNIQUEMENT dans le
+  // variant "review" (correction), jamais en "exam" (passation). Cf. Feature 3.
+  explanationImages?: Array<{ url: string; storagePath: string; order: number }>
 }
 
 // Sous-ensemble de QuestionDoc que QuestionCard accepte réellement. Défini comme

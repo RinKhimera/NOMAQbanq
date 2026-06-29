@@ -37,6 +37,9 @@ export default async function TrainingResultsPage({
     correctAnswer: q.correctAnswer,
     explanation: q.explanation,
     references: q.references,
+    // Images d'explication (correction uniquement) — `SessionResults` les rend
+    // sous l'explication via `result.question.explanationImages`.
+    explanationImages: q.explanationImages ?? [],
   }))
 
   // Map TrainingAnswerRecord → AnswersMap

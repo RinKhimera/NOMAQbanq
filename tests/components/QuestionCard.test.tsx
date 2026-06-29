@@ -139,6 +139,25 @@ describe("QuestionCard", () => {
       fireEvent.click(flagButton)
       expect(onFlagToggle).toHaveBeenCalled()
     })
+
+    it("ne révèle JAMAIS les images d'explication en passation (anti-triche)", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={{
+            ...mockQuestion,
+            explanationImages: [
+              { url: "https://cdn/expl-1.jpg", storagePath: "p1", order: 0 },
+            ],
+          }}
+        />,
+      )
+
+      expect(screen.queryByTestId("explanation-images")).not.toBeInTheDocument()
+      expect(
+        screen.queryByAltText("Image d'explication"),
+      ).not.toBeInTheDocument()
+    })
   })
 
   describe("Variant: review", () => {
@@ -171,6 +190,41 @@ describe("QuestionCard", () => {
       expect(screen.getByText("Paris")).toBeInTheDocument()
       expect(screen.getByText("Lyon")).toBeInTheDocument()
       expect(screen.getByText(/Incorrect/i)).toBeInTheDocument()
+    })
+
+    it("affiche les images d'explication sous l'explication (correction)", () => {
+      render(
+        <QuestionCard
+          variant="review"
+          question={{
+            ...mockQuestion,
+            explanationImages: [
+              { url: "https://cdn/expl-1.jpg", storagePath: "p1", order: 0 },
+              { url: "https://cdn/expl-2.jpg", storagePath: "p2", order: 1 },
+            ],
+          }}
+          isExpanded={true}
+          onToggleExpand={vi.fn()}
+        />,
+      )
+
+      expect(screen.getByTestId("explanation-images")).toBeInTheDocument()
+      const imgs = screen.getAllByAltText("Image d'explication")
+      expect(imgs).toHaveLength(2)
+      expect(imgs[0]).toHaveAttribute("src", "https://cdn/expl-1.jpg")
+    })
+
+    it("n'affiche pas le bloc d'images si aucune image d'explication", () => {
+      render(
+        <QuestionCard
+          variant="review"
+          question={mockQuestion}
+          isExpanded={true}
+          onToggleExpand={vi.fn()}
+        />,
+      )
+
+      expect(screen.queryByTestId("explanation-images")).not.toBeInTheDocument()
     })
   })
 })

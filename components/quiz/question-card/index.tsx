@@ -69,14 +69,18 @@ const getAnswerState = (
 }
 
 // ===== Question Explanation Component =====
+type ExplanationImage = { url: string; storagePath: string; order: number }
+
 type QuestionExplanationProps = {
   explanation: string
   references?: string[]
+  explanationImages?: ExplanationImage[]
 }
 
 const QuestionExplanation = ({
   explanation,
   references,
+  explanationImages,
 }: QuestionExplanationProps) => {
   return (
     <motion.div
@@ -97,6 +101,27 @@ const QuestionExplanation = ({
         <p className="text-sm leading-relaxed whitespace-pre-line text-blue-800 dark:text-blue-200">
           {explanation}
         </p>
+
+        {/* Images d'explication (correction uniquement). `url` est déjà l'URL CDN
+            (dérivée côté serveur). Affichées sous le texte de l'explication. */}
+        {explanationImages && explanationImages.length > 0 && (
+          <div
+            data-testid="explanation-images"
+            className="mt-4 flex flex-wrap gap-2"
+          >
+            {[...explanationImages]
+              .sort((a, b) => a.order - b.order)
+              .map((img) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={img.storagePath}
+                  src={img.url}
+                  alt="Image d'explication"
+                  className="max-h-48 rounded-lg border border-blue-200 dark:border-blue-800"
+                />
+              ))}
+          </div>
+        )}
       </div>
 
       {/* References */}
@@ -462,6 +487,7 @@ export const QuestionCard = ({
               <QuestionExplanation
                 explanation={effectiveExplanation}
                 references={effectiveReferences}
+                explanationImages={question.explanationImages}
               />
             ) : (
               <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-900/20">
