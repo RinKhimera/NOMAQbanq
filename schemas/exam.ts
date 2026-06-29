@@ -29,7 +29,9 @@ export const examFormSchema = z
     // du schéma, cassant le typage du resolver `useForm<ExamFormValues>`. La
     // valeur initiale est fournie par les `defaultValues` du formulaire.
     audienceType: z.enum(["subscribers", "restricted"]),
-    audienceUserIds: z.array(z.string()),
+    // Aligné sur le schéma serveur (`features/exams/schemas.ts`) pour un retour
+    // d'erreur cohérent.
+    audienceUserIds: z.array(z.string().min(1)).max(5000),
   })
   .refine(
     (data) => {

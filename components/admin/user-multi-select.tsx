@@ -50,8 +50,12 @@ export function UserMultiSelect({
 
   // Recherche serveur débouncée (300 ms). Le `setState` se produit dans un
   // callback async (pas synchrone dans l'effet) → ne déclenche pas la règle
-  // ESLint `react-hooks/set-state-in-effect`.
+  // ESLint `react-hooks/set-state-in-effect`. Le drapeau `cancelled` ignore une
+  // requête déjà partie : si l'utilisateur tape vite, une réponse lente d'une
+  // recherche obsolète ne doit pas écraser une plus récente (le clearTimeout
+  // seul ne couvre que le timer non encore déclenché).
   useEffect(() => {
+    let cancelled = false
     setIsLoading(true)
     const handle = setTimeout(async () => {
       try {
@@ -59,15 +63,18 @@ export function UserMultiSelect({
           query,
           limit: SEARCH_LIMIT,
         })
-        setResults(rows)
+        if (!cancelled) setResults(rows)
       } catch (error) {
         console.error("loadSearchSelectableUsers", error)
-        setResults([])
+        if (!cancelled) setResults([])
       } finally {
-        setIsLoading(false)
+        if (!cancelled) setIsLoading(false)
       }
     }, 300)
-    return () => clearTimeout(handle)
+    return () => {
+      cancelled = true
+      clearTimeout(handle)
+    }
   }, [query])
 
   const toggleUser = (u: SelectableUser) => {

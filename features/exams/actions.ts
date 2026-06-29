@@ -475,8 +475,24 @@ export const startExam = async ({
             )
             .limit(1)
           if (!member) throw new Error("NOT_IN_AUDIENCE")
-        } else if (!(await hasAccess("exam"))) {
-          throw new Error("ACCESS_EXPIRED")
+        } else {
+          // subscribers : abonnement examen actif requis. Lecture via `tx`
+          // (et non `hasAccess`, qui emprunterait une 2e connexion du pool
+          // pendant la transaction → risque d'épuisement du pool sous
+          // concurrence). Parité avec la re-vérification de finalizeExam.
+          const [acc] = await tx
+            .select({ expiresAt: userAccess.expiresAt })
+            .from(userAccess)
+            .where(
+              and(
+                eq(userAccess.userId, userId),
+                eq(userAccess.accessType, "exam"),
+              ),
+            )
+            .limit(1)
+          if (!acc || acc.expiresAt.getTime() <= now) {
+            throw new Error("ACCESS_EXPIRED")
+          }
         }
       }
 
@@ -579,18 +595,30 @@ export const saveExamAnswer = async (
   const { examId, questionId, selectedAnswer } = parsed.data
 
   try {
-    if (!isAdmin && !(await hasAccess("exam")))
-      return fail("Votre accès aux examens a expiré.")
-
     const now = Date.now()
     const [exam] = await db
-      .select({ startDate: exams.startDate, endDate: exams.endDate })
+      .select({
+        startDate: exams.startDate,
+        endDate: exams.endDate,
+        audienceType: exams.audienceType,
+      })
       .from(exams)
       .where(eq(exams.id, examId))
       .limit(1)
     if (!exam) return fail("Examen introuvable.")
     if (now < exam.startDate.getTime() || now > exam.endDate.getTime())
       return fail("L'examen n'est pas disponible à cette période.")
+
+    // Accès asymétrique (parité startExam/finalizeExam) : restricted → la
+    // participation in_progress (vérifiée plus bas) EST l'autorisation, pas
+    // besoin d'abonnement (la sélection octroie l'accès) ; subscribers →
+    // abonnement examen actif requis.
+    if (
+      !isAdmin &&
+      exam.audienceType === "subscribers" &&
+      !(await hasAccess("exam"))
+    )
+      return fail("Votre accès aux examens a expiré.")
 
     const [p] = await db
       .select({

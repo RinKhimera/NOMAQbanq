@@ -13,6 +13,7 @@ import {
 import {
   createExam,
   finalizeExam,
+  saveExamAnswer,
   startExam,
   updateExam,
 } from "@/features/exams/actions"
@@ -487,5 +488,58 @@ describe("getExamWithQuestions — anti-fuite du texte des questions restreintes
     asMember()
     const view = await getExamWithQuestions(examId)
     expect(view?.questions).toHaveLength(qIds.length)
+  })
+})
+
+describe("saveExamAnswer — la sélection octroie l'accès (D1)", () => {
+  it("un membre restreint SANS abonnement peut enregistrer une réponse", async () => {
+    const examId = await makeRestrictedExam([MEMBER_ID])
+
+    asMember() // pas d'abonnement, mais membre
+    const started = await startExam({ examId })
+    expect(started.success).toBe(true)
+
+    const view = await getExamWithQuestions(examId)
+    const qId = view!.questions[0]._id
+    const res = await saveExamAnswer({
+      examId,
+      questionId: qId,
+      selectedAnswer: "A",
+    })
+    expect(res.success).toBe(true)
+  })
+
+  it("un membre retiré de l'audience en cours peut toujours enregistrer (#6)", async () => {
+    const examId = await makeRestrictedExam([MEMBER_ID])
+
+    asMember()
+    const started = await startExam({ examId })
+    expect(started.success).toBe(true)
+    const view = await getExamWithQuestions(examId)
+    const qId = view!.questions[0]._id
+
+    // Admin retire member de l'audience pendant la passation.
+    asAdmin()
+    const t = now()
+    const up = await updateExam({
+      id: examId,
+      title: `RetraitSA ${suffix}`,
+      startDate: t - 1000,
+      endDate: t + DAY,
+      questionIds: qIds,
+      enablePause: false,
+      audienceType: "restricted",
+      audienceUserIds: [MEMBER2_ID],
+    })
+    expect(up.success).toBe(true)
+
+    // La participation in_progress reste l'autorisation.
+    asMember()
+    const res = await saveExamAnswer({
+      examId,
+      questionId: qId,
+      selectedAnswer: "A",
+    })
+    expect(res.success).toBe(true)
   })
 })

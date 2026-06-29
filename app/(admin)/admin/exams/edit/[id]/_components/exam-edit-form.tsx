@@ -165,9 +165,7 @@ export function ExamEditForm({
           : undefined,
         audienceType: values.audienceType,
         audienceUserIds:
-          values.audienceType === "restricted"
-            ? selectedUsers.map((u) => u.id)
-            : [],
+          values.audienceType === "restricted" ? values.audienceUserIds : [],
       })
 
       if (!result.success) {
