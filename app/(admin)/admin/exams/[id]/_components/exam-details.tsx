@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card"
 import type {
   EligibleCandidate,
+  ExamAudienceUser,
   ExamWithQuestions,
   LeaderboardEntry,
 } from "@/features/exams/dal"
@@ -18,6 +19,7 @@ import { getExamStatus } from "@/lib/exam-status"
 import { EligibleCandidatesSection } from "./eligible-candidates-section"
 import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
+import { RestrictedAudienceSection } from "./restricted-audience-section"
 
 type ExamMeta = NonNullable<ExamWithQuestions>["exam"]
 
@@ -25,6 +27,7 @@ interface ExamDetailsProps {
   exam: ExamMeta
   leaderboard: LeaderboardEntry[]
   candidates: EligibleCandidate[]
+  audience?: ExamAudienceUser[]
   isAdmin?: boolean
   currentUserId?: string
 }
@@ -33,6 +36,7 @@ export function ExamDetails({
   exam,
   leaderboard,
   candidates,
+  audience = [],
   isAdmin = false,
   currentUserId,
 }: ExamDetailsProps) {
@@ -94,7 +98,12 @@ export function ExamDetails({
 
       <ExamSectionStats leaderboard={leaderboard} />
 
-      {isAdmin && <EligibleCandidatesSection candidates={candidates} />}
+      {isAdmin &&
+        (exam.audienceType === "restricted" ? (
+          <RestrictedAudienceSection audience={audience} />
+        ) : (
+          <EligibleCandidatesSection candidates={candidates} />
+        ))}
 
       <ExamLeaderboard
         examId={exam.id}

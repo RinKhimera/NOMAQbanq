@@ -22,6 +22,7 @@ import {
 import { sidebarMenuButtonVariants } from "@/components/ui/sidebar"
 import type {
   EligibleCandidate,
+  ExamAudienceUser,
   ExamQuestionView,
   ExamWithQuestions,
   LeaderboardEntry,
@@ -36,6 +37,7 @@ interface ExamDetailsClientProps {
   questions: ExamQuestionView[]
   leaderboard: LeaderboardEntry[]
   candidates: EligibleCandidate[]
+  audience: ExamAudienceUser[]
   currentUserId?: string
 }
 
@@ -45,6 +47,7 @@ export function ExamDetailsClient({
   questions,
   leaderboard,
   candidates,
+  audience,
   currentUserId,
 }: ExamDetailsClientProps) {
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
@@ -131,6 +134,7 @@ export function ExamDetailsClient({
         exam={exam}
         leaderboard={leaderboard}
         candidates={candidates}
+        audience={audience}
         isAdmin={true}
         currentUserId={currentUserId}
       />

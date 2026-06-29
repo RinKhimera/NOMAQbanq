@@ -242,6 +242,7 @@ export type ExamWithQuestions = {
     enablePause: boolean
     pauseDurationMinutes: number | null
     questionCount: number
+    audienceType: "subscribers" | "restricted"
   }
   questions: ExamQuestionView[]
 } | null
@@ -348,6 +349,7 @@ export const getExamWithQuestions = async (
       enablePause: exam.enablePause,
       pauseDurationMinutes: exam.pauseDurationMinutes,
       questionCount: items.length,
+      audienceType: exam.audienceType,
     },
     questions: questionsView,
   }
