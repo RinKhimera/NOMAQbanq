@@ -38,6 +38,7 @@ export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>
 
 export const setQuestionImagesSchema = z.object({
   questionId: z.string().min(1),
+  kind: z.enum(["statement", "explanation"]).default("statement"),
   images: z
     .array(
       z.object({
@@ -50,4 +51,7 @@ export const setQuestionImagesSchema = z.object({
     .max(20),
 })
 
-export type SetQuestionImagesInput = z.infer<typeof setQuestionImagesSchema>
+// `z.input` (pas `z.infer`/output) : `kind` a un `.default("statement")`, donc
+// optionnel à l'appel (callers existants `{ questionId, images }`) mais toujours
+// défini après `safeParse`.
+export type SetQuestionImagesInput = z.input<typeof setQuestionImagesSchema>

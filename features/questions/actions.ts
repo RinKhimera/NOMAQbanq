@@ -96,6 +96,7 @@ export type QuizQuestionResult = {
   correctAnswer: string
   explanation: string
   references: string[]
+  explanationImages: { url: string; storagePath: string; order: number }[]
 }
 
 export type QuizScore = {
@@ -128,6 +129,7 @@ export const scoreQuizAnswers = async (args: {
       correctAnswer: key.correctAnswer,
       explanation: key.explanation,
       references: key.references,
+      explanationImages: key.explanationImages,
     })
   }
 
@@ -288,7 +290,7 @@ export const setQuestionImages = async (
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
-  const { questionId, images } = parsed.data
+  const { questionId, kind, images } = parsed.data
 
   // Chemin final de chaque image entrante : tampon `tmp/…` → à copier ;
   // chemin déjà final (`questions/…`) → conservé tel quel.
@@ -302,12 +304,13 @@ export const setQuestionImages = async (
   })
 
   // Garde de sécurité : valider TOUS les chemins (pas seulement les `tmp/`). Tout
-  // chemin final DOIT appartenir au préfixe de CETTE question — les `tmp/` y sont
-  // mappés par `finalPathFromTmp`, les images conservées y sont déjà. Sans ça, un
-  // `storagePath` étranger forgé (`questions/AUTRE_ID/x.jpg`) serait stocké sur
-  // cette question puis supprimé de S3 à l'édition suivante → suppression croisée
-  // de l'image d'une autre question (admin-only, défense en profondeur).
-  const finalPrefix = `questions/${questionId}/`
+  // chemin final DOIT appartenir au préfixe de CETTE question ET de CE `kind` —
+  // les `tmp/` y sont mappés par `finalPathFromTmp`, les images conservées y sont
+  // déjà. Sans ça, un `storagePath` étranger forgé (`questions/AUTRE_ID/x.jpg`,
+  // ou un autre `kind` de la même question) serait stocké puis supprimé de S3 à
+  // l'édition suivante → suppression croisée d'images (admin-only, défense en
+  // profondeur). Le sous-dossier `kind` cantonne aussi la suppression au jeu courant.
+  const finalPrefix = `questions/${questionId}/${kind}/`
   try {
     for (const p of planned) {
       if (p.tmpPath) assertSafeStoragePath(p.tmpPath)
@@ -343,19 +346,32 @@ export const setQuestionImages = async (
         .limit(1)
       if (!q) throw new Error("Q_NOT_FOUND")
 
+      // Scope `(questionId, kind)` : remplacer les images d'un `kind` ne touche
+      // pas l'autre jeu (énoncé vs explication), ni leurs objets S3.
       const old = await tx
         .select({ storagePath: questionImages.storagePath })
         .from(questionImages)
-        .where(eq(questionImages.questionId, questionId))
+        .where(
+          and(
+            eq(questionImages.questionId, questionId),
+            eq(questionImages.kind, kind),
+          ),
+        )
 
       await tx
         .delete(questionImages)
-        .where(eq(questionImages.questionId, questionId))
+        .where(
+          and(
+            eq(questionImages.questionId, questionId),
+            eq(questionImages.kind, kind),
+          ),
+        )
 
       if (planned.length > 0) {
         await tx.insert(questionImages).values(
           planned.map((p) => ({
             questionId,
+            kind,
             storagePath: p.finalPath,
             position: p.order,
           })),
@@ -411,6 +427,7 @@ export type CreateQuestionImageUploadResult =
  */
 export const createQuestionImageUpload = async (input: {
   questionId: string
+  kind?: "statement" | "explanation"
   imageIndex: number
   contentType: string
   size: number
@@ -420,6 +437,8 @@ export const createQuestionImageUpload = async (input: {
   if (!QUESTION_ID_RE.test(input.questionId)) {
     return { success: false, error: "Question invalide" }
   }
+  const kind: "statement" | "explanation" =
+    input.kind === "explanation" ? "explanation" : "statement"
   const imageIndex = Math.max(
     0,
     Math.min(
@@ -460,6 +479,7 @@ export const createQuestionImageUpload = async (input: {
 
   const storagePath = generateQuestionImageTmpPath(
     input.questionId,
+    kind,
     imageIndex,
     getExtensionFromMimeType(input.contentType),
   )

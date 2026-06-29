@@ -133,9 +133,10 @@ describe("setQuestionImages", () => {
   it("remplace l'ensemble des images (positions)", async () => {
     const id = await makeOne()
     // Chemins réalistes : une image conservée porte toujours le préfixe de SA
-    // question (`questions/{id}/…`) — la garde de préfixe le requiert.
-    const a = `questions/${id}/a.jpg`
-    const b = `questions/${id}/b.jpg`
+    // question ET de son `kind` (`questions/{id}/statement/…`) — la garde de
+    // préfixe le requiert depuis la namespacing par kind (défaut statement).
+    const a = `questions/${id}/statement/a.jpg`
+    const b = `questions/${id}/statement/b.jpg`
 
     const r1 = await setQuestionImages({
       questionId: id,
@@ -167,8 +168,8 @@ describe("setQuestionImages", () => {
     vi.mocked(copyInS3).mockClear()
     vi.mocked(tryDeleteFromStorage).mockClear()
 
-    const tmpPath = `tmp/questions/${id}/1700000000000-0.jpg`
-    const finalPath = `questions/${id}/1700000000000-0.jpg`
+    const tmpPath = `tmp/questions/${id}/statement/1700000000000-0.jpg`
+    const finalPath = `questions/${id}/statement/1700000000000-0.jpg`
 
     const res = await setQuestionImages({
       questionId: id,
@@ -194,13 +195,15 @@ describe("setQuestionImages", () => {
 
     const res = await setQuestionImages({
       questionId: id,
-      images: [{ storagePath: `questions/${id}/already.jpg`, order: 0 }],
+      images: [
+        { storagePath: `questions/${id}/statement/already.jpg`, order: 0 },
+      ],
     })
     expect(res.success).toBe(true)
     expect(vi.mocked(copyInS3)).not.toHaveBeenCalled()
     const q = await getQuestionById(id)
     expect(q?.images.map((i) => i.storagePath)).toEqual([
-      `questions/${id}/already.jpg`,
+      `questions/${id}/statement/already.jpg`,
     ])
   })
 
@@ -214,7 +217,7 @@ describe("setQuestionImages", () => {
     // serait stocké puis supprimé du CDN à l'édition suivante (suppression croisée).
     const res = await setQuestionImages({
       questionId: id,
-      images: [{ storagePath: `questions/${other}/x.jpg`, order: 0 }],
+      images: [{ storagePath: `questions/${other}/statement/x.jpg`, order: 0 }],
     })
     expect(res.success).toBe(false)
     // Aucune I/O S3 ne doit avoir lieu (ni copie, ni suppression).
@@ -233,8 +236,8 @@ describe("setQuestionImages", () => {
     vi.mocked(copyInS3).mockClear()
     vi.mocked(tryDeleteFromStorage).mockClear()
 
-    const tmpPath = `tmp/questions/${ghost}/1700000000000-0.jpg`
-    const finalPath = `questions/${ghost}/1700000000000-0.jpg`
+    const tmpPath = `tmp/questions/${ghost}/statement/1700000000000-0.jpg`
+    const finalPath = `questions/${ghost}/statement/1700000000000-0.jpg`
 
     const res = await setQuestionImages({
       questionId: ghost,
