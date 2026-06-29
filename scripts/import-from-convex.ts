@@ -130,7 +130,6 @@ async function main() {
       questionId: d.questionId,
       explanation: d.explanation,
       references: d.references ?? null,
-      imagePath: null,
     }))
   await insertBatched(
     schema.questionExplanations,

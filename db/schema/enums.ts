@@ -38,3 +38,7 @@ export const examAudienceType = pgEnum("exam_audience_type", [
   "subscribers",
   "restricted",
 ])
+export const questionImageKind = pgEnum("question_image_kind", [
+  "statement",
+  "explanation",
+])
