@@ -11,7 +11,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { createId } from "@/lib/ids"
 import { user } from "./auth"
-import { examParticipationStatus } from "./enums"
+import { examAudienceType, examParticipationStatus } from "./enums"
 import { questions } from "./questions"
 
 export const exams = pgTable(
@@ -28,6 +28,9 @@ export const exams = pgTable(
     enablePause: boolean("enable_pause").default(false).notNull(),
     pauseDurationMinutes: integer("pause_duration_minutes"),
     isActive: boolean("is_active").default(true).notNull(),
+    audienceType: examAudienceType("audience_type")
+      .default("subscribers")
+      .notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -123,5 +126,27 @@ export const examAnswers = pgTable(
     ),
     index("exam_answers_participation_id_idx").on(t.participationId),
     index("exam_answers_question_id_idx").on(t.questionId),
+  ],
+)
+
+// Audience restreinte d'un examen : la présence d'une ligne (examId, userId)
+// OCTROIE l'accès (même sans abonnement). Peuplée uniquement pour les examens
+// `audienceType = 'restricted'`.
+export const examAudience = pgTable(
+  "exam_audience",
+  {
+    examId: text("exam_id")
+      .notNull()
+      .references(() => exams.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.examId, t.userId] }),
+    index("exam_audience_user_id_idx").on(t.userId),
   ],
 )
