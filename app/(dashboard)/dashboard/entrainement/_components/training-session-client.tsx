@@ -9,6 +9,7 @@ import type {
   QuizCallbacks,
   QuizMode,
   QuizQuestion,
+  QuizRevealPayload,
 } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import {
@@ -79,6 +80,23 @@ export const TrainingSessionClient = ({
   // Mode : feedback immédiat en tuteur, différé en test
   const isTutor = initialData.session.mode === "tutor"
 
+  // En mode tuteur, hydrater les révélations des questions déjà répondues au montage
+  // afin que la QuestionCard affiche correctAnswer + explication dès le rechargement.
+  const initialRevealed: Record<string, QuizRevealPayload> | undefined = isTutor
+    ? Object.fromEntries(
+        initialData.questions
+          .filter((q) => q.correctAnswer !== undefined)
+          .map((q) => [
+            q._id,
+            {
+              correctAnswer: q.correctAnswer!,
+              explanation: q.explanation ?? "",
+              references: q.references ?? [],
+            },
+          ]),
+      )
+    : undefined
+
   const mode: QuizMode = {
     kind: "training",
     accent: "emerald",
@@ -98,6 +116,7 @@ export const TrainingSessionClient = ({
         selectedAnswer,
       })
       if (!res.success) {
+        toast.error("Réponse non enregistrée, réessayez.")
         return { ok: false, error: res.error }
       }
       // En mode tuteur, renvoyer le reveal (correctAnswer + explanation + references)
@@ -133,6 +152,7 @@ export const TrainingSessionClient = ({
     <QuizRunner
       questions={mappedQuestions}
       initialAnswers={initialAnswers}
+      initialRevealed={initialRevealed}
       mode={mode}
       callbacks={callbacks}
     />

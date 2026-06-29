@@ -74,27 +74,6 @@ export function EvaluationClient({
   const totalQuestions = questions.length
   const pauseDurationMinutes = exam.pauseDurationMinutes ?? 15
 
-  // Session déjà soumise → écran de redirection
-  const alreadySubmitted =
-    initialSession?.status === "completed" ||
-    initialSession?.status === "auto_submitted"
-
-  if (alreadySubmitted) {
-    // L'effet dans l'ancien client redirige; ici on redirige directement
-    if (typeof window !== "undefined") {
-      toast.info("Cet examen a déjà été soumis")
-      router.push("/dashboard/examen-blanc")
-    }
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600" />
-          <p className="text-gray-600 dark:text-gray-400">Redirection...</p>
-        </div>
-      </div>
-    )
-  }
-
   // Mapper ExamQuestionView[] → QuizQuestion[] (sans champs sensibles — anti-triche)
   const mappedQuestions: QuizQuestion[] = questions.map((q) => ({
     _id: q._id,
@@ -151,6 +130,7 @@ export function EvaluationClient({
     onAnswer: async (questionId, selectedAnswer) => {
       const res = await saveExamAnswer({ examId, questionId, selectedAnswer })
       if (!res.success) {
+        toast.error("Réponse non enregistrée, réessayez.")
         return {
           ok: false,
           error: res.error ?? "Erreur lors de l'enregistrement",

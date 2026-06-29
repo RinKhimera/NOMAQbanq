@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import {
   getExamAnswersForParticipation,
   getExamSession,
@@ -19,6 +19,11 @@ export default async function EvaluationPage({
     getExamSession(examId),
     getExamAnswersForParticipation(examId),
   ])
+
+  // Session déjà soumise → redirection serveur (évite les effets de bord dans le rendu client).
+  if (session?.status === "completed" || session?.status === "auto_submitted") {
+    redirect(`/dashboard/examen-blanc/${examId}/soumis`)
+  }
 
   return (
     <EvaluationClient

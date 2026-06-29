@@ -631,6 +631,7 @@ export const finalizeExam = async (
           startDate: exams.startDate,
           endDate: exams.endDate,
           completionTime: exams.completionTime,
+          pauseDurationMinutes: exams.pauseDurationMinutes,
         })
         .from(exams)
         .where(eq(exams.id, examId))
@@ -679,7 +680,11 @@ export const finalizeExam = async (
       }
 
       let pauseMs = p.totalPauseDurationMs ?? 0
-      if (p.pauseStartedAt) pauseMs += now - p.pauseStartedAt.getTime()
+      if (p.pauseStartedAt) {
+        const capMs =
+          (exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES) * 60 * 1000
+        pauseMs += Math.min(now - p.pauseStartedAt.getTime(), capMs)
+      }
 
       if (!p.startedAt) throw new Error("NOT_STARTED")
       const elapsed = now - p.startedAt.getTime() - pauseMs

@@ -513,16 +513,22 @@ export const getTrainingSessionById = async (
       correctAnswer: questions.correctAnswer,
       objectifCMC: questions.objectifCmc,
       domain: questions.domain,
+      explanation: questionExplanations.explanation,
+      references: questionExplanations.references,
     })
     .from(trainingSessionItems)
     .innerJoin(questions, eq(questions.id, trainingSessionItems.questionId))
+    .leftJoin(
+      questionExplanations,
+      eq(questionExplanations.questionId, trainingSessionItems.questionId),
+    )
     .where(eq(trainingSessionItems.sessionId, sessionId))
     .orderBy(asc(trainingSessionItems.position))
 
   const imgMap = await fetchImages(items.map((i) => i.questionId))
 
   const questionsView: TrainingSessionQuestion[] = items.map((i) => {
-    // In tutor mode, reveal correctAnswer for already-answered questions.
+    // In tutor mode, reveal correctAnswer + explanation + references for already-answered questions.
     const revealAnswer = isCompleted || (isTutor && i.selectedAnswer !== null)
     return {
       _id: i.questionId,
@@ -532,7 +538,13 @@ export const getTrainingSessionById = async (
       objectifCMC: i.objectifCMC,
       domain: i.domain,
       images: imgMap.get(i.questionId) ?? [],
-      ...(revealAnswer ? { correctAnswer: i.correctAnswer } : {}),
+      ...(revealAnswer
+        ? {
+            correctAnswer: i.correctAnswer,
+            explanation: i.explanation ?? "",
+            references: i.references ?? [],
+          }
+        : {}),
     }
   })
 

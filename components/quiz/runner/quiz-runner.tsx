@@ -14,7 +14,13 @@ import { SessionNavigation } from "@/components/quiz/session/session-navigation"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { useIsVisible } from "@/hooks/use-is-visible"
 import { CalculatorProvider } from "@/hooks/useCalculator"
-import type { AnswersMap, QuizCallbacks, QuizMode, QuizQuestion } from "./types"
+import type {
+  AnswersMap,
+  QuizCallbacks,
+  QuizMode,
+  QuizQuestion,
+  QuizRevealPayload,
+} from "./types"
 import { useQuizSession } from "./use-quiz-session"
 
 export interface QuizRunnerProps {
@@ -27,6 +33,8 @@ export interface QuizRunnerProps {
     /** Epoch ms de début de pause côté serveur — pour réhydrater le décompte overlay après rechargement. */
     pauseStartedAtMs?: number
   }
+  /** Pré-révélations à hydrater au montage (mode tuteur : questions déjà répondues). */
+  initialRevealed?: Record<string, QuizRevealPayload>
   /** Pause duration in minutes (for the pause overlay countdown). Default: 15. */
   pauseDurationMinutes?: number
   mode: QuizMode
@@ -38,6 +46,7 @@ function QuizRunnerInner({
   initialAnswers,
   initialFlags,
   initialPause,
+  initialRevealed,
   pauseDurationMinutes = 15,
   mode,
   callbacks,
@@ -64,6 +73,7 @@ function QuizRunnerInner({
     initialAnswers,
     initialFlags,
     initialPause,
+    initialRevealed,
     mode,
     callbacks,
   })
@@ -147,10 +157,15 @@ function QuizRunnerInner({
 
   const isLastQuestion = session.currentIndex === totalQuestions - 1
 
+  // D3: during a rest pause, only render the header + pause overlay.
+  // No question content (QuestionCard, SessionNavigation, navigators, toolbar)
+  // may appear in the DOM while paused — prevents reading questions via devtools.
+  const isResting = mode.pause === "rest" && session.isPaused
+
   return (
     <div className="min-h-screen bg-linear-to-b from-gray-50 to-white dark:from-gray-950 dark:to-gray-900">
-      {/* Pause overlay — full-screen opaque, blocks ALL question content */}
-      {mode.pause === "rest" && session.isPaused && (
+      {/* Pause overlay — full-screen opaque, shown only during rest pause */}
+      {isResting && (
         <PauseDialog
           isOpen={true}
           onResume={handleResume}
@@ -160,7 +175,7 @@ function QuizRunnerInner({
         />
       )}
 
-      {/* Header */}
+      {/* Header — always visible */}
       <SessionHeader
         config={sessionConfig}
         currentIndex={session.currentIndex}
@@ -173,92 +188,103 @@ function QuizRunnerInner({
         examActions={examActions}
       />
 
-      {/* Main content */}
-      <div className="container mx-auto max-w-7xl px-4 py-6">
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-          {/* Question area */}
-          <div className="space-y-6">
-            <AnimatePresence mode="wait">
-              {currentQuestion && (
-                <motion.div
-                  key={currentQuestion._id}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <QuestionCard
-                    question={currentQuestion as never}
-                    variant="exam"
-                    questionNumber={session.currentIndex + 1}
-                    selectedAnswer={selectedAnswer}
-                    onAnswerSelect={async (index) => {
-                      await session.answerSelect(index)
-                    }}
-                    isFlagged={isFlagged}
-                    onFlagToggle={session.toggleFlag}
-                    showImage={true}
-                    showCorrectAnswer={isCurrentRevealed}
-                    showDomainBadge={mode.showMeta}
-                    showObjectifBadge={mode.showMeta}
-                    lazyExplanation={
-                      isCurrentRevealed ? currentReveal?.explanation : undefined
-                    }
-                    lazyReferences={
-                      isCurrentRevealed ? currentReveal?.references : undefined
-                    }
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
+      {/* Question content — NOT rendered during rest pause (D3 compliance) */}
+      {!isResting && (
+        <>
+          {/* Main content */}
+          <div className="container mx-auto max-w-7xl px-4 py-6">
+            <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+              {/* Question area */}
+              <div className="space-y-6">
+                <AnimatePresence mode="wait">
+                  {currentQuestion && (
+                    <motion.div
+                      key={currentQuestion._id}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -20 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <QuestionCard
+                        question={currentQuestion as never}
+                        variant="exam"
+                        questionNumber={session.currentIndex + 1}
+                        selectedAnswer={selectedAnswer}
+                        onAnswerSelect={async (index) => {
+                          await session.answerSelect(index)
+                        }}
+                        isFlagged={isFlagged}
+                        onFlagToggle={session.toggleFlag}
+                        showImage={true}
+                        showCorrectAnswer={isCurrentRevealed}
+                        showDomainBadge={mode.showMeta}
+                        showObjectifBadge={mode.showMeta}
+                        lazyExplanation={
+                          isCurrentRevealed
+                            ? currentReveal?.explanation
+                            : undefined
+                        }
+                        lazyReferences={
+                          isCurrentRevealed
+                            ? currentReveal?.references
+                            : undefined
+                        }
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
-            {/* Navigation buttons */}
-            <SessionNavigation
-              currentIndex={session.currentIndex}
-              totalQuestions={totalQuestions}
-              isFlagged={isFlagged}
-              onPrevious={session.goPrevious}
-              onNext={isLastQuestion ? session.requestFinish : session.goNext}
-              onToggleFlag={session.toggleFlag}
-              accentColor={accentColor}
-            />
+                {/* Navigation buttons */}
+                <SessionNavigation
+                  currentIndex={session.currentIndex}
+                  totalQuestions={totalQuestions}
+                  isFlagged={isFlagged}
+                  onPrevious={session.goPrevious}
+                  onNext={
+                    isLastQuestion ? session.requestFinish : session.goNext
+                  }
+                  onToggleFlag={session.toggleFlag}
+                  accentColor={accentColor}
+                />
+              </div>
+
+              {/* Right column — desktop navigator */}
+              <div className="hidden lg:block">
+                <div ref={desktopNavRef} className="h-1" />
+                <QuestionNavigator
+                  questions={questions as never}
+                  answers={navigatorAnswers}
+                  flaggedQuestions={session.flagged}
+                  currentIndex={session.currentIndex}
+                  onNavigate={session.goTo}
+                  accentColor={accentColor}
+                />
+              </div>
+            </div>
           </div>
 
-          {/* Right column — desktop navigator */}
-          <div className="hidden lg:block">
-            <div ref={desktopNavRef} className="h-1" />
-            <QuestionNavigator
-              questions={questions as never}
-              answers={navigatorAnswers}
-              flaggedQuestions={session.flagged}
-              currentIndex={session.currentIndex}
-              onNavigate={session.goTo}
-              accentColor={accentColor}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Floating toolbar with mobile nav FAB */}
-      <SessionToolbar
-        showCalculator={true}
-        onOpenCalculator={() => setIsCalculatorOpen(true)}
-        showLabValues={true}
-        onOpenLabValues={() => setIsLabValuesOpen(true)}
-        showScrollTop={true}
-        showNavFab={!isDesktopNavVisible}
-        navFab={
-          <QuestionNavigator
-            questions={questions as never}
-            answers={navigatorAnswers}
-            flaggedQuestions={session.flagged}
-            currentIndex={session.currentIndex}
-            onNavigate={session.goTo}
-            variant="mobile"
-            accentColor={accentColor}
+          {/* Floating toolbar with mobile nav FAB */}
+          <SessionToolbar
+            showCalculator={true}
+            onOpenCalculator={() => setIsCalculatorOpen(true)}
+            showLabValues={true}
+            onOpenLabValues={() => setIsLabValuesOpen(true)}
+            showScrollTop={true}
+            showNavFab={!isDesktopNavVisible}
+            navFab={
+              <QuestionNavigator
+                questions={questions as never}
+                answers={navigatorAnswers}
+                flaggedQuestions={session.flagged}
+                currentIndex={session.currentIndex}
+                onNavigate={session.goTo}
+                variant="mobile"
+                accentColor={accentColor}
+              />
+            }
           />
-        }
-      />
+        </>
+      )}
 
       {/* Calculator dialog */}
       <Calculator

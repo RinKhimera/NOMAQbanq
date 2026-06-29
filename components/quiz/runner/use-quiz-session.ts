@@ -16,6 +16,8 @@ export type UseQuizSessionOptions = {
   initialFlags?: Set<string>
   // État de pause initial (réhydraté depuis ExamSessionView à la reprise).
   initialPause?: { isPaused: boolean; totalPauseDurationMs: number }
+  // Pré-révélations à hydrater au montage (mode tuteur : questions déjà répondues).
+  initialRevealed?: Record<string, QuizRevealPayload>
   mode: QuizMode
   callbacks: QuizCallbacks
 }
@@ -73,6 +75,7 @@ export function useQuizSession({
   initialAnswers,
   initialFlags,
   initialPause,
+  initialRevealed,
   mode,
   callbacks,
 }: UseQuizSessionOptions): UseQuizSessionResult {
@@ -84,7 +87,7 @@ export function useQuizSession({
     () => new Set(initialFlags ?? []),
   )
   const [revealed, setRevealed] = useState<Record<string, QuizRevealPayload>>(
-    {},
+    () => ({ ...(initialRevealed ?? {}) }),
   )
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [isSubmitting, startTransition] = useTransition()
@@ -154,34 +157,40 @@ export function useQuizSession({
       const selected = currentQuestion.options[optionIndex]
       if (!selected) return
 
-      const res = await callbacks.onAnswer(qid, selected)
-      if (!res.ok) return
+      // Optimistic update: apply the selection immediately before the server round-trip.
+      const prev = answers[qid]
+      setAnswers((a) => ({ ...a, [qid]: { ...a[qid], selected } }))
 
-      setAnswers((prev) => {
-        const existing = prev[qid]
-        const next: AnswersMap = {
-          ...prev,
-          [qid]: { ...existing, selected },
-        }
-        return next
-      })
+      const res = await callbacks.onAnswer(qid, selected)
+
+      if (!res.ok) {
+        // Roll back to the previous state on failure.
+        setAnswers((a) => {
+          const next = { ...a }
+          if (prev === undefined) {
+            delete next[qid]
+          } else {
+            next[qid] = prev
+          }
+          return next
+        })
+        return
+      }
 
       if (res.reveal && mode.feedback === "immediate") {
         const reveal = res.reveal
-        setRevealed((prev) => ({ ...prev, [qid]: reveal }))
+        setRevealed((r) => ({ ...r, [qid]: reveal }))
         // Store isCorrect derived from reveal
-        setAnswers((prev) => ({
-          ...prev,
+        setAnswers((a) => ({
+          ...a,
           [qid]: {
             selected,
-            isCorrect:
-              prev[qid]?.selected === reveal.correctAnswer ||
-              selected === reveal.correctAnswer,
+            isCorrect: selected === reveal.correctAnswer,
           },
         }))
       }
     },
-    [currentQuestion, callbacks, mode.feedback],
+    [currentQuestion, answers, callbacks, mode.feedback],
   )
 
   // ---- Pause / resume (rest break) ----
