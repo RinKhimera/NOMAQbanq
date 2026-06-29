@@ -1,10 +1,11 @@
 "use server"
 
-import { and, asc, eq, inArray, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import {
   examAnswers,
+  examAudience,
   examParticipations,
   examQuestions,
   exams,
@@ -15,8 +16,11 @@ import {
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 import { hasAccess } from "../payments/dal"
+import { type SelectableUser, searchSelectableUsers } from "../users/dal"
 import {
+  type ExamAudienceUser,
   type QuestionExplanationView,
+  getExamAudience,
   getExamQuestionExplanations,
 } from "./dal"
 import {
@@ -58,6 +62,23 @@ export const loadExamQuestionExplanations = async (
   return getExamQuestionExplanations(questionIds)
 }
 
+/** [Admin] Recherche serveur d'utilisateurs sélectionnables (picker d'audience). */
+export const loadSearchSelectableUsers = async (params: {
+  query?: string
+  limit?: number
+}): Promise<SelectableUser[]> => {
+  await requireRole(["admin"])
+  return searchSelectableUsers(params)
+}
+
+/** [Admin] Audience restreinte d'un examen (pré-remplissage du picker en édition). */
+export const loadExamAudience = async (
+  examId: string,
+): Promise<ExamAudienceUser[]> => {
+  await requireRole(["admin"])
+  return getExamAudience(examId)
+}
+
 // ============================================
 // Admin : CRUD examens
 // ============================================
@@ -87,6 +108,8 @@ export const createExam = async (
     questionIds,
     enablePause,
     pauseDurationMinutes,
+    audienceType,
+    audienceUserIds,
   } = parsed.data
 
   try {
@@ -114,6 +137,7 @@ export const createExam = async (
         completionTime: questionIds.length * SECONDS_PER_QUESTION,
         enablePause,
         pauseDurationMinutes: resolvePause(enablePause, pauseDurationMinutes),
+        audienceType,
         createdBy: session.user.id,
       })
       await tx.insert(examQuestions).values(
@@ -123,13 +147,32 @@ export const createExam = async (
           position,
         })),
       )
+
+      if (audienceType === "restricted") {
+        const uniqueIds = [...new Set(audienceUserIds)]
+        const validUsers = await tx
+          .select({ id: user.id })
+          .from(user)
+          .where(and(inArray(user.id, uniqueIds), isNull(user.deletedAt)))
+        if (validUsers.length !== uniqueIds.length) {
+          throw new Error("INVALID_USERS")
+        }
+        await tx
+          .insert(examAudience)
+          .values(uniqueIds.map((userId) => ({ examId, userId })))
+      }
     })
 
     revalidatePath("/admin/exams")
     return { success: true, examId }
   } catch (error) {
-    if (error instanceof Error && error.message === "INVALID_QUESTIONS") {
-      return fail("Certaines questions sélectionnées sont introuvables.")
+    if (error instanceof Error) {
+      if (error.message === "INVALID_QUESTIONS") {
+        return fail("Certaines questions sélectionnées sont introuvables.")
+      }
+      if (error.message === "INVALID_USERS") {
+        return fail("Certains utilisateurs sélectionnés sont introuvables.")
+      }
     }
     logDev("[createExam]", error)
     return fail("Erreur serveur. Réessayez.")
@@ -162,6 +205,8 @@ export const updateExam = async (
     questionIds,
     enablePause,
     pauseDurationMinutes,
+    audienceType,
+    audienceUserIds,
   } = parsed.data
 
   try {
@@ -219,6 +264,7 @@ export const updateExam = async (
           completionTime: questionIds.length * SECONDS_PER_QUESTION,
           enablePause,
           pauseDurationMinutes: resolvePause(enablePause, pauseDurationMinutes),
+          audienceType,
         })
         .where(eq(exams.id, id))
 
@@ -233,6 +279,24 @@ export const updateExam = async (
             position,
           })),
         )
+      }
+
+      // Audience éditable à tout moment (indépendamment des participations) :
+      // delete + réinsert dédupliqué si restreint, vidée si bascule subscribers.
+      // Ne JAMAIS toucher examParticipations (participations conservées).
+      await tx.delete(examAudience).where(eq(examAudience.examId, id))
+      if (audienceType === "restricted") {
+        const uniqueIds = [...new Set(audienceUserIds)]
+        const validUsers = await tx
+          .select({ id: user.id })
+          .from(user)
+          .where(and(inArray(user.id, uniqueIds), isNull(user.deletedAt)))
+        if (validUsers.length !== uniqueIds.length) {
+          throw new Error("INVALID_USERS")
+        }
+        await tx
+          .insert(examAudience)
+          .values(uniqueIds.map((userId) => ({ examId: id, userId })))
       }
     })
 
@@ -249,6 +313,9 @@ export const updateExam = async (
       }
       if (error.message === "INVALID_QUESTIONS") {
         return fail("Certaines questions sélectionnées sont introuvables.")
+      }
+      if (error.message === "INVALID_USERS") {
+        return fail("Certains utilisateurs sélectionnés sont introuvables.")
       }
     }
     logDev("[updateExam]", error)
@@ -369,10 +436,6 @@ export const startExam = async ({
   if (!examId) return fail("Examen requis")
 
   try {
-    if (!isAdmin && !(await hasAccess("exam"))) {
-      return fail("Votre accès aux examens a expiré.")
-    }
-
     const result = await db.transaction(async (tx) => {
       await tx
         .select({ id: user.id })
@@ -384,6 +447,7 @@ export const startExam = async ({
         .select({
           startDate: exams.startDate,
           endDate: exams.endDate,
+          audienceType: exams.audienceType,
         })
         .from(exams)
         .where(eq(exams.id, examId))
@@ -393,6 +457,27 @@ export const startExam = async ({
       const now = Date.now()
       if (now < exam.startDate.getTime() || now > exam.endDate.getTime()) {
         throw new Error("OUTSIDE_WINDOW")
+      }
+
+      // Garde d'accès « sélection = accès » :
+      // - restricted → appartenance à examAudience requise (pas d'abonnement) ;
+      // - subscribers → abonnement examen actif (comportement historique).
+      if (!isAdmin) {
+        if (exam.audienceType === "restricted") {
+          const [member] = await tx
+            .select({ userId: examAudience.userId })
+            .from(examAudience)
+            .where(
+              and(
+                eq(examAudience.examId, examId),
+                eq(examAudience.userId, userId),
+              ),
+            )
+            .limit(1)
+          if (!member) throw new Error("NOT_IN_AUDIENCE")
+        } else if (!(await hasAccess("exam"))) {
+          throw new Error("ACCESS_EXPIRED")
+        }
       }
 
       const [existing] = await tx
@@ -463,6 +548,12 @@ export const startExam = async ({
       }
       if (error.message === "ALREADY_TAKEN") {
         return fail("Vous avez déjà passé cet examen.")
+      }
+      if (error.message === "NOT_IN_AUDIENCE") {
+        return fail("Cet examen ne vous est pas destiné.")
+      }
+      if (error.message === "ACCESS_EXPIRED") {
+        return fail("Votre accès aux examens a expiré.")
       }
     }
     logDev("[startExam]", error)
@@ -632,6 +723,7 @@ export const finalizeExam = async (
           endDate: exams.endDate,
           completionTime: exams.completionTime,
           pauseDurationMinutes: exams.pauseDurationMinutes,
+          audienceType: exams.audienceType,
         })
         .from(exams)
         .where(eq(exams.id, examId))
@@ -664,7 +756,13 @@ export const finalizeExam = async (
         throw new Error("ALREADY_TAKEN")
       if (p.status !== "in_progress") throw new Error("NOT_IN_PROGRESS")
 
-      if (!isAdmin) {
+      // Re-vérification d'accès ASYMÉTRIQUE :
+      // - subscribers → re-vérifier l'abonnement (empêche de soumettre après
+      //   expiration) ;
+      // - restricted → AUCUNE re-vérification d'appartenance : une participation
+      //   in_progress n'existe que si startExam a déjà autorisé l'accès ; un
+      //   membre retiré de l'audience en cours doit pouvoir finaliser (revue #6).
+      if (!isAdmin && exam.audienceType === "subscribers") {
         const [acc] = await tx
           .select({ expiresAt: userAccess.expiresAt })
           .from(userAccess)

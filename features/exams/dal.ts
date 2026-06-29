@@ -3,11 +3,13 @@ import {
   asc,
   desc,
   eq,
+  exists,
   gt,
   gte,
   inArray,
   isNotNull,
   lte,
+  or,
   sql,
 } from "drizzle-orm"
 import { cache } from "react"
@@ -15,6 +17,7 @@ import "server-only"
 import { db } from "@/db"
 import {
   examAnswers,
+  examAudience,
   examParticipations,
   examQuestions,
   exams,
@@ -132,6 +135,30 @@ const countQuestionsByExam = async (
 export const getExamsWithParticipation = cache(
   async (): Promise<ExamListItem[]> => {
     const session = await getCurrentSession()
+    const isAdmin = session?.user?.role === "admin"
+
+    // Filtre d'audience : un admin voit tout (preview) ; sinon on inclut les
+    // examens `subscribers` (ouverts) et — pour un utilisateur connecté — les
+    // examens `restricted` dont il est membre (EXISTS corrélé, indexé sur
+    // examAudience.userId). Non connecté → uniquement les `subscribers`.
+    const audienceWhere = isAdmin
+      ? undefined
+      : or(
+          eq(exams.audienceType, "subscribers"),
+          session?.user
+            ? exists(
+                db
+                  .select({ x: sql`1` })
+                  .from(examAudience)
+                  .where(
+                    and(
+                      eq(examAudience.examId, exams.id),
+                      eq(examAudience.userId, session.user.id),
+                    ),
+                  ),
+              )
+            : sql`false`,
+        )
 
     const rows = await db
       .select({
@@ -146,6 +173,7 @@ export const getExamsWithParticipation = cache(
         pauseDurationMinutes: exams.pauseDurationMinutes,
       })
       .from(exams)
+      .where(audienceWhere)
       .orderBy(desc(exams.startDate))
       .limit(100)
     if (rows.length === 0) return []
@@ -241,11 +269,44 @@ export const getExamWithQuestions = async (
       isActive: exams.isActive,
       enablePause: exams.enablePause,
       pauseDurationMinutes: exams.pauseDurationMinutes,
+      audienceType: exams.audienceType,
     })
     .from(exams)
     .where(eq(exams.id, examId))
     .limit(1)
   if (!exam) return null
+
+  // Garde d'audience (anti-fuite du TEXTE des questions d'un examen restreint
+  // confidentiel) : un non-admin n'accède à un examen `restricted` que s'il est
+  // membre de l'audience OU possède déjà une participation (n'importe quel
+  // statut). La double condition couvre le membre AVANT démarrage et le membre
+  // RETIRÉ de l'audience en cours de passation (#6) — il garde l'accès à ses
+  // questions. Inchangé pour les admins et les examens `subscribers`.
+  if (!isAdmin && exam.audienceType === "restricted") {
+    const [allowed] = await db
+      .select({ ok: sql<number>`1` })
+      .from(examAudience)
+      .where(
+        and(
+          eq(examAudience.examId, examId),
+          eq(examAudience.userId, session.user.id),
+        ),
+      )
+      .limit(1)
+    if (!allowed) {
+      const [part] = await db
+        .select({ id: examParticipations.id })
+        .from(examParticipations)
+        .where(
+          and(
+            eq(examParticipations.examId, examId),
+            eq(examParticipations.userId, session.user.id),
+          ),
+        )
+        .limit(1)
+      if (!part) return null
+    }
+  }
 
   const items = await db
     .select({
@@ -965,6 +1026,25 @@ export const getEligibleExamCandidates = cache(
   },
 )
 
+export type ExamAudienceUser = { id: string; name: string; email: string }
+
+/**
+ * [Admin] Utilisateurs composant l'audience restreinte d'un examen (page détail /
+ * pré-remplissage du picker en édition). Triés par nom, bornés. Garde admin.
+ */
+export const getExamAudience = cache(
+  async (examId: string): Promise<ExamAudienceUser[]> => {
+    await requireRole(["admin"])
+    return db
+      .select({ id: user.id, name: user.name, email: user.email })
+      .from(examAudience)
+      .innerJoin(user, eq(user.id, examAudience.userId))
+      .where(eq(examAudience.examId, examId))
+      .orderBy(asc(user.name))
+      .limit(1000)
+  },
+)
+
 // ============================================
 // Leaderboard
 // ============================================
@@ -992,7 +1072,7 @@ export const getExamLeaderboard = async (
   const session = await getCurrentSession()
 
   const [exam] = await db
-    .select({ endDate: exams.endDate })
+    .select({ endDate: exams.endDate, audienceType: exams.audienceType })
     .from(exams)
     .where(eq(exams.id, examId))
     .limit(1)
@@ -1003,17 +1083,33 @@ export const getExamLeaderboard = async (
     if (!session?.user) return []
     if (Date.now() < exam.endDate.getTime()) return []
 
-    const [part] = await db
-      .select({ id: examParticipations.id })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          eq(examParticipations.userId, session.user.id),
-        ),
-      )
-      .limit(1)
-    if (!part && !(await hasAccess("exam", session.user.id))) return []
+    if (exam.audienceType === "restricted") {
+      // Examen restreint : seul un membre de l'audience voit le classement
+      // (confidentiel) — l'abonnement ou une participation ne suffisent pas.
+      const [member] = await db
+        .select({ userId: examAudience.userId })
+        .from(examAudience)
+        .where(
+          and(
+            eq(examAudience.examId, examId),
+            eq(examAudience.userId, session.user.id),
+          ),
+        )
+        .limit(1)
+      if (!member) return []
+    } else {
+      const [part] = await db
+        .select({ id: examParticipations.id })
+        .from(examParticipations)
+        .where(
+          and(
+            eq(examParticipations.examId, examId),
+            eq(examParticipations.userId, session.user.id),
+          ),
+        )
+        .limit(1)
+      if (!part && !(await hasAccess("exam", session.user.id))) return []
+    }
   }
 
   const rows = await db

@@ -94,6 +94,41 @@ export const getSelectableUsers = cache(async (): Promise<SelectableUser[]> => {
     .limit(500)
 })
 
+/**
+ * [Admin] Recherche serveur d'utilisateurs sélectionnables (picker d'audience
+ * d'examen). Tous les utilisateurs non-admin / non supprimés, filtrés par nom ou
+ * email (ILIKE, métacaractères échappés). Borné 1–50. Sans terme : début de
+ * liste trié par nom. Garde admin (defense-in-depth).
+ */
+export const searchSelectableUsers = async ({
+  query,
+  limit = 20,
+}: {
+  query?: string
+  limit?: number
+}): Promise<SelectableUser[]> => {
+  await requireRole(["admin"])
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 50)
+  const term = query?.trim()
+  return db
+    .select({ id: user.id, name: user.name, email: user.email })
+    .from(user)
+    .where(
+      and(
+        ne(user.role, "admin"),
+        isNull(user.deletedAt),
+        term
+          ? or(
+              ilike(user.name, `%${escapeLike(term)}%`),
+              ilike(user.email, `%${escapeLike(term)}%`),
+            )
+          : undefined,
+      ),
+    )
+    .orderBy(asc(user.name))
+    .limit(safeLimit)
+}
+
 // ============================================
 // [Admin] Liste utilisateurs (filtres + tri + pagination)
 // ============================================
