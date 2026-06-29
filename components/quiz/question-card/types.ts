@@ -83,6 +83,14 @@ export type QuestionCardProps = {
    *  review pages that fetch explanations on expand via a separate query. */
   lazyExplanation?: string
   lazyReferences?: string[]
+  /** Images d'explication lazy-chargées (correction examen via
+   *  getExamQuestionExplanations). Prioritaires sur `question.explanationImages`.
+   *  Rendues UNIQUEMENT en variant "review" (jamais en passation). */
+  lazyExplanationImages?: Array<{
+    url: string
+    storagePath: string
+    order: number
+  }>
 
   /** Display variant - determines overall layout and behavior */
   variant?: QuestionCardVariant

@@ -470,6 +470,7 @@ export function SessionResults({
                         question={result.question as never}
                         lazyExplanation={lazyExplanation}
                         lazyReferences={lazyReferences}
+                        lazyExplanationImages={lazyExplanationImages}
                         questionNumber={originalIndex + 1}
                         userAnswer={result.userAnswer}
                         isExpanded={expandedQuestions.has(originalIndex)}
@@ -477,20 +478,6 @@ export function SessionResults({
                           toggleQuestionExpand(originalIndex)
                         }
                       />
-                      {/* Explanation images (Feature 3 will populate these) */}
-                      {lazyExplanationImages.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2 px-4">
-                          {lazyExplanationImages.map((img) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              key={img.storagePath}
-                              src={img.url}
-                              alt="Image d'explication"
-                              className="max-h-48 rounded-lg border border-gray-200 dark:border-gray-700"
-                            />
-                          ))}
-                        </div>
-                      )}
                     </motion.div>
                   )
                 })}

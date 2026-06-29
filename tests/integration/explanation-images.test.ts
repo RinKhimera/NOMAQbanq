@@ -257,13 +257,16 @@ describe("setQuestionImages scopé par kind", () => {
     expect(rows.filter((r) => r.kind === "explanation")).toHaveLength(2)
   })
 
-  it("rejette un storagePath du mauvais kind (garde de préfixe)", async () => {
+  it("rejette un storagePath d'une AUTRE question (garde de préfixe)", async () => {
     asAdmin()
     const res = await setQuestionImages({
       questionId: qBoth,
       kind: "statement",
-      // chemin d'explication soumis sur le canal statement → préfixe invalide.
-      images: [{ storagePath: explPath(qBoth, 9), order: 0 }],
+      // chemin appartenant à une autre question → préfixe invalide (anti
+      // suppression croisée entre questions).
+      images: [
+        { storagePath: `questions/${qStmtOnly}/statement/0.jpg`, order: 0 },
+      ],
     })
     expect(res.success).toBe(false)
   })

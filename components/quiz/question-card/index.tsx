@@ -154,6 +154,7 @@ export const QuestionCard = ({
   question,
   lazyExplanation,
   lazyReferences,
+  lazyExplanationImages,
   variant = "default",
   selectedAnswer,
   onAnswerSelect,
@@ -179,6 +180,10 @@ export const QuestionCard = ({
   // fetche via getQuestionExplanations quand l'user déplie la carte.
   const effectiveExplanation = lazyExplanation ?? question.explanation
   const effectiveReferences = lazyReferences ?? question.references
+  // Images d'explication : lazy (correction examen) prioritaires, sinon
+  // embarquées sur la question (correction entraînement / vitrine eager).
+  const effectiveExplanationImages =
+    lazyExplanationImages ?? question.explanationImages
   // Determine card styling based on variant and state
   const getCardStyles = () => {
     if (variant === "review") {
@@ -487,7 +492,7 @@ export const QuestionCard = ({
               <QuestionExplanation
                 explanation={effectiveExplanation}
                 references={effectiveReferences}
-                explanationImages={question.explanationImages}
+                explanationImages={effectiveExplanationImages}
               />
             ) : (
               <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-900/20">
