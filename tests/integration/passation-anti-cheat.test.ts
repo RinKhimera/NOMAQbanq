@@ -25,6 +25,7 @@ import {
 } from "@/db/schema"
 import { createExam } from "@/features/exams/actions"
 import { getExamWithQuestions } from "@/features/exams/dal"
+import { setQuestionImages } from "@/features/questions/actions"
 import {
   abandonTrainingSession,
   createTrainingSession,
@@ -143,6 +144,33 @@ beforeAll(async () => {
   )
 
   asAdmin()
+  // q0 reçoit À LA FOIS une image d'énoncé ET une image d'explication. En
+  // passation, seule l'image d'énoncé (`/statement/`) doit transiter par `images`,
+  // et `explanationImages` doit rester absent (couvert par `expectNoSensitive`).
+  // On passe des chemins déjà FINAUX → pas de copie S3 réelle (réservée à `tmp/`).
+  const stmtRes = await setQuestionImages({
+    questionId: qIds[0],
+    kind: "statement",
+    images: [
+      {
+        storagePath: `questions/${qIds[0]}/statement/0.jpg`,
+        order: 0,
+      },
+    ],
+  })
+  if (!stmtRes.success) throw new Error(stmtRes.error)
+  const explRes = await setQuestionImages({
+    questionId: qIds[0],
+    kind: "explanation",
+    images: [
+      {
+        storagePath: `questions/${qIds[0]}/explanation/0.jpg`,
+        order: 0,
+      },
+    ],
+  })
+  if (!explRes.success) throw new Error(explRes.error)
+
   const now = Date.now()
   const r1 = await createExam({
     title: `AC Exam ${suffix}`,
@@ -180,7 +208,17 @@ describe("garde anti-triche : projection des champs sensibles", () => {
 
     for (const q of view!.questions) {
       expectNoSensitive(q as Record<string, unknown>)
+      // Anti-fuite : aucune image d'explication ne transite par le pont d'énoncé.
+      expect(
+        q.images.every((img) => !img.storagePath.includes("/explanation/")),
+      ).toBe(true)
     }
+
+    // q0 a bien son image d'énoncé (scope statement non vide).
+    const q0 = view!.questions.find((q) => q._id === qIds[0])
+    expect(
+      q0?.images.some((img) => img.storagePath.includes("/statement/")),
+    ).toBe(true)
   })
 
   it("entraînement mode test in_progress : getTrainingSessionById n'expose aucun champ sensible", async () => {
@@ -200,9 +238,13 @@ describe("garde anti-triche : projection des champs sensibles", () => {
       expect(v0).not.toBeNull()
       expect(v0!.questions.length).toBeGreaterThan(0)
 
-      // Aucune question ne révèle de champ sensible avant réponse.
+      // Aucune question ne révèle de champ sensible avant réponse, et aucune
+      // image d'explication ne fuit par le pont d'énoncé.
       for (const q of v0!.questions) {
         expectNoSensitive(q as Record<string, unknown>)
+        expect(
+          q.images.every((img) => !img.storagePath.includes("/explanation/")),
+        ).toBe(true)
       }
 
       // Répondre à une question puis re-fetcher.
@@ -219,6 +261,9 @@ describe("garde anti-triche : projection des champs sensibles", () => {
       // Les questions restent sans champ sensible (mode test in_progress).
       for (const qv of v1!.questions) {
         expectNoSensitive(qv as Record<string, unknown>)
+        expect(
+          qv.images.every((img) => !img.storagePath.includes("/explanation/")),
+        ).toBe(true)
       }
 
       // L'entrée answers contient selectedAnswer mais PAS isCorrect.
