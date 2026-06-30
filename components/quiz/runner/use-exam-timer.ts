@@ -2,6 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { isTimeCritical, isTimeRunningOut } from "@/lib/exam-timer"
 
 export type UseExamTimerOptions = {
+  /**
+   * Quand false, le timer est inerte : aucun décompte, `onExpire` n'est JAMAIS
+   * déclenché. Indispensable pour les modes sans timer (entraînement) où
+   * `totalSeconds` vaut 0 — sinon `remaining <= 0` au montage auto-soumettrait
+   * la session immédiatement. Défaut true (mode examen chronométré).
+   */
+  enabled?: boolean
   serverStartTime: number
   totalSeconds: number
   isPaused: boolean
@@ -16,6 +23,7 @@ export type UseExamTimerResult = {
 }
 
 export function useExamTimer({
+  enabled = true,
   serverStartTime,
   totalSeconds,
   isPaused,
@@ -37,7 +45,8 @@ export function useExamTimer({
   })
 
   useEffect(() => {
-    if (isPaused) return
+    // Timer inerte (mode sans chrono) ou en pause : ne pas décompter ni expirer.
+    if (!enabled || isPaused) return
 
     // Tick immediately to pick up any changes (e.g. after resume updates totalPauseDurationMs)
     // and then on interval
@@ -53,7 +62,7 @@ export function useExamTimer({
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [isPaused, computeRemaining])
+  }, [enabled, isPaused, computeRemaining])
 
   return {
     remainingMs,

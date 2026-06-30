@@ -197,7 +197,9 @@ export function EntrainementClient({
               {/* Available questions info */}
               <div className="overflow-hidden rounded-2xl border border-emerald-200/60 bg-linear-to-br from-emerald-50 to-teal-50 p-6 dark:border-emerald-800/40 dark:from-emerald-950/40 dark:to-teal-950/40">
                 <div className="mb-3 text-4xl font-bold text-emerald-600 dark:text-emerald-400">
-                  {domains.totalQuestions.toLocaleString()}
+                  {/* Locale explicite : sans elle, le séparateur de milliers diffère
+                      entre le serveur (Node) et le client → hydration mismatch. */}
+                  {domains.totalQuestions.toLocaleString("fr-CA")}
                 </div>
                 <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
                   questions disponibles

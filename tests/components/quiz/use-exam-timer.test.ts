@@ -44,6 +44,27 @@ describe("useExamTimer", () => {
     expect(onExpire).toHaveBeenCalledTimes(1)
   })
 
+  it("enabled=false : timer inerte, onExpire JAMAIS déclenché (mode sans chrono)", () => {
+    // Régression : en entraînement, mode.timer=null → totalSeconds=0 → sans la
+    // garde `enabled`, remaining<=0 au montage auto-soumettait la session.
+    const onExpire = vi.fn()
+    const start = Date.now()
+    renderHook(() =>
+      useExamTimer({
+        enabled: false,
+        serverStartTime: start,
+        totalSeconds: 0,
+        isPaused: false,
+        totalPauseDurationMs: 0,
+        onExpire,
+      }),
+    )
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(onExpire).not.toHaveBeenCalled()
+  })
+
   it("gelé quand isPaused", () => {
     const start = Date.now()
     const { result, rerender } = renderHook(

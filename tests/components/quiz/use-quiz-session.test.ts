@@ -325,6 +325,24 @@ describe("useQuizSession — timer composé", () => {
     expect(result.current.timer).toBeNull()
   })
 
+  it("sans timer (entraînement), ne s'auto-soumet PAS au montage ni après écoulement", async () => {
+    // Régression bug runner F1 : un mode sans timer auto-soumettait la session
+    // au montage (totalSeconds=0 → onExpire immédiat) → sessions « 0% / 0 réponse ».
+    const onFinish = vi.fn().mockResolvedValue({ ok: true })
+    renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(5),
+        initialAnswers: {},
+        mode: makeMode({ timer: null }),
+        callbacks: makeCallbacks({ onFinish }),
+      }),
+    )
+    await act(async () => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(onFinish).not.toHaveBeenCalled()
+  })
+
   it("timer expose remainingMs quand mode.timer est défini", () => {
     const start = Date.now()
     const { result } = renderHook(() =>
