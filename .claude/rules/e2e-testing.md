@@ -116,6 +116,14 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   ET paragraphe → `getByRole("heading", { name })`.
 - **Stats marketing dynamiques** : matcher le suffixe par regex, ne pas hardcoder
   les nombres.
+- **Formulaire question admin** (`/admin/questions/nouvelle`) : le Select de domaine
+  (shadcn/Radix) garde un `<select>` natif caché → `getByText(domaine)` matche 2×
+  (l'`<option>` native + l'item Radix) → scoper `getByRole("listbox").getByText(...)`.
+  L'objectif CMC est un combobox Popover+cmdk : le trigger affiche le placeholder
+  comme texte mais N'A PAS de nom accessible (label non associé via `htmlFor`) →
+  le cibler par `getByText("Sélectionner ou créer...")` ; l'input de recherche a un
+  placeholder DIFFÉRENT (« Rechercher ou créer... ») et les items sont `role="option"`.
+  Voir POM `fillObjectifCMC`.
 
 ## Concurrence & état partagé
 

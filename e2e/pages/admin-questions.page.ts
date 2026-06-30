@@ -59,14 +59,34 @@ export class AdminQuestionsPage extends BasePage {
       .getByRole("button", { name: data.correctAnswer, exact: true })
       .click()
 
-    // Select domain
+    // Select domain — le Select shadcn/Radix monte son contenu dans un portail
+    // (role="listbox" hors `main`) ET garde un <select> natif caché pour le form.
+    // Scoper au listbox évite la collision strict-mode avec l'<option> native.
     await main.getByText("Sélectionnez un domaine").click()
-    await this.page.getByText(data.domain, { exact: true }).click()
+    await this.page
+      .getByRole("listbox")
+      .getByText(data.domain, { exact: true })
+      .click()
 
     // Fill explanation
     await main
       .getByPlaceholder("Explication détaillée de la réponse...")
       .fill(data.explanation)
+  }
+
+  /**
+   * Renseigne l'objectif CMC. Ce champ est un combobox Popover + cmdk (PAS un
+   * input) : le trigger `role="combobox"` affiche « Sélectionner ou créer... »,
+   * et c'est seulement à l'ouverture qu'un `CommandInput` (placeholder réel
+   * « Rechercher ou créer... », dans un portail) apparaît. On tape puis on
+   * clique le 1er item (objectif existant OU « Créer "x" »), tous `role="option"`.
+   */
+  async fillObjectifCMC(value: string) {
+    // Le trigger n'a pas de nom accessible (label « Objectif CMC » non associé
+    // via htmlFor) → on le cible par son texte, comme le trigger domaine.
+    await this.page.locator("main").getByText("Sélectionner ou créer...").click()
+    await this.page.getByPlaceholder("Rechercher ou créer...").fill(value)
+    await this.page.getByRole("option").first().click()
   }
 
   async submitQuestion() {

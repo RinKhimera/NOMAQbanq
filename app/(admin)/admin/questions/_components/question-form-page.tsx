@@ -234,13 +234,18 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
   }
 
   const updateOption = (index: number, value: string) => {
+    const prev = options[index]
     const newOptions = [...options]
     newOptions[index] = value
     setOptions(newOptions)
     form.setValue("options", newOptions)
 
-    // If this was the correct answer, update it
-    if (form.getValues("correctAnswer") === options[index]) {
+    // Garde correctAnswer synchronisé si on RENOMME l'option actuellement
+    // correcte. Garde `prev.trim() !== ""` indispensable : en création, options
+    // et correctAnswer valent tous deux "" → sans elle, remplir la 1re option
+    // (`"" === ""`) la marquerait par erreur comme bonne réponse (bouton-lettre
+    // verrouillé sur un check au lieu de la lettre).
+    if (prev.trim() !== "" && form.getValues("correctAnswer") === prev) {
       form.setValue("correctAnswer", value)
     }
   }
