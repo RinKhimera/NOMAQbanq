@@ -97,6 +97,35 @@ test.describe("Entrainement — session complete", () => {
     await page.locator("[data-testid='btn-collapse-all']").click()
   })
 
+  test("mode tuteur : valider révèle la correction et le code couleur", async ({
+    page,
+  }) => {
+    await entrainement.goto()
+    if (!(await entrainement.hasAccess())) test.skip()
+
+    await entrainement.waitForForm()
+    await entrainement.setQuestionCount(5)
+    await entrainement.selectMode("tutor")
+    await entrainement.startSession()
+    await entrainement.waitForQuestion(1, 5)
+
+    // Choisir une option : aucune correction tant qu'on n'a pas validé.
+    await entrainement.selectAnswer(0)
+    await expect(page.getByTestId("explanation-content")).toBeHidden()
+    await expect(page.getByTestId("btn-validate-answer")).toBeVisible()
+
+    // Valider → correction + explication + code couleur.
+    await entrainement.validateAnswer()
+    await expect(page.getByTestId("explanation-content")).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.getByTestId("btn-validate-answer")).toBeHidden()
+    // Exactement une bonne réponse surlignée en vert (état user-correct).
+    await expect(
+      page.locator('[data-testid^="answer-option-"] .border-green-500'),
+    ).toHaveCount(1)
+  })
+
   test("la session apparait dans l'historique", async ({ page }) => {
     await entrainement.goto()
     if (!(await entrainement.hasAccess())) test.skip()

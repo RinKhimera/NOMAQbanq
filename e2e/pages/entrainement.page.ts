@@ -83,6 +83,16 @@ export class EntrainementPage extends BasePage {
     await this.page.getByTestId(`answer-option-${index}`).click()
   }
 
+  /** Sélectionne le mode d'entraînement dans le formulaire de config. */
+  async selectMode(mode: "tutor" | "test") {
+    await this.page.locator(`label[for="mode-${mode}"]`).click()
+  }
+
+  /** Valide la réponse en attente (mode tuteur) → révèle la correction. */
+  async validateAnswer() {
+    await this.page.getByTestId("btn-validate-answer").click()
+  }
+
   async nextQuestion() {
     await this.page.getByTestId("btn-next").click()
   }

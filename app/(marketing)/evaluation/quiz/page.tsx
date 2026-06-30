@@ -214,6 +214,7 @@ export default function QuizPage() {
           question={currentQ as unknown as QuestionCardQuestion}
           selectedAnswer={currentAnswer}
           onAnswerSelect={handleAnswerSelect}
+          showCorrectAnswer={false}
           showImage={true}
         />
 

@@ -44,12 +44,22 @@ const getAnswerState = (
   showCorrectAnswer: boolean,
   userAnswer?: string | null,
   isReviewMode?: boolean,
+  isExamReveal?: boolean,
 ): AnswerState => {
-  // Review mode with user answer
-  if (isReviewMode && userAnswer !== undefined) {
-    const isCorrectAnswer = option === correctAnswer
-    const isUserAnswer = option === userAnswer
+  const isCorrectAnswer = option === correctAnswer
 
+  // Review mode with user answer (page résultats)
+  if (isReviewMode && userAnswer !== undefined) {
+    const isUserAnswer = option === userAnswer
+    if (isCorrectAnswer) return "user-correct"
+    if (isUserAnswer && !isCorrectAnswer) return "user-incorrect"
+    return "default"
+  }
+
+  // Révélation tuteur en passation (variant exam) : on colore le choix de
+  // l'utilisateur comme en review (vert = bonne réponse, rouge = choix faux).
+  if (isExamReveal) {
+    const isUserAnswer = selectedAnswer != null && option === selectedAnswer
     if (isCorrectAnswer) return "user-correct"
     if (isUserAnswer && !isCorrectAnswer) return "user-incorrect"
     return "default"
@@ -60,7 +70,7 @@ const getAnswerState = (
     return "correct"
   }
 
-  // Exam mode with selection
+  // Sélection sans révélation (examen en cours / tuteur en attente)
   if (selectedAnswer !== undefined && option === selectedAnswer) {
     return "selected"
   }
@@ -235,6 +245,12 @@ export const QuestionCard = ({
   const isReviewVariant = variant === "review"
   const isExamVariant = variant === "exam"
   const isDefaultVariant = variant === "default"
+  // Révélation tuteur en passation : seulement si on montre la correction ET
+  // qu'on dispose réellement de la bonne réponse. Le `!!question.correctAnswer`
+  // protège la vitrine publique (variant="exam", showCorrectAnswer défaut true,
+  // mais SANS correctAnswer) — sinon le choix serait marqué faux à tort.
+  const isExamReveal =
+    isExamVariant && showCorrectAnswer && !!question.correctAnswer
 
   return (
     <motion.div
@@ -450,10 +466,13 @@ export const QuestionCard = ({
                 showCorrectAnswer,
                 userAnswer,
                 isReviewVariant,
+                isExamReveal,
               )
 
               const isCorrectAnswer = option === question.correctAnswer
               const isUserAnswer = option === userAnswer
+              const isSelectedOption =
+                selectedAnswer != null && option === selectedAnswer
 
               return (
                 <AnswerOption
@@ -469,10 +488,12 @@ export const QuestionCard = ({
                   disabled={disabled}
                   showCheckIcon={
                     (isReviewVariant && isCorrectAnswer) ||
-                    (isDefaultVariant && showCorrectAnswer && isCorrectAnswer)
+                    (isDefaultVariant && showCorrectAnswer && isCorrectAnswer) ||
+                    (isExamReveal && isCorrectAnswer)
                   }
                   showXIcon={
-                    isReviewVariant && isUserAnswer && !isCorrectAnswer
+                    (isReviewVariant && isUserAnswer && !isCorrectAnswer) ||
+                    (isExamReveal && isSelectedOption && !isCorrectAnswer)
                   }
                   compact={isDefaultVariant}
                 />
@@ -509,21 +530,19 @@ export const QuestionCard = ({
         )}
 
         {/* Passation tuteur : la correction + explication se révèlent après
-            chaque réponse (variant exam). `showCorrectAnswer` est piloté par le
-            runner (true uniquement quand mode.feedback="immediate"), donc rien
-            ne fuite en examen ni en entraînement test (feedback différé). Pas
-            d'images d'explication ici — ce canal reste réservé à la correction
-            (variant review), cf. anti-triche F3. */}
-        {isExamVariant &&
-          showCorrectAnswer &&
-          effectiveExplanation !== undefined && (
-            <div className="mt-4">
-              <QuestionExplanation
-                explanation={effectiveExplanation}
-                references={effectiveReferences}
-              />
-            </div>
-          )}
+            validation (variant exam). `isExamReveal` n'est vrai que si le runner
+            montre la correction ET qu'on a réellement la bonne réponse — rien ne
+            fuite en examen / entraînement test (feedback différé) ni sur la
+            vitrine publique (pas de correctAnswer). Pas d'images d'explication
+            ici — canal réservé à la correction (variant review), anti-triche F3. */}
+        {isExamReveal && effectiveExplanation !== undefined && (
+          <div className="mt-4">
+            <QuestionExplanation
+              explanation={effectiveExplanation}
+              references={effectiveReferences}
+            />
+          </div>
+        )}
       </AnimatePresence>
     </motion.div>
   )

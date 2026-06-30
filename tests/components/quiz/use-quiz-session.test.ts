@@ -116,7 +116,28 @@ describe("useQuizSession — navigation", () => {
 })
 
 describe("useQuizSession — answerSelect", () => {
-  it("answerSelect persiste et applique la révélation en mode immédiat", async () => {
+  // Mode tuteur (feedback immédiat) = deux temps : answerSelect met en attente,
+  // confirmAnswer enregistre + révèle, puis la question est verrouillée.
+  it("mode tuteur : answerSelect met en attente sans révéler ni appeler onAnswer", async () => {
+    const onAnswer = vi.fn()
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+        initialAnswers: {},
+        mode: makeMode({ feedback: "immediate" }),
+        callbacks: makeCallbacks({ onAnswer }),
+      }),
+    )
+    await act(async () => {
+      await result.current.answerSelect(1) // "B"
+    })
+    expect(onAnswer).not.toHaveBeenCalled()
+    expect(result.current.revealed["q1"]).toBeUndefined()
+    expect(result.current.pendingSelection["q1"]).toBe("B")
+    expect(result.current.answers["q1"]).toBeUndefined()
+  })
+
+  it("mode tuteur : confirmAnswer enregistre puis révèle la correction", async () => {
     const onAnswer = vi.fn().mockResolvedValue({
       ok: true,
       reveal: { correctAnswer: "B", explanation: "e", references: [] },
@@ -125,23 +146,50 @@ describe("useQuizSession — answerSelect", () => {
       useQuizSession({
         questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
         initialAnswers: {},
-        mode: makeMode({
-          kind: "training",
-          feedback: "immediate",
-        }),
+        mode: makeMode({ feedback: "immediate" }),
         callbacks: makeCallbacks({ onAnswer }),
       }),
     )
     await act(async () => {
       await result.current.answerSelect(1) // "B"
     })
+    await act(async () => {
+      await result.current.confirmAnswer()
+    })
+    expect(onAnswer).toHaveBeenCalledTimes(1)
     expect(onAnswer).toHaveBeenCalledWith("q1", "B")
     expect(result.current.answers["q1"]).toEqual({
       selected: "B",
       isCorrect: true,
     })
-    expect(result.current.revealed["q1"]).toBeTruthy()
     expect(result.current.revealed["q1"]?.correctAnswer).toBe("B")
+    expect(result.current.pendingSelection["q1"]).toBeUndefined()
+  })
+
+  it("mode tuteur : answerSelect est un no-op après révélation (verrou)", async () => {
+    const onAnswer = vi.fn().mockResolvedValue({
+      ok: true,
+      reveal: { correctAnswer: "B", explanation: "", references: [] },
+    })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+        initialAnswers: {},
+        mode: makeMode({ feedback: "immediate" }),
+        callbacks: makeCallbacks({ onAnswer }),
+      }),
+    )
+    await act(async () => {
+      await result.current.answerSelect(1) // "B"
+    })
+    await act(async () => {
+      await result.current.confirmAnswer()
+    })
+    await act(async () => {
+      await result.current.answerSelect(0) // tente de changer après validation
+    })
+    expect(result.current.answers["q1"]?.selected).toBe("B")
+    expect(onAnswer).toHaveBeenCalledTimes(1)
   })
 
   it("answerSelect en mode deferred ne stocke pas isCorrect", async () => {

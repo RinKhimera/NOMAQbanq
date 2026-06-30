@@ -1,6 +1,6 @@
 "use client"
 
-import { FileText } from "lucide-react"
+import { CircleCheckBig, FileText } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useState } from "react"
 import { Calculator } from "@/components/quiz/calculator"
@@ -12,6 +12,7 @@ import { QuestionNavigator } from "@/components/quiz/session/question-navigator"
 import { SessionHeader } from "@/components/quiz/session/session-header"
 import { SessionNavigation } from "@/components/quiz/session/session-navigation"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
+import { Button } from "@/components/ui/button"
 import { useIsVisible } from "@/hooks/use-is-visible"
 import { CalculatorProvider } from "@/hooks/useCalculator"
 import type {
@@ -67,6 +68,7 @@ function QuizRunnerInner({
       : undefined,
   )
   const [isResuming, setIsResuming] = useState(false)
+  const [isConfirming, setIsConfirming] = useState(false)
 
   const session = useQuizSession({
     questions,
@@ -129,6 +131,18 @@ function QuizRunnerInner({
     }
   }
 
+  // Valide la réponse en attente (mode tuteur). Garde anti double-clic : empêche
+  // un second saveTrainingAnswer si l'utilisateur clique avant la révélation.
+  const handleConfirmAnswer = async () => {
+    if (isConfirming) return
+    setIsConfirming(true)
+    try {
+      await session.confirmAnswer()
+    } finally {
+      setIsConfirming(false)
+    }
+  }
+
   // Navigator answers format
   const navigatorAnswers: Record<
     string,
@@ -147,12 +161,22 @@ function QuizRunnerInner({
     : undefined
   const isCurrentRevealed = !!currentReveal && mode.feedback === "immediate"
 
+  // La question mappée au montage ne porte pas correctAnswer pour les questions
+  // répondues en cours de session (anti-triche DAL) ; on l'injecte depuis le
+  // reveal serveur pour que QuestionCard puisse colorer la bonne réponse.
+  const currentQuestionForCard =
+    currentQuestion && currentReveal
+      ? { ...currentQuestion, correctAnswer: currentReveal.correctAnswer }
+      : currentQuestion
+
   const isFlagged = currentQuestion
     ? session.flagged.has(currentQuestion._id)
     : false
 
   const selectedAnswer = currentQuestion
-    ? (session.answers[currentQuestion._id]?.selected ?? null)
+    ? (session.answers[currentQuestion._id]?.selected ??
+      session.pendingSelection[currentQuestion._id] ??
+      null)
     : null
 
   const isLastQuestion = session.currentIndex === totalQuestions - 1
@@ -206,7 +230,7 @@ function QuizRunnerInner({
                       transition={{ duration: 0.2 }}
                     >
                       <QuestionCard
-                        question={currentQuestion as never}
+                        question={currentQuestionForCard as never}
                         variant="exam"
                         questionNumber={session.currentIndex + 1}
                         selectedAnswer={selectedAnswer}
@@ -233,6 +257,26 @@ function QuizRunnerInner({
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {/* Mode tuteur : valider sa réponse révèle la correction.
+                    Visible seulement quand une option est choisie et que la
+                    question n'est pas encore révélée. */}
+                {mode.feedback === "immediate" &&
+                  currentQuestion &&
+                  !isCurrentRevealed &&
+                  session.pendingSelection[currentQuestion._id] !==
+                    undefined && (
+                    <Button
+                      onClick={() => void handleConfirmAnswer()}
+                      disabled={isConfirming}
+                      data-testid="btn-validate-answer"
+                      size="lg"
+                      className="w-full gap-2 bg-linear-to-r from-emerald-600 to-teal-600 shadow-md hover:from-emerald-700 hover:to-teal-700"
+                    >
+                      <CircleCheckBig className="h-4 w-4" />
+                      Valider ma réponse
+                    </Button>
+                  )}
 
                 {/* Navigation buttons */}
                 <SessionNavigation

@@ -42,6 +42,11 @@ export type UseQuizSessionResult = {
   // Reveal (immediate feedback mode)
   revealed: Record<string, QuizRevealPayload>
 
+  // Sélection en attente (mode tuteur : choisie mais pas encore validée)
+  pendingSelection: Record<string, string>
+  // Valide la sélection en attente de la question courante (mode tuteur)
+  confirmAnswer: () => Promise<void>
+
   // Finish dialog
   finishDialogOpen: boolean
   isSubmitting: boolean
@@ -89,6 +94,9 @@ export function useQuizSession({
   const [revealed, setRevealed] = useState<Record<string, QuizRevealPayload>>(
     () => ({ ...(initialRevealed ?? {}) }),
   )
+  const [pendingSelection, setPendingSelection] = useState<
+    Record<string, string>
+  >({})
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [isSubmitting, startTransition] = useTransition()
 
@@ -109,6 +117,7 @@ export function useQuizSession({
 
   const totalQuestions = questions.length
   const currentQuestion = questions[currentIndex]
+  const isImmediate = mode.feedback === "immediate"
 
   // ---- Navigation ----
 
@@ -157,14 +166,23 @@ export function useQuizSession({
       const selected = currentQuestion.options[optionIndex]
       if (!selected) return
 
-      // Optimistic update: apply the selection immediately before the server round-trip.
+      // Tuteur (feedback immédiat) = deux temps : sélectionner ne fait que
+      // mettre un choix « en attente » localement. Rien n'est enregistré ni
+      // révélé avant confirmAnswer(). Une fois révélée, la question est
+      // verrouillée (on ne peut plus changer de réponse).
+      if (isImmediate) {
+        if (revealed[qid]) return
+        setPendingSelection((p) => ({ ...p, [qid]: selected }))
+        return
+      }
+
+      // Test / examen (feedback différé) : enregistrement immédiat, pas de
+      // révélation par-question. Mise à jour optimiste + rollback si échec.
       const prev = answers[qid]
       setAnswers((a) => ({ ...a, [qid]: { ...a[qid], selected } }))
 
       const res = await callbacks.onAnswer(qid, selected)
-
       if (!res.ok) {
-        // Roll back to the previous state on failure.
         setAnswers((a) => {
           const next = { ...a }
           if (prev === undefined) {
@@ -174,24 +192,37 @@ export function useQuizSession({
           }
           return next
         })
-        return
-      }
-
-      if (res.reveal && mode.feedback === "immediate") {
-        const reveal = res.reveal
-        setRevealed((r) => ({ ...r, [qid]: reveal }))
-        // Store isCorrect derived from reveal
-        setAnswers((a) => ({
-          ...a,
-          [qid]: {
-            selected,
-            isCorrect: selected === reveal.correctAnswer,
-          },
-        }))
       }
     },
-    [currentQuestion, answers, callbacks, mode.feedback],
+    [currentQuestion, answers, callbacks, isImmediate, revealed],
   )
+
+  // ---- Confirm (mode tuteur uniquement) ----
+
+  const confirmAnswer = useCallback(async () => {
+    if (!currentQuestion) return
+    const qid = currentQuestion._id
+    if (revealed[qid]) return // déjà validée
+    const selected = pendingSelection[qid]
+    if (!selected) return
+
+    const res = await callbacks.onAnswer(qid, selected)
+    if (!res.ok) return // toast géré dans onAnswer ; on garde le pending pour réessai
+
+    if (res.reveal) {
+      const reveal = res.reveal
+      setRevealed((r) => ({ ...r, [qid]: reveal }))
+      setAnswers((a) => ({
+        ...a,
+        [qid]: { selected, isCorrect: selected === reveal.correctAnswer },
+      }))
+      setPendingSelection((p) => {
+        const next = { ...p }
+        delete next[qid]
+        return next
+      })
+    }
+  }, [currentQuestion, revealed, pendingSelection, callbacks])
 
   // ---- Pause / resume (rest break) ----
 
@@ -309,6 +340,8 @@ export function useQuizSession({
     flagged,
     toggleFlag,
     revealed,
+    pendingSelection,
+    confirmAnswer,
     finishDialogOpen,
     isSubmitting,
     requestFinish,

@@ -117,6 +117,8 @@ describe("QuestionCard", () => {
           variant="exam"
           question={mockQuestion}
           selectedAnswer="Lyon"
+          // Passation en cours (pas de révélation) → le choix reste "selected".
+          showCorrectAnswer={false}
         />,
       )
 
@@ -171,9 +173,9 @@ describe("QuestionCard", () => {
         />,
       )
 
-      // La bonne réponse est mise en évidence (état "correct")
+      // La bonne réponse est mise en évidence (état "user-correct")
       const parisContainer = screen.getByText("Paris").closest("div")
-      expect(parisContainer).toHaveClass("bg-green-50", "border-green-400")
+      expect(parisContainer).toHaveClass("bg-green-100", "border-green-500")
 
       // L'explication + références doivent apparaître IMMÉDIATEMENT en passation
       // tuteur (pas seulement en variant review) — cœur du mode tuteur.
@@ -182,6 +184,60 @@ describe("QuestionCard", () => {
         screen.getByText("Paris est la capitale de la France."),
       ).toBeInTheDocument()
       expect(screen.getByText("Atlas géographique, p.12")).toBeInTheDocument()
+    })
+
+    it("mode tuteur révélé : bonne réponse en vert (✓), mauvais choix en rouge (✗)", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={mockQuestion} // correctAnswer = "Paris"
+          selectedAnswer="Lyon" // l'utilisateur s'est trompé
+          showCorrectAnswer={true}
+          lazyExplanation="Paris est la capitale de la France."
+        />,
+      )
+
+      // Bonne réponse (Paris) → état user-correct (vert)
+      const paris = screen.getByText("Paris").closest("div")
+      expect(paris).toHaveClass("bg-green-100", "border-green-500")
+
+      // Choix de l'utilisateur, faux (Lyon) → état user-incorrect (rouge)
+      const lyon = screen.getByText("Lyon").closest("div")
+      expect(lyon).toHaveClass("bg-red-100", "border-red-500")
+    })
+
+    it("mode tuteur révélé : choix correct → la bonne réponse choisie est en vert", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={mockQuestion}
+          selectedAnswer="Paris" // bonne réponse choisie
+          showCorrectAnswer={true}
+          lazyExplanation="Paris est la capitale de la France."
+        />,
+      )
+
+      const paris = screen.getByText("Paris").closest("div")
+      expect(paris).toHaveClass("bg-green-100", "border-green-500")
+    })
+
+    it("variant exam SANS correctAnswer (vitrine) : aucune révélation malgré showCorrectAnswer par défaut", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={{ ...mockQuestion, correctAnswer: "" }}
+          selectedAnswer="Lyon"
+          // showCorrectAnswer omis → défaut true ; sans correctAnswer, PAS de révélation
+        />,
+      )
+
+      // Aucune explication, et le choix reste "selected" (bleu), pas "user-incorrect" (rouge)
+      expect(
+        screen.queryByTestId("explanation-content"),
+      ).not.toBeInTheDocument()
+      const lyon = screen.getByText("Lyon").closest("div")
+      expect(lyon).toHaveClass("bg-blue-50", "border-blue-400")
+      expect(lyon).not.toHaveClass("bg-red-100")
     })
 
     it("mode test : ne révèle PAS l'explication en passation (showCorrectAnswer=false)", () => {
