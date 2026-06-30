@@ -7,6 +7,32 @@
 > après compaction : lis ce fichier + `git log a6527dd..HEAD`, puis continue le
 > « plan restant ».
 
+## ⚡ MISE À JOUR (fin de session 2026-06-30) — MISSION ACCOMPLIE
+
+**Suite e2e complète VERTE : `bun run test:e2e` → 91 passés / 1 skip / 0 échec (3.6 min).**
+Le skip (`payment-access.spec.ts:80`) est défensif/pré-existant (compte test a l'accès
+→ pas de paywall à tester). Tous les items planifiés (3.A→3.F + #4) sont faits.
+
+3 commits ajoutés cette session (après `a461333`/`6e866be`) :
+- `1926492` **3.B** — action `seed-exam` + isolation des 4 specs `examen-blanc*`
+  (seed propre, cible `exam-card-{id}`) ; rewrite pause (bouton `btn-pause` réel +
+  anti-triche D3 ; modèle auto-midpoint obsolète retiré) ; rewrite resultats (examen
+  clos + participation complétée, nav directe) ; 2 assertions vétustes corrigées.
+- `96e16e5` **3.F-suite** — affichage images à la correction DÉJÀ couvert (intégration
+  `explanation-images.test.ts` + composant `QuestionCard.test.tsx`) → doc corrigée, pas d'e2e redondant.
+- `e227c14` **#4** — **4ᵉ vrai bug produit** : `updateOption` auto-marquait la 1re
+  option comme bonne réponse en création (garde `'' === ''`). Fix produit + 2 drifts
+  de sélecteur (Select domaine vs `<option>` native ; objectif CMC = combobox cmdk
+  sans nom accessible → POM `fillObjectifCMC`). admin-questions 14/14.
+
+**4 vrais bugs produit corrigés sur la campagne** (tous révélés par l'e2e, invisibles
+aux unitaires/CI) : auto-submit entraînement, hydration `toLocaleString`, F2 `isEligible`
+par-examen, auto-marquage bonne réponse en création.
+
+**Reste avant clôture** : revue adversariale du delta `a461333..HEAD` (commits ci-dessus)
+en session fraîche, puis **push** (sur demande). Optionnel : F2 admin-détail, mais
+`admin-exams`/`payment-access` déjà verts.
+
 ## Commits posés cette session (baseline = `a6527dd`)
 
 | Commit | Phase | Contenu |
