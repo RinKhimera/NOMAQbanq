@@ -88,4 +88,26 @@ test.describe("Admin — Gestion des Examens", () => {
       timeout: 5_000,
     })
   })
+
+  test("F2 — le selecteur d'audience revele le picker d'utilisateurs en mode restreint", async ({
+    page,
+  }) => {
+    await page.goto("/admin/exams/create")
+    const main = page.locator("main")
+
+    // Carte audience présente ; « abonnés » est l'option par défaut → le picker
+    // « Utilisateurs autorisés » (UserMultiSelect) est masqué tant qu'on n'a pas
+    // basculé sur « restreint ».
+    await expect(
+      main.getByText("Tous les abonnés aux examens blancs"),
+    ).toBeVisible({ timeout: 15_000 })
+    await expect(main.getByText("Utilisateurs autorisés")).toHaveCount(0)
+
+    // Bascule sur « Utilisateurs spécifiques » → le picker d'audience apparaît
+    // (sémantique F2 : audience restreinte gérée côté admin).
+    await main.getByText("Utilisateurs spécifiques").click()
+    await expect(main.getByText("Utilisateurs autorisés")).toBeVisible({
+      timeout: 5_000,
+    })
+  })
 })
