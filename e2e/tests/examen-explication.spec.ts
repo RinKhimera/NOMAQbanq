@@ -77,8 +77,12 @@ test.describe("Examen — images d'explication (F3 anti-triche)", () => {
     await examen.acceptWarningOrResume()
     await examen.waitForQuestion(1)
 
-    // Anti-triche : malgré la ligne `question_images kind='explanation'` en base,
-    // aucune image NI bloc d'explication n'est rendu pendant la passation.
+    // Anti-triche (smoke UI) : malgré la ligne `question_images kind='explanation'`
+    // en base, aucune image NI bloc d'explication n'est rendu pendant la passation.
+    // NB : `variant="exam"` ne rend JAMAIS ces blocs → ce test e2e ne capterait pas
+    // une fuite côté DAL. La VRAIE garde anti-fuite est l'intégration
+    // `tests/integration/passation-anti-cheat.test.ts` (seed image explanation +
+    // assert `getExamWithQuestions` ne la laisse pas transiter).
     await expect(page.getByTestId("explanation-images")).toHaveCount(0)
     await expect(page.getByTestId("explanation-content")).toHaveCount(0)
   })

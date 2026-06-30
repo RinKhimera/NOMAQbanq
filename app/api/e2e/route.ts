@@ -125,6 +125,38 @@ async function resetExam(userEmail: string) {
 }
 
 async function cleanup(prefix: string) {
+  // Avant de supprimer les examens préfixés : réclamer les images d'explication
+  // seedées sur leurs questions. Ces questions sont PARTAGÉES (banque dev) → la
+  // cascade d'examen ne les emporte pas. Sans ça, un run interrompu avant le
+  // `remove` de la spec laisse une image `kind='explanation'` orpheline (image
+  // cassée à la correction en dev).
+  const seededExams = await db
+    .select({ id: exams.id })
+    .from(exams)
+    .where(ilike(exams.title, `${prefix}%`))
+  if (seededExams.length > 0) {
+    const qRows = await db
+      .select({ questionId: examQuestions.questionId })
+      .from(examQuestions)
+      .where(
+        inArray(
+          examQuestions.examId,
+          seededExams.map((e) => e.id),
+        ),
+      )
+    const questionIds = [...new Set(qRows.map((r) => r.questionId))]
+    if (questionIds.length > 0) {
+      await db
+        .delete(questionImages)
+        .where(
+          and(
+            inArray(questionImages.questionId, questionIds),
+            eq(questionImages.kind, "explanation"),
+          ),
+        )
+    }
+  }
+
   // Examens préfixés : DELETE cascade `exam_questions` + `exam_participations`
   // (→ cascade `exam_answers`).
   const examRows = await db
