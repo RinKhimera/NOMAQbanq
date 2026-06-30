@@ -65,9 +65,9 @@ test.describe("Admin — Gestion des utilisateurs", () => {
       await firstRow.click()
 
       // Side panel should open
-      await expect(
-        page.locator("[role='dialog'], [data-state='open']").first(),
-      ).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByTestId("user-side-panel")).toBeVisible({
+        timeout: 10_000,
+      })
     }
   })
 
@@ -84,10 +84,10 @@ test.describe("Admin — Gestion des utilisateurs", () => {
     if (hasRow) {
       await firstRow.click()
 
-      const panel = page.locator("[role='dialog'], [data-state='open']").first()
+      const panel = page.getByTestId("user-side-panel")
       await expect(panel).toBeVisible({ timeout: 10_000 })
 
-      // Panel should show user info (email or name)
+      // Panel should show user info (l'email contient @)
       await expect(panel.getByText(/@/).first()).toBeVisible({ timeout: 5_000 })
     }
   })

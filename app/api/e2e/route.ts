@@ -105,15 +105,13 @@ async function resetExam(userEmail: string) {
     deletedParticipations = rows.length
   }
 
-  // Sessions d'entraînement en cours (cascade `training_session_items`).
+  // Supprime TOUTES les sessions d'entraînement du user (pas seulement
+  // `in_progress`, cascade `training_session_items`). Remet à zéro la fenêtre du
+  // rate-limit (`MAX_SESSIONS_PER_HOUR`) entre les runs e2e et évite les
+  // collisions « session déjà en cours » au fil des tests.
   const trainingRows = await db
     .delete(trainingSessions)
-    .where(
-      and(
-        eq(trainingSessions.userId, u.id),
-        eq(trainingSessions.status, "in_progress"),
-      ),
-    )
+    .where(eq(trainingSessions.userId, u.id))
     .returning({ id: trainingSessions.id })
 
   return {

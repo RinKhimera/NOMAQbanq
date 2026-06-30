@@ -78,6 +78,7 @@ export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
         <CardContent className="divide-y divide-gray-100 p-0 dark:divide-gray-800">
           {/* Name field */}
           <InlineEditField
+            testId="profile-field-name"
             label="Nom complet"
             icon={IconUser}
             iconColorClass="text-blue-600 dark:text-blue-400"

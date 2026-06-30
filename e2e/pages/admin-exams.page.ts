@@ -32,7 +32,9 @@ export class AdminExamsPage extends BasePage {
     await expect(
       main.getByPlaceholder("Ex: Examen de Cardiologie - Session 2025"),
     ).toBeVisible()
-    await expect(main.getByText("Nombre de questions")).toBeVisible()
+    await expect(
+      main.getByText("Nombre de questions", { exact: true }),
+    ).toBeVisible()
     await expect(main.getByText("Période de disponibilité")).toBeVisible()
     await expect(main.getByText("Pause pendant l'examen")).toBeVisible()
   }

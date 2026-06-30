@@ -11,19 +11,24 @@ test.describe("Paiement et acces — paywall et verification", () => {
         .getByRole("button", { name: /Acheter maintenant|Prolonger/ })
         .first(),
     ).toBeVisible()
-    await expect(page.getByText(/Paiement sécurisé/)).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Paiement sécurisé" }),
+    ).toBeVisible()
   })
 
   test("la page abonnements affiche le statut des acces", async ({ page }) => {
     const payment = new PaymentPage(page)
     await payment.gotoAbonnements()
 
-    // La page doit afficher les deux types d'acces
-    await expect(page.getByText(/Examens Simulés|Examens/i)).toBeVisible({
+    // La page doit afficher les deux types d'acces (titres = headings, sinon
+    // le texte matche aussi les liens sidebar / descriptions → strict mode).
+    await expect(
+      page.getByRole("heading", { name: "Examens Simulés" }),
+    ).toBeVisible({
       timeout: 15_000,
     })
     await expect(
-      page.getByText(/Banque d'Entraînement|Entraînement/i),
+      page.getByRole("heading", { name: "Banque d'Entraînement" }),
     ).toBeVisible()
   })
 
@@ -32,10 +37,12 @@ test.describe("Paiement et acces — paywall et verification", () => {
   }) => {
     await page.goto("/dashboard/entrainement")
 
-    // Avec un user qui a acces, on doit voir le formulaire
-    // (si l'user n'a pas acces, on verra le paywall — les deux sont valides)
+    // Avec un user qui a acces, on doit voir le formulaire OU la carte de reprise
+    // d'une session en cours (si un test précédent en a laissé une). Sinon paywall.
     const hasAccess = await page
       .getByText("Nouvelle session")
+      .or(page.getByText("Session en cours"))
+      .first()
       .isVisible({ timeout: 15_000 })
       .catch(() => false)
 

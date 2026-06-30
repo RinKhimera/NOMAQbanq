@@ -36,6 +36,7 @@ export function ExamCard({
 
   return (
     <motion.div
+      data-testid="exam-card"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.01, y: -2 }}

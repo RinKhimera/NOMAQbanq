@@ -28,6 +28,8 @@ type InlineEditFieldProps = {
   onSave: (value: string) => Promise<{ success: boolean; error?: string }>
   readOnly?: boolean
   badge?: React.ReactNode
+  /** Préfixe data-testid stable (ex. "profile-field-name" → -edit/-input/-save). */
+  testId?: string
 }
 
 export const InlineEditField = ({
@@ -46,6 +48,7 @@ export const InlineEditField = ({
   onSave,
   readOnly = false,
   badge,
+  testId,
 }: InlineEditFieldProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -131,6 +134,7 @@ export const InlineEditField = ({
 
   return (
     <div
+      data-testid={testId}
       className={cn(
         "group relative rounded-xl p-4 transition-all duration-200",
         !readOnly && "hover:bg-gray-50/80 dark:hover:bg-gray-800/50",
@@ -170,6 +174,7 @@ export const InlineEditField = ({
                       registerRef(e)
                       inputRef.current = e
                     }}
+                    data-testid={testId ? `${testId}-input` : undefined}
                     placeholder={placeholder}
                     maxLength={maxLength}
                     onKeyDown={handleKeyDown}
@@ -191,6 +196,7 @@ export const InlineEditField = ({
                       registerRef(e)
                       inputRef.current = e
                     }}
+                    data-testid={testId ? `${testId}-input` : undefined}
                     placeholder={placeholder}
                     maxLength={maxLength}
                     rows={textareaRows}
@@ -236,6 +242,7 @@ export const InlineEditField = ({
                     type="submit"
                     size="sm"
                     disabled={isSaving}
+                    data-testid={testId ? `${testId}-save` : undefined}
                     className={cn(
                       "rounded-lg bg-linear-to-r from-blue-600 to-indigo-600 px-4",
                       "hover:from-blue-700 hover:to-indigo-700",
@@ -288,6 +295,7 @@ export const InlineEditField = ({
                   <button
                     type="button"
                     onClick={handleEdit}
+                    data-testid={testId ? `${testId}-edit` : undefined}
                     className={cn(
                       "cursor-pointer rounded-lg p-2 transition-all duration-200",
                       "text-gray-400 hover:bg-gray-100 hover:text-gray-600",

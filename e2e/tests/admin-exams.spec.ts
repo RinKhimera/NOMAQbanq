@@ -51,9 +51,8 @@ test.describe("Admin — Gestion des Examens", () => {
     await examsPage.goto()
     await examsPage.waitForReady()
 
-    // Click on an exam card/row (if exams exist)
-    const main = page.locator("main")
-    const examCard = main.locator("[role='button'], .cursor-pointer").first()
+    // Click on an exam card (if exams exist)
+    const examCard = page.getByTestId("exam-card").first()
     const hasExam = await examCard
       .isVisible({ timeout: 10_000 })
       .catch(() => false)
@@ -62,9 +61,9 @@ test.describe("Admin — Gestion des Examens", () => {
       await examCard.click()
 
       // Side panel should open
-      await expect(
-        page.locator("[role='dialog'], [data-state='open']").first(),
-      ).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByTestId("exam-side-panel")).toBeVisible({
+        timeout: 10_000,
+      })
     }
   })
 
@@ -83,8 +82,9 @@ test.describe("Admin — Gestion des Examens", () => {
     await expect(pauseSwitch).toBeVisible()
     await pauseSwitch.click()
 
-    // After enabling pause, duration input should appear
-    await expect(main.getByText(/Durée de la pause|minutes/)).toBeVisible({
+    // After enabling pause, duration input should appear (cibler le label seul ;
+    // /minutes/ matchait aussi le suffixe d'unité du champ).
+    await expect(main.getByText("Durée de la pause")).toBeVisible({
       timeout: 5_000,
     })
   })

@@ -49,6 +49,7 @@ export function ExamSidePanel({
         className="w-full overflow-y-auto border-l-0 bg-linear-to-b from-slate-50 via-white to-slate-50/50 p-0 shadow-2xl sm:max-w-120 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950"
         side="right"
         hideCloseButton
+        data-testid="exam-side-panel"
       >
         {/* Accessible title for empty state */}
         {!exam && (

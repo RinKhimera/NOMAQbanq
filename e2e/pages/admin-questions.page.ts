@@ -19,7 +19,10 @@ export class AdminQuestionsPage extends BasePage {
   async gotoNewQuestion() {
     await this.page.getByRole("link", { name: "Nouvelle question" }).click()
     await this.page.waitForURL(/\/admin\/questions\/nouvelle/)
-    await expect(this.page.getByText("Nouvelle question")).toBeVisible({
+    // "Nouvelle question" = h1 + description → cibler le heading.
+    await expect(
+      this.page.getByRole("heading", { name: "Nouvelle question" }),
+    ).toBeVisible({
       timeout: 15_000,
     })
   }

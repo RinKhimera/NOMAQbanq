@@ -80,15 +80,18 @@ test.describe("Entrainement — session complete", () => {
     await expect(page.getByText(/\d+%/).first()).toBeVisible()
     await expect(page.getByText("Correctes", { exact: true })).toBeVisible()
     await expect(page.getByText("Incorrectes", { exact: true })).toBeVisible()
-    await expect(page.getByText("Révision des questions")).toBeVisible()
+    // <SessionResults> (F1) ne rend pas l'ancien titre « Révision des questions » ;
+    // le badge de score confirme l'écran de résultats.
+    await expect(page.getByTestId("score-badge")).toBeVisible()
 
     // Filter + expand/collapse controls on the results page
     const filterBtn = page.locator("[data-testid='btn-filter-errors']")
     await expect(filterBtn).toBeVisible({ timeout: 15_000 })
     await filterBtn.click()
-    await expect(filterBtn).toHaveText("Voir toutes")
+    // Le bouton inclut un compteur (« Voir toutes5 ») → toContainText.
+    await expect(filterBtn).toContainText("Voir toutes")
     await filterBtn.click()
-    await expect(filterBtn).toHaveText(/Erreurs/)
+    await expect(filterBtn).toContainText("Erreurs")
 
     await page.locator("[data-testid='btn-expand-all']").click()
     await page.locator("[data-testid='btn-collapse-all']").click()

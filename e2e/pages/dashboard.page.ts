@@ -20,16 +20,27 @@ export class DashboardPage extends BasePage {
   }
 
   async expectVitalCardsVisible() {
+    // Libellés dupliqués après F1 (carte vitale + stats/CTA) → exact + first
+    // pour cibler une occurrence stable (assertion de présence des cartes).
     const main = this.page.locator("main")
-    await expect(main.getByText("Score moyen")).toBeVisible({ timeout: 15_000 })
-    await expect(main.getByText("Examens complétés")).toBeVisible()
-    await expect(main.getByText("Taux de complétion")).toBeVisible()
-    await expect(main.getByText("Entraînements")).toBeVisible()
+    await expect(
+      main.getByText("Score moyen", { exact: true }).first(),
+    ).toBeVisible({ timeout: 15_000 })
+    await expect(
+      main.getByText("Examens complétés", { exact: true }).first(),
+    ).toBeVisible()
+    await expect(
+      main.getByText("Taux de complétion", { exact: true }).first(),
+    ).toBeVisible()
+    await expect(
+      main.getByText("Entraînements", { exact: true }).first(),
+    ).toBeVisible()
   }
 
   async clickQuickAccess(title: string) {
-    const main = this.page.locator("main")
-    await main.getByRole("link", { name: title }).click()
+    // testid stable : le lien de la carte ET un CTA pointent vers la même URL
+    // (ex. /entrainement) → getByRole("link", { name }) est ambigu.
+    await this.page.getByTestId(`quick-access-${title}`).click()
     // Pas de "networkidle" (jamais atteint en dev Next.js → hang). L'appelant
     // asserte l'URL cible (qui a son propre retry).
     await this.page.waitForLoadState("domcontentloaded")
