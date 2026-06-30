@@ -7,6 +7,7 @@ import {
   examQuestions,
   exams,
   products,
+  questionImages,
   questions,
   trainingSessionItems,
   trainingSessions,
@@ -314,6 +315,48 @@ async function seedRestrictedExam(opts: {
   return { examId, questionCount: qs.length, audienceCount }
 }
 
+/**
+ * Attache (ou retire si `remove`) une image d'explication (`kind='explanation'`)
+ * à la PREMIÈRE question d'un examen. Permet de tester F3 : l'anti-triche garantit
+ * que cette image n'apparaît JAMAIS en passation (la DAL de passation ne lit pas le
+ * canal explication), seulement à la correction. Idempotent. `remove` nettoie la
+ * question partagée de la banque (la cascade d'examen ne touche pas `questionImages`).
+ */
+async function seedExplanationImage(opts: { examId: string; remove?: boolean }) {
+  const [q] = await db
+    .select({ questionId: examQuestions.questionId })
+    .from(examQuestions)
+    .where(
+      and(
+        eq(examQuestions.examId, opts.examId),
+        eq(examQuestions.position, 0),
+      ),
+    )
+    .limit(1)
+  if (!q) return { error: "exam first question not found" as const }
+
+  // Toujours nettoyer l'éventuelle image d'explication existante (idempotent + remove).
+  await db
+    .delete(questionImages)
+    .where(
+      and(
+        eq(questionImages.questionId, q.questionId),
+        eq(questionImages.kind, "explanation"),
+      ),
+    )
+
+  if (opts.remove) return { questionId: q.questionId, removed: true as const }
+
+  const storagePath = `questions/${q.questionId}/explanation/0.jpg`
+  await db.insert(questionImages).values({
+    questionId: q.questionId,
+    storagePath,
+    position: 0,
+    kind: "explanation",
+  })
+  return { questionId: q.questionId, storagePath }
+}
+
 export async function POST(request: Request) {
   if (isDisabled()) {
     return new Response("Not found", { status: 404 })
@@ -329,6 +372,8 @@ export async function POST(request: Request) {
     title?: string
     audienceUserEmails?: string[]
     questionCount?: number
+    examId?: string
+    remove?: boolean
   }
   try {
     body = await request.json()
@@ -372,6 +417,17 @@ export async function POST(request: Request) {
           title: body.title,
           audienceUserEmails: body.audienceUserEmails ?? [],
           questionCount: body.questionCount,
+        }),
+      )
+    }
+    if (body.action === "seed-explanation-image") {
+      if (!body.examId) {
+        return new Response("examId requis", { status: 400 })
+      }
+      return Response.json(
+        await seedExplanationImage({
+          examId: body.examId,
+          remove: body.remove,
         }),
       )
     }

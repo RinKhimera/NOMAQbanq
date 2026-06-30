@@ -80,6 +80,7 @@ export default defineConfig({
         /payment-access\.spec\.ts/,
         /navigation-student\.spec\.ts/,
         /examen-audience\.spec\.ts/,
+        /examen-explication\.spec\.ts/,
       ],
       dependencies: ["global-setup"],
     },
