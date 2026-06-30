@@ -11,14 +11,16 @@ export default async function ExamenBlancPage() {
   const isAdmin = session?.user?.role === "admin"
 
   const exams = await getExamsWithParticipation()
-  // Éligibilité = accès examen actif (bypass admin). Court-circuit pour éviter
-  // l'appel `hasAccess` inutile côté admin.
-  const isEligible = isAdmin || (await hasAccess("exam"))
+  // Accès aux examens `subscribers` = abonnement actif (bypass admin). Court-circuit
+  // pour éviter l'appel `hasAccess` inutile côté admin. L'éligibilité par-examen
+  // (un examen `restricted` présent dans la liste = membre → éligible sans abo) est
+  // calculée côté client à partir de `hasExamAccess` + `audienceType`.
+  const hasExamAccess = isAdmin || (await hasAccess("exam"))
 
   return (
     <ExamenBlancClient
       exams={exams}
-      isEligible={isEligible}
+      hasExamAccess={hasExamAccess}
       initialNow={currentTimeMs()}
     />
   )

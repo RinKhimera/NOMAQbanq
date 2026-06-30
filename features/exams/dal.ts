@@ -114,6 +114,10 @@ export type ExamListItem = {
   isActive: boolean
   enablePause: boolean
   pauseDurationMinutes: number | null
+  // Type d'audience : un examen `restricted` présent dans cette liste implique que
+  // l'utilisateur en est membre (filtre `audienceWhere`) → éligible à le démarrer
+  // même sans abonnement (calcul d'éligibilité par-examen côté client).
+  audienceType: "subscribers" | "restricted"
   userHasTaken: boolean
   userParticipation: { score: number; completedAt: number | null } | null
 }
@@ -179,6 +183,7 @@ export const getExamsWithParticipation = cache(
         isActive: exams.isActive,
         enablePause: exams.enablePause,
         pauseDurationMinutes: exams.pauseDurationMinutes,
+        audienceType: exams.audienceType,
       })
       .from(exams)
       .where(audienceWhere)
@@ -225,6 +230,7 @@ export const getExamsWithParticipation = cache(
         isActive: e.isActive,
         enablePause: e.enablePause,
         pauseDurationMinutes: e.pauseDurationMinutes,
+        audienceType: e.audienceType,
         userHasTaken: taken,
         userParticipation: p
           ? { score: p.score, completedAt: p.completedAt?.getTime() ?? null }

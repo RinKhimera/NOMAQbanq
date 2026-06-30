@@ -1,7 +1,8 @@
-import { and, desc, eq, gt, ilike, lte, notExists } from "drizzle-orm"
+import { and, desc, eq, gt, ilike, inArray, lte, notExists } from "drizzle-orm"
 import { db } from "@/db"
 import {
   examAnswers,
+  examAudience,
   examParticipations,
   examQuestions,
   exams,
@@ -245,6 +246,74 @@ async function setAccess(
   return { userFound: true as const, action: "granted" }
 }
 
+/**
+ * Crée un examen `restricted` actif (en fenêtre) avec `questionCount` questions
+ * de la banque dev et une audience = `audienceUserEmails`. La présence dans
+ * `examAudience` OCTROIE l'accès (même sans abonnement) → permet de tester la
+ * sémantique F2 (membre sans abo / outsider masqué). Le titre est préfixé
+ * `[E2E]` → nettoyé par `cleanup`. Renvoie l'`examId` créé.
+ */
+async function seedRestrictedExam(opts: {
+  title: string
+  audienceUserEmails: string[]
+  questionCount?: number
+}) {
+  const count = Math.min(Math.max(1, opts.questionCount ?? 3), 50)
+
+  // createdBy : un admin (FK restrict vers user).
+  const [admin] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.role, "admin"))
+    .limit(1)
+  if (!admin) return { error: "no admin user" as const }
+
+  // Réutilise des questions existantes de la banque dev (pas de seed de questions).
+  const qs = await db
+    .select({ id: questions.id })
+    .from(questions)
+    .limit(count)
+  if (qs.length < count) {
+    return { error: `not enough questions (${qs.length}/${count})` as const }
+  }
+
+  const now = new Date()
+  const examId = createId()
+  await db.insert(exams).values({
+    id: examId,
+    title: opts.title,
+    description: "[E2E] examen restreint",
+    startDate: new Date(now.getTime() - 60_000),
+    endDate: new Date(now.getTime() + 30 * DAY_MS),
+    completionTime: 3 * 60 * 60, // 3 h en secondes
+    enablePause: false,
+    isActive: true,
+    audienceType: "restricted",
+    createdBy: admin.id,
+  })
+  await db
+    .insert(examQuestions)
+    .values(qs.map((q, i) => ({ examId, questionId: q.id, position: i })))
+
+  // Audience : la présence (examId, userId) octroie l'accès.
+  const emails = [...new Set(opts.audienceUserEmails)]
+  let audienceCount = 0
+  if (emails.length > 0) {
+    const members = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(inArray(user.email, emails))
+    if (members.length > 0) {
+      await db
+        .insert(examAudience)
+        .values(members.map((m) => ({ examId, userId: m.id })))
+      audienceCount = members.length
+    }
+  }
+
+  return { examId, questionCount: qs.length, audienceCount }
+}
+
 export async function POST(request: Request) {
   if (isDisabled()) {
     return new Response("Not found", { status: 404 })
@@ -257,6 +326,9 @@ export async function POST(request: Request) {
     prefix?: string
     accessType?: "exam" | "training"
     grant?: boolean
+    title?: string
+    audienceUserEmails?: string[]
+    questionCount?: number
   }
   try {
     body = await request.json()
@@ -289,6 +361,18 @@ export async function POST(request: Request) {
       }
       return Response.json(
         await setAccess(body.userEmail, body.accessType, body.grant ?? true),
+      )
+    }
+    if (body.action === "seed-restricted-exam") {
+      if (!body.title) {
+        return new Response("title requis", { status: 400 })
+      }
+      return Response.json(
+        await seedRestrictedExam({
+          title: body.title,
+          audienceUserEmails: body.audienceUserEmails ?? [],
+          questionCount: body.questionCount,
+        }),
       )
     }
     return new Response("action inconnue", { status: 400 })
