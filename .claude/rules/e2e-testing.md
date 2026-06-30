@@ -52,16 +52,23 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
 ## Route support `/api/e2e` (Drizzle) — actions
 
 - `reset-exam` (`userEmail`) : garantit UN examen actif en fenêtre, supprime la
-  participation du user dessus (+ cascade réponses) + ses sessions d'entraînement
-  `in_progress`. Appelée en setup ET teardown.
+  participation du user dessus (+ cascade réponses) + **TOUTES** ses sessions
+  d'entraînement (pas seulement `in_progress`) → remet aussi à zéro la fenêtre du
+  rate-limit `MAX_SESSIONS_PER_HOUR` (sinon les sessions accumulées au fil des runs
+  saturent la limite). Appelée en setup ET teardown.
 - `cleanup` (`prefix`, défaut `"[E2E]"`) : supprime examens préfixés (cascade) +
   questions orphelines préfixées.
 - `set-access` (`userEmail`, `accessType:"exam"|"training"`, `grant?:boolean`) :
   octroie/révoque un accès. Idempotent ; l'octroi crée une transaction manuelle
   `[E2E]` si besoin (`user_access.last_transaction_id` est `NOT NULL` FK).
-- **À étendre** (cf. handoffs F2/F3) : `seed-exam`/`seed-restricted-exam` (examen
-  dédié + `exam_audience`, pour éviter les collisions d'état) et
-  `seed-explanation-image` (ligne `question_images kind='explanation'`).
+- `seed-restricted-exam` (`title`, `audienceUserEmails[]`, `questionCount?`) : crée
+  un examen `restricted` actif (en fenêtre) + son `exam_audience` (réutilise des
+  questions de la banque dev). Titre préfixé `[E2E]` → nettoyé par `cleanup`.
+- `seed-explanation-image` (`examId`, `remove?`) : attache (ou retire si `remove`)
+  une image `kind='explanation'` sur la **1re question** d'un examen. La question
+  est PARTAGÉE (banque) → toujours `remove` en teardown (hors cascade examen).
+- **À créer** : `seed-exam` (examen `subscribers` dédié, un par fichier) pour
+  isoler les specs `examen-blanc*` des collisions d'état (cf. ci-dessous).
 
 ## Sélecteurs — `data-testid` obligatoires sur l'interactif
 
@@ -70,8 +77,15 @@ Convention quiz : `answer-option-{i}`, `btn-next/previous/finish/flag`,
 `btn-header-finish`, `pause-overlay`, `pause-timer`, `btn-resume-exam`,
 `explanation-content`, `explanation-images`, `score-percentage`, `score-badge`,
 `btn-filter-errors`, `btn-expand-all`, `btn-collapse-all`, `results-nav-item-{i}`.
+Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-access-{titre}`
+(grille dashboard), `exam-side-panel`/`user-side-panel` (panels admin master-détail),
+`{testId}-edit`/`-input`/`-save` (InlineEditField profil).
 États : `data-selected="true"`, `data-flagged="true"`. Tout nouveau composant
 interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
+
+- **Sidebar = aucun `<nav>`** : la sidebar shadcn ne rend PAS d'élément `<nav>` →
+  `page.locator("nav")` ne matche rien et **timeout** (30 s). Scoper les liens de
+  navigation via `[data-sidebar="content"]` (puis `getByRole("link", { name })`).
 
 ## Gotchas Playwright (à jour)
 
@@ -117,9 +131,10 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
 **octroie l'accès même sans abonnement**. Les examens `restricted` sont **masqués
 aux non-membres** (liste, dashboard, leaderboard) ; admin voit tout ; `startExam`
 refuse un non-membre (`NOT_IN_AUDIENCE`) ; `getExamWithQuestions` → `null`/`notFound`
-pour un outsider. **Bug connu** : la liste `examen-blanc/page.tsx` calcule
-`isEligible = isAdmin || hasAccess("exam")` (pas par-examen) → un membre restreint
-sans abonnement voit « Non éligible ». À corriger (éligibilité par examen) — cf. handoff.
+pour un outsider. **Éligibilité par-examen** (corrigé) : `ExamListItem` expose
+`audienceType` et le client calcule `isEligible = hasExamAccess || audienceType==='restricted'`
+(un examen `restricted` présent dans la liste implique l'appartenance via le filtre
+d'audience) → un membre sans abonnement peut le démarrer. Couvert par `examen-audience.spec.ts`.
 
 ## F3 images d'explication (anti-triche)
 
@@ -128,8 +143,14 @@ Garanti **absent** en passation : examen (`variant="exam"`, questions mappées s
 explanation) et entraînement test `in_progress`. Correction entraînement : eager
 (`getTrainingSessionResults`) ; correction examen : lazy + **après `endDate`**
 seulement (`getExamQuestionExplanations`). Vitrine `/evaluation/quiz` = questions
-**aléatoires** → n'y tester que l'anti-triche en passation. Seed obligatoire (0 image
-en base) via `question_images kind='explanation'`.
+**aléatoires** → n'y tester que l'anti-triche en passation. Seed via
+`seed-explanation-image`. **Couverture** : la VRAIE garde anti-fuite est
+l'intégration `tests/integration/passation-anti-cheat.test.ts` (seed image
+`explanation` + assert `getExamWithQuestions` ne la laisse pas transiter — le
+canal DAL) ; l'e2e `examen-explication.spec.ts` n'est qu'un **smoke UI**
+(`variant="exam"` ne rend jamais `explanation-*`, donc ne capterait pas une fuite
+DAL). L'affichage **à la correction** reste à couvrir en e2e (examen intriqué avec
+les collisions d'état ; entraînement = nécessite un seed de session complétée).
 
 ## Segmentation projets (`testMatch`)
 

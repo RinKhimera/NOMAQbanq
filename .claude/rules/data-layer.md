@@ -58,6 +58,11 @@ storagePath,order}` pour rester assignable aux composants partagés
 - **ESLint `react-hooks/purity`** (échoue `bun run check`) : pas de `Date.now()`
   ni `new Date()` argless dans le corps de rendu d'un composant (même un Server
   Component async) → extraire l'horloge dans un helper au scope module.
+- **Hydration — formatage locale-dépendant** : `(n).toLocaleString()` / `Intl.*`
+  SANS locale explicite produit un séparateur de milliers différent côté serveur
+  (Node) vs client → *hydration mismatch* (« 2 880 » ≠ « 2 880 » à l'œil ; l'arbre
+  est régénéré côté client et l'état local peut sauter). Toujours passer une locale
+  fixe : `n.toLocaleString("fr-CA")`.
 - **ESLint `react-hooks/set-state-in-effect`** : pas de `setState` synchrone dans
   un `useEffect`. Fetch-par-id → tracker l'id chargé (`useState<{id,q}>` +
   comparer `state?.id === currentId`) au lieu d'un reset synchrone.
