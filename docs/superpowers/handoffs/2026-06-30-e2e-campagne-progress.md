@@ -33,6 +33,20 @@ par-examen, auto-marquage bonne réponse en création.
 en session fraîche, puis **push** (sur demande). Optionnel : F2 admin-détail, mais
 `admin-exams`/`payment-access` déjà verts.
 
+### Addendum — clôture (toujours 2026-06-30)
+- **2ᵉ revue adversariale (delta `a461333..HEAD`) = VERTE**, verdict OUI. 4 findings ℹ️
+  (post-push). Rapport jetable supprimé.
+- **Polish ℹ️ traité** (`297cf36`) : #1 `seedExam.completedFor` garantit
+  `selectedAnswer===correctAnswer ⟺ isCorrect` ; #2 read-only résultats durci
+  (seul contrôle interactif = toggle déplier) ; #3 `fillObjectifCMC` cible le nom
+  exact. **#4 = faux positif** (l'exclusion des images d'explication en passation est
+  DÉJÀ assertée par `tests/integration/passation-anti-cheat.test.ts`, qui seede une
+  image `explanation` sur q0 et vérifie `getExamWithQuestions`/`getTrainingSessionById`).
+- **F2 admin-détail couvert** (`8884b51`) : `/admin/exams/create`, bascule audience
+  « Utilisateurs spécifiques » révèle le picker « Utilisateurs autorisés ».
+- 3ᵉ revue (delta polish) **skippée** par l'utilisateur (delta test-only minime, 2 passes
+  déjà faites). **Plan épuisé. 13 commits au-dessus de `a6527dd`. Reste : `git push` (sur demande).**
+
 ## Commits posés cette session (baseline = `a6527dd`)
 
 | Commit | Phase | Contenu |
