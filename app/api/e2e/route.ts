@@ -435,14 +435,17 @@ async function seedExam(opts: {
 
     // Mix déterministe : index pair → bonne réponse, impair → mauvaise. Donne
     // un mélange correct/incorrect (badge + filtre « erreurs » testables).
+    // Cas dégénéré (question sans distracteur : toutes options = correctAnswer) :
+    // pas de mauvaise réponse possible → la réponse EST correcte. Garantit
+    // `selectedAnswer === correctAnswer ⟺ isCorrect` (jamais « bonne option
+    // marquée fausse »).
     const answers = qs.map((q, i) => {
-      const correct = i % 2 === 0
       const wrong = q.options.find((o) => o !== q.correctAnswer)
-      return {
-        questionId: q.id,
-        selectedAnswer: correct ? q.correctAnswer : (wrong ?? q.correctAnswer),
-        isCorrect: correct,
+      // Bonne réponse si index pair OU s'il n'existe aucun distracteur.
+      if (i % 2 === 0 || wrong === undefined) {
+        return { questionId: q.id, selectedAnswer: q.correctAnswer, isCorrect: true }
       }
+      return { questionId: q.id, selectedAnswer: wrong, isCorrect: false }
     })
     const correctCount = answers.filter((a) => a.isCorrect).length
     score = Math.round((correctCount / count) * 100)

@@ -86,7 +86,16 @@ export class AdminQuestionsPage extends BasePage {
     // via htmlFor) → on le cible par son texte, comme le trigger domaine.
     await this.page.locator("main").getByText("Sélectionner ou créer...").click()
     await this.page.getByPlaceholder("Rechercher ou créer...").fill(value)
-    await this.page.getByRole("option").first().click()
+    // Préférer l'objectif EXISTANT au nom exact ; sinon l'item « Créer "x" ».
+    // Évite l'ambiguïté de `.first()` quand les deux items coexistent (ordre cmdk).
+    const exact = this.page.getByRole("option", { name: value, exact: true })
+    const createNew = this.page.getByRole("option").filter({ hasText: "Créer" })
+    await exact.or(createNew).first().waitFor({ state: "visible" })
+    if ((await exact.count()) > 0) {
+      await exact.first().click()
+    } else {
+      await createNew.first().click()
+    }
   }
 
   async submitQuestion() {

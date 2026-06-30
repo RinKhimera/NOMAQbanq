@@ -119,5 +119,12 @@ test.describe("Examen Blanc — page de résultats", () => {
     await expect(
       card.locator('button[data-testid^="answer-option-"]'),
     ).toHaveCount(0)
+
+    // Caractérise le SEUL contrôle interactif de la carte de correction : le
+    // toggle déplier/replier. Si une régression réintroduisait une option
+    // cliquable, ce ne serait plus le seul bouton actionnable.
+    await expect(
+      card.getByRole("button", { name: "Réduire la question" }),
+    ).toBeVisible()
   })
 })
