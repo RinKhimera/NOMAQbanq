@@ -407,7 +407,8 @@ export const QuestionCard = ({
 
       {/* Image(s) */}
       {showImage &&
-        question.images?.length &&
+        question.images &&
+        question.images.length > 0 &&
         (isExamVariant || (isDefaultVariant && showImage)) && (
           <div className="mb-5">
             <QuestionImageGallery
