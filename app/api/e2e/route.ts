@@ -348,6 +348,130 @@ async function seedRestrictedExam(opts: {
 }
 
 /**
+ * Crée un examen `subscribers` DÉDIÉ (un par fichier de spec) pour isoler les
+ * specs `examen-blanc*` des collisions d'état partagé : sans ça, il n'existe
+ * qu'UN examen actif en fenêtre (le reset), et le premier fichier qui le
+ * consomme (auto-submit) casse les suivants (« Déjà passé »). Le student a déjà
+ * l'accès `exam` (octroyé en global.setup) → un examen `subscribers` lui est
+ * éligible. Titre préfixé `[E2E]` → nettoyé par `cleanup`.
+ *
+ * Options :
+ *  - `enablePause` : active la pause repos (pour la spec pause) ;
+ *  - `closed` : fenêtre PASSÉE (endDate révolu). Requis pour la spec résultats —
+ *    `getParticipantExamResults` ne révèle les résultats à un non-admin qu'APRÈS
+ *    `endDate` (anti-fuite F3) ;
+ *  - `completedFor` : seed en plus une participation COMPLÉTÉE (mix correct /
+ *    incorrect déterministe) pour cet utilisateur → la page résultats a des
+ *    données sans rejouer toute la passation.
+ */
+async function seedExam(opts: {
+  title: string
+  questionCount?: number
+  enablePause?: boolean
+  closed?: boolean
+  completedFor?: string
+}) {
+  const count = Math.min(Math.max(1, opts.questionCount ?? 5), 50)
+
+  const [admin] = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.role, "admin"))
+    .limit(1)
+  if (!admin) return { error: "no admin user" as const }
+
+  // Questions de la banque dev AVEC correctAnswer/options (nécessaires pour
+  // calculer le mix correct/incorrect d'une participation complétée).
+  const qs = await db
+    .select({
+      id: questions.id,
+      correctAnswer: questions.correctAnswer,
+      options: questions.options,
+    })
+    .from(questions)
+    .limit(count)
+  if (qs.length < count) {
+    return { error: `not enough questions (${qs.length}/${count})` as const }
+  }
+
+  const now = Date.now()
+  // SECONDS_PER_QUESTION = 83 (cf. features/exams/schemas.ts) — court, pour que
+  // le fastForward(3h) de l'auto-submit dépasse toujours le budget-temps.
+  const completionTime = count * 83
+  const startDate = opts.closed
+    ? new Date(now - 2 * 60 * 60 * 1000) // ouvert il y a 2 h…
+    : new Date(now - 60_000)
+  const endDate = opts.closed
+    ? new Date(now - 60_000) // …clos il y a 1 min
+    : new Date(now + 30 * DAY_MS)
+
+  const examId = createId()
+  await db.insert(exams).values({
+    id: examId,
+    title: opts.title,
+    description: "[E2E] examen dédié (spec)",
+    startDate,
+    endDate,
+    completionTime,
+    enablePause: opts.enablePause ?? false,
+    pauseDurationMinutes: opts.enablePause ? 15 : null,
+    isActive: true,
+    audienceType: "subscribers",
+    createdBy: admin.id,
+  })
+  await db
+    .insert(examQuestions)
+    .values(qs.map((q, i) => ({ examId, questionId: q.id, position: i })))
+
+  let participationId: string | null = null
+  let score: number | null = null
+  if (opts.completedFor) {
+    const [member] = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.email, opts.completedFor))
+      .limit(1)
+    if (!member) return { error: "completedFor user not found" as const }
+
+    // Mix déterministe : index pair → bonne réponse, impair → mauvaise. Donne
+    // un mélange correct/incorrect (badge + filtre « erreurs » testables).
+    const answers = qs.map((q, i) => {
+      const correct = i % 2 === 0
+      const wrong = q.options.find((o) => o !== q.correctAnswer)
+      return {
+        questionId: q.id,
+        selectedAnswer: correct ? q.correctAnswer : (wrong ?? q.correctAnswer),
+        isCorrect: correct,
+      }
+    })
+    const correctCount = answers.filter((a) => a.isCorrect).length
+    score = Math.round((correctCount / count) * 100)
+
+    participationId = createId()
+    await db.insert(examParticipations).values({
+      id: participationId,
+      examId,
+      userId: member.id,
+      status: "completed",
+      score,
+      startedAt: new Date(now - 60 * 60 * 1000),
+      completedAt: new Date(now - 30 * 60 * 1000),
+    })
+    await db.insert(examAnswers).values(
+      answers.map((a) => ({
+        participationId: participationId!,
+        questionId: a.questionId,
+        selectedAnswer: a.selectedAnswer,
+        isCorrect: a.isCorrect,
+        isFlagged: false,
+      })),
+    )
+  }
+
+  return { examId, questionCount: qs.length, participationId, score }
+}
+
+/**
  * Attache (ou retire si `remove`) une image d'explication (`kind='explanation'`)
  * à la PREMIÈRE question d'un examen. Permet de tester F3 : l'anti-triche garantit
  * que cette image n'apparaît JAMAIS en passation (la DAL de passation ne lit pas le
@@ -406,6 +530,9 @@ export async function POST(request: Request) {
     questionCount?: number
     examId?: string
     remove?: boolean
+    enablePause?: boolean
+    closed?: boolean
+    completedFor?: string
   }
   try {
     body = await request.json()
@@ -449,6 +576,20 @@ export async function POST(request: Request) {
           title: body.title,
           audienceUserEmails: body.audienceUserEmails ?? [],
           questionCount: body.questionCount,
+        }),
+      )
+    }
+    if (body.action === "seed-exam") {
+      if (!body.title) {
+        return new Response("title requis", { status: 400 })
+      }
+      return Response.json(
+        await seedExam({
+          title: body.title,
+          questionCount: body.questionCount,
+          enablePause: body.enablePause,
+          closed: body.closed,
+          completedFor: body.completedFor,
         }),
       )
     }

@@ -102,6 +102,7 @@ export const SessionHeader = ({
                 onClick={examActions.onTakePause}
                 variant="outline"
                 size="sm"
+                data-testid="btn-pause"
                 aria-label="Mettre en pause l'examen"
                 className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/30"
               >

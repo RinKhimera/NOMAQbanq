@@ -67,8 +67,16 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
 - `seed-explanation-image` (`examId`, `remove?`) : attache (ou retire si `remove`)
   une image `kind='explanation'` sur la **1re question** d'un examen. La question
   est PARTAGÉE (banque) → toujours `remove` en teardown (hors cascade examen).
-- **À créer** : `seed-exam` (examen `subscribers` dédié, un par fichier) pour
-  isoler les specs `examen-blanc*` des collisions d'état (cf. ci-dessous).
+- `seed-exam` (`title`, `questionCount?`=5, `enablePause?`, `closed?`,
+  `completedFor?`) : crée un examen `subscribers` **dédié** (titre préfixé `[E2E]`)
+  → isole chaque fichier `examen-blanc*` des collisions d'état partagé. Le student
+  a déjà l'accès `exam` (global.setup) → éligible. `closed:true` = fenêtre passée
+  (endDate révolu) — **requis** pour la page résultats (un non-admin ne voit ses
+  résultats qu'APRÈS `endDate`). `completedFor:<email>` = seede en plus une
+  participation **complétée** (mix correct/incorrect déterministe : index pair =
+  bonne réponse) → la page résultats a des données sans rejouer la passation.
+  Renvoie `{ examId, questionCount, participationId, score }`. Nettoyé par
+  `cleanup` (préfixe).
 
 ## Sélecteurs — `data-testid` obligatoires sur l'interactif
 
@@ -79,7 +87,8 @@ Convention quiz : `answer-option-{i}`, `btn-next/previous/finish/flag`,
 `btn-filter-errors`, `btn-expand-all`, `btn-collapse-all`, `results-nav-item-{i}`.
 Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-access-{titre}`
 (grille dashboard), `exam-side-panel`/`user-side-panel` (panels admin master-détail),
-`{testId}-edit`/`-input`/`-save` (InlineEditField profil).
+`{testId}-edit`/`-input`/`-save` (InlineEditField profil), `btn-pause` (bouton
+pause repos du header d'examen), `pause-overlay`/`pause-timer`/`btn-resume-exam`.
 États : `data-selected="true"`, `data-flagged="true"`. Tout nouveau composant
 interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
 
@@ -114,13 +123,22 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   l'état d'un même compte. `describe.configure({ mode: "serial" })` ne protège qu'À
   L'INTÉRIEUR d'un fichier ; `workers:1` protège ENTRE fichiers. Ne jamais repasser
   à >1 worker pour ces projets.
-- **Collision examen** : il n'y a qu'UN examen in-window (le reset). Les specs qui
-  **consomment/complètent** l'examen (`examen-blanc-auto-submit` s'exécute avant
-  `examen-blanc` — tri ASCII `-`<`.`) cassent les suivantes (« Déjà passé »). Chaque
-  fichier examen doit **seeder son propre examen** (action `seed-exam` à créer) ou
-  reset en `beforeAll`. La pause exige un examen `enablePause:true`.
+- **Collision examen** (RÉSOLU 3.B) : il n'y a qu'UN examen in-window (le reset).
+  Les specs qui **consomment/complètent** l'examen (`examen-blanc-auto-submit`
+  s'exécute avant `examen-blanc` — tri ASCII `-`<`.`) cassaient les suivantes
+  (« Déjà passé »). Désormais chaque fichier `examen-blanc*` **seede son propre
+  examen** via `seed-exam` en `beforeAll`, le **cible par `exam-card-{id}`** (POM
+  `clickStartExamById`), et nettoie en `afterAll`. Ne plus dépendre de l'unique
+  examen partagé.
 - **Examen passable une fois** : `startExam` idempotent pour `in_progress` → POM
   `acceptWarningOrResume()`.
+- **Pause = déclenchée par l'utilisateur**, PAS automatique à mi-parcours (l'ancien
+  modèle pré-refonte). Le bouton `btn-pause` du header n'apparaît que si l'examen
+  a `enablePause:true` (→ `mode.pause="rest"`). Le clic affiche un overlay OPAQUE
+  qui occulte tout le contenu de questions (anti-triche D3) ; l'overlay décompte le
+  temps RESTANT (vers le bas, plafonné à `pauseDurationMinutes`), il ne compte pas
+  vers le haut. **Une seule pause** autorisée (`totalPauseDurationMs>0` la bloque)
+  → après reprise, `btn-pause` disparaît. Tout tester dans UN parcours.
 - **Timers/auto-submit** : `page.clock.install()` APRÈS que le timer soit visible
   (sinon race sur `serverStartTime`), puis `fastForward("3:00:00")`. Cf.
   `examen-blanc-auto-submit.spec.ts`.
