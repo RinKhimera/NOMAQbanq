@@ -167,8 +167,13 @@ l'intégration `tests/integration/passation-anti-cheat.test.ts` (seed image
 `explanation` + assert `getExamWithQuestions` ne la laisse pas transiter — le
 canal DAL) ; l'e2e `examen-explication.spec.ts` n'est qu'un **smoke UI**
 (`variant="exam"` ne rend jamais `explanation-*`, donc ne capterait pas une fuite
-DAL). L'affichage **à la correction** reste à couvrir en e2e (examen intriqué avec
-les collisions d'état ; entraînement = nécessite un seed de session complétée).
+DAL). L'affichage **à la correction** est couvert HORS e2e, à toutes les couches :
+DAL `tests/integration/explanation-images.test.ts` (`getExamQuestionExplanations`
+sur examen **clos** + participation complétée ; `getTrainingSessionResults` eager ;
+`getQuizAnswerKey` vitrine ; + anti-fuite côté énoncé) et rendu
+`tests/components/QuestionCard.test.tsx` (variant `review` + images → `explanation-images`
+rendu ; variant `exam` → jamais). Un e2e dédié serait redondant (et exigerait de
+muter le texte `questionExplanations` d'une question partagée + une URL d'image bidon).
 
 ## Segmentation projets (`testMatch`)
 
