@@ -507,6 +507,23 @@ export const QuestionCard = ({
             )}
           </div>
         )}
+
+        {/* Passation tuteur : la correction + explication se révèlent après
+            chaque réponse (variant exam). `showCorrectAnswer` est piloté par le
+            runner (true uniquement quand mode.feedback="immediate"), donc rien
+            ne fuite en examen ni en entraînement test (feedback différé). Pas
+            d'images d'explication ici — ce canal reste réservé à la correction
+            (variant review), cf. anti-triche F3. */}
+        {isExamVariant &&
+          showCorrectAnswer &&
+          effectiveExplanation !== undefined && (
+            <div className="mt-4">
+              <QuestionExplanation
+                explanation={effectiveExplanation}
+                references={effectiveReferences}
+              />
+            </div>
+          )}
       </AnimatePresence>
     </motion.div>
   )

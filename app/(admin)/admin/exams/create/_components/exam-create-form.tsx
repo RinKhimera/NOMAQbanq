@@ -66,7 +66,7 @@ import {
   getDefaultPauseDuration,
   validateQuestionCount,
 } from "@/schemas"
-import { EligibleCandidatesCard } from "../../_components/eligible-candidates-card"
+import { AudienceEligibility } from "../../_components/audience-eligibility"
 
 interface ExamCreateFormProps {
   candidates: EligibleCandidate[]
@@ -600,11 +600,15 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
                   />
                 </div>
               )}
+
+              {/* Résumé contextuel des candidats éligibles (selon la radio). */}
+              <AudienceEligibility
+                candidates={candidates}
+                audienceType={audienceType}
+                selectedCount={selectedUsers.length}
+              />
             </CardContent>
           </Card>
-
-          {/* Candidats éligibles (lecture seule) */}
-          <EligibleCandidatesCard candidates={candidates} />
 
           {/* Questions Section */}
           <div className="space-y-4">

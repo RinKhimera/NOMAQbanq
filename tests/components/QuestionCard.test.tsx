@@ -158,6 +158,48 @@ describe("QuestionCard", () => {
         screen.queryByAltText("Image d'explication"),
       ).not.toBeInTheDocument()
     })
+
+    it("mode tuteur : révèle la bonne réponse ET l'explication après réponse (showCorrectAnswer + lazyExplanation)", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={mockQuestion}
+          selectedAnswer="Lyon"
+          showCorrectAnswer={true}
+          lazyExplanation="Paris est la capitale de la France."
+          lazyReferences={["Atlas géographique, p.12"]}
+        />,
+      )
+
+      // La bonne réponse est mise en évidence (état "correct")
+      const parisContainer = screen.getByText("Paris").closest("div")
+      expect(parisContainer).toHaveClass("bg-green-50", "border-green-400")
+
+      // L'explication + références doivent apparaître IMMÉDIATEMENT en passation
+      // tuteur (pas seulement en variant review) — cœur du mode tuteur.
+      expect(screen.getByTestId("explanation-content")).toBeInTheDocument()
+      expect(
+        screen.getByText("Paris est la capitale de la France."),
+      ).toBeInTheDocument()
+      expect(screen.getByText("Atlas géographique, p.12")).toBeInTheDocument()
+    })
+
+    it("mode test : ne révèle PAS l'explication en passation (showCorrectAnswer=false)", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={mockQuestion}
+          selectedAnswer="Lyon"
+          showCorrectAnswer={false}
+        />,
+      )
+
+      // Feedback différé (examen / entraînement test) → aucune correction visible
+      // pendant la passation, même si la question porte une explication.
+      expect(
+        screen.queryByTestId("explanation-content"),
+      ).not.toBeInTheDocument()
+    })
   })
 
   describe("Variant: review", () => {
