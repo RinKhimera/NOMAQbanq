@@ -4,7 +4,7 @@
 
 **Goal:** Activer un système de notifications email opt-out avec deux notifications utilisateur (résultats d'examen prêts, rappel de fin d'accès) + le réglage dans le profil.
 
-**Architecture:** Marqueurs d'idempotence en base (`resultsNotifiedAt`, `expiryReminderSentAt`) + un balayage cron (`features/notifications/cron.ts`) branché sur la route `close-expired` existante (après les clôtures). Préférences = 2 booléens sur `user` (opt-out, ON par défaut). Le marqueur d'expiration est remis à `null` au renouvellement dans le choke point unique d'octroi d'accès (`features/payments/lib.ts`). Emails via l'infra SES + react-email existante.
+**Architecture:** Marqueurs d'idempotence en base (`resultsNotifiedAt`, `expiryReminderSentAt`) + un balayage cron (`features/notifications/cron.ts`) branché sur la route `close-expired` existante (après les clôtures). Chaque ligne est **claim-first** (`UPDATE … SET marqueur=now WHERE marqueur IS NULL RETURNING` **avant** l'envoi) → sûr contre les deux schedulers concurrents (GitHub horaire + Vercel quotidien se recouvrent à minuit UTC), même idiome que la clôture d'examens. Préférences = 2 booléens sur `user` (opt-out, ON par défaut). Le marqueur d'expiration est remis à `null` au renouvellement dans **les deux** points d'octroi d'accès (`completeStripeTransaction` Stripe **et** `grantManualAccess` manuel — il n'existe pas de choke point unique). Emails via l'infra SES + react-email existante.
 
 **Tech Stack:** Next.js 16 · Drizzle + Neon · Better Auth · AWS SES + react-email · Vitest.
 
@@ -35,7 +35,8 @@
 - `features/notifications/dal.ts` (créé) — `getNotificationPreferences`.
 - `features/notifications/actions.ts` (créé) — `updateNotificationPreferences`.
 - `app/api/cron/close-expired/route.ts` (modifié) — câblage du sweep.
-- `features/payments/lib.ts` (modifié) — reset `expiryReminderSentAt` au grant.
+- `features/payments/stripe.ts` (modifié) — reset `expiryReminderSentAt` au renouvellement Stripe (canal payant principal).
+- `features/payments/lib.ts` (modifié) — reset `expiryReminderSentAt` au grant manuel.
 
 **UI (créé + modifiés)**
 
@@ -72,17 +73,40 @@ Dans l'objet colonnes du `user` (après `bio`), ajouter :
 
 (`boolean` est déjà importé dans ce fichier.)
 
-- [ ] **Step 2 : `examParticipations` — marqueur** (`db/schema/exams.ts`)
+- [ ] **Step 2 : `examParticipations` — marqueur + index partiel** (`db/schema/exams.ts`)
 
-Après `completedAt` (ligne ~88), ajouter :
+Ajouter `sql` à l'import `drizzle-orm` en tête du fichier (à côté de l'import
+`drizzle-orm/pg-core` existant) :
+
+```ts
+import { sql } from "drizzle-orm"
+```
+
+Dans l'objet colonnes, après `completedAt` (ligne ~88), ajouter :
 
 ```ts
     resultsNotifiedAt: timestamp("results_notified_at", { withTimezone: true }),
 ```
 
-- [ ] **Step 3 : `userAccess` — marqueur** (`db/schema/payments.ts`)
+Dans le tableau d'index de `examParticipations` (fonction `(t) => [ … ]`, ~ligne 95-100),
+ajouter un **index partiel** (le sweep ne scanne que les lignes non notifiées ; en
+régime permanent quasi toutes sont marquées → l'index reste petit) :
 
-Après `expiresAt` (ligne ~111), ajouter :
+```ts
+    index("exam_participations_results_pending_idx")
+      .on(t.status)
+      .where(sql`${t.resultsNotifiedAt} is null`),
+```
+
+- [ ] **Step 3 : `userAccess` — marqueur + index partiel** (`db/schema/payments.ts`)
+
+Ajouter `sql` à l'import `drizzle-orm` en tête du fichier :
+
+```ts
+import { sql } from "drizzle-orm"
+```
+
+Dans l'objet colonnes, après `expiresAt` (ligne ~111), ajouter :
 
 ```ts
     expiryReminderSentAt: timestamp("expiry_reminder_sent_at", {
@@ -90,11 +114,22 @@ Après `expiresAt` (ligne ~111), ajouter :
     }),
 ```
 
+Dans le tableau d'index de `userAccess` (fonction `(t) => [ … ]`, ~ligne 123-127),
+ajouter un **index partiel** (range-scan sur `expiresAt` borné aux lignes non
+encore rappelées) :
+
+```ts
+    index("user_access_expiry_reminder_pending_idx")
+      .on(t.expiresAt)
+      .where(sql`${t.expiryReminderSentAt} is null`),
+```
+
 - [ ] **Step 4 : Générer la migration**
 
 Run: `bun run db:generate`
-Expected: un nouveau fichier SQL sous `drizzle/` (3 `ALTER TABLE … ADD COLUMN`). Les
-défauts `true`/`NULL` rendent l'ajout sûr (pas de backfill).
+Expected: un nouveau fichier SQL sous `drizzle/` (3 `ALTER TABLE … ADD COLUMN` + 2
+`CREATE INDEX … WHERE … IS NULL`). Les défauts `true`/`NULL` rendent l'ajout sûr
+(pas de backfill).
 
 > Les tests d'intégration appliquent automatiquement les migrations sur leur branche
 > Neon éphémère (`bun run test:integration` → `drizzle-kit migrate`). Appliquer sur
@@ -348,6 +383,8 @@ import { sendAccessExpiringEmail, sendExamResultsEmail } from "@/email"
 import { getBaseUrl } from "@/lib/base-url"
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const EXAM_RESULTS_LIMIT = 500
+const ACCESS_REMINDER_LIMIT = 200
 
 export type NotificationSweepResult = {
   examResultsSent: number
@@ -357,7 +394,14 @@ export type NotificationSweepResult = {
 // Notifie les participants d'examens CLOS (endDate passée) dont les résultats sont
 // désormais visibles. Marqueur `resultsNotifiedAt` = envoi unique. On pose le
 // marqueur pour tout éligible-par-date (envoi seulement aux opt-in) → pas de
-// re-scan des lignes opt-out. Borné (500) + résilient (par ligne).
+// re-scan des lignes opt-out. Borné + résilient (par ligne).
+//
+// ⚠️ Concurrence : `close-expired` est frappé par DEUX schedulers (GitHub Actions
+// horaire + Vercel quotidien) qui se recouvrent à minuit UTC. Deux runs lisent le
+// même lot `IS NULL`. On CLAIM donc chaque ligne par un UPDATE gardé atomique
+// (`SET marqueur=now WHERE marqueur IS NULL RETURNING`) AVANT l'envoi : seul le
+// run qui gagne le claim envoie → jamais de double email (même idiome que la
+// clôture d'examens, features/exams/cron.ts).
 export async function sendExamResultsNotifications(): Promise<number> {
   const now = new Date()
   const rows = await db
@@ -380,35 +424,45 @@ export async function sendExamResultsNotifications(): Promise<number> {
         isNull(user.deletedAt),
       ),
     )
-    .limit(500)
+    .limit(EXAM_RESULTS_LIMIT)
+
+  if (rows.length === EXAM_RESULTS_LIMIT) {
+    console.warn(
+      `[notif] résultats — borne ${EXAM_RESULTS_LIMIT} atteinte : le reste sera traité au prochain run`,
+    )
+  }
 
   let sent = 0
   for (const r of rows) {
-    if (r.notify) {
-      try {
-        await sendExamResultsEmail({
-          to: r.email,
-          examTitle: r.examTitle,
-          score: r.score,
-          resultUrl: `${getBaseUrl()}/dashboard/examen-blanc/${r.examId}/resultats`,
-        })
-        sent++
-      } catch (error) {
-        console.error(
-          `[notif] résultats — envoi échoué (participation ${r.participationId})`,
-          error,
-        )
-      }
-    }
-    // Marqueur TOUJOURS posé (éligible-par-date) — cf. spec §5.
     try {
-      await db
+      // Claim atomique (anti double-envoi concurrent) : ne poursuit que si CE run
+      // pose le marqueur ; un run concurrent obtient 0 ligne et saute.
+      const claimed = await db
         .update(examParticipations)
         .set({ resultsNotifiedAt: now })
-        .where(eq(examParticipations.id, r.participationId))
+        .where(
+          and(
+            eq(examParticipations.id, r.participationId),
+            isNull(examParticipations.resultsNotifiedAt),
+          ),
+        )
+        .returning({ id: examParticipations.id })
+      if (claimed.length === 0) continue // déjà pris par un autre run
+      if (!r.notify) continue // opt-out : marqueur posé, pas d'envoi (spec §5)
+
+      await sendExamResultsEmail({
+        to: r.email,
+        examTitle: r.examTitle,
+        score: r.score,
+        resultUrl: `${getBaseUrl()}/dashboard/examen-blanc/${r.examId}/resultats`,
+      })
+      sent++
     } catch (error) {
+      // Best-effort : si l'envoi échoue, le marqueur reste posé (anti-double), pas
+      // de réessai — l'accès/les résultats restent visibles en app. Perte tolérée
+      // d'un email (cf. spec §5 + Notes d'implémentation).
       console.error(
-        `[notif] résultats — marqueur échoué (participation ${r.participationId})`,
+        `[notif] résultats — échec (participation ${r.participationId})`,
         error,
       )
     }
@@ -417,7 +471,8 @@ export async function sendExamResultsNotifications(): Promise<number> {
 }
 
 // Rappel de fin d'accès : accès expirant dans ≤ 7 j, une seule fois. Marqueur
-// `expiryReminderSentAt` (réinitialisé au renouvellement dans features/payments/lib.ts).
+// `expiryReminderSentAt` (réinitialisé au renouvellement — Stripe + manuel).
+// Même claim atomique que ci-dessus (anti double-envoi concurrent).
 export async function sendAccessExpiryReminders(): Promise<number> {
   const now = new Date()
   const in7d = new Date(now.getTime() + 7 * DAY_MS)
@@ -439,38 +494,41 @@ export async function sendAccessExpiryReminders(): Promise<number> {
         isNull(user.deletedAt),
       ),
     )
-    .limit(200)
+    .limit(ACCESS_REMINDER_LIMIT)
+
+  if (rows.length === ACCESS_REMINDER_LIMIT) {
+    console.warn(
+      `[notif] accès — borne ${ACCESS_REMINDER_LIMIT} atteinte : le reste sera traité au prochain run`,
+    )
+  }
 
   let sent = 0
   for (const r of rows) {
-    if (r.notify) {
-      try {
-        await sendAccessExpiringEmail({
-          to: r.email,
-          accessType: r.accessType,
-          daysRemaining: Math.ceil(
-            (r.expiresAt.getTime() - now.getTime()) / DAY_MS,
-          ),
-          renewUrl: `${getBaseUrl()}/dashboard/abonnements`,
-        })
-        sent++
-      } catch (error) {
-        console.error(
-          `[notif] accès — envoi échoué (accès ${r.accessId})`,
-          error,
-        )
-      }
-    }
     try {
-      await db
+      const claimed = await db
         .update(userAccess)
         .set({ expiryReminderSentAt: now })
-        .where(eq(userAccess.id, r.accessId))
+        .where(
+          and(
+            eq(userAccess.id, r.accessId),
+            isNull(userAccess.expiryReminderSentAt),
+          ),
+        )
+        .returning({ id: userAccess.id })
+      if (claimed.length === 0) continue // déjà pris par un autre run
+      if (!r.notify) continue // opt-out : marqueur posé, pas d'envoi
+
+      await sendAccessExpiringEmail({
+        to: r.email,
+        accessType: r.accessType,
+        daysRemaining: Math.ceil(
+          (r.expiresAt.getTime() - now.getTime()) / DAY_MS,
+        ),
+        renewUrl: `${getBaseUrl()}/dashboard/abonnements`,
+      })
+      sent++
     } catch (error) {
-      console.error(
-        `[notif] accès — marqueur échoué (accès ${r.accessId})`,
-        error,
-      )
+      console.error(`[notif] accès — échec (accès ${r.accessId})`, error)
     }
   }
   return sent
@@ -482,6 +540,18 @@ export async function sendPendingNotifications(): Promise<NotificationSweepResul
   return { examResultsSent, accessRemindersSent }
 }
 ```
+
+> **Claim-first (anti double-envoi) — pourquoi.** Le marqueur est désormais posé
+> par un `UPDATE … WHERE marqueur IS NULL RETURNING` **avant** l'envoi (au lieu de
+> envoyer-puis-marquer). Deux runs concurrents lisent le même lot, mais un seul
+> gagne le claim d'une ligne donnée (verrou de ligne Postgres + re-évaluation du
+> `WHERE` en READ COMMITTED) → l'autre obtient 0 ligne et saute. Conséquence
+> assumée : un envoi qui échoue **après** le claim n'est pas réessayé (le marqueur
+> reste posé). C'est le tradeoff best-effort déjà acté par la spec §5 ; les
+> résultats/l'accès restent consultables en app, donc la perte d'un email est
+> tolérable. (Une variante « relâcher le marqueur sur échec » a été écartée : elle
+> réintroduit un re-scan des lignes en échec persistant, au prix d'un email
+> potentiellement dupliqué.)
 
 - [ ] **Step 2 : Test d'intégration**
 
@@ -769,19 +839,54 @@ git commit -m "feat(cron): déclenche le sweep de notifications après les clôt
 
 ---
 
-## Task 5 : Reset du marqueur au renouvellement
+## Task 5 : Reset du marqueur au renouvellement (Stripe + manuel)
 
 **Files:**
 
-- Modify: `features/payments/lib.ts`
+- Modify: `features/payments/stripe.ts` (renouvellement Stripe — canal payant principal)
+- Modify: `features/payments/lib.ts` (grant manuel admin)
 - Test: `tests/integration/notifications-cron.test.ts` (ajout d'un `describe`)
 
-> Point unique : `grantAccess` (`features/payments/lib.ts`) est le seul endroit qui
-> écrit `userAccess.expiresAt` (Stripe **et** grant manuel y passent). Remettre
-> `expiryReminderSentAt = null` dans son `onConflictDoUpdate.set` re-arme le rappel
-> pour chaque nouveau cycle.
+> ⚠️ **Il n'existe PAS de `grantAccess` unique.** L'octroi d'accès qui écrit
+> `userAccess.expiresAt` passe par DEUX chemins distincts, chacun avec son propre
+> `onConflictDoUpdate` :
+>
+> - **Stripe** (webhook `checkout.session.completed`) → `completeStripeTransaction`
+>   (`features/payments/stripe.ts`, `set:` **~ligne 136-139**) — **le canal payant
+>   principal**.
+> - **Manuel** (admin) → `grantManualAccess` (`features/payments/lib.ts`, `set:`
+>   **~ligne 117-120**).
+>
+> Les DEUX doivent remettre `expiryReminderSentAt = null`, sinon un renouvellement
+> Stripe ne ré-arme jamais le rappel → rappel **muet** après le 1er cycle sur le
+> canal payant (bug bloquant relevé en revue).
 
-- [ ] **Step 1 : Ajouter le reset dans le `set`** (`features/payments/lib.ts`, ~ligne 117-120)
+- [ ] **Step 1 : Reset dans `completeStripeTransaction`** (`features/payments/stripe.ts`, ~ligne 136-139)
+
+Remplacer :
+
+```ts
+        .onConflictDoUpdate({
+          target: [userAccess.userId, userAccess.accessType],
+          set: { expiresAt: finalExpiry, lastTransactionId: pending.id },
+        })
+```
+
+par :
+
+```ts
+        .onConflictDoUpdate({
+          target: [userAccess.userId, userAccess.accessType],
+          set: {
+            expiresAt: finalExpiry,
+            lastTransactionId: pending.id,
+            // Renouvellement → re-arme le rappel de fin d'accès.
+            expiryReminderSentAt: null,
+          },
+        })
+```
+
+- [ ] **Step 2 : Reset dans `grantManualAccess`** (`features/payments/lib.ts`, ~ligne 117-120)
 
 Remplacer :
 
@@ -806,26 +911,30 @@ par :
       })
 ```
 
-- [ ] **Step 2 : Test — un accès déjà notifié voit son marqueur réinitialisé au grant**
+- [ ] **Step 3 : Test — les DEUX chemins réinitialisent le marqueur**
 
-Ajouter dans `tests/integration/notifications-cron.test.ts` l'import de la fonction de grant (vérifier son nom exact dans `features/payments/lib.ts` — probablement `grantAccess`) :
+Ajouter dans `tests/integration/notifications-cron.test.ts`. Imports (en tête, avec
+les autres) — signatures réelles vérifiées dans le code :
 
 ```ts
-import { grantAccess } from "@/features/payments/lib"
+import { grantManualAccess } from "@/features/payments/lib"
+import { completeStripeTransaction } from "@/features/payments/stripe"
 ```
 
-Puis un `describe` (adapter la signature réelle de `grantAccess` — elle prend un `tx` Drizzle ; utiliser `db.transaction`) :
+Puis :
 
 ```ts
-describe("reset du marqueur au renouvellement", () => {
-  it("grantAccess remet expiryReminderSentAt à null", async () => {
+describe("reset du marqueur de rappel au renouvellement", () => {
+  it("completeStripeTransaction (Stripe) remet expiryReminderSentAt à null", async () => {
     const uid = createId()
     const pid = createId()
-    const tid = createId()
+    const oldTid = createId()
+    const newTid = createId()
+    const sessionId = `cs_test_${uid}`
     await db.insert(user).values({
       id: uid,
-      name: "Renew",
-      email: `renew-${uid}@test.invalid`,
+      name: "Renew Stripe",
+      email: `renew-stripe-${uid}@test.invalid`,
     })
     await db.insert(products).values({
       id: pid,
@@ -838,8 +947,9 @@ describe("reset du marqueur au renouvellement", () => {
       stripeProductId: `prod_${pid}`,
       stripePriceId: `price_${pid}`,
     })
+    // Transaction initiale + accès existant DÉJÀ notifié (marqueur posé).
     await db.insert(transactions).values({
-      id: tid,
+      id: oldTid,
       userId: uid,
       productId: pid,
       type: "manual",
@@ -848,28 +958,107 @@ describe("reset du marqueur au renouvellement", () => {
       currency: "CAD",
       accessType: "exam",
       durationDays: 180,
-      accessExpiresAt: new Date(now + 5 * 86400000),
+      accessExpiresAt: new Date(now + 2 * 86400000),
     })
-    // Accès déjà notifié (marqueur posé)
     await db.insert(userAccess).values({
       userId: uid,
       accessType: "exam",
       expiresAt: new Date(now + 2 * 86400000),
-      lastTransactionId: tid,
+      lastTransactionId: oldTid,
+      expiryReminderSentAt: new Date(now - 86400000),
+    })
+    // Nouvelle transaction Stripe PENDING (le webhook la complète = renouvellement).
+    await db.insert(transactions).values({
+      id: newTid,
+      userId: uid,
+      productId: pid,
+      type: "stripe",
+      status: "pending",
+      amountPaid: 1000,
+      currency: "CAD",
+      accessType: "exam",
+      durationDays: 180,
+      accessExpiresAt: new Date(now + 180 * 86400000),
+      stripeSessionId: sessionId,
+    })
+
+    const res = await completeStripeTransaction({
+      stripeSessionId: sessionId,
+      stripePaymentIntentId: `pi_${uid}`,
+      stripeEventId: `evt_${uid}`,
+    })
+    expect(res.status).toBe("completed")
+
+    const [row] = await db
+      .select({ marker: userAccess.expiryReminderSentAt })
+      .from(userAccess)
+      .where(eq(userAccess.userId, uid))
+      .limit(1)
+    expect(row?.marker).toBeNull()
+
+    // FK restrict : userAccess avant transactions.
+    await db.delete(userAccess).where(eq(userAccess.userId, uid))
+    await db.delete(transactions).where(eq(transactions.userId, uid))
+    await db.delete(products).where(eq(products.id, pid))
+    await db.delete(user).where(eq(user.id, uid))
+  })
+
+  it("grantManualAccess (manuel) remet expiryReminderSentAt à null", async () => {
+    const uid = createId()
+    const pid = createId()
+    const oldTid = createId()
+    await db.insert(user).values({
+      id: uid,
+      name: "Renew Manual",
+      email: `renew-manual-${uid}@test.invalid`,
+    })
+    await db.insert(products).values({
+      id: pid,
+      code: "exam_access",
+      name: "Examens",
+      description: "Accès examens",
+      priceCad: 1000,
+      durationDays: 180,
+      accessType: "exam",
+      stripeProductId: `prod_${pid}`,
+      stripePriceId: `price_${pid}`,
+    })
+    // Transaction initiale (FK de l'accès existant) + accès DÉJÀ notifié.
+    await db.insert(transactions).values({
+      id: oldTid,
+      userId: uid,
+      productId: pid,
+      type: "manual",
+      status: "completed",
+      amountPaid: 1000,
+      currency: "CAD",
+      accessType: "exam",
+      durationDays: 180,
+      accessExpiresAt: new Date(now + 2 * 86400000),
+    })
+    await db.insert(userAccess).values({
+      userId: uid,
+      accessType: "exam",
+      expiresAt: new Date(now + 2 * 86400000),
+      lastTransactionId: oldTid,
       expiryReminderSentAt: new Date(now - 86400000),
     })
 
-    // Renouvellement via le choke point (adapter au vrai contrat de grantAccess).
+    // grantManualAccess insère sa PROPRE transaction et upsert userAccess.
     await db.transaction(async (tx) => {
-      await grantAccess(tx, {
+      await grantManualAccess(tx, {
         userId: uid,
         product: {
+          id: pid,
           accessType: "exam",
           durationDays: 180,
           isCombo: false,
         },
-        transactionId: tid,
-      } as never) // ⚠️ adapter aux vrais paramètres/typage de grantAccess
+        amountPaid: 1000,
+        currency: "CAD",
+        paymentMethod: "interac",
+        recordedBy: uid,
+      })
     })
 
     const [row] = await db
@@ -880,27 +1069,26 @@ describe("reset du marqueur au renouvellement", () => {
     expect(row?.marker).toBeNull()
 
     await db.delete(userAccess).where(eq(userAccess.userId, uid))
-    await db.delete(transactions).where(eq(transactions.id, tid))
+    await db.delete(transactions).where(eq(transactions.userId, uid))
     await db.delete(products).where(eq(products.id, pid))
     await db.delete(user).where(eq(user.id, uid))
   })
 })
 ```
 
-> **⚠️ Adapter au contrat réel de `grantAccess`** : lire sa signature exacte dans
-> `features/payments/lib.ts` (paramètres, forme du `product`, si c'est un export).
-> Si `grantAccess` n'est pas exporté / difficile à appeler isolément, tester le
-> reset via `completeStripeTransaction` (parcours réel), ou marquer ce test
-> `it.skip` avec un commentaire et couvrir le reset par la revue manuelle. Ne PAS
-> inventer une signature.
+> Notes : `grantManualAccess(tx, { userId, product: { id, accessType, durationDays,
+isCombo }, amountPaid, currency: "CAD" | "XAF", paymentMethod, notes?, recordedBy })`
+> et `completeStripeTransaction({ stripeSessionId, stripePaymentIntentId,
+stripeEventId })` (lit la transaction pending par `stripeSessionId`) — signatures
+> réelles, pas de `as never`. `now` = `Date.now()` (number) défini en tête du fichier.
 
-- [ ] **Step 3 : Lancer, check, commit**
+- [ ] **Step 4 : Lancer, check, commit**
 
 Run: `bun run test:integration notifications-cron` — Expected: PASS. `bunx tsc --noEmit`.
 
 ```bash
-git add features/payments/lib.ts tests/integration/notifications-cron.test.ts
-git commit -m "feat(payments): reset du rappel de fin d'accès au renouvellement"
+git add features/payments/stripe.ts features/payments/lib.ts tests/integration/notifications-cron.test.ts
+git commit -m "feat(payments): reset du rappel de fin d'accès au renouvellement (Stripe + manuel)"
 ```
 
 ---
@@ -1325,21 +1513,40 @@ git commit -m "feat(profil): active les notifications par email dans les préfé
 
 ## Notes d'implémentation
 
-- **Idempotence** : marqueurs posés pour tout éligible-par-date (envoi seulement aux
-  opt-in) → pas de re-scan des opt-out (cf. spec §5). Send-failure n'est PAS réessayé
-  (best-effort), mais est loggé.
-- **Reset renouvellement** : unique point `grantAccess` (`features/payments/lib.ts`)
-  couvre Stripe + manuel.
+- **Idempotence + anti double-envoi** : marqueurs posés pour tout éligible-par-date
+  (envoi seulement aux opt-in) → pas de re-scan des opt-out (cf. spec §5). Chaque
+  ligne est **claim-first** (`UPDATE … WHERE marqueur IS NULL RETURNING` avant
+  l'envoi) → sûr contre les 2 schedulers concurrents (GitHub horaire + Vercel
+  quotidien à minuit UTC). Send-failure n'est PAS réessayé (best-effort), mais loggé.
+- **Reset renouvellement** : DEUX points (`completeStripeTransaction` dans
+  `features/payments/stripe.ts` **et** `grantManualAccess` dans
+  `features/payments/lib.ts`) — pas de choke point unique. Les deux remettent
+  `expiryReminderSentAt = null`.
+- **Index partiels** (T1) : `WHERE … IS NULL` sur les 2 marqueurs → le sweep ne
+  scanne que les lignes non traitées (petit ensemble en régime permanent).
+- **Bornes** (500/200) : troncature **loggée** (`console.warn`) quand la borne est
+  atteinte — pas de silence.
 - **Ordre cron** : notifications APRÈS les clôtures (inclut les `auto_submitted` du run).
 - **Migration** : `db:generate` crée le fichier ; l'intégration l'applique sur la
   branche éphémère ; dev/prod via `db:migrate` à ton rythme.
 
-## Self-Review (fait à l'écriture)
+### Connu / hors périmètre
 
-- **Couverture spec** : §4 schéma (T1) ✅ · §5 cron+reset (T3,T4,T5) ✅ · emails (T2) ✅ ·
-  §6 UI (T7,T8) ✅ · préférences DAL/action (T6) ✅ · tests (T2,T3,T5,T6,T7) ✅.
-- **Types cohérents** : `NotificationPreferences` défini en T6 (dal), réutilisé T7/T8 ✅ ;
-  `sendExamResultsEmail`/`sendAccessExpiringEmail` définis T2, appelés T3 ✅ ;
-  `sendPendingNotifications` défini T3, appelé T4 ✅.
-- **Zone à confirmer (signalée)** : le contrat exact de `grantAccess` (T5) — à lire
-  avant d'écrire le test ; fallback documenté (via `completeStripeTransaction` ou `it.skip`).
+- **Combo = 2 rappels** : un produit combo pose 2 lignes `userAccess` (exam +
+  training) expirant le même jour → 2 emails de rappel au même run. Chacun est
+  exact (chaque type d'accès expire réellement). Regrouper en un seul email est une
+  amélioration ultérieure (non retenue — YAGNI).
+
+## Self-Review (fait à l'écriture + après revue adversariale)
+
+- **Couverture spec** : §4 schéma+index (T1) ✅ · §5 cron+reset (T3,T4,T5) ✅ ·
+  emails (T2) ✅ · §6 UI (T7,T8) ✅ · préférences DAL/action (T6) ✅ · tests
+  (T2,T3,T5,T6,T7) ✅.
+- **Types cohérents** : `NotificationPreferences` défini en T6 (dal), réutilisé
+  T7/T8 ✅ ; `sendExamResultsEmail`/`sendAccessExpiringEmail` définis T2, appelés
+  T3 ✅ ; `sendPendingNotifications` défini T3, appelé T4 ✅.
+- **Corrections post-revue** : `grantAccess` inexistant → T5 édite les 2 vrais
+  chemins (`completeStripeTransaction` + `grantManualAccess`), test sur signatures
+  réelles (plus de `as never`) ✅ ; double-envoi → claim-first atomique (T3) ✅ ;
+  index partiels (T1) ✅ ; log de troncature (T3) ✅. Signatures `grantManualAccess`
+  / `completeStripeTransaction` vérifiées à la source.

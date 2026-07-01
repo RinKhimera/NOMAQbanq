@@ -62,23 +62,28 @@ défauts `true`/`null` rendent la migration sûre (pas de backfill nécessaire).
 
 ### Cron — `features/notifications/cron.ts` (nouveau)
 
-Deux fonctions **bornées** et **résilientes** (`try/catch` par ligne — un envoi qui
-échoue ne bloque ni le lot ni les runs suivants, cf. l'anonymisation de la Spec A) :
+Deux fonctions **bornées** (troncature loggée) et **résilientes** (`try/catch` par
+ligne — un envoi qui échoue ne bloque ni le lot ni les runs suivants, cf.
+l'anonymisation de la Spec A) :
 
 - `sendExamResultsNotifications()` :
   - Requête (**sans filtre de préférence** — voir encadré) : participations où
     `exams.endDate < now`, `status IN ('completed','auto_submitted')`,
     `resultsNotifiedAt IS NULL`, jointes à `user` (non supprimé — lit `email` +
-    `notifyExamResults`) et `exams` (`title`). Bornée à 500, triée par `completedAt`.
-  - Pour chaque ligne : **si `notifyExamResults`** → `sendExamResultsEmail(...)` ;
-    **toujours** → `UPDATE resultsNotifiedAt = now`.
+    `notifyExamResults`) et `exams` (`title`). Bornée à 500.
+  - Pour chaque ligne : **claim atomique** d'abord
+    (`UPDATE resultsNotifiedAt = now WHERE id = ? AND resultsNotifiedAt IS NULL
+RETURNING`) ; si 0 ligne → un autre run l'a prise, on saute ; sinon **si
+    `notifyExamResults`** → `sendExamResultsEmail(...)`.
 - `sendAccessExpiryReminders()` :
   - Requête (**sans filtre de préférence**) : `userAccess` où `expiresAt` entre
     `now` et `now + 7j`, `expiryReminderSentAt IS NULL`, jointe à `user` (non
     supprimé — lit `email` + `notifyAccessExpiry`). Bornée à 200 (pattern
     `getExpiringAccess` existant).
-  - Pour chaque ligne : **si `notifyAccessExpiry`** → `sendAccessExpiringEmail(...)` ;
-    **toujours** → `UPDATE expiryReminderSentAt = now`.
+  - Pour chaque ligne : **claim atomique** d'abord
+    (`UPDATE expiryReminderSentAt = now WHERE id = ? AND expiryReminderSentAt IS
+NULL RETURNING`) ; si 0 ligne → saute ; sinon **si `notifyAccessExpiry`** →
+    `sendAccessExpiringEmail(...)`.
 
 > **Marqueur posé pour TOUT éligible-par-date, envoi seulement aux opt-in.** Ne
 > PAS filtrer la préférence dans la requête : sinon les lignes des utilisateurs
@@ -117,11 +122,14 @@ Cadence : horaire via GitHub Actions → notification ≤ 1 h après clôture. A
 - `actions.ts` : `updateNotificationPreferences({ examResults, accessExpiry })` —
   `"use server"` → `requireSession` → `zod` → `UPDATE user SET …` → `revalidatePath`.
 
-### Reset du marqueur au renouvellement — `features/payments/stripe.ts`
+### Reset du marqueur au renouvellement — `stripe.ts` **et** `lib.ts`
 
-Quand un paiement prolonge `userAccess.expiresAt` (`completeStripeTransaction`) **et**
-dans le grant manuel admin, poser `expiryReminderSentAt = null` dans le même UPDATE
-(re-arme le rappel pour le nouveau cycle).
+L'octroi d'accès a **deux** chemins distincts (pas de choke point unique) : le
+renouvellement Stripe (`completeStripeTransaction`, `features/payments/stripe.ts`)
+**et** le grant manuel admin (`grantManualAccess`, `features/payments/lib.ts`).
+**Les deux** doivent poser `expiryReminderSentAt = null` dans leur
+`onConflictDoUpdate` (re-arme le rappel pour le nouveau cycle). Éditer un seul
+laisse le canal payant muet après le 1er cycle.
 
 ## 6. UI — `profile-preferences.tsx`
 
@@ -141,8 +149,13 @@ du bloc désactivé). `data-testid` : `notif-toggle-exam-results`,
 ## 7. Idempotence & sécurité
 
 - Marqueurs (`resultsNotifiedAt`, `expiryReminderSentAt`) = envoi **une fois**.
-- Cron gardé par `CRON_SECRET` (fail-closed) ; requêtes **bornées** ; **résilience**
-  par ligne.
+- **Anti double-envoi concurrent** : `close-expired` est frappé par deux schedulers
+  (GitHub Actions horaire + Vercel quotidien) qui se recouvrent à minuit UTC. Chaque
+  ligne est **claim-first** : `UPDATE … SET marqueur=now WHERE marqueur IS NULL
+RETURNING` **avant** l'envoi (seul le run gagnant envoie) — même idiome atomique
+  que la clôture d'examens (`features/exams/cron.ts`).
+- Cron gardé par `CRON_SECRET` (fail-closed) ; requêtes **bornées** (troncature
+  loggée) ; **résilience** par ligne.
 - Préférence respectée à l'envoi ; comptes supprimés (`deletedAt`) exclus.
 - Sandbox dev : `EMAIL_OVERRIDE_TO` redirige tous les envois (déjà en place).
 - Pas de secret exposé (les crons/DAL ne renvoient pas de token).
