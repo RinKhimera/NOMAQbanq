@@ -1,4 +1,5 @@
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
+import { readFileSync } from "node:fs"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
@@ -460,5 +461,86 @@ describe("reset du marqueur de rappel au renouvellement", () => {
     await db.delete(transactions).where(eq(transactions.userId, uid))
     await db.delete(products).where(eq(products.id, pid))
     await db.delete(user).where(eq(user.id, uid))
+  })
+})
+
+describe("backfill 0010 (anti-blast historique)", () => {
+  it("marque les participations d'examens clos, épargne les examens ouverts", async () => {
+    const creatorBf = createId()
+    const closedBf = createId()
+    const openBf = createId()
+    const pClosed = createId()
+    const pOpen = createId()
+    await db.insert(user).values({
+      id: creatorBf,
+      name: "Créa BF",
+      email: `bf-${creatorBf}@test.invalid`,
+    })
+    await db.insert(exams).values([
+      {
+        id: closedBf,
+        title: "Clos BF",
+        startDate: past,
+        endDate: past, // déjà clos
+        completionTime: 3600,
+        createdBy: creatorBf,
+      },
+      {
+        id: openBf,
+        title: "Ouvert BF",
+        startDate: past,
+        endDate: future, // encore ouvert
+        completionTime: 3600,
+        createdBy: creatorBf,
+      },
+    ])
+    await db.insert(examParticipations).values([
+      {
+        id: pClosed,
+        examId: closedBf,
+        userId: creatorBf,
+        score: 70,
+        status: "completed",
+        completedAt: past,
+      },
+      {
+        id: pOpen,
+        examId: openBf,
+        userId: creatorBf,
+        score: 60,
+        status: "completed",
+        completedAt: past,
+      },
+    ])
+
+    // Exécute le VRAI SQL de la migration 0010 (source de vérité) — pas une reprise.
+    const backfillSql = readFileSync(
+      "drizzle/0010_backfill_results_notified.sql",
+      "utf8",
+    )
+    await db.execute(sql.raw(backfillSql))
+
+    const [closedRow] = await db
+      .select({ m: examParticipations.resultsNotifiedAt })
+      .from(examParticipations)
+      .where(eq(examParticipations.id, pClosed))
+      .limit(1)
+    const [openRow] = await db
+      .select({ m: examParticipations.resultsNotifiedAt })
+      .from(examParticipations)
+      .where(eq(examParticipations.id, pOpen))
+      .limit(1)
+    expect(closedRow?.m).not.toBeNull() // examen clos → marqué (pas de blast)
+    expect(openRow?.m).toBeNull() // examen ouvert → épargné (notifié à sa clôture)
+
+    await db
+      .delete(examParticipations)
+      .where(eq(examParticipations.examId, closedBf))
+    await db
+      .delete(examParticipations)
+      .where(eq(examParticipations.examId, openBf))
+    await db.delete(exams).where(eq(exams.id, closedBf))
+    await db.delete(exams).where(eq(exams.id, openBf))
+    await db.delete(user).where(eq(user.id, creatorBf))
   })
 })
