@@ -129,7 +129,9 @@ test.describe("Admin — Gestion des Examens", () => {
     // Le Dialog s'ouvre avec sa recherche (EligibleCandidatesSection embarquée).
     await voirListe.click()
     await expect(
-      page.getByRole("dialog").getByPlaceholder("Rechercher par nom ou email..."),
+      page
+        .getByRole("dialog")
+        .getByPlaceholder("Rechercher par nom ou email..."),
     ).toBeVisible({ timeout: 10_000 })
     await page.keyboard.press("Escape")
 

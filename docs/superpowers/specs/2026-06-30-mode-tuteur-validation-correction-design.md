@@ -49,11 +49,11 @@ Ce design ajoute un **flux en deux temps** (choisir → valider → corriger) et
 
 Le tuteur passe d'un temps (clic = corrige) à **deux temps** :
 
-| Phase | Comportement |
-| --- | --- |
-| **a. Choix** | Clic sur une option → état « choisi » (bleu, `selected`). **Aucun appel serveur, aucune correction.** L'utilisateur peut changer d'option librement. |
+| Phase             | Comportement                                                                                                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **a. Choix**      | Clic sur une option → état « choisi » (bleu, `selected`). **Aucun appel serveur, aucune correction.** L'utilisateur peut changer d'option librement.                   |
 | **b. Validation** | Le bouton **« Valider ma réponse »** est rendu sous les options, actif **dès qu'une option est choisie**. Clic → `saveTrainingAnswer` (enregistre + renvoie `reveal`). |
-| **c. Correction** | À la réception du `reveal` : options **verrouillées** (non cliquables), code couleur affiché, explication affichée. Le bouton Valider disparaît. |
+| **c. Correction** | À la réception du `reveal` : options **verrouillées** (non cliquables), code couleur affiché, explication affichée. Le bouton Valider disparaît.                       |
 
 Le déclencheur du flux deux-temps est `mode.feedback === "immediate"` (identité du
 tuteur — aucun nouveau champ de `QuizMode` requis).
@@ -63,18 +63,19 @@ tuteur — aucun nouveau champ de `QuizMode` requis).
 Reprend la sémantique de la page résultats (`variant="review"`), appliquée en
 passation tuteur en s'appuyant sur `selectedAnswer` (= la réponse de l'utilisateur) :
 
-| Option | Condition | Rendu |
-| --- | --- | --- |
-| Bonne réponse | `option === correctAnswer` | **vert + ✓** (état `user-correct`) |
-| Choix de l'utilisateur, faux | `option === selectedAnswer && option !== correctAnswer` | **rouge + ✗** (état `user-incorrect`) |
-| Choix de l'utilisateur, juste | confondu avec la bonne réponse | vert + ✓ |
-| Autres | — | neutre (`default`) |
+| Option                        | Condition                                               | Rendu                                 |
+| ----------------------------- | ------------------------------------------------------- | ------------------------------------- |
+| Bonne réponse                 | `option === correctAnswer`                              | **vert + ✓** (état `user-correct`)    |
+| Choix de l'utilisateur, faux  | `option === selectedAnswer && option !== correctAnswer` | **rouge + ✗** (état `user-incorrect`) |
+| Choix de l'utilisateur, juste | confondu avec la bonne réponse                          | vert + ✓                              |
+| Autres                        | —                                                       | neutre (`default`)                    |
 
 ## Architecture & flux de données
 
 Composants concernés (tous côté client, runner unifié quiz) :
 
 ### `components/quiz/runner/use-quiz-session.ts` (logique deux-temps)
+
 - Nouvel état local `pendingSelection: Record<string, string>` (qid → option
   choisie mais non validée). **Non** ajouté à `answers` (donc `answeredCount` et le
   navigateur ne comptent pas une question non validée).
@@ -94,6 +95,7 @@ Composants concernés (tous côté client, runner unifié quiz) :
   révélée).
 
 ### `components/quiz/runner/quiz-runner.tsx` (UI Valider + verrou)
+
 - `selectedAnswer` passé à la `QuestionCard` = la réponse validée si révélée, sinon
   la `pendingSelection` de la question courante.
 - Rend le bouton **« Valider ma réponse »** (`data-testid="btn-validate-answer"`)
@@ -104,6 +106,7 @@ Composants concernés (tous côté client, runner unifié quiz) :
 - Mode examen : aucun bouton Valider, aucun verrou par-question — inchangé.
 
 ### `components/quiz/question-card/index.tsx` (couleur + verrou)
+
 - `getAnswerState` : ajouter une branche « révélé » qui, **quand
   `showCorrectAnswer` est vrai** (et hors review), colore via `selectedAnswer`
   comme la branche review : bonne réponse → `user-correct`, choix faux →
@@ -115,6 +118,7 @@ Composants concernés (tous côté client, runner unifié quiz) :
   interactives.
 
 ### `components/quiz/question-card/answer-option.tsx`
+
 - Probablement aucun changement : les états `user-correct`/`user-incorrect` et les
   props `showCheckIcon`/`showXIcon` existent déjà.
 

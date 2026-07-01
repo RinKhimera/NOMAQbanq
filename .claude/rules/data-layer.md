@@ -60,7 +60,7 @@ storagePath,order}` pour rester assignable aux composants partagés
   Component async) → extraire l'horloge dans un helper au scope module.
 - **Hydration — formatage locale-dépendant** : `(n).toLocaleString()` / `Intl.*`
   SANS locale explicite produit un séparateur de milliers différent côté serveur
-  (Node) vs client → *hydration mismatch* (« 2 880 » ≠ « 2 880 » à l'œil ; l'arbre
+  (Node) vs client → _hydration mismatch_ (« 2 880 » ≠ « 2 880 » à l'œil ; l'arbre
   est régénéré côté client et l'état local peut sauter). Toujours passer une locale
   fixe : `n.toLocaleString("fr-CA")`.
 - **ESLint `react-hooks/set-state-in-effect`** : pas de `setState` synchrone dans

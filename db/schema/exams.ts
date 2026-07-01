@@ -112,8 +112,8 @@ export const examAnswers = pgTable(
     questionId: text("question_id")
       .notNull()
       .references(() => questions.id, { onDelete: "restrict" }),
-    selectedAnswer: text("selected_answer"),       // null tant que non répondu
-    isCorrect: boolean("is_correct"),              // null tant que non répondu
+    selectedAnswer: text("selected_answer"), // null tant que non répondu
+    isCorrect: boolean("is_correct"), // null tant que non répondu
     isFlagged: boolean("is_flagged").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()

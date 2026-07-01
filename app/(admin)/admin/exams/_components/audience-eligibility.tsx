@@ -73,7 +73,12 @@ export function AudienceEligibility({
         <Dialog>
           <DialogTrigger asChild>
             {/* type=button : ce bloc vit dans un <form>, éviter une soumission. */}
-            <Button type="button" variant="outline" size="sm" className="shrink-0">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+            >
               Voir la liste
             </Button>
           </DialogTrigger>

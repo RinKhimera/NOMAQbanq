@@ -35,11 +35,11 @@ passation.
 
 ## Décisions de conception (validées)
 
-| #  | Sujet                          | Choix retenu                                                                                        |
-| -- | ------------------------------ | ------------------------------------------------------------------------------------------------- |
-| D1 | Modèle de données              | **Colonne discriminante `kind`** sur `questionImages` (vs table parallèle).                        |
-| D2 | Portée d'affichage             | Correction dashboard **et** correction du **quiz vitrine public** (par cohérence).                |
-| D3 | Frontière anti-triche          | Images d'explication révélées **avec** l'explication (correction / mode tuteur), jamais en passation. |
+| #   | Sujet                 | Choix retenu                                                                                          |
+| --- | --------------------- | ----------------------------------------------------------------------------------------------------- |
+| D1  | Modèle de données     | **Colonne discriminante `kind`** sur `questionImages` (vs table parallèle).                           |
+| D2  | Portée d'affichage    | Correction dashboard **et** correction du **quiz vitrine public** (par cohérence).                    |
+| D3  | Frontière anti-triche | Images d'explication révélées **avec** l'explication (correction / mode tuteur), jamais en passation. |
 
 ## Modèle de données
 
@@ -88,16 +88,16 @@ fuite. Chaque lecture doit donc être explicitement scopée.
 
 ### Tableau « lecture → `kind` attendu »
 
-| Lecture (fichier:ligne)                                     | Contexte                          | `kind`        |
-| ----------------------------------------------------------- | --------------------------------- | ------------- |
-| `fetchImages` — `features/exams/dal.ts:60`                  | passation **et** résultats examen | `'statement'` |
-| `fetchImages` — `features/training/dal.ts:98`               | passation **et** résultats entr.  | `'statement'` |
-| `getRandomQuizQuestions` — `features/questions/dal.ts:369`  | quiz vitrine (énoncé)             | `'statement'` |
-| `getQuestionById` images — `features/questions/dal.ts:256`  | éditeur admin (énoncé)            | `'statement'` |
-| `getQuestionById` `explanationImages` *(nouveau)*           | éditeur admin (explication)       | `'explanation'` |
-| Loader explication examen *(cf. canal ci-dessous)*          | correction examen                 | `'explanation'` |
-| `getTrainingSessionResults` — `features/training/dal.ts:580`| correction entraînement           | `'explanation'` |
-| `getQuizAnswerKey` — `features/questions/dal.ts`            | correction vitrine                | `'explanation'` |
+| Lecture (fichier:ligne)                                      | Contexte                          | `kind`          |
+| ------------------------------------------------------------ | --------------------------------- | --------------- |
+| `fetchImages` — `features/exams/dal.ts:60`                   | passation **et** résultats examen | `'statement'`   |
+| `fetchImages` — `features/training/dal.ts:98`                | passation **et** résultats entr.  | `'statement'`   |
+| `getRandomQuizQuestions` — `features/questions/dal.ts:369`   | quiz vitrine (énoncé)             | `'statement'`   |
+| `getQuestionById` images — `features/questions/dal.ts:256`   | éditeur admin (énoncé)            | `'statement'`   |
+| `getQuestionById` `explanationImages` _(nouveau)_            | éditeur admin (explication)       | `'explanation'` |
+| Loader explication examen _(cf. canal ci-dessous)_           | correction examen                 | `'explanation'` |
+| `getTrainingSessionResults` — `features/training/dal.ts:580` | correction entraînement           | `'explanation'` |
+| `getQuizAnswerKey` — `features/questions/dal.ts`             | correction vitrine                | `'explanation'` |
 
 > Même dans le **chemin résultats**, `fetchImages` reste filtré `kind='statement'`
 > (le champ `images` = énoncé) ; les images d'explication arrivent par le canal
@@ -126,7 +126,7 @@ Le type `QuizQuestion` (Feature 1) gagne `explanationImages?: QuizImageView[]`.
 ## UI Admin
 
 Dans le formulaire question
-([`question-form-page.tsx`](../../../app/(admin)/admin/questions/_components/question-form-page.tsx)) :
+([`question-form-page.tsx`](<../../../app/(admin)/admin/questions/_components/question-form-page.tsx>)) :
 **deux sections d'upload** réutilisant
 [`question-image-uploader.tsx`](../../../components/admin/question-image-uploader.tsx)
 paramétré par une prop `kind` :
@@ -173,7 +173,7 @@ Chaque section appelle `createQuestionImageUpload`/`setQuestionImages` avec son
   - Quiz vitrine : `explanationImages` présent dans la clé de correction.
   - Couvert aussi par le **test anti-triche paramétré partagé** (Feature 1) :
     aucun de `{correctAnswer, explanation, references, isCorrect,
-    explanationImages}` n'atteint le client en passation.
+explanationImages}` n'atteint le client en passation.
 - **Composant** (`tests/components/admin/`) : le formulaire monte deux uploaders
   (`statement` / `explanation`) et appelle les actions avec le bon `kind`.
 

@@ -27,6 +27,7 @@ migration en production : drainer les participations `in_progress`
 ## File Structure
 
 **Backend (Phase A) — modifiés :**
+
 - `db/schema/enums.ts` — ajout enum `trainingMode`.
 - `db/schema/training.ts` — colonne `mode`.
 - `db/schema/exams.ts` — `examAnswers.selectedAnswer` nullable + `isCorrect` nullable ; drop colonnes pause obsolètes de `examParticipations`.
@@ -38,11 +39,13 @@ migration en production : drainer les participations `in_progress`
 - `features/training/dal.ts` — `getTrainingSessionById` masque `isCorrect` hors tuteur ; révélation tuteur des items répondus.
 
 **Backend (Phase A) — créés :**
+
 - `tests/integration/exam-runner.test.ts` — saveExamAnswer/saveExamFlag/finalizeExam/pause.
 - `tests/integration/training-mode.test.ts` — mode tuteur/test + anti-fuite.
 - `tests/integration/passation-anti-cheat.test.ts` — test paramétré anti-triche.
 
 **Front partagé (Phase B) — créés :**
+
 - `components/quiz/runner/types.ts` — `QuizMode`, `QuizQuestion`, `AnswerState`, `AnswersMap`.
 - `components/quiz/runner/use-exam-timer.ts` — sous-hook chrono.
 - `components/quiz/runner/use-quiz-session.ts` — hook headless.
@@ -50,14 +53,17 @@ migration en production : drainer les participations `in_progress`
 - `tests/components/quiz/use-quiz-session.test.ts`, `tests/components/quiz/use-exam-timer.test.ts`.
 
 **Front partagé (Phase B) — modifiés :**
+
 - `app/(dashboard)/dashboard/examen-blanc/[examId]/evaluation/_components/evaluation-client.tsx` — devient un fin wrapper de `<QuizRunner>`.
 - `app/(dashboard)/dashboard/entrainement/_components/training-session-client.tsx` — idem.
 
 **Résultats & écrans (Phase C) — créés :**
+
 - `components/quiz/results/session-results.tsx` — résultats unifiés.
 - `app/(dashboard)/dashboard/examen-blanc/[examId]/soumis/page.tsx` + `_components/confirmation-client.tsx`.
 
 **Résultats & écrans (Phase C) — supprimés :**
+
 - `lib/exam-storage.ts`, `components/quiz/pause-approaching-alert.tsx`, helpers morts de `lib/exam-timer.ts`, `components/quiz/results/participant-exam-results-view.tsx`, `app/(dashboard)/dashboard/entrainement/_components/training-results-client.tsx`.
 - ⚠️ **NE PAS** supprimer `components/quiz/quiz-results.tsx` (utilisé par la vitrine).
 
@@ -77,6 +83,7 @@ migration en production : drainer les participations `in_progress`
 ## Task A1 : Migration de schéma
 
 **Files:**
+
 - Modify: `db/schema/enums.ts`
 - Modify: `db/schema/training.ts:24`
 - Modify: `db/schema/exams.ts:86-89,115-116`
@@ -103,6 +110,7 @@ import { trainingMode, trainingStatus } from "./enums"
 - [ ] **Step 3 : Simplifier `examParticipations` et `examAnswers`**
 
 Dans `db/schema/exams.ts` :
+
 - Retirer l'import `examPausePhase` et les colonnes `pausePhase`, `pauseEndedAt`, `isPauseCutShort` de `examParticipations` (garder `pauseStartedAt` et `totalPauseDurationMs`).
 - Rendre `examAnswers.selectedAnswer` et `examAnswers.isCorrect` nullables (lignes pré-créées non répondues) :
 
@@ -139,6 +147,7 @@ git commit -m "feat(db): mode entraînement, examAnswers nullable, drop colonnes
 ## Task A2 : Schémas zod des actions examen
 
 **Files:**
+
 - Modify: `features/exams/schemas.ts`
 
 - [ ] **Step 1 : Remplacer `submitExamAnswersSchema` par les nouveaux schémas**
@@ -184,6 +193,7 @@ git commit -m "feat(exams): schémas saveExamAnswer/saveExamFlag/finalizeExam"
 ## Task A3 : `startExam` pré-crée les lignes `examAnswers`
 
 **Files:**
+
 - Modify: `features/exams/actions.ts:361-459` (fonction `startExam`)
 - Test: `tests/integration/exam-runner.test.ts`
 
@@ -197,6 +207,7 @@ import { describe, expect, it } from "vitest"
 import { db } from "@/db"
 import { examAnswers, examParticipations } from "@/db/schema"
 import { startExam } from "@/features/exams/actions"
+
 // + helpers de seed: createUser, grantExamAccess, createExamWithQuestions, asUser (mock session)
 
 describe("startExam pré-création", () => {
@@ -266,6 +277,7 @@ git commit -m "feat(exams): startExam pré-crée les lignes examAnswers"
 ## Task A4 : `saveExamAnswer` + `saveExamFlag`
 
 **Files:**
+
 - Modify: `features/exams/actions.ts`
 - Test: `tests/integration/exam-runner.test.ts`
 
@@ -276,7 +288,9 @@ Ajouter à `exam-runner.test.ts` :
 ```ts
 describe("saveExamAnswer", () => {
   it("met à jour la ligne et ne renvoie JAMAIS isCorrect", async () => {
-    const { userId, examId, questionIds, correctByQid } = await seedExam({ questionCount: 2 })
+    const { userId, examId, questionIds, correctByQid } = await seedExam({
+      questionCount: 2,
+    })
     await asUser(userId, async () => {
       await startExam({ examId })
       const res = await saveExamAnswer({
@@ -286,18 +300,27 @@ describe("saveExamAnswer", () => {
       })
       expect(res).toEqual({ success: true }) // pas de champ isCorrect
     })
-    const [row] = await db.select().from(examAnswers)
+    const [row] = await db
+      .select()
+      .from(examAnswers)
       .where(eq(examAnswers.questionId, questionIds[0]))
     expect(row.selectedAnswer).toBe(correctByQid[questionIds[0]])
     expect(row.isCorrect).toBe(true) // calculé serveur, stocké
   })
 
   it("refuse une réponse pendant la pause", async () => {
-    const { userId, examId, questionIds } = await seedExam({ questionCount: 2, enablePause: true })
+    const { userId, examId, questionIds } = await seedExam({
+      questionCount: 2,
+      enablePause: true,
+    })
     await asUser(userId, async () => {
       await startExam({ examId })
       await pauseExam({ examId })
-      const res = await saveExamAnswer({ examId, questionId: questionIds[0], selectedAnswer: "x" })
+      const res = await saveExamAnswer({
+        examId,
+        questionId: questionIds[0],
+        selectedAnswer: "x",
+      })
       expect(res.success).toBe(false)
     })
   })
@@ -322,34 +345,53 @@ export const saveExamAnswer = async (
   const isAdmin = session.user.role === "admin"
 
   const parsed = saveExamAnswerSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Données invalides")
+  if (!parsed.success)
+    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   const { examId, questionId, selectedAnswer } = parsed.data
 
   try {
-    if (!isAdmin && !(await hasAccess("exam"))) return fail("Votre accès aux examens a expiré.")
+    if (!isAdmin && !(await hasAccess("exam")))
+      return fail("Votre accès aux examens a expiré.")
 
     const now = Date.now()
     const [exam] = await db
       .select({ startDate: exams.startDate, endDate: exams.endDate })
-      .from(exams).where(eq(exams.id, examId)).limit(1)
+      .from(exams)
+      .where(eq(exams.id, examId))
+      .limit(1)
     if (!exam) return fail("Examen introuvable.")
     if (now < exam.startDate.getTime() || now > exam.endDate.getTime())
       return fail("L'examen n'est pas disponible à cette période.")
 
     const [p] = await db
-      .select({ id: examParticipations.id, status: examParticipations.status, pauseStartedAt: examParticipations.pauseStartedAt })
+      .select({
+        id: examParticipations.id,
+        status: examParticipations.status,
+        pauseStartedAt: examParticipations.pauseStartedAt,
+      })
       .from(examParticipations)
-      .where(and(eq(examParticipations.examId, examId), eq(examParticipations.userId, userId)))
+      .where(
+        and(
+          eq(examParticipations.examId, examId),
+          eq(examParticipations.userId, userId),
+        ),
+      )
       .limit(1)
     if (!p) return fail("Participation introuvable.")
-    if (p.status !== "in_progress") return fail("Cette session d'examen n'est plus active.")
+    if (p.status !== "in_progress")
+      return fail("Cette session d'examen n'est plus active.")
     if (p.pauseStartedAt) return fail("Réponse impossible pendant la pause.")
 
     const [q] = await db
       .select({ correctAnswer: questions.correctAnswer })
       .from(examQuestions)
       .innerJoin(questions, eq(questions.id, examQuestions.questionId))
-      .where(and(eq(examQuestions.examId, examId), eq(examQuestions.questionId, questionId)))
+      .where(
+        and(
+          eq(examQuestions.examId, examId),
+          eq(examQuestions.questionId, questionId),
+        ),
+      )
       .limit(1)
     if (!q) return fail("Cette question ne fait pas partie de l'examen.")
 
@@ -357,11 +399,17 @@ export const saveExamAnswer = async (
     const updated = await db
       .update(examAnswers)
       .set({ selectedAnswer, isCorrect })
-      .where(and(eq(examAnswers.participationId, p.id), eq(examAnswers.questionId, questionId)))
+      .where(
+        and(
+          eq(examAnswers.participationId, p.id),
+          eq(examAnswers.questionId, questionId),
+        ),
+      )
       .returning({ id: examAnswers.id })
     // ⚠️ 0 ligne = pas de ligne pré-créée (participation héritée / cutover sauté) → échec explicite,
     // pas de faux succès silencieux (revue #8).
-    if (updated.length === 0) return fail("Réponse non enregistrée (session incohérente).")
+    if (updated.length === 0)
+      return fail("Réponse non enregistrée (session incohérente).")
 
     return { success: true } // ⚠️ ne JAMAIS renvoyer isCorrect (anti-triche)
   } catch (error) {
@@ -379,22 +427,35 @@ export const saveExamFlag = async (
 ): Promise<{ success: boolean; error?: string }> => {
   const session = await requireSession()
   const parsed = saveExamFlagSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Données invalides")
+  if (!parsed.success)
+    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   const { examId, questionId, isFlagged } = parsed.data
   try {
     const [p] = await db
       .select({ id: examParticipations.id, status: examParticipations.status })
       .from(examParticipations)
-      .where(and(eq(examParticipations.examId, examId), eq(examParticipations.userId, session.user.id)))
+      .where(
+        and(
+          eq(examParticipations.examId, examId),
+          eq(examParticipations.userId, session.user.id),
+        ),
+      )
       .limit(1)
     if (!p) return fail("Participation introuvable.")
-    if (p.status !== "in_progress") return fail("Cette session d'examen n'est plus active.")
+    if (p.status !== "in_progress")
+      return fail("Cette session d'examen n'est plus active.")
     const updated = await db
       .update(examAnswers)
       .set({ isFlagged })
-      .where(and(eq(examAnswers.participationId, p.id), eq(examAnswers.questionId, questionId)))
+      .where(
+        and(
+          eq(examAnswers.participationId, p.id),
+          eq(examAnswers.questionId, questionId),
+        ),
+      )
       .returning({ id: examAnswers.id })
-    if (updated.length === 0) return fail("Marquage non enregistré (session incohérente).")
+    if (updated.length === 0)
+      return fail("Marquage non enregistré (session incohérente).")
     return { success: true }
   } catch (error) {
     logDev("[saveExamFlag]", error)
@@ -420,6 +481,7 @@ git commit -m "feat(exams): saveExamAnswer (anti-révélation) + saveExamFlag"
 ## Task A5 : `finalizeExam` (remplace `submitExamAnswers`)
 
 **Files:**
+
 - Modify: `features/exams/actions.ts` (retirer `submitExamAnswers`, ajouter `finalizeExam`)
 - Test: `tests/integration/exam-runner.test.ts`
 
@@ -428,12 +490,26 @@ git commit -m "feat(exams): saveExamAnswer (anti-révélation) + saveExamFlag"
 ```ts
 describe("finalizeExam", () => {
   it("calcule le score depuis les lignes en base", async () => {
-    const { userId, examId, questionIds, correctByQid } = await seedExam({ questionCount: 4 })
+    const { userId, examId, questionIds, correctByQid } = await seedExam({
+      questionCount: 4,
+    })
     await asUser(userId, async () => {
       await startExam({ examId })
-      await saveExamAnswer({ examId, questionId: questionIds[0], selectedAnswer: correctByQid[questionIds[0]] })
-      await saveExamAnswer({ examId, questionId: questionIds[1], selectedAnswer: correctByQid[questionIds[1]] })
-      await saveExamAnswer({ examId, questionId: questionIds[2], selectedAnswer: "mauvaise" })
+      await saveExamAnswer({
+        examId,
+        questionId: questionIds[0],
+        selectedAnswer: correctByQid[questionIds[0]],
+      })
+      await saveExamAnswer({
+        examId,
+        questionId: questionIds[1],
+        selectedAnswer: correctByQid[questionIds[1]],
+      })
+      await saveExamAnswer({
+        examId,
+        questionId: questionIds[2],
+        selectedAnswer: "mauvaise",
+      })
       const res = await finalizeExam({ examId })
       expect(res.success).toBe(true)
       if (res.success) {
@@ -442,8 +518,13 @@ describe("finalizeExam", () => {
         expect(res.score).toBe(50)
       }
     })
-    const [p] = await db.select({ status: examParticipations.status, score: examParticipations.score })
-      .from(examParticipations).where(eq(examParticipations.examId, examId))
+    const [p] = await db
+      .select({
+        status: examParticipations.status,
+        score: examParticipations.score,
+      })
+      .from(examParticipations)
+      .where(eq(examParticipations.examId, examId))
     expect(p.status).toBe("completed")
     expect(p.score).toBe(50)
   })
@@ -456,7 +537,12 @@ describe("finalizeExam", () => {
 
 ```ts
 export type FinalizeExamResult =
-  | { success: true; score: number; correctAnswers: number; totalQuestions: number }
+  | {
+      success: true
+      score: number
+      correctAnswers: number
+      totalQuestions: number
+    }
   | { success: false; error: string }
 
 export const finalizeExam = async (
@@ -467,38 +553,63 @@ export const finalizeExam = async (
   const isAdmin = session.user.role === "admin"
 
   const parsed = finalizeExamSchema.safeParse(input)
-  if (!parsed.success) return fail(parsed.error.issues[0]?.message ?? "Données invalides")
+  if (!parsed.success)
+    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   const { examId, isAutoSubmit } = parsed.data
 
   try {
     const result = await db.transaction(async (tx) => {
       const [exam] = await tx
-        .select({ startDate: exams.startDate, endDate: exams.endDate, completionTime: exams.completionTime })
-        .from(exams).where(eq(exams.id, examId)).limit(1)
+        .select({
+          startDate: exams.startDate,
+          endDate: exams.endDate,
+          completionTime: exams.completionTime,
+        })
+        .from(exams)
+        .where(eq(exams.id, examId))
+        .limit(1)
       if (!exam) throw new Error("NOT_FOUND")
 
       const now = Date.now()
-      if (now < exam.startDate.getTime() || now > exam.endDate.getTime()) throw new Error("OUTSIDE_WINDOW")
+      if (now < exam.startDate.getTime() || now > exam.endDate.getTime())
+        throw new Error("OUTSIDE_WINDOW")
 
       const [p] = await tx
         .select({
-          id: examParticipations.id, status: examParticipations.status,
+          id: examParticipations.id,
+          status: examParticipations.status,
           startedAt: examParticipations.startedAt,
           pauseStartedAt: examParticipations.pauseStartedAt,
           totalPauseDurationMs: examParticipations.totalPauseDurationMs,
         })
         .from(examParticipations)
-        .where(and(eq(examParticipations.examId, examId), eq(examParticipations.userId, userId)))
-        .for("update").limit(1)
+        .where(
+          and(
+            eq(examParticipations.examId, examId),
+            eq(examParticipations.userId, userId),
+          ),
+        )
+        .for("update")
+        .limit(1)
       if (!p) throw new Error("NOT_FOUND_PART")
-      if (p.status === "completed" || p.status === "auto_submitted") throw new Error("ALREADY_TAKEN")
+      if (p.status === "completed" || p.status === "auto_submitted")
+        throw new Error("ALREADY_TAKEN")
       if (p.status !== "in_progress") throw new Error("NOT_IN_PROGRESS")
 
       // Accès payant re-vérifié (parité avec l'ancien submit). [F2 raffinera pour les examens restreints.]
       if (!isAdmin) {
-        const [acc] = await tx.select({ expiresAt: userAccess.expiresAt }).from(userAccess)
-          .where(and(eq(userAccess.userId, userId), eq(userAccess.accessType, "exam"))).limit(1)
-        if (!acc || acc.expiresAt.getTime() <= now) throw new Error("ACCESS_EXPIRED")
+        const [acc] = await tx
+          .select({ expiresAt: userAccess.expiresAt })
+          .from(userAccess)
+          .where(
+            and(
+              eq(userAccess.userId, userId),
+              eq(userAccess.accessType, "exam"),
+            ),
+          )
+          .limit(1)
+        if (!acc || acc.expiresAt.getTime() <= now)
+          throw new Error("ACCESS_EXPIRED")
       }
 
       // Pause encore ouverte au moment de finaliser → on la clôt (cumul plafonné).
@@ -507,23 +618,36 @@ export const finalizeExam = async (
 
       if (!p.startedAt) throw new Error("NOT_STARTED")
       const elapsed = now - p.startedAt.getTime() - pauseMs
-      if (!isAutoSubmit && elapsed > exam.completionTime * 1000 + 5000) throw new Error("TIME_UP")
+      if (!isAutoSubmit && elapsed > exam.completionTime * 1000 + 5000)
+        throw new Error("TIME_UP")
 
       const [agg] = await tx
         .select({
-          correct: sql<number>`count(*) filter (where ${examAnswers.isCorrect})`.mapWith(Number),
+          correct:
+            sql<number>`count(*) filter (where ${examAnswers.isCorrect})`.mapWith(
+              Number,
+            ),
           total: sql<number>`count(*)`.mapWith(Number),
         })
-        .from(examAnswers).where(eq(examAnswers.participationId, p.id))
+        .from(examAnswers)
+        .where(eq(examAnswers.participationId, p.id))
       const correctAnswers = agg?.correct ?? 0
       const totalQuestions = agg?.total ?? 0
-      const score = totalQuestions > 0 ? Math.round((correctAnswers / totalQuestions) * 100) : 0
+      const score =
+        totalQuestions > 0
+          ? Math.round((correctAnswers / totalQuestions) * 100)
+          : 0
 
-      await tx.update(examParticipations).set({
-        status: isAutoSubmit ? "auto_submitted" : "completed",
-        score, completedAt: new Date(now),
-        pauseStartedAt: null, totalPauseDurationMs: pauseMs,
-      }).where(eq(examParticipations.id, p.id))
+      await tx
+        .update(examParticipations)
+        .set({
+          status: isAutoSubmit ? "auto_submitted" : "completed",
+          score,
+          completedAt: new Date(now),
+          pauseStartedAt: null,
+          totalPauseDurationMs: pauseMs,
+        })
+        .where(eq(examParticipations.id, p.id))
 
       return { score, correctAnswers, totalQuestions }
     })
@@ -531,11 +655,15 @@ export const finalizeExam = async (
   } catch (error) {
     if (error instanceof Error) {
       const map: Record<string, string> = {
-        NOT_FOUND: "Examen introuvable.", OUTSIDE_WINDOW: "L'examen n'est pas disponible à cette période.",
-        NOT_FOUND_PART: "Participation introuvable.", ALREADY_TAKEN: "Vous avez déjà passé cet examen.",
+        NOT_FOUND: "Examen introuvable.",
+        OUTSIDE_WINDOW: "L'examen n'est pas disponible à cette période.",
+        NOT_FOUND_PART: "Participation introuvable.",
+        ALREADY_TAKEN: "Vous avez déjà passé cet examen.",
         NOT_IN_PROGRESS: "Cette session d'examen n'est plus active.",
-        ACCESS_EXPIRED: "Votre accès aux examens a expiré.", NOT_STARTED: "L'examen n'a pas encore été démarré.",
-        TIME_UP: "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
+        ACCESS_EXPIRED: "Votre accès aux examens a expiré.",
+        NOT_STARTED: "L'examen n'a pas encore été démarré.",
+        TIME_UP:
+          "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
       }
       const msg = map[error.message]
       if (msg) return fail(msg)
@@ -562,6 +690,7 @@ git commit -m "feat(exams): finalizeExam (score depuis la base), retrait de subm
 ## Task A6 : `pauseExam` / `resumeExam` (remplacent les phases)
 
 **Files:**
+
 - Modify: `features/exams/actions.ts` (retirer `startPause`/`resumeFromPause`, ajouter `pauseExam`/`resumeExam`)
 - Test: `tests/integration/exam-runner.test.ts`
 
@@ -570,7 +699,11 @@ git commit -m "feat(exams): finalizeExam (score depuis la base), retrait de subm
 ```ts
 describe("pause", () => {
   it("une seule pause autorisée ; resume cumule la durée", async () => {
-    const { userId, examId } = await seedExam({ questionCount: 2, enablePause: true, pauseDurationMinutes: 15 })
+    const { userId, examId } = await seedExam({
+      questionCount: 2,
+      enablePause: true,
+      pauseDurationMinutes: 15,
+    })
     await asUser(userId, async () => {
       await startExam({ examId })
       const r1 = await pauseExam({ examId })
@@ -582,8 +715,13 @@ describe("pause", () => {
       const r4 = await pauseExam({ examId }) // pause déjà utilisée
       expect(r4.success).toBe(false)
     })
-    const [p] = await db.select({ pauseStartedAt: examParticipations.pauseStartedAt, total: examParticipations.totalPauseDurationMs })
-      .from(examParticipations).where(eq(examParticipations.examId, examId))
+    const [p] = await db
+      .select({
+        pauseStartedAt: examParticipations.pauseStartedAt,
+        total: examParticipations.totalPauseDurationMs,
+      })
+      .from(examParticipations)
+      .where(eq(examParticipations.examId, examId))
     expect(p.pauseStartedAt).toBeNull()
     expect(p.total).toBeGreaterThanOrEqual(0)
   })
@@ -595,24 +733,63 @@ describe("pause", () => {
 - [ ] **Step 3 : Implémenter `pauseExam` / `resumeExam`**
 
 ```ts
-export const pauseExam = async ({ examId }: { examId: string }): Promise<{ success: boolean; error?: string; pauseStartedAt?: number; pauseDurationMinutes?: number }> => {
+export const pauseExam = async ({
+  examId,
+}: {
+  examId: string
+}): Promise<{
+  success: boolean
+  error?: string
+  pauseStartedAt?: number
+  pauseDurationMinutes?: number
+}> => {
   const session = await requireSession()
   if (!examId) return fail("Examen requis")
   try {
     return await db.transaction(async (tx) => {
-      const [exam] = await tx.select({ enablePause: exams.enablePause, pauseDurationMinutes: exams.pauseDurationMinutes })
-        .from(exams).where(eq(exams.id, examId)).limit(1)
+      const [exam] = await tx
+        .select({
+          enablePause: exams.enablePause,
+          pauseDurationMinutes: exams.pauseDurationMinutes,
+        })
+        .from(exams)
+        .where(eq(exams.id, examId))
+        .limit(1)
       if (!exam) return fail("Examen introuvable.")
-      if (!exam.enablePause) return fail("La pause n'est pas activée pour cet examen.")
-      const [p] = await tx.select({ id: examParticipations.id, status: examParticipations.status, pauseStartedAt: examParticipations.pauseStartedAt, total: examParticipations.totalPauseDurationMs })
-        .from(examParticipations).where(and(eq(examParticipations.examId, examId), eq(examParticipations.userId, session.user.id))).for("update").limit(1)
+      if (!exam.enablePause)
+        return fail("La pause n'est pas activée pour cet examen.")
+      const [p] = await tx
+        .select({
+          id: examParticipations.id,
+          status: examParticipations.status,
+          pauseStartedAt: examParticipations.pauseStartedAt,
+          total: examParticipations.totalPauseDurationMs,
+        })
+        .from(examParticipations)
+        .where(
+          and(
+            eq(examParticipations.examId, examId),
+            eq(examParticipations.userId, session.user.id),
+          ),
+        )
+        .for("update")
+        .limit(1)
       if (!p) return fail("Participation introuvable.")
-      if (p.status !== "in_progress") return fail("L'examen n'est pas en cours.")
+      if (p.status !== "in_progress")
+        return fail("L'examen n'est pas en cours.")
       if (p.pauseStartedAt) return fail("Vous êtes déjà en pause.")
       if ((p.total ?? 0) > 0) return fail("La pause a déjà été utilisée.")
       const now = Date.now()
-      await tx.update(examParticipations).set({ pauseStartedAt: new Date(now) }).where(eq(examParticipations.id, p.id))
-      return { success: true as const, pauseStartedAt: now, pauseDurationMinutes: exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES }
+      await tx
+        .update(examParticipations)
+        .set({ pauseStartedAt: new Date(now) })
+        .where(eq(examParticipations.id, p.id))
+      return {
+        success: true as const,
+        pauseStartedAt: now,
+        pauseDurationMinutes:
+          exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES,
+      }
     })
   } catch (error) {
     logDev("[pauseExam]", error)
@@ -620,23 +797,54 @@ export const pauseExam = async ({ examId }: { examId: string }): Promise<{ succe
   }
 }
 
-export const resumeExam = async ({ examId }: { examId: string }): Promise<{ success: boolean; error?: string; totalPauseDurationMs?: number }> => {
+export const resumeExam = async ({
+  examId,
+}: {
+  examId: string
+}): Promise<{
+  success: boolean
+  error?: string
+  totalPauseDurationMs?: number
+}> => {
   const session = await requireSession()
   if (!examId) return fail("Examen requis")
   try {
     return await db.transaction(async (tx) => {
-      const [exam] = await tx.select({ pauseDurationMinutes: exams.pauseDurationMinutes }).from(exams).where(eq(exams.id, examId)).limit(1)
+      const [exam] = await tx
+        .select({ pauseDurationMinutes: exams.pauseDurationMinutes })
+        .from(exams)
+        .where(eq(exams.id, examId))
+        .limit(1)
       if (!exam) return fail("Examen introuvable.")
-      const [p] = await tx.select({ id: examParticipations.id, status: examParticipations.status, pauseStartedAt: examParticipations.pauseStartedAt, total: examParticipations.totalPauseDurationMs })
-        .from(examParticipations).where(and(eq(examParticipations.examId, examId), eq(examParticipations.userId, session.user.id))).for("update").limit(1)
+      const [p] = await tx
+        .select({
+          id: examParticipations.id,
+          status: examParticipations.status,
+          pauseStartedAt: examParticipations.pauseStartedAt,
+          total: examParticipations.totalPauseDurationMs,
+        })
+        .from(examParticipations)
+        .where(
+          and(
+            eq(examParticipations.examId, examId),
+            eq(examParticipations.userId, session.user.id),
+          ),
+        )
+        .for("update")
+        .limit(1)
       if (!p) return fail("Participation introuvable.")
-      if (p.status !== "in_progress") return fail("L'examen n'est pas en cours.")
+      if (p.status !== "in_progress")
+        return fail("L'examen n'est pas en cours.")
       if (!p.pauseStartedAt) return fail("Vous n'êtes pas en pause.")
       const now = Date.now()
-      const capMs = (exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES) * 60 * 1000
+      const capMs =
+        (exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES) * 60 * 1000
       const elapsed = Math.min(now - p.pauseStartedAt.getTime(), capMs)
       const total = (p.total ?? 0) + elapsed
-      await tx.update(examParticipations).set({ pauseStartedAt: null, totalPauseDurationMs: total }).where(eq(examParticipations.id, p.id))
+      await tx
+        .update(examParticipations)
+        .set({ pauseStartedAt: null, totalPauseDurationMs: total })
+        .where(eq(examParticipations.id, p.id))
       return { success: true as const, totalPauseDurationMs: total }
     })
   } catch (error) {
@@ -662,6 +870,7 @@ git commit -m "feat(exams): pauseExam/resumeExam (repos plafonné), retrait des 
 ## Task A7 : `ExamSessionView` simplifié + canal explication
 
 **Files:**
+
 - Modify: `features/exams/dal.ts` (`ExamSessionView` + `getExamSession`, `QuestionExplanationView`)
 
 - [ ] **Step 1 : Simplifier `ExamSessionView` et `getExamSession`**
@@ -685,7 +894,8 @@ Dans `getExamSession`, retirer les colonnes droppées du `select` et mapper :
 
 ```ts
 return {
-  participationId: p.id, status: p.status,
+  participationId: p.id,
+  status: p.status,
   startedAt: p.startedAt?.getTime() ?? null,
   completedAt: p.completedAt?.getTime() ?? null,
   score: p.score,
@@ -727,6 +937,7 @@ git commit -m "feat(exams): ExamSessionView sans phases + canal explanationImage
 ## Task A8 : Entraînement — mode tuteur/test (action + DAL anti-fuite)
 
 **Files:**
+
 - Modify: `features/training/schemas.ts` (ajout `mode`)
 - Modify: `features/training/actions.ts` (`createTrainingSession`, `saveTrainingAnswer`)
 - Modify: `features/training/dal.ts:476-557` (`getTrainingSessionById`)
@@ -745,7 +956,11 @@ describe("mode entraînement", () => {
       expect(c.success).toBe(true)
       const view = await getTrainingSessionById(c.sessionId)
       const q = view!.questions[0]
-      const res = await saveTrainingAnswer({ sessionId: c.sessionId, questionId: q._id, selectedAnswer: q.options[0] })
+      const res = await saveTrainingAnswer({
+        sessionId: c.sessionId,
+        questionId: q._id,
+        selectedAnswer: q.options[0],
+      })
       expect(res.success).toBe(true)
       if (res.success) {
         expect(typeof res.isCorrect).toBe("boolean")
@@ -760,7 +975,11 @@ describe("mode entraînement", () => {
       const c = await createTrainingSession({ questionCount: 2, mode: "test" })
       const v0 = await getTrainingSessionById(c.sessionId)
       const q = v0!.questions[0]
-      await saveTrainingAnswer({ sessionId: c.sessionId, questionId: q._id, selectedAnswer: q.options[0] })
+      await saveTrainingAnswer({
+        sessionId: c.sessionId,
+        questionId: q._id,
+        selectedAnswer: q.options[0],
+      })
       const v1 = await getTrainingSessionById(c.sessionId)
       expect(v1!.answers[q._id]?.selectedAnswer).toBeDefined()
       expect(v1!.answers[q._id]?.isCorrect).toBeUndefined() // ⚠️ pas de fuite en mode test
@@ -789,7 +1008,15 @@ Dans `createTrainingSession` (`features/training/actions.ts`), récupérer `mode
 
 ```ts
 export type SaveTrainingAnswerResult =
-  | { success: true; isCorrect: boolean; reveal?: { correctAnswer: string; explanation: string; references: string[] } }
+  | {
+      success: true
+      isCorrect: boolean
+      reveal?: {
+        correctAnswer: string
+        explanation: string
+        references: string[]
+      }
+    }
   | { success: false; error: string }
 ```
 
@@ -797,9 +1024,23 @@ Après le calcul de `isCorrect` et l'update de l'item, charger le `mode` de la s
 
 ```ts
 if (sessionMode === "tutor") {
-  const [expl] = await db.select({ explanation: questionExplanations.explanation, references: questionExplanations.references })
-    .from(questionExplanations).where(eq(questionExplanations.questionId, questionId)).limit(1)
-  return { success: true, isCorrect, reveal: { correctAnswer: item.correctAnswer, explanation: expl?.explanation ?? "", references: expl?.references ?? [] } }
+  const [expl] = await db
+    .select({
+      explanation: questionExplanations.explanation,
+      references: questionExplanations.references,
+    })
+    .from(questionExplanations)
+    .where(eq(questionExplanations.questionId, questionId))
+    .limit(1)
+  return {
+    success: true,
+    isCorrect,
+    reveal: {
+      correctAnswer: item.correctAnswer,
+      explanation: expl?.explanation ?? "",
+      references: expl?.references ?? [],
+    },
+  }
 }
 return { success: true, isCorrect } // mode test : pas de reveal (mais isCorrect renvoyé pour pilotage interne — NON affiché)
 ```
@@ -825,7 +1066,10 @@ for (const i of items) {
 Mettre `TrainingAnswerRecord` en `isCorrect` optionnel :
 
 ```ts
-export type TrainingAnswerRecord = Record<string, { selectedAnswer: string; isCorrect?: boolean }>
+export type TrainingAnswerRecord = Record<
+  string,
+  { selectedAnswer: string; isCorrect?: boolean }
+>
 ```
 
 **⚠️ Révélation PAR ITEM (revue #3)** : en mode tuteur sur session `in_progress`,
@@ -835,9 +1079,12 @@ des questions **non encore répondues**. Construire un set des questions répond
 et gater par item :
 
 ```ts
-const answeredIds = new Set(items.filter((i) => i.selectedAnswer !== null).map((i) => i.questionId))
+const answeredIds = new Set(
+  items.filter((i) => i.selectedAnswer !== null).map((i) => i.questionId),
+)
 // reveal niveau session si complété ; sinon, en tuteur, reveal par item répondu UNIQUEMENT
-const canRevealItem = (qid: string) => s.status === "completed" || (s.mode === "tutor" && answeredIds.has(qid))
+const canRevealItem = (qid: string) =>
+  s.status === "completed" || (s.mode === "tutor" && answeredIds.has(qid))
 // dans le map questionsView :
 //   ...(canRevealItem(i.questionId) ? { correctAnswer: i.correctAnswer, explanation: …, references: … } : {})
 ```
@@ -856,7 +1103,11 @@ it("tuteur in_progress : ne révèle correctAnswer que pour les questions répon
   await asUser(userId, async () => {
     const c = await createTrainingSession({ questionCount: 2, mode: "tutor" })
     const v0 = await getTrainingSessionById(c.sessionId)
-    await saveTrainingAnswer({ sessionId: c.sessionId, questionId: v0!.questions[0]._id, selectedAnswer: v0!.questions[0].options[0] })
+    await saveTrainingAnswer({
+      sessionId: c.sessionId,
+      questionId: v0!.questions[0]._id,
+      selectedAnswer: v0!.questions[0].options[0],
+    })
     const v1 = await getTrainingSessionById(c.sessionId)
     expect(v1!.questions[0].correctAnswer).toBeDefined()
     expect(v1!.questions[1].correctAnswer).toBeUndefined() // non répondue → pas de fuite
@@ -878,6 +1129,7 @@ git commit -m "feat(training): mode tuteur/test + correctif fuite isCorrect (rev
 ## Task A9 : Test paramétré anti-triche (couvre #5, prépare #1)
 
 **Files:**
+
 - Test: `tests/integration/passation-anti-cheat.test.ts`
 
 - [ ] **Step 1 : Écrire le test**
@@ -885,7 +1137,13 @@ git commit -m "feat(training): mode tuteur/test + correctif fuite isCorrect (rev
 Un test paramétré qui démarre une passation (examen ; entraînement mode test) et vérifie qu'aucun des champs sensibles n'atteint le « client » via les DAL/actions de passation :
 
 ```ts
-const SENSITIVE = ["correctAnswer", "explanation", "references", "isCorrect", "explanationImages"] as const
+const SENSITIVE = [
+  "correctAnswer",
+  "explanation",
+  "references",
+  "isCorrect",
+  "explanationImages",
+] as const
 
 describe("anti-triche passation", () => {
   it("examen : getExamWithQuestions (non-admin) ne révèle aucun champ sensible", async () => {
@@ -893,7 +1151,8 @@ describe("anti-triche passation", () => {
     await asUser(userId, async () => {
       const view = await getExamWithQuestions(examId)
       for (const q of view!.questions)
-        for (const k of SENSITIVE) expect((q as Record<string, unknown>)[k]).toBeUndefined()
+        for (const k of SENSITIVE)
+          expect((q as Record<string, unknown>)[k]).toBeUndefined()
     })
   })
 
@@ -903,7 +1162,8 @@ describe("anti-triche passation", () => {
       const c = await createTrainingSession({ questionCount: 3, mode: "test" })
       const v = await getTrainingSessionById(c.sessionId)
       for (const q of v!.questions)
-        for (const k of SENSITIVE) expect((q as Record<string, unknown>)[k]).toBeUndefined()
+        for (const k of SENSITIVE)
+          expect((q as Record<string, unknown>)[k]).toBeUndefined()
       // answers : isCorrect absent (vérifié en A8) ; ici on confirme côté questions
     })
   })
@@ -911,7 +1171,7 @@ describe("anti-triche passation", () => {
 ```
 
 - [ ] **Step 2 : Lancer** — Run: `bun run test:integration -- passation-anti-cheat`
-Expected: PASS (les DAL masquent déjà ces champs en passation).
+      Expected: PASS (les DAL masquent déjà ces champs en passation).
 
 - [ ] **Step 3 : Commit**
 
@@ -927,6 +1187,7 @@ git commit -m "test: garde anti-triche paramétrée (passation examen + entraîn
 ## Task A10 : Audit & migration des tests existants (⚠️ bloquant CI — revue #1)
 
 **Files:**
+
 - Modify: `tests/integration/exams.test.ts` (+ tout fichier référençant des symboles supprimés)
 
 > **Doit accompagner A5/A6** (mêmes commits ou immédiatement après) : `bun run check`
@@ -976,6 +1237,7 @@ git commit -m "test: migration des tests examen vers saveExamAnswer/finalizeExam
 ## Task B1 : Types canoniques
 
 **Files:**
+
 - Create: `components/quiz/runner/types.ts`
 
 - [ ] **Step 1 : Écrire les types**
@@ -1011,12 +1273,23 @@ export type QuizMode = {
   backUrl: string
 }
 
-export type QuizRevealPayload = { correctAnswer: string; explanation: string; references: string[] }
+export type QuizRevealPayload = {
+  correctAnswer: string
+  explanation: string
+  references: string[]
+}
 
 export type QuizCallbacks = {
-  onAnswer: (questionId: string, selected: string) => Promise<{ ok: true; reveal?: QuizRevealPayload } | { ok: false; error: string }>
+  onAnswer: (
+    questionId: string,
+    selected: string,
+  ) => Promise<
+    { ok: true; reveal?: QuizRevealPayload } | { ok: false; error: string }
+  >
   onFlag: (questionId: string, isFlagged: boolean) => Promise<void>
-  onFinish: (opts: { isAutoSubmit: boolean }) => Promise<{ ok: boolean; redirectTo?: string }>
+  onFinish: (opts: {
+    isAutoSubmit: boolean
+  }) => Promise<{ ok: boolean; redirectTo?: string }>
   onPause?: () => Promise<{ ok: boolean }>
   onResume?: () => Promise<{ ok: boolean }>
 }
@@ -1029,6 +1302,7 @@ export type QuizCallbacks = {
 ## Task B2 : `useExamTimer`
 
 **Files:**
+
 - Create: `components/quiz/runner/use-exam-timer.ts`
 - Test: `tests/components/quiz/use-exam-timer.test.ts`
 
@@ -1045,18 +1319,40 @@ afterEach(() => vi.useRealTimers())
 it("décompte et déclenche onExpire à 0", () => {
   const onExpire = vi.fn()
   const start = Date.now()
-  const { result } = renderHook(() => useExamTimer({ serverStartTime: start, totalSeconds: 2, isPaused: false, totalPauseDurationMs: 0, onExpire }))
+  const { result } = renderHook(() =>
+    useExamTimer({
+      serverStartTime: start,
+      totalSeconds: 2,
+      isPaused: false,
+      totalPauseDurationMs: 0,
+      onExpire,
+    }),
+  )
   expect(result.current.remainingMs).toBeGreaterThan(0)
-  act(() => { vi.advanceTimersByTime(2100) })
+  act(() => {
+    vi.advanceTimersByTime(2100)
+  })
   expect(result.current.remainingMs).toBe(0)
   expect(onExpire).toHaveBeenCalledTimes(1)
 })
 
 it("gelé quand isPaused", () => {
   const start = Date.now()
-  const { result, rerender } = renderHook(({ p }) => useExamTimer({ serverStartTime: start, totalSeconds: 100, isPaused: p, totalPauseDurationMs: 0, onExpire: vi.fn() }), { initialProps: { p: true } })
+  const { result, rerender } = renderHook(
+    ({ p }) =>
+      useExamTimer({
+        serverStartTime: start,
+        totalSeconds: 100,
+        isPaused: p,
+        totalPauseDurationMs: 0,
+        onExpire: vi.fn(),
+      }),
+    { initialProps: { p: true } },
+  )
   const before = result.current.remainingMs
-  act(() => { vi.advanceTimersByTime(3000) })
+  act(() => {
+    vi.advanceTimersByTime(3000)
+  })
   expect(result.current.remainingMs).toBe(before) // figé
 })
 ```
@@ -1074,6 +1370,7 @@ it("gelé quand isPaused", () => {
 ## Task B3 : `useQuizSession`
 
 **Files:**
+
 - Create: `components/quiz/runner/use-quiz-session.ts`
 - Test: `tests/components/quiz/use-quiz-session.test.ts`
 
@@ -1081,19 +1378,32 @@ it("gelé quand isPaused", () => {
 
 ```ts
 it("answerSelect persiste et applique la révélation en mode immédiat", async () => {
-  const onAnswer = vi.fn().mockResolvedValue({ ok: true, reveal: { correctAnswer: "B", explanation: "e", references: [] } })
-  const { result } = renderHook(() => useQuizSession({
-    questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
-    initialAnswers: {}, mode: { kind: "training", feedback: "immediate", /* … */ } as never,
-    callbacks: { onAnswer, onFlag: vi.fn(), onFinish: vi.fn() },
-  }))
-  await act(async () => { await result.current.answerSelect(1) })
+  const onAnswer = vi.fn().mockResolvedValue({
+    ok: true,
+    reveal: { correctAnswer: "B", explanation: "e", references: [] },
+  })
+  const { result } = renderHook(() =>
+    useQuizSession({
+      questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+      initialAnswers: {},
+      mode: { kind: "training", feedback: "immediate" /* … */ } as never,
+      callbacks: { onAnswer, onFlag: vi.fn(), onFinish: vi.fn() },
+    }),
+  )
+  await act(async () => {
+    await result.current.answerSelect(1)
+  })
   expect(onAnswer).toHaveBeenCalledWith("q1", "B")
-  expect(result.current.answers["q1"]).toEqual({ selected: "B", isCorrect: true })
+  expect(result.current.answers["q1"]).toEqual({
+    selected: "B",
+    isCorrect: true,
+  })
   expect(result.current.revealed["q1"]).toBeTruthy()
 })
 
-it("navigation bornée + toggle flag", () => { /* goNext/goPrevious/goTo + toggleFlag */ })
+it("navigation bornée + toggle flag", () => {
+  /* goNext/goPrevious/goTo + toggleFlag */
+})
 ```
 
 - [ ] **Step 2 : Lancer (échec)** — Run: `bun run test -- use-quiz-session` → FAIL.
@@ -1109,6 +1419,7 @@ it("navigation bornée + toggle flag", () => { /* goNext/goPrevious/goTo + toggl
 ## Task B4 : `<QuizRunner>` (coquille)
 
 **Files:**
+
 - Create: `components/quiz/runner/quiz-runner.tsx`
 
 - [ ] **Step 1 : Implémenter la coquille** — composant client qui prend `{ questions, initialAnswers, mode, callbacks }`, appelle `useQuizSession`, et assemble les composants partagés existants. **Porter la mise en page** depuis `evaluation-client.tsx` (lignes 526-734 : `SessionHeader` + colonne question + `QuestionNavigator` + `SessionToolbar` + `FinishDialog`), en remplaçant :
@@ -1127,6 +1438,7 @@ it("navigation bornée + toggle flag", () => { /* goNext/goPrevious/goTo + toggl
 ## Task B5 : Brancher l'examen sur `<QuizRunner>`
 
 **Files:**
+
 - Modify: `app/(dashboard)/dashboard/examen-blanc/[examId]/evaluation/_components/evaluation-client.tsx`
 - Modify: `.../evaluation/page.tsx` (props éventuelles : `initialAnswers`)
 
@@ -1135,12 +1447,12 @@ it("navigation bornée + toggle flag", () => { /* goNext/goPrevious/goTo + toggl
   - `onFlag` → `saveExamFlag` ;
   - `onFinish` → `finalizeExam` → `redirectTo` = `/dashboard/examen-blanc/${examId}/soumis` ;
   - `onPause`/`onResume` → `pauseExam`/`resumeExam`.
-  Conserver l'écran d'avertissement de démarrage (Task C5 le redessine) ; au montage, si pas de participation → afficher l'avertissement → `startExam`.
+    Conserver l'écran d'avertissement de démarrage (Task C5 le redessine) ; au montage, si pas de participation → afficher l'avertissement → `startExam`.
 
 - [ ] **Step 2 : Ajouter la DAL `getExamAnswersForParticipation`** dans `features/exams/dal.ts` (colonnes `questionId, selectedAnswer, isFlagged` ; **jamais** `isCorrect`), gardée par session/propriété.
 
 - [ ] **Step 3 : Vérifier** — Run: `bunx tsc --noEmit && bun run lint`
-Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localStorage doivent avoir disparu de ce fichier.
+      Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localStorage doivent avoir disparu de ce fichier.
 
 - [ ] **Step 4 : Commit** — `git add app/(dashboard)/dashboard/examen-blanc/ features/exams/dal.ts && git commit -m "feat(exam): passation via QuizRunner (persistance serveur, pause repos)"`
 
@@ -1149,6 +1461,7 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task B6 : Brancher l'entraînement sur `<QuizRunner>`
 
 **Files:**
+
 - Modify: `app/(dashboard)/dashboard/entrainement/_components/training-session-client.tsx`
 
 - [ ] **Step 1 : Réduire au wrapper** — `mode` (kind training, accent emerald, `timer:null`, `pause:null`, `feedback = session.mode === "tutor" ? "immediate" : "deferred"`, `showMeta:false`), `initialAnswers` depuis `initialData.answers` (forme `{selected, isCorrect?}`), callbacks :
@@ -1167,6 +1480,7 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task C1 : `<SessionResults>` unifié
 
 **Files:**
+
 - Create: `components/quiz/results/session-results.tsx`
 
 - [ ] **Step 1 : Implémenter** — props : `{ accent, summary: { score, correct, incorrect, unanswered }, questions: QuizQuestion[], answers: AnswersMap, loadExplanations?: (ids: string[]) => Promise<…>, participant?: { name; email; image } }`. Porter le rendu depuis `participant-exam-results-view.tsx` (récap + liste `QuestionCard variant="review"` + filtre « erreurs seulement » + `ResultsQuestionNavigator`) ; afficher `explanationImages` sous l'explication si présent ; carte participant si `participant`.
@@ -1184,6 +1498,7 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task C2 : Écran de confirmation post-examen
 
 **Files:**
+
 - Create: `app/(dashboard)/dashboard/examen-blanc/[examId]/soumis/page.tsx`
 - Create: `.../soumis/_components/confirmation-client.tsx`
 
@@ -1198,6 +1513,7 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task C3 : Mode tuteur/test dans le formulaire de config entraînement
 
 **Files:**
+
 - Modify: `app/(dashboard)/dashboard/entrainement/_components/training-config-form.tsx`
 
 - [ ] **Step 1 : Ajouter la bascule** — un contrôle radio/segmented « Mode tuteur / Mode test » (explication courte de chaque), inclus dans la soumission `createTrainingSession({ … mode })`. Défaut `test`.
@@ -1211,6 +1527,7 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task C4 : `pause-dialog` simplifié (overlay de repos) + retrait alerte
 
 **Files:**
+
 - Modify: `components/quiz/pause-dialog.tsx`
 - Delete: `components/quiz/pause-approaching-alert.tsx`
 
@@ -1227,6 +1544,7 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task C5 : Écran de démarrage examen redessiné (règles à jour)
 
 **Files:**
+
 - Modify: `app/(dashboard)/dashboard/examen-blanc/[examId]/evaluation/_components/evaluation-client.tsx` (bloc d'avertissement)
 
 - [ ] **Step 1 : Mettre à jour les règles** — retirer « pas de sauvegarde / rafraîchir = perte » ; nouvelles règles : « session unique · chrono serveur (continue au rechargement) · auto-soumission à 0 · pause repos disponible » (si `enablePause`). Vérifier qu'aucun libellé ne décrit l'ancienne mécanique de pause (revue #7).
@@ -1240,6 +1558,7 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task C6 : Nettoyage (suppressions)
 
 **Files:**
+
 - Delete: `lib/exam-storage.ts`
 - Delete: `components/quiz/results/participant-exam-results-view.tsx`
 - Delete: `app/(dashboard)/dashboard/entrainement/_components/training-results-client.tsx`
@@ -1258,6 +1577,7 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task C7 : Procédure de cutover (sessions en vol) — § G
 
 **Files:**
+
 - Create: `docs/superpowers/runbooks/2026-06-28-cutover-refonte-quiz.md`
 
 - [ ] **Step 1 : Rédiger le runbook de déploiement** — documenter, dans l'ordre : (1) communiquer/fermer la fenêtre des examens actifs OU choisir un créneau sans examen `in_progress` ; (2) **drainer** les participations `in_progress` restantes — script/SQL d'auto-soumission (passer `status='auto_submitted'`, `score=0` ou calculé selon réponses disponibles) ; (3) appliquer la migration (Task A1) ; (4) déployer le code. Inclure la requête de détection : `select count(*) from exam_participations where status='in_progress'` à exécuter AVANT migration.
@@ -1271,15 +1591,16 @@ Expected: 0 erreur. Les références à `submitExamAnswers`/`startPause`/localSt
 ## Task C8 : E2E + vérification finale
 
 **Files:**
+
 - Modify: `e2e/tests/` (scénarios examen + entraînement)
 
 - [ ] **Step 1 : Mettre à jour/écrire les E2E** — conserver les `data-testid` (`answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`) sur `<QuizRunner>`. Scénarios : examen (démarrage → réponses persistées au rechargement → pause overlay masque l'énoncé → auto-submit via `page.clock` → écran de confirmation) ; entraînement tuteur (révélation après réponse) vs test (pas de révélation avant la fin).
 
 - [ ] **Step 2 : Lancer toute la suite** — Run: `bun run check && bun run test && bun run test:integration`
-Expected: tout vert (couverture ≥ seuil).
+      Expected: tout vert (couverture ≥ seuil).
 
 - [ ] **Step 3 : Lancer les E2E** — Run: `bun run test:e2e`
-Expected: scénarios passation/résultats verts.
+      Expected: scénarios passation/résultats verts.
 
 - [ ] **Step 4 : Commit** — `git add e2e/ && git commit -m "test(e2e): passation/résultats sur la coquille unifiée"`
 

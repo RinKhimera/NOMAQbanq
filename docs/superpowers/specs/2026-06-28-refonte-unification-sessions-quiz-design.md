@@ -12,10 +12,10 @@ obsolètes, `quiz-results.tsx` conservé)
 Le système de passation comporte aujourd'hui **deux contrôleurs clients
 quasi parallèles** qui réimplémentent les mêmes concerns sans rien partager :
 
-- [`evaluation-client.tsx`](../../../app/(dashboard)/dashboard/examen-blanc/[examId]/evaluation/_components/evaluation-client.tsx) (~945 lignes) : chrono serveur,
+- [`evaluation-client.tsx`](<../../../app/(dashboard)/dashboard/examen-blanc/[examId]/evaluation/_components/evaluation-client.tsx>) (~945 lignes) : chrono serveur,
   pause à 3 phases avec verrouillage par moitié, persistance localStorage,
   auto-submit.
-- [`training-session-client.tsx`](../../../app/(dashboard)/dashboard/entrainement/_components/training-session-client.tsx) (~322 lignes) : feedback immédiat
+- [`training-session-client.tsx`](<../../../app/(dashboard)/dashboard/entrainement/_components/training-session-client.tsx>) (~322 lignes) : feedback immédiat
   (mais non affiché), persistance DB par réponse, pas de chrono.
 
 Les composants de présentation (`QuestionCard`, `QuestionNavigator`,
@@ -54,8 +54,8 @@ anti-triche (`correctAnswer`/`explanation` omis pendant la passation).
    (`showCorrectAnswer={false}`) → coût du feedback sans le bénéfice.
 10. Soumission d'examen → éjection vers la liste, sans écran de confirmation.
 11. Anti-fraude « théâtral » (toast changement d'onglet, `beforeunload`) sans
-    aucun enregistrement serveur → faux sentiment de surveillance. *(Hors
-    périmètre de décision pour l'instant ; documenté.)*
+    aucun enregistrement serveur → faux sentiment de surveillance. _(Hors
+    périmètre de décision pour l'instant ; documenté.)_
 
 ## Objectif
 
@@ -66,27 +66,27 @@ en gardant intactes les garanties serveur.
 
 ## Décisions de conception (validées)
 
-| #  | Sujet                          | Choix retenu                                                                                                  |
-| -- | ------------------------------ | ------------------------------------------------------------------------------------------------------------ |
-| D1 | Persistance examen             | **Sauvegarde serveur par réponse** (comme l'entraînement). Suppression localStorage + avertissement.         |
-| D2 | Pause examen                   | **Pause de repos unique, plafonnée** à `pauseDurationMinutes` : le chrono gèle, **aucun verrouillage**.       |
-| D3 | Lecture pendant la pause       | **Overlay bloquant plein écran** masque énoncé + navigateur ; serveur refuse les réponses tant que `pauseStartedAt` non-null. |
-| D4 | Feedback entraînement          | **Choix tuteur / test à la création.** Tuteur = révélation après chaque réponse ; test = correction à la fin. |
-| D5 | Fin d'examen                   | **Écran de confirmation** « Soumis ✓ — résultats le {endDate} ». Masquage jusqu'à clôture conservé.           |
-| D6 | Architecture                   | **A — Hook headless + coquille présentationnelle + descripteur de mode.**                                     |
-| D7 | Ambition visuelle              | **Coquille unifiée + refonte visuelle cohérente** avec le design system existant (tokens, shadcn, accents).   |
-| D8 | Périmètre écrans               | **4 écrans cœur + entrées de flux** (démarrage examen, config entraînement) + écran de confirmation.          |
+| #   | Sujet                    | Choix retenu                                                                                                                  |
+| --- | ------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Persistance examen       | **Sauvegarde serveur par réponse** (comme l'entraînement). Suppression localStorage + avertissement.                          |
+| D2  | Pause examen             | **Pause de repos unique, plafonnée** à `pauseDurationMinutes` : le chrono gèle, **aucun verrouillage**.                       |
+| D3  | Lecture pendant la pause | **Overlay bloquant plein écran** masque énoncé + navigateur ; serveur refuse les réponses tant que `pauseStartedAt` non-null. |
+| D4  | Feedback entraînement    | **Choix tuteur / test à la création.** Tuteur = révélation après chaque réponse ; test = correction à la fin.                 |
+| D5  | Fin d'examen             | **Écran de confirmation** « Soumis ✓ — résultats le {endDate} ». Masquage jusqu'à clôture conservé.                           |
+| D6  | Architecture             | **A — Hook headless + coquille présentationnelle + descripteur de mode.**                                                     |
+| D7  | Ambition visuelle        | **Coquille unifiée + refonte visuelle cohérente** avec le design system existant (tokens, shadcn, accents).                   |
+| D8  | Périmètre écrans         | **4 écrans cœur + entrées de flux** (démarrage examen, config entraînement) + écran de confirmation.                          |
 
 Une fois D1–D3 appliquées, les divergences s'effondrent :
 
-| Capacité     | Examen                       | Entraînement                 | Unification |
-| ------------ | ---------------------------- | ---------------------------- | ----------- |
-| Persistance  | par réponse (serveur)        | par réponse (serveur)        | identique   |
-| Navigation   | libre                        | libre                        | identique   |
-| Chrono       | compte à rebours + auto-submit | aucun                      | drapeau     |
-| Pause        | repos optionnel              | aucune                       | drapeau     |
-| Feedback     | différé                      | tuteur (immédiat) / test     | drapeau     |
-| Accent       | bleu                         | émeraude                     | drapeau     |
+| Capacité    | Examen                         | Entraînement             | Unification |
+| ----------- | ------------------------------ | ------------------------ | ----------- |
+| Persistance | par réponse (serveur)          | par réponse (serveur)    | identique   |
+| Navigation  | libre                          | libre                    | identique   |
+| Chrono      | compte à rebours + auto-submit | aucun                    | drapeau     |
+| Pause       | repos optionnel                | aucune                   | drapeau     |
+| Feedback    | différé                        | tuteur (immédiat) / test | drapeau     |
+| Accent      | bleu                           | émeraude                 | drapeau     |
 
 ## Architecture front (Approche A)
 
@@ -112,16 +112,21 @@ Les pages produit deviennent de **fins wrappers** qui montent
 
 ```ts
 type QuizQuestion = {
-  _id: string; question: string; options: string[]
+  _id: string
+  question: string
+  options: string[]
   images?: { url: string; storagePath: string; order: number }[]
-  domain?: string; objectifCMC?: string
+  domain?: string
+  objectifCMC?: string
   // révélés UNIQUEMENT quand autorisé (tuteur en direct, ou correction)
-  correctAnswer?: string; explanation?: string; references?: string[]
+  correctAnswer?: string
+  explanation?: string
+  references?: string[]
   // images d'explication (cf. Feature 3) — révélées avec l'explication, jamais pendant la passation
   explanationImages?: { url: string; storagePath: string; order: number }[]
 }
 type AnswerState = { selected: string; isCorrect?: boolean }
-type AnswersMap  = Record<string /*questionId*/, AnswerState>
+type AnswersMap = Record<string /*questionId*/, AnswerState>
 ```
 
 `isCorrect` n'est présent côté client que lorsqu'il est **autorisé** : mode
@@ -134,10 +139,10 @@ entraînement en mode test.
 type QuizMode = {
   kind: "exam" | "training"
   accent: "blue" | "emerald"
-  timer: { serverStartTime: number; totalSeconds: number } | null  // examen seul
-  pause: "rest" | null                                             // repos, sans verrou
-  feedback: "deferred" | "immediate"                              // tuteur = immediate
-  showMeta: boolean                                               // badges domaine/objectif (off en examen)
+  timer: { serverStartTime: number; totalSeconds: number } | null // examen seul
+  pause: "rest" | null // repos, sans verrou
+  feedback: "deferred" | "immediate" // tuteur = immediate
+  showMeta: boolean // badges domaine/objectif (off en examen)
   labels: { title: string; finishCta: string }
   backUrl: string
 }
@@ -247,15 +252,15 @@ pré-créée, `selectedAnswer` nullable).
 
 - **`startExam`** : crée la participation **et pré-crée une ligne `examAnswers`
   par question** (`selectedAnswer` null, `isCorrect` false). Permet de persister
-  flag *et* réponse même sur une question non répondue.
-- **`saveExamAnswer({ examId, questionId, selectedAnswer })`** *(nouveau)* :
+  flag _et_ réponse même sur une question non répondue.
+- **`saveExamAnswer({ examId, questionId, selectedAnswer })`** _(nouveau)_ :
   garde + accès, participation `in_progress`, **refus si `pauseStartedAt`
   non-null** (D3), calcule `isCorrect` serveur, met à jour la ligne — **ne
   renvoie jamais `isCorrect`** (anti-triche).
-- **`saveExamFlag({ examId, questionId, isFlagged })`** *(nouveau)* : met à jour
+- **`saveExamFlag({ examId, questionId, isFlagged })`** _(nouveau)_ : met à jour
   `isFlagged`. Les flags survivent au rafraîchissement.
-- **`finalizeExam({ examId, isAutoSubmit })`** *(remplace
-  `submitExamAnswers`)* : verrou de ligne participation, `in_progress` →
+- **`finalizeExam({ examId, isAutoSubmit })`** _(remplace
+  `submitExamAnswers`)_ : verrou de ligne participation, `in_progress` →
   `completed`/`auto_submitted`, **score depuis les lignes en base**
   (`count(*) filter (where is_correct)` / total), validation budget-temps
   (grâce manuelle ; auto-submit non borné). Plus de payload de réponses, plus de
@@ -268,7 +273,7 @@ pré-créée, `selectedAnswer` nullable).
 - **Schéma `examParticipations`** : **retirer** `pausePhase`, `isPauseCutShort`,
   `pauseEndedAt`. **Garder** `pauseStartedAt` (non-null = en pause) et
   `totalPauseDurationMs` (cumul soustrait du budget). Garder `exams.enablePause`
-  + `exams.pauseDurationMinutes`.
+  - `exams.pauseDurationMinutes`.
 - **`pauseExam`** : si `in_progress`, pas en pause, et pause non encore utilisée
   (`totalPauseDurationMs = 0`) → `pauseStartedAt = now`. **Une seule pause.**
 - **`resumeExam`** :
@@ -313,7 +318,7 @@ la page `resultats`).
    (lignes pré-créées non répondues).
 3. **Drop** `examParticipations.pausePhase`, `isPauseCutShort`, `pauseEndedAt`.
 
-Participations/examens *en cours* pendant le déploiement : les colonnes droppées
+Participations/examens _en cours_ pendant le déploiement : les colonnes droppées
 ne concernent que la mécanique de pause abandonnée, **mais** la pré-création des
 `examAnswers` introduit un risque de perte de données pour les sessions en vol —
 voir **§ G (Cutover)**.
@@ -372,11 +377,11 @@ ce choix et l'ordonner AVANT** la bascule du contrôleur client / la migration.
 - **Intégration** (`tests/integration/`, branche Neon éphémère) :
   `saveExamAnswer` (anti-révélation + refus en pause), `finalizeExam` (score
   serveur, budget-temps), `pauseExam`/`resumeExam` (plafond), `createTraining`
-  + `saveTrainingAnswer` (révélation tuteur vs test). Respecter l'ordre FK au
-  cleanup (`examAnswers`/`trainingSessionItems` avant `questions`).
+  - `saveTrainingAnswer` (révélation tuteur vs test). Respecter l'ordre FK au
+    cleanup (`examAnswers`/`trainingSessionItems` avant `questions`).
 - **Anti-triche (test paramétré unique, partagé F1/F3 — ajout revue)** : vérifie
   qu'**AUCUN** de `{correctAnswer, explanation, references, isCorrect,
-  explanationImages}` n'atteint le client pendant la passation — examen, et
+explanationImages}` n'atteint le client pendant la passation — examen, et
   entraînement **mode test** — pour toutes les DAL de passation. Couvre les fuites
   #1 (images d'explication) et #5 (`isCorrect`).
 - **E2E** (`e2e/`) : conserver les `data-testid` (`answer-option-{index}`,

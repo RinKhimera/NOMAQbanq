@@ -302,10 +302,7 @@ async function seedRestrictedExam(opts: {
   if (!admin) return { error: "no admin user" as const }
 
   // Réutilise des questions existantes de la banque dev (pas de seed de questions).
-  const qs = await db
-    .select({ id: questions.id })
-    .from(questions)
-    .limit(count)
+  const qs = await db.select({ id: questions.id }).from(questions).limit(count)
   if (qs.length < count) {
     return { error: `not enough questions (${qs.length}/${count})` as const }
   }
@@ -443,7 +440,11 @@ async function seedExam(opts: {
       const wrong = q.options.find((o) => o !== q.correctAnswer)
       // Bonne réponse si index pair OU s'il n'existe aucun distracteur.
       if (i % 2 === 0 || wrong === undefined) {
-        return { questionId: q.id, selectedAnswer: q.correctAnswer, isCorrect: true }
+        return {
+          questionId: q.id,
+          selectedAnswer: q.correctAnswer,
+          isCorrect: true,
+        }
       }
       return { questionId: q.id, selectedAnswer: wrong, isCorrect: false }
     })
@@ -481,15 +482,15 @@ async function seedExam(opts: {
  * canal explication), seulement à la correction. Idempotent. `remove` nettoie la
  * question partagée de la banque (la cascade d'examen ne touche pas `questionImages`).
  */
-async function seedExplanationImage(opts: { examId: string; remove?: boolean }) {
+async function seedExplanationImage(opts: {
+  examId: string
+  remove?: boolean
+}) {
   const [q] = await db
     .select({ questionId: examQuestions.questionId })
     .from(examQuestions)
     .where(
-      and(
-        eq(examQuestions.examId, opts.examId),
-        eq(examQuestions.position, 0),
-      ),
+      and(eq(examQuestions.examId, opts.examId), eq(examQuestions.position, 0)),
     )
     .limit(1)
   if (!q) return { error: "exam first question not found" as const }

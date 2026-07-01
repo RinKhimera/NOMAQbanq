@@ -18,23 +18,24 @@
 
 ## File Structure
 
-| Fichier | Responsabilité | Action |
-| --- | --- | --- |
-| `components/quiz/runner/use-quiz-session.ts` | Logique deux-temps (pending + confirm), verrou | Modifier |
-| `components/quiz/runner/quiz-runner.tsx` | Bouton « Valider », dérivation sélection, câblage | Modifier |
-| `components/quiz/question-card/index.tsx` | Code couleur juste/faux + icônes ✓/✗ en exam révélé (gate défensif `isExamReveal`) | Modifier |
-| `app/(marketing)/evaluation/quiz/page.tsx` | Durcissement vitrine publique : `showCorrectAnswer={false}` (anti-fuite, revue #1) | Modifier |
-| `components/quiz/question-card/answer-option.tsx` | États/icônes (déjà présents) | **Aucun changement** |
-| `tests/components/quiz/use-quiz-session.test.tsx` | Tests du hook (deux temps, verrou, non-régression test mode) | Créer |
-| `tests/components/QuestionCard.test.tsx` | Tests couleur juste/faux en exam révélé | Modifier |
-| `e2e/pages/entrainement.page.ts` | POM : `selectMode`, `validateAnswer` | Modifier |
-| `e2e/tests/entrainement.spec.ts` | Test e2e tuteur (valider → correction + couleur) | Modifier |
+| Fichier                                           | Responsabilité                                                                     | Action               |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------- |
+| `components/quiz/runner/use-quiz-session.ts`      | Logique deux-temps (pending + confirm), verrou                                     | Modifier             |
+| `components/quiz/runner/quiz-runner.tsx`          | Bouton « Valider », dérivation sélection, câblage                                  | Modifier             |
+| `components/quiz/question-card/index.tsx`         | Code couleur juste/faux + icônes ✓/✗ en exam révélé (gate défensif `isExamReveal`) | Modifier             |
+| `app/(marketing)/evaluation/quiz/page.tsx`        | Durcissement vitrine publique : `showCorrectAnswer={false}` (anti-fuite, revue #1) | Modifier             |
+| `components/quiz/question-card/answer-option.tsx` | États/icônes (déjà présents)                                                       | **Aucun changement** |
+| `tests/components/quiz/use-quiz-session.test.tsx` | Tests du hook (deux temps, verrou, non-régression test mode)                       | Créer                |
+| `tests/components/QuestionCard.test.tsx`          | Tests couleur juste/faux en exam révélé                                            | Modifier             |
+| `e2e/pages/entrainement.page.ts`                  | POM : `selectMode`, `validateAnswer`                                               | Modifier             |
+| `e2e/tests/entrainement.spec.ts`                  | Test e2e tuteur (valider → correction + couleur)                                   | Modifier             |
 
 ---
 
 ## Task 1 : Logique deux-temps dans `useQuizSession`
 
 **Files:**
+
 - Modify: `components/quiz/runner/use-quiz-session.ts`
 - Test: `tests/components/quiz/use-quiz-session.test.tsx` (create)
 
@@ -97,7 +98,11 @@ describe("useQuizSession — mode tuteur (deux temps)", () => {
   it("confirmAnswer appelle onAnswer une fois et révèle la correction", async () => {
     const onAnswer = vi.fn().mockResolvedValue({
       ok: true,
-      reveal: { correctAnswer: "A", explanation: "Parce que A.", references: [] },
+      reveal: {
+        correctAnswer: "A",
+        explanation: "Parce que A.",
+        references: [],
+      },
     })
     const { result } = renderTutor(onAnswer)
 
@@ -115,7 +120,10 @@ describe("useQuizSession — mode tuteur (deux temps)", () => {
       explanation: "Parce que A.",
       references: [],
     })
-    expect(result.current.answers.q1).toEqual({ selected: "A", isCorrect: true })
+    expect(result.current.answers.q1).toEqual({
+      selected: "A",
+      isCorrect: true,
+    })
     expect(result.current.pendingSelection.q1).toBeUndefined()
   })
 
@@ -142,7 +150,10 @@ describe("useQuizSession — mode tuteur (deux temps)", () => {
 
   it("mode test (deferred) : answerSelect enregistre immédiatement", async () => {
     const onAnswer = vi.fn().mockResolvedValue({ ok: true })
-    const { result } = renderTutor(onAnswer, { ...tutorMode, feedback: "deferred" })
+    const { result } = renderTutor(onAnswer, {
+      ...tutorMode,
+      feedback: "deferred",
+    })
 
     await act(async () => {
       await result.current.answerSelect(0)
@@ -165,15 +176,15 @@ Expected: FAIL (`result.current.pendingSelection` / `confirmAnswer` n'existent p
 Dans `components/quiz/runner/use-quiz-session.ts`, après le state `revealed` (≈ ligne 91), ajouter :
 
 ```ts
-  const [pendingSelection, setPendingSelection] = useState<
-    Record<string, string>
-  >({})
+const [pendingSelection, setPendingSelection] = useState<
+  Record<string, string>
+>({})
 ```
 
 Et après `const currentQuestion = questions[currentIndex]` (≈ ligne 111), ajouter :
 
 ```ts
-  const isImmediate = mode.feedback === "immediate"
+const isImmediate = mode.feedback === "immediate"
 ```
 
 - [ ] **Step 4 : Remplacer `answerSelect` par la version deux-temps**
@@ -181,70 +192,70 @@ Et après `const currentQuestion = questions[currentIndex]` (≈ ligne 111), ajo
 Remplacer tout le bloc `answerSelect` (`const answerSelect = useCallback(...)`, ≈ lignes 153-194) par :
 
 ```ts
-  const answerSelect = useCallback(
-    async (optionIndex: number) => {
-      if (!currentQuestion) return
-      const qid = currentQuestion._id
-      const selected = currentQuestion.options[optionIndex]
-      if (!selected) return
-
-      // Tuteur (feedback immédiat) = deux temps : sélectionner ne fait que
-      // mettre un choix « en attente » localement. Rien n'est enregistré ni
-      // révélé avant confirmAnswer(). Une fois révélée, la question est
-      // verrouillée (on ne peut plus changer de réponse).
-      if (isImmediate) {
-        if (revealed[qid]) return
-        setPendingSelection((p) => ({ ...p, [qid]: selected }))
-        return
-      }
-
-      // Test / examen (feedback différé) : enregistrement immédiat, pas de
-      // révélation par-question. Mise à jour optimiste + rollback si échec.
-      const prev = answers[qid]
-      setAnswers((a) => ({ ...a, [qid]: { ...a[qid], selected } }))
-
-      const res = await callbacks.onAnswer(qid, selected)
-      if (!res.ok) {
-        setAnswers((a) => {
-          const next = { ...a }
-          if (prev === undefined) {
-            delete next[qid]
-          } else {
-            next[qid] = prev
-          }
-          return next
-        })
-      }
-    },
-    [currentQuestion, answers, callbacks, isImmediate, revealed],
-  )
-
-  // ---- Confirm (mode tuteur uniquement) ----
-
-  const confirmAnswer = useCallback(async () => {
+const answerSelect = useCallback(
+  async (optionIndex: number) => {
     if (!currentQuestion) return
     const qid = currentQuestion._id
-    if (revealed[qid]) return // déjà validée
-    const selected = pendingSelection[qid]
+    const selected = currentQuestion.options[optionIndex]
     if (!selected) return
 
-    const res = await callbacks.onAnswer(qid, selected)
-    if (!res.ok) return // toast géré dans onAnswer ; on garde le pending pour réessai
+    // Tuteur (feedback immédiat) = deux temps : sélectionner ne fait que
+    // mettre un choix « en attente » localement. Rien n'est enregistré ni
+    // révélé avant confirmAnswer(). Une fois révélée, la question est
+    // verrouillée (on ne peut plus changer de réponse).
+    if (isImmediate) {
+      if (revealed[qid]) return
+      setPendingSelection((p) => ({ ...p, [qid]: selected }))
+      return
+    }
 
-    if (res.reveal) {
-      const reveal = res.reveal
-      setRevealed((r) => ({ ...r, [qid]: reveal }))
-      setAnswers((a) => ({
-        ...a,
-        [qid]: { selected, isCorrect: selected === reveal.correctAnswer },
-      }))
-      setPendingSelection((p) => {
-        const next = { ...p }
-        delete next[qid]
+    // Test / examen (feedback différé) : enregistrement immédiat, pas de
+    // révélation par-question. Mise à jour optimiste + rollback si échec.
+    const prev = answers[qid]
+    setAnswers((a) => ({ ...a, [qid]: { ...a[qid], selected } }))
+
+    const res = await callbacks.onAnswer(qid, selected)
+    if (!res.ok) {
+      setAnswers((a) => {
+        const next = { ...a }
+        if (prev === undefined) {
+          delete next[qid]
+        } else {
+          next[qid] = prev
+        }
         return next
       })
     }
-  }, [currentQuestion, revealed, pendingSelection, callbacks])
+  },
+  [currentQuestion, answers, callbacks, isImmediate, revealed],
+)
+
+// ---- Confirm (mode tuteur uniquement) ----
+
+const confirmAnswer = useCallback(async () => {
+  if (!currentQuestion) return
+  const qid = currentQuestion._id
+  if (revealed[qid]) return // déjà validée
+  const selected = pendingSelection[qid]
+  if (!selected) return
+
+  const res = await callbacks.onAnswer(qid, selected)
+  if (!res.ok) return // toast géré dans onAnswer ; on garde le pending pour réessai
+
+  if (res.reveal) {
+    const reveal = res.reveal
+    setRevealed((r) => ({ ...r, [qid]: reveal }))
+    setAnswers((a) => ({
+      ...a,
+      [qid]: { selected, isCorrect: selected === reveal.correctAnswer },
+    }))
+    setPendingSelection((p) => {
+      const next = { ...p }
+      delete next[qid]
+      return next
+    })
+  }
+}, [currentQuestion, revealed, pendingSelection, callbacks])
 ```
 
 > Note : l'ancien bloc `if (res.reveal && mode.feedback === "immediate")` à l'intérieur d'`answerSelect` est **supprimé** (la révélation passe désormais par `confirmAnswer`). C'est le changement de comportement voulu.
@@ -254,10 +265,10 @@ Remplacer tout le bloc `answerSelect` (`const answerSelect = useCallback(...)`, 
 Dans le type `UseQuizSessionResult`, après `revealed: Record<string, QuizRevealPayload>` (≈ ligne 43), ajouter :
 
 ```ts
-  // Sélection en attente (mode tuteur : choisie mais pas encore validée)
-  pendingSelection: Record<string, string>
-  // Valide la sélection en attente de la question courante (mode tuteur)
-  confirmAnswer: () => Promise<void>
+// Sélection en attente (mode tuteur : choisie mais pas encore validée)
+pendingSelection: Record<string, string>
+// Valide la sélection en attente de la question courante (mode tuteur)
+confirmAnswer: () => Promise<void>
 ```
 
 Dans l'objet `return { ... }` (≈ lignes 300-322), ajouter après `revealed,` :
@@ -290,7 +301,7 @@ git commit -m "feat(quiz): mode tuteur en deux temps (sélection en attente + co
 
 > **⚠️ Garde-fou anti-fuite (revue #1)** : un 3ᵉ consommateur `variant="exam"` existe — la
 > vitrine publique `app/(marketing)/evaluation/quiz/page.tsx:212` rend `<QuestionCard
-> variant="exam">` **sans `showCorrectAnswer`** (→ défaut `true`, `types.ts:170`) et **sans
+variant="exam">` **sans `showCorrectAnswer`** (→ défaut `true`, `types.ts:170`) et **sans
 > `correctAnswer`** (forme DAL publique). La révélation tuteur ne doit donc PAS se déclencher
 > sur la seule base de `showCorrectAnswer` : on la conditionne aussi à la **présence d'un
 > `correctAnswer`** (`!!question.correctAnswer`). Sans ça, la vitrine marquerait le choix de
@@ -298,6 +309,7 @@ git commit -m "feat(quiz): mode tuteur en deux temps (sélection en attente + co
 > `showCorrectAnswer={false}` explicitement sur la vitrine.
 
 **Files:**
+
 - Modify: `components/quiz/question-card/index.tsx`
 - Modify: `app/(marketing)/evaluation/quiz/page.tsx` (durcissement vitrine)
 - Test: `tests/components/QuestionCard.test.tsx`
@@ -318,59 +330,57 @@ git commit -m "feat(quiz): mode tuteur en deux temps (sélection en attente + co
 **1b.** Ajouter, dans le `describe("Variant: exam", ...)`, ces trois tests :
 
 ```tsx
-    it("mode tuteur révélé : bonne réponse en vert (✓), mauvais choix en rouge (✗)", () => {
-      render(
-        <QuestionCard
-          variant="exam"
-          question={mockQuestion} // correctAnswer = "Paris"
-          selectedAnswer="Lyon" // l'utilisateur s'est trompé
-          showCorrectAnswer={true}
-          lazyExplanation="Paris est la capitale de la France."
-        />,
-      )
+it("mode tuteur révélé : bonne réponse en vert (✓), mauvais choix en rouge (✗)", () => {
+  render(
+    <QuestionCard
+      variant="exam"
+      question={mockQuestion} // correctAnswer = "Paris"
+      selectedAnswer="Lyon" // l'utilisateur s'est trompé
+      showCorrectAnswer={true}
+      lazyExplanation="Paris est la capitale de la France."
+    />,
+  )
 
-      // Bonne réponse (Paris) → état user-correct (vert)
-      const paris = screen.getByText("Paris").closest("div")
-      expect(paris).toHaveClass("bg-green-100", "border-green-500")
+  // Bonne réponse (Paris) → état user-correct (vert)
+  const paris = screen.getByText("Paris").closest("div")
+  expect(paris).toHaveClass("bg-green-100", "border-green-500")
 
-      // Choix de l'utilisateur, faux (Lyon) → état user-incorrect (rouge)
-      const lyon = screen.getByText("Lyon").closest("div")
-      expect(lyon).toHaveClass("bg-red-100", "border-red-500")
-    })
+  // Choix de l'utilisateur, faux (Lyon) → état user-incorrect (rouge)
+  const lyon = screen.getByText("Lyon").closest("div")
+  expect(lyon).toHaveClass("bg-red-100", "border-red-500")
+})
 
-    it("mode tuteur révélé : choix correct → la bonne réponse choisie est en vert", () => {
-      render(
-        <QuestionCard
-          variant="exam"
-          question={mockQuestion}
-          selectedAnswer="Paris" // bonne réponse choisie
-          showCorrectAnswer={true}
-          lazyExplanation="Paris est la capitale de la France."
-        />,
-      )
+it("mode tuteur révélé : choix correct → la bonne réponse choisie est en vert", () => {
+  render(
+    <QuestionCard
+      variant="exam"
+      question={mockQuestion}
+      selectedAnswer="Paris" // bonne réponse choisie
+      showCorrectAnswer={true}
+      lazyExplanation="Paris est la capitale de la France."
+    />,
+  )
 
-      const paris = screen.getByText("Paris").closest("div")
-      expect(paris).toHaveClass("bg-green-100", "border-green-500")
-    })
+  const paris = screen.getByText("Paris").closest("div")
+  expect(paris).toHaveClass("bg-green-100", "border-green-500")
+})
 
-    it("variant exam SANS correctAnswer (vitrine) : aucune révélation malgré showCorrectAnswer par défaut", () => {
-      render(
-        <QuestionCard
-          variant="exam"
-          question={{ ...mockQuestion, correctAnswer: "" }}
-          selectedAnswer="Lyon"
-          // showCorrectAnswer omis → défaut true ; sans correctAnswer, PAS de révélation
-        />,
-      )
+it("variant exam SANS correctAnswer (vitrine) : aucune révélation malgré showCorrectAnswer par défaut", () => {
+  render(
+    <QuestionCard
+      variant="exam"
+      question={{ ...mockQuestion, correctAnswer: "" }}
+      selectedAnswer="Lyon"
+      // showCorrectAnswer omis → défaut true ; sans correctAnswer, PAS de révélation
+    />,
+  )
 
-      // Aucune explication, et le choix reste "selected" (bleu), pas "user-incorrect" (rouge)
-      expect(
-        screen.queryByTestId("explanation-content"),
-      ).not.toBeInTheDocument()
-      const lyon = screen.getByText("Lyon").closest("div")
-      expect(lyon).toHaveClass("bg-blue-50", "border-blue-400")
-      expect(lyon).not.toHaveClass("bg-red-100")
-    })
+  // Aucune explication, et le choix reste "selected" (bleu), pas "user-incorrect" (rouge)
+  expect(screen.queryByTestId("explanation-content")).not.toBeInTheDocument()
+  const lyon = screen.getByText("Lyon").closest("div")
+  expect(lyon).toHaveClass("bg-blue-50", "border-blue-400")
+  expect(lyon).not.toHaveClass("bg-red-100")
+})
 ```
 
 - [ ] **Step 2 : Lancer les tests, vérifier l'échec**
@@ -430,26 +440,30 @@ const getAnswerState = (
 Dans le corps du composant `QuestionCard`, juste après les booléens de variant (≈ lignes 235-237 : `isReviewVariant`/`isExamVariant`/`isDefaultVariant`), ajouter :
 
 ```tsx
-  // Révélation tuteur en passation : seulement si on montre la correction ET
-  // qu'on dispose réellement de la bonne réponse. Le `!!question.correctAnswer`
-  // protège la vitrine publique (variant="exam", showCorrectAnswer défaut true,
-  // mais SANS correctAnswer) — sinon le choix serait marqué faux à tort.
-  const isExamReveal =
-    isExamVariant && showCorrectAnswer && !!question.correctAnswer
+// Révélation tuteur en passation : seulement si on montre la correction ET
+// qu'on dispose réellement de la bonne réponse. Le `!!question.correctAnswer`
+// protège la vitrine publique (variant="exam", showCorrectAnswer défaut true,
+// mais SANS correctAnswer) — sinon le choix serait marqué faux à tort.
+const isExamReveal =
+  isExamVariant && showCorrectAnswer && !!question.correctAnswer
 ```
 
 Puis remplacer la condition du bloc d'explication ajouté précédemment (≈ le bloc `{isExamVariant && showCorrectAnswer && effectiveExplanation !== undefined && (...)}` dans l'`<AnimatePresence>`) par :
 
 ```tsx
-        {/* Passation tuteur : explication après validation (gate défensif). */}
-        {isExamReveal && effectiveExplanation !== undefined && (
-          <div className="mt-4">
-            <QuestionExplanation
-              explanation={effectiveExplanation}
-              references={effectiveReferences}
-            />
-          </div>
-        )}
+{
+  /* Passation tuteur : explication après validation (gate défensif). */
+}
+{
+  isExamReveal && effectiveExplanation !== undefined && (
+    <div className="mt-4">
+      <QuestionExplanation
+        explanation={effectiveExplanation}
+        references={effectiveReferences}
+      />
+    </div>
+  )
+}
 ```
 
 - [ ] **Step 5 : Câbler `isExamReveal` au point de rendu des options**
@@ -457,47 +471,48 @@ Puis remplacer la condition du bloc d'explication ajouté précédemment (≈ le
 Dans le `.map((option, index) => { ... })` des options (≈ lignes 445-480), utiliser la const `isExamReveal` **déjà définie au Step 4** (ne PAS la recalculer par option). Remplacer le corps du `.map` par :
 
 ```tsx
-            {question.options.map((option, index) => {
-              const state = getAnswerState(
-                option,
-                selectedAnswer,
-                question.correctAnswer,
-                showCorrectAnswer,
-                userAnswer,
-                isReviewVariant,
-                isExamReveal,
-              )
+{
+  question.options.map((option, index) => {
+    const state = getAnswerState(
+      option,
+      selectedAnswer,
+      question.correctAnswer,
+      showCorrectAnswer,
+      userAnswer,
+      isReviewVariant,
+      isExamReveal,
+    )
 
-              const isCorrectAnswer = option === question.correctAnswer
-              const isUserAnswer = option === userAnswer
-              const isSelectedOption =
-                selectedAnswer != null && option === selectedAnswer
+    const isCorrectAnswer = option === question.correctAnswer
+    const isUserAnswer = option === userAnswer
+    const isSelectedOption = selectedAnswer != null && option === selectedAnswer
 
-              return (
-                <AnswerOption
-                  key={index}
-                  option={option}
-                  index={index}
-                  state={state}
-                  onClick={
-                    isExamVariant && onAnswerSelect
-                      ? () => onAnswerSelect(index)
-                      : undefined
-                  }
-                  disabled={disabled}
-                  showCheckIcon={
-                    (isReviewVariant && isCorrectAnswer) ||
-                    (isDefaultVariant && showCorrectAnswer && isCorrectAnswer) ||
-                    (isExamReveal && isCorrectAnswer)
-                  }
-                  showXIcon={
-                    (isReviewVariant && isUserAnswer && !isCorrectAnswer) ||
-                    (isExamReveal && isSelectedOption && !isCorrectAnswer)
-                  }
-                  compact={isDefaultVariant}
-                />
-              )
-            })}
+    return (
+      <AnswerOption
+        key={index}
+        option={option}
+        index={index}
+        state={state}
+        onClick={
+          isExamVariant && onAnswerSelect
+            ? () => onAnswerSelect(index)
+            : undefined
+        }
+        disabled={disabled}
+        showCheckIcon={
+          (isReviewVariant && isCorrectAnswer) ||
+          (isDefaultVariant && showCorrectAnswer && isCorrectAnswer) ||
+          (isExamReveal && isCorrectAnswer)
+        }
+        showXIcon={
+          (isReviewVariant && isUserAnswer && !isCorrectAnswer) ||
+          (isExamReveal && isSelectedOption && !isCorrectAnswer)
+        }
+        compact={isDefaultVariant}
+      />
+    )
+  })
+}
 ```
 
 > Le verrou (impossible de changer après validation) est **comportemental** : le hook `answerSelect` est un no-op une fois la question révélée (Task 1). On garde donc les options cliquables (testid `answer-option-{i}` préservé) sans les griser (`disabled` reste réservé à ses usages existants).
@@ -507,14 +522,14 @@ Dans le `.map((option, index) => { ... })` des options (≈ lignes 445-480), uti
 Dans `app/(marketing)/evaluation/quiz/page.tsx`, au rendu de la `QuestionCard` (≈ lignes 212-218), ajouter `showCorrectAnswer={false}` (intention explicite : la vitrine ne révèle jamais en passation) :
 
 ```tsx
-        <QuestionCard
-          variant="exam"
-          question={currentQ as unknown as QuestionCardQuestion}
-          selectedAnswer={currentAnswer}
-          onAnswerSelect={handleAnswerSelect}
-          showCorrectAnswer={false}
-          showImage={true}
-        />
+<QuestionCard
+  variant="exam"
+  question={currentQ as unknown as QuestionCardQuestion}
+  selectedAnswer={currentAnswer}
+  onAnswerSelect={handleAnswerSelect}
+  showCorrectAnswer={false}
+  showImage={true}
+/>
 ```
 
 - [ ] **Step 7 : Lancer les tests, vérifier le succès**
@@ -539,6 +554,7 @@ git commit -m "feat(quiz): code couleur juste/faux en correction tuteur (variant
 ## Task 3 : Bouton « Valider » + câblage dans le runner
 
 **Files:**
+
 - Modify: `components/quiz/runner/quiz-runner.tsx`
 
 - [ ] **Step 1 : Importer `Button` et l'icône**
@@ -560,23 +576,23 @@ import { Button } from "@/components/ui/button"
 Remplacer la dérivation `selectedAnswer` (≈ lignes 154-156) par (inclut la sélection en attente du tuteur) :
 
 ```tsx
-  const selectedAnswer = currentQuestion
-    ? (session.answers[currentQuestion._id]?.selected ??
-      session.pendingSelection[currentQuestion._id] ??
-      null)
-    : null
+const selectedAnswer = currentQuestion
+  ? (session.answers[currentQuestion._id]?.selected ??
+    session.pendingSelection[currentQuestion._id] ??
+    null)
+  : null
 ```
 
-Juste après `const isCurrentRevealed = ...` (≈ ligne 148), ajouter la question « augmentée » qui porte la bonne réponse issue du `reveal`. **Indispensable** : la question mappée au montage ne contient `correctAnswer` que pour les questions déjà répondues à l'arrivée (anti-triche DAL) ; pour une question validée *pendant* la session, `correctAnswer` n'est connu que via `session.revealed`. Sans cette injection, le code couleur ne sait pas quelle option est la bonne → aucune option en vert et le choix de l'utilisateur passe en rouge à tort.
+Juste après `const isCurrentRevealed = ...` (≈ ligne 148), ajouter la question « augmentée » qui porte la bonne réponse issue du `reveal`. **Indispensable** : la question mappée au montage ne contient `correctAnswer` que pour les questions déjà répondues à l'arrivée (anti-triche DAL) ; pour une question validée _pendant_ la session, `correctAnswer` n'est connu que via `session.revealed`. Sans cette injection, le code couleur ne sait pas quelle option est la bonne → aucune option en vert et le choix de l'utilisateur passe en rouge à tort.
 
 ```tsx
-  // La question mappée au montage ne porte pas correctAnswer pour les questions
-  // répondues en cours de session (anti-triche DAL) ; on l'injecte depuis le
-  // reveal serveur pour que QuestionCard puisse colorer la bonne réponse.
-  const currentQuestionForCard =
-    currentQuestion && currentReveal
-      ? { ...currentQuestion, correctAnswer: currentReveal.correctAnswer }
-      : currentQuestion
+// La question mappée au montage ne porte pas correctAnswer pour les questions
+// répondues en cours de session (anti-triche DAL) ; on l'injecte depuis le
+// reveal serveur pour que QuestionCard puisse colorer la bonne réponse.
+const currentQuestionForCard =
+  currentQuestion && currentReveal
+    ? { ...currentQuestion, correctAnswer: currentReveal.correctAnswer }
+    : currentQuestion
 ```
 
 Puis, dans le JSX de la carte (≈ ligne 209), remplacer `question={currentQuestion as never}` par `question={currentQuestionForCard as never}`.
@@ -586,41 +602,44 @@ Puis, dans le JSX de la carte (≈ ligne 209), remplacer `question={currentQuest
 **3a.** Ajouter un état `isConfirming` et un handler dans `QuizRunnerInner` (par ex. à côté des autres `useState`, ≈ ligne 56-69) pour empêcher un double `saveTrainingAnswer` si l'utilisateur clique deux fois avant que la révélation n'arrive (constat revue 🟡) :
 
 ```tsx
-  const [isConfirming, setIsConfirming] = useState(false)
+const [isConfirming, setIsConfirming] = useState(false)
 
-  const handleConfirmAnswer = async () => {
-    if (isConfirming) return
-    setIsConfirming(true)
-    try {
-      await session.confirmAnswer()
-    } finally {
-      setIsConfirming(false)
-    }
+const handleConfirmAnswer = async () => {
+  if (isConfirming) return
+  setIsConfirming(true)
+  try {
+    await session.confirmAnswer()
+  } finally {
+    setIsConfirming(false)
   }
+}
 ```
 
 **3b.** Dans le JSX, entre la fermeture du bloc `</AnimatePresence>` de la carte (≈ ligne 235) et le commentaire `{/* Navigation buttons */}` (≈ ligne 237), insérer :
 
 ```tsx
-                {/* Mode tuteur : valider sa réponse révèle la correction.
+{
+  /* Mode tuteur : valider sa réponse révèle la correction.
                     Visible seulement quand une option est choisie et que la
-                    question n'est pas encore révélée. */}
-                {mode.feedback === "immediate" &&
-                  currentQuestion &&
-                  !isCurrentRevealed &&
-                  session.pendingSelection[currentQuestion._id] !==
-                    undefined && (
-                    <Button
-                      onClick={() => void handleConfirmAnswer()}
-                      disabled={isConfirming}
-                      data-testid="btn-validate-answer"
-                      size="lg"
-                      className="w-full gap-2 bg-linear-to-r from-emerald-600 to-teal-600 shadow-md hover:from-emerald-700 hover:to-teal-700"
-                    >
-                      <CircleCheckBig className="h-4 w-4" />
-                      Valider ma réponse
-                    </Button>
-                  )}
+                    question n'est pas encore révélée. */
+}
+{
+  mode.feedback === "immediate" &&
+    currentQuestion &&
+    !isCurrentRevealed &&
+    session.pendingSelection[currentQuestion._id] !== undefined && (
+      <Button
+        onClick={() => void handleConfirmAnswer()}
+        disabled={isConfirming}
+        data-testid="btn-validate-answer"
+        size="lg"
+        className="bg-linear-to-r w-full gap-2 from-emerald-600 to-teal-600 shadow-md hover:from-emerald-700 hover:to-teal-700"
+      >
+        <CircleCheckBig className="h-4 w-4" />
+        Valider ma réponse
+      </Button>
+    )
+}
 ```
 
 - [ ] **Step 4 : Gate**
@@ -645,6 +664,7 @@ git commit -m "feat(quiz): bouton « Valider ma réponse » en mode tuteur"
 ## Task 4 : E2E tuteur (valider → correction + couleur)
 
 **Files:**
+
 - Modify: `e2e/pages/entrainement.page.ts`
 - Modify: `e2e/tests/entrainement.spec.ts`
 
@@ -669,34 +689,34 @@ Dans `e2e/pages/entrainement.page.ts`, ajouter ces méthodes dans la classe (apr
 Dans `e2e/tests/entrainement.spec.ts`, ajouter ce test à l'intérieur du `test.describe("Entrainement — session complete", ...)` (par ex. après le `journey complet`, ≈ ligne 98) :
 
 ```ts
-  test("mode tuteur : valider révèle la correction et le code couleur", async ({
-    page,
-  }) => {
-    await entrainement.goto()
-    if (!(await entrainement.hasAccess())) test.skip()
+test("mode tuteur : valider révèle la correction et le code couleur", async ({
+  page,
+}) => {
+  await entrainement.goto()
+  if (!(await entrainement.hasAccess())) test.skip()
 
-    await entrainement.waitForForm()
-    await entrainement.setQuestionCount(5)
-    await entrainement.selectMode("tutor")
-    await entrainement.startSession()
-    await entrainement.waitForQuestion(1, 5)
+  await entrainement.waitForForm()
+  await entrainement.setQuestionCount(5)
+  await entrainement.selectMode("tutor")
+  await entrainement.startSession()
+  await entrainement.waitForQuestion(1, 5)
 
-    // Choisir une option : aucune correction tant qu'on n'a pas validé.
-    await entrainement.selectAnswer(0)
-    await expect(page.getByTestId("explanation-content")).toBeHidden()
-    await expect(page.getByTestId("btn-validate-answer")).toBeVisible()
+  // Choisir une option : aucune correction tant qu'on n'a pas validé.
+  await entrainement.selectAnswer(0)
+  await expect(page.getByTestId("explanation-content")).toBeHidden()
+  await expect(page.getByTestId("btn-validate-answer")).toBeVisible()
 
-    // Valider → correction + explication + code couleur.
-    await entrainement.validateAnswer()
-    await expect(page.getByTestId("explanation-content")).toBeVisible({
-      timeout: 10_000,
-    })
-    await expect(page.getByTestId("btn-validate-answer")).toBeHidden()
-    // Exactement une bonne réponse surlignée en vert (état user-correct).
-    await expect(
-      page.locator('[data-testid^="answer-option-"] .border-green-500'),
-    ).toHaveCount(1)
+  // Valider → correction + explication + code couleur.
+  await entrainement.validateAnswer()
+  await expect(page.getByTestId("explanation-content")).toBeVisible({
+    timeout: 10_000,
   })
+  await expect(page.getByTestId("btn-validate-answer")).toBeHidden()
+  // Exactement une bonne réponse surlignée en vert (état user-correct).
+  await expect(
+    page.locator('[data-testid^="answer-option-"] .border-green-500'),
+  ).toHaveCount(1)
+})
 ```
 
 - [ ] **Step 3 : Lancer UNIQUEMENT ce fichier e2e**

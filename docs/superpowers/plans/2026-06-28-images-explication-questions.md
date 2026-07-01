@@ -19,6 +19,7 @@
 ## File Structure
 
 **Modifiés :**
+
 - `db/schema/enums.ts` — enum `questionImageKind`.
 - `db/schema/questions.ts` — `questionImages.kind` + index ; drop `questionExplanations.imagePath`.
 - `lib/storage.ts` — `generateQuestionImageTmpPath`/`finalPathFromTmp` intègrent `kind`.
@@ -31,6 +32,7 @@
 - `app/(admin)/admin/questions/_components/question-form-page.tsx` — deux sections d'upload.
 
 **Créés :**
+
 - `tests/integration/explanation-images.test.ts`.
 
 ---
@@ -38,13 +40,17 @@
 ## Task 1 : Schéma `kind` + drop `imagePath`
 
 **Files:**
+
 - Modify: `db/schema/enums.ts`
 - Modify: `db/schema/questions.ts`
 
 - [ ] **Step 1 : Enum**
 
 ```ts
-export const questionImageKind = pgEnum("question_image_kind", ["statement", "explanation"])
+export const questionImageKind = pgEnum("question_image_kind", [
+  "statement",
+  "explanation",
+])
 ```
 
 - [ ] **Step 2 : Colonne + index + drop**
@@ -82,6 +88,7 @@ git commit -m "feat(db): questionImages.kind, drop questionExplanations.imagePat
 ## Task 2 : Chemins S3 namespacés par `kind`
 
 **Files:**
+
 - Modify: `lib/storage.ts`
 
 - [ ] **Step 1 : `generateQuestionImageTmpPath` prend `kind`**
@@ -109,6 +116,7 @@ export const generateQuestionImageTmpPath = (
 ## Task 3 : `setQuestionImages` + `createQuestionImageUpload` scopés par `kind`
 
 **Files:**
+
 - Modify: `features/questions/schemas.ts`
 - Modify: `features/questions/actions.ts`
 - Test: `tests/integration/explanation-images.test.ts`
@@ -128,10 +136,28 @@ describe("setQuestionImages scopé par kind", () => {
   it("sauver statement ne supprime pas explanation", async () => {
     const { adminId, questionId } = await seedQuestion()
     await asUser(adminId, async () => {
-      await setQuestionImages({ questionId, kind: "explanation", images: [{ storagePath: `questions/${questionId}/explanation/0.jpg`, order: 0 }] })
-      await setQuestionImages({ questionId, kind: "statement", images: [{ storagePath: `questions/${questionId}/statement/0.jpg`, order: 0 }] })
+      await setQuestionImages({
+        questionId,
+        kind: "explanation",
+        images: [
+          {
+            storagePath: `questions/${questionId}/explanation/0.jpg`,
+            order: 0,
+          },
+        ],
+      })
+      await setQuestionImages({
+        questionId,
+        kind: "statement",
+        images: [
+          { storagePath: `questions/${questionId}/statement/0.jpg`, order: 0 },
+        ],
+      })
     })
-    const rows = await db.select().from(questionImages).where(eq(questionImages.questionId, questionId))
+    const rows = await db
+      .select()
+      .from(questionImages)
+      .where(eq(questionImages.questionId, questionId))
     expect(rows.filter((r) => r.kind === "explanation")).toHaveLength(1)
     expect(rows.filter((r) => r.kind === "statement")).toHaveLength(1)
   })
@@ -159,14 +185,31 @@ kind: z.enum(["statement", "explanation"]).default("statement"),
 ```ts
 const finalPrefix = `questions/${questionId}/${kind}/`
 // …
-const old = await tx.select({ storagePath: questionImages.storagePath })
+const old = await tx
+  .select({ storagePath: questionImages.storagePath })
   .from(questionImages)
-  .where(and(eq(questionImages.questionId, questionId), eq(questionImages.kind, kind)))
-await tx.delete(questionImages)
-  .where(and(eq(questionImages.questionId, questionId), eq(questionImages.kind, kind)))
+  .where(
+    and(
+      eq(questionImages.questionId, questionId),
+      eq(questionImages.kind, kind),
+    ),
+  )
+await tx
+  .delete(questionImages)
+  .where(
+    and(
+      eq(questionImages.questionId, questionId),
+      eq(questionImages.kind, kind),
+    ),
+  )
 if (planned.length > 0) {
   await tx.insert(questionImages).values(
-    planned.map((p) => ({ questionId, kind, storagePath: p.finalPath, position: p.order })),
+    planned.map((p) => ({
+      questionId,
+      kind,
+      storagePath: p.finalPath,
+      position: p.order,
+    })),
   )
 }
 ```
@@ -182,6 +225,7 @@ if (planned.length > 0) {
 ## Task 4 : ⚠️ Scoper toutes les lectures d'énoncé à `kind='statement'` (BLOQUANT #1)
 
 **Files:**
+
 - Modify: `features/exams/dal.ts` (`fetchImages:60`)
 - Modify: `features/training/dal.ts` (`fetchImages:98`)
 - Modify: `features/questions/dal.ts` (`getRandomQuizQuestions:369`, `getQuestionById` images:256)
@@ -194,10 +238,24 @@ if (planned.length > 0) {
 it("les lectures d'énoncé ne remontent que kind=statement", async () => {
   const { adminId, questionId } = await seedQuestion()
   await asUser(adminId, async () => {
-    await setQuestionImages({ questionId, kind: "statement", images: [{ storagePath: `questions/${questionId}/statement/0.jpg`, order: 0 }] })
-    await setQuestionImages({ questionId, kind: "explanation", images: [{ storagePath: `questions/${questionId}/explanation/0.jpg`, order: 0 }] })
+    await setQuestionImages({
+      questionId,
+      kind: "statement",
+      images: [
+        { storagePath: `questions/${questionId}/statement/0.jpg`, order: 0 },
+      ],
+    })
+    await setQuestionImages({
+      questionId,
+      kind: "explanation",
+      images: [
+        { storagePath: `questions/${questionId}/explanation/0.jpg`, order: 0 },
+      ],
+    })
   })
-  const q = (await getRandomQuizQuestions({ count: 50 })).find((x) => x._id === questionId)
+  const q = (await getRandomQuizQuestions({ count: 50 })).find(
+    (x) => x._id === questionId,
+  )
   expect(q?.images).toHaveLength(1)
   expect(q?.images[0].storagePath.includes("/statement/")).toBe(true)
 })
@@ -208,12 +266,24 @@ it("les lectures d'énoncé ne remontent que kind=statement", async () => {
 - [ ] **Step 3 : Scoper `fetchImages` (exams + training)** — ajouter un paramètre `kind` (défaut `"statement"`) et filtrer :
 
 ```ts
-const fetchImages = async (questionIds: string[], kind: "statement" | "explanation" = "statement") => {
+const fetchImages = async (
+  questionIds: string[],
+  kind: "statement" | "explanation" = "statement",
+) => {
   if (questionIds.length === 0) return new Map<string, ExamImageView[]>() // (TrainingImageView côté training)
   const rows = await db
-    .select({ questionId: questionImages.questionId, storagePath: questionImages.storagePath, position: questionImages.position })
+    .select({
+      questionId: questionImages.questionId,
+      storagePath: questionImages.storagePath,
+      position: questionImages.position,
+    })
     .from(questionImages)
-    .where(and(eq(questionImages.kind, kind), inArray(questionImages.questionId, questionIds)))
+    .where(
+      and(
+        eq(questionImages.kind, kind),
+        inArray(questionImages.questionId, questionIds),
+      ),
+    )
     .orderBy(asc(questionImages.position))
   return groupImages(rows)
 }
@@ -236,6 +306,7 @@ Importer `and`, `eq` si nécessaire. Les appels existants (`fetchImages(ids)`) r
 ## Task 5 : Canal `explanationImages` (admin + correction + vitrine)
 
 **Files:**
+
 - Modify: `features/questions/dal.ts` (`getQuestionById`, `getQuizAnswerKey`)
 - Modify: `features/exams/dal.ts` (`getExamQuestionExplanations`)
 - Modify: `features/training/dal.ts` (`getTrainingSessionResults`)
@@ -262,6 +333,7 @@ Importer `and`, `eq` si nécessaire. Les appels existants (`fetchImages(ids)`) r
 ## Task 6 : Étendre le test anti-triche paramétré (revue)
 
 **Files:**
+
 - Modify: `tests/integration/passation-anti-cheat.test.ts` (créé en F1) ou créer si F1 non livrée
 
 - [ ] **Step 1 : Ajouter `explanationImages` aux champs interdits** — pour une question avec des images d'explication, vérifier qu'`explanationImages` est **absent** des questions renvoyées en passation (`getExamWithQuestions` non-admin, `getTrainingSessionById` mode test) et que `images` ne contient aucune image `explanation`.
@@ -275,6 +347,7 @@ Importer `and`, `eq` si nécessaire. Les appels existants (`fetchImages(ids)`) r
 ## Task 7 : Éditeur admin — deux sections d'upload
 
 **Files:**
+
 - Modify: `components/admin/question-image-uploader.tsx`
 - Modify: `app/(admin)/admin/questions/_components/question-form-page.tsx`
 
@@ -291,6 +364,7 @@ Importer `and`, `eq` si nécessaire. Les appels existants (`fetchImages(ids)`) r
 ## Task 8 : Affichage à la correction
 
 **Files:**
+
 - Modify: `components/quiz/results/session-results.tsx` (F1) **ou** la vue de résultats existante si F1 non livrée
 - Modify: vue de correction du quiz vitrine (composant marketing consommant `scoreQuizAnswers`)
 

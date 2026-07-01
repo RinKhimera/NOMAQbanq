@@ -84,7 +84,10 @@ export class AdminQuestionsPage extends BasePage {
   async fillObjectifCMC(value: string) {
     // Le trigger n'a pas de nom accessible (label « Objectif CMC » non associé
     // via htmlFor) → on le cible par son texte, comme le trigger domaine.
-    await this.page.locator("main").getByText("Sélectionner ou créer...").click()
+    await this.page
+      .locator("main")
+      .getByText("Sélectionner ou créer...")
+      .click()
     await this.page.getByPlaceholder("Rechercher ou créer...").fill(value)
     // Préférer l'objectif EXISTANT au nom exact ; sinon l'item « Créer "x" ».
     // Évite l'ambiguïté de `.first()` quand les deux items coexistent (ordre cmdk).

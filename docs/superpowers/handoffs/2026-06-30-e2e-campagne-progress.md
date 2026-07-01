@@ -14,6 +14,7 @@ Le skip (`payment-access.spec.ts:80`) est défensif/pré-existant (compte test a
 → pas de paywall à tester). Tous les items planifiés (3.A→3.F + #4) sont faits.
 
 3 commits ajoutés cette session (après `a461333`/`6e866be`) :
+
 - `1926492` **3.B** — action `seed-exam` + isolation des 4 specs `examen-blanc*`
   (seed propre, cible `exam-card-{id}`) ; rewrite pause (bouton `btn-pause` réel +
   anti-triche D3 ; modèle auto-midpoint obsolète retiré) ; rewrite resultats (examen
@@ -34,6 +35,7 @@ en session fraîche, puis **push** (sur demande). Optionnel : F2 admin-détail, 
 `admin-exams`/`payment-access` déjà verts.
 
 ### Addendum — clôture (toujours 2026-06-30)
+
 - **2ᵉ revue adversariale (delta `a461333..HEAD`) = VERTE**, verdict OUI. 4 findings ℹ️
   (post-push). Rapport jetable supprimé.
 - **Polish ℹ️ traité** (`297cf36`) : #1 `seedExam.completedFor` garantit
@@ -49,14 +51,14 @@ en session fraîche, puis **push** (sur demande). Optionnel : F2 admin-détail, 
 
 ## Commits posés cette session (baseline = `a6527dd`)
 
-| Commit | Phase | Contenu |
-|--------|-------|---------|
-| `95e725b` | **3.C** | **Vrai bug F1** : `useExamTimer` était toujours appelé ; en entraînement (`mode.timer=null` → `totalSeconds=0`) il déclenchait `onExpire` au montage → toute session s'auto-soumettait à 0 réponse. Fix = garde `enabled: !!mode.timer` sur le hook. + hydration `toLocaleString("fr-CA")`. 2 tests de non-régression. |
-| `3f7c082` | **3.A** | Dérives de sélecteur post-F1 (POMs/specs : `getByRole("heading").first()`, `{exact}`, sidebar `[data-sidebar="content"]`) + testids (`exam-card-{id}`, `quick-access-{titre}`, `exam-/user-side-panel`, InlineEditField `-edit/-input/-save`). `reset-exam` purge **toutes** les sessions d'entraînement (rate-limit). |
-| `67b291f` | **3.E** | **Vrai bug F2** : `examen-blanc/page.tsx` passait un `isEligible` **global** → membre restreint sans abo voyait « Non éligible ». Fix = `ExamListItem.audienceType` exposé + éligibilité **par-examen** côté client (`hasExamAccess \|\| audienceType==='restricted'`). + action `seed-restricted-exam` + spec `examen-audience.spec.ts` (membre/outsider). |
-| `de9abec` | **3.F (anti-triche)** | Action `seed-explanation-image` + spec `examen-explication.spec.ts` (image en base sur Q1 → ni `explanation-images` ni `explanation-content` en passation). |
-| `0d6ec95` | docs | Gotchas campagne dans `.claude/rules/*` + `AGENTS.md`. |
-| `a461333` | revue | Findings 🟡 : `cleanup` réclame les images d'explication orphelines ; commentaire clarifiant que l'e2e anti-triche n'est qu'un smoke UI. |
+| Commit    | Phase                 | Contenu                                                                                                                                                                                                                                                                                                                                                     |
+| --------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `95e725b` | **3.C**               | **Vrai bug F1** : `useExamTimer` était toujours appelé ; en entraînement (`mode.timer=null` → `totalSeconds=0`) il déclenchait `onExpire` au montage → toute session s'auto-soumettait à 0 réponse. Fix = garde `enabled: !!mode.timer` sur le hook. + hydration `toLocaleString("fr-CA")`. 2 tests de non-régression.                                      |
+| `3f7c082` | **3.A**               | Dérives de sélecteur post-F1 (POMs/specs : `getByRole("heading").first()`, `{exact}`, sidebar `[data-sidebar="content"]`) + testids (`exam-card-{id}`, `quick-access-{titre}`, `exam-/user-side-panel`, InlineEditField `-edit/-input/-save`). `reset-exam` purge **toutes** les sessions d'entraînement (rate-limit).                                      |
+| `67b291f` | **3.E**               | **Vrai bug F2** : `examen-blanc/page.tsx` passait un `isEligible` **global** → membre restreint sans abo voyait « Non éligible ». Fix = `ExamListItem.audienceType` exposé + éligibilité **par-examen** côté client (`hasExamAccess \|\| audienceType==='restricted'`). + action `seed-restricted-exam` + spec `examen-audience.spec.ts` (membre/outsider). |
+| `de9abec` | **3.F (anti-triche)** | Action `seed-explanation-image` + spec `examen-explication.spec.ts` (image en base sur Q1 → ni `explanation-images` ni `explanation-content` en passation).                                                                                                                                                                                                 |
+| `0d6ec95` | docs                  | Gotchas campagne dans `.claude/rules/*` + `AGENTS.md`.                                                                                                                                                                                                                                                                                                      |
+| `a461333` | revue                 | Findings 🟡 : `cleanup` réclame les images d'explication orphelines ; commentaire clarifiant que l'e2e anti-triche n'est qu'un smoke UI.                                                                                                                                                                                                                    |
 
 ## Revue adversariale — VERTE
 
@@ -71,7 +73,7 @@ Des 20 échecs de la baseline, il reste essentiellement : **#4** (admin-question
 1. **3.B — collisions d'état examen** : créer l'action `seed-exam` (examen `subscribers` dédié, un par fichier) dans `app/api/e2e/route.ts`, puis isoler `examen-blanc.spec.ts` / `examen-blanc-pause.spec.ts` (besoin `enablePause:true`) / `examen-blanc-auto-submit.spec.ts` / `resultats-examen.spec.ts` (chacun seede + `beforeAll`). Débloque aussi l'affichage-correction F3 examen.
 2. **3.F-suite — affichage images à la correction** : entraînement (eager, `getTrainingSessionResults`) → nécessite un seed de session **complétée** ; examen (lazy après `endDate`) → s'appuie sur 3.B. Asserter `explanation-images` **visible** à la correction.
 3. **#4 — admin-questions création** : le bouton-lettre (A/B/C/D) est `disabled` tant que l'option n'est pas remplie ; le clic timeout (60 s). À rejouer en navigateur (`/e2e-scenario`) pour voir pourquoi le remplissage des options ne réactive pas le bouton.
-4. *(opt)* F2 admin-détail (page `/admin/exams/{id}` « Utilisateurs autorisés ») ; 3.D payment-access (probablement déjà vert — les drifts sont corrigés, les tests Stripe error-path passent).
+4. _(opt)_ F2 admin-détail (page `/admin/exams/{id}` « Utilisateurs autorisés ») ; 3.D payment-access (probablement déjà vert — les drifts sont corrigés, les tests Stripe error-path passent).
 
 ## Faits-clés pour reprendre
 

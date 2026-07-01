@@ -488,7 +488,9 @@ export const QuestionCard = ({
                   disabled={disabled}
                   showCheckIcon={
                     (isReviewVariant && isCorrectAnswer) ||
-                    (isDefaultVariant && showCorrectAnswer && isCorrectAnswer) ||
+                    (isDefaultVariant &&
+                      showCorrectAnswer &&
+                      isCorrectAnswer) ||
                     (isExamReveal && isCorrectAnswer)
                   }
                   showXIcon={

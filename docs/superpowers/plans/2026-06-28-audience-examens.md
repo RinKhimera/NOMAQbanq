@@ -19,6 +19,7 @@
 ## File Structure
 
 **Modifiés :**
+
 - `db/schema/enums.ts` — enum `examAudienceType`.
 - `db/schema/exams.ts` — colonne `exams.audienceType` + table `examAudience`.
 - `features/exams/schemas.ts` — `audienceType` + `audienceUserIds` dans create/update.
@@ -29,6 +30,7 @@
 - `app/(admin)/admin/exams/[id]/_components/eligible-candidates-section.tsx` — affichage selon le type.
 
 **Créés :**
+
 - `components/admin/user-multi-select.tsx` — picker recherchable réutilisable.
 - `tests/integration/exam-audience.test.ts`.
 
@@ -37,6 +39,7 @@
 ## Task 1 : Schéma `audienceType` + table `examAudience`
 
 **Files:**
+
 - Modify: `db/schema/enums.ts`
 - Modify: `db/schema/exams.ts`
 
@@ -45,7 +48,10 @@
 Dans `db/schema/enums.ts` :
 
 ```ts
-export const examAudienceType = pgEnum("exam_audience_type", ["subscribers", "restricted"])
+export const examAudienceType = pgEnum("exam_audience_type", [
+  "subscribers",
+  "restricted",
+])
 ```
 
 - [ ] **Step 2 : Colonne + table**
@@ -62,9 +68,15 @@ Et, en fin de fichier, la table de jonction :
 export const examAudience = pgTable(
   "exam_audience",
   {
-    examId: text("exam_id").notNull().references(() => exams.id, { onDelete: "cascade" }),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    examId: text("exam_id")
+      .notNull()
+      .references(() => exams.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (t) => [
     primaryKey({ columns: [t.examId, t.userId] }),
@@ -89,6 +101,7 @@ git commit -m "feat(db): exams.audienceType + table examAudience"
 ## Task 2 : DAL `searchSelectableUsers` + `getExamAudience`
 
 **Files:**
+
 - Modify: `features/users/dal.ts`
 - Modify: `features/exams/dal.ts`
 - Test: `tests/integration/exam-audience.test.ts`
@@ -99,8 +112,8 @@ Créer `tests/integration/exam-audience.test.ts` (setup branche Neon comme `exam
 
 ```ts
 import { describe, expect, it } from "vitest"
-import { searchSelectableUsers } from "@/features/users/dal"
 import { getExamAudience } from "@/features/exams/dal"
+import { searchSelectableUsers } from "@/features/users/dal"
 
 describe("searchSelectableUsers", () => {
   it("recherche par nom/email, exclut admins, borné", async () => {
@@ -123,8 +136,12 @@ Dans `features/users/dal.ts` (réutilise `escapeLike`, `SelectableUser`) :
 
 ```ts
 export const searchSelectableUsers = async ({
-  query, limit = 20,
-}: { query?: string; limit?: number }): Promise<SelectableUser[]> => {
+  query,
+  limit = 20,
+}: {
+  query?: string
+  limit?: number
+}): Promise<SelectableUser[]> => {
   await requireRole(["admin"])
   const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 50)
   const term = query?.trim()
@@ -155,16 +172,18 @@ Dans `features/exams/dal.ts` :
 ```ts
 export type ExamAudienceUser = { id: string; name: string; email: string }
 
-export const getExamAudience = cache(async (examId: string): Promise<ExamAudienceUser[]> => {
-  await requireRole(["admin"])
-  return db
-    .select({ id: user.id, name: user.name, email: user.email })
-    .from(examAudience)
-    .innerJoin(user, eq(user.id, examAudience.userId))
-    .where(eq(examAudience.examId, examId))
-    .orderBy(asc(user.name))
-    .limit(1000)
-})
+export const getExamAudience = cache(
+  async (examId: string): Promise<ExamAudienceUser[]> => {
+    await requireRole(["admin"])
+    return db
+      .select({ id: user.id, name: user.name, email: user.email })
+      .from(examAudience)
+      .innerJoin(user, eq(user.id, examAudience.userId))
+      .where(eq(examAudience.examId, examId))
+      .orderBy(asc(user.name))
+      .limit(1000)
+  },
+)
 ```
 
 Importer `examAudience` dans `features/exams/dal.ts`.
@@ -187,6 +206,7 @@ git commit -m "feat(exams): searchSelectableUsers + getExamAudience"
 ## Task 3 : Schémas zod create/update (audience)
 
 **Files:**
+
 - Modify: `features/exams/schemas.ts`
 
 - [ ] **Step 1 : Ajouter les champs + refine**
@@ -201,9 +221,14 @@ audienceUserIds: z.array(z.string().min(1)).max(5000).default([]),
 Ajouter un refine partagé (create + update) :
 
 ```ts
-const audienceValid = (d: { audienceType: "subscribers" | "restricted"; audienceUserIds: string[] }) =>
-  d.audienceType === "subscribers" || d.audienceUserIds.length >= 1
-const audienceIssue = { message: "Sélectionnez au moins un utilisateur", path: ["audienceUserIds"] }
+const audienceValid = (d: {
+  audienceType: "subscribers" | "restricted"
+  audienceUserIds: string[]
+}) => d.audienceType === "subscribers" || d.audienceUserIds.length >= 1
+const audienceIssue = {
+  message: "Sélectionnez au moins un utilisateur",
+  path: ["audienceUserIds"],
+}
 ```
 
 Chaîner `.refine(audienceValid, audienceIssue)` sur `createExamSchema` et `updateExamSchema`.
@@ -217,6 +242,7 @@ Chaîner `.refine(audienceValid, audienceIssue)` sur `createExamSchema` et `upda
 ## Task 4 : `createExam` persiste l'audience
 
 **Files:**
+
 - Modify: `features/exams/actions.ts` (`createExam`)
 - Test: `tests/integration/exam-audience.test.ts`
 
@@ -225,13 +251,18 @@ Chaîner `.refine(audienceValid, audienceIssue)` sur `createExamSchema` et `upda
 ```ts
 it("createExam restreint insère examAudience (dédupliqué)", async () => {
   const { adminId } = await seedAdmin()
-  const u1 = await seedUser({}); const u2 = await seedUser({})
+  const u1 = await seedUser({})
+  const u2 = await seedUser({})
   const qIds = await seedQuestions(2)
   await asUser(adminId, async () => {
     const res = await createExam({
-      title: "Restreint", startDate: Date.now(), endDate: Date.now() + 86400000,
-      questionIds: qIds, enablePause: false,
-      audienceType: "restricted", audienceUserIds: [u1.id, u2.id, u1.id], // doublon volontaire
+      title: "Restreint",
+      startDate: Date.now(),
+      endDate: Date.now() + 86400000,
+      questionIds: qIds,
+      enablePause: false,
+      audienceType: "restricted",
+      audienceUserIds: [u1.id, u2.id, u1.id], // doublon volontaire
     })
     expect(res.success).toBe(true)
     if (res.success) {
@@ -252,10 +283,14 @@ await tx.insert(examQuestions).values(/* …existant… */)
 
 if (audienceType === "restricted") {
   const uniqueIds = [...new Set(audienceUserIds)]
-  const valid = await tx.select({ id: user.id }).from(user)
+  const valid = await tx
+    .select({ id: user.id })
+    .from(user)
     .where(and(inArray(user.id, uniqueIds), isNull(user.deletedAt)))
   if (valid.length !== uniqueIds.length) throw new Error("INVALID_USERS")
-  await tx.insert(examAudience).values(uniqueIds.map((userId) => ({ examId, userId })))
+  await tx
+    .insert(examAudience)
+    .values(uniqueIds.map((userId) => ({ examId, userId })))
 }
 ```
 
@@ -270,6 +305,7 @@ Déstructurer `audienceType, audienceUserIds` de `parsed.data` ; importer `examA
 ## Task 5 : `updateExam` édite l'audience à tout moment
 
 **Files:**
+
 - Modify: `features/exams/actions.ts` (`updateExam`)
 - Test: `tests/integration/exam-audience.test.ts`
 
@@ -290,10 +326,14 @@ it("updateExam réécrit l'audience et la vide en bascule subscribers", async ()
 await tx.delete(examAudience).where(eq(examAudience.examId, id))
 if (audienceType === "restricted") {
   const uniqueIds = [...new Set(audienceUserIds)]
-  const valid = await tx.select({ id: user.id }).from(user)
+  const valid = await tx
+    .select({ id: user.id })
+    .from(user)
     .where(and(inArray(user.id, uniqueIds), isNull(user.deletedAt)))
   if (valid.length !== uniqueIds.length) throw new Error("INVALID_USERS")
-  await tx.insert(examAudience).values(uniqueIds.map((userId) => ({ examId: id, userId })))
+  await tx
+    .insert(examAudience)
+    .values(uniqueIds.map((userId) => ({ examId: id, userId })))
 }
 ```
 
@@ -308,6 +348,7 @@ if (audienceType === "restricted") {
 ## Task 6 : Garde `startExam` (sélection = accès)
 
 **Files:**
+
 - Modify: `features/exams/actions.ts` (`startExam`)
 - Test: `tests/integration/exam-audience.test.ts`
 
@@ -316,11 +357,14 @@ if (audienceType === "restricted") {
 ```ts
 it("startExam restreint : membre SANS abonnement autorisé ; non-membre refusé", async () => {
   const { adminId } = await seedAdmin()
-  const member = await seedUser({})          // pas d'abonnement
+  const member = await seedUser({}) // pas d'abonnement
   const outsider = await seedUser({})
   let examId = ""
   await asUser(adminId, async () => {
-    const r = await createExam({ /* … */ audienceType: "restricted", audienceUserIds: [member.id] })
+    const r = await createExam({
+      /* … */ audienceType: "restricted",
+      audienceUserIds: [member.id],
+    })
     if (r.success) examId = r.examId
   })
   await asUser(member.id, async () => {
@@ -331,7 +375,9 @@ it("startExam restreint : membre SANS abonnement autorisé ; non-membre refusé"
   })
 })
 
-it("startExam subscribers : abonné autorisé, non-abonné refusé (inchangé)", async () => { /* … */ })
+it("startExam subscribers : abonné autorisé, non-abonné refusé (inchangé)", async () => {
+  /* … */
+})
 ```
 
 - [ ] **Step 2 : Lancer (échec)** — FAIL.
@@ -342,8 +388,13 @@ it("startExam subscribers : abonné autorisé, non-abonné refusé (inchangé)",
 // dans la tx, après avoir chargé `exam` (avec audienceType) et vérifié la fenêtre :
 if (!isAdmin) {
   if (exam.audienceType === "restricted") {
-    const [m] = await tx.select({ userId: examAudience.userId }).from(examAudience)
-      .where(and(eq(examAudience.examId, examId), eq(examAudience.userId, userId))).limit(1)
+    const [m] = await tx
+      .select({ userId: examAudience.userId })
+      .from(examAudience)
+      .where(
+        and(eq(examAudience.examId, examId), eq(examAudience.userId, userId)),
+      )
+      .limit(1)
     if (!m) throw new Error("NOT_IN_AUDIENCE")
   } else if (!(await hasAccess("exam"))) {
     throw new Error("ACCESS_EXPIRED")
@@ -362,6 +413,7 @@ Ajouter au mapping d'erreurs : `NOT_IN_AUDIENCE → "Cet examen ne vous est pas 
 ## Task 7 : Garde `finalizeExam` (tolérant pour le restreint)
 
 **Files:**
+
 - Modify: `features/exams/actions.ts` (`finalizeExam` — ou `submitExamAnswers` si F1 non livrée)
 
 - [ ] **Step 1 : Implémenter la re-vérification asymétrique** — charger `audienceType` de l'exam, puis :
@@ -369,9 +421,15 @@ Ajouter au mapping d'erreurs : `NOT_IN_AUDIENCE → "Cet examen ne vous est pas 
 ```ts
 if (!isAdmin) {
   if (exam.audienceType === "subscribers") {
-    const [acc] = await tx.select({ expiresAt: userAccess.expiresAt }).from(userAccess)
-      .where(and(eq(userAccess.userId, userId), eq(userAccess.accessType, "exam"))).limit(1)
-    if (!acc || acc.expiresAt.getTime() <= now) throw new Error("ACCESS_EXPIRED")
+    const [acc] = await tx
+      .select({ expiresAt: userAccess.expiresAt })
+      .from(userAccess)
+      .where(
+        and(eq(userAccess.userId, userId), eq(userAccess.accessType, "exam")),
+      )
+      .limit(1)
+    if (!acc || acc.expiresAt.getTime() <= now)
+      throw new Error("ACCESS_EXPIRED")
   }
   // restricted : AUCUNE re-vérification d'appartenance — la participation in_progress
   // EST l'autorisation (l'utilisateur a pu être retiré de l'audience en cours). (Revue #6.)
@@ -389,6 +447,7 @@ if (!isAdmin) {
 ## Task 8 : Filtre de la liste étudiant
 
 **Files:**
+
 - Modify: `features/exams/dal.ts` (`getExamsWithParticipation`)
 - Test: `tests/integration/exam-audience.test.ts`
 
@@ -400,6 +459,7 @@ if (!isAdmin) {
 
 ```ts
 import { exists } from "drizzle-orm"
+
 // …
 const isAdmin = session?.user?.role === "admin"
 const audienceWhere = isAdmin
@@ -408,13 +468,23 @@ const audienceWhere = isAdmin
       eq(exams.audienceType, "subscribers"),
       session?.user
         ? exists(
-            db.select({ x: sql`1` }).from(examAudience)
-              .where(and(eq(examAudience.examId, exams.id), eq(examAudience.userId, session.user.id))),
+            db
+              .select({ x: sql`1` })
+              .from(examAudience)
+              .where(
+                and(
+                  eq(examAudience.examId, exams.id),
+                  eq(examAudience.userId, session.user.id),
+                ),
+              ),
           )
         : sql`false`,
     )
-// …
-.from(exams).where(audienceWhere).orderBy(desc(exams.startDate)).limit(100)
+      // …
+      .from(exams)
+      .where(audienceWhere)
+      .orderBy(desc(exams.startDate))
+      .limit(100)
 ```
 
 Importer `examAudience`, `exists`, `or`.
@@ -428,6 +498,7 @@ Importer `examAudience`, `exists`, `or`.
 ## Task 9 : Garde `getExamLeaderboard` (revue #3)
 
 **Files:**
+
 - Modify: `features/exams/dal.ts` (`getExamLeaderboard:959`)
 - Test: `tests/integration/exam-audience.test.ts`
 
@@ -438,19 +509,38 @@ Importer `examAudience`, `exists`, `or`.
 - [ ] **Step 3 : Implémenter** — ajouter `audienceType` au `select` de l'exam, et dans la branche non-admin, restreindre :
 
 ```ts
-const [exam] = await db.select({ endDate: exams.endDate, audienceType: exams.audienceType })
-  .from(exams).where(eq(exams.id, examId)).limit(1)
+const [exam] = await db
+  .select({ endDate: exams.endDate, audienceType: exams.audienceType })
+  .from(exams)
+  .where(eq(exams.id, examId))
+  .limit(1)
 // …
 if (!isAdmin) {
   if (!session?.user) return []
   if (Date.now() < exam.endDate.getTime()) return []
   if (exam.audienceType === "restricted") {
-    const [m] = await db.select({ userId: examAudience.userId }).from(examAudience)
-      .where(and(eq(examAudience.examId, examId), eq(examAudience.userId, session.user.id))).limit(1)
+    const [m] = await db
+      .select({ userId: examAudience.userId })
+      .from(examAudience)
+      .where(
+        and(
+          eq(examAudience.examId, examId),
+          eq(examAudience.userId, session.user.id),
+        ),
+      )
+      .limit(1)
     if (!m) return []
   } else {
-    const [part] = await db.select({ id: examParticipations.id }).from(examParticipations)
-      .where(and(eq(examParticipations.examId, examId), eq(examParticipations.userId, session.user.id))).limit(1)
+    const [part] = await db
+      .select({ id: examParticipations.id })
+      .from(examParticipations)
+      .where(
+        and(
+          eq(examParticipations.examId, examId),
+          eq(examParticipations.userId, session.user.id),
+        ),
+      )
+      .limit(1)
     if (!part && !(await hasAccess("exam", session.user.id))) return []
   }
 }
@@ -465,6 +555,7 @@ if (!isAdmin) {
 ## Task 10 : Picker `<UserMultiSelect>`
 
 **Files:**
+
 - Create: `components/admin/user-multi-select.tsx`
 
 - [ ] **Step 1 : Implémenter** — composant client réutilisant `Command`/`Popover` (porter le pattern de `components/shared/payments/manual-payment-modal.tsx`). Props : `{ value: SelectableUser[]; onChange: (next: SelectableUser[]) => void }`. Recherche serveur **debouncée** (300 ms, pattern `useState+useEffect+setTimeout` — cf. règle data-layer/gotcha) via `loadSearchSelectableUsers`. Affiche les sélectionnés en `Badge` retirables ; coche les résultats déjà sélectionnés. Bornes : afficher un hint si > 50 résultats (« affinez la recherche »).
@@ -478,9 +569,10 @@ if (!isAdmin) {
 ## Task 11 : Radio d'audience dans le formulaire examen
 
 **Files:**
+
 - Modify: `app/(admin)/admin/exams/create/_components/exam-create-form.tsx` (+ form d'édition associé)
 
-- [ ] **Step 1 : Ajouter le champ** — un `RadioGroup` « À qui s'adresse cet examen ? » : *Tous les abonnés aux examens blancs* (`subscribers`, défaut) / *Utilisateurs spécifiques* (`restricted`). Quand `restricted`, afficher `<UserMultiSelect>`. Câbler `audienceType` + `audienceUserIds` (les ids des sélectionnés) dans la soumission `createExam`/`updateExam`. En édition, pré-charger via `loadExamAudience(examId)`.
+- [ ] **Step 1 : Ajouter le champ** — un `RadioGroup` « À qui s'adresse cet examen ? » : _Tous les abonnés aux examens blancs_ (`subscribers`, défaut) / _Utilisateurs spécifiques_ (`restricted`). Quand `restricted`, afficher `<UserMultiSelect>`. Câbler `audienceType` + `audienceUserIds` (les ids des sélectionnés) dans la soumission `createExam`/`updateExam`. En édition, pré-charger via `loadExamAudience(examId)`.
 
 - [ ] **Step 2 : Vérifier** — Run: `bunx tsc --noEmit && bun run lint` → 0 erreur ; tester manuellement : restreint sans sélection → erreur de validation (≥1).
 
@@ -491,6 +583,7 @@ if (!isAdmin) {
 ## Task 12 : Page détail admin — affichage selon l'audience
 
 **Files:**
+
 - Modify: `app/(admin)/admin/exams/[id]/_components/eligible-candidates-section.tsx` (+ sa page)
 
 - [ ] **Step 1 : Adapter** — si `audienceType === "restricted"`, afficher la liste `getExamAudience(examId)` (titre « Utilisateurs autorisés ») ; sinon, l'actuel `getEligibleExamCandidates` (« Abonnés éligibles »). Passer `audienceType` depuis la page (lecture DAL).

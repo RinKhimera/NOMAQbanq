@@ -32,13 +32,13 @@ comportement des examens existants, et faire respecter ce choix à la fois sur l
 
 ## Décisions de conception (validées)
 
-| #  | Sujet                                  | Choix retenu                                                                                              |
-| -- | -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| D1 | Sémantique « restreint »               | **La sélection DONNE l'accès** : un utilisateur choisi peut passer l'examen même **sans** abonnement.    |
-| D2 | Bouquet de sélection                   | **Tous les utilisateurs** (recherche serveur), admins inclus (sélectionner un admin est sans effet).     |
-| D3 | Visibilité d'un examen restreint       | **Masqué** dans la liste pour les non-sélectionnés (confidentiel/ciblé). Admins voient tout (preview).   |
-| D4 | Édition de l'audience après création   | **Modifiable à tout moment** (comme les métadonnées). Les participations déjà enregistrées sont conservées. |
-| D5 | Modèle de données                      | **Table de jonction** `examAudience` (vs colonne tableau JSON).                                          |
+| #   | Sujet                                | Choix retenu                                                                                                |
+| --- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| D1  | Sémantique « restreint »             | **La sélection DONNE l'accès** : un utilisateur choisi peut passer l'examen même **sans** abonnement.       |
+| D2  | Bouquet de sélection                 | **Tous les utilisateurs** (recherche serveur), admins inclus (sélectionner un admin est sans effet).        |
+| D3  | Visibilité d'un examen restreint     | **Masqué** dans la liste pour les non-sélectionnés (confidentiel/ciblé). Admins voient tout (preview).      |
+| D4  | Édition de l'audience après création | **Modifiable à tout moment** (comme les métadonnées). Les participations déjà enregistrées sont conservées. |
+| D5  | Modèle de données                    | **Table de jonction** `examAudience` (vs colonne tableau JSON).                                             |
 
 ## Modèle de données
 
@@ -67,6 +67,7 @@ audienceType = 'restricted'    → autorisé SSI EXISTS examAudience(examId, use
                                   (aucune vérification d'abonnement)  sinon refus
 audienceType = 'subscribers'   → hasAccess("exam")  (inchangé)
 ```
+
 Message de refus restreint : « Cet examen ne vous est pas destiné. »
 
 ### `finalizeExam` (ex-`submitExamAnswers`) — re-vérification
@@ -77,7 +78,7 @@ Message de refus restreint : « Cet examen ne vous est pas destiné. »
   Une participation `in_progress` n'existe que si `startExam` a déjà autorisé
   l'accès ; re-bloquer à la finalisation punirait un utilisateur **retiré de
   l'audience en cours d'examen** (perte de travail). L'existence de la
-  participation EST l'autorisation. *(Corrige le constat 🟡 #6 de la revue.)*
+  participation EST l'autorisation. _(Corrige le constat 🟡 #6 de la revue.)_
 
 > Lien Feature 1 : `submitExamAnswers` devient `finalizeExam`. Cette spec
 > s'applique au garde, quel que soit le nom final de l'action.
@@ -85,6 +86,7 @@ Message de refus restreint : « Cet examen ne vous est pas destiné. »
 ### Liste étudiant — `getExamsWithParticipation`
 
 Inclure un examen si :
+
 - `audienceType = 'subscribers'` (visible par tous, comme aujourd'hui), **ou**
 - `audienceType = 'restricted'` **et** `EXISTS examAudience(exam, utilisateur courant)`.
 
@@ -105,12 +107,12 @@ renvoyer la moindre donnée de l'examen.
 
 ## UI Admin (création + édition)
 
-Dans [`exam-create-form.tsx`](../../../app/(admin)/admin/exams/create/_components/exam-create-form.tsx)
+Dans [`exam-create-form.tsx`](<../../../app/(admin)/admin/exams/create/_components/exam-create-form.tsx>)
 (et le formulaire d'édition) :
 
 - Nouveau champ **« À qui s'adresse cet examen ? »** (radio) :
-  - ◉ *Tous les abonnés aux examens blancs* (défaut)
-  - ○ *Utilisateurs spécifiques* → affiche un **multi-select recherchable**
+  - ◉ _Tous les abonnés aux examens blancs_ (défaut)
+  - ○ _Utilisateurs spécifiques_ → affiche un **multi-select recherchable**
 - Le picker réutilise le pattern `Command`/`Popover` de
   [`manual-payment-modal.tsx`](../../../components/shared/payments/manual-payment-modal.tsx),
   alimenté par une **nouvelle DAL `searchSelectableUsers({ query, limit })`**
@@ -124,7 +126,7 @@ Dans [`exam-create-form.tsx`](../../../app/(admin)/admin/exams/create/_component
 
 ### Page détail admin
 
-[`eligible-candidates-section.tsx`](../../../app/(admin)/admin/exams/[id]/_components/eligible-candidates-section.tsx) :
+[`eligible-candidates-section.tsx`](<../../../app/(admin)/admin/exams/[id]/_components/eligible-candidates-section.tsx>) :
 afficher l'audience **selon le type** — `restricted` → la liste sélectionnée ;
 `subscribers` → les abonnés actuels (via `getEligibleExamCandidates` existant).
 

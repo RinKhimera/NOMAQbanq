@@ -9,8 +9,8 @@ Sur le formulaire de création/édition d'examen, `EligibleCandidatesCard` est a
 défauts :
 
 1. **Clutter** : la liste est toujours là, même quand l'admin ne la consulte pas.
-2. **Incohérence sémantique** : « Candidats éligibles » = *abonnés avec accès examen
-   actif* (`getEligibleExamCandidates`). C'est juste pour une audience **abonnés**,
+2. **Incohérence sémantique** : « Candidats éligibles » = _abonnés avec accès examen
+   actif_ (`getEligibleExamCandidates`). C'est juste pour une audience **abonnés**,
    mais **hors-sujet pour un examen restreint** : l'accès y est octroyé aux
    utilisateurs **choisis** (même sans abonnement), pas au pool d'abonnés.
 
@@ -45,9 +45,9 @@ examen ? », après le `RadioGroup` (et le picker en mode restreint). Il rend, s
 
 ```ts
 interface AudienceEligibilityProps {
-  candidates: EligibleCandidate[]   // pool d'abonnés (déjà chargé par la page)
+  candidates: EligibleCandidate[] // pool d'abonnés (déjà chargé par la page)
   audienceType: "subscribers" | "restricted"
-  selectedCount: number             // selectedUsers.length (mode restreint)
+  selectedCount: number // selectedUsers.length (mode restreint)
 }
 ```
 
@@ -63,7 +63,7 @@ déjà chargée → ouverture instantanée. **Pas de lazy-load / pas de nouvel e
 - **Modifiés** : `exam-create-form.tsx` + `exam-edit-form.tsx` — retirer le
   `<EligibleCandidatesCard candidates={candidates} />` standalone ; monter
   `<AudienceEligibility candidates={candidates} audienceType={audienceType}
-  selectedCount={selectedUsers.length} />` dans la carte audience.
+selectedCount={selectedUsers.length} />` dans la carte audience.
 - **Modifié (mineur, finding 🟡3)** : `EligibleCandidatesSection` reçoit une prop
   `embedded?: boolean` → masque le chrome `Card` (header teal redondant avec le
   titre du Dialog) et rend la hauteur de liste souple (`max-h` au lieu de `h-100`

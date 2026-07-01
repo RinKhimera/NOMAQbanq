@@ -27,10 +27,10 @@ en tuteur après une réponse :
 ```tsx
 render(
   <QuestionCard
-    variant="exam"                // ← le runner rend toujours variant="exam"
+    variant="exam" // ← le runner rend toujours variant="exam"
     question={mockQuestion}
     selectedAnswer="Lyon"
-    showCorrectAnswer={true}       // ← isCurrentRevealed=true en tuteur
+    showCorrectAnswer={true} // ← isCurrentRevealed=true en tuteur
     lazyExplanation="Paris est la capitale de la France."
     lazyReferences={["Atlas géographique, p.12"]}
   />,
@@ -77,20 +77,20 @@ d'explication n'est **jamais monté**, quelles que soient les props de révélat
 
 Le reste de la chaîne est sain (vérifié ligne par ligne) :
 
-| Maillon | Fichier:ligne | Valeur réelle |
-| --- | --- | --- |
-| Radio tuteur | `training-config-form.tsx:328-331` | `value="tutor"` ✓ |
-| Submit | `training-config-form.tsx:101` | `mode: trainingMode` ✓ |
-| Zod | `features/training/schemas.ts:15` | `z.enum(["tutor","test"])` ✓ |
-| Insert | `features/training/actions.ts:178` | `mode` inséré ✓ |
-| Enum/colonne DB | `db/schema/enums.ts:34`, `training.ts:25` | `pgEnum(... ["tutor","test"])`, stocke `"tutor"` ✓ |
-| DAL | `features/training/dal.ts:503,580` | re-projette `mode: s.mode` ✓ |
-| Client → mode | `training-session-client.tsx:81,105` | `isTutor` → `feedback:"immediate"` ✓ |
-| Action réponse | `features/training/actions.ts:300-318` | renvoie `reveal` quand `s.mode==="tutor"` ✓ |
-| onAnswer | `training-session-client.tsx:123-132` | propage `reveal` ✓ |
-| Hook | `use-quiz-session.ts:180-191` | `setRevealed` quand `feedback==="immediate"` ✓ |
-| Runner | `quiz-runner.tsx:148,219` | `isCurrentRevealed=true` → `showCorrectAnswer` ✓ |
-| **Rendu** | **`question-card/index.tsx:489`** | **explication gardée `variant="review"` → jamais rendue en `exam` ✗** |
+| Maillon         | Fichier:ligne                             | Valeur réelle                                                         |
+| --------------- | ----------------------------------------- | --------------------------------------------------------------------- |
+| Radio tuteur    | `training-config-form.tsx:328-331`        | `value="tutor"` ✓                                                     |
+| Submit          | `training-config-form.tsx:101`            | `mode: trainingMode` ✓                                                |
+| Zod             | `features/training/schemas.ts:15`         | `z.enum(["tutor","test"])` ✓                                          |
+| Insert          | `features/training/actions.ts:178`        | `mode` inséré ✓                                                       |
+| Enum/colonne DB | `db/schema/enums.ts:34`, `training.ts:25` | `pgEnum(... ["tutor","test"])`, stocke `"tutor"` ✓                    |
+| DAL             | `features/training/dal.ts:503,580`        | re-projette `mode: s.mode` ✓                                          |
+| Client → mode   | `training-session-client.tsx:81,105`      | `isTutor` → `feedback:"immediate"` ✓                                  |
+| Action réponse  | `features/training/actions.ts:300-318`    | renvoie `reveal` quand `s.mode==="tutor"` ✓                           |
+| onAnswer        | `training-session-client.tsx:123-132`     | propage `reveal` ✓                                                    |
+| Hook            | `use-quiz-session.ts:180-191`             | `setRevealed` quand `feedback==="immediate"` ✓                        |
+| Runner          | `quiz-runner.tsx:148,219`                 | `isCurrentRevealed=true` → `showCorrectAnswer` ✓                      |
+| **Rendu**       | **`question-card/index.tsx:489`**         | **explication gardée `variant="review"` → jamais rendue en `exam` ✗** |
 
 ## 3. Correctif minimal
 
@@ -144,6 +144,7 @@ Pourquoi tout était vert malgré le bug :
 
 Test de non-régression ajouté (`tests/components/QuestionCard.test.tsx`, bloc
 « Variant: exam ») :
+
 - **`mode tuteur : révèle la bonne réponse ET l'explication …`** — rouge avant le
   fix, vert après (assertion `explanation-content` + texte + références).
 - **`mode test : ne révèle PAS l'explication … (showCorrectAnswer=false)`** — verrou
