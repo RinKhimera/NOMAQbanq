@@ -1,9 +1,16 @@
 import { getAccessStatus } from "@/features/payments/dal"
-import { getCurrentUser } from "@/features/users/dal"
+import {
+  getCurrentUser,
+  getLoginMethods,
+  getUserSessions,
+} from "@/features/users/dal"
+import { env } from "@/lib/env/server"
+import { ProfileAccountSection } from "./_components/profile-account-section"
+import { ProfileDangerZone } from "./_components/profile-danger-zone"
 import { ProfileHeader } from "./_components/profile-header"
 import { ProfilePersonalInfo } from "./_components/profile-personal-info"
 import { ProfilePreferences } from "./_components/profile-preferences"
-import { ProfileSecurity } from "./_components/profile-security"
+import { ProfileSessions } from "./_components/profile-sessions"
 import { ProfileSubscriptionCard } from "./_components/profile-subscription-card"
 
 export default async function ProfilPage() {
@@ -25,7 +32,14 @@ export default async function ProfilPage() {
     )
   }
 
-  const accessStatus = await getAccessStatus()
+  const [accessStatus, methods, sessions] = await Promise.all([
+    getAccessStatus(),
+    getLoginMethods(),
+    getUserSessions(),
+  ])
+  const googleEnabled = Boolean(
+    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
+  )
 
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
@@ -35,17 +49,27 @@ export default async function ProfilPage() {
       {/* Personal information - editable */}
       <ProfilePersonalInfo user={currentUser} />
 
-      {/* Two column grid for Security and Subscription on larger screens */}
+      {/* Two column grid: account/security and subscription */}
       <div className="grid items-start gap-6 lg:grid-cols-2">
-        {/* Security section */}
-        <ProfileSecurity />
-
-        {/* Subscription summary */}
+        {methods && (
+          <ProfileAccountSection
+            methods={methods}
+            email={currentUser.email}
+            googleEnabled={googleEnabled}
+            profilePath="/dashboard/profil"
+          />
+        )}
         <ProfileSubscriptionCard accessStatus={accessStatus} />
       </div>
 
-      {/* Preferences - coming soon */}
+      {/* Connected devices */}
+      <ProfileSessions sessions={sessions} />
+
+      {/* Preferences */}
       <ProfilePreferences />
+
+      {/* Danger zone */}
+      <ProfileDangerZone email={currentUser.email} />
     </div>
   )
 }

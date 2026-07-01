@@ -1,8 +1,15 @@
+import { ProfileAccountSection } from "@/app/(dashboard)/dashboard/profil/_components/profile-account-section"
+import { ProfileDangerZone } from "@/app/(dashboard)/dashboard/profil/_components/profile-danger-zone"
 import { ProfileHeader } from "@/app/(dashboard)/dashboard/profil/_components/profile-header"
 import { ProfilePersonalInfo } from "@/app/(dashboard)/dashboard/profil/_components/profile-personal-info"
 import { ProfilePreferences } from "@/app/(dashboard)/dashboard/profil/_components/profile-preferences"
-import { ProfileSecurity } from "@/app/(dashboard)/dashboard/profil/_components/profile-security"
-import { getCurrentUser } from "@/features/users/dal"
+import { ProfileSessions } from "@/app/(dashboard)/dashboard/profil/_components/profile-sessions"
+import {
+  getCurrentUser,
+  getLoginMethods,
+  getUserSessions,
+} from "@/features/users/dal"
+import { env } from "@/lib/env/server"
 
 export default async function AdminProfilPage() {
   const currentUser = await getCurrentUser()
@@ -23,6 +30,14 @@ export default async function AdminProfilPage() {
     )
   }
 
+  const [methods, sessions] = await Promise.all([
+    getLoginMethods(),
+    getUserSessions(),
+  ])
+  const googleEnabled = Boolean(
+    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
+  )
+
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header with avatar */}
@@ -31,11 +46,24 @@ export default async function AdminProfilPage() {
       {/* Personal information - editable */}
       <ProfilePersonalInfo user={currentUser} />
 
-      {/* Security section */}
-      <ProfileSecurity />
+      {/* Account & security */}
+      {methods && (
+        <ProfileAccountSection
+          methods={methods}
+          email={currentUser.email}
+          googleEnabled={googleEnabled}
+          profilePath="/admin/profil"
+        />
+      )}
 
-      {/* Preferences - coming soon */}
+      {/* Connected devices */}
+      <ProfileSessions sessions={sessions} />
+
+      {/* Preferences */}
       <ProfilePreferences />
+
+      {/* Danger zone */}
+      <ProfileDangerZone email={currentUser.email} />
     </div>
   )
 }
