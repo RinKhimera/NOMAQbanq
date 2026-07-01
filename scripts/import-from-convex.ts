@@ -130,7 +130,6 @@ async function main() {
       questionId: d.questionId,
       explanation: d.explanation,
       references: d.references ?? null,
-      imagePath: null,
     }))
   await insertBatched(
     schema.questionExplanations,
@@ -305,10 +304,7 @@ async function main() {
       startedAt: d.startedAt ? ms(d.startedAt) : null,
       completedAt:
         d.completedAt && d.completedAt !== 0 ? ms(d.completedAt) : null,
-      pausePhase: d.pausePhase ?? null,
       pauseStartedAt: d.pauseStartedAt ? ms(d.pauseStartedAt) : null,
-      pauseEndedAt: d.pauseEndedAt ? ms(d.pauseEndedAt) : null,
-      isPauseCutShort: d.isPauseCutShort ?? null,
       totalPauseDurationMs: d.totalPauseDurationMs ?? null,
       createdAt: ms(d._creationTime),
     }

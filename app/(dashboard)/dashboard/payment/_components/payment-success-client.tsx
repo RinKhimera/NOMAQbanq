@@ -212,7 +212,7 @@ export const PaymentSuccessContent = ({
                   </h2>
                 </div>
                 <div className="space-y-4 p-6">
-                  {result.amountTotal && (
+                  {result.amountTotal != null && (
                     <div className="flex items-center justify-between">
                       <span className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                         <CreditCard className="h-4 w-4" />

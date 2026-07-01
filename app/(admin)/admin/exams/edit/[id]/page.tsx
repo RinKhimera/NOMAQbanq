@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import {
   getEligibleExamCandidates,
+  getExamAudience,
   getExamWithQuestions,
 } from "@/features/exams/dal"
 import { ExamEditForm } from "./_components/exam-edit-form"
@@ -14,7 +15,10 @@ export default async function AdminEditExamPage({
   const data = await getExamWithQuestions(id)
   if (!data) notFound()
 
-  const candidates = await getEligibleExamCandidates()
+  const [candidates, initialAudience] = await Promise.all([
+    getEligibleExamCandidates(),
+    getExamAudience(id),
+  ])
 
   return (
     <ExamEditForm
@@ -22,6 +26,7 @@ export default async function AdminEditExamPage({
       exam={data.exam}
       questionIds={data.questions.map((q) => q._id)}
       candidates={candidates}
+      initialAudience={initialAudience}
     />
   )
 }

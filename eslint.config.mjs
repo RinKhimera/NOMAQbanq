@@ -43,6 +43,7 @@ const eslintConfig = defineConfig([
     "**/*.tmp",
     "**/*.temp",
     ".env*",
+    ".claude/worktrees/**",
   ]),
 ])
 

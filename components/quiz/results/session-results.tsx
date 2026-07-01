@@ -4,85 +4,137 @@ import {
   CircleCheckBig,
   CircleX,
   Clock,
+  Funnel,
   Target,
   TrendingUp,
   Trophy,
   User,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import Link from "next/link"
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
+import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { loadExamQuestionExplanations } from "@/features/exams/actions"
-import type {
-  ExamParticipantUser,
-  ExamQuestionView,
-} from "@/features/exams/dal"
+import type { QuestionExplanationView } from "@/features/exams/dal"
 import { useIsVisible } from "@/hooks/use-is-visible"
 import { cn, getInitials } from "@/lib/utils"
 
-export interface ParticipantResultAnswer {
-  questionId: string
-  selectedAnswer: string
-  isCorrect: boolean
+// ============================================
+// Types
+// ============================================
+
+export interface SessionResultsSummary {
+  score: number
+  correct: number
+  incorrect: number
+  unanswered: number
 }
 
-interface ParticipantExamResultsViewProps {
-  examTitle: string
-  /** Questions en forme « pont » (avec `correctAnswer`). */
-  questions: ExamQuestionView[]
-  answers: ParticipantResultAnswer[]
-  score: number
-  backHref: string
-  backLabel: string
-  backIcon: ReactNode
-  /** Présent ⇒ vue admin : carte d'identité du participant + encart admin. */
-  participantUser?: ExamParticipantUser
+export interface SessionResultsParticipant {
+  name: string
+  email: string
+  image: string | null
 }
+
+export interface SessionResultsProps {
+  accent: "blue" | "emerald"
+  summary: SessionResultsSummary
+  questions: QuizQuestion[]
+  /** Sparse-safe: absence of a key == unanswered; entry with no/empty selected == unanswered */
+  answers: AnswersMap
+  loadExplanations?: (ids: string[]) => Promise<QuestionExplanationView[]>
+  participant?: SessionResultsParticipant
+}
+
+// ============================================
+// Helpers
+// ============================================
 
 const PASS_THRESHOLD = 60
 
-const getScoreColor = (score: number) => {
-  if (score >= 80) return "text-green-600 dark:text-green-400"
+const getScoreColor = (score: number, accent: "blue" | "emerald") => {
+  if (score >= 80) {
+    return accent === "emerald"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : "text-green-600 dark:text-green-400"
+  }
   if (score >= PASS_THRESHOLD) return "text-amber-600 dark:text-amber-400"
   return "text-red-600 dark:text-red-400"
 }
 
-const getScoreBgColor = (score: number) => {
-  if (score >= 80)
-    return "from-green-500/20 to-emerald-500/20 dark:from-green-500/10 dark:to-emerald-500/10"
+const getScoreBgGradient = (score: number, accent: "blue" | "emerald") => {
+  if (score >= 80) {
+    return accent === "emerald"
+      ? "from-emerald-500/20 to-teal-500/20 dark:from-emerald-500/10 dark:to-teal-500/10"
+      : "from-green-500/20 to-emerald-500/20 dark:from-green-500/10 dark:to-emerald-500/10"
+  }
   if (score >= PASS_THRESHOLD)
     return "from-amber-500/20 to-orange-500/20 dark:from-amber-500/10 dark:to-orange-500/10"
   return "from-red-500/20 to-rose-500/20 dark:from-red-500/10 dark:to-rose-500/10"
 }
 
-export function ParticipantExamResultsView({
-  examTitle,
+const getScoreProgressColor = (score: number, accent: "blue" | "emerald") => {
+  if (score >= 80)
+    return accent === "emerald"
+      ? "bg-linear-to-r from-emerald-500 to-teal-500"
+      : "bg-linear-to-r from-green-500 to-emerald-500"
+  if (score >= PASS_THRESHOLD)
+    return "bg-linear-to-r from-amber-500 to-orange-500"
+  return "bg-linear-to-r from-red-500 to-rose-500"
+}
+
+const getScoreLabel = (score: number, accent: "blue" | "emerald") => {
+  if (score >= 80) return accent === "emerald" ? "Excellent !" : "Réussi"
+  if (score >= PASS_THRESHOLD)
+    return accent === "emerald" ? "Bien joué !" : "Réussi"
+  return accent === "emerald" ? "Continuez à pratiquer" : "À améliorer"
+}
+
+// ============================================
+// Component
+// ============================================
+
+/**
+ * Unified results view — used by exam (student + admin) and training results.
+ *
+ * Sparse-answer compat (C1 Step 1b): treats BOTH "no key in answers" AND
+ * "entry with no/empty selected" as "non répondu", so older exam participations
+ * (which only had examAnswers rows for answered questions) render correctly.
+ */
+export function SessionResults({
+  accent,
+  summary,
   questions,
   answers,
-  score,
-  backHref,
-  backLabel,
-  backIcon,
-  participantUser,
-}: ParticipantExamResultsViewProps) {
+  loadExplanations,
+  participant,
+}: SessionResultsProps) {
   const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
+
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(
     new Set([0]),
   )
-  const [showOnlyIncorrect, setShowOnlyIncorrect] = useState(false)
+  const [showErrorsOnly, setShowErrorsOnly] = useState(false)
 
-  // Lazy-load des explications : on ne charge que les questions nouvellement
-  // dépliées (via Server Action), accumulées dans une map. `loadedIds` évite de
-  // re-fetcher ; le setState est asynchrone (dans `.then`) donc hors du piège
-  // `react-hooks/set-state-in-effect`.
+  // Lazy-load explanations: only load newly-expanded questions.
+  // explanationsMap: questionId -> { explanation, references, explanationImages }
   const [explanationsMap, setExplanationsMap] = useState<
-    Map<string, { explanation: string; references?: string[] }>
+    Map<
+      string,
+      {
+        explanation: string
+        references?: string[]
+        explanationImages?: {
+          url: string
+          storagePath: string
+          order: number
+        }[]
+      }
+    >
   >(new Map())
   const loadedIds = useRef<Set<string>>(new Set())
 
@@ -95,12 +147,13 @@ export function ParticipantExamResultsView({
   )
 
   useEffect(() => {
+    if (!loadExplanations) return
     const toLoad = expandedQuestionIds.filter(
       (id) => !loadedIds.current.has(id),
     )
     if (toLoad.length === 0) return
     let active = true
-    loadExamQuestionExplanations(toLoad).then((rows) => {
+    loadExplanations(toLoad).then((rows) => {
       if (!active) return
       setExplanationsMap((prev) => {
         const next = new Map(prev)
@@ -108,6 +161,7 @@ export function ParticipantExamResultsView({
           next.set(row.questionId, {
             explanation: row.explanation,
             references: row.references,
+            explanationImages: row.explanationImages,
           })
         }
         return next
@@ -117,49 +171,47 @@ export function ParticipantExamResultsView({
     return () => {
       active = false
     }
-  }, [expandedQuestionIds])
+  }, [expandedQuestionIds, loadExplanations])
 
-  const results = useMemo(() => {
-    const answersMap = new Map(answers.map((a) => [a.questionId, a] as const))
-    let correct = 0
-    let incorrect = 0
-    let unanswered = 0
-
-    const questionResults = questions.map((question) => {
-      const userAnswerData = answersMap.get(question._id)
-      const userAnswer = userAnswerData?.selectedAnswer ?? null
-      const isCorrect = userAnswerData?.isCorrect ?? false
-      const isAnswered = userAnswer !== null
-
-      if (isAnswered) {
-        if (isCorrect) correct++
-        else incorrect++
-      } else {
-        unanswered++
-      }
-
-      return { question, userAnswer, isCorrect, isAnswered }
-    })
-
-    return {
-      correct,
-      incorrect,
-      unanswered,
-      totalQuestions: questions.length,
-      scorePercentage: score,
-      isPassing: score >= PASS_THRESHOLD,
-      questionResults,
-    }
-  }, [questions, answers, score])
+  // Build question results with sparse-answer compat.
+  // "no key" == unanswered; "entry with empty/null selected" == unanswered.
+  const questionResults = useMemo(
+    () =>
+      questions.map((q) => {
+        const entry = answers[q._id]
+        const hasAnswer =
+          entry !== undefined &&
+          entry.selected !== undefined &&
+          entry.selected !== null &&
+          entry.selected !== ""
+        const isCorrect = hasAnswer ? (entry.isCorrect ?? false) : false
+        return {
+          question: q,
+          isAnswered: hasAnswer,
+          isCorrect,
+          userAnswer: hasAnswer ? entry.selected : null,
+        }
+      }),
+    [questions, answers],
+  )
 
   const navigatorResults = useMemo(
     () =>
-      results.questionResults.map((r) => ({
+      questionResults.map((r) => ({
         isCorrect: r.isCorrect,
         isAnswered: r.isAnswered,
       })),
-    [results],
+    [questionResults],
   )
+
+  const resultIndexMap = useMemo(
+    () => new Map(questionResults.map((r, i) => [r, i])),
+    [questionResults],
+  )
+
+  const filteredResults = showErrorsOnly
+    ? questionResults.filter((r) => !r.isCorrect)
+    : questionResults
 
   const toggleQuestionExpand = (index: number) => {
     setExpandedQuestions((prev) => {
@@ -171,85 +223,33 @@ export function ParticipantExamResultsView({
   }
 
   const expandAll = () =>
-    setExpandedQuestions(
-      new Set(results.questionResults.map((_, index) => index)),
-    )
+    setExpandedQuestions(new Set(questionResults.map((_, i) => i)))
 
   const collapseAll = () => setExpandedQuestions(new Set())
 
-  const scrollToQuestion = (index: number) => {
+  const scrollToQuestion = useCallback((index: number) => {
     setExpandedQuestions((prev) => new Set(prev).add(index))
     setTimeout(() => {
       document
-        .getElementById(`question-${index}`)
+        .getElementById(`sr-question-${index}`)
         ?.scrollIntoView({ behavior: "smooth", block: "start" })
     }, 100)
-  }
+  }, [])
 
-  const filteredResults = showOnlyIncorrect
-    ? results.questionResults.filter((r) => !r.isCorrect)
-    : results.questionResults
+  const isPassing = summary.score >= PASS_THRESHOLD
+  const initials = participant ? getInitials(participant.name) : ""
 
-  // Index stable (évite le O(n²) `indexOf` dans le `.map`).
-  const resultIndexMap = useMemo(
-    () => new Map(results.questionResults.map((r, i) => [r, i])),
-    [results],
-  )
-
-  const initials = getInitials(participantUser?.name)
+  const accentNavColor = accent
 
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
-      {/* Header */}
-      <div className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80">
-        <div className="mx-auto max-w-6xl px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-lg",
-                  results.isPassing
-                    ? "from-green-500 to-emerald-600"
-                    : "from-amber-500 to-orange-600",
-                )}
-              >
-                {results.isPassing ? (
-                  <Trophy className="h-6 w-6 text-white" />
-                ) : (
-                  <Target className="h-6 w-6 text-white" />
-                )}
-              </motion.div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Résultats de l&apos;examen
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {examTitle}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button variant="outline" asChild>
-                <Link href={backHref} className="flex items-center gap-2">
-                  {backIcon}
-                  <span className="hidden sm:inline">{backLabel}</span>
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Main content */}
       <div className="mx-auto max-w-6xl px-4 py-8">
         <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
-          {/* Left column - Results & Questions */}
+          {/* Left column */}
           <div className="space-y-8">
-            {/* Participant Info Card (vue admin) */}
-            {participantUser && (
+            {/* Participant card (admin view) */}
+            {participant && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -257,8 +257,8 @@ export function ParticipantExamResultsView({
               >
                 <Avatar className="h-14 w-14">
                   <AvatarImage
-                    src={participantUser.image || undefined}
-                    alt={participantUser.name || "Avatar"}
+                    src={participant.image ?? undefined}
+                    alt={participant.name}
                   />
                   <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
                     {initials}
@@ -268,14 +268,11 @@ export function ParticipantExamResultsView({
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-gray-400" />
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Résultats de {participantUser.name}
+                      Résultats de {participant.name}
                     </h2>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {participantUser.username
-                      ? `@${participantUser.username} · `
-                      : ""}
-                    {participantUser.email}
+                    {participant.email}
                   </p>
                 </div>
                 <Badge
@@ -287,13 +284,13 @@ export function ParticipantExamResultsView({
               </motion.div>
             )}
 
-            {/* Score Card */}
+            {/* Score card */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               className={cn(
                 "rounded-2xl border border-gray-200/80 bg-linear-to-br p-6 shadow-lg dark:border-gray-700/50",
-                getScoreBgColor(results.scorePercentage),
+                getScoreBgGradient(summary.score, accent),
               )}
             >
               <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
@@ -311,27 +308,26 @@ export function ParticipantExamResultsView({
                       }}
                       className={cn(
                         "text-6xl font-bold",
-                        getScoreColor(results.scorePercentage),
+                        getScoreColor(summary.score, accent),
                       )}
                     >
-                      {results.scorePercentage}%
+                      {summary.score}%
                     </motion.span>
                   </div>
                   <p className="text-gray-600 dark:text-gray-400">
-                    {results.correct} sur {results.totalQuestions} questions
-                    réussies
+                    {summary.correct} sur {questions.length} questions réussies
                   </p>
                   <div className="mt-3">
                     <Badge
                       data-testid="score-badge"
                       className={cn(
                         "px-4 py-1 text-sm font-semibold",
-                        results.isPassing
+                        isPassing
                           ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
                           : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
                       )}
                     >
-                      {results.isPassing ? "Réussi" : "À améliorer"}
+                      {getScoreLabel(summary.score, accent)}
                     </Badge>
                   </div>
                 </div>
@@ -342,7 +338,7 @@ export function ParticipantExamResultsView({
                     <div className="flex items-center gap-2">
                       <CircleCheckBig className="h-5 w-5 text-green-500" />
                       <span className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        {results.correct}
+                        {summary.correct}
                       </span>
                     </div>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -354,7 +350,7 @@ export function ParticipantExamResultsView({
                     <div className="flex items-center gap-2">
                       <CircleX className="h-5 w-5 text-red-500" />
                       <span className="text-2xl font-bold text-red-600 dark:text-red-400">
-                        {results.incorrect}
+                        {summary.incorrect}
                       </span>
                     </div>
                     <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -362,12 +358,12 @@ export function ParticipantExamResultsView({
                     </span>
                   </div>
 
-                  {results.unanswered > 0 && (
+                  {summary.unanswered > 0 && (
                     <div className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60">
                       <div className="flex items-center gap-2">
                         <Clock className="h-5 w-5 text-gray-500" />
                         <span className="text-2xl font-bold text-gray-600 dark:text-gray-400">
-                          {results.unanswered}
+                          {summary.unanswered}
                         </span>
                       </div>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
@@ -385,21 +381,17 @@ export function ParticipantExamResultsView({
                     Progression
                   </span>
                   <span className="font-medium text-gray-700 dark:text-gray-300">
-                    Seuil de réussite: 60%
+                    Seuil de réussite : 60%
                   </span>
                 </div>
                 <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${results.scorePercentage}%` }}
+                    animate={{ width: `${summary.score}%` }}
                     transition={{ duration: 1, ease: "easeOut" }}
                     className={cn(
                       "h-full rounded-full",
-                      results.scorePercentage >= 80
-                        ? "bg-linear-to-r from-green-500 to-emerald-500"
-                        : results.scorePercentage >= PASS_THRESHOLD
-                          ? "bg-linear-to-r from-amber-500 to-orange-500"
-                          : "bg-linear-to-r from-red-500 to-rose-500",
+                      getScoreProgressColor(summary.score, accent),
                     )}
                   />
                   {/* 60% marker */}
@@ -415,44 +407,69 @@ export function ParticipantExamResultsView({
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-3">
                 <Button
-                  data-testid="btn-filter-incorrect"
-                  variant={showOnlyIncorrect ? "default" : "outline"}
-                  onClick={() => setShowOnlyIncorrect(!showOnlyIncorrect)}
+                  data-testid="btn-filter-errors"
+                  variant={showErrorsOnly ? "default" : "outline"}
+                  onClick={() => setShowErrorsOnly(!showErrorsOnly)}
                   className="flex items-center gap-2"
                   size="sm"
                 >
-                  <CircleX className="h-4 w-4" />
-                  Voir uniquement les erreurs
-                  {showOnlyIncorrect && (
+                  <Funnel className="h-4 w-4" />
+                  {showErrorsOnly
+                    ? "Voir toutes"
+                    : `Erreurs (${summary.incorrect + summary.unanswered})`}
+                  {showErrorsOnly && (
                     <Badge
                       variant="secondary"
                       className="ml-1 bg-white/20 text-white"
                     >
-                      {results.incorrect}
+                      {summary.incorrect + summary.unanswered}
                     </Badge>
                   )}
                 </Button>
               </div>
 
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={expandAll}>
+                <Button
+                  data-testid="btn-expand-all"
+                  variant="outline"
+                  size="sm"
+                  onClick={expandAll}
+                >
                   Tout déplier
                 </Button>
-                <Button variant="outline" size="sm" onClick={collapseAll}>
+                <Button
+                  data-testid="btn-collapse-all"
+                  variant="outline"
+                  size="sm"
+                  onClick={collapseAll}
+                >
                   Tout replier
                 </Button>
               </div>
             </div>
 
-            {/* Questions List */}
+            {/* Questions list */}
             <div className="space-y-4">
               <AnimatePresence mode="popLayout">
                 {filteredResults.map((result, index) => {
                   const originalIndex = resultIndexMap.get(result) ?? index
+                  const expl = explanationsMap.get(result.question._id)
+
+                  // For questions that already have embedded explanation (training),
+                  // use them directly; otherwise use lazy-loaded ones.
+                  const lazyExplanation =
+                    expl?.explanation ?? result.question.explanation
+                  const lazyReferences =
+                    expl?.references ?? result.question.references
+                  const lazyExplanationImages =
+                    expl?.explanationImages ??
+                    result.question.explanationImages ??
+                    []
+
                   return (
                     <motion.div
                       key={result.question._id}
-                      id={`question-${originalIndex}`}
+                      id={`sr-question-${originalIndex}`}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
@@ -461,12 +478,9 @@ export function ParticipantExamResultsView({
                       <QuestionCard
                         variant="review"
                         question={result.question as never}
-                        lazyExplanation={
-                          explanationsMap.get(result.question._id)?.explanation
-                        }
-                        lazyReferences={
-                          explanationsMap.get(result.question._id)?.references
-                        }
+                        lazyExplanation={lazyExplanation}
+                        lazyReferences={lazyReferences}
+                        lazyExplanationImages={lazyExplanationImages}
                         questionNumber={originalIndex + 1}
                         userAnswer={result.userAnswer}
                         isExpanded={expandedQuestions.has(originalIndex)}
@@ -481,7 +495,7 @@ export function ParticipantExamResultsView({
             </div>
           </div>
 
-          {/* Right column - Navigation Sidebar (desktop) */}
+          {/* Right column - Navigation (desktop) */}
           <div className="hidden lg:block">
             <div ref={desktopNavRef} className="h-1" />
             <div className="sticky top-24 space-y-4">
@@ -489,11 +503,11 @@ export function ParticipantExamResultsView({
                 questionResults={navigatorResults}
                 onNavigateToQuestion={scrollToQuestion}
                 variant="desktop"
-                accentColor="blue"
-                showTips={!participantUser}
+                accentColor={accentNavColor}
+                showTips={!participant}
               />
 
-              {participantUser && (
+              {participant && (
                 <motion.div
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -508,8 +522,8 @@ export function ParticipantExamResultsView({
                   </div>
                   <p className="text-xs leading-relaxed text-purple-800 dark:text-purple-200">
                     Vous consultez les résultats de{" "}
-                    {participantUser.name || "ce participant"}. Utilisez cette
-                    vue pour analyser les performances.
+                    {participant.name || "ce participant"}. Utilisez cette vue
+                    pour analyser les performances.
                   </p>
                 </motion.div>
               )}
@@ -518,7 +532,7 @@ export function ParticipantExamResultsView({
         </div>
       </div>
 
-      {/* Floating toolbar: scroll-to-top + nav FAB */}
+      {/* Floating toolbar */}
       <SessionToolbar
         showScrollTop={true}
         showNavFab={!isDesktopNavVisible}
@@ -527,10 +541,79 @@ export function ParticipantExamResultsView({
             questionResults={navigatorResults}
             onNavigateToQuestion={scrollToQuestion}
             variant="mobile"
-            accentColor="blue"
+            accentColor={accentNavColor}
           />
         }
       />
+    </div>
+  )
+}
+
+// ============================================
+// Header (exported separately — used by pages)
+// ============================================
+
+interface SessionResultsHeaderProps {
+  title: string
+  subtitle?: string
+  score: number
+  backHref: string
+  backLabel: string
+  backIcon: React.ReactNode
+}
+
+export function SessionResultsHeader({
+  title,
+  subtitle,
+  score,
+  backHref,
+  backLabel,
+  backIcon,
+}: SessionResultsHeaderProps) {
+  const isPassing = score >= PASS_THRESHOLD
+  return (
+    <div className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80">
+      <div className="mx-auto max-w-6xl px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className={cn(
+                "flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-lg",
+                isPassing
+                  ? "from-green-500 to-emerald-600"
+                  : "from-amber-500 to-orange-600",
+              )}
+            >
+              {isPassing ? (
+                <Trophy className="h-6 w-6 text-white" />
+              ) : (
+                <Target className="h-6 w-6 text-white" />
+              )}
+            </motion.div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                {title}
+              </h1>
+              {subtitle && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {subtitle}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button variant="outline" asChild>
+              <a href={backHref} className="flex items-center gap-2">
+                {backIcon}
+                <span className="hidden sm:inline">{backLabel}</span>
+              </a>
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,12 +1,21 @@
 "use client"
 
 import { IconTargetArrow } from "@tabler/icons-react"
-import { Layers, LoaderCircle, Play, Target } from "lucide-react"
+import {
+  BookOpen,
+  GraduationCap,
+  Layers,
+  LoaderCircle,
+  Play,
+  Target,
+} from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useActionState, useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Select,
   SelectContent,
@@ -39,6 +48,7 @@ export const TrainingConfigForm = ({
   const [questionCount, setQuestionCount] = useState(10)
   const [selectedDomain, setSelectedDomain] = useState<string>("all")
   const [selectedObjectifs, setSelectedObjectifs] = useState<string[]>([])
+  const [trainingMode, setTrainingMode] = useState<"tutor" | "test">("test")
 
   // Objectifs filtrés par domaine via Server Action (remplace useQuery réactif).
   // Initialisés avec la prop (tous domaines = état initial). setState seulement
@@ -88,6 +98,7 @@ export const TrainingConfigForm = ({
         domain: selectedDomain === "all" ? undefined : selectedDomain,
         objectifsCMCs:
           selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
+        mode: trainingMode,
       })
 
       if (!result.success) {
@@ -260,6 +271,78 @@ export const TrainingConfigForm = ({
               disponible{availableQuestions > 1 ? "s" : ""} pour ces objectifs
             </motion.p>
           )}
+        </div>
+
+        {/* Mode d'entraînement */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="h-4 w-4 text-gray-500" />
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Mode d&apos;entraînement
+            </label>
+          </div>
+
+          <RadioGroup
+            value={trainingMode}
+            onValueChange={(v) => setTrainingMode(v as "tutor" | "test")}
+            className="grid grid-cols-1 gap-3 sm:grid-cols-2"
+          >
+            {/* Mode test */}
+            <Label
+              htmlFor="mode-test"
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all",
+                trainingMode === "test"
+                  ? "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-900/20"
+                  : "border-gray-200 bg-white/60 hover:border-emerald-300 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:border-emerald-700",
+              )}
+            >
+              <RadioGroupItem
+                id="mode-test"
+                value="test"
+                className="mt-0.5 shrink-0 border-emerald-500 text-emerald-600"
+              />
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Mode test
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Correction seulement à la fin de la session
+                </p>
+              </div>
+            </Label>
+
+            {/* Mode tuteur */}
+            <Label
+              htmlFor="mode-tutor"
+              className={cn(
+                "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-all",
+                trainingMode === "tutor"
+                  ? "border-emerald-500 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-900/20"
+                  : "border-gray-200 bg-white/60 hover:border-emerald-300 dark:border-gray-700 dark:bg-gray-800/60 dark:hover:border-emerald-700",
+              )}
+            >
+              <RadioGroupItem
+                id="mode-tutor"
+                value="tutor"
+                className="mt-0.5 shrink-0 border-emerald-500 text-emerald-600"
+              />
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Mode tuteur
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Correction et explication révélées après chaque réponse
+                </p>
+              </div>
+            </Label>
+          </RadioGroup>
         </div>
 
         {/* Submit button */}

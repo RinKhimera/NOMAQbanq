@@ -21,55 +21,30 @@ test.describe("Profil utilisateur", () => {
   })
 
   test("l'edition inline du nom fonctionne", async ({ page }) => {
-    const main = page.locator("main")
+    // Testids stables sur InlineEditField (l'ancien xpath ancestor remontait trop
+    // haut et ciblait le file input de l'avatar).
+    const field = page.getByTestId("profile-field-name")
+    await field.hover()
+    await page.getByTestId("profile-field-name-edit").click({ force: true })
 
-    // Find the Name field section
-    const nameSection = main
-      .locator("text=Nom complet")
-      .locator("xpath=ancestor::div[contains(@class, 'group')]")
-      .first()
-
-    // Hover to reveal edit button
-    await nameSection.hover()
-
-    // Click edit pencil (force: true to bypass opacity-0)
-    const editBtn = nameSection.getByRole("button").first()
-    await editBtn.click({ force: true })
-
-    // Input should appear
-    const input = nameSection.locator("input").first()
+    const input = page.getByTestId("profile-field-name-input")
     await expect(input).toBeVisible({ timeout: 5_000 })
 
     // Store current value, edit, then restore
     const currentValue = await input.inputValue()
     await input.clear()
     await input.fill("E2E Test Name")
-
-    // Save
-    const saveBtn = nameSection
-      .getByRole("button")
-      .filter({ hasText: /✓|Enregistrer|check/i })
-      .first()
-    if (await saveBtn.isVisible().catch(() => false)) {
-      await saveBtn.click()
-    } else {
-      // Try pressing Enter
-      await input.press("Enter")
-    }
+    await page.getByTestId("profile-field-name-save").click()
 
     await profil.expectToast("Modification enregistrée")
 
     // Restore original name
-    await nameSection.hover()
-    await editBtn.click({ force: true })
-    const input2 = nameSection.locator("input").first()
+    await field.hover()
+    await page.getByTestId("profile-field-name-edit").click({ force: true })
+    const input2 = page.getByTestId("profile-field-name-input")
     await input2.clear()
     await input2.fill(currentValue)
-    if (await saveBtn.isVisible().catch(() => false)) {
-      await saveBtn.click()
-    } else {
-      await input2.press("Enter")
-    }
+    await page.getByTestId("profile-field-name-save").click()
   })
 
   test("l'edition inline de la bio fonctionne", async ({ page }) => {

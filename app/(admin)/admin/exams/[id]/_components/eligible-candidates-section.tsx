@@ -27,8 +27,12 @@ import { cn } from "@/lib/utils"
 
 export function EligibleCandidatesSection({
   candidates,
+  embedded = false,
 }: {
   candidates: EligibleCandidate[]
+  /** Rendu sans le chrome `Card` (header teal) + hauteur souple, pour un montage
+   *  dans un Dialog qui apporte déjà son propre titre. */
+  embedded?: boolean
 }) {
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -45,6 +49,69 @@ export function EligibleCandidatesSection({
   }, [candidates, searchQuery])
 
   const total = candidates.length
+
+  const body = (
+    <>
+      {/* Barre de recherche */}
+      <div className="border-b border-gray-200/60 bg-gray-50/50 p-4 dark:border-gray-700/60 dark:bg-gray-900/50">
+        <div className="relative">
+          <IconSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Input
+            placeholder="Rechercher par nom ou email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
+      {total === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="mb-4 rounded-2xl bg-amber-100 p-4 dark:bg-amber-900/30"
+          >
+            <IconAlertCircle className="h-10 w-10 text-amber-600 dark:text-amber-400" />
+          </motion.div>
+          <p className="font-semibold text-gray-900 dark:text-white">
+            Aucun candidat éligible
+          </p>
+          <p className="mt-1 max-w-sm text-sm text-gray-500">
+            Les utilisateurs doivent avoir un accès exam actif pour pouvoir
+            participer à cet examen.
+          </p>
+        </div>
+      ) : filteredCandidates.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <IconSearch className="mb-2 h-8 w-8 text-gray-300" />
+          <p className="text-sm text-gray-500">
+            Aucun résultat pour &quot;{searchQuery}&quot;
+          </p>
+        </div>
+      ) : (
+        <ScrollArea className={cn(embedded ? "h-[min(60vh,420px)]" : "h-100")}>
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {filteredCandidates.map((candidate, index) => (
+              <CandidateRow
+                key={candidate.user.id}
+                candidate={candidate}
+                index={index}
+              />
+            ))}
+          </div>
+        </ScrollArea>
+      )}
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800">
+        {body}
+      </div>
+    )
+  }
 
   return (
     <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
@@ -65,58 +132,7 @@ export function EligibleCandidatesSection({
           Utilisateurs avec un accès exam actif pouvant participer à cet examen
         </CardDescription>
       </CardHeader>
-      <CardContent className="p-0">
-        {/* Barre de recherche */}
-        <div className="border-b border-gray-200/60 bg-gray-50/50 p-4 dark:border-gray-700/60 dark:bg-gray-900/50">
-          <div className="relative">
-            <IconSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Rechercher par nom ou email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {total === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="mb-4 rounded-2xl bg-amber-100 p-4 dark:bg-amber-900/30"
-            >
-              <IconAlertCircle className="h-10 w-10 text-amber-600 dark:text-amber-400" />
-            </motion.div>
-            <p className="font-semibold text-gray-900 dark:text-white">
-              Aucun candidat éligible
-            </p>
-            <p className="mt-1 max-w-sm text-sm text-gray-500">
-              Les utilisateurs doivent avoir un accès exam actif pour pouvoir
-              participer à cet examen.
-            </p>
-          </div>
-        ) : filteredCandidates.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <IconSearch className="mb-2 h-8 w-8 text-gray-300" />
-            <p className="text-sm text-gray-500">
-              Aucun résultat pour &quot;{searchQuery}&quot;
-            </p>
-          </div>
-        ) : (
-          <ScrollArea className="h-100">
-            <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {filteredCandidates.map((candidate, index) => (
-                <CandidateRow
-                  key={candidate.user.id}
-                  candidate={candidate}
-                  index={index}
-                />
-              ))}
-            </div>
-          </ScrollArea>
-        )}
-      </CardContent>
+      <CardContent className="p-0">{body}</CardContent>
     </Card>
   )
 }

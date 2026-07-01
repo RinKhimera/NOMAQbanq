@@ -94,11 +94,6 @@ const collectKeys = async (): Promise<string[]> => {
   )
   for (const r of qi.rows) if (r.storage_path) keys.add(r.storage_path)
 
-  const qe = await pool.query<{ image_path: string | null }>(
-    "SELECT image_path FROM question_explanations WHERE image_path IS NOT NULL",
-  )
-  for (const r of qe.rows) if (r.image_path) keys.add(r.image_path)
-
   const us = await pool.query<{ image: string | null }>(
     `SELECT image FROM "user" WHERE image IS NOT NULL`,
   )

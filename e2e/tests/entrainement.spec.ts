@@ -80,18 +80,50 @@ test.describe("Entrainement — session complete", () => {
     await expect(page.getByText(/\d+%/).first()).toBeVisible()
     await expect(page.getByText("Correctes", { exact: true })).toBeVisible()
     await expect(page.getByText("Incorrectes", { exact: true })).toBeVisible()
-    await expect(page.getByText("Révision des questions")).toBeVisible()
+    // <SessionResults> (F1) ne rend pas l'ancien titre « Révision des questions » ;
+    // le badge de score confirme l'écran de résultats.
+    await expect(page.getByTestId("score-badge")).toBeVisible()
 
     // Filter + expand/collapse controls on the results page
     const filterBtn = page.locator("[data-testid='btn-filter-errors']")
     await expect(filterBtn).toBeVisible({ timeout: 15_000 })
     await filterBtn.click()
-    await expect(filterBtn).toHaveText("Voir toutes")
+    // Le bouton inclut un compteur (« Voir toutes5 ») → toContainText.
+    await expect(filterBtn).toContainText("Voir toutes")
     await filterBtn.click()
-    await expect(filterBtn).toHaveText(/Erreurs/)
+    await expect(filterBtn).toContainText("Erreurs")
 
     await page.locator("[data-testid='btn-expand-all']").click()
     await page.locator("[data-testid='btn-collapse-all']").click()
+  })
+
+  test("mode tuteur : valider révèle la correction et le code couleur", async ({
+    page,
+  }) => {
+    await entrainement.goto()
+    if (!(await entrainement.hasAccess())) test.skip()
+
+    await entrainement.waitForForm()
+    await entrainement.setQuestionCount(5)
+    await entrainement.selectMode("tutor")
+    await entrainement.startSession()
+    await entrainement.waitForQuestion(1, 5)
+
+    // Choisir une option : aucune correction tant qu'on n'a pas validé.
+    await entrainement.selectAnswer(0)
+    await expect(page.getByTestId("explanation-content")).toBeHidden()
+    await expect(page.getByTestId("btn-validate-answer")).toBeVisible()
+
+    // Valider → correction + explication + code couleur.
+    await entrainement.validateAnswer()
+    await expect(page.getByTestId("explanation-content")).toBeVisible({
+      timeout: 10_000,
+    })
+    await expect(page.getByTestId("btn-validate-answer")).toBeHidden()
+    // Exactement une bonne réponse surlignée en vert (état user-correct).
+    await expect(
+      page.locator('[data-testid^="answer-option-"] .border-green-500'),
+    ).toHaveCount(1)
   })
 
   test("la session apparait dans l'historique", async ({ page }) => {

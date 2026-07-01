@@ -15,7 +15,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
-  workers: process.env.CI ? 1 : undefined,
+  // Toujours 1 worker : les specs `chromium-auth`/`chromium-admin` partagent
+  // l'état d'un même compte (participations, sessions, audience, accès). Au-delà
+  // d'1 worker, deux fichiers s'exécutant en parallèle sur le même utilisateur
+  // entrent en collision (cf. `.claude/rules/e2e-testing.md`). `mode: "serial"`
+  // ne protège qu'À L'INTÉRIEUR d'un fichier, pas ENTRE fichiers.
+  workers: 1,
   reporter: process.env.CI
     ? [["html", { outputFolder: "./e2e/playwright-report" }], ["github"]]
     : [
@@ -74,6 +79,8 @@ export default defineConfig({
         /profil\.spec\.ts/,
         /payment-access\.spec\.ts/,
         /navigation-student\.spec\.ts/,
+        /examen-audience\.spec\.ts/,
+        /examen-explication\.spec\.ts/,
       ],
       dependencies: ["global-setup"],
     },

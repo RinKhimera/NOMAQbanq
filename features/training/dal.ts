@@ -72,11 +72,16 @@ export type TrainingSessionQuestion = {
   correctAnswer?: string
   explanation?: string
   references?: string[]
+  /**
+   * Images d'explication (`kind='explanation'`), révélées seulement à la
+   * correction (session complétée). Jamais sur le pont d'énoncé `images`.
+   */
+  explanationImages?: TrainingImageView[]
 }
 
 export type TrainingAnswerRecord = Record<
   string,
-  { selectedAnswer: string; isCorrect: boolean }
+  { selectedAnswer: string; isCorrect?: boolean }
 >
 
 const groupImages = (
@@ -95,7 +100,10 @@ const groupImages = (
   return map
 }
 
-const fetchImages = async (questionIds: string[]) => {
+const fetchImages = async (
+  questionIds: string[],
+  kind: "statement" | "explanation" = "statement",
+) => {
   if (questionIds.length === 0) return new Map<string, TrainingImageView[]>()
   const rows = await db
     .select({
@@ -104,7 +112,12 @@ const fetchImages = async (questionIds: string[]) => {
       position: questionImages.position,
     })
     .from(questionImages)
-    .where(inArray(questionImages.questionId, questionIds))
+    .where(
+      and(
+        eq(questionImages.kind, kind),
+        inArray(questionImages.questionId, questionIds),
+      ),
+    )
     .orderBy(asc(questionImages.position))
   return groupImages(rows)
 }
@@ -457,6 +470,7 @@ export type TrainingSessionView = {
     id: string
     questionCount: number
     status: "in_progress" | "completed" | "abandoned"
+    mode: "tutor" | "test"
     domain: string | null
     startedAt: number
     completedAt: number | null
@@ -485,6 +499,7 @@ export const getTrainingSessionById = async (
       userId: trainingSessions.userId,
       questionCount: trainingSessions.questionCount,
       status: trainingSessions.status,
+      mode: trainingSessions.mode,
       domain: trainingSessions.domain,
       startedAt: trainingSessions.startedAt,
       completedAt: trainingSessions.completedAt,
@@ -498,6 +513,7 @@ export const getTrainingSessionById = async (
   if (s.userId !== session.user.id && session.user.role !== "admin") return null
 
   const isCompleted = s.status === "completed"
+  const isTutor = s.mode === "tutor"
 
   const items = await db
     .select({
@@ -510,32 +526,50 @@ export const getTrainingSessionById = async (
       correctAnswer: questions.correctAnswer,
       objectifCMC: questions.objectifCmc,
       domain: questions.domain,
+      explanation: questionExplanations.explanation,
+      references: questionExplanations.references,
     })
     .from(trainingSessionItems)
     .innerJoin(questions, eq(questions.id, trainingSessionItems.questionId))
+    .leftJoin(
+      questionExplanations,
+      eq(questionExplanations.questionId, trainingSessionItems.questionId),
+    )
     .where(eq(trainingSessionItems.sessionId, sessionId))
     .orderBy(asc(trainingSessionItems.position))
 
   const imgMap = await fetchImages(items.map((i) => i.questionId))
 
-  const questionsView: TrainingSessionQuestion[] = items.map((i) => ({
-    _id: i.questionId,
-    _creationTime: i.qCreatedAt.getTime(),
-    question: i.question,
-    options: i.options,
-    objectifCMC: i.objectifCMC,
-    domain: i.domain,
-    images: imgMap.get(i.questionId) ?? [],
-    ...(isCompleted ? { correctAnswer: i.correctAnswer } : {}),
-  }))
+  const questionsView: TrainingSessionQuestion[] = items.map((i) => {
+    // In tutor mode, reveal correctAnswer + explanation + references for already-answered questions.
+    const revealAnswer = isCompleted || (isTutor && i.selectedAnswer !== null)
+    return {
+      _id: i.questionId,
+      _creationTime: i.qCreatedAt.getTime(),
+      question: i.question,
+      options: i.options,
+      objectifCMC: i.objectifCMC,
+      domain: i.domain,
+      images: imgMap.get(i.questionId) ?? [],
+      ...(revealAnswer
+        ? {
+            correctAnswer: i.correctAnswer,
+            explanation: i.explanation ?? "",
+            references: i.references ?? [],
+          }
+        : {}),
+    }
+  })
 
+  // Reveal isCorrect in answers only when session is completed or in tutor mode.
+  // In test mode in_progress: no isCorrect leak.
+  const revealAnswers = isCompleted || isTutor
   const answers: TrainingAnswerRecord = {}
   for (const i of items) {
     if (i.selectedAnswer !== null) {
-      answers[i.questionId] = {
-        selectedAnswer: i.selectedAnswer,
-        isCorrect: i.isCorrect ?? false,
-      }
+      answers[i.questionId] = revealAnswers
+        ? { selectedAnswer: i.selectedAnswer, isCorrect: i.isCorrect ?? false }
+        : { selectedAnswer: i.selectedAnswer }
     }
   }
 
@@ -544,6 +578,7 @@ export const getTrainingSessionById = async (
       id: s.id,
       questionCount: s.questionCount,
       status: s.status,
+      mode: s.mode,
       domain: s.domain,
       startedAt: s.startedAt.getTime(),
       completedAt: s.completedAt?.getTime() ?? null,
@@ -624,7 +659,13 @@ export const getTrainingSessionResults = async (
     .where(eq(trainingSessionItems.sessionId, sessionId))
     .orderBy(asc(trainingSessionItems.position))
 
-  const imgMap = await fetchImages(items.map((i) => i.questionId))
+  const questionIds = items.map((i) => i.questionId)
+  // Session complétée → révélation : images d'énoncé ET d'explication. Le canal
+  // explication reste séparé du pont d'énoncé `images` (anti-fuite en passation).
+  const [imgMap, explImgMap] = await Promise.all([
+    fetchImages(questionIds),
+    fetchImages(questionIds, "explanation"),
+  ])
 
   const questionsView: TrainingSessionQuestion[] = items.map((i) => ({
     _id: i.questionId,
@@ -637,6 +678,7 @@ export const getTrainingSessionResults = async (
     correctAnswer: i.correctAnswer,
     explanation: i.explanation ?? "",
     references: i.references ?? [],
+    explanationImages: explImgMap.get(i.questionId) ?? [],
   }))
 
   const answers: TrainingAnswerRecord = {}
@@ -644,7 +686,7 @@ export const getTrainingSessionResults = async (
     if (i.selectedAnswer !== null) {
       answers[i.questionId] = {
         selectedAnswer: i.selectedAnswer,
-        isCorrect: i.isCorrect ?? false,
+        isCorrect: i.isCorrect ?? undefined,
       }
     }
   }

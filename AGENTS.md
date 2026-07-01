@@ -89,6 +89,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **useActionState** : Toujours dans `startTransition()` ou via `<form action={...}>`
 - **Prettier** : Import order enforce: 1) node/npm 2) @/ 3) relatifs
 - **Sentry** : Tunnel route a `/monitoring` dans next.config.ts
+- **Dev server qui crashe au demarrage** (`An error occurred while loading instrumentation hook ... module factory is not available`, hook Sentry `instrumentation.ts`) : cache `.next` corrompu (souvent apres un gros diff ou des runs e2e), PAS la config → `rm -rf .next` puis relancer `bun dev`
 - **Image domains** : pexels.com, \*.cloudfront.net, cdn.nomaqbanq.ca (next.config.ts)
 - **Uploads médias** : presigned POST direct navigateur→S3 (`lib/aws.ts` + `lib/storage.ts`) ; rate-limit + validation à l'étape presign ; jamais via Server Action proxy
 - **ESM** : `"type": "module"` — pas de `__dirname`, utiliser `fileURLToPath(import.meta.url)`

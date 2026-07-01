@@ -474,7 +474,11 @@ export function UserSidePanel({
 }: UserSidePanelProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-105 overflow-y-auto sm:max-w-105">
+      <SheetContent
+        side="right"
+        className="w-105 overflow-y-auto sm:max-w-105"
+        data-testid="user-side-panel"
+      >
         <SheetHeader className="sr-only">
           <SheetTitle>Détails de l&apos;utilisateur</SheetTitle>
           <SheetDescription>

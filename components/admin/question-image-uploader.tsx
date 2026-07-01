@@ -61,6 +61,10 @@ type UploadingImage = {
 
 type QuestionImageUploaderProps = {
   questionId: string
+  // `statement` = images d'énoncé (visibles en passation) ;
+  // `explanation` = images d'explication (visibles à la correction uniquement).
+  // Détermine le sous-dossier S3 namespacé côté presign (`createQuestionImageUpload`).
+  kind?: "statement" | "explanation"
   images: QuestionImage[]
   // Accepte une valeur OU un updater fonctionnel (le parent passe `setImages`) :
   // permet d'enchaîner plusieurs uploads concurrents sans écraser l'état.
@@ -204,6 +208,7 @@ const UploadingImageItem = ({
 
 export const QuestionImageUploader = ({
   questionId,
+  kind = "statement",
   images,
   onImagesChange,
   maxImages = 10,
@@ -266,6 +271,7 @@ export const QuestionImageUploader = ({
           // persistance DB est faite par `setQuestionImages` au save.
           const presign = await createQuestionImageUpload({
             questionId,
+            kind,
             imageIndex: images.length + i,
             contentType: item.file.type,
             size: item.file.size,
@@ -338,6 +344,7 @@ export const QuestionImageUploader = ({
       images.length,
       uploadingImages.length,
       questionId,
+      kind,
       onImagesChange,
     ],
   )

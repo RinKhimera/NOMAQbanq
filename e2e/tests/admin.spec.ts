@@ -11,7 +11,9 @@ test.describe("Panneau d'administration", () => {
   })
 
   test("affiche le tableau de bord admin avec la date", async ({ page }) => {
-    await expect(page.getByText("Tableau de bord")).toBeVisible()
+    await expect(
+      page.getByRole("heading", { name: "Tableau de bord" }).first(),
+    ).toBeVisible()
 
     // Date in French format should be visible (e.g., "vendredi 7 mars 2026")
     await expect(

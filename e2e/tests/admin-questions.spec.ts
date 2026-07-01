@@ -85,19 +85,8 @@ test.describe("Admin — Gestion des Questions", () => {
         "[E2E] La douleur thoracique aigue chez un patient de 45 ans avec facteurs de risque cardiovasculaires oriente en premier lieu vers un infarctus du myocarde. L'ECG et les troponines sont essentiels pour confirmer le diagnostic.",
     })
 
-    // Fill objectif CMC via combobox
-    const main = page.locator("main")
-    await main.getByPlaceholder("Sélectionner ou créer...").fill("1.1")
-    await page.waitForTimeout(300)
-    // Select or create the objectif
-    const option = page.getByRole("option").first()
-    const optionVisible = await option.isVisible().catch(() => false)
-    if (optionVisible) {
-      await option.click()
-    } else {
-      // Press Enter to create a new one
-      await main.getByPlaceholder("Sélectionner ou créer...").press("Enter")
-    }
+    // Objectif CMC (combobox Popover + cmdk — cf. POM)
+    await questionsPage.fillObjectifCMC("1.1")
 
     await questionsPage.submitQuestion()
     await questionsPage.expectSuccessToast()

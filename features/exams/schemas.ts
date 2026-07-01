@@ -27,6 +27,9 @@ const examFields = {
     .min(MIN_PAUSE_MINUTES)
     .max(MAX_PAUSE_MINUTES)
     .optional(),
+  // Audience : ouvert aux abonnés (défaut) ou restreint à une liste choisie.
+  audienceType: z.enum(["subscribers", "restricted"]).default("subscribers"),
+  audienceUserIds: z.array(z.string().min(1)).max(5000).default([]),
 }
 
 const datesOrdered = (d: { startDate: number; endDate: number }) =>
@@ -42,32 +45,49 @@ const uniqueIssue = {
   message: "Des questions sont sélectionnées en double",
   path: ["questionIds"],
 }
+// Audience restreinte → au moins un utilisateur sélectionné.
+const audienceValid = (d: {
+  audienceType: "subscribers" | "restricted"
+  audienceUserIds: string[]
+}) => d.audienceType === "subscribers" || d.audienceUserIds.length >= 1
+const audienceIssue = {
+  message: "Sélectionnez au moins un utilisateur",
+  path: ["audienceUserIds"],
+}
 
 export const createExamSchema = z
   .object(examFields)
   .refine(datesOrdered, datesIssue)
   .refine(uniqueQuestions, uniqueIssue)
-export type CreateExamInput = z.infer<typeof createExamSchema>
+  .refine(audienceValid, audienceIssue)
+// `z.input` : les champs à défaut (`enablePause`, `audienceType`,
+// `audienceUserIds`) restent optionnels pour l'appelant ; le parse applique les
+// défauts et le corps d'action lit `parsed.data` (type de sortie complet).
+export type CreateExamInput = z.input<typeof createExamSchema>
 
 export const updateExamSchema = z
   .object({ id: z.string().min(1), ...examFields })
   .refine(datesOrdered, datesIssue)
   .refine(uniqueQuestions, uniqueIssue)
-export type UpdateExamInput = z.infer<typeof updateExamSchema>
+  .refine(audienceValid, audienceIssue)
+export type UpdateExamInput = z.input<typeof updateExamSchema>
 
-// Soumission finale (anti-triche : le score est recalculé serveur). On borne le
-// nombre de réponses au plafond de questions par examen.
-export const submitExamAnswersSchema = z.object({
+export const saveExamAnswerSchema = z.object({
   examId: z.string().min(1),
-  answers: z
-    .array(
-      z.object({
-        questionId: z.string().min(1),
-        selectedAnswer: z.string().min(1),
-        isFlagged: z.boolean().optional(),
-      }),
-    )
-    .max(MAX_EXAM_QUESTIONS),
+  questionId: z.string().min(1),
+  selectedAnswer: z.string().min(1),
+})
+export type SaveExamAnswerInput = z.infer<typeof saveExamAnswerSchema>
+
+export const saveExamFlagSchema = z.object({
+  examId: z.string().min(1),
+  questionId: z.string().min(1),
+  isFlagged: z.boolean(),
+})
+export type SaveExamFlagInput = z.infer<typeof saveExamFlagSchema>
+
+export const finalizeExamSchema = z.object({
+  examId: z.string().min(1),
   isAutoSubmit: z.boolean().optional(),
 })
-export type SubmitExamAnswersInput = z.infer<typeof submitExamAnswersSchema>
+export type FinalizeExamInput = z.infer<typeof finalizeExamSchema>

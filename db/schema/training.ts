@@ -9,7 +9,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { createId } from "@/lib/ids"
 import { user } from "./auth"
-import { trainingStatus } from "./enums"
+import { trainingMode, trainingStatus } from "./enums"
 import { questions } from "./questions"
 
 export const trainingSessions = pgTable(
@@ -22,6 +22,7 @@ export const trainingSessions = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     status: trainingStatus("status").notNull(),
+    mode: trainingMode("mode").default("test").notNull(),
     domain: text("domain"),
     objectifCmc: text("objectif_cmc"),
     questionCount: integer("question_count").notNull(),

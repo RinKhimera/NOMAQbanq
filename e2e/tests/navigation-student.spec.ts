@@ -16,7 +16,7 @@ test.describe("Navigation sidebar — etudiant", () => {
     ]
 
     for (const link of navLinks) {
-      const nav = page.locator("nav")
+      const nav = page.locator('[data-sidebar="content"]')
       await nav.getByRole("link", { name: link.title }).click()
       await expect(page).toHaveURL(new RegExp(link.url), {
         timeout: 15_000,
@@ -33,7 +33,7 @@ test.describe("Navigation sidebar — etudiant", () => {
     })
 
     // Profil
-    const nav = page.locator("nav")
+    const nav = page.locator('[data-sidebar="content"]')
     await nav.getByRole("link", { name: "Profil" }).click()
     await expect(page).toHaveURL(/\/dashboard\/profil/, {
       timeout: 15_000,

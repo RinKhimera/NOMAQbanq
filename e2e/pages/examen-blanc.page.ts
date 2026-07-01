@@ -22,6 +22,21 @@ export class ExamenBlancPage extends BasePage {
       .click()
   }
 
+  /** Démarre un examen CIBLÉ par son id (carte `exam-card-{id}`) — isole les
+   *  specs qui seedent leur propre examen des autres cartes de la liste. */
+  async clickStartExamById(examId: string) {
+    const card = this.page.getByTestId(`exam-card-${examId}`)
+    await card.scrollIntoViewIfNeeded()
+    await card.getByRole("button", { name: "Commencer l'examen" }).click()
+  }
+
+  /** Clique le bouton de pause du header (visible seulement si l'examen a
+   *  `enablePause=true`). La pause est déclenchée par l'utilisateur, pas
+   *  automatiquement à mi-parcours. */
+  async takePause() {
+    await this.page.getByTestId("btn-pause").click()
+  }
+
   async confirmStart() {
     await expect(
       this.page.getByText("Confirmer le début de l'examen"),

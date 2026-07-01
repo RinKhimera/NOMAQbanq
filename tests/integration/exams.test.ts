@@ -19,11 +19,12 @@ import {
   createExam,
   deactivateExam,
   deleteParticipation,
+  finalizeExam,
+  pauseExam,
   reactivateExam,
-  resumeFromPause,
+  resumeExam,
+  saveExamAnswer,
   startExam,
-  startPause,
-  submitExamAnswers,
   updateExam,
 } from "@/features/exams/actions"
 import {
@@ -35,7 +36,6 @@ import {
   getExamWithQuestions,
   getExamsStats,
   getParticipantExamResults,
-  getPauseStatus,
 } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
@@ -241,12 +241,14 @@ describe("Admin CRUD", () => {
 })
 
 describe("Passation sans pause (scoring serveur)", () => {
-  it("startExam crée la participation (pausePhase null)", async () => {
+  it("startExam crée la participation et pré-crée les réponses", async () => {
     asStudent()
     const res = await startExam({ examId: noPauseId })
     expect(res.success).toBe(true)
     if (!res.success) return
-    expect(res.pausePhase).toBeNull()
+    expect(res.participationId).toBeTruthy()
+    // startExam ne retourne plus pausePhase
+    expect(res).not.toHaveProperty("pausePhase")
 
     // Idempotent : 2e appel → même participation.
     const again = await startExam({ examId: noPauseId })
@@ -261,25 +263,44 @@ describe("Passation sans pause (scoring serveur)", () => {
     expect(view?.questions[0].images).toHaveLength(1)
   })
 
-  it("getExamSession renvoie in_progress", async () => {
+  it("getExamSession renvoie in_progress et isPaused=false", async () => {
     asStudent()
     const s = await getExamSession(noPauseId)
     expect(s?.status).toBe("in_progress")
+    expect(s?.isPaused).toBe(false)
+    // Anciens champs supprimés
+    expect(s).not.toHaveProperty("pausePhase")
+    expect(s).not.toHaveProperty("pauseEndedAt")
+    expect(s).not.toHaveProperty("isPauseCutShort")
   })
 
-  it("submitExamAnswers calcule le score (3/6 = 50)", async () => {
+  it("saveExamAnswer + finalizeExam calcule le score (3/6 = 50)", async () => {
     asStudent()
     const view = await getExamWithQuestions(noPauseId)
     const ids = view!.questions.map((q) => q._id)
-    const res = await submitExamAnswers({
+    // 3 bonnes (A), 1 mauvaise (B), 2 non répondues → score = 3/6 = 50
+    await saveExamAnswer({
       examId: noPauseId,
-      answers: [
-        { questionId: ids[0], selectedAnswer: "A" },
-        { questionId: ids[1], selectedAnswer: "A" },
-        { questionId: ids[2], selectedAnswer: "A" },
-        { questionId: ids[3], selectedAnswer: "B" },
-      ],
+      questionId: ids[0],
+      selectedAnswer: "A",
     })
+    await saveExamAnswer({
+      examId: noPauseId,
+      questionId: ids[1],
+      selectedAnswer: "A",
+    })
+    await saveExamAnswer({
+      examId: noPauseId,
+      questionId: ids[2],
+      selectedAnswer: "A",
+    })
+    await saveExamAnswer({
+      examId: noPauseId,
+      questionId: ids[3],
+      selectedAnswer: "B",
+    })
+
+    const res = await finalizeExam({ examId: noPauseId })
     expect(res).toMatchObject({
       success: true,
       score: 50,
@@ -300,7 +321,10 @@ describe("Passation sans pause (scoring serveur)", () => {
     expect(r && "participant" in r).toBe(true)
     if (!r || "error" in r) return
     expect(r.participant.score).toBe(50)
-    expect(r.participant.answers).toHaveLength(4)
+    // 4 réponses enregistrées, 2 non répondues (null)
+    expect(
+      r.participant.answers.filter((a) => a.selectedAnswer !== null),
+    ).toHaveLength(4)
     expect(r.questions[0].correctAnswer).toBe("A")
   })
 
@@ -311,67 +335,68 @@ describe("Passation sans pause (scoring serveur)", () => {
 })
 
 describe("Machine de pause", () => {
-  it("startExam → before_pause", async () => {
+  it("startExam crée la participation (sans pausePhase)", async () => {
     asStudent()
     const res = await startExam({ examId: pauseId })
-    expect(res.success && res.pausePhase).toBe("before_pause")
+    expect(res.success).toBe(true)
+    expect(res).not.toHaveProperty("pausePhase")
     const view = await getExamWithQuestions(pauseId)
     pauseOrderedIds = view!.questions.map((q) => q._id)
   })
 
-  it("auto-pause refusée hors mi-parcours (TOO_EARLY)", async () => {
+  it("pauseExam démarre la pause", async () => {
     asStudent()
-    const res = await startPause({ examId: pauseId, manualTrigger: false })
-    expect(res.success).toBe(false)
-  })
-
-  it("submit d'une question verrouillée (≥ midpoint) en before_pause → refus", async () => {
-    asStudent()
-    const res = await submitExamAnswers({
-      examId: pauseId,
-      answers: [{ questionId: pauseOrderedIds[3], selectedAnswer: "A" }],
-    })
-    expect(res.success).toBe(false)
-  })
-
-  it("startPause manuel → during_pause", async () => {
-    asStudent()
-    const res = await startPause({ examId: pauseId, manualTrigger: true })
-    expect(res.success).toBe(true)
-    const status = await getPauseStatus(pauseId)
-    expect(status?.pausePhase).toBe("during_pause")
-    expect(status?.midpoint).toBe(3)
-  })
-
-  it("submit pendant la pause → refus", async () => {
-    asStudent()
-    const res = await submitExamAnswers({
-      examId: pauseId,
-      answers: [{ questionId: pauseOrderedIds[0], selectedAnswer: "A" }],
-    })
-    expect(res.success).toBe(false)
-  })
-
-  it("resumeFromPause → after_pause (cut short, durée enregistrée)", async () => {
-    asStudent()
-    const res = await resumeFromPause({ examId: pauseId })
+    const res = await pauseExam({ examId: pauseId })
     expect(res.success).toBe(true)
     if (!res.success) return
-    expect(res.isPauseCutShort).toBe(true)
-    expect(res.totalPauseDurationMs).toBeGreaterThanOrEqual(0)
+    expect(res.pauseStartedAt).toBeGreaterThan(0)
+
     const s = await getExamSession(pauseId)
-    expect(s?.pausePhase).toBe("after_pause")
+    expect(s?.isPaused).toBe(true)
   })
 
-  it("submit complet après reprise → 100", async () => {
+  it("saveExamAnswer refusé pendant la pause", async () => {
     asStudent()
-    const res = await submitExamAnswers({
+    const res = await saveExamAnswer({
       examId: pauseId,
-      answers: pauseOrderedIds.map((questionId) => ({
-        questionId,
-        selectedAnswer: "A",
-      })),
+      questionId: pauseOrderedIds[0],
+      selectedAnswer: "A",
     })
+    expect(res.success).toBe(false)
+  })
+
+  it("pauseExam refuse une 2e pause (déjà en pause)", async () => {
+    asStudent()
+    const res = await pauseExam({ examId: pauseId })
+    expect(res.success).toBe(false)
+  })
+
+  it("resumeExam reprend après la pause (durée enregistrée)", async () => {
+    asStudent()
+    const res = await resumeExam({ examId: pauseId })
+    expect(res.success).toBe(true)
+    if (!res.success) return
+    expect(res.totalPauseDurationMs).toBeGreaterThanOrEqual(0)
+    const s = await getExamSession(pauseId)
+    expect(s?.isPaused).toBe(false)
+  })
+
+  it("pauseExam refuse une 2e utilisation (pause déjà utilisée)", async () => {
+    asStudent()
+    const res = await pauseExam({ examId: pauseId })
+    expect(res.success).toBe(false)
+  })
+
+  it("saveExamAnswer + finalizeExam → 100 après reprise", async () => {
+    asStudent()
+    for (const qId of pauseOrderedIds) {
+      await saveExamAnswer({
+        examId: pauseId,
+        questionId: qId,
+        selectedAnswer: "A",
+      })
+    }
+    const res = await finalizeExam({ examId: pauseId })
     expect(res).toMatchObject({ success: true, score: 100, totalQuestions: 6 })
   })
 })
@@ -392,11 +417,12 @@ describe("Leaderboard", () => {
 })
 
 describe("Explications lazy (autorisation)", () => {
-  it("étudiant autorisé sur une question d'examen complété", async () => {
+  it("étudiant : examen OUVERT complété → pas d'explication (anti-fuite avant endDate)", async () => {
+    // L'étudiant a complété noPauseId, mais cet examen est encore OUVERT
+    // (endDate dans le futur) → ses explications ne doivent pas être révélées
+    // avant l'ouverture des résultats. (Révélation testée après endDate plus bas.)
     asStudent()
-    const r = await getExamQuestionExplanations([qIds[0]])
-    expect(r).toHaveLength(1)
-    expect(r[0].explanation).toContain("Explication")
+    expect(await getExamQuestionExplanations([qIds[0]])).toEqual([])
   })
 
   it("étudiant non autorisé sur une question témoin (q6)", async () => {
@@ -558,31 +584,64 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
     expect(await getExamQuestionExplanations([qIds[7]])).toHaveLength(1)
   })
 
-  it("submit non-auto hors budget-temps → refus ; auto-submit accepté", async () => {
+  it("explications révélées après endDate (examen CLOS complété)", async () => {
+    // L'étudiant a une participation complétée sur pastExamId (endDate passée)
+    // contenant examQIds → les explications sont désormais autorisées.
+    asStudent()
+    const r = await getExamQuestionExplanations([examQIds[0]])
+    expect(r).toHaveLength(1)
+    expect(r[0].explanation).toContain("Explication")
+  })
+
+  it("finalizeExam hors budget-temps → refus ; auto-submit accepté", async () => {
     const activeId = await makeExam({ questionIds: examQIds })
+    const partId = createId()
     await db.insert(examParticipations).values({
-      id: createId(),
+      id: partId,
       examId: activeId,
       userId: STUDENT_ID,
       status: "in_progress",
       score: 0,
       startedAt: new Date(Date.now() - 10 * DAY), // budget largement dépassé
     })
-    asStudent()
-    const ids = (await getExamWithQuestions(activeId))!.questions.map(
-      (q) => q._id,
+    // Pre-create answer rows (as startExam would do)
+    await db.insert(examAnswers).values(
+      examQIds.map((qId) => ({
+        id: createId(),
+        participationId: partId,
+        questionId: qId,
+        selectedAnswer: null,
+        isCorrect: null,
+        isFlagged: false,
+      })),
     )
-    const ko = await submitExamAnswers({
-      examId: activeId,
-      answers: [{ questionId: ids[0], selectedAnswer: "A" }],
-    })
+    asStudent()
+    const ko = await finalizeExam({ examId: activeId })
     expect(ko.success).toBe(false)
 
-    const ok = await submitExamAnswers({
-      examId: activeId,
-      answers: [{ questionId: ids[0], selectedAnswer: "A" }],
-      isAutoSubmit: true,
-    })
+    const ok = await finalizeExam({ examId: activeId, isAutoSubmit: true })
     expect(ok.success).toBe(true)
+  })
+
+  it("compat participation legacy (sans lignes examAnswers pré-créées)", async () => {
+    // Tests que finalizeExam gère gracieusement une participation sans lignes EA
+    const legacyExamId = await makeExam({ questionIds: examQIds })
+    const partId = createId()
+    const now = Date.now()
+    await db.insert(examParticipations).values({
+      id: partId,
+      examId: legacyExamId,
+      userId: STUDENT_ID,
+      status: "in_progress",
+      score: 0,
+      startedAt: new Date(now - 100),
+    })
+    // Pas de lignes examAnswers (participation legacy)
+    asStudent()
+    const res = await finalizeExam({ examId: legacyExamId })
+    expect(res.success).toBe(true)
+    if (!res.success) return
+    expect(res.totalQuestions).toBe(0)
+    expect(res.score).toBe(0)
   })
 })

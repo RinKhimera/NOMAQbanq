@@ -12,6 +12,7 @@ export const createTrainingSessionSchema = z.object({
     .max(MAX_QUESTIONS, `Au plus ${MAX_QUESTIONS} questions`),
   domain: z.string().trim().min(1).optional(),
   objectifsCMCs: z.array(z.string().trim().min(1)).max(50).optional(),
+  mode: z.enum(["tutor", "test"]).optional().default("test"),
 })
 export type CreateTrainingSessionInput = z.infer<
   typeof createTrainingSessionSchema

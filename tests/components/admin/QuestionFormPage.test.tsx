@@ -84,6 +84,7 @@ const makeQuestion = (over: Partial<QuestionDetail> = {}): QuestionDetail => ({
   explanation: "Parce que.",
   references: ["Réf 1"],
   images: [],
+  explanationImages: [],
   ...over,
 })
 

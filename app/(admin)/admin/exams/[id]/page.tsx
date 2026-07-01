@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import {
   getEligibleExamCandidates,
+  getExamAudience,
   getExamLeaderboard,
   getExamWithQuestions,
 } from "@/features/exams/dal"
@@ -16,9 +17,10 @@ export default async function AdminExamDetailsPage({
   const data = await getExamWithQuestions(id)
   if (!data) notFound()
 
-  const [leaderboard, candidates, session] = await Promise.all([
+  const [leaderboard, candidates, audience, session] = await Promise.all([
     getExamLeaderboard(id),
     getEligibleExamCandidates(),
+    getExamAudience(id),
     getCurrentSession(),
   ])
 
@@ -29,6 +31,7 @@ export default async function AdminExamDetailsPage({
       questions={data.questions}
       leaderboard={leaderboard}
       candidates={candidates}
+      audience={audience}
       currentUserId={session?.user?.id}
     />
   )

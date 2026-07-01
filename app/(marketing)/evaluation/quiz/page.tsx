@@ -107,6 +107,9 @@ export default function QuizPage() {
           correctAnswer: scored?.correctAnswer ?? "",
           explanation: scored?.explanation ?? "",
           references: scored?.references ?? [],
+          // Images d'explication révélées avec la clé de correction — rendues
+          // par `QuestionCard variant="review"` uniquement (jamais en passation).
+          explanationImages: scored?.explanationImages ?? [],
         } satisfies QuestionDoc
       })
       setScoredResults({ score: result.score, mergedQuestions: merged })
@@ -211,6 +214,7 @@ export default function QuizPage() {
           question={currentQ as unknown as QuestionCardQuestion}
           selectedAnswer={currentAnswer}
           onAnswerSelect={handleAnswerSelect}
+          showCorrectAnswer={false}
           showImage={true}
         />
 

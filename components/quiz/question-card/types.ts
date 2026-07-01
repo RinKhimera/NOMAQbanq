@@ -17,6 +17,9 @@ export type QuestionDoc = {
   explanation: string
   references?: string[]
   images?: Array<{ url: string; storagePath: string; order: number }>
+  // Images d'explication (`kind='explanation'`) — rendues UNIQUEMENT dans le
+  // variant "review" (correction), jamais en "exam" (passation). Cf. Feature 3.
+  explanationImages?: Array<{ url: string; storagePath: string; order: number }>
 }
 
 // Sous-ensemble de QuestionDoc que QuestionCard accepte réellement. Défini comme
@@ -80,6 +83,14 @@ export type QuestionCardProps = {
    *  review pages that fetch explanations on expand via a separate query. */
   lazyExplanation?: string
   lazyReferences?: string[]
+  /** Images d'explication lazy-chargées (correction examen via
+   *  getExamQuestionExplanations). Prioritaires sur `question.explanationImages`.
+   *  Rendues UNIQUEMENT en variant "review" (jamais en passation). */
+  lazyExplanationImages?: Array<{
+    url: string
+    storagePath: string
+    order: number
+  }>
 
   /** Display variant - determines overall layout and behavior */
   variant?: QuestionCardVariant

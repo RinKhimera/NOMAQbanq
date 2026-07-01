@@ -3,133 +3,206 @@ paths:
   - "e2e/**"
   - "playwright.config.ts"
   - "components/quiz/**"
-  - "convex/testing.ts"
+  - "app/api/e2e/**"
 ---
 
 # E2E Testing Rules (Playwright)
 
-## Stack
+Stack actuelle : **Playwright + Bun + Better Auth + Drizzle/Neon**. Config :
+`playwright.config.ts`. Tests : `e2e/tests/`. POMs : `e2e/pages/`. Fixtures :
+`e2e/fixtures/base.ts`. Setup/teardown : `e2e/global.setup.ts` / `global.teardown.ts`.
+Reset/seed : route Next.js `app/api/e2e/route.ts`.
 
-Playwright 1.58 + @clerk/testing 2.0 + Bun. Config: `playwright.config.ts`. Tests: `e2e/tests/`. POMs: `e2e/pages/`.
+> ⚠️ La suite **mute la base Neon de DEV** (reset participations/sessions + crée des
+> transactions `[E2E]` d'octroi d'accès). Ne jamais la lancer contre la prod. La
+> route `/api/e2e` répond 404 si `E2E_RESET_SECRET` absent OU `VERCEL_ENV==='production'`.
 
-## Commandes
+## Lancer la suite — `bun run test:e2e`, JAMAIS `bunx playwright test`
 
 ```bash
-bun run test:e2e     # Run all E2E tests
-bun run e2e:ui       # Playwright UI mode
-bun run e2e:debug    # Debug with inspector
+bun run test:e2e --reporter=list        # toute la suite
+bun run test:e2e e2e/tests/<f>.spec.ts  # un fichier
+bun run e2e:ui                          # mode UI
+node node_modules/@playwright/test/cli.js test --list   # collecte déterministe (hors Bun)
+bunx playwright install chromium        # si « Executable doesn't exist »
 ```
 
-**IMPORTANT** : Utiliser `bunx playwright` (pas `npx`). Le projet a `playwright` ET `@playwright/test` dans node_modules (via `@clerk/testing`). `npx` peut resoudre vers le mauvais binaire et causer `test.describe() not expected here`.
+- **`bunx playwright test` est flaky** : Bun duplique le module `@playwright/test` au
+  runtime → ~1 run sur 2 échoue à la **collecte** avec `test.describe() not expected
+here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
+  (`bun run test:e2e`) ou `node node_modules/@playwright/test/cli.js test`.
+- **`npx playwright test` est cassé ici** : `npm error EOVERRIDE` (les `overrides`
+  du `package.json` sur `@types/react`). Toujours `bun run`.
+- Playwright démarre le serveur lui-même (`webServer` : `bun dev --turbopack` en
+  local, `bun run build && bun run start` en CI). Pas besoin de lancer `bun dev`.
+
+## Comptes de test & accès — IMPORTANT
+
+- Comptes (`.env.local`) : `E2E_USER_EMAIL` (= `e2e.student@…`, role `user`),
+  `E2E_ADMIN_EMAIL` (= `e2e.examen@…`, role `admin`), mots de passe + `E2E_RESET_SECRET`.
+- **Les comptes n'ont AUCUN `user_access` par défaut** (l'étudiant est paywallé).
+  `global.setup.ts` octroie exam+training au student via `POST /api/e2e
+{ action:"set-access", accessType, grant:true }` avant les tests. L'admin bypasse
+  `hasAccess` (pas d'octroi nécessaire).
+- Auth = **Better Auth via le formulaire réel** (`global.setup.ts` :
+  `getByTestId("auth-email"|"auth-password"|"auth-submit")` sur `/auth/sign-in`),
+  storageState sauvegardé dans `e2e/.auth/{user,admin}.json`. Si auth bizarre →
+  supprimer `e2e/.auth/` et relancer. (Pas de Clerk.)
+
+## Route support `/api/e2e` (Drizzle) — actions
+
+- `reset-exam` (`userEmail`) : garantit UN examen actif en fenêtre, supprime la
+  participation du user dessus (+ cascade réponses) + **TOUTES** ses sessions
+  d'entraînement (pas seulement `in_progress`) → remet aussi à zéro la fenêtre du
+  rate-limit `MAX_SESSIONS_PER_HOUR` (sinon les sessions accumulées au fil des runs
+  saturent la limite). Appelée en setup ET teardown.
+- `cleanup` (`prefix`, défaut `"[E2E]"`) : supprime examens préfixés (cascade) +
+  questions orphelines préfixées.
+- `set-access` (`userEmail`, `accessType:"exam"|"training"`, `grant?:boolean`) :
+  octroie/révoque un accès. Idempotent ; l'octroi crée une transaction manuelle
+  `[E2E]` si besoin (`user_access.last_transaction_id` est `NOT NULL` FK).
+- `seed-restricted-exam` (`title`, `audienceUserEmails[]`, `questionCount?`) : crée
+  un examen `restricted` actif (en fenêtre) + son `exam_audience` (réutilise des
+  questions de la banque dev). Titre préfixé `[E2E]` → nettoyé par `cleanup`.
+- `seed-explanation-image` (`examId`, `remove?`) : attache (ou retire si `remove`)
+  une image `kind='explanation'` sur la **1re question** d'un examen. La question
+  est PARTAGÉE (banque) → toujours `remove` en teardown (hors cascade examen).
+- `seed-exam` (`title`, `questionCount?`=5, `enablePause?`, `closed?`,
+  `completedFor?`) : crée un examen `subscribers` **dédié** (titre préfixé `[E2E]`)
+  → isole chaque fichier `examen-blanc*` des collisions d'état partagé. Le student
+  a déjà l'accès `exam` (global.setup) → éligible. `closed:true` = fenêtre passée
+  (endDate révolu) — **requis** pour la page résultats (un non-admin ne voit ses
+  résultats qu'APRÈS `endDate`). `completedFor:<email>` = seede en plus une
+  participation **complétée** (mix correct/incorrect déterministe : index pair =
+  bonne réponse) → la page résultats a des données sans rejouer la passation.
+  Renvoie `{ examId, questionCount, participationId, score }`. Nettoyé par
+  `cleanup` (préfixe).
+
+## Sélecteurs — `data-testid` obligatoires sur l'interactif
+
+Ne JAMAIS utiliser de sélecteurs CSS génériques (ils matchent la sidebar/header).
+Convention quiz : `answer-option-{i}`, `btn-next/previous/finish/flag`,
+`btn-header-finish`, `pause-overlay`, `pause-timer`, `btn-resume-exam`,
+`explanation-content`, `explanation-images`, `score-percentage`, `score-badge`,
+`btn-filter-errors`, `btn-expand-all`, `btn-collapse-all`, `results-nav-item-{i}`.
+Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-access-{titre}`
+(grille dashboard), `exam-side-panel`/`user-side-panel` (panels admin master-détail),
+`{testId}-edit`/`-input`/`-save` (InlineEditField profil), `btn-pause` (bouton
+pause repos du header d'examen), `pause-overlay`/`pause-timer`/`btn-resume-exam`.
+États : `data-selected="true"`, `data-flagged="true"`. Tout nouveau composant
+interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
+
+- **Sidebar = aucun `<nav>`** : la sidebar shadcn ne rend PAS d'élément `<nav>` →
+  `page.locator("nav")` ne matche rien et **timeout** (30 s). Scoper les liens de
+  navigation via `[data-sidebar="content"]` (puis `getByRole("link", { name })`).
+
+## Gotchas Playwright (à jour)
+
+- **Pas de `waitForLoadState("networkidle")`** : en dev Next.js (HMR websocket +
+  tunnel Sentry + fetch charts) le réseau n'est jamais idle → `goto` pend jusqu'au
+  **timeout 30 s** sur toute page authentifiée. `page.goto` attend déjà `load` ;
+  s'appuyer sur des attentes d'élément explicites (`waitForReady`) ou
+  `domcontentloaded` pour les nav SPA. (Retiré de tous les POMs.)
+- **Strict mode / texte dupliqué** : après la refonte F1, beaucoup de libellés
+  apparaissent 2-3× (sidebar **et** contenu, carte **et** graphe, heading **et**
+  description). Préférer `getByRole("heading", { name })`, `{ exact: true }`, ou
+  scoper (`page.locator("main")` = le `<main>` du `SidebarInset`). `.first()` en
+  dernier recours.
+- **Texte responsive** (`hidden sm:inline`) : le texte des boutons nav n'existe pas
+  sous 640px → utiliser `getByTestId`.
+- **Header sticky `fixed z-50`** : intercepte les clics près du bord →
+  `.scrollIntoViewIfNeeded()` avant le click (ex. `answer-option-0` sur `/evaluation/quiz`).
+- **Pages légales** (`/confidentialite`, `/conditions`, `/cookies`) : titre en h1
+  ET paragraphe → `getByRole("heading", { name })`.
+- **Stats marketing dynamiques** : matcher le suffixe par regex, ne pas hardcoder
+  les nombres.
+- **Formulaire question admin** (`/admin/questions/nouvelle`) : le Select de domaine
+  (shadcn/Radix) garde un `<select>` natif caché → `getByText(domaine)` matche 2×
+  (l'`<option>` native + l'item Radix) → scoper `getByRole("listbox").getByText(...)`.
+  L'objectif CMC est un combobox Popover+cmdk : le trigger affiche le placeholder
+  comme texte mais N'A PAS de nom accessible (label non associé via `htmlFor`) →
+  le cibler par `getByText("Sélectionner ou créer...")` ; l'input de recherche a un
+  placeholder DIFFÉRENT (« Rechercher ou créer... ») et les items sont `role="option"`.
+  Voir POM `fillObjectifCMC`.
+
+## Concurrence & état partagé
+
+- **`workers: 1`** (config, toujours) : `chromium-auth`/`chromium-admin` partagent
+  l'état d'un même compte. `describe.configure({ mode: "serial" })` ne protège qu'À
+  L'INTÉRIEUR d'un fichier ; `workers:1` protège ENTRE fichiers. Ne jamais repasser
+  à >1 worker pour ces projets.
+- **Collision examen** (RÉSOLU 3.B) : il n'y a qu'UN examen in-window (le reset).
+  Les specs qui **consomment/complètent** l'examen (`examen-blanc-auto-submit`
+  s'exécute avant `examen-blanc` — tri ASCII `-`<`.`) cassaient les suivantes
+  (« Déjà passé »). Désormais chaque fichier `examen-blanc*` **seede son propre
+  examen** via `seed-exam` en `beforeAll`, le **cible par `exam-card-{id}`** (POM
+  `clickStartExamById`), et nettoie en `afterAll`. Ne plus dépendre de l'unique
+  examen partagé.
+- **Examen passable une fois** : `startExam` idempotent pour `in_progress` → POM
+  `acceptWarningOrResume()`.
+- **Pause = déclenchée par l'utilisateur**, PAS automatique à mi-parcours (l'ancien
+  modèle pré-refonte). Le bouton `btn-pause` du header n'apparaît que si l'examen
+  a `enablePause:true` (→ `mode.pause="rest"`). Le clic affiche un overlay OPAQUE
+  qui occulte tout le contenu de questions (anti-triche D3) ; l'overlay décompte le
+  temps RESTANT (vers le bas, plafonné à `pauseDurationMinutes`), il ne compte pas
+  vers le haut. **Une seule pause** autorisée (`totalPauseDurationMs>0` la bloque)
+  → après reprise, `btn-pause` disparaît. Tout tester dans UN parcours.
+- **Timers/auto-submit** : `page.clock.install()` APRÈS que le timer soit visible
+  (sinon race sur `serverStartTime`), puis `fastForward("3:00:00")`. Cf.
+  `examen-blanc-auto-submit.spec.ts`.
+
+## F2 audience (sémantique pour les specs)
+
+`audienceType ∈ {subscribers, restricted}`. L'appartenance à `exam_audience`
+**octroie l'accès même sans abonnement**. Les examens `restricted` sont **masqués
+aux non-membres** (liste, dashboard, leaderboard) ; admin voit tout ; `startExam`
+refuse un non-membre (`NOT_IN_AUDIENCE`) ; `getExamWithQuestions` → `null`/`notFound`
+pour un outsider. **Éligibilité par-examen** (corrigé) : `ExamListItem` expose
+`audienceType` et le client calcule `isEligible = hasExamAccess || audienceType==='restricted'`
+(un examen `restricted` présent dans la liste implique l'appartenance via le filtre
+d'audience) → un membre sans abonnement peut le démarrer. Couvert par `examen-audience.spec.ts`.
+
+## F3 images d'explication (anti-triche)
+
+`explanation-images` n'est rendu qu'en `QuestionCard variant="review"` (correction).
+Garanti **absent** en passation : examen (`variant="exam"`, questions mappées sans
+explanation) et entraînement test `in_progress`. Correction entraînement : eager
+(`getTrainingSessionResults`) ; correction examen : lazy + **après `endDate`**
+seulement (`getExamQuestionExplanations`). Vitrine `/evaluation/quiz` = questions
+**aléatoires** → n'y tester que l'anti-triche en passation. Seed via
+`seed-explanation-image`. **Couverture** : la VRAIE garde anti-fuite est
+l'intégration `tests/integration/passation-anti-cheat.test.ts` (seed image
+`explanation` + assert `getExamWithQuestions` ne la laisse pas transiter — le
+canal DAL) ; l'e2e `examen-explication.spec.ts` n'est qu'un **smoke UI**
+(`variant="exam"` ne rend jamais `explanation-*`, donc ne capterait pas une fuite
+DAL). L'affichage **à la correction** est couvert HORS e2e, à toutes les couches :
+DAL `tests/integration/explanation-images.test.ts` (`getExamQuestionExplanations`
+sur examen **clos** + participation complétée ; `getTrainingSessionResults` eager ;
+`getQuizAnswerKey` vitrine ; + anti-fuite côté énoncé) et rendu
+`tests/components/QuestionCard.test.tsx` (variant `review` + images → `explanation-images`
+rendu ; variant `exam` → jamais). Un e2e dédié serait redondant (et exigerait de
+muter le texte `questionExplanations` d'une question partagée + une URL d'image bidon).
+
+## Segmentation projets (`testMatch`)
+
+Chaque fichier de test est listé dans EXACTEMENT UN projet de `playwright.config.ts` :
+`chromium` (public, pas d'auth), `chromium-auth` (storageState user),
+`chromium-admin` (storageState admin). Tout nouveau spec doit être ajouté au bon
+`testMatch`. Un spec à 2 rôles → le splitter (`-student`/`-admin`).
+
+## ESLint + fixtures Playwright
+
+Le callback `use` des fixtures (`e2e/fixtures/base.ts`) déclenche un faux positif
+`react-hooks/rules-of-hooks` → garder l'`/* eslint-disable react-hooks/rules-of-hooks */`
+en tête de fichier.
 
 ## ESM — pas de `__dirname`
 
-Le projet a `"type": "module"` dans `package.json`. Utiliser :
+`"type": "module"` → `const __dirname = path.dirname(fileURLToPath(import.meta.url))`.
 
-```typescript
-import path from "path"
-import { fileURLToPath } from "url"
+## Gate
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-```
-
-## Selectors — data-testid obligatoires
-
-**IMPORTANT** : Ne JAMAIS utiliser de selecteurs CSS generiques (`button.w-full.text-left`) — ils matchent des elements inattendus (bouton profil sidebar, etc.). Utiliser les `data-testid` :
-
-| Element                     | data-testid             | Fichier source                                    |
-| --------------------------- | ----------------------- | ------------------------------------------------- |
-| Option reponse N            | `answer-option-{index}` | `components/quiz/question-card/answer-option.tsx` |
-| Bouton precedent            | `btn-previous`          | `session-navigation.tsx` + `evaluation/page.tsx`  |
-| Bouton suivant              | `btn-next`              | `session-navigation.tsx` + `evaluation/page.tsx`  |
-| Bouton terminer (dernier Q) | `btn-finish`            | `session-navigation.tsx` + `evaluation/page.tsx`  |
-| Bouton terminer (header)    | `btn-header-finish`     | `session-header.tsx`                              |
-| Bouton marquer              | `btn-flag`              | `session-navigation.tsx`                          |
-
-**Data attributes d'etat** :
-
-- `data-selected="true"` sur `answer-option-{index}` quand selectionne
-- `data-flagged="true"` sur `btn-flag` quand question marquee
-
-Quand un nouveau composant interactif est cree dans `components/quiz/`, ajouter un `data-testid` stable.
-
-## Gotchas Playwright
-
-- **Strict mode** : `getByText("Correctes")` matche aussi "Incorrectes" et "X/5 correctes". Toujours `{ exact: true }` ou `.first()` quand le texte est un sous-ensemble d'un autre.
-- **`.or()` + `.toBeVisible()`** : echoue en strict mode si les DEUX elements sont visibles. Utiliser `.first().waitFor()` a la place.
-- **Texte responsive** : Les boutons nav ont `hidden sm:inline` — le texte "Suivant"/"Precedent" n'existe qu'au-dessus de 640px. Preferer `getByTestId` pour ces boutons.
-- **`SidebarInset`** = `<main>` : Pour scoper un selecteur au contenu principal (hors sidebar), utiliser `page.locator("main")`.
-- **Stats marketing dynamiques** (commit 7ed7530) : `home-landing.tsx` affiche `{stats?.totalUsers ?? "200+"} candidats satisfaits`. Ne JAMAIS hardcoder les nombres dans les tests marketing — matcher le suffixe avec une regex.
-- **Pages légales** (`/confidentialite`, `/conditions`, `/cookies`) : le titre apparaît dans h1 ET dans un paragraphe → strict mode violation sur `getByText(...)`. Utiliser `getByRole("heading", { name: "..." })`.
-- **Header sticky `fixed z-50`** : intercepte les clicks sur les éléments proches du bord de viewport (ex: `answer-option-0` sur `/evaluation/quiz`). Appeler `.scrollIntoViewIfNeeded()` avant le click.
-
-## Convex real-time et sessions
-
-- **Tests serial obligatoires** : Les tests entrainement/examen partagent l'etat Convex (meme user). `test.describe.configure({ mode: "serial" })`.
-- **Session en cours** : Un user peut avoir une session existante. Le POM doit detecter "Session en cours" et l'abandonner avant d'en creer une nouvelle.
-- **Resume exam** : L'examen ne peut etre passe qu'une seule fois. `startExam()` est idempotent pour les participations `in_progress` (retourne la participation existante). Apres le 1er `acceptWarning()`, les tests suivants reprennent la session sans warning dialog → utiliser `acceptWarningOrResume()`.
-- **Bouton detached** : Convex re-render reactif detache le DOM. Si `element was detached from the DOM, retrying` apparait, c'est normal — augmenter le timeout ou re-query.
-- **Evaluation page ≠ SessionNavigation** : La page `examen-blanc/[examId]/evaluation/page.tsx` a ses propres boutons inline (pas le composant `SessionNavigation`). Les `data-testid` doivent etre ajoutes aux DEUX endroits.
-
-## Journey tests pour les describes serial
-
-Quand un describe est en `mode: "serial"` à cause d'un état Convex partagé (entrainement, examen-blanc, examen-resultats), **préférer les journey tests** qui chaînent les assertions dans un seul flow plutôt que des tests isolés qui répètent le même setup.
-
-- **Anti-pattern** : 10 tests qui chacun font `goto → fill form → start session → answer → assert X` (~15s de setup × 10 = 2.5 min redondantes).
-- **Bon pattern** : 1 test "journey complet" qui chaîne les assertions + 1-2 tests pour les edge cases (paywall, outils, etc.).
-
-## Workers parallelism — `--workers=1` obligatoire pour auth/admin
-
-`describe.configure({ mode: "serial" })` protège DANS un fichier, pas ENTRE fichiers. Deux fichiers lancés en parallèle sur le même test user entrent en collision sur `userAccess` / `trainingParticipations` / `examParticipations`. Ne JAMAIS passer `--workers=2+` pour `chromium-auth` ou `chromium-admin`. Safe uniquement sur `chromium` (public, pas d'auth).
-
-## Tester un timer/auto-submit avec `page.clock`
-
-Pour tester l'expiration d'un timer sans attendre la vraie durée (examen complet = 10+ min) :
-
-1. Démarrer le flow normalement (goto, start, acceptWarning, etc.)
-2. **Attendre que le timer soit visible** (le `serverStartTime` de Convex est alors capturé)
-3. `await page.clock.install({ time: new Date() })` — gèle `Date.now()` à maintenant
-4. `await page.clock.fastForward("3:00:00")` — avance la clock et fire les `setInterval` callbacks
-5. Asserter le toast + redirect
-
-**Critique** : installer la clock AVANT que le timer soit visible causerait une race (serverStartTime réel vs clock gelée → elapsed négatif). Exemple : `e2e/tests/examen-blanc-auto-submit.spec.ts`.
-
-## Auth projects
-
-| Projet           | storageState           | Usage                        |
-| ---------------- | ---------------------- | ---------------------------- |
-| `chromium`       | aucun                  | Pages publiques (marketing)  |
-| `chromium-auth`  | `e2e/.auth/user.json`  | Student sans acces (paywall) |
-| `chromium-admin` | `e2e/.auth/admin.json` | Admin avec acces complet     |
-
-Si le user test n'a pas d'acces training/exam, les tests skipent gracieusement via `if (!(await pom.hasAccess())) test.skip()`.
-
-## Project segmentation (`testMatch`)
-
-Chaque fichier de test doit être listé dans le `testMatch` d'EXACTEMENT UN project dans `playwright.config.ts`. Sans segmentation, chaque spec tourne dans les 3 projects → 3× le runtime + échecs silencieux (un spec admin sous auth student échoue mais passe inaperçu).
-
-- `chromium` (no auth) → `marketing`, `auth`, `evaluation-quiz`, `error-states`
-- `chromium-auth` → specs student (`dashboard`, `entrainement`, `examen-*`, `profil`, `payment-access`, `navigation-student`)
-- `chromium-admin` → `admin-*` + `navigation-admin`
-
-Si un spec concerne deux roles (ex: navigation sidebar), le splitter en 2 fichiers (`-student.spec.ts` / `-admin.spec.ts`) plutôt que de le laisser tourner dans plusieurs projects.
-
-## Reset E2E (`convex/testing.ts`)
-
-Setup ET teardown appellent `POST /e2e/reset-exam` sur le Convex HTTP site (`*.convex.site`). Necessite `E2E_RESET_SECRET` dans l'env Convex (`bunx convex env set`) ET `.env.local`.
-
-Le reset :
-
-1. Trouve ou cree un examen actif (si aucun n'existe, en cree un avec 10 questions de la DB)
-2. Supprime la participation du user test pour l'examen actif uniquement (garde les resultats des examens passes)
-3. Supprime les sessions d'entrainement `in_progress`
-
-**Schema indexes** : `examParticipations` utilise `by_user` (pas `by_userId`), `examAnswers` utilise `by_participation` (pas `by_participationId`), `trainingParticipations` (pas `trainingSessions`).
-
-## ESLint + custom fixtures Playwright
-
-Le callback `use` des custom fixtures (`e2e/fixtures/base.ts`) déclenche `react-hooks/rules-of-hooks` (faux positif : ce n'est pas un hook React). Ajouter en tête du fichier :
-
-```ts
-/* eslint-disable react-hooks/rules-of-hooks -- Playwright fixture `use` is not a React hook */
-```
+`bun run type-check` + `bun run lint` (PAS `bun run check` ni `prettier --check .` —
+CRLF working-tree pré-existant = faux signal). `bunx prettier --write` uniquement sur
+les fichiers touchés. Warnings SonarLint (`typescript:Sxxxx`) = IDE-only, n'échouent
+pas le gate.

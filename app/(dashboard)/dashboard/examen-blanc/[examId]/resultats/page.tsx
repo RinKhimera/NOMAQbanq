@@ -1,7 +1,12 @@
 import { CircleX, House } from "lucide-react"
 import Link from "next/link"
-import { ParticipantExamResultsView } from "@/components/quiz/results/participant-exam-results-view"
+import {
+  SessionResults,
+  SessionResultsHeader,
+} from "@/components/quiz/results/session-results"
+import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
+import { loadExamQuestionExplanations } from "@/features/exams/actions"
 import { getParticipantExamResults } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 
@@ -37,15 +42,62 @@ export default async function MockExamResultsPage({
     )
   }
 
+  // Map DAL output → QuizQuestion[]
+  const questions: QuizQuestion[] = data.questions.map((q) => ({
+    _id: q._id,
+    question: q.question,
+    options: q.options,
+    images: q.images ?? [],
+    domain: q.domain ?? undefined,
+    objectifCMC: q.objectifCMC ?? undefined,
+    correctAnswer: q.correctAnswer,
+  }))
+
+  // Map DAL answers → AnswersMap (sparse-safe: absent key == unanswered)
+  const answers: AnswersMap = {}
+  for (const a of data.participant.answers) {
+    if (a.selectedAnswer !== null && a.selectedAnswer !== "") {
+      answers[a.questionId] = {
+        selected: a.selectedAnswer,
+        isCorrect: a.isCorrect ?? undefined,
+      }
+    }
+  }
+
+  const score = data.participant.score
+
+  // Compute summary counts from actual data (sparse-safe)
+  let correct = 0
+  let incorrect = 0
+  const answeredIds = new Set(
+    data.participant.answers
+      .filter((a) => a.selectedAnswer !== null && a.selectedAnswer !== "")
+      .map((a) => a.questionId),
+  )
+  for (const a of data.participant.answers) {
+    if (a.selectedAnswer === null || a.selectedAnswer === "") continue
+    if (a.isCorrect) correct++
+    else incorrect++
+  }
+  const unanswered = questions.length - answeredIds.size
+
   return (
-    <ParticipantExamResultsView
-      examTitle={data.exam.title}
-      questions={data.questions}
-      answers={data.participant.answers}
-      score={data.participant.score}
-      backHref="/dashboard/examen-blanc"
-      backLabel="Tableau de bord"
-      backIcon={<House className="h-4 w-4" />}
-    />
+    <>
+      <SessionResultsHeader
+        title="Résultats de l'examen"
+        subtitle={data.exam.title}
+        score={score}
+        backHref="/dashboard/examen-blanc"
+        backLabel="Tableau de bord"
+        backIcon={<House className="h-4 w-4" />}
+      />
+      <SessionResults
+        accent="blue"
+        summary={{ score, correct, incorrect, unanswered }}
+        questions={questions}
+        answers={answers}
+        loadExplanations={loadExamQuestionExplanations}
+      />
+    </>
   )
 }

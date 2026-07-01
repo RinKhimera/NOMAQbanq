@@ -228,7 +228,10 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
     )
   }
 
-  const hasXAFRevenue = stats?.revenueByCurrency.XAF.recent ?? 0 > 0
+  // Parenthèses indispensables : `??` est MOINS prioritaire que `>`, donc
+  // `recent ?? 0 > 0` parse `recent ?? (0 > 0)` → vaut le NOMBRE `recent` (0 si
+  // pas de revenu XAF) au lieu d'un booléen → `{hasXAFRevenue && …}` rendait « 0 ».
+  const hasXAFRevenue = (stats?.revenueByCurrency.XAF.recent ?? 0) > 0
 
   if (isLoading || !stats) {
     return (

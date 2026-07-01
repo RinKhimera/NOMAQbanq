@@ -27,7 +27,12 @@ export default async function MockExamDetailsPage({
   const session = await getCurrentSession()
   const isAdmin = session?.user?.role === "admin"
   const isClosed = isExamClosed(data.exam.endDate)
-  const examAccess = isAdmin || (await hasAccess("exam"))
+  // Examen restreint : `getExamWithQuestions` a déjà autorisé l'accès (membre de
+  // l'audience ou participation) — la sélection octroie l'accès, l'abonnement
+  // n'est pas requis. L'abonnement ne conditionne la consultation que pour les
+  // examens `subscribers`.
+  const isRestricted = data.exam.audienceType === "restricted"
+  const examAccess = isAdmin || isRestricted || (await hasAccess("exam"))
 
   // Non-admins : accès aux détails uniquement si l'examen est fermé ET accès actif.
   if (!isAdmin && (!isClosed || !examAccess)) {

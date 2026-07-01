@@ -92,6 +92,7 @@ export default defineConfig({
         "components/shared/payments/delete-transaction-dialog.tsx",
         "components/admin/question-form.tsx",
         "components/admin/edit-question-dialog.tsx",
+        "components/admin/user-multi-select.tsx",
         "components/admin/exams-list.tsx",
         "components/admin/questions-list.tsx",
         "components/admin/question-browser/**",

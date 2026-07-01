@@ -13,6 +13,7 @@ import {
   Info,
   LoaderCircle,
   Sparkles,
+  Users,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -23,6 +24,7 @@ import {
   QuestionBrowser,
   QuestionPreviewPanel,
 } from "@/components/admin/question-browser"
+import { UserMultiSelect } from "@/components/admin/user-multi-select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -49,11 +51,13 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { createExam } from "@/features/exams/actions"
 import type { EligibleCandidate } from "@/features/exams/dal"
+import type { SelectableUser } from "@/features/users/dal"
 import { cn } from "@/lib/utils"
 import {
   DEFAULT_PAUSE_DURATION_MINUTES,
@@ -62,7 +66,7 @@ import {
   getDefaultPauseDuration,
   validateQuestionCount,
 } from "@/schemas"
-import { EligibleCandidatesCard } from "../../_components/eligible-candidates-card"
+import { AudienceEligibility } from "../../_components/audience-eligibility"
 
 interface ExamCreateFormProps {
   candidates: EligibleCandidate[]
@@ -71,6 +75,7 @@ interface ExamCreateFormProps {
 export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
   const router = useRouter()
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([])
+  const [selectedUsers, setSelectedUsers] = useState<SelectableUser[]>([])
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
@@ -81,6 +86,8 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
       questionIds: [],
       enablePause: false,
       pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
+      audienceType: "subscribers",
+      audienceUserIds: [],
     },
   })
 
@@ -93,6 +100,20 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
     control: form.control,
     name: "enablePause",
   })
+
+  const audienceType = useWatch({
+    control: form.control,
+    name: "audienceType",
+  })
+
+  const handleAudienceUsersChange = (next: SelectableUser[]) => {
+    setSelectedUsers(next)
+    form.setValue(
+      "audienceUserIds",
+      next.map((u) => u.id),
+      { shouldValidate: true },
+    )
+  }
 
   const onSubmit = async (values: ExamFormValues) => {
     if (!values.startDate || !values.endDate) {
@@ -118,6 +139,9 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
         pauseDurationMinutes: values.enablePause
           ? values.pauseDurationMinutes
           : undefined,
+        audienceType: values.audienceType,
+        audienceUserIds:
+          values.audienceType === "restricted" ? values.audienceUserIds : [],
       })
 
       if (!result.success) {
@@ -475,8 +499,116 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
             </CardContent>
           </Card>
 
-          {/* Candidats éligibles (lecture seule) */}
-          <EligibleCandidatesCard candidates={candidates} />
+          {/* Audience Card */}
+          <Card className="overflow-hidden border-0 shadow-xl shadow-gray-200/50 dark:shadow-none">
+            <CardHeader className="border-b bg-linear-to-r from-teal-500 to-cyan-500 text-white">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                <CardTitle className="text-lg">
+                  À qui s&apos;adresse cet examen ?
+                </CardTitle>
+              </div>
+              <CardDescription className="text-teal-100">
+                Choisissez l&apos;audience de cet examen
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 p-6">
+              <FormField
+                control={form.control}
+                name="audienceType"
+                render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormControl>
+                      <RadioGroup
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        className="gap-3"
+                      >
+                        <label
+                          htmlFor="audience-subscribers"
+                          className={cn(
+                            "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
+                            field.value === "subscribers"
+                              ? "border-teal-300 bg-teal-50/50 dark:border-teal-700 dark:bg-teal-900/20"
+                              : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600",
+                          )}
+                        >
+                          <RadioGroupItem
+                            value="subscribers"
+                            id="audience-subscribers"
+                            className="mt-0.5"
+                          />
+                          <div className="space-y-0.5">
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              Tous les abonnés aux examens blancs
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Visible et accessible par tout utilisateur avec un
+                              accès examen actif
+                            </p>
+                          </div>
+                        </label>
+
+                        <label
+                          htmlFor="audience-restricted"
+                          className={cn(
+                            "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
+                            field.value === "restricted"
+                              ? "border-teal-300 bg-teal-50/50 dark:border-teal-700 dark:bg-teal-900/20"
+                              : "border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600",
+                          )}
+                        >
+                          <RadioGroupItem
+                            value="restricted"
+                            id="audience-restricted"
+                            className="mt-0.5"
+                          />
+                          <div className="space-y-0.5">
+                            <p className="font-medium text-gray-900 dark:text-white">
+                              Utilisateurs spécifiques
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Réservé aux utilisateurs choisis (l&apos;accès est
+                              octroyé même sans abonnement)
+                            </p>
+                          </div>
+                        </label>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {audienceType === "restricted" && (
+                <div className="animate-in fade-in-0 slide-in-from-top-2 space-y-2">
+                  <FormField
+                    control={form.control}
+                    name="audienceUserIds"
+                    render={() => (
+                      <FormItem>
+                        <FormLabel className="text-gray-700 dark:text-gray-300">
+                          Utilisateurs autorisés
+                        </FormLabel>
+                        <UserMultiSelect
+                          value={selectedUsers}
+                          onChange={handleAudienceUsersChange}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+
+              {/* Résumé contextuel des candidats éligibles (selon la radio). */}
+              <AudienceEligibility
+                candidates={candidates}
+                audienceType={audienceType}
+                selectedCount={selectedUsers.length}
+              />
+            </CardContent>
+          </Card>
 
           {/* Questions Section */}
           <div className="space-y-4">

@@ -7,6 +7,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core"
 import { createId } from "@/lib/ids"
+import { questionImageKind } from "./enums"
 
 export const questions = pgTable(
   "questions",
@@ -45,7 +46,6 @@ export const questionExplanations = pgTable("question_explanations", {
     .references(() => questions.id, { onDelete: "cascade" }),
   explanation: text("explanation").notNull(),
   references: jsonb("references").$type<string[]>(),
-  imagePath: text("image_path"), // figure d'explication (review only); URL dérivée au rendu
 })
 
 // Replaces the Convex `images[]` jsonb array (queryable child rows).
@@ -60,9 +60,13 @@ export const questionImages = pgTable(
       .references(() => questions.id, { onDelete: "cascade" }),
     storagePath: text("storage_path").notNull(),
     position: integer("position").notNull(),
+    kind: questionImageKind("kind").default("statement").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
-  (t) => [index("question_images_question_id_idx").on(t.questionId)],
+  (t) => [
+    index("question_images_question_id_idx").on(t.questionId),
+    index("question_images_question_kind_idx").on(t.questionId, t.kind),
+  ],
 )

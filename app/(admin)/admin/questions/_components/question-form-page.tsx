@@ -85,9 +85,12 @@ const initialReferences = (refs: string[] | null | undefined): string[] =>
   refs?.length ? refs : [""]
 
 // Images du DAL (`{storagePath, position}`) → format local (`{url, storagePath,
-// order}`) ; l'URL d'affichage est dérivée du CDN public.
-const toLocalImages = (q: QuestionDetail): QuestionImage[] =>
-  q.images.map((img) => ({
+// order}`) ; l'URL d'affichage est dérivée du CDN public. Générique sur les deux
+// jeux (`images` d'énoncé / `explanationImages`).
+const toLocalImages = (
+  imgs: Pick<QuestionDetail["images"][number], "storagePath" | "position">[],
+): QuestionImage[] =>
+  imgs.map((img) => ({
     url: cdnUrl(img.storagePath),
     storagePath: img.storagePath,
     order: img.position,
@@ -193,7 +196,10 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
     question ? padOptions(question.options) : ["", "", "", "", ""],
   )
   const [images, setImages] = useState<QuestionImage[]>(() =>
-    question ? toLocalImages(question) : [],
+    question ? toLocalImages(question.images) : [],
+  )
+  const [explanationImages, setExplanationImages] = useState<QuestionImage[]>(
+    () => (question ? toLocalImages(question.explanationImages) : []),
   )
 
   const form = useForm<QuestionFormValues>({
@@ -228,13 +234,18 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
   }
 
   const updateOption = (index: number, value: string) => {
+    const prev = options[index]
     const newOptions = [...options]
     newOptions[index] = value
     setOptions(newOptions)
     form.setValue("options", newOptions)
 
-    // If this was the correct answer, update it
-    if (form.getValues("correctAnswer") === options[index]) {
+    // Garde correctAnswer synchronisé si on RENOMME l'option actuellement
+    // correcte. Garde `prev.trim() !== ""` indispensable : en création, options
+    // et correctAnswer valent tous deux "" → sans elle, remplir la 1re option
+    // (`"" === ""`) la marquerait par erreur comme bonne réponse (bouton-lettre
+    // verrouillé sur un check au lieu de la lettre).
+    if (prev.trim() !== "" && form.getValues("correctAnswer") === prev) {
       form.setValue("correctAnswer", value)
     }
   }
@@ -262,6 +273,12 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
         url: img.url,
       }))
 
+      const explanationImagePayload = explanationImages.map((img, idx) => ({
+        storagePath: img.storagePath,
+        order: idx,
+        url: img.url,
+      }))
+
       if (mode === "create") {
         const res = await createQuestion({
           question: values.question,
@@ -277,9 +294,14 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
           return
         }
 
-        // Save images if any (uploader masqué en création → généralement vide)
+        // Save images if any (uploader masqué en création → généralement vide).
+        // L'uploader d'explication est aussi masqué en création → rien à persister.
         if (imagePayload.length > 0) {
-          await setQuestionImages({ questionId: res.id, images: imagePayload })
+          await setQuestionImages({
+            questionId: res.id,
+            kind: "statement",
+            images: imagePayload,
+          })
         }
 
         toast.success("Question créée avec succès !")
@@ -300,16 +322,30 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
           return
         }
 
-        // Persiste la liste complète des images (ordre + ajouts + retraits).
-        // Toujours appelé en édition, même avec une liste vide : sinon la
-        // suppression de toutes les images ne serait jamais enregistrée (et les
-        // fichiers retirés jamais supprimés du CDN).
+        // Persiste les DEUX jeux d'images (énoncé + explication), chacun scopé
+        // par `kind`. Toujours appelés en édition, même avec une liste vide :
+        // sinon la suppression de toutes les images ne serait jamais enregistrée
+        // (et les fichiers retirés jamais supprimés du CDN). Les deux appels
+        // doivent réussir.
         const imgRes = await setQuestionImages({
           questionId,
+          kind: "statement",
           images: imagePayload,
         })
         if (!imgRes.success) {
-          toast.error(imgRes.error ?? "Images non enregistrées")
+          toast.error(imgRes.error ?? "Images de l'énoncé non enregistrées")
+          return
+        }
+
+        const explImgRes = await setQuestionImages({
+          questionId,
+          kind: "explanation",
+          images: explanationImagePayload,
+        })
+        if (!explImgRes.success) {
+          toast.error(
+            explImgRes.error ?? "Images de l'explication non enregistrées",
+          )
           return
         }
 
@@ -388,7 +424,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
               <div className="mb-3 flex items-center gap-2">
                 <ImageIcon className="h-4 w-4 text-gray-500" />
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Images
+                  Images de l&apos;énoncé
                 </h4>
                 {images.length > 0 && (
                   <Badge variant="secondary" className="text-xs">
@@ -399,6 +435,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
               {mode === "edit" && questionId ? (
                 <QuestionImageUploader
                   questionId={questionId}
+                  kind="statement"
                   images={images}
                   onImagesChange={setImages}
                 />
@@ -585,6 +622,40 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
                 </FormItem>
               )}
             />
+
+            {/* Images de l'explication — affichées UNIQUEMENT à la correction,
+                jamais pendant la passation. */}
+            <div className="mt-6">
+              <div className="mb-3 flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-gray-500" />
+                <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Images de l&apos;explication
+                </h4>
+                {explanationImages.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {explanationImages.length}
+                  </Badge>
+                )}
+              </div>
+              {mode === "edit" && questionId ? (
+                <QuestionImageUploader
+                  questionId={questionId}
+                  kind="explanation"
+                  images={explanationImages}
+                  onImagesChange={setExplanationImages}
+                />
+              ) : (
+                <div className="rounded-lg border-2 border-dashed border-gray-200 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800/50">
+                  <ImageIcon className="mx-auto h-10 w-10 text-gray-400" />
+                  <p className="mt-3 text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Les images pourront être ajoutées après la création
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+                    Créez la question, puis modifiez-la pour ajouter des images
+                  </p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 

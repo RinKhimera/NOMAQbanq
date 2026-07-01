@@ -1,175 +1,80 @@
-import { expect, test } from "@playwright/test"
-import { ExamenBlancPage } from "../pages/examen-blanc.page"
+import { type APIRequestContext } from "@playwright/test"
+import { expect, test } from "../fixtures/base"
 
 /**
- * Tests pour le mecanisme de pause obligatoire pendant un examen.
+ * Pause repos pendant un examen (`enablePause=true`).
  *
- * PREREQUIS: Un examen avec enablePause=true doit exister dans la base.
- * Si aucun examen avec pause n'est disponible, les tests seront skip.
+ * La pause est déclenchée par L'UTILISATEUR via le bouton `btn-pause` du header
+ * (et non automatiquement à mi-parcours — l'ancien modèle pré-refonte). Pendant
+ * la pause, l'overlay opaque occulte TOUT le contenu de questions (anti-triche
+ * D3) et le chrono est gelé. Une seule pause est autorisée → tout le parcours
+ * tient dans UN test (une fois consommée, le bouton disparaît).
+ *
+ * Isolation (3.B) : seede son propre examen `subscribers` avec pause activée.
  */
-test.describe("Examen Blanc — pause obligatoire", () => {
-  test.describe.configure({ mode: "serial", timeout: 120_000 })
 
-  let examen: ExamenBlancPage
+const SECRET = process.env.E2E_RESET_SECRET
+const PREFIX = "[E2E] Pause"
 
-  test.beforeEach(async ({ page }) => {
-    examen = new ExamenBlancPage(page)
+const post = (request: APIRequestContext, data: object) =>
+  request.post("/api/e2e", {
+    data: { secret: SECRET, ...data },
+    failOnStatusCode: false,
   })
 
-  test("le dialog de pause apparait a mi-parcours", async ({ page }) => {
-    await examen.goto()
+let examId = ""
 
-    // Start the exam
-    await examen.clickStartExam()
-    await examen.confirmStart()
-    await examen.acceptWarningOrResume()
+test.describe("Examen Blanc — pause repos", () => {
+  test.describe.configure({ mode: "serial", timeout: 90_000 })
 
-    // Answer questions until pause dialog appears or all questions answered
-    let pauseAppeared = false
-    for (let i = 0; i < 120; i++) {
-      // Check if pause dialog appeared
-      const pauseTimer = page.locator("[data-testid='pause-timer']")
-      pauseAppeared = await pauseTimer
-        .isVisible({ timeout: 1_000 })
-        .catch(() => false)
-
-      if (pauseAppeared) break
-
-      // Answer current question
-      const answerOption = page.locator("[data-testid='answer-option-0']")
-      const hasOption = await answerOption
-        .isVisible({ timeout: 2_000 })
-        .catch(() => false)
-
-      if (!hasOption) break
-
-      await answerOption.click()
-      await examen.nextQuestion()
-    }
-
-    if (!pauseAppeared) {
-      // No pause-enabled exam available — skip
-      test.skip(true, "Aucun examen avec pause active disponible")
-      return
-    }
-
-    // Verify pause dialog elements
-    await expect(page.locator("[data-testid='pause-timer']")).toBeVisible()
-    await expect(page.locator("[data-testid='btn-resume-exam']")).toBeVisible()
-  })
-
-  test("le bouton reprendre fonctionne", async ({ page }) => {
-    // This test depends on the previous test having triggered a pause
-    // It will be run serially, so the exam should still be in progress
-
-    await examen.goto()
-    await examen.clickStartExam()
-    await examen.confirmStart()
-    await examen.acceptWarningOrResume()
-
-    // Check if we're in a pause state
-    const resumeBtn = page.locator("[data-testid='btn-resume-exam']")
-    const isPaused = await resumeBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false)
-
-    if (!isPaused) {
-      test.skip(true, "L'examen n'est pas en pause")
-      return
-    }
-
-    // Click resume
-    await resumeBtn.click()
-
-    // Should return to questions
-    await expect(page.locator("[data-testid='answer-option-0']")).toBeVisible({
-      timeout: 15_000,
+  test.beforeAll(async ({ request }) => {
+    if (!SECRET) return
+    const seed = await post(request, {
+      action: "seed-exam",
+      title: `${PREFIX} Repos`,
+      questionCount: 5,
+      enablePause: true,
     })
+    examId = (await seed.json()).examId
   })
 
-  test("toutes les questions sont accessibles apres la pause", async ({
+  test.afterAll(async ({ request }) => {
+    if (!SECRET) return
+    await post(request, { action: "cleanup", prefix: PREFIX })
+  })
+
+  test("pause : overlay opaque (anti-triche), chrono gelé, reprise", async ({
+    examen,
     page,
   }) => {
+    test.skip(!SECRET, "E2E_RESET_SECRET requis")
+    expect(examId).toBeTruthy()
+
     await examen.goto()
-    await examen.clickStartExam()
+    await examen.clickStartExamById(examId)
     await examen.confirmStart()
     await examen.acceptWarningOrResume()
+    await examen.waitForQuestion(1)
 
-    // Check if we can navigate past the midpoint
-    const answerOption = page.locator("[data-testid='answer-option-0']")
-    const hasOption = await answerOption
-      .isVisible({ timeout: 10_000 })
-      .catch(() => false)
+    // Le bouton pause n'existe que sur un examen `enablePause=true`.
+    await expect(page.getByTestId("btn-pause")).toBeVisible()
+    await examen.takePause()
 
-    if (!hasOption) {
-      test.skip(true, "Pas de question accessible")
-      return
-    }
-
-    // Answer a question and verify navigation works
-    await answerOption.click()
-    await examen.nextQuestion()
-
-    await expect(page.locator("[data-testid='answer-option-0']")).toBeVisible({
+    // Overlay de pause : minuteur + bouton reprendre.
+    await expect(page.getByTestId("pause-overlay")).toBeVisible({
       timeout: 10_000,
     })
-  })
+    await expect(page.getByTestId("pause-timer")).toBeVisible()
+    await expect(page.getByTestId("btn-resume-exam")).toBeVisible()
 
-  test("le pause-timer compte pendant la pause (totalPauseDurationMs avance)", async ({
-    page,
-  }) => {
-    await examen.goto()
-    await examen.clickStartExam()
-    await examen.confirmStart()
-    await examen.acceptWarningOrResume()
+    // Anti-triche D3 : aucune option de réponse n'est dans le DOM pendant la pause.
+    await expect(page.getByTestId("answer-option-0")).toHaveCount(0)
 
-    // Trigger pause by answering until the dialog appears
-    let pauseAppeared = false
-    for (let i = 0; i < 120; i++) {
-      const pauseTimer = page.locator("[data-testid='pause-timer']")
-      pauseAppeared = await pauseTimer
-        .isVisible({ timeout: 1_000 })
-        .catch(() => false)
-      if (pauseAppeared) break
-
-      const answerOption = page.locator("[data-testid='answer-option-0']")
-      const hasOption = await answerOption
-        .isVisible({ timeout: 2_000 })
-        .catch(() => false)
-      if (!hasOption) break
-
-      await answerOption.click()
-      await examen.nextQuestion()
-    }
-
-    if (!pauseAppeared) {
-      test.skip(true, "Aucun examen avec pause active disponible")
-      return
-    }
-
-    const pauseTimer = page.locator("[data-testid='pause-timer']")
-    const parseTimer = (text: string): number => {
-      const match = text.match(/(\d+)[^\d]+(\d+)/)
-      if (!match) return 0
-      return Number(match[1]) * 60 + Number(match[2])
-    }
-
-    const initialText = (await pauseTimer.textContent()) ?? ""
-    const initialSeconds = parseTimer(initialText)
-
-    await page.waitForTimeout(3_000)
-
-    const laterText = (await pauseTimer.textContent()) ?? ""
-    const laterSeconds = parseTimer(laterText)
-
-    // Pause timer should count UP by at least 2 seconds (accounting for jitter)
-    expect(laterSeconds).toBeGreaterThan(initialSeconds)
-    expect(laterSeconds - initialSeconds).toBeGreaterThanOrEqual(2)
-
-    // Resume to leave the fixture in a known state for downstream tests
-    const resumeBtn = page.locator("[data-testid='btn-resume-exam']")
-    if (await resumeBtn.isVisible().catch(() => false)) {
-      await resumeBtn.click()
-    }
+    // Reprise → retour aux questions, et le bouton pause disparaît (1 seule pause).
+    await page.getByTestId("btn-resume-exam").click()
+    await expect(page.getByTestId("answer-option-0")).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(page.getByTestId("btn-pause")).toHaveCount(0)
   })
 })

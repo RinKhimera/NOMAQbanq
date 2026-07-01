@@ -11,7 +11,7 @@ import {
 } from "drizzle-orm/pg-core"
 import { createId } from "@/lib/ids"
 import { user } from "./auth"
-import { examParticipationStatus, examPausePhase } from "./enums"
+import { examAudienceType, examParticipationStatus } from "./enums"
 import { questions } from "./questions"
 
 export const exams = pgTable(
@@ -28,6 +28,9 @@ export const exams = pgTable(
     enablePause: boolean("enable_pause").default(false).notNull(),
     pauseDurationMinutes: integer("pause_duration_minutes"),
     isActive: boolean("is_active").default(true).notNull(),
+    audienceType: examAudienceType("audience_type")
+      .default("subscribers")
+      .notNull(),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id, { onDelete: "restrict" }),
@@ -83,10 +86,7 @@ export const examParticipations = pgTable(
     status: examParticipationStatus("status").default("in_progress").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    pausePhase: examPausePhase("pause_phase"),
     pauseStartedAt: timestamp("pause_started_at", { withTimezone: true }),
-    pauseEndedAt: timestamp("pause_ended_at", { withTimezone: true }),
-    isPauseCutShort: boolean("is_pause_cut_short"),
     totalPauseDurationMs: bigint("total_pause_duration_ms", { mode: "number" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -112,8 +112,8 @@ export const examAnswers = pgTable(
     questionId: text("question_id")
       .notNull()
       .references(() => questions.id, { onDelete: "restrict" }),
-    selectedAnswer: text("selected_answer").notNull(),
-    isCorrect: boolean("is_correct").notNull(),
+    selectedAnswer: text("selected_answer"), // null tant que non répondu
+    isCorrect: boolean("is_correct"), // null tant que non répondu
     isFlagged: boolean("is_flagged").default(false).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
@@ -126,5 +126,27 @@ export const examAnswers = pgTable(
     ),
     index("exam_answers_participation_id_idx").on(t.participationId),
     index("exam_answers_question_id_idx").on(t.questionId),
+  ],
+)
+
+// Audience restreinte d'un examen : la présence d'une ligne (examId, userId)
+// OCTROIE l'accès (même sans abonnement). Peuplée uniquement pour les examens
+// `audienceType = 'restricted'`.
+export const examAudience = pgTable(
+  "exam_audience",
+  {
+    examId: text("exam_id")
+      .notNull()
+      .references(() => exams.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.examId, t.userId] }),
+    index("exam_audience_user_id_idx").on(t.userId),
   ],
 )

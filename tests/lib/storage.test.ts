@@ -32,9 +32,12 @@ describe("path helpers", () => {
   it("génère un chemin d'avatar préfixé", () => {
     expect(generateAvatarPath("u1", "jpg")).toMatch(/^avatars\/u1\/\d+\.jpg$/)
   })
-  it("génère un chemin TAMPON tmp/ pour image question", () => {
-    expect(generateQuestionImageTmpPath("q1", 2, ".PNG")).toMatch(
-      /^tmp\/questions\/q1\/\d+-2\.png$/,
+  it("génère un chemin TAMPON tmp/ pour image question (namespacé par kind)", () => {
+    expect(generateQuestionImageTmpPath("q1", "statement", 2, ".PNG")).toMatch(
+      /^tmp\/questions\/q1\/statement\/\d+-2\.png$/,
+    )
+    expect(generateQuestionImageTmpPath("q1", "explanation", 0, "jpg")).toMatch(
+      /^tmp\/questions\/q1\/explanation\/\d+-0\.jpg$/,
     )
   })
   it("dérive le chemin final en retirant le préfixe tmp/", () => {
@@ -49,7 +52,9 @@ describe("path helpers", () => {
   })
   it("le chemin tampon reste sûr (assertSafeStoragePath)", () => {
     expect(() =>
-      assertSafeStoragePath(generateQuestionImageTmpPath("q1", 0, "jpg")),
+      assertSafeStoragePath(
+        generateQuestionImageTmpPath("q1", "statement", 0, "jpg"),
+      ),
     ).not.toThrow()
   })
   it("mappe le MIME vers l'extension", () => {

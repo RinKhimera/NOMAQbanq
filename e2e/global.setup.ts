@@ -39,6 +39,37 @@ setup("authenticate as admin", async ({ page }) => {
     .storageState({ path: path.join(__dirname, ".auth/admin.json") })
 })
 
+// Octroie au compte étudiant de test un accès `exam` + `training` actif via la
+// route support Drizzle `/api/e2e`. Les comptes de test n'ont aucun `userAccess`
+// par défaut (paywall) → sans ça, toutes les specs examen/entraînement échouent
+// ou skippent. Idempotent (prolonge l'accès s'il existe déjà). L'admin bypasse
+// `hasAccess`, il n'a donc pas besoin d'octroi.
+setup("grant access for e2e student", async ({ request }) => {
+  const secret = process.env.E2E_RESET_SECRET
+  if (!secret) {
+    console.log("Skipping grant access: E2E_RESET_SECRET manquant")
+    return
+  }
+
+  for (const accessType of ["exam", "training"] as const) {
+    const response = await request.post("/api/e2e", {
+      data: {
+        secret,
+        action: "set-access",
+        userEmail: process.env.E2E_USER_EMAIL!,
+        accessType,
+        grant: true,
+      },
+      failOnStatusCode: false,
+    })
+    if (response.ok()) {
+      console.log(`E2E grant ${accessType}:`, await response.json())
+    } else {
+      console.warn(`E2E grant ${accessType} failed:`, response.status())
+    }
+  }
+})
+
 // Réinitialise l'état d'examen (participation + sessions en cours) via la route
 // support Drizzle `/api/e2e` (remplace l'ancienne route Convex `/e2e/reset-exam`).
 setup("reset exam state for e2e", async ({ request }) => {

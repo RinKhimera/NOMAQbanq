@@ -66,7 +66,10 @@ export const QuickAccessGrid = () => {
             }}
             className="perspective-1000"
           >
-            <Link href={action.href}>
+            <Link
+              href={action.href}
+              data-testid={`quick-access-${action.title}`}
+            >
               <div
                 className={cn(
                   "group relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm transition-all duration-500",

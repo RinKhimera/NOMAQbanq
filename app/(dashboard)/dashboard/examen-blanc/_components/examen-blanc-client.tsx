@@ -116,6 +116,7 @@ const ExamCard = ({
       }}
     >
       <div
+        data-testid={`exam-card-${exam.id}`}
         className={cn(
           "group relative h-full overflow-hidden rounded-2xl border bg-linear-to-br p-6 shadow-sm backdrop-blur-sm transition-all duration-300",
           styles.gradient,
@@ -374,13 +375,16 @@ const SectionHeader = ({
 
 interface ExamenBlancClientProps {
   exams: ExamListItem[]
-  isEligible: boolean
+  /** Accès aux examens `subscribers` (abonnement actif, ou admin). L'éligibilité
+   *  par-examen se calcule ici : un examen `restricted` est toujours éligible
+   *  (sa présence dans la liste implique l'appartenance à l'audience). */
+  hasExamAccess: boolean
   initialNow: number
 }
 
 export function ExamenBlancClient({
   exams,
-  isEligible,
+  hasExamAccess,
   initialNow,
 }: ExamenBlancClientProps) {
   const [selectedExam, setSelectedExam] = useState<string | null>(null)
@@ -554,7 +558,9 @@ export function ExamenBlancClient({
                   key={exam.id}
                   exam={exam}
                   variant="active"
-                  isEligible={isEligible}
+                  isEligible={
+                    hasExamAccess || exam.audienceType === "restricted"
+                  }
                   onStart={handleStartExam}
                   onViewResults={handleViewResults}
                   index={index}
@@ -584,7 +590,9 @@ export function ExamenBlancClient({
                   key={exam.id}
                   exam={exam}
                   variant="upcoming"
-                  isEligible={isEligible}
+                  isEligible={
+                    hasExamAccess || exam.audienceType === "restricted"
+                  }
                   onStart={handleStartExam}
                   onViewResults={handleViewResults}
                   index={index}
@@ -614,7 +622,9 @@ export function ExamenBlancClient({
                   key={exam.id}
                   exam={exam}
                   variant="past"
-                  isEligible={isEligible}
+                  isEligible={
+                    hasExamAccess || exam.audienceType === "restricted"
+                  }
                   onStart={handleStartExam}
                   onViewResults={handleViewResults}
                   index={index}

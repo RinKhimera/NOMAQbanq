@@ -44,12 +44,22 @@ const getAnswerState = (
   showCorrectAnswer: boolean,
   userAnswer?: string | null,
   isReviewMode?: boolean,
+  isExamReveal?: boolean,
 ): AnswerState => {
-  // Review mode with user answer
-  if (isReviewMode && userAnswer !== undefined) {
-    const isCorrectAnswer = option === correctAnswer
-    const isUserAnswer = option === userAnswer
+  const isCorrectAnswer = option === correctAnswer
 
+  // Review mode with user answer (page résultats)
+  if (isReviewMode && userAnswer !== undefined) {
+    const isUserAnswer = option === userAnswer
+    if (isCorrectAnswer) return "user-correct"
+    if (isUserAnswer && !isCorrectAnswer) return "user-incorrect"
+    return "default"
+  }
+
+  // Révélation tuteur en passation (variant exam) : on colore le choix de
+  // l'utilisateur comme en review (vert = bonne réponse, rouge = choix faux).
+  if (isExamReveal) {
+    const isUserAnswer = selectedAnswer != null && option === selectedAnswer
     if (isCorrectAnswer) return "user-correct"
     if (isUserAnswer && !isCorrectAnswer) return "user-incorrect"
     return "default"
@@ -60,7 +70,7 @@ const getAnswerState = (
     return "correct"
   }
 
-  // Exam mode with selection
+  // Sélection sans révélation (examen en cours / tuteur en attente)
   if (selectedAnswer !== undefined && option === selectedAnswer) {
     return "selected"
   }
@@ -69,14 +79,18 @@ const getAnswerState = (
 }
 
 // ===== Question Explanation Component =====
+type ExplanationImage = { url: string; storagePath: string; order: number }
+
 type QuestionExplanationProps = {
   explanation: string
   references?: string[]
+  explanationImages?: ExplanationImage[]
 }
 
 const QuestionExplanation = ({
   explanation,
   references,
+  explanationImages,
 }: QuestionExplanationProps) => {
   return (
     <motion.div
@@ -97,6 +111,27 @@ const QuestionExplanation = ({
         <p className="text-sm leading-relaxed whitespace-pre-line text-blue-800 dark:text-blue-200">
           {explanation}
         </p>
+
+        {/* Images d'explication (correction uniquement). `url` est déjà l'URL CDN
+            (dérivée côté serveur). Affichées sous le texte de l'explication. */}
+        {explanationImages && explanationImages.length > 0 && (
+          <div
+            data-testid="explanation-images"
+            className="mt-4 flex flex-wrap gap-2"
+          >
+            {[...explanationImages]
+              .sort((a, b) => a.order - b.order)
+              .map((img) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={img.storagePath}
+                  src={img.url}
+                  alt="Image d'explication"
+                  className="max-h-48 rounded-lg border border-blue-200 dark:border-blue-800"
+                />
+              ))}
+          </div>
+        )}
       </div>
 
       {/* References */}
@@ -129,6 +164,7 @@ export const QuestionCard = ({
   question,
   lazyExplanation,
   lazyReferences,
+  lazyExplanationImages,
   variant = "default",
   selectedAnswer,
   onAnswerSelect,
@@ -154,6 +190,10 @@ export const QuestionCard = ({
   // fetche via getQuestionExplanations quand l'user déplie la carte.
   const effectiveExplanation = lazyExplanation ?? question.explanation
   const effectiveReferences = lazyReferences ?? question.references
+  // Images d'explication : lazy (correction examen) prioritaires, sinon
+  // embarquées sur la question (correction entraînement / vitrine eager).
+  const effectiveExplanationImages =
+    lazyExplanationImages ?? question.explanationImages
   // Determine card styling based on variant and state
   const getCardStyles = () => {
     if (variant === "review") {
@@ -205,6 +245,12 @@ export const QuestionCard = ({
   const isReviewVariant = variant === "review"
   const isExamVariant = variant === "exam"
   const isDefaultVariant = variant === "default"
+  // Révélation tuteur en passation : seulement si on montre la correction ET
+  // qu'on dispose réellement de la bonne réponse. Le `!!question.correctAnswer`
+  // protège la vitrine publique (variant="exam", showCorrectAnswer défaut true,
+  // mais SANS correctAnswer) — sinon le choix serait marqué faux à tort.
+  const isExamReveal =
+    isExamVariant && showCorrectAnswer && !!question.correctAnswer
 
   return (
     <motion.div
@@ -377,7 +423,8 @@ export const QuestionCard = ({
 
       {/* Image(s) */}
       {showImage &&
-        question.images?.length &&
+        question.images &&
+        question.images.length > 0 &&
         (isExamVariant || (isDefaultVariant && showImage)) && (
           <div className="mb-5">
             <QuestionImageGallery
@@ -419,10 +466,13 @@ export const QuestionCard = ({
                 showCorrectAnswer,
                 userAnswer,
                 isReviewVariant,
+                isExamReveal,
               )
 
               const isCorrectAnswer = option === question.correctAnswer
               const isUserAnswer = option === userAnswer
+              const isSelectedOption =
+                selectedAnswer != null && option === selectedAnswer
 
               return (
                 <AnswerOption
@@ -438,10 +488,14 @@ export const QuestionCard = ({
                   disabled={disabled}
                   showCheckIcon={
                     (isReviewVariant && isCorrectAnswer) ||
-                    (isDefaultVariant && showCorrectAnswer && isCorrectAnswer)
+                    (isDefaultVariant &&
+                      showCorrectAnswer &&
+                      isCorrectAnswer) ||
+                    (isExamReveal && isCorrectAnswer)
                   }
                   showXIcon={
-                    isReviewVariant && isUserAnswer && !isCorrectAnswer
+                    (isReviewVariant && isUserAnswer && !isCorrectAnswer) ||
+                    (isExamReveal && isSelectedOption && !isCorrectAnswer)
                   }
                   compact={isDefaultVariant}
                 />
@@ -462,6 +516,7 @@ export const QuestionCard = ({
               <QuestionExplanation
                 explanation={effectiveExplanation}
                 references={effectiveReferences}
+                explanationImages={effectiveExplanationImages}
               />
             ) : (
               <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-900/20">
@@ -473,6 +528,21 @@ export const QuestionCard = ({
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Passation tuteur : la correction + explication se révèlent après
+            validation (variant exam). `isExamReveal` n'est vrai que si le runner
+            montre la correction ET qu'on a réellement la bonne réponse — rien ne
+            fuite en examen / entraînement test (feedback différé) ni sur la
+            vitrine publique (pas de correctAnswer). Pas d'images d'explication
+            ici — canal réservé à la correction (variant review), anti-triche F3. */}
+        {isExamReveal && effectiveExplanation !== undefined && (
+          <div className="mt-4">
+            <QuestionExplanation
+              explanation={effectiveExplanation}
+              references={effectiveReferences}
+            />
           </div>
         )}
       </AnimatePresence>
