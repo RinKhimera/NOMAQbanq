@@ -18,13 +18,16 @@ import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
 import {
+  account,
   examParticipations,
   exams,
   products,
+  session,
   transactions,
   user,
   userAccess,
 } from "@/db/schema"
+import { describeUserAgent } from "@/features/users/lib/user-agent"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 
@@ -74,6 +77,90 @@ export const getCurrentUser = cache(async () => {
 export type CurrentUser = NonNullable<
   Awaited<ReturnType<typeof getCurrentUser>>
 >
+
+export type LoginMethods = {
+  hasPassword: boolean
+  google: { linked: boolean; linkedAt: Date | null }
+  emailVerified: boolean
+}
+
+// Méthodes de connexion de l'utilisateur courant. Lit `account` (providerId + date
+// seulement — JAMAIS password/accessToken/refreshToken/idToken/scope) et
+// `user.emailVerified`. Self-scoped : filtré sur la session courante.
+export const getLoginMethods = cache(async (): Promise<LoginMethods | null> => {
+  const authSession = await getCurrentSession()
+  if (!authSession?.user) return null
+  const uid = authSession.user.id
+
+  const rows = await db
+    .select({ providerId: account.providerId, createdAt: account.createdAt })
+    .from(account)
+    .where(eq(account.userId, uid))
+
+  const [u] = await db
+    .select({ emailVerified: user.emailVerified })
+    .from(user)
+    .where(eq(user.id, uid))
+    .limit(1)
+
+  const google = rows.find((r) => r.providerId === "google")
+  return {
+    hasPassword: rows.some((r) => r.providerId === "credential"),
+    google: { linked: Boolean(google), linkedAt: google?.createdAt ?? null },
+    emailVerified: u?.emailVerified ?? false,
+  }
+})
+
+// Formateur de date fixe (fuseau Québec) → chaîne stable serveur/client, pas de
+// mismatch d'hydratation. Défini au scope module (pas dans un rendu React).
+const SESSION_DATE_FMT = new Intl.DateTimeFormat("fr-CA", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "America/Toronto",
+})
+
+export type UserSession = {
+  id: string
+  deviceLabel: string
+  ipAddress: string | null
+  lastActiveLabel: string
+  isCurrent: boolean
+}
+
+// Sessions ACTIVES (non expirées) de l'utilisateur courant. Colonnes NON-secrètes
+// uniquement — JAMAIS `session.token`. `isCurrent` par comparaison de l'id à la
+// session courante. Dates pré-formatées serveur (fuseau fixe) → pas de mismatch
+// d'hydratation. Borné à 50.
+export const getUserSessions = cache(async (): Promise<UserSession[]> => {
+  const authSession = await getCurrentSession()
+  if (!authSession?.user) return []
+  const currentId = authSession.session.id
+
+  const rows = await db
+    .select({
+      id: session.id,
+      ipAddress: session.ipAddress,
+      userAgent: session.userAgent,
+      updatedAt: session.updatedAt,
+    })
+    .from(session)
+    .where(
+      and(
+        eq(session.userId, authSession.user.id),
+        gt(session.expiresAt, new Date()),
+      ),
+    )
+    .orderBy(desc(session.updatedAt))
+    .limit(50)
+
+  return rows.map((r) => ({
+    id: r.id,
+    deviceLabel: describeUserAgent(r.userAgent),
+    ipAddress: r.ipAddress,
+    lastActiveLabel: SESSION_DATE_FMT.format(r.updatedAt),
+    isCurrent: r.id === currentId,
+  }))
+})
 
 export type SelectableUser = { id: string; name: string; email: string }
 

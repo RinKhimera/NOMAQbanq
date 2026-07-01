@@ -22,7 +22,9 @@ describe("describeUserAgent", () => {
 
   it("détecte Firefox sur Linux et Safari sur iOS", () => {
     expect(
-      describeUserAgent("Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Firefox/120.0"),
+      describeUserAgent(
+        "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Firefox/120.0",
+      ),
     ).toBe("Firefox · Linux")
     expect(
       describeUserAgent(
