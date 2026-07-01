@@ -4,6 +4,7 @@ import { ProfileHeader } from "@/app/(dashboard)/dashboard/profil/_components/pr
 import { ProfilePersonalInfo } from "@/app/(dashboard)/dashboard/profil/_components/profile-personal-info"
 import { ProfilePreferences } from "@/app/(dashboard)/dashboard/profil/_components/profile-preferences"
 import { ProfileSessions } from "@/app/(dashboard)/dashboard/profil/_components/profile-sessions"
+import { getNotificationPreferences } from "@/features/notifications/dal"
 import {
   getCurrentUser,
   getLoginMethods,
@@ -30,9 +31,10 @@ export default async function AdminProfilPage() {
     )
   }
 
-  const [methods, sessions] = await Promise.all([
+  const [methods, sessions, notificationPreferences] = await Promise.all([
     getLoginMethods(),
     getUserSessions(),
+    getNotificationPreferences(),
   ])
   const googleEnabled = Boolean(
     env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
@@ -60,7 +62,11 @@ export default async function AdminProfilPage() {
       <ProfileSessions sessions={sessions} />
 
       {/* Preferences */}
-      <ProfilePreferences />
+      <ProfilePreferences
+        notificationPreferences={
+          notificationPreferences ?? { examResults: true, accessExpiry: true }
+        }
+      />
 
       {/* Danger zone */}
       <ProfileDangerZone email={currentUser.email} />

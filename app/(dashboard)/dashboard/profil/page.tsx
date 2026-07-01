@@ -1,3 +1,4 @@
+import { getNotificationPreferences } from "@/features/notifications/dal"
 import { getAccessStatus } from "@/features/payments/dal"
 import {
   getCurrentUser,
@@ -32,11 +33,13 @@ export default async function ProfilPage() {
     )
   }
 
-  const [accessStatus, methods, sessions] = await Promise.all([
-    getAccessStatus(),
-    getLoginMethods(),
-    getUserSessions(),
-  ])
+  const [accessStatus, methods, sessions, notificationPreferences] =
+    await Promise.all([
+      getAccessStatus(),
+      getLoginMethods(),
+      getUserSessions(),
+      getNotificationPreferences(),
+    ])
   const googleEnabled = Boolean(
     env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
   )
@@ -66,7 +69,11 @@ export default async function ProfilPage() {
       <ProfileSessions sessions={sessions} />
 
       {/* Preferences */}
-      <ProfilePreferences />
+      <ProfilePreferences
+        notificationPreferences={
+          notificationPreferences ?? { examResults: true, accessExpiry: true }
+        }
+      />
 
       {/* Danger zone */}
       <ProfileDangerZone email={currentUser.email} />

@@ -1,20 +1,15 @@
 "use client"
 
-import { IconBell, IconMoon, IconSettings, IconSun } from "@tabler/icons-react"
+import { IconMoon, IconSettings, IconSun } from "@tabler/icons-react"
 import { Monitor } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useTheme } from "next-themes"
 import { useSyncExternalStore } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Switch } from "@/components/ui/switch"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+import type { NotificationPreferences } from "@/features/notifications/dal"
 import { cn } from "@/lib/utils"
+import { ProfileNotifications } from "./profile-notifications"
 
 // useSyncExternalStore pour détecter le montage côté client sans setState dans useEffect
 const emptySubscribe = () => () => {}
@@ -165,7 +160,11 @@ const ThemeOption = ({
   )
 }
 
-export const ProfilePreferences = () => {
+export const ProfilePreferences = ({
+  notificationPreferences,
+}: {
+  notificationPreferences: NotificationPreferences
+}) => {
   const prefersReducedMotion = useReducedMotion()
   const { theme, setTheme } = useTheme()
 
@@ -206,28 +205,8 @@ export const ProfilePreferences = () => {
         </CardHeader>
 
         <CardContent className="divide-y divide-gray-100 p-0 dark:divide-gray-800">
-          {/* Email notifications - disabled */}
-          <PreferenceItem
-            icon={IconBell}
-            iconColorClass="text-rose-600 dark:text-rose-400"
-            iconBgClass="bg-rose-100 dark:bg-rose-900/30"
-            label="Notifications par email"
-            description="Recevez des rappels et mises à jour par email"
-            disabled
-          >
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <Switch disabled checked={false} />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Bientôt disponible</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </PreferenceItem>
+          {/* Email notifications */}
+          <ProfileNotifications preferences={notificationPreferences} />
 
           {/* Theme preference - working */}
           <PreferenceItem
