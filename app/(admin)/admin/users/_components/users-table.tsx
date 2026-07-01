@@ -41,9 +41,9 @@ interface UsersTableProps {
   sortOrder: SortOrder
   onSort: (field: SortBy) => void
   isLoading?: boolean
-  canLoadMore: boolean
-  onLoadMore: () => void
-  isLoadingMore?: boolean
+  /** Pagination numérotée (numéro de ligne global). */
+  page: number
+  pageSize: number
 }
 
 function AccessBadge({
@@ -104,9 +104,8 @@ export function UsersTable({
   sortOrder,
   onSort,
   isLoading,
-  canLoadMore,
-  onLoadMore,
-  isLoadingMore,
+  page,
+  pageSize,
 }: UsersTableProps) {
   const getSortIcon = (field: SortBy) => {
     if (sortBy !== field)
@@ -199,7 +198,7 @@ export function UsersTable({
               )}
             >
               <TableCell className="pl-4 font-medium text-gray-500">
-                {index + 1}
+                {(page - 1) * pageSize + index + 1}
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-3">
@@ -280,21 +279,6 @@ export function UsersTable({
           ))}
         </TableBody>
       </Table>
-
-      {/* Load More */}
-      {canLoadMore && (
-        <div className="flex justify-center border-t border-gray-100 p-4 dark:border-gray-800">
-          <Button
-            variant="outline"
-            onClick={onLoadMore}
-            disabled={isLoadingMore}
-            className="gap-2"
-          >
-            {isLoadingMore && <LoaderCircle className="h-4 w-4 animate-spin" />}
-            Charger plus d&apos;utilisateurs
-          </Button>
-        </div>
-      )}
     </div>
   )
 }

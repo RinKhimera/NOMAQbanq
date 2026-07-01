@@ -26,7 +26,7 @@ export default async function UsersPage() {
       <Suspense fallback={null}>
         <UsersManager
           initialUsers={usersPage.items}
-          initialNextOffset={usersPage.nextOffset}
+          initialTotal={usersPage.total}
           stats={stats}
           exportUsers={exportUsers}
           products={products}

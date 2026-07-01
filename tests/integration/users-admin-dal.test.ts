@@ -186,7 +186,7 @@ describe("getUsersWithFilters (filtres SQL)", () => {
     expect(page.items.map((u) => u.id)).toEqual([uAdmin])
   })
 
-  it("tri par nom asc insensible à la casse + pagination par offset", async () => {
+  it("tri par nom asc insensible à la casse + offset + total", async () => {
     const p1 = await getUsersWithFilters({
       search: suffix,
       sortBy: "name",
@@ -194,7 +194,7 @@ describe("getUsersWithFilters (filtres SQL)", () => {
       limit: 2,
     })
     expect(p1.items).toHaveLength(2)
-    expect(p1.nextOffset).toBe(2)
+    expect(p1.total).toBe(5) // mes 5 users isolés par `search: suffix`
     // Alpha, Beta en tête (ordre alpha).
     expect(p1.items[0]?.id).toBe(uExpiringTrain) // "Alpha"
     expect(p1.items[1]?.id).toBe(uNever) // "Beta"
@@ -207,7 +207,7 @@ describe("getUsersWithFilters (filtres SQL)", () => {
       offset: 4,
     })
     expect(p3.items).toHaveLength(1)
-    expect(p3.nextOffset).toBeNull()
+    expect(p3.total).toBe(5)
   })
 })
 

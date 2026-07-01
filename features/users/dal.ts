@@ -236,8 +236,8 @@ export type AdminUserRow = {
 
 export type AdminUsersPage = {
   items: AdminUserRow[]
-  /** Offset de la page suivante ; `null` si terminé. */
-  nextOffset: number | null
+  /** Total filtré (pagination numérotée). */
+  total: number
 }
 
 export type UsersFilters = {
@@ -259,8 +259,8 @@ export type UsersFilters = {
  * SQL : recherche ILIKE (nom/email/username), filtre rôle + plage de dates, et
  * **statut d'accès** via deux LEFT JOIN aliasés sur `user_access` (exam/training,
  * au plus 1 ligne chacun grâce à l'unicité). Pagination par offset (liste admin
- * bornée, tri configurable → keyset peu pratique). `limit + 1` pour savoir s'il
- * reste une page. Garde admin (defense-in-depth).
+ * bornée, tri configurable → keyset peu pratique) + `total` filtré (même WHERE,
+ * mêmes jointures — pas de gonflage grâce à l'unicité). Garde admin.
  */
 export const getUsersWithFilters = async ({
   search,
@@ -341,35 +341,54 @@ export const getUsersWithFilters = async ({
         : sql`lower(${user.name})`
   const dir = sortOrder === "desc" ? desc : asc
 
-  const rows = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      image: user.image,
-      bio: user.bio,
-      role: user.role,
-      createdAt: user.createdAt,
-      examExpiresAt: exam.expiresAt,
-      trainingExpiresAt: training.expiresAt,
-    })
-    .from(user)
-    .leftJoin(exam, and(eq(exam.userId, user.id), eq(exam.accessType, "exam")))
-    .leftJoin(
-      training,
-      and(eq(training.userId, user.id), eq(training.accessType, "training")),
-    )
-    .where(where)
-    .orderBy(dir(sortCol), dir(user.id))
-    .limit(safeLimit + 1)
-    .offset(safeOffset)
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        image: user.image,
+        bio: user.bio,
+        role: user.role,
+        createdAt: user.createdAt,
+        examExpiresAt: exam.expiresAt,
+        trainingExpiresAt: training.expiresAt,
+      })
+      .from(user)
+      .leftJoin(
+        exam,
+        and(eq(exam.userId, user.id), eq(exam.accessType, "exam")),
+      )
+      .leftJoin(
+        training,
+        and(eq(training.userId, user.id), eq(training.accessType, "training")),
+      )
+      .where(where)
+      .orderBy(dir(sortCol), dir(user.id))
+      .limit(safeLimit)
+      .offset(safeOffset),
+    // Même WHERE + mêmes jointures que la page : le filtre `accessStatus`
+    // référence les alias, et l'unicité de `user_access` garantit ≤ 1 ligne
+    // par user et par type → count non gonflé.
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(user)
+      .leftJoin(
+        exam,
+        and(eq(exam.userId, user.id), eq(exam.accessType, "exam")),
+      )
+      .leftJoin(
+        training,
+        and(eq(training.userId, user.id), eq(training.accessType, "training")),
+      )
+      .where(where),
+  ])
 
-  const hasMore = rows.length > safeLimit
-  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows
+  const total = totalRows[0]?.n ?? 0
   const nowMs = now.getTime()
 
-  const items: AdminUserRow[] = pageRows.map((r) => ({
+  const items: AdminUserRow[] = rows.map((r) => ({
     id: r.id,
     name: r.name,
     username: r.username,
@@ -382,7 +401,7 @@ export const getUsersWithFilters = async ({
     trainingAccess: toAccessInfo(r.trainingExpiresAt, nowMs),
   }))
 
-  return { items, nextOffset: hasMore ? safeOffset + safeLimit : null }
+  return { items, total }
 }
 
 // ============================================

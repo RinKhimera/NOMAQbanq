@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { DateRange } from "react-day-picker"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ExportUsersButton } from "@/components/admin/export-users-button"
+import { TablePagination } from "@/components/admin/table-pagination"
 import type { ProductView } from "@/features/payments/dal"
 import { loadUsersPage } from "@/features/users/actions"
 import type {
@@ -32,7 +33,7 @@ const PAGE = 50
 
 interface UsersManagerProps {
   initialUsers: AdminUserRow[]
-  initialNextOffset: number | null
+  initialTotal: number
   stats: UsersStatsView
   exportUsers: ExportUser[]
   products: ProductView[]
@@ -41,7 +42,7 @@ interface UsersManagerProps {
 
 export function UsersManager({
   initialUsers,
-  initialNextOffset,
+  initialTotal,
   stats,
   exportUsers,
   products,
@@ -53,8 +54,16 @@ export function UsersManager({
 
   const [searchQuery, setSearchQuery] = useState("")
   const [debouncedSearch, setDebouncedSearch] = useState("")
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(PAGE)
+
+  // Debounce ; le reset page se fait ICI (callback async → ESLint OK) pour
+  // éviter un fetch superflu avec l'ancien terme sur une page > 1.
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300)
+    const t = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setPage(1)
+    }, 300)
     return () => clearTimeout(t)
   }, [searchQuery])
 
@@ -65,9 +74,8 @@ export function UsersManager({
   const [sortOrder, setSortOrder] = useState<SortOrder>("asc")
 
   const [users, setUsers] = useState<AdminUserRow[]>(initialUsers)
-  const [nextOffset, setNextOffset] = useState<number | null>(initialNextOffset)
+  const [total, setTotal] = useState(initialTotal)
   const [isPending, startTransition] = useTransition()
-  const [isLoadingMore, startLoadMore] = useTransition()
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(
     initialUserId,
@@ -87,8 +95,8 @@ export function UsersManager({
     [debouncedSearch, role, accessStatus, dateRange, sortBy, sortOrder],
   )
 
-  // Recharge la 1re page à chaque changement de filtre/tri/recherche.
-  // Sauté au 1er rendu : la page serveur a déjà fourni les données initiales.
+  // Recharge à chaque changement de filtre/tri/page/taille. Sauté au 1er rendu :
+  // la page serveur a déjà fourni la page 1 sans filtre.
   const firstRender = useRef(true)
   useEffect(() => {
     if (firstRender.current) {
@@ -96,40 +104,53 @@ export function UsersManager({
       return
     }
     startTransition(async () => {
-      const page = await loadUsersPage({
+      const res = await loadUsersPage({
         ...buildFilters(),
-        offset: 0,
-        limit: PAGE,
+        offset: (page - 1) * pageSize,
+        limit: pageSize,
       })
-      setUsers(page.items)
-      setNextOffset(page.nextOffset)
+      setUsers(res.items)
+      setTotal(res.total)
+      // Clamp hors-borne (callback async → ESLint OK) : page devenue vide
+      // après une mutation → ramène à la dernière page valide.
+      if (res.items.length === 0 && page > 1 && res.total > 0) {
+        setPage(Math.ceil(res.total / pageSize))
+      }
     })
-  }, [buildFilters])
+  }, [buildFilters, page, pageSize])
 
-  const handleLoadMore = () => {
-    if (nextOffset === null) return
-    startLoadMore(async () => {
-      const page = await loadUsersPage({
+  // Recharge la page courante (après un octroi d'accès depuis le panneau).
+  const reload = () => {
+    startTransition(async () => {
+      const res = await loadUsersPage({
         ...buildFilters(),
-        offset: nextOffset,
-        limit: PAGE,
+        offset: (page - 1) * pageSize,
+        limit: pageSize,
       })
-      setUsers((prev) => [...prev, ...page.items])
-      setNextOffset(page.nextOffset)
+      setUsers(res.items)
+      setTotal(res.total)
     })
   }
 
-  // Recharge la page courante (après un octroi d'accès depuis le panneau).
-  const reloadFirstPage = () => {
-    startTransition(async () => {
-      const page = await loadUsersPage({
-        ...buildFilters(),
-        offset: 0,
-        limit: PAGE,
-      })
-      setUsers(page.items)
-      setNextOffset(page.nextOffset)
-    })
+  // Chaque changement de filtre/tri repart page 1 (setter, pas effet).
+  const handleRoleChange = (r: RoleFilter) => {
+    setRole(r)
+    setPage(1)
+  }
+
+  const handleAccessStatusChange = (s: AccessStatusFilter) => {
+    setAccessStatus(s)
+    setPage(1)
+  }
+
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range)
+    setPage(1)
+  }
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size)
+    setPage(1)
   }
 
   const handleSort = (field: SortBy) => {
@@ -139,6 +160,7 @@ export function UsersManager({
       setSortBy(field)
       setSortOrder("asc")
     }
+    setPage(1)
   }
 
   const handleUserSelect = useCallback(
@@ -172,6 +194,7 @@ export function UsersManager({
     setDateRange(undefined)
     setSortBy("name")
     setSortOrder("asc")
+    setPage(1)
   }
 
   const hasActiveFilters =
@@ -200,11 +223,11 @@ export function UsersManager({
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         role={role}
-        onRoleChange={setRole}
+        onRoleChange={handleRoleChange}
         accessStatus={accessStatus}
-        onAccessStatusChange={setAccessStatus}
+        onAccessStatusChange={handleAccessStatusChange}
         dateRange={dateRange}
-        onDateRangeChange={setDateRange}
+        onDateRangeChange={handleDateRangeChange}
         isSearching={isPending && debouncedSearch !== ""}
         onClearFilters={handleClearFilters}
         hasActiveFilters={hasActiveFilters}
@@ -218,10 +241,21 @@ export function UsersManager({
         sortOrder={sortOrder}
         onSort={handleSort}
         isLoading={isPending}
-        canLoadMore={nextOffset !== null}
-        onLoadMore={handleLoadMore}
-        isLoadingMore={isLoadingMore}
+        page={page}
+        pageSize={pageSize}
       />
+
+      {total > 0 && (
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={handlePageSizeChange}
+          isLoading={isPending}
+          itemNoun={{ one: "utilisateur", many: "utilisateurs" }}
+        />
+      )}
 
       <UserSidePanel
         userId={selectedUserId}
@@ -229,7 +263,7 @@ export function UsersManager({
         onOpenChange={handlePanelClose}
         products={products}
         users={selectableUsers}
-        onMutated={reloadFirstPage}
+        onMutated={reload}
       />
     </>
   )
