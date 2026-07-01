@@ -12,12 +12,19 @@ import {
   defaultFilters,
 } from "@/components/admin/question-browser"
 import { Button } from "@/components/ui/button"
+import type { ExamPickerOption } from "@/features/exams/dal"
 import type { QuestionStatsEnriched } from "@/features/questions/dal"
 import { ExportQuestionsButton } from "./export-questions-button"
 import { QuestionSidePanel } from "./question-side-panel"
 import { QuestionsStatsRow } from "./questions-stats-row"
 
-export function QuestionsManager({ stats }: { stats: QuestionStatsEnriched }) {
+export function QuestionsManager({
+  stats,
+  examOptions,
+}: {
+  stats: QuestionStatsEnriched
+  examOptions: ExamPickerOption[]
+}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const initialQuestionId = searchParams.get("question")
@@ -69,6 +76,12 @@ export function QuestionsManager({ stats }: { stats: QuestionStatsEnriched }) {
               }
               questionCount={stats.totalCount}
             />
+            {(currentFilters.usageFilter !== "all" ||
+              currentFilters.usedInExamId !== null) && (
+              <span className="text-xs text-amber-600">
+                L&apos;export ne tient pas compte du filtre d&apos;usage
+              </span>
+            )}
             <Link href="/admin/questions/nouvelle">
               <Button className="gap-2 bg-linear-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-600 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30">
                 <Plus className="h-4 w-4" />
@@ -83,6 +96,7 @@ export function QuestionsManager({ stats }: { stats: QuestionStatsEnriched }) {
 
       <QuestionBrowser
         mode="browse"
+        examOptions={examOptions}
         previewQuestionId={selectedQuestionId}
         onPreviewChange={handlePreviewChange}
         onFiltersChange={setCurrentFilters}

@@ -56,7 +56,7 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { createExam } from "@/features/exams/actions"
-import type { EligibleCandidate } from "@/features/exams/dal"
+import type { EligibleCandidate, ExamPickerOption } from "@/features/exams/dal"
 import type { SelectableUser } from "@/features/users/dal"
 import { cn } from "@/lib/utils"
 import {
@@ -70,9 +70,13 @@ import { AudienceEligibility } from "../../_components/audience-eligibility"
 
 interface ExamCreateFormProps {
   candidates: EligibleCandidate[]
+  examOptions: ExamPickerOption[]
 }
 
-export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
+export function ExamCreateForm({
+  candidates,
+  examOptions,
+}: ExamCreateFormProps) {
   const router = useRouter()
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([])
   const [selectedUsers, setSelectedUsers] = useState<SelectableUser[]>([])
@@ -635,6 +639,7 @@ export function ExamCreateForm({ candidates }: ExamCreateFormProps) {
                 <FormItem>
                   <QuestionBrowser
                     mode="select"
+                    examOptions={examOptions}
                     selectedIds={selectedQuestions}
                     onSelectionChange={handleQuestionSelectionChange}
                     maxSelection={numberOfQuestions}
