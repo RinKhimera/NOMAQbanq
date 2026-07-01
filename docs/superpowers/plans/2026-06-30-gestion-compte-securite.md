@@ -17,11 +17,13 @@
 ## File Structure
 
 **Backend (créés)**
+
 - `features/users/lib/user-agent.ts` — parse léger `userAgent` → libellé lisible (pur, testable).
 - `features/users/lib/account-deletion.ts` — constante `DELETION_GRACE_MS` + `isGraceExpired()` (pur).
 - `features/users/cron.ts` — `anonymizeExpiredDeletedAccounts()`.
 
 **Backend (modifiés)**
+
 - `features/users/dal.ts` — ajoute `getLoginMethods()`, `getUserSessions()`.
 - `features/users/actions.ts` — ajoute `revokeUserSession()`, `revokeOtherUserSessions()`, `deleteMyAccount()`.
 - `schemas/auth.ts` — ajoute `deleteAccountSchema`.
@@ -30,6 +32,7 @@
 - `lib/auth-errors.ts` — message FR pour « email déjà existant » (edge case E1).
 
 **Frontend (créés)**
+
 - `app/(dashboard)/dashboard/profil/_components/profile-login-methods.tsx`
 - `app/(dashboard)/dashboard/profil/_components/profile-password.tsx`
 - `app/(dashboard)/dashboard/profil/_components/profile-sessions.tsx`
@@ -37,11 +40,13 @@
 - `app/compte-supprime/page.tsx` — page publique d'adieu (hors garde de session).
 
 **Frontend (modifiés)**
+
 - `app/(dashboard)/dashboard/profil/page.tsx` — rend les nouveaux composants.
 - `app/(admin)/admin/profil/page.tsx` — idem.
 - `app/(dashboard)/dashboard/profil/_components/profile-security.tsx` — **supprimé** (remplacé par login-methods + password).
 
 **Tests (créés)**
+
 - `tests/users/user-agent.test.ts` (unit)
 - `tests/users/account-deletion.test.ts` (unit)
 - `tests/integration/users-account.test.ts` (DAL + actions + cron)
@@ -50,6 +55,7 @@
 - `tests/users/profile-danger-zone.test.tsx`
 
 **Docs/règles (modifiés)**
+
 - `.claude/rules/data-layer.md` — acte l'exception de lecture self-scoped de `account`/`session`.
 
 ---
@@ -59,6 +65,7 @@
 ### Task 1 : Helper de parse User-Agent
 
 **Files:**
+
 - Create: `features/users/lib/user-agent.ts`
 - Test: `tests/users/user-agent.test.ts`
 
@@ -89,11 +96,15 @@ describe("describeUserAgent", () => {
   })
 
   it("détecte Firefox sur Linux et Safari sur iOS", () => {
-    expect(describeUserAgent("Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Firefox/120.0")).toBe(
-      "Firefox · Linux",
-    )
     expect(
-      describeUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) ... Safari/604.1"),
+      describeUserAgent(
+        "Mozilla/5.0 (X11; Linux x86_64; rv:120.0) Firefox/120.0",
+      ),
+    ).toBe("Firefox · Linux")
+    expect(
+      describeUserAgent(
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) ... Safari/604.1",
+      ),
     ).toBe("Safari · iOS")
   })
 })
@@ -159,6 +170,7 @@ git commit -m "feat(users): helper de parse User-Agent pour la liste d'appareils
 ### Task 2 : DAL — `getLoginMethods` et `getUserSessions`
 
 **Files:**
+
 - Modify: `features/users/dal.ts`
 - Test: `tests/integration/users-account.test.ts`
 
@@ -190,8 +202,19 @@ beforeAll(async () => {
     emailVerified: true,
   })
   await db.insert(account).values([
-    { id: createId(), userId, providerId: "credential", accountId: userId, password: "hash" },
-    { id: createId(), userId, providerId: "google", accountId: "google-sub-123" },
+    {
+      id: createId(),
+      userId,
+      providerId: "credential",
+      accountId: userId,
+      password: "hash",
+    },
+    {
+      id: createId(),
+      userId,
+      providerId: "google",
+      accountId: "google-sub-123",
+    },
   ])
   await db.insert(session).values([
     {
@@ -379,6 +402,7 @@ git commit -m "feat(users): DAL getLoginMethods + getUserSessions (self-scoped, 
 ### Task 3 : Actions — révocation de sessions
 
 **Files:**
+
 - Modify: `features/users/actions.ts`
 - Test: `tests/integration/users-account.test.ts` (ajout d'un `describe`)
 
@@ -387,7 +411,10 @@ git commit -m "feat(users): DAL getLoginMethods + getUserSessions (self-scoped, 
 Ajouter en tête l'import de l'action et de la table, puis le `describe`. Imports à ajouter :
 
 ```ts
-import { revokeOtherUserSessions, revokeUserSession } from "@/features/users/actions"
+import {
+  revokeOtherUserSessions,
+  revokeUserSession,
+} from "@/features/users/actions"
 import { requireSession } from "@/lib/auth-guards"
 ```
 
@@ -530,6 +557,7 @@ git commit -m "feat(users): actions revokeUserSession + revokeOtherUserSessions 
 ### Task 4 : Helper de grâce + schéma + action `deleteMyAccount`
 
 **Files:**
+
 - Create: `features/users/lib/account-deletion.ts`
 - Test: `tests/users/account-deletion.test.ts`
 - Modify: `schemas/auth.ts`
@@ -749,6 +777,7 @@ git commit -m "feat(users): suppression douce du compte (grâce 30 j) + confirma
 ### Task 5 : Cron d'anonymisation + câblage
 
 **Files:**
+
 - Create: `features/users/cron.ts`
 - Modify: `app/api/cron/close-expired/route.ts`
 - Test: `tests/integration/users-account.test.ts` (ajout)
@@ -874,30 +903,30 @@ import { anonymizeExpiredDeletedAccounts } from "@/features/users/cron"
 Remplacer le bloc `Promise.all` + log (lignes 39-54) par :
 
 ```ts
-    const [examParticipations, trainingSessions, anonymizedAccounts] =
-      await Promise.all([
-        closeExpiredExamParticipations(),
-        closeExpiredTrainingSessions(),
-        anonymizeExpiredDeletedAccounts(),
-      ])
+const [examParticipations, trainingSessions, anonymizedAccounts] =
+  await Promise.all([
+    closeExpiredExamParticipations(),
+    closeExpiredTrainingSessions(),
+    anonymizeExpiredDeletedAccounts(),
+  ])
 
-    if (
-      examParticipations.closedCount > 0 ||
-      trainingSessions.closedCount > 0 ||
-      anonymizedAccounts.anonymizedCount > 0
-    ) {
-      console.log(
-        `[cron close-expired] examens fermés=${examParticipations.closedCount} ` +
-          `sessions fermées=${trainingSessions.closedCount} ` +
-          `comptes anonymisés=${anonymizedAccounts.anonymizedCount}`,
-      )
-    }
+if (
+  examParticipations.closedCount > 0 ||
+  trainingSessions.closedCount > 0 ||
+  anonymizedAccounts.anonymizedCount > 0
+) {
+  console.log(
+    `[cron close-expired] examens fermés=${examParticipations.closedCount} ` +
+      `sessions fermées=${trainingSessions.closedCount} ` +
+      `comptes anonymisés=${anonymizedAccounts.anonymizedCount}`,
+  )
+}
 
-    return Response.json({
-      examParticipations,
-      trainingSessions,
-      anonymizedAccounts,
-    })
+return Response.json({
+  examParticipations,
+  trainingSessions,
+  anonymizedAccounts,
+})
 ```
 
 - [ ] **Step 5 : Lancer → passe, check, commit**
@@ -916,6 +945,7 @@ git commit -m "feat(users): cron d'anonymisation des comptes supprimés (grâce 
 ### Task 6 : Hooks Better Auth — blocage hors grâce + réactivation
 
 **Files:**
+
 - Modify: `lib/auth.ts`
 
 > Les hooks Better Auth sont difficiles à tester unitairement de façon isolée
@@ -992,6 +1022,7 @@ git commit -m "feat(auth): hooks de suppression (blocage hors grâce + réactiva
 ### Task 7 : Composant `ProfileLoginMethods`
 
 **Files:**
+
 - Create: `app/(dashboard)/dashboard/profil/_components/profile-login-methods.tsx`
 - Test: `tests/users/profile-login-methods.test.tsx`
 
@@ -1043,7 +1074,9 @@ describe("ProfileLoginMethods", () => {
       />,
     )
     expect(screen.getByTestId("login-method-google-link")).toBeInTheDocument()
-    expect(screen.getByTestId("login-method-resend-verification")).toBeInTheDocument()
+    expect(
+      screen.getByTestId("login-method-resend-verification"),
+    ).toBeInTheDocument()
   })
 })
 ```
@@ -1059,7 +1092,12 @@ Expected: FAIL.
 // app/(dashboard)/dashboard/profil/_components/profile-login-methods.tsx
 "use client"
 
-import { IconBrandGoogle, IconKey, IconMail, IconPlugConnected } from "@tabler/icons-react"
+import {
+  IconBrandGoogle,
+  IconKey,
+  IconMail,
+  IconPlugConnected,
+} from "@tabler/icons-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
@@ -1141,7 +1179,7 @@ export const ProfileLoginMethods = ({
     <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
       <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
         <CardTitle className="flex items-center gap-3 text-lg">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
+          <div className="bg-linear-to-br flex h-10 w-10 items-center justify-center rounded-xl from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
             <IconPlugConnected className="h-5 w-5 text-white" />
           </div>
           <span className="font-display font-semibold text-gray-900 dark:text-white">
@@ -1156,11 +1194,17 @@ export const ProfileLoginMethods = ({
           <div className="flex items-center gap-3">
             <IconMail className="h-5 w-5 text-gray-500" />
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">{email}</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                {email}
+              </p>
               {methods.emailVerified ? (
-                <Badge variant="secondary" className="mt-1">Vérifié</Badge>
+                <Badge variant="secondary" className="mt-1">
+                  Vérifié
+                </Badge>
               ) : (
-                <Badge variant="destructive" className="mt-1">Non vérifié</Badge>
+                <Badge variant="destructive" className="mt-1">
+                  Non vérifié
+                </Badge>
               )}
             </div>
           </div>
@@ -1252,6 +1296,7 @@ git commit -m "feat(profil): composant méthodes de connexion (Google, mot de pa
 ### Task 8 : Composant `ProfilePassword` (change + set)
 
 **Files:**
+
 - Create: `app/(dashboard)/dashboard/profil/_components/profile-password.tsx`
 
 > Extraction du formulaire de mot de passe de l'ancien `profile-security.tsx`, avec
@@ -1357,7 +1402,9 @@ const SetPasswordForm = () => {
       toast.error(res.error ?? "Impossible de définir le mot de passe")
       return
     }
-    toast.success("Mot de passe défini — vous pouvez désormais vous connecter par email")
+    toast.success(
+      "Mot de passe défini — vous pouvez désormais vous connecter par email",
+    )
     form.reset()
     location.reload()
   }
@@ -1365,10 +1412,28 @@ const SetPasswordForm = () => {
   return (
     <PasswordCard title="Définir un mot de passe">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          <PasswordField form={form} name="password" label="Nouveau mot de passe" testId="set-new-password" />
-          <PasswordField form={form} name="confirmPassword" label="Confirmer le mot de passe" testId="set-confirm-password" />
-          <SubmitButton pending={form.formState.isSubmitting} label="Définir le mot de passe" testId="set-password-submit" />
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="space-y-4"
+          noValidate
+        >
+          <PasswordField
+            form={form}
+            name="password"
+            label="Nouveau mot de passe"
+            testId="set-new-password"
+          />
+          <PasswordField
+            form={form}
+            name="confirmPassword"
+            label="Confirmer le mot de passe"
+            testId="set-confirm-password"
+          />
+          <SubmitButton
+            pending={form.formState.isSubmitting}
+            label="Définir le mot de passe"
+            testId="set-password-submit"
+          />
         </form>
       </Form>
     </PasswordCard>
@@ -1378,7 +1443,11 @@ const SetPasswordForm = () => {
 const ChangePasswordForm = () => {
   const form = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(changePasswordSchema),
-    defaultValues: { currentPassword: "", newPassword: "", confirmPassword: "" },
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
   })
 
   const onSubmit = async (values: ChangePasswordFormValues) => {
@@ -1398,11 +1467,35 @@ const ChangePasswordForm = () => {
   return (
     <PasswordCard title="Modifier le mot de passe">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" noValidate>
-          <PasswordField form={form} name="currentPassword" label="Mot de passe actuel" testId="security-current-password" autoComplete="current-password" />
-          <PasswordField form={form} name="newPassword" label="Nouveau mot de passe" testId="security-new-password" />
-          <PasswordField form={form} name="confirmPassword" label="Confirmer le nouveau mot de passe" testId="security-confirm-password" />
-          <SubmitButton pending={form.formState.isSubmitting} label="Modifier le mot de passe" testId="security-submit" />
+        <form
+          onSubmit={form.handleSubmit(onSubmit)}
+          className="space-y-4"
+          noValidate
+        >
+          <PasswordField
+            form={form}
+            name="currentPassword"
+            label="Mot de passe actuel"
+            testId="security-current-password"
+            autoComplete="current-password"
+          />
+          <PasswordField
+            form={form}
+            name="newPassword"
+            label="Nouveau mot de passe"
+            testId="security-new-password"
+          />
+          <PasswordField
+            form={form}
+            name="confirmPassword"
+            label="Confirmer le nouveau mot de passe"
+            testId="security-confirm-password"
+          />
+          <SubmitButton
+            pending={form.formState.isSubmitting}
+            label="Modifier le mot de passe"
+            testId="security-submit"
+          />
         </form>
       </Form>
     </PasswordCard>
@@ -1411,14 +1504,22 @@ const ChangePasswordForm = () => {
 
 // --- sous-composants partagés ---
 
-const PasswordCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const PasswordCard = ({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) => (
   <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
     <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
       <CardTitle className="flex items-center gap-3 text-lg">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-orange-500 to-amber-600 shadow-lg shadow-orange-500/20">
+        <div className="bg-linear-to-br flex h-10 w-10 items-center justify-center rounded-xl from-orange-500 to-amber-600 shadow-lg shadow-orange-500/20">
           <IconKey className="h-5 w-5 text-white" />
         </div>
-        <span className="font-display font-semibold text-gray-900 dark:text-white">{title}</span>
+        <span className="font-display font-semibold text-gray-900 dark:text-white">
+          {title}
+        </span>
       </CardTitle>
     </CardHeader>
     <CardContent className="p-6">{children}</CardContent>
@@ -1448,7 +1549,13 @@ const PasswordField = ({
       <FormItem>
         <FormLabel>{label}</FormLabel>
         <FormControl>
-          <Input type="password" autoComplete={autoComplete} placeholder="••••••••" data-testid={testId} {...field} />
+          <Input
+            type="password"
+            autoComplete={autoComplete}
+            placeholder="••••••••"
+            data-testid={testId}
+            {...field}
+          />
         </FormControl>
         <FormMessage />
       </FormItem>
@@ -1456,7 +1563,15 @@ const PasswordField = ({
   />
 )
 
-const SubmitButton = ({ pending, label, testId }: { pending: boolean; label: string; testId: string }) => (
+const SubmitButton = ({
+  pending,
+  label,
+  testId,
+}: {
+  pending: boolean
+  label: string
+  testId: string
+}) => (
   <Button
     type="submit"
     variant="outline"
@@ -1487,6 +1602,7 @@ git commit -m "feat(profil): composant mot de passe (modifier + définir pour Go
 ### Task 9 : Câbler les pages profil (dashboard + admin) & supprimer l'ancien `ProfileSecurity`
 
 **Files:**
+
 - Modify: `app/(dashboard)/dashboard/profil/page.tsx`
 - Modify: `app/(admin)/admin/profil/page.tsx`
 - Delete: `app/(dashboard)/dashboard/profil/_components/profile-security.tsx`
@@ -1515,7 +1631,12 @@ type Props = {
   profilePath: string
 }
 
-export const ProfileAccountSection = ({ methods, email, googleEnabled, profilePath }: Props) => {
+export const ProfileAccountSection = ({
+  methods,
+  email,
+  googleEnabled,
+  profilePath,
+}: Props) => {
   // Google-only : le formulaire « définir » n'apparaît qu'à la demande.
   const [showSetPassword, setShowSetPassword] = useState(false)
 
@@ -1544,7 +1665,11 @@ Remplacer intégralement par :
 
 ```tsx
 import { getAccessStatus } from "@/features/payments/dal"
-import { getCurrentUser, getLoginMethods, getUserSessions } from "@/features/users/dal"
+import {
+  getCurrentUser,
+  getLoginMethods,
+  getUserSessions,
+} from "@/features/users/dal"
 import { env } from "@/lib/env/server"
 import { ProfileAccountSection } from "./_components/profile-account-section"
 import { ProfileDangerZone } from "./_components/profile-danger-zone"
@@ -1561,7 +1686,9 @@ export default async function ProfilPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profil introuvable</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Profil introuvable
+          </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
             Impossible de charger votre profil. Veuillez réessayer.
           </p>
@@ -1575,7 +1702,9 @@ export default async function ProfilPage() {
     getLoginMethods(),
     getUserSessions(),
   ])
-  const googleEnabled = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)
+  const googleEnabled = Boolean(
+    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
+  )
 
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
@@ -1607,14 +1736,18 @@ export default async function ProfilPage() {
 Remplacer intégralement par :
 
 ```tsx
-import { getCurrentUser, getLoginMethods, getUserSessions } from "@/features/users/dal"
-import { env } from "@/lib/env/server"
 import { ProfileAccountSection } from "@/app/(dashboard)/dashboard/profil/_components/profile-account-section"
 import { ProfileDangerZone } from "@/app/(dashboard)/dashboard/profil/_components/profile-danger-zone"
 import { ProfileHeader } from "@/app/(dashboard)/dashboard/profil/_components/profile-header"
 import { ProfilePersonalInfo } from "@/app/(dashboard)/dashboard/profil/_components/profile-personal-info"
 import { ProfilePreferences } from "@/app/(dashboard)/dashboard/profil/_components/profile-preferences"
 import { ProfileSessions } from "@/app/(dashboard)/dashboard/profil/_components/profile-sessions"
+import {
+  getCurrentUser,
+  getLoginMethods,
+  getUserSessions,
+} from "@/features/users/dal"
+import { env } from "@/lib/env/server"
 
 export default async function AdminProfilPage() {
   const currentUser = await getCurrentUser()
@@ -1623,7 +1756,9 @@ export default async function AdminProfilPage() {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center p-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profil introuvable</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Profil introuvable
+          </h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">
             Impossible de charger votre profil. Veuillez réessayer.
           </p>
@@ -1632,8 +1767,13 @@ export default async function AdminProfilPage() {
     )
   }
 
-  const [methods, sessions] = await Promise.all([getLoginMethods(), getUserSessions()])
-  const googleEnabled = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)
+  const [methods, sessions] = await Promise.all([
+    getLoginMethods(),
+    getUserSessions(),
+  ])
+  const googleEnabled = Boolean(
+    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
+  )
 
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
@@ -1684,6 +1824,7 @@ git commit -m "feat(profil): câble méthodes de connexion + mot de passe dans l
 ### Task 10 : Composant `ProfileSessions`
 
 **Files:**
+
 - Create: `app/(dashboard)/dashboard/profil/_components/profile-sessions.tsx`
 - Test: `tests/users/profile-sessions.test.tsx`
 
@@ -1713,8 +1854,18 @@ describe("ProfileSessions", () => {
     render(
       <ProfileSessions
         sessions={[
-          { id: "cur", deviceLabel: "Chrome · Windows", isCurrent: true, ...base },
-          { id: "oth", deviceLabel: "Firefox · Linux", isCurrent: false, ...base },
+          {
+            id: "cur",
+            deviceLabel: "Chrome · Windows",
+            isCurrent: true,
+            ...base,
+          },
+          {
+            id: "oth",
+            deviceLabel: "Firefox · Linux",
+            isCurrent: false,
+            ...base,
+          },
         ]}
       />,
     )
@@ -1726,7 +1877,14 @@ describe("ProfileSessions", () => {
   it("appelle revokeUserSession au clic", async () => {
     render(
       <ProfileSessions
-        sessions={[{ id: "oth", deviceLabel: "Firefox · Linux", isCurrent: false, ...base }]}
+        sessions={[
+          {
+            id: "oth",
+            deviceLabel: "Firefox · Linux",
+            isCurrent: false,
+            ...base,
+          },
+        ]}
       />,
     )
     fireEvent.click(screen.getByTestId("session-revoke-oth"))
@@ -1753,8 +1911,11 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  revokeOtherUserSessions,
+  revokeUserSession,
+} from "@/features/users/actions"
 import type { UserSession } from "@/features/users/dal"
-import { revokeOtherUserSessions, revokeUserSession } from "@/features/users/actions"
 
 export const ProfileSessions = ({ sessions }: { sessions: UserSession[] }) => {
   const router = useRouter()
@@ -1789,13 +1950,21 @@ export const ProfileSessions = ({ sessions }: { sessions: UserSession[] }) => {
     <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
       <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
         <CardTitle className="flex items-center gap-3 text-lg">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-teal-500 to-emerald-600 shadow-lg shadow-teal-500/20">
+          <div className="bg-linear-to-br flex h-10 w-10 items-center justify-center rounded-xl from-teal-500 to-emerald-600 shadow-lg shadow-teal-500/20">
             <IconDeviceLaptop className="h-5 w-5 text-white" />
           </div>
-          <span className="font-display font-semibold text-gray-900 dark:text-white">Appareils connectés</span>
+          <span className="font-display font-semibold text-gray-900 dark:text-white">
+            Appareils connectés
+          </span>
         </CardTitle>
         {hasOthers && (
-          <Button size="sm" variant="outline" disabled={busy} onClick={revokeOthers} data-testid="session-revoke-others">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={busy}
+            onClick={revokeOthers}
+            data-testid="session-revoke-others"
+          >
             <IconLogout className="mr-2 h-4 w-4" />
             Déconnecter les autres
           </Button>
@@ -1807,10 +1976,15 @@ export const ProfileSessions = ({ sessions }: { sessions: UserSession[] }) => {
           <p className="text-sm text-gray-500">Aucune session active.</p>
         )}
         {sessions.map((s) => (
-          <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-4 dark:border-gray-800">
+          <div
+            key={s.id}
+            className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-4 dark:border-gray-800"
+          >
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">{s.deviceLabel}</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  {s.deviceLabel}
+                </p>
                 {s.isCurrent && <Badge variant="secondary">Cet appareil</Badge>}
               </div>
               <p className="mt-1 text-xs text-gray-500">
@@ -1818,7 +1992,13 @@ export const ProfileSessions = ({ sessions }: { sessions: UserSession[] }) => {
               </p>
             </div>
             {!s.isCurrent && (
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => revokeOne(s.id)} data-testid={`session-revoke-${s.id}`}>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() => revokeOne(s.id)}
+                data-testid={`session-revoke-${s.id}`}
+              >
                 Déconnecter
               </Button>
             )}
@@ -1849,6 +2029,7 @@ git commit -m "feat(profil): liste des appareils connectés + révocation"
 ### Task 11 : Composant `ProfileDangerZone` + page publique `/compte-supprime`
 
 **Files:**
+
 - Create: `app/(dashboard)/dashboard/profil/_components/profile-danger-zone.tsx`
 - Create: `app/compte-supprime/page.tsx`
 - Test: `tests/users/profile-danger-zone.test.tsx`
@@ -1866,7 +2047,9 @@ vi.mock("@/features/users/actions", () => ({
   deleteMyAccount: (...a: unknown[]) => deleteMyAccount(...a),
 }))
 const signOut = vi.fn().mockResolvedValue({})
-vi.mock("@/lib/auth-client", () => ({ authClient: { signOut: () => signOut() } }))
+vi.mock("@/lib/auth-client", () => ({
+  authClient: { signOut: () => signOut() },
+}))
 const replace = vi.fn()
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }))
 
@@ -1874,19 +2057,29 @@ describe("ProfileDangerZone", () => {
   it("désactive la suppression tant que l'email saisi ne correspond pas", () => {
     render(<ProfileDangerZone email="a@b.com" />)
     fireEvent.click(screen.getByTestId("danger-open-delete"))
-    const confirm = screen.getByTestId("danger-confirm-delete") as HTMLButtonElement
+    const confirm = screen.getByTestId(
+      "danger-confirm-delete",
+    ) as HTMLButtonElement
     expect(confirm.disabled).toBe(true)
-    fireEvent.change(screen.getByTestId("danger-confirm-email"), { target: { value: "a@b.com" } })
+    fireEvent.change(screen.getByTestId("danger-confirm-email"), {
+      target: { value: "a@b.com" },
+    })
     expect(confirm.disabled).toBe(false)
   })
 
   it("supprime puis déconnecte et redirige", async () => {
     render(<ProfileDangerZone email="a@b.com" />)
     fireEvent.click(screen.getByTestId("danger-open-delete"))
-    fireEvent.change(screen.getByTestId("danger-confirm-email"), { target: { value: "a@b.com" } })
+    fireEvent.change(screen.getByTestId("danger-confirm-email"), {
+      target: { value: "a@b.com" },
+    })
     fireEvent.click(screen.getByTestId("danger-confirm-delete"))
-    await waitFor(() => expect(deleteMyAccount).toHaveBeenCalledWith({ confirmEmail: "a@b.com" }))
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/compte-supprime"))
+    await waitFor(() =>
+      expect(deleteMyAccount).toHaveBeenCalledWith({ confirmEmail: "a@b.com" }),
+    )
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith("/compte-supprime"),
+    )
   })
 })
 ```
@@ -1936,22 +2129,30 @@ export const ProfileDangerZone = ({ email }: { email: string }) => {
     <Card className="overflow-hidden rounded-2xl border-red-200 shadow-sm dark:border-red-900/50">
       <CardHeader className="block border-b border-red-100 bg-red-50/50 px-6 py-4 dark:border-red-900/50 dark:bg-red-950/20">
         <CardTitle className="flex items-center gap-3 text-lg">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-red-500 to-rose-600 shadow-lg shadow-red-500/20">
+          <div className="bg-linear-to-br flex h-10 w-10 items-center justify-center rounded-xl from-red-500 to-rose-600 shadow-lg shadow-red-500/20">
             <IconAlertTriangle className="h-5 w-5 text-white" />
           </div>
-          <span className="font-display font-semibold text-red-700 dark:text-red-400">Zone de danger</span>
+          <span className="font-display font-semibold text-red-700 dark:text-red-400">
+            Zone de danger
+          </span>
         </CardTitle>
       </CardHeader>
 
       <CardContent className="p-6">
         <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-400">
           La suppression désactive votre compte immédiatement. Vous avez{" "}
-          <strong>30 jours</strong> pour le réactiver en vous reconnectant ; passé
-          ce délai, vos données personnelles sont définitivement anonymisées.
+          <strong>30 jours</strong> pour le réactiver en vous reconnectant ;
+          passé ce délai, vos données personnelles sont définitivement
+          anonymisées.
         </p>
 
         {!open ? (
-          <Button variant="destructive" className="mt-4" onClick={() => setOpen(true)} data-testid="danger-open-delete">
+          <Button
+            variant="destructive"
+            className="mt-4"
+            onClick={() => setOpen(true)}
+            data-testid="danger-open-delete"
+          >
             Supprimer mon compte
           </Button>
         ) : (
@@ -1967,10 +2168,19 @@ export const ProfileDangerZone = ({ email }: { email: string }) => {
               data-testid="danger-confirm-email"
             />
             <div className="flex gap-2">
-              <Button variant="destructive" disabled={!matches || busy} onClick={onDelete} data-testid="danger-confirm-delete">
+              <Button
+                variant="destructive"
+                disabled={!matches || busy}
+                onClick={onDelete}
+                data-testid="danger-confirm-delete"
+              >
                 {busy ? "Suppression..." : "Supprimer définitivement"}
               </Button>
-              <Button variant="outline" disabled={busy} onClick={() => setOpen(false)}>
+              <Button
+                variant="outline"
+                disabled={busy}
+                onClick={() => setOpen(false)}
+              >
                 Annuler
               </Button>
             </div>
@@ -1998,8 +2208,8 @@ export default function CompteSupprimePage() {
         Votre compte a été désactivé
       </h1>
       <p className="max-w-md text-gray-600 dark:text-gray-400">
-        Vous avez 30 jours pour le réactiver : reconnectez-vous simplement avec vos
-        identifiants avant la fin du délai. Passé cette date, vos données
+        Vous avez 30 jours pour le réactiver : reconnectez-vous simplement avec
+        vos identifiants avant la fin du délai. Passé cette date, vos données
         personnelles seront définitivement anonymisées.
       </p>
       <Button asChild>
@@ -2041,6 +2251,7 @@ git commit -m "feat(profil): zone de danger (suppression 30 j) + page d'adieu"
 > raffinement de libellé **optionnel**.
 
 **Files:**
+
 - Modify (optionnel) : `lib/auth-errors.ts`
 
 - [ ] **Step 1 : Confirmer le comportement existant**
@@ -2077,6 +2288,7 @@ git commit -m "feat(auth): affine le message FR quand l'email existe déjà à l
 ### Task 13 : Mise à jour de la règle data-layer + revue finale
 
 **Files:**
+
 - Modify: `.claude/rules/data-layer.md`
 
 - [ ] **Step 1 : Amender la section « PII / frontière serveur-client »**
@@ -2154,4 +2366,7 @@ git commit -m "docs(rules): acte la lecture self-scoped account/session pour la 
 Server Action), F2 (fraîcheur unlink gérée + échappatoire freshAge), F3 (message E1
 neutre), F4 (filtre sessions expirées + dates fuseau fixe), durcissements
 (`mapAuthError` FR, `server-only` cron, garde dernier admin).
+
+```
+
 ```

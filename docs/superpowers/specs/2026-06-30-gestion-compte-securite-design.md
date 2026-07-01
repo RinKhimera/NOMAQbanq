@@ -12,8 +12,8 @@ connexion : **email/mot de passe** et **Google**. Les pages profil savent
 aujourd'hui éditer nom/username/bio, l'avatar et changer le mot de passe. Deux
 zones sont des placeholders « bientôt » :
 
-- [profile-security.tsx:182](app/(dashboard)/dashboard/profil/_components/profile-security.tsx#L182) — « Comptes connectés (Google) »
-- [profile-preferences.tsx:209](app/(dashboard)/dashboard/profil/_components/profile-preferences.tsx#L209) — « Notifications par email » (→ Spec B)
+- [profile-security.tsx:182](<app/(dashboard)/dashboard/profil/_components/profile-security.tsx#L182>) — « Comptes connectés (Google) »
+- [profile-preferences.tsx:209](<app/(dashboard)/dashboard/profil/_components/profile-preferences.tsx#L209>) — « Notifications par email » (→ Spec B)
 
 **Objectif** : donner à l'utilisateur connecté un centre de gestion moderne de son
 authentification — lier/délier Google, définir/changer un mot de passe (y compris
@@ -28,6 +28,7 @@ supplémentaire n'est requis.
 ## 2. Périmètre
 
 **Inclus (Spec A)**
+
 - Méthodes de connexion : lier / délier Google ; définir / changer le mot de passe.
 - Statut de vérification email + renvoi de l'email de vérification.
 - Appareils connectés (sessions) : liste + révocation (une session, ou toutes les
@@ -37,6 +38,7 @@ supplémentaire n'est requis.
 - Messages d'edge case sur les pages d'auth (inscription avec email déjà existant).
 
 **Exclus (repoussés)**
+
 - Notifications email → **Spec B** (annexe §11).
 - Changement d'adresse email, 2FA/TOTP, journal d'activité de sécurité détaillé
   → non retenus pour l'instant (voir §12 « Suggestions futures »).
@@ -53,22 +55,22 @@ supplémentaire n'est requis.
   messages FR.
 - **Mêmes sections pour dashboard et admin** : l'admin gère aussi son propre
   compte. La page admin réutilise déjà les composants profil du dashboard
-  ([admin/profil/page.tsx:1-4](app/(admin)/admin/profil/page.tsx)).
+  ([admin/profil/page.tsx:1-4](<app/(admin)/admin/profil/page.tsx>)).
 - **Aucun secret vers le client** (voir §8) : `token`, `password`,
   `accessToken`/`refreshToken`/`idToken` ne quittent jamais le serveur.
 
 ## 4. Matrice des edge cases d'identité
 
-| # | Situation | Comportement cible | Mécanisme |
-|---|-----------|--------------------|-----------|
-| E1 | Inscription email/mdp avec un email **déjà utilisé** | **Déjà géré** : `signUp` échoue → message FR **neutre** existant (« …Essayez de vous connecter. ») ; raffinement de libellé optionnel (ne pas imposer « Google ») | `mapAuthError` (`USER_ALREADY_EXISTS` / `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`) déjà mappé ([lib/auth-errors.ts](lib/auth-errors.ts)) ; bouton Google déjà présent sur l'inscription |
-| E2 | Connexion Google avec un email **déjà en email/mdp** (même email) | **Auto-liaison** transparente (1 user, 2 comptes) | déjà en place : `trustedProviders:["google"]` — à documenter/tester |
-| E3 | User **Google-only** veut aussi un login email/mdp | Profil → « Définir un mot de passe » | **Server Action** `setAccountPassword` → `auth.api.setPassword` (endpoint **server-only**, absent de `authClient`) ; email déjà `emailVerified=true` → aucun blocage `requireEmailVerification` |
-| E4 | User **email/mdp** veut ajouter Google | Profil → « Lier Google » (redirection OAuth) | `authClient.linkSocial({ provider:"google", callbackURL })` (même email imposé) |
-| E5 | Délier Google alors que c'est le **seul** moyen | Refus + message : « Définissez d'abord un mot de passe pour ne pas perdre l'accès. » | erreur native `FAILED_TO_UNLINK_LAST_ACCOUNT` |
-| E5b | Délier avec une session **> 24 h** | `unlinkAccount` exige une session « fraîche » (`freshAge` défaut 24 h) → message FR « reconnectez-vous puis réessayez ». Échappatoire : `session.freshAge:0` | `freshSessionMiddleware` (Better Auth) ; erreur `SESSION_NOT_FRESH` gérée |
-| E6 | Email non vérifié (rare : un utilisateur connecté est déjà vérifié) | Badge « Non vérifié » + « Renvoyer l'email » | `authClient.sendVerificationEmail({ email })`, bouton affiché seulement si `emailVerified=false` |
-| E7 | Mot de passe oublié | Flux non-authentifié **existant** (`/auth`, `sendResetPassword`) | vérifier qu'il est bien branché ; lien depuis le formulaire « changer le mot de passe » |
+| #   | Situation                                                           | Comportement cible                                                                                                                                                | Mécanisme                                                                                                                                                                                       |
+| --- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E1  | Inscription email/mdp avec un email **déjà utilisé**                | **Déjà géré** : `signUp` échoue → message FR **neutre** existant (« …Essayez de vous connecter. ») ; raffinement de libellé optionnel (ne pas imposer « Google ») | `mapAuthError` (`USER_ALREADY_EXISTS` / `USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL`) déjà mappé ([lib/auth-errors.ts](lib/auth-errors.ts)) ; bouton Google déjà présent sur l'inscription           |
+| E2  | Connexion Google avec un email **déjà en email/mdp** (même email)   | **Auto-liaison** transparente (1 user, 2 comptes)                                                                                                                 | déjà en place : `trustedProviders:["google"]` — à documenter/tester                                                                                                                             |
+| E3  | User **Google-only** veut aussi un login email/mdp                  | Profil → « Définir un mot de passe »                                                                                                                              | **Server Action** `setAccountPassword` → `auth.api.setPassword` (endpoint **server-only**, absent de `authClient`) ; email déjà `emailVerified=true` → aucun blocage `requireEmailVerification` |
+| E4  | User **email/mdp** veut ajouter Google                              | Profil → « Lier Google » (redirection OAuth)                                                                                                                      | `authClient.linkSocial({ provider:"google", callbackURL })` (même email imposé)                                                                                                                 |
+| E5  | Délier Google alors que c'est le **seul** moyen                     | Refus + message : « Définissez d'abord un mot de passe pour ne pas perdre l'accès. »                                                                              | erreur native `FAILED_TO_UNLINK_LAST_ACCOUNT`                                                                                                                                                   |
+| E5b | Délier avec une session **> 24 h**                                  | `unlinkAccount` exige une session « fraîche » (`freshAge` défaut 24 h) → message FR « reconnectez-vous puis réessayez ». Échappatoire : `session.freshAge:0`      | `freshSessionMiddleware` (Better Auth) ; erreur `SESSION_NOT_FRESH` gérée                                                                                                                       |
+| E6  | Email non vérifié (rare : un utilisateur connecté est déjà vérifié) | Badge « Non vérifié » + « Renvoyer l'email »                                                                                                                      | `authClient.sendVerificationEmail({ email })`, bouton affiché seulement si `emailVerified=false`                                                                                                |
+| E7  | Mot de passe oublié                                                 | Flux non-authentifié **existant** (`/auth`, `sendResetPassword`)                                                                                                  | vérifier qu'il est bien branché ; lien depuis le formulaire « changer le mot de passe »                                                                                                         |
 
 > Note E3/E7 : `requestPasswordReset`/`setPassword` créent un compte `credential`
 > si absent — un utilisateur Google peut donc obtenir un mot de passe des deux
@@ -76,25 +78,25 @@ supplémentaire n'est requis.
 
 ## 5. Architecture UI
 
-L'actuel [profile-security.tsx](app/(dashboard)/dashboard/profil/_components/profile-security.tsx)
+L'actuel [profile-security.tsx](<app/(dashboard)/dashboard/profil/_components/profile-security.tsx>)
 concentre trop de responsabilités. On le **décompose** en composants isolés,
 rendus dans les deux pages profil (dashboard + admin) :
 
 1. **`profile-login-methods.tsx`** (nouveau) — remplace le placeholder « Comptes
    connectés ». Affiche :
-   - **Google** : « Connecté » (+ date de liaison) avec bouton *Délier*, ou bouton
-     *Lier Google*.
-   - **Mot de passe** : « Défini » + *Modifier*, ou *Définir un mot de passe*
+   - **Google** : « Connecté » (+ date de liaison) avec bouton _Délier_, ou bouton
+     _Lier Google_.
+   - **Mot de passe** : « Défini » + _Modifier_, ou _Définir un mot de passe_
      (cas Google-only).
-   - **Email** : adresse + badge *Vérifié* / *Non vérifié* (+ *Renvoyer l'email*).
+   - **Email** : adresse + badge _Vérifié_ / _Non vérifié_ (+ _Renvoyer l'email_).
 2. **`profile-password.tsx`** (extrait de l'actuel `profile-security`) — formulaire
    de mot de passe. Champ « mot de passe actuel » **masqué** si l'utilisateur n'a
    pas encore de mot de passe (→ `setPassword`), sinon présent (→ `changePassword`
    avec `revokeOtherSessions:true`, comportement actuel conservé).
 3. **`profile-sessions.tsx`** (nouveau) — **Appareils connectés** : par session,
    appareil (parse léger du `userAgent` → ex. « Chrome · Windows »), IP, dernière
-   activité, badge *Cet appareil* pour la session courante. Actions : *Déconnecter*
-   (désactivé sur la session courante) + *Déconnecter partout ailleurs*.
+   activité, badge _Cet appareil_ pour la session courante. Actions : _Déconnecter_
+   (désactivé sur la session courante) + _Déconnecter partout ailleurs_.
 4. **`profile-danger-zone.tsx`** (nouveau) — **Supprimer mon compte** (voir §7).
 
 `profile-security.tsx` devient un léger conteneur (ou est retiré au profit des 4
@@ -110,6 +112,7 @@ sensibles (ex. `login-method-google-link`, `session-revoke-{id}`,
 ## 6. Architecture backend (`features/users`)
 
 ### DAL — [features/users/dal.ts](features/users/dal.ts)
+
 `import "server-only"` + `cache()` + self-guard + **colonnes non-secrètes uniquement** :
 
 - `getLoginMethods()` → `{ hasPassword: boolean; google: { linked: boolean; linkedAt: Date | null }; emailVerified: boolean }`
@@ -130,6 +133,7 @@ sensibles (ex. `login-method-google-link`, `session-revoke-{id}`,
 Types partagés vers le client via `import type` (module effacé à la compilation).
 
 ### Server Actions — [features/users/actions.ts](features/users/actions.ts)
+
 `"use server"` → guard `requireSession` → (`zod.safeParse`) → écriture → `revalidatePath` :
 
 - `revokeUserSession(sessionId: string)` : `DELETE FROM session WHERE id = ? AND user_id = <courant>` (garde d'appartenance anti-IDOR). Refuse de révoquer la session courante (message : utiliser la déconnexion).
@@ -143,6 +147,7 @@ Types partagés vers le client via `import type` (module effacé à la compilati
 > passer par `auth.api.revokeSession` côté serveur si besoin.
 
 ### Mutations côté **client** (`authClient.*`)
+
 Restent des appels client (redirection OAuth / CSRF gérés par Better Auth) — pas
 de proxy Server Action :
 `changePassword`, `linkSocial`, `unlinkAccount`, `sendVerificationEmail`.
@@ -154,7 +159,9 @@ de proxy Server Action :
 > (`auth.api.setPassword`), pas côté client.
 
 ### Config auth — [lib/auth.ts](lib/auth.ts)
+
 Ajout de `databaseHooks` (voir §7 pour la logique complète) :
+
 - `session.create.before` → **bloque** la connexion d'un compte dont le
   `deletedAt` a dépassé la fenêtre de grâce (30 j).
 - `session.create.after` → **réactive** (efface `deletedAt`) un compte supprimé
@@ -165,6 +172,7 @@ limiting existant conservé ; ajout ciblé optionnel sur `/delete-user`,
 `/set-password`, `/unlink-account`.
 
 ### Cron — [features/users/cron.ts](features/users/cron.ts) (nouveau)
+
 - `anonymizeExpiredDeletedAccounts()` : voir §7. Câblé dans la route cron
   existante [close-expired/route.ts](app/api/cron/close-expired/route.ts) au sein
   du `Promise.all` (réutilise l'auth bearer `CRON_SECRET` fail-closed et la
@@ -176,10 +184,11 @@ Modèle **soft-delete réversible → anonymisation différée**, exploitant les
 déjà présentes `user.deletedAt` et `user.anonymizedAt`.
 
 ### 7.1 Déclenchement (`deleteMyAccount`)
+
 1. Guard `requireSession`.
 2. Confirmation : l'utilisateur doit **saisir son adresse email** (friction
-   anti-erreur ; la session active prouve déjà l'identité). *(Ré-authentification
-   par mot de passe = durcissement futur, hors périmètre.)*
+   anti-erreur ; la session active prouve déjà l'identité). _(Ré-authentification
+   par mot de passe = durcissement futur, hors périmètre.)_
 3. **Garde « dernier admin »** : si l'utilisateur est `admin`, refuser s'il ne
    reste aucun autre admin actif (`count(*) admin, deletedAt IS NULL, id ≠ courant`)
    → évite de laisser l'app sans administrateur.
@@ -195,6 +204,7 @@ L'email **reste intact** pendant la grâce (donc toujours « pris » : une
 ré-inscription avec la même adresse renverra « compte déjà existant », cohérent).
 
 ### 7.2 Réactivation (se reconnecter annule la suppression)
+
 - `databaseHooks.session.create.before(session)` : charge l'utilisateur ; si
   `deletedAt != null` **et** `now - deletedAt >= 30 j` → **retourne `false`**
   (connexion bloquée : la grâce est expirée).
@@ -207,8 +217,10 @@ ré-inscription avec la même adresse renverra « compte déjà existant », coh
 > chaque requête (`session.create` ne se déclenche qu'à la connexion).
 
 ### 7.3 Anonymisation définitive (`anonymizeExpiredDeletedAccounts`, cron quotidien)
+
 Cible : `deletedAt < now - 30 j AND anonymizedAt IS NULL`. Pour chaque, en
 transaction :
+
 - `UPDATE user SET name = 'Utilisateur supprimé', email = 'deleted-' || id || '@deleted.invalid', username = NULL, bio = NULL, image = NULL, anonymized_at = now()`
   (`.invalid` = TLD réservé RFC 2606, non délivrable ; `id` garantit l'unicité de
   l'email).
@@ -233,8 +245,8 @@ un nouveau compte propre serait créé (acceptable).
 - **Exposition assumée** : afficher à l'utilisateur ses **propres** appareils
   (IP + `userAgent` dérivé) est un affichage volontaire, dans l'esprit de
   l'exception « activity feed / profil » de la règle data-layer. Le `token` reste
-  strictement serveur. *(Masquage partiel de l'IP possible plus tard ; on affiche
-  l'IP propre telle quelle par défaut.)*
+  strictement serveur. _(Masquage partiel de l'IP possible plus tard ; on affiche
+  l'IP propre telle quelle par défaut.)_
 - **Mise à jour de règle nécessaire** : [data-layer.md](.claude/rules/data-layer.md)
   affirme que les tables `account`/`session` « ne sont lues par aucun DAL métier ».
   On introduit deux lectures **self-scoped, colonnes non-secrètes** → amender la
@@ -246,7 +258,9 @@ un nouveau compte propre serait créé (acceptable).
   réactivation contrôlée (hook `after`).
 
 ## 9. Env / config
+
 Aucune nouvelle variable requise. Rappels :
+
 - Google actif seulement si `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` présents
   (sinon l'UI « Lier Google » doit être masquée/inactive).
 - Emails via AWS SES (`EMAIL_FROM`, `SES_*`) — déjà en place.
@@ -284,6 +298,7 @@ Chaque phase est livrable et testable indépendamment ; revue adversariale possi
 entre les phases.
 
 ## 12. Suggestions futures (non retenues maintenant)
+
 - **Changement d'adresse email** (`authClient.changeEmail`, avec re-vérification).
 - **2FA / TOTP** (plugin `twoFactor` Better Auth + codes de secours).
 - **Journal d'activité de sécurité** (historique de connexions + alerte email
@@ -309,5 +324,5 @@ entre les phases.
 - **Stockage** : table (ou colonnes) de préférences de notification par
   utilisateur (aucune n'existe aujourd'hui).
 - **UI** : remplace le toggle désactivé « Bientôt » de
-  [profile-preferences.tsx:209](app/(dashboard)/dashboard/profil/_components/profile-preferences.tsx#L209).
+  [profile-preferences.tsx:209](<app/(dashboard)/dashboard/profil/_components/profile-preferences.tsx#L209>).
 - **Infra** : AWS SES + react-email déjà en place ([email/](email/)).
