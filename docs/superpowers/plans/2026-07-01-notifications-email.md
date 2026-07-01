@@ -89,13 +89,18 @@ Dans l'objet colonnes, après `completedAt` (ligne ~88), ajouter :
 ```
 
 Dans le tableau d'index de `examParticipations` (fonction `(t) => [ … ]`, ~ligne 95-100),
-ajouter un **index partiel** (le sweep ne scanne que les lignes non notifiées ; en
-régime permanent quasi toutes sont marquées → l'index reste petit) :
+ajouter un **index partiel** ciblé exactement sur ce que le sweep interroge. Le
+prédicat inclut le filtre de statut : sans lui, l'index contiendrait TOUTES les
+participations `in_progress` (jamais marquées) et grossirait avec la charge d'examens
+en cours, pas seulement avec le backlog de notifications. Clé sur `examId` (utile à la
+jointure `exams`) :
 
 ```ts
     index("exam_participations_results_pending_idx")
-      .on(t.status)
-      .where(sql`${t.resultsNotifiedAt} is null`),
+      .on(t.examId)
+      .where(
+        sql`${t.status} in ('completed', 'auto_submitted') and ${t.resultsNotifiedAt} is null`,
+      ),
 ```
 
 - [ ] **Step 3 : `userAccess` — marqueur + index partiel** (`db/schema/payments.ts`)
@@ -861,54 +866,113 @@ git commit -m "feat(cron): déclenche le sweep de notifications après les clôt
 > Stripe ne ré-arme jamais le rappel → rappel **muet** après le 1er cycle sur le
 > canal payant (bug bloquant relevé en revue).
 
-- [ ] **Step 1 : Reset dans `completeStripeTransaction`** (`features/payments/stripe.ts`, ~ligne 136-139)
+> **Garde `renewed` (reset conditionnel).** Le reset ne doit se poser QUE si
+> l'expiration de CE type d'accès avance réellement. Pour un achat **combo**,
+> `txAccessExpiresAt = now + durée` est calculé indépendamment de l'existant : si un
+> type a déjà une expiration plus lointaine (`existing > now+durée`), `finalExpiry`
+> ne bouge pas — remettre `expiryReminderSentAt = null` sans condition ré-armerait à
+> tort un rappel déjà envoyé (doublon différé). On conditionne donc le reset à
+> `renewed = !existing || finalExpiry > existing.expiresAt`. Pour le non-combo (cumul
+> strictement croissant), `renewed` est toujours vrai → comportement inchangé.
+
+- [ ] **Step 1 : Reset conditionnel dans `completeStripeTransaction`** (`features/payments/stripe.ts`, boucle `for (const accessType of types)`, ~ligne 120-140)
 
 Remplacer :
 
 ```ts
-        .onConflictDoUpdate({
-          target: [userAccess.userId, userAccess.accessType],
-          set: { expiresAt: finalExpiry, lastTransactionId: pending.id },
-        })
+const finalExpiry = new Date(
+  Math.max(existing?.expiresAt.getTime() ?? 0, txAccessExpiresAt.getTime()),
+)
+await tx
+  .insert(userAccess)
+  .values({
+    userId: pending.userId,
+    accessType,
+    expiresAt: finalExpiry,
+    lastTransactionId: pending.id,
+  })
+  .onConflictDoUpdate({
+    target: [userAccess.userId, userAccess.accessType],
+    set: { expiresAt: finalExpiry, lastTransactionId: pending.id },
+  })
 ```
 
 par :
 
 ```ts
-        .onConflictDoUpdate({
-          target: [userAccess.userId, userAccess.accessType],
-          set: {
-            expiresAt: finalExpiry,
-            lastTransactionId: pending.id,
-            // Renouvellement → re-arme le rappel de fin d'accès.
-            expiryReminderSentAt: null,
-          },
-        })
+const finalExpiry = new Date(
+  Math.max(existing?.expiresAt.getTime() ?? 0, txAccessExpiresAt.getTime()),
+)
+// Renouvellement réel de CE type = l'expiration avance (ou 1er octroi).
+const renewed =
+  !existing || finalExpiry.getTime() > existing.expiresAt.getTime()
+await tx
+  .insert(userAccess)
+  .values({
+    userId: pending.userId,
+    accessType,
+    expiresAt: finalExpiry,
+    lastTransactionId: pending.id,
+  })
+  .onConflictDoUpdate({
+    target: [userAccess.userId, userAccess.accessType],
+    set: {
+      expiresAt: finalExpiry,
+      lastTransactionId: pending.id,
+      // Re-arme le rappel de fin d'accès uniquement si l'accès est prolongé.
+      ...(renewed ? { expiryReminderSentAt: null } : {}),
+    },
+  })
 ```
 
-- [ ] **Step 2 : Reset dans `grantManualAccess`** (`features/payments/lib.ts`, ~ligne 117-120)
+- [ ] **Step 2 : Reset conditionnel dans `grantManualAccess`** (`features/payments/lib.ts`, boucle `for (const accessType of types)`, ~ligne 104-121)
 
 Remplacer :
 
 ```ts
-      .onConflictDoUpdate({
-        target: [userAccess.userId, userAccess.accessType],
-        set: { expiresAt: finalExpiry, lastTransactionId: transactionId },
-      })
+const finalExpiry = new Date(
+  Math.max(existing?.expiresAt.getTime() ?? 0, txAccessExpiresAt.getTime()),
+)
+await tx
+  .insert(userAccess)
+  .values({
+    userId,
+    accessType,
+    expiresAt: finalExpiry,
+    lastTransactionId: transactionId,
+  })
+  .onConflictDoUpdate({
+    target: [userAccess.userId, userAccess.accessType],
+    set: { expiresAt: finalExpiry, lastTransactionId: transactionId },
+  })
 ```
 
 par :
 
 ```ts
-      .onConflictDoUpdate({
-        target: [userAccess.userId, userAccess.accessType],
-        set: {
-          expiresAt: finalExpiry,
-          lastTransactionId: transactionId,
-          // Renouvellement → re-arme le rappel de fin d'accès.
-          expiryReminderSentAt: null,
-        },
-      })
+const finalExpiry = new Date(
+  Math.max(existing?.expiresAt.getTime() ?? 0, txAccessExpiresAt.getTime()),
+)
+// Renouvellement réel de CE type = l'expiration avance (ou 1er octroi).
+const renewed =
+  !existing || finalExpiry.getTime() > existing.expiresAt.getTime()
+await tx
+  .insert(userAccess)
+  .values({
+    userId,
+    accessType,
+    expiresAt: finalExpiry,
+    lastTransactionId: transactionId,
+  })
+  .onConflictDoUpdate({
+    target: [userAccess.userId, userAccess.accessType],
+    set: {
+      expiresAt: finalExpiry,
+      lastTransactionId: transactionId,
+      // Re-arme le rappel de fin d'accès uniquement si l'accès est prolongé.
+      ...(renewed ? { expiryReminderSentAt: null } : {}),
+    },
+  })
 ```
 
 - [ ] **Step 3 : Test — les DEUX chemins réinitialisent le marqueur**
@@ -1067,6 +1131,108 @@ describe("reset du marqueur de rappel au renouvellement", () => {
       .where(eq(userAccess.userId, uid))
       .limit(1)
     expect(row?.marker).toBeNull()
+
+    await db.delete(userAccess).where(eq(userAccess.userId, uid))
+    await db.delete(transactions).where(eq(transactions.userId, uid))
+    await db.delete(products).where(eq(products.id, pid))
+    await db.delete(user).where(eq(user.id, uid))
+  })
+
+  it("combo : ne ré-arme PAS le rappel d'un type dont l'expiration n'avance pas", async () => {
+    const uid = createId()
+    const pid = createId()
+    const examTid = createId()
+    const trainingTid = createId()
+    const reminded = new Date(now - 86400000) // marqueur déjà posé
+    await db.insert(user).values({
+      id: uid,
+      name: "Combo Asym",
+      email: `combo-${uid}@test.invalid`,
+    })
+    await db.insert(products).values({
+      id: pid,
+      code: "premium_access",
+      name: "Combo",
+      description: "Accès combo",
+      priceCad: 1500,
+      durationDays: 90,
+      accessType: "exam",
+      isCombo: true,
+      stripeProductId: `prod_${pid}`,
+      stripePriceId: `price_${pid}`,
+    })
+    await db.insert(transactions).values([
+      {
+        id: examTid,
+        userId: uid,
+        productId: pid,
+        type: "manual",
+        status: "completed",
+        amountPaid: 1500,
+        currency: "CAD",
+        accessType: "exam",
+        durationDays: 90,
+        accessExpiresAt: new Date(now + 2 * 86400000),
+      },
+      {
+        id: trainingTid,
+        userId: uid,
+        productId: pid,
+        type: "manual",
+        status: "completed",
+        amountPaid: 1500,
+        currency: "CAD",
+        accessType: "training",
+        durationDays: 400,
+        accessExpiresAt: new Date(now + 400 * 86400000),
+      },
+    ])
+    // exam expire bientôt (marqueur posé) ; training expire très loin (marqueur posé).
+    await db.insert(userAccess).values([
+      {
+        userId: uid,
+        accessType: "exam",
+        expiresAt: new Date(now + 2 * 86400000),
+        lastTransactionId: examTid,
+        expiryReminderSentAt: reminded,
+      },
+      {
+        userId: uid,
+        accessType: "training",
+        expiresAt: new Date(now + 400 * 86400000),
+        lastTransactionId: trainingTid,
+        expiryReminderSentAt: reminded,
+      },
+    ])
+
+    // Achat combo 90 j : exam est prolongé (2 j → 90 j) ; training NON (400 j > 90 j).
+    await db.transaction(async (tx) => {
+      await grantManualAccess(tx, {
+        userId: uid,
+        product: {
+          id: pid,
+          accessType: "exam",
+          durationDays: 90,
+          isCombo: true,
+        },
+        amountPaid: 1500,
+        currency: "CAD",
+        paymentMethod: "interac",
+        recordedBy: uid,
+      })
+    })
+
+    const rows = await db
+      .select({
+        accessType: userAccess.accessType,
+        marker: userAccess.expiryReminderSentAt,
+      })
+      .from(userAccess)
+      .where(eq(userAccess.userId, uid))
+    const exam = rows.find((r) => r.accessType === "exam")
+    const training = rows.find((r) => r.accessType === "training")
+    expect(exam?.marker).toBeNull() // prolongé → ré-armé
+    expect(training?.marker).not.toBeNull() // inchangé → PAS ré-armé
 
     await db.delete(userAccess).where(eq(userAccess.userId, uid))
     await db.delete(transactions).where(eq(transactions.userId, uid))
@@ -1521,9 +1687,13 @@ git commit -m "feat(profil): active les notifications par email dans les préfé
 - **Reset renouvellement** : DEUX points (`completeStripeTransaction` dans
   `features/payments/stripe.ts` **et** `grantManualAccess` dans
   `features/payments/lib.ts`) — pas de choke point unique. Les deux remettent
-  `expiryReminderSentAt = null`.
-- **Index partiels** (T1) : `WHERE … IS NULL` sur les 2 marqueurs → le sweep ne
-  scanne que les lignes non traitées (petit ensemble en régime permanent).
+  `expiryReminderSentAt = null` **sous garde `renewed`** (seulement si l'expiration
+  de CE type d'accès avance réellement) → un achat combo ne ré-arme pas le rappel
+  d'un type déjà plus lointain.
+- **Index partiels** (T1) : sur les 2 marqueurs. `examParticipations` : prédicat
+  `status IN ('completed','auto_submitted') AND results_notified_at IS NULL` (exclut
+  les `in_progress` jamais marqués). `userAccess` : `WHERE expiry_reminder_sent_at IS
+NULL` (le range-scan sur `expiresAt` borne déjà le balayage).
 - **Bornes** (500/200) : troncature **loggée** (`console.warn`) quand la borne est
   atteinte — pas de silence.
 - **Ordre cron** : notifications APRÈS les clôtures (inclut les `auto_submitted` du run).
@@ -1532,10 +1702,12 @@ git commit -m "feat(profil): active les notifications par email dans les préfé
 
 ### Connu / hors périmètre
 
-- **Combo = 2 rappels** : un produit combo pose 2 lignes `userAccess` (exam +
-  training) expirant le même jour → 2 emails de rappel au même run. Chacun est
-  exact (chaque type d'accès expire réellement). Regrouper en un seul email est une
-  amélioration ultérieure (non retenue — YAGNI).
+- **Combo = 2 rappels simultanés** : un produit combo pose 2 lignes `userAccess`
+  (exam + training) ; si elles expirent le même jour, 2 emails de rappel au même run.
+  Chacun est exact (chaque type d'accès expire réellement). Regrouper en un seul
+  email est une amélioration ultérieure (non retenue — YAGNI). ⚠️ À distinguer du
+  **re-déclenchement différé** d'un combo asymétrique, lui **corrigé** par la garde
+  `renewed` (T5).
 
 ## Self-Review (fait à l'écriture + après revue adversariale)
 
@@ -1545,8 +1717,12 @@ git commit -m "feat(profil): active les notifications par email dans les préfé
 - **Types cohérents** : `NotificationPreferences` défini en T6 (dal), réutilisé
   T7/T8 ✅ ; `sendExamResultsEmail`/`sendAccessExpiringEmail` définis T2, appelés
   T3 ✅ ; `sendPendingNotifications` défini T3, appelé T4 ✅.
-- **Corrections post-revue** : `grantAccess` inexistant → T5 édite les 2 vrais
+- **Corrections post-revue v1** : `grantAccess` inexistant → T5 édite les 2 vrais
   chemins (`completeStripeTransaction` + `grantManualAccess`), test sur signatures
   réelles (plus de `as never`) ✅ ; double-envoi → claim-first atomique (T3) ✅ ;
   index partiels (T1) ✅ ; log de troncature (T3) ✅. Signatures `grantManualAccess`
   / `completeStripeTransaction` vérifiées à la source.
+- **Corrections post-revue v2** : reset combo inconditionnel → garde `renewed` dans
+  les 2 upserts + test « combo asymétrique » (T5) ✅ ; index partiel
+  `examParticipations` resserré sur le statut (T1) ✅ ; renvoi croisé mort spec §4→§5
+  corrigé ✅.

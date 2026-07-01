@@ -51,9 +51,11 @@ fin manuelle.
   - `+ notifyExamResults boolean not null default true`
   - `+ notifyAccessExpiry boolean not null default true`
 - `examParticipations` (`db/schema/exams.ts`) :
-  - `+ resultsNotifiedAt timestamptz null` (+ index partiel utile : voir §5)
+  - `+ resultsNotifiedAt timestamptz null`
+  - `+ index partiel` `WHERE status IN ('completed','auto_submitted') AND results_notified_at IS NULL` (borne le scan du sweep au seul backlog de notifications, hors participations en cours)
 - `userAccess` (`db/schema/payments.ts`) :
   - `+ expiryReminderSentAt timestamptz null`
+  - `+ index partiel` `WHERE expiry_reminder_sent_at IS NULL` (le range-scan sur `expiresAt` borne déjà la fenêtre)
 
 Générer via `bun run db:generate`, appliquer via `bun run db:migrate`. Les
 défauts `true`/`null` rendent la migration sûre (pas de backfill nécessaire).
