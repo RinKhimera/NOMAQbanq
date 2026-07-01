@@ -1,4 +1,5 @@
 import { closeExpiredExamParticipations } from "@/features/exams/cron"
+import { sendPendingNotifications } from "@/features/notifications/cron"
 import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { anonymizeExpiredDeletedAccounts } from "@/features/users/cron"
 import { env } from "@/lib/env/server"
@@ -44,15 +45,22 @@ export async function GET(request: Request) {
         anonymizeExpiredDeletedAccounts(),
       ])
 
+    // APRÈS les clôtures (pour inclure les `auto_submitted` du même run).
+    const notifications = await sendPendingNotifications()
+
     if (
       examParticipations.closedCount > 0 ||
       trainingSessions.closedCount > 0 ||
-      anonymizedAccounts.anonymizedCount > 0
+      anonymizedAccounts.anonymizedCount > 0 ||
+      notifications.examResultsSent > 0 ||
+      notifications.accessRemindersSent > 0
     ) {
       console.log(
         `[cron close-expired] examens fermés=${examParticipations.closedCount} ` +
           `sessions fermées=${trainingSessions.closedCount} ` +
-          `comptes anonymisés=${anonymizedAccounts.anonymizedCount}`,
+          `comptes anonymisés=${anonymizedAccounts.anonymizedCount} ` +
+          `notif résultats=${notifications.examResultsSent} ` +
+          `notif accès=${notifications.accessRemindersSent}`,
       )
     }
 
@@ -60,6 +68,7 @@ export async function GET(request: Request) {
       examParticipations,
       trainingSessions,
       anonymizedAccounts,
+      notifications,
     })
   } catch (error) {
     // Erreur inattendue (DB…) → 500 ; Vercel logue + réessaie à la prochaine heure.
