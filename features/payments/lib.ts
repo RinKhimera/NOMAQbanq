@@ -106,6 +106,9 @@ export async function grantManualAccess(
     const finalExpiry = new Date(
       Math.max(existing?.expiresAt.getTime() ?? 0, txAccessExpiresAt.getTime()),
     )
+    // Renouvellement réel de CE type = l'expiration avance (ou 1er octroi).
+    const renewed =
+      !existing || finalExpiry.getTime() > existing.expiresAt.getTime()
     await tx
       .insert(userAccess)
       .values({
@@ -116,7 +119,12 @@ export async function grantManualAccess(
       })
       .onConflictDoUpdate({
         target: [userAccess.userId, userAccess.accessType],
-        set: { expiresAt: finalExpiry, lastTransactionId: transactionId },
+        set: {
+          expiresAt: finalExpiry,
+          lastTransactionId: transactionId,
+          // Re-arme le rappel de fin d'accès uniquement si l'accès est prolongé.
+          ...(renewed ? { expiryReminderSentAt: null } : {}),
+        },
       })
   }
 
