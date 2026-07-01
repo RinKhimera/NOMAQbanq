@@ -13,13 +13,20 @@ import {
 import { MEDICAL_DOMAINS } from "@/constants"
 import { cn } from "@/lib/utils"
 import { useQuestionBrowser } from "./question-browser-context"
-import { ImageFilter, QuestionBrowserToolbarProps } from "./types"
+import { ImageFilter, QuestionBrowserToolbarProps, UsageFilter } from "./types"
 
 export function QuestionBrowserToolbar({
   className,
 }: QuestionBrowserToolbarProps) {
-  const { filters, updateFilter, clearFilters, hasActiveFilters, isSearching } =
-    useQuestionBrowser()
+  const {
+    filters,
+    updateFilter,
+    clearFilters,
+    hasActiveFilters,
+    isSearching,
+    setUsage,
+    examOptions,
+  } = useQuestionBrowser()
 
   return (
     <div
@@ -79,6 +86,43 @@ export function QuestionBrowserToolbar({
               <SelectItem value="without">Sans images</SelectItem>
             </SelectContent>
           </Select>
+
+          {/* Usage filter (exclusion mutuelle avec le Select examen) */}
+          <Select
+            value={filters.usageFilter}
+            onValueChange={(v) => setUsage({ usageFilter: v as UsageFilter })}
+          >
+            <SelectTrigger className="h-10 w-44">
+              <SelectValue placeholder="Usage" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes (usage)</SelectItem>
+              <SelectItem value="unused">Jamais utilisées</SelectItem>
+              <SelectItem value="used">Déjà utilisées</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Exam picker (si des examens sont fournis) */}
+          {examOptions.length > 0 && (
+            <Select
+              value={filters.usedInExamId ?? "all"}
+              onValueChange={(v) =>
+                setUsage({ usedInExamId: v === "all" ? null : v })
+              }
+            >
+              <SelectTrigger className="h-10 w-56">
+                <SelectValue placeholder="Examen" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les examens</SelectItem>
+                {examOptions.map((e) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           {/* Clear filters */}
           {hasActiveFilters && (

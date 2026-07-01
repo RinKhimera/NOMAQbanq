@@ -931,6 +931,31 @@ export const getAllExamsAdmin = cache(
   },
 )
 
+export type ExamPickerOption = {
+  id: string
+  title: string
+  /** Epoch ms. */
+  startDate: number
+}
+
+/**
+ * [Admin] Examens pour le combobox de filtre « utilisée dans l'examen… » du
+ * QuestionBrowser. Colonnes minimales, du plus récent au plus ancien, borné.
+ */
+export const getExamsForPicker = async (): Promise<ExamPickerOption[]> => {
+  await requireRole(["admin"])
+  const rows = await db
+    .select({ id: exams.id, title: exams.title, startDate: exams.startDate })
+    .from(exams)
+    .orderBy(desc(exams.startDate))
+    .limit(500)
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    startDate: r.startDate.getTime(),
+  }))
+}
+
 // ============================================
 // Admin : statistiques examens
 // ============================================

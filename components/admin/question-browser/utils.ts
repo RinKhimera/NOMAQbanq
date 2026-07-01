@@ -1,3 +1,18 @@
+import type { QuestionFilters, UsageFilter } from "./types"
+
+/**
+ * Exclusion mutuelle usage/examen : choisir un examen neutralise le filtre
+ * used/unused, et choisir used/unused efface l'examen. Pur → testable sans DOM.
+ */
+export function nextUsageFilters(
+  prev: QuestionFilters,
+  next: { usageFilter: UsageFilter } | { usedInExamId: string | null },
+): QuestionFilters {
+  return "usageFilter" in next
+    ? { ...prev, usageFilter: next.usageFilter, usedInExamId: null }
+    : { ...prev, usedInExamId: next.usedInExamId, usageFilter: "all" }
+}
+
 // Domain color mapping for medical specialties
 export const domainColors: Record<string, string> = {
   Cardiologie:
