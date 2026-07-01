@@ -129,18 +129,44 @@ encore rappelées) :
       .where(sql`${t.expiryReminderSentAt} is null`),
 ```
 
-- [ ] **Step 4 : Générer la migration**
+- [ ] **Step 4 : Générer la migration de schéma**
 
 Run: `bun run db:generate`
-Expected: un nouveau fichier SQL sous `drizzle/` (3 `ALTER TABLE … ADD COLUMN` + 2
-`CREATE INDEX … WHERE … IS NULL`). Les défauts `true`/`NULL` rendent l'ajout sûr
-(pas de backfill).
+Expected: un nouveau fichier SQL sous `drizzle/` (4 `ALTER TABLE … ADD COLUMN` + 2
+`CREATE INDEX … WHERE …`). Les défauts `true`/`NULL` rendent l'ajout des **colonnes**
+sûr (mais voir Step 5 pour le backfill des données).
 
 > Les tests d'intégration appliquent automatiquement les migrations sur leur branche
 > Neon éphémère (`bun run test:integration` → `drizzle-kit migrate`). Appliquer sur
 > le dev/prod réel via `bun run db:migrate` **quand tu le décides** (hors plan).
 
-- [ ] **Step 5 : `bun run check` (types) + commit**
+- [ ] **Step 5 : Migration de BACKFILL (obligatoire avant prod)** — anti-blast historique
+
+⚠️ La requête des résultats (Task 3) ne borne que `endDate < now` **sans fenêtre
+basse**. Sans backfill, le 1er run post-déploiement enverrait « résultats prêts »
+pour TOUT l'historique de participations d'examens déjà clos (l'app est en prod avec
+des mois de données). Le rappel d'accès n'a PAS ce problème (borné à `expiresAt` dans
+les 7 j). Générer une migration custom :
+
+Run: `bunx drizzle-kit generate --custom --name=backfill_results_notified`
+Puis remplir le fichier `drizzle/00XX_backfill_results_notified.sql` :
+
+```sql
+UPDATE "exam_participations"
+SET "results_notified_at" = now()
+FROM "exams"
+WHERE "exam_participations"."exam_id" = "exams"."id"
+  AND "exams"."end_date" < now()
+  AND "exam_participations"."results_notified_at" IS NULL;
+```
+
+Marque l'historique déjà clos comme notifié ; les examens qui clôturent APRÈS le
+déploiement gardent `results_notified_at = NULL` → notifiés normalement à leur
+clôture. **Verrouillé par un test** (`notifications-cron.test.ts` → describe
+« backfill » : exécute le VRAI SQL de la migration, vérifie clos=marqué /
+ouvert=épargné).
+
+- [ ] **Step 6 : `bun run check` (types) + commit**
 
 Run: `bunx tsc --noEmit`
 Expected: exit 0.

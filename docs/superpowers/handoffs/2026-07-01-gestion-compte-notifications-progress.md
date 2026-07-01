@@ -41,6 +41,14 @@ L'utilisateur exécute le prompt de revue (spec + plan) dans une session fraîch
 3. **Implémenter** : mode **inline avec checkpoints** (`executing-plans`) — préférence utilisateur pour une feature cohérente. Tests TDD, **un seul `test:integration` par batch** (provisionne une branche Neon, ~68s), commits ciblés par phase.
 4. Prettier : `bun run check` global échoue sur les docs pagination de l'autre session → valider mes fichiers via `bunx tsc --noEmit` + `bunx eslint <mes fichiers>` + `bunx prettier --check <mes fichiers>` ; formater mes fichiers markdown/test avec `prettier --write` avant commit (ils sortent souvent non formatés).
 
+## ⚠️ Déploiement prod (Spec B) — backfill obligatoire
+
+Spec B est **implémentée** (migrations `0009` schéma + `0010` backfill). Au déploiement
+prod : appliquer **`0009` ET `0010` ensemble** (`bun run db:migrate`). `0010` marque
+tout l'historique d'examens déjà clos comme « notifié » → sinon le 1er run du cron
+enverrait « résultats prêts » à des mois de participations historiques (constat 🔴 de la
+revue d'implémentation). Le rappel d'accès n'est pas concerné (borné à 7 j).
+
 ## Après Spec B (rappels)
 
 - **e2e** (approuvé par l'utilisateur) : parcours complet **A + B** via `/e2e-scenario` avant le push (OAuth Google dur à automatiser → couvert par l'intégration).

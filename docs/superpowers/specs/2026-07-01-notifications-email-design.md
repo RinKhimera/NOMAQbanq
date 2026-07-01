@@ -58,7 +58,18 @@ fin manuelle.
   - `+ index partiel` `WHERE expiry_reminder_sent_at IS NULL` (le range-scan sur `expiresAt` borne déjà la fenêtre)
 
 Générer via `bun run db:generate`, appliquer via `bun run db:migrate`. Les
-défauts `true`/`null` rendent la migration sûre (pas de backfill nécessaire).
+défauts `true`/`null` rendent l'ajout des **colonnes** sûr.
+
+> **⚠️ Backfill OBLIGATOIRE avant prod (`resultsNotifiedAt` uniquement).** Le
+> marqueur de rappel d'accès n'a besoin d'aucun backfill (la requête borne
+> `expiresAt` dans les 7 j → rien d'historique ne matche). MAIS la requête des
+> résultats ne borne que `endDate < now` **sans fenêtre basse** : sans backfill,
+> le 1er run post-déploiement enverrait « résultats prêts » pour TOUT l'historique
+> de participations d'examens déjà clos (l'app est en prod). Migration de données
+> **`0010_backfill_results_notified.sql`** : `UPDATE exam_participations SET
+results_notified_at = now() FROM exams WHERE exam_id = exams.id AND end_date <
+now() AND results_notified_at IS NULL` — marque tout l'historique déjà clos comme
+> notifié ; les examens qui clôturent APRÈS le déploiement notifient normalement.
 
 ## 5. Backend
 
