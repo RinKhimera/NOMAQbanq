@@ -1,6 +1,6 @@
 "use server"
 
-import { and, eq, isNull, ne, sql } from "drizzle-orm"
+import { and, eq, isNull, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
 import { db } from "@/db"
@@ -313,29 +313,24 @@ export const deleteMyAccount = async (input: {
     return { success: false, error: "L'adresse courriel ne correspond pas." }
   }
 
-  // Garde « dernier admin » : ne pas laisser le seul admin restant se supprimer
-  // (sinon l'app se retrouve sans administrateur).
-  if (authSession.user.role === "admin") {
-    const [row] = await db
-      .select({ others: sql<number>`count(*)::int` })
-      .from(user)
-      .where(
-        and(
-          eq(user.role, "admin"),
-          isNull(user.deletedAt),
-          ne(user.id, authSession.user.id),
-        ),
-      )
-    if (!row?.others) {
-      return {
-        success: false,
-        error:
-          "Vous êtes le dernier administrateur : impossible de supprimer ce compte.",
+  // Garde « dernier admin » ATOMIQUE : verrou de ligne (`for update`) sur les
+  // admins actifs DANS la transaction → deux derniers admins qui se suppriment en
+  // concurrence sont sérialisés (le 2e voit le 1er supprimé et est refusé). Évite
+  // le TOCTOU d'un `count` hors transaction (cf. data-layer.md).
+  const result = await db.transaction(async (tx) => {
+    if (authSession.user.role === "admin") {
+      const admins = await tx
+        .select({ id: user.id })
+        .from(user)
+        .where(and(eq(user.role, "admin"), isNull(user.deletedAt)))
+        .orderBy(user.id)
+        .for("update")
+      const hasOtherAdmin = admins.some((a) => a.id !== authSession.user.id)
+      if (!hasOtherAdmin) {
+        return { ok: false as const }
       }
     }
-  }
 
-  await db.transaction(async (tx) => {
     await tx
       .update(user)
       .set({ deletedAt: new Date() })
@@ -343,7 +338,16 @@ export const deleteMyAccount = async (input: {
     await tx
       .delete(sessionTable)
       .where(eq(sessionTable.userId, authSession.user.id))
+    return { ok: true as const }
   })
+
+  if (!result.ok) {
+    return {
+      success: false,
+      error:
+        "Vous êtes le dernier administrateur : impossible de supprimer ce compte.",
+    }
+  }
 
   return { success: true }
 }

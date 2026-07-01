@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { account, session, user } from "@/db/schema"
@@ -267,5 +267,73 @@ describe("anonymizeExpiredDeletedAccounts", () => {
     expect(accs).toHaveLength(0)
 
     await db.delete(user).where(eq(user.id, oldId))
+  })
+})
+
+describe("deleteMyAccount — garde dernier admin", () => {
+  it("autorise la suppression d'un admin s'il en reste un autre", async () => {
+    const adminA = createId()
+    const adminB = createId()
+    const emailA = `admin-a-${adminA}@test.invalid`
+    await db.insert(user).values([
+      { id: adminA, name: "Admin A", email: emailA, role: "admin" },
+      {
+        id: adminB,
+        name: "Admin B",
+        email: `admin-b-${adminB}@test.invalid`,
+        role: "admin",
+      },
+    ])
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      user: { id: adminA, email: emailA, role: "admin" },
+      session: { id: createId() },
+    } as never)
+
+    const res = await deleteMyAccount({ confirmEmail: emailA })
+    expect(res.success).toBe(true)
+    const [u] = await db
+      .select({ deletedAt: user.deletedAt })
+      .from(user)
+      .where(eq(user.id, adminA))
+      .limit(1)
+    expect(u?.deletedAt).not.toBeNull()
+
+    await db.delete(session).where(eq(session.userId, adminA))
+    await db.delete(user).where(eq(user.id, adminA))
+    await db.delete(user).where(eq(user.id, adminB))
+  })
+
+  it("refuse la suppression du seul admin actif", async () => {
+    const soloAdmin = createId()
+    const emailSolo = `solo-${soloAdmin}@test.invalid`
+    await db.insert(user).values({
+      id: soloAdmin,
+      name: "Solo Admin",
+      email: emailSolo,
+      role: "admin",
+    })
+
+    // Hermétique vis-à-vis des autres fichiers d'intégration : ne valider le refus
+    // que si soloAdmin est effectivement le seul admin actif à cet instant.
+    const activeAdmins = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(and(eq(user.role, "admin"), isNull(user.deletedAt)))
+    if (activeAdmins.length === 1) {
+      vi.mocked(requireSession).mockResolvedValueOnce({
+        user: { id: soloAdmin, email: emailSolo, role: "admin" },
+        session: { id: createId() },
+      } as never)
+      const res = await deleteMyAccount({ confirmEmail: emailSolo })
+      expect(res.success).toBe(false)
+      const [u] = await db
+        .select({ deletedAt: user.deletedAt })
+        .from(user)
+        .where(eq(user.id, soloAdmin))
+        .limit(1)
+      expect(u?.deletedAt).toBeNull()
+    }
+
+    await db.delete(user).where(eq(user.id, soloAdmin))
   })
 })

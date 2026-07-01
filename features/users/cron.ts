@@ -21,21 +21,27 @@ export async function anonymizeExpiredDeletedAccounts(): Promise<AnonymizeResult
 
   let anonymizedCount = 0
   for (const { id } of expired) {
-    await db.transaction(async (tx) => {
-      await tx
-        .update(user)
-        .set({
-          name: "Utilisateur supprimé",
-          email: `deleted-${id}@deleted.invalid`,
-          username: null,
-          bio: null,
-          image: null,
-          anonymizedAt: new Date(),
-        })
-        .where(eq(user.id, id))
-      await tx.delete(account).where(eq(account.userId, id))
-    })
-    anonymizedCount++
+    // Résilience : une ligne qui échoue ne doit ni casser tout le lot ni bloquer
+    // la file aux runs suivants (poison row). On isole chaque compte.
+    try {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(user)
+          .set({
+            name: "Utilisateur supprimé",
+            email: `deleted-${id}@deleted.invalid`,
+            username: null,
+            bio: null,
+            image: null,
+            anonymizedAt: new Date(),
+          })
+          .where(eq(user.id, id))
+        await tx.delete(account).where(eq(account.userId, id))
+      })
+      anonymizedCount++
+    } catch (error) {
+      console.error(`[anonymize] échec pour l'utilisateur ${id}`, error)
+    }
   }
 
   return { anonymizedCount }
