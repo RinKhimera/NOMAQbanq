@@ -35,16 +35,16 @@ test.describe("Panneau d'administration", () => {
     await page.goBack()
     await admin.waitForReady()
 
-    // Créer un examen → /admin/exams/create
+    // Créer un examen → /admin/examens/creer
     await admin.clickQuickAction("Créer un examen")
-    await expect(page).toHaveURL(/\/admin\/exams\/create/)
+    await expect(page).toHaveURL(/\/admin\/examens\/creer/)
 
     await page.goBack()
     await admin.waitForReady()
 
-    // Gérer les utilisateurs → /admin/users
+    // Gérer les utilisateurs → /admin/utilisateurs
     await admin.clickQuickAction("Gérer les utilisateurs")
-    await expect(page).toHaveURL(/\/admin\/users/)
+    await expect(page).toHaveURL(/\/admin\/utilisateurs/)
   })
 
   test("le modal de paiement manuel s'ouvre", async ({ page }) => {

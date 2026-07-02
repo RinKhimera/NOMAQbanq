@@ -176,7 +176,7 @@ export function ExamEditForm({
       }
 
       toast.success("Examen modifié avec succès")
-      router.push("/admin/exams")
+      router.push("/admin/examens")
     } catch (error) {
       console.error("updateExam", error)
       toast.error("Erreur lors de la modification de l'examen")
@@ -216,7 +216,7 @@ export function ExamEditForm({
           className="group w-fit transition-all hover:border-blue-300 hover:bg-blue-50 dark:hover:border-blue-700 dark:hover:bg-blue-950"
           asChild
         >
-          <Link href="/admin/exams">
+          <Link href="/admin/examens">
             <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
             Retour aux examens
           </Link>
@@ -688,7 +688,7 @@ export function ExamEditForm({
             <Button
               type="button"
               variant="outline"
-              onClick={() => router.push("/admin/exams")}
+              onClick={() => router.push("/admin/examens")}
               className="transition-all hover:bg-gray-100 dark:hover:bg-gray-800"
               disabled={form.formState.isSubmitting}
             >

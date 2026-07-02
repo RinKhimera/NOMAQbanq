@@ -7,7 +7,7 @@ export class AdminExamsPage extends BasePage {
   }
 
   async goto() {
-    await super.goto("/admin/exams")
+    await super.goto("/admin/examens")
   }
 
   async waitForReady() {
@@ -18,7 +18,7 @@ export class AdminExamsPage extends BasePage {
 
   async gotoCreateExam() {
     await this.page.getByRole("link", { name: "Créer un examen" }).click()
-    await this.page.waitForURL(/\/admin\/exams\/create/)
+    await this.page.waitForURL(/\/admin\/examens\/creer/)
     await expect(this.page.getByText("Créer un examen").first()).toBeVisible({
       timeout: 15_000,
     })

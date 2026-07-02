@@ -42,7 +42,7 @@ export function ExamActions({
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem asChild>
           <Link
-            href={`/admin/exams/${exam.id}`}
+            href={`/admin/examens/${exam.id}`}
             className="flex items-center gap-2"
           >
             <Eye className="h-4 w-4" />

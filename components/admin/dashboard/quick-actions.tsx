@@ -104,13 +104,13 @@ export function QuickActions({ onManualPaymentClick }: QuickActionsProps) {
     },
     {
       label: "Créer un examen",
-      href: "/admin/exams/create",
+      href: "/admin/examens/creer",
       icon: IconFileText,
       color: "emerald",
     },
     {
       label: "Gérer les utilisateurs",
-      href: "/admin/users",
+      href: "/admin/utilisateurs",
       icon: IconUsers,
       color: "slate",
     },

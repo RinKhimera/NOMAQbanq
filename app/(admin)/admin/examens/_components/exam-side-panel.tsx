@@ -270,7 +270,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
       <div className="border-t border-gray-200/60 bg-white/80 p-4 backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
         <div className="flex gap-3">
           <Button variant="outline" className="flex-1" asChild>
-            <Link href={`/admin/exams/${exam.id}`}>
+            <Link href={`/admin/examens/${exam.id}`}>
               <IconExternalLink className="mr-2 h-4 w-4" />
               Voir détails
             </Link>
@@ -279,7 +279,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
             className="flex-1 bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
             asChild
           >
-            <Link href={`/admin/exams/edit/${exam.id}`}>
+            <Link href={`/admin/examens/modifier/${exam.id}`}>
               <IconEdit className="mr-2 h-4 w-4" />
               Modifier
             </Link>

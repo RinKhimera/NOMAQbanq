@@ -154,7 +154,7 @@ export function ExamCreateForm({
       }
 
       toast.success("Examen créé avec succès")
-      router.push("/admin/exams")
+      router.push("/admin/examens")
     } catch (error) {
       console.error("createExam", error)
       toast.error("Erreur lors de la création de l'examen")
@@ -203,7 +203,7 @@ export function ExamCreateForm({
           className="w-fit border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
           asChild
         >
-          <Link href="/admin/exams">
+          <Link href="/admin/examens">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour aux examens
           </Link>
@@ -678,7 +678,7 @@ export function ExamCreateForm({
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => router.push("/admin/exams")}
+                    onClick={() => router.push("/admin/examens")}
                     disabled={form.formState.isSubmitting}
                   >
                     Annuler

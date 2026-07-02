@@ -21,12 +21,12 @@ export const adminNavigation = {
     },
     {
       title: "Examens",
-      url: "/admin/exams",
+      url: "/admin/examens",
       icon: IconChartBar,
     },
     {
       title: "Utilisateurs",
-      url: "/admin/users",
+      url: "/admin/utilisateurs",
       icon: IconUsers,
     },
     {

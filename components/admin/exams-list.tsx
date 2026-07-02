@@ -105,7 +105,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
       setSelectedExam(exam)
       setShowEditDialog(true)
     } else {
-      router.push(`/admin/exams/edit/${exam.id}`)
+      router.push(`/admin/examens/modifier/${exam.id}`)
     }
   }
 
@@ -138,7 +138,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
         iconClassName="bg-white dark:bg-gray-900"
         action={{
           label: "Créer un examen",
-          onClick: () => router.push("/admin/exams/create"),
+          onClick: () => router.push("/admin/examens/creer"),
         }}
       />
     )
@@ -154,7 +154,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
               Gérez tous vos examens depuis cette interface
             </CardDescription>
           </div>
-          <Button onClick={() => router.push("/admin/exams/create")}>
+          <Button onClick={() => router.push("/admin/examens/creer")}>
             <Plus className="mr-2 h-4 w-4" />
             Créer un examen
           </Button>
@@ -226,7 +226,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
         onClose={() => setShowEditDialog(false)}
         onConfirm={() => {
           if (selectedExam) {
-            router.push(`/admin/exams/edit/${selectedExam.id}`)
+            router.push(`/admin/examens/modifier/${selectedExam.id}`)
           }
         }}
       />

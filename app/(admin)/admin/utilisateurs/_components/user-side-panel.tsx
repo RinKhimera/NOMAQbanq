@@ -412,7 +412,7 @@ function PanelContent({
               Transactions récentes
             </h4>
             {totalTransactionCount > 0 && (
-              <Link href={`/admin/users/${userId}`}>
+              <Link href={`/admin/utilisateurs/${userId}`}>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -438,7 +438,7 @@ function PanelContent({
         </div>
 
         {/* View Full Profile Link */}
-        <Link href={`/admin/users/${userId}`} className="block">
+        <Link href={`/admin/utilisateurs/${userId}`} className="block">
           <Button variant="outline" className="w-full gap-2">
             <ExternalLink className="h-4 w-4" />
             Voir le profil complet

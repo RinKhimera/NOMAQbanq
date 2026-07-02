@@ -83,7 +83,7 @@ export function UserDetailClient({
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header with back button */}
       <div className="flex items-center gap-4">
-        <Link href="/admin/users">
+        <Link href="/admin/utilisateurs">
           <Button variant="outline" size="icon" className="rounded-xl">
             <ArrowLeft className="h-4 w-4" />
           </Button>

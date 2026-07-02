@@ -39,7 +39,7 @@ export function AdminExamsClient({
         const params = new URLSearchParams(searchParams.toString())
         params.delete("exam")
         const next = params.toString()
-        router.push(next ? `?${next}` : "/admin/exams", { scroll: false })
+        router.push(next ? `?${next}` : "/admin/examens", { scroll: false })
       }
     },
     [router, searchParams],
@@ -66,7 +66,7 @@ export function AdminExamsClient({
             className="bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl hover:shadow-blue-500/30"
             asChild
           >
-            <Link href="/admin/exams/create">
+            <Link href="/admin/examens/creer">
               <IconPlus className="mr-2 h-5 w-5" />
               Créer un examen
             </Link>

@@ -86,7 +86,7 @@ export const loadUserAccessStatus = async (
 
 const revalidatePaymentsAdmin = () => {
   revalidatePath("/admin/transactions")
-  revalidatePath("/admin/users")
+  revalidatePath("/admin/utilisateurs")
 }
 
 export type ManualPaymentResult = {

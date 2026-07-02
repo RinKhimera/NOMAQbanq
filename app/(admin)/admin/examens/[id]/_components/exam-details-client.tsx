@@ -62,7 +62,7 @@ export function ExamDetailsClient({
             size="sm"
             asChild
           >
-            <Link href="/admin/exams">
+            <Link href="/admin/examens">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Retour
             </Link>
@@ -79,7 +79,7 @@ export function ExamDetailsClient({
             size="sm"
             variant="none"
           >
-            <Link href={`/admin/exams/edit/${examId}`}>
+            <Link href={`/admin/examens/modifier/${examId}`}>
               <Pencil className="mr-2 h-4 w-4" />
               Modifier l&apos;examen
             </Link>

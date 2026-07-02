@@ -60,7 +60,7 @@ export function ParticipantResultsError({
             <div className="flex items-center gap-3">
               <Button variant="outline" asChild>
                 <Link
-                  href={`/admin/exams/${examId}`}
+                  href={`/admin/examens/${examId}`}
                   className="flex items-center gap-2"
                 >
                   <ArrowLeft className="h-4 w-4" />

@@ -3,8 +3,8 @@
 import { ArrowLeft, ChartColumn, ListChecks } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
-import { ExamDetails } from "@/app/(admin)/admin/exams/[id]/_components/exam-details"
-import { ExamQuestionsModal } from "@/app/(admin)/admin/exams/[id]/_components/exam-questions-modal"
+import { ExamDetails } from "@/app/(admin)/admin/examens/[id]/_components/exam-details"
+import { ExamQuestionsModal } from "@/app/(admin)/admin/examens/[id]/_components/exam-questions-modal"
 import { Button } from "@/components/ui/button"
 import type {
   ExamQuestionView,

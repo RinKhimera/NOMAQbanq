@@ -85,7 +85,7 @@ export default async function AdminParticipantResultsPage({
         title="Résultats de l'examen"
         subtitle={data.exam.title}
         score={score}
-        backHref={`/admin/exams/${id}`}
+        backHref={`/admin/examens/${id}`}
         backLabel="Retour au classement"
         backIcon={<ArrowLeft className="h-4 w-4" />}
       />

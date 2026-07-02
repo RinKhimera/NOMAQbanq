@@ -7,7 +7,7 @@ export class AdminUsersPage extends BasePage {
   }
 
   async goto() {
-    await super.goto("/admin/users")
+    await super.goto("/admin/utilisateurs")
   }
 
   async waitForReady() {

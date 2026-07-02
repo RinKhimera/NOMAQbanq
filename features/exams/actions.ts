@@ -163,7 +163,7 @@ export const createExam = async (
       }
     })
 
-    revalidatePath("/admin/exams")
+    revalidatePath("/admin/examens")
     return { success: true, examId }
   } catch (error) {
     if (error instanceof Error) {
@@ -300,8 +300,8 @@ export const updateExam = async (
       }
     })
 
-    revalidatePath("/admin/exams")
-    revalidatePath(`/admin/exams/${id}`)
+    revalidatePath("/admin/examens")
+    revalidatePath(`/admin/examens/${id}`)
     return { success: true }
   } catch (error) {
     if (error instanceof Error) {
@@ -334,7 +334,7 @@ export const deleteExam = async ({
 
   try {
     await db.delete(exams).where(eq(exams.id, examId))
-    revalidatePath("/admin/exams")
+    revalidatePath("/admin/examens")
     return { success: true }
   } catch (error) {
     logDev("[deleteExam]", error)
@@ -353,8 +353,8 @@ export const deactivateExam = async ({
 
   try {
     await db.update(exams).set({ isActive: false }).where(eq(exams.id, examId))
-    revalidatePath("/admin/exams")
-    revalidatePath(`/admin/exams/${examId}`)
+    revalidatePath("/admin/examens")
+    revalidatePath(`/admin/examens/${examId}`)
     return { success: true }
   } catch (error) {
     logDev("[deactivateExam]", error)
@@ -373,8 +373,8 @@ export const reactivateExam = async ({
 
   try {
     await db.update(exams).set({ isActive: true }).where(eq(exams.id, examId))
-    revalidatePath("/admin/exams")
-    revalidatePath(`/admin/exams/${examId}`)
+    revalidatePath("/admin/examens")
+    revalidatePath(`/admin/examens/${examId}`)
     return { success: true }
   } catch (error) {
     logDev("[reactivateExam]", error)
@@ -403,7 +403,7 @@ export const deleteParticipation = async ({
       .delete(examParticipations)
       .where(eq(examParticipations.id, participationId))
 
-    revalidatePath(`/admin/exams/${p.examId}`)
+    revalidatePath(`/admin/examens/${p.examId}`)
     return { success: true }
   } catch (error) {
     logDev("[deleteParticipation]", error)

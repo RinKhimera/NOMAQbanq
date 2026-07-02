@@ -50,14 +50,14 @@ describe("QuickActions", () => {
     render(<QuickActions />)
 
     const link = screen.getByText("Créer un examen").closest("a")
-    expect(link?.getAttribute("href")).toBe("/admin/exams/create")
+    expect(link?.getAttribute("href")).toBe("/admin/examens/creer")
   })
 
   it("contient un lien vers la page des utilisateurs", () => {
     render(<QuickActions />)
 
     const link = screen.getByText("Gérer les utilisateurs").closest("a")
-    expect(link?.getAttribute("href")).toBe("/admin/users")
+    expect(link?.getAttribute("href")).toBe("/admin/utilisateurs")
   })
 
   it("appelle onManualPaymentClick au clic sur 'Enregistrer un paiement'", () => {
