@@ -19,49 +19,49 @@ français, on n'y touche pas.
 
 ## Décisions
 
-| Sujet | Décision |
-|---|---|
-| Périmètre | Tout : auth + étudiant + admin |
-| Préfixe étudiant | `/dashboard` → `/tableau-de-bord` |
-| Préfixe auth | **Retiré** — routes à la racine (`/connexion`, …) |
-| `onboarding` | → `bienvenue` |
-| Rétro-compat | Redirections **301 permanentes** dans `next.config.ts` |
+| Sujet            | Décision                                               |
+| ---------------- | ------------------------------------------------------ |
+| Périmètre        | Tout : auth + étudiant + admin                         |
+| Préfixe étudiant | `/dashboard` → `/tableau-de-bord`                      |
+| Préfixe auth     | **Retiré** — routes à la racine (`/connexion`, …)      |
+| `onboarding`     | → `bienvenue`                                          |
+| Rétro-compat     | Redirections **301 permanentes** dans `next.config.ts` |
 
 ## Table de correspondance (ancienne → nouvelle)
 
 ### Auth (préfixe `/auth` retiré ; le groupe `(auth)` reste invisible)
 
-| Ancienne | Nouvelle |
-|---|---|
-| `/auth/sign-in` | `/connexion` |
-| `/auth/sign-up` | `/inscription` |
-| `/auth/forgot-password` | `/mot-de-passe-oublie` |
-| `/auth/reset-password` | `/reinitialiser-mot-de-passe` |
+| Ancienne                | Nouvelle                      |
+| ----------------------- | ----------------------------- |
+| `/auth/sign-in`         | `/connexion`                  |
+| `/auth/sign-up`         | `/inscription`                |
+| `/auth/forgot-password` | `/mot-de-passe-oublie`        |
+| `/auth/reset-password`  | `/reinitialiser-mot-de-passe` |
 
 ### Étudiant (préfixe `/tableau-de-bord`)
 
-| Ancienne | Nouvelle |
-|---|---|
-| `/dashboard` | `/tableau-de-bord` |
-| `/dashboard/entrainement` (+ `[sessionId]`) | `/tableau-de-bord/entrainement` (idem) |
-| `/dashboard/entrainement/[sessionId]/results` | `/tableau-de-bord/entrainement/[sessionId]/resultats` |
-| `/dashboard/examen-blanc/**` | `/tableau-de-bord/examen-blanc/**` *(feuilles déjà FR : `evaluation`, `resultats`, `soumis`)* |
-| `/dashboard/abonnements` | `/tableau-de-bord/abonnements` |
-| `/dashboard/profil` | `/tableau-de-bord/profil` |
-| `/dashboard/onboarding` | `/tableau-de-bord/bienvenue` |
-| `/dashboard/payment/success` | `/tableau-de-bord/paiement/succes` |
+| Ancienne                                      | Nouvelle                                                                                      |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `/dashboard`                                  | `/tableau-de-bord`                                                                            |
+| `/dashboard/entrainement` (+ `[sessionId]`)   | `/tableau-de-bord/entrainement` (idem)                                                        |
+| `/dashboard/entrainement/[sessionId]/results` | `/tableau-de-bord/entrainement/[sessionId]/resultats`                                         |
+| `/dashboard/examen-blanc/**`                  | `/tableau-de-bord/examen-blanc/**` _(feuilles déjà FR : `evaluation`, `resultats`, `soumis`)_ |
+| `/dashboard/abonnements`                      | `/tableau-de-bord/abonnements`                                                                |
+| `/dashboard/profil`                           | `/tableau-de-bord/profil`                                                                     |
+| `/dashboard/onboarding`                       | `/tableau-de-bord/bienvenue`                                                                  |
+| `/dashboard/payment/success`                  | `/tableau-de-bord/paiement/succes`                                                            |
 
 ### Admin (seuls les 2 sous-arbres EN changent)
 
-| Ancienne | Nouvelle |
-|---|---|
-| `/admin/exams` | `/admin/examens` |
-| `/admin/exams/create` | `/admin/examens/creer` |
-| `/admin/exams/edit/[id]` | `/admin/examens/modifier/[id]` |
-| `/admin/exams/[id]` | `/admin/examens/[id]` |
+| Ancienne                             | Nouvelle                                 |
+| ------------------------------------ | ---------------------------------------- |
+| `/admin/exams`                       | `/admin/examens`                         |
+| `/admin/exams/create`                | `/admin/examens/creer`                   |
+| `/admin/exams/edit/[id]`             | `/admin/examens/modifier/[id]`           |
+| `/admin/exams/[id]`                  | `/admin/examens/[id]`                    |
 | `/admin/exams/[id]/results/[userId]` | `/admin/examens/[id]/resultats/[userId]` |
-| `/admin/users` | `/admin/utilisateurs` |
-| `/admin/users/[id]` | `/admin/utilisateurs/[id]` |
+| `/admin/users`                       | `/admin/utilisateurs`                    |
+| `/admin/users/[id]`                  | `/admin/utilisateurs/[id]`               |
 
 **Inchangés** (déjà FR ou identiques dans les deux langues) : `/admin`,
 `/admin/questions` (+ `nouvelle`, `[questionId]/modifier`), `/admin/transactions`,
@@ -133,7 +133,7 @@ Ordre proposé :
   (`proxy.ts`). Quel que soit l'ordre, `proxy.ts` doit protéger les **nouveaux**
   chemins et rediriger vers `/connexion` (défense en profondeur).
 - **Syntaxe `redirects()`** : confirmer la forme `{ source, destination,
-  permanent: true }` et la préservation de query sur les patterns `:path*` dans
+permanent: true }` et la préservation de query sur les patterns `:path*` dans
   la version installée avant d'écrire.
 - **`git mv` sensible à la casse** sous Windows : renommages purement de casse
   improbables ici (les noms changent réellement), mais vérifier que Git suit bien

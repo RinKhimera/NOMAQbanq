@@ -27,6 +27,7 @@
 - [ ] **Step 1 : Confirmer la branche et un arbre propre**
 
 Run:
+
 ```bash
 git branch --show-current   # attendu : dev-2
 git status --porcelain      # attendu : vide (le spec est déjà commité)
@@ -34,11 +35,20 @@ git status --porcelain      # attendu : vide (le spec est déjà commité)
 
 - [ ] **Step 2 : Baseline verte (référence avant refactor)**
 
-Run:
+⚠️ **Post-revue (F6)** : `bun run check` inclut `prettier --check` sur **tout** le repo, `docs/` compris. Les fichiers spec/plan de ce chantier peuvent être non formatés → `check` exit 1 (uniquement la passe Prettier ; tsc/eslint/test sont verts). **Formater les docs d'abord** :
+
+```bash
+bunx prettier --write docs/superpowers/specs/2026-07-01-routes-francaises-design.md docs/superpowers/plans/2026-07-01-routes-francaises.md
+git commit -am "docs(routes): format spec + plan (baseline verte)"
+```
+
+Run ensuite :
+
 ```bash
 bun run check && bun run test
 ```
-Expected: `check` (tsc + eslint) vert, tests verts. Si rouge **avant** de commencer, corriger/arrêter — on ne refactore pas sur une base cassée.
+
+Expected: `check` (tsc + eslint + prettier) vert, tests verts (866/866 à la revue). Si rouge **avant** de commencer, corriger/arrêter — on ne refactore pas sur une base cassée.
 
 ---
 
@@ -90,44 +100,63 @@ Expected: `creer/`, `modifier/[id]/`, `[id]/` (avec `resultats/`), `utilisateurs
 
 - [ ] **Step 1 : Appliquer les remplacements** (Edit par fichier, ou sweep PowerShell scopé ci-dessous)
 
-Sweep optionnel (PowerShell) — l'ordre importe (specifiques avant génériques) :
+⚠️ **Post-revue (F4)** : un `-replace '/admin/exams'` NON borné corrompt l'import `@/components/admin/exams-list` (`/admin/exams` ⊂ `/admin/exams-list`) → `examens-list` (module inexistant). Le fichier `exams-list.tsx` **n'est pas renommé** (nom de fichier ≠ route). Le sweep ci-dessous ancre donc chaque route sur un guillemet/backtick **ou** un `\` (forme regex des assertions e2e, cf. F1) — jamais sur une lettre. L'ordre importe (spécifiques avant génériques) :
+
 ```powershell
-$files = Get-ChildItem -Recurse -Include *.ts,*.tsx app,components,features,constants |
+$roots = 'app','components','features','constants','hooks','scripts','tests','e2e'
+$files = Get-ChildItem -Recurse -Include *.ts,*.tsx $roots |
   Where-Object { $_.FullName -notmatch '\\docs\\|\\node_modules\\' }
 foreach ($f in $files) {
-  (Get-Content $f -Raw) `
-    -replace '/admin/exams/create','/admin/examens/creer' `
-    -replace '/admin/exams/edit/','/admin/examens/modifier/' `
-    -replace '/admin/exams/([^"''`) ]*)/results/','/admin/examens/$1/resultats/' `
-    -replace '/admin/exams','/admin/examens' `
-    -replace '/admin/users','/admin/utilisateurs' |
-    Set-Content $f -NoNewline
+  $c = Get-Content $f -Raw
+  # a) chaînes de route (guillemet/backtick) — spécifiques d'abord
+  $c = $c -replace '(["''`])/admin/exams/create','$1/admin/examens/creer'
+  $c = $c -replace '(["''`])/admin/exams/edit/','$1/admin/examens/modifier/'
+  $c = $c -replace '(["''`])/admin/exams','$1/admin/examens'
+  $c = $c -replace '(["''`])/admin/users','$1/admin/utilisateurs'
+  # b) forme regex e2e (\/…) — mêmes règles, ancrées sur un backslash
+  $c = $c -replace '(\\)/admin/exams/create','$1/admin/examens/creer'
+  $c = $c -replace '(\\)/admin/exams','$1/admin/examens'
+  $c = $c -replace '(\\)/admin/users','$1/admin/utilisateurs'
+  # c) results → resultats DANS les chemins d'examens déjà renommés (template literals)
+  $c = [regex]::Replace($c, '(/admin/examens/[^"''`) ]*)/results', '${1}/resultats')
+  Set-Content $f -NoNewline $c
 }
 ```
-> ⚠️ Après un sweep `-Raw`/`-NoNewline`, vérifier qu'aucune fin de ligne finale n'a sauté (Prettier la remettra ; lancer `bun run format` en fin de phase).
 
-- [ ] **Step 2 : Gate anti-régression**
+> ⚠️ Après un sweep `-Raw`/`-NoNewline`, la newline finale peut sauter → `bun run format` en fin de phase la rétablit.
 
-Run (Grep): motif `["'\`]/admin/(exams|users)` hors `docs/`, `.claude/`, `.agents/`, `README.md`, `AGENTS.md`.
-Expected: **0** match.
+- [ ] **Step 2 : Gate anti-régression (agnostique à la forme — F1/F4)**
+
+Grep par **sous-chaîne** (attrape toutes les formes : `"…"`, `\/…`, `}/…`) en **excluant** le seul faux positif légitime (le fichier composant `exams-list`), sur `app,components,features,constants,hooks,scripts,tests,e2e` :
+
+```bash
+rg -n --glob '!docs/**' '/admin/(exams|users)' app components features constants hooks scripts tests e2e | rg -v 'exams-list'
+```
+
+Expected: **0** ligne. (Toute occurrence restante = route non convertie, quelle que soit sa forme.)
 
 ### Task 1.3 : Mettre à jour les tests admin
 
 **Files (modify) :**
+
 - `tests/components/admin/ExamActions.test.tsx` (l.101 `/admin/exams/exam456`→`/admin/examens/exam456`)
 - `tests/components/admin/dashboard/QuickActions.test.tsx` (l.53 `.../create`→`.../creer`, l.60 `/admin/users`→`/admin/utilisateurs`)
 - `tests/components/admin/dashboard/AlertsPanel.test.tsx` (l.193 `/admin/users`→`/admin/utilisateurs`)
 
 - [ ] **Step 1 : Éditer les assertions de chemin** (mêmes remplacements que Task 1.2).
 
-- [ ] **Step 2 : E2E admin (chemins en dur)**
+- [ ] **Step 2 : E2E admin — chaînes ET assertions regex (F1)**
 
-**Files:** `e2e/pages/admin-exams.page.ts` (l.10), `e2e/pages/admin-users.page.ts` (l.10), `e2e/tests/admin-exams.spec.ts` (l.35, 73, 95, 117), `e2e/tests/navigation-admin.spec.ts` (l.16, 17). Appliquer les mêmes remplacements.
+Le sweep Task 1.2 (roots inclut `e2e`) couvre les deux formes. **Vérifier** que ces occurrences sont bien converties :
+
+- Chaînes (`goto`/`url`) : `e2e/pages/admin-exams.page.ts` (l.10), `e2e/pages/admin-users.page.ts` (l.10), `e2e/tests/admin-exams.spec.ts` (l.35, 73, 95, 117), `e2e/tests/navigation-admin.spec.ts` (l.16, 17 — data `url`).
+- **Regex** `toHaveURL/waitForURL` (forme `\/…`, hors sous-ensemble initial) : `e2e/tests/admin.spec.ts` (l.40 `\/admin\/exams\/create`→`examens\/creer`, l.47 `\/admin\/users`→`utilisateurs`), `e2e/tests/admin-exams.spec.ts` (l.29 `\/admin\/exams\/create`→`examens\/creer`), `e2e/pages/admin-exams.page.ts` (l.21 `\/admin\/exams\/create`→`examens\/creer`).
+- Inchangés (déjà FR) : `\/admin\/questions…` (admin.spec.ts:33, admin-questions), `\/admin\/profil` (navigation-admin:40).
 
 - [ ] **Step 3 : Vérifier**
 
 Run: `bun run check && bun run test -- tests/components/admin`
-Expected: vert.
+Expected: vert. (Le gate agnostique de Task 1.2 Step 2 doit déjà renvoyer 0.)
 
 - [ ] **Step 4 : Commit**
 
@@ -163,10 +192,13 @@ ls "app/(auth)"            # attendu : connexion/ inscription/ mot-de-passe-oubl
 
 ### Task 2.2 : Corriger les imports vers `_components` déplacés
 
-**Files (modify) — l'`_components` partagé et ceux des pages ont changé de chemin :**
+**Files (modify) — l'`_components` partagé et ceux des pages ont changé de chemin. ⚠️ F3 : inclut 2 fichiers SOURCE qui importent `check-email-notice` en chemin absolu (omis initialement — le gate Step 2 les rattrape) :**
+
+- `app/(auth)/inscription/_components/sign-up-form.tsx` (l.7 : `@/app/(auth)/auth/_components/check-email-notice` → `@/app/(auth)/_components/check-email-notice`)
+- `app/(auth)/connexion/_components/sign-in-form.tsx` (l.9 : idem → `@/app/(auth)/_components/check-email-notice`)
 - `tests/components/auth/sign-in-form.test.tsx` (l.5 : `@/app/(auth)/auth/sign-in/_components/sign-in-form` → `@/app/(auth)/connexion/_components/sign-in-form`)
 - `tests/components/auth/sign-up-form.test.tsx` (l.5 : `.../auth/sign-up/_components/...` → `.../inscription/_components/...`)
-- `tests/components/auth/check-email-notice.test.tsx` (import de `check-email-notice` : `@/app/(auth)/auth/_components/check-email-notice` → `@/app/(auth)/_components/check-email-notice`)
+- `tests/components/auth/check-email-notice.test.tsx` (l.5 : `@/app/(auth)/auth/_components/check-email-notice` → `@/app/(auth)/_components/check-email-notice`)
 
 - [ ] **Step 1 : Éditer les imports.**
 
@@ -178,6 +210,7 @@ Expected: **0** match (sinon corriger le chemin d'import du fichier trouvé).
 ### Task 2.3 : Mettre à jour les chaînes de route auth
 
 **Files (modify) — remplacer `/auth/sign-in`→`/connexion`, `/auth/sign-up`→`/inscription`, `/auth/forgot-password`→`/mot-de-passe-oublie`, `/auth/reset-password`→`/reinitialiser-mot-de-passe` :**
+
 - `proxy.ts` (l.68 redirect non-auth)
 - `lib/auth-guards.ts` (l.8 `redirect("/auth/sign-in")`)
 - `components/shared/generic-nav-user.tsx` (l.113)
@@ -204,6 +237,7 @@ redirectTo: "/auth/reset-password",
 // APRÈS
 redirectTo: "/reinitialiser-mot-de-passe",
 ```
+
 > C'est ce `redirectTo` que Better Auth encode dans le lien email (`callbackURL`). Le template email (`email/templates/reset-password-email`) ne contient PAS de chemin en dur — il rend le `url` fourni par Better Auth. (Vérifier : Grep `reset-password` dans `email/` → attendu 0 chemin de route en dur.)
 
 - [ ] **Step 2 : Appliquer les autres remplacements** (Edit par fichier).
@@ -220,13 +254,16 @@ Expected: **0** match.
 ### Task 2.5 : robots.ts + e2e auth + tests auth
 
 **Files (modify) :**
+
 - `app/robots.ts` (l.9) — les pages auth ne sont plus sous `/auth/` :
+
 ```ts
 // AVANT
 disallow: ["/admin/", "/dashboard/", "/auth/"],
 // APRÈS (dashboard traité en Phase 3 ; ici on remplace /auth/ par les 4 pages)
 disallow: ["/admin/", "/dashboard/", "/connexion", "/inscription", "/mot-de-passe-oublie", "/reinitialiser-mot-de-passe"],
 ```
+
 - `e2e/global.setup.ts` (l.12 `/auth/sign-in`→`/connexion`)
 - `e2e/tests/auth.spec.ts` (l.7, 22)
 - `e2e/tests/auth-ux.spec.ts` (l.9, 24, 34)
@@ -272,40 +309,66 @@ Expected: `bienvenue/ paiement/ entrainement/ examen-blanc/ abonnements/ profil/
 
 ### Task 3.2 : Éditer `proxy.ts` (regex — NON couverte par le sweep), puis sweep quote-ancré
 
-- [ ] **Step 1 : `proxy.ts` — édition MANUELLE de la regex `PROTECTED`**
+- [ ] **Step 1 : Éditions MANUELLES hors racines du sweep (F5)**
 
-Le sweep quote-ancré (Step 2) ne modifie **que** les chaînes précédées d'un guillemet/backtick. La regex `PROTECTED` (`/^\/dashboard.../`) n'en est pas une → **édition manuelle obligatoire** :
+⚠️ **Correction post-revue** : les racines du sweep (Step 2) sont `app,components,features,constants,hooks,scripts,tests,e2e` — elles **excluent `proxy.ts` (racine) et `lib/`**. Ces 3 points sont donc édités **à la main** (l'ancienne version du plan les disait couverts par le sweep — c'était FAUX) :
+
+`proxy.ts` (racine — regex `PROTECTED` l.8 **et** redirect l.63) :
+
 ```ts
-// AVANT (proxy.ts l.8)
+// AVANT (l.8)
 const PROTECTED = [/^\/dashboard(?:\/|$)/, /^\/admin(?:\/|$)/]
 // APRÈS
 const PROTECTED = [/^\/tableau-de-bord(?:\/|$)/, /^\/admin(?:\/|$)/]
+
+// AVANT (l.63)
+return NextResponse.redirect(new URL("/dashboard", request.url))
+// APRÈS
+return NextResponse.redirect(new URL("/tableau-de-bord", request.url))
 ```
-> La l.63 `NextResponse.redirect(new URL("/dashboard", …))` EST quote-ancrée → couverte par le sweep (Step 2). `PUBLIC_ONLY` (`/`, `/a-propos`, `/domaines`) reste inchangé.
 
-- [ ] **Step 2 : Sweep quote-ancré (sûr — n'attrape que les chaînes de route)**
+> `PUBLIC_ONLY` (`/`, `/a-propos`, `/domaines`) reste inchangé. La l.68 (`/auth/sign-in`→`/connexion`) a déjà été éditée en Phase 2.
 
-Scopé (app, components, features, constants, hooks, scripts, tests, e2e). Ordre critique : **préfixe d'abord, feuilles ensuite**.
+`lib/auth-guards.ts` (dossier `lib/` hors sweep — l.16) :
+
+```ts
+// AVANT (l.16)
+if (!roles.includes(role)) redirect("/dashboard")
+// APRÈS
+if (!roles.includes(role)) redirect("/tableau-de-bord")
+```
+
+> La l.8 (`redirect("/auth/sign-in")`→`/connexion`) a déjà été éditée en Phase 2.
+
+- [ ] **Step 2 : Sweep agnostique à la forme (F1/F2/F3)**
+
+⚠️ **Correction post-revue** : le préfixe `/dashboard` apparaît dans **5 contextes**, pas seulement en chaîne. L'ancre couvre donc `"` `'` `` ` `` (chaînes), `}` (template-literal cron `${getBaseUrl()}/dashboard`, cf. F2), `)` (import `(dashboard)/dashboard/…`, cf. F3), et `\` (assertion regex e2e `/\/dashboard/`, cf. F1). Scopé (app, components, features, constants, hooks, scripts, tests, e2e). **Ne couvre PAS `proxy.ts` ni `lib/`** → faits à la main en Step 1. Ordre critique : **préfixe d'abord, feuilles ensuite**.
+
 ```powershell
 $roots = 'app','components','features','constants','hooks','scripts','tests','e2e'
 $files = Get-ChildItem -Recurse -Include *.ts,*.tsx $roots |
   Where-Object { $_.FullName -notmatch '\\docs\\|\\node_modules\\' }
 foreach ($f in $files) {
   $c = Get-Content $f -Raw
-  # 1) préfixe, uniquement quand précédé d'un guillemet/backtick (= chaîne de route)
-  $c = [regex]::Replace($c, '([""''`])/dashboard', '${1}/tableau-de-bord')
-  # 2) feuilles EN (sur les nouveaux chemins)
+  # 1) préfixe /dashboard, ancré sur " ' ` } ) \ (= toute forme de chemin, jamais une lettre)
+  $c = [regex]::Replace($c, '([""''`}\\)])/dashboard', '${1}/tableau-de-bord')
+  # 2) feuilles EN (chaînes ET imports — non ancrées car chemins déjà distinctifs)
   $c = $c -replace '/tableau-de-bord/onboarding','/tableau-de-bord/bienvenue'
   $c = $c -replace '/tableau-de-bord/payment/success','/tableau-de-bord/paiement/succes'
+  # 3) results→resultats de l'entraînement : forme chaîne/template…
   $c = [regex]::Replace($c, '(/tableau-de-bord/entrainement/[^""''`) ]*)/results', '${1}/resultats')
+  # 3bis) …ET forme regex e2e bare `\/results` (ne matche pas `\/resultats`)
+  $c = $c -replace '\\/results','\/resultats'
   Set-Content $f -NoNewline $c
 }
 ```
-> ⚠️ `@/components/admin/dashboard/...` est précédé de `admin` (pas d'un guillemet immédiatement avant `/dashboard`) → **épargné**. Vérifié au Step 4.
+
+> ⚠️ **Épargnés à raison** : `@/components/admin/dashboard/…` (le `/dashboard` y est précédé de `n`), `@/components/shared/dashboard-shell` (précédé de `d`), et le groupe `(dashboard)` lui-même (c'est `/(dashboard)`, pas `/dashboard` — un `(` s'intercale). Seul le vrai segment de route `)/dashboard/` du groupe est converti. Vérifié au Step 4.
 
 - [ ] **Step 3 : Contrôler les comparaisons de `pathname` (quote-ancrées → couvertes par le sweep, à confirmer)**
 
 Vérifier que ces lignes ont bien été mises à jour :
+
 - `components/shared/onboarding-guard.tsx` : l.19 `pathname === "/tableau-de-bord/bienvenue"`, l.22 `router.replace("/tableau-de-bord/bienvenue")`, l.24 `router.replace("/tableau-de-bord")`.
 - `components/shared/nav-secondary.tsx` : l.44 `pathname.startsWith("/tableau-de-bord")`, l.49 `href: "/tableau-de-bord"`.
 - `components/shared/site-header.tsx` : l.30 `pathname === "/tableau-de-bord"`.
@@ -313,48 +376,75 @@ Vérifier que ces lignes ont bien été mises à jour :
 - `app/(admin)/error.tsx` (l.72) et `app/(dashboard)/error.tsx` (l.61) : `window.location.href = "/tableau-de-bord"`.
 - `app/(dashboard)/not-found.tsx` (l.33) : `href="/tableau-de-bord"`.
 
-- [ ] **Step 4 : Gate anti-régression (ne rien avoir cassé côté imports)**
+- [ ] **Step 4 : Gate anti-régression AGNOSTIQUE À LA FORME (F1/F2/F3)**
 
-Run (Grep):
-1. motif `["'\`]/dashboard` hors docs/.claude/.agents/README/AGENTS → **0** match.
-2. motif `["'\`]/tableau-de-bord/(onboarding|payment)` → **0** match (feuilles bien renommées).
-3. motif `/tableau-de-bord/entrainement/[^"'\`]*/results\b` → **0** match.
-4. Sanity imports intacts : `import.*admin/dashboard/` doit **toujours** exister (composants non renommés) — Grep `components/admin/dashboard/` → matches attendus (inchangés).
+Grep par **sous-chaîne** (attrape `"…"`, `\/…`, `}/…`, `)/…` d'un coup) en excluant les 2 faux positifs légitimes, sur `app,components,features,constants,hooks,lib,scripts,tests,e2e,proxy.ts` :
+
+```bash
+# 1) plus aucun /dashboard résiduel (hors composants non-routes)
+rg -n --glob '!docs/**' '/dashboard' app components features constants hooks lib scripts tests e2e proxy.ts | rg -v 'dashboard-shell|admin/dashboard'
+# 2) feuilles EN bien renommées
+rg -n '/tableau-de-bord/(onboarding|payment)' app components features constants hooks lib scripts tests e2e proxy.ts
+# 3) plus aucun /results résiduel (training) — n'attrape pas /resultats
+rg -n '/results' app components features constants hooks lib scripts tests e2e
+```
+
+Expected: **0** ligne pour chacun.
+
+- [ ] **Step 5 : Sanity — imports composants intacts**
+
+Run (Grep): `components/admin/dashboard/` → matches **attendus** (répertoire composant non renommé, ne doit PAS avoir bougé). `dashboard-shell` → présent. Confirme que le sweep n'a pas sur-remplacé.
 
 ### Task 3.3 : `callbackURL` Better Auth (Phase 2 reportée ici)
 
 **Files (modify) — étaient `callbackURL: "/dashboard"` → `/tableau-de-bord` (déjà couverts par le sweep quote-ancré, à confirmer) :**
+
 - `app/(auth)/connexion/_components/sign-in-form.tsx` (l.65) + `router.push` (l.58)
 - `app/(auth)/inscription/_components/sign-up-form.tsx` (l.39, 56)
 - `app/(auth)/_components/check-email-notice.tsx` (l.35)
 
 - [ ] **Step 1 : Confirmer via Grep** `callbackURL: "/tableau-de-bord"` présent dans ces 3 fichiers ; `callbackURL: "/dashboard"` absent partout.
 
-### Task 3.4 : Mettre à jour les tests + e2e étudiant
+### Task 3.4 : Vérifier les cibles hors-chaîne + tests + e2e étudiant
 
-**Files (modify) — assertions de chemin :**
-- `tests/components/OnboardingGuard.test.tsx` (l.60, 64, 74, 78, 88, 102 : `/dashboard*`→`/tableau-de-bord*`, dont `/dashboard/onboarding`→`/tableau-de-bord/bienvenue`)
-- `tests/components/OnboardingPage.test.tsx` (l.77, 109 : `/dashboard`→`/tableau-de-bord`)
-- `tests/components/auth/sign-in-form.test.tsx` (l.45 : `/dashboard`→`/tableau-de-bord`)
-- `tests/components/auth/check-email-notice.test.tsx` (l.52 : `callbackURL "/dashboard"`→`/tableau-de-bord`)
-- `tests/users/profile-login-methods.test.tsx` (l.24, 42, 62 : `profilePath "/dashboard/profil"`→`/tableau-de-bord/profil`)
-- E2E pages : `e2e/pages/dashboard.page.ts` (l.10), `profil.page.ts` (l.10), `payment.page.ts` (l.17, 24 → `paiement/succes`), `entrainement.page.ts` (l.10), `examen-blanc.page.ts` (l.10), `examen-resultats.page.ts` (l.12)
-- E2E specs : `error-states.spec.ts` (l.47), `payment-access.spec.ts` (l.38, 73 → `paiement/succes?session_id=…`, 83), `navigation-student.spec.ts` (l.7, 13, 14, 15, 30, 43), `examen-audience.spec.ts` (l.68, 95)
+Le sweep élargi (Task 3.2 Step 2, roots = app/components/features/constants/hooks/scripts/tests/e2e) couvre les 5 formes. Cette task **vérifie** les cibles que la revue avait identifiées comme angles morts, puis lance la suite.
 
-> La plupart sont déjà couverts par le sweep quote-ancré (Step 1bis inclut `tests` et `e2e`). Ce sont les points à **vérifier**, avec attention aux feuilles : `payment/success`→`paiement/succes`, `onboarding`→`bienvenue`, entrainement `results`→`resultats`.
+- [ ] **Step 1 : Cibles hors-chaîne à confirmer converties (F2/F3)**
 
-- [ ] **Step 1 : Vérifier/compléter les assertions** (surtout les feuilles EN).
+- **Cron email (F2)** — `features/notifications/cron.ts` (l.80 `${getBaseUrl()}/dashboard/examen-blanc/…`, l.150 `${getBaseUrl()}/dashboard/abonnements`) : ancré sur `}` → doit être `…}/tableau-de-bord/…`. **Confirme via Grep** : `getBaseUrl()}/dashboard` → 0.
+- **Imports absolus (F3)** — le `)`-ancre convertit `@/app/(dashboard)/dashboard/…` → `@/app/(dashboard)/tableau-de-bord/…`. **Confirme convertis** (sinon tsc casse) :
+  - Source prod : `app/(admin)/admin/profil/page.tsx` (l.1-6, imports `.../profil/_components/*`)
+  - Tests : `tests/users/{profile-sessions,profile-notifications,profile-login-methods,profile-danger-zone}.test.tsx` (l.3), `tests/components/OnboardingPage.test.tsx` (l.4 : `.../dashboard/onboarding/page` → `.../tableau-de-bord/bienvenue/page`)
+  - Grep gate : `@/app/\(dashboard\)/dashboard/` → **0** match.
 
-- [ ] **Step 2 : Format + check + tests**
+- [ ] **Step 2 : Assertions de chemin — tests (à vérifier)**
+
+- `tests/components/OnboardingGuard.test.tsx` (l.60/64/74/78/88/102 — dont `/dashboard/onboarding`→`/tableau-de-bord/bienvenue`)
+- `tests/components/OnboardingPage.test.tsx` (l.77/109), `tests/components/auth/sign-in-form.test.tsx` (l.45), `tests/components/auth/check-email-notice.test.tsx` (l.52 `callbackURL`), `tests/users/profile-login-methods.test.tsx` (l.24/42/62 `profilePath`)
+
+- [ ] **Step 3 : Assertions e2e — CHAÎNES _et_ REGEX (F1)**
+
+- **Chaînes** (`goto`/`url`) : `e2e/pages/{dashboard,profil,entrainement,examen-blanc}.page.ts` (l.10), `payment.page.ts` (l.17 ; l.24 → `paiement/succes`), `examen-resultats.page.ts` (l.12) ; `e2e/tests/{error-states.spec.ts:47, payment-access.spec.ts:38/73(→paiement/succes?session_id=…)/83, navigation-student.spec.ts:7/13/14/15/30/43, examen-audience.spec.ts:68/95}`
+- **Regex** (`\/…`, angle mort initial) :
+  - `e2e/global.setup.ts:17` — `/\/dashboard(\/|$)/` → `/\/tableau-de-bord(\/|$)/` (⚠️ **bloque toute la suite** si raté)
+  - `e2e/tests/dashboard.spec.ts` (l.26/33/40 `\/dashboard\/{entrainement,examen-blanc,profil}`)
+  - `e2e/tests/examen-blanc-auto-submit.spec.ts:76` (`\/dashboard\/examen-blanc`)
+  - `e2e/tests/navigation-student.spec.ts` (l.38 `\/dashboard\/profil`, l.45 `\/dashboard\/abonnements` ; l.21 `new RegExp(link.url)` dérive des données l.13-15 → OK si le tableau est converti)
+  - `e2e/pages/entrainement.page.ts` (l.71 `\/dashboard\/entrainement\/` ; **l.117/127 `\/results`→`\/resultats`**)
+  - `e2e/tests/resultats-entrainement.spec.ts:33` (`\/results`→`\/resultats`)
+  - `e2e/pages/examen-blanc.page.ts:138` (`\/dashboard\/examen-blanc`)
+  - `e2e/tests/error-states.spec.ts:50` — `/\/auth\/sign-in|\/dashboard/` : la partie `\/auth\/sign-in`→`\/connexion` a été faite en Phase 2 ; ici `\/dashboard`→`\/tableau-de-bord` → résultat `/\/connexion|\/tableau-de-bord/`
+
+- [ ] **Step 4 : Format + check + tests**
 
 Run: `bun run format && bun run check && bun run test`
-Expected: vert (toute la suite).
+Expected: vert (toute la suite). `bun run format` rétablit les newlines finales éventuellement mangées par le sweep `-NoNewline`.
 
-- [ ] **Step 3 : Commit**
+- [ ] **Step 5 : Commit**
 
 ```bash
 git add -A
-git commit -m "refactor(routes): /dashboard→/tableau-de-bord (+ bienvenue, paiement/succes, entrainement/resultats)"
+git commit -m "refactor(routes): /dashboard→/tableau-de-bord (+ bienvenue, paiement/succes, entrainement/resultats, cron, imports)"
 ```
 
 ---
@@ -369,29 +459,89 @@ git commit -m "refactor(routes): /dashboard→/tableau-de-bord (+ bienvenue, pai
 
 ```ts
 const nextConfig: NextConfig = {
-  experimental: { /* … inchangé … */ },
-  images: { /* … inchangé … */ },
+  experimental: {
+    /* … inchangé … */
+  },
+  images: {
+    /* … inchangé … */
+  },
   async redirects() {
     return [
       // — Étudiant — (spécifiques AVANT le wildcard de préfixe)
-      { source: "/dashboard/entrainement/:sessionId/results", destination: "/tableau-de-bord/entrainement/:sessionId/resultats", permanent: true },
-      { source: "/dashboard/onboarding", destination: "/tableau-de-bord/bienvenue", permanent: true },
-      { source: "/dashboard/payment/success", destination: "/tableau-de-bord/paiement/succes", permanent: true },
-      { source: "/dashboard/:path*", destination: "/tableau-de-bord/:path*", permanent: true },
-      { source: "/dashboard", destination: "/tableau-de-bord", permanent: true },
+      {
+        source: "/dashboard/entrainement/:sessionId/results",
+        destination: "/tableau-de-bord/entrainement/:sessionId/resultats",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/onboarding",
+        destination: "/tableau-de-bord/bienvenue",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/payment/success",
+        destination: "/tableau-de-bord/paiement/succes",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/:path*",
+        destination: "/tableau-de-bord/:path*",
+        permanent: true,
+      },
+      {
+        source: "/dashboard",
+        destination: "/tableau-de-bord",
+        permanent: true,
+      },
       // — Admin — (spécifiques AVANT le générique :id)
-      { source: "/admin/exams/create", destination: "/admin/examens/creer", permanent: true },
-      { source: "/admin/exams/edit/:id", destination: "/admin/examens/modifier/:id", permanent: true },
-      { source: "/admin/exams/:id/results/:userId", destination: "/admin/examens/:id/resultats/:userId", permanent: true },
-      { source: "/admin/exams/:id", destination: "/admin/examens/:id", permanent: true },
-      { source: "/admin/exams", destination: "/admin/examens", permanent: true },
-      { source: "/admin/users/:path*", destination: "/admin/utilisateurs/:path*", permanent: true },
-      { source: "/admin/users", destination: "/admin/utilisateurs", permanent: true },
+      {
+        source: "/admin/exams/create",
+        destination: "/admin/examens/creer",
+        permanent: true,
+      },
+      {
+        source: "/admin/exams/edit/:id",
+        destination: "/admin/examens/modifier/:id",
+        permanent: true,
+      },
+      {
+        source: "/admin/exams/:id/results/:userId",
+        destination: "/admin/examens/:id/resultats/:userId",
+        permanent: true,
+      },
+      {
+        source: "/admin/exams/:id",
+        destination: "/admin/examens/:id",
+        permanent: true,
+      },
+      {
+        source: "/admin/exams",
+        destination: "/admin/examens",
+        permanent: true,
+      },
+      {
+        source: "/admin/users/:path*",
+        destination: "/admin/utilisateurs/:path*",
+        permanent: true,
+      },
+      {
+        source: "/admin/users",
+        destination: "/admin/utilisateurs",
+        permanent: true,
+      },
       // — Auth —
       { source: "/auth/sign-in", destination: "/connexion", permanent: true },
       { source: "/auth/sign-up", destination: "/inscription", permanent: true },
-      { source: "/auth/forgot-password", destination: "/mot-de-passe-oublie", permanent: true },
-      { source: "/auth/reset-password", destination: "/reinitialiser-mot-de-passe", permanent: true },
+      {
+        source: "/auth/forgot-password",
+        destination: "/mot-de-passe-oublie",
+        permanent: true,
+      },
+      {
+        source: "/auth/reset-password",
+        destination: "/reinitialiser-mot-de-passe",
+        permanent: true,
+      },
     ]
   },
 }
@@ -407,6 +557,7 @@ Expected: vert (le typage de `NextConfig.redirects` accepte cette forme).
 - [ ] **Step 3 : Vérif runtime des redirections (dev)**
 
 Run: `bun dev` (arrière-plan), puis :
+
 ```bash
 curl -sI "http://localhost:3000/dashboard" | grep -i "location\|HTTP/"
 curl -sI "http://localhost:3000/auth/sign-in" | grep -i "location\|HTTP/"
@@ -414,6 +565,7 @@ curl -sI "http://localhost:3000/admin/exams/create" | grep -i "location\|HTTP/"
 curl -sI "http://localhost:3000/reinitialiser-mot-de-passe-inexistant?token=abc" # sanity : pas de boucle
 curl -sI "http://localhost:3000/dashboard/entrainement/SID/results" | grep -i location
 ```
+
 Expected: `308` + `location:` vers la nouvelle URL ; la query `?token=`/`?session_id=` préservée sur les cas concernés ; **aucune** boucle de redirection. Arrêter le dev server après (`TaskStop`).
 
 - [ ] **Step 4 : Commit**
@@ -430,6 +582,7 @@ git commit -m "feat(routes): redirections 308 des anciennes URL EN vers les nouv
 ### Task 5.1 : Mettre à jour la doc projet (chemins cités)
 
 **Files (modify) :**
+
 - `AGENTS.md` (l.45 `app/(auth)/  # … (sign-in, sign-up, reset)` — reformuler ; toute autre mention de `/dashboard`, `/admin/exams`, `/admin/users`)
 - `README.md` (l.115, 161, 205 : mentions auth ; toute mention de routes EN)
 - `.claude/rules/e2e-testing.md` (l.48 `/auth/sign-in`→`/connexion`)
@@ -445,16 +598,21 @@ Expected: **0** match.
 
 ### Task 5.2 : Gate global anti-straggler
 
-- [ ] **Step 1 : Aucune ancienne route ne subsiste dans le code applicatif**
+- [ ] **Step 1 : Aucune ancienne route ne subsiste (gate AGNOSTIQUE À LA FORME)**
 
-Run (Grep) sur `app,components,features,constants,hooks,lib,scripts,tests,e2e,proxy.ts` :
+⚠️ **Post-revue (F1)** : ne PAS ancrer sur un guillemet — les assertions e2e sont des regex (`\/…`), les URLs cron des template-literals (`}/…`), les imports des `)/…`. On grep par **sous-chaîne** en excluant les faux positifs légitimes (fichiers composants). Sur `R = app components features constants hooks lib scripts tests e2e proxy.ts` :
+
+```bash
+rg -n --glob '!docs/**' '/dashboard' $R | rg -v 'dashboard-shell|admin/dashboard'      # → 0
+rg -n --glob '!docs/**' '/admin/(exams|users)' $R | rg -v 'exams-list'                  # → 0
+rg -n --glob '!docs/**' '/auth/(sign-in|sign-up|forgot-password|reset-password)' $R      # → 0
+rg -n --glob '!docs/**' '/tableau-de-bord/(onboarding|payment)' $R                        # → 0
+rg -n --glob '!docs/**' '/results' $R                                                     # → 0 (≠ /resultats)
+rg -n --glob '!docs/**' '\(auth\)/auth/' $R                                               # → 0 (imports auth)
+rg -n --glob '!docs/**' '@/app/\(dashboard\)/dashboard/' $R                               # → 0 (imports dashboard)
 ```
-["'`]/dashboard\b
-/auth/(sign-in|sign-up|forgot-password|reset-password)
-["'`]/admin/(exams|users)\b
-/tableau-de-bord/(onboarding|payment)\b
-```
-Expected: **0** match pour chacun.
+
+Expected: **0** ligne pour chacun.
 
 - [ ] **Step 2 : Suite complète**
 
@@ -463,13 +621,19 @@ Expected: vert, coverage ≥ seuil.
 
 ### Task 5.3 : E2E ciblé sur les parcours renommés
 
-- [ ] **Step 1 : Lancer un sous-ensemble e2e** (garder court — préférence utilisateur)
+- [ ] **Step 1 : Lancer les e2e touchant des routes renommées**
 
-Run:
+⚠️ **Post-revue (F1)** : le sous-ensemble initial (4 fichiers) laissait `dashboard.spec.ts`, `admin.spec.ts`, `admin-exams.spec.ts`, `examen-blanc-auto-submit.spec.ts` non exécutés alors qu'ils portent des assertions d'URL. `global.setup.ts` (login → attente d'URL) s'exécute de toute façon avant **toute** spec. Lancer l'ensemble des specs à assertions d'URL :
+
 ```bash
-bun run test:e2e -- auth.spec.ts navigation-student.spec.ts navigation-admin.spec.ts payment-access.spec.ts
+bun run test:e2e -- auth.spec.ts auth-ux.spec.ts navigation-student.spec.ts navigation-admin.spec.ts \
+  dashboard.spec.ts admin.spec.ts admin-exams.spec.ts payment-access.spec.ts \
+  examen-blanc-auto-submit.spec.ts resultats-entrainement.spec.ts examen-audience.spec.ts error-states.spec.ts
 ```
-Expected: vert. Vérifier visuellement : connexion → `/tableau-de-bord`, onboarding → `/tableau-de-bord/bienvenue`, paiement succès → `/tableau-de-bord/paiement/succes`, nav admin → `/admin/examens`, `/admin/utilisateurs`.
+
+Expected: vert (dont l'auth du `global.setup`). Vérifier visuellement : connexion → `/tableau-de-bord`, onboarding → `/tableau-de-bord/bienvenue`, paiement succès → `/tableau-de-bord/paiement/succes`, résultats entraînement → `.../resultats`, nav admin → `/admin/examens`, `/admin/utilisateurs`.
+
+> Si tu préfères, une passe `bun run test:e2e` complète est plus sûre encore (demander avant — les runs complets sont longs).
 
 > Si le dev/e2e se comporte bizarrement après le renommage massif de dossiers : vider `.next` (`rm -rf .next`) puis relancer (gotcha connu du projet).
 
@@ -494,13 +658,29 @@ git push origin dev-2
 - **Étudiant (`/dashboard`→`/tableau-de-bord` + onboarding/payment/results)** : Phase 3 ✅
 - **Admin (exams/users + create/edit/results)** : Phase 1 ✅
 - **Redirections 308 (16 règles, ordre)** : Phase 4 ✅
-- **Points d'impact du spec** : constants (P1/P3), liens/href (P1-3), redirect/router.push (P1-3), proxy.ts (P2 auth + P3 dashboard — l.63/68), auth-guards (P2/P3), stripe fallbacks (P3, couverts par sweep quote-ancré `features/payments/actions.ts`), forgot-password redirectTo (P2), robots.ts (P2 auth + P3 dashboard), e2e (P1-3), tests (P1-3), verify-relogin (P2) ✅
+- **Points d'impact du spec** : constants (P1/P3), liens/href (P1-3), redirect/router.push (P1-3), proxy.ts (P2 auth l.68 + **P3 dashboard l.8/l.63 en édition manuelle** — hors racines du sweep), auth-guards (P2 l.8 + **P3 l.16 manuel**), stripe fallbacks (P3, `features/payments/actions.ts` couvert par le sweep — `features` ∈ racines), forgot-password redirectTo (P2), robots.ts (P2 auth + P3 dashboard), **cron email `features/notifications/cron.ts` (P3, ancre `}`)**, **imports absolus `@/app/(dashboard)/dashboard/…` (P3, ancre `)`)**, e2e chaînes **et regex** (P1-3), tests (P1-3), verify-relogin (P2) ✅
 - **SEO/sitemap** : Phase 5 (vérif, aucun changement) ✅
 - **Risque ordre proxy↔redirects** : neutralisé — proxy protège les nouveaux chemins ; validé au runtime en P4 Step 3 ✅
 
-## Points de vigilance (pour la revue adversariale)
+## Traçabilité — revue adversariale du 2026-07-02 (verdict initial : NON)
 
-1. **proxy.ts — regex `PROTECTED` non quote-ancrée** : `/^\/dashboard.../` n'est pas modifiée par le sweep → traitée en **édition manuelle explicite** (Phase 3, Task 3.2, Step 1). Point à re-vérifier en revue : que la regex soit bien `^/tableau-de-bord` ET que le redirect l.63 (`new URL("/dashboard"…)`, quote-ancré → couvert par le sweep) pointe bien vers `/tableau-de-bord`. L.68 (`/auth/sign-in`) est traité en Phase 2.
-2. **Sweep `-Raw`/`-NoNewline`** : peut manger la newline finale → `bun run format` en fin de P3 la rétablit. Vérifier `git diff --stat` pour des fichiers modifiés « en trop ».
-3. **`callbackURL`** volontairement reporté de P2 à P3 (car pointe `/dashboard`) — ne pas le franciser deux fois.
-4. **Feuilles EN vs préfixe** : l'ordre des `-replace` (préfixe d'abord, feuilles ensuite) est critique ; sinon `onboarding`/`payment` restent EN.
+La revue a validé le **design** (ordre redirects→proxy sans boucle, liens reset/Stripe en vol couverts, `safePath` OK, layout `(auth)` non orphelin, ancres de ligne exactes) mais a trouvé un **angle mort systémique** : sweep + gates **quote-ancrés uniquement**. Corrections intégrées :
+
+| #     | Constat                                                                                                | Correctif dans ce plan                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| 🔴 F1 | 12 assertions e2e sont des **regex** (`\/…`), 4 fichiers hors périmètre e2e                            | Sweep P1/P3 ancre aussi sur `\` ; gates en **sous-chaîne** (P1 S2, P3 S4, P5 S1) ; e2e élargi (P5 S3) |
+| 🟠 F2 | `features/notifications/cron.ts:80,150` URLs email `${getBaseUrl()}/dashboard/…`                       | Sweep P3 ancre sur `}` ; vérif explicite (P3 Task 3.4 S1)                                             |
+| 🟠 F3 | 8 imports absolus `@/app/(dashboard)/dashboard/…` (dont `admin/profil/page.tsx` prod) + 2 sources auth | Sweep P3 ancre sur `)` (P3 S2) + P2 Task 2.2 liste les 2 sources ; gate imports (P3 S4, P5 S1)        |
+| 🟠 F4 | Sweep P1 non borné corrompt `@/components/admin/exams-list`                                            | Sweep P1 **quote/regex-ancré** + gate excluant `exams-list` (P1 S1/S2)                                |
+| 🟠 F5 | `proxy.ts:63` & `auth-guards.ts:16` **hors racines du sweep** (faussement « couverts »)                | Édition **manuelle** explicite (P3 Task 3.2 S1)                                                       |
+| 🟠 F6 | Baseline `bun run check` rouge (Prettier sur spec/plan)                                                | Formatage des docs d'abord (P0 S2) — fait ci-dessous                                                  |
+
+Réfutations consignées (§4 du rapport) : pas de boucle de redirection, query préservée, `safePath` sans whitelist bloquante, ancres exactes → **non ré-adressées** (rien à corriger).
+
+## Points de vigilance (résiduels)
+
+1. **proxy.ts & lib/ hors sweep** : `proxy.ts` (l.8 regex `PROTECTED` + l.63 redirect) et `lib/auth-guards.ts:16` sont édités **à la main** (P3 Task 3.2 S1). Re-vérifier en fin de P3 que le gate agnostique (qui INCLUT `proxy.ts` et `lib/`) renvoie 0.
+2. **Sweep `-Raw`/`-NoNewline`** : peut manger la newline finale → `bun run format` en fin de P3 la rétablit. Vérifier `git diff --stat`.
+3. **`callbackURL`** reporté de P2 à P3 (pointe `/dashboard`) — ne pas franciser deux fois.
+4. **Ordre des `-replace`** : préfixe d'abord, feuilles ensuite ; sinon `onboarding`/`payment` restent EN.
+5. **`/results` vs `/resultats`** : `\/results` (regex) et `/results` (gate) ne matchent PAS `/resultats` — vérifié, mais rester attentif si un nouveau segment `result*` apparaît.
