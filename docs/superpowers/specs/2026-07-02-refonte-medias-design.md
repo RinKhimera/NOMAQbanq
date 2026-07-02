@@ -206,8 +206,18 @@ que contre la base **prod** (la base dev ne référence qu'un sous-ensemble des
 objets → des médias 100 % légitimes en prod paraîtraient orphelins vus de dev).
 **`--purge` est donc INTERDIT avec `DATABASE_URL` dev** tant que la séparation
 n'est pas faite ; le script affiche un avertissement en mode purge. Le dry-run
-reste sans risque. Cible recommandée : créer un bucket dev dédié + basculer
-l'origin de la distribution CloudFront dev dessus (zéro changement de code).
+reste sans risque.
+
+**✅ RÉSOLU (2026-07-02, via claude-ops)** : séparation effectuée — bucket dev
+`nomaqbanq-710353053639-us-east-2-dev` (PAB, CORS, Lifecycle `tmp/` répliqués,
+objets synchronisés) + distribution CloudFront dev dédiée `E2J8MU7I2MJZ69`
+(`d3hdk94nda1u0x.cloudfront.net`) avec l'OAC existant ; la policy de la clé app
+dev ne référence plus QUE le bucket dev (+ `s3:ListBucket` pour l'audit) ;
+`.env.local` mis à jour. L'ancien bucket `…-an` est désormais 100 % prod (la
+distribution `E3C195G9FCGY7I` / `cdn.nomaqbanq.ca` n'a pas été touchée ; sa
+bucket policy a été purgée d'un ARN de distribution fantôme). Un `--purge` avec
+la base dev est redevenu sûr. Nota : les previews Vercel (`*.vercel.app`)
+continuent d'utiliser l'env Vercel → bucket prod, comme avant.
 
 ## E. Audit prod (lecture seule stricte)
 
