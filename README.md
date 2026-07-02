@@ -112,7 +112,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 NOMAQbanq/
 ├── app/                          # Next.js Pages (App Router)
 │   ├── (marketing)/              # Public pages (landing, pricing, about)
-│   ├── (auth)/                   # Better Auth pages (sign-in, sign-up, reset)
+│   ├── (auth)/                   # Better Auth pages (connexion, inscription, mot-de-passe-oublie, reinitialiser-mot-de-passe)
 │   ├── (dashboard)/              # Student dashboard (protected)
 │   ├── (admin)/                  # Admin dashboard (protected)
 │   └── api/                      # Route handlers (auth, stripe webhook, cron, e2e)
@@ -158,7 +158,7 @@ bun run db:migrate       # Apply migrations
 The project uses Next.js route groups to organize the application:
 
 - **(marketing)** - Public marketing pages (landing, pricing, about)
-- **(auth)** - Authentication (sign-in, sign-up, password reset)
+- **(auth)** - Authentication (connexion, inscription, mot-de-passe-oublie, reinitialiser-mot-de-passe)
 - **(dashboard)** - Student space with sidebar
 - **(admin)** - Administrator space with sidebar
 

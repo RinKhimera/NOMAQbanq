@@ -8,11 +8,11 @@ paths:
 
 ## Master-detail avec panel lateral
 
-Pattern utilise dans `/admin/users` et `/admin/exams`. Table cliquable -> panel Sheet (420px) avec details.
+Pattern utilise dans `/admin/utilisateurs` et `/admin/examens`. Table cliquable -> panel Sheet (420px) avec details.
 
 - URL deep linking: `?user=xxx` ou `?exam=xxx` pour partager un lien direct
 - Composants: `Sheet` de shadcn/ui, animation `motion/react`
-- **Etat derive de l'URL** : Pas de useState+useEffect. Voir `app/(admin)/admin/exams/page.tsx`.
+- **Etat derive de l'URL** : Pas de useState+useEffect. Voir `app/(admin)/admin/examens/page.tsx`.
 
 ## Stat cards avec trends
 
