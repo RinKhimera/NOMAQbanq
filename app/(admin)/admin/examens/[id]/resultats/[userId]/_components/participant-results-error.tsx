@@ -3,11 +3,10 @@
 import { ArrowLeft, CircleCheckBig, Clock, Trophy, User } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { ExamParticipantUser } from "@/features/exams/dal"
-import { getInitials } from "@/lib/utils"
 
 interface ParticipantResultsErrorProps {
   error: "NO_PARTICIPATION" | "NOT_COMPLETED"
@@ -31,8 +30,6 @@ export function ParticipantResultsError({
   examId,
   participantUser,
 }: ParticipantResultsErrorProps) {
-  const initials = getInitials(participantUser?.name)
-
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
       {/* Header */}
@@ -82,15 +79,12 @@ export function ParticipantResultsError({
           {/* Participant Info Card */}
           {participantUser && (
             <div className="flex items-center gap-4 rounded-2xl border border-gray-200/80 bg-white p-6 shadow-lg dark:border-gray-700/50 dark:bg-gray-800">
-              <Avatar className="h-16 w-16">
-                <AvatarImage
-                  src={participantUser.image || undefined}
-                  alt={participantUser.name || "Avatar"}
-                />
-                <AvatarFallback className="bg-blue-100 text-xl text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                  {initials}
-                </AvatarFallback>
-              </Avatar>
+              <UserAvatar
+                name={participantUser.name}
+                image={participantUser.image}
+                className="h-16 w-16"
+                fallbackClassName="bg-blue-100 text-xl text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+              />
               <div className="flex-1">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                   {participantUser.name}

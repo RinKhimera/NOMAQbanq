@@ -7,6 +7,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -36,7 +36,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { deleteParticipation } from "@/features/exams/actions"
 import type { LeaderboardEntry } from "@/features/exams/dal"
-import { getInitials } from "@/lib/utils"
 
 interface ParticipantToDelete {
   participationId: string
@@ -109,7 +108,6 @@ export function ExamLeaderboard({
       <CardContent>
         <div className="space-y-3">
           {leaderboard.map((entry, index) => {
-            const initials = getInitials(entry.user?.name)
             return (
               <div
                 key={index}
@@ -120,13 +118,11 @@ export function ExamLeaderboard({
                   <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-blue-600 text-xs font-bold text-white @sm:h-8 @sm:w-8 dark:bg-blue-500">
                     {index + 1}
                   </div>
-                  <Avatar className="size-9 shrink-0 @sm:size-10">
-                    <AvatarImage
-                      src={entry.user?.image ?? undefined}
-                      alt={entry.user?.name || "Avatar"}
-                    />
-                    <AvatarFallback>{initials}</AvatarFallback>
-                  </Avatar>
+                  <UserAvatar
+                    name={entry.user?.name}
+                    image={entry.user?.image}
+                    className="size-9 shrink-0 @sm:size-10"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium @sm:text-base">
                       {entry.user?.name}

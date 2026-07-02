@@ -11,7 +11,7 @@ import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { motion } from "motion/react"
 import { useMemo, useState } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import {
   Card,
@@ -145,14 +145,6 @@ interface CandidateRowProps {
 function CandidateRow({ candidate, index }: CandidateRowProps) {
   const { user, expiresAt, daysRemaining } = candidate
 
-  const initials =
-    user.name
-      ?.split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2) || "?"
-
   const isExpiringSoon = daysRemaining <= 7
   const isExpiringVerySoon = daysRemaining <= 3
 
@@ -165,12 +157,12 @@ function CandidateRow({ candidate, index }: CandidateRowProps) {
         "flex items-center gap-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50",
       )}
     >
-      <Avatar className="h-12 w-12 border-2 border-teal-100 shadow-sm dark:border-teal-800">
-        <AvatarImage src={user.image ?? undefined} alt={user.name || "User"} />
-        <AvatarFallback className="bg-linear-to-br from-teal-500 to-cyan-500 text-sm font-semibold text-white">
-          {initials}
-        </AvatarFallback>
-      </Avatar>
+      <UserAvatar
+        name={user.name}
+        image={user.image}
+        className="h-12 w-12 border-2 border-teal-100 shadow-sm dark:border-teal-800"
+        fallbackClassName="bg-linear-to-br from-teal-500 to-cyan-500 text-sm font-semibold text-white"
+      />
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-gray-900 dark:text-white">
