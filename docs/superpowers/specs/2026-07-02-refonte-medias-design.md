@@ -51,7 +51,7 @@ Constat de la session précédente confirmé dans le code, avec 3 écarts :
 | 1   | Composant avatar             | `<UserAvatar>` dédié (`components/shared/`), primitif `ui/avatar.tsx` **revenu au stock shadcn** |
 | 2   | next/image pour les avatars  | Non — `<img>` Radix (fallback natif sur erreur, support `data:`, pas de quota)                   |
 | 3   | Backfill `user.image` legacy | Aucun — rendu host-agnostique au rendu + fix du delete au remplacement                           |
-| 4   | Suppression de question      | **Hybride** : hard delete si jamais référencée (arbitré par FK 23503), sinon soft                |
+| 4   | Suppression de question      | **Hybride** : hard delete si jamais référencée (arbitré par FK, code 23001), sinon soft          |
 | 5   | Restauration                 | Aucune (définitif métier) ; le soft delete n'est qu'une protection d'intégrité                   |
 | 6   | S3 au soft delete            | Médias **conservés** (encore servis via les examens/entraînements référents)                     |
 | 7   | Orphelins résiduels          | Script d'audit/GC ponctuel, dry-run par défaut — pas de cron                                     |
@@ -135,20 +135,23 @@ atomiquement, au moment du DELETE** :
    La cascade DB emporte `question_images` + `question_explanations`. Après
    commit : `tryDeleteFromStorage` de chaque image (best-effort, hors
    transaction). Mode = `"hard"`.
-3. **Violation FK `23503`** → fallback soft delete (`SET deleted_at = now()`),
+3. **Violation FK `23001`** (restrict_violation — vérifié à l'implémentation :
+   `ON DELETE RESTRICT` lève `23001`, PAS `23503` qui est réservé aux
+   inserts/NO ACTION ; le code accepte les deux) → fallback soft delete
+   (`SET deleted_at = now()`),
    lignes `question_images` et objets S3 **conservés** (encore servis en
    passation/correction). Mode = `"soft"`.
 4. Retour `{ success: true, mode: "hard" | "soft" }` → toast admin différencié :
    « Question supprimée définitivement » vs « Question archivée : référencée par
    des examens ou entraînements ; ses médias sont conservés ».
 
-Note d'implémentation : Drizzle enveloppe l'erreur pg — détecter `23503` via le
-`code` de l'erreur ou de sa `cause` (à vérifier au plan avec un test
-d'intégration, pas en devinant la forme).
+Note d'implémentation : Drizzle enveloppe l'erreur pg — détecter `23001`/`23503`
+via le `code` de la `cause` (DrizzleQueryError → cause = DatabaseError pg ;
+vérifié par test d'intégration sur branche Neon).
 
 Race « check → insertion concurrente d'examen » : inexistante par construction —
 il n'y a pas de check applicatif ; si une référence apparaît avant le DELETE,
-Postgres lève 23503 et on retombe sur le soft delete.
+Postgres lève 23001 et on retombe sur le soft delete.
 
 ## D. Script d'audit / GC des orphelins
 
@@ -233,7 +236,7 @@ liste **read-only** dédiés (pas de réutilisation de la clé d'écriture prod)
 - **Intégration (`tests/integration/`, branche Neon éphémère)** :
   `deleteQuestion` hybride — hard path (question isolée → lignes disparues,
   chemins S3 collectés), soft path (question référencée → `deletedAt` posé,
-  `question_images` intactes), détection `23503` (forme réelle de l'erreur
+  `question_images` intactes), détection `23001` (forme réelle de l'erreur
   Drizzle/pg). Repointer le test « soft delete » existant de
   `tests/integration/questions-actions.test.ts` (sa question jamais référencée
   part désormais en hard). Respecter l'ordre de cleanup FK (enfants avant

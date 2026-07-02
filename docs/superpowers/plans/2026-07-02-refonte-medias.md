@@ -4,7 +4,7 @@
 
 **Goal:** Unifier l'affichage des avatars (`<UserAvatar>`), corriger l'orphelin S3 au remplacement d'avatar, passer `deleteQuestion` en hybride hard/soft arbitré par les FK, et livrer un script d'audit/GC des médias S3.
 
-**Architecture:** Spec validé : `docs/superpowers/specs/2026-07-02-refonte-medias-design.md`. Un composant client unique résout les `user.image` polymorphes au rendu (aucun backfill) ; la suppression de question tente le hard delete et retombe sur le soft à la violation FK 23503 (zéro check applicatif, zéro race) ; un script Bun standalone (dry-run par défaut) audite orphelins/liens cassés et garbage-collecte les questions soft-deleted déréférencées.
+**Architecture:** Spec validé : `docs/superpowers/specs/2026-07-02-refonte-medias-design.md`. Un composant client unique résout les `user.image` polymorphes au rendu (aucun backfill) ; la suppression de question tente le hard delete et retombe sur le soft à la violation FK (23001 restrict_violation — découvert à l'exécution : pas 23503 ; zéro check applicatif, zéro race) ; un script Bun standalone (dry-run par défaut) audite orphelins/liens cassés et garbage-collecte les questions soft-deleted déréférencées.
 
 **Tech Stack:** Next.js 16 App Router · React 19 · Drizzle/Neon · Radix Avatar (shadcn) · AWS SDK v3 (S3) · Vitest (happy-dom + intégration branche Neon) · Bun.
 
@@ -748,16 +748,21 @@ Dans `features/questions/actions.ts`, remplacer `deleteQuestion` (l.250-271) par
 
 ```ts
 /**
- * Violation de contrainte FK Postgres (23503). Drizzle enveloppe l'erreur pg
- * (DrizzleQueryError → cause) : on remonte la chaîne `cause` (bornée).
+ * Violation de contrainte FK Postgres. `ON DELETE RESTRICT` lève `23001`
+ * (restrict_violation) — PAS `23503` (foreign_key_violation, inserts/NO ACTION,
+ * découvert au test d'intégration) ; on accepte les deux. Drizzle enveloppe
+ * l'erreur pg (DrizzleQueryError → cause) : on remonte la chaîne `cause` (bornée).
  */
+const FK_VIOLATION_CODES = new Set(["23001", "23503"])
+
 const isForeignKeyViolation = (error: unknown): boolean => {
   let cur: unknown = error
   for (let i = 0; i < 5 && cur; i++) {
     if (
       typeof cur === "object" &&
       "code" in cur &&
-      (cur as { code?: unknown }).code === "23503"
+      typeof (cur as { code?: unknown }).code === "string" &&
+      FK_VIOLATION_CODES.has((cur as { code: string }).code)
     ) {
       return true
     }
@@ -775,7 +780,7 @@ export type DeleteQuestionResult =
  * (exam_questions, exam_answers, training_session_items) arbitrent atomiquement :
  * - non référencée → DELETE passe : cascade DB (images/explication) + purge S3
  *   best-effort après commit ;
- * - référencée → Postgres lève 23503 → fallback SOFT delete (`deletedAt`),
+ * - référencée → Postgres lève 23001 → fallback SOFT delete (`deletedAt`),
  *   médias DB/S3 CONSERVÉS (encore servis en passation/correction — exams/dal
  *   ne filtre pas `deletedAt`).
  * Aucun check applicatif préalable → aucune race avec une insertion concurrente.
@@ -883,7 +888,7 @@ Run: `bun run check && bun run test` — attendu PASS.
 
 ```bash
 git add features/questions/actions.ts "app/(admin)/admin/questions" tests/integration/delete-question.test.ts tests/integration/questions-actions.test.ts
-git commit -m "feat(questions): suppression hybride hard/soft arbitrée par les FK (23503) + purge S3 au hard delete"
+git commit -m "feat(questions): suppression hybride hard/soft arbitrée par les FK (23001/23503) + purge S3 au hard delete"
 ```
 
 ---
@@ -1348,7 +1353,7 @@ git commit -m "feat(medias): script d'audit/GC des orphelins S3 (dry-run par dé
   legacy, URL Google/CDN, `data:`). Le primitif `ui/avatar.tsx` est du shadcn
   stock, sans logique CDN.
 - **Suppression de question = hybride** (`deleteQuestion`) : on TENTE le hard
-  delete, arbitré par les FK `restrict` (23503 → fallback soft delete ; aucun
+  delete, arbitré par les FK `restrict` (23001 → fallback soft delete ; aucun
   check applicatif → aucune race). Hard = cascade DB + purge S3 best-effort ;
   soft = médias CONSERVÉS (encore servis en passation/correction : `exams/dal`
   ne filtre pas `deletedAt`, c'est voulu). Audit/GC des orphelins :

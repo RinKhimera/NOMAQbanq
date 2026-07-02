@@ -47,9 +47,23 @@ storagePath,order}` pour rester assignable aux composants partagés
   consommé À L'ÉTAPE PRESIGN → `createPresignedUpload(storagePath, contentType)`
   (clé dérivée serveur, non falsifiable). Le client POST le fichier à S3, puis un
   Server Action persiste le `storagePath` (avatars : `confirmAvatarUpload`, qui
-  re-vérifie le préfixe `avatars/{ownId}/` anti-IDOR ; images question :
+  re-vérifie le préfixe `avatars/{ownId}/` anti-IDOR — y compris pour la
+  suppression de l'ANCIEN avatar au remplacement ; images question :
   `setQuestionImages` au save). Suppression CDN via `tryDeleteFromStorage`
   (best-effort, après commit DB). Voir `lib/aws.ts` / `lib/storage.ts`.
+- **Avatars** : toujours `<UserAvatar name image className fallbackClassName>`
+  (`components/shared/user-avatar.tsx`) — JAMAIS `AvatarImage src={user.image}`
+  brut ni `next/image` sur `user.image` (valeur polymorphe : clé S3 brute
+  legacy, URL Google/CDN/Clerk morte, `data:`). Le primitif `ui/avatar.tsx` est
+  du shadcn stock, sans logique CDN. Initiales : `getInitials` (`lib/utils.ts`),
+  ne pas dupliquer.
+- **Suppression de question = hybride** (`deleteQuestion`) : on TENTE le hard
+  delete, arbitré par les FK `restrict` — Postgres lève `23001`
+  (restrict_violation ; PAS `23503`, réservé aux inserts) → fallback soft
+  delete ; aucun check applicatif → aucune race. Hard = cascade DB + purge S3
+  best-effort ; soft = médias CONSERVÉS (encore servis en passation/correction :
+  `exams/dal` ne filtre pas `deletedAt`, c'est voulu). Audit/GC des orphelins :
+  `bun run audit:medias` (dry-run ; `--purge` explicite ; exige `s3:ListBucket`).
 
 ## Écrans (Server Component + wrapper client)
 
