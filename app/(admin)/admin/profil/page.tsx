@@ -1,9 +1,9 @@
-import { ProfileAccountSection } from "@/app/(dashboard)/dashboard/profil/_components/profile-account-section"
-import { ProfileDangerZone } from "@/app/(dashboard)/dashboard/profil/_components/profile-danger-zone"
-import { ProfileHeader } from "@/app/(dashboard)/dashboard/profil/_components/profile-header"
-import { ProfilePersonalInfo } from "@/app/(dashboard)/dashboard/profil/_components/profile-personal-info"
-import { ProfilePreferences } from "@/app/(dashboard)/dashboard/profil/_components/profile-preferences"
-import { ProfileSessions } from "@/app/(dashboard)/dashboard/profil/_components/profile-sessions"
+import { ProfileAccountSection } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-account-section"
+import { ProfileDangerZone } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-danger-zone"
+import { ProfileHeader } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-header"
+import { ProfilePersonalInfo } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-personal-info"
+import { ProfilePreferences } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-preferences"
+import { ProfileSessions } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-sessions"
 import { getNotificationPreferences } from "@/features/notifications/dal"
 import {
   getCurrentUser,

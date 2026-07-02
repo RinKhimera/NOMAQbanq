@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import { ProfileLoginMethods } from "@/app/(dashboard)/dashboard/profil/_components/profile-login-methods"
+import { ProfileLoginMethods } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-login-methods"
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
@@ -21,7 +21,7 @@ describe("ProfileLoginMethods", () => {
         }}
         email="a@b.com"
         googleEnabled
-        profilePath="/dashboard/profil"
+        profilePath="/tableau-de-bord/profil"
       />,
     )
     expect(screen.getByTestId("login-method-set-password")).toBeInTheDocument()
@@ -39,7 +39,7 @@ describe("ProfileLoginMethods", () => {
         }}
         email="a@b.com"
         googleEnabled
-        profilePath="/dashboard/profil"
+        profilePath="/tableau-de-bord/profil"
       />,
     )
     expect(screen.getByTestId("login-method-google-link")).toBeInTheDocument()
@@ -59,7 +59,7 @@ describe("ProfileLoginMethods", () => {
         }}
         email="a@b.com"
         googleEnabled={false}
-        profilePath="/dashboard/profil"
+        profilePath="/tableau-de-bord/profil"
       />,
     )
     expect(screen.queryByTestId("login-method-google-link")).toBeNull()

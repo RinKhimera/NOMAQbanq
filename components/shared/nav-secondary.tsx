@@ -41,12 +41,12 @@ export const NavSecondary = ({
   const isCurrentUserAdmin = currentUser?.role === "admin"
 
   const isOnAdminPage = pathname.startsWith("/admin")
-  const isOnDashboardPage = pathname.startsWith("/dashboard")
+  const isOnDashboardPage = pathname.startsWith("/tableau-de-bord")
 
   const getNavigationButton = () => {
     if (isOnAdminPage && isCurrentUserAdmin) {
       return {
-        href: "/dashboard",
+        href: "/tableau-de-bord",
         text: "Aller au Dashboard",
         theme:
           "bg-linear-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md shadow-blue-500/25",

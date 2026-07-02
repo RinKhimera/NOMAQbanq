@@ -353,7 +353,7 @@ export const createStripeCheckout = async (input: {
         durationDays: String(product.durationDays),
         isCombo: product.isCombo ? "true" : "false",
       },
-      success_url: `${base}${safePath(input.successPath, "/dashboard")}?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${base}${safePath(input.successPath, "/tableau-de-bord")}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${base}${safePath(input.cancelPath, "/tarifs")}`,
       allow_promotion_codes: true,
     })
@@ -453,7 +453,7 @@ export const createCustomerPortal = async (
     }
     const portal = await stripe.billingPortal.sessions.create({
       customer: customers.data[0].id,
-      return_url: `${appBase()}${safePath(returnPath, "/dashboard/abonnements")}`,
+      return_url: `${appBase()}${safePath(returnPath, "/tableau-de-bord/abonnements")}`,
     })
     return { portalUrl: portal.url }
   } catch (error) {

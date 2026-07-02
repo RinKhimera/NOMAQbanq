@@ -16,7 +16,7 @@ type DashboardShellProps = {
 export const DashboardShell = ({ children, variant }: DashboardShellProps) => {
   const isAdmin = variant === "admin"
   const navigation = isAdmin ? adminNavigation : dashboardNavigation
-  const homeUrl = isAdmin ? "/admin" : "/dashboard"
+  const homeUrl = isAdmin ? "/admin" : "/tableau-de-bord"
 
   return (
     <SidebarProvider

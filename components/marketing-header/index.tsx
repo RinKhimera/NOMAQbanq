@@ -183,7 +183,7 @@ export const MarketingHeader = () => {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild className="cursor-pointer">
                       <Link
-                        href="/dashboard"
+                        href="/tableau-de-bord"
                         className="flex items-center gap-2"
                       >
                         <LayoutDashboard className="size-4" />

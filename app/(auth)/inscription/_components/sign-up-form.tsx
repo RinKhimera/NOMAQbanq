@@ -36,7 +36,7 @@ export const SignUpForm = () => {
       name: values.name,
       email: values.email,
       password: values.password,
-      callbackURL: "/dashboard",
+      callbackURL: "/tableau-de-bord",
     })
 
     if (signUpError) {
@@ -53,7 +53,7 @@ export const SignUpForm = () => {
     setIsGoogleLoading(true)
     const { error: googleError } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/dashboard",
+      callbackURL: "/tableau-de-bord",
     })
     if (googleError) {
       setError(mapAuthError(googleError))

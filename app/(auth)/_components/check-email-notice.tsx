@@ -32,7 +32,7 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
     setIsResending(true)
     const { error } = await authClient.sendVerificationEmail({
       email,
-      callbackURL: "/dashboard",
+      callbackURL: "/tableau-de-bord",
     })
     setIsResending(false)
 

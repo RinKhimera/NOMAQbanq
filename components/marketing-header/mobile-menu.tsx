@@ -172,7 +172,7 @@ export const MobileMenu = ({
 
                 {/* Action Buttons */}
                 <div className="space-y-1.5">
-                  <Link href="/dashboard" onClick={handleLinkClick}>
+                  <Link href="/tableau-de-bord" onClick={handleLinkClick}>
                     <Button
                       variant="ghost"
                       className="w-full justify-start rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-800"

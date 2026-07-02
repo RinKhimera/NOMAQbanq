@@ -191,7 +191,7 @@ export const createTrainingSession = async (
       )
     })
 
-    revalidatePath("/dashboard/entrainement")
+    revalidatePath("/tableau-de-bord/entrainement")
     return { success: true, sessionId }
   } catch (error) {
     if (error instanceof Error) {
@@ -384,7 +384,7 @@ export const completeTrainingSession = async ({
       .set({ status: "completed", score, completedAt: new Date() })
       .where(eq(trainingSessions.id, sessionId))
 
-    revalidatePath("/dashboard/entrainement")
+    revalidatePath("/tableau-de-bord/entrainement")
     return { success: true, score, correctCount, totalQuestions }
   } catch (error) {
     logDev("[completeTrainingSession]", error)
@@ -423,7 +423,7 @@ export const abandonTrainingSession = async ({
       .set({ status: "abandoned" })
       .where(eq(trainingSessions.id, sessionId))
 
-    revalidatePath("/dashboard/entrainement")
+    revalidatePath("/tableau-de-bord/entrainement")
     return { success: true }
   } catch (error) {
     logDev("[abandonTrainingSession]", error)
@@ -461,7 +461,7 @@ export const deleteTrainingSession = async ({
 
     await db.delete(trainingSessions).where(eq(trainingSessions.id, sessionId))
 
-    revalidatePath("/dashboard/entrainement")
+    revalidatePath("/tableau-de-bord/entrainement")
     return { success: true }
   } catch (error) {
     logDev("[deleteTrainingSession]", error)
@@ -488,7 +488,7 @@ export const deleteAllTrainingSessions = async (): Promise<{
       )
       .returning({ id: trainingSessions.id })
 
-    revalidatePath("/dashboard/entrainement")
+    revalidatePath("/tableau-de-bord/entrainement")
     return { success: true, deletedCount: deleted.length }
   } catch (error) {
     logDev("[deleteAllTrainingSessions]", error)

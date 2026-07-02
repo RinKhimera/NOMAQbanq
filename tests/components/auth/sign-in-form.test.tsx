@@ -42,7 +42,7 @@ describe("SignInForm", () => {
     signInEmail.mockResolvedValue({ error: null })
     render(<SignInForm />)
     await fillAndSubmit()
-    expect(push).toHaveBeenCalledWith("/dashboard")
+    expect(push).toHaveBeenCalledWith("/tableau-de-bord")
   })
 
   it("affiche l'alerte actionnable avec lien reset sur identifiants invalides", async () => {

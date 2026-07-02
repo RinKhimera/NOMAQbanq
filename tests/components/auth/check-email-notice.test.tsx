@@ -49,7 +49,7 @@ describe("CheckEmailNotice", () => {
 
     expect(sendVerificationEmail).toHaveBeenCalledWith({
       email: "a@b.com",
-      callbackURL: "/dashboard",
+      callbackURL: "/tableau-de-bord",
     })
     expect(toastSuccess).toHaveBeenCalled()
     expect(screen.getByTestId("auth-resend")).toBeDisabled()

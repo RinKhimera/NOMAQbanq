@@ -65,7 +65,7 @@ test.describe("Examens — audience restreinte (F2)", () => {
       grant: false,
     })
 
-    await page.goto("/dashboard/examen-blanc")
+    await page.goto("/tableau-de-bord/examen-blanc")
     const card = page.getByTestId(`exam-card-${examId}`)
     await expect(card).toBeVisible({ timeout: 15_000 })
 
@@ -92,7 +92,7 @@ test.describe("Examens — audience restreinte (F2)", () => {
     const { examId } = await seed.json()
     expect(examId).toBeTruthy()
 
-    await page.goto("/dashboard/examen-blanc")
+    await page.goto("/tableau-de-bord/examen-blanc")
     await expect(
       page.getByRole("heading", { name: "Examens Blancs" }),
     ).toBeVisible({ timeout: 15_000 })

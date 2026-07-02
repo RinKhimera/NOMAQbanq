@@ -13,7 +13,7 @@ export async function requireSession() {
 export async function requireRole(roles: Array<"user" | "admin">) {
   const session = await requireSession()
   const role = (session.user.role ?? "user") as "user" | "admin"
-  if (!roles.includes(role)) redirect("/dashboard")
+  if (!roles.includes(role)) redirect("/tableau-de-bord")
   return session
 }
 

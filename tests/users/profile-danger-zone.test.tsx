@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { ProfileDangerZone } from "@/app/(dashboard)/dashboard/profil/_components/profile-danger-zone"
+import { ProfileDangerZone } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-danger-zone"
 
 const mocks = vi.hoisted(() => ({
   deleteMyAccount: vi.fn(),

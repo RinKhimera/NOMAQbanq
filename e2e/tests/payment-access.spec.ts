@@ -35,7 +35,7 @@ test.describe("Paiement et acces — paywall et verification", () => {
   test("la page entrainement montre le contenu quand l'acces est actif", async ({
     page,
   }) => {
-    await page.goto("/dashboard/entrainement")
+    await page.goto("/tableau-de-bord/entrainement")
 
     // Avec un user qui a acces, on doit voir le formulaire OU la carte de reprise
     // d'une session en cours (si un test précédent en a laissé une). Sinon paywall.
@@ -70,7 +70,9 @@ test.describe("Paiement et acces — paywall et verification", () => {
   test("la page succes de paiement affiche erreur avec session_id invalide", async ({
     page,
   }) => {
-    await page.goto("/dashboard/payment/success?session_id=invalid_session")
+    await page.goto(
+      "/tableau-de-bord/paiement/succes?session_id=invalid_session",
+    )
 
     await expect(
       page.getByText(/Erreur de vérification|en cours de traitement/),
@@ -80,7 +82,7 @@ test.describe("Paiement et acces — paywall et verification", () => {
   test("le lien voir les tarifs depuis le paywall fonctionne", async ({
     page,
   }) => {
-    await page.goto("/dashboard/entrainement")
+    await page.goto("/tableau-de-bord/entrainement")
 
     // Si le paywall est visible, verifier le lien
     const paywallVisible = await page

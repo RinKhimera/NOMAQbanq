@@ -33,7 +33,7 @@ export const updateNotificationPreferences = async (input: {
       notifyAccessExpiry: parsed.data.accessExpiry,
     })
     .where(eq(user.id, session.user.id))
-  revalidatePath("/dashboard/profil")
+  revalidatePath("/tableau-de-bord/profil")
   revalidatePath("/admin/profil")
   return { success: true }
 }

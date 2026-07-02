@@ -14,7 +14,7 @@ const signIn = async (page: Page, email: string, password: string) => {
   await page.getByTestId("auth-password").fill(password)
   await page.getByTestId("auth-submit").click()
   // Le formulaire redirige vers /dashboard ; l'admin y a aussi accès.
-  await page.waitForURL(/\/dashboard(\/|$)/, { timeout: 20_000 })
+  await page.waitForURL(/\/tableau-de-bord(\/|$)/, { timeout: 20_000 })
 }
 
 setup("authenticate as user", async ({ page }) => {

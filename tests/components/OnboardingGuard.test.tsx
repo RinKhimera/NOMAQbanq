@@ -57,11 +57,11 @@ describe("OnboardingGuard", () => {
         isAuthenticated: true,
       }),
     )
-    vi.mocked(usePathname).mockReturnValue("/dashboard")
+    vi.mocked(usePathname).mockReturnValue("/tableau-de-bord")
 
     render(<OnboardingGuard />)
 
-    expect(mockReplace).toHaveBeenCalledWith("/dashboard/onboarding")
+    expect(mockReplace).toHaveBeenCalledWith("/tableau-de-bord/bienvenue")
   })
 
   it("redirige vers dashboard si l'utilisateur a un username et est sur la page onboarding", () => {
@@ -71,11 +71,11 @@ describe("OnboardingGuard", () => {
         isAuthenticated: true,
       }),
     )
-    vi.mocked(usePathname).mockReturnValue("/dashboard/onboarding")
+    vi.mocked(usePathname).mockReturnValue("/tableau-de-bord/bienvenue")
 
     render(<OnboardingGuard />)
 
-    expect(mockReplace).toHaveBeenCalledWith("/dashboard")
+    expect(mockReplace).toHaveBeenCalledWith("/tableau-de-bord")
   })
 
   it("ne fait rien si l'utilisateur a un username et est sur le dashboard", () => {
@@ -85,7 +85,7 @@ describe("OnboardingGuard", () => {
         isAuthenticated: true,
       }),
     )
-    vi.mocked(usePathname).mockReturnValue("/dashboard")
+    vi.mocked(usePathname).mockReturnValue("/tableau-de-bord")
 
     render(<OnboardingGuard />)
 
@@ -99,7 +99,7 @@ describe("OnboardingGuard", () => {
         isAuthenticated: true,
       }),
     )
-    vi.mocked(usePathname).mockReturnValue("/dashboard/entrainement")
+    vi.mocked(usePathname).mockReturnValue("/tableau-de-bord/entrainement")
 
     render(<OnboardingGuard />)
 

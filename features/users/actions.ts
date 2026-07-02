@@ -103,9 +103,9 @@ export const updateProfile = async (input: {
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 
-  revalidatePath("/dashboard/profil")
+  revalidatePath("/tableau-de-bord/profil")
   revalidatePath("/admin/profil")
-  revalidatePath("/dashboard/onboarding")
+  revalidatePath("/tableau-de-bord/bienvenue")
   return { success: true }
 }
 
@@ -211,7 +211,7 @@ export const confirmAvatarUpload = async (input: {
     await tryDeleteFromStorage(oldPath)
   }
 
-  revalidatePath("/dashboard/profil")
+  revalidatePath("/tableau-de-bord/profil")
   revalidatePath("/admin/profil")
   return { success: true, url: newUrl }
 }
@@ -239,7 +239,7 @@ export const revokeUserSession = async (
         eq(sessionTable.userId, authSession.user.id),
       ),
     )
-  revalidatePath("/dashboard/profil")
+  revalidatePath("/tableau-de-bord/profil")
   revalidatePath("/admin/profil")
   return { success: true }
 }
@@ -256,7 +256,7 @@ export const revokeOtherUserSessions =
           ne(sessionTable.id, authSession.session.id),
         ),
       )
-    revalidatePath("/dashboard/profil")
+    revalidatePath("/tableau-de-bord/profil")
     revalidatePath("/admin/profil")
     return { success: true }
   }
@@ -285,7 +285,7 @@ export const setAccountPassword = async (input: {
     return { success: false, error: "Impossible de définir le mot de passe." }
   }
 
-  revalidatePath("/dashboard/profil")
+  revalidatePath("/tableau-de-bord/profil")
   revalidatePath("/admin/profil")
   return { success: true }
 }

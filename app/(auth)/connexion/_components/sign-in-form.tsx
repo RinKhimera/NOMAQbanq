@@ -55,14 +55,14 @@ export const SignInForm = () => {
     }
 
     toast.success("Connexion réussie")
-    router.push("/dashboard")
+    router.push("/tableau-de-bord")
   }
 
   const handleGoogle = async () => {
     setIsGoogleLoading(true)
     const { error: googleError } = await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/dashboard",
+      callbackURL: "/tableau-de-bord",
     })
     if (googleError) {
       toast.error(googleError.message ?? "Échec de la connexion avec Google")

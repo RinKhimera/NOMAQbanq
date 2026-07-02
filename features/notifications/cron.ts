@@ -77,7 +77,7 @@ export async function sendExamResultsNotifications(): Promise<number> {
         to: r.email,
         examTitle: r.examTitle,
         score: r.score,
-        resultUrl: `${getBaseUrl()}/dashboard/examen-blanc/${r.examId}/resultats`,
+        resultUrl: `${getBaseUrl()}/tableau-de-bord/examen-blanc/${r.examId}/resultats`,
       })
       sent++
     } catch (error) {
@@ -147,7 +147,7 @@ export async function sendAccessExpiryReminders(): Promise<number> {
         daysRemaining: Math.ceil(
           (r.expiresAt.getTime() - now.getTime()) / DAY_MS,
         ),
-        renewUrl: `${getBaseUrl()}/dashboard/abonnements`,
+        renewUrl: `${getBaseUrl()}/tableau-de-bord/abonnements`,
       })
       sent++
     } catch (error) {

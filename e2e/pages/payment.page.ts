@@ -14,14 +14,14 @@ export class PaymentPage extends BasePage {
   }
 
   async gotoAbonnements() {
-    await super.goto("/dashboard/abonnements")
+    await super.goto("/tableau-de-bord/abonnements")
     await expect(
       this.page.getByRole("heading", { name: "Mon Abonnement" }),
     ).toBeVisible({ timeout: 15_000 })
   }
 
   async gotoPaymentSuccess() {
-    await this.page.goto("/dashboard/payment/success")
+    await this.page.goto("/tableau-de-bord/paiement/succes")
   }
 
   async expectPaywall(type: "training" | "exam") {

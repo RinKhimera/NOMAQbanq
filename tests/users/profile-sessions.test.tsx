@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { ProfileSessions } from "@/app/(dashboard)/dashboard/profil/_components/profile-sessions"
+import { ProfileSessions } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-sessions"
 
 const mocks = vi.hoisted(() => ({
   revokeUserSession: vi.fn(),

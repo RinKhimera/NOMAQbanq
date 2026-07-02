@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import OnboardingPage from "@/app/(dashboard)/dashboard/onboarding/page"
+import OnboardingPage from "@/app/(dashboard)/tableau-de-bord/bienvenue/page"
 import { updateProfile } from "@/features/users/actions"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { createMockBetterAuthUser, mockRouter } from "../helpers/mocks"
@@ -74,7 +74,9 @@ describe("OnboardingPage", () => {
         query: { disableCookieCache: true },
       }),
     )
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"))
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith("/tableau-de-bord"),
+    )
     expect(mockRefetch.mock.invocationCallOrder[0]).toBeLessThan(
       mockReplace.mock.invocationCallOrder[0],
     )
@@ -106,6 +108,8 @@ describe("OnboardingPage", () => {
 
     render(<OnboardingPage />)
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"))
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith("/tableau-de-bord"),
+    )
   })
 })
