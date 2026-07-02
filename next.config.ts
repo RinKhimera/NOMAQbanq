@@ -40,6 +40,92 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Redirections permanentes (308) des anciennes URL EN vers les nouvelles URL FR.
+  // La query (?token=, ?session_id=) est transmise automatiquement. Ordre = priorité
+  // de match (spécifiques avant wildcards).
+  async redirects() {
+    return [
+      // — Étudiant —
+      {
+        source: "/dashboard/entrainement/:sessionId/results",
+        destination: "/tableau-de-bord/entrainement/:sessionId/resultats",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/onboarding",
+        destination: "/tableau-de-bord/bienvenue",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/payment/success",
+        destination: "/tableau-de-bord/paiement/succes",
+        permanent: true,
+      },
+      {
+        source: "/dashboard/:path*",
+        destination: "/tableau-de-bord/:path*",
+        permanent: true,
+      },
+      {
+        source: "/dashboard",
+        destination: "/tableau-de-bord",
+        permanent: true,
+      },
+      // — Admin —
+      {
+        source: "/admin/exams/create",
+        destination: "/admin/examens/creer",
+        permanent: true,
+      },
+      {
+        source: "/admin/exams/edit/:id",
+        destination: "/admin/examens/modifier/:id",
+        permanent: true,
+      },
+      {
+        source: "/admin/exams/:id/results/:userId",
+        destination: "/admin/examens/:id/resultats/:userId",
+        permanent: true,
+      },
+      {
+        source: "/admin/exams/:id",
+        destination: "/admin/examens/:id",
+        permanent: true,
+      },
+      {
+        source: "/admin/exams",
+        destination: "/admin/examens",
+        permanent: true,
+      },
+      {
+        source: "/admin/users/:path*",
+        destination: "/admin/utilisateurs/:path*",
+        permanent: true,
+      },
+      {
+        source: "/admin/users",
+        destination: "/admin/utilisateurs",
+        permanent: true,
+      },
+      // — Auth —
+      { source: "/auth/sign-in", destination: "/connexion", permanent: true },
+      {
+        source: "/auth/sign-up",
+        destination: "/inscription",
+        permanent: true,
+      },
+      {
+        source: "/auth/forgot-password",
+        destination: "/mot-de-passe-oublie",
+        permanent: true,
+      },
+      {
+        source: "/auth/reset-password",
+        destination: "/reinitialiser-mot-de-passe",
+        permanent: true,
+      },
+    ]
+  },
 }
 
 export default withSentryConfig(nextConfig, {
