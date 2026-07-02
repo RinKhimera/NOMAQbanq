@@ -19,7 +19,7 @@ import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -39,7 +39,7 @@ import type {
   UserPanelData,
 } from "@/features/users/dal"
 import { formatExpiration } from "@/lib/format"
-import { cn, getInitials } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 // Lazy-load ManualPaymentModal to reduce initial bundle size
 const ManualPaymentModal = dynamic(
@@ -315,15 +315,12 @@ function PanelContent({
       >
         {/* User Header */}
         <div className="flex flex-col items-center pt-2">
-          <Avatar className="h-20 w-20 border-4 border-white shadow-lg dark:border-gray-800">
-            <AvatarImage
-              src={user.image ?? undefined}
-              alt={user.name || "Utilisateur"}
-            />
-            <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-xl font-semibold text-white">
-              {getInitials(user.name)}
-            </AvatarFallback>
-          </Avatar>
+          <UserAvatar
+            name={user.name}
+            image={user.image}
+            className="h-20 w-20 border-4 border-white shadow-lg dark:border-gray-800"
+            fallbackClassName="bg-linear-to-br from-blue-500 to-indigo-600 text-xl font-semibold text-white"
+          />
           <h3 className="mt-3 text-lg font-semibold text-gray-900 dark:text-white">
             {user.name && user.name !== "null null" ? user.name : "Non défini"}
           </h3>

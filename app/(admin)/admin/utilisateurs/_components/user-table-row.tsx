@@ -2,10 +2,9 @@
 
 import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { TableCell, TableRow } from "@/components/ui/table"
-import { getInitials } from "@/lib/utils"
 
 /**
  * Forme structurelle d'un utilisateur telle que consommée par cette ligne de
@@ -52,10 +51,7 @@ export function UserTableRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user.image} alt={user.name || "Utilisateur"} />
-            <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-          </Avatar>
+          <UserAvatar name={user.name} image={user.image} className="h-8 w-8" />
           <span
             className={
               user.name && user.name !== "null null"

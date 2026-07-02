@@ -3,7 +3,7 @@
 import { formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
 import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle } from "lucide-react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,7 +21,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import type { AdminUserRow } from "@/features/users/dal"
-import { cn, getInitials } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 export type SortBy = "name" | "role" | "createdAt"
 export type SortOrder = "asc" | "desc"
@@ -202,15 +202,12 @@ export function UsersTable({
               </TableCell>
               <TableCell>
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-9 w-9 border border-gray-100 dark:border-gray-800">
-                    <AvatarImage
-                      src={user.image ?? undefined}
-                      alt={user.name || "Utilisateur"}
-                    />
-                    <AvatarFallback className="bg-linear-to-br from-blue-500 to-indigo-600 text-xs font-medium text-white">
-                      {getInitials(user.name)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <UserAvatar
+                    name={user.name}
+                    image={user.image}
+                    className="h-9 w-9 border border-gray-100 dark:border-gray-800"
+                    fallbackClassName="bg-linear-to-br from-blue-500 to-indigo-600 text-xs font-medium text-white"
+                  />
                   <div className="flex flex-col">
                     <span
                       className={cn(
