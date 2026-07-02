@@ -106,10 +106,17 @@ Chantiers associés :
 
 - valeur = clé brute commençant par `avatars/` → retournée telle quelle ;
 - valeur = URL http(s) dont le pathname (décodé, `/` initial retiré) commence
-  par `avatars/` → path extrait **quel que soit le host**. Sûr car le delete
-  opère par clé dans le bucket de l'ENV courant : un objet d'un autre env n'y
-  existe pas → no-op ; les URLs Google sont exclues naturellement (leur path ne
-  commence pas par `avatars/`) ;
+  par `avatars/` → path extrait **quel que soit le host** ; les URLs Google
+  sont exclues naturellement (leur path ne commence pas par `avatars/`) ;
+- ⚠️ **CORRECTION post-implémentation (2026-07-02)** : le raisonnement initial
+  « delete par clé dans le bucket de l'env courant = no-op cross-env » supposait
+  des buckets séparés — **FAUX : il n'existe aujourd'hui qu'UN bucket S3
+  partagé prod/dev**. Risque résiduel accepté : si la base dev (seedée depuis
+  prod, mêmes user ids) référence la même clé qu'une row prod, un remplacement
+  d'avatar en dev peut supprimer un objet encore référencé en prod → avatar 404
+  → fallback initiales (dégradé gracieux, ré-uploadable). Mitigation durable :
+  **séparer les buckets dev/prod** (voir §F) — aucun changement de code requis,
+  tout est env-driven ;
 - gardes inchangées : rejet de `..`, bornage au préfixe `avatars/`, suppression
   toujours best-effort (`tryDeleteFromStorage`) après l'écriture DB ;
 - **durcissement anti-IDOR (ajout post-revue)** : la suppression n'a lieu que si
@@ -191,6 +198,16 @@ explicite (`--purge`) :
 **Prérequis IAM** : l'audit exige `s3:ListBucket`. La clé IAM dev est
 write-only → étendre la policy dev ; pour la prod, créer des credentials de
 liste **read-only** dédiés (pas de réutilisation de la clé d'écriture prod).
+
+## E bis. Bucket partagé prod/dev — garde-fous purge (ajout 2026-07-02)
+
+Tant que le bucket est partagé : le diff « orphelins » du script n'est valide
+que contre la base **prod** (la base dev ne référence qu'un sous-ensemble des
+objets → des médias 100 % légitimes en prod paraîtraient orphelins vus de dev).
+**`--purge` est donc INTERDIT avec `DATABASE_URL` dev** tant que la séparation
+n'est pas faite ; le script affiche un avertissement en mode purge. Le dry-run
+reste sans risque. Cible recommandée : créer un bucket dev dédié + basculer
+l'origin de la distribution CloudFront dev dessus (zéro changement de code).
 
 ## E. Audit prod (lecture seule stricte)
 

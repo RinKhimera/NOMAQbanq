@@ -244,6 +244,15 @@ if (!PURGE) {
   process.exit(0)
 }
 
+// ⚠️ Bucket UNIQUE partagé prod/dev (état 2026-07) : le diff « orphelins »
+// n'est valide que contre la base qui est la SOURCE DE VÉRITÉ du bucket.
+// Purger avec la base DEV supprimerait des objets référencés par la PROD.
+console.warn(
+  "\n⚠️ PURGE : vérifie que la base ciblée (ligne « Cible » ci-dessus) est bien" +
+    "\n   la source de vérité du bucket. Bucket partagé prod/dev → ne JAMAIS" +
+    "\n   purger avec la base dev.",
+)
+
 const now = Date.now()
 const purgeable = [...avatarDiff.orphans, ...questionDiff.orphans].filter(
   (key) => {
