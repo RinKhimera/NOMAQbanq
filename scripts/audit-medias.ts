@@ -2,9 +2,10 @@
  * Audit / GC des médias S3 (avatars + images de questions). DRY-RUN PAR DÉFAUT.
  *
  * Usage :
- *   bun run audit:medias             # rapport seul (aucune écriture)
- *   bun run audit:medias -- --purge  # purge orphelins >24h + GC questions
- *                                    # soft-deleted déréférencées
+ *   bun run audit:medias                      # rapport seul (aucune écriture)
+ *   bun run audit:medias -- --purge           # purge orphelins >24h + GC questions
+ *                                             # soft-deleted déréférencées
+ *   bun run audit:medias -- --purge --max 200 # borne du lot (défaut 50)
  *
  * Env requis (COMPLET) : DATABASE_URL, S3_REGION, S3_BUCKET, AWS_ACCESS_KEY_ID,
  * AWS_SECRET_ACCESS_KEY (avec s3:ListBucket ; s3:DeleteObject pour --purge).
@@ -50,6 +51,16 @@ const {
 
 const PURGE = process.argv.includes("--purge")
 const MIN_AGE_MS = 24 * 60 * 60 * 1000 // jamais purger un objet < 24 h
+
+// Lot borné : un diff faussé (mauvaise DB ciblée, listing S3 partiel) ne peut
+// pas emporter plus de MAX_PURGE objets en un run — relancer pour continuer.
+const maxFlag = process.argv.indexOf("--max")
+const MAX_PURGE =
+  maxFlag === -1 ? 50 : Number.parseInt(process.argv[maxFlag + 1] ?? "", 10)
+if (!Number.isInteger(MAX_PURGE) || MAX_PURGE <= 0) {
+  console.error("--max attend un entier positif (ex. --max 200).")
+  process.exit(1)
+}
 
 const dbUrl = process.env.DATABASE_URL
 const region = process.env.S3_REGION
@@ -244,13 +255,12 @@ if (!PURGE) {
   process.exit(0)
 }
 
-// ⚠️ Bucket UNIQUE partagé prod/dev (état 2026-07) : le diff « orphelins »
-// n'est valide que contre la base qui est la SOURCE DE VÉRITÉ du bucket.
-// Purger avec la base DEV supprimerait des objets référencés par la PROD.
+// Le diff « orphelins » n'est valide que si la base ciblée est la SOURCE DE
+// VÉRITÉ du bucket ciblé — un croisement (base dev ↔ bucket prod, ou l'inverse)
+// ferait paraître orphelins des objets référencés par l'autre environnement.
 console.warn(
-  "\n⚠️ PURGE : vérifie que la base ciblée (ligne « Cible » ci-dessus) est bien" +
-    "\n   la source de vérité du bucket. Bucket partagé prod/dev → ne JAMAIS" +
-    "\n   purger avec la base dev.",
+  "\n⚠️ PURGE : vérifie la ligne « Cible » ci-dessus — la base ciblée doit être" +
+    "\n   la source de vérité du bucket ciblé (dev↔dev, prod↔prod).",
 )
 
 const now = Date.now()
@@ -260,13 +270,23 @@ const purgeable = [...avatarDiff.orphans, ...questionDiff.orphans].filter(
     return lm !== undefined && now - lm.getTime() > MIN_AGE_MS
   },
 )
-console.log(`\nPurge de ${purgeable.length} orphelin(s) S3 (>24h)…`)
-for (const key of purgeable) {
+const purgeLot = purgeable.slice(0, MAX_PURGE)
+console.log(
+  `\nPurge de ${purgeLot.length}/${purgeable.length} orphelin(s) S3 (>24h, lot borné à ${MAX_PURGE}) :`,
+)
+for (const key of purgeLot) console.log(`  → ${key}`)
+for (const key of purgeLot) {
   await deleteKey(key)
   console.log(`  supprimé : ${key}`)
 }
+if (purgeable.length > purgeLot.length) {
+  console.log(
+    `  ${purgeable.length - purgeLot.length} orphelin(s) restant(s) — relancer pour continuer.`,
+  )
+}
 
-for (const q of gcCandidates) {
+const gcLot = gcCandidates.slice(0, MAX_PURGE)
+for (const q of gcLot) {
   const paths = await db
     .select({ storagePath: questionImages.storagePath })
     .from(questionImages)
@@ -276,6 +296,11 @@ for (const q of gcCandidates) {
   await db.delete(questions).where(eq(questions.id, q.id))
   for (const p of paths) await deleteKey(p.storagePath)
   console.log(`  GC question ${q.id} (${paths.length} image(s))`)
+}
+if (gcCandidates.length > gcLot.length) {
+  console.log(
+    `  ${gcCandidates.length - gcLot.length} question(s) GC restante(s) — relancer pour continuer.`,
+  )
 }
 
 console.log("\nPurge terminée.")
