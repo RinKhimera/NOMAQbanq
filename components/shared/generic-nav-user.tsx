@@ -3,7 +3,7 @@
 import { IconDotsVertical, IconLogout } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -99,15 +99,6 @@ export const GenericNavUser = ({
     )
   }
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2)
-  }
-
   const handleSignOut = async () => {
     await authClient.signOut()
     router.push("/connexion")
@@ -130,29 +121,22 @@ export const GenericNavUser = ({
                 ],
               )}
             >
-              <Avatar
+              <UserAvatar
+                name={currentUser.name}
+                image={currentUser.image}
                 className={cn(
                   "ring-offset-sidebar h-9 w-9 rounded-lg ring-2 ring-offset-2 transition-all",
                   requireAdmin
                     ? "ring-orange-500/30 group-hover/avatar:ring-orange-500/50"
                     : "ring-blue-500/30 group-hover/avatar:ring-blue-500/50",
                 )}
-              >
-                <AvatarImage
-                  src={currentUser.image ?? undefined}
-                  alt={currentUser.name}
-                />
-                <AvatarFallback
-                  className={cn(
-                    "rounded-lg font-semibold",
-                    requireAdmin
-                      ? "bg-linear-to-br from-orange-500 to-amber-500 text-white"
-                      : "bg-linear-to-br from-blue-500 to-indigo-500 text-white",
-                  )}
-                >
-                  {getInitials(currentUser.name)}
-                </AvatarFallback>
-              </Avatar>
+                fallbackClassName={cn(
+                  "rounded-lg font-semibold",
+                  requireAdmin
+                    ? "bg-linear-to-br from-orange-500 to-amber-500 text-white"
+                    : "bg-linear-to-br from-blue-500 to-indigo-500 text-white",
+                )}
+              />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
                   {currentUser.name}
@@ -172,27 +156,20 @@ export const GenericNavUser = ({
           >
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-3 px-2 py-2.5 text-left text-sm">
-                <Avatar
+                <UserAvatar
+                  name={currentUser.name}
+                  image={currentUser.image}
                   className={cn(
                     "h-10 w-10 rounded-lg ring-2",
                     requireAdmin ? "ring-orange-500/30" : "ring-blue-500/30",
                   )}
-                >
-                  <AvatarImage
-                    src={currentUser.image ?? undefined}
-                    alt={currentUser.name}
-                  />
-                  <AvatarFallback
-                    className={cn(
-                      "rounded-lg font-semibold",
-                      requireAdmin
-                        ? "bg-linear-to-br from-orange-500 to-amber-500 text-white"
-                        : "bg-linear-to-br from-blue-500 to-indigo-500 text-white",
-                    )}
-                  >
-                    {getInitials(currentUser.name)}
-                  </AvatarFallback>
-                </Avatar>
+                  fallbackClassName={cn(
+                    "rounded-lg font-semibold",
+                    requireAdmin
+                      ? "bg-linear-to-br from-orange-500 to-amber-500 text-white"
+                      : "bg-linear-to-br from-blue-500 to-indigo-500 text-white",
+                  )}
+                />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">
                     {currentUser.name}

@@ -7,7 +7,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import ThemeToggle from "@/components/shared/theme-toggle"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -156,15 +156,12 @@ export const MarketingHeader = () => {
                       variant="ghost"
                       className="relative size-10 rounded-full ring-2 ring-transparent transition-all duration-300 hover:ring-blue-500/30"
                     >
-                      <Avatar className="size-10 transition-transform duration-300 hover:scale-105">
-                        <AvatarImage
-                          src={currentUser.image ?? undefined}
-                          alt={currentUser.name}
-                        />
-                        <AvatarFallback className="bg-linear-to-br from-blue-600 to-indigo-600 text-white">
-                          {currentUser.name?.charAt(0)?.toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
+                      <UserAvatar
+                        name={currentUser.name}
+                        image={currentUser.image}
+                        className="size-10 transition-transform duration-300 hover:scale-105"
+                        fallbackClassName="bg-linear-to-br from-blue-600 to-indigo-600 text-white"
+                      />
                       <span className="absolute right-0 bottom-0 size-2.5 rounded-full border-2 border-white bg-green-500 dark:border-gray-950" />
                     </Button>
                   </DropdownMenuTrigger>
