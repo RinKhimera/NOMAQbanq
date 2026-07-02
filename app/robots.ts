@@ -6,7 +6,14 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: "*",
         allow: "/",
-        disallow: ["/admin/", "/dashboard/", "/auth/"],
+        disallow: [
+          "/admin/",
+          "/dashboard/",
+          "/connexion",
+          "/inscription",
+          "/mot-de-passe-oublie",
+          "/reinitialiser-mot-de-passe",
+        ],
       },
     ],
     sitemap: "https://nomaqbanq.ca/sitemap.xml",

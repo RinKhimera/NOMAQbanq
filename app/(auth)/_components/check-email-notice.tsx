@@ -93,7 +93,7 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
         <p className="text-muted-foreground text-sm">
           Vous avez déjà un compte ?{" "}
           <Link
-            href="/auth/sign-in"
+            href="/connexion"
             className="font-medium text-blue-600 hover:underline dark:text-blue-400"
           >
             Connectez-vous

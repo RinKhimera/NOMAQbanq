@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
+import { CheckEmailNotice } from "@/app/(auth)/_components/check-email-notice"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -127,7 +127,7 @@ export const SignInForm = () => {
                 <p>
                   Vous n&apos;avez pas encore de mot de passe ?{" "}
                   <Link
-                    href="/auth/forgot-password"
+                    href="/mot-de-passe-oublie"
                     className="font-medium underline"
                   >
                     Réinitialisez-le
@@ -176,7 +176,7 @@ export const SignInForm = () => {
                 <div className="flex items-center justify-between">
                   <FormLabel>Mot de passe</FormLabel>
                   <Link
-                    href="/auth/forgot-password"
+                    href="/mot-de-passe-oublie"
                     className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
                   >
                     Mot de passe oublié ?
@@ -210,7 +210,7 @@ export const SignInForm = () => {
       <p className="text-muted-foreground text-center text-sm">
         Nouveau sur NOMAQbanq ?{" "}
         <Link
-          href="/auth/sign-up"
+          href="/inscription"
           className="font-medium text-blue-600 hover:underline dark:text-blue-400"
         >
           Créer un compte

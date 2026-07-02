@@ -33,7 +33,7 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (values: ForgotPasswordFormValues) => {
     const { error } = await authClient.requestPasswordReset({
       email: values.email,
-      redirectTo: "/auth/reset-password",
+      redirectTo: "/reinitialiser-mot-de-passe",
     })
 
     if (error) {
@@ -75,7 +75,7 @@ export default function ForgotPasswordPage() {
                   Si un compte existe, un courriel a été envoyé.
                 </p>
                 <Link
-                  href="/auth/sign-in"
+                  href="/connexion"
                   className="inline-block text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
                 >
                   Retour à la connexion
@@ -122,7 +122,7 @@ export default function ForgotPasswordPage() {
 
                 <p className="text-muted-foreground text-center text-sm">
                   <Link
-                    href="/auth/sign-in"
+                    href="/connexion"
                     className="font-medium text-blue-600 hover:underline dark:text-blue-400"
                   >
                     Retour à la connexion

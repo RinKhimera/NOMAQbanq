@@ -110,7 +110,7 @@ export const GenericNavUser = ({
 
   const handleSignOut = async () => {
     await authClient.signOut()
-    router.push("/auth/sign-in")
+    router.push("/connexion")
   }
 
   return (

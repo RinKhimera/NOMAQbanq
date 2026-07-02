@@ -15,7 +15,7 @@ export default function CompteSupprimePage() {
         personnelles seront définitivement anonymisées.
       </p>
       <Button asChild>
-        <Link href="/auth/sign-in">Se reconnecter</Link>
+        <Link href="/connexion">Se reconnecter</Link>
       </Button>
     </main>
   )

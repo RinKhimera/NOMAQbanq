@@ -40,7 +40,7 @@ export const MarketingHeader = () => {
 
   const handleSignOut = async () => {
     await authClient.signOut()
-    router.push("/auth/sign-in")
+    router.push("/connexion")
   }
 
   // Fermer le dropdown utilisateur au scroll
@@ -209,7 +209,7 @@ export const MarketingHeader = () => {
                 </DropdownMenu>
               ) : (
                 <>
-                  <Link href="/auth/sign-in">
+                  <Link href="/connexion">
                     <Button
                       variant="ghost"
                       className="rounded-xl px-5 py-2 text-[15px] font-medium text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-blue-400"
@@ -217,7 +217,7 @@ export const MarketingHeader = () => {
                       Connexion
                     </Button>
                   </Link>
-                  <Link href="/auth/sign-up">
+                  <Link href="/inscription">
                     <Button className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-2 text-[15px] font-semibold text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg">
                       Inscription
                     </Button>

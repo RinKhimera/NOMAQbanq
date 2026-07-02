@@ -53,7 +53,7 @@ export const MobileMenu = ({
   const handleSignOut = async () => {
     onOpenChange(false)
     await authClient.signOut()
-    router.push("/auth/sign-in")
+    router.push("/connexion")
   }
 
   return (
@@ -206,7 +206,7 @@ export const MobileMenu = ({
             ) : (
               <div className="space-y-2.5">
                 <Link
-                  href="/auth/sign-in"
+                  href="/connexion"
                   onClick={handleLinkClick}
                   className="block"
                 >
@@ -218,7 +218,7 @@ export const MobileMenu = ({
                   </Button>
                 </Link>
                 <Link
-                  href="/auth/sign-up"
+                  href="/inscription"
                   onClick={handleLinkClick}
                   className="block"
                 >

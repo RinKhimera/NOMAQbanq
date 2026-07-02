@@ -5,7 +5,7 @@ import { getCurrentSession } from "@/lib/dal"
 /** Page/Server Action : redirige vers la connexion si pas de session. */
 export async function requireSession() {
   const session = await getCurrentSession()
-  if (!session) redirect("/auth/sign-in")
+  if (!session) redirect("/connexion")
   return session
 }
 

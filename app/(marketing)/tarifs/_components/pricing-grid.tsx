@@ -37,7 +37,7 @@ export const PricingGrid = ({ products, accessStatus }: PricingGridProps) => {
 
     // Rediriger vers l'inscription si non connecté.
     if (!isAuthenticated) {
-      router.push("/auth/sign-up")
+      router.push("/inscription")
       return
     }
 

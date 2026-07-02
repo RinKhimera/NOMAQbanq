@@ -47,7 +47,7 @@ test.describe("Pages d'erreur", () => {
     await page.goto("/dashboard")
 
     // Should either redirect to sign-in or show auth content
-    await expect(page).toHaveURL(/\/auth\/sign-in|\/dashboard/, {
+    await expect(page).toHaveURL(/\/connexion|\/dashboard/, {
       timeout: 15_000,
     })
   })

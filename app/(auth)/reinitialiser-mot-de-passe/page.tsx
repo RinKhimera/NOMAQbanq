@@ -47,7 +47,7 @@ function ResetPasswordContent() {
     }
 
     toast.success("Mot de passe réinitialisé avec succès")
-    router.push("/auth/sign-in")
+    router.push("/connexion")
   }
 
   const isSubmitting = form.formState.isSubmitting
@@ -75,7 +75,7 @@ function ResetPasswordContent() {
                   en demander un nouveau.
                 </p>
                 <Link
-                  href="/auth/forgot-password"
+                  href="/mot-de-passe-oublie"
                   className="inline-block text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
                 >
                   Demander un nouveau lien

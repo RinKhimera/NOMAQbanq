@@ -65,7 +65,7 @@ export default function proxy(request: NextRequest) {
 
   // Non connecté sur une route protégée → renvoyer vers la connexion.
   if (!hasSession && PROTECTED.some((re) => re.test(pathname))) {
-    return NextResponse.redirect(new URL("/auth/sign-in", request.url))
+    return NextResponse.redirect(new URL("/connexion", request.url))
   }
 
   return NextResponse.next()

@@ -22,7 +22,7 @@ export default function AboutCTA() {
             réussir l&apos;EACMC.
           </p>
           <div className="flex flex-col justify-center gap-6 sm:flex-row">
-            <Link href="/auth/sign-up">
+            <Link href="/inscription">
               <Button
                 className="btn-modern transform rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 px-12 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-2xl"
                 size={"lg"}

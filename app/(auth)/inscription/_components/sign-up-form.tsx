@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import Link from "next/link"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
-import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
+import { CheckEmailNotice } from "@/app/(auth)/_components/check-email-notice"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -193,7 +193,7 @@ export const SignUpForm = () => {
       <p className="text-muted-foreground text-center text-sm">
         Vous avez déjà un compte ?{" "}
         <Link
-          href="/auth/sign-in"
+          href="/connexion"
           className="font-medium text-blue-600 hover:underline dark:text-blue-400"
         >
           Se connecter
