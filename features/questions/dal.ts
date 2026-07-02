@@ -134,8 +134,10 @@ export const getQuestionsWithFilters = async ({
 }: QuestionFiltersInput = {}): Promise<QuestionsPage> => {
   await requireRole(["admin"])
 
-  const safeLimit = clamp(limit, 1, 100)
-  const safePage = Math.max(1, Math.floor(page))
+  // `Number.isFinite` : un `page`/`limit` forgé (NaN/Infinity) ne doit pas
+  // traverser le clamp (Math.max(1, NaN) === NaN → erreur SQL).
+  const safeLimit = clamp(Number.isFinite(limit) ? limit : 50, 1, 100)
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1
   const offset = (safePage - 1) * safeLimit
   const isDesc = sortOrder !== "asc"
 

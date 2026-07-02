@@ -129,6 +129,11 @@ export function UsersManager({
       })
       setUsers(res.items)
       setTotal(res.total)
+      // Même clamp hors-borne que l'effet : une mutation qui vide la page
+      // courante ramène à la dernière page valide.
+      if (res.items.length === 0 && page > 1 && res.total > 0) {
+        setPage(Math.ceil(res.total / pageSize))
+      }
     })
   }
 

@@ -26,6 +26,19 @@ import { nextUsageFilters } from "./utils"
 const QuestionBrowserContext =
   createContext<QuestionBrowserContextState | null>(null)
 
+// Pur (aucune capture) → scope module : le callback de fetch partagé peut ne
+// dépendre que de (queryArgs, page, pageSize) sans se recréer à chaque rendu.
+const toRow = (q: QuestionListItem): QuestionRow => ({
+  _id: q.id,
+  _creationTime: q.createdAt,
+  question: q.question,
+  domain: q.domain,
+  objectifCMC: q.objectifCMC,
+  options: q.options,
+  imageCount: q.imageCount,
+  usageCount: q.usageCount,
+})
+
 interface QuestionBrowserProviderProps {
   children: React.ReactNode
   mode: QuestionBrowserMode
@@ -97,17 +110,6 @@ export function QuestionBrowserProvider({
     onFiltersChange?.(filters)
   }, [filters, onFiltersChange])
 
-  const toRow = (q: QuestionListItem): QuestionRow => ({
-    _id: q.id,
-    _creationTime: q.createdAt,
-    question: q.question,
-    domain: q.domain,
-    objectifCMC: q.objectifCMC,
-    options: q.options,
-    imageCount: q.imageCount,
-    usageCount: q.usageCount,
-  })
-
   const queryArgs = useMemo(
     () => ({
       search: debouncedSearchQuery || undefined,
@@ -128,8 +130,11 @@ export function QuestionBrowserProvider({
     ],
   )
 
-  // Fetch de la page courante à chaque changement de filtre/page/taille.
-  useEffect(() => {
+  // Fetch de la page courante — partagé entre l'effet (filtre/page/taille) et
+  // `reload()` (après une suppression) pour que le clamp hors-borne s'applique
+  // aux DEUX chemins : supprimer le dernier élément de la dernière page ne doit
+  // jamais laisser une page vide sans pagination visible.
+  const fetchPage = useCallback(() => {
     startFetch(async () => {
       const res = await loadQuestionsPage({
         ...queryArgs,
@@ -140,12 +145,17 @@ export function QuestionBrowserProvider({
       setTotal(res.total)
       setHasLoaded(true)
       // Clamp hors-borne (callback async → ESLint OK) : page devenue vide
-      // après une suppression → ramène à la dernière page valide.
+      // → ramène à la dernière page valide (pas de boucle : quand total > 0,
+      // la dernière page a toujours des items).
       if (res.items.length === 0 && page > 1 && res.total > 0) {
         setPageState(Math.ceil(res.total / pageSize))
       }
     })
   }, [queryArgs, page, pageSize])
+
+  useEffect(() => {
+    fetchPage()
+  }, [fetchPage])
 
   const setPage = useCallback((p: number) => setPageState(Math.max(1, p)), [])
   const setPageSize = useCallback((s: number) => {
@@ -153,18 +163,7 @@ export function QuestionBrowserProvider({
     setPageState(1)
   }, [])
 
-  const reload = useCallback(() => {
-    startFetch(async () => {
-      const res = await loadQuestionsPage({
-        ...queryArgs,
-        page,
-        limit: pageSize,
-      })
-      setQuestions(res.items.map(toRow))
-      setTotal(res.total)
-      setHasLoaded(true)
-    })
-  }, [queryArgs, page, pageSize])
+  const reload = fetchPage
 
   // Computed states
   const isLoading = !hasLoaded
