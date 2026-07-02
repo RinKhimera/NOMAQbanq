@@ -9,6 +9,7 @@
 **Tech Stack:** Next.js 16 App Router · React 19 · Drizzle/Neon · Radix Avatar (shadcn) · AWS SDK v3 (S3) · Vitest (happy-dom + intégration branche Neon) · Bun.
 
 **Contraintes transverses :**
+
 - `lib/aws.ts` et `lib/storage.ts` importent `server-only` → **interdits d'import dans un script Bun standalone** (le script d'audit crée son propre client S3). Dans vitest, `server-only` est aliasé vers un stub (`vitest.config.ts:144`).
 - Gates : `bun run check` (tsc + eslint --max-warnings 0), `bun run test` (JAMAIS `bun test`), `bun run test:integration` (crée/migre/détruit une branche Neon — lance TOUTE la suite intégration à chaque fois, ~1-2 min).
 - Prettier import order : 1) node/npm 2) `@/` 3) relatifs.
@@ -19,6 +20,7 @@
 ### Task 1 : `initials()` + `<UserAvatar>` (TDD)
 
 **Files:**
+
 - Create: `components/shared/user-avatar.tsx`
 - Test: `tests/components/UserAvatar.test.tsx`
 
@@ -29,7 +31,7 @@
 import { render, screen } from "@testing-library/react"
 import { ComponentPropsWithoutRef } from "react"
 import { describe, expect, it, vi } from "vitest"
-import { UserAvatar, initials } from "@/components/shared/user-avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { CDN_HOST } from "@/lib/cdn"
 
 // Radix AvatarImage ne rend l'<img> qu'après l'événement `load` (jamais émis en
@@ -47,19 +49,9 @@ vi.mock("@radix-ui/react-avatar", () => ({
   ),
 }))
 
-describe("initials", () => {
-  it("prend la 1re lettre des 2 premiers mots, en majuscules", () => {
-    expect(initials("Jean Dupont")).toBe("JD")
-    expect(initials("jean")).toBe("J")
-    expect(initials("Jean Marie Dupont")).toBe("JM")
-  })
-
-  it("retourne ? sans nom exploitable", () => {
-    expect(initials(null)).toBe("?")
-    expect(initials(undefined)).toBe("?")
-    expect(initials("   ")).toBe("?")
-  })
-})
+// NB : les initiales viennent de `getInitials` (`lib/utils.ts:8`), helper
+// canonique déjà couvert par 28 cas dans tests/lib/utils.test.ts — ne PAS
+// réinventer ni re-tester ici (revue adversariale, constat 2).
 
 describe("UserAvatar", () => {
   it("résout une clé S3 brute en URL CDN", () => {
@@ -103,21 +95,7 @@ Attendu : FAIL (`Cannot find module '@/components/shared/user-avatar'`).
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { resolveAvatarUrl } from "@/lib/cdn"
-
-/**
- * Initiales d'affichage : première lettre des deux premiers mots du nom,
- * majuscules ; "?" si pas de nom exploitable.
- */
-export const initials = (name: string | null | undefined): string => {
-  if (!name) return "?"
-  const letters = name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? "")
-    .join("")
-  return letters || "?"
-}
+import { getInitials } from "@/lib/utils"
 
 type UserAvatarProps = {
   name: string | null | undefined
@@ -144,7 +122,7 @@ export const UserAvatar = ({
   <Avatar className={className}>
     <AvatarImage src={resolveAvatarUrl(image) ?? undefined} alt={name ?? ""} />
     <AvatarFallback className={fallbackClassName}>
-      {initials(name)}
+      {getInitials(name)}
     </AvatarFallback>
   </Avatar>
 )
@@ -153,7 +131,7 @@ export const UserAvatar = ({
 - [ ] **Step 4 : Vérifier le pass**
 
 Run: `bun run test tests/components/UserAvatar.test.tsx`
-Attendu : PASS (7 tests).
+Attendu : PASS (4 tests).
 
 - [ ] **Step 5 : Commit**
 
@@ -167,6 +145,7 @@ git commit -m "feat(avatars): composant UserAvatar unique (résolution polymorph
 ### Task 2 : Migration sites admin « utilisateurs » (4 fichiers)
 
 **Files:**
+
 - Modify: `app/(admin)/admin/utilisateurs/_components/user-table-row.tsx:55-57`
 - Modify: `app/(admin)/admin/utilisateurs/_components/users-table.tsx:205-212`
 - Modify: `app/(admin)/admin/utilisateurs/_components/user-side-panel.tsx:318-326`
@@ -174,10 +153,11 @@ git commit -m "feat(avatars): composant UserAvatar unique (résolution polymorph
 
 Pour CHAQUE fichier : remplacer l'import `@/components/ui/avatar` par
 `import { UserAvatar } from "@/components/shared/user-avatar"`, remplacer le bloc
-`<Avatar>…</Avatar>` par le `<UserAvatar …>` ci-dessous, puis **supprimer la
-fonction/const locale d'initiales devenue inutilisée** (`getInitials`, `initials`)
-— le lint (`no-unused-vars`) signale ce qui reste. Si `cn` ou d'autres imports
-deviennent inutilisés, les retirer aussi.
+`<Avatar>…</Avatar>` par le `<UserAvatar …>` ci-dessous, puis **nettoyer ce qui
+devient inutilisé** : l'import `getInitials` de `@/lib/utils` (la plupart des
+sites l'importent déjà — il vit désormais DANS UserAvatar), les const locales
+`initials`, et les imports `cn` orphelins — le lint (`no-unused-vars`) signale
+ce qui reste.
 
 - [ ] **Step 1 : `user-table-row.tsx`**
 
@@ -207,7 +187,9 @@ deviennent inutilisés, les retirer aussi.
 />
 ```
 
-- [ ] **Step 4 : `user-info-card.tsx`** (supprimer la const `initials` locale, lignes 29-35)
+- [ ] **Step 4 : `user-info-card.tsx`** (supprimer la const `initials` locale,
+      lignes 29-35 — son fallback passe de `"U"` à `"?"` : changement cosmétique assumé,
+      logique unifiée `getInitials`)
 
 ```tsx
 <UserAvatar
@@ -232,11 +214,13 @@ git commit -m "refactor(avatars): admin/utilisateurs sur UserAvatar"
 
 ---
 
-### Task 3 : Migration sites admin « examens » (3 fichiers)
+### Task 3 : Migration sites admin « examens » (4 fichiers)
 
 **Files:**
+
 - Modify: `app/(admin)/admin/examens/[id]/_components/exam-leaderboard.tsx:123-129`
 - Modify: `app/(admin)/admin/examens/[id]/_components/eligible-candidates-section.tsx:168-172`
+- Modify: `app/(admin)/admin/examens/[id]/_components/restricted-audience-section.tsx:128-149`
 - Modify: `app/(admin)/admin/examens/[id]/resultats/[userId]/_components/participant-results-error.tsx:85-92`
 
 Mêmes règles d'imports/nettoyage que Task 2.
@@ -247,7 +231,7 @@ Mêmes règles d'imports/nettoyage que Task 2.
 <UserAvatar
   name={entry.user?.name}
   image={entry.user?.image}
-  className="size-9 shrink-0 @sm:size-10"
+  className="@sm:size-10 size-9 shrink-0"
 />
 ```
 
@@ -262,7 +246,21 @@ Mêmes règles d'imports/nettoyage que Task 2.
 />
 ```
 
-- [ ] **Step 3 : `participant-results-error.tsx`** (supprimer la const `initials` locale, ligne 34)
+- [ ] **Step 3 : `restricted-audience-section.tsx`** (12e site, fallback-only —
+      `ExamAudienceUser` n'a pas de champ `image`, `features/exams/dal.ts:1086` ; on
+      passe `image={null}`, rendu identique. Supprimer la const `initials` inline,
+      l.128-134)
+
+```tsx
+<UserAvatar
+  name={user.name}
+  image={null}
+  className="h-12 w-12 border-2 border-teal-100 shadow-sm dark:border-teal-800"
+  fallbackClassName="bg-linear-to-br from-teal-500 to-cyan-500 text-sm font-semibold text-white"
+/>
+```
+
+- [ ] **Step 4 : `participant-results-error.tsx`** (supprimer la const `initials` locale, ligne 34)
 
 ```tsx
 <UserAvatar
@@ -273,7 +271,7 @@ Mêmes règles d'imports/nettoyage que Task 2.
 />
 ```
 
-- [ ] **Step 4 : Vérifier puis committer**
+- [ ] **Step 5 : Vérifier puis committer**
 
 Run: `bun run check` — attendu PASS.
 
@@ -287,6 +285,7 @@ git commit -m "refactor(avatars): admin/examens sur UserAvatar"
 ### Task 4 : Migration nav/marketing/quiz (4 fichiers) + suppression code mort
 
 **Files:**
+
 - Modify: `components/shared/generic-nav-user.tsx:133-155,175-195` (2 blocs)
 - Modify: `components/marketing-header/index.tsx:159-167`
 - Modify: `components/marketing-header/mobile-menu.tsx:151-159`
@@ -397,6 +396,7 @@ git commit -m "refactor(avatars): nav/marketing/quiz sur UserAvatar + suppressio
 ### Task 5 : Revert du primitif `ui/avatar.tsx` au stock shadcn
 
 **Files:**
+
 - Modify: `components/ui/avatar.tsx`
 
 - [ ] **Step 1 : Vérifier qu'aucun site ne dépend plus de la normalisation**
@@ -407,7 +407,7 @@ Attendu : occurrences UNIQUEMENT dans `components/ui/avatar.tsx` et
 retour aux Tasks 2-4.
 
 - [ ] **Step 2 : Restaurer le fichier stock** (= fichier actuel MOINS l'import
-`resolveAvatarUrl` et l'interception de `src`)
+      `resolveAvatarUrl` et l'interception de `src`)
 
 ```tsx
 // components/ui/avatar.tsx — remplacer AvatarImage par la version stock :
@@ -445,45 +445,23 @@ vit dans `lib/cdn.ts` (pure, sans `server-only` ni env serveur → testable en
 unit et importable par le script d'audit).
 
 **Files:**
+
 - Modify: `lib/cdn.ts`
 - Modify: `lib/storage.ts` (suppression de `avatarStoragePathFromUrl` + import `CDN_HOST` devenu inutile)
-- Modify: `features/users/actions.ts:209` (swap d'appel + imports)
-- Test: `tests/lib/cdn.test.ts`
+- Modify: `features/users/actions.ts:209-212` (swap d'appel + garde anti-IDOR + imports)
+- Modify: `tests/lib/cdn.test.ts` (**fichier EXISTANT** — teste déjà `cdnUrl` +
+  `resolveAvatarUrl` : AJOUTER, ne pas écraser)
+- Modify: `tests/lib/storage.test.ts` (retirer l'import et le
+  `describe("avatarStoragePathFromUrl")`, l.77-93 — sinon `bun run test` rouge)
 
-- [ ] **Step 1 : Écrire le test qui échoue**
+- [ ] **Step 1 : Compléter le test existant (nouveau describe qui échoue)**
+
+Dans `tests/lib/cdn.test.ts` (existant) : ajouter
+`avatarStoragePathFromImageValue` à l'import de `@/lib/cdn`, compléter le
+describe `resolveAvatarUrl` avec les cas protocole-relatif et `data:` s'ils
+manquent, puis AJOUTER ce describe à la fin :
 
 ```ts
-// tests/lib/cdn.test.ts
-import { describe, expect, it } from "vitest"
-import {
-  CDN_HOST,
-  avatarStoragePathFromImageValue,
-  cdnUrl,
-  resolveAvatarUrl,
-} from "@/lib/cdn"
-
-describe("resolveAvatarUrl", () => {
-  it("null/vide → null", () => {
-    expect(resolveAvatarUrl(null)).toBeNull()
-    expect(resolveAvatarUrl(undefined)).toBeNull()
-    expect(resolveAvatarUrl("")).toBeNull()
-  })
-
-  it("URL absolue / protocole-relative / data: → passthrough", () => {
-    expect(resolveAvatarUrl("https://x.test/a.jpg")).toBe("https://x.test/a.jpg")
-    expect(resolveAvatarUrl("//x.test/a.jpg")).toBe("//x.test/a.jpg")
-    expect(resolveAvatarUrl("data:image/png;base64,AA")).toBe(
-      "data:image/png;base64,AA",
-    )
-  })
-
-  it("clé brute → URL CDN", () => {
-    expect(resolveAvatarUrl("avatars/u/1.jpg")).toBe(
-      `https://${CDN_HOST}/avatars/u/1.jpg`,
-    )
-  })
-})
-
 describe("avatarStoragePathFromImageValue", () => {
   it("clé brute avatars/ → telle quelle", () => {
     expect(avatarStoragePathFromImageValue("avatars/u/1.jpg")).toBe(
@@ -512,7 +490,9 @@ describe("avatarStoragePathFromImageValue", () => {
   })
 
   it("data:, null, vide → null", () => {
-    expect(avatarStoragePathFromImageValue("data:image/png;base64,AA")).toBeNull()
+    expect(
+      avatarStoragePathFromImageValue("data:image/png;base64,AA"),
+    ).toBeNull()
     expect(avatarStoragePathFromImageValue(null)).toBeNull()
     expect(avatarStoragePathFromImageValue("")).toBeNull()
   })
@@ -530,7 +510,8 @@ describe("avatarStoragePathFromImageValue", () => {
 - [ ] **Step 2 : Vérifier l'échec**
 
 Run: `bun run test tests/lib/cdn.test.ts`
-Attendu : FAIL (`avatarStoragePathFromImageValue` n'existe pas).
+Attendu : FAIL sur le nouveau describe uniquement (`avatarStoragePathFromImageValue`
+n'existe pas) — les describe `cdnUrl`/`resolveAvatarUrl` existants restent verts.
 
 - [ ] **Step 3 : Implémenter dans `lib/cdn.ts`** (ajout en fin de fichier)
 
@@ -564,16 +545,36 @@ export const avatarStoragePathFromImageValue = (
 
 Run: `bun run test tests/lib/cdn.test.ts` — attendu PASS.
 
-- [ ] **Step 5 : Brancher `confirmAvatarUpload` et supprimer l'ancienne fonction**
+- [ ] **Step 5 : Brancher `confirmAvatarUpload` (avec garde anti-IDOR) et supprimer l'ancienne fonction**
 
-Dans `features/users/actions.ts` :
-- ligne 209 : `const oldPath = avatarStoragePathFromImageValue(current?.image)`
-- imports : retirer `avatarStoragePathFromUrl` de l'import `@/lib/storage`,
-  ajouter `avatarStoragePathFromImageValue` à l'import `@/lib/cdn` (qui contient
-  déjà `cdnUrl`).
+Dans `features/users/actions.ts`, remplacer les lignes 209-212 par :
+
+```ts
+// Anti-IDOR (durcissement revue) : ne supprimer l'ancien objet que dans le
+// préfixe de l'utilisateur COURANT — une valeur `user.image` forgée (endpoint
+// Better Auth /update-user) ne peut pas faire supprimer l'avatar d'un tiers.
+// Coût : un legacy `avatars/<autre-id>/…` (id pré-migration) n'est pas purgé
+// ici — le script d'audit (Task 9) le rattrape.
+const oldPath = avatarStoragePathFromImageValue(current?.image)
+if (
+  oldPath?.startsWith(`avatars/${userId}/`) &&
+  oldPath !== input.storagePath
+) {
+  await tryDeleteFromStorage(oldPath)
+}
+```
+
+Imports : retirer `avatarStoragePathFromUrl` de l'import `@/lib/storage`,
+ajouter `avatarStoragePathFromImageValue` à l'import `@/lib/cdn` (qui contient
+déjà `cdnUrl`).
 
 Dans `lib/storage.ts` : supprimer `avatarStoragePathFromUrl` (l.111-130) et
 l'import `CDN_HOST` de `@/lib/cdn` (devenu inutile).
+
+Dans `tests/lib/storage.test.ts` : retirer `avatarStoragePathFromUrl` de
+l'import (l.4) et supprimer le `describe("avatarStoragePathFromUrl", …)`
+(l.77-93) — ses cas sont couverts en superset par le nouveau describe de
+`cdn.test.ts`.
 
 Run: `grep -rn "avatarStoragePathFromUrl" --include="*.ts*" .`
 Attendu : zéro occurrence.
@@ -583,8 +584,8 @@ Attendu : zéro occurrence.
 Run: `bun run check && bun run test` — attendu PASS.
 
 ```bash
-git add lib/cdn.ts lib/storage.ts features/users/actions.ts tests/lib/cdn.test.ts
-git commit -m "fix(avatars): l'ancien avatar legacy (clé brute/host croisé) est supprimé au remplacement"
+git add lib/cdn.ts lib/storage.ts features/users/actions.ts tests/lib/cdn.test.ts tests/lib/storage.test.ts
+git commit -m "fix(avatars): suppression de l'ancien avatar legacy au remplacement + garde anti-IDOR sur le préfixe user"
 ```
 
 ---
@@ -592,8 +593,10 @@ git commit -m "fix(avatars): l'ancien avatar legacy (clé brute/host croisé) es
 ### Task 7 : `deleteQuestion` hybride hard/soft (TDD intégration)
 
 **Files:**
+
 - Modify: `features/questions/actions.ts:250-271` (+ helper `isForeignKeyViolation`)
 - Modify: `app/(admin)/admin/questions/_components/question-side-panel.tsx:120-132` (toast différencié)
+- Modify: `tests/integration/questions-actions.test.ts:120-130` (test « soft delete » existant à repointer — la question qu'il crée n'est jamais référencée, elle part désormais en HARD)
 - Test: `tests/integration/delete-question.test.ts`
 
 - [ ] **Step 1 : Écrire le test d'intégration qui échoue**
@@ -776,6 +779,9 @@ export type DeleteQuestionResult =
  *   médias DB/S3 CONSERVÉS (encore servis en passation/correction — exams/dal
  *   ne filtre pas `deletedAt`).
  * Aucun check applicatif préalable → aucune race avec une insertion concurrente.
+ * Course résiduelle assumée : un `setQuestionImages` concurrent qui commit entre
+ * la collecte des chemins et le DELETE peut laisser un orphelin S3 (fenêtre
+ * minuscule, purge best-effort) — rattrapé par `bun run audit:medias`.
  */
 export const deleteQuestion = async (
   id: string,
@@ -828,12 +834,25 @@ export const deleteQuestion = async (
 }
 ```
 
-- [ ] **Step 4 : Vérifier le pass**
+- [ ] **Step 4 : Repointer le test « soft delete » existant**
+
+Dans `tests/integration/questions-actions.test.ts` (l.120-130), le test de
+suppression crée une question **jamais référencée** : avec l'hybride elle part
+en HARD delete — l'intitulé « soft » et l'intention « conserve la ligne »
+deviennent faux (test vert trompeur). Mettre à jour : renommer l'`it` en
+`"hard delete d'une question jamais référencée"`, asserter
+`expect(res).toEqual({ success: true, mode: "hard" })`, et remplacer toute
+assertion « la ligne existe encore avec deletedAt » par une vérification
+d'absence de ligne. La couverture du chemin SOFT vit dans
+`tests/integration/delete-question.test.ts` (Step 1).
+
+- [ ] **Step 5 : Vérifier le pass**
 
 Run: `bun run test:integration`
-Attendu : PASS sur toute la suite (dont `delete-question.test.ts`).
+Attendu : PASS sur toute la suite (dont `delete-question.test.ts` et
+`questions-actions.test.ts` repointé).
 
-- [ ] **Step 5 : Toast différencié dans le panel admin**
+- [ ] **Step 6 : Toast différencié dans le panel admin**
 
 Dans `app/(admin)/admin/questions/_components/question-side-panel.tsx`,
 remplacer le corps de `handleDelete` (l.120-132) :
@@ -858,12 +877,12 @@ const handleDelete = async () => {
 }
 ```
 
-- [ ] **Step 6 : Vérifier puis committer**
+- [ ] **Step 7 : Vérifier puis committer**
 
 Run: `bun run check && bun run test` — attendu PASS.
 
 ```bash
-git add features/questions/actions.ts "app/(admin)/admin/questions" tests/integration/delete-question.test.ts
+git add features/questions/actions.ts "app/(admin)/admin/questions" tests/integration/delete-question.test.ts tests/integration/questions-actions.test.ts
 git commit -m "feat(questions): suppression hybride hard/soft arbitrée par les FK (23503) + purge S3 au hard delete"
 ```
 
@@ -872,6 +891,7 @@ git commit -m "feat(questions): suppression hybride hard/soft arbitrée par les 
 ### Task 8 : `lib/media-audit.ts` — logique pure d'audit (TDD)
 
 **Files:**
+
 - Create: `lib/media-audit.ts`
 - Test: `tests/lib/media-audit.test.ts`
 
@@ -892,17 +912,21 @@ describe("classifyImageValue", () => {
     expect(classifyImageValue(null)).toBe("empty")
     expect(classifyImageValue("")).toBe("empty")
     expect(classifyImageValue("data:image/png;base64,AA")).toBe("data")
-    expect(
-      classifyImageValue("https://lh3.googleusercontent.com/a/x"),
-    ).toBe("google")
+    expect(classifyImageValue("https://lh3.googleusercontent.com/a/x")).toBe(
+      "google",
+    )
     expect(classifyImageValue(`https://${CDN_HOST}/avatars/u/1.jpg`)).toBe(
       "cdn-url",
     )
     expect(
-      classifyImageValue("https://dn5nrir6z5nr7.cloudfront.net/avatars/u/1.jpg"),
+      classifyImageValue(
+        "https://dn5nrir6z5nr7.cloudfront.net/avatars/u/1.jpg",
+      ),
     ).toBe("cdn-url")
     expect(classifyImageValue("avatars/u/1.jpg")).toBe("raw-key")
-    expect(classifyImageValue("https://exemple.test/photo.jpg")).toBe("external")
+    expect(classifyImageValue("https://exemple.test/photo.jpg")).toBe(
+      "external",
+    )
   })
 })
 
@@ -1025,6 +1049,7 @@ git commit -m "feat(medias): fonctions pures d'audit (classification user.image,
 ### Task 9 : Script `scripts/audit-medias.ts` + entrée package.json
 
 **Files:**
+
 - Create: `scripts/audit-medias.ts`
 - Modify: `package.json` (scripts)
 
@@ -1046,14 +1071,18 @@ commit du code.
  *   bun run audit:medias -- --purge  # purge orphelins >24h + GC questions
  *                                    # soft-deleted déréférencées
  *
- * Env requis : DATABASE_URL, S3_REGION, S3_BUCKET, AWS_ACCESS_KEY_ID,
+ * Env requis (COMPLET) : DATABASE_URL, S3_REGION, S3_BUCKET, AWS_ACCESS_KEY_ID,
  * AWS_SECRET_ACCESS_KEY (avec s3:ListBucket ; s3:DeleteObject pour --purge).
  *
  * Audit PROD (lecture seule) : pointer DATABASE_URL sur une BRANCHE Neon créée
  * depuis la prod (jamais la prod primaire) + credentials S3 de liste read-only.
+ * Le script affiche sa CIBLE (bucket + host DB) au démarrage — vérifier cette
+ * ligne avant de continuer (dotenv comble les vars absentes avec `.env.local`,
+ * une omission ferait fuiter la cible DEV en silence).
  *
- * N'importe PAS lib/aws.ts / lib/storage.ts (`server-only` interdit hors Next) :
- * client S3 local au script.
+ * N'importe NI lib/aws.ts / lib/storage.ts (`server-only` interdit hors Next),
+ * NI @/db (son import de lib/env/server exigerait TOUT le schéma d'env —
+ * DATABASE_URL_UNPOOLED, BETTER_AUTH_SECRET…) : client S3 et pool pg locaux.
  */
 import {
   DeleteObjectCommand,
@@ -1062,12 +1091,19 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3"
 import { config } from "dotenv"
+import { and, eq, isNotNull, notExists, sql } from "drizzle-orm"
+import { drizzle } from "drizzle-orm/node-postgres"
+import { Pool } from "pg"
+import * as schema from "../db/schema"
+import {
+  classifyImageValue,
+  diffMediaRefs,
+  referencedAvatarKeys,
+} from "../lib/media-audit"
 
 config({ path: ".env.local" })
 config()
 
-// Imports dynamiques APRÈS le chargement de l'env (db/index lit lib/env/server).
-const { db } = await import("../db")
 const {
   examAnswers,
   examQuestions,
@@ -1075,29 +1111,35 @@ const {
   questions,
   trainingSessionItems,
   user,
-} = await import("../db/schema")
-const { and, eq, isNotNull, notExists, sql } = await import("drizzle-orm")
-const { classifyImageValue, diffMediaRefs, referencedAvatarKeys } = await import(
-  "../lib/media-audit"
-)
+} = schema
 
 const PURGE = process.argv.includes("--purge")
 const MIN_AGE_MS = 24 * 60 * 60 * 1000 // jamais purger un objet < 24 h
 
+const dbUrl = process.env.DATABASE_URL
 const region = process.env.S3_REGION
 const bucket = process.env.S3_BUCKET
 const accessKeyId = process.env.AWS_ACCESS_KEY_ID
 const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY
-if (!region || !bucket || !accessKeyId || !secretAccessKey) {
+if (!dbUrl || !region || !bucket || !accessKeyId || !secretAccessKey) {
   console.error(
-    "Env S3 manquant (S3_REGION, S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).",
+    "Env manquant (DATABASE_URL, S3_REGION, S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY).",
   )
   process.exit(1)
 }
+
+// Cible affichée pour confirmation visuelle (anti-fuite d'env dev en run prod).
+console.log(
+  `Cible : bucket=${bucket} · db=${new URL(dbUrl).hostname} · ${PURGE ? "MODE PURGE" : "dry-run"}`,
+)
+
 const s3 = new S3Client({
   region,
   credentials: { accessKeyId, secretAccessKey },
 })
+// Pool pg propre au script (pas de loadServerEnv, pas d'attachDatabasePool).
+const pool = new Pool({ connectionString: dbUrl, max: 3 })
+const db = drizzle(pool, { schema })
 
 type S3Obj = { key: string; lastModified?: Date }
 
@@ -1161,7 +1203,10 @@ const questionDiff = diffMediaRefs(
   questionPaths,
 )
 
-const report = (label: string, diff: { orphans: string[]; broken: string[] }) => {
+const report = (
+  label: string,
+  diff: { orphans: string[]; broken: string[] },
+) => {
   console.log(`\n=== ${label} ===`)
   console.log(`  orphelins S3 : ${diff.orphans.length}`)
   for (const k of diff.orphans) console.log(`    - ${k}`)
@@ -1225,6 +1270,7 @@ console.log(
 // ---------- 5. Purge (opt-in) ----------
 if (!PURGE) {
   console.log("\nDry-run terminé. Relancer avec `-- --purge` pour agir.")
+  await pool.end()
   process.exit(0)
 }
 
@@ -1254,6 +1300,7 @@ for (const q of gcCandidates) {
 }
 
 console.log("\nPurge terminée.")
+await pool.end()
 process.exit(0)
 ```
 
@@ -1289,6 +1336,7 @@ git commit -m "feat(medias): script d'audit/GC des orphelins S3 (dry-run par dé
 ### Task 10 : Documentation des patterns + gates finaux
 
 **Files:**
+
 - Modify: `.claude/rules/data-layer.md` (section « Upload médias » ou à la suite)
 
 - [ ] **Step 1 : Ajouter les deux règles**
@@ -1326,12 +1374,14 @@ git commit -m "docs(rules): patterns UserAvatar + suppression hybride des questi
 Aucun code — checklist à dérouler quand le reste est mergé/déployé :
 
 - [ ] **Step 1** : Créer une **branche Neon éphémère depuis la PROD** (dashboard
-  Neon → Branches → New branch, parent = prod ; conformément à la préférence
-  « opérations prod via dashboard »). Récupérer sa connection string.
+      Neon → Branches → New branch, parent = prod ; conformément à la préférence
+      « opérations prod via dashboard »). Récupérer sa connection string.
 - [ ] **Step 2** : Créer des credentials IAM **read-list-only** sur le bucket
-  prod (policy : `s3:ListBucket` + `s3:GetLifecycleConfiguration` uniquement,
-  PAS de Get/Put/DeleteObject).
-- [ ] **Step 3** : Exécuter le dry-run contre ces cibles (PowerShell) :
+      prod (policy : `s3:ListBucket` + `s3:GetLifecycleConfiguration` uniquement,
+      PAS de Get/Put/DeleteObject).
+- [ ] **Step 3** : Exécuter le dry-run contre ces cibles (PowerShell). Les CINQ
+      vars doivent être posées — une var omise serait comblée en silence par
+      `.env.local` (dev) via dotenv :
 
 ```powershell
 $env:DATABASE_URL = "<connection string de la BRANCHE Neon>"
@@ -1340,23 +1390,39 @@ $env:AWS_ACCESS_KEY_ID = "<clé read-list>"; $env:AWS_SECRET_ACCESS_KEY = "<secr
 bun scripts/audit-medias.ts
 ```
 
+**Vérifier la 1re ligne de sortie** (`Cible : bucket=… · db=…`) : elle doit
+afficher le bucket PROD et le host de la BRANCHE Neon — sinon STOP (fuite
+d'env dev).
+
 - [ ] **Step 4** : Archiver le rapport (comptes `user.image` par forme,
-  orphelins par préfixe, liens cassés, statut Lifecycle `tmp/`) et **supprimer
-  la branche Neon**. Toute purge prod = décision séparée, avec des credentials
-  incluant `s3:DeleteObject` et `DATABASE_URL` pointé sur la prod réelle,
-  jamais dans la même session que l'audit.
+      orphelins par préfixe, liens cassés, statut Lifecycle `tmp/`) et **supprimer
+      la branche Neon**. Toute purge prod = décision séparée, avec des credentials
+      incluant `s3:DeleteObject` et `DATABASE_URL` pointé sur la prod réelle,
+      jamais dans la même session que l'audit.
 
 ---
 
-## Auto-revue du plan (exécutée à la rédaction)
+## Auto-revue du plan (rédaction) + intégration de la revue adversariale (2026-07-02)
 
 - **Couverture spec** : §A → Tasks 1-5 ; §B (fix remplacement) → Task 6 ;
   §C (hybride) → Task 7 ; §D (audit/GC + Lifecycle + IAM) → Tasks 8-9 ;
   §E (prod) → Task 11 ; impact tests → Tasks 1, 6, 7, 8 ; docs → Task 10.
-- **Écart assumé vs spec** : ajout de la prop `fallbackClassName` à `UserAvatar`
-  (les 11 sites ont des styles de fallback différents — parité visuelle) ;
-  `avatarStoragePathFromImageValue` déplacée vers `lib/cdn.ts` (pure, sans
-  `server-only` → testable en unit + importable par le script).
+- **Écarts assumés vs spec initial** : prop `fallbackClassName` sur `UserAvatar`
+  (styles de fallback différents par site — parité visuelle) ;
+  `avatarStoragePathFromImageValue` dans `lib/cdn.ts` (pure, sans `server-only`
+  → testable en unit + importable par le script).
+- **Correctifs intégrés de la revue adversariale de design** (rapport trié puis
+  supprimé) : réutilisation de `getInitials` (`lib/utils.ts:8`) au lieu d'un
+  nouveau `initials()` (Task 1) ; `tests/lib/storage.test.ts` ajouté aux
+  éditions et `tests/lib/cdn.test.ts` traité en FUSION, pas en création
+  (Task 6) ; garde anti-IDOR `avatars/{userId}/` sur `oldPath` (Task 6) ;
+  repointage du test intégration « soft delete » existant (Task 7) ; script
+  d'audit avec pool pg/drizzle PROPRE au lieu d'importer `@/db` → env requis
+  réduit et exact, + affichage de la cible anti-fuite dev (Tasks 9/11) ;
+  12e site avatar `restricted-audience-section.tsx` migré (Task 3) ; course
+  résiduelle hard-delete↔`setQuestionImages` documentée et assumée (audit en
+  filet, Task 7).
 - **Types** : `DeleteQuestionResult` (Task 7) consommé par le toast (narrowing
-  après `!res.success`) ; `initials`/`UserAvatar` exportés ensemble (Task 1) ;
-  `diffMediaRefs(s3Keys, dbPaths)` signature identique Tasks 8/9.
+  après `!res.success`) ; `UserAvatar` seul export composant, initiales via
+  `getInitials` partagé (Task 1) ; `diffMediaRefs(s3Keys, dbPaths)` signature
+  identique Tasks 8/9.
