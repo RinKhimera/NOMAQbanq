@@ -65,7 +65,8 @@ Nouveau `components/shared/user-avatar.tsx` (client) :
 type UserAvatarProps = {
   name: string | null | undefined
   image: string | null | undefined
-  className?: string // taille via size-* (ex. "size-8")
+  className?: string // taille/ring/border du conteneur (ex. "size-8")
+  fallbackClassName?: string // gradient/couleurs du fallback, propres à chaque site
 }
 ```
 

@@ -17,7 +17,7 @@
 
 ---
 
-### Task 1 : `initials()` + `<UserAvatar>` (TDD)
+### Task 1 : `<UserAvatar>` (TDD)
 
 **Files:**
 
