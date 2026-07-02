@@ -16,9 +16,8 @@ import { profileSchema } from "@/features/users/schemas"
 import { auth } from "@/lib/auth"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createPresignedUpload } from "@/lib/aws"
-import { cdnUrl } from "@/lib/cdn"
+import { avatarStoragePathFromImageValue, cdnUrl } from "@/lib/cdn"
 import {
-  avatarStoragePathFromUrl,
   generateAvatarPath,
   getExtensionFromMimeType,
   isStorageConfigured,
@@ -206,8 +205,15 @@ export const confirmAvatarUpload = async (input: {
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 
-  const oldPath = avatarStoragePathFromUrl(current?.image)
-  if (oldPath && oldPath !== input.storagePath) {
+  // Anti-IDOR : ne supprimer l'ancien objet que dans le préfixe de l'utilisateur
+  // COURANT — une valeur `user.image` forgée (endpoint Better Auth /update-user)
+  // ne peut pas faire supprimer l'avatar d'un tiers. Coût : un legacy
+  // `avatars/<autre-id>/…` n'est pas purgé ici — le script d'audit le rattrape.
+  const oldPath = avatarStoragePathFromImageValue(current?.image)
+  if (
+    oldPath?.startsWith(`avatars/${userId}/`) &&
+    oldPath !== input.storagePath
+  ) {
     await tryDeleteFromStorage(oldPath)
   }
 
