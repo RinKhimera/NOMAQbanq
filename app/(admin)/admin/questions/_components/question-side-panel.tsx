@@ -125,7 +125,11 @@ function PanelContent({
       toast.error(res.error ?? "Erreur lors de la suppression")
       return
     }
-    toast.success("Question supprimée")
+    toast.success(
+      res.mode === "hard"
+        ? "Question supprimée définitivement"
+        : "Question archivée : référencée par des examens ou entraînements — médias conservés",
+    )
     setShowDeleteDialog(false)
     reload()
     onDeleted?.()
