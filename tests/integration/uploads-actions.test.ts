@@ -15,6 +15,7 @@ import {
 } from "@/features/users/actions"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createPresignedUpload } from "@/lib/aws"
+import { cdnUrl } from "@/lib/cdn"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
@@ -131,7 +132,9 @@ describe("createAvatarUpload + confirmAvatarUpload", () => {
       .from(user)
       .where(eq(user.id, userId))
       .limit(1)
-    expect(row?.image).toBe(`https://cdn.nomaqbanq.ca/${created.storagePath}`)
+    // Via cdnUrl (pas de host hardcodé) : NEXT_PUBLIC_CDN_HOSTNAME varie par env
+    // (CloudFront dev vs cdn.nomaqbanq.ca prod) et est hérité du .env.local.
+    expect(row?.image).toBe(cdnUrl(created.storagePath))
   })
 
   it("refuse de confirmer le chemin d'un autre utilisateur", async () => {
