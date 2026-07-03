@@ -9,12 +9,12 @@ setup.describe.configure({ mode: "serial" })
 // Connexion via le formulaire Better Auth réel (email/mot de passe), puis
 // sauvegarde du cookie de session dans le storageState. Remplace `clerk.signIn`.
 const signIn = async (page: Page, email: string, password: string) => {
-  await page.goto("/auth/sign-in")
+  await page.goto("/connexion")
   await page.getByTestId("auth-email").fill(email)
   await page.getByTestId("auth-password").fill(password)
   await page.getByTestId("auth-submit").click()
   // Le formulaire redirige vers /dashboard ; l'admin y a aussi accès.
-  await page.waitForURL(/\/dashboard(\/|$)/, { timeout: 20_000 })
+  await page.waitForURL(/\/tableau-de-bord(\/|$)/, { timeout: 20_000 })
 }
 
 setup("authenticate as user", async ({ page }) => {

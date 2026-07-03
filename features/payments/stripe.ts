@@ -125,6 +125,9 @@ export async function completeStripeTransaction(params: {
           txAccessExpiresAt.getTime(),
         ),
       )
+      // Renouvellement réel de CE type = l'expiration avance (ou 1er octroi).
+      const renewed =
+        !existing || finalExpiry.getTime() > existing.expiresAt.getTime()
       await tx
         .insert(userAccess)
         .values({
@@ -135,7 +138,12 @@ export async function completeStripeTransaction(params: {
         })
         .onConflictDoUpdate({
           target: [userAccess.userId, userAccess.accessType],
-          set: { expiresAt: finalExpiry, lastTransactionId: pending.id },
+          set: {
+            expiresAt: finalExpiry,
+            lastTransactionId: pending.id,
+            // Re-arme le rappel de fin d'accès uniquement si l'accès est prolongé.
+            ...(renewed ? { expiryReminderSentAt: null } : {}),
+          },
         })
     }
 

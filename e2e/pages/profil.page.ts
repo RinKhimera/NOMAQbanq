@@ -7,7 +7,7 @@ export class ProfilPage extends BasePage {
   }
 
   async goto() {
-    await super.goto("/dashboard/profil")
+    await super.goto("/tableau-de-bord/profil")
   }
 
   async waitForReady() {

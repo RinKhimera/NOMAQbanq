@@ -60,3 +60,9 @@ export const changePasswordSchema = z
   })
 
 export type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>
+
+export const deleteAccountSchema = z.object({
+  confirmEmail: emailField,
+})
+
+export type DeleteAccountFormValues = z.infer<typeof deleteAccountSchema>

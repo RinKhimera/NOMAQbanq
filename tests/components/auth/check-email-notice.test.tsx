@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { CheckEmailNotice } from "@/app/(auth)/auth/_components/check-email-notice"
+import { CheckEmailNotice } from "@/app/(auth)/_components/check-email-notice"
 
 const sendVerificationEmail = vi.fn()
 const toastSuccess = vi.fn()
@@ -49,7 +49,7 @@ describe("CheckEmailNotice", () => {
 
     expect(sendVerificationEmail).toHaveBeenCalledWith({
       email: "a@b.com",
-      callbackURL: "/dashboard",
+      callbackURL: "/tableau-de-bord",
     })
     expect(toastSuccess).toHaveBeenCalled()
     expect(screen.getByTestId("auth-resend")).toBeDisabled()

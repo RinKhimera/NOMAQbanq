@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import {
   bigint,
   boolean,
@@ -86,6 +87,7 @@ export const examParticipations = pgTable(
     status: examParticipationStatus("status").default("in_progress").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    resultsNotifiedAt: timestamp("results_notified_at", { withTimezone: true }),
     pauseStartedAt: timestamp("pause_started_at", { withTimezone: true }),
     totalPauseDurationMs: bigint("total_pause_duration_ms", { mode: "number" }),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -97,6 +99,13 @@ export const examParticipations = pgTable(
     index("exam_participations_exam_id_idx").on(t.examId),
     index("exam_participations_user_id_idx").on(t.userId),
     index("exam_participations_status_idx").on(t.status),
+    // Balayage des notifications de résultats : ne cible que le backlog non notifié
+    // des examens clos (exclut les `in_progress` jamais marqués).
+    index("exam_participations_results_pending_idx")
+      .on(t.examId)
+      .where(
+        sql`${t.status} in ('completed', 'auto_submitted') and ${t.resultsNotifiedAt} is null`,
+      ),
   ],
 )
 

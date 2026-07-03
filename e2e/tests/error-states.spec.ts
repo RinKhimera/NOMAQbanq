@@ -44,10 +44,10 @@ test.describe("Pages d'erreur", () => {
     page,
   }) => {
     // Navigate to a protected page without auth (chromium project)
-    await page.goto("/dashboard")
+    await page.goto("/tableau-de-bord")
 
     // Should either redirect to sign-in or show auth content
-    await expect(page).toHaveURL(/\/auth\/sign-in|\/dashboard/, {
+    await expect(page).toHaveURL(/\/connexion|\/tableau-de-bord/, {
       timeout: 15_000,
     })
   })

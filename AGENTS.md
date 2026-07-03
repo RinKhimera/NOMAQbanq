@@ -42,7 +42,7 @@ CI: `.github/workflows/ci.yml` — type-check -> lint -> format:check -> test + 
 ```
 app/(dashboard)/           # Pages etudiant (protegees par layout requireSession)
 app/(admin)/               # Pages admin (protegees par layout requireRole)
-app/(auth)/                # Pages auth Better Auth (sign-in, sign-up, reset)
+app/(auth)/                # Pages auth Better Auth, sans préfixe /auth (connexion, inscription, mot-de-passe-oublie, reinitialiser-mot-de-passe)
 app/(marketing)/           # Pages marketing + _components/
 app/api/                   # Route handlers: auth/[...all], stripe/webhook, cron/close-expired, e2e
 features/<domaine>/        # Backend: {schemas,dal,actions,lib,cron}.ts (users/payments/questions/exams/training/analytics/marketing)

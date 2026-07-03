@@ -7,7 +7,7 @@ export class ExamenBlancPage extends BasePage {
   }
 
   async goto() {
-    await super.goto("/dashboard/examen-blanc")
+    await super.goto("/tableau-de-bord/examen-blanc")
     // Wait for page content — heading or exam cards
     await this.page
       .getByText("Examens Blancs")
@@ -135,7 +135,7 @@ export class ExamenBlancPage extends BasePage {
     const dialog = this.page.locator('[role="alertdialog"], [role="dialog"]')
     await dialog.getByRole("button", { name: /Terminer l'examen/ }).click()
 
-    await this.page.waitForURL(/\/dashboard\/examen-blanc/, {
+    await this.page.waitForURL(/\/tableau-de-bord\/examen-blanc/, {
       timeout: 15_000,
     })
   }

@@ -1,9 +1,10 @@
 "use server"
 
-import { and, eq, ne } from "drizzle-orm"
+import { and, eq, isNull, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import { headers } from "next/headers"
 import { db } from "@/db"
-import { user } from "@/db/schema"
+import { session as sessionTable, user } from "@/db/schema"
 import {
   type AdminUsersPage,
   type UserPanelData,
@@ -12,11 +13,11 @@ import {
   getUsersWithFilters,
 } from "@/features/users/dal"
 import { profileSchema } from "@/features/users/schemas"
+import { auth } from "@/lib/auth"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createPresignedUpload } from "@/lib/aws"
-import { cdnUrl } from "@/lib/cdn"
+import { avatarStoragePathFromImageValue, cdnUrl } from "@/lib/cdn"
 import {
-  avatarStoragePathFromUrl,
   generateAvatarPath,
   getExtensionFromMimeType,
   isStorageConfigured,
@@ -24,6 +25,7 @@ import {
   validateImageFile,
 } from "@/lib/storage"
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
+import { deleteAccountSchema } from "@/schemas/auth"
 
 export type UpdateProfileResult = { success: boolean; error?: string }
 
@@ -100,9 +102,9 @@ export const updateProfile = async (input: {
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 
-  revalidatePath("/dashboard/profil")
+  revalidatePath("/tableau-de-bord/profil")
   revalidatePath("/admin/profil")
-  revalidatePath("/dashboard/onboarding")
+  revalidatePath("/tableau-de-bord/bienvenue")
   return { success: true }
 }
 
@@ -203,12 +205,155 @@ export const confirmAvatarUpload = async (input: {
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 
-  const oldPath = avatarStoragePathFromUrl(current?.image)
-  if (oldPath && oldPath !== input.storagePath) {
+  // Anti-IDOR : ne supprimer l'ancien objet que dans le préfixe de l'utilisateur
+  // COURANT — une valeur `user.image` forgée (endpoint Better Auth /update-user)
+  // ne peut pas faire supprimer l'avatar d'un tiers. Coût : un legacy
+  // `avatars/<autre-id>/…` n'est pas purgé ici — le script d'audit le rattrape.
+  const oldPath = avatarStoragePathFromImageValue(current?.image)
+  if (
+    oldPath?.startsWith(`avatars/${userId}/`) &&
+    oldPath !== input.storagePath
+  ) {
     await tryDeleteFromStorage(oldPath)
   }
 
-  revalidatePath("/dashboard/profil")
+  revalidatePath("/tableau-de-bord/profil")
   revalidatePath("/admin/profil")
   return { success: true, url: newUrl }
+}
+
+export type AccountActionResult = { success: boolean; error?: string }
+
+// Révoque UNE session de l'utilisateur courant (déconnexion d'un appareil).
+// Garde d'appartenance (user_id) → anti-IDOR. Interdit la session courante
+// (utiliser la déconnexion normale).
+export const revokeUserSession = async (
+  sessionId: string,
+): Promise<AccountActionResult> => {
+  const authSession = await requireSession()
+  if (sessionId === authSession.session.id) {
+    return {
+      success: false,
+      error: "Vous ne pouvez pas révoquer votre session courante ici.",
+    }
+  }
+  await db
+    .delete(sessionTable)
+    .where(
+      and(
+        eq(sessionTable.id, sessionId),
+        eq(sessionTable.userId, authSession.user.id),
+      ),
+    )
+  revalidatePath("/tableau-de-bord/profil")
+  revalidatePath("/admin/profil")
+  return { success: true }
+}
+
+// Déconnecte tous les autres appareils (garde la session courante).
+export const revokeOtherUserSessions =
+  async (): Promise<AccountActionResult> => {
+    const authSession = await requireSession()
+    await db
+      .delete(sessionTable)
+      .where(
+        and(
+          eq(sessionTable.userId, authSession.user.id),
+          ne(sessionTable.id, authSession.session.id),
+        ),
+      )
+    revalidatePath("/tableau-de-bord/profil")
+    revalidatePath("/admin/profil")
+    return { success: true }
+  }
+
+// Définit un mot de passe pour un compte SANS mot de passe (Google-only) → ajoute
+// un login email/mot de passe. `setPassword` est server-only côté Better Auth : on
+// l'appelle via auth.api depuis cette action gardée.
+export const setAccountPassword = async (input: {
+  newPassword: string
+}): Promise<AccountActionResult> => {
+  await requireSession()
+
+  if (input.newPassword.length < 8 || input.newPassword.length > 128) {
+    return {
+      success: false,
+      error: "Le mot de passe doit contenir entre 8 et 128 caractères.",
+    }
+  }
+
+  try {
+    await auth.api.setPassword({
+      body: { newPassword: input.newPassword },
+      headers: await headers(),
+    })
+  } catch {
+    return { success: false, error: "Impossible de définir le mot de passe." }
+  }
+
+  revalidatePath("/tableau-de-bord/profil")
+  revalidatePath("/admin/profil")
+  return { success: true }
+}
+
+// Suppression douce du compte courant (grâce 30 j). Confirmation par saisie de
+// l'email. Pose `deletedAt`, supprime toutes les sessions (déconnexion partout).
+// L'anonymisation définitive est faite plus tard par le cron. La reconnexion dans
+// la fenêtre de grâce réactive le compte (voir lib/auth.ts databaseHooks).
+export const deleteMyAccount = async (input: {
+  confirmEmail: string
+}): Promise<AccountActionResult> => {
+  const authSession = await requireSession()
+
+  const parsed = deleteAccountSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Données invalides",
+    }
+  }
+  if (
+    parsed.data.confirmEmail.trim().toLowerCase() !==
+    authSession.user.email.toLowerCase()
+  ) {
+    return { success: false, error: "L'adresse courriel ne correspond pas." }
+  }
+
+  // Garde « dernier admin » ATOMIQUE : verrou de ligne (`for update`) sur les
+  // admins actifs DANS la transaction → deux derniers admins qui se suppriment en
+  // concurrence sont sérialisés (le 2e voit le 1er supprimé et est refusé). Évite
+  // le TOCTOU d'un `count` hors transaction (cf. data-layer.md).
+  const result = await db.transaction(async (tx) => {
+    if (authSession.user.role === "admin") {
+      const admins = await tx
+        .select({ id: user.id })
+        .from(user)
+        .where(and(eq(user.role, "admin"), isNull(user.deletedAt)))
+        .orderBy(user.id)
+        .for("update")
+      const hasOtherAdmin = admins.some((a) => a.id !== authSession.user.id)
+      if (!hasOtherAdmin) {
+        return { ok: false as const }
+      }
+    }
+
+    await tx
+      .update(user)
+      .set({ deletedAt: new Date() })
+      .where(eq(user.id, authSession.user.id))
+    await tx
+      .delete(sessionTable)
+      .where(eq(sessionTable.userId, authSession.user.id))
+    return { ok: true as const }
+  })
+
+  if (!result.ok) {
+    return {
+      success: false,
+      error:
+        "Vous êtes le dernier administrateur : impossible de supprimer ce compte.",
+    }
+  }
+
+  return { success: true }
 }

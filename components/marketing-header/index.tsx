@@ -7,7 +7,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import ThemeToggle from "@/components/shared/theme-toggle"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,7 +40,7 @@ export const MarketingHeader = () => {
 
   const handleSignOut = async () => {
     await authClient.signOut()
-    router.push("/auth/sign-in")
+    router.push("/connexion")
   }
 
   // Fermer le dropdown utilisateur au scroll
@@ -156,15 +156,12 @@ export const MarketingHeader = () => {
                       variant="ghost"
                       className="relative size-10 rounded-full ring-2 ring-transparent transition-all duration-300 hover:ring-blue-500/30"
                     >
-                      <Avatar className="size-10 transition-transform duration-300 hover:scale-105">
-                        <AvatarImage
-                          src={currentUser.image ?? undefined}
-                          alt={currentUser.name}
-                        />
-                        <AvatarFallback className="bg-linear-to-br from-blue-600 to-indigo-600 text-white">
-                          {currentUser.name?.charAt(0)?.toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
+                      <UserAvatar
+                        name={currentUser.name}
+                        image={currentUser.image}
+                        className="size-10 transition-transform duration-300 hover:scale-105"
+                        fallbackClassName="bg-linear-to-br from-blue-600 to-indigo-600 text-white"
+                      />
                       <span className="absolute right-0 bottom-0 size-2.5 rounded-full border-2 border-white bg-green-500 dark:border-gray-950" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -183,7 +180,7 @@ export const MarketingHeader = () => {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild className="cursor-pointer">
                       <Link
-                        href="/dashboard"
+                        href="/tableau-de-bord"
                         className="flex items-center gap-2"
                       >
                         <LayoutDashboard className="size-4" />
@@ -209,7 +206,7 @@ export const MarketingHeader = () => {
                 </DropdownMenu>
               ) : (
                 <>
-                  <Link href="/auth/sign-in">
+                  <Link href="/connexion">
                     <Button
                       variant="ghost"
                       className="rounded-xl px-5 py-2 text-[15px] font-medium text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-blue-400"
@@ -217,7 +214,7 @@ export const MarketingHeader = () => {
                       Connexion
                     </Button>
                   </Link>
-                  <Link href="/auth/sign-up">
+                  <Link href="/inscription">
                     <Button className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-2 text-[15px] font-semibold text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg">
                       Inscription
                     </Button>

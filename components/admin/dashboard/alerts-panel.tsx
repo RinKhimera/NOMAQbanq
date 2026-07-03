@@ -148,7 +148,7 @@ export function AlertsPanel({
             title="Accès examens expirant"
             description={getExpiringDescription(expiringExamAccess)}
             count={expiringExamAccess.length}
-            href="/admin/users"
+            href="/admin/utilisateurs"
           />
         )}
 
@@ -160,7 +160,7 @@ export function AlertsPanel({
             title="Accès entraînement expirant"
             description={getExpiringDescription(expiringTrainingAccess)}
             count={expiringTrainingAccess.length}
-            href="/admin/users"
+            href="/admin/utilisateurs"
           />
         )}
 

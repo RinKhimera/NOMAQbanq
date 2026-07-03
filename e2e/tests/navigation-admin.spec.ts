@@ -13,8 +13,8 @@ test.describe("Navigation sidebar — admin", () => {
 
     const navLinks = [
       { title: "Questions", url: "/admin/questions" },
-      { title: "Examens", url: "/admin/exams" },
-      { title: "Utilisateurs", url: "/admin/users" },
+      { title: "Examens", url: "/admin/examens" },
+      { title: "Utilisateurs", url: "/admin/utilisateurs" },
       { title: "Transactions", url: "/admin/transactions" },
     ]
 

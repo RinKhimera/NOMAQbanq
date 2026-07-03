@@ -98,7 +98,7 @@ describe("ExamActions", () => {
     render(<ExamActions exam={createMockExam()} {...defaultCallbacks} />)
 
     const link = screen.getByText("Voir les détails").closest("a")
-    expect(link?.getAttribute("href")).toBe("/admin/exams/exam456")
+    expect(link?.getAttribute("href")).toBe("/admin/examens/exam456")
   })
 
   it("affiche 'Désactiver' quand l'examen est actif", () => {

@@ -45,7 +45,7 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
 { action:"set-access", accessType, grant:true }` avant les tests. L'admin bypasse
   `hasAccess` (pas d'octroi nécessaire).
 - Auth = **Better Auth via le formulaire réel** (`global.setup.ts` :
-  `getByTestId("auth-email"|"auth-password"|"auth-submit")` sur `/auth/sign-in`),
+  `getByTestId("auth-email"|"auth-password"|"auth-submit")` sur `/connexion`),
   storageState sauvegardé dans `e2e/.auth/{user,admin}.json`. Si auth bizarre →
   supprimer `e2e/.auth/` et relancer. (Pas de Clerk.)
 

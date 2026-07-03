@@ -5,7 +5,7 @@ import { getCurrentSession } from "@/lib/dal"
 /** Page/Server Action : redirige vers la connexion si pas de session. */
 export async function requireSession() {
   const session = await getCurrentSession()
-  if (!session) redirect("/auth/sign-in")
+  if (!session) redirect("/connexion")
   return session
 }
 
@@ -13,7 +13,7 @@ export async function requireSession() {
 export async function requireRole(roles: Array<"user" | "admin">) {
   const session = await requireSession()
   const role = (session.user.role ?? "user") as "user" | "admin"
-  if (!roles.includes(role)) redirect("/dashboard")
+  if (!roles.includes(role)) redirect("/tableau-de-bord")
   return session
 }
 

@@ -40,7 +40,7 @@ test.describe("Examen Blanc — timer expiré et auto-submit", () => {
     await post(request, { action: "cleanup", prefix: PREFIX })
   })
 
-  test("le toast 'Temps écoulé' apparaît et redirige vers /dashboard/examen-blanc", async ({
+  test("le toast 'Temps écoulé' apparaît et redirige vers /tableau-de-bord/examen-blanc", async ({
     examen,
     page,
   }) => {
@@ -73,7 +73,7 @@ test.describe("Examen Blanc — timer expiré et auto-submit", () => {
     ).toBeVisible({ timeout: 15_000 })
 
     // Redirect back to the exam list (via la page « soumis »)
-    await page.waitForURL(/\/dashboard\/examen-blanc/, {
+    await page.waitForURL(/\/tableau-de-bord\/examen-blanc/, {
       timeout: 15_000,
     })
   })

@@ -21,12 +21,12 @@ export const adminNavigation = {
     },
     {
       title: "Examens",
-      url: "/admin/exams",
+      url: "/admin/examens",
       icon: IconChartBar,
     },
     {
       title: "Utilisateurs",
-      url: "/admin/users",
+      url: "/admin/utilisateurs",
       icon: IconUsers,
     },
     {
@@ -48,29 +48,29 @@ export const dashboardNavigation = {
   navMain: [
     {
       title: "Tableau de bord",
-      url: "/dashboard",
+      url: "/tableau-de-bord",
       icon: IconDashboard,
     },
     {
       title: "Examen Blanc",
-      url: "/dashboard/examen-blanc",
+      url: "/tableau-de-bord/examen-blanc",
       icon: IconListDetails,
     },
     {
       title: "Entraînement",
-      url: "/dashboard/entrainement",
+      url: "/tableau-de-bord/entrainement",
       icon: IconChartBar,
     },
   ],
   navSecondary: [
     {
       title: "Profil",
-      url: "/dashboard/profil",
+      url: "/tableau-de-bord/profil",
       icon: User,
     },
     {
       title: "Abonnements",
-      url: "/dashboard/abonnements",
+      url: "/tableau-de-bord/abonnements",
       icon: CreditCard,
     },
   ],

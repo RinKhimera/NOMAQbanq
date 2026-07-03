@@ -21,6 +21,8 @@ export const user = pgTable(
     role: userRole("role").default("user").notNull(),
     username: text("username").unique(),
     bio: text("bio"),
+    notifyExamResults: boolean("notify_exam_results").default(true).notNull(),
+    notifyAccessExpiry: boolean("notify_access_expiry").default(true).notNull(),
     banned: boolean("banned").default(false).notNull(),
     banReason: text("ban_reason"),
     banExpires: timestamp("ban_expires", { withTimezone: true }),

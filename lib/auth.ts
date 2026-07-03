@@ -2,9 +2,11 @@ import { betterAuth } from "better-auth"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { nextCookies } from "better-auth/next-js"
 import { admin } from "better-auth/plugins/admin"
+import { eq } from "drizzle-orm"
 import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { sendResetPassword, sendVerificationEmail } from "@/email"
+import { isGraceExpired } from "@/features/users/lib/account-deletion"
 import { getBaseUrl } from "@/lib/base-url"
 import { env } from "@/lib/env/server"
 
@@ -26,6 +28,40 @@ export const auth = betterAuth({
   // Rattache automatiquement Google aux users migrés (même email) en préservant leur id.
   account: {
     accountLinking: { enabled: true, trustedProviders: ["google"] },
+  },
+  // Suppression douce (grâce 30 j) :
+  //  - before : bloque la connexion d'un compte dont la grâce est expirée
+  //    (en attente d'anonymisation par le cron).
+  //  - after  : réactive (efface deletedAt) un compte supprimé qui se reconnecte
+  //    DANS la fenêtre de grâce → « se reconnecter annule la suppression ».
+  databaseHooks: {
+    session: {
+      create: {
+        before: async (session) => {
+          const [u] = await db
+            .select({ deletedAt: schema.user.deletedAt })
+            .from(schema.user)
+            .where(eq(schema.user.id, session.userId))
+            .limit(1)
+          if (u?.deletedAt && isGraceExpired(u.deletedAt, Date.now())) {
+            return false
+          }
+        },
+        after: async (session) => {
+          const [u] = await db
+            .select({ deletedAt: schema.user.deletedAt })
+            .from(schema.user)
+            .where(eq(schema.user.id, session.userId))
+            .limit(1)
+          if (u?.deletedAt) {
+            await db
+              .update(schema.user)
+              .set({ deletedAt: null })
+              .where(eq(schema.user.id, session.userId))
+          }
+        },
+      },
+    },
   },
   // Colonnes hors-cœur exposées sur `session.user` (le rôle vient du plugin admin).
   // `input: false` → non modifiables au sign-up ; mises à jour via l'action profil.

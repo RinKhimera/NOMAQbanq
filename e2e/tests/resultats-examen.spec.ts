@@ -2,7 +2,7 @@ import { type APIRequestContext } from "@playwright/test"
 import { expect, test } from "../fixtures/base"
 
 /**
- * Page de résultats d'un examen blanc (`/dashboard/examen-blanc/{id}/resultats`).
+ * Page de résultats d'un examen blanc (`/tableau-de-bord/examen-blanc/{id}/resultats`).
  *
  * Isolation (3.B) : seede un examen `subscribers` CLOS (endDate révolu) avec une
  * participation COMPLÉTÉE pour le student (mix correct/incorrect déterministe).

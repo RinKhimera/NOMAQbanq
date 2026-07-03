@@ -190,7 +190,7 @@ describe("AlertsPanel", () => {
     const links = container.querySelectorAll("a")
     const hrefs = Array.from(links).map((a) => a.getAttribute("href"))
 
-    expect(hrefs).toContain("/admin/users")
+    expect(hrefs).toContain("/admin/utilisateurs")
     expect(hrefs).toContain("/admin/transactions?status=failed")
   })
 

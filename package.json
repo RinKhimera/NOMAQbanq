@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
+    "build:vercel": "bun scripts/migrate-deploy.ts && next build",
     "start": "next start",
     "lint": "eslint --max-warnings 0",
     "lint:fix": "eslint --fix",
@@ -20,6 +21,7 @@
     "test:integration:keep": "bun scripts/test-integration.ts --keep",
     "generate-favicons": "bun scripts/generate-favicons.mjs",
     "env:sync": "bun scripts/sync-env.ts",
+    "audit:medias": "bun scripts/audit-medias.ts",
     "test:e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
@@ -62,7 +64,6 @@
     "@react-email/render": "^2.0.9",
     "@sentry/nextjs": "^10.61.0",
     "@tabler/icons-react": "^3.44.0",
-    "@tanstack/react-table": "^8.21.3",
     "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@vercel/functions": "^3.7.3",
     "@vercel/oidc-aws-credentials-provider": "^3.2.0",

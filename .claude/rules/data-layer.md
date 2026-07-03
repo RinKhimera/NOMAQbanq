@@ -47,9 +47,23 @@ storagePath,order}` pour rester assignable aux composants partagés
   consommé À L'ÉTAPE PRESIGN → `createPresignedUpload(storagePath, contentType)`
   (clé dérivée serveur, non falsifiable). Le client POST le fichier à S3, puis un
   Server Action persiste le `storagePath` (avatars : `confirmAvatarUpload`, qui
-  re-vérifie le préfixe `avatars/{ownId}/` anti-IDOR ; images question :
+  re-vérifie le préfixe `avatars/{ownId}/` anti-IDOR — y compris pour la
+  suppression de l'ANCIEN avatar au remplacement ; images question :
   `setQuestionImages` au save). Suppression CDN via `tryDeleteFromStorage`
   (best-effort, après commit DB). Voir `lib/aws.ts` / `lib/storage.ts`.
+- **Avatars** : toujours `<UserAvatar name image className fallbackClassName>`
+  (`components/shared/user-avatar.tsx`) — JAMAIS `AvatarImage src={user.image}`
+  brut ni `next/image` sur `user.image` (valeur polymorphe : clé S3 brute
+  legacy, URL Google/CDN/Clerk morte, `data:`). Le primitif `ui/avatar.tsx` est
+  du shadcn stock, sans logique CDN. Initiales : `getInitials` (`lib/utils.ts`),
+  ne pas dupliquer.
+- **Suppression de question = hybride** (`deleteQuestion`) : on TENTE le hard
+  delete, arbitré par les FK `restrict` — Postgres lève `23001`
+  (restrict_violation ; PAS `23503`, réservé aux inserts) → fallback soft
+  delete ; aucun check applicatif → aucune race. Hard = cascade DB + purge S3
+  best-effort ; soft = médias CONSERVÉS (encore servis en passation/correction :
+  `exams/dal` ne filtre pas `deletedAt`, c'est voulu). Audit/GC des orphelins :
+  `bun run audit:medias` (dry-run ; `--purge` explicite ; exige `s3:ListBucket`).
 
 ## Écrans (Server Component + wrapper client)
 
@@ -90,8 +104,15 @@ repose sur la **modélisation** (recommandation officielle Next), à maintenir :
 
 - **DAL `server-only` + colonnes ciblées** : ne JAMAIS `select()` une colonne
   secrète (`password`, `account.{accessToken,refreshToken,idToken}`,
-  `session.token`, `ipAddress`, `userAgent`) pour de la donnée destinée au client.
-  Les tables Better Auth `account`/`session` ne sont lues par aucun DAL métier.
+  `session.token`) pour de la donnée destinée au client.
+- **Exception self-scoped (gestion de compte)** : `getLoginMethods` /
+  `getUserSessions` (`features/users/dal.ts`) lisent `account` (`providerId`,
+  `createdAt`) et `session` (`ipAddress`, `userAgent`, `updatedAt`, `id`)
+  UNIQUEMENT pour l'utilisateur de la session courante, et NE sélectionnent
+  JAMAIS `token`, `password`, ni les tokens OAuth. Afficher à l'utilisateur ses
+  propres appareils/méthodes de connexion est un affichage volontaire (comme
+  l'activity feed). Hors ce cas, les tables `account`/`session` ne sont lues par
+  aucun DAL métier.
 - **Session brute jamais propagée au client** : `getCurrentSession`/
   `requireSession`/`requireRole` renvoient l'objet session Better Auth (qui porte
   `session.token`) — l'utiliser comme garde ou en extraire `session.user.id`/

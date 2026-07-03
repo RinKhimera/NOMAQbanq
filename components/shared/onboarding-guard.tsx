@@ -16,12 +16,12 @@ export const OnboardingGuard = () => {
     if (!currentUser) return // not logged in, let other auth logic handle
 
     const hasUsername = !!currentUser.username
-    const onOnboarding = pathname === "/dashboard/onboarding"
+    const onOnboarding = pathname === "/tableau-de-bord/bienvenue"
 
     if (!hasUsername && !onOnboarding) {
-      router.replace("/dashboard/onboarding")
+      router.replace("/tableau-de-bord/bienvenue")
     } else if (hasUsername && onOnboarding) {
-      router.replace("/dashboard")
+      router.replace("/tableau-de-bord")
     }
   }, [currentUser, isLoading, pathname, router])
 

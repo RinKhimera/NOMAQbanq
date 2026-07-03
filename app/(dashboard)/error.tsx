@@ -58,7 +58,7 @@ export default function DashboardError({
             </Button>
 
             <Button
-              onClick={() => (window.location.href = "/dashboard")}
+              onClick={() => (window.location.href = "/tableau-de-bord")}
               variant="outline"
               className="flex items-center gap-2"
             >

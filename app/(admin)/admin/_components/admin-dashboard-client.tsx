@@ -148,7 +148,7 @@ export function AdminDashboardClient({
           open={showManualPaymentModal}
           onOpenChange={setShowManualPaymentModal}
           onSuccess={() => {
-            // L'action ne revalide que /admin/transactions et /admin/users :
+            // L'action ne revalide que /admin/transactions et /admin/utilisateurs :
             // on rafraîchit explicitement le dashboard (plus de réactivité Convex).
             router.refresh()
           }}

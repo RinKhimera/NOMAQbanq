@@ -26,13 +26,13 @@ test.describe("Admin — Gestion des Examens", () => {
     await examsPage.waitForReady()
     await examsPage.gotoCreateExam()
 
-    await expect(page).toHaveURL(/\/admin\/exams\/create/)
+    await expect(page).toHaveURL(/\/admin\/examens\/creer/)
   })
 
   test("le formulaire de creation affiche tous les champs", async ({
     page,
   }) => {
-    await page.goto("/admin/exams/create")
+    await page.goto("/admin/examens/creer")
     await examsPage.expectCreateFormFields()
   })
 
@@ -70,7 +70,7 @@ test.describe("Admin — Gestion des Examens", () => {
   test("le formulaire de creation a le champ pause configurable", async ({
     page,
   }) => {
-    await page.goto("/admin/exams/create")
+    await page.goto("/admin/examens/creer")
 
     const main = page.locator("main")
     await expect(main.getByText("Pause pendant l'examen")).toBeVisible({
@@ -92,7 +92,7 @@ test.describe("Admin — Gestion des Examens", () => {
   test("F2 — le selecteur d'audience revele le picker d'utilisateurs en mode restreint", async ({
     page,
   }) => {
-    await page.goto("/admin/exams/create")
+    await page.goto("/admin/examens/creer")
     const main = page.locator("main")
 
     // Carte audience présente ; « abonnés » est l'option par défaut → le picker
@@ -114,7 +114,7 @@ test.describe("Admin — Gestion des Examens", () => {
   test("le résumé des candidats éligibles est contextuel à l'audience", async ({
     page,
   }) => {
-    await page.goto("/admin/exams/create")
+    await page.goto("/admin/examens/creer")
     const main = page.locator("main")
 
     // Mode abonnés (défaut) : résumé du compte d'éligibles + bouton « Voir la

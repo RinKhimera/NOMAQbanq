@@ -15,7 +15,9 @@ import {
 } from "@/features/users/actions"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createPresignedUpload } from "@/lib/aws"
+import { cdnUrl } from "@/lib/cdn"
 import { createId } from "@/lib/ids"
+import { tryDeleteFromStorage } from "@/lib/storage"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -131,7 +133,9 @@ describe("createAvatarUpload + confirmAvatarUpload", () => {
       .from(user)
       .where(eq(user.id, userId))
       .limit(1)
-    expect(row?.image).toBe(`https://cdn.nomaqbanq.ca/${created.storagePath}`)
+    // Via cdnUrl (pas de host hardcodé) : NEXT_PUBLIC_CDN_HOSTNAME varie par env
+    // (CloudFront dev vs cdn.nomaqbanq.ca prod) et est hérité du .env.local.
+    expect(row?.image).toBe(cdnUrl(created.storagePath))
   })
 
   it("refuse de confirmer le chemin d'un autre utilisateur", async () => {
@@ -140,6 +144,51 @@ describe("createAvatarUpload + confirmAvatarUpload", () => {
     })
     expect(res.success).toBe(false)
     if (!res.success) expect(res.error).toContain("invalide")
+  })
+
+  it("supprime l'ancien avatar legacy (clé brute) au remplacement", async () => {
+    const oldKey = `avatars/${userId}/111.jpg`
+    await db.update(user).set({ image: oldKey }).where(eq(user.id, userId))
+    vi.mocked(tryDeleteFromStorage).mockClear()
+
+    const res = await confirmAvatarUpload({
+      storagePath: `avatars/${userId}/222.jpg`,
+    })
+    expect(res.success).toBe(true)
+    expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith(oldKey)
+  })
+
+  it("supprime l'ancien avatar de son préfixe quel que soit le host de l'URL", async () => {
+    const oldKey = `avatars/${userId}/333.jpg`
+    await db
+      .update(user)
+      .set({ image: `https://ancien-cdn.test.invalid/${oldKey}` })
+      .where(eq(user.id, userId))
+    vi.mocked(tryDeleteFromStorage).mockClear()
+
+    const res = await confirmAvatarUpload({
+      storagePath: `avatars/${userId}/444.jpg`,
+    })
+    expect(res.success).toBe(true)
+    expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledTimes(1)
+    expect(vi.mocked(tryDeleteFromStorage)).toHaveBeenCalledWith(oldKey)
+  })
+
+  it("ne supprime JAMAIS un objet hors de son préfixe (user.image forgé)", async () => {
+    // `user.image` est posable librement via l'endpoint Better Auth /update-user :
+    // une valeur forgée `avatars/<tiers>/…` ne doit pas armer la suppression.
+    await db
+      .update(user)
+      .set({ image: `avatars/${adminId}/555.jpg` })
+      .where(eq(user.id, userId))
+    vi.mocked(tryDeleteFromStorage).mockClear()
+
+    const res = await confirmAvatarUpload({
+      storagePath: `avatars/${userId}/666.jpg`,
+    })
+    expect(res.success).toBe(true)
+    expect(vi.mocked(tryDeleteFromStorage)).not.toHaveBeenCalled()
   })
 
   it("refuse un type non-image avant tout presign", async () => {

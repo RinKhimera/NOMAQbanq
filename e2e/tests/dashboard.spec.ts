@@ -23,21 +23,21 @@ test.describe("Tableau de bord etudiant", () => {
   test("la grille d'acces rapides navigue correctement", async ({ page }) => {
     // Entrainement
     await dashboard.clickQuickAccess("Entraînement")
-    await expect(page).toHaveURL(/\/dashboard\/entrainement/)
+    await expect(page).toHaveURL(/\/tableau-de-bord\/entrainement/)
 
     await page.goBack()
     await dashboard.waitForReady()
 
     // Examens blancs
     await dashboard.clickQuickAccess("Examens blancs")
-    await expect(page).toHaveURL(/\/dashboard\/examen-blanc/)
+    await expect(page).toHaveURL(/\/tableau-de-bord\/examen-blanc/)
 
     await page.goBack()
     await dashboard.waitForReady()
 
     // Mon profil
     await dashboard.clickQuickAccess("Mon profil")
-    await expect(page).toHaveURL(/\/dashboard\/profil/)
+    await expect(page).toHaveURL(/\/tableau-de-bord\/profil/)
   })
 
   test("les sections de charts sont presentes", async ({ page }) => {

@@ -18,13 +18,16 @@ import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
 import {
+  account,
   examParticipations,
   exams,
   products,
+  session,
   transactions,
   user,
   userAccess,
 } from "@/db/schema"
+import { describeUserAgent } from "@/features/users/lib/user-agent"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 
@@ -74,6 +77,90 @@ export const getCurrentUser = cache(async () => {
 export type CurrentUser = NonNullable<
   Awaited<ReturnType<typeof getCurrentUser>>
 >
+
+export type LoginMethods = {
+  hasPassword: boolean
+  google: { linked: boolean; linkedAt: Date | null }
+  emailVerified: boolean
+}
+
+// Méthodes de connexion de l'utilisateur courant. Lit `account` (providerId + date
+// seulement — JAMAIS password/accessToken/refreshToken/idToken/scope) et
+// `user.emailVerified`. Self-scoped : filtré sur la session courante.
+export const getLoginMethods = cache(async (): Promise<LoginMethods | null> => {
+  const authSession = await getCurrentSession()
+  if (!authSession?.user) return null
+  const uid = authSession.user.id
+
+  const rows = await db
+    .select({ providerId: account.providerId, createdAt: account.createdAt })
+    .from(account)
+    .where(eq(account.userId, uid))
+
+  const [u] = await db
+    .select({ emailVerified: user.emailVerified })
+    .from(user)
+    .where(eq(user.id, uid))
+    .limit(1)
+
+  const google = rows.find((r) => r.providerId === "google")
+  return {
+    hasPassword: rows.some((r) => r.providerId === "credential"),
+    google: { linked: Boolean(google), linkedAt: google?.createdAt ?? null },
+    emailVerified: u?.emailVerified ?? false,
+  }
+})
+
+// Formateur de date fixe (fuseau Québec) → chaîne stable serveur/client, pas de
+// mismatch d'hydratation. Défini au scope module (pas dans un rendu React).
+const SESSION_DATE_FMT = new Intl.DateTimeFormat("fr-CA", {
+  dateStyle: "medium",
+  timeStyle: "short",
+  timeZone: "America/Toronto",
+})
+
+export type UserSession = {
+  id: string
+  deviceLabel: string
+  ipAddress: string | null
+  lastActiveLabel: string
+  isCurrent: boolean
+}
+
+// Sessions ACTIVES (non expirées) de l'utilisateur courant. Colonnes NON-secrètes
+// uniquement — JAMAIS `session.token`. `isCurrent` par comparaison de l'id à la
+// session courante. Dates pré-formatées serveur (fuseau fixe) → pas de mismatch
+// d'hydratation. Borné à 50.
+export const getUserSessions = cache(async (): Promise<UserSession[]> => {
+  const authSession = await getCurrentSession()
+  if (!authSession?.user) return []
+  const currentId = authSession.session.id
+
+  const rows = await db
+    .select({
+      id: session.id,
+      ipAddress: session.ipAddress,
+      userAgent: session.userAgent,
+      updatedAt: session.updatedAt,
+    })
+    .from(session)
+    .where(
+      and(
+        eq(session.userId, authSession.user.id),
+        gt(session.expiresAt, new Date()),
+      ),
+    )
+    .orderBy(desc(session.updatedAt))
+    .limit(50)
+
+  return rows.map((r) => ({
+    id: r.id,
+    deviceLabel: describeUserAgent(r.userAgent),
+    ipAddress: r.ipAddress,
+    lastActiveLabel: SESSION_DATE_FMT.format(r.updatedAt),
+    isCurrent: r.id === currentId,
+  }))
+})
 
 export type SelectableUser = { id: string; name: string; email: string }
 
@@ -149,8 +236,8 @@ export type AdminUserRow = {
 
 export type AdminUsersPage = {
   items: AdminUserRow[]
-  /** Offset de la page suivante ; `null` si terminé. */
-  nextOffset: number | null
+  /** Total filtré (pagination numérotée). */
+  total: number
 }
 
 export type UsersFilters = {
@@ -172,8 +259,8 @@ export type UsersFilters = {
  * SQL : recherche ILIKE (nom/email/username), filtre rôle + plage de dates, et
  * **statut d'accès** via deux LEFT JOIN aliasés sur `user_access` (exam/training,
  * au plus 1 ligne chacun grâce à l'unicité). Pagination par offset (liste admin
- * bornée, tri configurable → keyset peu pratique). `limit + 1` pour savoir s'il
- * reste une page. Garde admin (defense-in-depth).
+ * bornée, tri configurable → keyset peu pratique) + `total` filtré (même WHERE,
+ * mêmes jointures — pas de gonflage grâce à l'unicité). Garde admin.
  */
 export const getUsersWithFilters = async ({
   search,
@@ -254,35 +341,54 @@ export const getUsersWithFilters = async ({
         : sql`lower(${user.name})`
   const dir = sortOrder === "desc" ? desc : asc
 
-  const rows = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      image: user.image,
-      bio: user.bio,
-      role: user.role,
-      createdAt: user.createdAt,
-      examExpiresAt: exam.expiresAt,
-      trainingExpiresAt: training.expiresAt,
-    })
-    .from(user)
-    .leftJoin(exam, and(eq(exam.userId, user.id), eq(exam.accessType, "exam")))
-    .leftJoin(
-      training,
-      and(eq(training.userId, user.id), eq(training.accessType, "training")),
-    )
-    .where(where)
-    .orderBy(dir(sortCol), dir(user.id))
-    .limit(safeLimit + 1)
-    .offset(safeOffset)
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        image: user.image,
+        bio: user.bio,
+        role: user.role,
+        createdAt: user.createdAt,
+        examExpiresAt: exam.expiresAt,
+        trainingExpiresAt: training.expiresAt,
+      })
+      .from(user)
+      .leftJoin(
+        exam,
+        and(eq(exam.userId, user.id), eq(exam.accessType, "exam")),
+      )
+      .leftJoin(
+        training,
+        and(eq(training.userId, user.id), eq(training.accessType, "training")),
+      )
+      .where(where)
+      .orderBy(dir(sortCol), dir(user.id))
+      .limit(safeLimit)
+      .offset(safeOffset),
+    // Même WHERE + mêmes jointures que la page : le filtre `accessStatus`
+    // référence les alias, et l'unicité de `user_access` garantit ≤ 1 ligne
+    // par user et par type → count non gonflé.
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(user)
+      .leftJoin(
+        exam,
+        and(eq(exam.userId, user.id), eq(exam.accessType, "exam")),
+      )
+      .leftJoin(
+        training,
+        and(eq(training.userId, user.id), eq(training.accessType, "training")),
+      )
+      .where(where),
+  ])
 
-  const hasMore = rows.length > safeLimit
-  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows
+  const total = totalRows[0]?.n ?? 0
   const nowMs = now.getTime()
 
-  const items: AdminUserRow[] = pageRows.map((r) => ({
+  const items: AdminUserRow[] = rows.map((r) => ({
     id: r.id,
     name: r.name,
     username: r.username,
@@ -295,7 +401,7 @@ export const getUsersWithFilters = async ({
     trainingAccess: toAccessInfo(r.trainingExpiresAt, nowMs),
   }))
 
-  return { items, nextOffset: hasMore ? safeOffset + safeLimit : null }
+  return { items, total }
 }
 
 // ============================================

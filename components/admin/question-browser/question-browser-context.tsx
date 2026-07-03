@@ -9,6 +9,7 @@ import {
   useState,
   useTransition,
 } from "react"
+import type { ExamPickerOption } from "@/features/exams/dal"
 import { loadQuestionsPage } from "@/features/questions/actions"
 import type { QuestionListItem } from "@/features/questions/dal"
 import {
@@ -17,11 +18,26 @@ import {
   QuestionFilters,
   QuestionRow,
   SortBy,
+  UsageFilter,
   defaultFilters,
 } from "./types"
+import { nextUsageFilters } from "./utils"
 
 const QuestionBrowserContext =
   createContext<QuestionBrowserContextState | null>(null)
+
+// Pur (aucune capture) → scope module : le callback de fetch partagé peut ne
+// dépendre que de (queryArgs, page, pageSize) sans se recréer à chaque rendu.
+const toRow = (q: QuestionListItem): QuestionRow => ({
+  _id: q.id,
+  _creationTime: q.createdAt,
+  question: q.question,
+  domain: q.domain,
+  objectifCMC: q.objectifCMC,
+  options: q.options,
+  imageCount: q.imageCount,
+  usageCount: q.usageCount,
+})
 
 interface QuestionBrowserProviderProps {
   children: React.ReactNode
@@ -35,6 +51,8 @@ interface QuestionBrowserProviderProps {
   onPreviewChange?: (id: string | null) => void
   // Filters callback
   onFiltersChange?: (filters: QuestionFilters) => void
+  // Options du combobox « examen précis » (filtre usage)
+  examOptions?: ExamPickerOption[]
 }
 
 export function QuestionBrowserProvider({
@@ -46,17 +64,27 @@ export function QuestionBrowserProvider({
   externalPreviewId,
   onPreviewChange,
   onFiltersChange,
+  examOptions,
 }: QuestionBrowserProviderProps) {
   // Filters state
   const [filters, setFilters] = useState<QuestionFilters>(defaultFilters)
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
 
-  // Debounce search to avoid excessive Convex queries
+  // Pagination offset numérotée
+  const [questions, setQuestions] = useState<QuestionRow[]>([])
+  const [page, setPageState] = useState(1)
+  const [pageSize, setPageSizeState] = useState(50)
+  const [total, setTotal] = useState(0)
+  const [hasLoaded, setHasLoaded] = useState(false)
+  const [, startFetch] = useTransition()
+
+  // Debounce search ; le reset page se fait ICI (callback async → ESLint OK),
+  // pas dans updateFilter — sinon fetch superflu avec l'ancien terme.
   useEffect(() => {
-    const timer = setTimeout(
-      () => setDebouncedSearchQuery(filters.searchQuery),
-      300,
-    )
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(filters.searchQuery)
+      setPageState(1)
+    }, 300)
     return () => clearTimeout(timer)
   }, [filters.searchQuery])
 
@@ -82,84 +110,80 @@ export function QuestionBrowserProvider({
     onFiltersChange?.(filters)
   }, [filters, onFiltersChange])
 
-  // Données : pagination keyset via Server Action (remplace usePaginatedQuery).
-  const [questions, setQuestions] = useState<QuestionRow[]>([])
-  const [cursor, setCursor] = useState<string | null>(null)
-  const [hasLoaded, setHasLoaded] = useState(false)
-  const [, startReload] = useTransition()
-  const [isLoadingMore, startLoadMore] = useTransition()
-
-  const toRow = (q: QuestionListItem): QuestionRow => ({
-    _id: q.id,
-    _creationTime: q.createdAt,
-    question: q.question,
-    domain: q.domain,
-    objectifCMC: q.objectifCMC,
-    options: q.options,
-    imageCount: q.imageCount,
-  })
-
   const queryArgs = useMemo(
     () => ({
       search: debouncedSearchQuery || undefined,
       domain: filters.domain !== "all" ? filters.domain : undefined,
       hasImages:
         filters.hasImages === "all" ? undefined : filters.hasImages === "with",
+      usageFilter: filters.usageFilter,
+      usedInExamId: filters.usedInExamId ?? undefined,
       sortOrder: filters.sortOrder,
     }),
     [
       debouncedSearchQuery,
       filters.domain,
       filters.hasImages,
+      filters.usageFilter,
+      filters.usedInExamId,
       filters.sortOrder,
     ],
   )
 
-  // Recharge la 1re page à chaque changement de filtre effectif (+ au montage).
+  // Fetch de la page courante — partagé entre l'effet (filtre/page/taille) et
+  // `reload()` (après une suppression) pour que le clamp hors-borne s'applique
+  // aux DEUX chemins : supprimer le dernier élément de la dernière page ne doit
+  // jamais laisser une page vide sans pagination visible.
+  const fetchPage = useCallback(() => {
+    startFetch(async () => {
+      const res = await loadQuestionsPage({
+        ...queryArgs,
+        page,
+        limit: pageSize,
+      })
+      setQuestions(res.items.map(toRow))
+      setTotal(res.total)
+      setHasLoaded(true)
+      // Clamp hors-borne (callback async → ESLint OK) : page devenue vide
+      // → ramène à la dernière page valide (pas de boucle : quand total > 0,
+      // la dernière page a toujours des items).
+      if (res.items.length === 0 && page > 1 && res.total > 0) {
+        setPageState(Math.ceil(res.total / pageSize))
+      }
+    })
+  }, [queryArgs, page, pageSize])
+
   useEffect(() => {
-    startReload(async () => {
-      const page = await loadQuestionsPage({ ...queryArgs, limit: 50 })
-      setQuestions(page.items.map(toRow))
-      setCursor(page.nextCursor)
-      setHasLoaded(true)
-    })
-  }, [queryArgs])
+    fetchPage()
+  }, [fetchPage])
 
-  const reload = useCallback(() => {
-    startReload(async () => {
-      const page = await loadQuestionsPage({ ...queryArgs, limit: 50 })
-      setQuestions(page.items.map(toRow))
-      setCursor(page.nextCursor)
-      setHasLoaded(true)
-    })
-  }, [queryArgs])
+  const setPage = useCallback((p: number) => setPageState(Math.max(1, p)), [])
+  const setPageSize = useCallback((s: number) => {
+    setPageSizeState(s)
+    setPageState(1)
+  }, [])
 
-  const loadMore = useCallback(() => {
-    if (cursor === null) return
-    startLoadMore(async () => {
-      const page = await loadQuestionsPage({ ...queryArgs, cursor, limit: 50 })
-      setQuestions((prev) => [...prev, ...page.items.map(toRow)])
-      setCursor(page.nextCursor)
-    })
-  }, [cursor, queryArgs])
+  const reload = fetchPage
 
   // Computed states
   const isLoading = !hasLoaded
-  const canLoadMore = cursor !== null
   const isSearching =
     filters.searchQuery !== debouncedSearchQuery && !!filters.searchQuery
 
   const hasActiveFilters =
     filters.searchQuery !== "" ||
     filters.domain !== "all" ||
-    filters.hasImages !== "all"
+    filters.hasImages !== "all" ||
+    filters.usageFilter !== "all" ||
+    filters.usedInExamId !== null
 
   const isQuotaReached = selectedIds.length >= maxSelection
 
-  // Update a single filter
+  // Update a single filter (reset page 1 — sauf la recherche, gérée au debounce)
   const updateFilter = useCallback(
     <K extends keyof QuestionFilters>(key: K, value: QuestionFilters[K]) => {
       setFilters((prev) => ({ ...prev, [key]: value }))
+      if (key !== "searchQuery") setPageState(1)
     },
     [],
   )
@@ -167,6 +191,7 @@ export function QuestionBrowserProvider({
   // Clear all filters
   const clearFilters = useCallback(() => {
     setFilters(defaultFilters)
+    setPageState(1)
   }, [])
 
   // Handle sorting
@@ -180,7 +205,17 @@ export function QuestionBrowserProvider({
       }
       return { ...prev, sortBy: field, sortOrder: "desc" }
     })
+    setPageState(1)
   }, [])
+
+  // Exclusion mutuelle usage/examen (helper pur) + reset page
+  const setUsage = useCallback(
+    (next: { usageFilter: UsageFilter } | { usedInExamId: string | null }) => {
+      setFilters((prev) => nextUsageFilters(prev, next))
+      setPageState(1)
+    },
+    [],
+  )
 
   // Selection helpers
   const toggleSelection = useCallback(
@@ -232,14 +267,18 @@ export function QuestionBrowserProvider({
       // Mode
       mode,
 
-      // Data
+      // Data + pagination
       questions,
       isLoading,
-      canLoadMore,
-      loadMore,
-      isLoadingMore,
+      page,
+      pageSize,
+      total,
+      setPage,
+      setPageSize,
       isSearching,
       reload,
+      setUsage,
+      examOptions: examOptions ?? [],
     }),
     [
       filters,
@@ -258,11 +297,15 @@ export function QuestionBrowserProvider({
       mode,
       questions,
       isLoading,
-      canLoadMore,
-      loadMore,
-      isLoadingMore,
+      page,
+      pageSize,
+      total,
+      setPage,
+      setPageSize,
       isSearching,
       reload,
+      setUsage,
+      examOptions,
     ],
   )
 

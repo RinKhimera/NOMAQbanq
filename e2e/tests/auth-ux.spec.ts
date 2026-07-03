@@ -6,7 +6,7 @@ test.use({ storageState: { cookies: [], origins: [] } })
 test("inscription email/mdp → écran de vérification du courriel", async ({
   page,
 }) => {
-  await page.goto("/auth/sign-up")
+  await page.goto("/inscription")
 
   // Email unique par run pour éviter toute collision côté serveur.
   const unique = `e2e+${Date.now()}@nomaqtest.local`
@@ -21,7 +21,7 @@ test("inscription email/mdp → écran de vérification du courriel", async ({
 test("connexion avec mauvais mot de passe → alerte actionnable + lien reset", async ({
   page,
 }) => {
-  await page.goto("/auth/sign-in")
+  await page.goto("/connexion")
 
   await page.getByTestId("auth-email").fill("inconnu@nomaqtest.local")
   await page.getByTestId("auth-password").fill("mauvaispass123")
@@ -31,5 +31,5 @@ test("connexion avec mauvais mot de passe → alerte actionnable + lien reset", 
   await expect(alert).toBeVisible()
   await expect(
     alert.getByRole("link", { name: /Réinitialisez-le/ }),
-  ).toHaveAttribute("href", "/auth/forgot-password")
+  ).toHaveAttribute("href", "/mot-de-passe-oublie")
 })

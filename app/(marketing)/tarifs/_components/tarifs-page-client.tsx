@@ -121,7 +121,7 @@ export default function TarifsPageClient({
             </p>
 
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
-              <Link href="/auth/sign-up">
+              <Link href="/inscription">
                 <Button
                   size="lg"
                   className="h-14 rounded-2xl bg-white px-10 text-base font-bold text-blue-600 shadow-xl transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-2xl"

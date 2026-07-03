@@ -247,12 +247,80 @@ export const updateQuestion = async (
   }
 }
 
-/** [Admin] Suppression SOUPLE (set `deletedAt`). Les reads filtrent `deletedAt IS NULL`. */
+/**
+ * Violation de contrainte FK Postgres. `ON DELETE RESTRICT` lève `23001`
+ * (restrict_violation) — PAS `23503` (foreign_key_violation, inserts/NO ACTION) ;
+ * on accepte les deux. Drizzle enveloppe l'erreur pg (DrizzleQueryError →
+ * cause) : on remonte la chaîne `cause` (bornée).
+ */
+const FK_VIOLATION_CODES = new Set(["23001", "23503"])
+
+const isForeignKeyViolation = (error: unknown): boolean => {
+  let cur: unknown = error
+  for (let i = 0; i < 5 && cur; i++) {
+    if (
+      typeof cur === "object" &&
+      "code" in cur &&
+      typeof (cur as { code?: unknown }).code === "string" &&
+      FK_VIOLATION_CODES.has((cur as { code: string }).code)
+    ) {
+      return true
+    }
+    cur = (cur as { cause?: unknown }).cause
+  }
+  return false
+}
+
+export type DeleteQuestionResult =
+  | { success: true; mode: "hard" | "soft" }
+  | { success: false; error: string }
+
+/**
+ * [Admin] Suppression HYBRIDE. On TENTE le hard delete ; les FK `restrict`
+ * (exam_questions, exam_answers, training_session_items) arbitrent atomiquement :
+ * - non référencée → DELETE passe : cascade DB (images/explication) + purge S3
+ *   best-effort après commit ;
+ * - référencée → Postgres lève 23503 → fallback SOFT delete (`deletedAt`),
+ *   médias DB/S3 CONSERVÉS (encore servis en passation/correction — exams/dal
+ *   ne filtre pas `deletedAt`).
+ * Aucun check applicatif préalable → aucune race avec une insertion concurrente.
+ * Course résiduelle assumée : un `setQuestionImages` concurrent qui commit entre
+ * la collecte des chemins et le DELETE peut laisser un orphelin S3 (fenêtre
+ * minuscule, purge best-effort) — rattrapé par `bun run audit:medias`.
+ */
 export const deleteQuestion = async (
   id: string,
-): Promise<{ success: boolean; error?: string }> => {
+): Promise<DeleteQuestionResult> => {
   await requireRole(["admin"])
   if (!id) return fail("Question requise")
+
+  try {
+    const imagePaths = await db.transaction(async (tx) => {
+      const imgs = await tx
+        .select({ storagePath: questionImages.storagePath })
+        .from(questionImages)
+        .where(eq(questionImages.questionId, id))
+      const res = await tx
+        .delete(questions)
+        .where(and(eq(questions.id, id), isNull(questions.deletedAt)))
+        .returning({ id: questions.id })
+      if (res.length === 0) throw new Error("Q_NOT_FOUND")
+      return imgs.map((i) => i.storagePath)
+    })
+
+    // Hard delete commité : purge S3 best-effort (hors transaction).
+    await Promise.all(imagePaths.map((p) => tryDeleteFromStorage(p)))
+    revalidatePath("/admin/questions")
+    return { success: true, mode: "hard" }
+  } catch (error) {
+    if (error instanceof Error && error.message === "Q_NOT_FOUND") {
+      return fail("Question introuvable")
+    }
+    if (!isForeignKeyViolation(error)) {
+      logDev("[deleteQuestion]", error)
+      return fail("Erreur serveur. Réessayez.")
+    }
+  }
 
   try {
     const res = await db
@@ -263,7 +331,7 @@ export const deleteQuestion = async (
     if (res.length === 0) return fail("Question introuvable")
 
     revalidatePath("/admin/questions")
-    return { success: true }
+    return { success: true, mode: "soft" }
   } catch (error) {
     logDev("[deleteQuestion]", error)
     return fail("Erreur serveur. Réessayez.")

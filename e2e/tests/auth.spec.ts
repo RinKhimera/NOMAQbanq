@@ -4,7 +4,7 @@ test.describe("Pages d'authentification", () => {
   test("la page de connexion charge le formulaire Better Auth", async ({
     page,
   }) => {
-    await page.goto("/auth/sign-in")
+    await page.goto("/connexion")
 
     await expect(page.getByText("Connexion sécurisée")).toBeVisible({
       timeout: 15_000,
@@ -19,7 +19,7 @@ test.describe("Pages d'authentification", () => {
   test("la page d'inscription charge le formulaire Better Auth", async ({
     page,
   }) => {
-    await page.goto("/auth/sign-up")
+    await page.goto("/inscription")
 
     await expect(
       page.getByText("Créez votre compte en quelques secondes"),

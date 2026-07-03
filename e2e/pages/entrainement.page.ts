@@ -7,7 +7,7 @@ export class EntrainementPage extends BasePage {
   }
 
   async goto() {
-    await super.goto("/dashboard/entrainement")
+    await super.goto("/tableau-de-bord/entrainement")
     // Wait for main content to load — either the form, paywall, or resume card
     await this.page
       .getByText("Nouvelle session")
@@ -68,7 +68,7 @@ export class EntrainementPage extends BasePage {
     await this.page
       .getByRole("button", { name: "Commencer l'entraînement" })
       .click()
-    await this.page.waitForURL(/\/dashboard\/entrainement\//, {
+    await this.page.waitForURL(/\/tableau-de-bord\/entrainement\//, {
       timeout: 15_000,
     })
   }
@@ -114,7 +114,7 @@ export class EntrainementPage extends BasePage {
     const dialog = this.page.locator('[role="alertdialog"], [role="dialog"]')
     await dialog.getByRole("button", { name: "Terminer" }).click()
 
-    await this.page.waitForURL(/\/results/, { timeout: 15_000 })
+    await this.page.waitForURL(/\/resultats/, { timeout: 15_000 })
   }
 
   async getScore(): Promise<string> {
@@ -124,7 +124,7 @@ export class EntrainementPage extends BasePage {
 
   /** Navigate to results page; assumes finishSession has already redirected */
   async gotoResultsFromCurrentUrl() {
-    await expect(this.page).toHaveURL(/\/results/, { timeout: 15_000 })
+    await expect(this.page).toHaveURL(/\/resultats/, { timeout: 15_000 })
     await expect(
       this.page.getByRole("heading", { name: "Résultats" }),
     ).toBeVisible({ timeout: 15_000 })

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm"
 import {
   boolean,
   index,
@@ -109,6 +110,9 @@ export const userAccess = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     accessType: accessType("access_type").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    expiryReminderSentAt: timestamp("expiry_reminder_sent_at", {
+      withTimezone: true,
+    }),
     lastTransactionId: text("last_transaction_id")
       .notNull()
       .references(() => transactions.id, { onDelete: "restrict" }),
@@ -124,5 +128,10 @@ export const userAccess = pgTable(
     unique("user_access_user_access_type_unique").on(t.userId, t.accessType),
     index("user_access_user_id_idx").on(t.userId),
     index("user_access_expires_at_idx").on(t.expiresAt),
+    // Rappel de fin d'accès : le range-scan sur `expiresAt` borne la fenêtre ; le
+    // prédicat partiel écarte les lignes déjà rappelées.
+    index("user_access_expiry_reminder_pending_idx")
+      .on(t.expiresAt)
+      .where(sql`${t.expiryReminderSentAt} is null`),
   ],
 )

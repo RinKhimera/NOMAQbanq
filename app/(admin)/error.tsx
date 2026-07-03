@@ -69,7 +69,7 @@ export default function AdminError({
           </div>
 
           <Button
-            onClick={() => (window.location.href = "/dashboard")}
+            onClick={() => (window.location.href = "/tableau-de-bord")}
             variant="ghost"
             className="text-sm"
           >

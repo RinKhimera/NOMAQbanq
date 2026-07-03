@@ -30,7 +30,7 @@ test.describe("Entraînement — page de résultats", () => {
     }
 
     await entrainement.finishSession()
-    await expect(page).toHaveURL(/\/results/, { timeout: 15_000 })
+    await expect(page).toHaveURL(/\/resultats/, { timeout: 15_000 })
   })
 
   test("expand d'une question déclenche le lazy-load de l'explication", async ({

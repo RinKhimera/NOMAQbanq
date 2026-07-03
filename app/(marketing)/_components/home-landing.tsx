@@ -115,7 +115,7 @@ export default function HomeLanding() {
               </div>
 
               <div className="flex flex-col gap-4 sm:flex-row">
-                <Link href="/auth/sign-up">
+                <Link href="/inscription">
                   <Button
                     variant="btn_modern"
                     className="btn-modern h-auto transform rounded-2xl px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
@@ -372,7 +372,7 @@ export default function HomeLanding() {
                       ))}
                     </div>
 
-                    <Link href="/auth/sign-up">
+                    <Link href="/inscription">
                       <Button className="btn-modern w-full cursor-pointer rounded-2xl bg-white py-4 font-semibold text-blue-600 shadow-lg transition-all duration-300 hover:bg-blue-50 hover:shadow-xl">
                         S&apos;inscrire maintenant
                       </Button>
@@ -408,7 +408,7 @@ export default function HomeLanding() {
               Rejoignez les candidats qui ont réussi grâce à NOMAQbanq
             </p>
             <div className="flex flex-col justify-center gap-6 sm:flex-row">
-              <Link href="/auth/sign-up">
+              <Link href="/inscription">
                 <Button className="btn-modern h-auto transform rounded-2xl bg-white px-12 py-4 text-lg font-semibold text-blue-600 shadow-xl transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-2xl">
                   Inscription gratuite
                   <ArrowRight className="ml-2 h-5 w-5" />

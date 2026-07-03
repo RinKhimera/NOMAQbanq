@@ -54,7 +54,7 @@ export function mapAuthError(
     return {
       kind: "generic",
       message:
-        "Ce courriel ne peut pas être utilisé pour créer un compte. Essayez de vous connecter.",
+        "Un compte existe déjà avec cette adresse. Essayez de vous connecter, ou de réinitialiser votre mot de passe.",
     }
   }
 

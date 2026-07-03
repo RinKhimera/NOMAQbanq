@@ -9,7 +9,7 @@ export class ExamenResultatsPage extends BasePage {
   }
 
   async goto(examId: string) {
-    await super.goto(`/dashboard/examen-blanc/${examId}/resultats`)
+    await super.goto(`/tableau-de-bord/examen-blanc/${examId}/resultats`)
     await this.waitForScore()
   }
 

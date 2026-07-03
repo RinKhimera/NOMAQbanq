@@ -16,12 +16,12 @@ import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { QuestionExplanationView } from "@/features/exams/dal"
 import { useIsVisible } from "@/hooks/use-is-visible"
-import { cn, getInitials } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 
 // ============================================
 // Types
@@ -237,7 +237,6 @@ export function SessionResults({
   }, [])
 
   const isPassing = summary.score >= PASS_THRESHOLD
-  const initials = participant ? getInitials(participant.name) : ""
 
   const accentNavColor = accent
 
@@ -255,15 +254,12 @@ export function SessionResults({
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-4 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-lg dark:border-gray-700/50 dark:bg-gray-800"
               >
-                <Avatar className="h-14 w-14">
-                  <AvatarImage
-                    src={participant.image ?? undefined}
-                    alt={participant.name}
-                  />
-                  <AvatarFallback className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
+                <UserAvatar
+                  name={participant.name}
+                  image={participant.image}
+                  className="h-14 w-14"
+                  fallbackClassName="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-gray-400" />

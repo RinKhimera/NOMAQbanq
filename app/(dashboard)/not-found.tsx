@@ -30,7 +30,7 @@ export default function DashboardNotFound() {
         {/* Actions */}
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
-            <Link href="/dashboard">
+            <Link href="/tableau-de-bord">
               <IconHome className="mr-2 h-4 w-4" />
               Mon tableau de bord
             </Link>

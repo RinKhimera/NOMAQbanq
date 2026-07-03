@@ -4,18 +4,21 @@ import {
   desc,
   eq,
   exists,
-  gt,
   ilike,
   inArray,
   isNull,
-  lt,
   notExists,
   or,
   sql,
 } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
-import { questionExplanations, questionImages, questions } from "@/db/schema"
+import {
+  examQuestions,
+  questionExplanations,
+  questionImages,
+  questions,
+} from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
 import { cdnUrl } from "@/lib/cdn"
 
@@ -23,26 +26,6 @@ const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
 
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, "\\$&")
-
-// Curseur keyset = base64("<createdAtISO>|<id>"). Identique au pattern paiements.
-const encodeCursor = (createdAt: Date, id: string): string =>
-  Buffer.from(`${createdAt.toISOString()}|${id}`, "utf8").toString("base64")
-
-const decodeCursor = (
-  cursor: string,
-): { createdAt: Date; id: string } | null => {
-  try {
-    const decoded = Buffer.from(cursor, "base64").toString("utf8")
-    const sep = decoded.indexOf("|")
-    if (sep === -1) return null
-    const createdAt = new Date(decoded.slice(0, sep))
-    const id = decoded.slice(sep + 1)
-    if (!id || Number.isNaN(createdAt.getTime())) return null
-    return { createdAt, id }
-  } catch {
-    return null
-  }
-}
 
 // EXISTS / NOT EXISTS corrélé sur les images d'une question (filtre « avec/sans
 // images » sans colonne dénormalisée — remplace `hasImagesComputed` Convex).
@@ -71,6 +54,33 @@ const noImagesSubquery = notExists(
     ),
 )
 
+// EXISTS / NOT EXISTS corrélé sur `examQuestions` : filtre « déjà utilisée dans
+// un examen » (badge + filtre d'usage du QuestionBrowser).
+const usedSubquery = exists(
+  db
+    .select({ x: sql`1` })
+    .from(examQuestions)
+    .where(eq(examQuestions.questionId, questions.id)),
+)
+const unusedSubquery = notExists(
+  db
+    .select({ x: sql`1` })
+    .from(examQuestions)
+    .where(eq(examQuestions.questionId, questions.id)),
+)
+const usedInExamSubquery = (examId: string) =>
+  exists(
+    db
+      .select({ x: sql`1` })
+      .from(examQuestions)
+      .where(
+        and(
+          eq(examQuestions.questionId, questions.id),
+          eq(examQuestions.examId, examId),
+        ),
+      ),
+  )
+
 // ============================================
 // [Admin] Liste paginée (keyset) + filtres
 // ============================================
@@ -84,131 +94,150 @@ export type QuestionListItem = {
   /** Epoch ms. */
   createdAt: number
   imageCount: number
+  /** Nombre d'examens référençant cette question. */
+  usageCount: number
 }
 
 export type QuestionsPage = {
   items: QuestionListItem[]
-  nextCursor: string | null
+  /** Total filtré (pagination numérotée). */
+  total: number
 }
 
 export type QuestionFiltersInput = {
-  cursor?: string | null
+  /** 1-based. */
+  page?: number
   limit?: number
   search?: string
   domain?: string
   hasImages?: boolean
   sortOrder?: "asc" | "desc"
+  usageFilter?: "all" | "used" | "unused"
+  usedInExamId?: string
 }
 
 /**
- * [Admin] Questions filtrées + paginées (keyset sur `(createdAt, id)`). Remplace
- * `getQuestionsWithFilters` Convex (searchIndex + 3 chemins d'index) par : ILIKE
- * sur le texte (recherche « contient »), filtre domaine, filtre images via EXISTS
- * corrélé. Compte d'images batché en une requête (pas de N+1). Garde admin.
+ * [Admin] Questions filtrées + paginées (offset `page`/`limit` + `total` pour la
+ * pagination numérotée). Recherche ILIKE sur le texte ET l'objectif CMC, filtre
+ * domaine, filtre images et filtre usage examen via EXISTS corrélés. Comptes
+ * d'images et d'usage batchés (pas de N+1). Ordre stable (tie-break id). Garde admin.
  */
 export const getQuestionsWithFilters = async ({
-  cursor,
+  page = 1,
   limit = 50,
   search,
   domain,
   hasImages,
   sortOrder = "desc",
+  usageFilter = "all",
+  usedInExamId,
 }: QuestionFiltersInput = {}): Promise<QuestionsPage> => {
   await requireRole(["admin"])
 
-  const safeLimit = clamp(limit, 1, 100)
-  const decoded = cursor ? decodeCursor(cursor) : null
+  // `Number.isFinite` : un `page`/`limit` forgé (NaN/Infinity) ne doit pas
+  // traverser le clamp (Math.max(1, NaN) === NaN → erreur SQL).
+  const safeLimit = clamp(Number.isFinite(limit) ? limit : 50, 1, 100)
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1
+  const offset = (safePage - 1) * safeLimit
   const isDesc = sortOrder !== "asc"
 
-  const afterCursor = decoded
-    ? isDesc
-      ? or(
-          lt(questions.createdAt, decoded.createdAt),
-          and(
-            eq(questions.createdAt, decoded.createdAt),
-            lt(questions.id, decoded.id),
-          ),
-        )
-      : or(
-          gt(questions.createdAt, decoded.createdAt),
-          and(
-            eq(questions.createdAt, decoded.createdAt),
-            gt(questions.id, decoded.id),
-          ),
-        )
-    : undefined
-
   const searchTerm = search?.trim()
+
+  // `usedInExamId` prime sur used/unused (l'UI garantit l'exclusion mutuelle).
+  const usagePredicate = usedInExamId
+    ? usedInExamSubquery(usedInExamId)
+    : usageFilter === "used"
+      ? usedSubquery
+      : usageFilter === "unused"
+        ? unusedSubquery
+        : undefined
+
   const where = and(
     isNull(questions.deletedAt),
     domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
     searchTerm
-      ? ilike(questions.question, `%${escapeLike(searchTerm)}%`)
+      ? or(
+          ilike(questions.question, `%${escapeLike(searchTerm)}%`),
+          ilike(questions.objectifCmc, `%${escapeLike(searchTerm)}%`),
+        )
       : undefined,
     hasImages === undefined
       ? undefined
       : hasImages
         ? hasImagesSubquery
         : noImagesSubquery,
-    afterCursor,
+    usagePredicate,
   )
 
   const order = isDesc
     ? [desc(questions.createdAt), desc(questions.id)]
     : [asc(questions.createdAt), asc(questions.id)]
 
-  const rows = await db
-    .select({
-      id: questions.id,
-      question: questions.question,
-      domain: questions.domain,
-      objectifCMC: questions.objectifCmc,
-      options: questions.options,
-      createdAt: questions.createdAt,
-    })
-    .from(questions)
-    .where(where)
-    .orderBy(...order)
-    .limit(safeLimit + 1)
+  const [rows, totalRows] = await Promise.all([
+    db
+      .select({
+        id: questions.id,
+        question: questions.question,
+        domain: questions.domain,
+        objectifCMC: questions.objectifCmc,
+        options: questions.options,
+        createdAt: questions.createdAt,
+      })
+      .from(questions)
+      .where(where)
+      .orderBy(...order)
+      .limit(safeLimit)
+      .offset(offset),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(questions)
+      .where(where),
+  ])
 
-  const hasMore = rows.length > safeLimit
-  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows
+  const total = totalRows[0]?.n ?? 0
+  const pageIds = rows.map((r) => r.id)
 
-  const counts = pageRows.length
-    ? await db
-        .select({
-          questionId: questionImages.questionId,
-          n: sql<number>`count(*)`.mapWith(Number),
-        })
-        .from(questionImages)
-        .where(
-          and(
-            eq(questionImages.kind, "statement"),
-            inArray(
-              questionImages.questionId,
-              pageRows.map((r) => r.id),
+  const [imageCounts, usageCounts] = pageIds.length
+    ? await Promise.all([
+        db
+          .select({
+            questionId: questionImages.questionId,
+            n: sql<number>`count(*)`.mapWith(Number),
+          })
+          .from(questionImages)
+          .where(
+            and(
+              eq(questionImages.kind, "statement"),
+              inArray(questionImages.questionId, pageIds),
             ),
-          ),
-        )
-        .groupBy(questionImages.questionId)
-    : []
-  const countMap = new Map(counts.map((c) => [c.questionId, c.n]))
+          )
+          .groupBy(questionImages.questionId),
+        db
+          .select({
+            questionId: examQuestions.questionId,
+            n: sql<number>`count(*)`.mapWith(Number),
+          })
+          .from(examQuestions)
+          .where(inArray(examQuestions.questionId, pageIds))
+          .groupBy(examQuestions.questionId),
+      ])
+    : [[], []]
 
-  const items: QuestionListItem[] = pageRows.map((r) => ({
+  const imageMap = new Map(imageCounts.map((c) => [c.questionId, c.n]))
+  const usageMap = new Map(usageCounts.map((c) => [c.questionId, c.n]))
+
+  const items: QuestionListItem[] = rows.map((r) => ({
     id: r.id,
     question: r.question,
     domain: r.domain,
     objectifCMC: r.objectifCMC,
     options: r.options,
     createdAt: r.createdAt.getTime(),
-    imageCount: countMap.get(r.id) ?? 0,
+    imageCount: imageMap.get(r.id) ?? 0,
+    usageCount: usageMap.get(r.id) ?? 0,
   }))
 
-  const last = pageRows.at(-1)
-  const nextCursor =
-    hasMore && last ? encodeCursor(last.createdAt, last.id) : null
-
-  return { items, nextCursor }
+  return { items, total }
 }
 
 // ============================================
@@ -645,7 +674,10 @@ export const getQuestionsForExport = async ({
     isNull(questions.deletedAt),
     domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
     searchTerm
-      ? ilike(questions.question, `%${escapeLike(searchTerm)}%`)
+      ? or(
+          ilike(questions.question, `%${escapeLike(searchTerm)}%`),
+          ilike(questions.objectifCmc, `%${escapeLike(searchTerm)}%`),
+        )
       : undefined,
     hasImages === undefined
       ? undefined

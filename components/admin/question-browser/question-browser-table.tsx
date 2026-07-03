@@ -8,8 +8,8 @@ import {
   ArrowUpDown,
   Eye,
   Image as ImageIcon,
-  LoaderCircle,
 } from "lucide-react"
+import { TablePagination } from "@/components/admin/table-pagination"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -90,9 +90,11 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
   const {
     questions,
     isLoading,
-    canLoadMore,
-    loadMore,
-    isLoadingMore,
+    page,
+    pageSize,
+    total,
+    setPage,
+    setPageSize,
     filters,
     handleSort,
     mode,
@@ -173,6 +175,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
               Objectif CMC
             </TableHead>
             <TableHead className="w-20 text-center">Images</TableHead>
+            <TableHead className="w-24 text-center">Utilisée</TableHead>
             <TableHead className="hidden w-30 lg:table-cell">
               <Button
                 variant="ghost"
@@ -223,7 +226,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                   </TableCell>
                 )}
                 <TableCell className="pl-4 font-medium text-gray-500">
-                  {index + 1}
+                  {(page - 1) * pageSize + index + 1}
                 </TableCell>
                 <TableCell>
                   <p className="line-clamp-2 font-medium text-gray-900 dark:text-white">
@@ -265,6 +268,19 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
+                  ) : (
+                    <span className="text-gray-300 dark:text-gray-600">—</span>
+                  )}
+                </TableCell>
+                <TableCell className="text-center">
+                  {question.usageCount > 0 ? (
+                    <Badge
+                      variant="secondary"
+                      className="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+                    >
+                      {question.usageCount} examen
+                      {question.usageCount > 1 ? "s" : ""}
+                    </Badge>
                   ) : (
                     <span className="text-gray-300 dark:text-gray-600">—</span>
                   )}
@@ -321,19 +337,17 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
         </TableBody>
       </Table>
 
-      {/* Load More */}
-      {canLoadMore && (
-        <div className="flex justify-center border-t border-gray-100 p-4 dark:border-gray-800">
-          <Button
-            variant="outline"
-            onClick={loadMore}
-            disabled={isLoadingMore}
-            className="gap-2"
-          >
-            {isLoadingMore && <LoaderCircle className="h-4 w-4 animate-spin" />}
-            Charger plus de questions
-          </Button>
-        </div>
+      {/* Pagination numérotée */}
+      {total > 0 && (
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          isLoading={isLoading}
+          itemNoun={{ one: "question", many: "questions" }}
+        />
       )}
     </div>
   )

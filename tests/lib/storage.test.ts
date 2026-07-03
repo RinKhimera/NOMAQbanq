@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import {
   assertSafeStoragePath,
-  avatarStoragePathFromUrl,
   finalPathFromTmp,
   generateAvatarPath,
   generateQuestionImagePath,
@@ -71,24 +70,6 @@ describe("assertSafeStoragePath", () => {
   })
   it("accepte un chemin légitime", () => {
     expect(() => assertSafeStoragePath("avatars/u1/123.jpg")).not.toThrow()
-  })
-})
-
-describe("avatarStoragePathFromUrl", () => {
-  it("renvoie le chemin pour notre CDN + préfixe avatars/", () => {
-    expect(
-      avatarStoragePathFromUrl("https://cdn.nomaqbanq.ca/avatars/u1/9.jpg"),
-    ).toBe("avatars/u1/9.jpg")
-  })
-  it("renvoie null pour un hôte externe", () => {
-    expect(
-      avatarStoragePathFromUrl("https://lh3.googleusercontent.com/a/x"),
-    ).toBeNull()
-  })
-  it("renvoie null hors préfixe avatars/", () => {
-    expect(
-      avatarStoragePathFromUrl("https://cdn.nomaqbanq.ca/questions/q/1.jpg"),
-    ).toBeNull()
   })
 })
 

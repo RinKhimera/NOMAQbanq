@@ -37,7 +37,7 @@ export const PricingGrid = ({ products, accessStatus }: PricingGridProps) => {
 
     // Rediriger vers l'inscription si non connecté.
     if (!isAuthenticated) {
-      router.push("/auth/sign-up")
+      router.push("/inscription")
       return
     }
 
@@ -45,7 +45,7 @@ export const PricingGrid = ({ products, accessStatus }: PricingGridProps) => {
     try {
       const res = await createStripeCheckout({
         productCode,
-        successPath: "/dashboard/payment/success",
+        successPath: "/tableau-de-bord/paiement/succes",
         cancelPath: "/tarifs",
       })
       if ("error" in res) {

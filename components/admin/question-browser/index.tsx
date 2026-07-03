@@ -70,6 +70,7 @@ export function QuestionBrowser(props: QuestionBrowserProps) {
     previewQuestionId,
     onPreviewChange,
     onFiltersChange,
+    examOptions,
   } = props
 
   return (
@@ -81,6 +82,7 @@ export function QuestionBrowser(props: QuestionBrowserProps) {
       externalPreviewId={previewQuestionId}
       onPreviewChange={onPreviewChange}
       onFiltersChange={onFiltersChange}
+      examOptions={examOptions}
     >
       <QuestionBrowserContent {...props} />
     </QuestionBrowserProvider>

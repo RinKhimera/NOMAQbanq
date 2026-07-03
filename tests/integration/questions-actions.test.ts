@@ -117,11 +117,14 @@ describe("updateQuestion", () => {
   })
 })
 
-describe("deleteQuestion (soft)", () => {
-  it("masque la question des reads mais conserve la ligne", async () => {
+describe("deleteQuestion", () => {
+  // La question créée ici n'est jamais référencée (examens/entraînements) →
+  // l'hybride part en HARD delete. Le chemin SOFT (référencée) est couvert par
+  // tests/integration/delete-question.test.ts.
+  it("hard delete d'une question jamais référencée", async () => {
     const id = await makeOne()
     const res = await deleteQuestion(id)
-    expect(res.success).toBe(true)
+    expect(res).toEqual({ success: true, mode: "hard" })
 
     expect(await getQuestionById(id)).toBeNull()
     const page = await getQuestionsWithFilters({ domain: DOMAIN, limit: 100 })

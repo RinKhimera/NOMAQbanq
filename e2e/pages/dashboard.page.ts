@@ -7,7 +7,7 @@ export class DashboardPage extends BasePage {
   }
 
   async goto() {
-    await super.goto("/dashboard")
+    await super.goto("/tableau-de-bord")
   }
 
   async waitForReady() {

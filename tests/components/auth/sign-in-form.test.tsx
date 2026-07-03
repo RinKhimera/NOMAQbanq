@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { SignInForm } from "@/app/(auth)/auth/sign-in/_components/sign-in-form"
+import { SignInForm } from "@/app/(auth)/connexion/_components/sign-in-form"
 
 const signInEmail = vi.fn()
 const signInSocial = vi.fn()
@@ -42,7 +42,7 @@ describe("SignInForm", () => {
     signInEmail.mockResolvedValue({ error: null })
     render(<SignInForm />)
     await fillAndSubmit()
-    expect(push).toHaveBeenCalledWith("/dashboard")
+    expect(push).toHaveBeenCalledWith("/tableau-de-bord")
   })
 
   it("affiche l'alerte actionnable avec lien reset sur identifiants invalides", async () => {
@@ -55,7 +55,7 @@ describe("SignInForm", () => {
     const alert = await screen.findByTestId("auth-error-alert")
     expect(alert).toBeInTheDocument()
     const resetLink = screen.getByRole("link", { name: /Réinitialisez-le/ })
-    expect(resetLink).toHaveAttribute("href", "/auth/forgot-password")
+    expect(resetLink).toHaveAttribute("href", "/mot-de-passe-oublie")
   })
 
   it("bascule vers l'écran de vérification sur EMAIL_NOT_VERIFIED", async () => {

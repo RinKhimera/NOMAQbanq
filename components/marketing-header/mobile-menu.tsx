@@ -5,7 +5,7 @@ import { useTheme } from "next-themes"
 import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -53,7 +53,7 @@ export const MobileMenu = ({
   const handleSignOut = async () => {
     onOpenChange(false)
     await authClient.signOut()
-    router.push("/auth/sign-in")
+    router.push("/connexion")
   }
 
   return (
@@ -148,15 +148,12 @@ export const MobileMenu = ({
                 <div className="rounded-xl bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 dark:from-blue-950/30 dark:via-indigo-950/30 dark:to-purple-950/30">
                   <div className="flex items-center gap-3">
                     <div className="relative">
-                      <Avatar className="size-11 border-2 border-white shadow-md dark:border-gray-900">
-                        <AvatarImage
-                          src={currentUser.image ?? undefined}
-                          alt={currentUser.name ?? "Utilisateur"}
-                        />
-                        <AvatarFallback className="bg-linear-to-br from-blue-600 to-indigo-600 text-sm font-semibold text-white">
-                          {currentUser.name?.charAt(0)?.toUpperCase() || "U"}
-                        </AvatarFallback>
-                      </Avatar>
+                      <UserAvatar
+                        name={currentUser.name}
+                        image={currentUser.image}
+                        className="size-11 border-2 border-white shadow-md dark:border-gray-900"
+                        fallbackClassName="bg-linear-to-br from-blue-600 to-indigo-600 text-sm font-semibold text-white"
+                      />
                       <div className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2 border-white bg-green-500 dark:border-gray-900" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -172,7 +169,7 @@ export const MobileMenu = ({
 
                 {/* Action Buttons */}
                 <div className="space-y-1.5">
-                  <Link href="/dashboard" onClick={handleLinkClick}>
+                  <Link href="/tableau-de-bord" onClick={handleLinkClick}>
                     <Button
                       variant="ghost"
                       className="w-full justify-start rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -206,7 +203,7 @@ export const MobileMenu = ({
             ) : (
               <div className="space-y-2.5">
                 <Link
-                  href="/auth/sign-in"
+                  href="/connexion"
                   onClick={handleLinkClick}
                   className="block"
                 >
@@ -218,7 +215,7 @@ export const MobileMenu = ({
                   </Button>
                 </Link>
                 <Link
-                  href="/auth/sign-up"
+                  href="/inscription"
                   onClick={handleLinkClick}
                   className="block"
                 >

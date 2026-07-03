@@ -22,7 +22,7 @@ async function main() {
     case "request": {
       if (!arg1) throw new Error("usage: request <email>")
       await auth.api.requestPasswordReset({
-        body: { email: arg1, redirectTo: "/auth/reset-password" },
+        body: { email: arg1, redirectTo: "/reinitialiser-mot-de-passe" },
       })
       console.log(`[request] OK pour ${arg1}`)
       console.log(

@@ -1,6 +1,5 @@
 import "server-only"
 import { deleteFromS3 } from "@/lib/aws"
-import { CDN_HOST } from "@/lib/cdn"
 import { env } from "@/lib/env/server"
 
 /**
@@ -106,27 +105,6 @@ export const generateAvatarPath = (
 ): string => {
   const cleanExt = extension.replace(/^\./, "").toLowerCase()
   return `avatars/${userId}/${Date.now()}.${cleanExt}`
-}
-
-/**
- * Reconstruit le `storagePath` d'un avatar à partir de son URL stockée UNIQUEMENT
- * si l'URL pointe vers notre CDN (`CDN_HOST`) et le préfixe `avatars/`. `null`
- * pour toute URL externe (Google OAuth, legacy) → la suppression au remplacement
- * ne touche jamais un fichier qui ne nous appartient pas.
- */
-export const avatarStoragePathFromUrl = (
-  url: string | null | undefined,
-): string | null => {
-  if (!url) return null
-  try {
-    const parsed = new URL(url)
-    if (parsed.hostname !== CDN_HOST) return null
-    const path = decodeURIComponent(parsed.pathname).replace(/^\/+/, "")
-    if (!path.startsWith("avatars/") || path.includes("..")) return null
-    return path
-  } catch {
-    return null
-  }
 }
 
 export const getExtensionFromMimeType = (mimeType: string): string => {

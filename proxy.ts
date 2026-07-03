@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server"
 // Check OPTIMISTE de présence du cookie de session (pas de validation DB ici — rapide,
 // edge-friendly). La vraie vérification (et le rôle admin) se fait dans la DAL/guards
 // (`requireSession`/`requireRole`) côté Server Component. Défense en profondeur.
-const PROTECTED = [/^\/dashboard(?:\/|$)/, /^\/admin(?:\/|$)/]
+const PROTECTED = [/^\/tableau-de-bord(?:\/|$)/, /^\/admin(?:\/|$)/]
 const PUBLIC_ONLY = [/^\/$/, /^\/a-propos$/, /^\/domaines$/]
 
 // ----- Mode maintenance (« blocus »), gardé par MAINTENANCE_MODE -----
@@ -60,12 +60,12 @@ export default function proxy(request: NextRequest) {
 
   // Connecté sur une page vitrine → renvoyer vers l'app.
   if (hasSession && PUBLIC_ONLY.some((re) => re.test(pathname))) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+    return NextResponse.redirect(new URL("/tableau-de-bord", request.url))
   }
 
   // Non connecté sur une route protégée → renvoyer vers la connexion.
   if (!hasSession && PROTECTED.some((re) => re.test(pathname))) {
-    return NextResponse.redirect(new URL("/auth/sign-in", request.url))
+    return NextResponse.redirect(new URL("/connexion", request.url))
   }
 
   return NextResponse.next()
