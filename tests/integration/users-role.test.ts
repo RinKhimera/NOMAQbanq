@@ -121,7 +121,9 @@ describe("updateUserRole", () => {
     await db.update(user).set({ role: "user" }).where(eq(user.id, adminId))
     const result = await updateUserRole({ userId: targetId, role: "admin" })
     expect(result.success).toBe(false)
-    expect(result.error).toBe("Votre compte n'a plus les droits administrateur.")
+    expect(result.error).toBe(
+      "Votre compte n'a plus les droits administrateur.",
+    )
     expect(await getRole(targetId)).toBe("user")
   })
 
