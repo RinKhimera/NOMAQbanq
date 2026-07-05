@@ -102,6 +102,28 @@ export const auth = betterAuth({
           },
         }
       : {},
+  // Le plugin admin n'est configuré que pour porter `role` sur session.user :
+  // ses endpoints HTTP ne sont pas utilisés par l'app et contournent les
+  // gardes applicatives (auto-modification, dernier admin) de updateUserRole /
+  // deleteMyAccount → fermés au routeur (404). Match EXACT : re-vérifier la
+  // liste à chaque montée de version de better-auth.
+  disabledPaths: [
+    "/admin/set-role",
+    "/admin/get-user",
+    "/admin/create-user",
+    "/admin/update-user",
+    "/admin/list-users",
+    "/admin/list-user-sessions",
+    "/admin/unban-user",
+    "/admin/ban-user",
+    "/admin/impersonate-user",
+    "/admin/stop-impersonating",
+    "/admin/revoke-user-session",
+    "/admin/revoke-user-sessions",
+    "/admin/remove-user",
+    "/admin/set-user-password",
+    "/admin/has-permission",
+  ],
   plugins: [
     admin({ defaultRole: "user", adminRoles: ["admin"] }),
     nextCookies(), // ⚠️ DOIT rester le dernier plugin
