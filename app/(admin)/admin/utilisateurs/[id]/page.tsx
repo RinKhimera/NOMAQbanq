@@ -17,7 +17,7 @@ export default async function AdminUserDetailPage({
 }) {
   // H3 (IDOR) : garde admin explicite avant de manipuler un userId arbitraire,
   // en plus du layout admin et des gardes internes du DAL.
-  await requireRole(["admin"])
+  const session = await requireRole(["admin"])
   const { id } = await params
 
   const user = await getUserForAdmin(id)
@@ -59,6 +59,7 @@ export default async function AdminUserDetailPage({
   return (
     <UserDetailClient
       user={user}
+      currentUserId={session.user.id}
       initialAccess={access ?? { examAccess: null, trainingAccess: null }}
       initialTransactions={txPage.items}
       initialCursor={txPage.nextCursor}

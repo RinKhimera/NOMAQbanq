@@ -30,9 +30,11 @@ import type {
 import type { AdminUserDetail, SelectableUser } from "@/features/users/dal"
 import { UserAccessSection } from "./_components/user-access-section"
 import { UserInfoCard } from "./_components/user-info-card"
+import { UserRoleSection } from "./_components/user-role-section"
 
 interface UserDetailClientProps {
   user: AdminUserDetail
+  currentUserId: string
   initialAccess: AccessStatus
   initialTransactions: AdminTransactionView[]
   initialCursor: string | null
@@ -42,6 +44,7 @@ interface UserDetailClientProps {
 
 export function UserDetailClient({
   user,
+  currentUserId,
   initialAccess,
   initialTransactions,
   initialCursor,
@@ -100,8 +103,9 @@ export function UserDetailClient({
 
       {/* Main content */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
+        <div className="space-y-6 lg:col-span-1">
           <UserInfoCard user={user} />
+          <UserRoleSection user={user} currentUserId={currentUserId} />
         </div>
 
         <div className="space-y-6 lg:col-span-2">
