@@ -21,7 +21,7 @@ Next.js 16 (App Router) · React 19 · TypeScript · Drizzle ORM · Neon Postgre
 ```bash
 bun dev                  # Serveur dev (Turbopack)
 bun run build            # Build production
-bun run check            # tsc + eslint (avant commit)
+bun run check            # prettier --check + tsc + eslint (avant commit)
 bun run lint             # ESLint strict (--max-warnings 0)
 bun run lint:fix         # Auto-fix ESLint
 bun run format           # Prettier write
