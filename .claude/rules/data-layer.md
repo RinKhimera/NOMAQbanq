@@ -83,7 +83,7 @@ storagePath,order}` pour rester assignable aux composants partagés
 
 ## Gates
 
-- `bun run check` = `tsc --noEmit && eslint --max-warnings 0`. **SonarLint**
+- `bun run check` = `prettier --check . && tsc --noEmit && eslint --max-warnings 0`. **SonarLint**
   (codes `typescript:Sxxxx` : S3776 complexité cognitive, S6759 readonly-props,
   S7749 littéraux numériques…) est **IDE-only** et ne casse PAS `check` — ne pas
   refactorer pour les satisfaire.
