@@ -162,4 +162,37 @@ describe("updateUserRole", () => {
     expect(result.success).toBe(false)
     expect(await getRole(targetId)).toBe("user")
   })
+
+  it("sérialise deux rétrogradations croisées : il reste toujours un admin", async () => {
+    // Deux admins qui se rétrogradent mutuellement en concurrence réelle : le
+    // verrou (SELECT ... ORDER BY id FOR UPDATE) sérialise ; le perdant voit
+    // son propre rôle déjà retiré au re-check sous verrou et échoue. Exactement
+    // un succès, exactement un admin restant — l'invariant « jamais zéro admin
+    // actif » tient sous concurrence, pas seulement séquentiellement.
+    await db.update(user).set({ role: "admin" }).where(eq(user.id, targetId))
+    vi.mocked(requireRole)
+      .mockResolvedValueOnce({
+        user: { id: adminId, email: adminEmail, role: "admin" },
+        session: { id: createId() },
+      } as never)
+      .mockResolvedValueOnce({
+        user: { id: targetId, email: targetEmail, role: "admin" },
+        session: { id: createId() },
+      } as never)
+
+    const [byAdmin, byTarget] = await Promise.all([
+      updateUserRole({ userId: targetId, role: "user" }),
+      updateUserRole({ userId: adminId, role: "user" }),
+    ])
+
+    const results = [byAdmin, byTarget]
+    expect(results.filter((r) => r.success)).toHaveLength(1)
+    const failed = results.find((r) => !r.success)
+    expect(failed?.error).toBe(
+      "Votre compte n'a plus les droits administrateur.",
+    )
+
+    const roles = [await getRole(adminId), await getRole(targetId)]
+    expect(roles.filter((r) => r === "admin")).toHaveLength(1)
+  })
 })
