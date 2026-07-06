@@ -14,9 +14,8 @@ import { updateUserRole } from "@/features/users/actions"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
-// Mêmes stubs que users-account.test.ts : on ne charge pas la stack Better Auth,
-// et les guards sont pilotés par le test (le re-check transactionnel, lui, lit la
-// vraie base — c'est précisément ce qu'on teste).
+// Guards mockés, base réelle : le re-check transactionnel lit la vraie base —
+// c'est lui qu'on teste. Le stub de @/lib/auth évite de charger la stack Better Auth.
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(),
@@ -72,7 +71,6 @@ afterAll(async () => {
 })
 
 beforeEach(async () => {
-  // Remet l'état de référence : appelant admin actif, cible user active.
   await db
     .update(user)
     .set({ role: "admin", deletedAt: null })
@@ -164,11 +162,9 @@ describe("updateUserRole", () => {
   })
 
   it("sérialise deux rétrogradations croisées : il reste toujours un admin", async () => {
-    // Deux admins qui se rétrogradent mutuellement en concurrence réelle : le
-    // verrou (SELECT ... ORDER BY id FOR UPDATE) sérialise ; le perdant voit
-    // son propre rôle déjà retiré au re-check sous verrou et échoue. Exactement
-    // un succès, exactement un admin restant — l'invariant « jamais zéro admin
-    // actif » tient sous concurrence, pas seulement séquentiellement.
+    // Le verrou (SELECT ... ORDER BY id FOR UPDATE) sérialise les deux
+    // rétrogradations croisées ; le perdant voit son rôle déjà retiré au
+    // re-check et échoue — il reste toujours exactement un admin.
     await db.update(user).set({ role: "admin" }).where(eq(user.id, targetId))
     vi.mocked(requireRole)
       .mockResolvedValueOnce({
