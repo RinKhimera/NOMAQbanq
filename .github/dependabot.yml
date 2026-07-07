@@ -1,7 +1,8 @@
 version: 2
 updates:
-  # Dépendances npm
-  - package-ecosystem: "npm"
+  # Dépendances npm — écosystème "bun" pour que Dependabot régénère bun.lock
+  # (avec "npm" il ne touche que package.json → le CI échoue sur --frozen-lockfile)
+  - package-ecosystem: "bun"
     directory: "/"
     schedule:
       interval: "weekly"
@@ -31,6 +32,17 @@ updates:
           - "*"
         update-types:
           - "major"
+    ignore:
+      # Les types doivent suivre le runtime Node (Vercel/CI = Node 24 LTS)
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # Retirer quand eslint-config-next supportera ESLint 10
+      # (eslint-plugin-react crashe : context.getFilename() supprimé)
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      # Retirer quand Vitest embarquera Vite 8 (v6 importe vite/internal, absent de Vite 7)
+      - dependency-name: "@vitejs/plugin-react"
+        update-types: ["version-update:semver-major"]
     labels:
       - "dependencies"
       - "automated"
