@@ -1,6 +1,6 @@
 "use server"
 
-import { and, eq, isNull, ne } from "drizzle-orm"
+import { and, eq, inArray, isNull, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
 import { db } from "@/db"
@@ -12,7 +12,7 @@ import {
   getUserPanelData,
   getUsersWithFilters,
 } from "@/features/users/dal"
-import { profileSchema } from "@/features/users/schemas"
+import { profileSchema, updateUserRoleSchema } from "@/features/users/schemas"
 import { auth } from "@/lib/auth"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createPresignedUpload } from "@/lib/aws"
@@ -49,6 +49,73 @@ export const loadUserPanelData = async (
 ): Promise<UserPanelData | null> => {
   await requireRole(["admin"])
   return getUserPanelData(userId)
+}
+
+// [Admin] Change le rôle d'un utilisateur. Invariant « jamais zéro admin
+// actif » garanti sans compter les admins : l'auto-modification est interdite
+// ET l'appelant est re-vérifié admin actif sous verrou dans la transaction —
+// après l'écriture il reste donc toujours au moins lui. Le verrou couvre la
+// race « l'appelant vient d'être rétrogradé » (requireRole est hors
+// transaction). Pas de révocation de sessions : sans cookieCache, Better Auth
+// relit le rôle en base à chaque requête.
+export const updateUserRole = async (input: {
+  userId: string
+  role: "user" | "admin"
+}): Promise<AccountActionResult> => {
+  const authSession = await requireRole(["admin"])
+
+  const parsed = updateUserRoleSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Données invalides",
+    }
+  }
+  const { userId: targetId, role } = parsed.data
+
+  if (targetId === authSession.user.id) {
+    return {
+      success: false,
+      error: "Vous ne pouvez pas modifier votre propre rôle.",
+    }
+  }
+
+  const result = await db.transaction(async (tx) => {
+    // Un seul SELECT ... FOR UPDATE trié par id : verrouille appelant + cible
+    // dans un ordre déterministe (pas de deadlock entre deux appels croisés).
+    const rows = await tx
+      .select({ id: user.id, role: user.role, deletedAt: user.deletedAt })
+      .from(user)
+      .where(inArray(user.id, [authSession.user.id, targetId]))
+      .orderBy(user.id)
+      .for("update")
+
+    const caller = rows.find((r) => r.id === authSession.user.id)
+    if (!caller || caller.role !== "admin" || caller.deletedAt !== null) {
+      return {
+        ok: false as const,
+        error: "Votre compte n'a plus les droits administrateur.",
+      }
+    }
+
+    const target = rows.find((r) => r.id === targetId)
+    if (!target || target.deletedAt !== null) {
+      return { ok: false as const, error: "Utilisateur introuvable." }
+    }
+
+    if (target.role !== role) {
+      await tx.update(user).set({ role }).where(eq(user.id, targetId))
+    }
+    return { ok: true as const }
+  })
+
+  if (!result.ok) {
+    return { success: false, error: result.error }
+  }
+
+  revalidatePath("/admin/utilisateurs")
+  revalidatePath(`/admin/utilisateurs/${targetId}`)
+  return { success: true }
 }
 
 // Appelée directement depuis le client (édition inline + onboarding) :
