@@ -23,6 +23,11 @@ export type CompleteStripeResult =
   | { status: "already_processed" }
   | { status: "not_found" }
 
+const CURRENCY_BY_STRIPE = new Map<string, "CAD" | "XAF">([
+  ["cad", "CAD"],
+  ["xaf", "XAF"],
+])
+
 /**
  * Fulfillment d'un paiement Stripe (webhook `checkout.session.completed`, payé).
  * Port de `completeStripeTransaction` Convex, durci :
@@ -37,11 +42,19 @@ export type CompleteStripeResult =
  * `not_found` = aucune transaction pour cette session (anomalie : le pending est
  * créé avant la redirection Stripe, donc avant tout paiement) → l'appelant logue
  * et répond 200 (pas de retry utile).
+ *
+ * `amountTotal`/`currency` (session Checkout) écrasent les valeurs provisoires du
+ * pending (prix catalogue CAD) : codes promo et Adaptive Pricing (XAF) rendent le
+ * montant réellement facturé différent. Valeurs inexploitables (`amount_total`
+ * null, devise hors enum) → on conserve le provisoire et on logue — un paiement
+ * valide ne doit jamais échouer pour un problème de réconciliation.
  */
 export async function completeStripeTransaction(params: {
   stripeSessionId: string
   stripePaymentIntentId: string
   stripeEventId: string
+  amountTotal?: number | null
+  currency?: string | null
 }): Promise<CompleteStripeResult> {
   return db.transaction(async (tx) => {
     // Transaction pending (pour obtenir l'userId à verrouiller).
@@ -103,6 +116,35 @@ export async function completeStripeTransaction(params: {
       txAccessExpiresAt = new Date(base + durationMs)
     }
 
+    const realCurrency = params.currency
+      ? CURRENCY_BY_STRIPE.get(params.currency.toLowerCase())
+      : undefined
+    const reconcile =
+      params.amountTotal != null && realCurrency !== undefined
+        ? {
+            // Stripe traite le XAF en zéro-décimal (francs entiers) alors que
+            // l'app stocke tout en centièmes (parseAmountToCents/formatCurrency).
+            amountPaid:
+              realCurrency === "XAF"
+                ? params.amountTotal * 100
+                : params.amountTotal,
+            currency: realCurrency,
+          }
+        : null
+    if (
+      !reconcile &&
+      (params.amountTotal !== undefined || params.currency !== undefined)
+    ) {
+      console.error(
+        "[stripe fulfillment] montant/devise inexploitables, valeurs provisoires conservées",
+        {
+          stripeSessionId: params.stripeSessionId,
+          amountTotal: params.amountTotal,
+          currency: params.currency,
+        },
+      )
+    }
+
     await tx
       .update(transactions)
       .set({
@@ -111,6 +153,7 @@ export async function completeStripeTransaction(params: {
         stripeEventId: params.stripeEventId,
         accessExpiresAt: txAccessExpiresAt,
         completedAt: now,
+        ...(reconcile ?? {}),
       })
       .where(eq(transactions.id, pending.id))
 

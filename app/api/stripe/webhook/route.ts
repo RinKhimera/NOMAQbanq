@@ -63,6 +63,9 @@ export async function POST(request: Request) {
                 ? checkoutSession.payment_intent
                 : "",
             stripeEventId: event.id,
+            // Montant/devise réellement facturés (promo, Adaptive Pricing).
+            amountTotal: checkoutSession.amount_total,
+            currency: checkoutSession.currency,
           })
           if (result.status === "not_found") {
             console.error(

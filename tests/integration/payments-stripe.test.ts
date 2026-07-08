@@ -3,23 +3,43 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
 import {
+  type TransactionStatsView,
+  getRevenueByDay,
+  getTransactionStats,
+} from "@/features/payments/dal"
+import {
   completeStripeTransaction,
   failStripeTransaction,
 } from "@/features/payments/stripe"
+import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
   return { ...actual, cache: (fn: unknown) => fn }
 })
+vi.mock("@/lib/auth-guards", () => ({
+  requireRole: vi.fn(),
+  requireSession: vi.fn(),
+}))
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)
 
 const PEXAM = createId() // produit exam non-combo
 const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 5 }, () => createId())
-const [U_HAPPY, U_CUMUL, U_COMBO, U_FAIL, U_FAILDONE] = U
+const U = Array.from({ length: 9 }, () => createId())
+const [
+  U_HAPPY,
+  U_CUMUL,
+  U_COMBO,
+  U_FAIL,
+  U_FAILDONE,
+  U_PROMO,
+  U_XAF,
+  U_DEGNULL,
+  U_DEGUSD,
+] = U
 
 const accessOf = (userId: string, accessType: "exam" | "training") =>
   db
@@ -42,6 +62,8 @@ const txStatus = (id: string) =>
       eventId: transactions.stripeEventId,
       pi: transactions.stripePaymentIntentId,
       accessExpiresAt: transactions.accessExpiresAt,
+      amountPaid: transactions.amountPaid,
+      currency: transactions.currency,
     })
     .from(transactions)
     .where(eq(transactions.id, id))
@@ -304,5 +326,175 @@ describe("failStripeTransaction", () => {
     })
     expect(res).toEqual({ status: "already_processed" })
     expect((await txStatus(txId))?.status).toBe("completed")
+  })
+})
+
+describe("réconciliation montant/devise au fulfillment", () => {
+  // Baseline capturée à l'entrée du describe : les deltas n'incluent que les
+  // transactions insérées ici (fichiers séquentiels, fileParallelism: false).
+  let statsBefore: TransactionStatsView
+  let revenueTodayBefore: { CAD: number; XAF: number }
+  const today = () => new Date().toISOString().slice(0, 10)
+
+  const revenueOfToday = async () => {
+    const rev = await getRevenueByDay(1)
+    return {
+      CAD: rev.CAD.find((d) => d.date === today())?.revenue ?? 0,
+      XAF: rev.XAF.find((d) => d.date === today())?.revenue ?? 0,
+    }
+  }
+
+  beforeAll(async () => {
+    vi.mocked(requireRole).mockResolvedValue({
+      user: { id: U_PROMO, role: "admin" },
+    } as never)
+    statsBefore = await getTransactionStats()
+    revenueTodayBefore = await revenueOfToday()
+  })
+
+  it("code promo : amountPaid = montant réellement débité, pas le prix catalogue", async () => {
+    const txId = createId()
+    const sid = `sess_promo_${suffix}`
+    await seedPending({
+      id: txId,
+      userId: U_PROMO,
+      productId: PEXAM,
+      sessionId: sid,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const res = await completeStripeTransaction({
+      stripeSessionId: sid,
+      stripePaymentIntentId: "pi_promo",
+      stripeEventId: `evt_promo_${suffix}`,
+      amountTotal: 4000,
+      currency: "cad",
+    })
+    expect(res.status).toBe("completed")
+
+    const tx = await txStatus(txId)
+    expect(tx?.status).toBe("completed")
+    expect(tx?.amountPaid).toBe(4000)
+    expect(tx?.currency).toBe("CAD")
+  })
+
+  it("Adaptive Pricing : devise et montant XAF enregistrés", async () => {
+    const txId = createId()
+    const sid = `sess_xaf_${suffix}`
+    await seedPending({
+      id: txId,
+      userId: U_XAF,
+      productId: PEXAM,
+      sessionId: sid,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    // Stripe envoie le XAF en zéro-décimal (francs entiers) ; l'app stocke
+    // tous les montants en centièmes → 32 500 FCFA doit devenir 3 250 000.
+    const res = await completeStripeTransaction({
+      stripeSessionId: sid,
+      stripePaymentIntentId: "pi_xaf",
+      stripeEventId: `evt_xaf_${suffix}`,
+      amountTotal: 32500,
+      currency: "xaf",
+    })
+    expect(res.status).toBe("completed")
+
+    const tx = await txStatus(txId)
+    expect(tx?.amountPaid).toBe(3250000)
+    expect(tx?.currency).toBe("XAF")
+  })
+
+  it("amount_total null : valeurs provisoires conservées, fulfillment réussi", async () => {
+    const txId = createId()
+    const sid = `sess_degnull_${suffix}`
+    await seedPending({
+      id: txId,
+      userId: U_DEGNULL,
+      productId: PEXAM,
+      sessionId: sid,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const res = await completeStripeTransaction({
+      stripeSessionId: sid,
+      stripePaymentIntentId: "pi_degnull",
+      stripeEventId: `evt_degnull_${suffix}`,
+      amountTotal: null,
+      currency: "cad",
+    })
+    expect(res.status).toBe("completed")
+
+    const tx = await txStatus(txId)
+    expect(tx?.status).toBe("completed")
+    expect(tx?.amountPaid).toBe(5000)
+    expect(tx?.currency).toBe("CAD")
+    expect(await accessOf(U_DEGNULL, "exam")).toBeDefined()
+  })
+
+  it("devise hors enum (usd) : valeurs provisoires conservées, fulfillment réussi", async () => {
+    const txId = createId()
+    const sid = `sess_degusd_${suffix}`
+    await seedPending({
+      id: txId,
+      userId: U_DEGUSD,
+      productId: PEXAM,
+      sessionId: sid,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const res = await completeStripeTransaction({
+      stripeSessionId: sid,
+      stripePaymentIntentId: "pi_degusd",
+      stripeEventId: `evt_degusd_${suffix}`,
+      amountTotal: 4200,
+      currency: "usd",
+    })
+    expect(res.status).toBe("completed")
+
+    const tx = await txStatus(txId)
+    expect(tx?.amountPaid).toBe(5000)
+    expect(tx?.currency).toBe("CAD")
+    expect(await accessOf(U_DEGUSD, "exam")).toBeDefined()
+  })
+
+  it("agrégats : promo et XAF ventilés sur le montant réel", async () => {
+    // Deltas attendus depuis la baseline : CAD = 4000 (promo) + 5000 + 5000
+    // (cas dégradés conservés) ; XAF = 32 500 FCFA en centièmes.
+    const after = await getTransactionStats()
+    expect(
+      after.revenueByCurrency.CAD.total -
+        statsBefore.revenueByCurrency.CAD.total,
+    ).toBe(14000)
+    expect(
+      after.revenueByCurrency.XAF.total -
+        statsBefore.revenueByCurrency.XAF.total,
+    ).toBe(3250000)
+
+    const revenueToday = await revenueOfToday()
+    expect(revenueToday.CAD - revenueTodayBefore.CAD).toBe(14000)
+    expect(revenueToday.XAF - revenueTodayBefore.XAF).toBe(3250000)
+  })
+
+  it("idempotence : rejouer l'event ne réapplique pas la réconciliation", async () => {
+    const res = await completeStripeTransaction({
+      stripeSessionId: `sess_promo_${suffix}`,
+      stripePaymentIntentId: "pi_promo",
+      stripeEventId: `evt_promo_${suffix}`,
+      amountTotal: 999,
+      currency: "cad",
+    })
+    expect(res).toEqual({ status: "already_processed" })
+
+    const [tx] = await db
+      .select({ amountPaid: transactions.amountPaid })
+      .from(transactions)
+      .where(eq(transactions.stripeSessionId, `sess_promo_${suffix}`))
+      .limit(1)
+    expect(tx?.amountPaid).toBe(4000)
   })
 })
