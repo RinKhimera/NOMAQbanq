@@ -13,12 +13,15 @@ import {
   examParticipations,
   examQuestions,
   exams,
+  products,
   questionExplanations,
   questionImages,
   questions,
   trainingSessionItems,
   trainingSessions,
+  transactions,
   user,
+  userAccess,
 } from "@/db/schema"
 import {
   abandonTrainingSession,
@@ -425,11 +428,44 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
     )
   }
 
+  const PID2 = createId()
+  const TXID2 = createId()
+
   beforeAll(async () => {
     await db.insert(user).values({
       id: STUDENT2_ID,
       name: "IT training lock",
       email: `training-lock-${suffix}@test.invalid`,
+    })
+    // Accès training réel : saveTrainingAnswer exige hasAccess pour un non-admin.
+    await db.insert(products).values({
+      id: PID2,
+      code: "training_access",
+      name: `Training ${suffix}`,
+      description: "desc",
+      priceCad: 3000,
+      durationDays: 30,
+      accessType: "training",
+      stripeProductId: `prod_t_${suffix}`,
+      stripePriceId: `price_t_${suffix}`,
+    })
+    await db.insert(transactions).values({
+      id: TXID2,
+      userId: STUDENT2_ID,
+      productId: PID2,
+      type: "manual",
+      status: "completed",
+      amountPaid: 3000,
+      currency: "CAD",
+      accessType: "training",
+      durationDays: 30,
+      accessExpiresAt: new Date(Date.now() + 30 * DAY),
+    })
+    await db.insert(userAccess).values({
+      userId: STUDENT2_ID,
+      accessType: "training",
+      expiresAt: new Date(Date.now() + 30 * DAY),
+      lastTransactionId: TXID2,
     })
     await seedExam(new Date(Date.now() + DAY), qIds[0])
     await seedExam(new Date(Date.now() - DAY), qIds[1])
@@ -452,6 +488,9 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
       .delete(trainingSessions)
       .where(eq(trainingSessions.userId, STUDENT2_ID))
     await db.delete(exams).where(eq(exams.createdBy, STUDENT2_ID))
+    await db.delete(userAccess).where(eq(userAccess.userId, STUDENT2_ID))
+    await db.delete(transactions).where(eq(transactions.userId, STUDENT2_ID))
+    await db.delete(products).where(eq(products.id, PID2))
     await db.delete(user).where(eq(user.id, STUDENT2_ID))
   })
 
@@ -507,5 +546,26 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
     expect(v.answers[qIds[0]]?.selectedAnswer).toBe("A")
     expect(v.answers[qIds[0]]?.isCorrect).toBeUndefined()
     expect(v.answers[qIds[2]]?.isCorrect).toBe(true)
+  })
+
+  it("saveTrainingAnswer (tuteur) : pas de reveal immédiat pour une question d'un examen ouvert", async () => {
+    asStudent2()
+    const locked = await saveTrainingAnswer({
+      sessionId: tutorSid,
+      questionId: qIds[0],
+      selectedAnswer: "A",
+    })
+    expect(locked).toEqual({ success: true })
+
+    const served = await saveTrainingAnswer({
+      sessionId: tutorSid,
+      questionId: qIds[2],
+      selectedAnswer: "A",
+    })
+    expect(served).toMatchObject({
+      success: true,
+      isCorrect: true,
+      reveal: { correctAnswer: "A" },
+    })
   })
 })
