@@ -263,10 +263,16 @@ export const saveTrainingAnswer = async (
       return fail("Cette session n'est plus active")
     }
     if (s.expiresAt.getTime() < Date.now()) {
+      // Garde de statut : ne pas écraser une clôture concurrente (cron/autre onglet).
       await db
         .update(trainingSessions)
         .set({ status: "abandoned" })
-        .where(eq(trainingSessions.id, sessionId))
+        .where(
+          and(
+            eq(trainingSessions.id, sessionId),
+            eq(trainingSessions.status, "in_progress"),
+          ),
+        )
       return fail("Cette session a expiré")
     }
     if (session.user.role !== "admin" && !(await hasAccess("training"))) {
@@ -358,6 +364,7 @@ export const completeTrainingSession = async ({
         userId: trainingSessions.userId,
         status: trainingSessions.status,
         questionCount: trainingSessions.questionCount,
+        expiresAt: trainingSessions.expiresAt,
       })
       .from(trainingSessions)
       .where(eq(trainingSessions.id, sessionId))
@@ -368,6 +375,20 @@ export const completeTrainingSession = async ({
     }
     if (s.status !== "in_progress") {
       return fail("Cette session n'est plus active")
+    }
+    if (s.expiresAt.getTime() < Date.now()) {
+      // Parité saveTrainingAnswer : une session expirée ne se score pas, elle
+      // bascule abandonnée (garde de statut contre une clôture concurrente).
+      await db
+        .update(trainingSessions)
+        .set({ status: "abandoned" })
+        .where(
+          and(
+            eq(trainingSessions.id, sessionId),
+            eq(trainingSessions.status, "in_progress"),
+          ),
+        )
+      return fail("Cette session a expiré")
     }
     if (session.user.role !== "admin" && !(await hasAccess("training"))) {
       return fail("Votre accès à l'entraînement a expiré.")
@@ -388,10 +409,21 @@ export const completeTrainingSession = async ({
     const score =
       totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0
 
-    await db
+    // Garde de statut (règle concurrence du repo) : le cron d'expiration ou un
+    // appel concurrent peut avoir clos la session entre la lecture et l'écriture.
+    const updated = await db
       .update(trainingSessions)
       .set({ status: "completed", score, completedAt: new Date() })
-      .where(eq(trainingSessions.id, sessionId))
+      .where(
+        and(
+          eq(trainingSessions.id, sessionId),
+          eq(trainingSessions.status, "in_progress"),
+        ),
+      )
+      .returning({ id: trainingSessions.id })
+    if (updated.length === 0) {
+      return fail("Cette session n'est plus active")
+    }
 
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true, score, correctCount, totalQuestions }
@@ -427,10 +459,21 @@ export const abandonTrainingSession = async ({
       return fail("Cette session n'est pas en cours")
     }
 
-    await db
+    // Garde de statut (pattern du cron) : ne jamais écraser une clôture
+    // concurrente (ex. re-basculer une session completed en abandoned).
+    const updated = await db
       .update(trainingSessions)
       .set({ status: "abandoned" })
-      .where(eq(trainingSessions.id, sessionId))
+      .where(
+        and(
+          eq(trainingSessions.id, sessionId),
+          eq(trainingSessions.status, "in_progress"),
+        ),
+      )
+      .returning({ id: trainingSessions.id })
+    if (updated.length === 0) {
+      return fail("Cette session n'est pas en cours")
+    }
 
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true }
