@@ -23,6 +23,7 @@ import {
 import { requireSession } from "@/lib/auth-guards"
 import { cdnUrl } from "@/lib/cdn"
 import { getCurrentSession } from "@/lib/dal"
+import { getOpenExamLockedQuestionIds } from "../exams/dal"
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
@@ -538,11 +539,21 @@ export const getTrainingSessionById = async (
     .where(eq(trainingSessionItems.sessionId, sessionId))
     .orderBy(asc(trainingSessionItems.position))
 
-  const imgMap = await fetchImages(items.map((i) => i.questionId))
+  const sessionQuestionIds = items.map((i) => i.questionId)
+  // Questions d'un examen OUVERT où l'utilisateur participe : clé de réponse
+  // différée jusqu'à la clôture (voir getOpenExamLockedQuestionIds).
+  const [imgMap, lockedIds] = await Promise.all([
+    fetchImages(sessionQuestionIds),
+    session.user.role === "admin"
+      ? new Set<string>()
+      : getOpenExamLockedQuestionIds(session.user.id, sessionQuestionIds),
+  ])
 
   const questionsView: TrainingSessionQuestion[] = items.map((i) => {
     // In tutor mode, reveal correctAnswer + explanation + references for already-answered questions.
-    const revealAnswer = isCompleted || (isTutor && i.selectedAnswer !== null)
+    const revealAnswer =
+      (isCompleted || (isTutor && i.selectedAnswer !== null)) &&
+      !lockedIds.has(i.questionId)
     return {
       _id: i.questionId,
       _creationTime: i.qCreatedAt.getTime(),
@@ -562,14 +573,19 @@ export const getTrainingSessionById = async (
   })
 
   // Reveal isCorrect in answers only when session is completed or in tutor mode.
-  // In test mode in_progress: no isCorrect leak.
+  // In test mode in_progress: no isCorrect leak. isCorrect + selectedAnswer
+  // révèle la clé → masqué aussi pour les questions verrouillées.
   const revealAnswers = isCompleted || isTutor
   const answers: TrainingAnswerRecord = {}
   for (const i of items) {
     if (i.selectedAnswer !== null) {
-      answers[i.questionId] = revealAnswers
-        ? { selectedAnswer: i.selectedAnswer, isCorrect: i.isCorrect ?? false }
-        : { selectedAnswer: i.selectedAnswer }
+      answers[i.questionId] =
+        revealAnswers && !lockedIds.has(i.questionId)
+          ? {
+              selectedAnswer: i.selectedAnswer,
+              isCorrect: i.isCorrect ?? false,
+            }
+          : { selectedAnswer: i.selectedAnswer }
     }
   }
 
@@ -662,9 +678,14 @@ export const getTrainingSessionResults = async (
   const questionIds = items.map((i) => i.questionId)
   // Session complétée → révélation : images d'énoncé ET d'explication. Le canal
   // explication reste séparé du pont d'énoncé `images` (anti-fuite en passation).
-  const [imgMap, explImgMap] = await Promise.all([
+  // Questions d'un examen OUVERT où l'utilisateur participe : correction différée
+  // jusqu'à la clôture (voir getOpenExamLockedQuestionIds).
+  const [imgMap, explImgMap, lockedIds] = await Promise.all([
     fetchImages(questionIds),
     fetchImages(questionIds, "explanation"),
+    session.user.role === "admin"
+      ? new Set<string>()
+      : getOpenExamLockedQuestionIds(session.user.id, questionIds),
   ])
 
   const questionsView: TrainingSessionQuestion[] = items.map((i) => ({
@@ -675,10 +696,14 @@ export const getTrainingSessionResults = async (
     objectifCMC: i.objectifCMC,
     domain: i.domain,
     images: imgMap.get(i.questionId) ?? [],
-    correctAnswer: i.correctAnswer,
-    explanation: i.explanation ?? "",
-    references: i.references ?? [],
-    explanationImages: explImgMap.get(i.questionId) ?? [],
+    ...(lockedIds.has(i.questionId)
+      ? {}
+      : {
+          correctAnswer: i.correctAnswer,
+          explanation: i.explanation ?? "",
+          references: i.references ?? [],
+          explanationImages: explImgMap.get(i.questionId) ?? [],
+        }),
   }))
 
   const answers: TrainingAnswerRecord = {}
@@ -686,7 +711,10 @@ export const getTrainingSessionResults = async (
     if (i.selectedAnswer !== null) {
       answers[i.questionId] = {
         selectedAnswer: i.selectedAnswer,
-        isCorrect: i.isCorrect ?? undefined,
+        // isCorrect + selectedAnswer révèle la clé → masqué si verrouillée.
+        ...(lockedIds.has(i.questionId)
+          ? {}
+          : { isCorrect: i.isCorrect ?? undefined }),
       }
     }
   }

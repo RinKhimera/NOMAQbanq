@@ -644,7 +644,15 @@ export const getParticipantExamResults = async (
     .where(eq(examQuestions.examId, examId))
     .orderBy(asc(examQuestions.position))
 
-  const imgMap = await fetchImages(items.map((i) => i.questionId))
+  const resultQuestionIds = items.map((i) => i.questionId)
+  // Questions figurant AUSSI dans un examen encore ouvert où le lecteur
+  // participe : correction différée jusqu'à la clôture (clé de réponse).
+  const [imgMap, lockedIds] = await Promise.all([
+    fetchImages(resultQuestionIds),
+    isAdmin
+      ? new Set<string>()
+      : getOpenExamLockedQuestionIds(session.user.id, resultQuestionIds),
+  ])
 
   const questionsView: ExamQuestionView[] = items.map((i) => ({
     _id: i.questionId,
@@ -654,7 +662,7 @@ export const getParticipantExamResults = async (
     objectifCMC: i.objectifCMC,
     domain: i.domain,
     images: imgMap.get(i.questionId) ?? [],
-    correctAnswer: i.correctAnswer,
+    ...(lockedIds.has(i.questionId) ? {} : { correctAnswer: i.correctAnswer }),
   }))
 
   const answerRows = await db
@@ -678,7 +686,8 @@ export const getParticipantExamResults = async (
       answers: answerRows.map((a) => ({
         questionId: a.questionId,
         selectedAnswer: a.selectedAnswer ?? null,
-        isCorrect: a.isCorrect ?? null,
+        // isCorrect + selectedAnswer révèle la clé → masqué si verrouillée.
+        isCorrect: lockedIds.has(a.questionId) ? null : (a.isCorrect ?? null),
       })),
     },
     participantUser,
@@ -698,6 +707,37 @@ export type QuestionExplanationView = {
 }
 
 /**
+ * Parmi `questionIds`, celles appartenant à un examen OUVERT (`endDate` future)
+ * où `userId` a une participation (tout statut). La banque de questions étant
+ * partagée training/examens, la clé de réponse de ces questions ne doit fuiter
+ * par AUCUN canal de révision pendant la fenêtre d'examen (explications lazy,
+ * correction d'entraînement). Compromis assumé : la révision training de ces
+ * questions est différée jusqu'à la clôture de l'examen.
+ */
+export const getOpenExamLockedQuestionIds = async (
+  userId: string,
+  questionIds: string[],
+): Promise<Set<string>> => {
+  if (questionIds.length === 0) return new Set()
+  const rows = await db
+    .selectDistinct({ questionId: examQuestions.questionId })
+    .from(examQuestions)
+    .innerJoin(exams, eq(exams.id, examQuestions.examId))
+    .innerJoin(
+      examParticipations,
+      eq(examParticipations.examId, examQuestions.examId),
+    )
+    .where(
+      and(
+        eq(examParticipations.userId, userId),
+        gt(exams.endDate, new Date()),
+        inArray(examQuestions.questionId, questionIds),
+      ),
+    )
+  return new Set(rows.map((r) => r.questionId))
+}
+
+/**
  * Explications à la demande (déplier une question dans les résultats). Sécurité :
  * admin (bypass) OU l'utilisateur a une session de training COMPLÉTÉE contenant
  * la question, OU une participation COMPLÉTÉE à un examen **CLOS** (`endDate`
@@ -708,7 +748,9 @@ export type QuestionExplanationView = {
  * termine tôt de tirer explications + références + images (= les bonnes réponses)
  * AVANT l'ouverture des résultats et de les partager pendant la fenêtre d'examen.
  * Parité avec `getParticipantExamResults` (résultats visibles après `endDate`).
- * La branche training n'a PAS de garde temporelle (révélation à la complétion).
+ * Les DEUX branches sont ensuite filtrées par `getOpenExamLockedQuestionIds`
+ * (banque partagée : ni le training ni un examen clos ne doivent révéler une
+ * question d'un examen encore ouvert).
  */
 export const getExamQuestionExplanations = async (
   questionIds: string[],
@@ -725,7 +767,7 @@ export const getExamQuestionExplanations = async (
   } else {
     const uid = session.user.id
     const nowDate = new Date()
-    const [viaExam, viaTraining] = await Promise.all([
+    const [viaExam, viaTraining, locked] = await Promise.all([
       db
         .selectDistinct({ questionId: examQuestions.questionId })
         .from(examQuestions)
@@ -758,13 +800,16 @@ export const getExamQuestionExplanations = async (
             inArray(trainingSessionItems.questionId, requested),
           ),
         ),
+      getOpenExamLockedQuestionIds(uid, requested),
     ])
+    // Les DEUX branches sont filtrées : un examen clos complété ne doit pas
+    // révéler une question qui figure aussi dans un examen encore ouvert.
     authorized = [
       ...new Set([
         ...viaExam.map((r) => r.questionId),
         ...viaTraining.map((r) => r.questionId),
       ]),
-    ]
+    ].filter((id) => !locked.has(id))
   }
 
   if (authorized.length === 0) return []

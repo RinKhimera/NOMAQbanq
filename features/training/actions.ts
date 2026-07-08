@@ -12,6 +12,7 @@ import {
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { getOpenExamLockedQuestionIds } from "../exams/dal"
 import { hasAccess } from "../payments/dal"
 import {
   type ObjectifsView,
@@ -297,6 +298,15 @@ export const saveTrainingAnswer = async (
 
     // Mode tuteur : révéler la bonne réponse + explication immédiatement.
     if (s.mode === "tutor") {
+      // Question d'un examen OUVERT où l'utilisateur participe : reveal différé
+      // jusqu'à la clôture (même verrou que getTrainingSessionById) — la réponse
+      // est enregistrée, seule la correction est retenue.
+      if (session.user.role !== "admin") {
+        const locked = await getOpenExamLockedQuestionIds(session.user.id, [
+          questionId,
+        ])
+        if (locked.has(questionId)) return { success: true }
+      }
       const [exp] = await db
         .select({
           explanation: questionExplanations.explanation,
