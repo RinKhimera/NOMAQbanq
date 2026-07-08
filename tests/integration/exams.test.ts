@@ -54,8 +54,10 @@ const STUDENT_ID = createId()
 const INTRUDER_ID = createId()
 const NOACCESS_ID = createId()
 const PID = createId()
-// 8 questions : q0..q5 examens, q6 = témoin non autorisé, q7 = training seul.
-const qIds = Array.from({ length: 8 }, () => createId())
+// 11 questions : q0..q5 examens, q6 = témoin non autorisé, q7 = training seul,
+// q8 = chevauchement training + examen clos, q9 = training + examen ouvert,
+// q10 = examen clos SEUL (aucun chevauchement).
+const qIds = Array.from({ length: 11 }, () => createId())
 const examQIds = qIds.slice(0, 6)
 
 const setSession = (id: string, role: "user" | "admin") =>
@@ -112,6 +114,8 @@ const makeExam = async (opts: {
 
 let noPauseId: string
 let pauseId: string
+let pastExamId: string
+let closedOnlyExamId: string
 let pauseOrderedIds: string[] = []
 
 beforeAll(async () => {
@@ -166,10 +170,10 @@ afterAll(async () => {
   // Supprimer les examens cascade participations/réponses/jonctions.
   await db.delete(exams).where(eq(exams.createdBy, ADMIN_ID))
   // Sessions training (cascade items) avant les questions (FK restrict sur items).
+  const uids = [ADMIN_ID, STUDENT_ID, INTRUDER_ID, NOACCESS_ID]
   await db
     .delete(trainingSessions)
-    .where(eq(trainingSessions.userId, STUDENT_ID))
-  const uids = [ADMIN_ID, STUDENT_ID, INTRUDER_ID, NOACCESS_ID]
+    .where(inArray(trainingSessions.userId, uids))
   await db.delete(userAccess).where(inArray(userAccess.userId, uids))
   await db.delete(transactions).where(inArray(transactions.userId, uids))
   await db
@@ -494,10 +498,32 @@ describe("deleteParticipation (admin)", () => {
 })
 
 describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
-  let pastExamId: string
-
   beforeAll(async () => {
     const now = Date.now()
+    // Examen clos SEUL (q10, aucun chevauchement avec un examen ouvert) +
+    // participation complétée : le témoin « révélation après endDate ».
+    closedOnlyExamId = await makeExam({
+      questionIds: [qIds[10]],
+      startDate: now - 3 * DAY,
+      endDate: now - DAY,
+    })
+    const closedOnlyPartId = createId()
+    await db.insert(examParticipations).values({
+      id: closedOnlyPartId,
+      examId: closedOnlyExamId,
+      userId: STUDENT_ID,
+      status: "completed",
+      score: 100,
+      startedAt: new Date(now - 3 * DAY + 1000),
+      completedAt: new Date(now - 2 * DAY),
+    })
+    await db.insert(examAnswers).values({
+      id: createId(),
+      participationId: closedOnlyPartId,
+      questionId: qIds[10],
+      selectedAnswer: "A",
+      isCorrect: true,
+    })
     // Examen terminé (endDate dans le passé) + participation complétée seedée
     // directement (startExam refuserait hors fenêtre).
     pastExamId = await makeExam({
@@ -585,10 +611,10 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
   })
 
   it("explications révélées après endDate (examen CLOS complété)", async () => {
-    // L'étudiant a une participation complétée sur pastExamId (endDate passée)
-    // contenant examQIds → les explications sont désormais autorisées.
+    // Participation complétée sur closedOnlyExamId (endDate passée) contenant
+    // q10, qui n'appartient à aucun examen ouvert → explication autorisée.
     asStudent()
-    const r = await getExamQuestionExplanations([examQIds[0]])
+    const r = await getExamQuestionExplanations([qIds[10]])
     expect(r).toHaveLength(1)
     expect(r[0].explanation).toContain("Explication")
   })
@@ -643,5 +669,124 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
     if (!res.success) return
     expect(res.totalQuestions).toBe(0)
     expect(res.score).toBe(0)
+  })
+})
+
+describe("Anti-triche : chevauchement training / examen OUVERT", () => {
+  const seedCompletedTraining = async (userId: string, questionId: string) => {
+    const now = Date.now()
+    const tsId = createId()
+    await db.insert(trainingSessions).values({
+      id: tsId,
+      userId,
+      status: "completed",
+      questionCount: 1,
+      startedAt: new Date(now - 3600_000),
+      completedAt: new Date(now - 3500_000),
+      expiresAt: new Date(now + DAY),
+    })
+    await db.insert(trainingSessionItems).values({
+      id: createId(),
+      sessionId: tsId,
+      questionId,
+      position: 0,
+      selectedAnswer: "A",
+      isCorrect: true,
+    })
+  }
+
+  beforeAll(async () => {
+    const now = Date.now()
+    // q9 : examen OUVERT complété tôt par STUDENT + training complété. q9 ne doit
+    // appartenir à aucun examen CLOS, sinon la branche examen l'autorise (trou
+    // jumeau connu, hors périmètre ici).
+    const openId = await makeExam({ questionIds: [qIds[9]] })
+    await db.insert(examParticipations).values({
+      id: createId(),
+      examId: openId,
+      userId: STUDENT_ID,
+      status: "completed",
+      score: 100,
+      startedAt: new Date(now - 2000),
+      completedAt: new Date(now - 1000),
+    })
+    await seedCompletedTraining(STUDENT_ID, qIds[9])
+    // INTRUDER : participation in_progress + training sur q1.
+    await db.insert(examParticipations).values({
+      id: createId(),
+      examId: noPauseId,
+      userId: INTRUDER_ID,
+      status: "in_progress",
+      score: 0,
+      startedAt: new Date(now - 1000),
+    })
+    await seedCompletedTraining(INTRUDER_ID, qIds[1])
+    // q8 : examen CLOS + training complété → seuls les examens OUVERTS doivent
+    // bloquer la branche training. Participation in_progress : la branche examen
+    // (completed/auto_submitted) ne peut pas accorder q8 — si le test passe,
+    // c'est bien la branche training qui a servi l'explication.
+    const closedId = await makeExam({
+      questionIds: [qIds[8]],
+      startDate: now - 3 * DAY,
+      endDate: now - DAY,
+    })
+    await db.insert(examParticipations).values({
+      id: createId(),
+      examId: closedId,
+      userId: STUDENT_ID,
+      status: "in_progress",
+      score: 0,
+      startedAt: new Date(now - 3 * DAY + 1000),
+    })
+    await seedCompletedTraining(STUDENT_ID, qIds[8])
+  })
+
+  it("participation complétée sur un examen ouvert : le training ne révèle pas la question", async () => {
+    asStudent()
+    expect(await getExamQuestionExplanations([qIds[9]])).toEqual([])
+  })
+
+  it("participation in_progress sur un examen ouvert : le training ne révèle pas la question", async () => {
+    asIntruder()
+    expect(await getExamQuestionExplanations([qIds[1]])).toEqual([])
+  })
+
+  it("examen clos chevauchant : l'explication reste servie via le training", async () => {
+    asStudent()
+    expect(await getExamQuestionExplanations([qIds[8]])).toHaveLength(1)
+  })
+
+  it("branche examen : question d'un examen clos masquée si elle chevauche un examen ouvert", async () => {
+    // q0 : examen clos complété (pastExamId) MAIS aussi examens ouverts où
+    // STUDENT participe → la révélation post-endDate est différée.
+    asStudent()
+    expect(await getExamQuestionExplanations([examQIds[0]])).toEqual([])
+  })
+
+  it("getParticipantExamResults : correctAnswer/isCorrect masqués pour les questions chevauchant un examen ouvert", async () => {
+    asStudent()
+    const r = await getParticipantExamResults(pastExamId, STUDENT_ID)
+    expect(r && "participant" in r).toBe(true)
+    if (!r || "error" in r) return
+
+    const q0 = r.questions.find((q) => q._id === examQIds[0])
+    expect(q0).toBeDefined()
+    expect(q0?.correctAnswer).toBeUndefined()
+
+    const a0 = r.participant.answers.find((a) => a.questionId === examQIds[0])
+    expect(a0?.selectedAnswer).toBe("A")
+    expect(a0?.isCorrect).toBeNull()
+  })
+
+  it("getParticipantExamResults : examen clos sans chevauchement → correction servie", async () => {
+    asStudent()
+    const r = await getParticipantExamResults(closedOnlyExamId, STUDENT_ID)
+    expect(r && "participant" in r).toBe(true)
+    if (!r || "error" in r) return
+
+    expect(r.questions.find((q) => q._id === qIds[10])?.correctAnswer).toBe("A")
+    expect(
+      r.participant.answers.find((a) => a.questionId === qIds[10])?.isCorrect,
+    ).toBe(true)
   })
 })

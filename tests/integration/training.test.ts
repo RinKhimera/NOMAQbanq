@@ -10,9 +10,13 @@ import {
 } from "vitest"
 import { db } from "@/db"
 import {
+  examParticipations,
+  examQuestions,
+  exams,
   questionExplanations,
   questionImages,
   questions,
+  trainingSessionItems,
   trainingSessions,
   user,
 } from "@/db/schema"
@@ -355,5 +359,153 @@ describe("IDOR / propriété", () => {
       selectedAnswer: "A",
     })
     expect(save.success).toBe(false)
+  })
+})
+
+describe("anti-triche : correction training masquée pendant un examen ouvert", () => {
+  const DAY = 24 * 60 * 60 * 1000
+  const STUDENT2_ID = createId()
+  const completedSid = createId()
+  const tutorSid = createId()
+  // q0 : examen OUVERT (participation) → masqué. q1 : examen CLOS → servi.
+  // q2 : hors examen → servi.
+
+  const asStudent2 = () =>
+    vi.mocked(getCurrentSession).mockResolvedValue({
+      user: { id: STUDENT2_ID, role: "user" },
+    } as never)
+
+  const seedExam = async (endDate: Date, questionId: string) => {
+    const examId = createId()
+    await db.insert(exams).values({
+      id: examId,
+      title: `Exam lock ${suffix}`,
+      startDate: new Date(Date.now() - DAY),
+      endDate,
+      completionTime: 3600,
+      createdBy: STUDENT2_ID,
+    })
+    await db.insert(examQuestions).values({ examId, questionId, position: 0 })
+    await db.insert(examParticipations).values({
+      id: createId(),
+      examId,
+      userId: STUDENT2_ID,
+      status: "in_progress",
+      startedAt: new Date(),
+    })
+  }
+
+  const seedSession = async (o: {
+    id: string
+    mode: "tutor" | "test"
+    status: "in_progress" | "completed"
+    questionIds: string[]
+  }) => {
+    const now = Date.now()
+    await db.insert(trainingSessions).values({
+      id: o.id,
+      userId: STUDENT2_ID,
+      status: o.status,
+      mode: o.mode,
+      questionCount: o.questionIds.length,
+      startedAt: new Date(now - 3600_000),
+      completedAt: o.status === "completed" ? new Date(now - 1000) : null,
+      expiresAt: new Date(now + DAY),
+      score: o.status === "completed" ? 100 : null,
+    })
+    await db.insert(trainingSessionItems).values(
+      o.questionIds.map((questionId, position) => ({
+        id: createId(),
+        sessionId: o.id,
+        questionId,
+        position,
+        selectedAnswer: "A",
+        isCorrect: true,
+      })),
+    )
+  }
+
+  beforeAll(async () => {
+    await db.insert(user).values({
+      id: STUDENT2_ID,
+      name: "IT training lock",
+      email: `training-lock-${suffix}@test.invalid`,
+    })
+    await seedExam(new Date(Date.now() + DAY), qIds[0])
+    await seedExam(new Date(Date.now() - DAY), qIds[1])
+    await seedSession({
+      id: completedSid,
+      mode: "test",
+      status: "completed",
+      questionIds: [qIds[0], qIds[1], qIds[2]],
+    })
+    await seedSession({
+      id: tutorSid,
+      mode: "tutor",
+      status: "in_progress",
+      questionIds: [qIds[0], qIds[2]],
+    })
+  })
+
+  afterAll(async () => {
+    await db
+      .delete(trainingSessions)
+      .where(eq(trainingSessions.userId, STUDENT2_ID))
+    await db.delete(exams).where(eq(exams.createdBy, STUDENT2_ID))
+    await db.delete(user).where(eq(user.id, STUDENT2_ID))
+  })
+
+  const byId = <T extends { _id: string }>(qs: T[], id: string) =>
+    qs.find((q) => q._id === id)
+
+  it("getTrainingSessionResults : la question d'un examen ouvert est masquée, les autres servies", async () => {
+    asStudent2()
+    const r = await getTrainingSessionResults(completedSid)
+    expect(r && !("error" in r)).toBe(true)
+    if (!r || "error" in r) return
+
+    const locked = byId(r.questions, qIds[0])
+    expect(locked?.correctAnswer).toBeUndefined()
+    expect(locked?.explanation).toBeUndefined()
+    expect(locked?.references).toBeUndefined()
+
+    expect(byId(r.questions, qIds[1])?.correctAnswer).toBe("A")
+    expect(byId(r.questions, qIds[2])?.explanation).toContain("Explication")
+
+    // isCorrect + selectedAnswer révèle la clé : masqué pour la question
+    // verrouillée, servi pour les autres.
+    expect(r.answers[qIds[0]]?.selectedAnswer).toBe("A")
+    expect(r.answers[qIds[0]]?.isCorrect).toBeUndefined()
+    expect(r.answers[qIds[1]]?.isCorrect).toBe(true)
+  })
+
+  it("getTrainingSessionById (complétée) : même masquage", async () => {
+    asStudent2()
+    const v = await getTrainingSessionById(completedSid)
+    expect(v).not.toBeNull()
+    if (!v) return
+
+    expect(byId(v.questions, qIds[0])?.correctAnswer).toBeUndefined()
+    expect(byId(v.questions, qIds[1])?.correctAnswer).toBe("A")
+    expect(byId(v.questions, qIds[2])?.correctAnswer).toBe("A")
+
+    expect(v.answers[qIds[0]]?.selectedAnswer).toBe("A")
+    expect(v.answers[qIds[0]]?.isCorrect).toBeUndefined()
+    expect(v.answers[qIds[1]]?.isCorrect).toBe(true)
+  })
+
+  it("getTrainingSessionById (tuteur, question répondue) : masquage malgré la révélation tuteur", async () => {
+    asStudent2()
+    const v = await getTrainingSessionById(tutorSid)
+    expect(v).not.toBeNull()
+    if (!v) return
+
+    expect(byId(v.questions, qIds[0])?.correctAnswer).toBeUndefined()
+    expect(byId(v.questions, qIds[0])?.explanation).toBeUndefined()
+    expect(byId(v.questions, qIds[2])?.correctAnswer).toBe("A")
+
+    expect(v.answers[qIds[0]]?.selectedAnswer).toBe("A")
+    expect(v.answers[qIds[0]]?.isCorrect).toBeUndefined()
+    expect(v.answers[qIds[2]]?.isCorrect).toBe(true)
   })
 })
