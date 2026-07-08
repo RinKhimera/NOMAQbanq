@@ -71,9 +71,7 @@ export const getAdminOrNull = async () => {
   const ok = await auth.api.userHasPermission({
     body: {
       userId: session.user.id,
-      permissions: {
-        /* resource: ['action'] */
-      },
+      permissions: {/* resource: ['action'] */},
     },
   })
   return ok.success ? session : null

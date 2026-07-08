@@ -28,8 +28,7 @@ const MAX_PER_WINDOW: Record<UploadType, number> = {
 }
 
 export type RateLimitResult =
-  | { allowed: true }
-  | { allowed: false; retryAfterMinutes: number }
+  { allowed: true } | { allowed: false; retryAfterMinutes: number }
 
 /**
  * Consomme un slot d'upload pour `(userId, uploadType)`. Renvoie `allowed:false`

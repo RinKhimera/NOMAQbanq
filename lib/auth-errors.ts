@@ -3,9 +3,7 @@
 // porte le code HTTP (429 sur rate-limit). Le `kind` pilote l'UI des forms.
 
 export type AuthErrorKind =
-  | "invalid_credentials"
-  | "email_not_verified"
-  | "generic"
+  "invalid_credentials" | "email_not_verified" | "generic"
 
 export interface MappedAuthError {
   kind: AuthErrorKind

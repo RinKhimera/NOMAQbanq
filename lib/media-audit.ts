@@ -3,12 +3,7 @@
 import { avatarStoragePathFromImageValue } from "@/lib/cdn"
 
 export type ImageValueKind =
-  | "empty"
-  | "data"
-  | "google"
-  | "cdn-url"
-  | "raw-key"
-  | "external"
+  "empty" | "data" | "google" | "cdn-url" | "raw-key" | "external"
 
 /** Classe une valeur `user.image` polymorphe (inventaire d'audit). */
 export const classifyImageValue = (

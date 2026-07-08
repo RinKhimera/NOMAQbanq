@@ -24,11 +24,7 @@ import { cn } from "@/lib/utils"
 
 export type RoleFilter = "all" | "admin" | "user"
 export type AccessStatusFilter =
-  | "all"
-  | "active"
-  | "expiring"
-  | "expired"
-  | "never"
+  "all" | "active" | "expiring" | "expired" | "never"
 
 interface UsersFilterBarProps {
   searchQuery: string

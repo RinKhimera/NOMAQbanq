@@ -147,8 +147,7 @@ export const loadQuestionsForExport = async (filters: {
 }
 
 export type CreateQuestionResult =
-  | { success: true; id: string }
-  | { success: false; error: string }
+  { success: true; id: string } | { success: false; error: string }
 
 /**
  * [Admin] Crée une question + sa ligne d'explication (1:1) atomiquement.
@@ -272,8 +271,7 @@ const isForeignKeyViolation = (error: unknown): boolean => {
 }
 
 export type DeleteQuestionResult =
-  | { success: true; mode: "hard" | "soft" }
-  | { success: false; error: string }
+  { success: true; mode: "hard" | "soft" } | { success: false; error: string }
 
 /**
  * [Admin] Suppression HYBRIDE. On TENTE le hard delete ; les FK `restrict`

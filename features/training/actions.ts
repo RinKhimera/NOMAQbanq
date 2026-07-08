@@ -61,8 +61,7 @@ export const loadAvailableObjectifsCMC = async (
 // ============================================
 
 export type CreateTrainingSessionResult =
-  | { success: true; sessionId: string }
-  | { success: false; error: string }
+  { success: true; sessionId: string } | { success: false; error: string }
 
 /**
  * [Auth] Crée une session : sélectionne N questions aléatoires (domaine +
