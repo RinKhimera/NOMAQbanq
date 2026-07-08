@@ -459,12 +459,8 @@ git commit -m "refactor(routes): /dashboard→/tableau-de-bord (+ bienvenue, pai
 
 ```ts
 const nextConfig: NextConfig = {
-  experimental: {
-    /* … inchangé … */
-  },
-  images: {
-    /* … inchangé … */
-  },
+  experimental: {/* … inchangé … */},
+  images: {/* … inchangé … */},
   async redirects() {
     return [
       // — Étudiant — (spécifiques AVANT le wildcard de préfixe)

@@ -13,11 +13,7 @@ import {
 
 export type TransactionTypeFilter = "all" | "stripe" | "manual"
 export type TransactionStatusFilter =
-  | "all"
-  | "completed"
-  | "pending"
-  | "failed"
-  | "refunded"
+  "all" | "completed" | "pending" | "failed" | "refunded"
 
 interface TransactionFiltersProps {
   typeFilter: TransactionTypeFilter

@@ -36,8 +36,7 @@ const createExpiringAccess = (
   daysRemaining: overrides.daysRemaining ?? 3,
   user: {
     name: ("name" in overrides ? (overrides.name ?? null) : "Jean Dupont") as
-      | string
-      | null,
+      string | null,
     email: "jean@example.com" as string | undefined,
   },
 })

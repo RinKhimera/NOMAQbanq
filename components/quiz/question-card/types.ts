@@ -36,12 +36,7 @@ export type QuestionCardQuestion = Omit<
 
 // ===== Action Types =====
 export type QuestionActionType =
-  | "view"
-  | "edit"
-  | "delete"
-  | "add"
-  | "remove"
-  | "permanent-delete"
+  "view" | "edit" | "delete" | "add" | "remove" | "permanent-delete"
 
 export type ActionConfig = {
   type: QuestionActionType

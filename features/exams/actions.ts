@@ -84,8 +84,7 @@ export const loadExamAudience = async (
 // ============================================
 
 export type CreateExamResult =
-  | { success: true; examId: string }
-  | { success: false; error: string }
+  { success: true; examId: string } | { success: false; error: string }
 
 /**
  * [Admin] Crée un examen + ses questions ordonnées (table de jonction).

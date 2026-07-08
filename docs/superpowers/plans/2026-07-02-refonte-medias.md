@@ -772,8 +772,7 @@ const isForeignKeyViolation = (error: unknown): boolean => {
 }
 
 export type DeleteQuestionResult =
-  | { success: true; mode: "hard" | "soft" }
-  | { success: false; error: string }
+  { success: true; mode: "hard" | "soft" } | { success: false; error: string }
 
 /**
  * [Admin] Suppression HYBRIDE. On TENTE le hard delete ; les FK `restrict`
@@ -978,12 +977,7 @@ Attendu : FAIL (module inexistant).
 import { avatarStoragePathFromImageValue } from "@/lib/cdn"
 
 export type ImageValueKind =
-  | "empty"
-  | "data"
-  | "google"
-  | "cdn-url"
-  | "raw-key"
-  | "external"
+  "empty" | "data" | "google" | "cdn-url" | "raw-key" | "external"
 
 /** Classe une valeur `user.image` polymorphe (inventaire d'audit). */
 export const classifyImageValue = (
