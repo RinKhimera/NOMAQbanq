@@ -126,18 +126,31 @@ describe("getOpenExamQuestionIds (verrou anonyme)", () => {
 })
 
 describe("getRandomQuizQuestions", () => {
-  it("borne le nombre et filtre par domaine", async () => {
+  it("borne le nombre, filtre par domaine et exclut les examens ouverts", async () => {
     const three = await getRandomQuizQuestions({ domain: DOMAIN, count: 3 })
     expect(three).toHaveLength(3)
     expect(three.every((q) => q.domain === DOMAIN)).toBe(true)
 
-    const all = await getRandomQuizQuestions({ domain: DOMAIN, count: 50 })
-    expect(all).toHaveLength(5)
-    expect(new Set(all.map((q) => q._id))).toEqual(new Set(ids))
+    // qOpen (examen ouvert) n'est jamais servie ; qClosed (examen clos) l'est.
+    const servable = ids.filter((id) => id !== qOpen)
+    const all = await getRandomQuizQuestions({ domain: DOMAIN, count: 10 })
+    expect(new Set(all.map((q) => q._id))).toEqual(new Set(servable))
+  })
+
+  it("ne sert jamais une question d'un examen ouvert (tirages répétés)", async () => {
+    for (let i = 0; i < 5; i++) {
+      const items = await getRandomQuizQuestions({ domain: DOMAIN, count: 10 })
+      expect(items.map((q) => q._id)).not.toContain(qOpen)
+    }
+  })
+
+  it("clampe count à 10", async () => {
+    const items = await getRandomQuizQuestions({ count: 50 })
+    expect(items.length).toBeLessThanOrEqual(10)
   })
 
   it("ne fuite jamais correctAnswer ni explanation", async () => {
-    const items = await getRandomQuizQuestions({ domain: DOMAIN, count: 50 })
+    const items = await getRandomQuizQuestions({ domain: DOMAIN, count: 10 })
     for (const item of items) {
       expect(item).not.toHaveProperty("correctAnswer")
       expect(item).not.toHaveProperty("explanation")
@@ -145,7 +158,7 @@ describe("getRandomQuizQuestions", () => {
   })
 
   it("joint les images (URL CDN, triées par position)", async () => {
-    const items = await getRandomQuizQuestions({ domain: DOMAIN, count: 50 })
+    const items = await getRandomQuizQuestions({ domain: DOMAIN, count: 10 })
     const withImg = items.find((q) => q._id === qImg)
     expect(withImg?.images.map((i) => i.order)).toEqual([0, 1])
     expect(withImg?.images[0].url).toContain(`quiz/${suffix}/0.jpg`)
