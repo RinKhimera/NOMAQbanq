@@ -3,6 +3,7 @@ import { sendPendingNotifications } from "@/features/notifications/cron"
 import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { anonymizeExpiredDeletedAccounts } from "@/features/users/cron"
 import { env } from "@/lib/env/server"
+import { cleanupQuizRateLimits } from "@/lib/quiz-rate-limit"
 
 // Accès DB → runtime Node.
 export const runtime = "nodejs"
@@ -38,12 +39,17 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [examParticipations, trainingSessions, anonymizedAccounts] =
-      await Promise.all([
-        closeExpiredExamParticipations(),
-        closeExpiredTrainingSessions(),
-        anonymizeExpiredDeletedAccounts(),
-      ])
+    const [
+      examParticipations,
+      trainingSessions,
+      anonymizedAccounts,
+      quizRateLimitCleanup,
+    ] = await Promise.all([
+      closeExpiredExamParticipations(),
+      closeExpiredTrainingSessions(),
+      anonymizeExpiredDeletedAccounts(),
+      cleanupQuizRateLimits(),
+    ])
 
     // APRÈS les clôtures (pour inclure les `auto_submitted` du même run).
     const notifications = await sendPendingNotifications()
@@ -69,6 +75,7 @@ export async function GET(request: Request) {
       trainingSessions,
       anonymizedAccounts,
       notifications,
+      quizRateLimitCleanup,
     })
   } catch (error) {
     // Erreur inattendue (DB…) → 500 ; Vercel logue + réessaie à la prochaine heure.

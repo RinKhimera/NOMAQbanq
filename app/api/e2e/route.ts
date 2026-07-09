@@ -9,6 +9,7 @@ import {
   products,
   questionImages,
   questions,
+  quizRateLimits,
   trainingSessionItems,
   trainingSessions,
   transactions,
@@ -116,10 +117,18 @@ async function resetExam(userEmail: string) {
     .where(eq(trainingSessions.userId, u.id))
     .returning({ id: trainingSessions.id })
 
+  // Purge les compteurs du rate-limit quiz public (#91) : en local toutes les
+  // requêtes partagent un bucket IP → sans purge, les runs e2e successifs de
+  // evaluation-quiz.spec.ts saturent la limite (30/h) et la suite flake.
+  const quizRateLimitRows = await db
+    .delete(quizRateLimits)
+    .returning({ id: quizRateLimits.id })
+
   return {
     userFound: true as const,
     deletedParticipations,
     deletedTrainingSessions: trainingRows.length,
+    deletedQuizRateLimits: quizRateLimitRows.length,
     activeExamId,
   }
 }
