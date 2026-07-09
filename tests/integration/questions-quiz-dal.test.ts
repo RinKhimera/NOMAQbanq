@@ -1,4 +1,5 @@
 import { eq, inArray } from "drizzle-orm"
+import { headers } from "next/headers"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
@@ -7,15 +8,21 @@ import {
   questionExplanations,
   questionImages,
   questions,
+  quizRateLimits,
   user,
 } from "@/db/schema"
 import { getOpenExamQuestionIds } from "@/features/exams/dal"
-import { scoreQuizAnswers } from "@/features/questions/actions"
+import {
+  loadRandomQuizQuestions,
+  scoreQuizAnswers,
+} from "@/features/questions/actions"
 import {
   getQuizAnswerKey,
   getRandomQuizQuestions,
 } from "@/features/questions/dal"
+import { signQuizToken, verifyQuizToken } from "@/features/questions/quiz-token"
 import { createId } from "@/lib/ids"
+import { getClientIpKey } from "@/lib/quiz-rate-limit"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -26,6 +33,23 @@ vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(),
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("next/headers", () => ({ headers: vi.fn() }))
+
+// Chaque test prend une "IP" unique (chaîne arbitraire : elle est HMAC-ée) →
+// compteurs indépendants entre tests. Les IPs utilisées sont tracées pour le
+// cleanup (les clés stockées sont des HMAC, non corrélables sans re-calcul).
+// `setIpHeader` (mock seul, ne mute PAS usedIps) est ce que le cleanup
+// utilise — itérer usedIps avec une fonction qui y push serait une boucle
+// infinie (revue design 2026-07-09, constat #3).
+const usedIps: string[] = []
+const setIpHeader = (ip: string) =>
+  vi
+    .mocked(headers)
+    .mockResolvedValue(new Headers({ "x-forwarded-for": ip }) as never)
+const withIp = (ip: string) => {
+  usedIps.push(ip)
+  setIpHeader(ip)
+}
 
 const suffix = createId().slice(0, 8)
 const DOMAIN = `QUIZ-${suffix}`
@@ -100,6 +124,12 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
+  for (const ip of usedIps) {
+    setIpHeader(ip)
+    await db
+      .delete(quizRateLimits)
+      .where(eq(quizRateLimits.key, await getClientIpKey()))
+  }
   await db.delete(exams).where(inArray(exams.id, [examOpenId, examClosedId]))
   await db.delete(questionImages).where(inArray(questionImages.questionId, ids))
   await db
@@ -187,17 +217,25 @@ describe("getQuizAnswerKey", () => {
 })
 
 describe("scoreQuizAnswers (action publique)", () => {
-  it("score côté serveur + renvoie l'explication ; ignore les ids inconnus", async () => {
+  const EMPTY = { score: 0, totalQuestions: 0, questionResults: [] }
+
+  it("score avec un jeton valide ; les ids hors jeton sont omis (anti-moisson)", async () => {
+    withIp(`ip-${createId()}`)
+    const token = signQuizToken([qImg, q2])
     const result = await scoreQuizAnswers({
+      token,
       answers: [
         { questionId: qImg, selectedAnswer: "A" }, // correct
         { questionId: q2, selectedAnswer: "mauvaise" }, // incorrect
-        { questionId: createId(), selectedAnswer: null }, // inconnu → ignoré
+        { questionId: ids[4], selectedAnswer: "C" }, // HORS jeton → omis
       ],
     })
 
     expect(result.score).toBe(1)
     expect(result.totalQuestions).toBe(2)
+    expect(result.questionResults.map((r) => r.questionId)).not.toContain(
+      ids[4],
+    )
     const imgResult = result.questionResults.find((r) => r.questionId === qImg)
     expect(imgResult).toMatchObject({
       isCorrect: true,
@@ -205,5 +243,125 @@ describe("scoreQuizAnswers (action publique)", () => {
       explanation: "Exp img",
       references: ["R1", "R2"],
     })
+  })
+
+  it("refuse de servir la clé d'ids arbitraires sans jeton les couvrant", async () => {
+    withIp(`ip-${createId()}`)
+    const token = signQuizToken([q2])
+    const result = await scoreQuizAnswers({
+      token,
+      answers: [{ questionId: qImg, selectedAnswer: "A" }],
+    })
+    expect(result).toEqual(EMPTY)
+  })
+
+  it("refuse un jeton falsifié ou malformé", async () => {
+    withIp(`ip-${createId()}`)
+    const valid = signQuizToken([qImg])
+    const tampered = valid.endsWith("A")
+      ? `${valid.slice(0, -1)}B`
+      : `${valid.slice(0, -1)}A`
+    for (const bad of [tampered, "abc"]) {
+      const result = await scoreQuizAnswers({
+        token: bad,
+        answers: [{ questionId: qImg, selectedAnswer: "A" }],
+      })
+      expect(result).toEqual(EMPTY)
+    }
+  })
+
+  it("refuse un jeton expiré", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(Date.now() - 2 * 60 * 60 * 1000)
+    const stale = signQuizToken([qImg])
+    vi.useRealTimers()
+
+    withIp(`ip-${createId()}`)
+    const result = await scoreQuizAnswers({
+      token: stale,
+      answers: [{ questionId: qImg, selectedAnswer: "A" }],
+    })
+    expect(result).toEqual(EMPTY)
+  })
+
+  it("n'expose jamais la clé d'une question d'examen ouvert, même sous jeton valide (examen ouvert après émission)", async () => {
+    withIp(`ip-${createId()}`)
+    const token = signQuizToken([qOpen, q2])
+    const result = await scoreQuizAnswers({
+      token,
+      answers: [
+        { questionId: qOpen, selectedAnswer: "C" },
+        { questionId: q2, selectedAnswer: "B" },
+      ],
+    })
+    expect(result.questionResults.map((r) => r.questionId)).toEqual([q2])
+    expect(result.totalQuestions).toBe(1)
+  })
+
+  it("refuse une entrée hors bornes zod (> 10 réponses)", async () => {
+    withIp(`ip-${createId()}`)
+    const token = signQuizToken([qImg])
+    const result = await scoreQuizAnswers({
+      token,
+      answers: Array.from({ length: 11 }, () => ({
+        questionId: qImg,
+        selectedAnswer: "A",
+      })),
+    })
+    expect(result).toEqual(EMPTY)
+  })
+
+  it("refuse au-delà de 30 scorings/h pour la même IP", async () => {
+    withIp(`ip-${createId()}`)
+    const token = signQuizToken([q2])
+    for (let i = 0; i < 30; i++) {
+      const r = await scoreQuizAnswers({
+        token,
+        answers: [{ questionId: q2, selectedAnswer: "B" }],
+      })
+      expect(r.totalQuestions).toBe(1)
+    }
+    const refused = await scoreQuizAnswers({
+      token,
+      answers: [{ questionId: q2, selectedAnswer: "B" }],
+    })
+    expect(refused).toEqual(EMPTY)
+  })
+})
+
+describe("loadRandomQuizQuestions (action publique)", () => {
+  it("renvoie les questions et un jeton couvrant exactement les ids servis", async () => {
+    withIp(`ip-${createId()}`)
+    const bundle = await loadRandomQuizQuestions({
+      count: 3,
+      domain: DOMAIN,
+    })
+    expect(bundle.questions).toHaveLength(3)
+    expect(bundle.token).not.toBeNull()
+    expect(verifyQuizToken(bundle.token!)).toEqual(
+      new Set(bundle.questions.map((q) => q._id)),
+    )
+  })
+
+  it("refuse au-delà de 30 tirages/h pour la même IP", async () => {
+    withIp(`ip-${createId()}`)
+    for (let i = 0; i < 30; i++) {
+      const bundle = await loadRandomQuizQuestions({
+        count: 1,
+        domain: DOMAIN,
+      })
+      expect(bundle.token).not.toBeNull()
+    }
+    const refused = await loadRandomQuizQuestions({
+      count: 1,
+      domain: DOMAIN,
+    })
+    expect(refused).toEqual({ questions: [], token: null })
+  })
+
+  it("refuse un count non numérique (zod) sans throw", async () => {
+    withIp(`ip-${createId()}`)
+    const bundle = await loadRandomQuizQuestions({ count: "abc" as never })
+    expect(bundle).toEqual({ questions: [], token: null })
   })
 })
