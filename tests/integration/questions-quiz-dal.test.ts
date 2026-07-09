@@ -1,7 +1,15 @@
-import { inArray } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
-import { questionExplanations, questionImages, questions } from "@/db/schema"
+import {
+  examQuestions,
+  exams,
+  questionExplanations,
+  questionImages,
+  questions,
+  user,
+} from "@/db/schema"
+import { getOpenExamQuestionIds } from "@/features/exams/dal"
 import { scoreQuizAnswers } from "@/features/questions/actions"
 import {
   getQuizAnswerKey,
@@ -27,6 +35,15 @@ const qImg = createId()
 const q2 = createId()
 const ids = [qImg, q2, createId(), createId(), createId()] // 5 au total
 
+// qOpen appartient à un examen OUVERT (endDate future) → verrouillée pour le
+// canal public ; qClosed appartient à un examen CLOS uniquement → témoin
+// (l'examen clos ne verrouille pas, pattern q10 de exams.test.ts).
+const qOpen = ids[2]
+const qClosed = ids[3]
+const examCreatorId = createId()
+const examOpenId = createId()
+const examClosedId = createId()
+
 const mkQuestion = (id: string, correct: string) =>
   db.insert(questions).values({
     id,
@@ -51,14 +68,61 @@ beforeAll(async () => {
     { questionId: qImg, storagePath: `quiz/${suffix}/1.jpg`, position: 1 },
     { questionId: qImg, storagePath: `quiz/${suffix}/0.jpg`, position: 0 },
   ])
+
+  await db.insert(user).values({
+    id: examCreatorId,
+    name: "Créateur Examen Quiz",
+    email: `quiz91-${suffix}@test.invalid`,
+    emailVerified: true,
+  })
+  await db.insert(exams).values([
+    {
+      id: examOpenId,
+      title: `Examen ouvert ${suffix}`,
+      startDate: new Date(Date.now() - 60 * 60 * 1000),
+      endDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      completionTime: 3600,
+      createdBy: examCreatorId,
+    },
+    {
+      id: examClosedId,
+      title: `Examen clos ${suffix}`,
+      startDate: new Date(Date.now() - 48 * 60 * 60 * 1000),
+      endDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      completionTime: 3600,
+      createdBy: examCreatorId,
+    },
+  ])
+  await db.insert(examQuestions).values([
+    { examId: examOpenId, questionId: qOpen, position: 0 },
+    { examId: examClosedId, questionId: qClosed, position: 0 },
+  ])
 })
 
 afterAll(async () => {
+  await db.delete(exams).where(inArray(exams.id, [examOpenId, examClosedId]))
   await db.delete(questionImages).where(inArray(questionImages.questionId, ids))
   await db
     .delete(questionExplanations)
     .where(inArray(questionExplanations.questionId, ids))
   await db.delete(questions).where(inArray(questions.id, ids))
+  await db.delete(user).where(eq(user.id, examCreatorId))
+})
+
+describe("getOpenExamQuestionIds (verrou anonyme)", () => {
+  it("verrouille les questions d'un examen ouvert, pas celles d'un examen clos", async () => {
+    const locked = await getOpenExamQuestionIds([
+      qOpen,
+      qClosed,
+      q2,
+      createId(),
+    ])
+    expect(locked).toEqual(new Set([qOpen]))
+  })
+
+  it("Set vide pour une liste vide", async () => {
+    expect((await getOpenExamQuestionIds([])).size).toBe(0)
+  })
 })
 
 describe("getRandomQuizQuestions", () => {

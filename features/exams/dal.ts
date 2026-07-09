@@ -738,6 +738,31 @@ export const getOpenExamLockedQuestionIds = async (
 }
 
 /**
+ * Variante ANONYME de `getOpenExamLockedQuestionIds` : parmi `questionIds`,
+ * celles figurant dans AU MOINS un examen ouvert (`endDate` future), sans
+ * dimension utilisateur. Canal public du quiz marketing (#91) : l'appelant
+ * étant anonyme, la clé d'une question d'examen ouvert ne doit fuiter pour
+ * PERSONNE — une question aussi présente dans un examen clos reste verrouillée
+ * (l'examen ouvert prime).
+ */
+export const getOpenExamQuestionIds = async (
+  questionIds: string[],
+): Promise<Set<string>> => {
+  if (questionIds.length === 0) return new Set()
+  const rows = await db
+    .selectDistinct({ questionId: examQuestions.questionId })
+    .from(examQuestions)
+    .innerJoin(exams, eq(exams.id, examQuestions.examId))
+    .where(
+      and(
+        gt(exams.endDate, new Date()),
+        inArray(examQuestions.questionId, questionIds),
+      ),
+    )
+  return new Set(rows.map((r) => r.questionId))
+}
+
+/**
  * Explications à la demande (déplier une question dans les résultats). Sécurité :
  * admin (bypass) OU l'utilisateur a une session de training COMPLÉTÉE contenant
  * la question, OU une participation COMPLÉTÉE à un examen **CLOS** (`endDate`
