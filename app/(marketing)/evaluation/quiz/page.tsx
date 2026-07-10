@@ -50,17 +50,21 @@ export default function QuizPage() {
     if (questionsLoadedRef.current) return
     questionsLoadedRef.current = true
 
-    loadRandomQuizQuestions({ count: 10 }).then((bundle) => {
-      setQuizBundle(bundle)
-      if (bundle.questions.length > 0 && bundle.questions.length < 10) {
-        setQuizState((prev) => ({
-          ...prev,
-          userAnswers: new Array(bundle.questions.length).fill(null),
-          timeRemaining: bundle.questions.length * 20,
-          totalTime: bundle.questions.length * 20,
-        }))
-      }
-    })
+    loadRandomQuizQuestions({ count: 10 })
+      .then((bundle) => {
+        setQuizBundle(bundle)
+        if (bundle.questions.length > 0 && bundle.questions.length < 10) {
+          setQuizState((prev) => ({
+            ...prev,
+            userAnswers: new Array(bundle.questions.length).fill(null),
+            timeRemaining: bundle.questions.length * 20,
+            totalTime: bundle.questions.length * 20,
+          }))
+        }
+      })
+      // Rejet de l'action (réseau coupé, throw serveur) → bundle vide plutôt
+      // que le loader infini : le rendu bascule sur « momentanément indisponible ».
+      .catch(() => setQuizBundle({ questions: [], token: null }))
   }, [])
 
   // Timer - utiliser setInterval pour décrémenter le temps
@@ -100,30 +104,36 @@ export default function QuizPage() {
       selectedAnswer: quizState.userAnswers[i],
     }))
 
-    scoreQuizAnswers({ answers, token }).then((result) => {
-      // Refus silencieux serveur (jeton expiré, rate-limit, verrou examen
-      // total) → écran « session expirée », pas de résultats à trous.
-      if (result.totalQuestions === 0) {
-        setScoreFailed(true)
-        return
-      }
-      const resultMap = new Map(
-        result.questionResults.map((r) => [r.questionId, r]),
-      )
-      const merged = served.map((q) => {
-        const scored = resultMap.get(q._id)
-        return {
-          ...q,
-          correctAnswer: scored?.correctAnswer ?? "",
-          explanation: scored?.explanation ?? "",
-          references: scored?.references ?? [],
-          // Images d'explication révélées avec la clé de correction — rendues
-          // par `QuestionCard variant="review"` uniquement (jamais en passation).
-          explanationImages: scored?.explanationImages ?? [],
-        } satisfies QuestionDoc
+    scoreQuizAnswers({ answers, token })
+      .then((result) => {
+        // Refus TOTAL du serveur (jeton expiré, rate-limit, ou toutes les
+        // questions verrouillées par un examen ouvert) → écran « session
+        // expirée ». Un verrou PARTIEL (rare : examen ouvert pendant la vie du
+        // jeton couvrant une partie du lot) laisse ces questions avec
+        // `correctAnswer: ""` — compromis assumé (spec § menace résiduelle).
+        if (result.totalQuestions === 0) {
+          setScoreFailed(true)
+          return
+        }
+        const resultMap = new Map(
+          result.questionResults.map((r) => [r.questionId, r]),
+        )
+        const merged = served.map((q) => {
+          const scored = resultMap.get(q._id)
+          return {
+            ...q,
+            correctAnswer: scored?.correctAnswer ?? "",
+            explanation: scored?.explanation ?? "",
+            references: scored?.references ?? [],
+            // Images d'explication révélées avec la clé de correction — rendues
+            // par `QuestionCard variant="review"` uniquement (jamais en passation).
+            explanationImages: scored?.explanationImages ?? [],
+          } satisfies QuestionDoc
+        })
+        setScoredResults({ score: result.score, mergedQuestions: merged })
       })
-      setScoredResults({ score: result.score, mergedQuestions: merged })
-    })
+      // Rejet de l'action → même écran que le refus total (pas de loader figé).
+      .catch(() => setScoreFailed(true))
   }, [quizState.isCompleted, quizBundle, quizState.userAnswers])
 
   // Scroll vers le haut quand la question change

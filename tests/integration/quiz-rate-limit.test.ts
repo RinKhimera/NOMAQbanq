@@ -1,4 +1,5 @@
 import { eq } from "drizzle-orm"
+import { headers } from "next/headers"
 import { afterAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { quizRateLimits } from "@/db/schema"
@@ -6,11 +7,13 @@ import { createId } from "@/lib/ids"
 import {
   cleanupQuizRateLimits,
   consumeQuizRateLimit,
+  getClientIpKey,
 } from "@/lib/quiz-rate-limit"
 
-// getClientIpKey (next/headers) n'est pas exercé ici — on teste le compteur
-// avec des clés synthétiques ; le mock évite juste l'import RSC.
 vi.mock("next/headers", () => ({ headers: vi.fn() }))
+
+const mockHeaders = (h: Record<string, string>) =>
+  vi.mocked(headers).mockResolvedValue(new Headers(h) as never)
 
 const keyA = `test-key-${createId()}`
 const keyB = `test-key-${createId()}`
@@ -41,6 +44,32 @@ describe("consumeQuizRateLimit", () => {
       .set({ windowStart: new Date(Date.now() - 61 * 60 * 1000) })
       .where(eq(quizRateLimits.key, keyA))
     expect(await consumeQuizRateLimit(keyA, "load")).toBe(true)
+  })
+})
+
+describe("getClientIpKey", () => {
+  it("dérive la clé du premier élément de x-forwarded-for", async () => {
+    mockHeaders({ "x-forwarded-for": "9.9.9.9, 10.0.0.1" })
+    const fromXff = await getClientIpKey()
+    // Même IP via x-forwarded-for direct → même clé (1er élément retenu).
+    mockHeaders({ "x-forwarded-for": "9.9.9.9" })
+    expect(await getClientIpKey()).toBe(fromXff)
+  })
+
+  it("retombe sur x-real-ip quand x-forwarded-for est absent (même clé pour la même IP)", async () => {
+    mockHeaders({ "x-forwarded-for": "9.9.9.9" })
+    const fromXff = await getClientIpKey()
+    mockHeaders({ "x-real-ip": "9.9.9.9" })
+    expect(await getClientIpKey()).toBe(fromXff)
+  })
+
+  it("retombe sur le bucket « unknown » sans aucun en-tête d'IP", async () => {
+    mockHeaders({})
+    const unknown = await getClientIpKey()
+    mockHeaders({ "x-forwarded-for": "9.9.9.9" })
+    expect(await getClientIpKey()).not.toBe(unknown)
+    // Clé stable : jamais l'IP en clair, longueur bornée (HMAC tronqué).
+    expect(unknown).toHaveLength(32)
   })
 })
 

@@ -298,6 +298,20 @@ describe("scoreQuizAnswers (action publique)", () => {
     expect(result.totalQuestions).toBe(1)
   })
 
+  it("déduplique un id répété dans answers (compté une seule fois)", async () => {
+    withIp(`ip-${createId()}`)
+    const token = signQuizToken([q2])
+    const result = await scoreQuizAnswers({
+      token,
+      answers: [
+        { questionId: q2, selectedAnswer: "B" },
+        { questionId: q2, selectedAnswer: "B" },
+      ],
+    })
+    expect(result.totalQuestions).toBe(1)
+    expect(result.score).toBe(1)
+  })
+
   it("refuse une entrée hors bornes zod (> 10 réponses)", async () => {
     withIp(`ip-${createId()}`)
     const token = signQuizToken([qImg])
