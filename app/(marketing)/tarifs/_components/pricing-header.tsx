@@ -4,6 +4,7 @@ import { Award, CircleCheckBig, Sparkles, Star, Users } from "lucide-react"
 import { motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MARKETING_CLAIMS } from "@/constants"
 import { useMarketingStats } from "@/hooks/useMarketingStats"
 
 export const PricingHeader = () => {
@@ -134,7 +135,7 @@ export const PricingHeader = () => {
               ))}
             </div>
             <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-              4.9/5
+              {MARKETING_CLAIMS.rating}
             </span>
           </motion.div>
         </div>

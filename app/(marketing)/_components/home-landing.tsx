@@ -21,6 +21,7 @@ import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MARKETING_CLAIMS } from "@/constants"
 import { useMarketingStats } from "@/hooks/useMarketingStats"
 
 export default function HomeLanding() {
@@ -209,7 +210,8 @@ export default function HomeLanding() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        85% de réussite
+                        {stats?.successRate ?? MARKETING_CLAIMS.successRate} de
+                        réussite
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Taux de succès
@@ -222,7 +224,7 @@ export default function HomeLanding() {
                   <div className="flex items-center space-x-2">
                     <Star className="h-5 w-5 fill-current text-yellow-500" />
                     <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      4.9/5
+                      {MARKETING_CLAIMS.rating}
                     </span>
                   </div>
                 </div>

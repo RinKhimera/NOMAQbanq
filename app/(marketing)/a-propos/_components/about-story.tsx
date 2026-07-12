@@ -2,6 +2,7 @@
 
 import { Heart, Star } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { MARKETING_CLAIMS } from "@/constants"
 import { useMarketingStats } from "@/hooks/useMarketingStats"
 
 export default function AboutStory() {
@@ -30,8 +31,9 @@ export default function AboutStory() {
           </p>
           <p>
             Aujourd&apos;hui, nous accompagnons des centaines de candidats vers
-            la réussite, avec un taux de succès de {stats?.successRate ?? "85%"}{" "}
-            parmi nos utilisateurs actifs.
+            la réussite, avec un taux de succès de{" "}
+            {stats?.successRate ?? MARKETING_CLAIMS.successRate} parmi nos
+            utilisateurs actifs.
           </p>
         </div>
 
