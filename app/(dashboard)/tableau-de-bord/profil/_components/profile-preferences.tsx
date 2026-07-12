@@ -5,7 +5,6 @@ import { Monitor } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import { useTheme } from "next-themes"
 import { useSyncExternalStore } from "react"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { NotificationPreferences } from "@/features/notifications/dal"
 import { cn } from "@/lib/utils"
@@ -21,7 +20,6 @@ const PreferenceItem = ({
   label,
   description,
   children,
-  disabled = false,
   responsive = false,
 }: {
   icon: React.ComponentType<{ className?: string }>
@@ -30,18 +28,12 @@ const PreferenceItem = ({
   label: string
   description: string
   children: React.ReactNode
-  disabled?: boolean
   responsive?: boolean
 }) => {
   // Version responsive avec container queries
   if (responsive) {
     return (
-      <div
-        className={cn(
-          "@container rounded-xl p-4 transition-colors",
-          disabled && "opacity-60",
-        )}
-      >
+      <div className="@container rounded-xl p-4 transition-colors">
         <div className="flex flex-col gap-4 @[420px]:flex-row @[420px]:items-start">
           <div className="flex items-start gap-4 @[420px]:flex-1">
             <div
@@ -73,12 +65,7 @@ const PreferenceItem = ({
 
   // Version standard (non responsive)
   return (
-    <div
-      className={cn(
-        "flex items-start gap-4 rounded-xl p-4 transition-colors",
-        disabled && "opacity-60",
-      )}
-    >
+    <div className="flex items-start gap-4 rounded-xl p-4 transition-colors">
       <div
         className={cn(
           "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
@@ -88,17 +75,7 @@ const PreferenceItem = ({
         <Icon className={cn("h-5 w-5", iconColorClass)} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="font-medium text-gray-900 dark:text-white">{label}</p>
-          {disabled && (
-            <Badge
-              variant="secondary"
-              className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-gray-800"
-            >
-              Bientôt
-            </Badge>
-          )}
-        </div>
+        <p className="font-medium text-gray-900 dark:text-white">{label}</p>
         <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
           {description}
         </p>
