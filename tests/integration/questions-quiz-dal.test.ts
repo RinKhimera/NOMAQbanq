@@ -258,9 +258,12 @@ describe("scoreQuizAnswers (action publique)", () => {
   it("refuse un jeton falsifié ou malformé", async () => {
     withIp(`ip-${createId()}`)
     const valid = signQuizToken([qImg])
-    const tampered = valid.endsWith("A")
-      ? `${valid.slice(0, -1)}B`
-      : `${valid.slice(0, -1)}A`
+    // Altère le PAYLOAD (1er segment) : c'est l'entrée string du HMAC, donc tout
+    // changement casse la signature de façon déterministe. Altérer la SIGNATURE
+    // serait flaky — flipper son dernier char base64url ne change que des bits de
+    // padding et peut décoder aux mêmes octets → jeton accepté par hasard.
+    const [payloadB64, sigB64] = valid.split(".")
+    const tampered = `${payloadB64[0] === "a" ? "b" : "a"}${payloadB64.slice(1)}.${sigB64}`
     for (const bad of [tampered, "abc"]) {
       const result = await scoreQuizAnswers({
         token: bad,
