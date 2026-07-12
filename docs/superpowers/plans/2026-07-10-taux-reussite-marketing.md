@@ -188,6 +188,7 @@ import { getMarketingStats } from "@/features/marketing/dal"
 import {
   MIN_COMPLETED_PARTICIPATIONS,
   SUCCESS_SCORE_THRESHOLD,
+  resolveSuccessRate,
 } from "@/features/marketing/lib"
 import { createId } from "@/lib/ids"
 
@@ -266,22 +267,16 @@ describe("getMarketingStats — successRate calculé", () => {
     expect(stats).not.toHaveProperty("rating")
   })
 
-  it("publie un taux calculé quand volume ≥ seuil et taux ≥ plancher", async () => {
-    // N participations 100 % réussies s'ajoutent à la baseline. Le total dépasse
-    // le seuil de volume ; le taux global reste ≥ 70 % TANT que la baseline de la
-    // branche de test ne contient pas une majorité d'échecs. Assertion robuste :
-    // le taux publié est un « NN% » cohérent avec l'agrégat réel (pas l'éditorial
-    // par défaut si le calcul s'applique).
+  it("câble l'agrégat SQL sur resolveSuccessRate (oracle exact, baseline develop quelconque)", async () => {
+    // La branche de test est clonée de develop (scripts/neon-api.ts), donc la
+    // baseline n'est JAMAIS vide : l'oracle recalcule l'agrégat indépendamment
+    // et exige l'égalité avec la bascule — exact quelle que soit la baseline
+    // (revue design 2026-07-12, constat #1 : l'ancien if/else était tautologique
+    // dans sa branche else).
     const agg = await baselineAgg()
-    const rate = Math.round((agg.passed / agg.completed) * 100)
     const stats = await getMarketingStats()
-    // Le total franchit le seuil (N ≥ 50) : si le taux réel ≥ 70, on l'affiche.
-    if (rate >= 70) {
-      expect(stats.successRate).toBe(`${rate}%`)
-    } else {
-      // Baseline très défavorable (improbable sur branche fraîche) → éditorial.
-      expect(stats.successRate).toMatch(/%$/)
-    }
+    expect(stats.successRate).toBe(resolveSuccessRate(agg))
+    // Nos N insertions garantissent le franchissement du seuil de volume.
     expect(agg.completed).toBeGreaterThanOrEqual(MIN_COMPLETED_PARTICIPATIONS)
   })
 })
@@ -290,7 +285,10 @@ describe("getMarketingStats — successRate calculé", () => {
 - [ ] **Step 2: Vérifier le rouge**
 
 Run: `bun run test:integration`
-Expected: FAIL — `stats` a encore `rating` (« ne renvoie plus rating » échoue) et `successRate` vaut `"85%"` en dur (le second test échoue si le taux calculé ≠ 85 %). Le reste de la suite reste vert.
+Expected: FAIL — le RED **déterministe** est le test `rating` (« ne renvoie plus
+rating » échoue tant que le champ existe). Le test d'oracle exact échoue AUSSI
+dès que `resolveSuccessRate(agg) ≠ "85%"` (taux réel ≥ 70 % différent de 85) —
+mais ne compte pas comme seul témoin du rouge. Le reste de la suite reste vert.
 
 (Coût : ~90-120 s par run Neon. 1 RED + 1 GREEN suffisent.)
 
@@ -307,7 +305,7 @@ import { SUCCESS_SCORE_THRESHOLD, resolveSuccessRate } from "./lib"
 
 (l'import drizzle `isNull, sql` existe déjà.)
 
-Retirer `successRate` et `rating` du type :
+Retirer `rating` du type (`successRate` RESTE, il devient calculé) :
 
 ```ts
 export type MarketingStats = {
@@ -324,6 +322,9 @@ export type MarketingStats = {
 Après le `count(*)` users, ajouter l'agrégat participations :
 
 ```ts
+// Pas de jointure user : les participations de comptes soft-deleted COMPTENT
+// (un passage d'examen réel reste un point de donnée du taux — on mesure des
+// passages, pas des comptes actifs ; décision revue design 2026-07-12).
 const [participationAgg] = await db
   .select({
     completed:
@@ -456,12 +457,14 @@ description: `Notre mission : accompagner les médecins francophones vers la ré
 
 ```bash
 grep -rn "85%" app features
-grep -rn "4\.9" app features
+grep -rn "4\.9/5" app features
 ```
 
-Expected : ne matchent plus que la définition de `MARKETING_CLAIMS` (dans
-`constants/`, hors `app`/`features` — donc idéalement **zéro** match dans
-`app`/`features`). Un reliquat `85%`/`4.9` en dur = à corriger.
+Expected : **zéro** match dans `app`/`features` (la constante vit dans
+`constants/`, hors périmètre). Motif `4\.9/5` et NON `4\.9` : les paths SVG du
+logo Google dans `app/(auth)` contiennent « 14.97 » qui matche `4\.9` — ne PAS
+« corriger » ces SVG (revue design 2026-07-12, constat #2). Un reliquat
+`85%`/`4.9/5` en dur = à corriger.
 
 Run: `bun run check && bun run test`
 Expected: PASS partout.

@@ -1,7 +1,11 @@
 # Spec — Taux de réussite marketing honnête et centralisé (#84 + #85)
 
 **Date** : 2026-07-10
-**Statut** : validé (brainstorming) — en attente de revue adversariale design
+**Statut** : validé (brainstorming) ; revue adversariale design du 2026-07-12
+triée — oracle du test d'intégration rendu exact (`toBe(resolveSuccessRate(agg))`,
+la branche Neon de test est clonée de `develop`, jamais « fraîche »), critère
+grep affiné (`4\.9/5`), sémantique du dénominateur tranchée (les participations
+de comptes soft-deleted comptent)
 **Issues** : #84 (centralisation éditoriale, `good first issue`) + #85 (vrai calcul,
 dépend de #84). Sous-issues de l'epic #78. Traitées ensemble (une seule spec /
 un seul plan) car #85 réconcilie le type que #84 rend honnête.
@@ -112,6 +116,14 @@ const [participationAgg] = await db
 
 `successRate: resolveSuccessRate({ completed: participationAgg?.completed ?? 0, passed: participationAgg?.passed ?? 0 })`.
 
+**Dénominateur — comptes supprimés (revue 2026-07-12, constat #3)** : l'agrégat
+ne joint PAS `user` et compte donc aussi les participations de comptes
+soft-deleted, contrairement à `totalUsers` (qui exclut `deletedAt`). **Assumé et
+documenté dans le code** : un passage d'examen réel reste un point de donnée du
+taux de réussite même si le compte a été supprimé ensuite — le taux mesure des
+passages, pas des comptes actifs. Bonus : l'agrégat reste UNE requête sans
+jointure (critère #85).
+
 ## 4. Points d'affichage
 
 | Fichier / ligne                                    | Aujourd'hui                             | Après                                                                                                                                                                |
@@ -148,12 +160,15 @@ constante.
   participation (pas de division par zéro). Assertions sur la constante réelle
   `MARKETING_CLAIMS.successRate`.
 - **Intégration** (`tests/integration/marketing-dal.test.ts`, branche Neon) —
-  l'agrégat SQL en **delta-vs-baseline** (table `exam_participations` partagée
-  entre fichiers : lire la baseline `completed`/`passed`, insérer des
-  participations connues via un examen + N users dédiés — contrainte `UNIQUE(examId,
-userId)` oblige des users distincts —, assert le delta ; cleanup FK exams→users).
-  Vérifie que `getMarketingStats().successRate` reflète le calcul quand le total
-  (baseline + insérées) dépasse 50 et le plancher, sinon l'éditorial.
+  la branche de test est clonée de `develop` (`scripts/neon-api.ts`), donc la
+  baseline `exam_participations` n'est JAMAIS vide ni « fraîche » : l'oracle
+  doit être **exact et indépendant de la baseline** (revue 2026-07-12, #1) :
+  insérer des participations connues (1 examen + N users distincts — contrainte
+  `UNIQUE(examId, userId)`), re-lire l'agrégat réel, puis
+  `expect(getMarketingStats().successRate).toBe(resolveSuccessRate(agg))` +
+  `expect(agg.completed).toBeGreaterThanOrEqual(MIN_COMPLETED_PARTICIPATIONS)`.
+  Ça prouve le câblage SQL→bascule (la logique de bascule elle-même est couverte
+  en unit). Cleanup FK exams→users.
 - **MAJ** `tests/hooks/useMarketingStats.test.tsx` : le mock `MarketingStats`
   perd `rating`.
 
@@ -175,8 +190,10 @@ userId)` oblige des users distincts —, assert le delta ; cleanup FK exams→us
 
 ## Critères d'acceptation (issues #84 + #85)
 
-- [ ] `grep -rn "85%" app features` et `grep -rn "4.9" app features` ne matchent
-      plus que la constante centralisée et ses usages importés.
+- [ ] `grep -rn "85%" app features` et `grep -rn "4\.9/5" app features` ne
+      matchent plus rien (la constante vit dans `constants/`, hors périmètre du
+      grep). Motif `4\.9/5` et non `4\.9` : des paths SVG dans `app/(auth)`
+      contiennent « 14.97 » (revue 2026-07-12, #2).
 - [ ] `MarketingStats` ne contient plus `rating` ; `successRate` est calculé ou
       repli éditorial documenté (le type ne ment plus).
 - [ ] Le taux affiché vient du calcul SQL quand ≥ 50 participations terminées ET
