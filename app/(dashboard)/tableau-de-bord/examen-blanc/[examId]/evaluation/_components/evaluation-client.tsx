@@ -32,6 +32,7 @@ import type {
   ExamQuestionView,
   ExamSessionView,
 } from "@/features/exams/dal"
+import { callAction } from "@/lib/safe-action"
 
 interface EvaluationExam {
   title: string
@@ -128,7 +129,10 @@ export function EvaluationClient({
   // Callbacks
   const callbacks: QuizCallbacks = {
     onAnswer: async (questionId, selectedAnswer) => {
-      const res = await saveExamAnswer({ examId, questionId, selectedAnswer })
+      const res = await callAction(
+        () => saveExamAnswer({ examId, questionId, selectedAnswer }),
+        { retries: 1 }, // upsert idempotent — absorbe les micro-coupures
+      )
       if (!res.success) {
         toast.error("Réponse non enregistrée, réessayez.")
         return {
@@ -140,19 +144,22 @@ export function EvaluationClient({
       return { ok: true }
     },
     onFlag: async (questionId, isFlagged) => {
-      const res = await saveExamFlag({ examId, questionId, isFlagged })
+      const res = await callAction(
+        () => saveExamFlag({ examId, questionId, isFlagged }),
+        { retries: 1 },
+      )
       return { ok: res.success }
     },
     onFinish: async ({ isAutoSubmit }) => {
-      const result = await finalizeExam({ examId, isAutoSubmit })
+      const result = await callAction(() =>
+        finalizeExam({ examId, isAutoSubmit }),
+      )
       if (!result.success) {
-        if (
-          result.error.includes("déjà passé") ||
-          result.error.includes("plus active")
-        ) {
+        const error = result.error ?? "Erreur lors de la soumission"
+        if (error.includes("déjà passé") || error.includes("plus active")) {
           router.push("/tableau-de-bord/examen-blanc")
         }
-        toast.error(result.error)
+        toast.error(error)
         return { ok: false }
       }
       if (isAutoSubmit) {
@@ -170,29 +177,26 @@ export function EvaluationClient({
     },
     onPause: exam.enablePause
       ? async () => {
-          const res = await pauseExam({ examId })
+          const res = await callAction(() => pauseExam({ examId }))
           if (res.success) {
             toast.info("⏸️ Pause - Prenez une pause bien méritée !", {
               duration: 5000,
             })
           } else {
-            toast.error(res.error)
+            toast.error(res.error ?? "Erreur lors de la mise en pause")
           }
           return { ok: res.success }
         }
       : undefined,
     onResume: exam.enablePause
       ? async () => {
-          const res = await resumeExam({ examId })
+          const res = await callAction(() => resumeExam({ examId }))
           if (res.success) {
             toast.success("Pause terminée - Continuez l'examen !")
-          } else {
-            toast.error(res.error)
+            return { ok: true, totalPauseDurationMs: res.totalPauseDurationMs }
           }
-          return {
-            ok: res.success,
-            totalPauseDurationMs: res.totalPauseDurationMs,
-          }
+          toast.error(res.error ?? "Erreur lors de la reprise")
+          return { ok: false }
         }
       : undefined,
   }
