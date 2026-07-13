@@ -39,17 +39,15 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [
-      examParticipations,
-      trainingSessions,
-      anonymizedAccounts,
-      quizRateLimitCleanup,
-    ] = await Promise.all([
-      closeExpiredExamParticipations(),
-      closeExpiredTrainingSessions(),
-      anonymizeExpiredDeletedAccounts(),
-      cleanupQuizRateLimits(),
-    ])
+    // Séquentiel volontairement (Sentry NOMAQBANQ-17) : en parallèle sur un
+    // pool froid, chaque tâche ouvre sa propre connexion Neon (3-4 handshakes
+    // de ~100 ms) — le détecteur N+1 flaggait cette rafale. En séquence, la
+    // première connexion est réutilisée ; un cron de fond n'a pas de latence
+    // à optimiser.
+    const examParticipations = await closeExpiredExamParticipations()
+    const trainingSessions = await closeExpiredTrainingSessions()
+    const anonymizedAccounts = await anonymizeExpiredDeletedAccounts()
+    const quizRateLimitCleanup = await cleanupQuizRateLimits()
 
     // APRÈS les clôtures (pour inclure les `auto_submitted` du même run).
     const notifications = await sendPendingNotifications()

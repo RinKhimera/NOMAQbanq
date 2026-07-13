@@ -35,6 +35,10 @@ const pPast = createId()
 const pFuture = createId()
 const pDone = createId()
 
+const examHalf = createId()
+const pHalf = createId()
+const qIdsHalf = Array.from({ length: 40 }, () => createId())
+
 const tsExpired = createId()
 const tsFuture = createId()
 const tsDone = createId()
@@ -58,6 +62,16 @@ beforeAll(async () => {
       domain: `CRON-${suffix}`,
     })),
   )
+  await db.insert(questions).values(
+    qIdsHalf.map((id, i) => ({
+      id,
+      question: `QH ${i} ${suffix} ?`,
+      correctAnswer: "A",
+      options: ["A", "B", "C", "D"],
+      objectifCmc: `Obj ${suffix}`,
+      domain: `CRON-${suffix}`,
+    })),
+  )
 
   const mkExam = (id: string, endOffset: number) => ({
     id,
@@ -70,7 +84,11 @@ beforeAll(async () => {
   })
   await db
     .insert(exams)
-    .values([mkExam(examPast, -DAY), mkExam(examFuture, DAY)])
+    .values([
+      mkExam(examPast, -DAY),
+      mkExam(examFuture, DAY),
+      mkExam(examHalf, -DAY),
+    ])
   await db
     .insert(examQuestions)
     .values(
@@ -78,6 +96,13 @@ beforeAll(async () => {
         qIds.map((questionId, position) => ({ examId, questionId, position })),
       ),
     )
+  await db.insert(examQuestions).values(
+    qIdsHalf.map((questionId, position) => ({
+      examId: examHalf,
+      questionId,
+      position,
+    })),
+  )
 
   await db.insert(examParticipations).values([
     {
@@ -105,6 +130,14 @@ beforeAll(async () => {
       startedAt: new Date(now - 2 * DAY),
       completedAt: new Date(now - DAY - 1000),
     },
+    {
+      id: pHalf,
+      examId: examHalf,
+      userId: U1,
+      status: "in_progress",
+      score: 0,
+      startedAt: new Date(now - 2 * DAY),
+    },
   ])
   // 4 questions, 2 bonnes réponses pour pPast → score attendu 50.
   await db.insert(examAnswers).values([
@@ -130,6 +163,17 @@ beforeAll(async () => {
       isCorrect: false,
     },
   ])
+  // 40 questions, 23 bonnes réponses → 57.5 exact : sentinelle d'arrondi
+  // half-up (le float JS donnait 57).
+  await db.insert(examAnswers).values(
+    qIdsHalf.slice(0, 23).map((questionId) => ({
+      id: createId(),
+      participationId: pHalf,
+      questionId,
+      selectedAnswer: "A",
+      isCorrect: true,
+    })),
+  )
 
   const mkSession = (
     id: string,
@@ -171,7 +215,9 @@ afterAll(async () => {
   await db
     .delete(trainingSessions)
     .where(inArray(trainingSessions.userId, USERS))
-  await db.delete(questions).where(inArray(questions.id, qIds))
+  await db
+    .delete(questions)
+    .where(inArray(questions.id, [...qIds, ...qIdsHalf]))
   await db.delete(user).where(inArray(user.id, USERS))
 })
 
@@ -211,6 +257,10 @@ describe("closeExpiredExamParticipations", () => {
 
     expect((await statusOf(pFuture))?.status).toBe("in_progress")
     expect((await statusOf(pDone))?.status).toBe("completed")
+
+    const half = await statusOf(pHalf)
+    expect(half?.status).toBe("auto_submitted")
+    expect(half?.score).toBe(58) // 23/40 = 57.5 exact → 58 (float JS : 57)
   })
 
   it("idempotent : une participation déjà fermée n'est pas re-traitée", async () => {
