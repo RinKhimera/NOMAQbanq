@@ -75,7 +75,18 @@ storagePath,order}` pour rester assignable aux composants partagés
   NOMAQBANQ-1A, 2026-07-12). Mutations : `callAction(() => action(x))`
   (`lib/safe-action.ts`) — ne throw jamais, convertit le rejet en
   `{ success: false, error }` discriminable par les gardes existants ;
-  `{ retries: n }` RÉSERVÉ aux actions idempotentes (upserts quiz). Lectures :
+  `{ retries: n }` RÉSERVÉ aux actions idempotentes (upserts quiz).
+  **Deploy skew** : `callAction` détecte `UnrecognizedActionError` (bundle
+  périmé après déploiement) via `unstable_isUnrecognizedActionError`
+  (`next/navigation`), ne retente JAMAIS ce cas, renvoie `DEPLOY_SKEW_MESSAGE`
+  et affiche LUI-MÊME un toast central « Recharger » (id `deploy-skew`,
+  dédupliqué) — exception assumée à « les toasts vivent dans les pages » :
+  événement d'infrastructure, plusieurs pages toastent un message métier
+  hardcodé qui masquerait le remède. Piège tests : un
+  `vi.mock("next/navigation", …)` PARTIEL dans un test qui fait rejeter une
+  action via `callAction` doit fournir `unstable_isUnrecognizedActionError`
+  (ou utiliser `importOriginal`), sinon le rejet frappe le proxy Vitest avec
+  une erreur cryptique. Lectures :
   try/catch dans la transition, ou `.catch` sur toute chaîne `.then` d'effet
   (toujours sortir du skeleton). Le moteur quiz traite tout throw de callback
   comme `{ ok: false }` (rollback) et sérialise les envois de réponses par
