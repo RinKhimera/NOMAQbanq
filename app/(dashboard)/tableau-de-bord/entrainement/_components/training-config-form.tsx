@@ -66,8 +66,11 @@ export const TrainingConfigForm = ({
         )
         setFilteredObjectifs(res)
       } catch {
-        // rejet réseau : la liste reste sur l'état précédent, pas de toast
-        // bloquant (le changement de domaine peut être retenté)
+        // rejet réseau : la liste affichée reste celle de l'ANCIEN domaine —
+        // signaler, sinon l'UX ment sans aucun indice
+        toast.error(
+          "Impossible de charger les objectifs du domaine. Vérifiez votre réseau.",
+        )
       }
     })
   }, [selectedDomain])
