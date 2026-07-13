@@ -223,18 +223,22 @@ export function useQuizSession({
         } catch {
           res = { ok: false, error: "Erreur réseau" }
         }
+        // Enregistrer le succès AVANT le test de coalescing : un envoi
+        // supersédé qui a réussi est bien persisté côté serveur — c'est la
+        // cible du rollback si l'envoi suivant échoue.
+        if (res.ok) {
+          persistedAnswers.current[qid] = current
+        }
         const queued = state.queued
         state.queued = undefined
         if (queued !== undefined) {
-          // Supersédé par un clic plus récent : ni rollback ni validation —
+          // Supersédé par un clic plus récent : ni rollback ni fin de boucle —
           // on envoie le dernier choix.
           current = queued
           continue
         }
         state.inFlight = false
-        if (res.ok) {
-          persistedAnswers.current[qid] = current
-        } else {
+        if (!res.ok) {
           const persisted = persistedAnswers.current[qid]
           setAnswers((a) => {
             const next = { ...a }

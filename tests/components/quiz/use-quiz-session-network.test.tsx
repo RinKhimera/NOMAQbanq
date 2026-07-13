@@ -81,6 +81,59 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
     expect(result.current.answers["q1"]?.selected).toBe("B")
   })
 
+  it("un envoi supersédé qui RÉUSSIT devient la valeur confirmée (rollback vers A, pas vers rien)", async () => {
+    let resolveA!: (v: { ok: true }) => void
+    const inFlightA = new Promise<{ ok: true }>((resolve) => {
+      resolveA = resolve
+    })
+    const onAnswer = vi
+      .fn()
+      .mockReturnValueOnce(inFlightA) // clic A : en vol
+      .mockRejectedValueOnce(new TypeError("Failed to fetch")) // clic B : échoue
+    const { result } = renderSession(makeCallbacks({ onAnswer }))
+    await act(async () => {
+      void result.current.answerSelect(0) // A
+    })
+    await act(async () => {
+      void result.current.answerSelect(1) // B coalescé pendant que A est en vol
+    })
+    await act(async () => {
+      resolveA({ ok: true }) // A réussit APRÈS le clic B → doit être confirmée
+    })
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(2))
+    // B échoue → rollback vers A (persistée), pas vers « sans réponse »
+    await waitFor(() =>
+      expect(result.current.answers["q1"]?.selected).toBe("A"),
+    )
+  })
+
+  it("3 clics rapides : seuls le premier et le DERNIER partent (coalescing écrasé)", async () => {
+    let resolveA!: (v: { ok: true }) => void
+    const inFlightA = new Promise<{ ok: true }>((resolve) => {
+      resolveA = resolve
+    })
+    const onAnswer = vi
+      .fn()
+      .mockReturnValueOnce(inFlightA)
+      .mockResolvedValue({ ok: true })
+    const { result } = renderSession(makeCallbacks({ onAnswer }))
+    await act(async () => {
+      void result.current.answerSelect(0) // A part
+    })
+    await act(async () => {
+      void result.current.answerSelect(1) // B coalescé…
+    })
+    await act(async () => {
+      void result.current.answerSelect(2) // …écrasé par C
+    })
+    await act(async () => {
+      resolveA({ ok: true })
+    })
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(2))
+    expect(onAnswer).toHaveBeenLastCalledWith("q1", "C")
+    expect(result.current.answers["q1"]?.selected).toBe("C")
+  })
+
   it("rollback vers la dernière valeur CONFIRMÉE, pas l'état d'avant-clic", async () => {
     const onAnswer = vi
       .fn()
