@@ -35,9 +35,15 @@ const pPast = createId()
 const pFuture = createId()
 const pDone = createId()
 
+const examHalf = createId()
+const pHalf = createId()
+const qIdsHalf = Array.from({ length: 40 }, () => createId())
+
 const tsExpired = createId()
 const tsFuture = createId()
 const tsDone = createId()
+const tsHalf = createId()
+const tsEmpty = createId()
 
 beforeAll(async () => {
   const now = Date.now()
@@ -58,6 +64,16 @@ beforeAll(async () => {
       domain: `CRON-${suffix}`,
     })),
   )
+  await db.insert(questions).values(
+    qIdsHalf.map((id, i) => ({
+      id,
+      question: `QH ${i} ${suffix} ?`,
+      correctAnswer: "A",
+      options: ["A", "B", "C", "D"],
+      objectifCmc: `Obj ${suffix}`,
+      domain: `CRON-${suffix}`,
+    })),
+  )
 
   const mkExam = (id: string, endOffset: number) => ({
     id,
@@ -70,7 +86,11 @@ beforeAll(async () => {
   })
   await db
     .insert(exams)
-    .values([mkExam(examPast, -DAY), mkExam(examFuture, DAY)])
+    .values([
+      mkExam(examPast, -DAY),
+      mkExam(examFuture, DAY),
+      mkExam(examHalf, -DAY),
+    ])
   await db
     .insert(examQuestions)
     .values(
@@ -78,6 +98,13 @@ beforeAll(async () => {
         qIds.map((questionId, position) => ({ examId, questionId, position })),
       ),
     )
+  await db.insert(examQuestions).values(
+    qIdsHalf.map((questionId, position) => ({
+      examId: examHalf,
+      questionId,
+      position,
+    })),
+  )
 
   await db.insert(examParticipations).values([
     {
@@ -105,6 +132,14 @@ beforeAll(async () => {
       startedAt: new Date(now - 2 * DAY),
       completedAt: new Date(now - DAY - 1000),
     },
+    {
+      id: pHalf,
+      examId: examHalf,
+      userId: U1,
+      status: "in_progress",
+      score: 0,
+      startedAt: new Date(now - 2 * DAY),
+    },
   ])
   // 4 questions, 2 bonnes réponses pour pPast → score attendu 50.
   await db.insert(examAnswers).values([
@@ -130,6 +165,17 @@ beforeAll(async () => {
       isCorrect: false,
     },
   ])
+  // 40 questions, 23 bonnes réponses → 57.5 exact : sentinelle d'arrondi
+  // half-up (le float JS donnait 57).
+  await db.insert(examAnswers).values(
+    qIdsHalf.slice(0, 23).map((questionId) => ({
+      id: createId(),
+      participationId: pHalf,
+      questionId,
+      selectedAnswer: "A",
+      isCorrect: true,
+    })),
+  )
 
   const mkSession = (
     id: string,
@@ -146,13 +192,16 @@ beforeAll(async () => {
     completedAt: status === "completed" ? new Date(now - DAY) : null,
     expiresAt: new Date(now + expiresOffset),
   })
-  await db
-    .insert(trainingSessions)
-    .values([
-      mkSession(tsExpired, U1, "in_progress", -DAY),
-      mkSession(tsFuture, U2, "in_progress", DAY),
-      mkSession(tsDone, U3, "completed", -DAY),
-    ])
+  await db.insert(trainingSessions).values([
+    mkSession(tsExpired, U1, "in_progress", -DAY),
+    mkSession(tsFuture, U2, "in_progress", DAY),
+    mkSession(tsDone, U3, "completed", -DAY),
+    // 40 questions / 23 items corrects → 57.5 exact : sentinelle d'arrondi
+    // half-up côté training (miroir de pHalf).
+    { ...mkSession(tsHalf, U1, "in_progress", -DAY), questionCount: 40 },
+    // Aucun item : exerce la branche « ligne NULL » du LEFT JOIN.
+    mkSession(tsEmpty, U2, "in_progress", -DAY),
+  ])
   // 4 items, 2 corrects pour tsExpired → score attendu 50.
   await db.insert(trainingSessionItems).values(
     qIds.map((questionId, position) => ({
@@ -164,6 +213,16 @@ beforeAll(async () => {
       isCorrect: position < 2 ? true : position < 3 ? false : null,
     })),
   )
+  await db.insert(trainingSessionItems).values(
+    qIdsHalf.slice(0, 23).map((questionId, position) => ({
+      id: createId(),
+      sessionId: tsHalf,
+      questionId,
+      position,
+      selectedAnswer: "A",
+      isCorrect: true,
+    })),
+  )
 })
 
 afterAll(async () => {
@@ -171,7 +230,9 @@ afterAll(async () => {
   await db
     .delete(trainingSessions)
     .where(inArray(trainingSessions.userId, USERS))
-  await db.delete(questions).where(inArray(questions.id, qIds))
+  await db
+    .delete(questions)
+    .where(inArray(questions.id, [...qIds, ...qIdsHalf]))
   await db.delete(user).where(inArray(user.id, USERS))
 })
 
@@ -211,6 +272,10 @@ describe("closeExpiredExamParticipations", () => {
 
     expect((await statusOf(pFuture))?.status).toBe("in_progress")
     expect((await statusOf(pDone))?.status).toBe("completed")
+
+    const half = await statusOf(pHalf)
+    expect(half?.status).toBe("auto_submitted")
+    expect(half?.score).toBe(58) // 23/40 = 57.5 exact → 58 (float JS : 57)
   })
 
   it("idempotent : une participation déjà fermée n'est pas re-traitée", async () => {
@@ -238,5 +303,13 @@ describe("closeExpiredTrainingSessions", () => {
 
     expect((await sessionOf(tsFuture))?.status).toBe("in_progress")
     expect((await sessionOf(tsDone))?.status).toBe("completed")
+
+    const half = await sessionOf(tsHalf)
+    expect(half?.status).toBe("abandoned")
+    expect(half?.score).toBe(58) // 23/40 = 57.5 exact → 58 (float JS : 57)
+
+    const empty = await sessionOf(tsEmpty)
+    expect(empty?.status).toBe("abandoned")
+    expect(empty?.score).toBe(0) // zéro item : branche NULL du LEFT JOIN
   })
 })

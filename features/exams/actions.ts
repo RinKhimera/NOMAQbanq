@@ -15,6 +15,7 @@ import {
 } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { computeScorePercent } from "@/lib/score"
 import { hasAccess } from "../payments/dal"
 import { type SelectableUser, searchSelectableUsers } from "../users/dal"
 import {
@@ -828,10 +829,7 @@ export const finalizeExam = async (
         .where(eq(examAnswers.participationId, p.id))
       const correctAnswers = agg?.correct ?? 0
       const totalQuestions = agg?.total ?? 0
-      const score =
-        totalQuestions > 0
-          ? Math.round((correctAnswers / totalQuestions) * 100)
-          : 0
+      const score = computeScorePercent(correctAnswers, totalQuestions)
 
       await tx
         .update(examParticipations)

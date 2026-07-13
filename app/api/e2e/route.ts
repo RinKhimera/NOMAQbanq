@@ -18,6 +18,7 @@ import {
 } from "@/db/schema"
 import { env } from "@/lib/env/server"
 import { createId } from "@/lib/ids"
+import { computeScorePercent } from "@/lib/score"
 
 // Accès DB → runtime Node.
 export const runtime = "nodejs"
@@ -458,7 +459,7 @@ async function seedExam(opts: {
       return { questionId: q.id, selectedAnswer: wrong, isCorrect: false }
     })
     const correctCount = answers.filter((a) => a.isCorrect).length
-    score = Math.round((correctCount / count) * 100)
+    score = computeScorePercent(correctCount, count)
 
     participationId = createId()
     await db.insert(examParticipations).values({

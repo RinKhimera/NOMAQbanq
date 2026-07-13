@@ -75,6 +75,7 @@ export default defineConfig({
         /examen-blanc-pause\.spec\.ts/,
         /examen-blanc-auto-submit\.spec\.ts/,
         /examen-blanc-offline\.spec\.ts/,
+        /examen-blanc-deploy-skew\.spec\.ts/,
         /resultats-examen\.spec\.ts/,
         /resultats-entrainement\.spec\.ts/,
         /profil\.spec\.ts/,

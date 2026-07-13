@@ -1,8 +1,20 @@
+import { toast } from "sonner"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { NETWORK_ERROR_MESSAGE, callAction } from "@/lib/safe-action"
+import {
+  DEPLOY_SKEW_MESSAGE,
+  NETWORK_ERROR_MESSAGE,
+  callAction,
+} from "@/lib/safe-action"
+
+vi.mock("next/navigation", () => ({
+  unstable_isUnrecognizedActionError: (err: unknown) =>
+    err instanceof Error && err.name === "UnrecognizedActionError",
+}))
+vi.mock("sonner", () => ({ toast: { error: vi.fn() } }))
 
 afterEach(() => {
   vi.useRealTimers()
+  vi.clearAllMocks()
 })
 
 describe("callAction", () => {
@@ -60,5 +72,45 @@ describe("callAction", () => {
       error: NETWORK_ERROR_MESSAGE,
     })
     expect(fn).toHaveBeenCalledTimes(2)
+  })
+})
+
+const skewError = () => {
+  const e = new Error('Server Action "40dfe0" was not found on the server.')
+  e.name = "UnrecognizedActionError"
+  return e
+}
+
+describe("callAction — deploy skew", () => {
+  it("convertit le skew en message dédié, sans jamais retenter", async () => {
+    const fn = vi.fn().mockRejectedValue(skewError())
+    await expect(callAction(fn, { retries: 2 })).resolves.toEqual({
+      success: false,
+      error: DEPLOY_SKEW_MESSAGE,
+    })
+    expect(fn).toHaveBeenCalledTimes(1)
+  })
+
+  it("affiche le toast central dédupliqué avec l'action Recharger", async () => {
+    const fn = vi.fn().mockRejectedValue(skewError())
+    await callAction(fn)
+    expect(toast.error).toHaveBeenCalledTimes(1)
+    expect(toast.error).toHaveBeenCalledWith(
+      DEPLOY_SKEW_MESSAGE,
+      expect.objectContaining({
+        id: "deploy-skew",
+        duration: Infinity,
+        action: expect.objectContaining({ label: "Recharger" }),
+      }),
+    )
+  })
+
+  it("un rejet réseau ordinaire ne déclenche pas le toast central", async () => {
+    const fn = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"))
+    await expect(callAction(fn)).resolves.toEqual({
+      success: false,
+      error: NETWORK_ERROR_MESSAGE,
+    })
+    expect(toast.error).not.toHaveBeenCalled()
   })
 })
