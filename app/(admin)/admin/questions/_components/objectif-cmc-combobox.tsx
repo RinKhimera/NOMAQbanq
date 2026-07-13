@@ -40,9 +40,15 @@ export function ObjectifCMCCombobox({
   const [objectifs, setObjectifs] = useState<string[] | null>(null)
   useEffect(() => {
     let active = true
-    loadUniqueObjectifsCMC().then((list) => {
-      if (active) setObjectifs(list)
-    })
+    loadUniqueObjectifsCMC()
+      .then((list) => {
+        if (active) setObjectifs(list)
+      })
+      .catch(() => {
+        // rejet réseau : sortir du spinner — liste vide, la saisie libre
+        // d'un objectif reste possible
+        if (active) setObjectifs([])
+      })
     return () => {
       active = false
     }

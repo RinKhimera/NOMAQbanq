@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type {
   AnswersMap,
@@ -33,7 +33,7 @@ const makeCallbacks = (
   overrides: Partial<QuizCallbacks> = {},
 ): QuizCallbacks => ({
   onAnswer: vi.fn().mockResolvedValue({ ok: true }),
-  onFlag: vi.fn().mockResolvedValue(undefined),
+  onFlag: vi.fn().mockResolvedValue({ ok: true }),
   onFinish: vi.fn().mockResolvedValue({ ok: true }),
   ...overrides,
 })
@@ -289,8 +289,8 @@ describe("useQuizSession — initialAnswers & initialFlags", () => {
 })
 
 describe("useQuizSession — toggle flag", () => {
-  it("toggleFlag ajoute et retire la question courante + appelle onFlag", () => {
-    const onFlag = vi.fn().mockResolvedValue(undefined)
+  it("toggleFlag ajoute et retire la question courante + appelle onFlag", async () => {
+    const onFlag = vi.fn().mockResolvedValue({ ok: true })
     const { result } = renderHook(() =>
       useQuizSession({
         questions: makeQuestions(3),
@@ -305,7 +305,9 @@ describe("useQuizSession — toggle flag", () => {
 
     act(() => result.current.toggleFlag())
     expect(result.current.flagged.has("q1")).toBe(false)
-    expect(onFlag).toHaveBeenCalledWith("q1", false)
+    // Envois sérialisés par question : le second onFlag part quand le premier
+    // est réglé, pas de façon synchrone
+    await waitFor(() => expect(onFlag).toHaveBeenCalledWith("q1", false))
   })
 })
 

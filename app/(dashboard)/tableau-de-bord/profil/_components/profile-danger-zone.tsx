@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { deleteMyAccount } from "@/features/users/actions"
 import { authClient } from "@/lib/auth-client"
+import { callAction } from "@/lib/safe-action"
 
 export const ProfileDangerZone = ({ email }: { email: string }) => {
   const router = useRouter()
@@ -20,13 +21,15 @@ export const ProfileDangerZone = ({ email }: { email: string }) => {
   const onDelete = async () => {
     if (!matches) return
     setBusy(true)
-    const res = await deleteMyAccount({ confirmEmail })
+    const res = await callAction(() => deleteMyAccount({ confirmEmail }))
     if (!res.success) {
       setBusy(false)
       toast.error(res.error ?? "Suppression impossible")
       return
     }
-    await authClient.signOut()
+    // Le compte est supprimé côté serveur : rediriger même si le signOut
+    // échoue (la session ne survivra pas côté serveur de toute façon)
+    await authClient.signOut().catch(() => {})
     router.replace("/compte-supprime")
   }
 

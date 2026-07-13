@@ -41,7 +41,8 @@ export type QuizCallbacks = {
   ) => Promise<
     { ok: true; reveal?: QuizRevealPayload } | { ok: false; error: string }
   >
-  onFlag: (questionId: string, isFlagged: boolean) => Promise<void>
+  // { ok } permet au moteur de rollback le flag local sur échec
+  onFlag: (questionId: string, isFlagged: boolean) => Promise<{ ok: boolean }>
   onFinish: (opts: {
     isAutoSubmit: boolean
   }) => Promise<{ ok: boolean; redirectTo?: string }>

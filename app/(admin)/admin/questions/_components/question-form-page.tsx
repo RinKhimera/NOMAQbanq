@@ -137,9 +137,15 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
   useEffect(() => {
     if (mode !== "edit" || !questionId) return
     let active = true
-    loadQuestionById(questionId).then((q) => {
-      if (active) setQuestion(q)
-    })
+    loadQuestionById(questionId)
+      .then((q) => {
+        if (active) setQuestion(q)
+      })
+      .catch(() => {
+        if (!active) return
+        setQuestion(null)
+        toast.error("Chargement impossible. Vérifiez votre réseau.")
+      })
     return () => {
       active = false
     }

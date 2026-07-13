@@ -49,6 +49,18 @@ describe("useMarketingStats", () => {
     expect(result.current.stats).toEqual(mockStats)
   })
 
+  it("sort du skeleton quand le chargement échoue (rejet réseau)", async () => {
+    vi.mocked(loadMarketingStats).mockRejectedValue(
+      new TypeError("Failed to fetch"),
+    )
+
+    const { result } = renderHook(() => useMarketingStats())
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+    // stats reste undefined → les consommateurs affichent leurs fallbacks `??`
+    expect(result.current.stats).toBeUndefined()
+  })
+
   it("appelle l'action au montage (stats publiques, pas d'auth requise)", () => {
     vi.mocked(loadMarketingStats).mockResolvedValue(mockStats)
 

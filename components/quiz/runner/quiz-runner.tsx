@@ -112,9 +112,10 @@ function QuizRunnerInner({
           onTakePause: () => {
             // Capture start time before async call, then delegate to the hook
             const startedAt = Date.now()
-            void session.pause().then(() => {
-              // session.isPaused may not have updated yet (async state); set optimistically
-              setLocalPauseStartedAt(startedAt)
+            void session.pause().then((ok) => {
+              // session.isPaused may not have updated yet (async state); set
+              // optimistically — but only when the pause actually succeeded
+              if (ok) setLocalPauseStartedAt(startedAt)
             })
           },
         }
@@ -124,8 +125,11 @@ function QuizRunnerInner({
   const handleResume = async () => {
     setIsResuming(true)
     try {
-      await session.resume()
-      setLocalPauseStartedAt(undefined)
+      const ok = await session.resume()
+      // Sur échec (réseau), garder le timestamp : le décompte de l'overlay
+      // continue et l'auto-resume reste armé — seule une reprise RÉUSSIE
+      // ferme la pause.
+      if (ok) setLocalPauseStartedAt(undefined)
     } finally {
       setIsResuming(false)
     }

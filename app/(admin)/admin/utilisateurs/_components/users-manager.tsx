@@ -4,6 +4,7 @@ import { IconUsers } from "@tabler/icons-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { DateRange } from "react-day-picker"
+import { toast } from "sonner"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ExportUsersButton } from "@/components/admin/export-users-button"
 import { TablePagination } from "@/components/admin/table-pagination"
@@ -104,17 +105,21 @@ export function UsersManager({
       return
     }
     startTransition(async () => {
-      const res = await loadUsersPage({
-        ...buildFilters(),
-        offset: (page - 1) * pageSize,
-        limit: pageSize,
-      })
-      setUsers(res.items)
-      setTotal(res.total)
-      // Clamp hors-borne (callback async → ESLint OK) : page devenue vide
-      // après une mutation → ramène à la dernière page valide.
-      if (res.items.length === 0 && page > 1 && res.total > 0) {
-        setPage(Math.ceil(res.total / pageSize))
+      try {
+        const res = await loadUsersPage({
+          ...buildFilters(),
+          offset: (page - 1) * pageSize,
+          limit: pageSize,
+        })
+        setUsers(res.items)
+        setTotal(res.total)
+        // Clamp hors-borne (callback async → ESLint OK) : page devenue vide
+        // après une mutation → ramène à la dernière page valide.
+        if (res.items.length === 0 && page > 1 && res.total > 0) {
+          setPage(Math.ceil(res.total / pageSize))
+        }
+      } catch {
+        toast.error("Actualisation impossible. Vérifiez votre réseau.")
       }
     })
   }, [buildFilters, page, pageSize])
@@ -122,17 +127,21 @@ export function UsersManager({
   // Recharge la page courante (après un octroi d'accès depuis le panneau).
   const reload = () => {
     startTransition(async () => {
-      const res = await loadUsersPage({
-        ...buildFilters(),
-        offset: (page - 1) * pageSize,
-        limit: pageSize,
-      })
-      setUsers(res.items)
-      setTotal(res.total)
-      // Même clamp hors-borne que l'effet : une mutation qui vide la page
-      // courante ramène à la dernière page valide.
-      if (res.items.length === 0 && page > 1 && res.total > 0) {
-        setPage(Math.ceil(res.total / pageSize))
+      try {
+        const res = await loadUsersPage({
+          ...buildFilters(),
+          offset: (page - 1) * pageSize,
+          limit: pageSize,
+        })
+        setUsers(res.items)
+        setTotal(res.total)
+        // Même clamp hors-borne que l'effet : une mutation qui vide la page
+        // courante ramène à la dernière page valide.
+        if (res.items.length === 0 && page > 1 && res.total > 0) {
+          setPage(Math.ceil(res.total / pageSize))
+        }
+      } catch {
+        toast.error("Actualisation impossible. Vérifiez votre réseau.")
       }
     })
   }

@@ -243,16 +243,27 @@ function PanelContent({
   // Recharge les données du panel (depuis un handler, après un octroi d'accès).
   const refresh = () => {
     setPanelData(undefined)
-    loadUserPanelData(userId).then(setPanelData)
+    loadUserPanelData(userId)
+      .then(setPanelData)
+      .catch(() => {
+        setPanelData(null)
+        toast.error("Chargement impossible. Vérifiez votre réseau.")
+      })
   }
   // Chargement initial. `PanelContent` est monté avec `key={userId}` → un nouvel
   // utilisateur = nouveau montage (état `undefined` = skeleton), pas de setState
   // synchrone dans l'effet (uniquement dans le callback async).
   useEffect(() => {
     let active = true
-    loadUserPanelData(userId).then((d) => {
-      if (active) setPanelData(d)
-    })
+    loadUserPanelData(userId)
+      .then((d) => {
+        if (active) setPanelData(d)
+      })
+      .catch(() => {
+        if (!active) return
+        setPanelData(null)
+        toast.error("Chargement impossible. Vérifiez votre réseau.")
+      })
     return () => {
       active = false
     }

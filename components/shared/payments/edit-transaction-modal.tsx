@@ -118,7 +118,11 @@ export const EditTransactionModal = ({
   // Impact d'accès chargé à l'ouverture (sert l'avertissement de révocation).
   useEffect(() => {
     if (transaction && open) {
-      loadTransactionAccessImpact(transaction._id).then(setAccessImpact)
+      // best-effort : l'avertissement de révocation est purement informatif,
+      // le serveur re-vérifie l'impact à la mutation
+      loadTransactionAccessImpact(transaction._id)
+        .then(setAccessImpact)
+        .catch(() => {})
     } else {
       setAccessImpact(null)
     }

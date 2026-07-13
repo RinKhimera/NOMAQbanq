@@ -36,6 +36,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { deleteParticipation } from "@/features/exams/actions"
 import type { LeaderboardEntry } from "@/features/exams/dal"
+import { callAction } from "@/lib/safe-action"
 
 interface ParticipantToDelete {
   participationId: string
@@ -70,9 +71,11 @@ export function ExamLeaderboard({
     if (!participantToDelete) return
 
     setIsDeleting(true)
-    const res = await deleteParticipation({
-      participationId: participantToDelete.participationId,
-    })
+    const res = await callAction(() =>
+      deleteParticipation({
+        participationId: participantToDelete.participationId,
+      }),
+    )
     setIsDeleting(false)
     if (res.success) {
       toast.success("Participation supprimée avec succès")

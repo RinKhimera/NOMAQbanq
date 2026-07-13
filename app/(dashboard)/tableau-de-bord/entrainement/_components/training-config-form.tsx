@@ -60,10 +60,18 @@ export const TrainingConfigForm = ({
 
   useEffect(() => {
     startObjLoad(async () => {
-      const res = await loadAvailableObjectifsCMC(
-        selectedDomain === "all" ? undefined : selectedDomain,
-      )
-      setFilteredObjectifs(res)
+      try {
+        const res = await loadAvailableObjectifsCMC(
+          selectedDomain === "all" ? undefined : selectedDomain,
+        )
+        setFilteredObjectifs(res)
+      } catch {
+        // rejet réseau : la liste affichée reste celle de l'ANCIEN domaine —
+        // signaler, sinon l'UX ment sans aucun indice
+        toast.error(
+          "Impossible de charger les objectifs du domaine. Vérifiez votre réseau.",
+        )
+      }
     })
   }, [selectedDomain])
 

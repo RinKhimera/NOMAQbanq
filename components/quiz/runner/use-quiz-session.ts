@@ -60,8 +60,10 @@ export type UseQuizSessionResult = {
   // server already recorded a pause, or after a successful resume). Lets the UI
   // hide the pause button — the server only allows one pause.
   pauseAlreadyUsed: boolean
-  pause: () => Promise<void>
-  resume: () => Promise<void>
+  // Résolvent `true` en succès seulement — l'UI (timestamps locaux de
+  // l'overlay) ne doit pas avancer sur une pause/reprise qui a échoué.
+  pause: () => Promise<boolean>
+  resume: () => Promise<boolean>
 
   // Timer (only when mode.timer is set)
   timer: {
@@ -88,6 +90,29 @@ export function useQuizSession({
   const [answers, setAnswers] = useState<AnswersMap>(() => ({
     ...initialAnswers,
   }))
+  // Un seul onAnswer en vol par question ; le clic le plus récent pendant un
+  // envoi remplace le précédent (coalescing) et part quand l'envoi se règle.
+  // Un éventuel retry côté callback vit DANS ce créneau → l'ordre des clics
+  // est préservé, un clic périmé ne peut pas écraser un clic plus récent.
+  const answerSends = useRef<
+    Record<string, { inFlight: boolean; queued?: string }>
+  >({})
+  // Dernière valeur CONFIRMÉE par le serveur — cible du rollback (jamais
+  // « l'état d'avant-clic », qu'un clic intermédiaire a pu rendre périmé).
+  const persistedAnswers = useRef<Record<string, string | undefined>>(
+    Object.fromEntries(
+      Object.entries(initialAnswers).map(([qid, a]) => [qid, a.selected]),
+    ),
+  )
+  // Flags : même mécanique que les réponses. Le miroir ref évite la closure
+  // périmée (le raccourci clavier « f » peut invoquer deux fois la même
+  // closure) ; l'envoi sérialisé + rollback vers la valeur confirmée évite
+  // les reverts non composables (deux échecs qui laissent l'inverse).
+  const flaggedRef = useRef<Set<string>>(new Set(initialFlags ?? []))
+  const flagSends = useRef<
+    Record<string, { inFlight: boolean; queued?: boolean }>
+  >({})
+  const persistedFlags = useRef<Set<string>>(new Set(initialFlags ?? []))
   const [flagged, setFlagged] = useState<Set<string>>(
     () => new Set(initialFlags ?? []),
   )
@@ -140,22 +165,59 @@ export function useQuizSession({
 
   // ---- Flag ----
 
+  const setFlagLocal = useCallback((qid: string, value: boolean) => {
+    if (value) {
+      flaggedRef.current.add(qid)
+    } else {
+      flaggedRef.current.delete(qid)
+    }
+    setFlagged(new Set(flaggedRef.current))
+  }, [])
+
   const toggleFlag = useCallback(() => {
     if (!currentQuestion) return
     const qid = currentQuestion._id
-    setFlagged((prev) => {
-      const next = new Set(prev)
-      const newValue = !next.has(qid)
-      if (newValue) {
-        next.add(qid)
-      } else {
-        next.delete(qid)
+    const newValue = !flaggedRef.current.has(qid)
+    setFlagLocal(qid, newValue)
+
+    const state = (flagSends.current[qid] ??= { inFlight: false })
+    if (state.inFlight) {
+      state.queued = newValue
+      return
+    }
+    state.inFlight = true
+    // Envoi sérialisé (un seul onFlag en vol par question, coalescing du
+    // dernier état voulu). Silencieux : cosmétique, pas de bruit en passation.
+    void (async () => {
+      let current = newValue
+      for (;;) {
+        let ok: boolean
+        try {
+          ok = (await callbacks.onFlag(qid, current)).ok
+        } catch {
+          ok = false
+        }
+        if (ok) {
+          if (current) {
+            persistedFlags.current.add(qid)
+          } else {
+            persistedFlags.current.delete(qid)
+          }
+        }
+        const queued = state.queued
+        state.queued = undefined
+        if (queued !== undefined) {
+          current = queued
+          continue
+        }
+        state.inFlight = false
+        if (!ok) {
+          setFlagLocal(qid, persistedFlags.current.has(qid))
+        }
+        return
       }
-      // Fire-and-forget — errors are non-fatal for flagging
-      void callbacks.onFlag(qid, newValue)
-      return next
-    })
-  }, [currentQuestion, callbacks])
+    })()
+  }, [currentQuestion, callbacks, setFlagLocal])
 
   // ---- Answer select ----
 
@@ -177,24 +239,54 @@ export function useQuizSession({
       }
 
       // Test / examen (feedback différé) : enregistrement immédiat, pas de
-      // révélation par-question. Mise à jour optimiste + rollback si échec.
-      const prev = answers[qid]
+      // révélation par-question. Optimiste + envoi sérialisé par question.
       setAnswers((a) => ({ ...a, [qid]: { ...a[qid], selected } }))
 
-      const res = await callbacks.onAnswer(qid, selected)
-      if (!res.ok) {
-        setAnswers((a) => {
-          const next = { ...a }
-          if (prev === undefined) {
-            delete next[qid]
-          } else {
-            next[qid] = prev
-          }
-          return next
-        })
+      const state = (answerSends.current[qid] ??= { inFlight: false })
+      if (state.inFlight) {
+        state.queued = selected
+        return
+      }
+      state.inFlight = true
+      let current = selected
+      for (;;) {
+        let res: Awaited<ReturnType<QuizCallbacks["onAnswer"]>>
+        try {
+          res = await callbacks.onAnswer(qid, current)
+        } catch {
+          res = { ok: false, error: "Erreur réseau" }
+        }
+        // Enregistrer le succès AVANT le test de coalescing : un envoi
+        // supersédé qui a réussi est bien persisté côté serveur — c'est la
+        // cible du rollback si l'envoi suivant échoue.
+        if (res.ok) {
+          persistedAnswers.current[qid] = current
+        }
+        const queued = state.queued
+        state.queued = undefined
+        if (queued !== undefined) {
+          // Supersédé par un clic plus récent : ni rollback ni fin de boucle —
+          // on envoie le dernier choix.
+          current = queued
+          continue
+        }
+        state.inFlight = false
+        if (!res.ok) {
+          const persisted = persistedAnswers.current[qid]
+          setAnswers((a) => {
+            const next = { ...a }
+            if (persisted === undefined) {
+              delete next[qid]
+            } else {
+              next[qid] = { ...next[qid], selected: persisted }
+            }
+            return next
+          })
+        }
+        return
       }
     },
-    [currentQuestion, answers, callbacks, isImmediate, revealed],
+    [currentQuestion, callbacks, isImmediate, revealed],
   )
 
   // ---- Confirm (mode tuteur uniquement) ----
@@ -206,7 +298,12 @@ export function useQuizSession({
     const selected = pendingSelection[qid]
     if (!selected) return
 
-    const res = await callbacks.onAnswer(qid, selected)
+    let res: Awaited<ReturnType<QuizCallbacks["onAnswer"]>>
+    try {
+      res = await callbacks.onAnswer(qid, selected)
+    } catch {
+      return // rejet réseau : pending conservé pour réessai, pas de reveal
+    }
     if (!res.ok) return // toast géré dans onAnswer ; on garde le pending pour réessai
 
     if (res.reveal) {
@@ -227,21 +324,33 @@ export function useQuizSession({
   // ---- Pause / resume (rest break) ----
 
   const pause = useCallback(async () => {
-    if (!callbacks.onPause || isPaused) return
-    const res = await callbacks.onPause()
-    if (res.ok) {
-      setIsPaused(true)
+    if (!callbacks.onPause || isPaused) return false
+    try {
+      const res = await callbacks.onPause()
+      if (res.ok) {
+        setIsPaused(true)
+      }
+      return res.ok
+    } catch {
+      // rejet réseau : rester non-pausé, le callback de page a déjà toasté
+      return false
     }
   }, [callbacks, isPaused])
 
   const resume = useCallback(async () => {
-    if (!callbacks.onResume || !isPaused) return
-    const res = await callbacks.onResume()
-    if (res.ok) {
-      setTotalPauseDurationMs((prev) => res.totalPauseDurationMs ?? prev)
-      setIsPaused(false)
-      // The single rest pause is now consumed — hide the pause control.
-      setPauseAlreadyUsed(true)
+    if (!callbacks.onResume || !isPaused) return false
+    try {
+      const res = await callbacks.onResume()
+      if (res.ok) {
+        setTotalPauseDurationMs((prev) => res.totalPauseDurationMs ?? prev)
+        setIsPaused(false)
+        // The single rest pause is now consumed — hide the pause control.
+        setPauseAlreadyUsed(true)
+      }
+      return res.ok
+    } catch {
+      // rejet réseau : rester en pause, retentable via le bouton
+      return false
     }
   }, [callbacks, isPaused])
 
@@ -254,11 +363,15 @@ export function useQuizSession({
   const confirmFinish = useCallback(
     async (opts?: { isAutoSubmit?: boolean }) => {
       startTransition(async () => {
-        const result = await callbacks.onFinish({
-          isAutoSubmit: opts?.isAutoSubmit ?? false,
-        })
-        if (result.ok && result.redirectTo) {
-          // Navigation happens outside hook; caller handles redirect
+        try {
+          const result = await callbacks.onFinish({
+            isAutoSubmit: opts?.isAutoSubmit ?? false,
+          })
+          if (result.ok && result.redirectTo) {
+            // Navigation happens outside hook; caller handles redirect
+          }
+        } catch {
+          // rejet réseau : le dialog reste ouvert, retentable
         }
       })
     },

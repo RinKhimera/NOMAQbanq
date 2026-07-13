@@ -55,6 +55,7 @@ import type {
   ProductView,
 } from "@/features/payments/dal"
 import { formatExpiration } from "@/lib/format"
+import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
 
 const accessTypeConfig = {
@@ -260,7 +261,12 @@ export const AbonnementsClient = ({
 
   const [, openPortalAction, isLoadingPortal] = useActionState(
     async () => {
-      const res = await createCustomerPortal("/tableau-de-bord/abonnements")
+      // callAction : sans lui, un rejet fetch dans une action useActionState
+      // remonte à l'error boundary au rendu (React 19) — ActionFailure porte
+      // `error`, le garde ci-dessous l'attrape aussi
+      const res = await callAction(() =>
+        createCustomerPortal("/tableau-de-bord/abonnements"),
+      )
       if ("error" in res) {
         if (!navigator.onLine) {
           toast.error("Pas de connexion internet. Vérifiez votre réseau.")

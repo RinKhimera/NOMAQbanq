@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { updateUserRole } from "@/features/users/actions"
 import type { AdminUserDetail } from "@/features/users/dal"
+import { callAction } from "@/lib/safe-action"
 
 interface UserRoleSectionProps {
   user: Pick<AdminUserDetail, "id" | "name" | "email" | "role">
@@ -37,10 +38,14 @@ export const UserRoleSection = ({
 
   const handleConfirm = () => {
     startTransition(async () => {
-      const result = await updateUserRole({
-        userId: user.id,
-        role: isAdmin ? "user" : "admin",
-      })
+      // callAction : un rejet fetch dans une transition remonterait à l'error
+      // boundary au rendu (React 19), pas seulement en unhandled rejection
+      const result = await callAction(() =>
+        updateUserRole({
+          userId: user.id,
+          role: isAdmin ? "user" : "admin",
+        }),
+      )
       if (result.success) {
         toast.success(
           isAdmin

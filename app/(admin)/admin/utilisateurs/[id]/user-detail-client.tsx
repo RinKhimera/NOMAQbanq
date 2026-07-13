@@ -4,6 +4,7 @@ import { ArrowLeft, CreditCard } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { useState, useTransition } from "react"
+import { toast } from "sonner"
 import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
 import {
   type Transaction,
@@ -63,22 +64,30 @@ export function UserDetailClient({
   const handleLoadMore = () => {
     if (!cursor) return
     startLoadMore(async () => {
-      const page = await loadAdminTransactions({ userId: user.id, cursor })
-      setItems((prev) => [...prev, ...page.items.map(adminTransactionToRow)])
-      setCursor(page.nextCursor)
+      try {
+        const page = await loadAdminTransactions({ userId: user.id, cursor })
+        setItems((prev) => [...prev, ...page.items.map(adminTransactionToRow)])
+        setCursor(page.nextCursor)
+      } catch {
+        toast.error("Impossible de charger plus de transactions.")
+      }
     })
   }
 
   // Après un octroi : recharge transactions (1re page) + statut d'accès.
   const handlePaymentSuccess = () => {
     startRefresh(async () => {
-      const [page, fresh] = await Promise.all([
-        loadAdminTransactions({ userId: user.id }),
-        loadUserAccessStatus(user.id),
-      ])
-      setItems(page.items.map(adminTransactionToRow))
-      setCursor(page.nextCursor)
-      setAccess(fresh)
+      try {
+        const [page, fresh] = await Promise.all([
+          loadAdminTransactions({ userId: user.id }),
+          loadUserAccessStatus(user.id),
+        ])
+        setItems(page.items.map(adminTransactionToRow))
+        setCursor(page.nextCursor)
+        setAccess(fresh)
+      } catch {
+        toast.error("Actualisation impossible. Vérifiez votre réseau.")
+      }
     })
   }
 

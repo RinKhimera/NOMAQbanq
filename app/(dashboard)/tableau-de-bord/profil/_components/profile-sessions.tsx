@@ -12,6 +12,7 @@ import {
   revokeUserSession,
 } from "@/features/users/actions"
 import type { UserSession } from "@/features/users/dal"
+import { callAction } from "@/lib/safe-action"
 
 export const ProfileSessions = ({ sessions }: { sessions: UserSession[] }) => {
   const router = useRouter()
@@ -20,7 +21,7 @@ export const ProfileSessions = ({ sessions }: { sessions: UserSession[] }) => {
 
   const revokeOne = async (id: string) => {
     setBusy(true)
-    const res = await revokeUserSession(id)
+    const res = await callAction(() => revokeUserSession(id))
     setBusy(false)
     if (!res.success) {
       toast.error(res.error ?? "Échec de la révocation")
@@ -32,7 +33,7 @@ export const ProfileSessions = ({ sessions }: { sessions: UserSession[] }) => {
 
   const revokeOthers = async () => {
     setBusy(true)
-    const res = await revokeOtherUserSessions()
+    const res = await callAction(() => revokeOtherUserSessions())
     setBusy(false)
     if (!res.success) {
       toast.error(res.error ?? "Échec")

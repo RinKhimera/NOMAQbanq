@@ -4,6 +4,7 @@ import { IconReceipt } from "@tabler/icons-react"
 import { Plus } from "lucide-react"
 import { motion } from "motion/react"
 import { useMemo, useState, useTransition } from "react"
+import { toast } from "sonner"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { DeleteTransactionDialog } from "@/components/shared/payments/delete-transaction-dialog"
 import { EditTransactionModal } from "@/components/shared/payments/edit-transaction-modal"
@@ -71,12 +72,16 @@ export const TransactionsManager = ({
     status: TransactionStatusFilter,
   ) => {
     startTransition(async () => {
-      const page = await loadAdminTransactions({
-        type: type === "all" ? undefined : type,
-        status: status === "all" ? undefined : status,
-      })
-      setItems(page.items.map(adminTransactionToRow))
-      setCursor(page.nextCursor)
+      try {
+        const page = await loadAdminTransactions({
+          type: type === "all" ? undefined : type,
+          status: status === "all" ? undefined : status,
+        })
+        setItems(page.items.map(adminTransactionToRow))
+        setCursor(page.nextCursor)
+      } catch {
+        toast.error("Actualisation impossible. Vérifiez votre réseau.")
+      }
     })
   }
 
@@ -100,29 +105,37 @@ export const TransactionsManager = ({
   const handleLoadMore = () => {
     if (!cursor) return
     startTransition(async () => {
-      const page = await loadAdminTransactions({
-        type: typeFilter === "all" ? undefined : typeFilter,
-        status: statusFilter === "all" ? undefined : statusFilter,
-        cursor,
-      })
-      setItems((prev) => [...prev, ...page.items.map(adminTransactionToRow)])
-      setCursor(page.nextCursor)
+      try {
+        const page = await loadAdminTransactions({
+          type: typeFilter === "all" ? undefined : typeFilter,
+          status: statusFilter === "all" ? undefined : statusFilter,
+          cursor,
+        })
+        setItems((prev) => [...prev, ...page.items.map(adminTransactionToRow)])
+        setCursor(page.nextCursor)
+      } catch {
+        toast.error("Impossible de charger plus de transactions.")
+      }
     })
   }
 
   // Après une mutation : recharge la 1re page des filtres courants + les stats.
   const refresh = () => {
     startTransition(async () => {
-      const [page, freshStats] = await Promise.all([
-        loadAdminTransactions({
-          type: typeFilter === "all" ? undefined : typeFilter,
-          status: statusFilter === "all" ? undefined : statusFilter,
-        }),
-        loadTransactionStats(),
-      ])
-      setItems(page.items.map(adminTransactionToRow))
-      setCursor(page.nextCursor)
-      setStats(freshStats)
+      try {
+        const [page, freshStats] = await Promise.all([
+          loadAdminTransactions({
+            type: typeFilter === "all" ? undefined : typeFilter,
+            status: statusFilter === "all" ? undefined : statusFilter,
+          }),
+          loadTransactionStats(),
+        ])
+        setItems(page.items.map(adminTransactionToRow))
+        setCursor(page.nextCursor)
+        setStats(freshStats)
+      } catch {
+        toast.error("Actualisation impossible. Vérifiez votre réseau.")
+      }
     })
   }
 
