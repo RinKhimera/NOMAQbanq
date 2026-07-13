@@ -92,7 +92,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
   }
 
   const handleReactivate = async (examId: string) => {
-    const res = await reactivateExam({ examId })
+    const res = await callAction(() => reactivateExam({ examId }))
     if (res.success) {
       toast.success("Examen réactivé avec succès")
       router.refresh()
