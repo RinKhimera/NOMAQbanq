@@ -15,7 +15,8 @@
 3. Le client est redirigé vers `checkoutUrl` (page Stripe hébergée).
 4. Paiement sur Stripe → redirection vers `successPath?session_id={CHECKOUT_SESSION_ID}`.
 5. En parallèle, Stripe POST le webhook `app/api/stripe/webhook/route.ts`
-   (signature vérifiée) → sur `checkout.session.completed` + `payment_status: "paid"`,
+   (signature vérifiée) → sur `checkout.session.completed` + `payment_status`
+   `"paid"` ou `"no_payment_required"` (promo 100 %, #92),
    appelle `completeStripeTransaction` (features/payments/stripe.ts).
 6. `completeStripeTransaction` (idempotent via `stripeEventId`) passe la
    transaction à `completed`, persiste le montant/devise réellement facturés, et
