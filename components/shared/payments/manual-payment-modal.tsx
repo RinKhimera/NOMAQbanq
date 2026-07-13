@@ -71,9 +71,9 @@ interface ManualPaymentModalProps {
   onOpenChange: (open: boolean) => void
   /**
    * Produits + utilisateurs sélectionnables, fournis par le Server Component parent
-   * (page admin transactions). Optionnels (défaut `[]`) tant que des écrans Convex
+   * (page admin transactions). Optionnels (défaut `[]`) tant que des écrans
    * non convertis (dashboard, panneau user) montent ce modal sans les fournir —
-   * il y est alors non fonctionnel, conformément à la bascule Option C.
+   * il y est alors non fonctionnel.
    */
   products?: ProductView[]
   users?: SelectableUser[]

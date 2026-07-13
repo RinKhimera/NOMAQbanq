@@ -30,7 +30,7 @@ export class AdminQuestionsPage extends BasePage {
   async searchQuestion(query: string) {
     const searchInput = this.page.getByPlaceholder(/Rechercher/)
     await searchInput.fill(query)
-    // Wait for debounce (300ms) + Convex query
+    // Wait for debounce (300ms) + refetch
     await this.page.waitForTimeout(500)
   }
 

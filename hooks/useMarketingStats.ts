@@ -3,7 +3,7 @@ import { loadMarketingStats } from "@/features/marketing/actions"
 import type { MarketingStats } from "@/features/marketing/dal"
 
 /**
- * Stats marketing publiques via Server Action (remplace `useQuery` Convex).
+ * Stats marketing publiques via Server Action.
  * Conserve la forme `{ stats, isLoading }` ; `setStats` dans `.then` (async) →
  * hors du piège `react-hooks/set-state-in-effect`.
  * `null` = échec de chargement : sort du skeleton, les consommateurs retombent

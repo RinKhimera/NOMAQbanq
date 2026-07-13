@@ -97,8 +97,8 @@ export const PrivacyContent = () => {
         </p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            <strong>Prestataires techniques :</strong> Convex (hébergement de
-            données), Clerk (authentification), Vercel (hébergement web)
+            <strong>Prestataires techniques :</strong> Neon (hébergement de
+            données), AWS (courriels et médias), Vercel (hébergement web)
           </li>
           <li>
             <strong>Prestataire de paiement :</strong> Stripe
@@ -218,7 +218,7 @@ export const PrivacyContent = () => {
         <p>
           Certaines de vos données peuvent être transférées et traitées en
           dehors du Québec et du Canada, notamment aux États-Unis, par nos
-          prestataires de services (Convex, Clerk, Stripe, Vercel).
+          prestataires de services (Neon, AWS, Stripe, Vercel).
         </p>
         <p>
           Ces transferts sont encadrés par des garanties appropriées, notamment

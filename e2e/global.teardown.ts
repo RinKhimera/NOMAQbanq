@@ -1,7 +1,7 @@
 import { test as teardown } from "@playwright/test"
 
 // Réinitialise l'état d'examen + nettoie les données de test préfixées via la
-// route support Drizzle `/api/e2e` (remplace les routes Convex `/e2e/*`).
+// route support `/api/e2e`.
 
 teardown("reset exam participation", async ({ request }) => {
   const secret = process.env.E2E_RESET_SECRET

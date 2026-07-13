@@ -8,8 +8,7 @@ paths:
 
 # Data Layer (Drizzle) + Server Actions / Components
 
-Patterns de la migration Convex→Drizzle (nouveau code `features/**` + les écrans
-qui le câblent). Remplace progressivement `convex-backend.md`.
+Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent).
 
 ## DAL (`features/<domaine>/dal.ts`)
 
@@ -33,8 +32,8 @@ storagePath,order}` pour rester assignable aux composants partagés
   `revalidatePath`.
 - **Concurrence par utilisateur** : `db.transaction` + `SELECT … .for("update")`
   (verrou de ligne) englobant check + insert. Postgres (READ COMMITTED) ne
-  sérialise pas comme Convex (OCC) — sans le verrou, deux requêtes concurrentes
-  passent toutes deux le check.
+  sérialise pas les checks applicatifs — sans le verrou, deux requêtes
+  concurrentes passent toutes deux le check.
 - **Narrowing TS** : renvoyer la valeur DEPUIS le callback de transaction
   (`const r = await db.transaction(async tx => { … return v })`), PAS via un
   `let` capturé dans la closure — TS ne le narrow pas après un garde `if (!r)`
@@ -68,7 +67,7 @@ storagePath,order}` pour rester assignable aux composants partagés
 ## Écrans (Server Component + wrapper client)
 
 - Page = Server Component qui fetch la DAL et passe en props à un `*-client.tsx` ;
-  mutations via Server Actions + `router.refresh()` (plus de réactivité Convex).
+  mutations via Server Actions + `router.refresh()` (pas de réactivité temps réel).
 - **Appels client de Server Actions — jamais d'`await` nu** : un rejet réseau
   (« Failed to fetch ») contourne le garde `if (!res.success)` → unhandled
   rejection, spinner figé, optimiste non rollback (post-mortem Sentry

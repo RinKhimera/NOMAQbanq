@@ -14,8 +14,6 @@ Plateforme francophone de preparation a l'EACMC Partie I. 3000+ QCM, examens bla
 
 Next.js 16 (App Router) · React 19 · TypeScript · Drizzle ORM · Neon Postgres · Better Auth · Tailwind v4 · shadcn/ui · AWS S3 + CloudFront · Stripe · Vitest
 
-> Backend historiquement Convex + Clerk : **migré** vers Drizzle/Neon + Better Auth (Convex et `@clerk/*` retirés). Voir `.claude/rules/data-layer.md`.
-
 ## Commandes
 
 ```bash
@@ -64,7 +62,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 
 **IMPORTANT - DAL** : `features/<domaine>/dal.ts` = `import "server-only"` + React `cache()` + colonnes ciblees + self-guard. Partager les types vers le client via `import type` (le module server-only est efface a la compilation).
 
-**IMPORTANT - Server Actions** : `features/<domaine>/actions.ts` = `"use server"` -> guard -> `zod.safeParse` -> ecriture -> `revalidatePath`. Concurrence par utilisateur : `db.transaction` + verrou de ligne (`.for("update")`) ou UPDATE garde sur le statut attendu (Postgres READ COMMITTED ne serialise pas comme l'OCC Convex).
+**IMPORTANT - Server Actions** : `features/<domaine>/actions.ts` = `"use server"` -> guard -> `zod.safeParse` -> ecriture -> `revalidatePath`. Concurrence par utilisateur : `db.transaction` + verrou de ligne (`.for("update")`) ou UPDATE garde sur le statut attendu (Postgres READ COMMITTED : sans verrou, deux requetes concurrentes passent le meme check).
 
 **IMPORTANT - Reads bornes** : Toujours limiter (`.limit(n)` / pagination keyset). Max ~1000 lignes par requete. Comptes via SQL agrege (`count(*) filter (where ...)`), pas de tables d'agregat.
 

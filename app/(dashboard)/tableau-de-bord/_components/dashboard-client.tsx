@@ -36,7 +36,7 @@ interface DashboardClientProps {
 
 /**
  * Présentation du dashboard étudiant. Reçoit les données déjà chargées par le
- * Server Component parent (DAL Drizzle) — remplace les `useQuery` Convex. Wrapper
+ * Server Component parent (DAL Drizzle). Wrapper
  * client car les cartes/graphiques utilisent `motion` et passent des composants
  * d'icône en props (non sérialisables à travers la frontière serveur→client).
  */

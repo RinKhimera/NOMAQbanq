@@ -71,7 +71,7 @@ setup("grant access for e2e student", async ({ request }) => {
 })
 
 // Réinitialise l'état d'examen (participation + sessions en cours) via la route
-// support Drizzle `/api/e2e` (remplace l'ancienne route Convex `/e2e/reset-exam`).
+// support `/api/e2e`.
 setup("reset exam state for e2e", async ({ request }) => {
   const secret = process.env.E2E_RESET_SECRET
   if (!secret) {

@@ -66,7 +66,7 @@ export const ResumeSessionCard = ({
       toast.success("Session abandonnée", {
         description: "Vous pouvez maintenant commencer une nouvelle session",
       })
-      router.refresh() // re-fetch côté serveur (plus de réactivité Convex)
+      router.refresh() // re-fetch côté serveur
     } catch (error) {
       toast.error("Erreur", {
         description:

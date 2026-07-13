@@ -30,7 +30,7 @@ const readAccess = (tx: Tx, userId: string, accessType: "exam" | "training") =>
     .then((r) => r[0])
 
 /**
- * Octroi d'accès via un paiement manuel (port exact de la logique Convex). À appeler
+ * Octroi d'accès via un paiement manuel. À appeler
  * DANS `db.transaction`. Verrou de ligne `user` FOR UPDATE → sérialise tous les
  * octrois/révocations du même utilisateur (sinon deux paiements concurrents lisent la
  * même expiration et l'un écrase l'autre = lost-update sur le cumul).

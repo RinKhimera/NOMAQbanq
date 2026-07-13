@@ -17,7 +17,7 @@ test.describe("Pages marketing (publiques)", () => {
       page.getByRole("link", { name: "Essayez NOMAQbanq" }),
     ).toBeVisible()
 
-    // Trust indicator — stats are dynamic from Convex (fallback "200+"),
+    // Trust indicator — stats are dynamic (fallback "200+"),
     // so match the suffix instead of a hardcoded number
     await expect(page.getByText(/candidats satisfaits/).first()).toBeVisible()
   })

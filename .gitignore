@@ -48,7 +48,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# convex → neon migration snapshot (PROD PII — never commit)
+# snapshot de l'ancienne source (PII prod — never commit ; peut exister sur d'autres postes)
 /convex-snapshot.zip
 /convex-snapshot/
 

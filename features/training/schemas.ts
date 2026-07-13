@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-// Bornes session d'entraînement (alignées sur l'ancienne logique Convex).
+// Bornes session d'entraînement.
 export const MIN_QUESTIONS = 5
 export const MAX_QUESTIONS = 20
 

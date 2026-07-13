@@ -5,11 +5,9 @@ import { uploadRateLimits } from "@/db/schema"
 
 /**
  * Rate-limit des uploads par utilisateur + type, sur fenêtre glissante d'1 h.
- * Porté de `convex/rateLimit.ts` (clé `clerkId` → `userId` Drizzle). La table
- * `upload_rate_limits` a une contrainte UNIQUE(userId, uploadType).
+ * La table `upload_rate_limits` a une contrainte UNIQUE(userId, uploadType).
  *
- * Différence avec la version Convex (2 étapes : check-query puis increment-
- * mutation) : ici **un seul appel atomique** consomme le quota AVANT l'upload.
+ * **Un seul appel atomique** consomme le quota AVANT l'upload.
  * Avantages : (a) ferme la fenêtre TOCTOU (deux requêtes concurrentes du même
  * user ne peuvent plus dépasser la limite — le `SELECT … FOR UPDATE` les
  * sérialise) ; (b) plus résistant à l'abus (une requête qui spamme l'endpoint

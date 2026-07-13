@@ -14,11 +14,11 @@ const FULFILLABLE_PAYMENT_STATUSES: ReadonlyArray<Stripe.Checkout.Session.Paymen
   ["paid", "no_payment_required"]
 
 /**
- * Webhook Stripe (remplace la route Convex `/stripe`). Vérifie la signature, puis
+ * Webhook Stripe. Vérifie la signature, puis
  * délègue le fulfillment idempotent au DAL. Conventions de réponse :
  * - 400 : signature absente/invalide (jamais rejoué).
- * - 500 : erreur inattendue (DB…) → Stripe RÉESSAIE (≠ Convex qui avalait tout en
- *   200 et perdait le fulfillment sur erreur transitoire).
+ * - 500 : erreur inattendue (DB…) → Stripe RÉESSAIE (ne jamais acquitter en 200 :
+ *   le fulfillment serait perdu sur erreur transitoire).
  * - 200 : événement traité ou volontairement ignoré.
  *
  * ⚠️ Config déploiement : pointer l'endpoint webhook du dashboard Stripe vers

@@ -30,7 +30,7 @@ const CURRENCY_BY_STRIPE = new Map<string, "CAD" | "XAF">([
 
 /**
  * Fulfillment d'un paiement Stripe (webhook `checkout.session.completed`, payé).
- * Port de `completeStripeTransaction` Convex, durci :
+ * Garanties :
  * - **Idempotence** vérifiée SOUS le verrou `user FOR UPDATE` (l'index unique
  *   `stripe_event_id` est le filet de sécurité). Deux livraisons concurrentes du
  *   même event ⇒ la 2e voit l'event déjà posé / la transaction déjà `completed`

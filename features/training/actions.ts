@@ -110,7 +110,7 @@ export const createTrainingSession = async (
     // Verrou de ligne user : sérialise les créations concurrentes du même
     // utilisateur. Rate-limit + « session déjà en cours » + sélection + insert
     // deviennent atomiques (sinon, deux requêtes simultanées → 2 sessions
-    // actives / dépassement de limite — Postgres ne sérialise pas comme Convex).
+    // actives / dépassement de limite — READ COMMITTED ne sérialise pas seul).
     await db.transaction(async (tx) => {
       await tx
         .select({ id: user.id })

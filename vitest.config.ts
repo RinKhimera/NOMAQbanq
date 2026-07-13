@@ -87,7 +87,7 @@ export default defineConfig({
         "components/admin/question-image-uploader.tsx",
         // Marketing (display pur)
         "components/marketing/**",
-        // Modals/forms Convex-heavy
+        // Modals/forms lourds
         "components/shared/payments/manual-payment-modal.tsx",
         "components/shared/payments/edit-transaction-modal.tsx",
         "components/shared/payments/delete-transaction-dialog.tsx",

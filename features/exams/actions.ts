@@ -181,7 +181,7 @@ export const createExam = async (
 
 /**
  * [Admin] Met à jour un examen. Les **métadonnées** (titre, description, dates,
- * pause) restent modifiables en tout temps — parité avec l'ancien Convex.
+ * pause) restent modifiables en tout temps.
  * Le **jeu de questions** ne peut être remplacé qu'avant toute participation
  * (le changer ensuite fausserait les scores déjà enregistrés) : si l'examen a
  * des participations et que le set envoyé diffère du set courant, refus

@@ -10,7 +10,7 @@ import { createId } from "@/lib/ids"
 import { user } from "./auth"
 import { uploadType } from "./enums"
 
-// Keyed on user_id (replaces Convex clerkId). Not imported in Phase 3b (ephemeral).
+// Keyed on user_id.
 export const uploadRateLimits = pgTable(
   "upload_rate_limits",
   {

@@ -45,7 +45,7 @@ interface AdminDashboardClientProps {
 
 /**
  * Présentation du dashboard admin. Reçoit les données déjà chargées par le Server
- * Component parent (DAL Drizzle) — remplace les `useQuery` Convex. Wrapper client
+ * Component parent (DAL Drizzle). Wrapper client
  * car il porte l'état de la modale de paiement manuel et passe des icônes en props.
  */
 export function AdminDashboardClient({
@@ -149,7 +149,7 @@ export function AdminDashboardClient({
           onOpenChange={setShowManualPaymentModal}
           onSuccess={() => {
             // L'action ne revalide que /admin/transactions et /admin/utilisateurs :
-            // on rafraîchit explicitement le dashboard (plus de réactivité Convex).
+            // on rafraîchit explicitement le dashboard.
             router.refresh()
           }}
         />

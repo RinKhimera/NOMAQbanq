@@ -14,7 +14,7 @@ export type MarketingStats = {
 }
 
 // Arrondit un nombre brut vers un palier marketing supérieur + suffixe "+".
-// Ex: 167 → "200+", 2875 → "3000+". Parité avec `convex/marketing.ts`.
+// Ex: 167 → "200+", 2875 → "3000+".
 const formatMarketingStat = (n: number): string => {
   if (n <= 0) return "0"
   let step: number

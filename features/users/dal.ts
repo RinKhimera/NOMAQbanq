@@ -166,8 +166,8 @@ export type SelectableUser = { id: string; name: string; email: string }
 
 /**
  * [Admin] Liste des utilisateurs non-admin sélectionnables (combobox du paiement
- * manuel). Remplace `getAllUsers` Convex. Colonnes minimales, exclut les admins
- * et les comptes supprimés, triés par nom. Borné à 500 (parité Convex `.take(500)`)
+ * manuel). Colonnes minimales, exclut les admins
+ * et les comptes supprimés, triés par nom. Borné à 500
  * — au-delà, prévoir une recherche serveur paginée.
  */
 export const getSelectableUsers = cache(async (): Promise<SelectableUser[]> => {
@@ -254,8 +254,7 @@ export type UsersFilters = {
 }
 
 /**
- * [Admin] Utilisateurs filtrés/triés/paginés. Remplace `getUsersWithFilters`
- * Convex (qui chargeait 500 users puis filtrait/triait/paginait en JS) par du
+ * [Admin] Utilisateurs filtrés/triés/paginés en
  * SQL : recherche ILIKE (nom/email/username), filtre rôle + plage de dates, et
  * **statut d'accès** via deux LEFT JOIN aliasés sur `user_access` (exam/training,
  * au plus 1 ligne chacun grâce à l'unicité). Pagination par offset (liste admin
@@ -425,8 +424,7 @@ const trendPct = (recent: number, previous: number) =>
   previous > 0 ? ((recent - previous) / previous) * 100 : recent > 0 ? 100 : 0
 
 /**
- * [Admin] KPI de la page utilisateurs. Remplace `getUsersStats` Convex (jusqu'à
- * 1000+2000+2000 lignes chargées en JS) par 3 agrégations SQL parallèles :
+ * [Admin] KPI de la page utilisateurs : 3 agrégations SQL parallèles :
  * compteurs users (mois courant vs précédent), accès actifs/expirants par type,
  * revenus par devise (30 j récents vs 30 j précédents).
  */

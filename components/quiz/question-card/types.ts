@@ -2,10 +2,9 @@
 export type QuestionCardVariant = "default" | "exam" | "review"
 
 // ===== Question shape =====
-// Forme native (post-migration Convex→Drizzle) d'une question telle que la
+// Forme native d'une question telle que la
 // consomment les composants quiz partagés. Conserve la convention `_id` /
-// `_creationTime` de la « forme pont » renvoyée par les DAL Drizzle, sans
-// dépendre des types générés Convex.
+// `_creationTime` de la « forme pont » renvoyée par les DAL Drizzle.
 export type QuestionDoc = {
   _id: string
   _creationTime?: number

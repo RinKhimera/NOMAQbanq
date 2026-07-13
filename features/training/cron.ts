@@ -14,7 +14,7 @@ export type CloseExpiredTrainingResult = { closedCount: number }
  *   `status='in_progress'` re-vérifiée dans le WHERE final (idem cron examens) :
  *   pas de clobber d'une complétion concurrente.
  * - Arrondi `round()` numeric = half-up EXACT (référence projet, cf. lib/score.ts).
- * - Statut de fermeture = `abandoned` (parité Convex).
+ * - Statut de fermeture = `abandoned`.
  */
 export async function closeExpiredTrainingSessions(): Promise<CloseExpiredTrainingResult> {
   const now = new Date()

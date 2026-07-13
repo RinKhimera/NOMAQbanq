@@ -101,7 +101,7 @@ export type ProductView = {
   code: (typeof products.code.enumValues)[number]
   name: string
   description: string
-  /** En cents. Nom conservé pour l'UI existante (était `priceCAD` côté Convex). */
+  /** En cents. Casse `priceCAD` conservée pour l'UI existante. */
   priceCAD: number
   durationDays: number
   accessType: "exam" | "training"
@@ -314,8 +314,8 @@ export type AdminTransactionsPage = {
 
 /**
  * [Admin] Toutes les transactions, filtrables par type/statut/utilisateur.
- * Remplace `getAllTransactions` Convex. Pagination keyset (même curseur
- * `(createdAt, id)` que `getMyTransactions`) au lieu du `.paginate()` Convex :
+ * Pagination keyset (même curseur
+ * `(createdAt, id)` que `getMyTransactions`) :
  * filtres poussés en SQL (pas de filtrage post-pagination côté JS). Jointures
  * user + produit en une requête (pas de N+1). Garde admin (defense-in-depth :
  * le layout admin garde déjà, mais le DAL ne fait jamais confiance à l'appelant).
@@ -423,8 +423,7 @@ export type TransactionStatsView = {
 }
 
 /**
- * [Admin] Revenus + compteurs sur les transactions complétées. Remplace
- * `getTransactionStats` Convex (qui chargeait jusqu'à 10000 lignes en JS) par
+ * [Admin] Revenus + compteurs sur les transactions complétées via
  * une agrégation SQL `GROUP BY currency` avec `FILTER` pour la fenêtre 30 jours :
  * O(1) lignes ramenées, calcul côté Postgres.
  */
@@ -501,7 +500,7 @@ export type AccessImpact = {
 /**
  * [Admin] Indique si rembourser/supprimer cette transaction révoquera l'accès,
  * c.-à-d. si elle est la dernière à l'avoir accordé (`lastTransactionId`).
- * Remplace `getTransactionAccessImpact` Convex. Renvoie `null` si la transaction
+ * Renvoie `null` si la transaction
  * n'existe pas (l'UI traite alors « aucun impact »).
  */
 export const getTransactionAccessImpact = async (
