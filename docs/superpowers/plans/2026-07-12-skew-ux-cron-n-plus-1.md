@@ -729,24 +729,32 @@ export type CloseExpiredTrainingResult = { closedCount: number }
 export async function closeExpiredTrainingSessions(): Promise<CloseExpiredTrainingResult> {
   const now = new Date()
 
+  // LEFT JOIN + GROUP BY plutôt qu'une sous-requête corrélée : dans une
+  // sous-requête `.as()` MONO-table, Drizzle rend les colonnes SANS
+  // qualification — la corrélation (`"session_id" = "id"`) se lierait alors à
+  // la table interne (count toujours 0). Un JOIN force la qualification
+  // complète (cf. cron examens) et supprime la corrélation.
   const scored = db
     .select({
       id: trainingSessions.id,
       questionCount: trainingSessions.questionCount,
       correct:
-        sql<number>`(select count(*) filter (where ${trainingSessionItems.isCorrect})
-        from ${trainingSessionItems}
-        where ${trainingSessionItems.sessionId} = ${trainingSessions.id})`.as(
+        sql<number>`count(*) filter (where ${trainingSessionItems.isCorrect})`.as(
           "correct",
         ),
     })
     .from(trainingSessions)
+    .leftJoin(
+      trainingSessionItems,
+      eq(trainingSessionItems.sessionId, trainingSessions.id),
+    )
     .where(
       and(
         eq(trainingSessions.status, "in_progress"),
         lt(trainingSessions.expiresAt, now),
       ),
     )
+    .groupBy(trainingSessions.id)
     .limit(100)
     .as("scored")
 
@@ -771,6 +779,13 @@ export async function closeExpiredTrainingSessions(): Promise<CloseExpiredTraini
   return { closedCount: closed.length }
 }
 ```
+
+Gotcha découvert à l'implémentation (intégration rouge : score 0 au lieu de 50) : la première version utilisait une sous-requête corrélée comme le cron
+examens — mais dans une sous-requête `.as()` **mono-table**, Drizzle rend
+toutes les colonnes sans qualification, et la corrélation se lie à la table
+interne. Le cron examens, lui, contient un `innerJoin` dans sa sous-requête →
+Drizzle qualifie tout → la forme corrélée y est correcte (épinglée par la
+sentinelle 23/40 → 58). Vérifié via `.toSQL()`.
 
 - [ ] **Step 2: Gate types/lint**
 
