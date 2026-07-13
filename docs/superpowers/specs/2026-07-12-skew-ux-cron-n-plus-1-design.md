@@ -200,7 +200,12 @@ Le code contient néanmoins de vrais N+1 **latents** dès qu'il y a des lignes :
    seule connexion froide réutilisée au lieu de 3-4 handshakes parallèles — la
    cause mesurée dans les traces. `sendPendingNotifications` reste après les
    clôtures (inclut les `auto_submitted` du même run). Forme de la réponse
-   JSON inchangée (moins `processedCount`).
+   JSON inchangée (moins `processedCount`). **Isolation par tâche** (revue
+   d'implémentation) : chaque tâche est enveloppée d'un try/catch — un échec
+   persistant de l'une (poison-row) ne bloque pas les suivantes (notamment
+   l'anonymisation RGPD, propriété que le `Promise.all` avait de fait) ; un
+   échec quelconque → 500 après avoir tout tenté (retry du scheduler
+   conservé).
 4. **Notifications et anonymisation inchangées** (raisons au tableau
    ci-dessus — le passage en ensembliste ne doit pas casser la garde
    anti-double-envoi, hot-spot connu de la campagne notifications).

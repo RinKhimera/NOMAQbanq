@@ -48,6 +48,10 @@ export async function closeExpiredTrainingSessions(): Promise<CloseExpiredTraini
     .limit(100)
     .as("scored")
 
+  // ⚠️ Drizzle rend le champ SQL.Aliased de la sous-requête ("correct") NON
+  // qualifié dans le SET — valide uniquement tant qu'aucune colonne de
+  // `training_sessions` ne porte ce nom (sinon « column reference is
+  // ambiguous » au runtime, invisible à tsc).
   const closed = await db
     .update(trainingSessions)
     .set({

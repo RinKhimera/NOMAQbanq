@@ -42,6 +42,8 @@ const qIdsHalf = Array.from({ length: 40 }, () => createId())
 const tsExpired = createId()
 const tsFuture = createId()
 const tsDone = createId()
+const tsHalf = createId()
+const tsEmpty = createId()
 
 beforeAll(async () => {
   const now = Date.now()
@@ -190,13 +192,16 @@ beforeAll(async () => {
     completedAt: status === "completed" ? new Date(now - DAY) : null,
     expiresAt: new Date(now + expiresOffset),
   })
-  await db
-    .insert(trainingSessions)
-    .values([
-      mkSession(tsExpired, U1, "in_progress", -DAY),
-      mkSession(tsFuture, U2, "in_progress", DAY),
-      mkSession(tsDone, U3, "completed", -DAY),
-    ])
+  await db.insert(trainingSessions).values([
+    mkSession(tsExpired, U1, "in_progress", -DAY),
+    mkSession(tsFuture, U2, "in_progress", DAY),
+    mkSession(tsDone, U3, "completed", -DAY),
+    // 40 questions / 23 items corrects → 57.5 exact : sentinelle d'arrondi
+    // half-up côté training (miroir de pHalf).
+    { ...mkSession(tsHalf, U1, "in_progress", -DAY), questionCount: 40 },
+    // Aucun item : exerce la branche « ligne NULL » du LEFT JOIN.
+    mkSession(tsEmpty, U2, "in_progress", -DAY),
+  ])
   // 4 items, 2 corrects pour tsExpired → score attendu 50.
   await db.insert(trainingSessionItems).values(
     qIds.map((questionId, position) => ({
@@ -206,6 +211,16 @@ beforeAll(async () => {
       position,
       selectedAnswer: position < 3 ? "A" : null,
       isCorrect: position < 2 ? true : position < 3 ? false : null,
+    })),
+  )
+  await db.insert(trainingSessionItems).values(
+    qIdsHalf.slice(0, 23).map((questionId, position) => ({
+      id: createId(),
+      sessionId: tsHalf,
+      questionId,
+      position,
+      selectedAnswer: "A",
+      isCorrect: true,
     })),
   )
 })
@@ -288,5 +303,13 @@ describe("closeExpiredTrainingSessions", () => {
 
     expect((await sessionOf(tsFuture))?.status).toBe("in_progress")
     expect((await sessionOf(tsDone))?.status).toBe("completed")
+
+    const half = await sessionOf(tsHalf)
+    expect(half?.status).toBe("abandoned")
+    expect(half?.score).toBe(58) // 23/40 = 57.5 exact → 58 (float JS : 57)
+
+    const empty = await sessionOf(tsEmpty)
+    expect(empty?.status).toBe("abandoned")
+    expect(empty?.score).toBe(0) // zéro item : branche NULL du LEFT JOIN
   })
 })

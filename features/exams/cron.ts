@@ -50,6 +50,10 @@ export async function closeExpiredExamParticipations(): Promise<CloseExpiredPart
     .limit(500)
     .as("scored")
 
+  // ⚠️ Drizzle rend les champs SQL.Aliased de la sous-requête ("correct",
+  // "total") NON qualifiés dans le SET — valide uniquement tant qu'aucune
+  // colonne de `exam_participations` ne porte ces noms (sinon « column
+  // reference is ambiguous » au runtime, invisible à tsc).
   const closed = await db
     .update(examParticipations)
     .set({
