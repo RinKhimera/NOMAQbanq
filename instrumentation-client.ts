@@ -2,6 +2,7 @@
 // The added config here will be used whenever a users loads a page in their browser.
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 import * as Sentry from "@sentry/nextjs"
+import { isThirdPartyRsCrash } from "@/lib/sentry-filters"
 
 Sentry.init({
   dsn: "https://c7c726531f3e9dc07a6488f3bd7ae9b4@o4510410010787842.ingest.us.sentry.io/4510410016227333",
@@ -39,21 +40,8 @@ Sentry.init({
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
 
-  // Un tiers (traduction/extension) qui mute le DOM pendant le streaming fait
-  // crasher le script inline $RS de React avec ce message précis — pas un bug
-  // applicatif. Double condition volontairement étroite : ne jamais l'élargir
-  // sans audit d'hydratation préalable.
   beforeSend(event, hint) {
-    const error = hint.originalException
-    const frames = event.exception?.values?.[0]?.stacktrace?.frames ?? []
-    if (
-      error instanceof TypeError &&
-      error.message.includes("reading 'parentNode'") &&
-      frames.some((f) => f.function === "$RS")
-    ) {
-      return null
-    }
-    return event
+    return isThirdPartyRsCrash(event, hint) ? null : event
   },
 })
 
