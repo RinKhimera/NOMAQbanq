@@ -38,6 +38,23 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
+
+  // Un tiers (traduction/extension) qui mute le DOM pendant le streaming fait
+  // crasher le script inline $RS de React avec ce message précis — pas un bug
+  // applicatif. Double condition volontairement étroite : ne jamais l'élargir
+  // sans audit d'hydratation préalable.
+  beforeSend(event, hint) {
+    const error = hint.originalException
+    const frames = event.exception?.values?.[0]?.stacktrace?.frames ?? []
+    if (
+      error instanceof TypeError &&
+      error.message.includes("reading 'parentNode'") &&
+      frames.some((f) => f.function === "$RS")
+    ) {
+      return null
+    }
+    return event
+  },
 })
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart
