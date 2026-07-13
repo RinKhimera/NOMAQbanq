@@ -15,6 +15,7 @@ import {
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -71,9 +72,15 @@ export const TrainingHistorySection = ({
   const loadMore = () => {
     if (cursor === null) return
     startLoadMore(async () => {
-      const page = await loadTrainingHistory({ cursor, limit: 5 })
-      setSessions((prev) => [...prev, ...page.items])
-      setCursor(page.nextCursor)
+      try {
+        const page = await loadTrainingHistory({ cursor, limit: 5 })
+        setSessions((prev) => [...prev, ...page.items])
+        setCursor(page.nextCursor)
+      } catch {
+        toast.error(
+          "Impossible de charger l'historique. Vérifiez votre réseau.",
+        )
+      }
     })
   }
 

@@ -60,10 +60,15 @@ export const TrainingConfigForm = ({
 
   useEffect(() => {
     startObjLoad(async () => {
-      const res = await loadAvailableObjectifsCMC(
-        selectedDomain === "all" ? undefined : selectedDomain,
-      )
-      setFilteredObjectifs(res)
+      try {
+        const res = await loadAvailableObjectifsCMC(
+          selectedDomain === "all" ? undefined : selectedDomain,
+        )
+        setFilteredObjectifs(res)
+      } catch {
+        // rejet réseau : la liste reste sur l'état précédent, pas de toast
+        // bloquant (le changement de domaine peut être retenté)
+      }
     })
   }, [selectedDomain])
 

@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { toast } from "sonner"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
@@ -153,21 +154,27 @@ export function SessionResults({
     )
     if (toLoad.length === 0) return
     let active = true
-    loadExplanations(toLoad).then((rows) => {
-      if (!active) return
-      setExplanationsMap((prev) => {
-        const next = new Map(prev)
-        for (const row of rows) {
-          next.set(row.questionId, {
-            explanation: row.explanation,
-            references: row.references,
-            explanationImages: row.explanationImages,
-          })
-        }
-        return next
+    loadExplanations(toLoad)
+      .then((rows) => {
+        if (!active) return
+        setExplanationsMap((prev) => {
+          const next = new Map(prev)
+          for (const row of rows) {
+            next.set(row.questionId, {
+              explanation: row.explanation,
+              references: row.references,
+              explanationImages: row.explanationImages,
+            })
+          }
+          return next
+        })
+        for (const id of toLoad) loadedIds.current.add(id)
       })
-      for (const id of toLoad) loadedIds.current.add(id)
-    })
+      .catch(() => {
+        // loadedIds non marqué : re-déplier la question retente le chargement
+        if (!active) return
+        toast.error("Explications indisponibles. Vérifiez votre réseau.")
+      })
     return () => {
       active = false
     }
