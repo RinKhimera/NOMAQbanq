@@ -100,6 +100,14 @@ storagePath,order}` pour rester assignable aux composants partagés
   (Node) vs client → _hydration mismatch_ (« 2 880 » ≠ « 2 880 » à l'œil ; l'arbre
   est régénéré côté client et l'état local peut sauter). Toujours passer une locale
   fixe : `n.toLocaleString("fr-CA")`.
+- **Hydration — bruit tiers filtré** : les crashs `$RS` (`Cannot read properties
+of null (reading 'parentNode')`, script inline du streaming React) causés par
+  un tiers qui mute le DOM (traduction, extension, proxy) sont DROPPÉS par le
+  `beforeSend` d'`instrumentation-client.ts` (double condition message + frame
+  `$RS`, volontairement étroite). Ne JAMAIS élargir ce filtre à d'autres erreurs
+  d'hydratation sans audit préalable de l'arbre rendu (grep `toLocaleString()`/
+  `new Date()`/`Date.now()`/`useId`/`typeof window` sur les composants rendus
+  côté serveur) — un vrai mismatch applicatif doit rester visible dans Sentry.
 - **ESLint `react-hooks/set-state-in-effect`** : pas de `setState` synchrone dans
   un `useEffect`. Fetch-par-id → tracker l'id chargé (`useState<{id,q}>` +
   comparer `state?.id === currentId`) au lieu d'un reset synchrone.

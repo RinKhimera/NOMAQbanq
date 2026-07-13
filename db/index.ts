@@ -8,6 +8,16 @@ import * as schema from "./schema"
 // Use the POOLED (-pooler) connection string for the runtime.
 const pool = new Pool({ connectionString: env.DATABASE_URL, max: 5 })
 
+// Sans listener, une connexion idle coupée par Neon (reprise d'instance, reset
+// réseau) émet `error` sur le pool → uncaughtException fatale. Le pool remplace
+// le client mort tout seul ; il n'y a rien d'autre à faire que ne pas crasher.
+pool.on("error", (err) => {
+  // err.code (57P01, ECONNRESET…) est le seul discriminant entre coupure
+  // bénigne et problème émergent sur le canal logs Vercel.
+  const code = (err as NodeJS.ErrnoException).code ?? "sans-code"
+  console.warn("[pg pool] connexion idle perdue", code, err.message)
+})
+
 // On Vercel, let the runtime drain idle connections before suspending an instance.
 if (process.env.VERCEL) attachDatabasePool(pool)
 
