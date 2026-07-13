@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Switch } from "@/components/ui/switch"
 import { updateNotificationPreferences } from "@/features/notifications/actions"
 import type { NotificationPreferences } from "@/features/notifications/dal"
+import { callAction } from "@/lib/safe-action"
 
 export const ProfileNotifications = ({
   preferences,
@@ -19,7 +20,7 @@ export const ProfileNotifications = ({
     const prev = prefs
     setPrefs(next) // optimistic
     setBusy(true)
-    const res = await updateNotificationPreferences(next)
+    const res = await callAction(() => updateNotificationPreferences(next))
     setBusy(false)
     if (!res.success) {
       setPrefs(prev) // rollback

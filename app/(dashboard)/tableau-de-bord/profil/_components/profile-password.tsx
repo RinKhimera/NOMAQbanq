@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input"
 import { setAccountPassword } from "@/features/users/actions"
 import { authClient } from "@/lib/auth-client"
 import { mapAuthError } from "@/lib/auth-errors"
+import { callAction } from "@/lib/safe-action"
 import {
   type ChangePasswordFormValues,
   type ResetPasswordFormValues,
@@ -44,7 +45,9 @@ const SetPasswordForm = () => {
   })
 
   const onSubmit = async (values: ResetPasswordFormValues) => {
-    const res = await setAccountPassword({ newPassword: values.password })
+    const res = await callAction(() =>
+      setAccountPassword({ newPassword: values.password }),
+    )
     if (!res.success) {
       toast.error(res.error ?? "Impossible de définir le mot de passe")
       return
