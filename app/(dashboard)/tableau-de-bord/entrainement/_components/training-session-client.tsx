@@ -17,6 +17,7 @@ import {
   saveTrainingAnswer,
 } from "@/features/training/actions"
 import type { TrainingSessionView } from "@/features/training/dal"
+import { callAction } from "@/lib/safe-action"
 
 type SessionData = NonNullable<TrainingSessionView>
 
@@ -110,11 +111,10 @@ export const TrainingSessionClient = ({
 
   const callbacks: QuizCallbacks = {
     onAnswer: async (questionId, selectedAnswer) => {
-      const res = await saveTrainingAnswer({
-        sessionId,
-        questionId,
-        selectedAnswer,
-      })
+      const res = await callAction(
+        () => saveTrainingAnswer({ sessionId, questionId, selectedAnswer }),
+        { retries: 1 }, // upsert idempotent — absorbe les micro-coupures
+      )
       if (!res.success) {
         toast.error("Réponse non enregistrée, réessayez.")
         return { ok: false, error: res.error }
@@ -134,7 +134,7 @@ export const TrainingSessionClient = ({
     // Flags d'entraînement restent locaux — no-op serveur
     onFlag: async () => ({ ok: true }),
     onFinish: async () => {
-      const res = await completeTrainingSession({ sessionId })
+      const res = await callAction(() => completeTrainingSession({ sessionId }))
       if (!res.success) {
         toast.error("Erreur", { description: res.error })
         return { ok: false }
