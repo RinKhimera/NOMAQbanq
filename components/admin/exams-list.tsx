@@ -24,6 +24,7 @@ import {
 } from "@/features/exams/actions"
 import type { AdminExamListItem } from "@/features/exams/dal"
 import { ExamStatus, getExamStatus } from "@/lib/exam-status"
+import { callAction } from "@/lib/safe-action"
 import { ExamCard } from "./exam-card"
 import { ExamStatusFilter } from "./exam-status-filter"
 
@@ -78,7 +79,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
 
   const performDeactivate = async (examId: string) => {
     setIsPending(true)
-    const res = await deactivateExam({ examId })
+    const res = await callAction(() => deactivateExam({ examId }))
     setIsPending(false)
     if (res.success) {
       toast.success("Examen désactivé avec succès")
@@ -116,7 +117,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
 
   const performDelete = async (examId: string) => {
     setIsPending(true)
-    const res = await deleteExam({ examId })
+    const res = await callAction(() => deleteExam({ examId }))
     setIsPending(false)
     if (res.success) {
       toast.success("Examen supprimé avec succès")

@@ -44,6 +44,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { deleteQuestion, loadQuestionById } from "@/features/questions/actions"
 import type { QuestionDetail } from "@/features/questions/dal"
 import { cdnUrl } from "@/lib/cdn"
+import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
 
 interface QuestionSidePanelProps {
@@ -119,7 +120,7 @@ function PanelContent({
 
   const handleDelete = async () => {
     setIsDeleting(true)
-    const res = await deleteQuestion(questionId)
+    const res = await callAction(() => deleteQuestion(questionId))
     setIsDeleting(false)
     if (!res.success) {
       toast.error(res.error ?? "Erreur lors de la suppression")
