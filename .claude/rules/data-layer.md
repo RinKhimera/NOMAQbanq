@@ -69,6 +69,18 @@ storagePath,order}` pour rester assignable aux composants partagés
 
 - Page = Server Component qui fetch la DAL et passe en props à un `*-client.tsx` ;
   mutations via Server Actions + `router.refresh()` (plus de réactivité Convex).
+- **Appels client de Server Actions — jamais d'`await` nu** : un rejet réseau
+  (« Failed to fetch ») contourne le garde `if (!res.success)` → unhandled
+  rejection, spinner figé, optimiste non rollback (post-mortem Sentry
+  NOMAQBANQ-1A, 2026-07-12). Mutations : `callAction(() => action(x))`
+  (`lib/safe-action.ts`) — ne throw jamais, convertit le rejet en
+  `{ success: false, error }` discriminable par les gardes existants ;
+  `{ retries: n }` RÉSERVÉ aux actions idempotentes (upserts quiz). Lectures :
+  try/catch dans la transition, ou `.catch` sur toute chaîne `.then` d'effet
+  (toujours sortir du skeleton). Le moteur quiz traite tout throw de callback
+  comme `{ ok: false }` (rollback) et sérialise les envois de réponses par
+  question ; les toasts vivent dans les callbacks des pages. `authClient.*` ne
+  throw pas (résout `{ error }`) → lire le retour, pas de `callAction`.
 - **ESLint `react-hooks/purity`** (échoue `bun run check`) : pas de `Date.now()`
   ni `new Date()` argless dans le corps de rendu d'un composant (même un Server
   Component async) → extraire l'horloge dans un helper au scope module.
