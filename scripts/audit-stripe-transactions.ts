@@ -75,11 +75,19 @@ type Finding = {
   db: { amountPaid: number; currency: string }
   stripe: { amountTotal: number | null; currency: string | null }
   expected: { amountPaid: number; currency: string } | null
-  kind: "montant" | "devise" | "montant+devise" | "session_introuvable"
+  kind:
+    | "montant"
+    | "devise"
+    | "montant+devise"
+    | "devise_hors_enum"
+    | "inexploitable"
+    | "session_introuvable"
 }
 
 /** Valeur attendue en base (centièmes) depuis la session Stripe — même règle
- * que le fulfillment : XAF zéro-décimal chez Stripe → ×100 en base. */
+ * que le fulfillment : XAF zéro-décimal chez Stripe → ×100 en base. Contrairement
+ * au fulfillment (qui conserve le provisoire), une devise réelle hors enum n'est
+ * PAS ignorée ici : l'audit doit la remonter, c'est précisément une divergence. */
 const expectedFromSession = (
   amountTotal: number | null,
   currency: string | null,
@@ -147,7 +155,21 @@ const auditRow = async (row: Row): Promise<Finding | null> => {
   }
 
   const expected = expectedFromSession(session.amount_total, session.currency)
-  if (!expected) return null // même politique que le fulfillment : inexploitable → provisoire assumé
+  if (!expected) {
+    const realCurrencyOutsideEnum =
+      session.amount_total != null &&
+      session.currency != null &&
+      !["cad", "xaf"].includes(session.currency.toLowerCase())
+    return {
+      transactionId: row.id,
+      sessionId,
+      createdAt: row.createdAt.toISOString(),
+      db: { amountPaid: row.amountPaid, currency: row.currency },
+      stripe: { amountTotal: session.amount_total, currency: session.currency },
+      expected: null,
+      kind: realCurrencyOutsideEnum ? "devise_hors_enum" : "inexploitable",
+    }
+  }
 
   const amountDiff = expected.amountPaid !== row.amountPaid
   const currencyDiff = expected.currency !== row.currency
@@ -187,23 +209,27 @@ const main = async () => {
   const divergent = findings.filter((f) => f.kind !== "session_introuvable")
   const missing = findings.filter((f) => f.kind === "session_introuvable")
 
-  // Écart agrégé par devise : DB - attendu (positif = sur-rapport en base).
-  const gap: Record<string, number> = {}
+  // Deux sommes par devise plutôt qu'un « écart » net : une divergence
+  // cross-devise (DB CAD vs réel XAF) n'a pas de soustraction qui ait un sens.
+  const dbSide: Record<string, number> = {}
+  const realSide: Record<string, number> = {}
   for (const f of divergent) {
-    if (!f.expected) continue
-    gap[f.expected.currency] =
-      (gap[f.expected.currency] ?? 0) +
-      (f.db.currency === f.expected.currency ? f.db.amountPaid : 0) -
-      f.expected.amountPaid
+    dbSide[f.db.currency] = (dbSide[f.db.currency] ?? 0) + f.db.amountPaid
+    if (f.expected)
+      realSide[f.expected.currency] =
+        (realSide[f.expected.currency] ?? 0) + f.expected.amountPaid
   }
 
   console.log("\n=== Rapport d'audit (#81) ===")
   console.log(`Transactions auditées : ${rows.length}`)
   console.log(`Divergentes           : ${divergent.length}`)
   console.log(`Sessions introuvables : ${missing.length}`)
-  for (const [cur, cents] of Object.entries(gap)) {
+  for (const cur of new Set([
+    ...Object.keys(dbSide),
+    ...Object.keys(realSide),
+  ])) {
     console.log(
-      `Écart agrégé ${cur}     : ${(cents / 100).toFixed(2)} (DB − réel, en ${cur})`,
+      `Lignes divergentes en ${cur} : DB ${((dbSide[cur] ?? 0) / 100).toFixed(2)} · réel ${((realSide[cur] ?? 0) / 100).toFixed(2)}`,
     )
   }
   for (const f of [...divergent, ...missing]) {
