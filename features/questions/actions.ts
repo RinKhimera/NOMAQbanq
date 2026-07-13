@@ -4,9 +4,11 @@ import { and, eq, isNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
+import { getOpenExamQuestionIds } from "@/features/exams/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { copyInS3, createPresignedUpload } from "@/lib/aws"
 import { createId } from "@/lib/ids"
+import { consumeQuizRateLimit, getClientIpKey } from "@/lib/quiz-rate-limit"
 import {
   assertSafeStoragePath,
   finalPathFromTmp,
@@ -32,11 +34,14 @@ import {
   getUniqueObjectifsCMC,
 } from "./dal"
 import { normalizeObjectifCMC } from "./lib"
+import { signQuizToken, verifyQuizToken } from "./quiz-token"
 import {
   type CreateQuestionInput,
   type SetQuestionImagesInput,
   type UpdateQuestionInput,
   createQuestionSchema,
+  loadRandomQuizQuestionsSchema,
+  scoreQuizAnswersSchema,
   setQuestionImagesSchema,
   updateQuestionSchema,
 } from "./schemas"
@@ -80,14 +85,35 @@ export const loadUniqueObjectifsCMC = async (): Promise<string[]> => {
 // ============================================
 
 /**
- * [Public] Questions aléatoires pour le quiz d'évaluation marketing. Sans garde
- * (page publique). La DAL masque `correctAnswer`/`explanation`.
+ * [Public] Questions aléatoires pour le quiz d'évaluation marketing. Sans
+ * session (page publique) mais : rate-limit IP + jeton HMAC couvrant les ids
+ * servis — `scoreQuizAnswers` ne corrige que ce que CE bundle a servi (#91).
+ * La DAL masque `correctAnswer`/`explanation` et exclut les examens ouverts.
  */
+export type QuizBundle = {
+  questions: QuizQuestionView[]
+  token: string | null
+}
+
 export const loadRandomQuizQuestions = async (args: {
   count: number
   domain?: string
-}): Promise<QuizQuestionView[]> => {
-  return getRandomQuizQuestions(args)
+}): Promise<QuizBundle> => {
+  // zod AVANT le rate-limit : une entrée malformée ne consomme pas de slot
+  // (et ne throw plus — l'ancien clamp propageait NaN jusqu'à LIMIT).
+  const parsed = loadRandomQuizQuestionsSchema.safeParse(args)
+  if (!parsed.success) return { questions: [], token: null }
+
+  const ipKey = await getClientIpKey()
+  if (!(await consumeQuizRateLimit(ipKey, "load"))) {
+    return { questions: [], token: null }
+  }
+  const quizQuestions = await getRandomQuizQuestions(parsed.data)
+  if (quizQuestions.length === 0) return { questions: [], token: null }
+  return {
+    questions: quizQuestions,
+    token: signQuizToken(quizQuestions.map((q) => q._id)),
+  }
 }
 
 export type QuizQuestionResult = {
@@ -105,16 +131,46 @@ export type QuizScore = {
   questionResults: QuizQuestionResult[]
 }
 
+const EMPTY_SCORE: QuizScore = {
+  score: 0,
+  totalQuestions: 0,
+  questionResults: [],
+}
+
 /**
- * [Public] Score le quiz marketing côté serveur. Sans garde (page publique).
- * La clé de correction n'est révélée qu'au moment de la soumission (parité avec
- * l'ancienne mutation Convex publique). Borne anti-abus sur la taille du lot.
+ * [Public] Score le quiz marketing côté serveur. Refus TOUJOURS silencieux
+ * (`QuizScore` vide, même shape) : pas d'oracle sur la raison — zod hors
+ * bornes, rate-limit, jeton invalide/expiré. Séquence : zod → rate-limit IP
+ * (consommé AVANT le travail) → jeton (intersection ids servis) → re-check
+ * examens ouverts (un examen a pu OUVRIR pendant la vie du jeton — la clé
+ * reste verrouillée sur TOUS les canaux pendant la fenêtre, cf. #86/#93).
  */
 export const scoreQuizAnswers = async (args: {
   answers: { questionId: string; selectedAnswer: string | null }[]
+  token: string
 }): Promise<QuizScore> => {
-  const answers = args.answers.slice(0, 50)
-  const keyMap = await getQuizAnswerKey(answers.map((a) => a.questionId))
+  const parsed = scoreQuizAnswersSchema.safeParse(args)
+  if (!parsed.success) return EMPTY_SCORE
+
+  const ipKey = await getClientIpKey()
+  if (!(await consumeQuizRateLimit(ipKey, "score"))) return EMPTY_SCORE
+
+  const servedIds = verifyQuizToken(parsed.data.token)
+  if (!servedIds) return EMPTY_SCORE
+
+  const seen = new Set<string>()
+  const answers = parsed.data.answers.filter((a) => {
+    if (!servedIds.has(a.questionId) || seen.has(a.questionId)) return false
+    seen.add(a.questionId)
+    return true
+  })
+  if (answers.length === 0) return EMPTY_SCORE
+
+  const answeredIds = answers.map((a) => a.questionId)
+  const lockedIds = await getOpenExamQuestionIds(answeredIds)
+  const keyMap = await getQuizAnswerKey(
+    answeredIds.filter((id) => !lockedIds.has(id)),
+  )
 
   let score = 0
   const questionResults: QuizQuestionResult[] = []

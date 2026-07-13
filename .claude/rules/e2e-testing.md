@@ -55,7 +55,9 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
   participation du user dessus (+ cascade réponses) + **TOUTES** ses sessions
   d'entraînement (pas seulement `in_progress`) → remet aussi à zéro la fenêtre du
   rate-limit `MAX_SESSIONS_PER_HOUR` (sinon les sessions accumulées au fil des runs
-  saturent la limite). Appelée en setup ET teardown.
+  saturent la limite) + purge `quiz_rate_limits` (rate-limit IP du quiz public
+  #91 : bucket local partagé, sinon la suite `evaluation-quiz` flake au fil des
+  runs). Appelée en setup ET teardown.
 - `cleanup` (`prefix`, défaut `"[E2E]"`) : supprime examens préfixés (cascade) +
   questions orphelines préfixées.
 - `set-access` (`userEmail`, `accessType:"exam"|"training"`, `grant?:boolean`) :

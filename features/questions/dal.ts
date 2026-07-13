@@ -4,6 +4,7 @@ import {
   desc,
   eq,
   exists,
+  gt,
   ilike,
   inArray,
   isNull,
@@ -15,6 +16,7 @@ import "server-only"
 import { db } from "@/db"
 import {
   examQuestions,
+  exams,
   questionExplanations,
   questionImages,
   questions,
@@ -398,7 +400,10 @@ export type QuizQuestionView = {
 /**
  * [Public] Questions aléatoires pour le quiz d'évaluation marketing. Aucune
  * garde (page publique). Masque `correctAnswer` et `explanation` (renvoyés
- * seulement après soumission via la clé de correction). `ORDER BY random()`
+ * seulement après soumission via la clé de correction). Exclut les questions
+ * d'un examen OUVERT (`endDate` future) — anti-triche #91, l'exclusion vit dans
+ * le WHERE pour que `ORDER BY random() LIMIT n` rende quand même n questions
+ * corrigeables. Clamp `1..10` (le produit ne sert que 10). `ORDER BY random()`
  * suffit pour la banque (~3000 questions, hors chemin chaud). Images jointes
  * (URL CDN) pour l'affichage.
  */
@@ -409,9 +414,24 @@ export const getRandomQuizQuestions = async ({
   count: number
   domain?: string
 }): Promise<QuizQuestionView[]> => {
-  const safeCount = clamp(count, 1, 50)
+  const safeCount = clamp(count, 1, 10)
   const where = and(
     isNull(questions.deletedAt),
+    // Anti-triche #91 : jamais de question d'un examen OUVERT dans le quiz
+    // public. L'exclusion vit dans le WHERE (pas en post-filtrage) pour que
+    // `ORDER BY random() LIMIT n` rende quand même n questions corrigeables.
+    notExists(
+      db
+        .select({ x: sql`1` })
+        .from(examQuestions)
+        .innerJoin(exams, eq(exams.id, examQuestions.examId))
+        .where(
+          and(
+            eq(examQuestions.questionId, questions.id),
+            gt(exams.endDate, sql`now()`),
+          ),
+        ),
+    ),
     domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
   )
 

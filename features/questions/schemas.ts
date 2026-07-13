@@ -55,3 +55,23 @@ export const setQuestionImagesSchema = z.object({
 // optionnel à l'appel (callers existants `{ questionId, images }`) mais toujours
 // défini après `safeParse`.
 export type SetQuestionImagesInput = z.input<typeof setQuestionImagesSchema>
+
+// Entrées PUBLIQUES (quiz marketing, appelant anonyme) : bornes strictes,
+// refus silencieux côté action (pas de message d'erreur → pas d'oracle).
+// Sans zod sur le tirage, `count: "abc"` → clamp = NaN → `LIMIT NaN` → 500.
+export const loadRandomQuizQuestionsSchema = z.object({
+  count: z.number().int(),
+  domain: z.string().max(100).optional(),
+})
+
+export const scoreQuizAnswersSchema = z.object({
+  answers: z
+    .array(
+      z.object({
+        questionId: z.string().min(1).max(64),
+        selectedAnswer: z.string().max(500).nullable(),
+      }),
+    )
+    .max(10),
+  token: z.string().min(1).max(2048),
+})

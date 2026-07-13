@@ -52,6 +52,7 @@ export default defineConfig({
         "lib/aws.ts",
         "lib/stripe.ts",
         "lib/upload-rate-limit.ts",
+        "lib/quiz-rate-limit.ts",
         "lib/auth-guards.ts",
         "lib/dal.ts",
         "lib/auth-client.ts",
