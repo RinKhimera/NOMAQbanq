@@ -9,6 +9,7 @@ import {
   useState,
   useTransition,
 } from "react"
+import { toast } from "sonner"
 import type { ExamPickerOption } from "@/features/exams/dal"
 import { loadQuestionsPage } from "@/features/questions/actions"
 import type { QuestionListItem } from "@/features/questions/dal"
@@ -136,19 +137,25 @@ export function QuestionBrowserProvider({
   // jamais laisser une page vide sans pagination visible.
   const fetchPage = useCallback(() => {
     startFetch(async () => {
-      const res = await loadQuestionsPage({
-        ...queryArgs,
-        page,
-        limit: pageSize,
-      })
-      setQuestions(res.items.map(toRow))
-      setTotal(res.total)
-      setHasLoaded(true)
-      // Clamp hors-borne (callback async → ESLint OK) : page devenue vide
-      // → ramène à la dernière page valide (pas de boucle : quand total > 0,
-      // la dernière page a toujours des items).
-      if (res.items.length === 0 && page > 1 && res.total > 0) {
-        setPageState(Math.ceil(res.total / pageSize))
+      try {
+        const res = await loadQuestionsPage({
+          ...queryArgs,
+          page,
+          limit: pageSize,
+        })
+        setQuestions(res.items.map(toRow))
+        setTotal(res.total)
+        setHasLoaded(true)
+        // Clamp hors-borne (callback async → ESLint OK) : page devenue vide
+        // → ramène à la dernière page valide (pas de boucle : quand total > 0,
+        // la dernière page a toujours des items).
+        if (res.items.length === 0 && page > 1 && res.total > 0) {
+          setPageState(Math.ceil(res.total / pageSize))
+        }
+      } catch {
+        // rejet réseau : sortir du skeleton initial (liste vide/stale) + toast
+        setHasLoaded(true)
+        toast.error("Chargement impossible. Vérifiez votre réseau.")
       }
     })
   }, [queryArgs, page, pageSize])

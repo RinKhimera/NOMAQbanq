@@ -69,9 +69,14 @@ function PanelContent({ questionId }: { questionId: string }) {
 
   useEffect(() => {
     let active = true
-    loadQuestionById(questionId).then((q) => {
-      if (active) setState({ id: questionId, q })
-    })
+    loadQuestionById(questionId)
+      .then((q) => {
+        if (active) setState({ id: questionId, q })
+      })
+      .catch(() => {
+        // rejet réseau : sortir du skeleton via l'état « introuvable »
+        if (active) setState({ id: questionId, q: null })
+      })
     return () => {
       active = false
     }

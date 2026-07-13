@@ -105,9 +105,15 @@ function PanelContent({
   // skeleton), pas de setState synchrone dans l'effet.
   useEffect(() => {
     let active = true
-    loadQuestionById(questionId).then((q) => {
-      if (active) setQuestion(q)
-    })
+    loadQuestionById(questionId)
+      .then((q) => {
+        if (active) setQuestion(q)
+      })
+      .catch(() => {
+        if (!active) return
+        setQuestion(null)
+        toast.error("Chargement impossible. Vérifiez votre réseau.")
+      })
     return () => {
       active = false
     }

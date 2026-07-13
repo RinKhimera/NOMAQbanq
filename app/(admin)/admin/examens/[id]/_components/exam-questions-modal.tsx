@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight, FileText } from "lucide-react"
 import { useState } from "react"
+import { toast } from "sonner"
 import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
 import { QuestionCard, createViewAction } from "@/components/quiz/question-card"
 import { Button } from "@/components/ui/button"
@@ -48,8 +49,14 @@ export function ExamQuestionsModal({
 
   const handleViewDetails = async (questionId: string) => {
     setIsDetailsOpen(true)
-    const q = await loadQuestionById(questionId)
-    setSelectedQuestion(q)
+    try {
+      const q = await loadQuestionById(questionId)
+      setSelectedQuestion(q)
+    } catch {
+      // rejet réseau : refermer le dialog (sinon il reste ouvert et vide)
+      setIsDetailsOpen(false)
+      toast.error("Chargement impossible. Vérifiez votre réseau.")
+    }
   }
 
   return (
