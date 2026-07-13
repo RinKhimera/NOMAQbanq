@@ -60,8 +60,10 @@ export type UseQuizSessionResult = {
   // server already recorded a pause, or after a successful resume). Lets the UI
   // hide the pause button — the server only allows one pause.
   pauseAlreadyUsed: boolean
-  pause: () => Promise<void>
-  resume: () => Promise<void>
+  // Résolvent `true` en succès seulement — l'UI (timestamps locaux de
+  // l'overlay) ne doit pas avancer sur une pause/reprise qui a échoué.
+  pause: () => Promise<boolean>
+  resume: () => Promise<boolean>
 
   // Timer (only when mode.timer is set)
   timer: {
@@ -102,6 +104,15 @@ export function useQuizSession({
       Object.entries(initialAnswers).map(([qid, a]) => [qid, a.selected]),
     ),
   )
+  // Flags : même mécanique que les réponses. Le miroir ref évite la closure
+  // périmée (le raccourci clavier « f » peut invoquer deux fois la même
+  // closure) ; l'envoi sérialisé + rollback vers la valeur confirmée évite
+  // les reverts non composables (deux échecs qui laissent l'inverse).
+  const flaggedRef = useRef<Set<string>>(new Set(initialFlags ?? []))
+  const flagSends = useRef<
+    Record<string, { inFlight: boolean; queued?: boolean }>
+  >({})
+  const persistedFlags = useRef<Set<string>>(new Set(initialFlags ?? []))
   const [flagged, setFlagged] = useState<Set<string>>(
     () => new Set(initialFlags ?? []),
   )
@@ -154,37 +165,59 @@ export function useQuizSession({
 
   // ---- Flag ----
 
+  const setFlagLocal = useCallback((qid: string, value: boolean) => {
+    if (value) {
+      flaggedRef.current.add(qid)
+    } else {
+      flaggedRef.current.delete(qid)
+    }
+    setFlagged(new Set(flaggedRef.current))
+  }, [])
+
   const toggleFlag = useCallback(() => {
     if (!currentQuestion) return
     const qid = currentQuestion._id
-    const newValue = !flagged.has(qid)
-    setFlagged((prev) => {
-      const next = new Set(prev)
-      if (newValue) {
-        next.add(qid)
-      } else {
-        next.delete(qid)
-      }
-      return next
-    })
-    const revert = () =>
-      setFlagged((prev) => {
-        const next = new Set(prev)
-        if (newValue) {
-          next.delete(qid)
-        } else {
-          next.add(qid)
+    const newValue = !flaggedRef.current.has(qid)
+    setFlagLocal(qid, newValue)
+
+    const state = (flagSends.current[qid] ??= { inFlight: false })
+    if (state.inFlight) {
+      state.queued = newValue
+      return
+    }
+    state.inFlight = true
+    // Envoi sérialisé (un seul onFlag en vol par question, coalescing du
+    // dernier état voulu). Silencieux : cosmétique, pas de bruit en passation.
+    void (async () => {
+      let current = newValue
+      for (;;) {
+        let ok: boolean
+        try {
+          ok = (await callbacks.onFlag(qid, current)).ok
+        } catch {
+          ok = false
         }
-        return next
-      })
-    // Silencieux (pas de toast) : cosmétique, pas de bruit en passation.
-    callbacks.onFlag(qid, newValue).then(
-      (res) => {
-        if (!res.ok) revert()
-      },
-      () => revert(),
-    )
-  }, [currentQuestion, flagged, callbacks])
+        if (ok) {
+          if (current) {
+            persistedFlags.current.add(qid)
+          } else {
+            persistedFlags.current.delete(qid)
+          }
+        }
+        const queued = state.queued
+        state.queued = undefined
+        if (queued !== undefined) {
+          current = queued
+          continue
+        }
+        state.inFlight = false
+        if (!ok) {
+          setFlagLocal(qid, persistedFlags.current.has(qid))
+        }
+        return
+      }
+    })()
+  }, [currentQuestion, callbacks, setFlagLocal])
 
   // ---- Answer select ----
 
@@ -291,19 +324,21 @@ export function useQuizSession({
   // ---- Pause / resume (rest break) ----
 
   const pause = useCallback(async () => {
-    if (!callbacks.onPause || isPaused) return
+    if (!callbacks.onPause || isPaused) return false
     try {
       const res = await callbacks.onPause()
       if (res.ok) {
         setIsPaused(true)
       }
+      return res.ok
     } catch {
       // rejet réseau : rester non-pausé, le callback de page a déjà toasté
+      return false
     }
   }, [callbacks, isPaused])
 
   const resume = useCallback(async () => {
-    if (!callbacks.onResume || !isPaused) return
+    if (!callbacks.onResume || !isPaused) return false
     try {
       const res = await callbacks.onResume()
       if (res.ok) {
@@ -312,8 +347,10 @@ export function useQuizSession({
         // The single rest pause is now consumed — hide the pause control.
         setPauseAlreadyUsed(true)
       }
+      return res.ok
     } catch {
       // rejet réseau : rester en pause, retentable via le bouton
+      return false
     }
   }, [callbacks, isPaused])
 
