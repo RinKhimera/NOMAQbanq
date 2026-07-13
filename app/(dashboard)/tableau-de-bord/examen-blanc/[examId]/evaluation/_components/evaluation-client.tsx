@@ -140,7 +140,8 @@ export function EvaluationClient({
       return { ok: true }
     },
     onFlag: async (questionId, isFlagged) => {
-      await saveExamFlag({ examId, questionId, isFlagged })
+      const res = await saveExamFlag({ examId, questionId, isFlagged })
+      return { ok: res.success }
     },
     onFinish: async ({ isAutoSubmit }) => {
       const result = await finalizeExam({ examId, isAutoSubmit })

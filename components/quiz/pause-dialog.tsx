@@ -2,7 +2,7 @@
 
 import { Coffee, Play, Timer } from "lucide-react"
 import { motion } from "motion/react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
@@ -34,6 +34,10 @@ export const PauseDialog = ({
   isResuming = false,
 }: PauseDialogProps) => {
   const [pauseTimeRemaining, setPauseTimeRemaining] = useState(0)
+  // L'auto-resume tourne dans un interval 1 s : sans one-shot, une reprise qui
+  // échoue (réseau coupé) re-déclencherait onResume — et son toast d'erreur —
+  // à chaque tick. En cas d'échec, le bouton reste la voie de retentative.
+  const autoResumeFiredRef = useRef(false)
 
   // Derive progress from pauseTimeRemaining (no need for separate state)
   const totalPauseMs = pauseDurationMinutes * 60 * 1000
@@ -45,6 +49,7 @@ export const PauseDialog = ({
   // Update pause countdown
   useEffect(() => {
     if (!isOpen || !pauseStartedAt) return
+    autoResumeFiredRef.current = false // nouvelle pause = nouveau one-shot
 
     const updatePauseTime = () => {
       const remaining = calculatePauseTimeRemaining(
@@ -53,8 +58,12 @@ export const PauseDialog = ({
       )
       setPauseTimeRemaining(remaining)
 
-      // Auto-resume when pause timer expires
-      if (isPauseExpired(pauseStartedAt, pauseDurationMinutes)) {
+      // Auto-resume when pause timer expires (one-shot)
+      if (
+        isPauseExpired(pauseStartedAt, pauseDurationMinutes) &&
+        !autoResumeFiredRef.current
+      ) {
+        autoResumeFiredRef.current = true
         onResume()
       }
     }

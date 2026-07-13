@@ -88,6 +88,20 @@ export function useQuizSession({
   const [answers, setAnswers] = useState<AnswersMap>(() => ({
     ...initialAnswers,
   }))
+  // Un seul onAnswer en vol par question ; le clic le plus récent pendant un
+  // envoi remplace le précédent (coalescing) et part quand l'envoi se règle.
+  // Un éventuel retry côté callback vit DANS ce créneau → l'ordre des clics
+  // est préservé, un clic périmé ne peut pas écraser un clic plus récent.
+  const answerSends = useRef<
+    Record<string, { inFlight: boolean; queued?: string }>
+  >({})
+  // Dernière valeur CONFIRMÉE par le serveur — cible du rollback (jamais
+  // « l'état d'avant-clic », qu'un clic intermédiaire a pu rendre périmé).
+  const persistedAnswers = useRef<Record<string, string | undefined>>(
+    Object.fromEntries(
+      Object.entries(initialAnswers).map(([qid, a]) => [qid, a.selected]),
+    ),
+  )
   const [flagged, setFlagged] = useState<Set<string>>(
     () => new Set(initialFlags ?? []),
   )
@@ -143,19 +157,34 @@ export function useQuizSession({
   const toggleFlag = useCallback(() => {
     if (!currentQuestion) return
     const qid = currentQuestion._id
+    const newValue = !flagged.has(qid)
     setFlagged((prev) => {
       const next = new Set(prev)
-      const newValue = !next.has(qid)
       if (newValue) {
         next.add(qid)
       } else {
         next.delete(qid)
       }
-      // Fire-and-forget — errors are non-fatal for flagging
-      void callbacks.onFlag(qid, newValue)
       return next
     })
-  }, [currentQuestion, callbacks])
+    const revert = () =>
+      setFlagged((prev) => {
+        const next = new Set(prev)
+        if (newValue) {
+          next.delete(qid)
+        } else {
+          next.add(qid)
+        }
+        return next
+      })
+    // Silencieux (pas de toast) : cosmétique, pas de bruit en passation.
+    callbacks.onFlag(qid, newValue).then(
+      (res) => {
+        if (!res.ok) revert()
+      },
+      () => revert(),
+    )
+  }, [currentQuestion, flagged, callbacks])
 
   // ---- Answer select ----
 
@@ -177,24 +206,50 @@ export function useQuizSession({
       }
 
       // Test / examen (feedback différé) : enregistrement immédiat, pas de
-      // révélation par-question. Mise à jour optimiste + rollback si échec.
-      const prev = answers[qid]
+      // révélation par-question. Optimiste + envoi sérialisé par question.
       setAnswers((a) => ({ ...a, [qid]: { ...a[qid], selected } }))
 
-      const res = await callbacks.onAnswer(qid, selected)
-      if (!res.ok) {
-        setAnswers((a) => {
-          const next = { ...a }
-          if (prev === undefined) {
-            delete next[qid]
-          } else {
-            next[qid] = prev
-          }
-          return next
-        })
+      const state = (answerSends.current[qid] ??= { inFlight: false })
+      if (state.inFlight) {
+        state.queued = selected
+        return
+      }
+      state.inFlight = true
+      let current = selected
+      for (;;) {
+        let res: Awaited<ReturnType<QuizCallbacks["onAnswer"]>>
+        try {
+          res = await callbacks.onAnswer(qid, current)
+        } catch {
+          res = { ok: false, error: "Erreur réseau" }
+        }
+        const queued = state.queued
+        state.queued = undefined
+        if (queued !== undefined) {
+          // Supersédé par un clic plus récent : ni rollback ni validation —
+          // on envoie le dernier choix.
+          current = queued
+          continue
+        }
+        state.inFlight = false
+        if (res.ok) {
+          persistedAnswers.current[qid] = current
+        } else {
+          const persisted = persistedAnswers.current[qid]
+          setAnswers((a) => {
+            const next = { ...a }
+            if (persisted === undefined) {
+              delete next[qid]
+            } else {
+              next[qid] = { ...next[qid], selected: persisted }
+            }
+            return next
+          })
+        }
+        return
       }
     },
-    [currentQuestion, answers, callbacks, isImmediate, revealed],
+    [currentQuestion, callbacks, isImmediate, revealed],
   )
 
   // ---- Confirm (mode tuteur uniquement) ----
@@ -206,7 +261,12 @@ export function useQuizSession({
     const selected = pendingSelection[qid]
     if (!selected) return
 
-    const res = await callbacks.onAnswer(qid, selected)
+    let res: Awaited<ReturnType<QuizCallbacks["onAnswer"]>>
+    try {
+      res = await callbacks.onAnswer(qid, selected)
+    } catch {
+      return // rejet réseau : pending conservé pour réessai, pas de reveal
+    }
     if (!res.ok) return // toast géré dans onAnswer ; on garde le pending pour réessai
 
     if (res.reveal) {
@@ -228,20 +288,28 @@ export function useQuizSession({
 
   const pause = useCallback(async () => {
     if (!callbacks.onPause || isPaused) return
-    const res = await callbacks.onPause()
-    if (res.ok) {
-      setIsPaused(true)
+    try {
+      const res = await callbacks.onPause()
+      if (res.ok) {
+        setIsPaused(true)
+      }
+    } catch {
+      // rejet réseau : rester non-pausé, le callback de page a déjà toasté
     }
   }, [callbacks, isPaused])
 
   const resume = useCallback(async () => {
     if (!callbacks.onResume || !isPaused) return
-    const res = await callbacks.onResume()
-    if (res.ok) {
-      setTotalPauseDurationMs((prev) => res.totalPauseDurationMs ?? prev)
-      setIsPaused(false)
-      // The single rest pause is now consumed — hide the pause control.
-      setPauseAlreadyUsed(true)
+    try {
+      const res = await callbacks.onResume()
+      if (res.ok) {
+        setTotalPauseDurationMs((prev) => res.totalPauseDurationMs ?? prev)
+        setIsPaused(false)
+        // The single rest pause is now consumed — hide the pause control.
+        setPauseAlreadyUsed(true)
+      }
+    } catch {
+      // rejet réseau : rester en pause, retentable via le bouton
     }
   }, [callbacks, isPaused])
 
@@ -254,11 +322,15 @@ export function useQuizSession({
   const confirmFinish = useCallback(
     async (opts?: { isAutoSubmit?: boolean }) => {
       startTransition(async () => {
-        const result = await callbacks.onFinish({
-          isAutoSubmit: opts?.isAutoSubmit ?? false,
-        })
-        if (result.ok && result.redirectTo) {
-          // Navigation happens outside hook; caller handles redirect
+        try {
+          const result = await callbacks.onFinish({
+            isAutoSubmit: opts?.isAutoSubmit ?? false,
+          })
+          if (result.ok && result.redirectTo) {
+            // Navigation happens outside hook; caller handles redirect
+          }
+        } catch {
+          // rejet réseau : le dialog reste ouvert, retentable
         }
       })
     },

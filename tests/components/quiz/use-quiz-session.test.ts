@@ -33,7 +33,7 @@ const makeCallbacks = (
   overrides: Partial<QuizCallbacks> = {},
 ): QuizCallbacks => ({
   onAnswer: vi.fn().mockResolvedValue({ ok: true }),
-  onFlag: vi.fn().mockResolvedValue(undefined),
+  onFlag: vi.fn().mockResolvedValue({ ok: true }),
   onFinish: vi.fn().mockResolvedValue({ ok: true }),
   ...overrides,
 })
@@ -290,7 +290,7 @@ describe("useQuizSession — initialAnswers & initialFlags", () => {
 
 describe("useQuizSession — toggle flag", () => {
   it("toggleFlag ajoute et retire la question courante + appelle onFlag", () => {
-    const onFlag = vi.fn().mockResolvedValue(undefined)
+    const onFlag = vi.fn().mockResolvedValue({ ok: true })
     const { result } = renderHook(() =>
       useQuizSession({
         questions: makeQuestions(3),

@@ -132,7 +132,7 @@ export const TrainingSessionClient = ({
       }
     },
     // Flags d'entraînement restent locaux — no-op serveur
-    onFlag: async () => {},
+    onFlag: async () => ({ ok: true }),
     onFinish: async () => {
       const res = await completeTrainingSession({ sessionId })
       if (!res.success) {
