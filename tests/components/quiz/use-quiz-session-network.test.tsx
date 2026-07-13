@@ -169,6 +169,23 @@ describe("use-quiz-session — rejets réseau des callbacks", () => {
     await waitFor(() => expect(result.current.flagged.has("q1")).toBe(false))
   })
 
+  it("deux toggles de flag hors ligne : retombe sur l'état confirmé, pas l'inverse", async () => {
+    const callbacks = makeCallbacks({ onFlag: vi.fn(networkReject) })
+    const { result } = renderSession(callbacks)
+    act(() => {
+      result.current.toggleFlag() // ON (envoi part)
+    })
+    act(() => {
+      result.current.toggleFlag() // OFF (coalescé derrière l'envoi en vol)
+    })
+    // Les deux envois échouent → rollback vers la valeur confirmée (jamais
+    // flaguée), pas une inversion des reverts
+    await waitFor(() => expect(callbacks.onFlag).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.flagged.has("q1")).toBe(false))
+    expect(callbacks.onFlag).toHaveBeenNthCalledWith(1, "q1", true)
+    expect(callbacks.onFlag).toHaveBeenNthCalledWith(2, "q1", false)
+  })
+
   it("confirmFinish : pas de crash quand onFinish rejette, dialog réouvrable", async () => {
     const callbacks = makeCallbacks({ onFinish: vi.fn(networkReject) })
     const { result } = renderSession(callbacks)

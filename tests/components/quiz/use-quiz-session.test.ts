@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type {
   AnswersMap,
@@ -289,7 +289,7 @@ describe("useQuizSession — initialAnswers & initialFlags", () => {
 })
 
 describe("useQuizSession — toggle flag", () => {
-  it("toggleFlag ajoute et retire la question courante + appelle onFlag", () => {
+  it("toggleFlag ajoute et retire la question courante + appelle onFlag", async () => {
     const onFlag = vi.fn().mockResolvedValue({ ok: true })
     const { result } = renderHook(() =>
       useQuizSession({
@@ -305,7 +305,9 @@ describe("useQuizSession — toggle flag", () => {
 
     act(() => result.current.toggleFlag())
     expect(result.current.flagged.has("q1")).toBe(false)
-    expect(onFlag).toHaveBeenCalledWith("q1", false)
+    // Envois sérialisés par question : le second onFlag part quand le premier
+    // est réglé, pas de façon synchrone
+    await waitFor(() => expect(onFlag).toHaveBeenCalledWith("q1", false))
   })
 })
 
