@@ -227,10 +227,15 @@ et toute chaîne `.then` d'effet. Référencer `lib/safe-action.ts`.
   `onFlag` du test existant (`use-quiz-session.test.ts:36,293`) passent à
   `{ ok: true }` (contrat changé).
 - **E2E `e2e/tests/examen-blanc-offline.spec.ts`** (projet `chromium-auth`,
-  seed-exam dédié) : passation → `context.setOffline(true)` → clic réponse →
-  toast visible + option désélectionnée (rollback, `data-selected` absent) →
-  `setOffline(false)` → re-clic → `data-selected="true"`. Note : le retry 1×
-  (1 s) impose d'attendre l'échec définitif avant d'asserter le toast.
+  seed-exam dédié) : passation → coupure simulée par `context.route` +
+  `route.abort("internetdisconnected")` sur les POST de Server Actions (PAS
+  `context.setOffline` : hors ligne, le dev server Turbopack laisse la requête
+  pendre au lieu de la rejeter — constaté à l'implémentation) → clic réponse →
+  toast visible + rollback vers la réponse persistée (`data-selected`) →
+  `unroute` → re-clic → `data-selected="true"` et survie à la navigation. Le
+  POST de la réponse en ligne est attendu (`waitForResponse`) avant la coupure
+  pour garantir la valeur de rollback. Note : le retry 1× (1 s) impose
+  d'attendre l'échec définitif avant d'asserter le toast.
 - **Gates** : `bun run check`, `bun run test` (+ seuil coverage), e2e ciblé.
 
 ## 6. Risques et limites
