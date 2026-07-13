@@ -12,6 +12,7 @@ import {
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { computeScorePercent } from "@/lib/score"
 import { getOpenExamLockedQuestionIds } from "../exams/dal"
 import { hasAccess } from "../payments/dal"
 import {
@@ -406,8 +407,7 @@ export const completeTrainingSession = async ({
 
     const correctCount = c?.correct ?? 0
     const totalQuestions = s.questionCount
-    const score =
-      totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0
+    const score = computeScorePercent(correctCount, totalQuestions)
 
     // Garde de statut (règle concurrence du repo) : le cron d'expiration ou un
     // appel concurrent peut avoir clos la session entre la lecture et l'écriture.
