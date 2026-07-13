@@ -113,6 +113,9 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       NODE_ENV: process.env.CI ? "production" : "development",
+      // Le chemin CI tourne en build production : sans ce kill-switch, le DSN
+      // hardcodé enverrait le bruit HeadlessChrome dans le projet Sentry de prod.
+      NEXT_PUBLIC_SENTRY_DISABLED: "1",
     },
   },
 })

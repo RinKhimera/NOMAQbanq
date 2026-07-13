@@ -6,6 +6,15 @@ import * as Sentry from "@sentry/nextjs"
 Sentry.init({
   dsn: "https://c7c726531f3e9dc07a6488f3bd7ae9b4@o4510410010787842.ingest.us.sentry.io/4510410016227333",
 
+  // Dev local et e2e (y compris le build prod du chemin CI, via le kill-switch)
+  // ne doivent jamais polluer le projet Sentry de prod.
+  enabled:
+    process.env.NODE_ENV === "production" &&
+    process.env.NEXT_PUBLIC_SENTRY_DISABLED !== "1",
+  // VERCEL_ENV n'existe pas dans le bundle navigateur ; fallback "production"
+  // (et pas "development") : `enabled` garantit déjà qu'on est en build prod.
+  environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? "production",
+
   integrations: [
     Sentry.replayIntegration({
       maskAllText: false,
