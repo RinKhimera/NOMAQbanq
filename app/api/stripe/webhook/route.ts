@@ -8,6 +8,11 @@ import { getStripe, getStripeWebhookSecret } from "@/lib/stripe"
 // Le SDK Stripe nécessite le runtime Node (pas Edge).
 export const runtime = "nodejs"
 
+// Une session promo 100 % est complétée avec `no_payment_required` (montant nul,
+// pas de PaymentIntent) : elle doit accorder l'accès au même titre qu'un `paid`.
+const FULFILLABLE_PAYMENT_STATUSES: ReadonlyArray<Stripe.Checkout.Session.PaymentStatus> =
+  ["paid", "no_payment_required"]
+
 /**
  * Webhook Stripe (remplace la route Convex `/stripe`). Vérifie la signature, puis
  * délègue le fulfillment idempotent au DAL. Conventions de réponse :
@@ -55,7 +60,9 @@ export async function POST(request: Request) {
     switch (event.type) {
       case "checkout.session.completed": {
         const checkoutSession = event.data.object as Stripe.Checkout.Session
-        if (checkoutSession.payment_status === "paid") {
+        if (
+          FULFILLABLE_PAYMENT_STATUSES.includes(checkoutSession.payment_status)
+        ) {
           const result = await completeStripeTransaction({
             stripeSessionId: checkoutSession.id,
             stripePaymentIntentId:

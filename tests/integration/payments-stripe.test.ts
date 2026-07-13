@@ -28,7 +28,7 @@ const suffix = createId().slice(0, 8)
 
 const PEXAM = createId() // produit exam non-combo
 const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 9 }, () => createId())
+const U = Array.from({ length: 10 }, () => createId())
 const [
   U_HAPPY,
   U_CUMUL,
@@ -39,6 +39,7 @@ const [
   U_XAF,
   U_DEGNULL,
   U_DEGUSD,
+  U_PROMO100,
 ] = U
 
 const accessOf = (userId: string, accessType: "exam" | "training") =>
@@ -460,6 +461,38 @@ describe("réconciliation montant/devise au fulfillment", () => {
     expect(tx?.amountPaid).toBe(5000)
     expect(tx?.currency).toBe("CAD")
     expect(await accessOf(U_DEGUSD, "exam")).toBeDefined()
+  })
+
+  it("promo 100 % : session à montant nul → completed, amountPaid = 0, accès accordé", async () => {
+    const txId = createId()
+    const sid = `sess_promo100_${suffix}`
+    await seedPending({
+      id: txId,
+      userId: U_PROMO100,
+      productId: PEXAM,
+      sessionId: sid,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    // Une session no_payment_required n'a pas de PaymentIntent → "" côté webhook.
+    const res = await completeStripeTransaction({
+      stripeSessionId: sid,
+      stripePaymentIntentId: "",
+      stripeEventId: `evt_promo100_${suffix}`,
+      amountTotal: 0,
+      currency: "cad",
+    })
+    expect(res.status).toBe("completed")
+
+    const tx = await txStatus(txId)
+    expect(tx?.status).toBe("completed")
+    // 0 ne doit PAS être avalé par la garde de réconciliation (!= null) :
+    // le provisoire (5000) serait un sur-rapport de revenus.
+    expect(tx?.amountPaid).toBe(0)
+    expect(tx?.currency).toBe("CAD")
+    expect(tx?.pi).toBeNull()
+    expect(await accessOf(U_PROMO100, "exam")).toBeDefined()
   })
 
   it("agrégats : promo et XAF ventilés sur le montant réel", async () => {
