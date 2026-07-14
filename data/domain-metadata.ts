@@ -1,6 +1,6 @@
 /**
  * Metadata statique pour les domaines médicaux (description, icône, slug).
- * Les compteurs de questions viennent dynamiquement de Convex via getMarketingStats.
+ * Les compteurs de questions viennent dynamiquement de getMarketingStats.
  */
 export interface DomainMetadata {
   description: string

@@ -8,7 +8,7 @@ import { TableCell, TableRow } from "@/components/ui/table"
 
 /**
  * Forme structurelle d'un utilisateur telle que consommée par cette ligne de
- * tableau. Reprend la convention Convex (`_id` / `_creationTime`) pour rester
+ * tableau. Reprend la convention héritée (`_id` / `_creationTime`) pour rester
  * compatible avec les call-sites existants (la donnée provient d'un cast).
  */
 type UserRow = {

@@ -14,7 +14,7 @@ export interface Testimonial {
 export type ExamStatus = "active" | "upcoming" | "completed" | "inactive"
 
 /**
- * Forme native d'un examen (post-migration Convex→Drizzle). Reprend la
+ * Forme native d'un examen. Reprend la
  * convention `_id` / `_creationTime` de l'ancien `Doc<"exams">` ainsi que les
  * colonnes de la table `exams` (le champ `participants` n'existe plus depuis le
  * schéma V2 normalisé).

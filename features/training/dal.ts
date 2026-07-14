@@ -58,7 +58,7 @@ export type TrainingImageView = {
   order: number
 }
 
-// Forme « pont » alignée sur le doc Convex (`_id`/`_creationTime`/`images`) pour
+// Forme « pont » historique (`_id`/`_creationTime`/`images`) pour
 // rester assignable au contrat `QuestionCardQuestion`/`Doc<"questions">` des
 // composants quiz partagés. `correctAnswer`/`explanation`/`references` ne sont
 // présents qu'en révision (session complétée) — anti-triche en cours de session.
@@ -203,7 +203,7 @@ export type TrainingHistoryPage = {
 
 /**
  * Historique des sessions **complétées** (keyset sur `(completedAt, id)` desc).
- * Remplace `getTrainingHistory` paginé Convex. `null`/vide si non connecté.
+ * `null`/vide si non connecté.
  */
 export const getTrainingHistory = async ({
   cursor,
@@ -332,8 +332,7 @@ export type TrainingScoreHistory = {
 /**
  * Historique de score d'entraînement pour le dashboard : 10 dernières sessions
  * complétées (ordre chronologique ASC) + score moyen par domaine (top 10).
- * `domain` null → « Tous domaines » (parité Convex). Remplace
- * `training.getMyTrainingScoreHistory`. Vide si non connecté.
+ * `domain` null → « Tous domaines ». Vide si non connecté.
  */
 export const getMyTrainingScoreHistory = cache(
   async (): Promise<TrainingScoreHistory> => {

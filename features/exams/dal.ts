@@ -82,7 +82,7 @@ const fetchImages = async (
   return groupImages(rows)
 }
 
-// Forme « pont » alignée sur le doc Convex (`_id`/`_creationTime`/`images`) pour
+// Forme « pont » historique (`_id`/`_creationTime`/`images`) pour
 // rester assignable au contrat `QuestionCardQuestion`/`Doc<"questions">` des
 // composants quiz partagés. `correctAnswer`/`explanation`/`references` ne sont
 // présents qu'en révision/admin — anti-triche en cours d'examen.
@@ -1287,7 +1287,7 @@ export type MyDashboardStats = {
 
 /**
  * Stats résumé du dashboard étudiant. `availableExamsCount` = nombre d'examens
- * actifs (sans filtre de fenêtre, parité Convex) si l'utilisateur a un accès
+ * actifs (sans filtre de fenêtre) si l'utilisateur a un accès
  * examen actif, sinon 0 — `hasAccess(uid)` interroge l'entitlement réel (pas de
  * bypass admin, comme l'original). Moyenne sur les participations complétées.
  * `null` si non connecté. Remplace `examStats.getMyDashboardStats`.

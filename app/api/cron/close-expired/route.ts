@@ -10,9 +10,7 @@ export const runtime = "nodejs"
 
 /**
  * Cron : ferme les participations d'examen et les sessions d'entraînement
- * expirées. Remplace les 2 crons Convex (`close-expired-exam-participations` +
- * `close-expired-training-sessions`), fusionnés en une route (Postgres n'a pas la
- * contention qui justifiait le décalage :00/:30 de Convex).
+ * expirées. Une seule route pour les deux tâches.
  *
  * Sécurité : l'appelant doit envoyer `Authorization: Bearer ${CRON_SECRET}`.
  * Fail-closed : sans `CRON_SECRET` configuré, on répond 401 (jamais ouvert).

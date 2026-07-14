@@ -61,7 +61,7 @@ export const buildServerSchema = () =>
       AWS_ACCESS_KEY_ID: z.string().optional(),
       AWS_SECRET_ACCESS_KEY: z.string().optional(),
       // Mode maintenance (« blocus ») — `MAINTENANCE_MODE="1"` → `proxy.ts` répond
-      // 503 partout (gel des écritures, ex. pendant la bascule Convex → Neon).
+      // 503 partout (gel des écritures pendant une bascule d'infrastructure).
       // Lu DIRECTEMENT par `proxy.ts` (qui reste autonome) ; déclaré ici pour
       // documentation/validation. Token de contournement ops optionnel (smoke-test).
       MAINTENANCE_MODE: z.string().optional(),

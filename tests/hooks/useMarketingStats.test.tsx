@@ -4,8 +4,8 @@ import { loadMarketingStats } from "@/features/marketing/actions"
 import type { MarketingStats } from "@/features/marketing/dal"
 import { useMarketingStats } from "@/hooks/useMarketingStats"
 
-// Le hook appelle la Server Action `loadMarketingStats` (remplace `useQuery`
-// Convex depuis 5.6a). On la mocke → le module réel (qui tire le DAL + `db`)
+// Le hook appelle la Server Action `loadMarketingStats`. On la mocke → le
+// module réel (qui tire le DAL + `db`)
 // n'est jamais chargé en environnement happy-dom.
 vi.mock("@/features/marketing/actions", () => ({
   loadMarketingStats: vi.fn(),

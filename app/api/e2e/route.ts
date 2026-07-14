@@ -25,8 +25,7 @@ export const runtime = "nodejs"
 
 /**
  * Support des tests E2E (reset/cleanup des données de test sur Neon develop).
- * Remplace les routes Convex HTTP `/e2e/reset-exam` + `/e2e/cleanup` (supprimées
- * avec `convex/`). UNE route, deux actions dans le corps :
+ * UNE route, deux actions dans le corps :
  *  - `{ action: "reset-exam", userEmail }` : réactive un examen en fenêtre +
  *    supprime la participation du user sur cet examen (cascade réponses) +
  *    ses sessions d'entraînement `in_progress` (cascade items) → passation
@@ -94,7 +93,7 @@ async function resetExam(userEmail: string) {
   }
 
   // Supprime la participation du user sur l'examen actif (cascade `exam_answers`).
-  // On garde les résultats des autres examens (parité Convex).
+  // On garde les résultats des autres examens.
   let deletedParticipations = 0
   if (activeExamId) {
     const rows = await db

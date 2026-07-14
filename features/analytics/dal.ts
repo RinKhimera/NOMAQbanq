@@ -136,7 +136,7 @@ export type DashboardTrends = {
   recentParticipationsCount: number
 }
 
-// % de variation entre période courante et précédente (parité Convex).
+// % de variation entre période courante et précédente.
 const calculateTrend = (current: number, previous: number): number => {
   if (previous === 0) return current > 0 ? 100 : 0
   return ((current - previous) / previous) * 100

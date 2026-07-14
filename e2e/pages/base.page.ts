@@ -32,7 +32,7 @@ export class BasePage {
   }
 
   /**
-   * Click helper resistant to Convex real-time re-renders that detach the DOM.
+   * Click helper resistant to re-renders that detach the DOM.
    * Waits for visibility, performs a trial click to stabilize layout, then clicks.
    */
   async safeClick(locator: Locator) {

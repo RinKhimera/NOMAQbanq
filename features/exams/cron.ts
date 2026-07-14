@@ -22,7 +22,7 @@ export type CloseExpiredParticipationsResult = { closedCount: number }
  *   → une soumission concurrente gagne, pas de clobber.
  * - Arrondi `round()` numeric = half-up EXACT — la référence du projet ;
  *   `finalizeExam` s'aligne via `computeScorePercent` (lib/score.ts).
- * - Statut de fermeture = `auto_submitted` (parité Convex).
+ * - Statut de fermeture = `auto_submitted`.
  */
 export async function closeExpiredExamParticipations(): Promise<CloseExpiredParticipationsResult> {
   const now = new Date()

@@ -83,7 +83,7 @@ export const PaymentSuccessContent = ({
         if (res.status === "paid" || res.status === "no_payment_required") {
           setState("success")
           // Re-fetch du Server Component parent : repeuple `accessStatus` une fois
-          // le webhook passé (plus de réactivité Convex live).
+          // le webhook passé.
           router.refresh()
         } else if (String(res.status) === "unpaid") {
           // Webhook might not have processed yet

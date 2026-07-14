@@ -302,7 +302,7 @@ export type CheckoutResult = { checkoutUrl: string } | { error: string }
 
 /**
  * Crée une session Stripe Checkout (paiement unique) pour le produit demandé et
- * insère la transaction `pending`. Remplace `stripe.createCheckoutSession` Convex.
+ * insère la transaction `pending`.
  * `successPath`/`cancelPath` sont des chemins internes (validés) ; les URLs absolues
  * sont reconstruites côté serveur depuis `BETTER_AUTH_URL`. L'accès n'est accordé
  * qu'au webhook (`checkout.session.completed`).
@@ -398,8 +398,7 @@ export type VerifyCheckoutResult =
   | { success: false; error: string }
 
 /**
- * Vérifie le statut d'une session Checkout (page de succès). Remplace
- * `stripe.verifyCheckoutSession` Convex, durci : refuse la session si elle
+ * Vérifie le statut d'une session Checkout (page de succès) : refuse la session si elle
  * n'appartient pas à l'utilisateur courant (anti-IDOR via `metadata.userId`).
  * Le crédit d'accès reste géré par le webhook, pas ici.
  */
@@ -434,7 +433,7 @@ export type PortalResult = { portalUrl: string } | { error: string }
 
 /**
  * Ouvre le portail de facturation Stripe de l'utilisateur (gestion factures /
- * moyens de paiement). Remplace `stripe.createCustomerPortalSession` Convex.
+ * moyens de paiement).
  * `returnPath` = chemin interne validé.
  */
 export const createCustomerPortal = async (

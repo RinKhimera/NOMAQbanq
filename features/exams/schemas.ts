@@ -4,7 +4,7 @@ import { z } from "zod"
 // reste tolérant (1–500) ; le formulaire contraint la plage « normale ».
 export const MIN_EXAM_QUESTIONS = 1
 export const MAX_EXAM_QUESTIONS = 500
-// Secondes allouées par question (source de vérité Convex : completionTime = n×83).
+// Secondes allouées par question (completionTime = n×83).
 export const SECONDS_PER_QUESTION = 83
 export const MIN_PAUSE_MINUTES = 1
 export const MAX_PAUSE_MINUTES = 60

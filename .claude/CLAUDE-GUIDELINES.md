@@ -46,7 +46,7 @@ Ce document définit les règles à suivre pour maintenir le fichier `CLAUDE.md`
 **Préférer** :
 
 ```markdown
-Voir `convex/lib/validation.ts:validatePostOwnership()`
+Voir `lib/auth-guards.ts:requireRole()`
 ```
 
 **Éviter** :
@@ -122,15 +122,15 @@ Avant de modifier CLAUDE.md, vérifier :
 
 ### `.claude/rules/` (chargés automatiquement par path)
 
-| Fichier             | Scope                                   | Contenu                                                                         |
-| ------------------- | --------------------------------------- | ------------------------------------------------------------------------------- |
-| `convex-backend.md` | `convex/**`                             | Auth helpers, errors, rate limits, crons, HTTP actions, analytics, accès payant |
-| `admin-ui.md`       | `app/(admin)/**`, `components/admin/**` | Master-detail, stat cards, filtres                                              |
-| `seo.md`            | `app/(marketing)/**`, SEO files         | Metadata, pages marketing                                                       |
+| Fichier         | Scope                                   | Contenu                                          |
+| --------------- | --------------------------------------- | ------------------------------------------------ |
+| `data-layer.md` | `features/**`, `app/**`                 | DAL Drizzle, Server Actions, tests d'intégration |
+| `admin-ui.md`   | `app/(admin)/**`, `components/admin/**` | Master-detail, stat cards, filtres               |
+| `seo.md`        | `app/(marketing)/**`, SEO files         | Metadata, pages marketing                        |
 
 ### Où ajouter un nouveau pattern ?
 
-- Pattern Convex/backend → `.claude/rules/convex-backend.md`
+- Pattern data layer / backend → `.claude/rules/data-layer.md`
 - Pattern admin UI → `.claude/rules/admin-ui.md`
 - Pattern SEO/marketing → `.claude/rules/seo.md`
 - Pattern universel/gotcha → root `CLAUDE.md`

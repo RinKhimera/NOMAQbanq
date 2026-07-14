@@ -3,7 +3,7 @@ import { authClient } from "@/lib/auth-client"
 import { resolveAvatarUrl } from "@/lib/cdn"
 
 /**
- * Session courante via Better Auth (remplace l'ancien combo Convex/Clerk).
+ * Session courante via Better Auth.
  * Conserve la forme `{ currentUser, isLoading, isAuthenticated }` attendue par les
  * consommateurs. `currentUser` porte id/name/email/image/role/username/bio.
  *

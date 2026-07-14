@@ -48,7 +48,7 @@ export const questionExplanations = pgTable("question_explanations", {
   references: jsonb("references").$type<string[]>(),
 })
 
-// Replaces the Convex `images[]` jsonb array (queryable child rows).
+// Lignes enfants requêtables, une par image de question.
 export const questionImages = pgTable(
   "question_images",
   {

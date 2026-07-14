@@ -30,7 +30,7 @@ const clamp = (n: number, lo: number, hi: number) =>
 const escapeLike = (s: string) => s.replace(/[\\%_]/g, "\\$&")
 
 // EXISTS / NOT EXISTS corrélé sur les images d'une question (filtre « avec/sans
-// images » sans colonne dénormalisée — remplace `hasImagesComputed` Convex).
+// images » sans colonne dénormalisée).
 // Scopé `kind='statement'` : les compteurs/filtres admin reflètent les images
 // d'ÉNONCÉ (sens admin actuel), pas celles d'explication.
 const hasImagesSubquery = exists(
@@ -383,7 +383,7 @@ export type QuizImageView = {
   order: number
 }
 
-// Forme « pont » alignée sur le doc Convex (`_id`/`_creationTime`/`images`) pour
+// Forme « pont » historique (`_id`/`_creationTime`/`images`) pour
 // rester assignable à `Omit<Doc<"questions">, "correctAnswer" | "explanation">`
 // — les composants quiz partagés (QuestionCard/QuizResults) consomment encore
 // ce contrat tant que les écrans examen/entraînement ne sont pas migrés.
