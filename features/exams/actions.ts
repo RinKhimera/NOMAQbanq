@@ -15,6 +15,7 @@ import {
 } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { captureServerError } from "@/lib/observability"
 import { computeScorePercent } from "@/lib/score"
 import { hasAccess } from "../payments/dal"
 import { type SelectableUser, searchSelectableUsers } from "../users/dal"
@@ -41,10 +42,6 @@ import {
 } from "./schemas"
 
 const fail = (error: string) => ({ success: false as const, error })
-
-const logDev = (tag: string, error: unknown) => {
-  if (process.env.NODE_ENV !== "production") console.error(tag, error)
-}
 
 const resolvePause = (enablePause: boolean, minutes?: number) => {
   if (!enablePause) return null
@@ -174,7 +171,7 @@ export const createExam = async (
         return fail("Certains utilisateurs sélectionnés sont introuvables.")
       }
     }
-    logDev("[createExam]", error)
+    captureServerError("[createExam]", error, { userId: session.user.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -318,7 +315,7 @@ export const updateExam = async (
         return fail("Certains utilisateurs sélectionnés sont introuvables.")
       }
     }
-    logDev("[updateExam]", error)
+    captureServerError("[updateExam]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -337,7 +334,7 @@ export const deleteExam = async ({
     revalidatePath("/admin/examens")
     return { success: true }
   } catch (error) {
-    logDev("[deleteExam]", error)
+    captureServerError("[deleteExam]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -357,7 +354,7 @@ export const deactivateExam = async ({
     revalidatePath(`/admin/examens/${examId}`)
     return { success: true }
   } catch (error) {
-    logDev("[deactivateExam]", error)
+    captureServerError("[deactivateExam]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -377,7 +374,7 @@ export const reactivateExam = async ({
     revalidatePath(`/admin/examens/${examId}`)
     return { success: true }
   } catch (error) {
-    logDev("[reactivateExam]", error)
+    captureServerError("[reactivateExam]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -406,7 +403,7 @@ export const deleteParticipation = async ({
     revalidatePath(`/admin/examens/${p.examId}`)
     return { success: true }
   } catch (error) {
-    logDev("[deleteParticipation]", error)
+    captureServerError("[deleteParticipation]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -572,7 +569,7 @@ export const startExam = async ({
         return fail("Votre accès aux examens a expiré.")
       }
     }
-    logDev("[startExam]", error)
+    captureServerError("[startExam]", error, { userId })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -668,7 +665,7 @@ export const saveExamAnswer = async (
 
     return { success: true } // never return isCorrect (anti-cheat)
   } catch (error) {
-    logDev("[saveExamAnswer]", error)
+    captureServerError("[saveExamAnswer]", error, { userId })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -712,7 +709,7 @@ export const saveExamFlag = async (
       return fail("Marquage non enregistré (session incohérente).")
     return { success: true }
   } catch (error) {
-    logDev("[saveExamFlag]", error)
+    captureServerError("[saveExamFlag]", error, { userId: session.user.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -861,7 +858,7 @@ export const finalizeExam = async (
       const msg = map[error.message]
       if (msg) return fail(msg)
     }
-    logDev("[finalizeExam]", error)
+    captureServerError("[finalizeExam]", error, { userId })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -929,7 +926,7 @@ export const pauseExam = async ({
       }
     })
   } catch (error) {
-    logDev("[pauseExam]", error)
+    captureServerError("[pauseExam]", error, { userId: session.user.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -989,7 +986,7 @@ export const resumeExam = async ({
       return { success: true as const, totalPauseDurationMs: total }
     })
   } catch (error) {
-    logDev("[resumeExam]", error)
+    captureServerError("[resumeExam]", error, { userId: session.user.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
