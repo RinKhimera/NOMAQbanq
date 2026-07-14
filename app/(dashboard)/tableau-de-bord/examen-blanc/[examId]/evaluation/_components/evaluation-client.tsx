@@ -213,6 +213,9 @@ export function EvaluationClient({
       setServerStartTime(result.startedAt ?? null)
       setShowWarningDialog(false)
       toast.success("Examen démarré - Bonne chance !")
+      // La page ne livre les questions qu'en in_progress : re-fetch le Server
+      // Component pour les recevoir (l'état client est préservé au travers).
+      router.refresh()
     } catch {
       toast.error("Erreur lors du démarrage de l'examen")
       router.push("/tableau-de-bord/examen-blanc")

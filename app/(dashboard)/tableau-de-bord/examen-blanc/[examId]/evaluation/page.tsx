@@ -1,4 +1,4 @@
-import { notFound, redirect } from "next/navigation"
+import { redirect } from "next/navigation"
 import {
   getExamAnswersForParticipation,
   getExamSession,
@@ -12,18 +12,27 @@ export default async function EvaluationPage({
   params: Promise<{ examId: string }>
 }) {
   const { examId } = await params
-  const data = await getExamWithQuestions(examId)
-  if (!data) notFound()
 
-  const [session, initialAnswersRaw] = await Promise.all([
-    getExamSession(examId),
-    getExamAnswersForParticipation(examId),
-  ])
+  const session = await getExamSession(examId)
 
-  // Session déjà soumise → redirection serveur (évite les effets de bord dans le rendu client).
+  // Déjà soumis → résumé (UX conservée, évite un examen re-jouable).
   if (session?.status === "completed" || session?.status === "auto_submitted") {
     redirect(`/tableau-de-bord/examen-blanc/${examId}/soumis`)
   }
+
+  const data = await getExamWithQuestions(examId)
+  // Non-abonné (DAL → null) : renvoyé vers la carte paywall de la page détail.
+  if (!data) redirect(`/tableau-de-bord/examen-blanc/${examId}`)
+
+  // Invariante anti-fuite : les questions ne partent dans le payload RSC que pour
+  // une participation in_progress (créée par startExam, seul à vérifier
+  // fenêtre+accès+audience). Sans participation → écran de démarrage sans
+  // questions ; le client fait router.refresh() après startExam pour les
+  // recevoir. Ferme subscribers, restricted ET le pré-fetch pré-fenêtre.
+  const inProgress = session?.status === "in_progress"
+  const initialAnswersRaw = inProgress
+    ? await getExamAnswersForParticipation(examId)
+    : []
 
   return (
     <EvaluationClient
@@ -34,7 +43,7 @@ export default async function EvaluationPage({
         enablePause: data.exam.enablePause,
         pauseDurationMinutes: data.exam.pauseDurationMinutes,
       }}
-      questions={data.questions}
+      questions={inProgress ? data.questions : []}
       initialSession={session}
       initialAnswersRaw={initialAnswersRaw}
     />

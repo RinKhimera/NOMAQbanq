@@ -463,6 +463,17 @@ describe("getExamWithQuestions — anti-fuite du texte des questions restreintes
     expect(view?.questions).toHaveLength(qIds.length)
   })
 
+  it("subscribers → null pour un utilisateur SANS accès exam actif (C2)", async () => {
+    const examId = await makeSubscribersExam()
+
+    asNoSub() // aucun abonnement
+    expect(await getExamWithQuestions(examId)).toBeNull()
+
+    asSubscriber() // abonné avec accès actif
+    const view = await getExamWithQuestions(examId)
+    expect(view?.questions).toHaveLength(qIds.length)
+  })
+
   it("restreint → questions pour un membre RETIRÉ de l'audience mais avec participation in_progress (#6)", async () => {
     const examId = await makeRestrictedExam([MEMBER_ID])
 
