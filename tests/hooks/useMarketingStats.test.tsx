@@ -16,7 +16,6 @@ const mockStats: MarketingStats = {
   totalUsers: "200+",
   totalDomains: 12,
   successRate: "85%",
-  rating: "4.9/5",
   topDomains: [
     { domain: "Cardiologie", count: 500 },
     { domain: "Neurologie", count: 300 },

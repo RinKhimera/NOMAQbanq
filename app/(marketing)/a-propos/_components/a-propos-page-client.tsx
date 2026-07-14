@@ -2,6 +2,8 @@
 
 import { Award, CircleCheckBig } from "lucide-react"
 import Image from "next/image"
+import { MARKETING_CLAIMS } from "@/constants"
+import { useMarketingStats } from "@/hooks/useMarketingStats"
 import AboutCTA from "./about-cta"
 import AboutHeader from "./about-header"
 import AboutMissions from "./about-missions"
@@ -10,6 +12,7 @@ import AboutStory from "./about-story"
 import AboutTestimonials from "./about-testimonials"
 
 export default function AProposPageClient() {
+  const { stats } = useMarketingStats()
   return (
     <div className="theme-bg">
       <div className="mx-auto max-w-7xl px-4 pt-8 pb-16 sm:px-6 lg:px-8">
@@ -55,7 +58,8 @@ export default function AProposPageClient() {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">
-                    85% de réussite
+                    {stats?.successRate ?? MARKETING_CLAIMS.successRate} de
+                    réussite
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Taux de succès

@@ -43,10 +43,11 @@ describe("signQuizToken / verifyQuizToken", () => {
   })
 
   it("refuse une signature altérée", () => {
-    const token = signQuizToken(["q-a"])
-    const flipped = token.endsWith("A")
-      ? `${token.slice(0, -1)}B`
-      : `${token.slice(0, -1)}A`
+    const [payloadB64, sigB64] = signQuizToken(["q-a"]).split(".")
+    // Altère le PREMIER char de la signature (bits de poids fort, jamais du
+    // padding) → décode à des octets différents de façon déterministe. Flipper le
+    // DERNIER char serait flaky (2 bits de padding sur un HMAC de 32 octets).
+    const flipped = `${payloadB64}.${sigB64[0] === "a" ? "b" : "a"}${sigB64.slice(1)}`
     expect(verifyQuizToken(flipped)).toBeNull()
   })
 

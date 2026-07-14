@@ -2,14 +2,14 @@ import { isNull, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
-import { questions, user } from "@/db/schema"
+import { examParticipations, questions, user } from "@/db/schema"
+import { SUCCESS_SCORE_THRESHOLD, resolveSuccessRate } from "./lib"
 
 export type MarketingStats = {
   totalQuestions: string
   totalUsers: string
   totalDomains: number
   successRate: string
-  rating: string
   topDomains: { domain: string; count: number }[]
 }
 
@@ -49,12 +49,31 @@ export const getMarketingStats = cache(async (): Promise<MarketingStats> => {
     // Exclut les comptes supprimés (cohérent avec questions + getAdminStats).
     .where(isNull(user.deletedAt))
 
+  // Taux de réussite réel sur les participations terminées. Pas de jointure
+  // user : les participations de comptes soft-deleted COMPTENT (un passage
+  // d'examen réel reste un point de donnée du taux — on mesure des passages, pas
+  // des comptes actifs ; décision revue design 2026-07-12).
+  const [participationAgg] = await db
+    .select({
+      completed:
+        sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted'))`.mapWith(
+          Number,
+        ),
+      passed:
+        sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted') and ${examParticipations.score} >= ${SUCCESS_SCORE_THRESHOLD})`.mapWith(
+          Number,
+        ),
+    })
+    .from(examParticipations)
+
   return {
     totalQuestions: formatMarketingStat(totalQuestions),
     totalUsers: formatMarketingStat(users?.n ?? 0),
     totalDomains: domainRows.length,
-    successRate: "85%",
-    rating: "4.9/5",
+    successRate: resolveSuccessRate({
+      completed: participationAgg?.completed ?? 0,
+      passed: participationAgg?.passed ?? 0,
+    }),
     topDomains: domainRows.slice(0, 10).map((r) => ({
       domain: r.domain,
       count: r.count,

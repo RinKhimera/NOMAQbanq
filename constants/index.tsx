@@ -129,3 +129,13 @@ export const FOOTER_LEGAL_LINKS = [
   { name: "Conditions d'utilisation", href: "/conditions" },
   { name: "Cookies", href: "/cookies" },
 ] as const
+
+/**
+ * Claims marketing ÉDITORIAUX (non calculés). `successRate` sert de repli quand
+ * le vrai taux (features/marketing/dal.ts) n'est pas publiable (volume ou
+ * plancher). `rating` reste 100 % éditorial : aucun système d'avis en base.
+ */
+export const MARKETING_CLAIMS = {
+  successRate: "85%",
+  rating: "4.9/5",
+} as const
