@@ -98,11 +98,13 @@ describe("createStripeCheckout", () => {
   })
 
   it("refuse un productCode inconnu (pas d'appel Stripe)", async () => {
+    mocks.create.mockClear()
     const res = await createStripeCheckout({
       productCode: "does_not_exist",
       successPath: "/tableau-de-bord",
       cancelPath: "/tarifs",
     })
     expect(res).toEqual({ error: "Produit invalide" })
+    expect(mocks.create).not.toHaveBeenCalled()
   })
 })
