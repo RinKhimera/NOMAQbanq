@@ -1,5 +1,6 @@
 "use client"
 
+import * as Sentry from "@sentry/nextjs"
 import { ArrowLeft, RefreshCw, User } from "lucide-react"
 import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -13,7 +14,9 @@ export default function DashboardError({
   reset: () => void
 }) {
   useEffect(() => {
-    // Log the error to an error reporting service
+    // Doublon SSR voulu : crash serveur = event onRequestError (vraie stack)
+    // + cet event digest ; crash client = cet event seul. Ne pas retirer.
+    Sentry.captureException(error)
     console.error("Dashboard Error:", error)
   }, [error])
 

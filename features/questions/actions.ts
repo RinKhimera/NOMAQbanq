@@ -7,7 +7,9 @@ import { questionExplanations, questionImages, questions } from "@/db/schema"
 import { getOpenExamQuestionIds } from "@/features/exams/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { copyInS3, createPresignedUpload } from "@/lib/aws"
+import { getPgErrorCode } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
+import { captureServerError } from "@/lib/observability"
 import { consumeQuizRateLimit, getClientIpKey } from "@/lib/quiz-rate-limit"
 import {
   assertSafeStoragePath,
@@ -47,10 +49,6 @@ import {
 } from "./schemas"
 
 const fail = (error: string) => ({ success: false as const, error })
-
-const logDev = (tag: string, error: unknown) => {
-  if (process.env.NODE_ENV !== "production") console.error(tag, error)
-}
 
 /** [Admin] Charge une page de la liste filtrée (browser : filtres + « charger plus »). */
 export const loadQuestionsPage = async (
@@ -240,7 +238,7 @@ export const createQuestion = async (
     revalidatePath("/admin/questions")
     return { success: true, id }
   } catch (error) {
-    logDev("[createQuestion]", error)
+    captureServerError("[createQuestion]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -297,7 +295,7 @@ export const updateQuestion = async (
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
       return fail("Question introuvable")
     }
-    logDev("[updateQuestion]", error)
+    captureServerError("[updateQuestion]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -311,19 +309,8 @@ export const updateQuestion = async (
 const FK_VIOLATION_CODES = new Set(["23001", "23503"])
 
 const isForeignKeyViolation = (error: unknown): boolean => {
-  let cur: unknown = error
-  for (let i = 0; i < 5 && cur; i++) {
-    if (
-      typeof cur === "object" &&
-      "code" in cur &&
-      typeof (cur as { code?: unknown }).code === "string" &&
-      FK_VIOLATION_CODES.has((cur as { code: string }).code)
-    ) {
-      return true
-    }
-    cur = (cur as { cause?: unknown }).cause
-  }
-  return false
+  const code = getPgErrorCode(error)
+  return code !== undefined && FK_VIOLATION_CODES.has(code)
 }
 
 export type DeleteQuestionResult =
@@ -371,7 +358,7 @@ export const deleteQuestion = async (
       return fail("Question introuvable")
     }
     if (!isForeignKeyViolation(error)) {
-      logDev("[deleteQuestion]", error)
+      captureServerError("[deleteQuestion]", error)
       return fail("Erreur serveur. Réessayez.")
     }
   }
@@ -387,7 +374,7 @@ export const deleteQuestion = async (
     revalidatePath("/admin/questions")
     return { success: true, mode: "soft" }
   } catch (error) {
-    logDev("[deleteQuestion]", error)
+    captureServerError("[deleteQuestion]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -446,7 +433,7 @@ export const setQuestionImages = async (
       if (!p.finalPath.startsWith(finalPrefix)) throw new Error("BAD_PREFIX")
     }
   } catch (error) {
-    logDev("[setQuestionImages] validate", error)
+    captureServerError("[setQuestionImages] validate", error)
     return fail("Chemin d'image invalide")
   }
 
@@ -460,7 +447,7 @@ export const setQuestionImages = async (
       copiedFinalPaths.push(p.finalPath)
     }
   } catch (error) {
-    logDev("[setQuestionImages] copy", error)
+    captureServerError("[setQuestionImages] copy", error)
     await Promise.all(copiedFinalPaths.map((p) => tryDeleteFromStorage(p)))
     return fail("Erreur serveur. Réessayez.")
   }
@@ -527,7 +514,7 @@ export const setQuestionImages = async (
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
       return fail("Question introuvable")
     }
-    logDev("[setQuestionImages]", error)
+    captureServerError("[setQuestionImages]", error)
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -618,7 +605,9 @@ export const createQuestionImageUpload = async (input: {
     )
     return { success: true, url, fields, storagePath }
   } catch (error) {
-    logDev("[createQuestionImageUpload]", error)
+    captureServerError("[createQuestionImageUpload]", error, {
+      userId: session.user.id,
+    })
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 }

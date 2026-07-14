@@ -323,6 +323,19 @@ export const getExamWithQuestions = async (
     }
   }
 
+  // Examen `subscribers` : l'abonnement actif EST l'autorisation (symétrique
+  // startExam/saveExamAnswer). Anti-fuite du texte des questions à un
+  // utilisateur sans entitlement. La fenêtre de dates est gardée par les
+  // appelants (page evaluation via participation in_progress ; page détail via
+  // isClosed) — pas ici, car le DAL sert aussi la revue après clôture.
+  if (
+    !isAdmin &&
+    exam.audienceType === "subscribers" &&
+    !(await hasAccess("exam"))
+  ) {
+    return null
+  }
+
   const items = await db
     .select({
       questionId: examQuestions.questionId,

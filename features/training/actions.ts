@@ -12,6 +12,7 @@ import {
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
+import { captureServerError } from "@/lib/observability"
 import { computeScorePercent } from "@/lib/score"
 import { getOpenExamLockedQuestionIds } from "../exams/dal"
 import { hasAccess } from "../payments/dal"
@@ -32,10 +33,6 @@ const SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000 // 24 h
 const MAX_SESSIONS_PER_HOUR = 10
 
 const fail = (error: string) => ({ success: false as const, error })
-
-const logDev = (tag: string, error: unknown) => {
-  if (process.env.NODE_ENV !== "production") console.error(tag, error)
-}
 
 // ============================================
 // Lectures (wrappers pour composants clients)
@@ -212,7 +209,7 @@ export const createTrainingSession = async (
         )
       }
     }
-    logDev("[createTrainingSession]", error)
+    captureServerError("[createTrainingSession]", error, { userId })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -336,7 +333,9 @@ export const saveTrainingAnswer = async (
     // Mode test : ne pas exposer isCorrect sur le fil réseau (anti-triche).
     return { success: true }
   } catch (error) {
-    logDev("[saveTrainingAnswer]", error)
+    captureServerError("[saveTrainingAnswer]", error, {
+      userId: session.user.id,
+    })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -428,7 +427,9 @@ export const completeTrainingSession = async ({
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true, score, correctCount, totalQuestions }
   } catch (error) {
-    logDev("[completeTrainingSession]", error)
+    captureServerError("[completeTrainingSession]", error, {
+      userId: session.user.id,
+    })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -478,7 +479,9 @@ export const abandonTrainingSession = async ({
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true }
   } catch (error) {
-    logDev("[abandonTrainingSession]", error)
+    captureServerError("[abandonTrainingSession]", error, {
+      userId: session.user.id,
+    })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -516,7 +519,9 @@ export const deleteTrainingSession = async ({
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true }
   } catch (error) {
-    logDev("[deleteTrainingSession]", error)
+    captureServerError("[deleteTrainingSession]", error, {
+      userId: session.user.id,
+    })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -543,7 +548,9 @@ export const deleteAllTrainingSessions = async (): Promise<{
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true, deletedCount: deleted.length }
   } catch (error) {
-    logDev("[deleteAllTrainingSessions]", error)
+    captureServerError("[deleteAllTrainingSessions]", error, {
+      userId: session.user.id,
+    })
     return { success: false, deletedCount: 0, error: "Erreur serveur." }
   }
 }

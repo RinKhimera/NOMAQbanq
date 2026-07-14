@@ -4,6 +4,7 @@ import { db } from "@/db"
 import {
   examAnswers,
   examParticipations,
+  examQuestions,
   exams,
   products,
   questionExplanations,
@@ -219,6 +220,51 @@ describe("Admin CRUD", () => {
     expect(view?.exam.title).toBe(`Updated ${suffix}`)
     expect(view?.questions).toHaveLength(6)
     expect(view?.exam.completionTime).toBe(6 * 83)
+  })
+
+  it("updateExam et startExam concurrents : participation cohérente avec le set servi (verrou commun)", async () => {
+    const id = await makeExam({ questionIds: examQIds.slice(0, 4) })
+    const newSet = examQIds // set différent (6 questions)
+
+    const now = Date.now()
+    const [, start] = await Promise.all([
+      (async () => {
+        asAdmin()
+        return updateExam({
+          id,
+          title: `Race ${suffix}`,
+          startDate: now - 1000,
+          endDate: now + DAY,
+          questionIds: newSet,
+          enablePause: false,
+        })
+      })(),
+      (async () => {
+        asStudent()
+        return startExam({ examId: id })
+      })(),
+    ])
+
+    // Invariant : si une participation a été créée, ses examAnswers correspondent
+    // EXACTEMENT au set de questions effectivement stocké (pas de mélange
+    // ancien/nouveau). Le verrou commun sur la ligne examen sérialise les deux.
+    if (start.success) {
+      const stored = await db
+        .select({ questionId: examQuestions.questionId })
+        .from(examQuestions)
+        .where(eq(examQuestions.examId, id))
+      const answers = await db
+        .select({ questionId: examAnswers.questionId })
+        .from(examAnswers)
+        .innerJoin(
+          examParticipations,
+          eq(examParticipations.id, examAnswers.participationId),
+        )
+        .where(eq(examParticipations.examId, id))
+      const storedSet = new Set(stored.map((r) => r.questionId))
+      const answerSet = new Set(answers.map((r) => r.questionId))
+      expect(answerSet).toEqual(storedSet)
+    }
   })
 
   it("deactivate puis reactivate bascule isActive", async () => {

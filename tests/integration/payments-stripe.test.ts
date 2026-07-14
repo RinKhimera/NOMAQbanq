@@ -28,7 +28,7 @@ const suffix = createId().slice(0, 8)
 
 const PEXAM = createId() // produit exam non-combo
 const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 10 }, () => createId())
+const U = Array.from({ length: 11 }, () => createId())
 const [
   U_HAPPY,
   U_CUMUL,
@@ -40,6 +40,7 @@ const [
   U_DEGNULL,
   U_DEGUSD,
   U_PROMO100,
+  U_RACE,
 ] = U
 
 const accessOf = (userId: string, accessType: "exam" | "training") =>
@@ -278,6 +279,52 @@ describe("completeStripeTransaction", () => {
       stripeEventId: `evt_ghost_${suffix}`,
     })
     expect(res).toEqual({ status: "not_found" })
+  })
+
+  it("deux fulfillments concurrents (2 tx distinctes, même user non-combo) → accès CUMULÉ 180j (verrou FOR UPDATE)", async () => {
+    const sidA = `sess_raceA_${suffix}`
+    const sidB = `sess_raceB_${suffix}`
+    await seedPending({
+      id: createId(),
+      userId: U_RACE,
+      productId: PEXAM,
+      sessionId: sidA,
+      accessType: "exam",
+      durationDays: 90,
+    })
+    await seedPending({
+      id: createId(),
+      userId: U_RACE,
+      productId: PEXAM,
+      sessionId: sidB,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    await Promise.all([
+      completeStripeTransaction({
+        stripeSessionId: sidA,
+        stripePaymentIntentId: `pi_a_${suffix}`,
+        stripeEventId: `evt_a_${suffix}`,
+        amountTotal: 5000,
+        currency: "cad",
+      }),
+      completeStripeTransaction({
+        stripeSessionId: sidB,
+        stripePaymentIntentId: `pi_b_${suffix}`,
+        stripeEventId: `evt_b_${suffix}`,
+        amountTotal: 5000,
+        currency: "cad",
+      }),
+    ])
+
+    const rows = await db
+      .select()
+      .from(userAccess)
+      .where(eq(userAccess.userId, U_RACE))
+    expect(rows).toHaveLength(1)
+    // Cumul des deux durées (90 + 90). Tombe à ~90 si le verrou FOR UPDATE saute.
+    expect(approxDays(rows[0].expiresAt, 180)).toBe(true)
   })
 })
 

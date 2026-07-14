@@ -7,6 +7,7 @@ import { products, transactions } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getBaseUrl } from "@/lib/base-url"
 import { createId } from "@/lib/ids"
+import { captureServerError } from "@/lib/observability"
 import { getStripe } from "@/lib/stripe"
 import {
   type AccessImpact,
@@ -27,6 +28,12 @@ import {
   recordManualPaymentSchema,
   updateManualTransactionSchema,
 } from "./schemas"
+
+// Duck-check (évite d'importer les classes d'erreur Stripe pour un seul code).
+const isStripeResourceMissing = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  (error as { code?: unknown }).code === "resource_missing"
 
 /**
  * Charge la page suivante de l'historique des transactions de l'utilisateur
@@ -151,9 +158,9 @@ export const recordManualPayment = async (
     if (error instanceof Error && error.message === "USER_NOT_FOUND") {
       return { success: false, error: "Utilisateur introuvable" }
     }
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[recordManualPayment]", error)
-    }
+    captureServerError("[recordManualPayment]", error, {
+      userId: session.user.id,
+    })
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 }
@@ -222,9 +229,7 @@ export const updateManualTransaction = async (
         error: "Seules les transactions manuelles peuvent être modifiées",
       }
     }
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[updateManualTransaction]", error)
-    }
+    captureServerError("[updateManualTransaction]", error)
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 }
@@ -276,9 +281,7 @@ export const deleteManualTransaction = async (
         error: "Seules les transactions manuelles peuvent être supprimées",
       }
     }
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[deleteManualTransaction]", error)
-    }
+    captureServerError("[deleteManualTransaction]", error)
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 }
@@ -380,9 +383,9 @@ export const createStripeCheckout = async (input: {
 
     return { checkoutUrl: checkout.url }
   } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[createStripeCheckout]", error)
-    }
+    captureServerError("[createStripeCheckout]", error, {
+      userId: session.user.id,
+    })
     return { error: "Erreur lors de la création du paiement. Réessayez." }
   }
 }
@@ -422,8 +425,12 @@ export const verifyStripeCheckout = async (
       customerEmail: checkout.customer_email,
     }
   } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[verifyStripeCheckout]", error)
+    // `resource_missing` = session_id d'URL invalide/périmé (contrôlable par
+    // l'utilisateur) : flux métier, pas une erreur inattendue.
+    if (!isStripeResourceMissing(error)) {
+      captureServerError("[verifyStripeCheckout]", error, {
+        userId: session.user.id,
+      })
     }
     return { success: false, error: "Session non trouvée ou invalide" }
   }
@@ -456,9 +463,9 @@ export const createCustomerPortal = async (
     })
     return { portalUrl: portal.url }
   } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[createCustomerPortal]", error)
-    }
+    captureServerError("[createCustomerPortal]", error, {
+      userId: session.user.id,
+    })
     return {
       error: "Impossible d'ouvrir le portail de facturation. Réessayez.",
     }

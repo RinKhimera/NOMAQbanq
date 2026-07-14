@@ -91,3 +91,8 @@ export const finalizeExamSchema = z.object({
   isAutoSubmit: z.boolean().optional(),
 })
 export type FinalizeExamInput = z.infer<typeof finalizeExamSchema>
+
+export const loadExamQuestionExplanationsSchema = z
+  .array(z.string())
+  .min(1)
+  .max(MAX_EXAM_QUESTIONS)
