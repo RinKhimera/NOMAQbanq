@@ -1,5 +1,6 @@
 "use server"
 
+import { APIError } from "better-auth/api"
 import { and, eq, inArray, isNull, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
@@ -17,6 +18,8 @@ import { auth } from "@/lib/auth"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createPresignedUpload } from "@/lib/aws"
 import { avatarStoragePathFromImageValue, cdnUrl } from "@/lib/cdn"
+import { isPgUniqueViolation } from "@/lib/db-errors"
+import { captureServerError } from "@/lib/observability"
 import {
   generateAvatarPath,
   getExtensionFromMimeType,
@@ -155,17 +158,10 @@ export const updateProfile = async (input: {
       .set({ name, username, bio })
       .where(eq(user.id, session.user.id))
   } catch (error) {
-    if (
-      typeof error === "object" &&
-      error !== null &&
-      "code" in error &&
-      (error as { code?: string }).code === "23505"
-    ) {
+    if (isPgUniqueViolation(error)) {
       return { success: false, error: "Ce nom d'utilisateur est déjà pris !" }
     }
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[updateProfile]", error)
-    }
+    captureServerError("[updateProfile]", error, { userId: session.user.id })
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 
@@ -226,9 +222,7 @@ export const createAvatarUpload = async (input: {
     )
     return { success: true, url, fields, storagePath }
   } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[createAvatarUpload]", error)
-    }
+    captureServerError("[createAvatarUpload]", error, { userId })
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 }
@@ -265,9 +259,7 @@ export const confirmAvatarUpload = async (input: {
   try {
     await db.update(user).set({ image: newUrl }).where(eq(user.id, userId))
   } catch (error) {
-    if (process.env.NODE_ENV !== "production") {
-      console.error("[confirmAvatarUpload]", error)
-    }
+    captureServerError("[confirmAvatarUpload]", error, { userId })
     await tryDeleteFromStorage(input.storagePath)
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
@@ -340,7 +332,7 @@ export const revokeOtherUserSessions =
 export const setAccountPassword = async (input: {
   newPassword: string
 }): Promise<AccountActionResult> => {
-  await requireSession()
+  const authSession = await requireSession()
 
   if (input.newPassword.length < 8 || input.newPassword.length > 128) {
     return {
@@ -354,7 +346,13 @@ export const setAccountPassword = async (input: {
       body: { newPassword: input.newPassword },
       headers: await headers(),
     })
-  } catch {
+  } catch (error) {
+    // Les APIError Better Auth sont du flux métier (ex. credential déjà posé).
+    if (!(error instanceof APIError)) {
+      captureServerError("[setAccountPassword]", error, {
+        userId: authSession.user.id,
+      })
+    }
     return { success: false, error: "Impossible de définir le mot de passe." }
   }
 
