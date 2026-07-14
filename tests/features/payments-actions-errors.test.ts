@@ -73,3 +73,33 @@ describe("verifyStripeCheckout — catch filtré resource_missing", () => {
     )
   })
 })
+
+describe("verifyStripeCheckout — anti-IDOR + happy path", () => {
+  it("metadata.userId ≠ session → refus (anti-IDOR), pas de capture", async () => {
+    mocks.retrieve.mockResolvedValueOnce({
+      metadata: { userId: "someone_else" },
+      payment_status: "paid",
+      amount_total: 5000,
+      currency: "cad",
+      customer_email: "x@test.invalid",
+    })
+    const res = await verifyStripeCheckout("cs_ok")
+    expect(res).toEqual({
+      success: false,
+      error: "Session non trouvée ou invalide",
+    })
+    expect(mocks.captureServerError).not.toHaveBeenCalled()
+  })
+
+  it("metadata.userId == session → succès", async () => {
+    mocks.retrieve.mockResolvedValueOnce({
+      metadata: { userId: "u1" },
+      payment_status: "paid",
+      amount_total: 5000,
+      currency: "cad",
+      customer_email: "x@test.invalid",
+    })
+    const res = await verifyStripeCheckout("cs_ok")
+    expect(res).toMatchObject({ success: true, status: "paid" })
+  })
+})
