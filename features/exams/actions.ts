@@ -36,6 +36,7 @@ import {
   type UpdateExamInput,
   createExamSchema,
   finalizeExamSchema,
+  loadExamQuestionExplanationsSchema,
   saveExamAnswerSchema,
   saveExamFlagSchema,
   updateExamSchema,
@@ -57,7 +58,9 @@ export const loadExamQuestionExplanations = async (
   questionIds: string[],
 ): Promise<QuestionExplanationView[]> => {
   await requireSession()
-  return getExamQuestionExplanations(questionIds)
+  const parsed = loadExamQuestionExplanationsSchema.safeParse(questionIds)
+  if (!parsed.success) return []
+  return getExamQuestionExplanations(parsed.data)
 }
 
 /** [Admin] Recherche serveur d'utilisateurs sélectionnables (picker d'audience). */
