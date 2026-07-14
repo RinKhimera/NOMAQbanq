@@ -3,6 +3,7 @@ import {
   completeStripeTransaction,
   failStripeTransaction,
 } from "@/features/payments/stripe"
+import { captureServerError } from "@/lib/observability"
 import { getStripe, getStripeWebhookSecret } from "@/lib/stripe"
 
 // Le SDK Stripe nécessite le runtime Node (pas Edge).
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
     stripe = getStripe()
     webhookSecret = getStripeWebhookSecret()
   } catch (error) {
-    console.error("[stripe webhook] configuration manquante", error)
+    captureServerError("[stripe:webhook]", error, { detail: "configuration" })
     return new Response("Server configuration error", { status: 500 })
   }
 
@@ -75,9 +76,12 @@ export async function POST(request: Request) {
             currency: checkoutSession.currency,
           })
           if (result.status === "not_found") {
-            console.error(
-              "[stripe webhook] aucune transaction pour la session",
-              checkoutSession.id,
+            // Transaction fantôme (payé sans pending en base) : anomalie réelle,
+            // mais 200 conservé — rejouer l'événement ne la fera pas apparaître.
+            captureServerError(
+              "[stripe:webhook]",
+              new Error("aucune transaction pour la session Stripe"),
+              { detail: `session ${checkoutSession.id}` },
             )
           }
         }
@@ -108,7 +112,10 @@ export async function POST(request: Request) {
         break
     }
   } catch (error) {
-    console.error("[stripe webhook] erreur de traitement", event.type, error)
+    // `onRequestError` ne voit jamais cette erreur (catchée puis convertie en
+    // Response 500) : la capture explicite est la SEULE trace Sentry du
+    // fulfillment. Le 500 → retry Stripe est le contrat, ne pas y toucher.
+    captureServerError("[stripe:webhook]", error, { detail: event.type })
     return new Response("Webhook handler error", { status: 500 })
   }
 

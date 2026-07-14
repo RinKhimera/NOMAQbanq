@@ -3,6 +3,7 @@ import { sendPendingNotifications } from "@/features/notifications/cron"
 import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { anonymizeExpiredDeletedAccounts } from "@/features/users/cron"
 import { env } from "@/lib/env/server"
+import { captureServerError } from "@/lib/observability"
 import { cleanupQuizRateLimits } from "@/lib/quiz-rate-limit"
 
 // Accès DB → runtime Node.
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
   let failed = false
   const run = async <T>(
     label: string,
+    tag: string,
     task: () => Promise<T>,
     empty: T,
   ): Promise<T> => {
@@ -58,37 +60,43 @@ export async function GET(request: Request) {
       return await task()
     } catch (error) {
       failed = true
-      console.error(`[cron close-expired] ${label} en échec`, error)
+      captureServerError(tag, error, { detail: label })
       return empty
     }
   }
 
   const examParticipations = await run(
     "clôture examens",
+    "[cron:exams]",
     closeExpiredExamParticipations,
     { closedCount: 0 },
   )
   const trainingSessions = await run(
     "clôture entraînements",
+    "[cron:trainings]",
     closeExpiredTrainingSessions,
     { closedCount: 0 },
   )
   const anonymizedAccounts = await run(
     "anonymisation",
+    "[cron:anonymize]",
     anonymizeExpiredDeletedAccounts,
     { anonymizedCount: 0 },
   )
   const quizRateLimitCleanup = await run(
     "purge rate-limit quiz",
+    "[cron:quiz-rl]",
     cleanupQuizRateLimits,
     { deletedCount: 0 },
   )
 
   // APRÈS les clôtures (pour inclure les `auto_submitted` du même run).
-  const notifications = await run("notifications", sendPendingNotifications, {
-    examResultsSent: 0,
-    accessRemindersSent: 0,
-  })
+  const notifications = await run(
+    "notifications",
+    "[cron:notifications]",
+    sendPendingNotifications,
+    { examResultsSent: 0, accessRemindersSent: 0 },
+  )
 
   if (failed) return new Response("Cron handler error", { status: 500 })
 

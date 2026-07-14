@@ -4,6 +4,7 @@ import { db } from "@/db"
 import { examParticipations, exams, user, userAccess } from "@/db/schema"
 import { sendAccessExpiringEmail, sendExamResultsEmail } from "@/email"
 import { getBaseUrl } from "@/lib/base-url"
+import { captureServerError } from "@/lib/observability"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const EXAM_RESULTS_LIMIT = 500
@@ -84,10 +85,9 @@ export async function sendExamResultsNotifications(): Promise<number> {
       // Best-effort : si l'envoi échoue, le marqueur reste posé (anti-double), pas
       // de réessai — les résultats restent visibles en app. Perte tolérée d'un
       // email (cf. spec §5 + Notes d'implémentation).
-      console.error(
-        `[notif] résultats — échec (participation ${r.participationId})`,
-        error,
-      )
+      captureServerError("[notif:resultats]", error, {
+        detail: `participation ${r.participationId}`,
+      })
     }
   }
   return sent
@@ -151,7 +151,9 @@ export async function sendAccessExpiryReminders(): Promise<number> {
       })
       sent++
     } catch (error) {
-      console.error(`[notif] accès — échec (accès ${r.accessId})`, error)
+      captureServerError("[notif:acces]", error, {
+        detail: `accès ${r.accessId}`,
+      })
     }
   }
   return sent

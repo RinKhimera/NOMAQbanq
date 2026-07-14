@@ -3,6 +3,7 @@ import "server-only"
 import { db } from "@/db"
 import { account, user } from "@/db/schema"
 import { DELETION_GRACE_MS } from "@/features/users/lib/account-deletion"
+import { captureServerError } from "@/lib/observability"
 
 export type AnonymizeResult = { anonymizedCount: number }
 
@@ -40,7 +41,7 @@ export async function anonymizeExpiredDeletedAccounts(): Promise<AnonymizeResult
       })
       anonymizedCount++
     } catch (error) {
-      console.error(`[anonymize] échec pour l'utilisateur ${id}`, error)
+      captureServerError("[cron:anonymize]", error, { detail: `user ${id}` })
     }
   }
 
