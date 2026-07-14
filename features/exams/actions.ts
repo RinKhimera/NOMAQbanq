@@ -693,7 +693,7 @@ export const saveExamAnswer = async (
           return { ok: false as const, msg: "Temps écoulé." }
       }
 
-      await tx
+      const updated = await tx
         .update(examAnswers)
         .set({ selectedAnswer, isCorrect })
         .where(
@@ -702,6 +702,12 @@ export const saveExamAnswer = async (
             eq(examAnswers.questionId, questionId),
           ),
         )
+        .returning({ id: examAnswers.id })
+      if (updated.length === 0)
+        return {
+          ok: false as const,
+          msg: "Réponse non enregistrée (session incohérente).",
+        }
       return { ok: true as const }
     })
 

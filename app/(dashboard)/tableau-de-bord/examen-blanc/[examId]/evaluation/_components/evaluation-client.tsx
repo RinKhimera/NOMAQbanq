@@ -1,8 +1,8 @@
 "use client"
 
-import { ShieldAlert, TriangleAlert } from "lucide-react"
+import { Loader2, ShieldAlert, TriangleAlert } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { QuizRunner } from "@/components/quiz/runner/quiz-runner"
 import type {
@@ -62,6 +62,7 @@ export function EvaluationClient({
   initialAnswersRaw,
 }: EvaluationClientProps) {
   const router = useRouter()
+  const [isStarting, startTransition] = useTransition()
 
   // serverStartTime: null = pas encore démarré, number = démarré
   const resuming = isInProgress(initialSession)
@@ -201,25 +202,28 @@ export function EvaluationClient({
       : undefined,
   }
 
-  // Démarrage de l'examen
-  const handleStartExam = async () => {
-    try {
-      const result = await startExam({ examId })
-      if (!result.success) {
-        toast.error(result.error)
+  // Démarrage de l'examen. La page ne met les questions dans le payload RSC
+  // qu'en in_progress : on ne démonte le dialog (bouton « Démarrage… » entre
+  // temps) qu'une fois le router.refresh() appliqué, dans la même transition,
+  // pour ne jamais monter le runner à vide avec le chrono lancé.
+  const handleStartExam = () => {
+    startTransition(async () => {
+      try {
+        const result = await startExam({ examId })
+        if (!result.success) {
+          toast.error(result.error)
+          router.push("/tableau-de-bord/examen-blanc")
+          return
+        }
+        setServerStartTime(result.startedAt ?? null)
+        toast.success("Examen démarré - Bonne chance !")
+        router.refresh()
+        setShowWarningDialog(false)
+      } catch {
+        toast.error("Erreur lors du démarrage de l'examen")
         router.push("/tableau-de-bord/examen-blanc")
-        return
       }
-      setServerStartTime(result.startedAt ?? null)
-      setShowWarningDialog(false)
-      toast.success("Examen démarré - Bonne chance !")
-      // La page ne livre les questions qu'en in_progress : re-fetch le Server
-      // Component pour les recevoir (l'état client est préservé au travers).
-      router.refresh()
-    } catch {
-      toast.error("Erreur lors du démarrage de l'examen")
-      router.push("/tableau-de-bord/examen-blanc")
-    }
+    })
   }
 
   // Dialogue d'avertissement avant démarrage
@@ -309,19 +313,41 @@ export function EvaluationClient({
             <DialogFooter className="gap-2">
               <Button
                 variant="outline"
+                disabled={isStarting}
                 onClick={() => router.push("/tableau-de-bord/examen-blanc")}
               >
                 Annuler
               </Button>
               <Button
                 onClick={handleStartExam}
+                disabled={isStarting}
                 className="bg-linear-to-r from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
               >
-                Je comprends - Commencer l&apos;examen
+                {isStarting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Démarrage…
+                  </>
+                ) : (
+                  "Je comprends - Commencer l'examen"
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      </div>
+    )
+  }
+
+  // Fenêtre transitoire entre startExam et l'arrivée des questions via refresh :
+  // ne jamais monter le runner à vide (chrono lancé sur un examen sans question).
+  if (totalQuestions === 0) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+        <div className="text-muted-foreground flex items-center gap-3">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Chargement de l&apos;examen…
+        </div>
       </div>
     )
   }
