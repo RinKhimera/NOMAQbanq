@@ -30,6 +30,16 @@ storagePath,order}` pour rester assignable aux composants partagés
 
 - `"use server"` → guard → `zod.safeParse` (early `fail(message)`) → écriture →
   `revalidatePath`.
+- **Catch fallback = `captureServerError`** (`lib/observability.ts`) : tag
+  statique + `{ userId }` si en scope — JAMAIS de payload (PII). Réservé aux
+  exceptions inattendues : les erreurs métier mappées (zod, TIME_UP,
+  ACCESS_EXPIRED, 23505 username, `resource_missing` Stripe, `APIError` Better
+  Auth…) `return fail(...)` SANS capture (sinon on recrée le bruit filtré en
+  #105). Codes pg : `getPgErrorCode`/`isPgUniqueViolation` (`lib/db-errors.ts`)
+  — ne JAMAIS tester `error.code` en surface (Drizzle enveloppe dans `cause` ;
+  branche morte, bug updateProfile). Les route handlers qui catchent puis
+  répondent 500 (webhook Stripe) DOIVENT capturer eux-mêmes : `onRequestError`
+  ne voit jamais une erreur catchée.
 - **Concurrence par utilisateur** : `db.transaction` + `SELECT … .for("update")`
   (verrou de ligne) englobant check + insert. Postgres (READ COMMITTED) ne
   sérialise pas les checks applicatifs — sans le verrou, deux requêtes
