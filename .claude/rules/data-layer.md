@@ -43,7 +43,21 @@ storagePath,order}` pour rester assignable aux composants partagés
 - **Concurrence par utilisateur** : `db.transaction` + `SELECT … .for("update")`
   (verrou de ligne) englobant check + insert. Postgres (READ COMMITTED) ne
   sérialise pas les checks applicatifs — sans le verrou, deux requêtes
-  concurrentes passent toutes deux le check.
+  concurrentes passent toutes deux le check. Un `EXISTS (…)` dans le `WHERE`
+  d'un UPDATE NE suffit PAS contre une transaction concurrente en vol : il lit
+  la dernière version committée et ne se met pas en file derrière un `FOR UPDATE`
+  détenu (ex. `saveExamAnswer` vs `finalizeExam` sur la même participation →
+  verrou de ligne, pas EXISTS).
+- **Passation d'examen — invariante d'accès** : le contenu des questions n'est
+  livré/écrit que pour une participation `in_progress` (créée par `startExam`,
+  seul à vérifier fenêtre+accès+audience). La page evaluation ne met les
+  questions dans le payload RSC qu'en `in_progress` (le client `router.refresh()`
+  après `startExam`) ; `getExamWithQuestions` re-garde `hasAccess("exam")` pour
+  `subscribers` (défense en profondeur — un `null` sur la page détail rend la
+  carte paywall, PAS un 404). Budget-temps anti-triche gardé À L'ÉCRITURE
+  (`saveExamAnswer` refuse au-delà de `startedAt + completionTime + grâce`), pas
+  seulement à la finalisation (`isAutoSubmit` vient du client). `updateExam` et
+  `startExam` prennent un `FOR UPDATE` commun sur la ligne `exams`.
 - **Narrowing TS** : renvoyer la valeur DEPUIS le callback de transaction
   (`const r = await db.transaction(async tx => { … return v })`), PAS via un
   `let` capturé dans la closure — TS ne le narrow pas après un garde `if (!r)`
