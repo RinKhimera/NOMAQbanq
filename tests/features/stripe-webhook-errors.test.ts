@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest"
+import { POST } from "@/app/api/stripe/webhook/route"
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -21,8 +22,6 @@ vi.mock("@/lib/stripe", () => ({
   }),
   getStripeWebhookSecret: () => "whsec_test",
 }))
-
-import { POST } from "@/app/api/stripe/webhook/route"
 
 const request = () =>
   new Request("http://localhost/api/stripe/webhook", {

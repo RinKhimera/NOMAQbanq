@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { setAccountPassword, updateProfile } from "@/features/users/actions"
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -44,8 +45,6 @@ vi.mock("@/lib/storage", () => ({
 vi.mock("@/lib/upload-rate-limit", () => ({ consumeUploadRateLimit: vi.fn() }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("next/headers", () => ({ headers: vi.fn() }))
-
-import { setAccountPassword, updateProfile } from "@/features/users/actions"
 
 const VALID = { name: "Sam", username: "sam_p", bio: "" }
 

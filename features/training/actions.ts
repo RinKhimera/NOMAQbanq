@@ -333,7 +333,9 @@ export const saveTrainingAnswer = async (
     // Mode test : ne pas exposer isCorrect sur le fil réseau (anti-triche).
     return { success: true }
   } catch (error) {
-    captureServerError("[saveTrainingAnswer]", error, { userId: session.user.id })
+    captureServerError("[saveTrainingAnswer]", error, {
+      userId: session.user.id,
+    })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -425,7 +427,9 @@ export const completeTrainingSession = async ({
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true, score, correctCount, totalQuestions }
   } catch (error) {
-    captureServerError("[completeTrainingSession]", error, { userId: session.user.id })
+    captureServerError("[completeTrainingSession]", error, {
+      userId: session.user.id,
+    })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -475,7 +479,9 @@ export const abandonTrainingSession = async ({
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true }
   } catch (error) {
-    captureServerError("[abandonTrainingSession]", error, { userId: session.user.id })
+    captureServerError("[abandonTrainingSession]", error, {
+      userId: session.user.id,
+    })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -513,7 +519,9 @@ export const deleteTrainingSession = async ({
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true }
   } catch (error) {
-    captureServerError("[deleteTrainingSession]", error, { userId: session.user.id })
+    captureServerError("[deleteTrainingSession]", error, {
+      userId: session.user.id,
+    })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -540,7 +548,9 @@ export const deleteAllTrainingSessions = async (): Promise<{
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true, deletedCount: deleted.length }
   } catch (error) {
-    captureServerError("[deleteAllTrainingSessions]", error, { userId: session.user.id })
+    captureServerError("[deleteAllTrainingSessions]", error, {
+      userId: session.user.id,
+    })
     return { success: false, deletedCount: 0, error: "Erreur serveur." }
   }
 }

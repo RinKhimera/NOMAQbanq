@@ -383,7 +383,9 @@ export const createStripeCheckout = async (input: {
 
     return { checkoutUrl: checkout.url }
   } catch (error) {
-    captureServerError("[createStripeCheckout]", error, { userId: session.user.id })
+    captureServerError("[createStripeCheckout]", error, {
+      userId: session.user.id,
+    })
     return { error: "Erreur lors de la création du paiement. Réessayez." }
   }
 }
@@ -461,7 +463,9 @@ export const createCustomerPortal = async (
     })
     return { portalUrl: portal.url }
   } catch (error) {
-    captureServerError("[createCustomerPortal]", error, { userId: session.user.id })
+    captureServerError("[createCustomerPortal]", error, {
+      userId: session.user.id,
+    })
     return {
       error: "Impossible d'ouvrir le portail de facturation. Réessayez.",
     }

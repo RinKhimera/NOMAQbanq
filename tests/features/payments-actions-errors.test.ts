@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { verifyStripeCheckout } from "@/features/payments/actions"
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -37,8 +38,6 @@ vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({ checkout: { sessions: { retrieve: mocks.retrieve } } }),
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
-
-import { verifyStripeCheckout } from "@/features/payments/actions"
 
 beforeEach(() => {
   mocks.captureServerError.mockClear()

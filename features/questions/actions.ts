@@ -605,7 +605,9 @@ export const createQuestionImageUpload = async (input: {
     )
     return { success: true, url, fields, storagePath }
   } catch (error) {
-    captureServerError("[createQuestionImageUpload]", error, { userId: session.user.id })
+    captureServerError("[createQuestionImageUpload]", error, {
+      userId: session.user.id,
+    })
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 }
