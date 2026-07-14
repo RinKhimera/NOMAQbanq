@@ -311,3 +311,93 @@ describe("pauseExam / resumeExam", () => {
     expect(res.error).toContain("pause")
   })
 })
+
+describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
+  // completionTime = 4 questions × 83 s = 332 s ; budget dépassé au-delà de
+  // 332 s + SAVE_GRACE (10 s). Chaque test crée son examen + participation avec
+  // un startedAt reculé.
+  const makeStartedExam = async (backdateMs: number): Promise<string> => {
+    asAdmin()
+    const t = Date.now()
+    const r = await createExam({
+      title: `ER Budget ${suffix} ${createId().slice(0, 4)}`,
+      startDate: t - 3600_000,
+      endDate: t + 3600_000,
+      questionIds: qIds,
+      enablePause: false,
+    })
+    if (!r.success) throw new Error(r.error)
+    const eId = r.examId
+    asStudent()
+    const s = await startExam({ examId: eId })
+    if (!s.success) throw new Error(s.error)
+    await db
+      .update(examParticipations)
+      .set({ startedAt: new Date(Date.now() - backdateMs) })
+      .where(
+        and(
+          eq(examParticipations.examId, eId),
+          eq(examParticipations.userId, STUDENT_ID),
+        ),
+      )
+    return eId
+  }
+
+  it("refuse une réponse au-delà du budget-temps (TIME_UP) et ne la persiste pas", async () => {
+    const eId = await makeStartedExam(400_000)
+    asStudent()
+    const res = await saveExamAnswer({
+      examId: eId,
+      questionId: qIds[0],
+      selectedAnswer: "A",
+    })
+    expect(res).toEqual({ success: false, error: "Temps écoulé." })
+
+    const [row] = await db
+      .select({ selectedAnswer: examAnswers.selectedAnswer })
+      .from(examAnswers)
+      .innerJoin(
+        examParticipations,
+        eq(examParticipations.id, examAnswers.participationId),
+      )
+      .where(
+        and(
+          eq(examParticipations.examId, eId),
+          eq(examAnswers.questionId, qIds[0]),
+        ),
+      )
+    expect(row?.selectedAnswer).toBeNull()
+  })
+
+  it("attaque #2 bout-en-bout : réponse hors-temps refusée puis finalize isAutoSubmit tardif → score ne l'inclut pas", async () => {
+    const eId = await makeStartedExam(400_000)
+    asStudent()
+    const save = await saveExamAnswer({
+      examId: eId,
+      questionId: qIds[0],
+      selectedAnswer: "A", // bonne réponse (correctAnswer = "A")
+    })
+    expect(save.success).toBe(false) // TIME_UP
+
+    const fin = await finalizeExam({ examId: eId, isAutoSubmit: true })
+    expect(fin.success).toBe(true)
+    if (fin.success) expect(fin.correctAnswers).toBe(0)
+  })
+
+  it("race déterministe : finalize PUIS save → save refusé (session plus active)", async () => {
+    const eId = await makeStartedExam(1_000) // dans les temps
+    asStudent()
+    const fin = await finalizeExam({ examId: eId, isAutoSubmit: false })
+    expect(fin.success).toBe(true)
+
+    const save = await saveExamAnswer({
+      examId: eId,
+      questionId: qIds[0],
+      selectedAnswer: "A",
+    })
+    expect(save).toEqual({
+      success: false,
+      error: "Cette session d'examen n'est plus active.",
+    })
+  })
+})

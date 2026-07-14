@@ -44,6 +44,10 @@ import {
 
 const fail = (error: string) => ({ success: false as const, error })
 
+// Grâce accordée au dernier envoi de réponse (latence réseau) au-delà du budget
+// de temps, distincte du +5 s de finalizeExam.
+const SAVE_GRACE_MS = 10_000
+
 const resolvePause = (enablePause: boolean, minutes?: number) => {
   if (!enablePause) return null
   return Math.min(minutes ?? DEFAULT_PAUSE_MINUTES, MAX_PAUSE_MINUTES)
@@ -601,6 +605,7 @@ export const saveExamAnswer = async (
         startDate: exams.startDate,
         endDate: exams.endDate,
         audienceType: exams.audienceType,
+        completionTime: exams.completionTime,
       })
       .from(exams)
       .where(eq(exams.id, examId))
@@ -620,25 +625,7 @@ export const saveExamAnswer = async (
     )
       return fail("Votre accès aux examens a expiré.")
 
-    const [p] = await db
-      .select({
-        id: examParticipations.id,
-        status: examParticipations.status,
-        pauseStartedAt: examParticipations.pauseStartedAt,
-      })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          eq(examParticipations.userId, userId),
-        ),
-      )
-      .limit(1)
-    if (!p) return fail("Participation introuvable.")
-    if (p.status !== "in_progress")
-      return fail("Cette session d'examen n'est plus active.")
-    if (p.pauseStartedAt) return fail("Réponse impossible pendant la pause.")
-
+    // Question immuable (appartenance + bonne réponse) : hors transaction.
     const [q] = await db
       .select({ correctAnswer: questions.correctAnswer })
       .from(examQuestions)
@@ -651,21 +638,64 @@ export const saveExamAnswer = async (
       )
       .limit(1)
     if (!q) return fail("Cette question ne fait pas partie de l'examen.")
-
     const isCorrect = q.correctAnswer === selectedAnswer
-    const updated = await db
-      .update(examAnswers)
-      .set({ selectedAnswer, isCorrect })
-      .where(
-        and(
-          eq(examAnswers.participationId, p.id),
-          eq(examAnswers.questionId, questionId),
-        ),
-      )
-      .returning({ id: examAnswers.id })
-    if (updated.length === 0)
-      return fail("Réponse non enregistrée (session incohérente).")
 
+    // Verrou participation englobant check-statut + budget + écriture : sérialise
+    // avec finalizeExam (qui verrouille la même ligne) → aucune écriture après le
+    // score. Budget-temps gardé À L'ÉCRITURE (anti-triche : finalize saute TIME_UP
+    // quand isAutoSubmit=true, flag client). Narrowing : valeur renvoyée DEPUIS le
+    // callback (AGENTS.md).
+    const outcome = await db.transaction(async (tx) => {
+      const [p] = await tx
+        .select({
+          id: examParticipations.id,
+          status: examParticipations.status,
+          startedAt: examParticipations.startedAt,
+          totalPauseDurationMs: examParticipations.totalPauseDurationMs,
+          pauseStartedAt: examParticipations.pauseStartedAt,
+        })
+        .from(examParticipations)
+        .where(
+          and(
+            eq(examParticipations.examId, examId),
+            eq(examParticipations.userId, userId),
+          ),
+        )
+        .for("update")
+        .limit(1)
+      if (!p) return { ok: false as const, msg: "Participation introuvable." }
+      if (p.status !== "in_progress")
+        return {
+          ok: false as const,
+          msg: "Cette session d'examen n'est plus active.",
+        }
+      if (p.pauseStartedAt)
+        return {
+          ok: false as const,
+          msg: "Réponse impossible pendant la pause.",
+        }
+
+      // Pause ACTIVE déjà exclue → pauseMs = cumul figé uniquement.
+      if (!isAdmin && p.startedAt) {
+        const pauseMs = p.totalPauseDurationMs ?? 0
+        const elapsed = now - p.startedAt.getTime() - pauseMs
+        if (elapsed > exam.completionTime * 1000 + SAVE_GRACE_MS)
+          return { ok: false as const, msg: "Temps écoulé." }
+      }
+
+      await tx
+        .update(examAnswers)
+        .set({ selectedAnswer, isCorrect })
+        .where(
+          and(
+            eq(examAnswers.participationId, p.id),
+            eq(examAnswers.questionId, questionId),
+          ),
+        )
+      return { ok: true as const }
+    })
+
+    if (!outcome.ok) return fail(outcome.msg)
     return { success: true } // never return isCorrect (anti-cheat)
   } catch (error) {
     captureServerError("[saveExamAnswer]", error, { userId })
