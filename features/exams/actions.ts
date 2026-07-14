@@ -215,10 +215,15 @@ export const updateExam = async (
 
   try {
     await db.transaction(async (tx) => {
+      // Verrou de ligne examen : commun avec startExam → sérialise le
+      // remplacement du set de questions et le démarrage d'une participation
+      // (sinon le count ci-dessous peut lire 0 avant qu'un startExam concurrent
+      // ne commite sa participation).
       const [exam] = await tx
         .select({ id: exams.id })
         .from(exams)
         .where(eq(exams.id, id))
+        .for("update")
         .limit(1)
       if (!exam) throw new Error("NOT_FOUND")
 
@@ -447,6 +452,10 @@ export const startExam = async ({
         .where(eq(user.id, userId))
         .for("update")
 
+      // Verrou de ligne examen (après le verrou user, ordre déterministe) :
+      // commun avec updateExam → un remplacement du set de questions ne peut pas
+      // s'intercaler entre la création de la participation et la pré-création des
+      // examAnswers.
       const [exam] = await tx
         .select({
           startDate: exams.startDate,
@@ -455,6 +464,7 @@ export const startExam = async ({
         })
         .from(exams)
         .where(eq(exams.id, examId))
+        .for("update")
         .limit(1)
       if (!exam) throw new Error("NOT_FOUND")
 
