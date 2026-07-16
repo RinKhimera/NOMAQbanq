@@ -1,8 +1,7 @@
 "use client"
 
 import { BookOpen, ChartColumn, Clock, Target } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useMarketingStats } from "@/hooks/useMarketingStats"
+import type { MarketingStats } from "@/features/marketing/dal"
 
 const icons = [BookOpen, Target, Clock, ChartColumn] as const
 const colors = [
@@ -18,14 +17,12 @@ const labels = [
   "Taux de réussite",
 ]
 
-export default function DomainesStats() {
-  const { stats, isLoading } = useMarketingStats()
-
+export default function DomainesStats({ stats }: { stats: MarketingStats }) {
   const values = [
-    stats ? String(stats.totalDomains) : undefined,
-    stats?.totalQuestions,
+    String(stats.totalDomains),
+    stats.totalQuestions,
     "20s",
-    stats?.successRate,
+    stats.successRate,
   ]
 
   return (
@@ -45,13 +42,9 @@ export default function DomainesStats() {
             >
               <Icon className="h-8 w-8 text-white" />
             </div>
-            {isLoading && !value ? (
-              <Skeleton className="mx-auto mb-2 h-10 w-24" />
-            ) : (
-              <p className="font-display mb-2 text-4xl font-bold text-gray-900 dark:text-white">
-                {value}
-              </p>
-            )}
+            <p className="font-display mb-2 text-4xl font-bold text-gray-900 dark:text-white">
+              {value}
+            </p>
             <p className="font-medium text-gray-600 dark:text-gray-300">
               {label}
             </p>

@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { getMarketingStats } from "@/features/marketing/dal"
 import HomeLanding from "./_components/home-landing"
 
 export const metadata: Metadata = {
@@ -26,6 +27,10 @@ export const metadata: Metadata = {
   },
 }
 
-export default function Home() {
-  return <HomeLanding />
+// Stats quasi statiques : page régénérée au plus toutes les heures (ISR).
+export const revalidate = 3600
+
+export default async function Home() {
+  const stats = await getMarketingStats()
+  return <HomeLanding stats={stats} />
 }

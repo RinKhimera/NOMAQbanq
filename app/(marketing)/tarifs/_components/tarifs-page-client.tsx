@@ -4,6 +4,7 @@ import { ArrowRight, Clock, RefreshCw, Shield, Zap } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import type { MarketingStats } from "@/features/marketing/dal"
 import type { AccessStatus, ProductView } from "@/features/payments/dal"
 import { PricingGrid } from "./pricing-grid"
 import { PricingHeader } from "./pricing-header"
@@ -34,14 +35,16 @@ const guarantees = [
 export default function TarifsPageClient({
   products,
   accessStatus,
+  stats,
 }: {
   products: ProductView[]
   accessStatus: AccessStatus | null
+  stats: MarketingStats
 }) {
   return (
     <>
       {/* Header section */}
-      <PricingHeader />
+      <PricingHeader stats={stats} />
 
       {/* Pricing cards */}
       <PricingGrid products={products} accessStatus={accessStatus} />

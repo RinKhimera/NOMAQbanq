@@ -1,26 +1,12 @@
 "use client"
 
 import DomainCard from "@/components/marketing/domain-card"
-import { Skeleton } from "@/components/ui/skeleton"
 import { getDomainMetadata } from "@/data/domain-metadata"
-import { useMarketingStats } from "@/hooks/useMarketingStats"
+import type { MarketingStats } from "@/features/marketing/dal"
 
-export default function DomainsGrid() {
-  const { stats, isLoading } = useMarketingStats()
-
-  if (isLoading) {
-    return (
-      <div className="mb-20 grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 9 }).map((_, i) => (
-          <Skeleton key={i} className="h-64 rounded-3xl" />
-        ))}
-      </div>
-    )
-  }
-
-  const topDomains = stats?.topDomains ?? []
-  const totalDomains = stats?.totalDomains ?? 0
-  const remainingCount = totalDomains - topDomains.length
+export default function DomainsGrid({ stats }: { stats: MarketingStats }) {
+  const topDomains = stats.topDomains
+  const remainingCount = stats.totalDomains - topDomains.length
 
   return (
     <div className="mb-20">

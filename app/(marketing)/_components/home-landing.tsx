@@ -20,12 +20,10 @@ import Image from "next/image"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { MARKETING_CLAIMS } from "@/constants"
-import { useMarketingStats } from "@/hooks/useMarketingStats"
+import type { MarketingStats } from "@/features/marketing/dal"
 
-export default function HomeLanding() {
-  const { stats, isLoading } = useMarketingStats()
+export default function HomeLanding({ stats }: { stats: MarketingStats }) {
   // Features section data
   const features = [
     {
@@ -156,13 +154,9 @@ export default function HomeLanding() {
                         />
                       ))}
                     </div>
-                    {isLoading ? (
-                      <Skeleton className="h-4 w-40" />
-                    ) : (
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        {stats?.totalUsers ?? "200+"} candidats satisfaits
-                      </p>
-                    )}
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {stats.totalUsers} candidats satisfaits
+                    </p>
                   </div>
                 </div>
               </div>
@@ -210,8 +204,7 @@ export default function HomeLanding() {
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {stats?.successRate ?? MARKETING_CLAIMS.successRate} de
-                        réussite
+                        {stats.successRate} de réussite
                       </p>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Taux de succès
@@ -306,9 +299,9 @@ export default function HomeLanding() {
                   En vous familiarisant minutieusement avec les objectifs du
                   CMC, vous pouvez vous assurer d&apos;être adéquatement préparé
                   à répondre aux attentes de la profession médicale. NOMAQbanq
-                  contient plus de {stats?.totalQuestions ?? "3000+"} questions
-                  basées sur les objectifs du CMC, fournissant un contenu à haut
-                  rendement pour vous aider à réussir vos examens.
+                  contient plus de {stats.totalQuestions} questions basées sur
+                  les objectifs du CMC, fournissant un contenu à haut rendement
+                  pour vous aider à réussir vos examens.
                 </p>
               </div>
 
@@ -337,7 +330,7 @@ export default function HomeLanding() {
                   <div className="relative z-10">
                     <div className="mb-8 flex items-start justify-between">
                       <div className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold backdrop-blur-sm">
-                        PLUS DE {stats?.totalQuestions ?? "3000+"} QUESTIONS
+                        PLUS DE {stats.totalQuestions} QUESTIONS
                       </div>
                     </div>
 

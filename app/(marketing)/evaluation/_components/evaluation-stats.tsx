@@ -1,8 +1,7 @@
 "use client"
 
 import { Award } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useMarketingStats } from "@/hooks/useMarketingStats"
+import type { MarketingStats } from "@/features/marketing/dal"
 
 const statConfig = [
   {
@@ -27,13 +26,11 @@ const statConfig = [
   },
 ]
 
-export default function EvaluationStats() {
-  const { stats, isLoading } = useMarketingStats()
-
+export default function EvaluationStats({ stats }: { stats: MarketingStats }) {
   return (
     <div className="mb-12 grid grid-cols-2 gap-6 md:grid-cols-4">
       {statConfig.map((stat, index) => {
-        const value = stats?.[stat.key]
+        const value = stats[stat.key]
 
         return (
           <div
@@ -46,13 +43,9 @@ export default function EvaluationStats() {
             >
               <Award className="h-6 w-6 text-white" />
             </div>
-            {isLoading ? (
-              <Skeleton className="mx-auto mb-1 h-8 w-20" />
-            ) : (
-              <p className="font-display mb-1 text-2xl font-bold text-gray-900 dark:text-white">
-                {value}
-              </p>
-            )}
+            <p className="font-display mb-1 text-2xl font-bold text-gray-900 dark:text-white">
+              {value}
+            </p>
             <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
               {stat.label}
             </p>

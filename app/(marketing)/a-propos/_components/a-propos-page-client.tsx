@@ -2,8 +2,7 @@
 
 import { Award, CircleCheckBig } from "lucide-react"
 import Image from "next/image"
-import { MARKETING_CLAIMS } from "@/constants"
-import { useMarketingStats } from "@/hooks/useMarketingStats"
+import type { MarketingStats } from "@/features/marketing/dal"
 import AboutCTA from "./about-cta"
 import AboutHeader from "./about-header"
 import AboutMissions from "./about-missions"
@@ -11,15 +10,18 @@ import AboutStats from "./about-stats"
 import AboutStory from "./about-story"
 import AboutTestimonials from "./about-testimonials"
 
-export default function AProposPageClient() {
-  const { stats } = useMarketingStats()
+export default function AProposPageClient({
+  stats,
+}: {
+  stats: MarketingStats
+}) {
   return (
     <div className="theme-bg">
       <div className="mx-auto max-w-7xl px-4 pt-8 pb-16 sm:px-6 lg:px-8">
         <AboutHeader />
-        <AboutStats />
+        <AboutStats stats={stats} />
         <div className="mb-20 grid items-center gap-20 lg:grid-cols-2">
-          <AboutStory />
+          <AboutStory stats={stats} />
           <div
             className="animate-slide-in-right relative"
             style={{ animationDelay: "0.2s" }}
@@ -58,8 +60,7 @@ export default function AProposPageClient() {
                 </div>
                 <div>
                   <p className="font-semibold text-gray-900 dark:text-white">
-                    {stats?.successRate ?? MARKETING_CLAIMS.successRate} de
-                    réussite
+                    {stats.successRate} de réussite
                   </p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     Taux de succès
