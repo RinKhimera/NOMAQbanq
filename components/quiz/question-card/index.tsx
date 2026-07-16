@@ -452,6 +452,8 @@ export const QuestionCard = ({
             animate={{ opacity: 1, height: "auto" }}
             exit={isReviewVariant ? { opacity: 0, height: 0 } : undefined}
             transition={{ duration: 0.2 }}
+            role="group"
+            aria-label="Choix de réponse"
             className={cn(
               isExamVariant
                 ? "space-y-3"
