@@ -19,7 +19,7 @@ import {
   loadTransactionAccessImpact,
 } from "@/features/payments/actions"
 import type { AccessImpact } from "@/features/payments/dal"
-import { formatCurrency, formatShortDate } from "@/lib/format"
+import { formatCurrency, formatExpiration, formatShortDate } from "@/lib/format"
 import type { Transaction } from "./transaction-table"
 
 interface DeleteTransactionDialogProps {
@@ -65,7 +65,7 @@ export const DeleteTransactionDialog = ({
       }
 
       const message = result.accessRevoked
-        ? "Transaction supprimée et accès révoqué"
+        ? "Transaction supprimée — accès recalculé"
         : "Transaction supprimée"
       toast.success(message)
 
@@ -81,7 +81,7 @@ export const DeleteTransactionDialog = ({
 
   if (!transaction) return null
 
-  const willRevokeAccess = accessImpact?.willRevokeAccess ?? false
+  const willAffectAccess = accessImpact?.willAffectAccess ?? false
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -131,7 +131,7 @@ export const DeleteTransactionDialog = ({
         </div>
 
         {/* Access Impact Warning */}
-        {willRevokeAccess ? (
+        {willAffectAccess ? (
           <motion.div
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
@@ -140,15 +140,12 @@ export const DeleteTransactionDialog = ({
             <TriangleAlert className="h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
             <div>
               <p className="font-medium text-red-800 dark:text-red-200">
-                Révocation d{"'"}accès
+                Impact sur l{"'"}accès
               </p>
               <p className="mt-1 text-sm text-red-700 dark:text-red-300">
-                Cette suppression révoquera l{"'"}accès{" "}
-                {accessImpact?.accessType === "exam"
-                  ? "aux examens"
-                  : "à l'entraînement"}{" "}
-                de l{"'"}utilisateur car c{"'"}est sa dernière transaction pour
-                ce type d{"'"}accès.
+                {accessImpact?.restoredExpiresAt != null
+                  ? `La suppression ramènera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} à son échéance précédente (${formatExpiration(accessImpact.restoredExpiresAt)}).`
+                  : `La suppression révoquera l'accès ${accessImpact?.accessType === "exam" ? "aux examens" : "à l'entraînement"} de l'utilisateur : aucune autre transaction ne le couvre.`}
               </p>
             </div>
           </motion.div>

@@ -47,7 +47,7 @@ import {
   updateManualTransaction,
 } from "@/features/payments/actions"
 import type { AccessImpact } from "@/features/payments/dal"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatExpiration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
   type EditTransactionFormValues,
@@ -479,7 +479,7 @@ export const EditTransactionModal = ({
                   )}
 
                   {/* Refund Warning */}
-                  {showRefundWarning && accessImpact?.willRevokeAccess && (
+                  {showRefundWarning && accessImpact?.willAffectAccess && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -488,15 +488,12 @@ export const EditTransactionModal = ({
                       <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500" />
                       <div>
                         <p className="font-medium text-amber-800 dark:text-amber-200">
-                          Attention : Révocation d{"'"}accès
+                          Attention : impact sur l{"'"}accès
                         </p>
                         <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
-                          Le remboursement révoquera l{"'"}accès{" "}
-                          {accessImpact.accessType === "exam"
-                            ? "aux examens"
-                            : "à l'entraînement"}{" "}
-                          de l{"'"}utilisateur car c{"'"}est sa dernière
-                          transaction pour ce type d{"'"}accès.
+                          {accessImpact.restoredExpiresAt !== null
+                            ? `Le remboursement ramènera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} à son échéance précédente (${formatExpiration(accessImpact.restoredExpiresAt)}).`
+                            : `Le remboursement révoquera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} de l'utilisateur : aucune autre transaction ne le couvre.`}
                         </p>
                       </div>
                     </motion.div>
