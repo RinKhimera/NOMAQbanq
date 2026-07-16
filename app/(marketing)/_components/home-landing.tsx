@@ -114,24 +114,26 @@ export default function HomeLanding({ stats }: { stats: MarketingStats }) {
               </div>
 
               <div className="flex flex-col gap-4 sm:flex-row">
-                <Link href="/inscription">
-                  <Button
-                    variant="btn_modern"
-                    className="btn-modern h-auto transform rounded-2xl px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
-                  >
+                <Button
+                  asChild
+                  variant="btn_modern"
+                  className="btn-modern h-auto transform rounded-2xl px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
+                >
+                  <Link href="/inscription">
                     Inscrivez-vous gratuitement
                     <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
-                <Link href="/evaluation">
-                  <Button
-                    variant="btn_secondary"
-                    className="glass-card h-auto rounded-2xl px-8 py-4 text-lg font-semibold transition-all duration-300"
-                  >
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="btn_secondary"
+                  className="glass-card h-auto rounded-2xl px-8 py-4 text-lg font-semibold transition-all duration-300"
+                >
+                  <Link href="/evaluation">
                     Essayez NOMAQbanq
                     <Play className="ml-2 h-5 w-5" />
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
 
               {/* Trust indicators */}
@@ -305,15 +307,16 @@ export default function HomeLanding({ stats }: { stats: MarketingStats }) {
                 </p>
               </div>
 
-              <Link href="/evaluation">
-                <Button
-                  variant="btn_modern"
-                  className="btn-modern h-auto transform rounded-2xl px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
-                >
+              <Button
+                asChild
+                variant="btn_modern"
+                className="btn-modern h-auto transform rounded-2xl px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
+              >
+                <Link href="/evaluation">
                   ESSAYEZ GRATUITEMENT
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
 
             {/* Right side - Pricing card */}
@@ -367,11 +370,14 @@ export default function HomeLanding({ stats }: { stats: MarketingStats }) {
                       ))}
                     </div>
 
-                    <Link href="/inscription">
-                      <Button className="btn-modern w-full cursor-pointer rounded-2xl bg-white py-4 font-semibold text-blue-600 shadow-lg transition-all duration-300 hover:bg-blue-50 hover:shadow-xl">
+                    <Button
+                      asChild
+                      className="btn-modern w-full cursor-pointer rounded-2xl bg-white py-4 font-semibold text-blue-600 shadow-lg transition-all duration-300 hover:bg-blue-50 hover:shadow-xl"
+                    >
+                      <Link href="/inscription">
                         S&apos;inscrire maintenant
-                      </Button>
-                    </Link>
+                      </Link>
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -403,17 +409,21 @@ export default function HomeLanding({ stats }: { stats: MarketingStats }) {
               Rejoignez les candidats qui ont réussi grâce à NOMAQbanq
             </p>
             <div className="flex flex-col justify-center gap-6 sm:flex-row">
-              <Link href="/inscription">
-                <Button className="btn-modern h-auto transform rounded-2xl bg-white px-12 py-4 text-lg font-semibold text-blue-600 shadow-xl transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-2xl">
+              <Button
+                asChild
+                className="btn-modern h-auto transform rounded-2xl bg-white px-12 py-4 text-lg font-semibold text-blue-600 shadow-xl transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-2xl"
+              >
+                <Link href="/inscription">
                   Inscription gratuite
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button
+                asChild
                 variant="outline"
                 className="glass-card-dark h-auto rounded-2xl border-2 border-white/30 px-12 py-4 text-lg font-semibold text-white transition-all duration-300 hover:bg-white/10"
               >
-                Voir les tarifs
+                <Link href="/tarifs">Voir les tarifs</Link>
               </Button>
             </div>
           </div>

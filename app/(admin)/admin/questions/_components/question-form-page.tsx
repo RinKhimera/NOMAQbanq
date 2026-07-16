@@ -163,12 +163,12 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-4">
         <p className="text-lg text-gray-500">Question non trouvée</p>
-        <Link href="/admin/questions">
-          <Button variant="outline" className="gap-2">
+        <Button asChild variant="outline" className="gap-2">
+          <Link href="/admin/questions">
             <ArrowLeft className="h-4 w-4" />
             Retour à la liste
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
     )
   }
@@ -725,12 +725,12 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
         <div className="sticky bottom-4 z-10">
           <Card className="border-0 bg-white/80 shadow-xl backdrop-blur-sm dark:bg-gray-800/80">
             <CardContent className="flex items-center justify-between p-4">
-              <Link href="/admin/questions">
-                <Button type="button" variant="outline" className="gap-2">
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="/admin/questions">
                   <ArrowLeft className="h-4 w-4" />
                   Annuler
-                </Button>
-              </Link>
+                </Link>
+              </Button>
               <Button
                 type="submit"
                 disabled={form.formState.isSubmitting}

@@ -100,12 +100,15 @@ export default function ConnexionPage() {
               <p className="mb-4 text-gray-600 dark:text-gray-400">
                 Nouveau sur NOMAQbanq ?
               </p>
-              <Link href="/inscription">
-                <Button className="btn-modern transform rounded-2xl bg-linear-to-r from-green-600 to-emerald-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-700 hover:to-emerald-700 hover:shadow-xl">
+              <Button
+                asChild
+                className="btn-modern transform rounded-2xl bg-linear-to-r from-green-600 to-emerald-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-700 hover:to-emerald-700 hover:shadow-xl"
+              >
+                <Link href="/inscription">
                   Créer un compte gratuit
                   <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </div>
 

@@ -174,21 +174,22 @@ export const UpgradePrompt = ({
           transition={{ delay: 0.45 }}
           className="space-y-4"
         >
-          <Link href="/tarifs">
-            <Button
-              size="lg"
-              className={cn(
-                "h-14 w-full rounded-2xl text-base font-bold text-white shadow-lg",
-                "bg-linear-to-r hover:opacity-90",
-                config.gradient,
-              )}
-            >
+          <Button
+            asChild
+            size="lg"
+            className={cn(
+              "h-14 w-full rounded-2xl text-base font-bold text-white shadow-lg",
+              "bg-linear-to-r hover:opacity-90",
+              config.gradient,
+            )}
+          >
+            <Link href="/tarifs">
               <span className="flex items-center gap-2">
                 Voir les tarifs
                 <ArrowRight className="h-5 w-5" />
               </span>
-            </Button>
-          </Link>
+            </Link>
+          </Button>
 
           <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
             <Shield className="h-4 w-4" />

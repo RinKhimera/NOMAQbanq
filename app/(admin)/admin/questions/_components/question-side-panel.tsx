@@ -352,15 +352,12 @@ function PanelContent({
 
         {/* Actions */}
         <div className="flex gap-2">
-          <Link
-            href={`/admin/questions/${questionId}/modifier`}
-            className="flex-1"
-          >
-            <Button variant="outline" className="w-full gap-2">
+          <Button asChild variant="outline" className="flex-1 gap-2">
+            <Link href={`/admin/questions/${questionId}/modifier`}>
               <Pencil className="h-4 w-4" />
               Modifier
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <Button
             variant="outline"
             className="gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"

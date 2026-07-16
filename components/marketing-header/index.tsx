@@ -206,19 +206,19 @@ export const MarketingHeader = () => {
                 </DropdownMenu>
               ) : (
                 <>
-                  <Link href="/connexion">
-                    <Button
-                      variant="ghost"
-                      className="rounded-xl px-5 py-2 text-[15px] font-medium text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-blue-400"
-                    >
-                      Connexion
-                    </Button>
-                  </Link>
-                  <Link href="/inscription">
-                    <Button className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-2 text-[15px] font-semibold text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg">
-                      Inscription
-                    </Button>
-                  </Link>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    className="rounded-xl px-5 py-2 text-[15px] font-medium text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-blue-400"
+                  >
+                    <Link href="/connexion">Connexion</Link>
+                  </Button>
+                  <Button
+                    asChild
+                    className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-2 text-[15px] font-semibold text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg"
+                  >
+                    <Link href="/inscription">Inscription</Link>
+                  </Button>
                 </>
               )}
             </div>

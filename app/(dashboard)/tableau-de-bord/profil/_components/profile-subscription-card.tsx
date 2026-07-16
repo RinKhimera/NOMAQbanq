@@ -171,15 +171,16 @@ export const ProfileSubscriptionCard = ({
           )}
 
           {/* Link to subscription page */}
-          <Link href="/tableau-de-bord/abonnements" className="mt-4 block">
-            <Button
-              variant="outline"
-              className="w-full justify-between rounded-xl border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-            >
+          <Button
+            asChild
+            variant="outline"
+            className="mt-4 w-full justify-between rounded-xl border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
+          >
+            <Link href="/tableau-de-bord/abonnements">
               <span>Gérer mon abonnement</span>
               <IconChevronRight className="h-4 w-4" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     </motion.div>

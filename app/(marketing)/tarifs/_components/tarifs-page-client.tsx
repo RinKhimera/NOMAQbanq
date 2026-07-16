@@ -124,24 +124,24 @@ export default function TarifsPageClient({
             </p>
 
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
-              <Link href="/inscription">
-                <Button
-                  size="lg"
-                  className="h-14 rounded-2xl bg-white px-10 text-base font-bold text-blue-600 shadow-xl transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-2xl"
-                >
+              <Button
+                asChild
+                size="lg"
+                className="h-14 rounded-2xl bg-white px-10 text-base font-bold text-blue-600 shadow-xl transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-2xl"
+              >
+                <Link href="/inscription">
                   Créer un compte gratuit
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/evaluation">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="glass-card-dark h-14 rounded-2xl border-2 border-white/30 px-10 text-base font-bold text-white transition-all duration-300 hover:bg-white/10"
-                >
-                  Essayer gratuitement
-                </Button>
-              </Link>
+                </Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="glass-card-dark h-14 rounded-2xl border-2 border-white/30 px-10 text-base font-bold text-white transition-all duration-300 hover:bg-white/10"
+              >
+                <Link href="/evaluation">Essayer gratuitement</Link>
+              </Button>
             </div>
           </motion.div>
         </div>

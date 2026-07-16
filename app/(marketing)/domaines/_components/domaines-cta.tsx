@@ -16,11 +16,12 @@ export default function DomainesCTA() {
             générale pour tester vos connaissances globales
           </p>
           <div className="flex flex-col justify-center gap-6 sm:flex-row">
-            <Link href="/evaluation">
-              <Button className="btn-modern cursor-pointer rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 px-10 py-4 font-semibold text-white transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
-                Évaluation générale
-              </Button>
-            </Link>
+            <Button
+              asChild
+              className="btn-modern cursor-pointer rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 px-10 py-4 font-semibold text-white transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+            >
+              <Link href="/evaluation">Évaluation générale</Link>
+            </Button>
             <Button
               variant="outline"
               className="rounded-2xl border-2 border-blue-600 px-10 py-4 font-semibold text-blue-600 transition-all duration-300 hover:bg-blue-50 hover:shadow-lg dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20"

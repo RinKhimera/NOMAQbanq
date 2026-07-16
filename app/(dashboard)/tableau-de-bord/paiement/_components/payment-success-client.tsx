@@ -300,24 +300,26 @@ export const PaymentSuccessContent = ({
               transition={{ delay: 0.6 }}
               className="flex flex-col gap-3 sm:flex-row"
             >
-              <Link href="/tableau-de-bord" className="flex-1">
-                <Button
-                  size="lg"
-                  className="h-14 w-full rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 text-base font-bold text-white hover:opacity-90"
-                >
+              <Button
+                asChild
+                size="lg"
+                className="h-14 w-full flex-1 rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 text-base font-bold text-white hover:opacity-90"
+              >
+                <Link href="/tableau-de-bord">
                   Aller au tableau de bord
                   <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/tableau-de-bord/abonnements" className="flex-1">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-14 w-full rounded-2xl text-base font-medium"
-                >
+                </Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-14 w-full flex-1 rounded-2xl text-base font-medium"
+              >
+                <Link href="/tableau-de-bord/abonnements">
                   Voir mon abonnement
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </motion.div>
           </motion.div>
         )}
@@ -361,16 +363,17 @@ export const PaymentSuccessContent = ({
                 <RefreshCw className="mr-2 h-5 w-5" />
                 Vérifier à nouveau
               </Button>
-              <Link href="/tableau-de-bord" className="flex-1">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-14 w-full rounded-2xl"
-                >
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-14 w-full flex-1 rounded-2xl"
+              >
+                <Link href="/tableau-de-bord">
                   <House className="mr-2 h-5 w-5" />
                   Retour au dashboard
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             </div>
           </motion.div>
         )}
@@ -400,23 +403,21 @@ export const PaymentSuccessContent = ({
             </p>
 
             <div className="flex flex-col gap-3 sm:flex-row">
-              <Link href="/tarifs" className="flex-1">
-                <Button
-                  size="lg"
-                  className="h-14 w-full rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 text-white"
-                >
-                  Réessayer l{"'"}achat
-                </Button>
-              </Link>
-              <Link href="/tableau-de-bord" className="flex-1">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-14 w-full rounded-2xl"
-                >
-                  Retour au dashboard
-                </Button>
-              </Link>
+              <Button
+                asChild
+                size="lg"
+                className="h-14 w-full flex-1 rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 text-white"
+              >
+                <Link href="/tarifs">Réessayer l{"'"}achat</Link>
+              </Button>
+              <Button
+                asChild
+                size="lg"
+                variant="outline"
+                className="h-14 w-full flex-1 rounded-2xl"
+              >
+                <Link href="/tableau-de-bord">Retour au dashboard</Link>
+              </Button>
             </div>
           </motion.div>
         )}
