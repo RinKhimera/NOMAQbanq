@@ -4,7 +4,7 @@ import {
   getExamAudience,
   getExamWithQuestions,
 } from "@/features/exams/dal"
-import { ExamEditForm } from "./_components/exam-edit-form"
+import { ExamForm } from "../../_components/exam-form"
 
 export default async function AdminEditExamPage({
   params,
@@ -21,7 +21,8 @@ export default async function AdminEditExamPage({
   ])
 
   return (
-    <ExamEditForm
+    <ExamForm
+      mode="edit"
       examId={id}
       exam={data.exam}
       questionIds={data.questions.map((q) => q._id)}

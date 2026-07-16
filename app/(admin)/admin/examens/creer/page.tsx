@@ -2,7 +2,7 @@ import {
   getEligibleExamCandidates,
   getExamsForPicker,
 } from "@/features/exams/dal"
-import { ExamCreateForm } from "./_components/exam-create-form"
+import { ExamForm } from "../_components/exam-form"
 
 export default async function AdminCreateExamPage() {
   const [candidates, examOptions] = await Promise.all([
@@ -10,5 +10,7 @@ export default async function AdminCreateExamPage() {
     getExamsForPicker(),
   ])
 
-  return <ExamCreateForm candidates={candidates} examOptions={examOptions} />
+  return (
+    <ExamForm mode="create" candidates={candidates} examOptions={examOptions} />
+  )
 }
