@@ -1,7 +1,6 @@
 "use client"
 
 import { Download, FileSpreadsheet, FileText } from "lucide-react"
-import { utils, writeFile } from "xlsx"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,20 +11,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { ExportUser } from "@/features/users/dal"
+import { csvQuote, downloadCsv, exportRowsToXlsx } from "@/lib/export"
+import { formatShortDate } from "@/lib/format"
 
 interface ExportUsersButtonProps {
   users: ExportUser[]
 }
 
 export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString("fr-FR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
-  }
-
   const formatDateTime = () => {
     const now = new Date()
     return now
@@ -46,7 +39,7 @@ export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
       "Nom d'utilisateur": user.username || "N/A",
       Email: user.email,
       Rôle: user.role === "admin" ? "Administrateur" : "Étudiant",
-      "Date d'inscription": formatDate(user.createdAt),
+      "Date d'inscription": formatShortDate(user.createdAt),
       Bio: user.bio || "",
     }))
   }
@@ -54,24 +47,11 @@ export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
   const exportToExcel = () => {
     try {
       const data = prepareExportData()
-      const worksheet = utils.json_to_sheet(data)
-
-      // Définir la largeur des colonnes
-      const columnWidths = [
-        { wch: 25 }, // Nom
-        { wch: 20 }, // Nom d'utilisateur
-        { wch: 30 }, // Email
-        { wch: 15 }, // Rôle
-        { wch: 18 }, // Date d'inscription
-        { wch: 40 }, // Bio
-      ]
-      worksheet["!cols"] = columnWidths
-
-      const workbook = utils.book_new()
-      utils.book_append_sheet(workbook, worksheet, "Utilisateurs")
-
-      const fileName = `utilisateurs_${formatDateTime()}.xlsx`
-      writeFile(workbook, fileName)
+      exportRowsToXlsx(data, {
+        sheetName: "Utilisateurs",
+        filename: `utilisateurs_${formatDateTime()}.xlsx`,
+        colWidths: [25, 20, 30, 15, 18, 40], // Nom, Nom d'utilisateur, Email, Rôle, Date d'inscription, Bio
+      })
     } catch (error) {
       console.error("Erreur lors de l'export Excel:", error)
     }
@@ -81,9 +61,8 @@ export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
     try {
       const data = prepareExportData()
 
-      // Créer l'en-tête CSV
       const headers = Object.keys(data[0])
-      const csvContent = [
+      const lines = [
         headers.join(";"),
         ...data.map((row) =>
           headers
@@ -91,27 +70,14 @@ export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
               const value = row[header as keyof typeof row]
               // Échapper les guillemets et entourer de guillemets si nécessaire
               return typeof value === "string" && value.includes(";")
-                ? `"${value.replace(/"/g, '""')}"`
+                ? csvQuote(value)
                 : value
             })
             .join(";"),
         ),
-      ].join("\n")
+      ]
 
-      // Ajouter le BOM UTF-8 pour Excel
-      const BOM = "\uFEFF"
-      const blob = new Blob([BOM + csvContent], {
-        type: "text/csv;charset=utf-8;",
-      })
-
-      const link = document.createElement("a")
-      const url = URL.createObjectURL(blob)
-      link.setAttribute("href", url)
-      link.setAttribute("download", `utilisateurs_${formatDateTime()}.csv`)
-      link.style.visibility = "hidden"
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
+      downloadCsv(lines, `utilisateurs_${formatDateTime()}.csv`)
     } catch (error) {
       console.error("Erreur lors de l'export CSV:", error)
     }
