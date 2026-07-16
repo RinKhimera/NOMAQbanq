@@ -47,9 +47,9 @@ fournit l'env applicatif factice ; l'orchestrateur pose `DATABASE_URL`.
 
 Ajouter à `ci.yml` un **job séparé** `integration` (parallèle au job `quality`),
 sur `pull_request` et `push:main` (comme `quality`), qui : setup Bun → install →
-`bun run test:integration`. Le seul secret nécessaire côté job = **`NEON_API_KEY`
+`bun run test:integration`. Le seul secret nécessaire côté job = \*\*`NEON_API_KEY`
 
-- `NEON_PROJECT_ID`** (création/suppression de branche). Rien d'autre (migrate et
+- `NEON_PROJECT_ID`\*\* (création/suppression de branche). Rien d'autre (migrate et
   tests tirent l'URL de l'orchestrateur ; le reste de l'env vient de `test-env`).
 
 * **⚠️ Prérequis manuel (utilisateur, hors code)** : ajouter `NEON_API_KEY` et
