@@ -1325,7 +1325,7 @@ Remplacer la garde `if (!quizQuestions || quizQuestions.length === 0)`
 ```tsx
 if (!quizBundle) {
   return (
-    <div className="bg-linear-to-br flex items-center justify-center from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
+    <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
       <div className="text-center">
         <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
         <p className="text-gray-600 dark:text-gray-300">
@@ -1340,7 +1340,7 @@ if (!quizBundle) {
 // identique quelle que soit la cause — pas d'oracle côté client.
 if (!quizQuestions || quizQuestions.length === 0) {
   return (
-    <div className="bg-linear-to-br flex items-center justify-center from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
+    <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
       <div className="text-center">
         <p className="mb-4 text-gray-600 dark:text-gray-300">
           Le quiz est momentanément indisponible. Réessayez plus tard.
@@ -1359,7 +1359,7 @@ absent » au rendu — l'effet ci-dessus n'a pas le droit de le stocker) :
 ```tsx
 if (scoreFailed || !quizBundle.token) {
   return (
-    <div className="bg-linear-to-br flex items-center justify-center from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
+    <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
       <div className="text-center">
         <p className="mb-4 text-gray-600 dark:text-gray-300">
           Session expirée — recommencez le quiz.

@@ -68,7 +68,6 @@ export default defineConfig({
         "components/shared/nav-main.tsx",
         "components/shared/nav-secondary.tsx",
         "components/shared/generic-nav-user.tsx",
-        "components/shared/scroll-to-top.tsx",
         "components/shared/theme-toggle.tsx",
         "components/theme-provider.tsx",
         "components/marketing-header/**",
