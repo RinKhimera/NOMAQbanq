@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import {
   getMyAvailableExams,
   getMyDashboardStats,
@@ -16,6 +17,8 @@ import { DashboardSkeleton } from "./_components/dashboard-skeleton"
 // Horloge isolée du corps de rendu (react-hooks/purity s'applique aussi côté
 // Server Component) — passée en prop au lieu d'un Date.now() inline.
 const nowMs = () => Date.now()
+
+export const metadata: Metadata = { title: "Tableau de bord" }
 
 export default async function DashboardPage() {
   const session = await getCurrentSession()

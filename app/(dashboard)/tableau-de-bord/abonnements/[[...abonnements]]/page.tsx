@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import {
   getAccessStatus,
   getAvailableProducts,
@@ -5,6 +6,8 @@ import {
 } from "@/features/payments/dal"
 import { requireSession } from "@/lib/auth-guards"
 import { AbonnementsClient } from "../_components/abonnements-client"
+
+export const metadata: Metadata = { title: "Abonnements" }
 
 export default async function AbonnementsPage() {
   // Garde la page (le layout dashboard ne force pas l'auth côté serveur).

@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { getExamSubmissionSummary } from "@/features/exams/dal"
 import { formatExpiration } from "@/lib/format"
@@ -11,6 +12,8 @@ interface SubmittedPageProps {
  * Écran de confirmation post-soumission d'examen.
  * Si l'utilisateur n'a pas de participation complétée/auto-soumise → redirect.
  */
+export const metadata: Metadata = { title: "Examen soumis" }
+
 export default async function ExamSubmittedPage({
   params,
 }: SubmittedPageProps) {

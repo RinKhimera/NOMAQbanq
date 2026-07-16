@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { getExamsWithParticipation } from "@/features/exams/dal"
 import { hasAccess } from "@/features/payments/dal"
 import { getCurrentSession } from "@/lib/dal"
@@ -5,6 +6,8 @@ import { ExamenBlancClient } from "./_components/examen-blanc-client"
 
 // Hors composant : isole l'horloge (impure) du corps de rendu (react-hooks/purity).
 const currentTimeMs = () => Date.now()
+
+export const metadata: Metadata = { title: "Examens blancs" }
 
 export default async function ExamenBlancPage() {
   const session = await getCurrentSession()

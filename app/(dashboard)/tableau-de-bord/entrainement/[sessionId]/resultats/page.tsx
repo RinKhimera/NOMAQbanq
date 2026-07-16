@@ -1,4 +1,5 @@
 import { ArrowLeft } from "lucide-react"
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import {
   SessionResults,
@@ -13,6 +14,8 @@ interface TrainingResultsPageProps {
 
 // Server Component : charge les résultats (propriété/admin dans le DAL). Redirige
 // vers l'entraînement si introuvable, vers la passation si non terminée.
+export const metadata: Metadata = { title: "Résultats d'entraînement" }
+
 export default async function TrainingResultsPage({
   params,
 }: TrainingResultsPageProps) {

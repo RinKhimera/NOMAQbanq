@@ -1,9 +1,12 @@
 import { ArrowRight, Shield, Sparkles, Zap } from "lucide-react"
+import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { SignInForm } from "./_components/sign-in-form"
+
+export const metadata: Metadata = { title: "Connexion" }
 
 export default function ConnexionPage() {
   return (
