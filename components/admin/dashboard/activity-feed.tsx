@@ -6,10 +6,9 @@ import {
   IconCreditCard,
   IconUserPlus,
 } from "@tabler/icons-react"
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { formatTimeRemaining } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 type Activity =
@@ -64,13 +63,6 @@ const activityConfig = {
       "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
     label: "Examen complété",
   },
-}
-
-function formatTimestamp(timestamp: number): string {
-  return formatDistanceToNow(new Date(timestamp), {
-    addSuffix: true,
-    locale: fr,
-  })
 }
 
 function formatCurrency(amount: number): string {
@@ -166,7 +158,7 @@ function ActivityItem({ activity }: { activity: Activity }) {
       <div className="flex-1 space-y-1">
         <p className="text-sm leading-tight">{renderContent()}</p>
         <p className="text-muted-foreground text-xs">
-          {formatTimestamp(activity.timestamp)}
+          {formatTimeRemaining(activity.timestamp)}
         </p>
       </div>
     </div>

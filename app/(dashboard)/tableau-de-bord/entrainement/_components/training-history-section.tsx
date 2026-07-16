@@ -1,7 +1,5 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   ChevronRight,
   Ellipsis,
@@ -29,6 +27,7 @@ import type {
   TrainingHistoryItem,
   TrainingHistoryPage,
 } from "@/features/training/dal"
+import { formatTimeRemaining } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { DeleteAllSessionsDialog } from "./delete-all-sessions-dialog"
 import { DeleteSessionDialog } from "./delete-session-dialog"
@@ -210,10 +209,7 @@ export const TrainingHistorySection = ({
                         )}
                         <span>
                           {session.completedAt &&
-                            formatDistanceToNow(new Date(session.completedAt), {
-                              addSuffix: true,
-                              locale: fr,
-                            })}
+                            formatTimeRemaining(session.completedAt)}
                         </span>
                       </div>
                     </div>

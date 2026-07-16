@@ -1,7 +1,5 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   BookOpen,
   Calendar,
@@ -44,6 +42,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { deleteQuestion, loadQuestionById } from "@/features/questions/actions"
 import type { QuestionDetail } from "@/features/questions/dal"
 import { cdnUrl } from "@/lib/cdn"
+import { formatLongDateTime } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
 
@@ -333,10 +332,7 @@ function PanelContent({
           <div className="flex items-center gap-3">
             <Calendar className="h-4 w-4 text-gray-400" />
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              Créée le{" "}
-              {format(new Date(question.createdAt), "d MMMM yyyy 'à' HH:mm", {
-                locale: fr,
-              })}
+              Créée le {formatLongDateTime(question.createdAt)}
             </span>
           </div>
           <div className="flex items-center justify-between pt-1">

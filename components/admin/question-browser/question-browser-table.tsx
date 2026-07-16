@@ -1,7 +1,5 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   ArrowDown,
   ArrowUp,
@@ -28,6 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { formatTimeRemaining } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useQuestionBrowser } from "./question-browser-context"
 import { QuestionBrowserTableProps, QuestionRow, SortBy } from "./types"
@@ -115,13 +114,6 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
     ) : (
       <ArrowDown className="ml-1.5 h-3.5 w-3.5" />
     )
-  }
-
-  const formatRelativeDate = (timestamp: number) => {
-    return formatDistanceToNow(new Date(timestamp), {
-      addSuffix: true,
-      locale: fr,
-    })
   }
 
   const handleRowClick = (question: QuestionRow) => {
@@ -290,7 +282,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="cursor-help">
-                          {formatRelativeDate(question._creationTime)}
+                          {formatTimeRemaining(question._creationTime)}
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>

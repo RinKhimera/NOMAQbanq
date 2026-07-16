@@ -1,7 +1,5 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   ChevronRight,
   CircleCheck,
@@ -12,6 +10,7 @@ import {
 import { motion } from "motion/react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { formatTimeRemaining } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface RecentExam {
@@ -129,10 +128,7 @@ export const RecentActivityFeed = ({
                       </div>
                       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                         {completedDate
-                          ? formatDistanceToNow(completedDate, {
-                              addSuffix: true,
-                              locale: fr,
-                            })
+                          ? formatTimeRemaining(completedDate.getTime())
                           : "Date inconnue"}
                       </p>
                     </div>
