@@ -62,3 +62,5 @@ README-REFACTOR.md
 
 # Sortie du script d'audit Stripe (donnees financieres live, jamais commitees)
 stripe-audit*.json
+
+.vercel
