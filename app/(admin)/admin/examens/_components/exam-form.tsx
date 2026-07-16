@@ -237,11 +237,12 @@ export function ExamForm(props: ExamFormProps) {
         values.audienceType === "restricted" ? values.audienceUserIds : [],
     }
 
-    const result = await callAction(() =>
+    // Deux appels séparés (pas un ternaire DANS callAction) : TS infère sinon
+    // l'union des retours createExam/updateExam et refuse l'assignation.
+    const result =
       props.mode === "edit"
-        ? updateExam({ id: props.examId, ...payload })
-        : createExam(payload),
-    )
+        ? await callAction(() => updateExam({ id: props.examId, ...payload }))
+        : await callAction(() => createExam(payload))
 
     if (!result.success) {
       toast.error(("error" in result && result.error) || copy.errorMessage)
