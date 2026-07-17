@@ -182,29 +182,30 @@ const AccessCard = ({
           </div>
 
           {/* Extend button */}
-          <Link href="/tarifs">
-            <Button variant="outline" className="w-full rounded-xl">
+          <Button asChild variant="outline" className="w-full rounded-xl">
+            <Link href="/tarifs">
               <Clock className="mr-2 h-4 w-4" />
               Prolonger l{"'"}accès
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       )}
 
       {/* Inactive state */}
       {!isActive && (
         <div className="mt-4">
-          <Link href="/tarifs">
-            <Button
-              className={cn(
-                "w-full rounded-xl bg-linear-to-r text-white hover:opacity-90",
-                config.gradient,
-              )}
-            >
+          <Button
+            asChild
+            className={cn(
+              "w-full rounded-xl bg-linear-to-r text-white hover:opacity-90",
+              config.gradient,
+            )}
+          >
+            <Link href="/tarifs">
               Activer l{"'"}accès
               <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       )}
     </motion.div>
@@ -380,15 +381,16 @@ export const AbonnementsClient = ({
                 </p>
               </div>
             </div>
-            <Link href="/tarifs">
-              <Button
-                size="lg"
-                className="rounded-xl bg-white px-6 font-bold text-blue-600 hover:bg-blue-50"
-              >
+            <Button
+              asChild
+              size="lg"
+              className="rounded-xl bg-white px-6 font-bold text-blue-600 hover:bg-blue-50"
+            >
+              <Link href="/tarifs">
                 Voir les tarifs
                 <ChevronRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </motion.div>
       )}

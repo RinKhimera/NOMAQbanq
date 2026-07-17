@@ -7,8 +7,6 @@ import {
   IconSearch,
   IconUsers,
 } from "@tabler/icons-react"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { motion } from "motion/react"
 import { useMemo, useState } from "react"
 import { UserAvatar } from "@/components/shared/user-avatar"
@@ -23,6 +21,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { EligibleCandidate } from "@/features/exams/dal"
+import { formatMediumDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export function EligibleCandidatesSection({
@@ -190,8 +189,7 @@ function CandidateRow({ candidate, index }: CandidateRowProps) {
           </Badge>
         ) : (
           <span className="text-xs text-gray-400">
-            Expire le{" "}
-            {format(new Date(expiresAt), "d MMM yyyy", { locale: fr })}
+            Expire le {formatMediumDate(expiresAt)}
           </span>
         )}
       </div>

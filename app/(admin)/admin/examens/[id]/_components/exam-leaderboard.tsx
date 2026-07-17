@@ -1,7 +1,5 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { EllipsisVertical, Eye, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -36,6 +34,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { deleteParticipation } from "@/features/exams/actions"
 import type { LeaderboardEntry } from "@/features/exams/dal"
+import { formatCompactDateTime } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 
 interface ParticipantToDelete {
@@ -146,9 +145,7 @@ export function ExamLeaderboard({
                     </p>
                     <p className="text-muted-foreground hidden text-xs @md:block">
                       {entry.completedAt &&
-                        format(new Date(entry.completedAt), "Pp", {
-                          locale: fr,
-                        })}
+                        formatCompactDateTime(entry.completedAt)}
                     </p>
                   </div>
 

@@ -169,18 +169,19 @@ export const MobileMenu = ({
 
                 {/* Action Buttons */}
                 <div className="space-y-1.5">
-                  <Link href="/tableau-de-bord" onClick={handleLinkClick}>
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
+                  <Button
+                    asChild
+                    variant="ghost"
+                    className="w-full justify-start rounded-xl font-medium hover:bg-gray-100 dark:hover:bg-gray-800"
+                  >
+                    <Link href="/tableau-de-bord" onClick={handleLinkClick}>
                       <LayoutDashboard className="mr-3 size-4" />
                       Dashboard
                       <Badge className="ml-auto bg-blue-600 text-xs font-semibold">
                         Nouveau
                       </Badge>
-                    </Button>
-                  </Link>
+                    </Link>
+                  </Button>
 
                   <Button
                     variant="ghost"
@@ -202,27 +203,23 @@ export const MobileMenu = ({
               </div>
             ) : (
               <div className="space-y-2.5">
-                <Link
-                  href="/connexion"
-                  onClick={handleLinkClick}
-                  className="block"
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full rounded-xl border-2 font-semibold"
                 >
-                  <Button
-                    variant="outline"
-                    className="w-full rounded-xl border-2 font-semibold"
-                  >
+                  <Link href="/connexion" onClick={handleLinkClick}>
                     Connexion
-                  </Button>
-                </Link>
-                <Link
-                  href="/inscription"
-                  onClick={handleLinkClick}
-                  className="block"
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  className="w-full rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md"
                 >
-                  <Button className="w-full rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-md">
+                  <Link href="/inscription" onClick={handleLinkClick}>
                     Inscription
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </div>
             )}
           </div>

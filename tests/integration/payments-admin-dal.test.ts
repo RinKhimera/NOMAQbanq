@@ -229,17 +229,42 @@ describe("getAllTransactions (admin : filtres + keyset)", () => {
 })
 
 describe("getTransactionAccessImpact", () => {
-  it("willRevokeAccess=true pour la dernière transaction de l'accès", async () => {
+  it("willAffectAccess=false quand les transactions restantes couvrent autant ou plus (même pour lastTransactionId)", async () => {
+    // lastTxId est bien lastTransactionId de l'accès (+10 j), mais les autres
+    // transactions complétées couvrent ~ +90 j : la retirer n'ABAISSE pas
+    // l'accès. L'ancien critère (lastTransactionId === txId) aurait menti ici.
     const impact = await getTransactionAccessImpact(lastTxId)
-    expect(impact?.willRevokeAccess).toBe(true)
+    expect(impact?.willAffectAccess).toBe(false)
     expect(impact?.accessType).toBe("exam")
     expect(impact?.currentAccessExpiresAt).not.toBeNull()
+    expect(impact?.restoredExpiresAt).not.toBeNull()
   })
 
-  it("willRevokeAccess=false pour une transaction qui n'est pas la dernière", async () => {
+  it("willAffectAccess=false pour une transaction non déterminante", async () => {
     const impact = await getTransactionAccessImpact(txCadManualOld)
-    expect(impact?.willRevokeAccess).toBe(false)
+    expect(impact?.willAffectAccess).toBe(false)
     expect(impact?.accessType).toBe("exam")
+  })
+
+  it("willAffectAccess=true quand la transaction porte seule l'échéance courante", async () => {
+    // lastTxId devient l'unique couverture à +200 j : sans elle, l'accès
+    // retomberait à ~ +90 j (le max des transactions restantes).
+    const farOut = new Date(Date.now() + 200 * DAY)
+    await db
+      .update(transactions)
+      .set({ accessExpiresAt: farOut })
+      .where(eq(transactions.id, lastTxId))
+    await db
+      .update(userAccess)
+      .set({ expiresAt: farOut })
+      .where(eq(userAccess.userId, uid))
+
+    const impact = await getTransactionAccessImpact(lastTxId)
+    expect(impact?.willAffectAccess).toBe(true)
+    expect(impact?.restoredExpiresAt).not.toBeNull()
+    expect(impact!.restoredExpiresAt!).toBeLessThan(
+      impact!.currentAccessExpiresAt!,
+    )
   })
 
   it("renvoie null pour une transaction inexistante", async () => {

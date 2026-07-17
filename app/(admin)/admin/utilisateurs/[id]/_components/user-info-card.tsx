@@ -1,7 +1,5 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { Calendar, Check, Copy, Mail, Shield } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
@@ -10,6 +8,7 @@ import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { AdminUserDetail } from "@/features/users/dal"
+import { formatExpiration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface UserInfoCardProps {
@@ -93,9 +92,7 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
                 Inscrit le
               </p>
               <p className="font-medium text-gray-900 dark:text-white">
-                {format(new Date(user.createdAt), "d MMMM yyyy", {
-                  locale: fr,
-                })}
+                {formatExpiration(user.createdAt)}
               </p>
             </div>
           </div>

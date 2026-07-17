@@ -1,12 +1,11 @@
 "use client"
 
 import { IconCalendar, IconMail } from "@tabler/icons-react"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { motion, useReducedMotion } from "motion/react"
 import { AvatarUploader } from "@/components/shared/avatar-uploader"
 import { Badge } from "@/components/ui/badge"
 import { CurrentUser } from "@/features/users/dal"
+import { formatExpiration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 type ProfileHeaderProps = {
@@ -18,7 +17,7 @@ export const ProfileHeader = ({ user }: ProfileHeaderProps) => {
   const prefersReducedMotion = useReducedMotion()
 
   const registrationDate = user.createdAt
-    ? format(user.createdAt, "d MMMM yyyy", { locale: fr })
+    ? formatExpiration(new Date(user.createdAt).getTime())
     : null
 
   const motionProps = prefersReducedMotion

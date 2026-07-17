@@ -3,7 +3,7 @@
 import { asc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
-import { products, transactions } from "@/db/schema"
+import { products, transactions, user } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getBaseUrl } from "@/lib/base-url"
 import { createId } from "@/lib/ids"
@@ -21,7 +21,7 @@ import {
   getTransactionAccessImpact,
   getTransactionStats,
 } from "./dal"
-import { grantManualAccess, revokeAccessIfLast } from "./lib"
+import { grantManualAccess, recomputeAccess } from "./lib"
 import {
   type RecordManualPaymentInput,
   type UpdateManualTransactionInput,
@@ -198,12 +198,16 @@ export const updateManualTransaction = async (
       if (!transaction) throw new Error("TX_NOT_FOUND")
       if (transaction.type !== "manual") throw new Error("TX_NOT_MANUAL")
 
-      if (data.status === "refunded" && transaction.status === "completed") {
-        await revokeAccessIfLast(tx, {
-          id: transaction.id,
-          userId: transaction.userId,
-        })
-      }
+      // Verrou user AVANT toute écriture sur `transactions` : même ordre
+      // d'acquisition (user → ligne transaction) que deleteManualTransaction et
+      // grantManualAccess. Sans ça : l'update verrouille la ligne PUIS
+      // recomputeAccess demande le user, pendant qu'un delete concurrent tient
+      // le user et demande la ligne → deadlock croisé.
+      await tx
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.id, transaction.userId))
+        .for("update")
 
       await tx
         .update(transactions)
@@ -215,6 +219,12 @@ export const updateManualTransaction = async (
           ...(data.status ? { status: data.status } : {}),
         })
         .where(eq(transactions.id, data.transactionId))
+
+      // Toute transition de statut (completed ↔ refunded) rejoue le calcul
+      // d'accès : couvre la révocation ET le re-crédit (bug refunded → completed).
+      if (data.status && data.status !== transaction.status) {
+        await recomputeAccess(tx, { userId: transaction.userId })
+      }
     })
 
     revalidatePaymentsAdmin()
@@ -261,12 +271,15 @@ export const deleteManualTransaction = async (
       if (!transaction) throw new Error("TX_NOT_FOUND")
       if (transaction.type !== "manual") throw new Error("TX_NOT_MANUAL")
 
-      const revoked = await revokeAccessIfLast(tx, {
-        id: transaction.id,
+      // Recompute AVANT le DELETE, en excluant la transaction : re-pointe ou
+      // supprime les lignes d'accès qui la référencent (FK restrict), puis la
+      // suppression passe.
+      const { accessReducedOrRemoved } = await recomputeAccess(tx, {
         userId: transaction.userId,
+        excludeTransactionId: transaction.id,
       })
       await tx.delete(transactions).where(eq(transactions.id, transactionId))
-      return revoked
+      return accessReducedOrRemoved
     })
 
     revalidatePaymentsAdmin()

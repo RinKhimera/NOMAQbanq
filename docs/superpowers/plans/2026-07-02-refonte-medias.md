@@ -231,7 +231,7 @@ Mêmes règles d'imports/nettoyage que Task 2.
 <UserAvatar
   name={entry.user?.name}
   image={entry.user?.image}
-  className="@sm:size-10 size-9 shrink-0"
+  className="size-9 shrink-0 @sm:size-10"
 />
 ```
 

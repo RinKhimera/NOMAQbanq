@@ -1,7 +1,5 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { ChartColumn, TrendingUp } from "lucide-react"
 import { motion } from "motion/react"
 import {
@@ -14,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { formatExpiration } from "@/lib/format"
 
 interface ScoreHistoryItem {
   examId: string
@@ -42,7 +41,6 @@ const CustomTooltip = ({
   if (!active || !payload?.length) return null
 
   const item = payload[0].payload
-  const date = new Date(item.completedAt)
 
   return (
     <div className="rounded-xl border border-blue-200/50 bg-white/95 px-4 py-3 shadow-xl backdrop-blur-sm dark:border-blue-800/50 dark:bg-gray-900/95">
@@ -50,7 +48,7 @@ const CustomTooltip = ({
         {item.examTitle}
       </p>
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        {format(date, "d MMMM yyyy", { locale: fr })}
+        {formatExpiration(item.completedAt)}
       </p>
       <div className="mt-2 flex items-center gap-2">
         <div

@@ -50,7 +50,7 @@ components/ui/             # shadcn/ui
 components/quiz/           # Quiz: question-card, calculator, session/
 components/admin/          # Dashboard admin, modals, question-browser
 components/shared/payments # Composants paiement
-hooks/                     # useCurrentUser, useCalculator, useMarketingStats, use-mobile, use-media-query
+hooks/                     # useCurrentUser, useCalculator, use-mobile, use-media-query
 constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 ```
 
@@ -78,7 +78,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 ## Gotchas
 
 - **motion** : Import depuis `motion/react`, pas `framer-motion`
-- **Icons** : `@tabler/icons-react` (primaire), `lucide-react` (secondaire)
+- **Icons** : `lucide-react` (primaire — utilisé partout), `@tabler/icons-react` (secondaire — surtout admin/dashboard et profil)
 - **Auth** : Better Auth (`lib/auth.ts`, route `app/api/auth/[...all]`) ; client `authClient` (`lib/auth-client.ts`)
 - **Webhooks** : Stripe -> `app/api/stripe/webhook` (signature verifiee, 500 sur erreur -> retry)
 - **Routes centralisees** : Modifier `constants/index.tsx` pour ajouter/changer URLs

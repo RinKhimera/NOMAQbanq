@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { getMarketingStats } from "@/features/marketing/dal"
 import DomainesPageClient from "./_components/domaines-page-client"
 
 export const metadata: Metadata = {
@@ -26,6 +27,10 @@ export const metadata: Metadata = {
   },
 }
 
-export default function DomainesPage() {
-  return <DomainesPageClient />
+// Stats quasi statiques : page régénérée au plus toutes les heures (ISR).
+export const revalidate = 3600
+
+export default async function DomainesPage() {
+  const stats = await getMarketingStats()
+  return <DomainesPageClient stats={stats} />
 }

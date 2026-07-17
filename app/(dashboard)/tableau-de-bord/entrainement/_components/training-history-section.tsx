@@ -1,7 +1,5 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   ChevronRight,
   Ellipsis,
@@ -16,6 +14,7 @@ import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -209,11 +208,9 @@ export const TrainingHistorySection = ({
                           </>
                         )}
                         <span>
-                          {session.completedAt &&
-                            formatDistanceToNow(new Date(session.completedAt), {
-                              addSuffix: true,
-                              locale: fr,
-                            })}
+                          {session.completedAt && (
+                            <RelativeTime timestamp={session.completedAt} />
+                          )}
                         </span>
                       </div>
                     </div>

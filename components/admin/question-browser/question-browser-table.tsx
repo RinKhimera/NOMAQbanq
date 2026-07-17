@@ -1,7 +1,5 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   ArrowDown,
   ArrowUp,
@@ -10,6 +8,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react"
 import { TablePagination } from "@/components/admin/table-pagination"
+import { RelativeTime } from "@/components/shared/relative-time"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -115,13 +114,6 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
     ) : (
       <ArrowDown className="ml-1.5 h-3.5 w-3.5" />
     )
-  }
-
-  const formatRelativeDate = (timestamp: number) => {
-    return formatDistanceToNow(new Date(timestamp), {
-      addSuffix: true,
-      locale: fr,
-    })
   }
 
   const handleRowClick = (question: QuestionRow) => {
@@ -290,7 +282,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="cursor-help">
-                          {formatRelativeDate(question._creationTime)}
+                          <RelativeTime timestamp={question._creationTime} />
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>

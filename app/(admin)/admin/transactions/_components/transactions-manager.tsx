@@ -3,6 +3,7 @@
 import { IconReceipt } from "@tabler/icons-react"
 import { Plus } from "lucide-react"
 import { motion } from "motion/react"
+import { usePathname, useRouter } from "next/navigation"
 import { useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { AdminPageHeader } from "@/components/admin/admin-page-header"
@@ -36,6 +37,9 @@ interface TransactionsManagerProps {
   initialItems: AdminTransactionView[]
   initialCursor: string | null
   initialStats: TransactionStatsView
+  /** Filtres serveur dérivés de l'URL par la page (deep-linking). */
+  initialType?: "stripe" | "manual"
+  initialStatus?: "pending" | "completed" | "failed" | "refunded"
   products: ProductView[]
   users: SelectableUser[]
 }
@@ -44,13 +48,35 @@ export const TransactionsManager = ({
   initialItems,
   initialCursor,
   initialStats,
+  initialType,
+  initialStatus,
   products,
   users,
 }: TransactionsManagerProps) => {
-  const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>("all")
-  const [statusFilter, setStatusFilter] =
-    useState<TransactionStatusFilter>("all")
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // L'URL est la source au chargement (la page a déjà fetché la 1re page
+  // filtrée) ; les handlers maintiennent URL et données ensemble ensuite.
+  const [typeFilter, setTypeFilter] = useState<TransactionTypeFilter>(
+    initialType ?? "all",
+  )
+  const [statusFilter, setStatusFilter] = useState<TransactionStatusFilter>(
+    initialStatus ?? "all",
+  )
   const [searchQuery, setSearchQuery] = useState("")
+
+  // Reflète les filtres serveur dans l'URL (deep-linking, rechargement sans
+  // perte). `searchQuery` reste local : filtre client sur la page chargée.
+  const syncUrl = (
+    type: TransactionTypeFilter,
+    status: TransactionStatusFilter,
+  ) => {
+    const qs = new URLSearchParams()
+    if (type !== "all") qs.set("type", type)
+    if (status !== "all") qs.set("status", status)
+    router.replace(qs.size ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }
 
   const [items, setItems] = useState<Transaction[]>(() =>
     initialItems.map(adminTransactionToRow),
@@ -87,11 +113,13 @@ export const TransactionsManager = ({
 
   const handleTypeChange = (value: TransactionTypeFilter) => {
     setTypeFilter(value)
+    syncUrl(value, statusFilter)
     applyFilters(value, statusFilter)
   }
 
   const handleStatusChange = (value: TransactionStatusFilter) => {
     setStatusFilter(value)
+    syncUrl(typeFilter, value)
     applyFilters(typeFilter, value)
   }
 
@@ -99,6 +127,7 @@ export const TransactionsManager = ({
     setTypeFilter("all")
     setStatusFilter("all")
     setSearchQuery("")
+    syncUrl("all", "all")
     applyFilters("all", "all")
   }
 

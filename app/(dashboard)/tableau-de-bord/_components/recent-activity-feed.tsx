@@ -1,7 +1,5 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   ChevronRight,
   CircleCheck,
@@ -11,6 +9,7 @@ import {
 } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
+import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -128,12 +127,11 @@ export const RecentActivityFeed = ({
                         </h4>
                       </div>
                       <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        {completedDate
-                          ? formatDistanceToNow(completedDate, {
-                              addSuffix: true,
-                              locale: fr,
-                            })
-                          : "Date inconnue"}
+                        {completedDate ? (
+                          <RelativeTime timestamp={completedDate.getTime()} />
+                        ) : (
+                          "Date inconnue"
+                        )}
                       </p>
                     </div>
 

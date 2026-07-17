@@ -1,5 +1,3 @@
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { Calendar, Clock, FileText } from "lucide-react"
 import ExamStatusBadge from "@/components/admin/exam-status-badge"
 import {
@@ -16,6 +14,7 @@ import type {
   LeaderboardEntry,
 } from "@/features/exams/dal"
 import { getExamStatus } from "@/lib/exam-status"
+import { formatFullDateTime } from "@/lib/format"
 import { EligibleCandidatesSection } from "./eligible-candidates-section"
 import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
@@ -66,9 +65,7 @@ export function ExamDetails({
               <div>
                 <p className="text-sm font-medium">Date de début</p>
                 <p className="text-muted-foreground text-sm">
-                  {format(new Date(exam.startDate), "PPP à HH:mm", {
-                    locale: fr,
-                  })}
+                  {formatFullDateTime(exam.startDate)}
                 </p>
               </div>
             </div>
@@ -77,9 +74,7 @@ export function ExamDetails({
               <div>
                 <p className="text-sm font-medium">Date de fin</p>
                 <p className="text-muted-foreground text-sm">
-                  {format(new Date(exam.endDate), "PPP à HH:mm", {
-                    locale: fr,
-                  })}
+                  {formatFullDateTime(exam.endDate)}
                 </p>
               </div>
             </div>

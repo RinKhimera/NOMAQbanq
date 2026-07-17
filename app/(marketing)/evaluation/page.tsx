@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { getMarketingStats } from "@/features/marketing/dal"
 import StartQuizCTA from "../_components/start-quiz-cta"
 import EvaluationHeader from "./_components/evaluation-header"
 import EvaluationInstructions from "./_components/evaluation-instructions"
@@ -29,13 +30,17 @@ export const metadata: Metadata = {
   },
 }
 
-export default function EvaluationPage() {
+// Stats quasi statiques : page régénérée au plus toutes les heures (ISR).
+export const revalidate = 3600
+
+export default async function EvaluationPage() {
+  const stats = await getMarketingStats()
   return (
     <div className="theme-bg">
       <div className="mx-auto max-w-7xl px-4 pt-8 pb-16 sm:px-6 lg:px-8">
         <EvaluationHeader />
         <EvaluationInstructions />
-        <EvaluationStats />
+        <EvaluationStats stats={stats} />
         <StartQuizCTA />
       </div>
     </div>

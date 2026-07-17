@@ -658,7 +658,7 @@ export const UserRoleSection = ({
       {isSelf ? (
         <p
           data-testid="role-self-note"
-          className="mt-4 text-sm italic text-gray-400 dark:text-gray-500"
+          className="mt-4 text-sm text-gray-400 italic dark:text-gray-500"
         >
           Vous ne pouvez pas modifier votre propre rôle.
         </p>

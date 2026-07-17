@@ -1,10 +1,9 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { TableCell, TableRow } from "@/components/ui/table"
+import { formatCompactDateTime } from "@/lib/format"
 
 /**
  * Forme structurelle d'un utilisateur telle que consommée par cette ligne de
@@ -36,10 +35,6 @@ export function UserTableRow({
   limit,
   onUserClick,
 }: UserTableRowProps) {
-  const formatDate = (timestamp: number) => {
-    return format(new Date(timestamp), "Pp", { locale: fr })
-  }
-
   return (
     <TableRow
       key={user._id}
@@ -84,7 +79,7 @@ export function UserTableRow({
         </Badge>
       </TableCell>
       <TableCell className="text-muted-foreground">
-        {formatDate(user._creationTime)}
+        {formatCompactDateTime(user._creationTime)}
       </TableCell>
     </TableRow>
   )

@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { getNotificationPreferences } from "@/features/notifications/dal"
 import { getAccessStatus } from "@/features/payments/dal"
 import {
@@ -13,6 +14,8 @@ import { ProfilePersonalInfo } from "./_components/profile-personal-info"
 import { ProfilePreferences } from "./_components/profile-preferences"
 import { ProfileSessions } from "./_components/profile-sessions"
 import { ProfileSubscriptionCard } from "./_components/profile-subscription-card"
+
+export const metadata: Metadata = { title: "Profil" }
 
 export default async function ProfilPage() {
   const currentUser = await getCurrentUser()

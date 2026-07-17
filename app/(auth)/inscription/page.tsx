@@ -1,7 +1,10 @@
 import { Award, CircleCheckBig, Shield, Sparkles, Star } from "lucide-react"
+import type { Metadata } from "next"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
 import { SignUpForm } from "./_components/sign-up-form"
+
+export const metadata: Metadata = { title: "Inscription" }
 
 export default function InscriptionPage() {
   return (

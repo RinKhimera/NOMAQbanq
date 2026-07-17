@@ -47,7 +47,8 @@ import {
   updateManualTransaction,
 } from "@/features/payments/actions"
 import type { AccessImpact } from "@/features/payments/dal"
-import { formatCurrency } from "@/lib/format"
+import { parseAmountToCents } from "@/lib/currency"
+import { formatCurrency, formatExpiration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
   type EditTransactionFormValues,
@@ -74,28 +75,6 @@ const currencies = [
   { value: "CAD", label: "CAD ($)", symbol: "$" },
   { value: "XAF", label: "XAF (FCFA)", symbol: "FCFA" },
 ] as const
-
-const parseAmountToCents = (
-  input: string,
-  currency: "CAD" | "XAF",
-): number | null => {
-  if (!input || input.trim() === "") return null
-
-  const normalized = input.replace(",", ".").trim()
-  const num = parseFloat(normalized)
-
-  if (isNaN(num) || num <= 0) return null
-
-  if (currency === "XAF") {
-    if (!Number.isInteger(num)) return null
-    return num * 100
-  } else {
-    const decimalPart = normalized.split(".")[1]
-    const decimalPlaces = decimalPart ? decimalPart.length : 0
-    if (decimalPlaces > 2) return null
-    return Math.round(num * 100)
-  }
-}
 
 const centsToDisplayAmount = (cents: number, currency: string): string => {
   const amount = cents / 100
@@ -195,10 +174,14 @@ export const EditTransactionModal = ({
         onSuccess?.()
       }, 1500)
 
+      // « recalculé », jamais « restauré » : un re-crédit peut restaurer un
+      // snapshot déjà périmé (ligne d'accès sans accès effectif).
       const message =
-        data.status === "refunded"
-          ? "Transaction remboursée et accès révoqué"
-          : "Transaction modifiée avec succès"
+        data.status === "refunded" && transaction.status === "completed"
+          ? "Transaction remboursée — accès recalculé"
+          : data.status === "completed" && transaction.status === "refunded"
+            ? "Transaction complétée — accès recalculé"
+            : "Transaction modifiée avec succès"
       toast.success(message)
     } catch (error) {
       toast.error("Erreur lors de la modification")
@@ -446,8 +429,10 @@ export const EditTransactionModal = ({
                     )}
                   />
 
-                  {/* Status - Only show if current status is completed */}
-                  {transaction.status === "completed" && (
+                  {/* Statut : éditable en completed ET refunded (le retour
+                      refunded → completed re-crédite l'accès côté serveur). */}
+                  {(transaction.status === "completed" ||
+                    transaction.status === "refunded") && (
                     <FormField
                       control={form.control}
                       name="status"
@@ -479,7 +464,7 @@ export const EditTransactionModal = ({
                   )}
 
                   {/* Refund Warning */}
-                  {showRefundWarning && accessImpact?.willRevokeAccess && (
+                  {showRefundWarning && accessImpact?.willAffectAccess && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -488,15 +473,12 @@ export const EditTransactionModal = ({
                       <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500" />
                       <div>
                         <p className="font-medium text-amber-800 dark:text-amber-200">
-                          Attention : Révocation d{"'"}accès
+                          Attention : impact sur l{"'"}accès
                         </p>
                         <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
-                          Le remboursement révoquera l{"'"}accès{" "}
-                          {accessImpact.accessType === "exam"
-                            ? "aux examens"
-                            : "à l'entraînement"}{" "}
-                          de l{"'"}utilisateur car c{"'"}est sa dernière
-                          transaction pour ce type d{"'"}accès.
+                          {accessImpact.restoredExpiresAt !== null
+                            ? `Le remboursement ramènera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} à son échéance précédente (${formatExpiration(accessImpact.restoredExpiresAt)}).`
+                            : `Le remboursement révoquera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} de l'utilisateur : aucune autre transaction ne le couvre.`}
                         </p>
                       </div>
                     </motion.div>

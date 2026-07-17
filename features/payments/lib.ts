@@ -1,7 +1,7 @@
-import { and, eq } from "drizzle-orm"
+import { and, desc, eq, ne, or } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
-import { transactions, user, userAccess } from "@/db/schema"
+import { products, transactions, user, userAccess } from "@/db/schema"
 import { createId } from "@/lib/ids"
 
 // Type du handle de transaction Drizzle (sans importer le type verbeux de pg-core).
@@ -131,37 +131,133 @@ export async function grantManualAccess(
   return transactionId
 }
 
-/**
- * Révoque TOUTES les lignes d'accès que cette transaction a accordées en dernier
- * (`userAccess.lastTransactionId === transaction.id`). À appeler DANS `db.transaction`.
- * Verrou utilisateur cohérent avec `grantManualAccess`. Retourne `true` si au moins
- * une ligne a été supprimée.
- *
- * IMPORTANT (combo) : un produit combo pose `lastTransactionId = tx.id` sur exam ET
- * training. On ne peut donc pas se limiter à `transaction.accessType` : la ligne de
- * l'autre type garderait la FK `last_transaction_id` (NOT NULL, onDelete: restrict) et
- * **bloquerait la suppression de la transaction**. On filtre donc par `lastTransactionId`
- * (et non par type), ce qui couvre combo comme non-combo.
- */
-export async function revokeAccessIfLast(
-  tx: Tx,
-  transaction: { id: string; userId: string },
-): Promise<boolean> {
-  await tx
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.id, transaction.userId))
-    .for("update")
+/** Accepte le handle de transaction OU l'instance db (lectures hors transaction). */
+type DbLike = Tx | typeof db
 
-  const deleted = await tx
-    .delete(userAccess)
+/**
+ * Meilleure transaction `completed` couvrant ce type d'accès pour cet utilisateur :
+ * `accessType` égal OU produit combo (un combo couvre exam ET training), expiration
+ * la plus tardive. `excludeTransactionId` écarte une transaction en cours de
+ * suppression. Tri secondaire (createdAt, id) pour un choix déterministe à égalité.
+ */
+export const bestCoveringTransaction = async (
+  dbOrTx: DbLike,
+  userId: string,
+  accessType: "exam" | "training",
+  excludeTransactionId?: string,
+): Promise<{ id: string; accessExpiresAt: Date } | null> => {
+  const rows = await dbOrTx
+    .select({
+      id: transactions.id,
+      accessExpiresAt: transactions.accessExpiresAt,
+    })
+    .from(transactions)
+    .innerJoin(products, eq(products.id, transactions.productId))
     .where(
       and(
-        eq(userAccess.userId, transaction.userId),
-        eq(userAccess.lastTransactionId, transaction.id),
+        eq(transactions.userId, userId),
+        eq(transactions.status, "completed"),
+        or(eq(transactions.accessType, accessType), eq(products.isCombo, true)),
+        excludeTransactionId
+          ? ne(transactions.id, excludeTransactionId)
+          : undefined,
       ),
     )
-    .returning({ accessType: userAccess.accessType })
+    .orderBy(
+      desc(transactions.accessExpiresAt),
+      desc(transactions.createdAt),
+      desc(transactions.id),
+    )
+    .limit(1)
+  return rows[0] ?? null
+}
 
-  return deleted.length > 0
+export type RecomputeAccessResult = {
+  /** true si au moins un type d'accès a été supprimé ou raccourci. */
+  accessReducedOrRemoved: boolean
+}
+
+/**
+ * Reconstruit `user_access` (exam ET training) depuis les transactions `completed`
+ * de l'utilisateur — les transactions sont la source de vérité. À appeler DANS
+ * `db.transaction`, sur TOUTE transition de statut (`completed ↔ refunded`) et
+ * AVANT la suppression d'une transaction (avec `excludeTransactionId`, sinon la FK
+ * `user_access.last_transaction_id` — NOT NULL, onDelete: restrict — bloque le DELETE).
+ * Verrou `user FOR UPDATE` : parité avec `grantManualAccess`/`completeStripeTransaction`.
+ *
+ * Sémantique : l'expiration restaurée est `max(accessExpiresAt)` des transactions
+ * restantes — c.-à-d. l'expiration telle qu'elle était AVANT la transaction retirée
+ * (chaque transaction porte le snapshot du cumul à son octroi). On ne re-simule PAS
+ * le cumul « comme si la transaction n'avait jamais existé ».
+ *
+ * `expiryReminderSentAt` : ré-armé (null) uniquement si l'expiration avance —
+ * même règle que `grantManualAccess`.
+ */
+export async function recomputeAccess(
+  tx: Tx,
+  params: { userId: string; excludeTransactionId?: string },
+): Promise<RecomputeAccessResult> {
+  const { userId, excludeTransactionId } = params
+
+  const [lockedUser] = await tx
+    .select({ id: user.id })
+    .from(user)
+    .where(eq(user.id, userId))
+    .for("update")
+  if (!lockedUser) throw new Error("USER_NOT_FOUND")
+
+  let accessReducedOrRemoved = false
+
+  for (const accessType of ["exam", "training"] as const) {
+    const existing = await readAccess(tx, userId, accessType)
+    const best = await bestCoveringTransaction(
+      tx,
+      userId,
+      accessType,
+      excludeTransactionId,
+    )
+
+    if (!best) {
+      if (existing) {
+        accessReducedOrRemoved = true
+        await tx
+          .delete(userAccess)
+          .where(
+            and(
+              eq(userAccess.userId, userId),
+              eq(userAccess.accessType, accessType),
+            ),
+          )
+      }
+      continue
+    }
+
+    const extended =
+      !existing || best.accessExpiresAt.getTime() > existing.expiresAt.getTime()
+    if (
+      existing &&
+      best.accessExpiresAt.getTime() < existing.expiresAt.getTime()
+    )
+      accessReducedOrRemoved = true
+
+    await tx
+      .insert(userAccess)
+      .values({
+        userId,
+        accessType,
+        expiresAt: best.accessExpiresAt,
+        lastTransactionId: best.id,
+      })
+      .onConflictDoUpdate({
+        target: [userAccess.userId, userAccess.accessType],
+        set: {
+          expiresAt: best.accessExpiresAt,
+          lastTransactionId: best.id,
+          // Re-arme le rappel de fin d'accès uniquement si l'accès est prolongé.
+          ...(extended ? { expiryReminderSentAt: null } : {}),
+        },
+      })
+  }
+
+  return { accessReducedOrRemoved }
 }

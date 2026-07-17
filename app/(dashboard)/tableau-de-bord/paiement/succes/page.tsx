@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { Suspense } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { getAccessStatus } from "@/features/payments/dal"
@@ -12,6 +13,8 @@ const LoadingFallback = () => (
     </div>
   </div>
 )
+
+export const metadata: Metadata = { title: "Paiement réussi" }
 
 export default async function PaymentSuccessPage() {
   const accessStatus = await getAccessStatus()

@@ -3,27 +3,24 @@
 import { Award, CircleCheckBig, Sparkles, Star, Users } from "lucide-react"
 import { motion } from "motion/react"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
 import { MARKETING_CLAIMS } from "@/constants"
-import { useMarketingStats } from "@/hooks/useMarketingStats"
+import type { MarketingStats } from "@/features/marketing/dal"
 
-export const PricingHeader = () => {
-  const { stats: marketingStats, isLoading } = useMarketingStats()
-
+export const PricingHeader = ({ stats }: { stats: MarketingStats }) => {
   const statItems = [
     {
       icon: Users,
-      value: marketingStats?.totalUsers,
+      value: stats.totalUsers,
       label: "Candidats satisfaits",
     },
     {
       icon: Award,
-      value: marketingStats?.successRate,
+      value: stats.successRate,
       label: "Taux de réussite",
     },
     {
       icon: CircleCheckBig,
-      value: marketingStats?.totalQuestions,
+      value: stats.totalQuestions,
       label: "Questions disponibles",
     },
   ]
@@ -104,13 +101,9 @@ export const PricingHeader = () => {
                   <stat.icon className="h-5 w-5 text-white" />
                 </div>
                 <div className="text-left">
-                  {isLoading ? (
-                    <Skeleton className="mb-1 h-6 w-16" />
-                  ) : (
-                    <p className="text-lg font-bold text-gray-900 dark:text-white">
-                      {stat.value}
-                    </p>
-                  )}
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    {stat.value}
+                  </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     {stat.label}
                   </p>

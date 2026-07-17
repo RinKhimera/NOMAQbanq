@@ -25,11 +25,11 @@ export default async function AdminUserDetailPage({
     return (
       <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
         <div className="flex items-center gap-4">
-          <Link href="/admin/utilisateurs">
-            <Button variant="outline" size="icon" className="rounded-xl">
+          <Button asChild variant="outline" size="icon" className="rounded-xl">
+            <Link href="/admin/utilisateurs">
               <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             Utilisateur non trouvé
           </h1>
@@ -39,11 +39,9 @@ export default async function AdminUserDetailPage({
           <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
             Cet utilisateur n{"'"}existe pas
           </p>
-          <Link href="/admin/utilisateurs" className="mt-4">
-            <Button variant="outline" className="rounded-xl">
-              Retour à la liste
-            </Button>
-          </Link>
+          <Button asChild variant="outline" className="mt-4 rounded-xl">
+            <Link href="/admin/utilisateurs">Retour à la liste</Link>
+          </Button>
         </div>
       </div>
     )

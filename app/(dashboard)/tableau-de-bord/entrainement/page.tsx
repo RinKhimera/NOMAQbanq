@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { getAvailableProducts, hasAccess } from "@/features/payments/dal"
 import {
   getActiveTrainingSession,
@@ -12,6 +13,8 @@ import { TrainingPaywall } from "./_components/training-paywall"
 // Server Component : garde d'accès training (paywall) + chargement initial
 // (session active, domaines, objectifs, stats, 1re page d'historique). Les
 // interactions (création, réponses, pagination) passent par des Server Actions.
+export const metadata: Metadata = { title: "Entraînement" }
+
 export default async function EntrainementPage() {
   if (!(await hasAccess("training"))) {
     // Produit d'accès training (non-promo d'abord, promo en repli).

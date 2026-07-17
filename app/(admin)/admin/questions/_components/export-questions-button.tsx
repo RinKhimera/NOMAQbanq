@@ -9,7 +9,6 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import { utils, writeFile } from "xlsx"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -21,6 +20,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { loadQuestionsForExport } from "@/features/questions/actions"
 import type { QuestionExportRow as ExportQuestion } from "@/features/questions/dal"
+import {
+  csvQuote,
+  downloadBlob,
+  downloadCsv,
+  exportRowsToXlsx,
+  timestampedFilename,
+} from "@/lib/export"
+import { formatShortDate } from "@/lib/format"
 
 interface ExportQuestionsButtonProps {
   searchQuery?: string
@@ -91,33 +98,25 @@ export function ExportQuestionsButton({
 
     const rows = questions.map((q) => [
       q.id,
-      `"${q.question.replace(/"/g, '""')}"`,
-      q.options[0] ? `"${q.options[0].replace(/"/g, '""')}"` : "",
-      q.options[1] ? `"${q.options[1].replace(/"/g, '""')}"` : "",
-      q.options[2] ? `"${q.options[2].replace(/"/g, '""')}"` : "",
-      q.options[3] ? `"${q.options[3].replace(/"/g, '""')}"` : "",
-      q.options[4] ? `"${q.options[4].replace(/"/g, '""')}"` : "",
-      `"${q.correctAnswer.replace(/"/g, '""')}"`,
-      `"${q.explanation.replace(/"/g, '""')}"`,
+      csvQuote(q.question),
+      q.options[0] ? csvQuote(q.options[0]) : "",
+      q.options[1] ? csvQuote(q.options[1]) : "",
+      q.options[2] ? csvQuote(q.options[2]) : "",
+      q.options[3] ? csvQuote(q.options[3]) : "",
+      q.options[4] ? csvQuote(q.options[4]) : "",
+      csvQuote(q.correctAnswer),
+      csvQuote(q.explanation),
       q.domain,
       q.objectifCMC,
-      `"${q.references.join("; ").replace(/"/g, '""')}"`,
+      csvQuote(q.references.join("; ")),
       q.hasImages ? "Oui" : "Non",
       q.imagesCount,
       new Date(q.createdAt).toISOString(),
     ])
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.join(",")),
-    ].join("\n")
+    const lines = [headers.join(","), ...rows.map((row) => row.join(","))]
 
-    const BOM = "\uFEFF"
-    const blob = new Blob([BOM + csvContent], {
-      type: "text/csv;charset=utf-8;",
-    })
-
-    downloadBlob(blob, `questions-export-${today()}.csv`)
+    downloadCsv(lines, timestampedFilename("questions-export", "csv"))
     toast.success(`${questions.length} questions exportées en CSV`)
   }
 
@@ -125,7 +124,7 @@ export function ExportQuestionsButton({
     const jsonContent = JSON.stringify(questions, null, 2)
     const blob = new Blob([jsonContent], { type: "application/json" })
 
-    downloadBlob(blob, `questions-export-${today()}.json`)
+    downloadBlob(blob, timestampedFilename("questions-export", "json"))
     toast.success(`${questions.length} questions exportées en JSON`)
   }
 
@@ -145,37 +144,14 @@ export function ExportQuestionsButton({
       Références: q.references.join("; "),
       "Avec images": q.hasImages ? "Oui" : "Non",
       "Nombre d'images": q.imagesCount,
-      "Date de création": new Date(q.createdAt).toLocaleDateString("fr-FR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-      }),
+      "Date de création": formatShortDate(q.createdAt),
     }))
 
-    const worksheet = utils.json_to_sheet(data)
-
-    worksheet["!cols"] = [
-      { wch: 30 },
-      { wch: 50 },
-      { wch: 30 },
-      { wch: 30 },
-      { wch: 30 },
-      { wch: 30 },
-      { wch: 30 },
-      { wch: 30 },
-      { wch: 50 },
-      { wch: 20 },
-      { wch: 15 },
-      { wch: 40 },
-      { wch: 12 },
-      { wch: 15 },
-      { wch: 18 },
-    ]
-
-    const workbook = utils.book_new()
-    utils.book_append_sheet(workbook, worksheet, "Questions")
-
-    writeFile(workbook, `questions-export-${today()}.xlsx`)
+    exportRowsToXlsx(data, {
+      sheetName: "Questions",
+      filename: timestampedFilename("questions-export", "xlsx"),
+      colWidths: [30, 50, 30, 30, 30, 30, 30, 30, 50, 20, 15, 40, 12, 15, 18],
+    })
     toast.success(`${questions.length} questions exportées en Excel`)
   }
 
@@ -234,19 +210,4 @@ export function ExportQuestionsButton({
       </DropdownMenuContent>
     </DropdownMenu>
   )
-}
-
-function today() {
-  return new Date().toISOString().split("T")[0]
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
 }

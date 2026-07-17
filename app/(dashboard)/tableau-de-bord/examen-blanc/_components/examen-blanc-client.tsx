@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/ui/empty-state"
 import type { ExamListItem } from "@/features/exams/dal"
+import { formatFullDateTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 type ExamVariant = "active" | "upcoming" | "past"
@@ -50,9 +51,6 @@ const ExamCard = ({
   onViewResults,
   index,
 }: ExamCardProps) => {
-  const formatDate = (timestamp: number) =>
-    format(new Date(timestamp), "PPP 'à' HH:mm", { locale: fr })
-
   const formatDateShort = (timestamp: number) =>
     format(new Date(timestamp), "dd MMM yyyy", { locale: fr })
 
@@ -177,10 +175,12 @@ const ExamCard = ({
           >
             <CalendarDays className={cn("h-4 w-4", styles.iconColor)} />
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              {variant === "active" && `Jusqu'au ${formatDate(exam.endDate)}`}
+              {variant === "active" &&
+                `Jusqu'au ${formatFullDateTime(exam.endDate)}`}
               {variant === "upcoming" &&
-                `Ouverture le ${formatDate(exam.startDate)}`}
-              {variant === "past" && `Terminé le ${formatDate(exam.endDate)}`}
+                `Ouverture le ${formatFullDateTime(exam.startDate)}`}
+              {variant === "past" &&
+                `Terminé le ${formatFullDateTime(exam.endDate)}`}
             </span>
           </div>
           <div
@@ -226,7 +226,7 @@ const ExamCard = ({
             </div>
             {userResult.completedAt != null && (
               <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Passé le {formatDate(userResult.completedAt)}
+                Passé le {formatFullDateTime(userResult.completedAt)}
               </p>
             )}
           </div>

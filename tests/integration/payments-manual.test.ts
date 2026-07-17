@@ -5,7 +5,7 @@ import { products, transactions, user, userAccess } from "@/db/schema"
 import {
   type ProductForGrant,
   grantManualAccess,
-  revokeAccessIfLast,
+  recomputeAccess,
 } from "@/features/payments/lib"
 import { createId } from "@/lib/ids"
 
@@ -32,6 +32,10 @@ const users = {
   comboMax: createId(),
   comboDelete: createId(),
   revoke: createId(),
+  recompute: createId(),
+  recredit: createId(),
+  reminder: createId(),
+  expired: createId(),
 }
 const seedTxId = createId() // FK pour l'accès pré-existant (scénarios cumul/comboMax)
 
@@ -163,29 +167,106 @@ describe("grantManualAccess", () => {
   })
 })
 
-describe("revokeAccessIfLast", () => {
-  it("révoque si la transaction est la dernière, sinon non", async () => {
-    const txA = await grant(users.revoke, pExam)
-    const txB = await grant(users.revoke, pExam) // devient lastTransactionId
+const setStatus = (txId: string, status: "completed" | "refunded") =>
+  db.update(transactions).set({ status }).where(eq(transactions.id, txId))
 
-    // txA n'est plus la dernière → pas de révocation.
-    const notLast = await db.transaction((tx) =>
-      revokeAccessIfLast(tx, { id: txA, userId: users.revoke }),
-    )
-    expect(notLast).toBe(false)
-    expect(await readExpiry(users.revoke, "exam")).not.toBeNull()
+const readAccessRow = async (userId: string, type: "exam" | "training") => {
+  const [row] = await db
+    .select({
+      expiresAt: userAccess.expiresAt,
+      lastTransactionId: userAccess.lastTransactionId,
+      expiryReminderSentAt: userAccess.expiryReminderSentAt,
+    })
+    .from(userAccess)
+    .where(and(eq(userAccess.userId, userId), eq(userAccess.accessType, type)))
+    .limit(1)
+  return row ?? null
+}
 
-    // txB est la dernière → révocation.
-    const last = await db.transaction((tx) =>
-      revokeAccessIfLast(tx, { id: txB, userId: users.revoke }),
-    )
-    expect(last).toBe(true)
+const recompute = (userId: string, excludeTransactionId?: string) =>
+  db.transaction((tx) => recomputeAccess(tx, { userId, excludeTransactionId }))
+
+describe("recomputeAccess", () => {
+  it("refund de la DERNIÈRE transaction : restaure l'expiration précédente (pas de perte du cumul)", async () => {
+    const txA = await grant(users.recompute, pExam) // ~ +30 j
+    const txB = await grant(users.recompute, pExam) // cumul → ~ +60 j
+    expect(daysFromNow(await readExpiry(users.recompute, "exam"))).toBe(60)
+
+    await setStatus(txB, "refunded")
+    const result = await recompute(users.recompute)
+
+    expect(result.accessReducedOrRemoved).toBe(true)
+    const row = await readAccessRow(users.recompute, "exam")
+    expect(daysFromNow(row?.expiresAt ?? null)).toBe(30) // restauré, PAS supprimé
+    expect(row?.lastTransactionId).toBe(txA) // re-pointé sur la transaction restante
+  })
+
+  it("refund d'une transaction NON dernière : l'accès ne bouge pas", async () => {
+    // État hérité du test précédent : txA (+30) est la seule complétée.
+    const txC = await grant(users.recompute, pExam) // re-cumule → ~ +60 j
+    const before = await readAccessRow(users.recompute, "exam")
+
+    // On recompute alors qu'une refunded traîne en base : no-op.
+    const [nonLast] = await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.userId, users.recompute),
+          eq(transactions.status, "refunded"),
+        ),
+      )
+      .limit(1)
+    const result = await recompute(users.recompute)
+    expect(result.accessReducedOrRemoved).toBe(false)
+    const after = await readAccessRow(users.recompute, "exam")
+    expect(after?.expiresAt.getTime()).toBe(before?.expiresAt.getTime())
+    expect(after?.lastTransactionId).toBe(txC)
+    expect(nonLast).toBeDefined() // sanity : il existe bien une refunded en base
+  })
+
+  it("refund de la transaction UNIQUE : supprime la ligne d'accès", async () => {
+    const txId = await grant(users.revoke, pExam)
+    await setStatus(txId, "refunded")
+    const result = await recompute(users.revoke)
+    expect(result.accessReducedOrRemoved).toBe(true)
     expect(await readExpiry(users.revoke, "exam")).toBeNull()
   })
 
-  it("combo : révoque exam ET training, puis la transaction peut être supprimée (régression FK restrict)", async () => {
-    // Un combo pose lastTransactionId=txId sur exam ET training. Révoquer un seul
-    // type laisserait l'autre ligne référencer la tx → DELETE bloqué (FK restrict).
+  it("refunded → completed : RE-CRÉDITE l'accès (bug #111-1)", async () => {
+    const txId = await grant(users.recredit, pExam)
+    await setStatus(txId, "refunded")
+    await recompute(users.recredit)
+    expect(await readExpiry(users.recredit, "exam")).toBeNull()
+
+    await setStatus(txId, "completed")
+    const result = await recompute(users.recredit)
+    expect(result.accessReducedOrRemoved).toBe(false)
+    const row = await readAccessRow(users.recredit, "exam")
+    expect(daysFromNow(row?.expiresAt ?? null)).toBe(30)
+    expect(row?.lastTransactionId).toBe(txId)
+  })
+
+  it("re-crédit d'un snapshot PÉRIMÉ : ligne recréée avec l'échéance passée (aucun accès effectif — sémantique assumée)", async () => {
+    const txId = await grant(users.expired, pExam)
+    await db
+      .update(transactions)
+      .set({ accessExpiresAt: new Date(Date.now() - 5 * DAY) })
+      .where(eq(transactions.id, txId))
+    await setStatus(txId, "refunded")
+    await recompute(users.expired)
+    expect(await readExpiry(users.expired, "exam")).toBeNull()
+
+    // Re-crédit : le snapshot restauré est dans le passé → la ligne existe mais
+    // n'ouvre aucun accès (hasAccess vérifie l'échéance). Le toast du modal doit
+    // dire « recalculé », jamais « restauré ».
+    await setStatus(txId, "completed")
+    await recompute(users.expired)
+    const row = await readAccessRow(users.expired, "exam")
+    expect(daysFromNow(row?.expiresAt ?? null)).toBe(-5)
+  })
+
+  it("combo : le recompute couvre exam ET training, et la suppression passe la FK restrict", async () => {
     const txId = await grant(users.comboDelete, pCombo)
     expect(daysFromNow(await readExpiry(users.comboDelete, "exam"))).toBe(90)
     expect(daysFromNow(await readExpiry(users.comboDelete, "training"))).toBe(
@@ -193,16 +274,51 @@ describe("revokeAccessIfLast", () => {
     )
 
     await db.transaction(async (tx) => {
-      const revoked = await revokeAccessIfLast(tx, {
-        id: txId,
+      const result = await recomputeAccess(tx, {
         userId: users.comboDelete,
+        excludeTransactionId: txId,
       })
-      expect(revoked).toBe(true)
-      // Ne doit PAS lever de violation de clé étrangère.
+      expect(result.accessReducedOrRemoved).toBe(true)
+      // Ne doit PAS lever de violation de clé étrangère (lastTransactionId restrict).
       await tx.delete(transactions).where(eq(transactions.id, txId))
     })
 
     expect(await readExpiry(users.comboDelete, "exam")).toBeNull()
     expect(await readExpiry(users.comboDelete, "training")).toBeNull()
+  })
+
+  it("est idempotent : deux recomputes successifs produisent le même état", async () => {
+    const before = await readAccessRow(users.recompute, "exam")
+    const r1 = await recompute(users.recompute)
+    const r2 = await recompute(users.recompute)
+    expect(r1.accessReducedOrRemoved).toBe(false)
+    expect(r2.accessReducedOrRemoved).toBe(false)
+    const after = await readAccessRow(users.recompute, "exam")
+    expect(after?.expiresAt.getTime()).toBe(before?.expiresAt.getTime())
+    expect(after?.lastTransactionId).toBe(before?.lastTransactionId)
+  })
+
+  it("expiryReminderSentAt : conservé quand l'accès est RÉDUIT, ré-armé quand il est PROLONGÉ", async () => {
+    const txA = await grant(users.reminder, pExam) // +30
+    const txB = await grant(users.reminder, pExam) // +60
+    const sentAt = new Date()
+    await db
+      .update(userAccess)
+      .set({ expiryReminderSentAt: sentAt })
+      .where(eq(userAccess.userId, users.reminder))
+
+    // Réduction (refund de txB) : le rappel déjà envoyé reste marqué.
+    await setStatus(txB, "refunded")
+    await recompute(users.reminder)
+    let row = await readAccessRow(users.reminder, "exam")
+    expect(row?.expiryReminderSentAt).not.toBeNull()
+
+    // Prolongation (txB re-complétée) : le rappel est ré-armé (null).
+    await setStatus(txB, "completed")
+    await recompute(users.reminder)
+    row = await readAccessRow(users.reminder, "exam")
+    expect(row?.expiryReminderSentAt).toBeNull()
+    expect(row?.lastTransactionId).toBe(txB)
+    expect(txA).toBeDefined()
   })
 })

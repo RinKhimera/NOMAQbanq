@@ -1,7 +1,5 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   Calendar,
   Check,
@@ -38,7 +36,7 @@ import type {
   SelectableUser,
   UserPanelData,
 } from "@/features/users/dal"
-import { formatExpiration } from "@/lib/format"
+import { formatExpiration, formatMediumDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 // Lazy-load ManualPaymentModal to reduce initial bundle size
@@ -211,9 +209,7 @@ function TransactionItem({ transaction }: { transaction: PanelTransaction }) {
             {transaction.product?.name ?? "Produit inconnu"}
           </p>
           <p className="text-xs text-gray-500">
-            {format(new Date(transaction.createdAt), "d MMM yyyy", {
-              locale: fr,
-            })}
+            {formatMediumDate(transaction.createdAt)}
           </p>
         </div>
       </div>
@@ -364,10 +360,7 @@ function PanelContent({
           <div className="flex items-center gap-3">
             <Calendar className="h-4 w-4 text-gray-400" />
             <span className="text-sm text-gray-700 dark:text-gray-300">
-              Inscrit le{" "}
-              {format(new Date(user.createdAt), "d MMMM yyyy", {
-                locale: fr,
-              })}
+              Inscrit le {formatExpiration(user.createdAt)}
             </span>
           </div>
           {user.bio && (
@@ -420,16 +413,17 @@ function PanelContent({
               Transactions récentes
             </h4>
             {totalTransactionCount > 0 && (
-              <Link href={`/admin/utilisateurs/${userId}`}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 gap-1 px-2 text-xs"
-                >
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1 px-2 text-xs"
+              >
+                <Link href={`/admin/utilisateurs/${userId}`}>
                   Voir tout ({totalTransactionCount})
                   <ExternalLink className="h-3 w-3" />
-                </Button>
-              </Link>
+                </Link>
+              </Button>
             )}
           </div>
           {recentTransactions.length === 0 ? (
@@ -446,12 +440,12 @@ function PanelContent({
         </div>
 
         {/* View Full Profile Link */}
-        <Link href={`/admin/utilisateurs/${userId}`} className="block">
-          <Button variant="outline" className="w-full gap-2">
+        <Button asChild variant="outline" className="w-full gap-2">
+          <Link href={`/admin/utilisateurs/${userId}`}>
             <ExternalLink className="h-4 w-4" />
             Voir le profil complet
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </motion.div>
 
       {/* Manual Payment Modal - lazy loaded on demand */}

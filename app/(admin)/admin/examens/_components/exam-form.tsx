@@ -6,11 +6,14 @@ import { fr } from "date-fns/locale"
 import {
   ArrowLeft,
   Calendar,
+  CircleCheck,
   Clock,
   Coffee,
   FileText,
+  Info,
   LoaderCircle,
   Save,
+  Sparkles,
   Users,
 } from "lucide-react"
 import Link from "next/link"
@@ -23,6 +26,8 @@ import {
   QuestionPreviewPanel,
 } from "@/components/admin/question-browser"
 import { UserMultiSelect } from "@/components/admin/user-multi-select"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
 import {
@@ -48,43 +53,79 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { updateExam } from "@/features/exams/actions"
-import type { EligibleCandidate, ExamWithQuestions } from "@/features/exams/dal"
+import { createExam, updateExam } from "@/features/exams/actions"
+import type {
+  EligibleCandidate,
+  ExamPickerOption,
+  ExamWithQuestions,
+} from "@/features/exams/dal"
 import type { SelectableUser } from "@/features/users/dal"
+import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
 import {
+  DEFAULT_PAUSE_DURATION_MINUTES,
   ExamFormValues,
   examFormSchema,
   getDefaultPauseDuration,
   validateQuestionCount,
 } from "@/schemas"
-import { AudienceEligibility } from "../../../_components/audience-eligibility"
+import { AudienceEligibility } from "./audience-eligibility"
 
-interface ExamEditFormProps {
-  examId: string
-  exam: NonNullable<ExamWithQuestions>["exam"]
-  /** IDs des questions de l'examen, ordonnés par position (forme « pont »). */
-  questionIds: string[]
-  candidates: EligibleCandidate[]
-  /** Audience restreinte pré-remplie (vide si `audienceType === "subscribers"`). */
-  initialAudience: SelectableUser[]
-}
+/**
+ * Formulaire d'examen unifié (fusion exam-create-form / exam-edit-form,
+ * ≈ 68 % identiques — C6 #113). Le `mode` pilote les données initiales,
+ * l'action serveur et les libellés ; le markup est unique.
+ */
+type ExamFormProps =
+  | {
+      mode: "create"
+      candidates: EligibleCandidate[]
+      examOptions: ExamPickerOption[]
+    }
+  | {
+      mode: "edit"
+      examId: string
+      exam: NonNullable<ExamWithQuestions>["exam"]
+      /** IDs des questions de l'examen, ordonnés par position (forme « pont »). */
+      questionIds: string[]
+      candidates: EligibleCandidate[]
+      /** Audience restreinte pré-remplie (vide si `audienceType === "subscribers"`). */
+      initialAudience: SelectableUser[]
+    }
 
-export function ExamEditForm({
-  examId,
-  exam,
-  questionIds,
-  candidates,
-  initialAudience,
-}: ExamEditFormProps) {
+const MODE_COPY = {
+  create: {
+    title: "Créer un examen",
+    subtitle: "Configurez une nouvelle session d'évaluation",
+    submitLabel: "Créer l'examen",
+    submittingLabel: "Création...",
+    readyLabel: "Prêt à créer",
+    successMessage: "Examen créé avec succès",
+    errorMessage: "Erreur lors de la création de l'examen",
+  },
+  edit: {
+    title: "Modifier l'examen",
+    subtitle: "Mettez à jour les paramètres de votre examen",
+    submitLabel: "Modifier l'examen",
+    submittingLabel: "Modification...",
+    readyLabel: "Prêt à enregistrer",
+    successMessage: "Examen modifié avec succès",
+    errorMessage: "Erreur lors de la modification de l'examen",
+  },
+} as const
+
+export function ExamForm(props: ExamFormProps) {
   const router = useRouter()
+  const copy = MODE_COPY[props.mode]
+  const SubmitIcon = props.mode === "create" ? Sparkles : Save
 
-  // Les données viennent du Server Component (props) → initialisation synchrone,
-  // plus de `useQuery`/`form.reset` différé. `_id` Drizzle = `string`.
-  const initialQuestionIds = questionIds
+  // Les données viennent du Server Component (props) → initialisation synchrone.
+  const initialQuestionIds = props.mode === "edit" ? props.questionIds : []
+  const initialAudience = props.mode === "edit" ? props.initialAudience : []
   const [selectedQuestions, setSelectedQuestions] =
     useState<string[]>(initialQuestionIds)
   const [selectedUsers, setSelectedUsers] =
@@ -92,18 +133,30 @@ export function ExamEditForm({
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
-    defaultValues: {
-      title: exam.title,
-      description: exam.description ?? "",
-      numberOfQuestions: exam.questionCount,
-      startDate: new Date(exam.startDate),
-      endDate: new Date(exam.endDate),
-      questionIds: initialQuestionIds,
-      enablePause: exam.enablePause,
-      pauseDurationMinutes: exam.pauseDurationMinutes ?? 15,
-      audienceType: exam.audienceType,
-      audienceUserIds: initialAudience.map((u) => u.id),
-    },
+    defaultValues:
+      props.mode === "edit"
+        ? {
+            title: props.exam.title,
+            description: props.exam.description ?? "",
+            numberOfQuestions: props.exam.questionCount,
+            startDate: new Date(props.exam.startDate),
+            endDate: new Date(props.exam.endDate),
+            questionIds: initialQuestionIds,
+            enablePause: props.exam.enablePause,
+            pauseDurationMinutes: props.exam.pauseDurationMinutes ?? 15,
+            audienceType: props.exam.audienceType,
+            audienceUserIds: initialAudience.map((u) => u.id),
+          }
+        : {
+            title: "",
+            description: "",
+            numberOfQuestions: 10,
+            questionIds: [],
+            enablePause: false,
+            pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
+            audienceType: "subscribers",
+            audienceUserIds: [],
+          },
   })
 
   const numberOfQuestions = useWatch({
@@ -126,6 +179,9 @@ export function ExamEditForm({
     name: "audienceType",
   })
 
+  // Durée estimée de l'examen (83 secondes par question).
+  const estimatedDuration = Math.ceil((numberOfQuestions * 83) / 60)
+
   const handleAudienceUsersChange = (next: SelectableUser[]) => {
     setSelectedUsers(next)
     form.setValue(
@@ -133,6 +189,21 @@ export function ExamEditForm({
       next.map((u) => u.id),
       { shouldValidate: true },
     )
+  }
+
+  const handleQuestionSelectionChange = (ids: string[]) => {
+    setSelectedQuestions(ids)
+    form.setValue("questionIds", ids)
+  }
+
+  const handleEnablePauseChange = (checked: boolean) => {
+    form.setValue("enablePause", checked)
+    if (checked && !pauseDurationMinutes) {
+      form.setValue(
+        "pauseDurationMinutes",
+        getDefaultPauseDuration(numberOfQuestions) || 15,
+      )
+    }
   }
 
   const onSubmit = async (values: ExamFormValues) => {
@@ -151,64 +222,46 @@ export function ExamEditForm({
       return
     }
 
-    try {
-      const result = await updateExam({
-        id: examId,
-        title: values.title,
-        description: values.description,
-        startDate: values.startDate.getTime(),
-        endDate: values.endDate.getTime(),
-        questionIds: questionsToValidate,
-        enablePause: values.enablePause ?? false,
-        pauseDurationMinutes: values.enablePause
-          ? values.pauseDurationMinutes
-          : undefined,
-        audienceType: values.audienceType,
-        audienceUserIds:
-          values.audienceType === "restricted" ? values.audienceUserIds : [],
-      })
-
-      if (!result.success) {
-        toast.error(
-          result.error ?? "Erreur lors de la modification de l'examen",
-        )
-        return
-      }
-
-      toast.success("Examen modifié avec succès")
-      router.push("/admin/examens")
-    } catch (error) {
-      console.error("updateExam", error)
-      toast.error("Erreur lors de la modification de l'examen")
+    const payload = {
+      title: values.title,
+      description: values.description,
+      startDate: values.startDate.getTime(),
+      endDate: values.endDate.getTime(),
+      questionIds: questionsToValidate,
+      enablePause: values.enablePause ?? false,
+      pauseDurationMinutes: values.enablePause
+        ? values.pauseDurationMinutes
+        : undefined,
+      audienceType: values.audienceType,
+      audienceUserIds:
+        values.audienceType === "restricted" ? values.audienceUserIds : [],
     }
-  }
 
-  const handleQuestionSelectionChange = (ids: string[]) => {
-    setSelectedQuestions(ids)
-    form.setValue("questionIds", ids)
-  }
+    // Deux appels séparés (pas un ternaire DANS callAction) : TS infère sinon
+    // l'union des retours createExam/updateExam et refuse l'assignation.
+    const result =
+      props.mode === "edit"
+        ? await callAction(() => updateExam({ id: props.examId, ...payload }))
+        : await callAction(() => createExam(payload))
 
-  const handleEnablePauseChange = (checked: boolean) => {
-    form.setValue("enablePause", checked)
-    if (checked && !pauseDurationMinutes) {
-      form.setValue(
-        "pauseDurationMinutes",
-        getDefaultPauseDuration(numberOfQuestions),
-      )
+    if (!result.success) {
+      toast.error(("error" in result && result.error) || copy.errorMessage)
+      return
     }
+
+    toast.success(copy.successMessage)
+    router.push("/admin/examens")
   }
 
   return (
     <div className="@container flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* En-tête moderne */}
+      {/* En-tête */}
       <div className="flex flex-col justify-between gap-4 @lg:flex-row @lg:items-center">
         <div className="space-y-1">
           <h1 className="bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-2xl font-bold tracking-tight text-transparent md:text-3xl dark:from-blue-400 dark:to-indigo-400">
-            Modifier l&apos;examen
+            {copy.title}
           </h1>
-          <p className="text-muted-foreground">
-            Mettez à jour les paramètres de votre examen
-          </p>
+          <p className="text-muted-foreground">{copy.subtitle}</p>
         </div>
         <Button
           variant="outline"
@@ -254,7 +307,7 @@ export function ExamEditForm({
                       </FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Ex: Examen de Cardiologie - Février 2025"
+                          placeholder="Ex: Examen de Cardiologie - Session 2025"
                           className="transition-all focus:ring-2 focus:ring-blue-500/20"
                           {...field}
                         />
@@ -297,30 +350,39 @@ export function ExamEditForm({
                         <FormLabel className="font-medium">
                           Nombre de questions
                         </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            min={10}
-                            max={230}
-                            placeholder="Entre 10 et 230"
-                            className="transition-all focus:ring-2 focus:ring-blue-500/20"
-                            value={field.value || ""}
-                            onChange={(e) => {
-                              const numValue = parseInt(e.target.value) || 0
-                              field.onChange(numValue)
-                              if (selectedQuestions.length > numValue) {
-                                const newSelection = selectedQuestions.slice(
-                                  0,
-                                  numValue,
-                                )
-                                setSelectedQuestions(newSelection)
-                                form.setValue("questionIds", newSelection)
-                              }
-                            }}
-                          />
-                        </FormControl>
+                        <div className="flex items-center gap-3">
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={10}
+                              max={230}
+                              placeholder="Entre 10 et 230"
+                              className="transition-all focus:ring-2 focus:ring-blue-500/20"
+                              value={field.value || ""}
+                              onChange={(e) => {
+                                const numValue = parseInt(e.target.value) || 10
+                                field.onChange(numValue)
+                                if (selectedQuestions.length > numValue) {
+                                  const newSelection = selectedQuestions.slice(
+                                    0,
+                                    numValue,
+                                  )
+                                  setSelectedQuestions(newSelection)
+                                  form.setValue("questionIds", newSelection)
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <Badge
+                            variant="secondary"
+                            className="shrink-0 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                          >
+                            <Clock className="mr-1 h-3 w-3" />~
+                            {estimatedDuration} min
+                          </Badge>
+                        </div>
                         <FormDescription className="text-xs">
-                          Minimum 10, maximum 230 questions
+                          Entre 10 et 230 questions (83 secondes par question)
                         </FormDescription>
                         <FormMessage />
                       </FormItem>
@@ -337,7 +399,7 @@ export function ExamEditForm({
                         render={({ field: endField }) => (
                           <FormItem className="flex flex-col">
                             <FormLabel className="font-medium">
-                              Période
+                              Période de disponibilité
                             </FormLabel>
                             <Popover>
                               <PopoverTrigger asChild>
@@ -353,9 +415,11 @@ export function ExamEditForm({
                                     <Calendar className="mr-2 h-4 w-4 text-blue-600" />
                                     {startField.value && endField.value ? (
                                       <span className="truncate">
-                                        {format(startField.value, "d MMM", {
-                                          locale: fr,
-                                        })}{" "}
+                                        {format(
+                                          startField.value,
+                                          "d MMM yyyy",
+                                          { locale: fr },
+                                        )}{" "}
                                         -{" "}
                                         {format(endField.value, "d MMM yyyy", {
                                           locale: fr,
@@ -413,7 +477,7 @@ export function ExamEditForm({
                   </div>
                   <div>
                     <CardTitle className="text-amber-700 dark:text-amber-300">
-                      Paramètres de pause
+                      Pause pendant l&apos;examen
                     </CardTitle>
                     <CardDescription>
                       Configurez une pause optionnelle à mi-parcours
@@ -485,32 +549,42 @@ export function ExamEditForm({
                       )}
                     />
 
-                    <div className="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-                      <p className="mb-2 text-sm font-medium text-blue-800 dark:text-blue-200">
-                        Fonctionnement :
-                      </p>
-                      <ul className="space-y-1 text-xs text-blue-700 dark:text-blue-300">
-                        <li className="flex items-start gap-2">
-                          <span className="mt-1.5 h-1 w-1 rounded-full bg-blue-500" />
+                    <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+                      <Info className="h-4 w-4 text-amber-600" />
+                      <AlertTitle className="text-amber-900 dark:text-amber-100">
+                        Comment fonctionne la pause ?
+                      </AlertTitle>
+                      <AlertDescription className="mt-2 space-y-2 text-sm text-amber-800 dark:text-amber-200">
+                        <div className="flex items-start gap-2">
+                          <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                           <span>
-                            Avant : {Math.ceil(numberOfQuestions / 2)} premières
-                            questions accessibles
+                            <strong>Avant la pause :</strong> Seules les
+                            questions 1 à {Math.ceil(numberOfQuestions / 2)}{" "}
+                            sont accessibles
                           </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="mt-1.5 h-1 w-1 rounded-full bg-blue-500" />
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                           <span>
-                            Pendant : toutes les questions verrouillées
+                            <strong>Pendant la pause :</strong> Toutes les
+                            questions sont verrouillées
                           </span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="mt-1.5 h-1 w-1 rounded-full bg-blue-500" />
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                           <span>
-                            Après : toutes les questions déverrouillées
+                            <strong>Après la pause :</strong> Toutes les{" "}
+                            {numberOfQuestions} questions sont déverrouillées
                           </span>
-                        </li>
-                      </ul>
-                    </div>
+                        </div>
+                        <Separator className="my-2 bg-amber-200 dark:bg-amber-700" />
+                        <p className="text-xs italic">
+                          💡 La pause se déclenche automatiquement à 50% du
+                          temps, ou peut être prise manuellement. Le candidat ne
+                          peut prendre qu&apos;une seule pause.
+                        </p>
+                      </AlertDescription>
+                    </Alert>
                   </div>
                 )}
 
@@ -556,7 +630,7 @@ export function ExamEditForm({
                         className="gap-3"
                       >
                         <label
-                          htmlFor="edit-audience-subscribers"
+                          htmlFor={`${props.mode}-audience-subscribers`}
                           className={cn(
                             "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
                             field.value === "subscribers"
@@ -566,7 +640,7 @@ export function ExamEditForm({
                         >
                           <RadioGroupItem
                             value="subscribers"
-                            id="edit-audience-subscribers"
+                            id={`${props.mode}-audience-subscribers`}
                             className="mt-0.5"
                           />
                           <div className="space-y-0.5">
@@ -581,7 +655,7 @@ export function ExamEditForm({
                         </label>
 
                         <label
-                          htmlFor="edit-audience-restricted"
+                          htmlFor={`${props.mode}-audience-restricted`}
                           className={cn(
                             "flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors",
                             field.value === "restricted"
@@ -591,7 +665,7 @@ export function ExamEditForm({
                         >
                           <RadioGroupItem
                             value="restricted"
-                            id="edit-audience-restricted"
+                            id={`${props.mode}-audience-restricted`}
                             className="mt-0.5"
                           />
                           <div className="space-y-0.5">
@@ -634,7 +708,7 @@ export function ExamEditForm({
 
               {/* Résumé contextuel des candidats éligibles (selon la radio). */}
               <AudienceEligibility
-                candidates={candidates}
+                candidates={props.candidates}
                 audienceType={audienceType}
                 selectedCount={selectedUsers.length}
               />
@@ -666,6 +740,9 @@ export function ExamEditForm({
                 <FormItem>
                   <QuestionBrowser
                     mode="select"
+                    {...(props.mode === "create"
+                      ? { examOptions: props.examOptions }
+                      : {})}
                     selectedIds={selectedQuestions}
                     onSelectionChange={handleQuestionSelectionChange}
                     maxSelection={numberOfQuestions}
@@ -683,37 +760,55 @@ export function ExamEditForm({
             />
           </div>
 
-          {/* Boutons d'action */}
-          <div className="flex flex-col-reverse gap-3 border-t pt-6 sm:flex-row sm:justify-end">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/admin/examens")}
-              className="transition-all hover:bg-gray-100 dark:hover:bg-gray-800"
-              disabled={form.formState.isSubmitting}
-            >
-              Annuler
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                selectedQuestions.length !== numberOfQuestions ||
-                form.formState.isSubmitting
-              }
-              className="bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl disabled:opacity-50"
-            >
-              {form.formState.isSubmitting ? (
-                <>
-                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
-                  Modification...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Modifier l&apos;examen
-                </>
-              )}
-            </Button>
+          {/* Footer d'action sticky avec compteur */}
+          <div className="sticky bottom-4 z-10">
+            <Card className="border-0 bg-white/80 shadow-xl backdrop-blur-sm dark:bg-gray-800/80">
+              <CardContent className="flex items-center justify-between p-4">
+                <div className="text-sm text-gray-500">
+                  {selectedQuestions.length === numberOfQuestions ? (
+                    <span className="flex items-center gap-1 text-emerald-600">
+                      <CircleCheck className="h-4 w-4" />
+                      {copy.readyLabel}
+                    </span>
+                  ) : (
+                    <span>
+                      Sélectionnez encore{" "}
+                      {numberOfQuestions - selectedQuestions.length} question(s)
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push("/admin/examens")}
+                    disabled={form.formState.isSubmitting}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      selectedQuestions.length !== numberOfQuestions ||
+                      form.formState.isSubmitting
+                    }
+                    className="bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 hover:from-blue-700 hover:to-indigo-700"
+                  >
+                    {form.formState.isSubmitting ? (
+                      <>
+                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                        {copy.submittingLabel}
+                      </>
+                    ) : (
+                      <>
+                        <SubmitIcon className="mr-2 h-4 w-4" />
+                        {copy.submitLabel}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </form>
       </Form>

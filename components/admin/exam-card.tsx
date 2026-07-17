@@ -1,11 +1,10 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { Calendar, Clock, FileText, Users } from "lucide-react"
 import { motion } from "motion/react"
 import type { AdminExamListItem } from "@/features/exams/dal"
 import { getExamStatus } from "@/lib/exam-status"
+import { formatMediumDate } from "@/lib/format"
 import { ExamActions } from "./exam-actions"
 import ExamStatusBadge from "./exam-status-badge"
 
@@ -83,12 +82,12 @@ export function ExamCard({
         <StatItem
           icon={<Calendar className="h-4 w-4" />}
           label="Début"
-          value={format(new Date(exam.startDate), "d MMM yyyy", { locale: fr })}
+          value={formatMediumDate(exam.startDate)}
         />
         <StatItem
           icon={<Clock className="h-4 w-4" />}
           label="Fin"
-          value={format(new Date(exam.endDate), "d MMM yyyy", { locale: fr })}
+          value={formatMediumDate(exam.endDate)}
         />
         <StatItem
           icon={<FileText className="h-4 w-4" />}

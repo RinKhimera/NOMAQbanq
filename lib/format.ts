@@ -68,3 +68,23 @@ export const formatDateTime = (timestamp: number): string => {
 export const formatTimeOnly = (timestamp: number): string => {
   return format(new Date(timestamp), "HH:mm", { locale: fr })
 }
+
+/** « 3 juil. 2026 » — listes/cards admin. */
+export const formatMediumDate = (d: Date | number | string): string => {
+  return format(new Date(d), "d MMM yyyy", { locale: fr })
+}
+
+/** « 3 juillet 2026 à 14:05 » — panneaux de détail. */
+export const formatLongDateTime = (d: Date | number | string): string => {
+  return format(new Date(d), "d MMMM yyyy 'à' HH:mm", { locale: fr })
+}
+
+/** « 3 juillet 2026 à 14:05 » (variante PPP) — détails examen. */
+export const formatFullDateTime = (d: Date | number | string): string => {
+  return format(new Date(d), "PPP 'à' HH:mm", { locale: fr })
+}
+
+/** « 03/07/2026, 14:05 » — lignes compactes (leaderboard, tables). */
+export const formatCompactDateTime = (d: Date | number | string): string => {
+  return format(new Date(d), "Pp", { locale: fr })
+}

@@ -60,6 +60,11 @@ const GROUP_MAP: readonly Group[] = [
       "NEXT_PUBLIC_CDN_HOSTNAME",
     ],
   },
+  {
+    title: "Stripe — paiements",
+    tier: "🟢 runtime",
+    keys: ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"],
+  },
   { title: "Cron Vercel", tier: "🟢 runtime", keys: ["CRON_SECRET"] },
   {
     title: "Sentry — monitoring",

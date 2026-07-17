@@ -22,24 +22,24 @@ export default function AboutCTA() {
             réussir l&apos;EACMC.
           </p>
           <div className="flex flex-col justify-center gap-6 sm:flex-row">
-            <Link href="/inscription">
-              <Button
-                className="btn-modern transform rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 px-12 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-2xl"
-                size={"lg"}
-              >
+            <Button
+              asChild
+              className="btn-modern transform rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 px-12 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:scale-105 hover:from-blue-700 hover:to-indigo-700 hover:shadow-2xl"
+              size={"lg"}
+            >
+              <Link href="/inscription">
                 Commencer maintenant
                 <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-            <Link href="mailto:nomaqbanq@outlook.com">
-              <Button
-                className="rounded-2xl border-2 border-blue-600 px-12 py-4 text-lg font-semibold text-blue-600 transition-all duration-300 hover:bg-blue-50 hover:shadow-lg dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20"
-                size={"lg"}
-                variant={"outline"}
-              >
-                Nous contacter
-              </Button>
-            </Link>
+              </Link>
+            </Button>
+            <Button
+              asChild
+              className="rounded-2xl border-2 border-blue-600 px-12 py-4 text-lg font-semibold text-blue-600 transition-all duration-300 hover:bg-blue-50 hover:shadow-lg dark:border-blue-400 dark:text-blue-400 dark:hover:bg-blue-900/20"
+              size={"lg"}
+              variant={"outline"}
+            >
+              <Link href="mailto:nomaqbanq@outlook.com">Nous contacter</Link>
+            </Button>
           </div>
         </div>
       </div>

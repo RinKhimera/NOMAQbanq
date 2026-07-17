@@ -1,8 +1,7 @@
 "use client"
 
 import { Star } from "lucide-react"
-import { Skeleton } from "@/components/ui/skeleton"
-import { useMarketingStats } from "@/hooks/useMarketingStats"
+import type { MarketingStats } from "@/features/marketing/dal"
 
 const staticStats = [
   {
@@ -28,13 +27,11 @@ const staticStats = [
   },
 ]
 
-export default function AboutStats() {
-  const { stats, isLoading } = useMarketingStats()
-
+export default function AboutStats({ stats }: { stats: MarketingStats }) {
   return (
     <div className="mb-20 grid grid-cols-2 gap-6 md:grid-cols-4">
       {staticStats.map((stat, index) => {
-        const value = stat.key ? stats?.[stat.key] : stat.staticValue
+        const value = stat.key ? stats[stat.key] : stat.staticValue
 
         return (
           <div
@@ -47,13 +44,9 @@ export default function AboutStats() {
             >
               <Star className="h-8 w-8 text-white" />
             </div>
-            {isLoading && stat.key ? (
-              <Skeleton className="mx-auto mb-2 h-10 w-24" />
-            ) : (
-              <p className="font-display mb-2 text-4xl font-bold text-gray-900 dark:text-white">
-                {value}
-              </p>
-            )}
+            <p className="font-display mb-2 text-4xl font-bold text-gray-900 dark:text-white">
+              {value}
+            </p>
             <p className="font-medium text-gray-600 dark:text-gray-300">
               {stat.label}
             </p>

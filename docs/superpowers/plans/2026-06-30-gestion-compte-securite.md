@@ -1179,7 +1179,7 @@ export const ProfileLoginMethods = ({
     <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
       <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
         <CardTitle className="flex items-center gap-3 text-lg">
-          <div className="bg-linear-to-br flex h-10 w-10 items-center justify-center rounded-xl from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
             <IconPlugConnected className="h-5 w-5 text-white" />
           </div>
           <span className="font-display font-semibold text-gray-900 dark:text-white">
@@ -1514,7 +1514,7 @@ const PasswordCard = ({
   <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
     <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
       <CardTitle className="flex items-center gap-3 text-lg">
-        <div className="bg-linear-to-br flex h-10 w-10 items-center justify-center rounded-xl from-orange-500 to-amber-600 shadow-lg shadow-orange-500/20">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-orange-500 to-amber-600 shadow-lg shadow-orange-500/20">
           <IconKey className="h-5 w-5 text-white" />
         </div>
         <span className="font-display font-semibold text-gray-900 dark:text-white">
@@ -1950,7 +1950,7 @@ export const ProfileSessions = ({ sessions }: { sessions: UserSession[] }) => {
     <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
       <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
         <CardTitle className="flex items-center gap-3 text-lg">
-          <div className="bg-linear-to-br flex h-10 w-10 items-center justify-center rounded-xl from-teal-500 to-emerald-600 shadow-lg shadow-teal-500/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-teal-500 to-emerald-600 shadow-lg shadow-teal-500/20">
             <IconDeviceLaptop className="h-5 w-5 text-white" />
           </div>
           <span className="font-display font-semibold text-gray-900 dark:text-white">
@@ -2129,7 +2129,7 @@ export const ProfileDangerZone = ({ email }: { email: string }) => {
     <Card className="overflow-hidden rounded-2xl border-red-200 shadow-sm dark:border-red-900/50">
       <CardHeader className="block border-b border-red-100 bg-red-50/50 px-6 py-4 dark:border-red-900/50 dark:bg-red-950/20">
         <CardTitle className="flex items-center gap-3 text-lg">
-          <div className="bg-linear-to-br flex h-10 w-10 items-center justify-center rounded-xl from-red-500 to-rose-600 shadow-lg shadow-red-500/20">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-red-500 to-rose-600 shadow-lg shadow-red-500/20">
             <IconAlertTriangle className="h-5 w-5 text-white" />
           </div>
           <span className="font-display font-semibold text-red-700 dark:text-red-400">

@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import { MARKETING_CLAIMS } from "@/constants"
+import { getMarketingStats } from "@/features/marketing/dal"
 import AProposPageClient from "./_components/a-propos-page-client"
 
 export const metadata: Metadata = {
@@ -25,6 +26,10 @@ export const metadata: Metadata = {
   },
 }
 
-export default function AProposPage() {
-  return <AProposPageClient />
+// Stats quasi statiques : page régénérée au plus toutes les heures (ISR).
+export const revalidate = 3600
+
+export default async function AProposPage() {
+  const stats = await getMarketingStats()
+  return <AProposPageClient stats={stats} />
 }

@@ -1,4 +1,5 @@
 import { CircleX, House } from "lucide-react"
+import type { Metadata } from "next"
 import Link from "next/link"
 import {
   SessionResults,
@@ -9,6 +10,8 @@ import { Button } from "@/components/ui/button"
 import { loadExamQuestionExplanations } from "@/features/exams/actions"
 import { getParticipantExamResults } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
+
+export const metadata: Metadata = { title: "Résultats d'examen" }
 
 export default async function MockExamResultsPage({
   params,

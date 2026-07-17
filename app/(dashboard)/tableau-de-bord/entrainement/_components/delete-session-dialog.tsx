@@ -1,11 +1,10 @@
 "use client"
 
-import { formatDistanceToNow } from "date-fns"
-import { fr } from "date-fns/locale"
 import { LoaderCircle, Target, Trash2, TriangleAlert } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { RelativeTime } from "@/components/shared/relative-time"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -129,10 +128,7 @@ export const DeleteSessionDialog = ({
               <div className="flex items-center justify-between">
                 <span className="text-gray-500 dark:text-gray-400">Date</span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {formatDistanceToNow(new Date(session.completedAt), {
-                    addSuffix: true,
-                    locale: fr,
-                  })}
+                  <RelativeTime timestamp={session.completedAt} />
                 </span>
               </div>
             )}

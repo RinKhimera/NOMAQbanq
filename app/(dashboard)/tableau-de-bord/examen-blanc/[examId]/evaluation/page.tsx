@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import {
   getExamAnswersForParticipation,
@@ -5,6 +6,8 @@ import {
   getExamWithQuestions,
 } from "@/features/exams/dal"
 import { EvaluationClient } from "./_components/evaluation-client"
+
+export const metadata: Metadata = { title: "Évaluation d'examen" }
 
 export default async function EvaluationPage({
   params,

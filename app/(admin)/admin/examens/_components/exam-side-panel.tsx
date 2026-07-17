@@ -12,8 +12,6 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +26,7 @@ import {
 } from "@/components/ui/sheet"
 import type { AdminExamListItem } from "@/features/exams/dal"
 import { EXAM_STATUS_CONFIG, getExamStatus } from "@/lib/exam-status"
+import { formatMediumDate, formatTimeOnly } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface ExamSidePanelProps {
@@ -241,12 +240,10 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
               <div>
                 <p className="text-xs text-gray-500">Début</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
-                  {format(new Date(exam.startDate), "d MMM yyyy", {
-                    locale: fr,
-                  })}
+                  {formatMediumDate(exam.startDate)}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {format(new Date(exam.startDate), "HH:mm", { locale: fr })}
+                  {formatTimeOnly(exam.startDate)}
                 </p>
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
@@ -255,10 +252,10 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
               <div className="text-right">
                 <p className="text-xs text-gray-500">Fin</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
-                  {format(new Date(exam.endDate), "d MMM yyyy", { locale: fr })}
+                  {formatMediumDate(exam.endDate)}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {format(new Date(exam.endDate), "HH:mm", { locale: fr })}
+                  {formatTimeOnly(exam.endDate)}
                 </p>
               </div>
             </div>

@@ -92,12 +92,15 @@ export default function DomainCard({ domain }: DomainCardProps) {
 
         {/* Action button */}
         <div className="translate-y-4 transform opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
-          <Link href={`/domaines/${domain.slug}`}>
-            <Button className="btn-modern w-full rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 py-4 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl">
+          <Button
+            asChild
+            className="btn-modern w-full rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 py-4 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+          >
+            <Link href={`/domaines/${domain.slug}`}>
               Commencer l&apos;évaluation
               <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
 

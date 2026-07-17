@@ -1,7 +1,5 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { Brain, ChartColumn, ChartLine, TrendingUp } from "lucide-react"
 import { motion } from "motion/react"
 import {
@@ -18,6 +16,7 @@ import {
   YAxis,
 } from "recharts"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { formatExpiration } from "@/lib/format"
 
 interface TrainingSessionItem {
   sessionId: string
@@ -70,7 +69,6 @@ const AreaChartTooltip = ({
   if (!active || !payload?.length) return null
 
   const item = payload[0].payload
-  const date = new Date(item.completedAt)
 
   return (
     <div className="rounded-xl border border-purple-200/50 bg-white/95 px-4 py-3 shadow-xl backdrop-blur-sm dark:border-purple-800/50 dark:bg-gray-900/95">
@@ -78,7 +76,7 @@ const AreaChartTooltip = ({
         {item.domain}
       </p>
       <p className="text-xs text-gray-500 dark:text-gray-400">
-        {format(date, "d MMMM yyyy", { locale: fr })}
+        {formatExpiration(item.completedAt)}
       </p>
       <p className="text-xs text-gray-500 dark:text-gray-400">
         {item.questionCount} questions

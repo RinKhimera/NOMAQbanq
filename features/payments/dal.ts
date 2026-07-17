@@ -5,6 +5,7 @@ import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
+import { bestCoveringTransaction } from "./lib"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -491,9 +492,15 @@ export const getTransactionStats = async (): Promise<TransactionStatsView> => {
 // ============================================
 
 export type AccessImpact = {
-  willRevokeAccess: boolean
+  /** true si retirer cette transaction SUPPRIME ou RACCOURCIT l'accès courant. */
+  willAffectAccess: boolean
   /** Epoch ms ou null. */
   currentAccessExpiresAt: number | null
+  /**
+   * Échéance après retrait de cette transaction, recalculée depuis les
+   * transactions restantes (epoch ms) — null si l'accès disparaît.
+   */
+  restoredExpiresAt: number | null
   accessType: "exam" | "training"
 }
 
@@ -512,6 +519,7 @@ export const getTransactionAccessImpact = async (
     .select({
       userId: transactions.userId,
       accessType: transactions.accessType,
+      status: transactions.status,
     })
     .from(transactions)
     .where(eq(transactions.id, transactionId))
@@ -532,9 +540,34 @@ export const getTransactionAccessImpact = async (
     )
     .limit(1)
 
+  // Une transaction non-completed ne porte aucun accès : la retirer n'affecte rien.
+  if (!access || tx.status !== "completed") {
+    return {
+      willAffectAccess: false,
+      currentAccessExpiresAt: access ? access.expiresAt.getTime() : null,
+      restoredExpiresAt: null,
+      accessType: tx.accessType,
+    }
+  }
+
+  // Même calcul que recomputeAccess (source unique) : que reste-t-il sans cette
+  // transaction ? NE PAS dériver de lastTransactionId — il peut pointer une
+  // transaction dont le snapshot est INFÉRIEUR à l'échéance courante (cas combo
+  // conservant un accès plus tardif), et l'accès chuterait alors même que
+  // « ce n'est pas la dernière ».
+  const restored = await bestCoveringTransaction(
+    db,
+    tx.userId,
+    tx.accessType,
+    transactionId,
+  )
+  const restoredMs = restored ? restored.accessExpiresAt.getTime() : null
+  const currentMs = access.expiresAt.getTime()
+
   return {
-    willRevokeAccess: access?.lastTransactionId === transactionId,
-    currentAccessExpiresAt: access ? access.expiresAt.getTime() : null,
+    willAffectAccess: restoredMs === null || restoredMs < currentMs,
+    currentAccessExpiresAt: currentMs,
+    restoredExpiresAt: restoredMs,
     accessType: tx.accessType,
   }
 }

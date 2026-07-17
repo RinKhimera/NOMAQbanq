@@ -1,4 +1,5 @@
 import { ArrowLeft } from "lucide-react"
+import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -57,6 +58,8 @@ function ExamAccessDeniedCard({
     </div>
   )
 }
+
+export const metadata: Metadata = { title: "Examen blanc" }
 
 export default async function MockExamDetailsPage({
   params,

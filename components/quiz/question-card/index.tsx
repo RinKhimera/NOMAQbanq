@@ -8,6 +8,7 @@ import {
   Flag,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
+import Image from "next/image"
 import { QuestionImageGallery } from "@/components/shared/question-image-gallery"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -122,12 +123,14 @@ const QuestionExplanation = ({
             {[...explanationImages]
               .sort((a, b) => a.order - b.order)
               .map((img) => (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+                <Image
                   key={img.storagePath}
                   src={img.url}
                   alt="Image d'explication"
-                  className="max-h-48 rounded-lg border border-blue-200 dark:border-blue-800"
+                  width={800}
+                  height={600}
+                  sizes="(max-width: 768px) 100vw, 700px"
+                  className="h-auto max-h-48 w-auto rounded-lg border border-blue-200 dark:border-blue-800"
                 />
               ))}
           </div>
@@ -452,6 +455,8 @@ export const QuestionCard = ({
             animate={{ opacity: 1, height: "auto" }}
             exit={isReviewVariant ? { opacity: 0, height: 0 } : undefined}
             transition={{ duration: 0.2 }}
+            role="group"
+            aria-label="Choix de réponse"
             className={cn(
               isExamVariant
                 ? "space-y-3"
