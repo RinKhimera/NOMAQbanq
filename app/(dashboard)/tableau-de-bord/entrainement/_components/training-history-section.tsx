@@ -14,6 +14,7 @@ import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -27,7 +28,6 @@ import type {
   TrainingHistoryItem,
   TrainingHistoryPage,
 } from "@/features/training/dal"
-import { formatTimeRemaining } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { DeleteAllSessionsDialog } from "./delete-all-sessions-dialog"
 import { DeleteSessionDialog } from "./delete-session-dialog"
@@ -208,8 +208,9 @@ export const TrainingHistorySection = ({
                           </>
                         )}
                         <span>
-                          {session.completedAt &&
-                            formatTimeRemaining(session.completedAt)}
+                          {session.completedAt && (
+                            <RelativeTime timestamp={session.completedAt} />
+                          )}
                         </span>
                       </div>
                     </div>

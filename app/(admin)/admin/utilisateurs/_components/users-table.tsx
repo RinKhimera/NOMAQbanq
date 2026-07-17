@@ -1,6 +1,7 @@
 "use client"
 
 import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle } from "lucide-react"
+import { RelativeTime } from "@/components/shared/relative-time"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -19,7 +20,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import type { AdminUserRow } from "@/features/users/dal"
-import { formatTimeRemaining } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type SortBy = "name" | "role" | "createdAt"
@@ -247,7 +247,7 @@ export function UsersTable({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span className="cursor-help">
-                        {formatTimeRemaining(user.createdAt)}
+                        <RelativeTime timestamp={user.createdAt} />
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>

@@ -6,9 +6,9 @@ import {
   IconCreditCard,
   IconUserPlus,
 } from "@tabler/icons-react"
+import { RelativeTime } from "@/components/shared/relative-time"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { formatTimeRemaining } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 type Activity =
@@ -158,7 +158,7 @@ function ActivityItem({ activity }: { activity: Activity }) {
       <div className="flex-1 space-y-1">
         <p className="text-sm leading-tight">{renderContent()}</p>
         <p className="text-muted-foreground text-xs">
-          {formatTimeRemaining(activity.timestamp)}
+          <RelativeTime timestamp={activity.timestamp} />
         </p>
       </div>
     </div>

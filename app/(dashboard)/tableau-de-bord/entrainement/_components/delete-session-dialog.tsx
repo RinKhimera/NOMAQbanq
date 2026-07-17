@@ -4,6 +4,7 @@ import { LoaderCircle, Target, Trash2, TriangleAlert } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { RelativeTime } from "@/components/shared/relative-time"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { deleteTrainingSession } from "@/features/training/actions"
-import { formatTimeRemaining } from "@/lib/format"
 
 interface Session {
   id: string
@@ -128,7 +128,7 @@ export const DeleteSessionDialog = ({
               <div className="flex items-center justify-between">
                 <span className="text-gray-500 dark:text-gray-400">Date</span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {formatTimeRemaining(session.completedAt)}
+                  <RelativeTime timestamp={session.completedAt} />
                 </span>
               </div>
             )}

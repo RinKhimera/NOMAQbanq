@@ -8,6 +8,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react"
 import { TablePagination } from "@/components/admin/table-pagination"
+import { RelativeTime } from "@/components/shared/relative-time"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -26,7 +27,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { formatTimeRemaining } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useQuestionBrowser } from "./question-browser-context"
 import { QuestionBrowserTableProps, QuestionRow, SortBy } from "./types"
@@ -282,7 +282,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <span className="cursor-help">
-                          {formatTimeRemaining(question._creationTime)}
+                          <RelativeTime timestamp={question._creationTime} />
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
