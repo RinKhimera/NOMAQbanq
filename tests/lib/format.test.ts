@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  formatCompactDateTime,
   formatCurrency,
   formatDateTime,
   formatExpiration,
+  formatFullDateTime,
+  formatLongDateTime,
+  formatMediumDate,
   formatShortDate,
   formatTimeOnly,
   formatTimeRemaining,
@@ -168,6 +172,44 @@ describe("formatDateTime", () => {
 
     // Vérifie que c'est bien en format 24h
     expect(result).toContain("23:45")
+  })
+})
+
+describe("formatMediumDate", () => {
+  it("formate en « d MMM yyyy » français", () => {
+    const timestamp = new Date("2024-03-15T12:00:00Z").getTime()
+    expect(formatMediumDate(timestamp)).toBe("15 mars 2024")
+  })
+
+  it("accepte une Date et abrège les mois longs", () => {
+    expect(formatMediumDate(new Date("2024-07-03T12:00:00Z"))).toBe(
+      "3 juil. 2024",
+    )
+  })
+})
+
+describe("formatLongDateTime", () => {
+  it("formate en « d MMMM yyyy à HH:mm »", () => {
+    const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
+    expect(formatLongDateTime(timestamp)).toBe("15 mars 2024 à 14:05")
+  })
+})
+
+describe("formatFullDateTime", () => {
+  it("formate la variante PPP avec l'heure", () => {
+    const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
+    const result = formatFullDateTime(timestamp)
+    expect(result).toContain("15 mars 2024")
+    expect(result).toContain("à 14:05")
+  })
+})
+
+describe("formatCompactDateTime", () => {
+  it("formate en date + heure compactes", () => {
+    const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
+    const result = formatCompactDateTime(timestamp)
+    expect(result).toContain("15/03/2024")
+    expect(result).toContain("14:05")
   })
 })
 
