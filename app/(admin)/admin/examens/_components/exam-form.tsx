@@ -307,7 +307,7 @@ export function ExamForm(props: ExamFormProps) {
                       </FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="Ex: Examen de Cardiologie - Février 2025"
+                          placeholder="Ex: Examen de Cardiologie - Session 2025"
                           className="transition-all focus:ring-2 focus:ring-blue-500/20"
                           {...field}
                         />
@@ -399,7 +399,7 @@ export function ExamForm(props: ExamFormProps) {
                         render={({ field: endField }) => (
                           <FormItem className="flex flex-col">
                             <FormLabel className="font-medium">
-                              Période
+                              Période de disponibilité
                             </FormLabel>
                             <Popover>
                               <PopoverTrigger asChild>
@@ -477,7 +477,7 @@ export function ExamForm(props: ExamFormProps) {
                   </div>
                   <div>
                     <CardTitle className="text-amber-700 dark:text-amber-300">
-                      Paramètres de pause
+                      Pause pendant l&apos;examen
                     </CardTitle>
                     <CardDescription>
                       Configurez une pause optionnelle à mi-parcours
