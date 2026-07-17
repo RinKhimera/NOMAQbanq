@@ -44,6 +44,10 @@ const eslintConfig = defineConfig([
     "**/*.temp",
     ".env*",
     ".claude/worktrees/**",
+    // Artefacts Playwright locaux (déjà dans .prettierignore/.gitignore) : le
+    // rapport HTML embarque du JS minifié qui noie eslint quand il existe.
+    "e2e/test-results/**",
+    "e2e/playwright-report/**",
   ]),
 ])
 
