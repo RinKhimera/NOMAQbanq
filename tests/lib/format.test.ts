@@ -3,14 +3,22 @@ import {
   formatCompactDateTime,
   formatCurrency,
   formatDateTime,
+  formatDeadline,
   formatExpiration,
   formatFullDateTime,
   formatLongDateTime,
   formatMediumDate,
+  formatPaddedMediumDate,
   formatShortDate,
   formatTimeOnly,
   formatTimeRemaining,
+  formatWeekdayLongDate,
 } from "@/lib/format"
+
+// Ces suites tournent sous TZ=UTC (vitest.config.ts) et assertent des valeurs
+// heure de Toronto : un formateur qui retomberait sur le fuseau du runtime
+// rendrait de l'UTC et échouerait ici. C'est le filet contre la régression
+// d'hydratation (SSR en UTC vs navigateur en heure locale).
 
 describe("formatCurrency", () => {
   // Note: Intl.NumberFormat utilise des espaces insécables (\u00A0) dans le formatage
@@ -86,12 +94,19 @@ describe("formatExpiration", () => {
   })
 
   it("gère différentes dates", () => {
-    const timestamp = new Date("2025-12-25T00:00:00Z").getTime()
+    const timestamp = new Date("2025-12-20T12:00:00Z").getTime()
     const result = formatExpiration(timestamp)
 
-    expect(result).toContain("25")
+    expect(result).toContain("20")
     expect(result).toContain("décembre")
     expect(result).toContain("2025")
+  })
+
+  it("rend la veille pour un instant UTC déjà passé minuit à Toronto", () => {
+    // Minuit UTC le 25 = 19:00 le 24 à Toronto (EST). C'est ce décalage de
+    // jour, invisible en UTC, qui cassait l'hydratation.
+    const timestamp = new Date("2025-12-25T00:00:00Z").getTime()
+    expect(formatExpiration(timestamp)).toBe("24 décembre 2025")
   })
 })
 
@@ -163,15 +178,15 @@ describe("formatDateTime", () => {
     expect(result).toContain("mars")
     expect(result).toContain("2024")
     expect(result).toContain("à")
-    expect(result).toContain("14:30")
+    expect(result).toContain("10:30")
   })
 
   it("utilise le format 24h", () => {
-    const timestamp = new Date("2024-03-15T23:45:00Z").getTime()
+    const timestamp = new Date("2024-03-16T02:45:00Z").getTime()
     const result = formatDateTime(timestamp)
 
     // Vérifie que c'est bien en format 24h
-    expect(result).toContain("23:45")
+    expect(result).toContain("22:45")
   })
 })
 
@@ -191,7 +206,7 @@ describe("formatMediumDate", () => {
 describe("formatLongDateTime", () => {
   it("formate en « d MMMM yyyy à HH:mm »", () => {
     const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
-    expect(formatLongDateTime(timestamp)).toBe("15 mars 2024 à 14:05")
+    expect(formatLongDateTime(timestamp)).toBe("15 mars 2024 à 10:05")
   })
 })
 
@@ -200,7 +215,16 @@ describe("formatFullDateTime", () => {
     const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
     const result = formatFullDateTime(timestamp)
     expect(result).toContain("15 mars 2024")
-    expect(result).toContain("à 14:05")
+    expect(result).toContain("à 10:05")
+  })
+})
+
+describe("formatDeadline", () => {
+  it("suffixe le fuseau pour lever l'ambiguïté hors Québec", () => {
+    const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
+    expect(formatDeadline(timestamp)).toBe(
+      "15 mars 2024 à 10:05 (heure de l'Est)",
+    )
   })
 })
 
@@ -209,7 +233,23 @@ describe("formatCompactDateTime", () => {
     const timestamp = new Date("2024-03-15T14:05:00Z").getTime()
     const result = formatCompactDateTime(timestamp)
     expect(result).toContain("15/03/2024")
-    expect(result).toContain("14:05")
+    expect(result).toContain("10:05")
+  })
+})
+
+describe("formatPaddedMediumDate", () => {
+  it("préfixe le jour d'un zéro", () => {
+    expect(formatPaddedMediumDate(new Date("2024-07-03T12:00:00Z"))).toBe(
+      "03 juil. 2024",
+    )
+  })
+})
+
+describe("formatWeekdayLongDate", () => {
+  it("inclut le jour de la semaine en français", () => {
+    expect(formatWeekdayLongDate(new Date("2024-03-15T12:00:00Z"))).toBe(
+      "vendredi 15 mars 2024",
+    )
   })
 })
 
@@ -218,20 +258,60 @@ describe("formatTimeOnly", () => {
     const timestamp = new Date("2024-03-15T14:30:00Z").getTime()
     const result = formatTimeOnly(timestamp)
 
-    expect(result).toBe("14:30")
+    expect(result).toBe("10:30")
   })
 
   it("gère minuit", () => {
-    const timestamp = new Date("2024-03-15T00:00:00Z").getTime()
+    const timestamp = new Date("2024-03-15T04:00:00Z").getTime()
     const result = formatTimeOnly(timestamp)
 
     expect(result).toBe("00:00")
   })
 
   it("gère midi", () => {
-    const timestamp = new Date("2024-03-15T12:00:00Z").getTime()
+    const timestamp = new Date("2024-03-15T16:00:00Z").getTime()
     const result = formatTimeOnly(timestamp)
 
     expect(result).toBe("12:00")
+  })
+})
+
+describe("invariant de fuseau", () => {
+  const originalTz = process.env.TZ
+
+  afterEach(() => {
+    process.env.TZ = originalTz
+  })
+
+  // Le mismatch d'hydratation vient de deux runtimes aux fuseaux différents qui
+  // rendent le même instant : on simule ici les deux côtés dans un seul process.
+  it("rend la même chaîne quel que soit le fuseau du runtime", () => {
+    const instant = new Date("2026-07-27T02:30:00Z").getTime()
+
+    const rendus = [
+      "UTC",
+      "America/Toronto",
+      "Asia/Tokyo",
+      "Pacific/Kiritimati",
+    ]
+      .map((tz) => {
+        process.env.TZ = tz
+        return formatFullDateTime(instant)
+      })
+      .filter((v, _i, all) => v === all[0])
+
+    expect(rendus).toHaveLength(4)
+    expect(rendus[0]).toContain("26 juillet 2026")
+    expect(rendus[0]).toContain("à 22:30")
+  })
+
+  it("applique l'heure avancée de l'Est en été comme en hiver", () => {
+    // -5 h en janvier (EST), -4 h en juillet (EDT).
+    expect(formatTimeOnly(new Date("2026-01-15T17:00:00Z").getTime())).toBe(
+      "12:00",
+    )
+    expect(formatTimeOnly(new Date("2026-07-15T16:00:00Z").getTime())).toBe(
+      "12:00",
+    )
   })
 })

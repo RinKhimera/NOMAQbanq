@@ -1,7 +1,5 @@
 "use client"
 
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   Award,
   CalendarClock,
@@ -28,7 +26,11 @@ import {
 } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/ui/empty-state"
 import type { ExamListItem } from "@/features/exams/dal"
-import { formatFullDateTime } from "@/lib/format"
+import {
+  formatDeadline,
+  formatFullDateTime,
+  formatPaddedMediumDate,
+} from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 type ExamVariant = "active" | "upcoming" | "past"
@@ -51,9 +53,6 @@ const ExamCard = ({
   onViewResults,
   index,
 }: ExamCardProps) => {
-  const formatDateShort = (timestamp: number) =>
-    format(new Date(timestamp), "dd MMM yyyy", { locale: fr })
-
   const variantStyles = {
     active: {
       gradient:
@@ -176,11 +175,11 @@ const ExamCard = ({
             <CalendarDays className={cn("h-4 w-4", styles.iconColor)} />
             <span className="text-sm text-gray-700 dark:text-gray-300">
               {variant === "active" &&
-                `Jusqu'au ${formatFullDateTime(exam.endDate)}`}
+                `Jusqu'au ${formatDeadline(exam.endDate)}`}
               {variant === "upcoming" &&
-                `Ouverture le ${formatFullDateTime(exam.startDate)}`}
+                `Ouverture le ${formatDeadline(exam.startDate)}`}
               {variant === "past" &&
-                `Terminé le ${formatFullDateTime(exam.endDate)}`}
+                `Terminé le ${formatDeadline(exam.endDate)}`}
             </span>
           </div>
           <div
@@ -274,7 +273,7 @@ const ExamCard = ({
               className="w-full cursor-not-allowed bg-blue-100 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
             >
               <CalendarClock className="mr-2 h-4 w-4" />
-              Disponible le {formatDateShort(exam.startDate)}
+              Disponible le {formatPaddedMediumDate(exam.startDate)}
             </Button>
           )}
 

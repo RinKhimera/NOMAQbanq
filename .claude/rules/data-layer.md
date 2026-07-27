@@ -123,6 +123,26 @@ storagePath,order}` pour rester assignable aux composants partagés
   (Node) vs client → _hydration mismatch_ (« 2 880 » ≠ « 2 880 » à l'œil ; l'arbre
   est régénéré côté client et l'état local peut sauter). Toujours passer une locale
   fixe : `n.toLocaleString("fr-CA")`.
+- **Hydration — fuseau des dates** : `format()` de date-fns rend dans le fuseau
+  du RUNTIME → serveur en UTC (TZ=UTC en prod/CI) vs navigateur en heure locale
+  = mismatch systématique de 4-5 h, et de jour entier près de minuit (post-mortem
+  Sentry NOMAQBANQ-5, 29 users). TOUT formatage de date passe par `lib/format.ts`,
+  qui ancre l'instant sur `America/Toronto` via `TZDate` (`@date-fns/tz`) — ne
+  JAMAIS appeler `format()` de date-fns directement dans un composant rendu côté
+  serveur ; ajouter un helper au module plutôt qu'un `format()` inline. Une échéance
+  que le lecteur pourrait prendre pour son heure locale (ouverture/fermeture d'examen)
+  s'affiche via `formatDeadline`, qui suffixe « (heure de l'Est) » — sans ça un
+  étudiant hors Québec se trompe de plusieurs heures sur la fermeture.
+  Exceptions assumées, à ne pas « corriger » sans réfléchir :
+  - date pickers admin (`exam-form`, `users-filter-bar`) : ils formatent la valeur
+    locale du calendrier, cohérente avec ce que l'admin vient de cliquer ;
+  - `SESSION_DATE_FMT` (`features/users/dal.ts`) : formatage côté DAL, antérieur
+    au module et volontairement autonome ;
+  - `getRevenueByDay` : `parseISO` sur du date-only (`YYYY-MM-DD`) rend bien le même
+    jour partout, MAIS le bucket lui-même est un **jour UTC** (`payments/dal.ts`),
+    donc ses bornes ne coïncident pas avec les heures Toronto affichées dans la
+    table des transactions. Pré-existant, non corrigé — ne pas le présenter comme
+    cohérent.
 - **Hydration — bruit tiers filtré** : les crashs `$RS` (`Cannot read properties
 of null (reading 'parentNode')`, script inline du streaming React) causés par
   un tiers qui mute le DOM (traduction, extension, proxy) sont DROPPÉS par le

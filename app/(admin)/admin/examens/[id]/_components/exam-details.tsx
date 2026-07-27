@@ -14,7 +14,7 @@ import type {
   LeaderboardEntry,
 } from "@/features/exams/dal"
 import { getExamStatus } from "@/lib/exam-status"
-import { formatFullDateTime } from "@/lib/format"
+import { formatDeadline } from "@/lib/format"
 import { EligibleCandidatesSection } from "./eligible-candidates-section"
 import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
@@ -65,7 +65,7 @@ export function ExamDetails({
               <div>
                 <p className="text-sm font-medium">Date de début</p>
                 <p className="text-muted-foreground text-sm">
-                  {formatFullDateTime(exam.startDate)}
+                  {formatDeadline(exam.startDate)}
                 </p>
               </div>
             </div>
@@ -74,7 +74,7 @@ export function ExamDetails({
               <div>
                 <p className="text-sm font-medium">Date de fin</p>
                 <p className="text-muted-foreground text-sm">
-                  {formatFullDateTime(exam.endDate)}
+                  {formatDeadline(exam.endDate)}
                 </p>
               </div>
             </div>
