@@ -217,9 +217,13 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
                   }}
                   labelFormatter={(label) => {
                     try {
-                      return format(parseISO(label), "EEEE d MMMM yyyy", {
-                        locale: fr,
-                      })
+                      return format(
+                        parseISO(String(label)),
+                        "EEEE d MMMM yyyy",
+                        {
+                          locale: fr,
+                        },
+                      )
                     } catch {
                       return label
                     }
