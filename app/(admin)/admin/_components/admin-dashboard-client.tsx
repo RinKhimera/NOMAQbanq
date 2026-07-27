@@ -1,8 +1,6 @@
 "use client"
 
 import { IconLayoutDashboard } from "@tabler/icons-react"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import { motion } from "motion/react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
@@ -22,6 +20,7 @@ import type {
 } from "@/features/payments/dal"
 import type { QuestionStats } from "@/features/questions/dal"
 import type { AdminStats } from "@/features/users/dal"
+import { formatWeekdayLongDate } from "@/lib/format"
 
 // Lazy-load la modale (ssr:false → uniquement dans un composant client).
 const ManualPaymentModal = dynamic(
@@ -60,9 +59,7 @@ export function AdminDashboardClient({
 }: AdminDashboardClientProps) {
   const router = useRouter()
   const [showManualPaymentModal, setShowManualPaymentModal] = useState(false)
-  const [today] = useState(() =>
-    format(new Date(), "EEEE d MMMM yyyy", { locale: fr }),
-  )
+  const [today] = useState(() => formatWeekdayLongDate(new Date()))
 
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
