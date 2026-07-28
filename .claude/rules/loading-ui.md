@@ -42,11 +42,17 @@ justifie dans le code.
 ## `loading.tsx` — pas d'héritage implicite
 
 Next fait remonter le `loading.tsx` du parent sur un segment enfant qui n'a pas
-le sien : le résultat est un squelette **de la mauvaise forme** (celui du tableau
-de bord en ouvrant `abonnements`, celui d'une liste admin en ouvrant un
-formulaire de création). Chaque segment feuille déclare donc le sien —
-`PageSkeleton` par défaut, un squelette dédié quand la forme le justifie.
-**À l'ajout d'une route authentifiée, ajouter son `loading.tsx`.**
+le sien. **L'invariant : aucune route ne doit hériter d'un squelette d'une AUTRE
+forme que la sienne** — le squelette du tableau de bord en ouvrant `bienvenue`,
+celui d'une liste admin en ouvrant un formulaire de création.
+
+Concrètement : toute route dont le parent porte un squelette **dédié**
+(`tableau-de-bord`, `profil`, `entrainement`, `admin`, les 4 listes admin)
+déclare le sien. Hériter du `PageSkeleton` générique d'un parent direct est en
+revanche correct — c'est exactement ce qu'on écrirait.
+
+**À l'ajout d'une route authentifiée, vérifier de quel `loading.tsx` elle
+hérite** avant de conclure qu'elle n'en a pas besoin.
 
 ## Le garde d'onboarding ne peut pas vivre dans un layout
 
