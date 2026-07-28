@@ -27,6 +27,20 @@ const inAppZone = (d: Date | number | string) =>
 export const APP_TIME_ZONE_LABEL = "heure de l'Est"
 
 /**
+ * Heure du jour (0-23) dans le fuseau de la plateforme. Brancher sur
+ * `new Date().getHours()` lit l'heure du RUNTIME — serveur en UTC vs navigateur
+ * en heure locale — et fait diverger un texte conditionnel entre le SSR et
+ * l'hydratation (post-mortem NOMAQBANQ-5 : salutation du tableau de bord, qui
+ * cassait l'hydratation 12 h sur 24 en heure avancée).
+ */
+export const getAppZoneHour = (d: Date | number | string): number =>
+  inAppZone(d).getHours()
+
+/** Année civile dans le fuseau de la plateforme — même piège que `getAppZoneHour`. */
+export const getAppZoneYear = (d: Date | number | string): number =>
+  inAppZone(d).getFullYear()
+
+/**
  * Formate un montant en cents vers une devise lisible
  * XAF: pas de décimales, symbole après le montant
  * CAD: format standard canadien-français
