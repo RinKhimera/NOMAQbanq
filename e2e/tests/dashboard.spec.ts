@@ -55,3 +55,16 @@ test.describe("Tableau de bord etudiant", () => {
     })
   })
 })
+
+// Bloc séparé : le beforeEach ci-dessus attend déjà le rendu complet, ce qui
+// viderait de son sens une assertion sur l'absence d'écran de chargement.
+test.describe("Tableau de bord — chargement", () => {
+  test("affiche le shell immédiatement, sans overlay bloquant", async ({
+    page,
+  }) => {
+    const dashboard = new DashboardPage(page)
+    await dashboard.goto()
+    await dashboard.expectNoBlockingOverlay()
+    await dashboard.waitForReady()
+  })
+})
