@@ -65,7 +65,6 @@ export const TrainingHistorySection = ({
   const [cursor, setCursor] = useState<string | null>(initialHistory.nextCursor)
   const [isLoadingMore, startLoadMore] = useTransition()
 
-  const isLoading = false
   const hasMore = cursor !== null
 
   const loadMore = () => {
@@ -134,11 +133,7 @@ export const TrainingHistorySection = ({
 
         {/* Content */}
         <div className="p-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <LoaderCircle className="h-6 w-6 animate-spin text-gray-400" />
-            </div>
-          ) : sessions.length === 0 ? (
+          {sessions.length === 0 ? (
             <div className="py-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
                 <Target className="h-8 w-8 text-gray-400" />
