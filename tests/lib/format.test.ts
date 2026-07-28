@@ -13,6 +13,8 @@ import {
   formatTimeOnly,
   formatTimeRemaining,
   formatWeekdayLongDate,
+  getAppZoneHour,
+  getAppZoneYear,
 } from "@/lib/format"
 
 // Ces suites tournent sous TZ=UTC (vitest.config.ts) et assertent des valeurs
@@ -273,6 +275,29 @@ describe("formatTimeOnly", () => {
     const result = formatTimeOnly(timestamp)
 
     expect(result).toBe("12:00")
+  })
+})
+
+describe("getAppZoneHour", () => {
+  it("rend l'heure de Toronto, pas celle du runtime", () => {
+    // Horodatage exact de l'event NOMAQBANQ-5 du 2026-07-28 : 03:03 UTC, soit
+    // 23:03 à Toronto. Le serveur lisait 3 (« Bonjour ») et le client 23
+    // (« Bonsoir ») → texte divergent, hydratation cassée.
+    expect(getAppZoneHour(new Date("2026-07-28T03:03:05Z"))).toBe(23)
+  })
+
+  it("reste du bon côté des seuils de salutation", () => {
+    // 16:00 UTC = 12:00 à Toronto : « Bon après-midi » des deux côtés.
+    expect(getAppZoneHour(new Date("2026-07-15T16:00:00Z"))).toBe(12)
+    // 15:59 UTC = 11:59 : encore « Bonjour ».
+    expect(getAppZoneHour(new Date("2026-07-15T15:59:00Z"))).toBe(11)
+  })
+})
+
+describe("getAppZoneYear", () => {
+  it("rend l'année de Toronto le soir du 31 décembre", () => {
+    // Déjà 2027 en UTC, encore 2026 à Toronto (21:00 le 31/12).
+    expect(getAppZoneYear(new Date("2027-01-01T02:00:00Z"))).toBe(2026)
   })
 })
 
