@@ -20,6 +20,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import type { AdminUserRow } from "@/features/users/dal"
+import { formatLongDateTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type SortBy = "name" | "role" | "createdAt"
@@ -251,15 +252,7 @@ export function UsersTable({
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>
-                        {new Date(user.createdAt).toLocaleDateString("fr-CA", {
-                          day: "numeric",
-                          month: "long",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                      <p>{formatLongDateTime(user.createdAt)}</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

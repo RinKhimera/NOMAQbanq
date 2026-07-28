@@ -27,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { formatLongDateTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useQuestionBrowser } from "./question-browser-context"
 import { QuestionBrowserTableProps, QuestionRow, SortBy } from "./types"
@@ -286,18 +287,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>
-                          {new Date(question._creationTime).toLocaleDateString(
-                            "fr-CA",
-                            {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            },
-                          )}
-                        </p>
+                        <p>{formatLongDateTime(question._creationTime)}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
