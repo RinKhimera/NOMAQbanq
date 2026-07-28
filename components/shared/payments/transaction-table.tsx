@@ -20,7 +20,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Skeleton } from "@/components/ui/skeleton"
+import { PendingRegion } from "@/components/ui/pending-region"
+import { SkeletonTable } from "@/components/ui/skeleton-patterns"
 import {
   Table,
   TableBody,
@@ -178,32 +179,14 @@ const TypeBadge = ({ type }: { type: TransactionType }) => {
   )
 }
 
+/** Colonnes réelles : Date, Produit, [Utilisateur], Type, Statut, Montant. */
 const TableSkeleton = ({
   rows = 5,
   showUserColumn = false,
 }: {
   rows?: number
   showUserColumn?: boolean
-}) => (
-  <div className="space-y-3">
-    {Array.from({ length: rows }).map((_, i) => (
-      <div
-        key={i}
-        className="flex items-center gap-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-800/50"
-      >
-        <Skeleton className="h-10 w-10 rounded-full" />
-        <div className="flex-1 space-y-2">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-3 w-24" />
-        </div>
-        {showUserColumn && <Skeleton className="h-4 w-28" />}
-        <Skeleton className="h-6 w-16 rounded-full" />
-        <Skeleton className="h-6 w-16 rounded-full" />
-        <Skeleton className="h-5 w-20" />
-      </div>
-    ))}
-  </div>
-)
+}) => <SkeletonTable columns={showUserColumn ? 6 : 5} rows={rows} />
 
 export const TransactionTable = ({
   transactions,
@@ -243,7 +226,12 @@ export const TransactionTable = ({
 
   return (
     <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900">
+      {/* Seule la table est grisée : le bouton « Charger plus » porte déjà son
+          propre état d'attente, conformément à la doctrine. */}
+      <PendingRegion
+        isPending={isLoading}
+        className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900"
+      >
         <Table>
           <TableHeader>
             <TableRow className="bg-gray-50/80 hover:bg-gray-50/80 dark:bg-gray-800/50 dark:hover:bg-gray-800/50">
@@ -366,7 +354,7 @@ export const TransactionTable = ({
             ))}
           </TableBody>
         </Table>
-      </div>
+      </PendingRegion>
 
       {/* Load more button */}
       {hasMore && onLoadMore && (

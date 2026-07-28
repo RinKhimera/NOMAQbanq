@@ -1,10 +1,11 @@
 "use client"
 
-import { ArrowDown, ArrowUp, ArrowUpDown, LoaderCircle } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { PendingRegion } from "@/components/ui/pending-region"
 import {
   Table,
   TableBody,
@@ -117,17 +118,6 @@ export function UsersTable({
     )
   }
 
-  if (isLoading) {
-    return (
-      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900">
-        <div className="p-8 text-center">
-          <LoaderCircle className="mx-auto h-8 w-8 animate-spin text-gray-400" />
-          <p className="mt-2 text-sm text-gray-500">Chargement...</p>
-        </div>
-      </div>
-    )
-  }
-
   if (users.length === 0) {
     return (
       <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900">
@@ -139,7 +129,10 @@ export function UsersTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900">
+    <PendingRegion
+      isPending={isLoading ?? false}
+      className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900"
+    >
       <Table>
         <TableHeader>
           <TableRow className="hover:bg-transparent">
@@ -261,6 +254,6 @@ export function UsersTable({
           ))}
         </TableBody>
       </Table>
-    </div>
+    </PendingRegion>
   )
 }

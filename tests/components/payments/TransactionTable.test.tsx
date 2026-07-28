@@ -319,4 +319,27 @@ describe("TransactionTable", () => {
       expect(screen.getByText("Montant")).toBeInTheDocument()
     })
   })
+
+  describe("rechargement en place", () => {
+    it("garde les lignes affichées et marque la zone occupée", () => {
+      const { container } = render(
+        <TransactionTable transactions={[makeTransaction()]} isLoading />,
+      )
+
+      // Le contenu reste : pas de squelette qui remplace une liste non vide.
+      expect(screen.getByText("Accès Examens 30 jours")).toBeInTheDocument()
+      expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument()
+    })
+
+    it("affiche un squelette quand il n'y a rien à conserver", () => {
+      const { container } = render(
+        <TransactionTable transactions={[]} isLoading />,
+      )
+
+      expect(screen.queryByText("Aucune transaction trouvée")).toBeNull()
+      expect(
+        container.querySelectorAll('[data-slot="skeleton"]').length,
+      ).toBeGreaterThan(0)
+    })
+  })
 })
