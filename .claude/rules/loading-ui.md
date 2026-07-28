@@ -1,0 +1,64 @@
+---
+paths:
+  - "app/**"
+  - "components/**"
+---
+
+# États de chargement
+
+Un indicateur par **type d'attente**. Cette table fait foi ; toute exception se
+justifie dans le code.
+
+| Type d'attente                                  | Indicateur                                                      | Jamais             |
+| ----------------------------------------------- | --------------------------------------------------------------- | ------------------ |
+| **Navigation** (le contenu n'existe pas encore) | Squelette à la forme du contenu (`loading.tsx` ou `<Suspense>`) | Spinner, overlay   |
+| **Rechargement en place** (filtre, tri, page)   | `<PendingRegion isPending>` — contenu conservé, grisé           | Squelette, spinner |
+| **Action utilisateur** (bouton, form, upload)   | `<Spinner size="sm">` DANS le déclencheur + `disabled`          | Écran d'attente    |
+| **Attente sur un tiers** (Stripe)               | Écran dédié plein cadre, texte explicite                        | —                  |
+
+## Invariants
+
+- **Aucun `fixed inset-0` pour un chargement.** Un chargement ne bloque que sa
+  propre zone. (Les `fixed inset-0` de `components/ui/{dialog,sheet,alert-dialog}.tsx`
+  et l'overlay anti-triche de `components/quiz/pause-dialog.tsx` sont légitimes :
+  ce ne sont pas des chargements.)
+- **Un squelette n'est jamais un état terminal.** Absence de données = message
+  explicite + recours (voir `_components/dashboard-error-state.tsx`).
+- **Un seul spinner** : `components/ui/spinner.tsx`. Aucune animation faite main —
+  verrouillé par `tests/architecture/loading-conventions.test.ts`.
+- **Pas d'état de chargement pour la session.** Les layouts `(dashboard)`/`(admin)`
+  gardent déjà la zone côté serveur et font descendre l'utilisateur en props via
+  `toSessionUser` (`lib/session-user.ts`) : ne jamais réintroduire
+  d'`authClient.useSession()` dans le shell — c'était la cause de l'overlay plein
+  écran supprimé le 2026-07-28.
+
+## Socle
+
+`components/ui/spinner.tsx` · `components/ui/skeleton.tsx` ·
+`components/ui/skeleton-patterns.tsx` (`SkeletonText`, `SkeletonCard`,
+`SkeletonStatRow`, `SkeletonTable`, `PageSkeleton`) ·
+`components/ui/pending-region.tsx` · `components/admin/admin-list-skeleton.tsx`.
+
+## `loading.tsx` — pas d'héritage implicite
+
+Next fait remonter le `loading.tsx` du parent sur un segment enfant qui n'a pas
+le sien : le résultat est un squelette **de la mauvaise forme** (celui du tableau
+de bord en ouvrant `abonnements`, celui d'une liste admin en ouvrant un
+formulaire de création). Chaque segment feuille déclare donc le sien —
+`PageSkeleton` par défaut, un squelette dédié quand la forme le justifie.
+**À l'ajout d'une route authentifiée, ajouter son `loading.tsx`.**
+
+## Le garde d'onboarding ne peut pas vivre dans un layout
+
+`OnboardingGuard` (`components/shared/onboarding-guard.tsx`) reste un composant
+client monté par `app/(dashboard)/layout.tsx`. Ne pas « simplifier » sa logique
+en la remontant dans le layout : un layout ne se re-rend pas à la navigation et
+n'a donc pas accès à `pathname`
+(`node_modules/next/dist/docs/.../layout.md:240`) — un utilisateur sans
+`username` quittant `/bienvenue` par la sidebar ne serait jamais ramené.
+
+## Couverture
+
+Les squelettes sont du balisage sans logique : les ajouter à `coverage.exclude`
+de `vitest.config.ts` (comme `components/admin/admin-list-skeleton.tsx`) plutôt
+que d'écrire des tests vides. `components/ui/**` est déjà exclu.
