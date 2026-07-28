@@ -44,6 +44,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
+import { Spinner } from "@/components/ui/spinner"
 import {
   createCustomerPortal,
   loadMoreMyTransactions,
@@ -313,7 +314,7 @@ export const AbonnementsClient = ({
               >
                 {isLoadingPortal ? (
                   <span className="flex items-center gap-2">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                    <Spinner size="sm" />
                     Chargement...
                   </span>
                 ) : (

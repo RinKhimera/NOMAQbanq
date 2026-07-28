@@ -11,7 +11,6 @@ import {
   Coffee,
   FileText,
   Info,
-  LoaderCircle,
   Save,
   Sparkles,
   Users,
@@ -55,6 +54,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Separator } from "@/components/ui/separator"
 import { Slider } from "@/components/ui/slider"
+import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { createExam, updateExam } from "@/features/exams/actions"
@@ -796,7 +796,7 @@ export function ExamForm(props: ExamFormProps) {
                   >
                     {form.formState.isSubmitting ? (
                       <>
-                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                        <Spinner size="sm" className="mr-2" />
                         {copy.submittingLabel}
                       </>
                     ) : (

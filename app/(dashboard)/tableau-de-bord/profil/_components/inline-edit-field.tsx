@@ -2,13 +2,14 @@
 
 import { zodResolver } from "@hookform/resolvers/zod"
 import { IconCheck, IconPencil, IconX } from "@tabler/icons-react"
-import { LoaderCircle, type LucideIcon } from "lucide-react"
+import { type LucideIcon } from "lucide-react"
 import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
@@ -250,7 +251,7 @@ export const InlineEditField = ({
                     )}
                   >
                     {isSaving ? (
-                      <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" />
+                      <Spinner size="sm" className="mr-1.5" />
                     ) : (
                       <IconCheck className="mr-1.5 h-4 w-4" />
                     )}

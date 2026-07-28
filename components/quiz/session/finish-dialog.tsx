@@ -1,6 +1,6 @@
 "use client"
 
-import { Clock, Flag, LoaderCircle, TriangleAlert } from "lucide-react"
+import { Clock, Flag, TriangleAlert } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Spinner } from "@/components/ui/spinner"
 import { formatExamTime } from "@/lib/exam-timer"
 import { cn } from "@/lib/utils"
 import type { FinishDialogProps } from "./types"
@@ -140,7 +141,7 @@ export const FinishDialog = ({
           >
             {isSubmitting ? (
               <>
-                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                <Spinner size="sm" className="mr-2" />
                 {mode === "exam" ? "Soumission..." : "Calcul du score..."}
               </>
             ) : (

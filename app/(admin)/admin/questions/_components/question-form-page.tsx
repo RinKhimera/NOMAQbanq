@@ -8,7 +8,6 @@ import {
   FileText,
   Image as ImageIcon,
   Info,
-  LoaderCircle,
   Minus,
   Plus,
   Save,
@@ -46,6 +45,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { MEDICAL_DOMAINS } from "@/constants"
 import {
@@ -154,7 +154,7 @@ export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
   if (mode === "edit" && question === undefined) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <LoaderCircle className="h-8 w-8 animate-spin text-blue-600" />
+        <Spinner size="lg" />
       </div>
     )
   }
@@ -738,7 +738,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
               >
                 {form.formState.isSubmitting ? (
                   <>
-                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                    <Spinner size="sm" />
                     {mode === "create" ? "Création..." : "Enregistrement..."}
                   </>
                 ) : (

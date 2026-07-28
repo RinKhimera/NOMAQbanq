@@ -1,6 +1,6 @@
 "use client"
 
-import { LoaderCircle, Search, X } from "lucide-react"
+import { Search, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import { MEDICAL_DOMAINS } from "@/constants"
 import { cn } from "@/lib/utils"
 import { useQuestionBrowser } from "./question-browser-context"
@@ -39,7 +40,10 @@ export function QuestionBrowserToolbar({
         {/* Search */}
         <div className="relative flex-1">
           {isSearching ? (
-            <LoaderCircle className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 animate-spin text-gray-400" />
+            <Spinner
+              size="sm"
+              className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
+            />
           ) : (
             <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
           )}

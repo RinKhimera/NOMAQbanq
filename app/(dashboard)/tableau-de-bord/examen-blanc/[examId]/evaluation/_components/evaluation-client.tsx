@@ -1,6 +1,6 @@
 "use client"
 
-import { Loader2, ShieldAlert, TriangleAlert } from "lucide-react"
+import { ShieldAlert, TriangleAlert } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
@@ -19,6 +19,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
+import { SkeletonCard, SkeletonText } from "@/components/ui/skeleton-patterns"
+import { Spinner } from "@/components/ui/spinner"
 import {
   finalizeExam,
   pauseExam,
@@ -325,7 +328,7 @@ export function EvaluationClient({
               >
                 {isStarting ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Spinner size="sm" />
                     Démarrage…
                   </>
                 ) : (
@@ -343,12 +346,15 @@ export function EvaluationClient({
   // ne jamais monter le runner à vide (chrono lancé sur un examen sans question).
   if (totalQuestions === 0) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
-        <div className="text-muted-foreground flex items-center gap-3">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          Chargement de l&apos;examen…
-        </div>
-      </div>
+      // Attente de contenu : squelette à la forme de l'examen, pas d'écran bloquant.
+      <output
+        aria-label="Préparation de l'examen"
+        className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 lg:p-6"
+      >
+        <Skeleton className="h-8 w-2/3" />
+        <SkeletonText lines={3} />
+        <SkeletonCard />
+      </output>
     )
   }
 

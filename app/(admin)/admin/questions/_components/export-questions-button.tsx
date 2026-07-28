@@ -1,12 +1,6 @@
 "use client"
 
-import {
-  Download,
-  FileBraces,
-  FileSpreadsheet,
-  FileText,
-  LoaderCircle,
-} from "lucide-react"
+import { Download, FileBraces, FileSpreadsheet, FileText } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -18,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Spinner } from "@/components/ui/spinner"
 import { loadQuestionsForExport } from "@/features/questions/actions"
 import type { QuestionExportRow as ExportQuestion } from "@/features/questions/dal"
 import {
@@ -160,7 +155,7 @@ export function ExportQuestionsButton({
       <DropdownMenuTrigger asChild>
         <Button variant="outline" className="gap-2" disabled={isExporting}>
           {isExporting ? (
-            <LoaderCircle className="h-4 w-4 animate-spin" />
+            <Spinner size="sm" />
           ) : (
             <Download className="h-4 w-4" />
           )}

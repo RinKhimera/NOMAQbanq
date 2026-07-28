@@ -5,7 +5,6 @@ import {
   Ellipsis,
   Eye,
   History,
-  LoaderCircle,
   Target,
   Trash2,
   Trophy,
@@ -23,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Spinner } from "@/components/ui/spinner"
 import { loadTrainingHistory } from "@/features/training/actions"
 import type {
   TrainingHistoryItem,
@@ -262,7 +262,7 @@ export const TrainingHistorySection = ({
                   >
                     {isLoadingMore ? (
                       <>
-                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                        <Spinner size="sm" className="mr-2" />
                         Chargement...
                       </>
                     ) : (

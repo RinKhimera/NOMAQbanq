@@ -4,6 +4,7 @@ import { ArrowRight, Check, Clock, Crown, Sparkles, Zap } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { AccessBadge, getAccessStatus } from "./access-badge"
@@ -276,7 +277,7 @@ export const PricingCard = ({
           >
             {isLoading ? (
               <span className="flex items-center gap-2">
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                <Spinner className="text-white" />
                 Chargement...
               </span>
             ) : (

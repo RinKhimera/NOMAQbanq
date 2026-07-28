@@ -8,7 +8,6 @@ import {
   CreditCard,
   FileText,
   House,
-  LoaderCircle,
   PartyPopper,
   RefreshCw,
 } from "lucide-react"
@@ -22,6 +21,7 @@ import {
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import { verifyStripeCheckout } from "@/features/payments/actions"
 import type { AccessStatus } from "@/features/payments/dal"
 import { formatCurrency } from "@/lib/format"
@@ -135,7 +135,7 @@ export const PaymentSuccessContent = ({
           >
             <div className="mb-8 flex justify-center">
               <div className="flex h-24 w-24 items-center justify-center rounded-3xl bg-linear-to-br from-blue-100 to-indigo-100 dark:from-blue-900/50 dark:to-indigo-900/50">
-                <LoaderCircle className="h-12 w-12 animate-spin text-blue-600 dark:text-blue-400" />
+                <Spinner size="lg" />
               </div>
             </div>
             <h1 className="mb-3 text-2xl font-bold text-gray-900 dark:text-white">

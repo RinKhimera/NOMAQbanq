@@ -5,6 +5,7 @@ import { motion } from "motion/react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { Spinner } from "@/components/ui/spinner"
 import {
   calculatePauseTimeRemaining,
   formatPauseTime,
@@ -168,7 +169,7 @@ export const PauseDialog = ({
         >
           {isResuming ? (
             <>
-              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <Spinner size="sm" className="mr-2 text-white" />
               Reprise en cours...
             </>
           ) : (

@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, ChevronsUpDown, LoaderCircle, X } from "lucide-react"
+import { Check, ChevronsUpDown, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
 interface ObjectifsCMCMultiSelectProps {
@@ -114,7 +115,7 @@ export function ObjectifsCMCMultiSelect({
             <CommandList>
               {isLoading ? (
                 <div className="flex items-center justify-center p-4">
-                  <LoaderCircle className="h-4 w-4 animate-spin text-gray-400" />
+                  <Spinner size="sm" className="text-muted-foreground" />
                   <span className="ml-2 text-sm text-gray-500">
                     Chargement...
                   </span>

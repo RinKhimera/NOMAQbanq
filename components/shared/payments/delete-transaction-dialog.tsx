@@ -1,6 +1,6 @@
 "use client"
 
-import { Info, LoaderCircle, Trash2, TriangleAlert } from "lucide-react"
+import { Info, Trash2, TriangleAlert } from "lucide-react"
 import { motion } from "motion/react"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Spinner } from "@/components/ui/spinner"
 import {
   deleteManualTransaction,
   loadTransactionAccessImpact,
@@ -179,7 +180,7 @@ export const DeleteTransactionDialog = ({
           >
             {isDeleting ? (
               <span className="flex items-center gap-2">
-                <LoaderCircle className="h-4 w-4 animate-spin" />
+                <Spinner size="sm" />
                 Suppression...
               </span>
             ) : (

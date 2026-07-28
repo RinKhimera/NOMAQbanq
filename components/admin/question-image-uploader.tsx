@@ -24,7 +24,6 @@ import {
   IconUpload,
   IconX,
 } from "@tabler/icons-react"
-import { LoaderCircle } from "lucide-react"
 import Image from "next/image"
 import {
   type Dispatch,
@@ -36,6 +35,7 @@ import {
 } from "react"
 import { useDropzone } from "react-dropzone"
 import { toast } from "sonner"
+import { Spinner } from "@/components/ui/spinner"
 import { createQuestionImageUpload } from "@/features/questions/actions"
 import { cdnUrl } from "@/lib/cdn"
 import { cn } from "@/lib/utils"
@@ -171,7 +171,7 @@ const UploadingImageItem = ({
     <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 p-2">
       {item.status === "uploading" && (
         <>
-          <LoaderCircle className="h-6 w-6 animate-spin text-white" />
+          <Spinner size="lg" className="text-white" />
           <span className="mt-1 text-xs text-white">Téléversement…</span>
         </>
       )}

@@ -9,7 +9,6 @@ import {
   CreditCard,
   DollarSign,
   FileText,
-  LoaderCircle,
   Package,
   User,
 } from "lucide-react"
@@ -54,6 +53,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { recordManualPayment } from "@/features/payments/actions"
 import type { ProductView } from "@/features/payments/dal"
@@ -512,7 +512,7 @@ export const ManualPaymentModal = ({
                     >
                       {isSubmitting ? (
                         <span className="flex items-center gap-2">
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          <Spinner size="sm" />
                           Enregistrement...
                         </span>
                       ) : (
