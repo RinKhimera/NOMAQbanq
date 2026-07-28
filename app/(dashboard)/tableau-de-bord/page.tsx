@@ -12,7 +12,7 @@ import {
 } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { DashboardClient } from "./_components/dashboard-client"
-import { DashboardSkeleton } from "./_components/dashboard-skeleton"
+import { DashboardErrorState } from "./_components/dashboard-error-state"
 
 // Horloge isolée du corps de rendu (react-hooks/purity s'applique aussi côté
 // Server Component) — passée en prop au lieu d'un Date.now() inline.
@@ -42,8 +42,8 @@ export default async function DashboardPage() {
   ])
 
   // Le layout dashboard garde déjà la session ; `stats` n'est null que sans
-  // session (cas limite) — on retombe alors sur le squelette.
-  if (!stats) return <DashboardSkeleton />
+  // session (cas limite) — état terminal explicite, jamais un squelette.
+  if (!stats) return <DashboardErrorState />
 
   return (
     <DashboardClient
