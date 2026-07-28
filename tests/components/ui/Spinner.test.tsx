@@ -17,10 +17,14 @@ describe("Spinner", () => {
 
   it("applique la taille demandée", () => {
     const { rerender } = render(<Spinner size="sm" />)
-    expect(screen.getByRole("status").querySelector("svg")).toHaveClass("size-4")
+    expect(screen.getByRole("status").querySelector("svg")).toHaveClass(
+      "size-4",
+    )
 
     rerender(<Spinner size="lg" />)
-    expect(screen.getByRole("status").querySelector("svg")).toHaveClass("size-8")
+    expect(screen.getByRole("status").querySelector("svg")).toHaveClass(
+      "size-8",
+    )
   })
 
   it("désactive l'animation quand le mouvement est réduit", () => {
