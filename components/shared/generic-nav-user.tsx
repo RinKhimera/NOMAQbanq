@@ -2,7 +2,6 @@
 
 import { IconDotsVertical, IconLogout } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import {
   DropdownMenu,
@@ -18,86 +17,24 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { authClient } from "@/lib/auth-client"
+import type { SessionUser } from "@/lib/session-user"
 import { cn } from "@/lib/utils"
 
 interface NavUserProps {
-  requireAdmin?: boolean
-  redirectUrl?: string
+  user: SessionUser
+  isAdmin?: boolean
 }
 
-export const GenericNavUser = ({
-  requireAdmin = false,
-  redirectUrl = "/",
-}: NavUserProps) => {
+/**
+ * Item de menu utilisateur de la sidebar. L'utilisateur vient du layout serveur
+ * (qui a déjà gardé la zone via `requireSession`/`requireRole`) : ce composant
+ * n'a donc AUCUN état de chargement et ne garde ni ne redirige rien. Ne pas y
+ * réintroduire de `useSession` — c'était la cause de l'overlay plein écran.
+ */
+export const GenericNavUser = ({ user, isAdmin = false }: NavUserProps) => {
   const { isMobile } = useSidebar()
-  const { currentUser, isLoading } = useCurrentUser()
   const router = useRouter()
-
-  // Redirection: utilisateur non connecté ou non admin (si requis)
-  useEffect(() => {
-    if (isLoading) return
-
-    // Redirect if not authenticated
-    if (currentUser === null || currentUser === undefined) {
-      router.push(redirectUrl)
-      return
-    }
-
-    // Redirect if admin required but not admin
-    if (requireAdmin && currentUser.role !== "admin") {
-      router.push(redirectUrl)
-      return
-    }
-  }, [currentUser, isLoading, requireAdmin, redirectUrl, router])
-
-  if (isLoading || currentUser === undefined) {
-    return (
-      <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
-        <div className="flex flex-col items-center space-y-4">
-          <div
-            className={cn(
-              "h-12 w-12 animate-spin rounded-full border-b-2",
-              requireAdmin ? "border-orange-500" : "border-blue-500",
-            )}
-          />
-          <div className="text-center">
-            <h2 className="text-lg font-semibold">Chargement...</h2>
-            <p className="text-muted-foreground text-sm">
-              {requireAdmin
-                ? "Vérification des permissions"
-                : "Connexion en cours"}
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Si pas d'utilisateur, ne rien afficher (redirection en cours)
-  if (currentUser === null) {
-    return null
-  }
-
-  // Vérification supplémentaire du rôle admin si requis
-  if (requireAdmin && currentUser.role !== "admin") {
-    return (
-      <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="border-destructive h-12 w-12 animate-spin rounded-full border-b-2" />
-          <div className="text-center">
-            <h2 className="text-destructive text-lg font-semibold">
-              Accès refusé
-            </h2>
-            <p className="text-muted-foreground text-sm">
-              Redirection en cours...
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   const handleSignOut = async () => {
     await authClient.signOut()
@@ -115,34 +52,32 @@ export const GenericNavUser = ({
                 "group/avatar cursor-pointer rounded-xl transition-all duration-200",
                 "hover:bg-blue-500/10 dark:hover:bg-blue-400/10",
                 "data-[state=open]:text-sidebar-accent-foreground data-[state=open]:bg-blue-500/15",
-                requireAdmin && [
+                isAdmin && [
                   "hover:bg-orange-500/10 dark:hover:bg-orange-400/10",
                   "data-[state=open]:bg-orange-500/15",
                 ],
               )}
             >
               <UserAvatar
-                name={currentUser.name}
-                image={currentUser.image}
+                name={user.name}
+                image={user.image}
                 className={cn(
                   "ring-offset-sidebar h-9 w-9 rounded-lg ring-2 ring-offset-2 transition-all",
-                  requireAdmin
+                  isAdmin
                     ? "ring-orange-500/30 group-hover/avatar:ring-orange-500/50"
                     : "ring-blue-500/30 group-hover/avatar:ring-blue-500/50",
                 )}
                 fallbackClassName={cn(
                   "rounded-lg font-semibold",
-                  requireAdmin
+                  isAdmin
                     ? "bg-linear-to-br from-orange-500 to-amber-500 text-white"
                     : "bg-linear-to-br from-blue-500 to-indigo-500 text-white",
                 )}
               />
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">
-                  {currentUser.name}
-                </span>
+                <span className="truncate font-semibold">{user.name}</span>
                 <span className="text-muted-foreground truncate text-xs">
-                  {currentUser.email}
+                  {user.email}
                 </span>
               </div>
               <IconDotsVertical className="ml-auto size-4 opacity-50 transition-opacity group-hover/avatar:opacity-100" />
@@ -157,27 +92,25 @@ export const GenericNavUser = ({
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-3 px-2 py-2.5 text-left text-sm">
                 <UserAvatar
-                  name={currentUser.name}
-                  image={currentUser.image}
+                  name={user.name}
+                  image={user.image}
                   className={cn(
                     "h-10 w-10 rounded-lg ring-2",
-                    requireAdmin ? "ring-orange-500/30" : "ring-blue-500/30",
+                    isAdmin ? "ring-orange-500/30" : "ring-blue-500/30",
                   )}
                   fallbackClassName={cn(
                     "rounded-lg font-semibold",
-                    requireAdmin
+                    isAdmin
                       ? "bg-linear-to-br from-orange-500 to-amber-500 text-white"
                       : "bg-linear-to-br from-blue-500 to-indigo-500 text-white",
                   )}
                 />
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
-                    {currentUser.name}
-                  </span>
+                  <span className="truncate font-semibold">{user.name}</span>
                   <span className="text-muted-foreground truncate text-xs">
-                    {currentUser.email}
+                    {user.email}
                   </span>
-                  {requireAdmin && (
+                  {isAdmin && (
                     <span className="mt-1 text-[10px] font-medium tracking-wider text-orange-500 uppercase">
                       Administrateur
                     </span>

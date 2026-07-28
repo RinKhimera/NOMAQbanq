@@ -6,14 +6,20 @@ import { GenericNavUser } from "@/components/shared/generic-nav-user"
 import { SiteHeader } from "@/components/shared/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { adminNavigation, dashboardNavigation } from "@/constants"
+import type { SessionUser } from "@/lib/session-user"
 import { cn } from "@/lib/utils"
 
 type DashboardShellProps = {
   children: React.ReactNode
   variant: "admin" | "user"
+  user: SessionUser
 }
 
-export const DashboardShell = ({ children, variant }: DashboardShellProps) => {
+export const DashboardShell = ({
+  children,
+  variant,
+  user,
+}: DashboardShellProps) => {
   const isAdmin = variant === "admin"
   const navigation = isAdmin ? adminNavigation : dashboardNavigation
   const homeUrl = isAdmin ? "/admin" : "/tableau-de-bord"
@@ -33,9 +39,7 @@ export const DashboardShell = ({ children, variant }: DashboardShellProps) => {
         navigation={navigation}
         homeUrl={homeUrl}
         isAdmin={isAdmin}
-        userComponent={
-          <GenericNavUser requireAdmin={isAdmin} redirectUrl="/" />
-        }
+        userComponent={<GenericNavUser user={user} isAdmin={isAdmin} />}
       />
       <SidebarInset className={cn(isAdmin ? "admin-theme-bg" : "theme-bg")}>
         <SiteHeader isAdmin={isAdmin} />
