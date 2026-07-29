@@ -26,11 +26,21 @@ justifie dans le code.
   explicite + recours (voir `_components/dashboard-error-state.tsx`).
 - **Un seul spinner** : `components/ui/spinner.tsx`. Aucune animation faite main —
   verrouillé par `tests/architecture/loading-conventions.test.ts`.
-- **Pas d'état de chargement pour la session.** Les layouts `(dashboard)`/`(admin)`
-  gardent déjà la zone côté serveur et font descendre l'utilisateur en props via
-  `toSessionUser` (`lib/session-user.ts`) : ne jamais réintroduire
-  d'`authClient.useSession()` dans le shell — c'était la cause de l'overlay plein
-  écran supprimé le 2026-07-28.
+- **Pas d'état de chargement pour la session — c'est un bug d'hydratation, pas
+  seulement un défaut d'UX.** `authClient.useSession()` renvoie `isPending: true`
+  au SSR (aucune session n'est résolue côté serveur) : le HTML serveur contenait
+  donc l'overlay « Chargement… / Connexion en cours », que le client ne rendait
+  pas une fois la session lue du cache cookie → **deux arbres DOM différents**.
+  C'est une des causes prouvées de **NOMAQBANQ-5** (`replay_hydration_error` sur
+  `/tableau-de-bord`, 25 utilisateurs), diagnostiquée sur la capture serveur/client
+  de Sentry le 2026-07-29. Les layouts `(dashboard)`/`(admin)` gardent déjà la
+  zone côté serveur et font descendre l'utilisateur en props via `toSessionUser`
+  (`lib/session-user.ts`) : ne jamais réintroduire d'`authClient.useSession()`
+  dans le shell.
+  Corollaire général : **tout état dérivé du client seul (session, `window`,
+  `Date.now()`) rendu conditionnellement pendant le SSR produit un mismatch.**
+  L'autre cause de la même issue était le salut du hero calculé sur l'heure du
+  runtime (corrigé par #130, `getAppZoneHour`).
 
 ## Socle
 
