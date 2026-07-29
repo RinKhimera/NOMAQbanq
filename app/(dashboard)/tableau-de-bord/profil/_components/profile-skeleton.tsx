@@ -2,9 +2,14 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 export const ProfileSkeleton = () => {
   return (
-    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* Header skeleton */}
-      <div className="relative overflow-hidden rounded-3xl border border-gray-100 bg-linear-to-br from-blue-50/80 via-indigo-50/50 to-violet-50/80 p-6 shadow-sm md:p-8 dark:border-gray-800 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-violet-950/30">
+    <output
+      aria-label="Chargement du profil"
+      className="flex w-full flex-col gap-6 p-4 md:gap-8 lg:p-6"
+    >
+      {/* En-tête. Fond NEUTRE volontairement : le vrai en-tête porte un dégradé
+          bleu/violet pâle (L ~97) sur lequel `bg-accent` (L 96,5) devient
+          invisible — le squelette n'affichait alors qu'une carte vide. */}
+      <div className="relative overflow-hidden rounded-3xl border border-gray-100 bg-white p-6 shadow-sm md:p-8 dark:border-gray-800 dark:bg-gray-900">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start">
           <Skeleton className="h-32 w-32 rounded-2xl sm:h-36 sm:w-36" />
           <div className="flex-1 space-y-3 text-center sm:text-left">
@@ -58,6 +63,6 @@ export const ProfileSkeleton = () => {
           </div>
         </div>
       </div>
-    </div>
+    </output>
   )
 }

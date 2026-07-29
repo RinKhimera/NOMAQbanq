@@ -1,18 +1,12 @@
 "use client"
 
-import {
-  ArrowRight,
-  Brain,
-  Check,
-  LoaderCircle,
-  Lock,
-  Sparkles,
-} from "lucide-react"
+import { ArrowRight, Brain, Check, Lock, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { useActionState, useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import { createStripeCheckout } from "@/features/payments/actions"
 import type { ProductView } from "@/features/payments/dal"
 import { formatCurrency } from "@/lib/format"
@@ -142,7 +136,7 @@ export const TrainingPaywall = ({
                 </motion.div>
               ) : (
                 <div className="mb-8 flex justify-center">
-                  <LoaderCircle className="h-8 w-8 animate-spin text-gray-400" />
+                  <Spinner size="lg" className="text-muted-foreground" />
                 </div>
               )}
 
@@ -156,7 +150,7 @@ export const TrainingPaywall = ({
                 >
                   {isPending ? (
                     <>
-                      <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
+                      <Spinner className="mr-2" />
                       Redirection vers le paiement...
                     </>
                   ) : (

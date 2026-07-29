@@ -77,6 +77,7 @@ export default defineConfig({
         "components/seo/**",
         // Skeletons / Charts Recharts (wrappers)
         "components/admin/dashboard/skeleton.tsx",
+        "components/admin/admin-list-skeleton.tsx",
         "components/admin/dashboard/domain-chart.tsx",
         "components/admin/dashboard/domain-chart-content.tsx",
         "components/admin/dashboard/revenue-chart.tsx",

@@ -1,7 +1,6 @@
 "use client"
 
 import { IconCamera, IconCheck, IconUpload, IconX } from "@tabler/icons-react"
-import { LoaderCircle } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
@@ -18,6 +17,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider"
+import { Spinner } from "@/components/ui/spinner"
 import {
   confirmAvatarUpload,
   createAvatarUpload,
@@ -206,7 +206,7 @@ export const AvatarUploader = ({
         {/* Loading overlay */}
         {isUploading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <LoaderCircle className="h-1/3 w-1/3 animate-spin text-white" />
+            <Spinner size="lg" className="text-white" />
           </div>
         )}
       </div>
@@ -269,7 +269,7 @@ export const AvatarUploader = ({
             >
               {isUploading ? (
                 <>
-                  <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                  <Spinner size="sm" className="mr-2" />
                   Upload...
                 </>
               ) : (

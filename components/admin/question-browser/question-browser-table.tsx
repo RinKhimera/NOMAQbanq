@@ -12,7 +12,7 @@ import { RelativeTime } from "@/components/shared/relative-time"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Skeleton } from "@/components/ui/skeleton"
+import { SkeletonTable } from "@/components/ui/skeleton-patterns"
 import {
   Table,
   TableBody,
@@ -27,32 +27,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { formatLongDateTime } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { useQuestionBrowser } from "./question-browser-context"
 import { QuestionBrowserTableProps, QuestionRow, SortBy } from "./types"
 import { getDomainColor, truncateText } from "./utils"
 
+/** Colonnes réelles : case à cocher, #, énoncé, domaine, objectif, images, date. */
 function TableSkeleton() {
-  return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900">
-      <div className="p-4">
-        {[...Array(10)].map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-4 border-b border-gray-100 py-3 last:border-0 dark:border-gray-800"
-          >
-            <Skeleton className="h-5 w-5 rounded" />
-            <Skeleton className="h-4 w-8" />
-            <Skeleton className="h-4 flex-1" />
-            <Skeleton className="h-6 w-24 rounded-full" />
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-6 w-10" />
-            <Skeleton className="h-4 w-20" />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
+  return <SkeletonTable columns={7} rows={10} />
 }
 
 function EmptyState() {
@@ -286,18 +269,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>
-                          {new Date(question._creationTime).toLocaleDateString(
-                            "fr-CA",
-                            {
-                              day: "numeric",
-                              month: "long",
-                              year: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            },
-                          )}
-                        </p>
+                        <p>{formatLongDateTime(question._creationTime)}</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

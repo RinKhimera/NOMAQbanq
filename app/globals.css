@@ -745,8 +745,7 @@
   .animate-vital-pulse-green,
   .animate-vital-pulse-amber,
   .animate-score-fill,
-  .animate-count-up,
-  .loading-shimmer {
+  .animate-count-up {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
@@ -777,27 +776,6 @@
 
   .perspective-1000 {
     perspective: 800px;
-  }
-}
-
-/* Loading states */
-.loading-shimmer {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
-}
-
-.dark .loading-shimmer {
-  background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
-  background-size: 200% 100%;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
   }
 }
 

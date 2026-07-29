@@ -1,6 +1,6 @@
 "use client"
 
-import { CircleAlert, Clock, LoaderCircle, Play, X } from "lucide-react"
+import { CircleAlert, Clock, Play, X } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
@@ -17,6 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import { abandonTrainingSession } from "@/features/training/actions"
 
 interface ResumeSessionCardProps {
@@ -156,7 +157,7 @@ export const ResumeSessionCard = ({
                 disabled={isAbandoning}
               >
                 {isAbandoning ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" />
                 ) : (
                   <X className="h-4 w-4" />
                 )}

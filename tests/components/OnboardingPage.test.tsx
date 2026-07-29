@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import OnboardingPage from "@/app/(dashboard)/tableau-de-bord/bienvenue/page"
+import { OnboardingForm } from "@/app/(dashboard)/tableau-de-bord/bienvenue/_components/onboarding-form"
 import { updateProfile } from "@/features/users/actions"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { createMockBetterAuthUser, mockRouter } from "../helpers/mocks"
@@ -13,7 +13,10 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
-describe("OnboardingPage", () => {
+// La redirection « déjà onboardé » n'appartient plus à ce composant : elle vit
+// dans OnboardingGuard (monté par le layout), couverte par
+// tests/components/OnboardingGuard.test.tsx.
+describe("OnboardingForm (page bienvenue)", () => {
   const mockReplace = vi.fn()
   const mockRefetch = vi.fn()
 
@@ -40,7 +43,7 @@ describe("OnboardingPage", () => {
   })
 
   it("laisse saisir le username sans l'effacer (pas de boucle de reset)", () => {
-    render(<OnboardingPage />)
+    render(<OnboardingForm defaultName="" defaultBio="" />)
 
     const username = screen.getByPlaceholderText(
       "votre_nom_utilisateur",
@@ -53,7 +56,7 @@ describe("OnboardingPage", () => {
   it("resynchronise la session puis redirige après soumission réussie", async () => {
     vi.mocked(updateProfile).mockResolvedValue({ success: true })
 
-    render(<OnboardingPage />)
+    render(<OnboardingForm defaultName="" defaultBio="" />)
 
     fireEvent.change(screen.getByPlaceholderText("Ex: Marie Dupont"), {
       target: { value: "Youssouf N" },
@@ -88,7 +91,7 @@ describe("OnboardingPage", () => {
       error: "Ce nom d'utilisateur est déjà pris !",
     })
 
-    render(<OnboardingPage />)
+    render(<OnboardingForm defaultName="" defaultBio="" />)
 
     fireEvent.change(screen.getByPlaceholderText("Ex: Marie Dupont"), {
       target: { value: "Youssouf N" },
@@ -103,13 +106,19 @@ describe("OnboardingPage", () => {
     expect(mockReplace).not.toHaveBeenCalled()
   })
 
-  it("redirige vers le dashboard si l'utilisateur a déjà un username", async () => {
-    setUser("deja_pris")
+  it("prérend les valeurs fournies par le serveur", () => {
+    render(<OnboardingForm defaultName="Youssouf N" defaultBio="Résident" />)
 
-    render(<OnboardingPage />)
-
-    await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalledWith("/tableau-de-bord"),
-    )
+    expect(
+      (screen.getByPlaceholderText("Ex: Marie Dupont") as HTMLInputElement)
+        .value,
+    ).toBe("Youssouf N")
+    expect(
+      (
+        screen.getByPlaceholderText(
+          "Parlez brièvement de vous",
+        ) as HTMLTextAreaElement
+      ).value,
+    ).toBe("Résident")
   })
 })

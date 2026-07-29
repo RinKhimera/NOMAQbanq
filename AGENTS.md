@@ -101,6 +101,7 @@ Regles specialisees dans `.claude/rules/`:
 | Fichier          | Scope                                                            | Contenu                                                                                                     |
 | ---------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `data-layer.md`  | `features/**`, `app/**`, `components/**`, `tests/integration/**` | DAL Drizzle, Server Actions, forme-pont quiz, PII/frontiere client, gotchas ESLint/SonarLint, cleanup tests |
+| `loading-ui.md`  | `app/**`, `components/**`                                        | Doctrine des états de chargement, socle Spinner/Skeleton, `loading.tsx` par segment                         |
 | `admin-ui.md`    | `app/(admin)/**`, `components/admin/**`                          | Master-detail, stat cards, filtres                                                                          |
 | `seo.md`         | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts`          | Metadata, pages marketing                                                                                   |
 | `e2e-testing.md` | `e2e/**`, `playwright.config.ts`, `components/quiz/**`           | Playwright, data-testid, auth Better Auth, selectors                                                        |

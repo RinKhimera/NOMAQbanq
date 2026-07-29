@@ -5,7 +5,6 @@ import {
   Ellipsis,
   Eye,
   History,
-  LoaderCircle,
   Target,
   Trash2,
   Trophy,
@@ -23,6 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Spinner } from "@/components/ui/spinner"
 import { loadTrainingHistory } from "@/features/training/actions"
 import type {
   TrainingHistoryItem,
@@ -65,7 +65,6 @@ export const TrainingHistorySection = ({
   const [cursor, setCursor] = useState<string | null>(initialHistory.nextCursor)
   const [isLoadingMore, startLoadMore] = useTransition()
 
-  const isLoading = false
   const hasMore = cursor !== null
 
   const loadMore = () => {
@@ -134,11 +133,7 @@ export const TrainingHistorySection = ({
 
         {/* Content */}
         <div className="p-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <LoaderCircle className="h-6 w-6 animate-spin text-gray-400" />
-            </div>
-          ) : sessions.length === 0 ? (
+          {sessions.length === 0 ? (
             <div className="py-12 text-center">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
                 <Target className="h-8 w-8 text-gray-400" />
@@ -267,7 +262,7 @@ export const TrainingHistorySection = ({
                   >
                     {isLoadingMore ? (
                       <>
-                        <LoaderCircle className="mr-2 h-4 w-4 animate-spin" />
+                        <Spinner size="sm" className="mr-2" />
                         Chargement...
                       </>
                     ) : (

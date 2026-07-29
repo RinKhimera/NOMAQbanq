@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, ChevronsUpDown, LoaderCircle } from "lucide-react"
+import { Check, ChevronsUpDown } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,6 +16,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { Spinner } from "@/components/ui/spinner"
 import { loadUniqueObjectifsCMC } from "@/features/questions/actions"
 import { cn } from "@/lib/utils"
 
@@ -115,7 +116,7 @@ export function ObjectifCMCCombobox({
           <CommandList>
             {isLoading ? (
               <div className="flex items-center justify-center p-4">
-                <LoaderCircle className="h-4 w-4 animate-spin text-gray-400" />
+                <Spinner size="sm" className="text-muted-foreground" />
                 <span className="ml-2 text-sm text-gray-500">
                   Chargement...
                 </span>

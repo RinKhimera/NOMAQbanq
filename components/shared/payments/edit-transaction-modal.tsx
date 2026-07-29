@@ -7,7 +7,6 @@ import {
   CreditCard,
   DollarSign,
   FileText,
-  LoaderCircle,
   Package,
   Pencil,
   TriangleAlert,
@@ -41,6 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import {
   loadTransactionAccessImpact,
@@ -506,7 +506,7 @@ export const EditTransactionModal = ({
                     >
                       {isSubmitting ? (
                         <span className="flex items-center gap-2">
-                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          <Spinner size="sm" />
                           Enregistrement...
                         </span>
                       ) : showRefundWarning ? (

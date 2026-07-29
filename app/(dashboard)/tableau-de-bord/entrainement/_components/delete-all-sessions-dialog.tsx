@@ -1,6 +1,6 @@
 "use client"
 
-import { LoaderCircle, Trash2, TriangleAlert } from "lucide-react"
+import { Trash2, TriangleAlert } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -14,6 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Spinner } from "@/components/ui/spinner"
 import { deleteAllTrainingSessions } from "@/features/training/actions"
 
 interface DeleteAllSessionsDialogProps {
@@ -102,7 +103,7 @@ export const DeleteAllSessionsDialog = ({
           >
             {isDeleting ? (
               <span className="flex items-center gap-2">
-                <LoaderCircle className="h-4 w-4 animate-spin" />
+                <Spinner size="sm" />
                 Suppression...
               </span>
             ) : (

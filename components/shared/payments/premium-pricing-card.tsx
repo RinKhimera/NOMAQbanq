@@ -15,6 +15,7 @@ import {
 import { motion } from "motion/react"
 import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import { formatCurrency } from "@/lib/format"
 // cn is available but not currently used - keeping import for future styling needs
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -264,7 +265,7 @@ export const PremiumPricingCard = ({
                   <span className="relative flex items-center justify-center gap-3">
                     {isLoading ? (
                       <>
-                        <span className="h-6 w-6 animate-spin rounded-full border-3 border-white/30 border-t-white" />
+                        <Spinner size="lg" className="text-white" />
                         Chargement...
                       </>
                     ) : (

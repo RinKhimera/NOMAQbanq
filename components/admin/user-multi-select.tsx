@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, ChevronsUpDown, LoaderCircle, Users, X } from "lucide-react"
+import { Check, ChevronsUpDown, Users, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,6 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
+import { Spinner } from "@/components/ui/spinner"
 import { loadSearchSelectableUsers } from "@/features/exams/actions"
 import type { SelectableUser } from "@/features/users/dal"
 import { cn } from "@/lib/utils"
@@ -148,7 +149,7 @@ export function UserMultiSelect({
             <CommandList>
               {isLoading ? (
                 <div className="text-muted-foreground flex items-center justify-center gap-2 py-6 text-sm">
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" />
                   Recherche...
                 </div>
               ) : (

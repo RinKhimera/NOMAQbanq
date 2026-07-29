@@ -10,11 +10,13 @@ import type {
 import QuizProgress from "@/components/quiz/quiz-progress"
 import QuizResults from "@/components/quiz/quiz-results"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import {
   type QuizBundle,
   loadRandomQuizQuestions,
   scoreQuizAnswers,
 } from "@/features/questions/actions"
+import { EvaluationSkeleton } from "../_components/evaluation-skeleton"
 
 interface QuizState {
   currentQuestion: number
@@ -176,17 +178,9 @@ export default function QuizPage() {
     window.location.reload()
   }
 
+  // Attente de contenu : squelette à la forme de la QuestionCard, pas de spinner.
   if (!quizBundle) {
-    return (
-      <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
-          <p className="text-gray-600 dark:text-gray-300">
-            Chargement des questions...
-          </p>
-        </div>
-      </div>
-    )
+    return <EvaluationSkeleton />
   }
 
   // Refus serveur (rate-limit, banque vide) : message générique volontairement
@@ -222,8 +216,11 @@ export default function QuizPage() {
     if (!scoredResults) {
       return (
         <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
+          {/* Écran dédié assumé : transition attendue après un clic explicite. */}
           <div className="text-center">
-            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
+            <div className="mb-4 flex justify-center">
+              <Spinner size="lg" />
+            </div>
             <p className="text-gray-600 dark:text-gray-300">
               Calcul du score...
             </p>

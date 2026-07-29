@@ -37,6 +37,21 @@ export class DashboardPage extends BasePage {
     ).toBeVisible()
   }
 
+  /**
+   * Non-régression de l'overlay plein écran supprimé le 2026-07-28 : le shell
+   * doit être visible et interactif immédiatement, sans écran bloquant. À
+   * appeler AVANT `waitForReady`, sinon l'assertion ne prouve plus rien.
+   */
+  async expectNoBlockingOverlay() {
+    await expect(this.page.locator('[data-sidebar="content"]')).toBeVisible({
+      timeout: 5_000,
+    })
+    await expect(
+      this.page.getByText("Vérification des permissions"),
+    ).toHaveCount(0)
+    await expect(this.page.getByText("Connexion en cours")).toHaveCount(0)
+  }
+
   async clickQuickAccess(title: string) {
     // testid stable : le lien de la carte ET un CTA pointent vers la même URL
     // (ex. /entrainement) → getByRole("link", { name }) est ambigu.

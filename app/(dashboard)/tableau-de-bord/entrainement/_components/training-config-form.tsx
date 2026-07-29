@@ -1,14 +1,7 @@
 "use client"
 
 import { IconTargetArrow } from "@tabler/icons-react"
-import {
-  BookOpen,
-  GraduationCap,
-  Layers,
-  LoaderCircle,
-  Play,
-  Target,
-} from "lucide-react"
+import { BookOpen, GraduationCap, Layers, Play, Target } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useActionState, useEffect, useState, useTransition } from "react"
@@ -24,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+import { Spinner } from "@/components/ui/spinner"
 import {
   createTrainingSession,
   loadAvailableObjectifsCMC,
@@ -362,7 +356,7 @@ export const TrainingConfigForm = ({
         >
           {isPending ? (
             <>
-              <LoaderCircle className="mr-2 h-5 w-5 animate-spin" />
+              <Spinner className="mr-2" />
               Création en cours...
             </>
           ) : (

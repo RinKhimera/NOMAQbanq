@@ -7,13 +7,11 @@ test.describe("Evaluation gratuite — quiz public", () => {
   test("le quiz charge et affiche la premiere question", async ({ page }) => {
     await page.goto("/evaluation/quiz")
 
-    // Wait for loading to finish
-    await expect(page.getByText("Chargement des questions...")).toBeVisible({
-      timeout: 10_000,
-    })
-    await expect(page.getByText("Chargement des questions...")).toBeHidden({
-      timeout: 30_000,
-    })
+    // Le chargement est un squelette à la forme de la QuestionCard (refonte du
+    // 2026-07-28), plus un texte « Chargement… ».
+    const skeleton = page.getByLabel("Chargement de l'évaluation")
+    await expect(skeleton).toBeVisible({ timeout: 10_000 })
+    await expect(skeleton).toBeHidden({ timeout: 30_000 })
 
     // First question should be visible with answer options
     await expect(page.locator("[data-testid='answer-option-0']")).toBeVisible({
