@@ -2,7 +2,6 @@
 
 import { Clock, Shield, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
-import { useState } from "react"
 import { getAppZoneHour } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { ProgressRing } from "./progress-ring"
@@ -17,10 +16,19 @@ interface DashboardHeroProps {
   averageScore: number
   hasCompletedExams: boolean
   accessStatus?: AccessStatus | null
+  /** Horloge SERVEUR (instant du rendu). Voir `getGreetingValue`. */
+  now: number
 }
 
-const getGreetingValue = () => {
-  const hour = getAppZoneHour(Date.now())
+/**
+ * L'instant vient du serveur, jamais de `Date.now()` local : cet initialiseur
+ * s'exécute au SSR **et** à l'hydratation, à deux instants différents — à cheval
+ * sur 12h00 ou 18h00 le salut basculait entre les deux rendus (mismatch
+ * d'hydratation). Ancrer le fuseau ne suffisait pas, il faut aussi figer
+ * l'instant.
+ */
+const getGreetingValue = (now: number) => {
+  const hour = getAppZoneHour(now)
   if (hour < 12) return "Bonjour"
   if (hour < 18) return "Bon après-midi"
   return "Bonsoir"
@@ -126,8 +134,9 @@ export const DashboardHero = ({
   averageScore,
   hasCompletedExams,
   accessStatus,
+  now,
 }: DashboardHeroProps) => {
-  const [greeting] = useState(getGreetingValue)
+  const greeting = getGreetingValue(now)
   const firstName = userName?.split(" ")[0] || "Étudiant"
 
   return (

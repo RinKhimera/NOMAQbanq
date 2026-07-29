@@ -67,6 +67,7 @@ export const DashboardClient = ({
         averageScore={stats.averageScore}
         hasCompletedExams={stats.completedExamsCount > 0}
         accessStatus={accessStatus}
+        now={now}
       />
 
       {/* Vital Cards Section */}
