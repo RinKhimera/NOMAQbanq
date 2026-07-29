@@ -118,19 +118,27 @@ export function UsersTable({
     )
   }
 
+  const busy = isLoading ?? false
+
+  // L'état vide est lui aussi enveloppé : sans ça, un filtre appliqué sur une
+  // liste déjà vide ne donnerait AUCUN signal d'attente (sur `main`, la branche
+  // `isLoading` précédait ce cas).
   if (users.length === 0) {
     return (
-      <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900">
+      <PendingRegion
+        isPending={busy}
+        className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900"
+      >
         <div className="p-8 text-center">
           <p className="text-gray-500">Aucun utilisateur trouvé</p>
         </div>
-      </div>
+      </PendingRegion>
     )
   }
 
   return (
     <PendingRegion
-      isPending={isLoading ?? false}
+      isPending={busy}
       className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900"
     >
       <Table>
@@ -141,6 +149,7 @@ export function UsersTable({
               <Button
                 variant="ghost"
                 onClick={() => onSort("name")}
+                disabled={busy}
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
                 Utilisateur
@@ -152,6 +161,7 @@ export function UsersTable({
               <Button
                 variant="ghost"
                 onClick={() => onSort("role")}
+                disabled={busy}
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
                 Rôle
@@ -163,6 +173,7 @@ export function UsersTable({
               <Button
                 variant="ghost"
                 onClick={() => onSort("createdAt")}
+                disabled={busy}
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
                 Inscrit

@@ -60,6 +60,10 @@ export const OnboardingForm = ({
       if (result.success) {
         toast.success("Profil complété !")
         await refetch({ query: { disableCookieCache: true } }).catch(() => {})
+        // `refresh()` obligatoire : la sidebar est rendue par le layout SERVEUR
+        // depuis la refonte, et un layout partagé ne se re-rend pas sur une
+        // navigation client — sans ça le nom affiché reste celui d'avant.
+        router.refresh()
         router.replace("/tableau-de-bord")
       } else {
         toast.error(result.error)

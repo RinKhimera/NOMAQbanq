@@ -40,6 +40,21 @@ describe("conventions de chargement", () => {
     ).toEqual([])
   })
 
+  it("ne définit aucune animation de chargement concurrente en CSS", () => {
+    // Le grep sur `animate-spin` ne voit que le JSX : une classe utilitaire
+    // définie dans la feuille globale (ex. `.loading-shimmer`, supprimée le
+    // 2026-07-29 car morte) lui échapperait et refragmenterait le socle.
+    const css = readFileSync(join(ROOT, "app/globals.css"), "utf8")
+    const offenders = ["loading-shimmer", "skeleton-pulse", "spinner"].filter(
+      (name) => css.includes(`.${name}`),
+    )
+
+    expect(
+      offenders,
+      "Les états de chargement passent par components/ui/, pas par des classes CSS globales. Voir .claude/rules/loading-ui.md",
+    ).toEqual([])
+  })
+
   it("monte un squelette du socle dans chaque loading.tsx", () => {
     const files = walk("app", (name) => name === "loading.tsx")
     expect(files.length).toBeGreaterThan(0)
