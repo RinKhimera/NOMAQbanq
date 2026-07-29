@@ -9,9 +9,12 @@ import {
 import { Mail, MapPin, Phone, Stethoscope } from "lucide-react"
 import Link from "next/link"
 import { FOOTER_LEGAL_LINKS, FOOTER_QUICK_LINKS } from "@/constants"
+import { getAppZoneYear } from "@/lib/format"
 
-// Constante module-level pour éviter new Date() à chaque render (pureté React 19)
-const CURRENT_YEAR = new Date().getFullYear()
+// Constante module-level pour éviter new Date() à chaque render (pureté React 19).
+// Année ancrée sur le fuseau de la plateforme : `getFullYear()` sur l'heure du
+// runtime fait diverger serveur (UTC) et client le 31 décembre au soir.
+const CURRENT_YEAR = getAppZoneYear(Date.now())
 
 export default function Footer() {
   return (

@@ -3,6 +3,7 @@
 import { Clock, Shield, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
+import { getAppZoneHour } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { ProgressRing } from "./progress-ring"
 
@@ -19,7 +20,7 @@ interface DashboardHeroProps {
 }
 
 const getGreetingValue = () => {
-  const hour = new Date().getHours()
+  const hour = getAppZoneHour(Date.now())
   if (hour < 12) return "Bonjour"
   if (hour < 18) return "Bon après-midi"
   return "Bonsoir"
