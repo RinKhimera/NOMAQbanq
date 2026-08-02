@@ -388,7 +388,7 @@ export const getOpenExamLockedQuestionIds = async (
 }
 ```
 
-`inArray` peut devenir un import inutilisé dans ce fichier — le retirer si `bun run lint` le signale.
+Ne pas toucher aux imports : `inArray` reste utilisé ailleurs dans le fichier (`fetchImages`, `countQuestionsByExam`, `getOpenExamQuestionIds`).
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -470,6 +470,19 @@ describe("setQuestionBookmark", () => {
     })
     expect(again.success).toBe(true)
     expect(await getBookmarkedQuestionIds([qIds[2]])).toEqual([qIds[2]])
+  })
+
+  it("ne lit jamais les signets d'un autre étudiant", async () => {
+    await setQuestionBookmark({ questionId: qIds[0], isBookmarked: true })
+
+    vi.mocked(getCurrentSession).mockResolvedValue({
+      user: { id: createId(), role: "user" },
+    } as never)
+    expect(await getBookmarkedQuestionIds([qIds[0]])).toEqual([])
+
+    vi.mocked(getCurrentSession).mockResolvedValue({
+      user: { id: USER_ID, role: "admin" },
+    } as never)
   })
 
   it("refuse proprement une question inexistante", async () => {
@@ -792,6 +805,33 @@ describe("corpus de révision", () => {
     expect(ids).not.toContain(qIds[5])
   })
 
+  it("une question servie mais jamais répondue reste « non vue »", async () => {
+    // Session abandonnée : l'item existe, `selected_answer` est nul.
+    const orphanSessionId = createId()
+    await db.insert(trainingSessions).values({
+      id: orphanSessionId,
+      userId: USER_ID,
+      status: "abandoned",
+      mode: "test",
+      questionCount: 1,
+      startedAt: new Date("2026-01-03T00:00:00Z"),
+      expiresAt: new Date("2026-01-04T00:00:00Z"),
+    })
+    await db.insert(trainingSessionItems).values({
+      sessionId: orphanSessionId,
+      questionId: qIds[4],
+      position: 0,
+    })
+
+    const ids = await pickRevisionQuestionIds(db, {
+      userId: USER_ID,
+      criteria: ["unseen"],
+      domain: DOMAIN,
+      limit: 20,
+    })
+    expect(ids).toContain(qIds[4])
+  })
+
   it("intersecte avec le filtre d'objectifs CMC", async () => {
     const ids = await pickRevisionQuestionIds(db, {
       userId: USER_ID,
@@ -862,8 +902,9 @@ export type RevisionScope = {
 
 // Historique unifié entraînement + examens de l'utilisateur, réduit à sa
 // DERNIÈRE tentative par question. `exam_answers.created_at` vaut « début de la
-// tentative » (les lignes sont pré-créées au démarrage de l'examen) : sans
-// conséquence, les réponses d'un même examen sont simultanées par nature.
+// tentative » (lignes pré-créées au démarrage de l'examen, jamais réhorodatées) :
+// un entraînement intercalé pendant un examen long peut donc être classé à tort
+// comme la tentative la plus récente. Limite assumée, documentée dans le spec.
 const historyCte = (userId: string): SQL => sql`
   attempts as (
     select i.question_id, i.is_correct, i.answered_at as at
@@ -1319,7 +1360,7 @@ export const createTrainingSessionSchema = z
     questionCount: z
       .number()
       .int()
-      .min(1)
+      .min(1, "Au moins une question")
       .max(MAX_QUESTIONS, `Au plus ${MAX_QUESTIONS} questions`),
     domain: z.string().trim().min(1).optional(),
     objectifsCMCs: z.array(z.string().trim().min(1)).max(50).optional(),
@@ -1678,16 +1719,17 @@ const [revisionCounts, setRevisionCounts] = useState<
 const [isCountsLoading, startCountsLoad] = useTransition()
 ```
 
-Charger les compteurs sur le même modèle que les objectifs (même dépendance de domaine ; `setState` uniquement dans le callback de transition) :
+Charger les compteurs sur le même modèle que les objectifs (`setState` uniquement dans le callback de transition). La dépendance passe par une **clé stable** : `selectedObjectifs` est un tableau dont l'identité change à chaque `setState`, et chaque exécution coûte un balayage complet de la banque (`not exists` corrélé) :
 
 ```ts
+const objectifsKey = selectedObjectifs.join("|")
+
 useEffect(() => {
   startCountsLoad(async () => {
     try {
       const counts = await loadRevisionCounts({
         domain: selectedDomain === "all" ? undefined : selectedDomain,
-        objectifsCMCs:
-          selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
+        objectifsCMCs: objectifsKey ? objectifsKey.split("|") : undefined,
       })
       setRevisionCounts(counts)
     } catch {
@@ -1698,7 +1740,7 @@ useEffect(() => {
       )
     }
   })
-}, [selectedDomain, selectedObjectifs])
+}, [selectedDomain, objectifsKey])
 ```
 
 Ajouter la bascule :
@@ -1712,86 +1754,96 @@ const toggleRevisionFilter = (criterion: RevisionCriterion) =>
   )
 ```
 
-Dans `submitAction`, remplacer **tout le bloc `try`** (surtout pas seulement l'appel : le `router.push` et le `catch` existants doivent survivre) :
+Dans `submitAction`, remplacer **tout le bloc `try`/`catch`** — pas seulement l'appel. Le `router.push` doit survivre, et l'`await` nu passe à `callAction` comme l'exige `.claude/rules/data-layer.md` (un rejet réseau contourne le garde `if (!result.success)`). `callAction` ne throw jamais, donc le `try`/`catch` disparaît :
 
 ```ts
-try {
-  const result = await createTrainingSession({
+const result = await callAction(() =>
+  createTrainingSession({
     questionCount,
     domain: selectedDomain === "all" ? undefined : selectedDomain,
     objectifsCMCs: selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
     mode: trainingMode,
     revisionFilters: revisionFilters.length > 0 ? revisionFilters : undefined,
-  })
+  }),
+)
 
-  if (!result.success) {
-    toast.error("Erreur", { description: result.error })
-    return null
-  }
-
-  // Le nombre annoncé est celui RETENU par le serveur, pas celui demandé : en
-  // révision, le corpus peut être plus court.
-  toast.success("Session créée !", {
-    description: `${result.questionCount} questions sélectionnées`,
-  })
-
-  router.push(`/tableau-de-bord/entrainement/${result.sessionId}`)
-} catch (error) {
-  toast.error("Erreur", {
-    description:
-      error instanceof Error ? error.message : "Une erreur est survenue",
-  })
+if (!result.success) {
+  toast.error("Erreur", { description: result.error })
+  return null
 }
+
+// Le nombre annoncé est celui RETENU par le serveur, pas celui demandé : en
+// révision, le corpus peut être plus court.
+toast.success("Session créée !", {
+  description: `${result.questionCount} questions sélectionnées`,
+})
+
+router.push(`/tableau-de-bord/entrainement/${result.sessionId}`)
+return null
+```
+
+Ajouter l'import : `import { callAction } from "@/lib/safe-action"`. **Pas** de `retries` — la création de session n'est pas idempotente.
+
+Le test du formulaire doit alors mocker `next/navigation` en **complet** (`callAction` importe `unstable_isUnrecognizedActionError`) :
+
+```ts
+vi.mock("next/navigation", async (orig) => ({
+  ...(await orig<typeof import("next/navigation")>()),
+  useRouter: () => ({ push }),
+}))
 ```
 
 Insérer le bloc d'UI entre le sélecteur d'objectifs CMC et le mode d'entraînement :
 
 ```tsx
-{
-  /* Filtres de révision */
-}
-;<div className="space-y-3">
-  <div className="flex items-center gap-2">
-    <Target className="h-4 w-4 text-gray-500" />
-    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-      Réviser (optionnel)
-    </label>
-  </div>
+<>
+  {/* Filtres de révision */}
+  <div className="space-y-3">
+    <div className="flex items-center gap-2">
+      <Target className="h-4 w-4 text-gray-500" />
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+        Réviser (optionnel)
+      </label>
+    </div>
 
-  <div className="flex flex-wrap gap-2">
-    {REVISION_CRITERIA.map((criterion) => {
-      const isActive = revisionFilters.includes(criterion)
-      return (
-        <button
-          key={criterion}
-          type="button"
-          data-testid={`revision-${criterion}`}
-          aria-pressed={isActive}
-          onClick={() => toggleRevisionFilter(criterion)}
-          className={cn(
-            "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all",
-            isActive
-              ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300"
-              : "border-gray-200 bg-white/60 text-gray-700 hover:border-emerald-300 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300",
-          )}
-        >
-          <span>{REVISION_CRITERION_LABELS[criterion]}</span>
-          <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-            {isCountsLoading ? "…" : revisionCounts[criterion]}
-          </span>
-        </button>
-      )
-    })}
-  </div>
+    <div className="flex flex-wrap gap-2">
+      {REVISION_CRITERIA.map((criterion) => {
+        const isActive = revisionFilters.includes(criterion)
+        return (
+          <button
+            key={criterion}
+            type="button"
+            data-testid={`revision-${criterion}`}
+            aria-pressed={isActive}
+            onClick={() => toggleRevisionFilter(criterion)}
+            className={cn(
+              "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all",
+              isActive
+                ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300"
+                : "border-gray-200 bg-white/60 text-gray-700 hover:border-emerald-300 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300",
+            )}
+          >
+            <span>{REVISION_CRITERION_LABELS[criterion]}</span>
+            <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+              {isCountsLoading ? "…" : revisionCounts[criterion]}
+            </span>
+          </button>
+        )
+      })}
+    </div>
 
-  {revisionFilters.length > 0 && (
-    <p className="text-sm text-gray-500 dark:text-gray-400">
-      La session prendra jusqu&apos;à {questionCount} questions parmi celles qui
-      correspondent — moins s&apos;il y en a moins.
-    </p>
-  )}
-</div>
+    {revisionFilters.length > 0 && (
+      <p className="text-sm text-gray-500 dark:text-gray-400">
+        La session prendra jusqu&apos;à {questionCount} questions parmi celles
+        qui correspondent — moins s&apos;il y en a moins.
+      </p>
+    )}
+  </div>
+</>
 ```
+
+> Le fragment `<>…</>` n'est là que pour rendre l'extrait valide isolément :
+> insérer son **contenu** dans l'arbre JSX existant, pas le fragment.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -1860,13 +1912,20 @@ import { render } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { TrainingSessionClient } from "@/app/(dashboard)/tableau-de-bord/entrainement/_components/training-session-client"
 
-const { setQuestionBookmark, runnerProps } = vi.hoisted(() => ({
+const { setQuestionBookmark, toastError, runnerProps } = vi.hoisted(() => ({
   setQuestionBookmark: vi.fn(),
+  toastError: vi.fn(),
   runnerProps: { current: null as Record<string, unknown> | null },
 }))
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+// Mock COMPLET : `callAction` importe `unstable_isUnrecognizedActionError` de
+// `next/navigation` — un mock partiel casse le chemin d'échec avec une erreur
+// cryptique (piège documenté dans `.claude/rules/data-layer.md`).
+vi.mock("next/navigation", async (orig) => ({
+  ...(await orig<typeof import("next/navigation")>()),
+  useRouter: () => ({ push: vi.fn() }),
+}))
+vi.mock("sonner", () => ({ toast: { error: toastError, success: vi.fn() } }))
 vi.mock("@/features/training/actions", () => ({
   saveTrainingAnswer: vi.fn(),
   completeTrainingSession: vi.fn(),
@@ -1929,6 +1988,25 @@ describe("TrainingSessionClient — marquage", () => {
       isBookmarked: false,
     })
   })
+
+  it("signale un échec de marquage au lieu de mentir", async () => {
+    setQuestionBookmark.mockRejectedValue(new Error("Failed to fetch"))
+
+    render(<TrainingSessionClient sessionId="s1" initialData={initialData} />)
+    const props = runnerProps.current as {
+      callbacks: {
+        onFlag: (id: string, flagged: boolean) => Promise<{ ok: boolean }>
+      }
+    }
+
+    // `callAction` convertit le rejet réseau en `{ success: false }` — le garde
+    // doit le voir passer, pas le laisser filer en rejet non géré.
+    const res = await props.callbacks.onFlag("q1", true)
+    expect(res.ok).toBe(false)
+    expect(toastError).toHaveBeenCalledWith(
+      "Marquage non enregistré, réessayez.",
+    )
+  })
 })
 ```
 
@@ -1955,12 +2033,15 @@ export type TrainingSessionView = {
 Dans `getTrainingSessionById`, joindre la lecture existante des images et du verrou :
 
 ```ts
+const isOwner = s.userId === session.user.id
 const [imgMap, lockedIds, bookmarkedIds] = await Promise.all([
   fetchImages(sessionQuestionIds),
   session.user.role === "admin"
     ? new Set<string>()
     : getOpenExamLockedQuestionIds(session.user.id, sessionQuestionIds),
-  getBookmarkedQuestionIds(sessionQuestionIds),
+  // Un signet est personnel : un admin qui inspecte la session d'un étudiant
+  // verrait les SIENS, donc des drapeaux incohérents avec ce qu'il regarde.
+  isOwner ? getBookmarkedQuestionIds(sessionQuestionIds) : [],
 ])
 ```
 

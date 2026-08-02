@@ -113,8 +113,15 @@ avec domaine + objectifs CMC et `questions.deleted_at IS NULL`, puis
 
 `exam_answers.created_at` vaut « début de la tentative » et non « instant de la
 réponse » : les lignes sont pré-créées au démarrage de l'examen
-(`features/exams/actions.ts`). Sans conséquence — les réponses d'un même examen
-sont simultanées par nature, et l'ordre entre tentatives distinctes reste juste.
+(`features/exams/actions.ts`) et jamais réhorodatées à la réponse. Limite
+assumée, relevée par la revue de design : si un étudiant intercale une session
+d'entraînement **pendant** un examen long, sa réponse d'entraînement porte un
+horodatage postérieur à celle de l'examen même si l'examen a été répondu après —
+le `DISTINCT ON` retient alors la mauvaise « dernière tentative ». L'effet se
+borne à classer une question comme ratée ou non sur la base d'une de ses deux
+tentatives récentes, toutes deux de l'étudiant lui-même. Corriger demanderait un
+horodatage à l'écriture sur `exam_answers` : hors périmètre de P1-A, à ouvrir si
+le classement se révèle visiblement faux en usage.
 
 Volume borné : l'historique d'un étudiant vaut ses sessions × 20 items plus ses
 participations × N réponses ; `unseen` balaie la banque (3 000+ lignes) une fois
