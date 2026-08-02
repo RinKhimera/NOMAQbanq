@@ -16,6 +16,12 @@ config({ path: ".env.local" })
 
 const keep = process.argv.includes("--keep")
 
+// Tout le reste part à vitest : sans ça, `bun run test:integration -- <fichier>`
+// exécutait silencieusement la suite entière.
+const vitestArgs = process.argv
+  .slice(2)
+  .filter((arg) => arg !== "--keep" && arg !== "--")
+
 const removed = await cleanupStaleTestBranches()
 if (removed.length > 0) {
   console.log(
@@ -46,7 +52,11 @@ try {
   }
 
   console.log("[test-integration] tests…")
-  exitCode = run("bunx", ["vitest", "run", "--project", "integration"], env)
+  exitCode = run(
+    "bunx",
+    ["vitest", "run", "--project", "integration", ...vitestArgs],
+    env,
+  )
 } finally {
   if (keep) {
     console.log(
