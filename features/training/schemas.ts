@@ -4,6 +4,16 @@ import { z } from "zod"
 export const MIN_QUESTIONS = 5
 export const MAX_QUESTIONS = 20
 
+export const REVISION_CRITERIA = ["failed", "unseen", "bookmarked"] as const
+export type RevisionCriterion = (typeof REVISION_CRITERIA)[number]
+export const revisionCriterionSchema = z.enum(REVISION_CRITERIA)
+
+export const REVISION_CRITERION_LABELS: Record<RevisionCriterion, string> = {
+  failed: "Ratées",
+  unseen: "Non vues",
+  bookmarked: "Marquées",
+}
+
 export const createTrainingSessionSchema = z.object({
   questionCount: z
     .number()
