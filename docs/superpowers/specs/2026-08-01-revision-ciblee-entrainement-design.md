@@ -146,8 +146,28 @@ candidats)` pour les **trois** critères, uniformément — y compris `unseen`,
   dans le formulaire sont calculés sur exactement le même corpus filtré. Sans
   cela, le compteur redevient l'oracle que le lot n'est plus.
 - **Révélation** : les trois gardes existantes restent en place, inchangées.
-  Elles couvrent la course « je crée ma session filtrée, **puis** je rejoins
-  l'examen » : le verrou est réévalué à chaque lecture.
+  Réévaluées à chaque lecture, elles masquent la correction même pour une
+  session créée **avant** l'entrée dans l'examen.
+
+**Précision sur la course « je crée ma session filtrée, puis je rejoins
+l'examen »** (soulevée par la revue de design du 2026-08-01). Les gardes de
+révélation masquent la clé mais **ne retirent pas** la question du lot déjà
+constitué — le lot, lui, n'est pas recalculé. Ce n'est pourtant pas un trou, et
+la raison mérite d'être écrite parce qu'elle n'est pas évidente :
+
+> Pour que l'appartenance au lot dise quoi que ce soit sur les **réponses d'un
+> examen**, il faut que ces réponses existent. Elles n'existent qu'à partir
+> d'une participation — or c'est exactement ce qui active le verrou. Une session
+> filtrée créée avant toute participation ne peut donc encoder que l'historique
+> d'entraînement passé de l'étudiant, information qu'il lit déjà dans ses
+> propres résultats.
+
+Autrement dit : l'oracle craint porte sur les réponses de l'examen en cours, et
+celui-là est fermé à la source. L'invariante à préserver n'est pas « le lot est
+recalculé », c'est **« aucun lot ne se constitue pendant qu'une participation
+est ouverte sur ces questions »**. Si une évolution future permettait de
+recomposer ou d'étendre un lot existant, cette garantie tomberait et il faudrait
+alors persister les critères pour re-filtrer à la lecture.
 
 Autres chemins passés en revue :
 

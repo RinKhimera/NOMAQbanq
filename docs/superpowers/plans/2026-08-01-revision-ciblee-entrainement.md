@@ -28,6 +28,11 @@
 
 **Ordre imposé.** Les tâches 4 et 5 se suivent : la 4 construit le corpus **sans** le verrou, la 5 l'ajoute en test-first. Rien n'est exposé entre les deux (aucun appelant avant la tâche 6), mais **elles doivent atterrir dans la même PR** — la 4 seule serait un trou anti-triche.
 
+**Deux contraintes à ne pas contourner** (issues de la revue de design du 2026-08-01) :
+
+- **Jamais d'accès au `db` global depuis une fonction appelée dans une transaction.** Le pool est à `max: 5` sans `connectionTimeoutMillis` (`db/index.ts`) : réclamer une 2ᵉ connexion pendant qu'on en détient une fige la requête, et cinq créations concurrentes figent l'application entière. C'est pourquoi `pickRevisionQuestionIds` reçoit les identifiants verrouillés en **paramètre requis** au lieu de les calculer lui-même — l'appelant les résout AVANT d'ouvrir la transaction.
+- **`mode` est requis à l'appel de `createTrainingSession`.** `CreateTrainingSessionInput` est le type de **sortie** de zod : le `.default("test")` ne rend pas le champ optionnel à l'entrée du type. Les 13 appels existants le passent tous explicitement — tout nouvel appel doit le faire aussi, sinon `tsc` échoue.
+
 ---
 
 ### Task 1: Table `question_bookmarks`
@@ -631,6 +636,9 @@ const USER_ID = createId()
 const OTHER_USER_ID = createId()
 const DOMAIN = `RC-${suffix}`
 const OBJ = `Obj RC ${suffix}`
+// Deuxième objectif, porté par la seule question d'index 4 : exerce la branche
+// « filtre objectifs » du SQL brut, qu'aucun autre test ne traverse.
+const OBJ_ALT = `Obj RC alt ${suffix}`
 
 // 0 = ratée · 1 = ratée puis réussie · 2 = réussie · 3 = marquée (jamais vue)
 // 4 = jamais vue · 5 = ratée par l'AUTRE utilisateur
@@ -679,7 +687,7 @@ beforeAll(async () => {
       question: `RC Q${i} ${suffix}?`,
       correctAnswer: "A",
       options: ["A", "B", "C", "D"],
-      objectifCmc: OBJ,
+      objectifCmc: i === 4 ? OBJ_ALT : OBJ,
       domain: DOMAIN,
     })),
   )
@@ -782,6 +790,23 @@ describe("corpus de révision", () => {
       limit: 20,
     })
     expect(ids).not.toContain(qIds[5])
+  })
+
+  it("intersecte avec le filtre d'objectifs CMC", async () => {
+    const ids = await pickRevisionQuestionIds(db, {
+      userId: USER_ID,
+      criteria: ["unseen"],
+      domain: DOMAIN,
+      objectifsCMCs: [OBJ_ALT],
+      limit: 20,
+    })
+    expect(ids).toEqual([qIds[4]])
+
+    const counts = await getRevisionCounts(USER_ID, {
+      domain: DOMAIN,
+      objectifsCMCs: [OBJ_ALT],
+    })
+    expect(counts.unseen).toBe(1)
   })
 
   it("les compteurs décrivent le même corpus que le tirage", async () => {
@@ -981,10 +1006,12 @@ Compléter les imports de `tests/integration/revision-corpus.test.ts` :
 import { examParticipations, examQuestions, exams } from "@/db/schema"
 ```
 
-Déclarer l'identifiant au scope du module, à côté de `SESSION_ID` :
+Déclarer les identifiants au scope du module, à côté de `SESSION_ID` :
 
 ```ts
 const OPEN_EXAM_ID = createId()
+const CLOSED_EXAM_ID = createId()
+const CLOSED_PARTICIPATION_ID = createId()
 ```
 
 Dans `beforeAll`, après l'insertion du signet, monter un examen OUVERT contenant `qIds[0]` (la ratée) et `qIds[3]` (la marquée), avec une participation de `USER_ID`. `completionTime` est en **secondes** et `createdBy` est obligatoire (FK `restrict` vers `user`) :
@@ -1010,6 +1037,44 @@ await db.insert(examParticipations).values({
   startedAt: new Date("2026-01-01T01:00:00Z"),
 })
 ```
+
+Monter aussi un examen **CLOS** portant `qIds[5]`, avec une réponse **marquée mais
+jamais répondue**. Ce fixture couvre deux choses qu'aucun autre test ne traverse :
+la branche `is_flagged` du SQL brut, et le fait que l'exclusion vise les examens
+**ouverts** seulement.
+
+```ts
+await db.insert(exams).values({
+  id: CLOSED_EXAM_ID,
+  title: `RC examen clos ${suffix}`,
+  startDate: new Date("2026-01-01T00:00:00Z"),
+  endDate: new Date("2026-01-02T00:00:00Z"),
+  completionTime: 3600,
+  createdBy: USER_ID,
+})
+await db
+  .insert(examQuestions)
+  .values({ examId: CLOSED_EXAM_ID, questionId: qIds[5], position: 0 })
+await db.insert(examParticipations).values({
+  id: CLOSED_PARTICIPATION_ID,
+  examId: CLOSED_EXAM_ID,
+  userId: USER_ID,
+  status: "completed",
+  startedAt: new Date("2026-01-01T01:00:00Z"),
+})
+await db.insert(examAnswers).values({
+  participationId: CLOSED_PARTICIPATION_ID,
+  questionId: qIds[5],
+  selectedAnswer: null,
+  isCorrect: null,
+  isFlagged: true,
+})
+```
+
+Ajouter `examAnswers` à l'import `@/db/schema`. Les réponses partent en cascade
+avec leur participation — rien à nettoyer de plus, à condition que les
+participations soient supprimées avant les questions (`exam_answers.question_id`
+est en `restrict`).
 
 Nettoyer dans `afterAll`, **avant** la suppression des questions (`exam_questions` les référence en `restrict`) et avant celle des utilisateurs (`exams.created_by` en `restrict`) :
 
@@ -1038,13 +1103,31 @@ describe("corpus de révision — verrou examen ouvert", () => {
 
   it("exclut aussi des COMPTEURS (sinon le compteur redevient l'oracle)", async () => {
     const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
-    expect(counts.failed).toBe(0)
-    expect(counts.bookmarked).toBe(0)
+    expect(counts.failed).toBe(0) // la seule ratée est dans l'examen ouvert
+  })
+
+  it("un examen CLOS ne verrouille rien : sa question marquée reste révisable", async () => {
+    const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
+    expect(counts.bookmarked).toBe(1) // qIds[5], marquée via l'examen clos
+
+    const ids = await pickRevisionQuestionIds(db, {
+      userId: USER_ID,
+      criteria: ["bookmarked"],
+      domain: DOMAIN,
+      limit: 20,
+      lockedIds: await resolveRevisionLock(USER_ID),
+    })
+    expect(ids).toEqual([qIds[5]])
   })
 })
 ```
 
-Les tests de la tâche 4 restent valides : `qIds[1]`, `qIds[2]`, `qIds[4]`, `qIds[5]` ne sont pas dans l'examen. **Adapter les attentes des tests de la tâche 4** touchées par le verrou : `failed` attend désormais `[]`, `unseen` attend `[qIds[4], qIds[5]]`, l'union OU attend `[]`, et `getRevisionCounts` attend `{ failed: 0, unseen: 2, bookmarked: 0 }`. C'est le comportement voulu : la tâche 4 décrivait un monde sans examen ouvert.
+**Adapter les attentes des tests de la tâche 4**, qui décrivaient un monde sans
+examen : ajouter `lockedIds: await resolveRevisionLock(USER_ID)` à chaque appel de
+`pickRevisionQuestionIds`, puis `failed` attend `[]`, `unseen` attend
+`[qIds[4], qIds[5]]`, l'union OU attend `[qIds[5]]` (marquée via l'examen **clos**,
+donc non verrouillée), le filtre d'objectifs reste `[qIds[4]]`, et
+`getRevisionCounts` attend `{ failed: 0, unseen: 2, bookmarked: 1 }`.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -1095,21 +1178,54 @@ const corpusWhere = (
 }
 ```
 
-Dans `getRevisionCounts`, avant la requête :
+Exposer le résolveur, pour que l'appelant utilise la même source que le module :
 
 ```ts
-const lockedIds = [...(await getUserOpenExamLockedQuestionIds(userId))]
+/**
+ * Identifiants à exclure du corpus. À résoudre AVANT d'ouvrir une transaction :
+ * le pool pg est à `max: 5` sans timeout d'acquisition, donc réclamer une 2ᵉ
+ * connexion pendant qu'on en détient une fige la requête — et cinq créations
+ * concurrentes figent l'application.
+ */
+export const resolveRevisionLock = async (
+  userId: string,
+): Promise<string[]> => [...(await getUserOpenExamLockedQuestionIds(userId))]
+```
+
+Dans `getRevisionCounts` (jamais appelée dans une transaction), avant la requête :
+
+```ts
+const lockedIds = await resolveRevisionLock(userId)
 ```
 
 et passer `corpusWhere({ userId, ...scope }, lockedIds)`.
 
-Dans `pickRevisionQuestionIds`, avant la requête :
+`pickRevisionQuestionIds` **reçoit** les identifiants verrouillés — elle ne les
+calcule pas, parce qu'elle s'exécute dans la transaction de création de session.
+Le paramètre est **requis** : un oubli casse la compilation au lieu de rouvrir le
+trou anti-triche en silence.
 
 ```ts
-const lockedIds = [...(await getUserOpenExamLockedQuestionIds(scope.userId))]
+export const pickRevisionQuestionIds = async (
+  exec: Executor,
+  {
+    criteria,
+    limit,
+    lockedIds,
+    ...scope
+  }: RevisionScope & {
+    criteria: RevisionCriterion[]
+    limit: number
+    /** Résolus par `resolveRevisionLock` HORS transaction (voir ci-dessus). */
+    lockedIds: string[]
+  },
+): Promise<string[]> => {
 ```
 
-et passer `corpusWhere(scope, lockedIds)`.
+et dans son corps, passer `corpusWhere(scope, lockedIds)`.
+
+Les appels de la tâche 4 doivent être complétés en conséquence :
+`pickRevisionQuestionIds(db, { …, lockedIds: await resolveRevisionLock(USER_ID) })`.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -1152,6 +1268,7 @@ describe("createTrainingSession en révision", () => {
     const res = await createTrainingSession({
       questionCount: 20,
       domain: DOMAIN,
+      mode: "test",
       revisionFilters: ["unseen"],
     })
     expect(res.success).toBe(true)
@@ -1177,6 +1294,7 @@ describe("createTrainingSession en révision", () => {
     const res = await createTrainingSession({
       questionCount: 10,
       domain: DOMAIN,
+      mode: "test",
       revisionFilters: ["failed"],
     })
     expect(res.success).toBe(false)
@@ -1226,10 +1344,10 @@ export const createTrainingSessionSchema = z
 
 Dans `features/training/actions.ts` :
 
-Importer le tirage :
+Importer le tirage et le résolveur de verrou :
 
 ```ts
-import { pickRevisionQuestionIds } from "./revision"
+import { pickRevisionQuestionIds, resolveRevisionLock } from "./revision"
 ```
 
 Élargir le type de retour :
@@ -1251,6 +1369,15 @@ const isRevision = criteria.length > 0
 
 Dans la transaction, remplacer le bloc `avail` + `picked` par :
 
+Résoudre le verrou **avant** `db.transaction` (une fonction appelée dans la
+transaction ne doit jamais réclamer une 2ᵉ connexion au pool) :
+
+```ts
+const lockedIds = isRevision ? await resolveRevisionLock(userId) : []
+```
+
+Puis, dans la transaction, remplacer le bloc `avail` + `picked` par :
+
 ```ts
 let picked: { id: string }[]
 if (isRevision) {
@@ -1260,6 +1387,7 @@ if (isRevision) {
     domain,
     objectifsCMCs,
     limit: questionCount,
+    lockedIds,
   })
   if (ids.length === 0) throw new Error("EMPTY_REVISION")
   picked = ids.map((id) => ({ id }))
@@ -1584,25 +1712,36 @@ const toggleRevisionFilter = (criterion: RevisionCriterion) =>
   )
 ```
 
-Transmettre le filtre et annoncer le nombre réel, dans `submitAction` :
+Dans `submitAction`, remplacer **tout le bloc `try`** (surtout pas seulement l'appel : le `router.push` et le `catch` existants doivent survivre) :
 
 ```ts
-const result = await createTrainingSession({
-  questionCount,
-  domain: selectedDomain === "all" ? undefined : selectedDomain,
-  objectifsCMCs: selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
-  mode: trainingMode,
-  revisionFilters: revisionFilters.length > 0 ? revisionFilters : undefined,
-})
+try {
+  const result = await createTrainingSession({
+    questionCount,
+    domain: selectedDomain === "all" ? undefined : selectedDomain,
+    objectifsCMCs: selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
+    mode: trainingMode,
+    revisionFilters: revisionFilters.length > 0 ? revisionFilters : undefined,
+  })
 
-if (!result.success) {
-  toast.error("Erreur", { description: result.error })
-  return null
+  if (!result.success) {
+    toast.error("Erreur", { description: result.error })
+    return null
+  }
+
+  // Le nombre annoncé est celui RETENU par le serveur, pas celui demandé : en
+  // révision, le corpus peut être plus court.
+  toast.success("Session créée !", {
+    description: `${result.questionCount} questions sélectionnées`,
+  })
+
+  router.push(`/tableau-de-bord/entrainement/${result.sessionId}`)
+} catch (error) {
+  toast.error("Erreur", {
+    description:
+      error instanceof Error ? error.message : "Une erreur est survenue",
+  })
 }
-
-toast.success("Session créée !", {
-  description: `${result.questionCount} questions sélectionnées`,
-})
 ```
 
 Insérer le bloc d'UI entre le sélecteur d'objectifs CMC et le mode d'entraînement :
@@ -1685,9 +1824,11 @@ Ajouter à `tests/integration/training.test.ts` (importer `questionBookmarks` et
 
 ```ts
 it("la vue de session expose les signets de l'utilisateur", async () => {
+  asAdmin()
   const created = await createTrainingSession({
     questionCount: 5,
     domain: DOMAIN,
+    mode: "test",
   })
   expect(created.success).toBe(true)
   if (!created.success) return
