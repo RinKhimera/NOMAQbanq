@@ -104,6 +104,23 @@ export const getOpenExamLockedQuestionIds = async (
   questionIds: string[],
 ): Promise<Set<string>> => {
   if (questionIds.length === 0) return new Set()
+  const locked = await getUserOpenExamLockedQuestionIds(userId)
+  return new Set(questionIds.filter((id) => locked.has(id)))
+}
+
+/**
+ * TOUTES les questions verrouillées pour `userId`, sans liste de candidats à
+ * restreindre. Source unique de la règle : `getOpenExamLockedQuestionIds` n'en
+ * est qu'une restriction.
+ *
+ * Le corpus de révision s'en sert pour exclure AVANT le tirage — l'appartenance
+ * d'une question au lot « mes ratées » dit déjà « tu t'es trompé », donc triche
+ * pendant qu'un examen est ouvert, sans jamais voir la clé. Borné par les
+ * examens auxquels l'utilisateur participe.
+ */
+export const getUserOpenExamLockedQuestionIds = async (
+  userId: string,
+): Promise<Set<string>> => {
   const rows = await db
     .selectDistinct({ questionId: examQuestions.questionId })
     .from(examQuestions)
@@ -113,11 +130,7 @@ export const getOpenExamLockedQuestionIds = async (
       eq(examParticipations.examId, examQuestions.examId),
     )
     .where(
-      and(
-        eq(examParticipations.userId, userId),
-        gt(exams.endDate, new Date()),
-        inArray(examQuestions.questionId, questionIds),
-      ),
+      and(eq(examParticipations.userId, userId), gt(exams.endDate, new Date())),
     )
   return new Set(rows.map((r) => r.questionId))
 }
