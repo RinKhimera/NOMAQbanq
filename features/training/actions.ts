@@ -25,6 +25,12 @@ import {
   getTrainingHistory,
 } from "./dal"
 import {
+  type RevisionCounts,
+  getRevisionCounts,
+  pickRevisionQuestionIds,
+  resolveRevisionLock,
+} from "./revision"
+import {
   type CreateTrainingSessionInput,
   type SaveTrainingAnswerInput,
   type SetQuestionBookmarkInput,
@@ -51,6 +57,15 @@ export const loadTrainingHistory = async (args: {
   return getTrainingHistory(args)
 }
 
+/** [Auth] Compteurs de révision de l'utilisateur courant (formulaire). */
+export const loadRevisionCounts = async (args: {
+  domain?: string
+  objectifsCMCs?: string[]
+}): Promise<RevisionCounts> => {
+  const session = await requireSession()
+  return getRevisionCounts(session.user.id, args)
+}
+
 /** [Auth] Objectifs CMC filtrés par domaine (re-requête du formulaire). */
 export const loadAvailableObjectifsCMC = async (
   domain?: string,
@@ -64,7 +79,8 @@ export const loadAvailableObjectifsCMC = async (
 // ============================================
 
 export type CreateTrainingSessionResult =
-  { success: true; sessionId: string } | { success: false; error: string }
+  | { success: true; sessionId: string; questionCount: number }
+  | { success: false; error: string }
 
 /**
  * [Auth] Crée une session : sélectionne N questions aléatoires (domaine +
@@ -83,7 +99,10 @@ export const createTrainingSession = async (
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
-  const { questionCount, domain, objectifsCMCs, mode } = parsed.data
+  const { questionCount, domain, objectifsCMCs, mode, revisionFilters } =
+    parsed.data
+  const criteria = revisionFilters ?? []
+  const isRevision = criteria.length > 0
 
   try {
     // Accès payant : hors verrou (ne court pas avec lui-même ; bypass admin).
@@ -108,11 +127,16 @@ export const createTrainingSession = async (
     const expiresAt = new Date(now.getTime() + SESSION_EXPIRATION_MS)
     const sessionId = createId()
 
+    // Résolu HORS transaction : une requête sur le `db` global depuis l'intérieur
+    // réclamerait une 2e connexion au pool (max 5, sans timeout d'acquisition)
+    // → interblocage à cinq créations concurrentes.
+    const lockedIds = isRevision ? await resolveRevisionLock(userId) : []
+
     // Verrou de ligne user : sérialise les créations concurrentes du même
     // utilisateur. Rate-limit + « session déjà en cours » + sélection + insert
     // deviennent atomiques (sinon, deux requêtes simultanées → 2 sessions
     // actives / dépassement de limite — READ COMMITTED ne sérialise pas seul).
-    await db.transaction(async (tx) => {
+    const selectedCount = await db.transaction(async (tx) => {
       await tx
         .select({ id: user.id })
         .from(user)
@@ -158,20 +182,34 @@ export const createTrainingSession = async (
           .where(eq(trainingSessions.id, existing.id))
       }
 
-      const [avail] = await tx
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(questions)
-        .where(where)
-      if ((avail?.n ?? 0) < questionCount) {
-        throw new Error(`NOT_ENOUGH:${avail?.n ?? 0}`)
-      }
+      let picked: { id: string }[]
+      if (isRevision) {
+        const ids = await pickRevisionQuestionIds(tx, {
+          userId,
+          criteria,
+          domain,
+          objectifsCMCs,
+          limit: questionCount,
+          lockedIds,
+        })
+        if (ids.length === 0) throw new Error("EMPTY_REVISION")
+        picked = ids.map((id) => ({ id }))
+      } else {
+        const [avail] = await tx
+          .select({ n: sql<number>`count(*)`.mapWith(Number) })
+          .from(questions)
+          .where(where)
+        if ((avail?.n ?? 0) < questionCount) {
+          throw new Error(`NOT_ENOUGH:${avail?.n ?? 0}`)
+        }
 
-      const picked = await tx
-        .select({ id: questions.id })
-        .from(questions)
-        .where(where)
-        .orderBy(sql`random()`)
-        .limit(questionCount)
+        picked = await tx
+          .select({ id: questions.id })
+          .from(questions)
+          .where(where)
+          .orderBy(sql`random()`)
+          .limit(questionCount)
+      }
 
       await tx.insert(trainingSessions).values({
         id: sessionId,
@@ -180,7 +218,9 @@ export const createTrainingSession = async (
         mode,
         domain: domain && domain !== "all" ? domain : null,
         objectifCmc: null,
-        questionCount,
+        // Le nombre RÉELLEMENT retenu : en révision le corpus peut être plus
+        // court, et le score final se calcule sur ce dénominateur.
+        questionCount: picked.length,
         startedAt: now,
         expiresAt,
       })
@@ -191,10 +231,11 @@ export const createTrainingSession = async (
           position: idx,
         })),
       )
+      return picked.length
     })
 
     revalidatePath("/tableau-de-bord/entrainement")
-    return { success: true, sessionId }
+    return { success: true, sessionId, questionCount: selectedCount }
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "RATE_LIMIT") {
@@ -205,6 +246,11 @@ export const createTrainingSession = async (
       if (error.message === "ACTIVE_EXISTS") {
         return fail(
           "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
+        )
+      }
+      if (error.message === "EMPTY_REVISION") {
+        return fail(
+          "Aucune question ne correspond à ces critères de révision. Élargissez la sélection.",
         )
       }
       if (error.message.startsWith("NOT_ENOUGH:")) {

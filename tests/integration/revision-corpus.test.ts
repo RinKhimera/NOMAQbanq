@@ -13,16 +13,29 @@ import {
   user,
 } from "@/db/schema"
 import {
+  abandonTrainingSession,
+  createTrainingSession,
+  loadRevisionCounts,
+} from "@/features/training/actions"
+import {
   getRevisionCounts,
   pickRevisionQuestionIds,
   resolveRevisionLock,
 } from "@/features/training/revision"
+import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
   return { ...actual, cache: (fn: unknown) => fn }
 })
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
+
+const asUser = (id: string) =>
+  vi
+    .mocked(getCurrentSession)
+    .mockResolvedValue({ user: { id, role: "admin" } } as never)
 
 const suffix = createId().slice(0, 8)
 const USER_ID = createId()
@@ -339,5 +352,51 @@ describe("corpus de révision — verrou examen ouvert", () => {
       limit: 20,
     })
     expect(ids).toEqual([qIds[5]])
+  })
+})
+
+describe("createTrainingSession en révision", () => {
+  it("démarre avec un corpus plus court que demandé, sous MIN_QUESTIONS", async () => {
+    asUser(USER_ID)
+    const res = await createTrainingSession({
+      questionCount: 20,
+      domain: DOMAIN,
+      mode: "test",
+      revisionFilters: ["unseen"],
+    })
+    expect(res.success).toBe(true)
+    if (!res.success) return
+
+    try {
+      expect(res.questionCount).toBe(2)
+      const items = await db
+        .select({ id: trainingSessionItems.id })
+        .from(trainingSessionItems)
+        .where(eq(trainingSessionItems.sessionId, res.sessionId))
+      expect(items).toHaveLength(2)
+    } finally {
+      await abandonTrainingSession({ sessionId: res.sessionId })
+    }
+  })
+
+  it("refuse explicitement un corpus vide", async () => {
+    asUser(USER_ID)
+    const res = await createTrainingSession({
+      questionCount: 10,
+      domain: DOMAIN,
+      mode: "test",
+      revisionFilters: ["failed"],
+    })
+    expect(res.success).toBe(false)
+    if (res.success) return
+    expect(res.error).toContain("Aucune question")
+  })
+})
+
+describe("loadRevisionCounts", () => {
+  it("compte pour l'utilisateur de la session, pas celui passé en argument", async () => {
+    asUser(OTHER_USER_ID)
+    const counts = await loadRevisionCounts({ domain: DOMAIN })
+    expect(counts.failed).toBe(1) // la ratée de l'AUTRE utilisateur (qIds[5])
   })
 })
