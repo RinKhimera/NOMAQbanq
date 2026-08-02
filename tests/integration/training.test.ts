@@ -14,6 +14,7 @@ import {
   examQuestions,
   exams,
   products,
+  questionBookmarks,
   questionExplanations,
   questionImages,
   questions,
@@ -29,6 +30,7 @@ import {
   createTrainingSession,
   deleteTrainingSession,
   saveTrainingAnswer,
+  setQuestionBookmark,
 } from "@/features/training/actions"
 import {
   getActiveTrainingSession,
@@ -99,6 +101,9 @@ beforeEach(() => {
 })
 
 afterAll(async () => {
+  await db
+    .delete(questionBookmarks)
+    .where(eq(questionBookmarks.userId, USER_ID))
   await db.delete(trainingSessions).where(eq(trainingSessions.userId, USER_ID))
   await db
     .delete(questionImages)
@@ -108,6 +113,35 @@ afterAll(async () => {
     .where(inArray(questionExplanations.questionId, qIds))
   await db.delete(questions).where(inArray(questions.id, qIds))
   await db.delete(user).where(eq(user.id, USER_ID))
+})
+
+describe("signets sur la vue de session", () => {
+  it("la vue expose les signets de l'utilisateur", async () => {
+    asAdmin()
+    const created = await createTrainingSession({
+      questionCount: 5,
+      domain: DOMAIN,
+      mode: "test",
+    })
+    expect(created.success).toBe(true)
+    if (!created.success) return
+
+    try {
+      const before = await getTrainingSessionById(created.sessionId)
+      expect(before?.bookmarkedIds).toEqual([])
+      const questionId = before!.questions[0]._id
+
+      await setQuestionBookmark({ questionId, isBookmarked: true })
+
+      const after = await getTrainingSessionById(created.sessionId)
+      expect(after?.bookmarkedIds).toContain(questionId)
+    } finally {
+      await abandonTrainingSession({ sessionId: created.sessionId })
+      await db
+        .delete(questionBookmarks)
+        .where(eq(questionBookmarks.userId, USER_ID))
+    }
+  })
 })
 
 describe("parcours complet (création → réponses → fin → résultats)", () => {

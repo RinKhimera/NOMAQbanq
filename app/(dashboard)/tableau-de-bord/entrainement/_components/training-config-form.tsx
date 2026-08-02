@@ -21,7 +21,14 @@ import { Spinner } from "@/components/ui/spinner"
 import {
   createTrainingSession,
   loadAvailableObjectifsCMC,
+  loadRevisionCounts,
 } from "@/features/training/actions"
+import {
+  REVISION_CRITERIA,
+  REVISION_CRITERION_LABELS,
+  type RevisionCriterion,
+} from "@/features/training/schemas"
+import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
 import { ObjectifsCMCMultiSelect } from "./objectifs-cmc-multi-select"
 
@@ -43,6 +50,13 @@ export const TrainingConfigForm = ({
   const [selectedDomain, setSelectedDomain] = useState<string>("all")
   const [selectedObjectifs, setSelectedObjectifs] = useState<string[]>([])
   const [trainingMode, setTrainingMode] = useState<"tutor" | "test">("test")
+  const [revisionFilters, setRevisionFilters] = useState<RevisionCriterion[]>(
+    [],
+  )
+  const [revisionCounts, setRevisionCounts] = useState<
+    Record<RevisionCriterion, number>
+  >({ failed: 0, unseen: 0, bookmarked: 0 })
+  const [isCountsLoading, startCountsLoad] = useTransition()
 
   // Objectifs filtrés par domaine via Server Action (remplace useQuery réactif).
   // Initialisés avec la prop (tous domaines = état initial). setState seulement
@@ -69,6 +83,35 @@ export const TrainingConfigForm = ({
     })
   }, [selectedDomain])
 
+  // Clé stable : `selectedObjectifs` change d'identité à chaque `setState`, et
+  // chaque exécution coûte un balayage complet de la banque de questions.
+  const objectifsKey = selectedObjectifs.join("|")
+
+  useEffect(() => {
+    startCountsLoad(async () => {
+      try {
+        const counts = await loadRevisionCounts({
+          domain: selectedDomain === "all" ? undefined : selectedDomain,
+          objectifsCMCs: objectifsKey ? objectifsKey.split("|") : undefined,
+        })
+        setRevisionCounts(counts)
+      } catch {
+        // Sans ça, les puces resteraient à 0 en silence — l'étudiant croirait
+        // n'avoir aucun historique.
+        toast.error(
+          "Impossible de charger vos compteurs de révision. Vérifiez votre réseau.",
+        )
+      }
+    })
+  }, [selectedDomain, objectifsKey])
+
+  const toggleRevisionFilter = (criterion: RevisionCriterion) =>
+    setRevisionFilters((current) =>
+      current.includes(criterion)
+        ? current.filter((c) => c !== criterion)
+        : [...current, criterion],
+    )
+
   const selectedDomainQuestions =
     selectedDomain === "all"
       ? totalQuestions
@@ -94,31 +137,32 @@ export const TrainingConfigForm = ({
   const [, submitAction, isPending] = useActionState(async () => {
     if (!isValidCount) return null
 
-    try {
-      const result = await createTrainingSession({
+    // `callAction` ne throw jamais : un rejet réseau devient `success: false` au
+    // lieu de contourner le garde ci-dessous.
+    const result = await callAction(() =>
+      createTrainingSession({
         questionCount,
         domain: selectedDomain === "all" ? undefined : selectedDomain,
         objectifsCMCs:
           selectedObjectifs.length > 0 ? selectedObjectifs : undefined,
         mode: trainingMode,
-      })
+        revisionFilters:
+          revisionFilters.length > 0 ? revisionFilters : undefined,
+      }),
+    )
 
-      if (!result.success) {
-        toast.error("Erreur", { description: result.error })
-        return null
-      }
-
-      toast.success("Session créée !", {
-        description: `${questionCount} questions sélectionnées`,
-      })
-
-      router.push(`/tableau-de-bord/entrainement/${result.sessionId}`)
-    } catch (error) {
-      toast.error("Erreur", {
-        description:
-          error instanceof Error ? error.message : "Une erreur est survenue",
-      })
+    if (!result.success) {
+      toast.error("Erreur", { description: result.error })
+      return null
     }
+
+    // Le nombre annoncé est celui RETENU par le serveur : en révision, le corpus
+    // peut être plus court que la demande.
+    toast.success("Session créée !", {
+      description: `${result.questionCount} questions sélectionnées`,
+    })
+
+    router.push(`/tableau-de-bord/entrainement/${result.sessionId}`)
 
     return null
   }, null)
@@ -272,6 +316,49 @@ export const TrainingConfigForm = ({
               {availableQuestions} question{availableQuestions > 1 ? "s" : ""}{" "}
               disponible{availableQuestions > 1 ? "s" : ""} pour ces objectifs
             </motion.p>
+          )}
+        </div>
+
+        {/* Filtres de révision */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-gray-500" />
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Réviser (optionnel)
+            </label>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {REVISION_CRITERIA.map((criterion) => {
+              const isActive = revisionFilters.includes(criterion)
+              return (
+                <button
+                  key={criterion}
+                  type="button"
+                  data-testid={`revision-${criterion}`}
+                  aria-pressed={isActive}
+                  onClick={() => toggleRevisionFilter(criterion)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-all",
+                    isActive
+                      ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300"
+                      : "border-gray-200 bg-white/60 text-gray-700 hover:border-emerald-300 dark:border-gray-700 dark:bg-gray-800/60 dark:text-gray-300",
+                  )}
+                >
+                  <span>{REVISION_CRITERION_LABELS[criterion]}</span>
+                  <span className="rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                    {isCountsLoading ? "…" : revisionCounts[criterion]}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          {revisionFilters.length > 0 && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              La session prendra jusqu&apos;à {questionCount} questions parmi
+              celles qui correspondent — moins s&apos;il y en a moins.
+            </p>
           )}
         </div>
 

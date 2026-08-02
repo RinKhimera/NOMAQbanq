@@ -503,6 +503,8 @@ export type TrainingSessionView = {
   }
   questions: TrainingSessionQuestion[]
   answers: TrainingAnswerRecord
+  /** Signets de l'utilisateur courant parmi les questions de la session. */
+  bookmarkedIds: string[]
   isExpired: boolean
 } | null
 
@@ -565,11 +567,15 @@ export const getTrainingSessionById = async (
   const sessionQuestionIds = items.map((i) => i.questionId)
   // Questions d'un examen OUVERT où l'utilisateur participe : clé de réponse
   // différée jusqu'à la clôture (voir getOpenExamLockedQuestionIds).
-  const [imgMap, lockedIds] = await Promise.all([
+  const isOwner = s.userId === session.user.id
+  const [imgMap, lockedIds, bookmarkedIds] = await Promise.all([
     fetchImages(sessionQuestionIds),
     session.user.role === "admin"
       ? new Set<string>()
       : getOpenExamLockedQuestionIds(session.user.id, sessionQuestionIds),
+    // Un signet est personnel : un admin qui inspecte la session d'un étudiant
+    // verrait les SIENS, donc des drapeaux incohérents avec ce qu'il regarde.
+    isOwner ? getBookmarkedQuestionIds(sessionQuestionIds) : [],
   ])
 
   const questionsView: TrainingSessionQuestion[] = items.map((i) => {
@@ -626,6 +632,7 @@ export const getTrainingSessionById = async (
     },
     questions: questionsView,
     answers,
+    bookmarkedIds,
     isExpired: s.expiresAt.getTime() < Date.now(),
   }
 }

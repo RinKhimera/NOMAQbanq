@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import {
   completeTrainingSession,
   saveTrainingAnswer,
+  setQuestionBookmark,
 } from "@/features/training/actions"
 import type { TrainingSessionView } from "@/features/training/dal"
 import { callAction } from "@/lib/safe-action"
@@ -131,8 +132,17 @@ export const TrainingSessionClient = ({
           : undefined,
       }
     },
-    // Flags d'entraînement restent locaux — no-op serveur
-    onFlag: async () => ({ ok: true }),
+    onFlag: async (questionId, isFlagged) => {
+      const res = await callAction(
+        () => setQuestionBookmark({ questionId, isBookmarked: isFlagged }),
+        { retries: 1 }, // état voulu (pas une bascule) → reprise sans effet de bord
+      )
+      if (!res.success) {
+        toast.error("Marquage non enregistré, réessayez.")
+        return { ok: false }
+      }
+      return { ok: true }
+    },
     onFinish: async () => {
       const res = await callAction(() => completeTrainingSession({ sessionId }))
       if (!res.success) {
@@ -152,6 +162,7 @@ export const TrainingSessionClient = ({
     <QuizRunner
       questions={mappedQuestions}
       initialAnswers={initialAnswers}
+      initialFlags={new Set(initialData.bookmarkedIds)}
       initialRevealed={initialRevealed}
       mode={mode}
       callbacks={callbacks}
