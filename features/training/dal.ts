@@ -14,6 +14,7 @@ import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
 import {
+  questionBookmarks,
   questionExplanations,
   questionImages,
   questions,
@@ -309,6 +310,29 @@ export const getTrainingStats = cache(async (): Promise<TrainingStats> => {
     averageScore: row?.averageScore ?? 0,
   }
 })
+
+/**
+ * Signets de **l'utilisateur courant** parmi `questionIds`. Un signet est un
+ * état personnel : les appelants qui affichent la session d'un autre
+ * utilisateur (admin) ne doivent pas les demander.
+ */
+export const getBookmarkedQuestionIds = async (
+  questionIds: string[],
+): Promise<string[]> => {
+  const session = await getCurrentSession()
+  if (!session?.user || questionIds.length === 0) return []
+
+  const rows = await db
+    .select({ questionId: questionBookmarks.questionId })
+    .from(questionBookmarks)
+    .where(
+      and(
+        eq(questionBookmarks.userId, session.user.id),
+        inArray(questionBookmarks.questionId, questionIds),
+      ),
+    )
+  return rows.map((r) => r.questionId)
+}
 
 // ============================================
 // Historique de score (graphique dashboard)

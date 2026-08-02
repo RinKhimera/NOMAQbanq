@@ -4,6 +4,7 @@ import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import {
+  questionBookmarks,
   questionExplanations,
   questions,
   trainingSessionItems,
@@ -11,6 +12,7 @@ import {
   user,
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
+import { getPgErrorCode } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { computeScorePercent } from "@/lib/score"
@@ -25,8 +27,10 @@ import {
 import {
   type CreateTrainingSessionInput,
   type SaveTrainingAnswerInput,
+  type SetQuestionBookmarkInput,
   createTrainingSessionSchema,
   saveTrainingAnswerSchema,
+  setQuestionBookmarkSchema,
 } from "./schemas"
 
 const SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000 // 24 h
@@ -336,6 +340,49 @@ export const saveTrainingAnswer = async (
     captureServerError("[saveTrainingAnswer]", error, {
       userId: session.user.id,
     })
+    return fail("Erreur serveur. Réessayez.")
+  }
+}
+
+/**
+ * [Auth] Pose ou retire le signet de révision d'une question. Idempotente :
+ * l'état voulu est passé en entrée (pas une bascule), donc une reprise réseau de
+ * `callAction` ne l'inverse pas. Aucun `revalidatePath` : l'état vit dans le
+ * runner côté client.
+ */
+export const setQuestionBookmark = async (
+  input: SetQuestionBookmarkInput,
+): Promise<{ success: boolean; error?: string }> => {
+  const session = await requireSession()
+  const parsed = setQuestionBookmarkSchema.safeParse(input)
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
+  }
+  const { questionId, isBookmarked } = parsed.data
+  const userId = session.user.id
+
+  try {
+    if (isBookmarked) {
+      await db
+        .insert(questionBookmarks)
+        .values({ userId, questionId })
+        .onConflictDoNothing()
+    } else {
+      await db
+        .delete(questionBookmarks)
+        .where(
+          and(
+            eq(questionBookmarks.userId, userId),
+            eq(questionBookmarks.questionId, questionId),
+          ),
+        )
+    }
+    return { success: true }
+  } catch (error) {
+    // 23503 : le client a envoyé une question qui n'existe pas. Erreur métier
+    // mappée → pas de capture Sentry.
+    if (getPgErrorCode(error) === "23503") return fail("Question introuvable.")
+    captureServerError("[setQuestionBookmark]", error, { userId })
     return fail("Erreur serveur. Réessayez.")
   }
 }

@@ -18,6 +18,12 @@ export type CreateTrainingSessionInput = z.infer<
   typeof createTrainingSessionSchema
 >
 
+export const setQuestionBookmarkSchema = z.object({
+  questionId: z.string().min(1),
+  isBookmarked: z.boolean(),
+})
+export type SetQuestionBookmarkInput = z.infer<typeof setQuestionBookmarkSchema>
+
 export const saveTrainingAnswerSchema = z.object({
   sessionId: z.string().min(1),
   questionId: z.string().min(1),
