@@ -1,6 +1,7 @@
 import { type SQL, sql } from "drizzle-orm"
 import "server-only"
 import { type Db, db } from "@/db"
+import { getUserOpenExamLockedQuestionIds } from "../exams/dal.shared"
 import type { RevisionCriterion } from "./schemas"
 
 // `db` ou une transaction : le tirage doit pouvoir vivre dans la transaction qui
@@ -55,7 +56,10 @@ const CRITERION_PREDICATE: Record<RevisionCriterion, SQL> = {
   unseen: sql`not exists (select 1 from attempts a2 where a2.question_id = q.id)`,
 }
 
-const corpusWhere = ({ domain, objectifsCMCs }: RevisionScope): SQL => {
+const corpusWhere = (
+  { domain, objectifsCMCs }: RevisionScope,
+  lockedIds: string[],
+): SQL => {
   const parts: SQL[] = [sql`q.deleted_at is null`]
   if (domain && domain !== "all") parts.push(sql`q.domain = ${domain}`)
 
@@ -69,14 +73,37 @@ const corpusWhere = ({ domain, objectifsCMCs }: RevisionScope): SQL => {
       )})`,
     )
   }
+
+  // Verrou anti-triche appliqué à la SÉLECTION, pas seulement à la révélation :
+  // l'appartenance d'une question au lot est elle-même un oracle sur les
+  // réponses d'un examen encore ouvert.
+  if (lockedIds.length > 0) {
+    parts.push(
+      sql`q.id not in (${sql.join(
+        lockedIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})`,
+    )
+  }
   return sql.join(parts, sql` and `)
 }
+
+/**
+ * Identifiants à exclure du corpus. À résoudre AVANT d'ouvrir une transaction :
+ * le pool pg est à `max: 5` sans timeout d'acquisition, donc réclamer une 2ᵉ
+ * connexion pendant qu'on en détient une fige la requête — et cinq créations
+ * concurrentes figent l'application.
+ */
+export const resolveRevisionLock = async (
+  userId: string,
+): Promise<string[]> => [...(await getUserOpenExamLockedQuestionIds(userId))]
 
 /** Compteur par critère, sur le corpus filtré (domaine + objectifs). */
 export const getRevisionCounts = async (
   userId: string,
   scope: Omit<RevisionScope, "userId"> = {},
 ): Promise<RevisionCounts> => {
+  const lockedIds = await resolveRevisionLock(userId)
   const res = await db.execute(sql`
     with ${historyCte(userId)}
     select
@@ -84,7 +111,7 @@ export const getRevisionCounts = async (
       (count(*) filter (where ${CRITERION_PREDICATE.unseen}))::int as unseen,
       (count(*) filter (where ${CRITERION_PREDICATE.bookmarked}))::int as bookmarked
       from questions q
-     where ${corpusWhere({ userId, ...scope })}
+     where ${corpusWhere({ userId, ...scope }, lockedIds)}
   `)
   // Le cast `::int` est indispensable : sans lui, `count(*)` remonte en bigint,
   // que le driver pg rend en `string`.
@@ -106,8 +133,17 @@ export const pickRevisionQuestionIds = async (
   {
     criteria,
     limit,
+    lockedIds,
     ...scope
-  }: RevisionScope & { criteria: RevisionCriterion[]; limit: number },
+  }: RevisionScope & {
+    criteria: RevisionCriterion[]
+    limit: number
+    /**
+     * Résolus par `resolveRevisionLock` HORS transaction. Paramètre REQUIS : un
+     * oubli casse la compilation au lieu de rouvrir le trou anti-triche.
+     */
+    lockedIds: string[]
+  },
 ): Promise<string[]> => {
   const unique = [...new Set(criteria)]
   if (unique.length === 0 || limit <= 0) return []
@@ -120,7 +156,7 @@ export const pickRevisionQuestionIds = async (
     with ${historyCte(scope.userId)}
     select q.id
       from questions q
-     where ${corpusWhere(scope)} and (${anyCriterion})
+     where ${corpusWhere(scope, lockedIds)} and (${anyCriterion})
      order by random()
      limit ${limit}
   `)

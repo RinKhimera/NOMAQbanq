@@ -2,6 +2,10 @@ import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
+  examAnswers,
+  examParticipations,
+  examQuestions,
+  exams,
   questionBookmarks,
   questions,
   trainingSessionItems,
@@ -11,6 +15,7 @@ import {
 import {
   getRevisionCounts,
   pickRevisionQuestionIds,
+  resolveRevisionLock,
 } from "@/features/training/revision"
 import { createId } from "@/lib/ids"
 
@@ -33,6 +38,9 @@ const OBJ_ALT = `Obj RC alt ${suffix}`
 const qIds = Array.from({ length: 6 }, () => createId())
 const SESSION_ID = createId()
 const OTHER_SESSION_ID = createId()
+const OPEN_EXAM_ID = createId()
+const CLOSED_EXAM_ID = createId()
+const CLOSED_PARTICIPATION_ID = createId()
 
 const seedSession = async (
   sessionId: string,
@@ -116,9 +124,71 @@ beforeAll(async () => {
   await db
     .insert(questionBookmarks)
     .values({ userId: USER_ID, questionId: qIds[3] })
+
+  // Examen OUVERT portant la ratée (q0) et la marquée (q3) : elles doivent
+  // disparaître du corpus tant qu'il n'est pas clos.
+  await db.insert(exams).values([
+    {
+      id: OPEN_EXAM_ID,
+      title: `RC examen ouvert ${suffix}`,
+      startDate: new Date("2026-01-01T00:00:00Z"),
+      endDate: new Date("2099-01-01T00:00:00Z"),
+      completionTime: 3600,
+      createdBy: USER_ID,
+    },
+    {
+      id: CLOSED_EXAM_ID,
+      title: `RC examen clos ${suffix}`,
+      startDate: new Date("2026-01-01T00:00:00Z"),
+      endDate: new Date("2026-01-02T00:00:00Z"),
+      completionTime: 3600,
+      createdBy: USER_ID,
+    },
+  ])
+  await db.insert(examQuestions).values([
+    { examId: OPEN_EXAM_ID, questionId: qIds[0], position: 0 },
+    { examId: OPEN_EXAM_ID, questionId: qIds[3], position: 1 },
+    { examId: CLOSED_EXAM_ID, questionId: qIds[5], position: 0 },
+  ])
+  await db.insert(examParticipations).values([
+    {
+      id: createId(),
+      examId: OPEN_EXAM_ID,
+      userId: USER_ID,
+      status: "in_progress",
+      startedAt: new Date("2026-01-01T01:00:00Z"),
+    },
+    {
+      id: CLOSED_PARTICIPATION_ID,
+      examId: CLOSED_EXAM_ID,
+      userId: USER_ID,
+      status: "completed",
+      startedAt: new Date("2026-01-01T01:00:00Z"),
+    },
+  ])
+  // Marquée pendant un examen CLOS et jamais répondue : couvre la branche
+  // `is_flagged` et prouve que l'exclusion ne vise que les examens ouverts.
+  await db.insert(examAnswers).values({
+    participationId: CLOSED_PARTICIPATION_ID,
+    questionId: qIds[5],
+    selectedAnswer: null,
+    isCorrect: null,
+    isFlagged: true,
+  })
 })
 
 afterAll(async () => {
+  // Les réponses partent en cascade avec leur participation ; les participations
+  // doivent tomber avant les questions (`exam_answers.question_id` en restrict).
+  await db
+    .delete(examParticipations)
+    .where(inArray(examParticipations.examId, [OPEN_EXAM_ID, CLOSED_EXAM_ID]))
+  await db
+    .delete(examQuestions)
+    .where(inArray(examQuestions.examId, [OPEN_EXAM_ID, CLOSED_EXAM_ID]))
+  await db
+    .delete(exams)
+    .where(inArray(exams.id, [OPEN_EXAM_ID, CLOSED_EXAM_ID]))
   await db
     .delete(questionBookmarks)
     .where(eq(questionBookmarks.userId, USER_ID))
@@ -133,36 +203,42 @@ describe("corpus de révision", () => {
   it("« ratée » = dernière tentative fausse (une réussite ultérieure la retire)", async () => {
     const ids = await pickRevisionQuestionIds(db, {
       userId: USER_ID,
+      lockedIds: await resolveRevisionLock(USER_ID),
       criteria: ["failed"],
       domain: DOMAIN,
       limit: 20,
     })
-    expect(ids).toEqual([qIds[0]])
+    // q0 est dans un examen OUVERT → retirée du corpus (voir le describe verrou).
+    expect(ids).toEqual([])
   })
 
   it("« non vue » = jamais répondue", async () => {
     const ids = await pickRevisionQuestionIds(db, {
       userId: USER_ID,
+      lockedIds: await resolveRevisionLock(USER_ID),
       criteria: ["unseen"],
       domain: DOMAIN,
       limit: 20,
     })
-    expect([...ids].sort()).toEqual([qIds[3], qIds[4], qIds[5]].sort())
+    expect([...ids].sort()).toEqual([qIds[4], qIds[5]].sort())
   })
 
   it("les critères s'unissent en OU", async () => {
     const ids = await pickRevisionQuestionIds(db, {
       userId: USER_ID,
+      lockedIds: await resolveRevisionLock(USER_ID),
       criteria: ["failed", "bookmarked"],
       domain: DOMAIN,
       limit: 20,
     })
-    expect([...ids].sort()).toEqual([qIds[0], qIds[3]].sort())
+    // q0 et q3 verrouillées ; reste q5, marquée via un examen CLOS.
+    expect(ids).toEqual([qIds[5]])
   })
 
   it("borne le tirage à la limite demandée", async () => {
     const ids = await pickRevisionQuestionIds(db, {
       userId: USER_ID,
+      lockedIds: await resolveRevisionLock(USER_ID),
       criteria: ["unseen"],
       domain: DOMAIN,
       limit: 2,
@@ -173,6 +249,7 @@ describe("corpus de révision", () => {
   it("n'emprunte jamais l'historique d'un autre étudiant", async () => {
     const ids = await pickRevisionQuestionIds(db, {
       userId: USER_ID,
+      lockedIds: await resolveRevisionLock(USER_ID),
       criteria: ["failed"],
       domain: DOMAIN,
       limit: 20,
@@ -200,6 +277,7 @@ describe("corpus de révision", () => {
 
     const ids = await pickRevisionQuestionIds(db, {
       userId: USER_ID,
+      lockedIds: await resolveRevisionLock(USER_ID),
       criteria: ["unseen"],
       domain: DOMAIN,
       limit: 20,
@@ -210,6 +288,7 @@ describe("corpus de révision", () => {
   it("intersecte avec le filtre d'objectifs CMC", async () => {
     const ids = await pickRevisionQuestionIds(db, {
       userId: USER_ID,
+      lockedIds: await resolveRevisionLock(USER_ID),
       criteria: ["unseen"],
       domain: DOMAIN,
       objectifsCMCs: [OBJ_ALT],
@@ -226,6 +305,39 @@ describe("corpus de révision", () => {
 
   it("les compteurs décrivent le même corpus que le tirage", async () => {
     const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
-    expect(counts).toEqual({ failed: 1, unseen: 3, bookmarked: 1 })
+    expect(counts).toEqual({ failed: 0, unseen: 2, bookmarked: 1 })
+  })
+})
+
+describe("corpus de révision — verrou examen ouvert", () => {
+  it("exclut du TIRAGE les questions d'un examen ouvert où l'étudiant participe", async () => {
+    const ids = await pickRevisionQuestionIds(db, {
+      userId: USER_ID,
+      lockedIds: await resolveRevisionLock(USER_ID),
+      criteria: ["failed", "bookmarked", "unseen"],
+      domain: DOMAIN,
+      limit: 20,
+    })
+    expect(ids).not.toContain(qIds[0])
+    expect(ids).not.toContain(qIds[3])
+  })
+
+  it("exclut aussi des COMPTEURS (sinon le compteur redevient l'oracle)", async () => {
+    const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
+    expect(counts.failed).toBe(0) // la seule ratée est dans l'examen ouvert
+  })
+
+  it("un examen CLOS ne verrouille rien : sa question marquée reste révisable", async () => {
+    const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
+    expect(counts.bookmarked).toBe(1) // qIds[5], marquée via l'examen clos
+
+    const ids = await pickRevisionQuestionIds(db, {
+      userId: USER_ID,
+      lockedIds: await resolveRevisionLock(USER_ID),
+      criteria: ["bookmarked"],
+      domain: DOMAIN,
+      limit: 20,
+    })
+    expect(ids).toEqual([qIds[5]])
   })
 })
