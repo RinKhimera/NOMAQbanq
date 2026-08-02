@@ -1,7 +1,9 @@
 # Spec — Révision ciblée en entraînement (P1-A)
 
 - **Date** : 2026-08-01
-- **Statut** : DESIGN VALIDÉ — à planifier (writing-plans)
+- **Statut** : IMPLÉMENTÉ le 2026-08-02 (branche `feat/p1-qbank-engagement`) —
+  revue adversariale de design passée (12 constats triés : 11 corrigés, 1
+  rétrogradé avec preuve). Gates verts.
 - **Branche** : `feat/p1-qbank-engagement` (empilée sur `main` ; porte aussi le
   commit `docs: notes en attente`)
 - **Origine** : issue [#115 « P1 — QBank : engagement étudiant »](https://github.com/RinKhimera/NOMAQbanq/issues/115),
@@ -221,8 +223,9 @@ insertion atomique session + items.
 
 Deux actions neuves :
 
-- `toggleQuestionBookmark(questionId)` — idempotente (insert `ON CONFLICT DO
-NOTHING` / delete), renvoie l'état du signet et rien d'autre.
+- `setQuestionBookmark({ questionId, isBookmarked })` — prend l'**état voulu** et
+  non une bascule, ce qui la rend idempotente : `callAction` peut la retenter
+  sans inverser deux fois le marquage. Renvoie le succès et rien d'autre.
 - `loadRevisionCounts(domain, objectifs)` — calqué sur
   `loadAvailableObjectifsCMC`, appelé via `callAction` quand l'étudiant change
   de domaine ou d'objectifs.
@@ -230,8 +233,12 @@ NOTHING` / delete), renvoie l'état du signet et rien d'autre.
 ### 5. UI
 
 - **`training-config-form.tsx`** : un groupe « Réviser » de trois puces
-  cochables, chacune avec son compteur live (« Ratées · 42 »). Le curseur de
-  nombre se borne au corpus filtré. Les compteurs se rafraîchissent au
+  cochables, chacune avec son compteur live (« Ratées · 42 »). Les compteurs
+  sont **indicatifs** : le curseur n'est pas plafonné par eux, car l'union de
+  plusieurs critères n'est pas la somme de leurs compteurs (une même question
+  peut être ratée **et** marquée) — un plafond client mentirait. Le serveur
+  borne au corpus et `createTrainingSession` renvoie le nombre réellement
+  retenu, que le toast annonce. Les compteurs se rafraîchissent au
   changement de domaine/objectifs, sur le mécanisme déjà en place pour les
   objectifs CMC.
 - **Runner d'entraînement** : le bouton « Marquer » existe déjà côté
@@ -253,10 +260,10 @@ Intégration (base réelle) — l'essentiel de la valeur :
 - corpus vide → refus explicite ;
 - IDOR : l'historique et les signets d'un autre étudiant n'entrent jamais dans
   le corpus ;
-- `toggleQuestionBookmark` idempotente sous appels répétés.
+- `setQuestionBookmark` idempotente sous appels répétés.
 
-Frontend : puces + bornes du curseur dans le formulaire ; persistance du
-marquage dans le runner (fin du no-op).
+Frontend : puces et compteurs dans le formulaire ; persistance du marquage dans
+le runner (fin du no-op), échec réseau compris.
 
 Nettoyage `afterAll` : `question_bookmarks` avant `questions` (FK), comme les
 autres tables enfants.
