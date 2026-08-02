@@ -8,7 +8,7 @@ Ce document définit les règles à suivre pour maintenir le fichier `CLAUDE.md`
 
 ### 1. Concision Absolue
 
-- **Cible root** : < 100 lignes (actuellement ~80). Les patterns spécialisés vont dans `.claude/rules/`
+- **Cible root** : < 150 lignes (actuellement ~110, dans `AGENTS.md` importé par `CLAUDE.md`). Les patterns spécialisés vont dans `.claude/rules/`
 - **Raison** : Le CLAUDE.md consomme du contexte. Chaque ligne inutile réduit la capacité de travail
 - **Règle** : Si une info est trouvable ailleurs (package.json, schema.ts, .env.example), ne pas la dupliquer
 
@@ -57,8 +57,6 @@ Voir `lib/auth-guards.ts:requireRole()`
 ```
 ````
 
-````
-
 ---
 
 ## Format des Règles Critiques
@@ -67,7 +65,7 @@ Utiliser le format suivant pour les règles qui causent des bugs si ignorées :
 
 ```markdown
 **IMPORTANT - [Nom Court]** : Description concise. Voir `fichier:fonction()`.
-````
+```
 
 Exemples :
 
@@ -109,7 +107,7 @@ Avant de modifier CLAUDE.md, vérifier :
 
 ## Organisation Actuelle
 
-### Root `CLAUDE.md` (~80 lignes)
+### Root `CLAUDE.md` → `AGENTS.md` (~110 lignes)
 
 1. **Header** - Nom + description 1 ligne
 2. **Stack** - Technologies (1 ligne)
@@ -122,17 +120,21 @@ Avant de modifier CLAUDE.md, vérifier :
 
 ### `.claude/rules/` (chargés automatiquement par path)
 
-| Fichier         | Scope                                   | Contenu                                          |
-| --------------- | --------------------------------------- | ------------------------------------------------ |
-| `data-layer.md` | `features/**`, `app/**`                 | DAL Drizzle, Server Actions, tests d'intégration |
-| `admin-ui.md`   | `app/(admin)/**`, `components/admin/**` | Master-detail, stat cards, filtres               |
-| `seo.md`        | `app/(marketing)/**`, SEO files         | Metadata, pages marketing                        |
+| Fichier          | Scope                                      | Contenu                                                    |
+| ---------------- | ------------------------------------------ | ---------------------------------------------------------- |
+| `data-layer.md`  | `features/**`, `app/**`                    | DAL Drizzle, Server Actions, tests d'intégration           |
+| `loading-ui.md`  | `app/**`, `components/**`                  | États de chargement, socle Spinner/Skeleton, `loading.tsx` |
+| `admin-ui.md`    | `app/(admin)/**`, `components/admin/**`    | Master-detail, stat cards, filtres                         |
+| `seo.md`         | `app/(marketing)/**`, SEO files            | Metadata, pages marketing, claims éditoriaux               |
+| `e2e-testing.md` | `e2e/**`, `components/quiz/**`, Playwright | Suite E2E, sélecteurs, comptes de test                     |
 
 ### Où ajouter un nouveau pattern ?
 
 - Pattern data layer / backend → `.claude/rules/data-layer.md`
+- Pattern états de chargement → `.claude/rules/loading-ui.md`
 - Pattern admin UI → `.claude/rules/admin-ui.md`
 - Pattern SEO/marketing → `.claude/rules/seo.md`
+- Pattern E2E/Playwright → `.claude/rules/e2e-testing.md`
 - Pattern universel/gotcha → root `CLAUDE.md`
 - Nouveau domaine → créer un nouveau fichier dans `.claude/rules/` avec `paths:` frontmatter
 
