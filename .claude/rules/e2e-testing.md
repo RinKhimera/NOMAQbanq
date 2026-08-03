@@ -118,6 +118,9 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   ET paragraphe → `getByRole("heading", { name })`.
 - **Stats marketing dynamiques** : matcher le suffixe par regex, ne pas hardcoder
   les nombres.
+- **Simuler l'offline** : `context.setOffline(true)` PEND indéfiniment en dev
+  Turbopack — utiliser `page.route(..., route => route.abort())` sur les POST
+  ciblés à la place.
 - **Formulaire question admin** (`/admin/questions/nouvelle`) : le Select de domaine
   (shadcn/Radix) garde un `<select>` natif caché → `getByText(domaine)` matche 2×
   (l'`<option>` native + l'item Radix) → scoper `getByRole("listbox").getByText(...)`.

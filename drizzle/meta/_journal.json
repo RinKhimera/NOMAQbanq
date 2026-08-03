@@ -85,6 +85,13 @@
       "when": 1783638004589,
       "tag": "0011_demonic_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785644443900,
+      "tag": "0012_lowly_paper_doll",
+      "breakpoints": true
     }
   ]
 }

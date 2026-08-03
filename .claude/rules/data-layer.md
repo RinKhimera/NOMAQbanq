@@ -58,6 +58,24 @@ storagePath,order}` pour rester assignable aux composants partagés
   (`saveExamAnswer` refuse au-delà de `startedAt + completionTime + grâce`), pas
   seulement à la finalisation (`isAutoSubmit` vient du client). `updateExam` et
   `startExam` prennent un `FOR UPDATE` commun sur la ligne `exams`.
+- **Révision ciblée — le verrou s'applique à la SÉLECTION** : tout canal qui
+  compose un lot de questions à partir de l'historique d'un étudiant (corpus de
+  révision, `features/training/revision.ts`) DOIT retrancher
+  `getUserOpenExamLockedQuestionIds` — du lot **et** des compteurs affichés.
+  Masquer la correction ne suffit pas : l'appartenance d'une question au lot
+  « mes ratées » dit déjà « tu t'es trompé », donc triche pendant qu'un examen
+  est ouvert, sans jamais voir la clé. `getOpenExamLockedQuestionIds` n'est
+  qu'une restriction du même jeu — une seule définition de la règle.
+  `pickRevisionQuestionIds` prend les identifiants verrouillés en paramètre
+  **requis** : ils se résolvent AVANT d'ouvrir la transaction (voir la règle
+  suivante), et un oubli casse la compilation au lieu du silence.
+- **Jamais d'appel au `db` global depuis une fonction exécutée dans une
+  transaction** : le pool est à `max: 5` **sans** `connectionTimeoutMillis`
+  (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une
+  fige la requête indéfiniment — et cinq transactions concurrentes figent
+  l'application entière, pas seulement la fonctionnalité fautive. Ce qu'une
+  transaction doit lire ailleurs se résout avant de l'ouvrir et se passe en
+  paramètre (`hasAccess` et `resolveRevisionLock` dans `createTrainingSession`).
 - **Narrowing TS** : renvoyer la valeur DEPUIS le callback de transaction
   (`const r = await db.transaction(async tx => { … return v })`), PAS via un
   `let` capturé dans la closure — TS ne le narrow pas après un garde `if (!r)`

@@ -4,6 +4,7 @@ import { and, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import {
+  questionBookmarks,
   questionExplanations,
   questions,
   trainingSessionItems,
@@ -11,6 +12,7 @@ import {
   user,
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
+import { getPgErrorCode } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { computeScorePercent } from "@/lib/score"
@@ -23,10 +25,20 @@ import {
   getTrainingHistory,
 } from "./dal"
 import {
+  type RevisionCounts,
+  getRevisionCounts,
+  pickRevisionQuestionIds,
+  resolveRevisionLock,
+} from "./revision"
+import {
   type CreateTrainingSessionInput,
+  type RevisionCountsScopeInput,
   type SaveTrainingAnswerInput,
+  type SetQuestionBookmarkInput,
   createTrainingSessionSchema,
+  revisionCountsScopeSchema,
   saveTrainingAnswerSchema,
+  setQuestionBookmarkSchema,
 } from "./schemas"
 
 const SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000 // 24 h
@@ -47,6 +59,20 @@ export const loadTrainingHistory = async (args: {
   return getTrainingHistory(args)
 }
 
+/**
+ * [Auth] Compteurs de révision de l'utilisateur courant (formulaire). Les
+ * entrées passent par zod comme toute action : `objectifsCMCs` alimente une
+ * clause `in (…)` et doit rester plafonné comme à la création de session.
+ */
+export const loadRevisionCounts = async (
+  args: RevisionCountsScopeInput,
+): Promise<RevisionCounts> => {
+  const session = await requireSession()
+  const parsed = revisionCountsScopeSchema.safeParse(args)
+  if (!parsed.success) return { failed: 0, unseen: 0, bookmarked: 0 }
+  return getRevisionCounts(session.user.id, parsed.data)
+}
+
 /** [Auth] Objectifs CMC filtrés par domaine (re-requête du formulaire). */
 export const loadAvailableObjectifsCMC = async (
   domain?: string,
@@ -60,7 +86,8 @@ export const loadAvailableObjectifsCMC = async (
 // ============================================
 
 export type CreateTrainingSessionResult =
-  { success: true; sessionId: string } | { success: false; error: string }
+  | { success: true; sessionId: string; questionCount: number }
+  | { success: false; error: string }
 
 /**
  * [Auth] Crée une session : sélectionne N questions aléatoires (domaine +
@@ -79,7 +106,10 @@ export const createTrainingSession = async (
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   }
-  const { questionCount, domain, objectifsCMCs, mode } = parsed.data
+  const { questionCount, domain, objectifsCMCs, mode, revisionFilters } =
+    parsed.data
+  const criteria = revisionFilters ?? []
+  const isRevision = criteria.length > 0
 
   try {
     // Accès payant : hors verrou (ne court pas avec lui-même ; bypass admin).
@@ -104,11 +134,16 @@ export const createTrainingSession = async (
     const expiresAt = new Date(now.getTime() + SESSION_EXPIRATION_MS)
     const sessionId = createId()
 
+    // Résolu HORS transaction : une requête sur le `db` global depuis l'intérieur
+    // réclamerait une 2e connexion au pool (max 5, sans timeout d'acquisition)
+    // → interblocage à cinq créations concurrentes.
+    const lockedIds = isRevision ? await resolveRevisionLock(userId) : []
+
     // Verrou de ligne user : sérialise les créations concurrentes du même
     // utilisateur. Rate-limit + « session déjà en cours » + sélection + insert
     // deviennent atomiques (sinon, deux requêtes simultanées → 2 sessions
     // actives / dépassement de limite — READ COMMITTED ne sérialise pas seul).
-    await db.transaction(async (tx) => {
+    const selectedCount = await db.transaction(async (tx) => {
       await tx
         .select({ id: user.id })
         .from(user)
@@ -154,20 +189,34 @@ export const createTrainingSession = async (
           .where(eq(trainingSessions.id, existing.id))
       }
 
-      const [avail] = await tx
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(questions)
-        .where(where)
-      if ((avail?.n ?? 0) < questionCount) {
-        throw new Error(`NOT_ENOUGH:${avail?.n ?? 0}`)
-      }
+      let picked: { id: string }[]
+      if (isRevision) {
+        const ids = await pickRevisionQuestionIds(tx, {
+          userId,
+          criteria,
+          domain,
+          objectifsCMCs,
+          limit: questionCount,
+          lockedIds,
+        })
+        if (ids.length === 0) throw new Error("EMPTY_REVISION")
+        picked = ids.map((id) => ({ id }))
+      } else {
+        const [avail] = await tx
+          .select({ n: sql<number>`count(*)`.mapWith(Number) })
+          .from(questions)
+          .where(where)
+        if ((avail?.n ?? 0) < questionCount) {
+          throw new Error(`NOT_ENOUGH:${avail?.n ?? 0}`)
+        }
 
-      const picked = await tx
-        .select({ id: questions.id })
-        .from(questions)
-        .where(where)
-        .orderBy(sql`random()`)
-        .limit(questionCount)
+        picked = await tx
+          .select({ id: questions.id })
+          .from(questions)
+          .where(where)
+          .orderBy(sql`random()`)
+          .limit(questionCount)
+      }
 
       await tx.insert(trainingSessions).values({
         id: sessionId,
@@ -176,7 +225,9 @@ export const createTrainingSession = async (
         mode,
         domain: domain && domain !== "all" ? domain : null,
         objectifCmc: null,
-        questionCount,
+        // Le nombre RÉELLEMENT retenu : en révision le corpus peut être plus
+        // court, et le score final se calcule sur ce dénominateur.
+        questionCount: picked.length,
         startedAt: now,
         expiresAt,
       })
@@ -187,10 +238,11 @@ export const createTrainingSession = async (
           position: idx,
         })),
       )
+      return picked.length
     })
 
     revalidatePath("/tableau-de-bord/entrainement")
-    return { success: true, sessionId }
+    return { success: true, sessionId, questionCount: selectedCount }
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === "RATE_LIMIT") {
@@ -201,6 +253,11 @@ export const createTrainingSession = async (
       if (error.message === "ACTIVE_EXISTS") {
         return fail(
           "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
+        )
+      }
+      if (error.message === "EMPTY_REVISION") {
+        return fail(
+          "Aucune question ne correspond à ces critères de révision. Élargissez la sélection.",
         )
       }
       if (error.message.startsWith("NOT_ENOUGH:")) {
@@ -336,6 +393,49 @@ export const saveTrainingAnswer = async (
     captureServerError("[saveTrainingAnswer]", error, {
       userId: session.user.id,
     })
+    return fail("Erreur serveur. Réessayez.")
+  }
+}
+
+/**
+ * [Auth] Pose ou retire le signet de révision d'une question. Idempotente :
+ * l'état voulu est passé en entrée (pas une bascule), donc une reprise réseau de
+ * `callAction` ne l'inverse pas. Aucun `revalidatePath` : l'état vit dans le
+ * runner côté client.
+ */
+export const setQuestionBookmark = async (
+  input: SetQuestionBookmarkInput,
+): Promise<{ success: boolean; error?: string }> => {
+  const session = await requireSession()
+  const parsed = setQuestionBookmarkSchema.safeParse(input)
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Données invalides")
+  }
+  const { questionId, isBookmarked } = parsed.data
+  const userId = session.user.id
+
+  try {
+    if (isBookmarked) {
+      await db
+        .insert(questionBookmarks)
+        .values({ userId, questionId })
+        .onConflictDoNothing()
+    } else {
+      await db
+        .delete(questionBookmarks)
+        .where(
+          and(
+            eq(questionBookmarks.userId, userId),
+            eq(questionBookmarks.questionId, questionId),
+          ),
+        )
+    }
+    return { success: true }
+  } catch (error) {
+    // 23503 : le client a envoyé une question qui n'existe pas. Erreur métier
+    // mappée → pas de capture Sentry.
+    if (getPgErrorCode(error) === "23503") return fail("Question introuvable.")
+    captureServerError("[setQuestionBookmark]", error, { userId })
     return fail("Erreur serveur. Réessayez.")
   }
 }

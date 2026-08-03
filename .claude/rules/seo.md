@@ -11,6 +11,8 @@ paths:
 
 **IMPORTANT - Metadata Server Components** : `metadata` et `generateMetadata` uniquement dans Server Components. Pages avec `"use client"` -> extraire le contenu dans `_components/*-page-client.tsx`.
 
+**IMPORTANT - Claims éditoriaux** : taux de réussite / note → JAMAIS en dur dans le JSX ou les metadata. Source unique `MARKETING_CLAIMS` (`constants/index.tsx`) ; le taux affiché est calculé par `resolveSuccessRate` (`features/marketing/lib.ts`, bascule éditorial/calculé selon seuils de volume) et servi via `useMarketingStats`.
+
 | Fichier          | Role                                                             |
 | ---------------- | ---------------------------------------------------------------- |
 | `app/robots.ts`  | Regles crawl (bloque `/admin/`, `/tableau-de-bord/`, pages auth) |

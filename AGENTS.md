@@ -50,7 +50,7 @@ components/ui/             # shadcn/ui
 components/quiz/           # Quiz: question-card, calculator, session/
 components/admin/          # Dashboard admin, modals, question-browser
 components/shared/payments # Composants paiement
-hooks/                     # useCurrentUser, useCalculator, use-mobile, use-media-query
+hooks/                     # useCurrentUser, useCalculator, useMarketingStats, use-mobile, use-media-query
 constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 ```
 
@@ -70,7 +70,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 
 ## Tests
 
-- Seuil coverage: 75%
+- Seuil coverage: 80% (statements/branches/functions/lines — `vitest.config.ts`)
 - Frontend: `tests/` (happy-dom) — Integration DAL/Actions: `tests/integration/` (node, vraie branche Neon ephemere via `bun run test:integration`)
 - E2E: `e2e/tests/` (Playwright + auth Better Auth) — POMs dans `e2e/pages/` ; support reset/cleanup via `app/api/e2e`
 - Config: `vitest.config.ts` (exclut `e2e/**`) — `playwright.config.ts` — env `TZ=UTC`
@@ -81,6 +81,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Icons** : `lucide-react` (primaire — utilisé partout), `@tabler/icons-react` (secondaire — surtout admin/dashboard et profil)
 - **Auth** : Better Auth (`lib/auth.ts`, route `app/api/auth/[...all]`) ; client `authClient` (`lib/auth-client.ts`)
 - **Webhooks** : Stripe -> `app/api/stripe/webhook` (signature verifiee, 500 sur erreur -> retry)
+- **Stripe en dev** : mode TEST (profil CLI `nomaqbanq`) ; webhooks locaux via `stripe listen --forward-to localhost:3000/api/stripe/webhook`. Base dev : seul `exam_access` pointe sur un prix test — les 4 autres produits portent des price IDs LIVE → créer le prix test + UPDATE `products.stripe_price_id` avant de tester leur achat. Code promo test −100 % : `E2EPROMO100`
 - **Routes centralisees** : Modifier `constants/index.tsx` pour ajouter/changer URLs
 - **Hauteur uniforme cards** : Utiliser `h-full` + reserver espace pour elements optionnels
 - **URL state** : Deriver l'etat de l'URL, pas useState+useEffect
@@ -91,7 +92,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Image domains** : pexels.com, \*.cloudfront.net, cdn.nomaqbanq.ca (next.config.ts)
 - **Uploads médias** : presigned POST direct navigateur→S3 (`lib/aws.ts` + `lib/storage.ts`) ; rate-limit + validation à l'étape presign ; jamais via Server Action proxy
 - **ESM** : `"type": "module"` — pas de `__dirname`, utiliser `fileURLToPath(import.meta.url)`
-- **Env** : valide via zod (`lib/env/schema.ts`) ; nouvelles vars optionnelles + erreur claire a l'usage
+- **Env** : valide via zod (`lib/env/schema.ts`) ; nouvelles vars optionnelles + erreur claire a l'usage. `.env.local` est GÉNÉRÉ (`bun run env:sync` depuis le scope Vercel Development) : nouvelle var = `vercel env add <KEY> development` d'abord, pas d'édition manuelle durable
 - **data-testid** : Obligatoire sur composants quiz interactifs (`components/quiz/`). Convention : `answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`
 
 ## Instruction Routing
@@ -103,7 +104,7 @@ Regles specialisees dans `.claude/rules/`:
 | `data-layer.md`  | `features/**`, `app/**`, `components/**`, `tests/integration/**` | DAL Drizzle, Server Actions, forme-pont quiz, PII/frontiere client, gotchas ESLint/SonarLint, cleanup tests |
 | `loading-ui.md`  | `app/**`, `components/**`                                        | Doctrine des états de chargement, socle Spinner/Skeleton, `loading.tsx` par segment                         |
 | `admin-ui.md`    | `app/(admin)/**`, `components/admin/**`                          | Master-detail, stat cards, filtres                                                                          |
-| `seo.md`         | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts`          | Metadata, pages marketing                                                                                   |
+| `seo.md`         | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts`          | Metadata, pages marketing, claims éditoriaux                                                                |
 | `e2e-testing.md` | `e2e/**`, `playwright.config.ts`, `components/quiz/**`           | Playwright, data-testid, auth Better Auth, selectors                                                        |
 
 Ajouter les nouveaux patterns au fichier rules correspondant, pas ici.
