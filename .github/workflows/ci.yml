@@ -49,8 +49,9 @@ jobs:
       - name: Format check
         run: bun run format:check
 
-      # `test:coverage` garde le seuil vitest à 80 % (échoue le CI sous la barre).
-      # C'est désormais le seul garde-fou de couverture : plus d'upload tiers.
+      # Garde-fou rapide, sans secret : seuil à 80 % sur le périmètre frontend.
+      # La couverture AGRÉGÉE (frontend + backend) est mesurée par le job
+      # `integration`, qui seul dispose de la branche Neon.
       - name: Tests with coverage
         run: bun run test:coverage
 
@@ -82,8 +83,11 @@ jobs:
       # projet vitest `integration`, détruit la branche. Seuls secrets requis :
       # NEON_API_KEY + NEON_PROJECT_ID (l'URL DB vient de la branche créée ;
       # l'env applicatif vient de tests/helpers/test-env.ts).
-      - name: Integration tests (ephemeral Neon branch)
-        run: bun run test:integration
+      # Lance les DEUX projets sur la branche jetable et applique les seuils de
+      # `vitest.coverage.config.ts` : c'est la seule mesure qui voie le backend
+      # (`features/**`, `app/api/**`), invisible du périmètre frontend.
+      - name: Integration tests + aggregated coverage (ephemeral Neon branch)
+        run: bun run test:coverage:full
         env:
           NEON_API_KEY: ${{ secrets.NEON_API_KEY }}
           NEON_PROJECT_ID: ${{ secrets.NEON_PROJECT_ID }}

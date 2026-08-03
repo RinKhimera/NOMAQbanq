@@ -27,6 +27,7 @@ bun run format:check     # Prettier check
 bun run test             # Tests frontend (NE PAS utiliser `bun test` — runner Bun casse vi.mocked/vi.hoisted)
 bun run test:coverage    # Tests avec rapport coverage
 bun run test:integration # Tests DAL/Actions sur branche Neon ephemere (cree/migre/detruit)
+bun run test:coverage:full # Couverture AGREGEE frontend + backend (branche Neon ; seuls chiffres couvrant features/** et app/api/**)
 bun run test:e2e         # Tests E2E Playwright (bunx, pas npx)
 bun run e2e:ui           # Playwright UI mode
 bun run db:generate      # Drizzle: genere une migration depuis le schema

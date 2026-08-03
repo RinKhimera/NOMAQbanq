@@ -52,11 +52,12 @@ try {
   }
 
   console.log("[test-integration] tests…")
-  exitCode = run(
-    "bunx",
-    ["vitest", "run", "--project", "integration", ...vitestArgs],
-    env,
-  )
+  // `--project` explicite (couverture complète : frontend + integration) prime sur
+  // le ciblage par défaut, sinon les deux se cumuleraient.
+  const projectArgs = vitestArgs.includes("--project")
+    ? []
+    : ["--project", "integration"]
+  exitCode = run("bunx", ["vitest", "run", ...projectArgs, ...vitestArgs], env)
 } finally {
   if (keep) {
     console.log(
