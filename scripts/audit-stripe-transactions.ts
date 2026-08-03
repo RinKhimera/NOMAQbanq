@@ -22,12 +22,10 @@ import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
 import Stripe from "stripe"
 import { transactions } from "../db/schema"
+import { STRIPE_API_VERSION } from "../lib/stripe-api-version"
 
 config({ path: ".env.local" })
 config()
-
-// Parité avec lib/stripe.ts (non importable ici).
-const STRIPE_API_VERSION = "2026-06-24.dahlia" as const
 
 const BATCH = 200 // lecture DB bornée (keyset sur id)
 const STRIPE_CONCURRENCY = 5

@@ -1,12 +1,7 @@
 import "server-only"
 import Stripe from "stripe"
 import { env } from "@/lib/env/server"
-
-/**
- * Version d'API Stripe centralisée (alignée sur le SDK `stripe` installé).
- * Mettre à jour ici lors d'une montée de version du package.
- */
-export const STRIPE_API_VERSION = "2026-06-24.dahlia" as const
+import { STRIPE_API_VERSION } from "@/lib/stripe-api-version"
 
 let client: Stripe | null = null
 
