@@ -107,4 +107,33 @@ describe("createStripeCheckout", () => {
     expect(res).toEqual({ error: "Produit invalide" })
     expect(mocks.create).not.toHaveBeenCalled()
   })
+
+  it("price_id absent du mode de la clé → message de configuration, aucun pending", async () => {
+    mocks.create.mockClear()
+    // Ce que Stripe renvoie quand le price_id appartient à l'autre mode : les
+    // préfixes étant identiques en test et en live, c'est le seul signal.
+    mocks.create.mockRejectedValueOnce(
+      Object.assign(new Error("No such price"), { code: "resource_missing" }),
+    )
+
+    const before = await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.userId, USER_ID))
+
+    const res = await createStripeCheckout({
+      productCode: "exam_access",
+      successPath: "/tableau-de-bord",
+      cancelPath: "/tarifs",
+    })
+    expect(res).toEqual({
+      error: "Ce produit est mal configuré. Contactez le support.",
+    })
+
+    const after = await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.userId, USER_ID))
+    expect(after).toHaveLength(before.length)
+  })
 })
