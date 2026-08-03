@@ -14,4 +14,4 @@ import type Stripe from "stripe"
  * Stripe n'expose aucun moyen officiel de synchroniser cette valeur
  * automatiquement (stripe-node#2273, ouverte).
  */
-export const STRIPE_API_VERSION: Stripe.LatestApiVersion = "2026-06-24.dahlia"
+export const STRIPE_API_VERSION: Stripe.LatestApiVersion = "2026-07-29.dahlia"
