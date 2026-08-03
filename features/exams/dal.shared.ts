@@ -104,8 +104,7 @@ export const getOpenExamLockedQuestionIds = async (
   questionIds: string[],
 ): Promise<Set<string>> => {
   if (questionIds.length === 0) return new Set()
-  const locked = await getUserOpenExamLockedQuestionIds(userId)
-  return new Set(questionIds.filter((id) => locked.has(id)))
+  return getUserOpenExamLockedQuestionIds(userId, questionIds)
 }
 
 /**
@@ -120,6 +119,13 @@ export const getOpenExamLockedQuestionIds = async (
  */
 export const getUserOpenExamLockedQuestionIds = async (
   userId: string,
+  /**
+   * Restreint la lecture à ces questions quand l'appelant en a la liste (canaux
+   * de révélation). Sans elle, la lecture reste bornée par les examens ouverts
+   * auxquels l'utilisateur participe — le corpus de révision n'a pas de liste de
+   * candidats à fournir, c'est tout l'objet de cette fonction.
+   */
+  questionIds?: string[],
 ): Promise<Set<string>> => {
   const rows = await db
     .selectDistinct({ questionId: examQuestions.questionId })
@@ -130,7 +136,13 @@ export const getUserOpenExamLockedQuestionIds = async (
       eq(examParticipations.examId, examQuestions.examId),
     )
     .where(
-      and(eq(examParticipations.userId, userId), gt(exams.endDate, new Date())),
+      and(
+        eq(examParticipations.userId, userId),
+        gt(exams.endDate, new Date()),
+        questionIds?.length
+          ? inArray(examQuestions.questionId, questionIds)
+          : undefined,
+      ),
     )
   return new Set(rows.map((r) => r.questionId))
 }

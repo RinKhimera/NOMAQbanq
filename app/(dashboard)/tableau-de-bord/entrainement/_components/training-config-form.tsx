@@ -85,14 +85,17 @@ export const TrainingConfigForm = ({
 
   // Clé stable : `selectedObjectifs` change d'identité à chaque `setState`, et
   // chaque exécution coûte un balayage complet de la banque de questions.
-  const objectifsKey = selectedObjectifs.join("|")
+  // Sérialisation JSON et non `join("|")` : un objectif CMC est un champ libre
+  // côté admin, un `|` dedans découperait la liste au mauvais endroit.
+  const objectifsKey = JSON.stringify(selectedObjectifs)
 
   useEffect(() => {
     startCountsLoad(async () => {
       try {
+        const objectifsCMCs = JSON.parse(objectifsKey) as string[]
         const counts = await loadRevisionCounts({
           domain: selectedDomain === "all" ? undefined : selectedDomain,
-          objectifsCMCs: objectifsKey ? objectifsKey.split("|") : undefined,
+          objectifsCMCs: objectifsCMCs.length > 0 ? objectifsCMCs : undefined,
         })
         setRevisionCounts(counts)
       } catch {

@@ -17,7 +17,15 @@ export type RevisionScope = {
 }
 
 // Historique unifié entraînement + examens de l'utilisateur, réduit à sa
-// DERNIÈRE tentative par question. `exam_answers.created_at` vaut « début de la
+// DERNIÈRE tentative par question.
+//
+// Les sessions `in_progress` sont EXCLUES : en mode test, `isCorrect` est masqué
+// sur les trois canaux de lecture tant que la session n'est pas terminée. Sans
+// cette exclusion, le compteur « Ratées » en devient le quatrième — sonder entre
+// deux réponses donne un bit de correction par tentative, et `saveTrainingAnswer`
+// autorise la ré-écriture d'un item. Coût assumé : en mode tuteur (où la
+// correction est déjà révélée), les réponses de la session courante ne comptent
+// qu'à sa clôture. `exam_answers.created_at` vaut « début de la
 // tentative » (lignes pré-créées au démarrage de l'examen, jamais réhorodatées) :
 // un entraînement intercalé pendant un examen long peut donc être classé à tort
 // comme la tentative la plus récente. Limite assumée, documentée dans le spec.
@@ -27,6 +35,7 @@ const historyCte = (userId: string): SQL => sql`
       from training_session_items i
       join training_sessions s on s.id = i.session_id
      where s.user_id = ${userId} and i.selected_answer is not null
+       and s.status <> 'in_progress'
     union all
     select a.question_id, a.is_correct, a.created_at as at
       from exam_answers a

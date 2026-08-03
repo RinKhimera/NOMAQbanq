@@ -32,9 +32,11 @@ import {
 } from "./revision"
 import {
   type CreateTrainingSessionInput,
+  type RevisionCountsScopeInput,
   type SaveTrainingAnswerInput,
   type SetQuestionBookmarkInput,
   createTrainingSessionSchema,
+  revisionCountsScopeSchema,
   saveTrainingAnswerSchema,
   setQuestionBookmarkSchema,
 } from "./schemas"
@@ -57,13 +59,18 @@ export const loadTrainingHistory = async (args: {
   return getTrainingHistory(args)
 }
 
-/** [Auth] Compteurs de révision de l'utilisateur courant (formulaire). */
-export const loadRevisionCounts = async (args: {
-  domain?: string
-  objectifsCMCs?: string[]
-}): Promise<RevisionCounts> => {
+/**
+ * [Auth] Compteurs de révision de l'utilisateur courant (formulaire). Les
+ * entrées passent par zod comme toute action : `objectifsCMCs` alimente une
+ * clause `in (…)` et doit rester plafonné comme à la création de session.
+ */
+export const loadRevisionCounts = async (
+  args: RevisionCountsScopeInput,
+): Promise<RevisionCounts> => {
   const session = await requireSession()
-  return getRevisionCounts(session.user.id, args)
+  const parsed = revisionCountsScopeSchema.safeParse(args)
+  if (!parsed.success) return { failed: 0, unseen: 0, bookmarked: 0 }
+  return getRevisionCounts(session.user.id, parsed.data)
 }
 
 /** [Auth] Objectifs CMC filtrés par domaine (re-requête du formulaire). */

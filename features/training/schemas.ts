@@ -42,6 +42,12 @@ export type CreateTrainingSessionInput = z.infer<
   typeof createTrainingSessionSchema
 >
 
+export const revisionCountsScopeSchema = z.object({
+  domain: z.string().trim().min(1).optional(),
+  objectifsCMCs: z.array(z.string().trim().min(1)).max(50).optional(),
+})
+export type RevisionCountsScopeInput = z.infer<typeof revisionCountsScopeSchema>
+
 export const setQuestionBookmarkSchema = z.object({
   questionId: z.string().min(1),
   isBookmarked: z.boolean(),

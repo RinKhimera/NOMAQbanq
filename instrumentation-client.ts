@@ -28,12 +28,13 @@ Sentry.init({
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
-  // Define how likely Replay events are sampled.
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
-
-  // Define how likely Replay events are sampled when an error occurs.
+  // Mode buffer pur : aucune session enregistree tant qu'aucune erreur ne
+  // survient. Le plan Developer plafonne a 50 replays/mois ; un taux de session
+  // non nul epuise ce quota en quelques jours de trafic normal, apres quoi
+  // Sentry rejette AUSSI les replays des vraies erreurs — exactement ceux dont
+  // on a besoin. Les taux indexes sur le trafic recommandes par la doc Sentry
+  // (0.25 sous 10 000 sessions/jour) supposent un plan payant.
+  replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: 1.0,
 
   // Enable sending user PII (Personally Identifiable Information)

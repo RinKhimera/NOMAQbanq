@@ -355,6 +355,51 @@ describe("corpus de révision — verrou examen ouvert", () => {
   })
 })
 
+describe("corpus de révision — session d'entraînement en cours", () => {
+  it("n'expose pas la correction d'une session mode test encore ouverte", async () => {
+    // Mode test in_progress : `isCorrect` est délibérément masqué sur les trois
+    // canaux de lecture. Le compteur ne doit pas devenir le quatrième — sonder
+    // « Ratées » entre deux réponses donnerait un bit de correction par tentative,
+    // et saveTrainingAnswer autorise la ré-écriture d'un item.
+    const openSessionId = createId()
+    await db.insert(trainingSessions).values({
+      id: openSessionId,
+      userId: USER_ID,
+      status: "in_progress",
+      mode: "test",
+      questionCount: 1,
+      startedAt: new Date("2026-01-06T00:00:00Z"),
+      expiresAt: new Date("2099-01-01T00:00:00Z"),
+    })
+    await db.insert(trainingSessionItems).values({
+      sessionId: openSessionId,
+      questionId: qIds[2], // réussie en session complétée → ne doit pas basculer
+      position: 0,
+      selectedAnswer: "B",
+      isCorrect: false,
+      answeredAt: new Date("2026-01-06T10:00:00Z"),
+    })
+
+    try {
+      const ids = await pickRevisionQuestionIds(db, {
+        userId: USER_ID,
+        lockedIds: await resolveRevisionLock(USER_ID),
+        criteria: ["failed"],
+        domain: DOMAIN,
+        limit: 20,
+      })
+      expect(ids).not.toContain(qIds[2])
+
+      const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
+      expect(counts.failed).toBe(0)
+    } finally {
+      await db
+        .delete(trainingSessions)
+        .where(eq(trainingSessions.id, openSessionId))
+    }
+  })
+})
+
 describe("createTrainingSession en révision", () => {
   it("démarre avec un corpus plus court que demandé, sous MIN_QUESTIONS", async () => {
     asUser(USER_ID)
