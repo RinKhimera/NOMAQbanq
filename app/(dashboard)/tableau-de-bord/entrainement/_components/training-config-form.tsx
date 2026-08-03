@@ -356,8 +356,10 @@ export const TrainingConfigForm = ({
 
           {revisionFilters.length > 0 && (
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              La session prendra jusqu&apos;à {questionCount} questions parmi
-              celles qui correspondent — moins s&apos;il y en a moins.
+              {/* Phrase en littéral : en texte JSX, la coupure de ligne après
+                  l'interpolation supprime l'espace au rendu Turbopack (« 20questions »),
+                  et Prettier réécrit le {" "} qui la corrigerait. */}
+              {`La session prendra jusqu'à ${questionCount} questions parmi celles qui correspondent — moins s'il y en a moins.`}
             </p>
           )}
         </div>
