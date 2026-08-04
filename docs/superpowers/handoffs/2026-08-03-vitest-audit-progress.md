@@ -109,9 +109,16 @@ Vérifiés pendant la campagne, coûteux à retrouver :
 - **`coverage` n'est pas configurable par projet** (`NonProjectOptions`, cf.
   `node_modules/vitest/dist/chunks/reporters.d.*.d.ts`). Un run = un seul périmètre. D'où
   la config dédiée qui lance les deux projets ensemble.
-- **`coverage.include` ajoute, il ne restreint pas.** Le périmètre réel est l'union de ce
-  que les tests chargent et de ce que l'`include` désigne — des composants sous `app/**`
-  apparaissent dans le rapport sans y être listés.
+- **`coverage.include` RESTREINT** (affirmation inverse corrigée le 2026-08-04 par la revue
+  adversariale) : `isIncluded` est appliqué à chaque résultat de couverture, y compris aux
+  fichiers réellement chargés par un test
+  (`node_modules/@vitest/coverage-v8/dist/provider.js:247`). Un fichier importé par un test
+  mais hors `include` est absent du rapport — vérifié sur `features/payments/actions.ts`
+  dans le run frontend seul.
+- **Les motifs d'`include` matchent en sous-chaîne**, pas depuis la racine : `"lib/**/*.ts"`
+  capture aussi `features/users/lib/*.ts`, et `"components/**"` capture `app/_components/**`.
+  C'est ce qui fait apparaître dans le rapport des fichiers sous `app/**` qu'aucun motif ne
+  nomme — pas un `include` « additif ».
 - **Le reporter `text` masque les fichiers à 100 %.** `features/exams/cron.ts`,
   `exams/dal.ts`, `exams/schemas.ts` et `training/cron.ts` semblaient absents du rapport :
   ils sont bien mesurés, à 100 %. Toujours vérifier dans `coverage/coverage-final.json`

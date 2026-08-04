@@ -26,7 +26,9 @@ export default defineConfig({
     // Vitest laisse ces quatre options a `false` : sans elles, l'historique d'appels
     // et les implementations simulees survivent d'un test au suivant dans un meme
     // fichier — un `toHaveBeenCalledTimes` peut alors passer grace au test precedent.
-    // `restoreMocks` restaure aussi les faux timers (pas besoin d'`useRealTimers`).
+    // Elles ne couvrent PAS les faux timers : `restoreAllMocks` ne parcourt que le
+    // registre des espions (@vitest/spy), donc un `vi.useFakeTimers()` reste actif
+    // pour les tests suivants — l'`afterEach(() => vi.useRealTimers())` reste requis.
     clearMocks: true,
     restoreMocks: true,
     unstubEnvs: true,
