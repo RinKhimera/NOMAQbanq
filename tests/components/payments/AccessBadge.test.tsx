@@ -196,7 +196,7 @@ describe("getAccessStatus", () => {
     expect(getAccessStatus(undefined, 10)).toBe("none")
   })
 
-  it("retourne 'expired' quand expiresAt est dans le passé", () => {
+  it("retourne 'expired' quand daysRemaining est tombé à 0", () => {
     const pastTimestamp = Date.now() - 100000
     expect(getAccessStatus(pastTimestamp, 0)).toBe("expired")
   })
@@ -206,9 +206,11 @@ describe("getAccessStatus", () => {
     expect(getAccessStatus(futureTimestamp, 7)).toBe("expiring")
   })
 
-  it("retourne 'expiring' quand daysRemaining est 0 mais expiresAt est dans le futur", () => {
+  it("ne lit pas l'horloge : daysRemaining fait seul foi contre expiresAt", () => {
     const futureTimestamp = Date.now() + 1000
-    expect(getAccessStatus(futureTimestamp, 0)).toBe("expiring")
+    expect(getAccessStatus(futureTimestamp, 0)).toBe("expired")
+    const pastTimestamp = Date.now() - 100000
+    expect(getAccessStatus(pastTimestamp, 30)).toBe("active")
   })
 
   it("retourne 'active' quand daysRemaining > 7", () => {
