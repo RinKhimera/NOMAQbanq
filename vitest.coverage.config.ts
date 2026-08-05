@@ -31,14 +31,13 @@ export default defineConfig({
         "app/api/e2e/**",
       ],
       reporter: ["text", "json"],
-      // Cales juste sous la mesure du 2026-08-03 (81,85 / 75,01 / 83,17 / 83,87) :
-      // un seuil sert a empecher le retour en arriere, pas a decrire l'ambition.
-      // `branches` est le seul sous la politique maison de 80 % — a remonter une
-      // fois couverts features/{payments,exams,training}/actions.ts, qui portent
-      // l'essentiel des 163 branches manquantes.
+      // Cales sous la mesure de cloture du 2026-08-05 (88,22 / 81,73 / 86,27 /
+      // 89,28) : un seuil sert a empecher le retour en arriere, pas a decrire
+      // l'ambition. Les quatre metriques tiennent desormais la politique maison
+      // de 80 % ; `branches` garde ~54 branches de marge.
       thresholds: {
         statements: 80,
-        branches: 74,
+        branches: 80,
         functions: 80,
         lines: 80,
       },
