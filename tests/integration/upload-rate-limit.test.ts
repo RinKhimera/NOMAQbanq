@@ -46,10 +46,9 @@ describe("consumeUploadRateLimit", () => {
 
     const blocked = await consumeUploadRateLimit(userId, "avatar")
     expect(blocked.allowed).toBe(false)
-    if (!blocked.allowed) {
-      expect(blocked.retryAfterMinutes).toBeGreaterThan(0)
-      expect(blocked.retryAfterMinutes).toBeLessThanOrEqual(60)
-    }
+    if (blocked.allowed) throw new Error("rate-limit non declenche")
+    expect(blocked.retryAfterMinutes).toBeGreaterThan(0)
+    expect(blocked.retryAfterMinutes).toBeLessThanOrEqual(60)
     // Refus → pas de consommation supplémentaire.
     expect(await countFor("avatar")).toBe(5)
   })

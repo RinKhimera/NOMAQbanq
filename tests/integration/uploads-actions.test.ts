@@ -109,14 +109,13 @@ describe("createAvatarUpload + confirmAvatarUpload", () => {
       size: 1000,
     })
     expect(res.success).toBe(true)
-    if (res.success) {
-      expect(res.storagePath).toMatch(new RegExp(`^avatars/${userId}/`))
-      expect(res.fields["Content-Type"]).toBe("image/jpeg")
-      expect(vi.mocked(createPresignedUpload)).toHaveBeenCalledWith(
-        res.storagePath,
-        "image/jpeg",
-      )
-    }
+    if (!res.success) throw new Error(res.error)
+    expect(res.storagePath).toMatch(new RegExp(`^avatars/${userId}/`))
+    expect(res.fields["Content-Type"]).toBe("image/jpeg")
+    expect(vi.mocked(createPresignedUpload)).toHaveBeenCalledWith(
+      res.storagePath,
+      "image/jpeg",
+    )
   })
 
   it("confirme et met à jour user.image (cdnUrl du chemin)", async () => {
@@ -143,7 +142,7 @@ describe("createAvatarUpload + confirmAvatarUpload", () => {
       storagePath: `avatars/${adminId}/123.jpg`,
     })
     expect(res.success).toBe(false)
-    if (!res.success) expect(res.error).toContain("invalide")
+    expect(res.error).toContain("invalide")
   })
 
   it("supprime l'ancien avatar legacy (clé brute) au remplacement", async () => {
@@ -197,7 +196,8 @@ describe("createAvatarUpload + confirmAvatarUpload", () => {
       size: 10,
     })
     expect(res.success).toBe(false)
-    if (!res.success) expect(res.error).toContain("Format")
+    if (res.success) throw new Error("presign accorde a un PDF")
+    expect(res.error).toContain("Format")
   })
 })
 
@@ -217,11 +217,10 @@ describe("createQuestionImageUpload", () => {
       size: 1000,
     })
     expect(res.success).toBe(true)
-    if (res.success) {
-      // L'upload vise `tmp/…` (copié vers `questions/…` au save), jamais
-      // directement le vrai dossier.
-      expect(res.storagePath.startsWith(`tmp/questions/${qid}/`)).toBe(true)
-    }
+    if (!res.success) throw new Error(res.error)
+    // L'upload vise `tmp/…` (copié vers `questions/…` au save), jamais
+    // directement le vrai dossier.
+    expect(res.storagePath.startsWith(`tmp/questions/${qid}/`)).toBe(true)
     expect(vi.mocked(createPresignedUpload)).toHaveBeenCalled()
   })
 
@@ -234,7 +233,8 @@ describe("createQuestionImageUpload", () => {
       size: 1000,
     })
     expect(res.success).toBe(false)
-    if (!res.success) expect(res.error).toContain("invalide")
+    if (res.success) throw new Error("presign accorde a un chemin malforme")
+    expect(res.error).toContain("invalide")
     expect(vi.mocked(createPresignedUpload)).not.toHaveBeenCalled()
   })
 
@@ -246,6 +246,8 @@ describe("createQuestionImageUpload", () => {
       size: 1000,
     })
     expect(res.success).toBe(false)
-    if (!res.success) expect(res.error).toContain("introuvable")
+    if (res.success)
+      throw new Error("presign accorde a une question inexistante")
+    expect(res.error).toContain("introuvable")
   })
 })

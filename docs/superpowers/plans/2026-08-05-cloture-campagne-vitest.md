@@ -61,10 +61,12 @@ et le % branches de : `features/exams/dal.student.ts`, `features/training/dal.ts
 - [ ] **Step 0.2 : Archiver la base de travail**
 
 ```bash
-cp coverage/coverage-final.json coverage/coverage-baseline.json
+cp coverage/coverage-final.json <scratchpad>/coverage-baseline.json
 ```
 
-(`/coverage` est gitignoré — copie locale pour les inventaires des Tasks 3-5.)
+**Hors de `coverage/`** : vitest vide ce dossier avant chaque écriture, donc une
+baseline rangée dedans est détruite au premier `bun run test:coverage` (piège rencontré
+le 2026-08-05, baseline à refaire).
 
 - [ ] **Step 0.3 : Constat**
 

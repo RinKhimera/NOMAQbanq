@@ -47,9 +47,7 @@ describe("User Schema", () => {
         const invalid = { ...validUser, name: "J" }
         const result = userFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("2 caractères")
-        }
+        expect(result.error?.issues[0]?.message).toContain("2 caractères")
       })
 
       it("should accept name with exactly 2 characters", () => {
@@ -62,9 +60,7 @@ describe("User Schema", () => {
         const invalid = { ...validUser, name: "A".repeat(51) }
         const result = userFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("50 caractères")
-        }
+        expect(result.error?.issues[0]?.message).toContain("50 caractères")
       })
 
       it("should accept name with exactly 50 characters", () => {
@@ -77,9 +73,7 @@ describe("User Schema", () => {
         const userWithSpaces = { ...validUser, name: "  John Doe  " }
         const result = userFormSchema.safeParse(userWithSpaces)
         expect(result.success).toBe(true)
-        if (result.success) {
-          expect(result.data.name).toBe("John Doe")
-        }
+        expect(result.data?.name).toBe("John Doe")
       })
     })
 
@@ -88,9 +82,7 @@ describe("User Schema", () => {
         const invalid = { ...validUser, username: "jo" }
         const result = userFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("3 caractères")
-        }
+        expect(result.error?.issues[0]?.message).toContain("3 caractères")
       })
 
       it("should accept username with exactly 3 characters", () => {
@@ -103,9 +95,7 @@ describe("User Schema", () => {
         const invalid = { ...validUser, username: "a".repeat(21) }
         const result = userFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("20 caractères")
-        }
+        expect(result.error?.issues[0]?.message).toContain("20 caractères")
       })
 
       it("should accept username with exactly 20 characters", () => {
@@ -118,9 +108,7 @@ describe("User Schema", () => {
         const userUppercase = { ...validUser, username: "JohnDoe" }
         const result = userFormSchema.safeParse(userUppercase)
         expect(result.success).toBe(true)
-        if (result.success) {
-          expect(result.data.username).toBe("johndoe")
-        }
+        expect(result.data?.username).toBe("johndoe")
       })
 
       it("should reject username with special characters", () => {
@@ -128,11 +116,9 @@ describe("User Schema", () => {
         for (const username of invalidChars) {
           const result = userFormSchema.safeParse({ ...validUser, username })
           expect(result.success).toBe(false)
-          if (!result.success) {
-            expect(result.error.issues[0].message).toContain(
-              "Caractères autorisés",
-            )
-          }
+          expect(result.error?.issues[0]?.message).toContain(
+            "Caractères autorisés",
+          )
         }
       })
 
@@ -152,9 +138,7 @@ describe("User Schema", () => {
         const userWithSpaces = { ...validUser, username: "  johndoe  " }
         const result = userFormSchema.safeParse(userWithSpaces)
         expect(result.success).toBe(true)
-        if (result.success) {
-          expect(result.data.username).toBe("johndoe")
-        }
+        expect(result.data?.username).toBe("johndoe")
       })
     })
 
@@ -169,27 +153,21 @@ describe("User Schema", () => {
         const userEmptyBio = { ...validUser, bio: "" }
         const result = userFormSchema.safeParse(userEmptyBio)
         expect(result.success).toBe(true)
-        if (result.success) {
-          expect(result.data.bio).toBe("")
-        }
+        expect(result.data?.bio).toBe("")
       })
 
       it("should transform whitespace-only bio to empty string", () => {
         const userWhitespaceBio = { ...validUser, bio: "   " }
         const result = userFormSchema.safeParse(userWhitespaceBio)
         expect(result.success).toBe(true)
-        if (result.success) {
-          expect(result.data.bio).toBe("")
-        }
+        expect(result.data?.bio).toBe("")
       })
 
       it("should reject bio with more than 200 characters", () => {
         const invalid = { ...validUser, bio: "A".repeat(201) }
         const result = userFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("200 caractères")
-        }
+        expect(result.error?.issues[0]?.message).toContain("200 caractères")
       })
 
       it("should accept bio with exactly 200 characters", () => {
@@ -202,18 +180,14 @@ describe("User Schema", () => {
         const userWithSpaces = { ...validUser, bio: "  My bio  " }
         const result = userFormSchema.safeParse(userWithSpaces)
         expect(result.success).toBe(true)
-        if (result.success) {
-          expect(result.data.bio).toBe("My bio")
-        }
+        expect(result.data?.bio).toBe("My bio")
       })
 
       it("should keep valid bio after trimming", () => {
         const userWithBio = { ...validUser, bio: "This is a valid bio" }
         const result = userFormSchema.safeParse(userWithBio)
         expect(result.success).toBe(true)
-        if (result.success) {
-          expect(result.data.bio).toBe("This is a valid bio")
-        }
+        expect(result.data?.bio).toBe("This is a valid bio")
       })
     })
 

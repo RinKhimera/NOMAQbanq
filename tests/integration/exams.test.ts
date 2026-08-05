@@ -248,7 +248,7 @@ describe("Admin CRUD", () => {
     // Invariant : si une participation a été créée, ses examAnswers correspondent
     // EXACTEMENT au set de questions effectivement stocké (pas de mélange
     // ancien/nouveau). Le verrou commun sur la ligne examen sérialise les deux.
-    if (start.success) {
+    {
       const stored = await db
         .select({ questionId: examQuestions.questionId })
         .from(examQuestions)
@@ -263,7 +263,9 @@ describe("Admin CRUD", () => {
         .where(eq(examParticipations.examId, id))
       const storedSet = new Set(stored.map((r) => r.questionId))
       const answerSet = new Set(answers.map((r) => r.questionId))
-      expect(answerSet).toEqual(storedSet)
+      // Si aucune participation n'a survécu à la course, aucune réponse ne doit
+      // exister — l'invariant se vérifie donc dans les deux issues.
+      expect(answerSet).toEqual(start.success ? storedSet : new Set())
     }
   })
 

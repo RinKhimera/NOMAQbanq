@@ -313,26 +313,29 @@ describe("deleteMyAccount — garde dernier admin", () => {
       role: "admin",
     })
 
-    // Hermétique vis-à-vis des autres fichiers d'intégration : ne valider le refus
-    // que si soloAdmin est effectivement le seul admin actif à cet instant.
+    // Hermétique vis-à-vis des autres fichiers d'intégration : le refus n'est dû
+    // que si soloAdmin est le seul admin actif à cet instant. L'attente porte ce
+    // décompte, pour que le cas « plusieurs admins » vérifie aussi quelque chose
+    // (la suppression est alors légitime) au lieu de ne rien asserter.
     const activeAdmins = await db
       .select({ id: user.id })
       .from(user)
       .where(and(eq(user.role, "admin"), isNull(user.deletedAt)))
-    if (activeAdmins.length === 1) {
-      vi.mocked(requireSession).mockResolvedValueOnce({
-        user: { id: soloAdmin, email: emailSolo, role: "admin" },
-        session: { id: createId() },
-      } as never)
-      const res = await deleteMyAccount({ confirmEmail: emailSolo })
-      expect(res.success).toBe(false)
-      const [u] = await db
-        .select({ deletedAt: user.deletedAt })
-        .from(user)
-        .where(eq(user.id, soloAdmin))
-        .limit(1)
-      expect(u?.deletedAt).toBeNull()
-    }
+    const isSoleAdmin = activeAdmins.length === 1
+
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      user: { id: soloAdmin, email: emailSolo, role: "admin" },
+      session: { id: createId() },
+    } as never)
+    const res = await deleteMyAccount({ confirmEmail: emailSolo })
+    expect(res.success).toBe(!isSoleAdmin)
+
+    const [u] = await db
+      .select({ deletedAt: user.deletedAt })
+      .from(user)
+      .where(eq(user.id, soloAdmin))
+      .limit(1)
+    expect(u?.deletedAt === null).toBe(isSoleAdmin)
 
     await db.delete(user).where(eq(user.id, soloAdmin))
   })

@@ -1,3 +1,4 @@
+import vitest from "@vitest/eslint-plugin"
 import nextConfig from "eslint-config-next/core-web-vitals"
 import nextTypeScript from "eslint-config-next/typescript"
 import tailwindCanonicalClasses from "eslint-plugin-tailwind-canonical-classes"
@@ -28,8 +29,10 @@ const eslintConfig = defineConfig([
 
   {
     files: ["tests/**/*.{ts,tsx}"],
+    plugins: { vitest },
     rules: {
       "@next/next/no-img-element": "off",
+      ...vitest.configs.recommended.rules,
     },
   },
 

@@ -62,9 +62,7 @@ describe("Exam Schema", () => {
         const invalid = { ...validExam, title: "AB" }
         const result = examFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("3 caractères")
-        }
+        expect(result.error?.issues[0]?.message).toContain("3 caractères")
       })
 
       it("should accept title with exactly 3 characters", () => {
@@ -89,9 +87,7 @@ describe("Exam Schema", () => {
         }
         const result = examFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("postérieure")
-        }
+        expect(result.error?.issues[0]?.message).toContain("postérieure")
       })
 
       it("should reject when endDate equals startDate", () => {
@@ -133,18 +129,14 @@ describe("Exam Schema", () => {
         const invalid = { ...validExam, numberOfQuestions: 9 }
         const result = examFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("10")
-        }
+        expect(result.error?.issues[0]?.message).toContain("10")
       })
 
       it("should reject more than 230 questions", () => {
         const invalid = { ...validExam, numberOfQuestions: 231 }
         const result = examFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("230")
-        }
+        expect(result.error?.issues[0]?.message).toContain("230")
       })
 
       it("should accept exactly 10 questions", () => {
@@ -165,9 +157,7 @@ describe("Exam Schema", () => {
         const invalid = { ...validExam, questionIds: [] }
         const result = examFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("au moins une")
-        }
+        expect(result.error?.issues[0]?.message).toContain("au moins une")
       })
 
       it("should accept single question", () => {
@@ -209,9 +199,7 @@ describe("Exam Schema", () => {
         }
         const result = examFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("pause")
-        }
+        expect(result.error?.issues[0]?.message).toContain("pause")
       })
 
       it("should reject when enablePause is true and pauseDurationMinutes is less than 1", () => {
@@ -284,11 +272,9 @@ describe("Exam Schema", () => {
         }
         const result = examFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain(
-            "au moins un utilisateur",
-          )
-        }
+        expect(result.error?.issues[0]?.message).toContain(
+          "au moins un utilisateur",
+        )
       })
 
       it("should reject an unknown audience type", () => {

@@ -113,6 +113,7 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
     "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/eslint-plugin": "^1.6.26",
     "@vitest/ui": "4.1.10",
     "baseline-browser-mapping": "^2.11.5",
     "dotenv": "^17.4.2",
