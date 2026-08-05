@@ -221,6 +221,21 @@ describe("searchSelectableUsers", () => {
     })
     expect(rows.some((u) => u.id === MEMBER2_ID)).toBe(true)
   })
+
+  // `escapeLike` n'agit que sur le motif `ilike` : son effet n'est observable
+  // que contre une vraie base, d'où sa place ici plutôt qu'en unitaire.
+  it.each(["%", "_", "\\"])(
+    "traite le métacaractère LIKE %s littéralement",
+    async (meta) => {
+      asAdmin()
+      const rows = await searchSelectableUsers({ query: meta, limit: 10 })
+      // Sans échappement, `%` et `_` sont des jokers et ramèneraient les users
+      // seedés ; échappés, ils ne matchent aucun nom/email de ce jeu de test.
+      expect(rows.every((u) => u.id !== MEMBER_ID && u.id !== MEMBER2_ID)).toBe(
+        true,
+      )
+    },
+  )
 })
 
 describe("createExam — audience restreinte", () => {
