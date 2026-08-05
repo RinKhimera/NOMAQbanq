@@ -1,4 +1,4 @@
-# Campagne vitest-audit — état au 2026-08-04
+# Campagne vitest-audit — CLOSE le 2026-08-05
 
 Deux chantiers menés ensemble : création du skill d'audit `vitest-audit`, puis
 application de ses conclusions à ce dépôt.
@@ -104,9 +104,99 @@ Deux artefacts du dépôt portaient les affirmations fausses corrigées dans le 
 
 ---
 
-## À faire
+## Clôture (2026-08-05)
 
-### 1. Finir les 80 % de branches et remonter le seuil
+Spec `docs/superpowers/specs/2026-08-05-cloture-campagne-vitest-design.md`, plan
+`docs/superpowers/plans/2026-08-05-cloture-campagne-vitest.md`, revue de design
+`docs/superpowers/reviews/2026-08-05-revue-design-cloture-vitest.md` (13 constats,
+12 exacts, intégrés avant exécution).
+
+| Mesure agrégée | Référence 08-05 | Clôture 08-05 |
+| -------------- | --------------- | ------------- |
+| Statements | 87,22 % | **88,22 %** |
+| Branches | 80,20 % (2521/3143) | **81,73 % (2569/3143)** |
+| Functions | 85,79 % | **86,27 %** |
+| Lines | 88,85 % | **89,28 %** |
+| Tests | 1554 | **1597** |
+
+Les 195 tests de Server Actions du 08-04 avaient déjà fait passer la barre des 80 %
+(mesure de référence) : le lot DAL est du travail volontaire, pas un rattrapage.
+
+**Seuil verrouillé à 80 / 80 / 80 / 80** (`vitest.coverage.config.ts`) — `branches`
+passe de 74 à 80, avec ~54 branches de marge.
+
+### Linter — `@vitest/eslint-plugin` (commit `10d4510`)
+
+Preset recommandé scopé `tests/**`. **49 violations, toutes
+`vitest/no-conditional-expect`** ; les quatre autres règles visées par l'audit
+(`no-focused-tests`, `expect-expect`, `valid-expect`, `valid-expect-in-promise`) : zéro.
+La porte de repli du plan était donc inopérante — `no-conditional-expect` fait partie
+des cinq règles. Les 49 corrigées en trois familles :
+
+- **narrowing zod** (23) → `expect(result.error?.issues[0]?.message)`. Strictement plus
+  strict : si la discriminante bascule, l'assertion échoue au lieu d'être sautée ;
+- **unions strictes** (17) → `if (!res.success) throw new Error(res.error)` (convention
+  déjà présente dans le dépôt ; l'optional chaining ne compile pas sur ces types) ;
+- **tests de concurrence** (9) → l'attente porte le conditionnel, plus l'assertion.
+  Le plus parlant : `tests/integration/users-account.test.ts` avouait en commentaire ne
+  rien valider si un autre fichier avait laissé un admin actif ; il vérifie désormais
+  l'invariant dans les deux cas.
+
+### Couverture des DAL (commits `6e2139e`, `0cf0d82`, `a665ac5`)
+
+| Fichier | branches avant | après | tests ajoutés |
+| ------- | -------------- | ----- | ------------- |
+| `features/exams/dal.student.ts` | 74,3 % (136/183) | **83,1 % (152/183)** | 19 |
+| `features/training/dal.ts` | 69,0 % (89/129) | **86,0 % (111/129)** | 13 |
+| `features/users/dal.ts` | 63,2 % (55/87) | **74,7 % (65/87)** | 8 + 3 (intégration) |
+
+Deux invariants de sécurité qu'aucun test n'exerçait :
+
+- `dal.student.ts:485` — un étudiant ne voit pas ses propres résultats tant que
+  l'examen n'est pas terminé (`!isAdmin && Date.now() < endDate`). Branche jamais prise.
+- `training/dal.ts:539` — refus IDOR sur la session d'entraînement d'autrui, et son
+  exception admin.
+
+Plus la robustesse du curseur keyset : quatre formes corrompues (base64 arbitraire,
+séparateur absent, date invalide, id vide) retombent sur une première page.
+
+### Branches laissées non couvertes, et pourquoi
+
+**La limite est structurelle, pas un manque de zèle** : le faux-db fait
+`where: () => chain` — il jette son argument. Tout invariant dont l'effet vit dans le
+**prédicat SQL** est donc hors de portée de l'unitaire et reste à l'intégration :
+
+- `escapeLike` (`users/dal.ts:50`) → porté en intégration
+  (`exam-audience.test.ts`, trois métacaractères LIKE) ;
+- le filtre d'autorisation de `getExamQuestionExplanations` (`inArray` du WHERE) →
+  déjà couvert par `exams.test.ts` ;
+- `memberAudienceWhere`, le keyset réel, les agrégats filtrés → déjà couverts par
+  `exam-audience.test.ts`.
+
+Écrire ces cas en unitaire n'aurait testé que le mock — exactement ce que le skill
+`vitest-audit` proscrit.
+
+### Point mineur — traité
+
+`features/questions/schemas.ts` : le commentaire annonçait des « bornes strictes » que le
+schéma ne porte pas. Reformulé (le schéma valide le type, la borne est le
+`clamp(count, 1, 10)` de la DAL). Pas de `min`/`max` zod ajouté : cela transformerait un
+clamp silencieux en refus silencieux, changement de comportement public non motivé.
+
+### Pièges rencontrés à l'exécution
+
+- **Ne jamais ranger une baseline de couverture dans `coverage/`** : vitest vide ce
+  dossier avant chaque écriture, le premier `bun run test:coverage` l'a détruite.
+- **`--testTimeout=25000` n'était pas nécessaire** : la commande nue passe. Le flag
+  n'existe plus nulle part — local et CI lancent enfin la même chose.
+- **Le reporter `text` ne permet pas de contrôle par fichier** : dossier et fichier sont
+  sur deux lignes, un `grep "training/dal"` rend du vide. Lire `coverage-final.json`.
+
+---
+
+## À faire — TERMINÉ, conservé pour mémoire
+
+### 1. Finir les 80 % de branches et remonter le seuil ✅
 
 Dernière mesure connue : **79,75 %** (2506/3142) — il manquait **8 branches**. Le fichier
 de tests du cron (13 branches à 0 %) a été ajouté depuis ; **la mesure qui le prend en
@@ -131,14 +221,14 @@ Gisements restants, par branches manquantes :
 | `features/questions/dal.ts` | 20 | 77,3 % |
 | `features/payments/dal.ts` | 16 | 78,7 % |
 
-### 2. Lot 2 — `eslint-plugin-vitest` (non commencé)
+### 2. Lot 2 — linter vitest ✅ (`@vitest/eslint-plugin`, commit `10d4510`)
 
 Installer, activer le preset recommandé, lancer `bun run lint`, compter les violations.
 Rend continues quatre vérifications faites à la main pendant l'audit : `no-focused-tests`,
 `expect-expect`, `valid-expect`, `valid-expect-in-promise`, `no-conditional-expect`.
 Si le preset produit trop de bruit, activer ces cinq règles à l'unité.
 
-### 3. Point mineur relevé au passage, non corrigé
+### 3. Point mineur relevé au passage ✅ (commentaire reformulé)
 
 `features/questions/schemas.ts:60` annonce des « bornes strictes » sur les entrées
 publiques du quiz, mais `loadRandomQuizQuestionsSchema` ne valide que le **type** de
