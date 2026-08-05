@@ -201,6 +201,5 @@ describe("getUserPanelData — mappage des acces (admin)", () => {
     }
     const panel = await getUserPanelData("u9")
     expect(panel?.recentTransactions[0]?.product).toBeNull()
-    expect(panel?.totalTransactionCount).toBe(0)
   })
 })

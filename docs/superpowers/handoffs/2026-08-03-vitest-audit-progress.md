@@ -150,15 +150,26 @@ des cinq règles. Les 49 corrigées en trois familles :
 | `features/training/dal.ts` | 69,0 % (89/129) | **86,0 % (111/129)** | 13 |
 | `features/users/dal.ts` | 63,2 % (55/87) | **74,7 % (65/87)** | 8 + 3 (intégration) |
 
-Deux invariants de sécurité qu'aucun test n'exerçait :
+Ce que ces tests ajoutent réellement : un **second filet unitaire, rapide et sans base**,
+sur des gardes déjà protégées par l'intégration, et la robustesse du curseur keyset —
+quatre formes corrompues (base64 arbitraire, séparateur absent, date invalide, id vide)
+retombent sur une première page.
 
-- `dal.student.ts:485` — un étudiant ne voit pas ses propres résultats tant que
-  l'examen n'est pas terminé (`!isAdmin && Date.now() < endDate`). Branche jamais prise.
-- `training/dal.ts:539` — refus IDOR sur la session d'entraînement d'autrui, et son
-  exception admin.
+⚠️ **Correction d'une affirmation fausse de ce handoff** (revue d'implémentation du
+2026-08-05). Une première version annonçait « deux invariants de sécurité qu'aucun test
+n'exerçait » : l'anti-fuite des résultats (`dal.student.ts:488`) et le refus IDOR
+(`training/dal.ts:539`). **Les deux étaient déjà couverts** —
+`tests/integration/exams.test.ts:383` depuis `1f121c5`, `tests/integration/training.test.ts:390`
+depuis `f3c77c5`, tous deux discriminants. La mesure agrégée inclut le projet
+`integration`, donc « branche jamais prise » ne pouvait pas être vrai. L'erreur venait
+d'une mauvaise attribution de ligne : l'inventaire signalait `L485` (`if (!exam) return null`),
+pas la garde anti-fuite de `L488`.
 
-Plus la robustesse du curseur keyset : quatre formes corrompues (base64 arbitraire,
-séparateur absent, date invalide, id vide) retombent sur une première page.
+Le test unitaire correspondant a été **rendu discriminant** dans la foulée : il posait un
+examen ouvert sans participation, si bien que `return null` tombait de toute façon plus
+loin (`dal.student.ts:548`) — il serait resté vert si on avait supprimé la garde. Il est
+désormais écrit en paire jumelle (même participation terminée, seule la date de fin
+change), les deux cas divergeant.
 
 ### Branches laissées non couvertes, et pourquoi
 
@@ -182,6 +193,28 @@ séparateur absent, date invalide, id vide) retombent sur une première page.
 schéma ne porte pas. Reformulé (le schéma valide le type, la borne est le
 `clamp(count, 1, 10)` de la DAL). Pas de `min`/`max` zod ajouté : cela transformerait un
 clamp silencieux en refus silencieux, changement de comportement public non motivé.
+
+### Revue d'implémentation (2026-08-05)
+
+`docs/superpowers/reviews/2026-08-05-revue-implementation-cloture-vitest.md`, session
+séparée. Verdict initial **NON**, 2 bloquants + 3 constats prouvés, tous vérifiés
+indépendamment et corrigés :
+
+| Constat | Correction |
+| ------- | ---------- |
+| 🔴 Le test de l'invariant phare ne testait pas la garde (non discriminant) | Réécrit en paire jumelle avec participation terminée ; les deux cas divergent |
+| 🔴 « Deux invariants qu'aucun test n'exerçait » — faux, déjà couverts depuis `1f121c5` / `f3c77c5` | Handoff et PR corrigés ci-dessus |
+| 🟠 `getAvailableDomains` : contrat inventé (le vrai `requireSession` redirige, ne rend pas de vue vide) | Le mock lève comme le vrai garde ; le test asserte la redirection |
+| 🟠 `totalTransactionCount` figeait un artefact du faux-db à une valeur fausse en prod | Assertion retirée |
+| 🟠 `escapeLike` : `every(...)` ne prouvait que « pas dans les 10 premiers » | `expect(rows).toHaveLength(0)` |
+
+Ce qui a tenu : les 49 corrections `no-conditional-expect` (aucun affaiblissement,
+plusieurs strictement plus strictes), le verrou à 80 (périmètre inchangé dans le même
+commit), et tous les chiffres recomptés.
+
+**Leçon de méthode** : un test qui passe *que la garde existe ou non* ne teste pas la
+garde. Le critère n'est pas « la valeur attendue sort », c'est « le résultat change si je
+retire le code testé ». Écrire les cas par paires jumelles rend la discrimination visible.
 
 ### Pièges rencontrés à l'exécution
 

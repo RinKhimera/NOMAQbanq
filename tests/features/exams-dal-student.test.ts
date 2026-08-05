@@ -211,10 +211,40 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
     expect(await getParticipantExamResults("e1", "u1")).toBeNull()
   })
 
+  // Les deux cas suivants sont JUMEAUX : meme participation terminee, seule la
+  // date de fin change. Ils ne prouvent la garde `!isAdmin && now < endDate`
+  // (dal.student.ts:488) que parce qu'ils divergent — avec un examen clos, la
+  // fonction rend bien un resultat. Sans participation dans le faux-db, les deux
+  // tomberaient sur le `return null` de la ligne 548 et ne prouveraient rien.
+  const completedParticipation = [
+    {
+      id: "p1",
+      userId: "u1",
+      status: "completed",
+      score: 75,
+      startedAt: new Date(),
+      completedAt: new Date(),
+    },
+  ]
+
   it("cache ses propres resultats tant que l'examen n'est pas termine", async () => {
     asUser("u1")
-    mocks.rows.current = { exams: [openExam] }
+    mocks.rows.current = {
+      exams: [openExam],
+      user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
+      exam_participations: completedParticipation,
+    }
     expect(await getParticipantExamResults("e1", "u1")).toBeNull()
+  })
+
+  it("rend les memes resultats des que l'examen est termine", async () => {
+    asUser("u1")
+    mocks.rows.current = {
+      exams: [closedExam],
+      user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
+      exam_participations: completedParticipation,
+    }
+    expect(await getParticipantExamResults("e1", "u1")).not.toBeNull()
   })
 
   it("laisse l'admin voir les resultats d'un examen encore ouvert", async () => {

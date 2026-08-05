@@ -74,8 +74,13 @@ vi.mock("@/db/schema", () => ({
 vi.mock("@/lib/dal", () => ({
   getCurrentSession: vi.fn(async () => mocks.session.current),
 }))
+// Fidele au vrai garde : `requireSession` REDIRIGE (donc leve) sans session, il
+// ne rend jamais de valeur vide (lib/auth-guards.ts:8).
 vi.mock("@/lib/auth-guards", () => ({
-  requireSession: vi.fn(async () => mocks.session.current),
+  requireSession: vi.fn(async () => {
+    if (!mocks.session.current) throw new Error("NEXT_REDIRECT /connexion")
+    return mocks.session.current
+  }),
 }))
 vi.mock("@/lib/cdn", () => ({ cdnUrl: mocks.cdnUrl }))
 vi.mock("@/features/exams/dal", () => ({
@@ -127,10 +132,13 @@ describe("gardes de session", () => {
       items: [],
       nextCursor: null,
     })
-    expect(await getAvailableDomains()).toEqual({
-      domains: [],
-      totalQuestions: 0,
-    })
+  })
+
+  it("getAvailableDomains redirige au lieu de rendre une vue vide", async () => {
+    anonymous()
+    // Contrat different des lectures ci-dessus : cette DAL passe par
+    // `requireSession`, qui redirige vers /connexion — aucune valeur n'est rendue.
+    await expect(getAvailableDomains()).rejects.toThrow("NEXT_REDIRECT")
   })
 
   it("getBookmarkedQuestionIds court-circuite sur une liste vide", async () => {

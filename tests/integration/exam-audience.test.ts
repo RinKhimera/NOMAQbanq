@@ -228,12 +228,15 @@ describe("searchSelectableUsers", () => {
     "traite le métacaractère LIKE %s littéralement",
     async (meta) => {
       asAdmin()
-      const rows = await searchSelectableUsers({ query: meta, limit: 10 })
-      // Sans échappement, `%` et `_` sont des jokers et ramèneraient les users
-      // seedés ; échappés, ils ne matchent aucun nom/email de ce jeu de test.
-      expect(rows.every((u) => u.id !== MEMBER_ID && u.id !== MEMBER2_ID)).toBe(
-        true,
-      )
+      // Assertion RELATIVE, pas absolue : un métacaractère actif se comporte en
+      // joker et ramène donc TOUT (`%`/`_` matchent n'importe quel nom) ; échappé,
+      // il ne peut ramener que les lignes le contenant littéralement, donc
+      // strictement moins. Compter zéro serait faux — la base peut porter des
+      // lignes contenant réellement le caractère.
+      const all = await searchSelectableUsers({ limit: 50 })
+      const escaped = await searchSelectableUsers({ query: meta, limit: 50 })
+      expect(all.length).toBeGreaterThan(0)
+      expect(escaped.length).toBeLessThan(all.length)
     },
   )
 })
