@@ -26,7 +26,10 @@ chaque test ajouté protège un invariant nommable ; le chiffre suit.
 
 ### Phase 0 — Mesure de référence
 
-`bun run test:coverage:full -- --testTimeout=25000` : première mesure incluant les
+`bun run test:coverage:full` — **la commande de la CI telle quelle**
+(`.github/workflows/ci.yml:90`) : le seuil de la Phase 3 doit être posé sur une mesure
+que la CI reproduit. Si des timeouts imposent `--testTimeout=25000`, l'inscrire dans le
+script `package.json` (local et CI restent identiques). Première mesure incluant les
 195 tests de Server Actions du 2026-08-04. Archiver les chiffres et
 `coverage/coverage-final.json` comme base de travail des inventaires.
 
@@ -45,10 +48,12 @@ d'au-dessus de la barre — il se fait dans les deux cas.
   `valid-expect-in-promise`, `no-conditional-expect`.
 - Corriger les violations sur les tests existants. Un test révélé tautologique
   se corrige (vraie assertion) ou se supprime — pas de désactivation de règle
-  au cas par cas sans justification en une ligne.
+  au cas par cas sans justification en une ligne. **Aucune suppression dans
+  `tests/integration/**`** (le linter couvre ce répertoire mais aucun garde-fou
+  de la phase ne relance ses tests).
 - Garde-fou : re-mesurer `bun run test:coverage` (frontend seul, gratuit) après
-  correction — la marge frontend est à 80,26 % pour un seuil de 80, supprimer
-  un test peut la crever.
+  correction — la marge frontend est de **~5 branches** (80,28 % = 1376/1714 au
+  2026-08-05) pour un seuil de 80, un seul test supprimé peut la crever.
 
 ### Phase 2 — Couverture des trois DAL, risque d'abord
 
@@ -66,9 +71,11 @@ Méthode par lot :
    `coverage-final.json` ; en tirer une liste d'invariants nommés (« un
    non-membre de l'audience ne voit pas l'examen », jamais « couvrir la ligne
    940 »). La liste pilote le lot.
-2. **Unitaire** (harnais faux-db de `tests/features/`, réutilisé tel quel) pour
-   les décisions et helpers purs : clamps, décodage de curseur, mappages PII,
-   échappements.
+2. **Unitaire** (harnais faux-db de `tests/features/`, étendu de quatre maillons :
+   `selectDistinct`, `leftJoin`, `groupBy`, `offset`) pour les décisions et
+   helpers purs : clamps, décodage de curseur, mappages PII. Un invariant dont
+   l'effet vit dans le **prédicat SQL** (ex. `escapeLike` → motif `ilike`) est du
+   ressort de l'intégration — le harnais jette l'argument de `.where()`.
 3. **Intégration** (branche Neon ; compléter les fichiers existants de
    `tests/integration/` plutôt qu'en créer) uniquement quand la sémantique SQL
    est l'invariant : audience, keyset, agrégats filtrés.
@@ -88,7 +95,7 @@ Rappels actifs pendant l'écriture :
 
 ### Phase 3 — Verrou + clôture
 
-- Mesure finale : `bun run test:coverage:full -- --testTimeout=25000`.
+- Mesure finale : `bun run test:coverage:full` (commande CI, cf. Phase 0).
 - `vitest.coverage.config.ts` : `branches: 74 → 80` ; mettre à jour le
   commentaire du bloc (il promet cette remontée). Les autres seuils restent à 80.
 - `features/questions/schemas.ts:60` : reformuler le commentaire « bornes
@@ -124,7 +131,7 @@ frontend (`bun run test:coverage`) qui ne coûte rien.
 
 | Risque | Parade |
 | ------ | ------ |
-| Correctifs ESLint qui suppriment des tests → seuil frontend (marge 0,26 pt) | Re-mesure frontend après la phase 1 |
+| Correctifs ESLint qui suppriment des tests → seuil frontend (marge ~5 branches) | Re-mesure frontend après la phase 1 ; rétablir + vraie assertion plutôt que supprimer |
 | Preset ESLint trop bruyant | Repli sur les 5 règles à l'unité (décision déjà au handoff) |
 | Conclusion hâtive « fichier non mesuré » | `coverage.include` matche en sous-chaîne ; vérifier `coverage-final.json` |
 | Interblocage pool pg dans les tests d'intégration | Résoudre les lectures avant d'ouvrir la transaction |

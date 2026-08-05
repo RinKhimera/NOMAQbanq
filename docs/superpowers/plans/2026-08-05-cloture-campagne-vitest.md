@@ -21,6 +21,9 @@ Neon) pour la sémantique SQL. Linter installé AVANT les nouveaux tests.
 écrit ici doit passer **du premier coup** (il caractérise un comportement déjà en place).
 Un test qui échoue = soit l'invariant supposé est faux (corriger le test), soit un **vrai
 bug** → s'arrêter, le signaler à l'utilisateur avant de toucher au code applicatif.
+Exception : un échec d'**infrastructure du harnais** (`db.selectDistinct is not a
+function`, mock manquant) n'est ni l'un ni l'autre — compléter le harnais (Step 3.0) et
+relancer.
 
 ---
 
@@ -28,15 +31,32 @@ bug** → s'arrêter, le signaler à l'utilisateur avant de toucher au code appl
 
 **Files :** aucun (mesure seule)
 
-- [ ] **Step 0.1 : Lancer la mesure agrégée**
+- [ ] **Step 0.0 : Vérifier l'arbre**
 
 ```bash
-bun run test:coverage:full -- --testTimeout=25000
+git status --short
 ```
 
-Attendu : tous les tests verts (~1233 : 1038 frontend + 195 nouveaux + intégration), tableau
-de couverture final. Noter les 4 métriques globales et le % branches de :
-`features/exams/dal.student.ts`, `features/training/dal.ts`, `features/users/dal.ts`.
+Attendu : rien d'autre que le rapport de revue non suivi. Une autre session peut
+travailler sur cette branche (vécu pendant la revue de design : `access-badge.tsx`
+modifié, committé depuis en `9ce8900`) — d'où les `git add` **explicites** de toutes
+les tâches : jamais `git add -A`.
+
+- [ ] **Step 0.1 : Lancer la mesure agrégée — exactement la commande de la CI**
+
+```bash
+bun run test:coverage:full
+```
+
+Sans `--testTimeout=25000` : la CI (`.github/workflows/ci.yml:90`) lance la commande
+nue, et le verrou de la Task 6 doit être posé sur la mesure que la CI reproduit. Si des
+timeouts apparaissent : inscrire `--testTimeout=25000` DANS le script
+`test:coverage:full` de `package.json` (local et CI restent identiques) et relancer.
+
+Attendu : tous verts. Noter **deux** comptes — frontend seul (`bun run test` : 1233 au
+2026-08-05) et agrégé (~1554 = 1233 + ~321 intégration) — puis les 4 métriques globales
+et le % branches de : `features/exams/dal.student.ts`, `features/training/dal.ts`,
+`features/users/dal.ts`.
 
 - [ ] **Step 0.2 : Archiver la base de travail**
 
@@ -89,11 +109,17 @@ puis étendre le bloc existant `files: ["tests/**/*.{ts,tsx}"]` (ligne ~30) :
   },
 ```
 
-- [ ] **Step 1.3 : Compter les violations**
+- [ ] **Step 1.3 : Compter les violations — par règle**
 
 ```bash
-bun run lint 2>&1 | tail -5
+bun run lint 2>&1 | grep -oE "vitest/[a-z-]+" | sort | uniq -c | sort -rn
 ```
+
+Reporter le compte **par règle** au handoff, pas seulement le total. Candidats connus
+(revue de design du 2026-08-05) : `no-standalone-expect` — unique cas du dépôt,
+`expectNoSensitive` (`tests/integration/passation-anti-cheat.test.ts:72`), à inliner ou
+disable d'une ligne ; `no-identical-title` — titres répétés existants, mais la règle ne
+compare qu'au sein d'un même `describe`, volume inconnu avant exécution.
 
 **Porte de décision** : si le preset produit un bruit disproportionné (violations
 majoritairement stylistiques, sans lien avec la valeur des tests), remplacer
@@ -113,13 +139,20 @@ Doctrine : un test tautologique révélé par `expect-expect` reçoit une vraie 
 disparaît. Un `eslint-disable` ponctuel exige une justification d'une ligne (le « pourquoi »
 non évident, pas de narration). Pas de désactivation de règle globale.
 
+**Aucune suppression dans `tests/integration/**`** : le linter couvre ce répertoire mais
+aucun garde-fou de cette Task ne relance ses tests (les deux scripts sont
+`--project frontend`) — les invariants les plus sensibles y vivent. Sur ce répertoire,
+seule la correction d'assertion est autorisée ; si un fichier d'intégration est retouché,
+lancer `bun run test:integration -- tests/integration/<fichier>` avant le commit.
+
 - [ ] **Step 1.5 : Vérifier que rien n'a cassé**
 
 ```bash
 bun run test
 ```
 
-Attendu : tous verts, aucun test perdu par accident (comparer le compte au Step 0.1).
+Attendu : tous verts, aucun test perdu par accident — comparer au compte **frontend** du
+Step 0.1 (1233), pas à l'agrégé.
 
 - [ ] **Step 1.6 : Garde-fou marge frontend**
 
@@ -127,14 +160,17 @@ Attendu : tous verts, aucun test perdu par accident (comparer le compte au Step 
 bun run test:coverage 2>&1 | tail -15
 ```
 
-Attendu : branches frontend ≥ 80 % (marge de départ : 80,26 %). Si un test supprimé a crevé
-le seuil : couvrir l'équivalent proprement avant de continuer.
+Attendu : branches frontend ≥ 80 %. La marge réelle est **~5 branches** (80,28 % =
+1376/1714 au 2026-08-05) — un `it()` supprimé en vaut souvent plus. Si la mesure échoue
+après les correctifs : **rétablir** le test supprimé et le doter d'une vraie assertion,
+plutôt que le supprimer. Une suppression n'est acceptable que si `bun run test:coverage`
+reste vert **et** que la ligne de couverture du fichier concerné est inchangée.
 
 - [ ] **Step 1.7 : Check complet + commit**
 
 ```bash
 bun run check
-git add -A
+git add package.json bun.lock eslint.config.mjs tests/
 git commit -m "test(lint): active @vitest/eslint-plugin sur tests/**"
 ```
 
@@ -148,13 +184,20 @@ git commit -m "test(lint): active @vitest/eslint-plugin sur tests/**"
 - [ ] **Step 2.1 : Écrire le script**
 
 ```ts
-// Usage : bun uncovered.ts features/exams/dal.student.ts
+// Usage (depuis la racine du repo) :
+//   bun uncovered.ts <fichier>            → branches non prises (baseline, Task 0)
+//   bun uncovered.ts <fichier> --stats    → "couvertes/total" du fichier
+//   … --fresh                             → lit coverage-final.json (mesure du jour)
 const target = process.argv[2].replaceAll("\\", "/")
-const cov = await Bun.file("coverage/coverage-baseline.json").json()
+const stats = process.argv.includes("--stats")
+const source = process.argv.includes("--fresh")
+  ? "coverage/coverage-final.json"
+  : "coverage/coverage-baseline.json"
+const cov = await Bun.file(source).json()
 const entry = Object.entries(cov).find(([k]) =>
   (k as string).replaceAll("\\", "/").endsWith(target),
 )
-if (!entry) throw new Error(`${target} absent du rapport`)
+if (!entry) throw new Error(`${target} absent de ${source}`)
 const d = entry[1] as {
   b: Record<string, number[]>
   branchMap: Record<
@@ -162,25 +205,34 @@ const d = entry[1] as {
     { type: string; locations: { start: { line: number } }[] }
   >
 }
+let taken = 0
+let total = 0
 for (const [id, counts] of Object.entries(d.b)) {
   const loc = d.branchMap[id]
   counts.forEach((n, i) => {
-    if (n === 0)
+    total++
+    if (n > 0) taken++
+    else if (!stats)
       console.log(
         `L${loc.locations[i]?.start.line ?? "?"}  ${loc.type}  branche ${i}`,
       )
   })
 }
+if (stats) console.log(`${target} : ${taken}/${total} branches`)
 ```
+
+Le mode `--stats --fresh` sert de contrôle par lot (Steps 3.5/4.5/5.3) : le reporter
+`text` met dossier et fichier sur deux lignes séparées, un `grep "training/dal"` sur sa
+sortie rend du vide — on lit `coverage-final.json`, pas le tableau.
 
 - [ ] **Step 2.2 : Vérifier sur un fichier connu**
 
 ```bash
-cd <scratchpad> && bun uncovered.ts features/users/dal.ts
+bun <scratchpad>/uncovered.ts features/users/dal.ts
 ```
 
-Attendu : liste de lignes (33 branches avant référence). Lancer depuis la racine du repo ou
-ajuster le chemin du JSON.
+(Depuis la racine du repo — le script lit `coverage/…` en relatif, même forme qu'aux
+Steps 3.1/4.1/5.1.) Attendu : liste de lignes (33 branches avant référence).
 
 ---
 
@@ -190,43 +242,82 @@ ajuster le chemin du JSON.
 - Create: `tests/features/exams-dal-student.test.ts` (unitaire)
 - Modify: `tests/integration/exam-audience.test.ts`, `tests/integration/passation-anti-cheat.test.ts` (compléter, pas créer)
 
+- [ ] **Step 3.0 : Étendre le harnais faux-db (une fois, pour les trois lots)**
+
+Le harnais de `tests/features/training-actions.test.ts` ne connaît ni `selectDistinct`
+(exams ×2), ni `leftJoin` (training ×2, users ×5), ni `groupBy` (×4), ni `offset` (×1).
+Dans la copie servant aux lots DAL, ajouter :
+
+```ts
+// dans `chain` :
+leftJoin: () => chain,
+groupBy: () => chain,
+offset: () => chain,
+// dans `fakeDb` :
+selectDistinct: () => queryChain(),
+```
+
+Limite structurelle à garder en tête : tout invariant dont l'effet vit **dans le prédicat
+SQL** (`where: () => chain` jette son argument) est du ressort de l'intégration — c'est ce
+qui envoie `escapeLike` côté intégration en Task 5. Les `leftJoin` imposent aussi de
+façonner les lignes du faux-db à la forme **jointe** (colonnes de plusieurs tables sous la
+clé de table du `.from()`).
+
 - [ ] **Step 3.1 : Inventaire**
 
 ```bash
 bun <scratchpad>/uncovered.ts features/exams/dal.student.ts
 ```
 
-Croiser chaque ligne avec le code et la transformer en invariant **nommé**. Invariants
-pressentis (spec §Phase 2, vérifiés dans le code) :
+Croiser chaque ligne avec le code et la transformer en invariant **nommé**. Avant
+d'inscrire un invariant, vérifier qu'il n'est pas déjà exercé :
+`grep -rn "<nomDeFonction>" tests/`. Deux des invariants pressentis à l'origine le sont
+déjà — ne pas les réécrire : les deux branches de `memberAudienceWhere`
+(`tests/integration/exam-audience.test.ts:560-579`) et l'exclusion de l'examen non clos
+dans `getExamQuestionExplanations` (`tests/integration/exams.test.ts:469-476`).
+
+Invariants pressentis restants (spec §Phase 2, vérifiés dans le code) :
 
 - `getExamQuestionExplanations` : sans session → `[]` ; `questionIds` vide → `[]` ;
-  non-admin ne reçoit que les questions autorisées ; examen **non clos**
-  (`endDate > now`) → exclu (anti-fuite pendant la fenêtre, `dal.student.ts:687`) ;
-  ids dupliqués dédupliqués ; questions verrouillées (`locked`) retenues.
-- `memberAudienceWhere` (`dal.student.ts:933`) : `audienceType = "subscribers"` passe ;
-  liste d'invités : membre passe, non-membre exclu — sémantique SQL → **intégration**
-  (`exam-audience.test.ts`).
-- `getExamAnswersForParticipation` / `getExamSubmissionSummary` : jamais `isCorrect` ni
-  explication avant clôture — compléter `passation-anti-cheat.test.ts` si l'inventaire
-  montre des branches non prises.
-- `getExamLeaderboard`, `getMyDashboardStats`, fenêtres de dates : selon inventaire.
+  ids dupliqués dédupliqués ; questions verrouillées (`locked`) retenues (la fenêtre
+  anti-fuite `dal.student.ts:686` est déjà couverte côté SQL, cf. ci-dessus).
+- `getExamSession`, `getParticipantExamResults`, `getExamSubmissionSummary`, fenêtres de
+  dates : c'est là que vit l'essentiel des 47 branches manquantes — laisser l'inventaire
+  outillé guider.
+- `getExamAnswersForParticipation` : jamais `isCorrect` ni explication avant clôture —
+  compléter `passation-anti-cheat.test.ts` seulement si l'inventaire montre des branches
+  non prises.
+- `getExamLeaderboard`, `getMyDashboardStats` : selon inventaire.
 
 Toute branche sans enjeu (défensive, inatteignable) : pas de test, une ligne de
 justification à reporter dans le handoff (Task 7).
 
 - [ ] **Step 3.2 : Tests unitaires — gardes et mappages**
 
-Créer `tests/features/exams-dal-student.test.ts` sur le harnais de
-`tests/features/training-actions.test.ts` (recopier le bloc `vi.hoisted` + les `vi.mock`
-de `@/db` et `@/db/schema`, adapter les tables). Squelette des premiers cas :
+Créer `tests/features/exams-dal-student.test.ts` sur le harnais étendu (Step 3.0). Mocks
+requis — attention, **PAS le baril `@/features/exams/dal`** : `dal.student.ts` importe en
+direct, mocker le baril n'intercepte rien (`features/exams/dal.ts` ne fait que
+réexporter) :
+
+- `@/db` (fakeDb) et `@/db/schema` (union des tables de `dal.student` **et** `dal.shared`) ;
+- `@/lib/dal` (`getCurrentSession`) — sinon le module réel tire Better Auth +
+  `next/headers` hors contexte de requête ;
+- `@/features/exams/dal.shared` (`fetchImages`, `getOpenExamLockedQuestionIds`,
+  `countQuestionsByExam`) ;
+- `@/features/payments/dal` (`hasAccess`) ;
+- par cohérence avec les 20 fichiers d'intégration : `vi.mock("react", …)` remplaçant
+  `cache` par un passe-plat (non requis — hors RSC, `cache()` ne mémoïse pas — mais
+  documente l'intention).
+
+Squelette des premiers cas :
 
 ```ts
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { getExamQuestionExplanations } from "@/features/exams/dal.student"
 
-// Harnais recopié de tests/features/training-actions.test.ts (vi.hoisted +
-// fakeDb indexé par table). Adapter les tables mockées de @/db/schema :
-// exams, examQuestions, examParticipations, questionExplanations…
+// Harnais recopié de tests/features/training-actions.test.ts, étendu (Step 3.0),
+// mocks listés au Step 3.2. Tables : exams, examQuestions, examParticipations,
+// questionExplanations…
 
 describe("getExamQuestionExplanations", () => {
   it("renvoie [] sans session", async () => {
@@ -251,8 +342,9 @@ vrai bug ; dans le doute, signaler avant de continuer.
 
 - [ ] **Step 3.4 : Tests d'intégration — sémantique SQL**
 
-Compléter `tests/integration/exam-audience.test.ts` (et `passation-anti-cheat.test.ts` si
-l'inventaire l'exige) avec les cas d'audience manquants. Respecter le cleanup des données
+Si l'inventaire révèle des branches SQL non prises (fenêtres de dates, agrégats),
+compléter `tests/integration/exam-audience.test.ts` ou `passation-anti-cheat.test.ts` —
+ne rien réécrire de déjà couvert (cf. Step 3.1). Respecter le cleanup des données
 créées et **jamais d'appel au `db` global dans une `db.transaction`** (pool max 5 →
 interblocage). Lancer en ciblé :
 
@@ -263,17 +355,19 @@ bun run test:integration -- tests/integration/exam-audience.test.ts
 - [ ] **Step 3.5 : Contrôle de couverture du fichier (sans Neon)**
 
 ```bash
-bunx vitest run --config vitest.coverage.config.ts --coverage --project frontend 2>&1 | grep "dal.student"
+bunx vitest run --config vitest.coverage.config.ts --coverage --project frontend
+bun <scratchpad>/uncovered.ts features/exams/dal.student.ts --stats --fresh
 ```
 
-Note : sans le projet `integration`, les seuils globaux échoueront — **ignorer l'exit
-code**, ne lire que la ligne du fichier. Le chiffre vrai vient de la Task 6.
+(Pas de grep sur le tableau `text` — il tronque les chemins, cf. Task 2.) Sans le projet
+`integration`, les seuils globaux échoueront : exit code non significatif, seul le compte
+du fichier importe. Le chiffre vrai vient de la Task 6.
 
 - [ ] **Step 3.6 : Check + commit**
 
 ```bash
 bun run check
-git add -A
+git add tests/features/exams-dal-student.test.ts tests/integration/
 git commit -m "test(couverture): couvre les invariants de exams/dal.student"
 ```
 
@@ -349,9 +443,10 @@ bun run test:integration -- tests/integration/training.test.ts
 - [ ] **Step 4.5 : Contrôle fichier + check + commit**
 
 ```bash
-bunx vitest run --config vitest.coverage.config.ts --coverage --project frontend 2>&1 | grep "training/dal"
+bunx vitest run --config vitest.coverage.config.ts --coverage --project frontend
+bun <scratchpad>/uncovered.ts features/training/dal.ts --stats --fresh
 bun run check
-git add -A
+git add tests/features/training-dal.test.ts tests/integration/
 git commit -m "test(couverture): couvre les invariants de training/dal"
 ```
 
@@ -361,6 +456,7 @@ git commit -m "test(couverture): couvre les invariants de training/dal"
 
 **Files :**
 - Create: `tests/features/users-dal.test.ts`
+- Modify: `tests/integration/exam-audience.test.ts` (cas `escapeLike` dans le `describe("searchSelectableUsers")` existant, ligne 205)
 - Modify: `tests/integration/users-admin-dal.test.ts` (compléter si besoin)
 
 - [ ] **Step 5.1 : Inventaire**
@@ -375,7 +471,10 @@ Invariants pressentis :
   `null` ; `toPanelAccess` (via `getUserPanelData`) : expiré → `isActive: false`,
   `daysRemaining: 0` (les deux mappages divergent volontairement, `dal.ts:38` vs `:595`).
 - **`escapeLike`** (via `searchSelectableUsers`) : une recherche contenant `%`, `_` ou
-  `\` est traitée littéralement.
+  `\` est traitée littéralement — **intégration uniquement** : son seul effet vit dans
+  le motif `ilike` passé à `.where()`, que le harnais jette ; en unitaire ce serait un
+  test tautologique. Ajouter le cas au `describe("searchSelectableUsers")` de
+  `tests/integration/exam-audience.test.ts:205` (users déjà seedés).
 - **Self-guard** : `getCurrentUser`, `getLoginMethods`, `getUserSessions` → `null`/vide
   sans session.
 - **Gardes admin** : `getUserForAdmin`, `getUserPanelData`, `getUsersForExport` refusent
@@ -391,9 +490,10 @@ bunx vitest run --project frontend tests/features/users-dal.test.ts
 - [ ] **Step 5.3 : Contrôle fichier + check + commit**
 
 ```bash
-bunx vitest run --config vitest.coverage.config.ts --coverage --project frontend 2>&1 | grep "users/dal"
+bunx vitest run --config vitest.coverage.config.ts --coverage --project frontend
+bun <scratchpad>/uncovered.ts features/users/dal.ts --stats --fresh
 bun run check
-git add -A
+git add tests/features/users-dal.test.ts tests/integration/
 git commit -m "test(couverture): couvre les invariants de users/dal"
 ```
 
@@ -403,12 +503,12 @@ git commit -m "test(couverture): couvre les invariants de users/dal"
 
 **Files :**
 - Modify: `vitest.coverage.config.ts:39-44`
-- Modify: `features/questions/schemas.ts:58-60`
+- Modify: `features/questions/schemas.ts:59-61`
 
 - [ ] **Step 6.1 : Mesure agrégée finale**
 
 ```bash
-bun run test:coverage:full -- --testTimeout=25000
+bun run test:coverage:full
 ```
 
 Attendu : branches ≥ 80 %. Sinon : retour à l'inventaire (`coverage-final.json` **frais**,
@@ -419,8 +519,11 @@ pas la baseline) sur le plus gros reliquat, compléter, re-mesurer.
 Dans `vitest.coverage.config.ts`, remplacer le bloc commentaire + seuils par :
 
 ```ts
-      // Cales sous la mesure de clôture de campagne (2026-08) : un seuil sert
-      // a empecher le retour en arriere, pas a decrire l'ambition.
+      // Cales sous la mesure de cloture de campagne du 2026-08 (<les quatre %
+      // mesures au Step 6.1 : statements / branches / functions / lines>) : un
+      // seuil sert a empecher le retour en arriere, pas a decrire l'ambition.
+      // Les chiffres restent dans le commentaire : c'est la seule trace durable
+      // de la marge (le rapport coverage/ est gitignore).
       thresholds: {
         statements: 80,
         branches: 80,
@@ -432,7 +535,7 @@ Dans `vitest.coverage.config.ts`, remplacer le bloc commentaire + seuils par :
 - [ ] **Step 6.3 : Vérifier que le seuil passe**
 
 ```bash
-bun run test:coverage:full -- --testTimeout=25000
+bun run test:coverage:full
 ```
 
 Attendu : exit 0, aucune métrique sous son seuil.
@@ -440,7 +543,7 @@ Attendu : exit 0, aucune métrique sous son seuil.
 - [ ] **Step 6.4 : Reformuler le commentaire de `schemas.ts`**
 
 Remplacer le commentaire au-dessus de `loadRandomQuizQuestionsSchema`
-(`features/questions/schemas.ts:58-60`) par :
+(`features/questions/schemas.ts:59-61`) par :
 
 ```ts
 // Entrées PUBLIQUES (quiz marketing, appelant anonyme) : le schéma ne valide
@@ -453,7 +556,7 @@ Remplacer le commentaire au-dessus de `loadRandomQuizQuestionsSchema`
 
 ```bash
 bun run check
-git add -A
+git add vitest.coverage.config.ts features/questions/schemas.ts
 git commit -m "test(couverture): verrouille le seuil de branches a 80 %"
 ```
 
@@ -508,3 +611,14 @@ utilisateur ajouté).
 - **Inventaires** : les listes d'invariants sont pressenties (vérifiées dans le code le
   2026-08-05) ; l'inventaire outillé (Task 2) reste l'autorité — il peut en ajouter ou en
   retirer.
+
+## Revue de design (2026-08-05)
+
+Revue adversariale en session séparée
+(`docs/superpowers/reviews/2026-08-05-revue-design-cloture-vitest.md`) : 13 constats,
+verdict initial NON. Les 12 vérifiés exacts sont intégrés ci-dessus (greps morts sur le
+reporter `text` → outil `--stats --fresh` ; Step 3.0 harnais ; mocks `dal.shared` ;
+`escapeLike` → intégration ; commande CI sans flag ; comptes 1233/1554 ; marge en
+branches ; `git add` explicites ; invariants déjà couverts sortis de la Task 3). Le
+constat #2 (`access-badge.tsx` dans l'arbre) était vrai à la revue, réglé depuis par le
+commit `9ce8900` d'une autre session — le durcissement Step 0.0 reste.
