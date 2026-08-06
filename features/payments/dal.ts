@@ -1,10 +1,16 @@
-import { and, asc, desc, eq, gt, lt, ne, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, gte, lt, ne, or, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
+import {
+  APP_TIME_ZONE,
+  shiftCalendarDay,
+  startOfAppZoneDay,
+  toAppZoneCalendarDay,
+} from "@/lib/format"
 import { bestCoveringTransaction } from "./lib"
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -584,17 +590,26 @@ export type RevenueByDay = {
 /**
  * [Admin] Revenus quotidiens (transactions complétées) des `days` derniers jours,
  * par devise, chaque jour présent (0 si aucun). Remplace `getRevenueByDay` (qui
- * filtrait 2000 lignes en JS) : agrégation SQL `GROUP BY (jour UTC, devise)` puis
- * remplissage des jours manquants. Jours en UTC (TZ=UTC en prod/CI).
+ * filtrait 2000 lignes en JS) : agrégation SQL `GROUP BY (jour, devise)` puis
+ * remplissage des jours manquants.
+ *
+ * Jours civils de l'Est, comme les dates affichées dans la table des
+ * transactions : un encaissement de 21:00 appartient à sa propre journée, pas
+ * à la suivante. La fenêtre part du PREMIER instant du plus ancien jour affiché
+ * — sinon sa barre ne compterait qu'une fraction de la journée.
  */
 export const getRevenueByDay = async (days = 30): Promise<RevenueByDay> => {
   await requireRole(["admin"])
 
   const safeDays = Math.min(Math.max(1, Math.floor(days)), 365)
-  const now = Date.now()
-  const startDate = new Date(now - safeDays * DAY_MS)
+  const today = toAppZoneCalendarDay(Date.now())
+  const firstDay = shiftCalendarDay(today, -(safeDays - 1))
 
-  const dayExpr = sql<string>`to_char(${transactions.completedAt} at time zone 'UTC', 'YYYY-MM-DD')`
+  // Le fuseau doit être un littéral SQL, pas un paramètre lié : réémis dans le
+  // GROUP BY, un `$n` distinct de celui du SELECT empêche Postgres de
+  // reconnaître la même expression (42803, must appear in the GROUP BY clause).
+  const zone = sql.raw(`'${APP_TIME_ZONE}'`)
+  const dayExpr = sql<string>`to_char(${transactions.completedAt} at time zone ${zone}, 'YYYY-MM-DD')`
   const rows = await db
     .select({
       day: dayExpr,
@@ -608,7 +623,7 @@ export const getRevenueByDay = async (days = 30): Promise<RevenueByDay> => {
     .where(
       and(
         eq(transactions.status, "completed"),
-        gt(transactions.completedAt, startDate),
+        gte(transactions.completedAt, startOfAppZoneDay(firstDay)),
       ),
     )
     .groupBy(dayExpr, transactions.currency)
@@ -622,7 +637,7 @@ export const getRevenueByDay = async (days = 30): Promise<RevenueByDay> => {
   const buildDays = (data: Record<string, number>) => {
     const result: { date: string; revenue: number }[] = []
     for (let i = safeDays - 1; i >= 0; i--) {
-      const day = new Date(now - i * DAY_MS).toISOString().slice(0, 10)
+      const day = shiftCalendarDay(today, -i)
       result.push({ date: day, revenue: data[day] ?? 0 })
     }
     return result

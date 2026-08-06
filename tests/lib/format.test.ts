@@ -15,8 +15,11 @@ import {
   formatWeekdayLongDate,
   getAppZoneHour,
   getAppZoneYear,
+  shiftCalendarDay,
   startOfAppZoneDay,
+  startOfAppZoneMonth,
   startOfNextAppZoneDay,
+  toAppZoneCalendarDay,
   toCalendarDay,
 } from "@/lib/format"
 
@@ -412,5 +415,55 @@ describe("bornes de journée civile (filtres de date)", () => {
       return toCalendarDay(new Date(2026, 6, 3))
     })
     expect(jours).toEqual(["2026-07-03", "2026-07-03", "2026-07-03"])
+  })
+})
+
+describe("mois civils et décalages de jours (agrégats admin)", () => {
+  it("rend la journée de l'Est d'un instant, pas celle d'UTC", () => {
+    // 01:00 UTC le 4 juillet = 21:00 le 3 juillet à Toronto : l'encaissement
+    // appartient au 3, comme la date affichée dans la table des transactions.
+    expect(toAppZoneCalendarDay(new Date("2026-07-04T01:00:00Z"))).toBe(
+      "2026-07-03",
+    )
+  })
+
+  it("enchaîne les journées sans en sauter au changement d'heure", () => {
+    // Le 8 mars ne dure que 23 h à Toronto : une suite construite en
+    // millisecondes y produirait un doublon.
+    const jours = Array.from({ length: 5 }, (_, i) =>
+      shiftCalendarDay("2026-03-10", -i),
+    )
+    expect(jours).toEqual([
+      "2026-03-10",
+      "2026-03-09",
+      "2026-03-08",
+      "2026-03-07",
+      "2026-03-06",
+    ])
+  })
+
+  it("décale une journée civile par-dessus mois et années", () => {
+    expect(shiftCalendarDay("2026-03-01", -1)).toBe("2026-02-28")
+    expect(shiftCalendarDay("2026-01-01", -1)).toBe("2025-12-31")
+    expect(shiftCalendarDay("2026-12-31", 1)).toBe("2027-01-01")
+    expect(shiftCalendarDay("2026-07-03", 0)).toBe("2026-07-03")
+  })
+
+  it("ancre le 1er du mois sur l'Est, décalage de mois compris", () => {
+    expect(
+      startOfAppZoneMonth(new Date("2026-08-15T12:00:00Z")).toISOString(),
+    ).toBe("2026-08-01T04:00:00.000Z")
+    // Janvier moins un mois → décembre de l'année précédente, en heure normale.
+    expect(
+      startOfAppZoneMonth(new Date("2026-01-15T12:00:00Z"), -1).toISOString(),
+    ).toBe("2025-12-01T05:00:00.000Z")
+  })
+
+  it("reste sur le mois de l'Est le soir du dernier jour", () => {
+    // 01:00 UTC le 1er août = 21:00 le 31 juillet à Toronto : le compteur
+    // « ce mois » doit encore couvrir juillet.
+    expect(
+      startOfAppZoneMonth(new Date("2026-08-01T01:00:00Z")).toISOString(),
+    ).toBe("2026-07-01T04:00:00.000Z")
   })
 })

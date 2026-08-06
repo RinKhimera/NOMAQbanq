@@ -30,7 +30,11 @@ import {
 import { describeUserAgent } from "@/features/users/lib/user-agent"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
-import { startOfAppZoneDay, startOfNextAppZoneDay } from "@/lib/format"
+import {
+  startOfAppZoneDay,
+  startOfAppZoneMonth,
+  startOfNextAppZoneDay,
+} from "@/lib/format"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -441,12 +445,10 @@ export const getUsersStats = async (): Promise<UsersStatsView> => {
 
   const now = new Date()
   const nowMs = now.getTime()
-  const startOfMonth = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-  )
-  const startOfLastMonth = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
-  )
+  // Mois civils de l'Est : une inscription du 31 à 21:00 appartient au mois qui
+  // s'achève, pas à celui que le calendrier UTC a déjà entamé.
+  const startOfMonth = startOfAppZoneMonth(now)
+  const startOfLastMonth = startOfAppZoneMonth(now, -1)
   const in7d = new Date(nowMs + 7 * DAY_MS)
   const ago30 = new Date(nowMs - 30 * DAY_MS)
   const ago60 = new Date(nowMs - 60 * DAY_MS)

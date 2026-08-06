@@ -17,6 +17,11 @@ import {
 import { getExpiringAccess, getRevenueByDay } from "@/features/payments/dal"
 import { getAdminStats } from "@/features/users/dal"
 import { requireRole } from "@/lib/auth-guards"
+import {
+  shiftCalendarDay,
+  startOfNextAppZoneDay,
+  toAppZoneCalendarDay,
+} from "@/lib/format"
 import { createId } from "@/lib/ids"
 
 // `cache()` React → identité (pas de contexte RSC en test node).
@@ -42,11 +47,20 @@ const TX1 = createId() // CAD 5000 complétée aujourd'hui
 const TX2 = createId() // XAF 300000 complétée il y a 2j
 const TX3 = createId() // CAD 1000 complétée il y a 45j (fenêtre précédente)
 const TX_FAIL = createId() // échouée il y a 1j
+const TX_SOIR = createId() // CAD complétée hier à 21:00 heure de l'Est
 const ACC1 = createId() // accès exam B expirant dans 3j
 const ACC2 = createId() // accès training C expirant dans 30j (hors fenêtre)
 
 const sumRevenue = (rows: { revenue: number }[]) =>
   rows.reduce((s, r) => s + r.revenue, 0)
+
+// 21:00 hier, heure de l'Est : le même instant tombe le lendemain en UTC. Jour
+// et instant sont figés au chargement du module pour que le seed et l'assertion
+// désignent le même bucket même si minuit passe pendant la suite.
+const SOIR_CAD = 4200
+const JOUR_SOIR = shiftCalendarDay(toAppZoneCalendarDay(Date.now()), -1)
+const INSTANT_SOIR =
+  startOfNextAppZoneDay(JOUR_SOIR).getTime() - 3 * 60 * 60 * 1000
 
 // Baselines capturés AVANT seed (la branche éphémère hérite des données de `develop`).
 let baseAdmin: Awaited<ReturnType<typeof getAdminStats>>
@@ -173,6 +187,15 @@ beforeAll(async () => {
       createdAt: now - DAY,
       completedAt: null,
     }),
+    tx({
+      id: TX_SOIR,
+      userId: B,
+      status: "completed",
+      currency: "CAD",
+      amountPaid: SOIR_CAD,
+      createdAt: INSTANT_SOIR,
+      completedAt: INSTANT_SOIR,
+    }),
   ])
   await db.insert(userAccess).values([
     {
@@ -197,7 +220,7 @@ afterAll(async () => {
   await db.delete(userAccess).where(inArray(userAccess.id, [ACC1, ACC2]))
   await db
     .delete(transactions)
-    .where(inArray(transactions.id, [TX1, TX2, TX3, TX_FAIL]))
+    .where(inArray(transactions.id, [TX1, TX2, TX3, TX_FAIL, TX_SOIR]))
   await db.delete(products).where(eq(products.id, PID))
   await db.delete(user).where(inArray(user.id, [A, B, C]))
 })
@@ -216,18 +239,33 @@ describe("getAdminStats", () => {
 
 describe("getRevenueByDay", () => {
   it("30 jours par devise, somme = transactions complétées de la fenêtre (delta)", async () => {
-    const before = new Date().toISOString().slice(0, 10)
+    const before = toAppZoneCalendarDay(Date.now())
     const r = await getRevenueByDay()
-    const after = new Date().toISOString().slice(0, 10)
+    const after = toAppZoneCalendarDay(Date.now())
     expect(r.CAD).toHaveLength(30)
     expect(r.XAF).toHaveLength(30)
-    // TX1 (CAD aujourd'hui) dans la fenêtre ; TX3 (CAD -45j) hors fenêtre.
-    expect(sumRevenue(r.CAD) - sumRevenue(baseRevenue.CAD)).toBe(5000)
+    // TX1 (CAD aujourd'hui) et TX_SOIR (CAD hier soir) dans la fenêtre ;
+    // TX3 (CAD -45j) hors fenêtre.
+    expect(sumRevenue(r.CAD) - sumRevenue(baseRevenue.CAD)).toBe(
+      5000 + SOIR_CAD,
+    )
     // TX2 (XAF -2j) dans la fenêtre.
     expect(sumRevenue(r.XAF) - sumRevenue(baseRevenue.XAF)).toBe(300000)
-    // Dernier bucket = aujourd'hui (UTC). before/after encadrent le `now` interne
-    // du DAL → robuste au passage de minuit UTC pendant le test.
+    // Dernier bucket = aujourd'hui (heure de l'Est). before/after encadrent le
+    // `now` interne du DAL → robuste au passage de minuit pendant le test.
     expect([before, after]).toContain(r.CAD.at(-1)?.date)
+  })
+
+  it("un encaissement de 21:00 compte pour sa soirée, pas pour le lendemain", async () => {
+    const r = await getRevenueByDay()
+    const jour = (rows: { date: string; revenue: number }[], d: string) =>
+      rows.find((row) => row.date === d)?.revenue ?? 0
+
+    // Bucketé en UTC, cet encaissement partirait sur le jour suivant : le
+    // delta de sa propre soirée serait nul.
+    expect(jour(r.CAD, JOUR_SOIR) - jour(baseRevenue.CAD, JOUR_SOIR)).toBe(
+      SOIR_CAD,
+    )
   })
 })
 
@@ -273,7 +311,7 @@ describe("getDashboardTrends", () => {
     const t = await getDashboardTrends()
     expect(
       t.revenueByCurrency.CAD.recent - baseTrends.revenueByCurrency.CAD.recent,
-    ).toBe(5000)
+    ).toBe(5000 + SOIR_CAD)
     expect(
       t.revenueByCurrency.XAF.recent - baseTrends.revenueByCurrency.XAF.recent,
     ).toBe(300000)

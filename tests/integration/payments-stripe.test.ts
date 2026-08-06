@@ -12,6 +12,7 @@ import {
   failStripeTransaction,
 } from "@/features/payments/stripe"
 import { requireRole } from "@/lib/auth-guards"
+import { toAppZoneCalendarDay } from "@/lib/format"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
@@ -382,7 +383,9 @@ describe("réconciliation montant/devise au fulfillment", () => {
   // transactions insérées ici (fichiers séquentiels, fileParallelism: false).
   let statsBefore: TransactionStatsView
   let revenueTodayBefore: { CAD: number; XAF: number }
-  const today = () => new Date().toISOString().slice(0, 10)
+  // Jour de l'Est, comme les buckets de getRevenueByDay : en UTC, la soirée
+  // québécoise est déjà le lendemain et le bucket cherché n'existerait pas.
+  const today = () => toAppZoneCalendarDay(Date.now())
 
   const revenueOfToday = async () => {
     const rev = await getRevenueByDay(1)

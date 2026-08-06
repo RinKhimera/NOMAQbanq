@@ -9,7 +9,7 @@ import { fr } from "date-fns/locale"
  * (mismatch React, arbre régénéré). Ancrer le fuseau rend la chaîne stable des
  * deux côtés, et une échéance d'examen désigne le même instant pour tous.
  */
-const APP_TIME_ZONE = "America/Toronto"
+export const APP_TIME_ZONE = "America/Toronto"
 
 /**
  * Une chaîne date-only (`"2026-07-03"`) est parsée en minuit **UTC** par
@@ -76,11 +76,37 @@ export const startOfNextAppZoneDay = (day: string): Date => {
 }
 
 /**
+ * Premier instant du mois civil contenant `d`, dans le fuseau de la plateforme.
+ * `monthOffset` recule (négatif) ou avance de N mois.
+ */
+export const startOfAppZoneMonth = (
+  d: Date | number | string,
+  monthOffset = 0,
+): Date => {
+  const zoned = inAppZone(d)
+  return appZoneDayStart(zoned.getFullYear(), zoned.getMonth() + monthOffset, 1)
+}
+
+/**
  * Journée civile d'une date issue d'un calendrier, lue dans le fuseau du
  * NAVIGATEUR — seul endroit du module où c'est voulu : la valeur d'un date
  * picker désigne la case que l'admin vient de cliquer, pas un instant.
  */
 export const toCalendarDay = (d: Date): string => format(d, "yyyy-MM-dd")
+
+/** Journée civile d'un instant, dans le fuseau de la plateforme. */
+export const toAppZoneCalendarDay = (d: Date | number | string): string =>
+  format(inAppZone(d), "yyyy-MM-dd")
+
+/**
+ * Décale une journée civile de `delta` jours. Le calcul se fait en UTC, où
+ * toutes les journées durent 24 h : décaler des instants ferait sauter — ou
+ * répéter — un jour aux changements d'heure.
+ */
+export const shiftCalendarDay = (day: string, delta: number): string => {
+  const [y, m, d] = parseCalendarDay(day)
+  return new Date(Date.UTC(y, m, d + delta)).toISOString().slice(0, 10)
+}
 
 /**
  * Formate un montant en cents vers une devise lisible
