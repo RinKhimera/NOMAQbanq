@@ -1,6 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { QuestionBrowser } from "@/components/admin/question-browser"
+
+const SEARCH_DEBOUNCE_MS = 300
 
 const loadQuestionsPage = vi.fn()
 vi.mock("@/features/questions/actions", () => ({
@@ -68,25 +70,39 @@ describe("QuestionBrowser — pagination & reset", () => {
     expect(await screen.findByText("Question 0")).toBeInTheDocument()
   })
 
+  // Faux timers pour franchir le debounce de recherche sans attente réelle.
+  // Corollaire : ni `waitFor` ni `findBy*` ici — @testing-library/dom ne
+  // reconnaît que les faux timers de Jest (`typeof jest !== "undefined"`,
+  // helpers.js), donc sous l'horloge de Vitest il attendrait un intervalle que
+  // personne n'avance. Chaque étape est vidangée explicitement.
   it("taper une recherche recharge en page 1 (terme inclus)", async () => {
-    render(<QuestionBrowser mode="browse" />)
-    await screen.findByText("Question 0")
-    fireEvent.click(await screen.findByRole("button", { name: "2" }))
-    await waitFor(() =>
+    vi.useFakeTimers()
+    const settle = async (ms = 0) => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms)
+      })
+    }
+    try {
+      render(<QuestionBrowser mode="browse" />)
+      await settle()
+      expect(screen.getByText("Question 0")).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole("button", { name: "2" }))
+      await settle()
       expect(loadQuestionsPage).toHaveBeenLastCalledWith(
         expect.objectContaining({ page: 2 }),
-      ),
-    )
-    fireEvent.change(
-      screen.getByPlaceholderText(/rechercher dans les questions/i),
-      { target: { value: "infarctus" } },
-    )
-    await waitFor(
-      () =>
-        expect(loadQuestionsPage).toHaveBeenLastCalledWith(
-          expect.objectContaining({ page: 1, search: "infarctus" }),
-        ),
-      { timeout: 1500 },
-    )
+      )
+
+      fireEvent.change(
+        screen.getByPlaceholderText(/rechercher dans les questions/i),
+        { target: { value: "infarctus" } },
+      )
+      await settle(SEARCH_DEBOUNCE_MS)
+      expect(loadQuestionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 1, search: "infarctus" }),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
