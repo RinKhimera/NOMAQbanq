@@ -50,8 +50,17 @@ const CALENDAR_DAY = /^(\d{4})-(\d{2})-(\d{2})$/
 
 const parseCalendarDay = (day: string): [number, number, number] => {
   const parts = CALENDAR_DAY.exec(day)
-  if (!parts) throw new Error(`Journée civile attendue (YYYY-MM-DD) : ${day}`)
-  return [Number(parts[1]), Number(parts[2]) - 1, Number(parts[3])]
+  const civil = parts
+    ? new Date(
+        Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3])),
+      )
+    : null
+  // Le motif ne borne ni le mois ni le quantième : sans cet aller-retour,
+  // « 2026-13-45 » deviendrait le 14 février 2027 par débordement et la requête
+  // porterait, en silence, sur une autre date que celle demandée.
+  if (!civil || civil.toISOString().slice(0, 10) !== day)
+    throw new Error(`Journée civile attendue (YYYY-MM-DD) : ${day}`)
+  return [civil.getUTCFullYear(), civil.getUTCMonth(), civil.getUTCDate()]
 }
 
 const appZoneDayStart = (y: number, m: number, d: number): Date =>

@@ -407,6 +407,18 @@ describe("bornes de journée civile (filtres de date)", () => {
     )
   })
 
+  it("refuse une date hors calendrier plutôt que de la faire déborder", () => {
+    // Sans contrôle, ces trois-là filtreraient sur une autre date, sans bruit :
+    // 14 février 2027, 2 mars 2026, et 1926 (les années 0-99 sont décalées).
+    expect(() => startOfAppZoneDay("2026-13-45")).toThrow(/YYYY-MM-DD/)
+    expect(() => startOfAppZoneDay("2026-02-30")).toThrow(/YYYY-MM-DD/)
+    expect(() => startOfNextAppZoneDay("0026-07-03")).toThrow(/YYYY-MM-DD/)
+    // Le 29 février d'une année bissextile reste valide.
+    expect(startOfAppZoneDay("2028-02-29").toISOString()).toBe(
+      "2028-02-29T05:00:00.000Z",
+    )
+  })
+
   it("lit la journée du calendrier dans le fuseau du navigateur", () => {
     // Le date picker rend minuit LOCAL du jour cliqué : c'est cette case-là que
     // l'admin a désignée, quel que soit le fuseau depuis lequel il filtre.
