@@ -69,19 +69,13 @@ describe("StatCard", () => {
       const footerLabel = screen.getByText("Questions disponibles")
       const footerDiv = footerLabel.closest("div")
 
-      if (descriptionHasPrimary) {
-        expect(description.className).toContain("text-foreground")
-        expect(description.className).toContain("font-semibold")
-      } else {
-        expect(description.className).not.toContain("text-foreground")
-        expect(description.className).not.toContain("font-semibold")
-      }
-
-      if (footerHasBlue) {
-        expect(footerDiv?.className).toContain("text-blue-700")
-      } else {
-        expect(footerDiv?.className).not.toContain("text-blue-700")
-      }
+      expect(description.className.includes("text-foreground")).toBe(
+        descriptionHasPrimary,
+      )
+      expect(description.className.includes("font-semibold")).toBe(
+        descriptionHasPrimary,
+      )
+      expect(footerDiv?.className.includes("text-blue-700")).toBe(footerHasBlue)
     },
   )
 })

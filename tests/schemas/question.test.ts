@@ -78,11 +78,9 @@ describe("Question Schema", () => {
         }
         const result = questionFormSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain(
-            "4 options non vides",
-          )
-        }
+        expect(result.error?.issues[0]?.message).toContain(
+          "4 options non vides",
+        )
       })
 
       it("should accept 4 valid options with 1 empty (5 total)", () => {

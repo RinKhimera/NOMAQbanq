@@ -140,13 +140,14 @@ describe("clôture de session : gardes de statut + expiration", () => {
 
     expect([complete, abandon].filter((r) => r.success)).toHaveLength(1)
 
+    // L'attente porte le résultat de la course, pas l'assertion : quel que soit
+    // le gagnant, l'état final est vérifié. `abandon` ne calcule aucun score.
     const s = await statusOf(sid)
-    if (complete.success) {
-      expect(s?.status).toBe("completed")
-      expect(s?.score).toBe(100)
-    } else {
-      expect(s?.status).toBe("abandoned")
-    }
+    expect({ status: s?.status, score: s?.score }).toEqual(
+      complete.success
+        ? { status: "completed", score: 100 }
+        : { status: "abandoned", score: null },
+    )
   })
 })
 

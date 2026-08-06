@@ -250,14 +250,13 @@ describe("gardes", () => {
   it("refuse une 2e session si une est déjà en cours", async () => {
     const s2 = await createTrainingSession({ questionCount: 5, mode: "test" })
     expect(s2.success).toBe(true)
+    if (!s2.success) throw new Error(s2.error)
 
     const s3 = await createTrainingSession({ questionCount: 5, mode: "test" })
     expect(s3.success).toBe(false)
 
-    if (s2.success) {
-      const abandon = await abandonTrainingSession({ sessionId: s2.sessionId })
-      expect(abandon.success).toBe(true)
-    }
+    const abandon = await abandonTrainingSession({ sessionId: s2.sessionId })
+    expect(abandon.success).toBe(true)
   })
 
   it("supprime une session terminée (items en cascade)", async () => {

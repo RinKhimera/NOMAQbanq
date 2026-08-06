@@ -198,9 +198,7 @@ describe("Payment Schema", () => {
         }
         const result = manualPaymentSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("500")
-        }
+        expect(result.error?.issues[0]?.message).toContain("500")
       })
 
       it("accepte des notes de 500 caractères exactement", () => {
@@ -293,9 +291,7 @@ describe("Payment Schema", () => {
         const invalid = { ...validEdit, amountInput: "50.999" }
         const result = editTransactionSchema.safeParse(invalid)
         expect(result.success).toBe(false)
-        if (!result.success) {
-          expect(result.error.issues[0].message).toContain("Montant invalide")
-        }
+        expect(result.error?.issues[0]?.message).toContain("Montant invalide")
       })
 
       it("rejette un montant XAF avec décimales", () => {

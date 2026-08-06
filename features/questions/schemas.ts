@@ -56,8 +56,9 @@ export const setQuestionImagesSchema = z.object({
 // défini après `safeParse`.
 export type SetQuestionImagesInput = z.input<typeof setQuestionImagesSchema>
 
-// Entrées PUBLIQUES (quiz marketing, appelant anonyme) : bornes strictes,
-// refus silencieux côté action (pas de message d'erreur → pas d'oracle).
+// Entrées PUBLIQUES (quiz marketing, appelant anonyme) : le schéma ne valide que
+// le TYPE ; la borne effective vit dans la DAL (`clamp(count, 1, 10)`).
+// Refus silencieux côté action (pas de message d'erreur → pas d'oracle).
 // Sans zod sur le tirage, `count: "abc"` → clamp = NaN → `LIMIT NaN` → 500.
 export const loadRandomQuizQuestionsSchema = z.object({
   count: z.number().int(),

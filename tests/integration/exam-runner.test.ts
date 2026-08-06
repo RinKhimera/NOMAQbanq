@@ -162,9 +162,9 @@ describe("startExam pré-création", () => {
     const r1 = await startExam({ examId })
     const r2 = await startExam({ examId })
     expect(r1.success && r2.success).toBe(true)
-    if (r1.success && r2.success) {
-      expect(r1.participationId).toBe(r2.participationId)
-    }
+    if (!r1.success || !r2.success)
+      throw new Error("startExam concurrent refuse")
+    expect(r1.participationId).toBe(r2.participationId)
   })
 })
 
@@ -271,9 +271,7 @@ describe("pauseExam / resumeExam", () => {
     // Resume
     const r3 = await resumeExam({ examId: pauseExamId })
     expect(r3.success).toBe(true)
-    if (r3.success) {
-      expect(r3.totalPauseDurationMs).toBeGreaterThanOrEqual(0)
-    }
+    expect(r3.totalPauseDurationMs).toBeGreaterThanOrEqual(0)
 
     const s2 = await getExamSession(pauseExamId)
     expect(s2?.isPaused).toBe(false)
@@ -381,7 +379,8 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
 
     const fin = await finalizeExam({ examId: eId, isAutoSubmit: true })
     expect(fin.success).toBe(true)
-    if (fin.success) expect(fin.correctAnswers).toBe(0)
+    if (!fin.success) throw new Error(fin.error)
+    expect(fin.correctAnswers).toBe(0)
   })
 
   it("race déterministe : finalize PUIS save → save refusé (session plus active)", async () => {

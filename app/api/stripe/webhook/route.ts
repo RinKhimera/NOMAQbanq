@@ -59,7 +59,13 @@ export async function POST(request: Request) {
 
   try {
     switch (event.type) {
-      case "checkout.session.completed": {
+      // Un moyen de paiement différé (virement, prélèvement) complète la session
+      // en `unpaid` puis confirme des heures/jours plus tard par un second
+      // événement : sans cette branche, ces clients paient sans jamais recevoir
+      // l'accès. Même chemin d'octroi (idempotent), donc un `completed` suivi
+      // d'un `async_payment_succeeded` ne crédite qu'une fois.
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded": {
         const checkoutSession = event.data.object as Stripe.Checkout.Session
         if (
           FULFILLABLE_PAYMENT_STATUSES.includes(checkoutSession.payment_status)
@@ -88,12 +94,32 @@ export async function POST(request: Request) {
         break
       }
 
-      case "checkout.session.expired": {
+      // `async_payment_failed` : le paiement différé n'a jamais abouti. La
+      // transaction est restée `pending` (aucun fulfillment sur `unpaid`), et
+      // `failStripeTransaction` garde son UPDATE sur ce statut — un `completed`
+      // ne peut donc pas être révoqué par cette branche.
+      case "checkout.session.expired":
+      case "checkout.session.async_payment_failed": {
         const checkoutSession = event.data.object as Stripe.Checkout.Session
         await failStripeTransaction({
           stripeSessionId: checkoutSession.id,
           stripeEventId: event.id,
         })
+        break
+      }
+
+      // Un litige prélève la somme + des frais et ouvre une fenêtre de réponse
+      // limitée : sans alerte, elle se referme sans que personne ne l'ait vue.
+      // Traitement humain (aucune révocation automatique d'accès).
+      case "charge.dispute.created": {
+        const dispute = event.data.object as Stripe.Dispute
+        captureServerError(
+          "[stripe:webhook]",
+          new Error("litige ouvert sur un paiement Stripe"),
+          {
+            detail: `dispute ${dispute.id} · ${dispute.amount} ${dispute.currency} · motif ${dispute.reason}`,
+          },
+        )
         break
       }
 

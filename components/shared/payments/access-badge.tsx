@@ -142,17 +142,23 @@ export const AccessBadge = ({
   )
 }
 
+/**
+ * Statut dérivé de `daysRemaining` seul, jamais de l'horloge : ce helper est
+ * appelé dans le corps de rendu de composants rendus d'abord côté serveur, où
+ * un `Date.now()` diverge entre le SSR et l'hydratation et fait basculer le
+ * badge `active` → `expired` entre les deux arbres.
+ *
+ * L'invariant qui rend l'horloge inutile est tenu par les DAL : un accès expiré
+ * en sort soit à `null` (`AccessInfo`), soit avec `daysRemaining` ramené à 0
+ * (`PanelAccess`, qui conserve les accès échus pour l'admin).
+ */
 export const getAccessStatus = (
   expiresAt: number | null | undefined,
   daysRemaining: number | null | undefined,
 ): AccessStatus => {
   if (!expiresAt) return "none"
-  if (Date.now() > expiresAt) return "expired"
-  if (
-    daysRemaining !== undefined &&
-    daysRemaining !== null &&
-    daysRemaining <= 7
-  )
-    return "expiring"
+  if (daysRemaining === undefined || daysRemaining === null) return "active"
+  if (daysRemaining <= 0) return "expired"
+  if (daysRemaining <= 7) return "expiring"
   return "active"
 }

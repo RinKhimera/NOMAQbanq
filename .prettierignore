@@ -4,6 +4,8 @@ build
 node_modules
 bun.lock
 .agents
+.superpowers
+docs/superpowers
 coverage
 e2e/test-results
 e2e/playwright-report

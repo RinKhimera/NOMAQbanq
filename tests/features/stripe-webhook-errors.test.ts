@@ -125,4 +125,66 @@ describe("webhook Stripe — contrat HTTP", () => {
       stripeEventId: "evt_exp",
     })
   })
+
+  it("async_payment_succeeded → même chemin d'octroi que completed", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_async_ok",
+      type: "checkout.session.async_payment_succeeded",
+      data: {
+        object: {
+          id: "cs_async",
+          payment_status: "paid",
+          payment_intent: "pi_async",
+          amount_total: 9900,
+          currency: "cad",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.completeStripeTransaction).toHaveBeenCalledWith({
+      stripeSessionId: "cs_async",
+      stripePaymentIntentId: "pi_async",
+      stripeEventId: "evt_async_ok",
+      amountTotal: 9900,
+      currency: "cad",
+    })
+  })
+
+  it("async_payment_failed → failStripeTransaction, 200", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_async_ko",
+      type: "checkout.session.async_payment_failed",
+      data: { object: { id: "cs_async_ko" } },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.fail).toHaveBeenCalledWith({
+      stripeSessionId: "cs_async_ko",
+      stripeEventId: "evt_async_ko",
+    })
+  })
+
+  it("charge.dispute.created → alerte, 200, aucune révocation d'accès", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_1",
+          amount: 9900,
+          currency: "cad",
+          reason: "fraudulent",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.any(Error),
+      { detail: "dispute dp_1 · 9900 cad · motif fraudulent" },
+    )
+    expect(mocks.fail).not.toHaveBeenCalled()
+  })
 })

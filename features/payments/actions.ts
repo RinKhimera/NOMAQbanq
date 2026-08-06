@@ -396,6 +396,19 @@ export const createStripeCheckout = async (input: {
 
     return { checkoutUrl: checkout.url }
   } catch (error) {
+    // `resource_missing` à la CRÉATION (≠ verifyStripeCheckout, où il vient d'une
+    // URL périmée) : le `stripe_price_id` en base n'existe pas dans le mode de la
+    // clé active — identifiant live sous clé test, ou l'inverse. Les préfixes
+    // `price_`/`prod_` étant identiques dans les deux modes, c'est le seul moment
+    // où l'incohérence devient visible. Aucune nouvelle tentative n'y changera
+    // rien : le message générique enverrait chercher une panne réseau.
+    if (isStripeResourceMissing(error)) {
+      captureServerError("[createStripeCheckout]", error, {
+        userId: session.user.id,
+        detail: `price ${product.stripePriceId} absent du mode de la clé active (produit ${productCode})`,
+      })
+      return { error: "Ce produit est mal configuré. Contactez le support." }
+    }
     captureServerError("[createStripeCheckout]", error, {
       userId: session.user.id,
     })
