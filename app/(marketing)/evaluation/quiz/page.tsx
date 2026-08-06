@@ -86,7 +86,6 @@ export default function QuizPage() {
     return () => clearInterval(interval)
   }, [quizQuestions, quizState.isCompleted])
 
-  // Scorer côté serveur quand le quiz est terminé
   useEffect(() => {
     if (!quizState.isCompleted || !quizBundle || scoringTriggeredRef.current)
       return
@@ -112,7 +111,7 @@ export default function QuizPage() {
         // questions verrouillées par un examen ouvert) → écran « session
         // expirée ». Un verrou PARTIEL (rare : examen ouvert pendant la vie du
         // jeton couvrant une partie du lot) laisse ces questions avec
-        // `correctAnswer: ""` — compromis assumé (spec § menace résiduelle).
+        // `correctAnswer: ""` — compromis assumé.
         if (result.totalQuestions === 0) {
           setScoreFailed(true)
           return
@@ -138,7 +137,6 @@ export default function QuizPage() {
       .catch(() => setScoreFailed(true))
   }, [quizState.isCompleted, quizBundle, quizState.userAnswers])
 
-  // Scroll vers le haut quand la question change
   useEffect(() => {
     if (quizState.currentQuestion > 0) {
       topOfQuizRef.current?.scrollIntoView({
@@ -169,7 +167,6 @@ export default function QuizPage() {
         currentQuestion: prev.currentQuestion + 1,
       }))
     } else {
-      // Quiz terminé
       setQuizState((prev) => ({ ...prev, isCompleted: true }))
     }
   }
@@ -198,7 +195,6 @@ export default function QuizPage() {
     )
   }
 
-  // Écran de résultats
   if (quizState.isCompleted) {
     if (scoreFailed || !quizBundle.token) {
       return (

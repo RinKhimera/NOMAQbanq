@@ -31,10 +31,8 @@ export default defineConfig({
         "app/api/e2e/**",
       ],
       reporter: ["text", "json"],
-      // Cales sous la mesure de cloture du 2026-08-05 (88,22 / 81,73 / 86,27 /
-      // 89,28) : un seuil sert a empecher le retour en arriere, pas a decrire
-      // l'ambition. Les quatre metriques tiennent desormais la politique maison
-      // de 80 % ; `branches` garde ~54 branches de marge.
+      // Un seuil sert a empecher le retour en arriere, pas a decrire l'ambition :
+      // les quatre metriques tiennent la politique maison de 80 %.
       thresholds: {
         statements: 80,
         branches: 80,

@@ -7,8 +7,8 @@ test.describe("Evaluation gratuite — quiz public", () => {
   test("le quiz charge et affiche la premiere question", async ({ page }) => {
     await page.goto("/evaluation/quiz")
 
-    // Le chargement est un squelette à la forme de la QuestionCard (refonte du
-    // 2026-07-28), plus un texte « Chargement… ».
+    // Le chargement est un squelette à la forme de la QuestionCard, plus un
+    // texte « Chargement… ».
     const skeleton = page.getByLabel("Chargement de l'évaluation")
     await expect(skeleton).toBeVisible({ timeout: 10_000 })
     await expect(skeleton).toBeHidden({ timeout: 30_000 })

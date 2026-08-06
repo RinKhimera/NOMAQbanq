@@ -4,13 +4,13 @@ import { expect, test } from "../fixtures/base"
 /**
  * Pause repos pendant un examen (`enablePause=true`).
  *
- * La pause est déclenchée par L'UTILISATEUR via le bouton `btn-pause` du header
- * (et non automatiquement à mi-parcours — l'ancien modèle pré-refonte). Pendant
- * la pause, l'overlay opaque occulte TOUT le contenu de questions (anti-triche
- * D3) et le chrono est gelé. Une seule pause est autorisée → tout le parcours
- * tient dans UN test (une fois consommée, le bouton disparaît).
+ * La pause est déclenchée par L'UTILISATEUR via le bouton `btn-pause` du header,
+ * jamais automatiquement. Pendant la pause, l'overlay opaque occulte TOUT le
+ * contenu de questions (anti-triche) et le chrono est gelé. Une seule pause est
+ * autorisée → tout le parcours tient dans UN test (une fois consommée, le bouton
+ * disparaît).
  *
- * Isolation (3.B) : seede son propre examen `subscribers` avec pause activée.
+ * Isolation : seede son propre examen `subscribers` avec pause activée.
  */
 
 const SECRET = process.env.E2E_RESET_SECRET
@@ -67,7 +67,7 @@ test.describe("Examen Blanc — pause repos", () => {
     await expect(page.getByTestId("pause-timer")).toBeVisible()
     await expect(page.getByTestId("btn-resume-exam")).toBeVisible()
 
-    // Anti-triche D3 : aucune option de réponse n'est dans le DOM pendant la pause.
+    // Anti-triche : aucune option de réponse n'est dans le DOM pendant la pause.
     await expect(page.getByTestId("answer-option-0")).toHaveCount(0)
 
     // Reprise → retour aux questions, et le bouton pause disparaît (1 seule pause).

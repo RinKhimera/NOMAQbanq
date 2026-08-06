@@ -2,7 +2,6 @@
  * Tests d'intégration : mode tuteur vs mode test.
  * Vérifie la révélation immédiate en mode tuteur et l'absence de fuite
  * isCorrect/correctAnswer en mode test in_progress.
- * Couvre la tâche A8 du plan de refonte.
  */
 import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"

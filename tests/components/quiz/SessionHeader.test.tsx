@@ -36,7 +36,6 @@ const { filterMotionProps } = vi.hoisted(() => {
   }
 })
 
-// Mock motion/react with header support
 vi.mock("motion/react", () => ({
   motion: {
     div: ({
@@ -66,14 +65,12 @@ vi.mock("motion/react", () => ({
   ),
 }))
 
-// Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }))
 
-// Mock exam-timer
 vi.mock("@/lib/exam-timer", () => ({
   formatExamTime: (ms: number) => {
     const h = Math.floor(ms / 3600000)

@@ -150,7 +150,7 @@ export const getUserOpenExamLockedQuestionIds = async (
 /**
  * Variante ANONYME de `getOpenExamLockedQuestionIds` : parmi `questionIds`,
  * celles figurant dans AU MOINS un examen ouvert (`endDate` future), sans
- * dimension utilisateur. Canal public du quiz marketing (#91) : l'appelant
+ * dimension utilisateur. Canal public du quiz marketing : l'appelant
  * étant anonyme, la clé d'une question d'examen ouvert ne doit fuiter pour
  * PERSONNE — une question aussi présente dans un examen clos reste verrouillée
  * (l'examen ouvert prime).

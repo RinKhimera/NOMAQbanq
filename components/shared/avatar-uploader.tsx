@@ -69,14 +69,12 @@ export const AvatarUploader = ({
     lg: "h-32 w-32",
   }
 
-  // Handle file selection
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
       if (disabled || acceptedFiles.length === 0) return
 
       const file = acceptedFiles[0]
 
-      // Create preview URL
       const reader = new FileReader()
       reader.addEventListener("load", () => {
         setImageSrc(reader.result as string)

@@ -1,8 +1,8 @@
 /**
  * Drizzle enveloppe l'erreur pg (DrizzleQueryError → cause = DatabaseError),
  * parfois sur plusieurs niveaux : on remonte la chaîne `cause` (bornée) jusqu'au
- * premier `code` SQLSTATE. Source de vérité unique — ne pas retester `error.code`
- * en surface dans les actions (branche morte, cf. bug updateProfile 23505).
+ * premier `code` SQLSTATE. Source de vérité unique — tester `error.code` en
+ * surface dans une action est une branche morte : le code n'y est jamais.
  */
 export const getPgErrorCode = (error: unknown): string | undefined => {
   let cur: unknown = error

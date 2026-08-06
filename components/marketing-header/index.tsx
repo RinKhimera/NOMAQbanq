@@ -43,7 +43,6 @@ export const MarketingHeader = () => {
     router.push("/connexion")
   }
 
-  // Fermer le dropdown utilisateur au scroll
   useEffect(() => {
     if (!isUserMenuOpen) return
 

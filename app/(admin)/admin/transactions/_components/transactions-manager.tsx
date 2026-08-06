@@ -168,7 +168,7 @@ export const TransactionsManager = ({
     })
   }
 
-  // Recherche client sur la page chargée (parité avec l'ancien comportement).
+  // Recherche client, bornée à la page déjà chargée.
   const filteredTransactions = useMemo(() => {
     if (!searchQuery) return items
     const query = searchQuery.toLowerCase()

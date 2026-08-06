@@ -17,14 +17,14 @@ export type QuestionDoc = {
   references?: string[]
   images?: Array<{ url: string; storagePath: string; order: number }>
   // Images d'explication (`kind='explanation'`) — rendues UNIQUEMENT dans le
-  // variant "review" (correction), jamais en "exam" (passation). Cf. Feature 3.
+  // variant "review" (correction), jamais en "exam" (passation) : anti-triche.
   explanationImages?: Array<{ url: string; storagePath: string; order: number }>
 }
 
 // Sous-ensemble de QuestionDoc que QuestionCard accepte réellement. Défini comme
 // type séparé pour que les pages puissent passer des questions chargées par des
-// requêtes qui ne renvoient pas les champs `explanation`/`references` (depuis
-// PR B, ils sont lazy-loadés via getQuestionExplanations).
+// requêtes qui ne renvoient pas `explanation`/`references` — ces champs sont
+// lazy-loadés via getQuestionExplanations.
 export type QuestionCardQuestion = Omit<
   QuestionDoc,
   "explanation" | "references"
@@ -67,9 +67,9 @@ export type AnswerOptionProps = {
 
 // ===== Main Component Props =====
 export type QuestionCardProps = {
-  /** The question data. Since PR B, explanation/references are optional
-   *  and lazy-loaded via getQuestionExplanations — pass them explicitly
-   *  on the question object or via the `lazyExplanation` prop below. */
+  /** The question data. explanation/references are optional and lazy-loaded
+   *  via getQuestionExplanations — pass them explicitly on the question
+   *  object or via the `lazyExplanation` prop below. */
   question: QuestionCardQuestion
 
   /** Lazy-loaded explanation/references. If provided, these take priority

@@ -3,13 +3,11 @@ import { fireEvent } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { PauseDialog } from "@/components/quiz/pause-dialog"
 
-// Mock motion/react - import the shared factory
 vi.mock("motion/react", async () => {
   const { motionMockFactory } = await import("../../helpers/motion-mock")
   return motionMockFactory
 })
 
-// Mock exam-timer
 vi.mock("@/lib/exam-timer", () => ({
   calculatePauseTimeRemaining: vi.fn(() => 5 * 60 * 1000), // 5 min default
   formatPauseTime: (ms: number) => {

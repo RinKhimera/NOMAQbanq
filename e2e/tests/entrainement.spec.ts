@@ -80,8 +80,8 @@ test.describe("Entrainement — session complete", () => {
     await expect(page.getByText(/\d+%/).first()).toBeVisible()
     await expect(page.getByText("Correctes", { exact: true })).toBeVisible()
     await expect(page.getByText("Incorrectes", { exact: true })).toBeVisible()
-    // <SessionResults> (F1) ne rend pas l'ancien titre « Révision des questions » ;
-    // le badge de score confirme l'écran de résultats.
+    // <SessionResults> ne rend pas de titre « Révision des questions » : c'est le
+    // badge de score qui confirme l'écran de résultats.
     await expect(page.getByTestId("score-badge")).toBeVisible()
 
     // Filter + expand/collapse controls on the results page

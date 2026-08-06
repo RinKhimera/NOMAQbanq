@@ -117,7 +117,7 @@ async function resetExam(userEmail: string) {
     .where(eq(trainingSessions.userId, u.id))
     .returning({ id: trainingSessions.id })
 
-  // Purge les compteurs du rate-limit quiz public (#91) : en local toutes les
+  // Purge les compteurs du rate-limit quiz public : en local toutes les
   // requêtes partagent un bucket IP → sans purge, les runs e2e successifs de
   // evaluation-quiz.spec.ts saturent la limite (30/h) et la suite flake.
   const quizRateLimitRows = await db
@@ -291,8 +291,8 @@ async function setAccess(
 /**
  * Crée un examen `restricted` actif (en fenêtre) avec `questionCount` questions
  * de la banque dev et une audience = `audienceUserEmails`. La présence dans
- * `examAudience` OCTROIE l'accès (même sans abonnement) → permet de tester la
- * sémantique F2 (membre sans abo / outsider masqué). Le titre est préfixé
+ * `examAudience` OCTROIE l'accès (même sans abonnement) → permet de tester
+ * l'audience restreinte (membre sans abo / outsider masqué). Le titre est préfixé
  * `[E2E]` → nettoyé par `cleanup`. Renvoie l'`examId` créé.
  */
 async function seedRestrictedExam(opts: {
@@ -365,7 +365,7 @@ async function seedRestrictedExam(opts: {
  *  - `enablePause` : active la pause repos (pour la spec pause) ;
  *  - `closed` : fenêtre PASSÉE (endDate révolu). Requis pour la spec résultats —
  *    `getParticipantExamResults` ne révèle les résultats à un non-admin qu'APRÈS
- *    `endDate` (anti-fuite F3) ;
+ *    `endDate` (anti-fuite) ;
  *  - `completedFor` : seed en plus une participation COMPLÉTÉE (mix correct /
  *    incorrect déterministe) pour cet utilisateur → la page résultats a des
  *    données sans rejouer toute la passation.
@@ -486,7 +486,7 @@ async function seedExam(opts: {
 
 /**
  * Attache (ou retire si `remove`) une image d'explication (`kind='explanation'`)
- * à la PREMIÈRE question d'un examen. Permet de tester F3 : l'anti-triche garantit
+ * à la PREMIÈRE question d'un examen. Permet de tester l'anti-triche, qui garantit
  * que cette image n'apparaît JAMAIS en passation (la DAL de passation ne lit pas le
  * canal explication), seulement à la correction. Idempotent. `remove` nettoie la
  * question partagée de la banque (la cascade d'examen ne touche pas `questionImages`).

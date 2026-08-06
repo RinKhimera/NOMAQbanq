@@ -40,7 +40,7 @@ vi.mock("next/headers", () => ({ headers: vi.fn() }))
 // cleanup (les clés stockées sont des HMAC, non corrélables sans re-calcul).
 // `setIpHeader` (mock seul, ne mute PAS usedIps) est ce que le cleanup
 // utilise — itérer usedIps avec une fonction qui y push serait une boucle
-// infinie (revue design 2026-07-09, constat #3).
+// infinie.
 const usedIps: string[] = []
 const setIpHeader = (ip: string) =>
   vi

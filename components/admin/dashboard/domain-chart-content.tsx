@@ -25,7 +25,6 @@ const chartConfig = {
   },
 } satisfies ChartConfig
 
-// Palette de couleurs harmonieuse
 const COLORS = [
   "hsl(215, 60%, 50%)",
   "hsl(215, 55%, 55%)",
@@ -43,13 +42,11 @@ export function DomainChartContent({
   data,
   totalQuestions,
 }: DomainChartContentProps) {
-  // Tronquer les noms de domaines trop longs
   const truncateDomain = (domain: string, maxLength: number = 20) => {
     if (domain.length <= maxLength) return domain
     return domain.substring(0, maxLength - 1) + "…"
   }
 
-  // Early return si pas de données
   if (data.length === 0) {
     return (
       <Card className="flex h-full flex-col">
@@ -78,7 +75,6 @@ export function DomainChartContent({
     )
   }
 
-  // Prendre les 10 premiers domaines triés par count
   const topDomains = [...data].sort((a, b) => b.count - a.count).slice(0, 10)
 
   const chartData = topDomains.map((d, index) => ({

@@ -20,7 +20,6 @@ export const metadata: Metadata = { title: "Profil" }
 export default async function ProfilPage() {
   const currentUser = await getCurrentUser()
 
-  // Error state - user not found
   if (!currentUser) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center p-4">

@@ -1,8 +1,8 @@
 /**
- * Audit LECTURE SEULE des transactions Stripe historiques (#81, épic #76).
- * Compare `amountPaid`/`currency` en base avec `amount_total`/`currency` des
- * sessions Checkout réelles (codes promo + Adaptive Pricing XAF jamais
- * réconciliés avant le fix #79). AUCUNE écriture : selects + GET Stripe.
+ * Audit LECTURE SEULE des transactions Stripe historiques. Compare
+ * `amountPaid`/`currency` en base avec `amount_total`/`currency` des sessions
+ * Checkout réelles — les codes promo et l'Adaptive Pricing XAF sont les deux
+ * sources de divergence. AUCUNE écriture : selects + GET Stripe.
  *
  * Usage :
  *   AUDIT_DATABASE_URL=... STRIPE_AUDIT_KEY=rk_live_... bun scripts/audit-stripe-transactions.ts
@@ -218,7 +218,7 @@ const main = async () => {
         (realSide[f.expected.currency] ?? 0) + f.expected.amountPaid
   }
 
-  console.log("\n=== Rapport d'audit (#81) ===")
+  console.log("\n=== Rapport d'audit ===")
   console.log(`Transactions auditées : ${rows.length}`)
   console.log(`Divergentes           : ${divergent.length}`)
   console.log(`Sessions introuvables : ${missing.length}`)

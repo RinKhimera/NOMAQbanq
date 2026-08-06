@@ -4,8 +4,8 @@ import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { authClient } from "@/lib/auth-client"
 import { createMockBetterAuthUser, mockAuthSession } from "../helpers/mocks"
 
-// Mock le client Better Auth : `useCurrentUser` est désormais un simple wrapper
-// autour de `authClient.useSession()`.
+// Mock le client Better Auth : `useCurrentUser` n'est qu'un wrapper autour de
+// `authClient.useSession()`.
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
     useSession: vi.fn(),

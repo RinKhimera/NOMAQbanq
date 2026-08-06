@@ -6,27 +6,23 @@ import {
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
 
-// Mock motion/react
 vi.mock("motion/react", async () => {
   const { motionMockFactory } = await import("../../helpers/motion-mock")
   return motionMockFactory
 })
 
-// Mock next/image
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />
   ),
 }))
 
-// Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }))
 
-// Mock formatExpiration pour contrôler le rendu
 vi.mock("@/lib/format", () => ({
   formatExpiration: (ts: number) => `formatted-${ts}`,
 }))

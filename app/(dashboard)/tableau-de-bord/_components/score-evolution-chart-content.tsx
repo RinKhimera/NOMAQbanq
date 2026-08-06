@@ -111,7 +111,6 @@ export const ScoreEvolutionChartContent = ({
     )
   }
 
-  // Format data for chart
   const chartData = data.map((item, index) => ({
     ...item,
     index: index + 1,

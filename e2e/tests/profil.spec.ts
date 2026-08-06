@@ -21,8 +21,8 @@ test.describe("Profil utilisateur", () => {
   })
 
   test("l'edition inline du nom fonctionne", async ({ page }) => {
-    // Testids stables sur InlineEditField (l'ancien xpath ancestor remontait trop
-    // haut et ciblait le file input de l'avatar).
+    // Testids stables sur InlineEditField : un sélecteur par ancêtre remonte trop
+    // haut et cible le file input de l'avatar.
     const field = page.getByTestId("profile-field-name")
     await field.hover()
     await page.getByTestId("profile-field-name-edit").click({ force: true })

@@ -31,7 +31,6 @@ export default async function AdminParticipantResultsPage({
     )
   }
 
-  // Map DAL output → QuizQuestion[]
   const questions: QuizQuestion[] = data.questions.map((q) => ({
     _id: q._id,
     question: q.question,
@@ -55,7 +54,6 @@ export default async function AdminParticipantResultsPage({
 
   const score = data.participant.score
 
-  // Compute summary counts
   let correct = 0
   let incorrect = 0
   const answeredIds = new Set(
@@ -70,7 +68,6 @@ export default async function AdminParticipantResultsPage({
   }
   const unanswered = questions.length - answeredIds.size
 
-  // Admin participant info
   const participant = data.participantUser
     ? {
         name: data.participantUser.name ?? "",

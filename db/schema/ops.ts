@@ -30,7 +30,7 @@ export const uploadRateLimits = pgTable(
   ],
 )
 
-// Rate-limit ANONYME du quiz marketing (#91) : `key` = HMAC de l'IP (jamais
+// Rate-limit ANONYME du quiz marketing : `key` = HMAC de l'IP (jamais
 // l'IP en clair), pas de FK user (l'appelant n'a pas de compte). Purgée par le
 // cron close-expired (fenêtres > 24 h).
 export const quizRateLimits = pgTable(

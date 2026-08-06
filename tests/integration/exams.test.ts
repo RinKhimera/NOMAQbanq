@@ -320,7 +320,6 @@ describe("Passation sans pause (scoring serveur)", () => {
     const s = await getExamSession(noPauseId)
     expect(s?.status).toBe("in_progress")
     expect(s?.isPaused).toBe(false)
-    // Anciens champs supprimés
     expect(s).not.toHaveProperty("pausePhase")
     expect(s).not.toHaveProperty("pauseEndedAt")
     expect(s).not.toHaveProperty("isPauseCutShort")

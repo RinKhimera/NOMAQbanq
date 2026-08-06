@@ -56,7 +56,6 @@ export const TrainingSessionClient = ({
     )
   }
 
-  // Mapper TrainingSessionQuestion[] → QuizQuestion[]
   const mappedQuestions: QuizQuestion[] = initialData.questions.map((q) => ({
     _id: q._id,
     question: q.question,
@@ -70,7 +69,6 @@ export const TrainingSessionClient = ({
     references: q.references,
   }))
 
-  // Mapper TrainingAnswerRecord → AnswersMap
   const initialAnswers: AnswersMap = {}
   for (const [qid, a] of Object.entries(initialData.answers)) {
     initialAnswers[qid] = {

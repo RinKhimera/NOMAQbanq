@@ -229,7 +229,6 @@ export function EvaluationClient({
     })
   }
 
-  // Dialogue d'avertissement avant démarrage
   if (showWarningDialog) {
     return (
       <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
@@ -358,7 +357,6 @@ export function EvaluationClient({
     )
   }
 
-  // Examen en cours → QuizRunner
   return (
     <QuizRunner
       questions={mappedQuestions}

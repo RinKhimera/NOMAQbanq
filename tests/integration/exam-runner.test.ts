@@ -1,7 +1,6 @@
 /**
  * Tests d'intégration : startExam pré-création + saveExamAnswer + saveExamFlag
  * + finalizeExam + pauseExam/resumeExam.
- * Couvre les tâches A3, A4, A5, A6 du plan de refonte.
  */
 import { and, eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"

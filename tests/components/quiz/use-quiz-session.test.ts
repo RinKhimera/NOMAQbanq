@@ -376,8 +376,8 @@ describe("useQuizSession — timer composé", () => {
   })
 
   it("sans timer (entraînement), ne s'auto-soumet PAS au montage ni après écoulement", async () => {
-    // Régression bug runner F1 : un mode sans timer auto-soumettait la session
-    // au montage (totalSeconds=0 → onExpire immédiat) → sessions « 0% / 0 réponse ».
+    // Un mode sans timer expose totalSeconds=0 : sans garde, onExpire part au
+    // montage et la session est soumise vide.
     const onFinish = vi.fn().mockResolvedValue({ ok: true })
     renderHook(() =>
       useQuizSession({

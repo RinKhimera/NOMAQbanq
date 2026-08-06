@@ -1,7 +1,7 @@
 import { type APIRequestContext, expect, test } from "@playwright/test"
 
 /**
- * Couverture F2 — audience d'examen (sélection = accès).
+ * Audience d'examen (sélection = accès).
  *
  * Sémantique : un examen `restricted` est masqué aux non-membres ; un membre de
  * l'audience peut le démarrer MÊME SANS abonnement (l'appartenance octroie
@@ -10,8 +10,8 @@ import { type APIRequestContext, expect, test } from "@playwright/test"
  *  - `set-access` révoque/restaure l'abonnement examen du compte test.
  *
  * Compte test = `E2E_USER` (student). Le test « membre » révoque son abonnement
- * pour prouver que l'appartenance seule suffit (régression du bug `isEligible`
- * qui calculait l'éligibilité globalement et non par-examen).
+ * pour prouver que l'appartenance seule suffit : `isEligible` doit se calculer
+ * par-examen, pas globalement.
  */
 
 const SECRET = process.env.E2E_RESET_SECRET

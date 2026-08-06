@@ -9,7 +9,6 @@ import {
   mockRouter,
 } from "../helpers/mocks"
 
-// Mock hooks
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: vi.fn(),
 }))

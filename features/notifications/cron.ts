@@ -84,7 +84,7 @@ export async function sendExamResultsNotifications(): Promise<number> {
     } catch (error) {
       // Best-effort : si l'envoi échoue, le marqueur reste posé (anti-double), pas
       // de réessai — les résultats restent visibles en app. Perte tolérée d'un
-      // email (cf. spec §5 + Notes d'implémentation).
+      // email.
       captureServerError("[notif:resultats]", error, {
         detail: `participation ${r.participationId}`,
       })

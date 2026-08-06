@@ -1,7 +1,7 @@
 import { expect, test } from "../fixtures/base"
 
 /**
- * Couverture F3 — images d'explication : garantie ANTI-TRICHE.
+ * Images d'explication : garantie ANTI-TRICHE.
  *
  * Les images d'explication (`kind='explanation'`) ne doivent JAMAIS apparaître
  * pendant la passation — uniquement à la correction (QuestionCard variant

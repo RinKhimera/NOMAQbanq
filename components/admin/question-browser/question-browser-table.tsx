@@ -101,10 +101,8 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
 
   const handleRowClick = (question: QuestionRow) => {
     if (isSelectMode) {
-      // In select mode, clicking toggles selection
       toggleSelection(question._id)
     } else {
-      // In browse mode, clicking opens preview
       setPreviewQuestionId(question._id)
     }
   }

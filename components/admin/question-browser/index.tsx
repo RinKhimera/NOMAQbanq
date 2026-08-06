@@ -23,8 +23,8 @@ function QuestionBrowserContent({
   renderPanel,
   className,
 }: QuestionBrowserProps) {
-  // Auto-complete (mode select) : récupère les ids à la demande via Server Action
-  // (plus de chargement réactif de 5000 ids au montage).
+  // Récupère les ids à la demande via Server Action : la liste complète ne doit
+  // pas être chargée au montage.
   const handleAutoComplete = useCallback(async () => {
     if (!onSelectionChange || !maxSelection) return
 

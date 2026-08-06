@@ -62,7 +62,6 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
     }
   }
 
-  // Fusionner les données CAD et XAF par date
   const mergedData = data.CAD.map((cadItem, index) => ({
     date: cadItem.date,
     revenueCAD: cadItem.revenue,

@@ -102,9 +102,9 @@ const getScoreLabel = (score: number, accent: "blue" | "emerald") => {
 /**
  * Unified results view — used by exam (student + admin) and training results.
  *
- * Sparse-answer compat (C1 Step 1b): treats BOTH "no key in answers" AND
- * "entry with no/empty selected" as "non répondu", so older exam participations
- * (which only had examAnswers rows for answered questions) render correctly.
+ * Sparse-answer compat: treats BOTH "no key in answers" AND "entry with
+ * no/empty selected" as "non répondu" — une participation dont seules les
+ * questions répondues ont une ligne `examAnswers` doit rendre correctement.
  */
 export function SessionResults({
   accent,

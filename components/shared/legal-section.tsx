@@ -66,5 +66,4 @@ export const LegalSection = ({
   )
 }
 
-// Export type for use in pages
 export type { AccentColor }

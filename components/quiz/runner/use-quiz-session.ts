@@ -424,7 +424,7 @@ export function useQuizSession({
   // Timer hook — always called (hooks rules) but only ACTIF quand mode.timer
   // existe. Sans `enabled`, un mode sans chrono (entraînement) passe
   // totalSeconds=0 → remaining<=0 au montage → onExpire auto-soumettrait la
-  // session instantanément (sessions « 0% / 0 réponse »).
+  // session instantanément.
   const timerConfig = mode.timer
   const timerResult = useExamTimer({
     enabled: !!timerConfig,

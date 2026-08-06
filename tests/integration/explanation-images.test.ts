@@ -1,5 +1,5 @@
 /**
- * Tests d'intégration : images d'explication (Feature 3).
+ * Tests d'intégration : images d'explication.
  *
  * Couvre :
  *  - `setQuestionImages` scopé par `kind` (sauver un jeu ne touche pas l'autre) ;

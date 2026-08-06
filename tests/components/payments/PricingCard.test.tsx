@@ -3,27 +3,23 @@ import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { PricingCard } from "@/components/shared/payments/pricing-card"
 
-// Mock motion/react
 vi.mock("motion/react", async () => {
   const { motionMockFactory } = await import("../../helpers/motion-mock")
   return motionMockFactory
 })
 
-// Mock next/image
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />
   ),
 }))
 
-// Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
 }))
 
-// Mock formatCurrency
 vi.mock("@/lib/format", () => ({
   formatCurrency: (amount: number) => `${(amount / 100).toFixed(0)} $`,
   formatExpiration: (ts: number) => `exp-${ts}`,

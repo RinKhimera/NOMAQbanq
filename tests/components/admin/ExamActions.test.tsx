@@ -4,20 +4,17 @@ import { describe, expect, it, vi } from "vitest"
 import { ExamActions } from "@/components/admin/exam-actions"
 import type { AdminExamListItem } from "@/features/exams/dal"
 
-// Mock motion/react
 vi.mock("motion/react", async () => {
   const { motionMockFactory } = await import("../../helpers/motion-mock")
   return motionMockFactory
 })
 
-// Mock next/image
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />
   ),
 }))
 
-// Mock next/link
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>

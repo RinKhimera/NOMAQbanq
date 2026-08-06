@@ -20,18 +20,16 @@ export default function TestimonialsCarousel() {
 
   const handleNext = useCallback(() => {
     setIsTransitioning((isCurrentlyTransitioning) => {
-      if (isCurrentlyTransitioning) return true // Already transitioning, no change
+      if (isCurrentlyTransitioning) return true
 
-      // Not transitioning, proceed with the transition
       setCurrentIndex((prevIndex) =>
         prevIndex === testimonials.length - 1 ? 0 : prevIndex + 1,
       )
       setTimeout(() => setIsTransitioning(false), 600)
       return true
     })
-  }, []) // Stable callback - zero dependencies
+  }, [])
 
-  // Auto-play functionality
   useEffect(() => {
     if (!isAutoPlaying) return
 

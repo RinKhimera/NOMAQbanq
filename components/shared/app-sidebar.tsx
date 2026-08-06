@@ -36,7 +36,6 @@ export const AppSidebar = ({
   const pathname = usePathname()
   const { isMobile, setOpenMobile } = useSidebar()
 
-  // Fermer la sidebar en mobile quand la route change
   React.useEffect(() => {
     if (isMobile) {
       setOpenMobile(false)

@@ -55,7 +55,6 @@ export const TrainingHistorySection = ({
 }) => {
   const router = useRouter()
 
-  // Delete dialog state
   const [selectedSession, setSelectedSession] = useState<Session | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false)

@@ -103,8 +103,8 @@ test.describe("Admin — Gestion des Examens", () => {
     ).toBeVisible({ timeout: 15_000 })
     await expect(main.getByText("Utilisateurs autorisés")).toHaveCount(0)
 
-    // Bascule sur « Utilisateurs spécifiques » → le picker d'audience apparaît
-    // (sémantique F2 : audience restreinte gérée côté admin).
+    // Bascule sur « Utilisateurs spécifiques » → le picker d'audience apparaît :
+    // l'audience restreinte est gérée côté admin.
     await main.getByText("Utilisateurs spécifiques").click()
     await expect(main.getByText("Utilisateurs autorisés")).toBeVisible({
       timeout: 5_000,
@@ -136,7 +136,7 @@ test.describe("Admin — Gestion des Examens", () => {
     await page.keyboard.press("Escape")
 
     // Bascule restreint : le résumé devient le compte de sélection ; le pool
-    // d'abonnés n'est plus présenté comme liste (« Voir la liste » disparaît).
+    // d'abonnés n'est pas présenté comme liste (« Voir la liste » disparaît).
     await main.getByText("Utilisateurs spécifiques").click()
     await expect(main.getByText("Aucun utilisateur sélectionné")).toBeVisible({
       timeout: 5_000,

@@ -835,7 +835,7 @@ export const finalizeExam = async (
       //   expiration) ;
       // - restricted → AUCUNE re-vérification d'appartenance : une participation
       //   in_progress n'existe que si startExam a déjà autorisé l'accès ; un
-      //   membre retiré de l'audience en cours doit pouvoir finaliser (revue #6).
+      //   membre retiré de l'audience en cours doit pouvoir finaliser.
       if (!isAdmin && exam.audienceType === "subscribers") {
         const [acc] = await tx
           .select({ expiresAt: userAccess.expiresAt })

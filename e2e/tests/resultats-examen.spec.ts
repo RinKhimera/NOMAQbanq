@@ -4,10 +4,10 @@ import { expect, test } from "../fixtures/base"
 /**
  * Page de résultats d'un examen blanc (`/tableau-de-bord/examen-blanc/{id}/resultats`).
  *
- * Isolation (3.B) : seede un examen `subscribers` CLOS (endDate révolu) avec une
+ * Isolation : seede un examen `subscribers` CLOS (endDate révolu) avec une
  * participation COMPLÉTÉE pour le student (mix correct/incorrect déterministe).
  *   - clos : `getParticipantExamResults` ne révèle les résultats à un non-admin
- *     qu'APRÈS `endDate` (anti-fuite F3) ;
+ *     qu'APRÈS `endDate` (anti-fuite) ;
  *   - complété : la page a des données sans rejouer toute la passation.
  * On navigue DIRECTEMENT vers la page résultats (le bouton « Consulter les
  * résultats » de la liste pointe vers `/{id}`, pas `/{id}/resultats`).
@@ -121,8 +121,8 @@ test.describe("Examen Blanc — page de résultats", () => {
     ).toHaveCount(0)
 
     // Caractérise le SEUL contrôle interactif de la carte de correction : le
-    // toggle déplier/replier. Si une régression réintroduisait une option
-    // cliquable, ce ne serait plus le seul bouton actionnable.
+    // toggle déplier/replier. Une option redevenue cliquable casserait cette
+    // assertion.
     await expect(
       card.getByRole("button", { name: "Réduire la question" }),
     ).toBeVisible()

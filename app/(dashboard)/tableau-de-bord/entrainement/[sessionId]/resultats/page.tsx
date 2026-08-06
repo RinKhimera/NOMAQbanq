@@ -45,7 +45,6 @@ export default async function TrainingResultsPage({
     explanationImages: q.explanationImages ?? [],
   }))
 
-  // Map TrainingAnswerRecord → AnswersMap
   const answers: AnswersMap = {}
   for (const [questionId, entry] of Object.entries(rawAnswers)) {
     if (entry.selectedAnswer) {
@@ -56,7 +55,6 @@ export default async function TrainingResultsPage({
     }
   }
 
-  // Compute summary counts
   const score = session.score
   let correct = 0
   let incorrect = 0

@@ -4,10 +4,10 @@ import type { NextConfig } from "next"
 const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["@tabler/icons-react", "lucide-react", "recharts"],
-    // NB : plus de `serverActions.bodySizeLimit` — les uploads passent en
-    // presigned POST direct vers S3 (le fichier ne transite plus par les Server
-    // Actions). Retour au défaut, ce qui clôt la dette F1 (les actions publiques
-    // `loadRandomQuizQuestions`/`scoreQuizAnswers` n'acceptent plus 6 Mo de corps).
+    // Pas de `serverActions.bodySizeLimit` : les uploads passent en presigned
+    // POST direct vers S3, aucun fichier ne transite par une Server Action.
+    // L'élargir exposerait les actions publiques (`loadRandomQuizQuestions`,
+    // `scoreQuizAnswers`) à des corps de plusieurs Mo.
   },
   images: {
     remotePatterns: [

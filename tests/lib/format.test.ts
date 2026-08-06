@@ -25,7 +25,7 @@ import {
 
 // Ces suites tournent sous TZ=UTC (vitest.config.ts) et assertent des valeurs
 // heure de Toronto : un formateur qui retomberait sur le fuseau du runtime
-// rendrait de l'UTC et échouerait ici. C'est le filet contre la régression
+// rendrait de l'UTC et échouerait ici. C'est le filet contre les mismatchs
 // d'hydratation (SSR en UTC vs navigateur en heure locale).
 
 describe("formatCurrency", () => {

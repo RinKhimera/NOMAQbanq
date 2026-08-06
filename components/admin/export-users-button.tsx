@@ -68,7 +68,6 @@ export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
           headers
             .map((header) => {
               const value = row[header as keyof typeof row]
-              // Échapper les guillemets et entourer de guillemets si nécessaire
               return typeof value === "string" && value.includes(";")
                 ? csvQuote(value)
                 : value

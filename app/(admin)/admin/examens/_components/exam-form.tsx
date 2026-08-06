@@ -76,9 +76,8 @@ import {
 import { AudienceEligibility } from "./audience-eligibility"
 
 /**
- * Formulaire d'examen unifié (fusion exam-create-form / exam-edit-form,
- * ≈ 68 % identiques — C6 #113). Le `mode` pilote les données initiales,
- * l'action serveur et les libellés ; le markup est unique.
+ * Formulaire d'examen unifié (création et édition). Le `mode` pilote les données
+ * initiales, l'action serveur et les libellés ; le markup est unique.
  */
 type ExamFormProps =
   | {

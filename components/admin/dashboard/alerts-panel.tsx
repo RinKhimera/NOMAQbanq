@@ -87,7 +87,6 @@ export function AlertsPanel({
 }: AlertsPanelProps) {
   const hasAlerts = expiringAccess.length > 0 || failedPaymentsCount > 0
 
-  // Group expiring access by type
   const expiringExamAccess = expiringAccess.filter(
     (a) => a.accessType === "exam",
   )

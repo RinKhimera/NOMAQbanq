@@ -232,7 +232,7 @@ describe("getTransactionAccessImpact", () => {
   it("willAffectAccess=false quand les transactions restantes couvrent autant ou plus (même pour lastTransactionId)", async () => {
     // lastTxId est bien lastTransactionId de l'accès (+10 j), mais les autres
     // transactions complétées couvrent ~ +90 j : la retirer n'ABAISSE pas
-    // l'accès. L'ancien critère (lastTransactionId === txId) aurait menti ici.
+    // l'accès : un critère `lastTransactionId === txId` mentirait ici.
     const impact = await getTransactionAccessImpact(lastTxId)
     expect(impact?.willAffectAccess).toBe(false)
     expect(impact?.accessType).toBe("exam")

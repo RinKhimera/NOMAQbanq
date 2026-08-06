@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ResultsQuestionNavigator } from "@/components/quiz/results/results-question-navigator"
 import type { QuestionResultItem } from "@/components/quiz/results/types"
 
-// Mock motion/react - import the shared factory
 vi.mock("motion/react", async () => {
   const { motionMockFactory } = await import("../../helpers/motion-mock")
   return motionMockFactory

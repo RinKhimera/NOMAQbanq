@@ -24,7 +24,6 @@ import { MARKETING_CLAIMS } from "@/constants"
 import type { MarketingStats } from "@/features/marketing/dal"
 
 export default function HomeLanding({ stats }: { stats: MarketingStats }) {
-  // Features section data
   const features = [
     {
       icon: Play,

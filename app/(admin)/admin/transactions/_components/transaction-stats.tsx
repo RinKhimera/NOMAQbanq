@@ -94,7 +94,6 @@ export const TransactionStats = ({
     },
   ]
 
-  // Mapper les clés vers les valeurs
   const getValue = (key: string): number => {
     switch (key) {
       case "totalRevenueCAD":

@@ -36,7 +36,6 @@ const { filterMotionProps } = vi.hoisted(() => {
   }
 })
 
-// Mock motion/react
 vi.mock("motion/react", () => ({
   motion: {
     div: ({ children, ...props }: ComponentPropsWithoutRef<"div">) => (
@@ -51,7 +50,6 @@ vi.mock("motion/react", () => ({
   ),
 }))
 
-// Mock next/image
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />

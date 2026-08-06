@@ -1,6 +1,6 @@
 // Spike (jetable) : vérifie empiriquement le chemin de re-login email/mdp d'un
 // utilisateur MIGRÉ (emailVerified=true, AUCUNE ligne `account`) sur la branche develop.
-// Question (audit B5) : `resetPassword` crée-t-il un account `credential` pour un user
+// Question : `resetPassword` crée-t-il un account `credential` pour un user
 // qui n'en a pas ? Testé sur un user synthétique de même forme (pas de PII réelle).
 //
 // Sous-commandes :

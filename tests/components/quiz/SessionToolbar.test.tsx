@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 
-// Mock motion/react - import the shared factory
 vi.mock("motion/react", async () => {
   const { motionMockFactory } = await import("../../helpers/motion-mock")
   return motionMockFactory

@@ -4,7 +4,7 @@ import { env } from "@/lib/env/server"
 
 /**
  * Jeton stateless liant le scoring du quiz marketing aux questions réellement
- * servies (#91) : la clé de réponse n'est délivrable que pour un lot signé par
+ * servies : la clé de réponse n'est délivrable que pour un lot signé par
  * NOUS et encore frais. Séparation de domaine dans le message signé : un HMAC
  * produit avec le même secret pour un autre usage n'est pas rejouable ici.
  */

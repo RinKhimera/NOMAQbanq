@@ -65,7 +65,6 @@ export const QuestionImageGallery = ({
     setLightboxOpen(true)
   }
 
-  // Single image display
   if (allImages.length === 1) {
     return (
       <>
@@ -105,7 +104,6 @@ export const QuestionImageGallery = ({
     )
   }
 
-  // Multiple images grid
   return (
     <>
       <div className={cn("flex flex-wrap gap-2", className)}>

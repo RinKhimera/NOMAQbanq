@@ -80,7 +80,6 @@ export const consumeUploadRateLimit = async (
       return { allowed: true as const }
     }
 
-    // Sous la limite → incrémente.
     if (row.count < max) {
       await tx
         .update(uploadRateLimits)
@@ -89,7 +88,6 @@ export const consumeUploadRateLimit = async (
       return { allowed: true as const }
     }
 
-    // Limite atteinte → refuse sans consommer.
     const retryAfterMs = WINDOW_MS - windowAge
     return {
       allowed: false as const,

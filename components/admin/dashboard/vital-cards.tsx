@@ -68,7 +68,6 @@ const colorVariants = {
   },
 }
 
-// Icônes par défaut selon la couleur
 const defaultIcons: Record<VitalCardProps["color"], Icon> = {
   slate: IconCurrencyDollar,
   teal: IconCoin,

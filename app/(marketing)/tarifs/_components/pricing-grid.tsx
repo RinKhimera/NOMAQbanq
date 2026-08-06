@@ -35,7 +35,6 @@ export const PricingGrid = ({ products, accessStatus }: PricingGridProps) => {
     // Attendre que l'état d'authentification soit déterminé.
     if (isAuthLoading) return
 
-    // Rediriger vers l'inscription si non connecté.
     if (!isAuthenticated) {
       router.push("/inscription")
       return
@@ -64,7 +63,6 @@ export const PricingGrid = ({ products, accessStatus }: PricingGridProps) => {
     }
   }
 
-  // Séparer le produit premium des produits réguliers
   const premiumProduct = products?.find((p) => p.code === "premium_access")
   const regularProducts = products?.filter((p) => p.code !== "premium_access")
 

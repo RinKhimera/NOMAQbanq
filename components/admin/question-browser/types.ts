@@ -42,7 +42,7 @@ export interface QuestionRow {
   domain: string
   objectifCMC: string
   options: string[]
-  /** Nombre d'images (la liste n'a plus besoin des URLs — cf. DAL `imageCount`). */
+  /** Nombre d'images — la liste n'affiche pas les URLs. */
   imageCount: number
   /** Nombre d'examens référençant cette question. */
   usageCount: number

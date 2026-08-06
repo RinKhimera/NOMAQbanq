@@ -56,7 +56,6 @@ export function ObjectifCMCCombobox({
   }, [])
   const isLoading = objectifs === null
 
-  // Filter objectifs based on search
   const filteredObjectifs = useMemo(() => {
     if (!objectifs) return []
     if (!searchValue.trim()) return objectifs.slice(0, 50) // Limit for performance
