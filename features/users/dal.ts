@@ -30,6 +30,7 @@ import {
 import { describeUserAgent } from "@/features/users/lib/user-agent"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
+import { startOfAppZoneDay, startOfNextAppZoneDay } from "@/lib/format"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -244,9 +245,14 @@ export type UsersFilters = {
   search?: string
   role?: "admin" | "user"
   accessStatus?: "active" | "expiring" | "expired" | "never"
-  /** Epoch ms. */
-  dateFrom?: number
-  dateTo?: number
+  /**
+   * Journées civiles `YYYY-MM-DD`, bornes **incluses**, interprétées dans le
+   * fuseau de la plateforme — pas des instants : c'est la seule forme qui
+   * désigne le même jour que celui affiché dans la liste, quel que soit le
+   * fuseau du navigateur de l'admin.
+   */
+  dateFrom?: string
+  dateTo?: string
   sortBy?: "name" | "role" | "createdAt"
   sortOrder?: "asc" | "desc"
   offset?: number
@@ -324,8 +330,10 @@ export const getUsersWithFilters = async ({
           ilike(user.username, `%${escapeLike(searchTerm)}%`),
         )
       : undefined,
-    dateFrom ? gte(user.createdAt, new Date(dateFrom)) : undefined,
-    dateTo ? lte(user.createdAt, new Date(dateTo)) : undefined,
+    dateFrom ? gte(user.createdAt, startOfAppZoneDay(dateFrom)) : undefined,
+    // Semi-ouvert : la journée de fin compte en entier, sinon `lte` sur son
+    // minuit ne retiendrait que les comptes créés à la seconde près.
+    dateTo ? lt(user.createdAt, startOfNextAppZoneDay(dateTo)) : undefined,
     accessPredicate,
   )
 

@@ -41,6 +41,48 @@ export const getAppZoneYear = (d: Date | number | string): number =>
   inAppZone(d).getFullYear()
 
 /**
+ * Journée civile `YYYY-MM-DD` — format de transport des filtres de date. Un
+ * instant ne désigne pas un jour : minuit local à Paris tombe la veille à
+ * Toronto, donc une borne dérivée d'un instant se décale d'un jour selon le
+ * fuseau du navigateur qui l'a produite.
+ */
+const CALENDAR_DAY = /^(\d{4})-(\d{2})-(\d{2})$/
+
+const parseCalendarDay = (day: string): [number, number, number] => {
+  const parts = CALENDAR_DAY.exec(day)
+  if (!parts) throw new Error(`Journée civile attendue (YYYY-MM-DD) : ${day}`)
+  return [Number(parts[1]), Number(parts[2]) - 1, Number(parts[3])]
+}
+
+const appZoneDayStart = (y: number, m: number, d: number): Date =>
+  // `TZDate` ne sert qu'à résoudre le décalage du jour visé (heure d'été
+  // comprise) ; on rend une `Date` simple, seul type que manipulent les couches
+  // d'appel (Drizzle, comparaisons).
+  new Date(new TZDate(y, m, d, 0, 0, 0, 0, APP_TIME_ZONE).getTime())
+
+/** Premier instant d'une journée civile dans le fuseau de la plateforme. */
+export const startOfAppZoneDay = (day: string): Date =>
+  appZoneDayStart(...parseCalendarDay(day))
+
+/**
+ * Premier instant du LENDEMAIN — borne haute **exclusive** d'une journée
+ * civile. Une borne inclusive à 23:59:59.999 laisserait échapper les lignes des
+ * microsecondes suivantes : le `timestamptz` de Postgres est plus fin que le
+ * millième de seconde de JavaScript.
+ */
+export const startOfNextAppZoneDay = (day: string): Date => {
+  const [y, m, d] = parseCalendarDay(day)
+  return appZoneDayStart(y, m, d + 1)
+}
+
+/**
+ * Journée civile d'une date issue d'un calendrier, lue dans le fuseau du
+ * NAVIGATEUR — seul endroit du module où c'est voulu : la valeur d'un date
+ * picker désigne la case que l'admin vient de cliquer, pas un instant.
+ */
+export const toCalendarDay = (d: Date): string => format(d, "yyyy-MM-dd")
+
+/**
  * Formate un montant en cents vers une devise lisible
  * XAF: pas de décimales, symbole après le montant
  * CAD: format standard canadien-français

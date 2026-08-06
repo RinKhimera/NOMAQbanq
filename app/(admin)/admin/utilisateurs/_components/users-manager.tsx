@@ -16,6 +16,7 @@ import type {
   SelectableUser,
   UsersStatsView,
 } from "@/features/users/dal"
+import { toCalendarDay } from "@/lib/format"
 import { UserSidePanel } from "./user-side-panel"
 import {
   type AccessStatusFilter,
@@ -88,8 +89,8 @@ export function UsersManager({
       search: debouncedSearch.trim() || undefined,
       role: role === "all" ? undefined : role,
       accessStatus: accessStatus === "all" ? undefined : accessStatus,
-      dateFrom: dateRange?.from?.getTime(),
-      dateTo: dateRange?.to?.getTime(),
+      dateFrom: dateRange?.from ? toCalendarDay(dateRange.from) : undefined,
+      dateTo: dateRange?.to ? toCalendarDay(dateRange.to) : undefined,
       sortBy,
       sortOrder,
     }),

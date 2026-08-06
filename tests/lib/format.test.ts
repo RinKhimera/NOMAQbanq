@@ -15,6 +15,9 @@ import {
   formatWeekdayLongDate,
   getAppZoneHour,
   getAppZoneYear,
+  startOfAppZoneDay,
+  startOfNextAppZoneDay,
+  toCalendarDay,
 } from "@/lib/format"
 
 // Ces suites tournent sous TZ=UTC (vitest.config.ts) et assertent des valeurs
@@ -338,5 +341,76 @@ describe("invariant de fuseau", () => {
     expect(formatTimeOnly(new Date("2026-07-15T16:00:00Z").getTime())).toBe(
       "12:00",
     )
+  })
+})
+
+describe("bornes de journée civile (filtres de date)", () => {
+  const originalTz = process.env.TZ
+
+  afterEach(() => {
+    process.env.TZ = originalTz
+  })
+
+  it("ancre le début de journée sur Toronto, heure d'été comprise", () => {
+    // 00:00 à Toronto = 04:00 UTC en EDT, 05:00 UTC en EST.
+    expect(startOfAppZoneDay("2026-07-03").toISOString()).toBe(
+      "2026-07-03T04:00:00.000Z",
+    )
+    expect(startOfAppZoneDay("2026-01-15").toISOString()).toBe(
+      "2026-01-15T05:00:00.000Z",
+    )
+  })
+
+  it("borne haute = minuit du lendemain (exclusive), pas 23:59", () => {
+    expect(startOfNextAppZoneDay("2026-07-03").toISOString()).toBe(
+      "2026-07-04T04:00:00.000Z",
+    )
+    // Bascule de mois et d'année.
+    expect(startOfNextAppZoneDay("2026-01-31").toISOString()).toBe(
+      "2026-02-01T05:00:00.000Z",
+    )
+    expect(startOfNextAppZoneDay("2026-12-31").toISOString()).toBe(
+      "2027-01-01T05:00:00.000Z",
+    )
+  })
+
+  it("couvre la journée entière, y compris son dernier instant", () => {
+    // Un compte créé à 23:30 le 3 juillet (heure de l'Est) s'affiche « 3 juil. »
+    // dans la liste : une plage « 3 → 3 juillet » doit le retenir.
+    const tardif = new Date("2026-07-04T03:30:00Z")
+    expect(tardif >= startOfAppZoneDay("2026-07-03")).toBe(true)
+    expect(tardif < startOfNextAppZoneDay("2026-07-03")).toBe(true)
+
+    // Le premier instant du 4 juillet, lui, tombe hors de la plage.
+    expect(
+      new Date("2026-07-04T04:00:00Z") < startOfNextAppZoneDay("2026-07-03"),
+    ).toBe(false)
+  })
+
+  it("suit les journées courtes et longues des changements d'heure", () => {
+    const span = (day: string) =>
+      (startOfNextAppZoneDay(day).getTime() -
+        startOfAppZoneDay(day).getTime()) /
+      3_600_000
+    expect(span("2026-03-08")).toBe(23) // passage à l'heure avancée
+    expect(span("2026-11-01")).toBe(25) // retour à l'heure normale
+    expect(span("2026-07-03")).toBe(24)
+  })
+
+  it("refuse ce qui n'est pas une journée civile", () => {
+    expect(() => startOfAppZoneDay("03/07/2026")).toThrow(/YYYY-MM-DD/)
+    expect(() => startOfNextAppZoneDay("2026-07-03T00:00:00Z")).toThrow(
+      /YYYY-MM-DD/,
+    )
+  })
+
+  it("lit la journée du calendrier dans le fuseau du navigateur", () => {
+    // Le date picker rend minuit LOCAL du jour cliqué : c'est cette case-là que
+    // l'admin a désignée, quel que soit le fuseau depuis lequel il filtre.
+    const jours = ["UTC", "America/Toronto", "Asia/Tokyo"].map((tz) => {
+      process.env.TZ = tz
+      return toCalendarDay(new Date(2026, 6, 3))
+    })
+    expect(jours).toEqual(["2026-07-03", "2026-07-03", "2026-07-03"])
   })
 })
