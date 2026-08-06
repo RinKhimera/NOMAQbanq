@@ -16,12 +16,12 @@ import {
 } from "@/features/analytics/dal"
 import { getExpiringAccess, getRevenueByDay } from "@/features/payments/dal"
 import { getAdminStats } from "@/features/users/dal"
-import { requireRole } from "@/lib/auth-guards"
 import {
   shiftCalendarDay,
   startOfNextAppZoneDay,
   toAppZoneCalendarDay,
-} from "@/lib/format"
+} from "@/lib/app-zone"
+import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
 // `cache()` React → identité (pas de contexte RSC en test node).

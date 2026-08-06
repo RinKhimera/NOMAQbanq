@@ -11,8 +11,8 @@ import {
   completeStripeTransaction,
   failStripeTransaction,
 } from "@/features/payments/stripe"
+import { toAppZoneCalendarDay } from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
-import { toAppZoneCalendarDay } from "@/lib/format"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
