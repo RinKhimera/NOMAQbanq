@@ -35,7 +35,6 @@ import { cn } from "@/lib/utils"
 
 type ExamVariant = "active" | "upcoming" | "past"
 
-// Exam card component
 interface ExamCardProps {
   exam: ExamListItem
   variant: ExamVariant
@@ -304,7 +303,6 @@ const ExamCard = ({
   )
 }
 
-// Section header component
 interface SectionHeaderProps {
   title: string
   subtitle?: string

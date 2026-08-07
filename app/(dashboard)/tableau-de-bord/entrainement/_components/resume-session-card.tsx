@@ -43,7 +43,6 @@ export const ResumeSessionCard = ({
   const [remainingTime, setRemainingTime] = useState(initialRemainingTime)
   const [isAbandoning, setIsAbandoning] = useState(false)
 
-  // Update remaining time every minute
   useEffect(() => {
     const interval = setInterval(() => {
       setRemainingTime((prev) => Math.max(0, prev - 60000))

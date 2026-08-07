@@ -111,7 +111,6 @@ describe("QuestionActions", () => {
     const actions = [createViewAction(vi.fn()), createEditAction(vi.fn())]
     render(<QuestionActions actions={actions} />)
 
-    // Open dropdown
     await user.click(screen.getByRole("button", { name: /Actions/i }))
 
     await waitFor(() => {
@@ -126,10 +125,8 @@ describe("QuestionActions", () => {
     const actions = [createViewAction(viewClick)]
     render(<QuestionActions actions={actions} />)
 
-    // Open dropdown
     await user.click(screen.getByRole("button", { name: /Actions/i }))
 
-    // Click action
     await waitFor(() => {
       expect(screen.getByText("Voir les détails")).toBeInTheDocument()
     })
@@ -142,7 +139,6 @@ describe("QuestionActions", () => {
     const actions = [createDeleteAction(vi.fn())]
     render(<QuestionActions actions={actions} />)
 
-    // Open dropdown
     await user.click(screen.getByRole("button", { name: /Actions/i }))
 
     await waitFor(() => {
@@ -161,7 +157,6 @@ describe("QuestionActions", () => {
     ]
     render(<QuestionActions actions={actions} />)
 
-    // Open dropdown
     await user.click(screen.getByRole("button", { name: /Actions/i }))
 
     // Wait for dropdown to open and check for separator in the document body (portal)

@@ -1,23 +1,14 @@
-import { TZDate } from "@date-fns/tz"
 import { format, formatDistanceToNow } from "date-fns"
 import { fr } from "date-fns/locale"
+import { inAppZone } from "@/lib/app-zone"
 
 /**
- * Fuseau de référence de la plateforme (Québec). `format()` de date-fns rend
- * dans le fuseau du runtime : serveur en UTC (TZ=UTC en prod/CI) vs navigateur
- * en heure locale → la même date sort différente au SSR et à l'hydratation
- * (mismatch React, arbre régénéré). Ancrer le fuseau rend la chaîne stable des
- * deux côtés, et une échéance d'examen désigne le même instant pour tous.
+ * Formatage humain des dates et montants. L'arithmétique de fuseau (bornes de
+ * journée, mois civils, décalages) vit dans `lib/app-zone.ts` : ce module-ci
+ * tire `date-fns` et sa locale française, que le code serveur n'a pas à charger
+ * pour calculer une borne de requête. Ne pas ré-exporter les helpers de fuseau
+ * d'ici — la frontière ne tient que si les DAL importent `lib/app-zone`.
  */
-const APP_TIME_ZONE = "America/Toronto"
-
-/**
- * Une chaîne date-only (`"2026-07-03"`) est parsée en minuit **UTC** par
- * `new Date()`, donc rendue la veille en heure de l'Est. Ne passer ici que des
- * instants réels (timestamp, `Date`, ISO complet).
- */
-const inAppZone = (d: Date | number | string) =>
-  new TZDate(new Date(d), APP_TIME_ZONE)
 
 /**
  * L'heure affichée est un mur-horloge de l'Est, pas l'heure locale du lecteur.
@@ -27,18 +18,11 @@ const inAppZone = (d: Date | number | string) =>
 export const APP_TIME_ZONE_LABEL = "heure de l'Est"
 
 /**
- * Heure du jour (0-23) dans le fuseau de la plateforme. Brancher sur
- * `new Date().getHours()` lit l'heure du RUNTIME — serveur en UTC vs navigateur
- * en heure locale — et fait diverger un texte conditionnel entre le SSR et
- * l'hydratation (post-mortem NOMAQBANQ-5 : salutation du tableau de bord, qui
- * cassait l'hydratation 12 h sur 24 en heure avancée).
+ * Journée civile d'une date issue d'un calendrier, lue dans le fuseau du
+ * NAVIGATEUR — seul endroit du module où c'est voulu : la valeur d'un date
+ * picker désigne la case que l'admin vient de cliquer, pas un instant.
  */
-export const getAppZoneHour = (d: Date | number | string): number =>
-  inAppZone(d).getHours()
-
-/** Année civile dans le fuseau de la plateforme — même piège que `getAppZoneHour`. */
-export const getAppZoneYear = (d: Date | number | string): number =>
-  inAppZone(d).getFullYear()
+export const toCalendarDay = (d: Date): string => format(d, "yyyy-MM-dd")
 
 /**
  * Formate un montant en cents vers une devise lisible

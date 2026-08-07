@@ -24,7 +24,6 @@ export const SectionCards = ({
       }
     | undefined
 }) => {
-  // Calculs des statistiques
   const questionsCount = totalQuestions || 0
   const totalDomains = Object.keys(domainStats || {}).length
   const totalUsers = adminStats?.totalUsers || 0

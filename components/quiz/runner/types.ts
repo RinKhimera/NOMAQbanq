@@ -11,7 +11,7 @@ export type QuizQuestion = {
   correctAnswer?: string
   explanation?: string
   references?: string[]
-  explanationImages?: QuizImage[] // cf. Feature 3
+  explanationImages?: QuizImage[]
 }
 
 export type AnswerState = { selected: string; isCorrect?: boolean }

@@ -27,7 +27,7 @@ export const buildServerSchema = () =>
       BETTER_AUTH_URL: z
         .url({ error: "BETTER_AUTH_URL : URL invalide" })
         .optional(),
-      // Filled in Phase 4 (Better Auth Google provider); optional until then.
+      // Optionnelles : sans les deux, le provider Google n'est pas configuré.
       GOOGLE_CLIENT_ID: z.string().optional(),
       GOOGLE_CLIENT_SECRET: z.string().optional(),
       // AWS SES (emails transactionnels) — optionnelles : l'app démarre sans,

@@ -22,7 +22,6 @@ export const ProgressRing = ({
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (value / 100) * circumference
 
-  // Determine color based on score
   const getScoreColor = (score: number) => {
     if (score >= 80)
       return { stroke: "#10B981", glow: "rgba(16, 185, 129, 0.3)" }

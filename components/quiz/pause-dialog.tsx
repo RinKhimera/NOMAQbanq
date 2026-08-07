@@ -51,7 +51,6 @@ export const PauseDialog = ({
       ? ((totalPauseMs - pauseTimeRemaining) / totalPauseMs) * 100
       : 0
 
-  // Update pause countdown
   useEffect(() => {
     if (!isOpen || !pauseStartedAt) return
 

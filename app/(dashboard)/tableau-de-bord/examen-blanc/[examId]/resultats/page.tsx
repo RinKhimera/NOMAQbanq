@@ -45,7 +45,6 @@ export default async function MockExamResultsPage({
     )
   }
 
-  // Map DAL output → QuizQuestion[]
   const questions: QuizQuestion[] = data.questions.map((q) => ({
     _id: q._id,
     question: q.question,

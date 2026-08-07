@@ -84,7 +84,6 @@ function QuizRunnerInner({
   const totalQuestions = questions.length
   const currentQuestion = session.currentQuestion
 
-  // SessionConfig derived from mode
   const sessionConfig = {
     mode: mode.kind,
     showTimer: !!mode.timer && session.timer !== null,
@@ -147,7 +146,6 @@ function QuizRunnerInner({
     }
   }
 
-  // Navigator answers format
   const navigatorAnswers: Record<
     string,
     { selectedAnswer: string; isCorrect?: boolean }
@@ -185,9 +183,9 @@ function QuizRunnerInner({
 
   const isLastQuestion = session.currentIndex === totalQuestions - 1
 
-  // D3: during a rest pause, only render the header + pause overlay.
-  // No question content (QuestionCard, SessionNavigation, navigators, toolbar)
-  // may appear in the DOM while paused — prevents reading questions via devtools.
+  // Pendant une pause repos, seuls le header et l'overlay sont rendus : aucun
+  // contenu de question (QuestionCard, SessionNavigation, navigateurs, toolbar)
+  // ne doit être dans le DOM, sinon il se lit via les devtools.
   const isResting = mode.pause === "rest" && session.isPaused
 
   return (
@@ -216,7 +214,7 @@ function QuizRunnerInner({
         examActions={examActions}
       />
 
-      {/* Question content — NOT rendered during rest pause (D3 compliance) */}
+      {/* Question content — NOT rendered during rest pause (anti-triche) */}
       {!isResting && (
         <>
           {/* Main content */}

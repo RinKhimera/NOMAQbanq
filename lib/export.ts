@@ -1,6 +1,5 @@
 /**
  * Helpers d'export côté client (XLSX via SheetJS, CSV manuel + BOM UTF-8).
- * Consolidé depuis export-users-button et export-questions-button (C6, #113).
  *
  * ATTENTION : les fichiers produits sont gelés au bit près — ne pas « normaliser »
  * séparateurs, échappement, BOM ou noms de fichiers sans vérifier chaque

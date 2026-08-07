@@ -34,6 +34,23 @@ const txActiveExam = createId()
 const txExpiringTrain = createId()
 const txExpired = createId()
 
+// Jeu dédié aux bornes de dates, isolé par son propre jeton de recherche pour
+// ne pas fausser les compteurs des suites ci-dessus. Les `createdAt` encadrent
+// la journée du 3 juillet 2026 en heure de l'Est (EDT, UTC-4).
+const dateSuffix = createId().slice(0, 8)
+const dateUsers = [
+  { id: createId(), label: "veille-23h30", createdAt: "2026-07-03T03:30:00Z" },
+  { id: createId(), label: "jour-00h05", createdAt: "2026-07-03T04:05:00Z" },
+  { id: createId(), label: "jour-23h59", createdAt: "2026-07-04T03:59:00Z" },
+  {
+    id: createId(),
+    label: "lendemain-00h30",
+    createdAt: "2026-07-04T04:30:00Z",
+  },
+]
+const dateUserId = (label: string) =>
+  dateUsers.find((u) => u.label === label)!.id
+
 let baseline: UsersStatsView
 
 beforeAll(async () => {
@@ -71,6 +88,15 @@ beforeAll(async () => {
       role: "admin",
     },
   ])
+
+  await db.insert(user).values(
+    dateUsers.map((u) => ({
+      id: u.id,
+      name: `Date ${u.label} ${dateSuffix}`,
+      email: `${u.label}-${dateSuffix}@test.invalid`,
+      createdAt: new Date(u.createdAt),
+    })),
+  )
 
   await db.insert(products).values({
     id: pid,
@@ -128,7 +154,14 @@ beforeAll(async () => {
 })
 
 afterAll(async () => {
-  const ids = [uActiveExam, uExpiringTrain, uExpired, uNever, uAdmin]
+  const ids = [
+    uActiveExam,
+    uExpiringTrain,
+    uExpired,
+    uNever,
+    uAdmin,
+    ...dateUsers.map((u) => u.id),
+  ]
   for (const id of ids) {
     await db.delete(userAccess).where(eq(userAccess.userId, id))
     await db.delete(transactions).where(eq(transactions.userId, id))
@@ -211,10 +244,45 @@ describe("getUsersWithFilters (filtres SQL)", () => {
   })
 })
 
+describe("getUsersWithFilters (plage de dates)", () => {
+  it("une plage « J → J » couvre la journée civile entière", async () => {
+    const page = await getUsersWithFilters({
+      search: dateSuffix,
+      dateFrom: "2026-07-03",
+      dateTo: "2026-07-03",
+    })
+    expect(new Set(page.items.map((u) => u.id))).toEqual(
+      new Set([dateUserId("jour-00h05"), dateUserId("jour-23h59")]),
+    )
+    expect(page.total).toBe(2)
+  })
+
+  it("un compte créé à 23:59 le dernier jour de la plage est inclus", async () => {
+    const page = await getUsersWithFilters({
+      search: dateSuffix,
+      dateFrom: "2026-07-01",
+      dateTo: "2026-07-03",
+    })
+    const ids = page.items.map((u) => u.id)
+    expect(ids).toContain(dateUserId("jour-23h59"))
+    expect(ids).not.toContain(dateUserId("lendemain-00h30"))
+  })
+
+  it("la veille à 23:30 tombe hors plage, le lendemain à 00:30 dedans", async () => {
+    const ids = (
+      await getUsersWithFilters({ search: dateSuffix, dateFrom: "2026-07-03" })
+    ).items.map((u) => u.id)
+    expect(ids).not.toContain(dateUserId("veille-23h30"))
+    expect(ids).toContain(dateUserId("lendemain-00h30"))
+  })
+})
+
 describe("getUsersStats (agrégats, delta vs baseline)", () => {
   it("compteurs users + accès actifs/expirants", async () => {
     const after = await getUsersStats()
-    expect(after.totalUsers - baseline.totalUsers).toBe(5)
+    expect(after.totalUsers - baseline.totalUsers).toBe(5 + dateUsers.length)
+    // Les users du jeu « plage de dates » sont datés de juillet 2026 : hors du
+    // mois courant, donc invisibles pour ce compteur-ci.
     expect(after.newThisMonth - baseline.newThisMonth).toBe(5)
     expect(after.activeExamAccess - baseline.activeExamAccess).toBe(1)
     expect(after.activeTrainingAccess - baseline.activeTrainingAccess).toBe(1)

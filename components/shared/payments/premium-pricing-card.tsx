@@ -17,9 +17,6 @@ import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { formatCurrency } from "@/lib/format"
-// cn is available but not currently used - keeping import for future styling needs
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-import { cn } from "@/lib/utils"
 import { AccessBadge, getAccessStatus } from "./access-badge"
 
 interface Product {
@@ -46,7 +43,6 @@ interface PremiumPricingCardProps {
   isLoading?: boolean
 }
 
-// Features split by category for visual distinction
 const examFeatures = [
   "Accès complet aux examens blancs",
   "Mode chronométré réaliste",

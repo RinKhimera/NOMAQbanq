@@ -85,7 +85,7 @@ export const loadUniqueObjectifsCMC = async (): Promise<string[]> => {
 /**
  * [Public] Questions aléatoires pour le quiz d'évaluation marketing. Sans
  * session (page publique) mais : rate-limit IP + jeton HMAC couvrant les ids
- * servis — `scoreQuizAnswers` ne corrige que ce que CE bundle a servi (#91).
+ * servis — `scoreQuizAnswers` ne corrige que ce que CE bundle a servi.
  * La DAL masque `correctAnswer`/`explanation` et exclut les examens ouverts.
  */
 export type QuizBundle = {
@@ -97,8 +97,8 @@ export const loadRandomQuizQuestions = async (args: {
   count: number
   domain?: string
 }): Promise<QuizBundle> => {
-  // zod AVANT le rate-limit : une entrée malformée ne consomme pas de slot
-  // (et ne throw plus — l'ancien clamp propageait NaN jusqu'à LIMIT).
+  // zod AVANT le rate-limit : une entrée malformée ne consomme pas de slot, et
+  // un `count` non numérique ne doit jamais atteindre le LIMIT SQL.
   const parsed = loadRandomQuizQuestionsSchema.safeParse(args)
   if (!parsed.success) return { questions: [], token: null }
 
@@ -141,7 +141,7 @@ const EMPTY_SCORE: QuizScore = {
  * bornes, rate-limit, jeton invalide/expiré. Séquence : zod → rate-limit IP
  * (consommé AVANT le travail) → jeton (intersection ids servis) → re-check
  * examens ouverts (un examen a pu OUVRIR pendant la vie du jeton — la clé
- * reste verrouillée sur TOUS les canaux pendant la fenêtre, cf. #86/#93).
+ * reste verrouillée sur TOUS les canaux pendant la fenêtre).
  */
 export const scoreQuizAnswers = async (args: {
   answers: { questionId: string; selectedAnswer: string | null }[]
@@ -419,10 +419,10 @@ export const setQuestionImages = async (
   // supprimé de S3 à l'édition suivante → suppression croisée entre questions
   // (admin-only, défense en profondeur).
   //
-  // Préfixe volontairement à la QUESTION (et non `questions/{id}/{kind}/`) : les
-  // images persistées avant F3 ont un chemin plat (`questions/{id}/<ts>-<i>.jpg`,
-  // kind=statement par défaut migration) — un préfixe par `kind` casserait la
-  // ré-sauvegarde de toute question existante. L'isolation par `kind` (sauver
+  // Préfixe volontairement à la QUESTION (et non `questions/{id}/{kind}/`) : une
+  // partie des images en base a un chemin plat (`questions/{id}/<ts>-<i>.jpg`,
+  // `kind=statement`) — un préfixe par `kind` casserait la ré-sauvegarde de ces
+  // questions. L'isolation par `kind` (sauver
   // l'énoncé n'efface pas l'explication) est garantie par le scope DB
   // `(questionId, kind)` sur old/delete/insert ci-dessous, pas par le chemin.
   const finalPrefix = `questions/${questionId}/`

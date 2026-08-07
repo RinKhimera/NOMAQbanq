@@ -1,5 +1,5 @@
 /**
- * Audit LECTURE SEULE des paiements encaissés sans accès accordé (WH-10).
+ * Audit LECTURE SEULE des paiements encaissés sans accès accordé.
  * Filet pour les événements que le webhook n'a jamais traités : Stripe abandonne
  * après ~3 jours de tentatives, et une transaction reste alors `pending` pour
  * toujours — payée, sans accès, sans que rien dans l'application ne le signale.

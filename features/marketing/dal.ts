@@ -52,7 +52,7 @@ export const getMarketingStats = cache(async (): Promise<MarketingStats> => {
   // Taux de réussite réel sur les participations terminées. Pas de jointure
   // user : les participations de comptes soft-deleted COMPTENT (un passage
   // d'examen réel reste un point de donnée du taux — on mesure des passages, pas
-  // des comptes actifs ; décision revue design 2026-07-12).
+  // des comptes actifs).
   const [participationAgg] = await db
     .select({
       completed:

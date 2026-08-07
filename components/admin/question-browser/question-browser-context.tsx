@@ -94,7 +94,6 @@ export function QuestionBrowserProvider({
     null,
   )
 
-  // Use external or internal preview based on props (controlled/uncontrolled)
   const previewQuestionId =
     externalPreviewId !== undefined ? externalPreviewId : internalPreviewId
   const setPreviewQuestionId = onPreviewChange ?? setInternalPreviewId
@@ -102,11 +101,9 @@ export function QuestionBrowserProvider({
   // Internal selection state (used when not controlled externally)
   const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>([])
 
-  // Use external or internal selection based on mode and props
   const selectedIds = externalSelectedIds ?? internalSelectedIds
   const setSelectedIds = onSelectionChange ?? setInternalSelectedIds
 
-  // Notify parent of filter changes
   useEffect(() => {
     onFiltersChange?.(filters)
   }, [filters, onFiltersChange])
@@ -195,13 +192,11 @@ export function QuestionBrowserProvider({
     [],
   )
 
-  // Clear all filters
   const clearFilters = useCallback(() => {
     setFilters(defaultFilters)
     setPageState(1)
   }, [])
 
-  // Handle sorting
   const handleSort = useCallback((field: SortBy) => {
     setFilters((prev) => {
       if (prev.sortBy === field) {

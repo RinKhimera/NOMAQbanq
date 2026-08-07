@@ -45,10 +45,8 @@ export async function GET(request: Request) {
   //
   // Chaque tâche est isolée : un échec persistant de l'une (ex. poison-row à
   // la clôture examens) ne doit pas bloquer les suivantes — notamment
-  // l'anonymisation RGPD. (Sous l'ancien Promise.all, les tâches déjà
-  // lancées allaient au bout malgré un rejet ; la mise en séquence perdait
-  // cette propriété sans l'isolation.) Un échec quelconque → 500 après avoir
-  // tout tenté, pour conserver le retry du scheduler.
+  // l'anonymisation RGPD. Un échec quelconque → 500 après avoir tout tenté,
+  // pour conserver le retry du scheduler.
   let failed = false
   const run = async <T>(
     label: string,

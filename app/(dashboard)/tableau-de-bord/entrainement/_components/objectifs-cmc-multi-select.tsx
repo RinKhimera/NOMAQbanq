@@ -40,7 +40,6 @@ export function ObjectifsCMCMultiSelect({
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState("")
 
-  // Filter objectifs based on search
   const filteredObjectifs = useMemo(() => {
     if (!objectifs) return []
 
@@ -58,7 +57,6 @@ export function ObjectifsCMCMultiSelect({
 
   const handleSelect = (objectif: string) => {
     if (selectedObjectifs.includes(objectif)) {
-      // Retirer
       onChange(selectedObjectifs.filter((o) => o !== objectif))
     } else {
       // Ajouter (si quota non atteint)

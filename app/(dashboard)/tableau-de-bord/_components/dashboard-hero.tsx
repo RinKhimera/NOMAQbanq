@@ -2,7 +2,7 @@
 
 import { Clock, Shield, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
-import { getAppZoneHour } from "@/lib/format"
+import { getAppZoneHour } from "@/lib/app-zone"
 import { cn } from "@/lib/utils"
 import { ProgressRing } from "./progress-ring"
 

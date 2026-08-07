@@ -5,8 +5,7 @@ import { cn } from "@/lib/utils"
 
 /**
  * Carte KPI animée des rows de stats admin (utilisateurs / examens / questions).
- * Consolidée depuis 3 copies locales quasi identiques (C6, #113). Pattern
- * admin-ui : le subtitle réserve toujours l'espace (hauteur uniforme).
+ * Pattern admin-ui : le subtitle réserve toujours l'espace (hauteur uniforme).
  */
 export type AnimatedStatCardColor =
   "emerald" | "blue" | "amber" | "teal" | "slate"

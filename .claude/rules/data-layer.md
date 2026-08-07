@@ -157,10 +157,24 @@ storagePath,order}` pour rester assignable aux composants partagés
   - `SESSION_DATE_FMT` (`features/users/dal.ts`) : formatage côté DAL, antérieur
     au module et volontairement autonome ;
   - `getRevenueByDay` : `parseISO` sur du date-only (`YYYY-MM-DD`) rend bien le même
-    jour partout, MAIS le bucket lui-même est un **jour UTC** (`payments/dal.ts`),
-    donc ses bornes ne coïncident pas avec les heures Toronto affichées dans la
-    table des transactions. Pré-existant, non corrigé — ne pas le présenter comme
-    cohérent.
+    jour partout — le bucket SQL est lui aussi un jour de l'Est depuis la
+    correction de #132.
+- **Filtres et agrégats « par jour » : transporter une journée civile, pas un
+  instant.** Un instant ne désigne pas un jour (minuit local à Paris tombe la
+  veille à Toronto), et une borne de fin posée sur le minuit du dernier jour
+  exclut la journée entière. Convention : `YYYY-MM-DD` sur le fil, résolu côté
+  DAL par `startOfAppZoneDay` / `startOfNextAppZoneDay` (borne haute
+  **exclusive** — le `timestamptz` de Postgres est plus fin que le ms JS), et
+  bucket SQL via `at time zone ${APP_TIME_ZONE}`. Une suite de jours se
+  construit avec `shiftCalendarDay`, jamais en soustrayant 24 h : aux
+  changements d'heure une journée civile fait 23 ou 25 h.
+- **Ces helpers vivent dans `lib/app-zone.ts`, pas dans `lib/format.ts`.** La
+  séparation est une contrainte de charge, pas un rangement : `lib/format.ts`
+  tire `date-fns` et sa locale française, et l'importer depuis `features/**`
+  faisait entrer ce graphe dans presque tous les tests d'intégration — mesuré à
+  +60 s d'import sur la suite. `lib/app-zone.ts` ne dépend que de `@date-fns/tz`
+  (zéro dépendance). Ne pas ré-exporter l'un depuis l'autre : la frontière ne
+  tient que si le code serveur importe `lib/app-zone` directement.
 - **Hydration — bruit tiers filtré** : les crashs `$RS` (`Cannot read properties
 of null (reading 'parentNode')`, script inline du streaming React) causés par
   un tiers qui mute le DOM (traduction, extension, proxy) sont DROPPÉS par le

@@ -118,7 +118,6 @@ export const EditTransactionModal = ({
     },
   })
 
-  // Reset form when transaction changes
   useEffect(() => {
     if (transaction && open) {
       form.reset({

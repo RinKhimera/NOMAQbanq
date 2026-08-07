@@ -51,7 +51,6 @@ const DOMAIN_COLORS = [
   "#EC4899", // pink-500
 ]
 
-// Tooltip personnalisé pour le graphique en aire
 const AreaChartTooltip = ({
   active,
   payload,
@@ -95,7 +94,6 @@ const AreaChartTooltip = ({
   )
 }
 
-// Tooltip personnalisé pour le graphique en barres
 const BarChartTooltip = ({
   active,
   payload,
@@ -135,7 +133,6 @@ const BarChartTooltip = ({
   )
 }
 
-// État vide
 const EmptyState = () => (
   <motion.div
     initial={{ opacity: 0 }}
@@ -157,7 +154,6 @@ const EmptyState = () => (
   </motion.div>
 )
 
-// Tronquer les noms de domaine trop longs
 const truncateDomain = (domain: string, maxLength: number) => {
   if (domain.length <= maxLength) return domain
   return domain.slice(0, maxLength - 1) + "…"
@@ -167,7 +163,6 @@ export const TrainingScoreChartContent = ({
   sessions,
   domainPerformance,
 }: TrainingScoreChartProps) => {
-  // État vide
   if (!sessions || sessions.length === 0) {
     return (
       <div className="relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80">
@@ -191,7 +186,6 @@ export const TrainingScoreChartContent = ({
     )
   }
 
-  // Formater les données pour le graphique en aire
   const areaChartData = sessions.map((item, index) => ({
     ...item,
     index: index + 1,
@@ -212,7 +206,6 @@ export const TrainingScoreChartContent = ({
     trendUp = secondAvg >= firstAvg
   }
 
-  // Formater les données pour le graphique en barres
   const barChartData = domainPerformance.map((d, index) => ({
     ...d,
     shortDomain: truncateDomain(d.domain, 18),

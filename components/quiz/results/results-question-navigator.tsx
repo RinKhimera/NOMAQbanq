@@ -35,7 +35,6 @@ export const ResultsQuestionNavigator = ({
     }
   }
 
-  // Shared navigation grid content
   const navigationGrid = (
     <div
       className={cn(
@@ -70,7 +69,6 @@ export const ResultsQuestionNavigator = ({
     </div>
   )
 
-  // Legend component
   const legend = (
     <div className="space-y-2 border-t border-gray-200/60 pt-4 dark:border-gray-700/60">
       <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -101,7 +99,6 @@ export const ResultsQuestionNavigator = ({
     </div>
   )
 
-  // Desktop variant - sticky sidebar
   if (variant === "desktop") {
     return (
       <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-clip rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
@@ -139,7 +136,6 @@ export const ResultsQuestionNavigator = ({
     )
   }
 
-  // Mobile variant - FAB with scrollable panel
   return (
     <>
       <Button

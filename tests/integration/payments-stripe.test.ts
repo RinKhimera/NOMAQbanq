@@ -11,6 +11,7 @@ import {
   completeStripeTransaction,
   failStripeTransaction,
 } from "@/features/payments/stripe"
+import { toAppZoneCalendarDay } from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
@@ -382,7 +383,9 @@ describe("réconciliation montant/devise au fulfillment", () => {
   // transactions insérées ici (fichiers séquentiels, fileParallelism: false).
   let statsBefore: TransactionStatsView
   let revenueTodayBefore: { CAD: number; XAF: number }
-  const today = () => new Date().toISOString().slice(0, 10)
+  // Jour de l'Est, comme les buckets de getRevenueByDay : en UTC, la soirée
+  // québécoise est déjà le lendemain et le bucket cherché n'existerait pas.
+  const today = () => toAppZoneCalendarDay(Date.now())
 
   const revenueOfToday = async () => {
     const rev = await getRevenueByDay(1)

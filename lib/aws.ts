@@ -22,7 +22,7 @@ let client: S3Client | undefined
 
 // Sur Vercel (prod/preview), l'auth AWS DOIT passer par l'OIDC (rôle IAM) :
 // des clés statiques posées par erreur sur Vercel ne doivent JAMAIS
-// court-circuiter l'OIDC en silence (F3). On ne retient donc les clés statiques
+// court-circuiter l'OIDC en silence. On ne retient donc les clés statiques
 // que HORS Vercel (dev local, où l'OIDC n'est pas disponible). `VERCEL` vaut
 // "1" sur tous les déploiements Vercel ; le dev local (`bun dev`) ne la pose pas.
 const resolveCredentials = () => {

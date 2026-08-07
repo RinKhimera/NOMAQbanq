@@ -22,7 +22,6 @@ export const useHeaderScroll = (): HeaderScrollState => {
       requestAnimationFrame(() => {
         const currentScrollY = window.scrollY
 
-        // Toujours visible en haut de page
         if (currentScrollY < 20) {
           setIsVisible(true)
           setIsScrolled(false)
@@ -31,10 +30,8 @@ export const useHeaderScroll = (): HeaderScrollState => {
 
           // Hysteresis de 10px pour éviter les micro-changements
           if (currentScrollY > lastScrollY.current + 10) {
-            // Scroll vers le bas - cacher
             setIsVisible(false)
           } else if (currentScrollY < lastScrollY.current - 10) {
-            // Scroll vers le haut - montrer
             setIsVisible(true)
           }
         }

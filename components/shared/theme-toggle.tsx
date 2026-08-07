@@ -23,7 +23,6 @@ export default function ThemeToggle() {
     () => false, // Côté serveur : jamais monté
   )
 
-  // Fermer le dropdown au scroll
   useEffect(() => {
     if (!open) return
 

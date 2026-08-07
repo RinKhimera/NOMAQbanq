@@ -29,7 +29,6 @@ export const SiteHeader = ({ isAdmin = false }: SiteHeaderProps) => {
     if (pathname === "/admin") return "Tableau de bord"
     if (pathname === "/tableau-de-bord") return "Tableau de bord"
 
-    // Fallback selon le contexte
     return isAdminPage ? "Administration" : "Dashboard"
   }
 

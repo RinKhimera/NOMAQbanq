@@ -14,10 +14,8 @@ export interface Testimonial {
 export type ExamStatus = "active" | "upcoming" | "completed" | "inactive"
 
 /**
- * Forme native d'un examen. Reprend la
- * convention `_id` / `_creationTime` de l'ancien `Doc<"exams">` ainsi que les
- * colonnes de la table `exams` (le champ `participants` n'existe plus depuis le
- * schéma V2 normalisé).
+ * Forme native d'un examen : convention `_id` / `_creationTime` de la « forme
+ * pont » renvoyée par les DAL Drizzle, plus les colonnes de la table `exams`.
  */
 export type ExamDoc = {
   _id: string

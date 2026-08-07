@@ -15,7 +15,7 @@ export const auth = betterAuth({
   baseURL: getBaseUrl(),
   // Serverless: la table rate_limit (déjà créée) survit aux instances. Actif en prod uniquement.
   // customRules : l'endpoint de reset n'est pas couvert par les limites par défaut → on le
-  // borne (3 demandes / minute / IP) pour éviter le spam de courriels SES (review M4).
+  // borne (3 demandes / minute / IP) pour éviter le spam de courriels SES.
   rateLimit: {
     storage: "database",
     customRules: {
@@ -73,9 +73,9 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    // Bloque la connexion d'un compte email/mdp non vérifié (review M2). N'affecte
-    // PAS Google (emailVerified=true) ni les users migrés (déjà email_verified=true) ;
-    // ne concerne que les nouvelles inscriptions email.
+    // Bloque la connexion d'un compte email/mdp non vérifié. N'affecte PAS Google
+    // (emailVerified=true) ni les comptes déjà `email_verified=true` ; ne concerne
+    // que les nouvelles inscriptions email.
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
       await sendResetPassword({ to: user.email, url })
@@ -91,8 +91,8 @@ export const auth = betterAuth({
     // erreur EMAIL_NOT_VERIFIED). Débloque la « zone grise » des nouveaux inscrits.
     sendOnSignIn: true,
   },
-  // Google configuré UNIQUEMENT si les deux creds sont présents — évite le
-  // `clientId: ""` qui cassait Google silencieusement (review N3).
+  // Google configuré UNIQUEMENT si les deux creds sont présents : un
+  // `clientId: ""` casse Google silencieusement.
   socialProviders:
     env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
       ? {

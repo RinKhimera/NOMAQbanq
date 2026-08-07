@@ -49,7 +49,6 @@ const getAnswerState = (
 ): AnswerState => {
   const isCorrectAnswer = option === correctAnswer
 
-  // Review mode with user answer (page résultats)
   if (isReviewMode && userAnswer !== undefined) {
     const isUserAnswer = option === userAnswer
     if (isCorrectAnswer) return "user-correct"
@@ -66,7 +65,6 @@ const getAnswerState = (
     return "default"
   }
 
-  // Default/admin mode showing correct answer
   if (showCorrectAnswer && option === correctAnswer) {
     return "correct"
   }
@@ -187,9 +185,8 @@ export const QuestionCard = ({
   actions = [],
   className,
 }: QuestionCardProps) => {
-  // PR B : l'explication peut venir soit du document question (legacy,
-  // encore présente pendant PR B pour les queries qui la joignent côté
-  // serveur), soit d'une prop lazy fournie par la page résultats qui
+  // L'explication vient soit du document question (queries qui la joignent
+  // côté serveur), soit d'une prop lazy fournie par la page résultats qui
   // fetche via getQuestionExplanations quand l'user déplie la carte.
   const effectiveExplanation = lazyExplanation ?? question.explanation
   const effectiveReferences = lazyReferences ?? question.references
@@ -197,7 +194,7 @@ export const QuestionCard = ({
   // embarquées sur la question (correction entraînement / vitrine eager).
   const effectiveExplanationImages =
     lazyExplanationImages ?? question.explanationImages
-  // Determine card styling based on variant and state
+
   const getCardStyles = () => {
     if (variant === "review") {
       const wasAnswered = userAnswer !== null
@@ -215,7 +212,6 @@ export const QuestionCard = ({
     return "bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700"
   }
 
-  // Review status info
   const getReviewStatus = () => {
     const wasAnswered = userAnswer !== null
     const isCorrect = userAnswer === question.correctAnswer
@@ -511,9 +507,9 @@ export const QuestionCard = ({
       </AnimatePresence>
 
       {/* Explanation and references (for review variant when expanded).
-          PR B : effectiveExplanation peut être undefined si la query lazy
-          n'a pas encore rendu les données. On affiche un skeleton dans ce
-          cas pour ne pas faire sauter la UI. */}
+          `effectiveExplanation` peut être undefined si la query lazy n'a pas
+          encore rendu les données : on affiche un skeleton dans ce cas pour ne
+          pas faire sauter la UI. */}
       <AnimatePresence>
         {isReviewVariant && isExpanded && (
           <div className="mt-4">
@@ -541,7 +537,7 @@ export const QuestionCard = ({
             montre la correction ET qu'on a réellement la bonne réponse — rien ne
             fuite en examen / entraînement test (feedback différé) ni sur la
             vitrine publique (pas de correctAnswer). Pas d'images d'explication
-            ici — canal réservé à la correction (variant review), anti-triche F3. */}
+            ici — canal réservé à la correction (variant review), anti-triche. */}
         {isExamReveal && effectiveExplanation !== undefined && (
           <div className="mt-4">
             <QuestionExplanation

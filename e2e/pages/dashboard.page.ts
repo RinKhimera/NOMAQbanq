@@ -20,7 +20,7 @@ export class DashboardPage extends BasePage {
   }
 
   async expectVitalCardsVisible() {
-    // Libellés dupliqués après F1 (carte vitale + stats/CTA) → exact + first
+    // Libellés dupliqués dans la page (carte vitale + stats/CTA) → exact + first
     // pour cibler une occurrence stable (assertion de présence des cartes).
     const main = this.page.locator("main")
     await expect(
@@ -38,9 +38,8 @@ export class DashboardPage extends BasePage {
   }
 
   /**
-   * Non-régression de l'overlay plein écran supprimé le 2026-07-28 : le shell
-   * doit être visible et interactif immédiatement, sans écran bloquant. À
-   * appeler AVANT `waitForReady`, sinon l'assertion ne prouve plus rien.
+   * Le shell doit être visible et interactif immédiatement, sans écran bloquant.
+   * À appeler AVANT `waitForReady`, sinon l'assertion ne prouve plus rien.
    */
   async expectNoBlockingOverlay() {
     await expect(this.page.locator('[data-sidebar="content"]')).toBeVisible({

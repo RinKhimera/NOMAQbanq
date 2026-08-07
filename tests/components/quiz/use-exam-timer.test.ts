@@ -45,8 +45,8 @@ describe("useExamTimer", () => {
   })
 
   it("enabled=false : timer inerte, onExpire JAMAIS déclenché (mode sans chrono)", () => {
-    // Régression : en entraînement, mode.timer=null → totalSeconds=0 → sans la
-    // garde `enabled`, remaining<=0 au montage auto-soumettait la session.
+    // En entraînement, mode.timer=null → totalSeconds=0 : sans la garde
+    // `enabled`, remaining<=0 dès le montage auto-soumettrait la session.
     const onExpire = vi.fn()
     const start = Date.now()
     renderHook(() =>

@@ -214,7 +214,7 @@ export const getExamWithQuestions = async (
   // confidentiel) : un non-admin n'accède à un examen `restricted` que s'il est
   // membre de l'audience OU possède déjà une participation (n'importe quel
   // statut). La double condition couvre le membre AVANT démarrage et le membre
-  // RETIRÉ de l'audience en cours de passation (#6) — il garde l'accès à ses
+  // RETIRÉ de l'audience en cours de passation — il garde l'accès à ses
   // questions. Inchangé pour les admins et les examens `subscribers`.
   if (!isAdmin && exam.audienceType === "restricted") {
     const [allowed] = await db
@@ -635,7 +635,7 @@ export type QuestionExplanationView = {
   questionId: string
   explanation: string
   references?: string[]
-  explanationImages: { url: string; storagePath: string; order: number }[] // [F3 le peuplera ; vide tant que F3 absente]
+  explanationImages: { url: string; storagePath: string; order: number }[]
 }
 
 /**
@@ -737,7 +737,7 @@ export const getExamQuestionExplanations = async (
 }
 
 // ============================================
-// Confirmation post-soumission (C2)
+// Confirmation post-soumission
 // ============================================
 
 export type ExamSubmissionSummary = {
@@ -909,7 +909,7 @@ export const getExamLeaderboard = async (
 }
 
 // ============================================
-// Dashboard étudiant (5.6b)
+// Dashboard étudiant
 // ============================================
 
 export type MyDashboardStats = {
@@ -922,13 +922,13 @@ export type MyDashboardStats = {
  * Stats résumé du dashboard étudiant. `availableExamsCount` = nombre d'examens
  * actifs (sans filtre de fenêtre) si l'utilisateur a un accès
  * examen actif, sinon 0 — `hasAccess(uid)` interroge l'entitlement réel (pas de
- * bypass admin, comme l'original). Moyenne sur les participations complétées.
- * `null` si non connecté. Remplace `examStats.getMyDashboardStats`.
+ * bypass admin). Moyenne sur les participations complétées. `null` si non
+ * connecté.
  */
 // Prédicat d'audience pour les lectures « mes examens » du dashboard : inclut
 // les examens ouverts (`subscribers`) et les examens restreints dont `uid` est
 // membre (EXISTS corrélé, indexé sur examAudience.userId). Masque les examens
-// restreints confidentiels aux non-membres, même abonnés (D3). Parité avec le
+// restreints confidentiels aux non-membres, même abonnés. Parité avec le
 // filtre de `getExamsWithParticipation`.
 const memberAudienceWhere = (uid: string) =>
   or(
@@ -1128,7 +1128,7 @@ export const getMyAvailableExams = cache(
           eq(exams.isActive, true),
           lte(exams.startDate, now),
           gte(exams.endDate, now),
-          // Admin : preview de tout (D3). Sinon : ouverts + restreints dont
+          // Admin : preview de tout. Sinon : ouverts + restreints dont
           // l'utilisateur est membre — masque les restreints aux non-membres.
           isAdmin ? undefined : memberAudienceWhere(session.user.id),
         ),

@@ -2,7 +2,7 @@ import { expect, test } from "../fixtures/base"
 
 /**
  * Tests pour la page de résultats d'une session d'entraînement.
- * Vérifie le lazy-load des explications (PR B) et la navigation via le navigator.
+ * Vérifie le lazy-load des explications et la navigation via le navigator.
  *
  * Le spec crée sa propre session pour être auto-contenu, au coût d'une
  * session supplémentaire sur le user de test.

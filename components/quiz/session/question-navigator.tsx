@@ -65,7 +65,6 @@ export const QuestionNavigator = ({
     [onNavigate, variant, getQuestionState],
   )
 
-  // Stats section - shared between desktop and mobile
   const statsSection = (
     <div className="flex items-center justify-between text-sm">
       <span className="text-gray-600 dark:text-gray-400">
@@ -100,7 +99,6 @@ export const QuestionNavigator = ({
     </div>
   )
 
-  // Grid section - scrollable on mobile
   const gridSection = (
     <div
       className={cn(
@@ -140,7 +138,6 @@ export const QuestionNavigator = ({
     </div>
   )
 
-  // Legend section - shared between desktop and mobile
   const legendSection = (
     <div className="space-y-2 border-t border-gray-200/60 pt-4 dark:border-gray-700/60">
       <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -191,7 +188,6 @@ export const QuestionNavigator = ({
     </div>
   )
 
-  // Tips section
   const tipsSection = (
     <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
       <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -201,7 +197,6 @@ export const QuestionNavigator = ({
     </div>
   )
 
-  // Desktop variant
   if (variant === "desktop") {
     return (
       <div className="sticky top-24 flex max-h-[calc(100vh-8rem)] flex-col overflow-clip rounded-2xl border border-gray-200/60 bg-white/80 p-5 shadow-sm backdrop-blur-sm dark:border-gray-700/60 dark:bg-gray-900/80">
@@ -227,7 +222,6 @@ export const QuestionNavigator = ({
     )
   }
 
-  // Mobile variant - FAB with dropdown
   return (
     <>
       <Button

@@ -62,7 +62,6 @@ export const InlineEditField = ({
     defaultValues: { value: value || "" },
   })
 
-  // Focus input when entering edit mode
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus()
@@ -71,7 +70,6 @@ export const InlineEditField = ({
     }
   }, [isEditing])
 
-  // Reset form when value prop changes
   useEffect(() => {
     if (!isEditing) {
       form.reset({ value: value || "" })

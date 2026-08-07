@@ -2,7 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { FinishDialog } from "@/components/quiz/session/finish-dialog"
 
-// Mock exam-timer to control formatted output
 vi.mock("@/lib/exam-timer", () => ({
   formatExamTime: (ms: number) => {
     const h = Math.floor(ms / 3600000)

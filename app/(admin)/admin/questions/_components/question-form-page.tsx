@@ -124,8 +124,8 @@ const buildDefaultValues = (q?: QuestionDetail): QuestionFormValues =>
  * Loader/garde : en édition, charge la question via Server Action puis monte le
  * formulaire UNE fois les données prêtes. Ce découpage est volontaire — il permet
  * à `QuestionForm` d'initialiser `useForm({ defaultValues })` de façon synchrone
- * avec la bonne valeur de domaine (cause racine du Bug 1 : un Radix Select
- * contrôlé n'affiche pas une valeur posée tardivement après le montage).
+ * avec la bonne valeur de domaine : un Radix Select contrôlé n'affiche pas une
+ * valeur posée tardivement après le montage.
  */
 export function QuestionFormPage({ mode, questionId }: QuestionFormPageProps) {
   // `undefined` = chargement en cours, `null` = introuvable. En création on saute
@@ -258,14 +258,12 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
 
   const onSubmit = async (values: QuestionFormValues) => {
     try {
-      // Validate options
       const filteredOptions = filterValidOptions(values.options)
       if (filteredOptions.length < 4) {
         toast.error("Au moins 4 options sont requises")
         return
       }
 
-      // Validate correct answer
       if (!validateCorrectAnswer(values)) {
         toast.error("La réponse correcte doit être l'une des options")
         return

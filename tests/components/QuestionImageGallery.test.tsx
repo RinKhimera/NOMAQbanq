@@ -6,14 +6,12 @@ import {
   QuestionImageIndicator,
 } from "@/components/shared/question-image-gallery"
 
-// Mock next/image
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} data-testid="next-image" />
   ),
 }))
 
-// Mock yet-another-react-lightbox
 vi.mock("yet-another-react-lightbox", () => ({
   default: ({
     open,
@@ -33,7 +31,6 @@ vi.mock("yet-another-react-lightbox", () => ({
     ) : null,
 }))
 
-// Mock lightbox plugins
 vi.mock("yet-another-react-lightbox/plugins/zoom", () => ({
   default: {},
 }))
@@ -42,7 +39,6 @@ vi.mock("yet-another-react-lightbox/plugins/counter", () => ({
   default: {},
 }))
 
-// Mock CSS imports
 vi.mock("yet-another-react-lightbox/styles.css", () => ({}))
 vi.mock("yet-another-react-lightbox/plugins/counter.css", () => ({}))
 

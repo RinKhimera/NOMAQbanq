@@ -4,7 +4,7 @@
 const TEST_ENV: Record<string, string> = {
   DATABASE_URL: "postgresql://u:p@localhost/test",
   DATABASE_URL_UNPOOLED: "postgresql://u:p@localhost/test",
-  // BETTER_AUTH_SECRET : >= 32 caractères (contrainte env, review N3).
+  // BETTER_AUTH_SECRET : >= 32 caractères (contrainte du schéma env).
   BETTER_AUTH_SECRET: "test-secret-please-change-000000000000",
   BETTER_AUTH_URL: "http://localhost:3000",
 }

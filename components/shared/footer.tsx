@@ -9,7 +9,7 @@ import {
 import { Mail, MapPin, Phone, Stethoscope } from "lucide-react"
 import Link from "next/link"
 import { FOOTER_LEGAL_LINKS, FOOTER_QUICK_LINKS } from "@/constants"
-import { getAppZoneYear } from "@/lib/format"
+import { getAppZoneYear } from "@/lib/app-zone"
 
 // Constante module-level pour éviter new Date() à chaque render (pureté React 19).
 // Année ancrée sur le fuseau de la plateforme : `getFullYear()` sur l'heure du

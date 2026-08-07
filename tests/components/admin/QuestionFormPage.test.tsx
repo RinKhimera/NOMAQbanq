@@ -52,9 +52,9 @@ vi.mock("@/components/admin/question-image-uploader", () => ({
 
 // Le Radix Select ne se monte pas fidèlement sous happy-dom (le trigger n'est pas
 // rendu et la valeur contrôlée est écrasée par un onValueChange parasite) — un
-// artefact d'environnement, pas un comportement navigateur (le fix `values` a été
-// vérifié en prod). On le remplace par un composant contrôlé fidèle : il EXPOSE la
-// valeur reçue (`data-value`) sans la réécrire, exactement comme un vrai Select.
+// artefact d'environnement, pas un comportement navigateur. On le remplace par un
+// composant contrôlé fidèle : il EXPOSE la valeur reçue (`data-value`) sans la
+// réécrire, exactement comme un vrai Select.
 vi.mock("@/components/ui/select", async () => {
   const React = await import("react")
   const h = React.createElement

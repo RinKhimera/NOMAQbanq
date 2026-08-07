@@ -28,6 +28,11 @@ import {
   userAccess,
 } from "@/db/schema"
 import { describeUserAgent } from "@/features/users/lib/user-agent"
+import {
+  startOfAppZoneDay,
+  startOfAppZoneMonth,
+  startOfNextAppZoneDay,
+} from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 
@@ -244,9 +249,14 @@ export type UsersFilters = {
   search?: string
   role?: "admin" | "user"
   accessStatus?: "active" | "expiring" | "expired" | "never"
-  /** Epoch ms. */
-  dateFrom?: number
-  dateTo?: number
+  /**
+   * Journées civiles `YYYY-MM-DD`, bornes **incluses**, interprétées dans le
+   * fuseau de la plateforme — pas des instants : c'est la seule forme qui
+   * désigne le même jour que celui affiché dans la liste, quel que soit le
+   * fuseau du navigateur de l'admin.
+   */
+  dateFrom?: string
+  dateTo?: string
   sortBy?: "name" | "role" | "createdAt"
   sortOrder?: "asc" | "desc"
   offset?: number
@@ -324,8 +334,10 @@ export const getUsersWithFilters = async ({
           ilike(user.username, `%${escapeLike(searchTerm)}%`),
         )
       : undefined,
-    dateFrom ? gte(user.createdAt, new Date(dateFrom)) : undefined,
-    dateTo ? lte(user.createdAt, new Date(dateTo)) : undefined,
+    dateFrom ? gte(user.createdAt, startOfAppZoneDay(dateFrom)) : undefined,
+    // Semi-ouvert : la journée de fin compte en entier, sinon `lte` sur son
+    // minuit ne retiendrait que les comptes créés à la seconde près.
+    dateTo ? lt(user.createdAt, startOfNextAppZoneDay(dateTo)) : undefined,
     accessPredicate,
   )
 
@@ -433,12 +445,10 @@ export const getUsersStats = async (): Promise<UsersStatsView> => {
 
   const now = new Date()
   const nowMs = now.getTime()
-  const startOfMonth = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-  )
-  const startOfLastMonth = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
-  )
+  // Mois civils de l'Est : une inscription du 31 à 21:00 appartient au mois qui
+  // s'achève, pas à celui que le calendrier UTC a déjà entamé.
+  const startOfMonth = startOfAppZoneMonth(now)
+  const startOfLastMonth = startOfAppZoneMonth(now, -1)
   const in7d = new Date(nowMs + 7 * DAY_MS)
   const ago30 = new Date(nowMs - 30 * DAY_MS)
   const ago60 = new Date(nowMs - 60 * DAY_MS)
