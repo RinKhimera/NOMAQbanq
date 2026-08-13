@@ -17,6 +17,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useMounted } from "@/hooks/use-mounted"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { authClient } from "@/lib/auth-client"
 import { MobileMenu } from "./mobile-menu"
@@ -35,6 +36,9 @@ export const MarketingHeader = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const { isVisible, isScrolled } = useHeaderScroll()
   const { currentUser, isAuthenticated } = useCurrentUser()
+  // La session n'est pas résolue au SSR : la laisser choisir le balisage
+  // pendant l'hydratation produit deux arbres DOM différents.
+  const showUser = useMounted() && isAuthenticated
   const pathname = usePathname()
   const router = useRouter()
 
@@ -144,7 +148,7 @@ export const MarketingHeader = () => {
             <div className="hidden items-center gap-3 lg:flex">
               <ThemeToggle />
 
-              {isAuthenticated && currentUser ? (
+              {showUser && currentUser ? (
                 <DropdownMenu
                   modal={false}
                   open={isUserMenuOpen}
@@ -245,7 +249,7 @@ export const MarketingHeader = () => {
         onOpenChange={setIsMobileMenuOpen}
         navigation={navigation}
         currentUser={currentUser}
-        isAuthenticated={isAuthenticated}
+        isAuthenticated={showUser}
       />
 
       {/* Spacer pour le contenu */}
