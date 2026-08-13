@@ -202,6 +202,14 @@ marketing : aucun événement Sentry sur `/`, `/faq` ou `/domaines`. Le correcti
 les couvre par construction, ce n'est pas une raison de prétendre qu'elles
 étaient cassées.
 
+**Précision relevée à la vérification navigateur.** `proxy.ts:62-64` redirige un
+visiteur **connecté** depuis `/`, `/a-propos` et `/domaines` vers
+`/tableau-de-bord` (`PUBLIC_ONLY`). Ces trois pages ne rendent donc JAMAIS la
+branche connectée du header, et sortent du risque. Les pages où un utilisateur
+authentifié voit réellement le header marketing sont `/tarifs`, `/evaluation`
+(la seule page ISR concernée), `/faq` et les pages légales. La surface exposée
+est donc plus petite que ce que la première rédaction laissait entendre.
+
 ## Design
 
 ### `PricingGrid` — descendre l'authentification depuis le serveur
