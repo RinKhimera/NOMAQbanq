@@ -16,15 +16,28 @@
 
 ## Pourquoi c'est un vrai bug (à garder en tête pendant l'exécution)
 
-`node_modules/better-auth/dist/client/react/react-store.mjs:41` :
+La session Better Auth n'est **jamais** pré-remplie au premier rendu client :
+`session-atom.mjs:29-35` naît à `{ data: null, isPending: true }` et seul
+`onMount` → `setTimeout(…, 0)` → aller-retour réseau la peuple. Elle n'arrive
+donc pas AVANT l'hydratation — elle arrive **PENDANT**, quand l'hydratation dure
+assez longtemps. Sur l'appareil de l'incident (Android 10 d'entrée de gamme,
+~25 scripts dont un de 560 Ko), le replay montre le DOM servi en branche
+déconnectée à −826 ms, l'erreur à 0, et la régénération à +246 ms avec les
+initiales d'avatar et le bandeau d'accès. Le store a changé entre deux frames
+d'hydratation.
 
-```js
-return useSyncExternalStore(subscribe, get, get)
-```
+C'est pour ça que le défaut ne se reproduit sur aucune machine de développement :
+le levier n'est pas l'état de la session, c'est la **durée de l'hydratation**.
 
-Le 3ᵉ argument est `getServerSnapshot` — celui que React utilise pour le **rendu d'hydratation**. Better Auth y passe `get`, la même fonction que le snapshot client : elle renvoie l'état courant du store, pas une valeur neutre. Si la session est déjà résolue côté client à l'hydratation, le rendu d'hydratation voit un utilisateur là où le HTML serveur n'en avait aucun → deux arbres DOM différents → `throwOnHydrationMismatch`.
+**Deux corollaires pour les tests.**
 
-**Corollaire pour les tests :** un `render()` de Testing Library est un rendu **client**, il passe par `getSnapshot`. Il ne peut donc PAS constater le comportement d'hydratation. Le seul test honnête pour la garde du header est un `renderToString` de `react-dom/server`, qui emprunte `getServerSnapshot`.
+1. Un `render()` de Testing Library est un rendu client déjà monté : il ne
+   traverse jamais la fenêtre d'hydratation. Il ne peut rien prouver ici.
+2. Un test qui rend avec un mock figé ne prouve rien non plus — c'est le défaut
+   de la première version de ce plan, relevé en revue. Le seul test qui exerce
+   l'invariant fait **changer la session entre la génération du HTML serveur et
+   l'hydratation**, puis vérifie que React n'a rien à récupérer. C'est ce que
+   fait la tâche 4.
 
 ## Structure des fichiers
 
@@ -192,7 +205,7 @@ describe("PricingGrid", () => {
 - [ ] **Step 2 : Lancer le test pour vérifier qu'il échoue**
 
 ```bash
-bun run test -- tests/components/payments/PricingGrid.test.tsx
+bunx vitest run --project frontend tests/components/payments/PricingGrid.test.tsx
 ```
 
 Attendu : ÉCHEC. `PricingGrid` n'accepte pas encore la prop `isAuthenticated` (erreur TypeScript / prop ignorée), le bandeau ne se rend pas et le clic ne déclenche rien (le `if (isAuthLoading) return` sort tôt, `isPending` valant `true` sans session résolue).
@@ -241,6 +254,8 @@ Simplifier `handlePurchase` :
 ```
 
 Le reste du composant (bandeau ligne 120, grille, onglets) est inchangé : `isAuthenticated` est désormais une prop.
+
+> **Conséquence assumée, relevée en revue.** La prop est figée au rendu serveur, alors que le header continue de suivre la session en direct (Better Auth rafraîchit au focus de l'onglet et entre onglets). Un utilisateur dont la session expire pendant qu'il lit la page verra donc un header repassé en « Connexion » tandis que la grille le croit toujours authentifié. Un clic « Acheter » dans cet état atteint `createStripeCheckout`, dont le garde `requireSession()` (`lib/auth-guards.ts:6-10`) redirige vers `/connexion` — comportement correct, et strictement meilleur que l'actuel, où le même clic ne produit **rien**. On ne rajoute pas de synchronisation client pour ça : ce serait réintroduire la dépendance qu'on est en train de retirer.
 
 - [ ] **Step 4 : Câbler la prop depuis le Server Component**
 
@@ -312,7 +327,7 @@ Le reste du composant (bandeau ligne 120, grille, onglets) est inchangé : `isAu
 - [ ] **Step 5 : Relancer le test — il doit passer**
 
 ```bash
-bun run test -- tests/components/payments/PricingGrid.test.tsx
+bunx vitest run --project frontend tests/components/payments/PricingGrid.test.tsx
 ```
 
 Attendu : 4 tests PASS.
@@ -368,7 +383,7 @@ describe("useMounted", () => {
 - [ ] **Step 2 : Lancer le test pour vérifier qu'il échoue**
 
 ```bash
-bun run test -- tests/hooks/useMounted.test.tsx
+bunx vitest run --project frontend tests/hooks/useMounted.test.tsx
 ```
 
 Attendu : ÉCHEC — `Cannot find module '@/hooks/use-mounted'`.
@@ -404,7 +419,7 @@ export const useMounted = () =>
 - [ ] **Step 4 : Relancer le test — il doit passer**
 
 ```bash
-bun run test -- tests/hooks/useMounted.test.tsx
+bunx vitest run --project frontend tests/hooks/useMounted.test.tsx
 ```
 
 Attendu : 2 tests PASS.
@@ -446,7 +461,7 @@ Le reste du fichier (placeholder `if (!mounted)`, dropdown) est inchangé.
 
 ```bash
 bun run check
-bun run test -- tests/hooks/useMounted.test.tsx
+bunx vitest run --project frontend tests/hooks/useMounted.test.tsx
 git add hooks/use-mounted.ts tests/hooks/useMounted.test.tsx components/shared/theme-toggle.tsx
 git commit -m "refactor: extraire la garde d'hydratation useMounted"
 ```
@@ -506,11 +521,14 @@ git commit -m "test: ajouter motion.header au mock motion"
 
 - [ ] **Step 1 : Écrire le test qui échoue**
 
-Créer `tests/components/MarketingHeader.test.tsx`. Le test mocke `useCurrentUser` pour renvoyer un **utilisateur connecté**, puis constate que le rendu serveur/hydratation affiche quand même la branche déconnectée — c'est exactement l'invariant qu'on veut verrouiller.
+Créer `tests/components/MarketingHeader.test.tsx`.
+
+**Ce test rejoue le scénario de l'incident**, il ne se contente pas d'un mock figé : le HTML serveur est produit **déconnecté**, puis la session bascule sur **connectée**, et seulement ensuite React hydrate. C'est exactement la fenêtre où le store se résout dans le replay. Sans la garde, `hydrateRoot` signale une récupération via `onRecoverableError` ; avec elle, l'hydratation est propre.
 
 ```tsx
-import { render, screen } from "@testing-library/react"
+import { act } from "@testing-library/react"
 import type { ReactNode } from "react"
+import { hydrateRoot } from "react-dom/client"
 import { renderToString } from "react-dom/server"
 import { describe, expect, it, vi } from "vitest"
 import { MarketingHeader } from "@/components/marketing-header"
@@ -550,6 +568,15 @@ vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: vi.fn(),
 }))
 
+type Session = ReturnType<typeof useCurrentUser>
+
+const deconnecte = {
+  currentUser: null,
+  isLoading: true,
+  isAuthenticated: false,
+  refetch: vi.fn(),
+} as unknown as Session
+
 const connecte = {
   currentUser: {
     name: "Awa Diallo",
@@ -559,50 +586,73 @@ const connecte = {
   isLoading: false,
   isAuthenticated: true,
   refetch: vi.fn(),
-}
+} as unknown as Session
 
 describe("MarketingHeader", () => {
-  it("rend la branche déconnectée à l'hydratation, même avec une session résolue", () => {
-    vi.mocked(useCurrentUser).mockReturnValue(
-      connecte as ReturnType<typeof useCurrentUser>,
-    )
-
+  it("hydrate proprement quand la session se résout entre le HTML serveur et l'hydratation", async () => {
+    // 1. HTML serveur : aucune session résolue côté serveur.
+    vi.mocked(useCurrentUser).mockReturnValue(deconnecte)
     const html = renderToString(<MarketingHeader />)
-
     expect(html).toContain("Connexion")
-    expect(html).toContain("Inscription")
-    expect(html).not.toContain("Awa Diallo")
+
+    // 2. La session arrive AVANT qu'on hydrate — la fenêtre de l'incident.
+    vi.mocked(useCurrentUser).mockReturnValue(connecte)
+
+    const container = document.createElement("div")
+    container.innerHTML = html
+    document.body.appendChild(container)
+
+    const recoverable: unknown[] = []
+    await act(async () => {
+      hydrateRoot(container, <MarketingHeader />, {
+        onRecoverableError: (err) => recoverable.push(err),
+      })
+    })
+
+    // 3. Sans la garde, React signale ici un mismatch d'hydratation.
+    expect(recoverable).toEqual([])
   })
 
-  it("affiche l'utilisateur une fois monté côté client", () => {
-    vi.mocked(useCurrentUser).mockReturnValue(
-      connecte as ReturnType<typeof useCurrentUser>,
-    )
+  it("affiche l'utilisateur une fois l'hydratation terminée", async () => {
+    vi.mocked(useCurrentUser).mockReturnValue(deconnecte)
+    const html = renderToString(<MarketingHeader />)
 
-    render(<MarketingHeader />)
+    vi.mocked(useCurrentUser).mockReturnValue(connecte)
+    const container = document.createElement("div")
+    container.innerHTML = html
+    document.body.appendChild(container)
 
-    expect(screen.queryByRole("link", { name: "Connexion" })).not.toBeInTheDocument()
+    await act(async () => {
+      hydrateRoot(container, <MarketingHeader />)
+    })
+
+    expect(container.textContent).toContain("Awa Diallo")
+    expect(container.textContent).not.toContain("Connexion")
   })
 })
 ```
 
+> **Pourquoi ce test et pas un `renderToString` avec un mock figé.** La revue adversariale a montré que la première version passait au vert que la garde existe ou non : elle mockait la session à une valeur constante, donc serveur et client rendaient forcément la même chose. Ici la valeur **change** entre les deux rendus — c'est le seul montage qui distingue un composant gardé d'un composant nu.
+
 - [ ] **Step 2 : Lancer le test pour vérifier qu'il échoue**
 
 ```bash
-bun run test -- tests/components/MarketingHeader.test.tsx
+bunx vitest run --project frontend tests/components/MarketingHeader.test.tsx
 ```
 
-Attendu : ÉCHEC sur le premier test — sans la garde, `renderToString` rend déjà la branche connectée (le mock renvoie un utilisateur), donc `Connexion` est absent et `Awa Diallo` présent.
+Attendu : ÉCHEC du premier test — sans la garde, l'hydratation trouve « Connexion » dans le DOM alors que le composant rend l'avatar, React récupère et `onRecoverableError` reçoit une erreur d'hydratation. `recoverable` n'est donc pas vide.
 
 - [ ] **Step 3 : Poser la garde**
 
 `components/marketing-header/index.tsx` :
 
 ```diff
- import { useCurrentUser } from "@/hooks/useCurrentUser"
 +import { useMounted } from "@/hooks/use-mounted"
+ import { useCurrentUser } from "@/hooks/useCurrentUser"
  import { authClient } from "@/lib/auth-client"
 ```
+
+L'ordre compte : `prettier` trie le groupe `@/` et `use-mounted` précède `useCurrentUser` (`-` avant `C`). L'inverse fait échouer `bun run check`.
 
 ```diff
    const { isVisible, isScrolled } = useHeaderScroll()
@@ -633,7 +683,7 @@ Passage au menu mobile (lignes 247-248) :
 - [ ] **Step 4 : Relancer le test — il doit passer**
 
 ```bash
-bun run test -- tests/components/MarketingHeader.test.tsx
+bunx vitest run --project frontend tests/components/MarketingHeader.test.tsx
 ```
 
 Attendu : 2 tests PASS.
@@ -642,7 +692,7 @@ Attendu : 2 tests PASS.
 
 Remplacer temporairement `showUser` par `isAuthenticated` à la ligne 147 et relancer.
 
-Attendu : le premier test ÉCHOUE. Si les deux passent encore, le test ne teste pas la garde. Puis annuler cette modification temporaire.
+Attendu : le premier test ÉCHOUE — `recoverable` contient une erreur d'hydratation. Si les deux passent encore, le test ne teste pas la garde ; ne pas continuer avant de l'avoir corrigé. Puis annuler cette modification temporaire.
 
 - [ ] **Step 6 : Gate + commit**
 
@@ -725,7 +775,17 @@ Attendu : `check` PASS (prettier + tsc + eslint `--max-warnings 0`) ; suite fron
 bun run test:coverage
 ```
 
-Attendu : les 4 seuils restent ≥ 80 %. `components/marketing-header/**` et `components/shared/theme-toggle.tsx` sont exclus de la couverture (`vitest.config.ts`) ; `hooks/use-mounted.ts` y entre et est couvert par la tâche 2.
+Attendu : les 4 seuils restent ≥ 80 %.
+
+**La couverture ne mesure rien de ce correctif, et il faut le savoir.** `coverage.include` (`vitest.config.ts`) ne liste que `lib/**`, `hooks/**`, `components/**`, `schemas/**`, `email/**` — et `components/marketing-header/**` comme `components/shared/theme-toggle.tsx` sont explicitement exclus. Sur les trois fichiers corrigés :
+
+| Fichier | Mesuré ? |
+| --- | --- |
+| `app/(marketing)/tarifs/_components/pricing-grid.tsx` | non — `app/**` n'est pas dans `include` |
+| `components/marketing-header/index.tsx` | non — exclu |
+| `hooks/use-mounted.ts` | oui |
+
+Un seuil qui reste vert ne dit donc **rien** sur ce travail. Ce sont les tests des tâches 1, 2 et 4 et leurs contrôles de discriminance qui valent, pas le pourcentage. Ne pas élargir `coverage.include` dans cette itération : ça ferait bouger la barre pour des raisons sans rapport avec le correctif.
 
 - [ ] **Step 3 : Tests d'intégration**
 

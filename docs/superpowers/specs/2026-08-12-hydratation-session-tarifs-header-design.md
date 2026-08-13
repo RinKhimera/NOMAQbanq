@@ -48,30 +48,107 @@ serveur par `requireSession()` — la session existait donc. C'est le fait qui
 oriente le diagnostic : le mismatch touche un utilisateur **authentifié** sur
 une page qui, elle, décide de son rendu à partir de la session **cliente**.
 
-## Cause : `useSession` n'a pas de snapshot serveur neutre
+## Cause : la session se résout PENDANT une hydratation longue
 
-`node_modules/better-auth/dist/client/react/react-store.mjs:41` :
+> Cette section a été réécrite après une revue adversariale. La première version
+> affirmait que Better Auth exposait une session déjà en cache au rendu
+> d'hydratation. **C'est faux**, et la correction est ci-dessous. Le diagnostic
+> final ne repose plus sur une lecture de la bibliothèque mais sur le replay de
+> l'incident.
 
-```js
-return useSyncExternalStore(subscribe, get, get)
+### Ce que la bibliothèque fait vraiment
+
+`node_modules/better-auth/dist/client/session-atom.mjs:29-35` — l'atome naît à
+`{ data: null, error: null, isPending: true }`. Le seul chemin qui le peuple est
+`onMount` → `setTimeout(…, 0)` → `fetchSession()`, soit un aller-retour réseau
+(`session-atom.mjs:126-133`). Aucune lecture synchrone de cookie ou de
+`localStorage` ne l'amorce ; le `cookieCache` de Better Auth est serveur.
+`react-store.mjs:28,40-41` lit `useRef(store.get())` et renvoie
+`useSyncExternalStore(subscribe, get, get)`.
+
+Une session **déjà résolue** ne peut donc PAS être visible au premier rendu
+client : `onMount` ne se déclenche qu'au premier `listen()`, qui vient du
+`subscribe` de `useSyncExternalStore`, exécuté en effet passif après le commit.
+
+### Ce qui se passe réellement
+
+La session ne précède pas l'hydratation — elle **arrive pendant**. Reconstitué
+depuis les segments d'enregistrement du replay
+`fae19f5bd6594aa6af37e243808e861a` (voir _Preuve_) :
+
+| Instant (vs erreur) | Fait |
+| --- | --- |
+| −963 ms | chargement de `/tarifs` |
+| −826 ms | DOM servi : header en branche **déconnectée** ; badges d'accès des cartes présents (props serveur) ; bandeau de `PricingGrid` **absent** |
+| 0 | `throwOnHydrationMismatch` |
+| +246 ms | React régénère toute la racine ; apparaissent « LC » (initiales d'avatar), « Examens · 93j restants » et la phrase du bandeau |
+
+L'appareil est un Android d'entrée de gamme (`Generic_Android K`, Android 10)
+chargeant ~25 scripts dont un de 560 Ko. L'hydratation s'y étale sur plusieurs
+frames. Le `setTimeout(0)` + l'aller-retour réseau de `fetchSession` se résolvent
+à l'intérieur de cette fenêtre : le store change **entre** le commit d'une
+frontière d'hydratation et l'hydratation de la suivante, et le sous-arbre que
+React s'apprête à hydrater ne rend plus la même chose que le DOM servi.
+
+C'est pour ça que le défaut est rare, qu'il ne touche que des appareils lents, et
+qu'aucune reproduction locale ne l'a jamais montré.
+
+### Conséquence sur le remède
+
+La garde `mounted` n'est PAS un no-op. L'objection « `mounted && isAuthenticated`
+est algébriquement égal à `isAuthenticated` » suppose que `isAuthenticated` ne
+change pas pendant le rendu d'hydratation. Le replay prouve le contraire : c'est
+exactement là qu'il change. `useMounted` renvoie `false` sur toute la durée de
+l'hydratation, quel que soit le moment où le store se résout — c'est précisément
+ce qui rend le balisage déterministe.
+
+## Preuve
+
+Le replay était encore dans la rétention. Les segments s'obtiennent par
+`sentry api "/api/0/projects/khimera-9h/nomaqbanq/replays/<id>/recording-segments/?download=1"`
+(tableau de segments, chacun un tableau d'événements rrweb). Le breadcrumb
+`replay.hydrate-error` ne porte que l'URL — la valeur est dans le **snapshot
+complet antérieur à l'erreur** (le DOM servi) et dans la **mutation de
+récupération** qui suit (ce que React a réinséré).
+
+Diff textuel entre les deux, par chaînes exactes :
+
+```
+présents côté serveur seulement : « Connexion », « Inscription »
+présents côté client seulement  : « LC »,
+                                  « Examens · 93j restants »,
+                                  « Prolongez votre accès avant expiration
+                                    pour cumuler le temps restant… »
 ```
 
-Le troisième argument est `getServerSnapshot` — celui que React utilise pour le
-**rendu d'hydratation**, côté client. Better Auth y passe `get`, la même
-fonction que le snapshot client : elle renvoie ce que le store nanostores
-contient à cet instant, pas une valeur neutre stable.
+**Rien d'autre ne diverge.** L'écart est exactement l'interface conditionnée par
+la session : la branche d'authentification du header et le bandeau de
+`PricingGrid`.
 
-Conséquence : si la session est déjà résolue côté client au moment où React
-hydrate (cache cookie Better Auth), le rendu d'hydratation voit
-`{ data: user, isPending: false }` alors que le HTML serveur a été produit avec
-`{ data: null, isPending: true }` — aucune session n'est résolue au SSR. Tout
-composant qui **branche son rendu** sur cette valeur produit deux arbres
-différents.
+### Hypothèses concurrentes écartées, sur preuve
 
-C'est le mécanisme que `.claude/rules/loading-ui.md` documentait déjà comme
-diagnostiqué le 2026-07-29 sur la capture serveur/client de Sentry. Il est
-désormais confirmé dans la source de la bibliothèque, et pas seulement déduit
-d'une observation.
+- **Formatage de devise** (`formatCurrency`, `Intl.NumberFormat("fr-CA")` — un
+  U+00A0 côté Node contre un U+202F côté navigateur récent) : réfutée par
+  l'incident lui-même. Les montants sont identiques des deux côtés, code point
+  par code point — `350⟨U+00A0⟩$`, `600⟨U+00A0⟩$`, `250⟨U+00A0⟩$`,
+  `200⟨U+00A0⟩$`, `50⟨U+00A0⟩$` avant comme après.
+- **`next-themes` sur `<html>`** : `app/layout.tsx:135` porte déjà
+  `suppressHydrationWarning`. Le `<style>` de `disableTransitionOnChange` visible
+  dans la mutation est une conséquence de la régénération, pas sa cause.
+- **Navigation cliente** : le `navigation.push` vers `/tarifs` relevé dans
+  l'activité du replay vient du lien « Tarifs » de la barre de navigation ; une
+  navigation cliente n'hydrate pas. Les deux snapshots postérieurs à l'erreur
+  sont les re-captures que Sentry effectue au flush du buffer, pas de nouveaux
+  chargements.
+
+### Degré de confiance, explicitement
+
+- **Prouvé** : l'unique divergence serveur/client est l'interface conditionnée
+  par la session ; la session s'est résolue avant que React ne régénère l'arbre.
+- **Non prouvé** : que le store ait muté à la tick exacte du rendu d'hydratation
+  plutôt qu'entre deux frames de celui-ci. La distinction ne change pas le
+  remède — les deux se corrigent en retirant la session du chemin de décision
+  du rendu — mais elle doit rester écrite plutôt que lissée.
 
 ## Périmètre
 
@@ -112,11 +189,18 @@ franchement différents : avatar + `DropdownMenu`, ou deux boutons
 Un visiteur authentifié qui hydrate avec une session en cache y court le même
 risque structurel que sur `/tarifs`.
 
-**Statut honnête de ce second point** : le défaut est prouvé structurellement
-(la bibliothèque ne fournit pas de snapshot serveur neutre), mais **pas** en
-production — aucun événement Sentry sur `/`, `/faq` ou `/domaines`. On le
-corrige comme durcissement, pas parce que les données le désignent. Cette
-distinction doit rester lisible dans le message de commit.
+**Statut de ce second point — révisé.** La première version de ce document le
+classait en durcissement non désigné par les données. Le replay a tranché
+l'inverse : « Connexion » et « Inscription » sont les DEUX seules chaînes
+présentes côté serveur et absentes côté client, et « LC » (les initiales
+d'avatar du header) est la première apparue côté client. **Le header est un
+contributeur prouvé du mismatch, au même titre que `PricingGrid`** — pas un
+durcissement spéculatif.
+
+Ce qui reste non désigné par les données, c'est le risque sur les autres pages
+marketing : aucun événement Sentry sur `/`, `/faq` ou `/domaines`. Le correctif
+les couvre par construction, ce n'est pas une raison de prétendre qu'elles
+étaient cassées.
 
 ## Design
 
@@ -232,7 +316,16 @@ précédentes passaient leurs tests aussi.
 
 `.claude/rules/loading-ui.md` porte déjà l'interdiction pour le shell dashboard
 (« ne jamais réintroduire d'`authClient.useSession()` dans le shell »). Elle est
-à généraliser avec le **pourquoi** désormais prouvé : `useSession` ne fournit pas
-de `getServerSnapshot` neutre, donc tout branchement de rendu sur la session
-cliente est un mismatch en puissance, y compris hors dashboard. Les deux issues
-et le fichier `react-store.mjs` sont la preuve à citer.
+à généraliser avec le **pourquoi** désormais établi : la session Better Auth se
+résout par un aller-retour réseau déclenché au montage, et sur un appareil lent
+elle atterrit **pendant** l'hydratation. Tout branchement de rendu sur elle est
+donc un mismatch en puissance, y compris hors dashboard — d'autant plus rare et
+d'autant plus difficile à reproduire que la machine de développement est rapide.
+
+Deux corollaires à écrire dans la règle :
+
+- ce n'est **pas** un défaut de la bibliothèque à contourner, c'est le
+  comportement normal d'un état asynchrone client ; le remède est de ne pas le
+  laisser décider du balisage initial ;
+- une reproduction locale qui échoue ne prouve rien. Le levier est le **temps
+  d'hydratation** : throttling CPU/réseau, ou un appareil réel d'entrée de gamme.
