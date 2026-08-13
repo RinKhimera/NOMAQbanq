@@ -30,7 +30,10 @@ vi.mock("@/features/payments/actions", () => ({
   createStripeCheckout: (...args: unknown[]) => createStripeCheckout(...args),
 }))
 
-vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }))
+vi.mock("sonner", () => ({
+  toast: { error: toastError, success: vi.fn() },
+}))
 
 vi.mock("@/lib/format", () => ({
   formatCurrency: (amount: number) => `${(amount / 100).toFixed(0)} $`,
@@ -51,6 +54,22 @@ const products = [
     stripePriceId: "price_test",
   },
 ]
+
+const trainingProduct = {
+  ...products[0],
+  id: "prod_2",
+  code: "training_access" as const,
+  name: "Accès Entraînement 30 jours",
+  accessType: "training" as const,
+}
+
+const premiumProduct = {
+  ...products[0],
+  id: "prod_3",
+  code: "premium_access" as const,
+  name: "Accès Premium",
+  isCombo: true,
+}
 
 const accessStatus = {
   examAccess: { expiresAt: 1_800_000_000_000, daysRemaining: 12 },
@@ -122,5 +141,88 @@ describe("PricingGrid", () => {
       }),
     )
     expect(push).not.toHaveBeenCalled()
+  })
+
+  it("affiche l'erreur métier renvoyée par l'action, sans rediriger", async () => {
+    createStripeCheckout.mockResolvedValue({ error: "Produit mal configuré" })
+    render(
+      <PricingGrid products={products} accessStatus={null} isAuthenticated />,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
+
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith("Produit mal configuré"),
+    )
+  })
+
+  it("distingue une panne réseau d'une erreur générique", async () => {
+    createStripeCheckout.mockRejectedValue(new Error("Failed to fetch"))
+    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false)
+
+    const { unmount } = render(
+      <PricingGrid products={products} accessStatus={null} isAuthenticated />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        "Pas de connexion internet. Vérifiez votre réseau.",
+      ),
+    )
+    unmount()
+
+    onLine.mockReturnValue(true)
+    render(
+      <PricingGrid products={products} accessStatus={null} isAuthenticated />,
+    )
+    fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith(
+        "Une erreur est survenue. Veuillez réessayer.",
+      ),
+    )
+  })
+
+  it("affiche un état vide quand aucun produit n'est disponible", () => {
+    render(
+      <PricingGrid products={[]} accessStatus={null} isAuthenticated={false} />,
+    )
+
+    expect(screen.getByText("Aucune offre disponible")).toBeInTheDocument()
+  })
+
+  it("sort le produit combo de la grille pour le mettre en avant", () => {
+    render(
+      <PricingGrid
+        products={[...products, premiumProduct]}
+        accessStatus={accessStatus}
+        isAuthenticated
+      />,
+    )
+
+    expect(screen.getByText("Accès Premium")).toBeInTheDocument()
+    expect(screen.getByText("Accès Examens 30 jours")).toBeInTheDocument()
+  })
+
+  it("filtre la grille par type d'accès", () => {
+    render(
+      <PricingGrid
+        products={[...products, trainingProduct]}
+        accessStatus={accessStatus}
+        isAuthenticated
+      />,
+    )
+
+    expect(screen.getByText("Accès Entraînement 30 jours")).toBeInTheDocument()
+
+    // Radix TabsTrigger commute sur mousedown, pas sur un click synthétique.
+    fireEvent.mouseDown(
+      screen.getByRole("tab", { name: /Filtrer par examens/ }),
+    )
+
+    expect(
+      screen.queryByText("Accès Entraînement 30 jours"),
+    ).not.toBeInTheDocument()
+    expect(screen.getByText("Accès Examens 30 jours")).toBeInTheDocument()
   })
 })

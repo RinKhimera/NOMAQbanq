@@ -777,15 +777,21 @@ bun run test:coverage
 
 Attendu : les 4 seuils restent ≥ 80 %.
 
-**La couverture ne mesure rien de ce correctif, et il faut le savoir.** `coverage.include` (`vitest.config.ts`) ne liste que `lib/**`, `hooks/**`, `components/**`, `schemas/**`, `email/**` — et `components/marketing-header/**` comme `components/shared/theme-toggle.tsx` sont explicitement exclus. Sur les trois fichiers corrigés :
+**Attention au piège de couverture, mesuré pendant l'exécution.** `coverage.include` ne sert PAS à filtrer les fichiers mesurés : il ajoute au rapport les fichiers **jamais exécutés**. Un fichier exécuté par un test entre dans le rapport dès lors qu'aucune règle d'`exclude` ne le vise — même s'il ne correspond à aucune entrée d'`include`.
+
+Conséquence concrète : écrire `tests/components/payments/PricingGrid.test.tsx` fait **entrer** `app/(marketing)/tarifs/_components/pricing-grid.tsx` dans la couverture, alors qu'`app/**` n'est dans aucun glob d'`include`. Mesuré : le fichier arrive à 59,45 % de branches et fait passer l'agrégat de **80,36 % → 79,92 %**, sous le seuil, alors que la base était verte. Le correctif casse donc la CI si on s'arrête aux 4 tests initiaux.
+
+Sur les trois fichiers touchés :
 
 | Fichier | Mesuré ? |
 | --- | --- |
-| `app/(marketing)/tarifs/_components/pricing-grid.tsx` | non — `app/**` n'est pas dans `include` |
-| `components/marketing-header/index.tsx` | non — exclu |
+| `app/(marketing)/tarifs/_components/pricing-grid.tsx` | **oui, dès qu'un test le charge** |
+| `components/marketing-header/index.tsx` | non — `components/marketing-header/**` est dans `exclude` |
 | `hooks/use-mounted.ts` | oui |
 
-Un seuil qui reste vert ne dit donc **rien** sur ce travail. Ce sont les tests des tâches 1, 2 et 4 et leurs contrôles de discriminance qui valent, pas le pourcentage. Ne pas élargir `coverage.include` dans cette itération : ça ferait bouger la barre pour des raisons sans rapport avec le correctif.
+La tâche 1 doit donc couvrir aussi les branches d'erreur du parcours d'achat (erreur métier renvoyée par l'action, `navigator.onLine` faux vs vrai), l'état vide, la mise en avant du combo et le filtre par type d'accès — sans quoi le seuil tombe. Après ces tests : `pricing-grid.tsx` à 89,18 % de branches, agrégat à **80,54 %**, au-dessus de la base.
+
+Ne pas « régler » ça en ajoutant `app/**` à `coverage.exclude` : ce serait masquer un fichier réellement exécuté par les tests, exactement le travers que la campagne vitest a corrigé.
 
 - [ ] **Step 3 : Tests d'intégration**
 
