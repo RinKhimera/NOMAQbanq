@@ -36,10 +36,12 @@ export default function TarifsPageClient({
   products,
   accessStatus,
   stats,
+  isAuthenticated,
 }: {
   products: ProductView[]
   accessStatus: AccessStatus | null
   stats: MarketingStats
+  isAuthenticated: boolean
 }) {
   return (
     <>
@@ -47,7 +49,11 @@ export default function TarifsPageClient({
       <PricingHeader stats={stats} />
 
       {/* Pricing cards */}
-      <PricingGrid products={products} accessStatus={accessStatus} />
+      <PricingGrid
+        products={products}
+        accessStatus={accessStatus}
+        isAuthenticated={isAuthenticated}
+      />
 
       {/* Guarantees section */}
       <section className="bg-linear-to-br from-gray-50 to-white py-20 dark:from-gray-900 dark:to-gray-800">
