@@ -2,7 +2,7 @@
 
 import { Monitor, Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
-import { useEffect, useState, useSyncExternalStore } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -10,18 +10,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
-// useSyncExternalStore pour détecter le montage côté client sans setState dans useEffect
-const emptySubscribe = () => () => {}
+import { useMounted } from "@/hooks/use-mounted"
 
 export default function ThemeToggle() {
   const { setTheme } = useTheme()
   const [open, setOpen] = useState(false)
-  const mounted = useSyncExternalStore(
-    emptySubscribe,
-    () => true, // Côté client : toujours monté
-    () => false, // Côté serveur : jamais monté
-  )
+  const mounted = useMounted()
 
   useEffect(() => {
     if (!open) return

@@ -94,6 +94,13 @@ export const motionMockFactory = {
       const filtered = filterMotionProps(props)
       return <circle {...filtered}>{children}</circle>
     },
+    header: ({
+      children,
+      ...props
+    }: ComponentPropsWithoutRef<"header"> & Record<string, unknown>) => {
+      const filtered = filterMotionProps(props)
+      return <header {...filtered}>{children}</header>
+    },
   },
   AnimatePresence: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>

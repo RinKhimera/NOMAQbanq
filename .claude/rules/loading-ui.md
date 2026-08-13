@@ -37,6 +37,35 @@ justifie dans le code.
   zone côté serveur et font descendre l'utilisateur en props via `toSessionUser`
   (`lib/session-user.ts`) : ne jamais réintroduire d'`authClient.useSession()`
   dans le shell.
+  **Cause racine, établie sur le replay de NOMAQBANQ-1E (2026-08-12).** L'atome
+  de session Better Auth n'est JAMAIS pré-rempli : il naît à
+  `{ data: null, isPending: true }` et n'est peuplé que par `onMount` →
+  `setTimeout(…, 0)` → aller-retour réseau. La session n'arrive donc pas AVANT
+  l'hydratation — elle arrive **PENDANT**, quand l'hydratation dure assez
+  longtemps (appareil d'entrée de gamme, gros bundle). Le store change entre
+  deux frames et le sous-arbre que React s'apprête à hydrater ne rend plus le
+  DOM servi.
+  **Aucun composant rendu côté serveur ne doit brancher son balisage sur
+  `authClient.useSession()`** — pas seulement le shell dashboard. Deux remèdes,
+  selon que la page peut lire les cookies :
+  - page déjà dynamique → descendre l'information en **prop depuis le Server
+    Component** (`app/(marketing)/tarifs/page.tsx` passe `isAuthenticated`) ;
+  - page ISR, où lire les cookies casserait la génération statique
+    (`/`, `/domaines`, `/a-propos`, `/evaluation` sont en `revalidate = 3600`)
+    → garder la session cliente mais la neutraliser pendant l'hydratation avec
+    `useMounted()` (`hooks/use-mounted.ts`), comme `components/marketing-header`
+    et `components/shared/theme-toggle.tsx`.
+
+  Deux corollaires qui coûtent cher à réapprendre :
+  - **le levier de reproduction est la DURÉE d'hydratation, pas l'état.** Une
+    machine de développement ne reproduira jamais : il faut throttler le CPU/le
+    réseau, ou un vrai appareil lent. Trois PR (#127, #130, #133) ont visé cette
+    issue en corrigeant du formatage avant que le replay ne donne la réponse ;
+  - **un test qui fige la session à une valeur constante ne teste rien** — il
+    passe que la garde existe ou non. Il faut faire CHANGER la valeur entre
+    `renderToString` et `hydrateRoot`, et observer `onRecoverableError`
+    (`tests/components/MarketingHeader.test.tsx`).
+
   Corollaire général : **tout état dérivé du client seul (session, `window`,
   `Date.now()`) rendu conditionnellement pendant le SSR produit un mismatch.**
   L'autre cause de la même issue était le salut du hero calculé sur l'heure du

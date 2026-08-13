@@ -14,7 +14,6 @@ import { PricingCard } from "@/components/shared/payments/pricing-card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createStripeCheckout } from "@/features/payments/actions"
 import type { AccessStatus, ProductView } from "@/features/payments/dal"
-import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { cn } from "@/lib/utils"
 
 type AccessFilter = "all" | "exam" | "training"
@@ -22,19 +21,19 @@ type AccessFilter = "all" | "exam" | "training"
 interface PricingGridProps {
   products: ProductView[]
   accessStatus: AccessStatus | null
+  isAuthenticated: boolean
 }
 
-export const PricingGrid = ({ products, accessStatus }: PricingGridProps) => {
+export const PricingGrid = ({
+  products,
+  accessStatus,
+  isAuthenticated,
+}: PricingGridProps) => {
   const [filter, setFilter] = useState<AccessFilter>("all")
   const [loadingProduct, setLoadingProduct] = useState<string | null>(null)
   const router = useRouter()
 
-  const { isAuthenticated, isLoading: isAuthLoading } = useCurrentUser()
-
   const handlePurchase = async (productCode: string) => {
-    // Attendre que l'état d'authentification soit déterminé.
-    if (isAuthLoading) return
-
     if (!isAuthenticated) {
       router.push("/inscription")
       return
