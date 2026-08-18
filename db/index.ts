@@ -1,12 +1,18 @@
 import { attachDatabasePool } from "@vercel/functions"
 import { drizzle } from "drizzle-orm/node-postgres"
-import { Pool } from "pg"
 import { env } from "@/lib/env/server"
+import { NeonRetryPool } from "./retry-pool"
 import * as schema from "./schema"
 
 // One pool created at module scope, reused across requests (Vercel Fluid Compute).
 // Use the POOLED (-pooler) connection string for the runtime.
-const pool = new Pool({ connectionString: env.DATABASE_URL, max: 5 })
+// connectionTimeoutMillis borne l'acquisition (réveil Neon lent, file du pool
+// saturé) : erreur franche à 10 s au lieu d'un blocage indéfini.
+const pool = new NeonRetryPool({
+  connectionString: env.DATABASE_URL,
+  max: 5,
+  connectionTimeoutMillis: 10_000,
+})
 
 // Sans listener, une connexion idle coupée par Neon (reprise d'instance, reset
 // réseau) émet `error` sur le pool → uncaughtException fatale. Le pool remplace
