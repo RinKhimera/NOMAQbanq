@@ -51,10 +51,21 @@
     `exam_access_promo` 20000 · `training_access_promo` 20000 · `exam_access` 5000
     · `training_access` 5000. Croisé avec la base de dev : **aucune dérive**, et
     les 5 `stripe_price_id` de dev sont bien des prix de test.
-  - ⛔ **MODE LIVE — non vérifié.** Le profil CLI `nomaqbanq` n'a pas de clé live
-    (`stripe whoami` → `live_mode_key.available: false`) et le serveur MCP Stripe
-    n'est pas authentifié. **C'est le seul prérequis encore ouvert**, et c'est
-    celui qui compte : la migration s'appliquera à la base de production.
+  - ✅ **MODE LIVE — vérifié, conforme.** 5 prix actifs, les 5 `lookup_key`
+    attendues, tous en `cad`, montants identiques au mode test. Les `prod_…`
+    correspondent au tableau du commentaire d'issue du 2026-08-06 : la prémisse de
+    la migration est établie.
+  - ⚠️ **Non vérifié : `products.price_cad` en PRODUCTION.** Seule la base de dev a
+    été croisée (aucune dérive). Les montants live de Stripe concordent avec la
+    base de dev, donc la prod est conforme *si* sa table `products` porte les mêmes
+    valeurs — ce qui n'a pas été établi faute d'accès à cette base. Sans
+    conséquence sur la migration (le backfill ne dépend que de `code`) : c'est la
+    tâche cron qui le dira dès le premier passage.
+
+- [x] **Permission `prices:read` — vérifiée le 2026-08-21.** La clé restreinte live
+  utilisée par l'application (`nomaqbanq-prod-app`) a reçu « Prices Read » ; la
+  lecture ci-dessus, faite avec elle, le prouve. Reste à confirmer que c'est bien
+  cette clé qui alimente `STRIPE_SECRET_KEY` sur Vercel en production.
 
 - [ ] **Vérifier la permission de la clé Stripe runtime.** `prices.list` exige la lecture sur Prices, ce que la création d'une session avec un price ID n'exigeait pas. Si `STRIPE_SECRET_KEY` (Vercel + `.env.local`) porte une clé restreinte `rk_`, ajouter `prices:read` **avant** de déployer, sinon tous les checkouts tombent en `permission_error`. Une clé `sk_` a la permission par défaut.
 
