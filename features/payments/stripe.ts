@@ -55,6 +55,8 @@ export async function completeStripeTransaction(params: {
   stripeEventId: string
   amountTotal?: number | null
   currency?: string | null
+  presentmentAmount?: number | null
+  presentmentCurrency?: string | null
 }): Promise<CompleteStripeResult> {
   return db.transaction(async (tx) => {
     // Transaction pending (pour obtenir l'userId à verrouiller).
@@ -145,6 +147,19 @@ export async function completeStripeTransaction(params: {
       )
     }
 
+    // Adaptive Pricing : présent UNIQUEMENT si le client a payé dans sa devise
+    // locale. Absent pour un client canadien — les colonnes restent nulles, et
+    // c'est ce qui rend la proportion de conversions mesurable. Ne jamais faire
+    // échouer un paiement valide sur de la traçabilité : valeurs partielles
+    // ⇒ on n'écrit rien.
+    const presentment =
+      params.presentmentAmount != null && params.presentmentCurrency
+        ? {
+            presentmentAmount: params.presentmentAmount,
+            presentmentCurrency: params.presentmentCurrency.toUpperCase(),
+          }
+        : null
+
     await tx
       .update(transactions)
       .set({
@@ -154,6 +169,7 @@ export async function completeStripeTransaction(params: {
         accessExpiresAt: txAccessExpiresAt,
         completedAt: now,
         ...(reconcile ?? {}),
+        ...(presentment ?? {}),
       })
       .where(eq(transactions.id, pending.id))
 
