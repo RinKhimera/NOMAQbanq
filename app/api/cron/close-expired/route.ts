@@ -90,19 +90,23 @@ export async function GET(request: Request) {
     { deletedCount: 0 },
   )
 
-  const priceDrift = await run(
-    "dérive des prix catalogue",
-    "[cron:price-drift]",
-    auditProductPriceDrift,
-    { checked: 0, drifted: 0, failed: false },
-  )
-
   // APRÈS les clôtures (pour inclure les `auto_submitted` du même run).
   const notifications = await run(
     "notifications",
     "[cron:notifications]",
     sendPendingNotifications,
     { examResultsSent: 0, accessRemindersSent: 0 },
+  )
+
+  // EN DERNIER : seule tâche purement informative du lot, et seule à faire un
+  // aller-retour réseau hors Neon. L'appelant coupe à `--max-time 60` — ce qui
+  // peut être perdu ici est un rapport de dérive, pas une clôture d'examen ni un
+  // email en attente.
+  const priceDrift = await run(
+    "dérive des prix catalogue",
+    "[cron:price-drift]",
+    auditProductPriceDrift,
+    { checked: 0, drifted: 0, failed: false },
   )
 
   if (failed) return new Response("Cron handler error", { status: 500 })

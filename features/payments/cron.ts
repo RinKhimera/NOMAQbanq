@@ -57,7 +57,13 @@ export async function auditProductPriceDrift(): Promise<PriceDriftResult> {
             .slice(i, i + LOOKUP_KEYS_PER_CALL)
             .map((r) => r.lookupKey),
           active: true,
-          limit: LOOKUP_KEYS_PER_CALL,
+          // PAS `LOOKUP_KEYS_PER_CALL` : une clé peut porter plusieurs prix
+          // actifs (`resolveStripePrice` prévoit ce cas), donc la réponse peut
+          // compter plus de lignes que de clés demandées. Un `limit` égal au
+          // nombre de clés tronquerait alors la liste, et les clés absentes du
+          // tronçon seraient signalées à tort comme « aucun prix actif ». 100 est
+          // le maximum accepté par l'API.
+          limit: 100,
         },
         // Mêmes bornes qu'au checkout : le SDK attend 80 s et réessaie 2 fois par
         // défaut, contre un `--max-time 60` côté appelant.

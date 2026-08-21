@@ -331,6 +331,30 @@ describe("createStripeCheckout", () => {
     expect(mocks.captureServerError).toHaveBeenCalled()
   })
 
+  // Le repli doit couvrir l'ECHEC de l'appel autant que la cle absente : sans ca,
+  // une cle restreinte sans `prices:read` (ou un 429) renverrait « Reessayez »
+  // pour une panne permanente, au lieu de vendre via le pointeur historique.
+  it("resolution en echec (permission, 429) → repli sur stripe_price_id, vente conservee", async () => {
+    mocks.pricesList.mockRejectedValue(
+      Object.assign(new Error("permission denied"), {
+        code: "more_permissions_required",
+      }),
+    )
+    mocks.checkoutCreate.mockResolvedValueOnce({
+      id: "cs_1",
+      url: "https://stripe.test/pay",
+    })
+
+    const res = await createStripeCheckout(input)
+
+    expect(res).toEqual({ checkoutUrl: "https://stripe.test/pay" })
+    const arg = mocks.checkoutCreate.mock.calls[0]![0] as unknown as {
+      line_items: { price: string }[]
+    }
+    expect(arg.line_items[0].price).toBe("price_1")
+    expect(mocks.captureServerError).toHaveBeenCalled()
+  })
+
   // Un montant diverge legalement le temps qu'un changement de tarif Stripe soit
   // repercute en base : alerter suffit, couper les ventes couterait plus cher.
   it("montant Stripe divergent → alerte mais la vente aboutit", async () => {

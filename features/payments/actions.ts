@@ -2,6 +2,7 @@
 
 import { asc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import type Stripe from "stripe"
 import { db } from "@/db"
 import { products, transactions, user } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
@@ -361,33 +362,43 @@ export const createStripeCheckout = async (input: {
     const stripe = getStripe()
     const base = appBase()
 
-    const price = await resolveStripePrice(
-      stripe,
-      product.stripePriceLookupKey,
-      (lookupKey, count) =>
-        captureServerError(
-          "[createStripeCheckout]",
-          new Error("plusieurs prix actifs pour une même lookup_key"),
-          { userId: session.user.id, detail: `${lookupKey} · ${count} prix` },
-        ),
-    )
-
     // Repli de phase 1 (expand/contract). `stripe_price_id` est le pointeur
     // historique, éprouvé en production ; la `lookup_key` ne l'est pas encore.
-    // Tant que la colonne existe, une clé qui ne résout rien ne doit PAS couper
-    // la vente — elle alerte. Ce repli disparaît en phase 2, avec la colonne :
-    // tant que l'alerte ne se déclenche pas, la bascule est vérifiée.
-    if (!price) {
-      captureServerError(
-        "[createStripeCheckout]",
-        new Error(
-          "aucun prix actif pour cette lookup_key — repli sur stripe_price_id",
-        ),
-        {
-          userId: session.user.id,
-          detail: `lookup_key ${product.stripePriceLookupKey} absente du mode de la clé active (produit ${productCode})`,
-        },
+    // Tant que la colonne existe, la résolution ne doit JAMAIS couper la vente —
+    // ni quand la clé ne résout rien, ni quand l'appel LUI-MÊME échoue (droit
+    // `prices:read` absent de la clé restreinte, 429, réseau). Sans ce catch,
+    // l'exception sauterait par-dessus le repli jusqu'au message générique
+    // « Réessayez », qui invite à retenter une panne permanente. Deux messages
+    // distincts : les deux causes appellent des remèdes opposés.
+    let price: Stripe.Price | null = null
+    try {
+      price = await resolveStripePrice(
+        stripe,
+        product.stripePriceLookupKey,
+        (lookupKey, count) =>
+          captureServerError(
+            "[createStripeCheckout]",
+            new Error("plusieurs prix actifs pour une même lookup_key"),
+            { userId: session.user.id, detail: `${lookupKey} · ${count} prix` },
+          ),
       )
+      if (!price) {
+        captureServerError(
+          "[createStripeCheckout]",
+          new Error(
+            "aucun prix actif pour cette lookup_key — repli sur stripe_price_id",
+          ),
+          {
+            userId: session.user.id,
+            detail: `lookup_key ${product.stripePriceLookupKey} absente du mode de la clé active (produit ${productCode})`,
+          },
+        )
+      }
+    } catch (error) {
+      captureServerError("[createStripeCheckout]", error, {
+        userId: session.user.id,
+        detail: `résolution de la lookup_key ${product.stripePriceLookupKey} impossible — repli sur stripe_price_id (produit ${productCode})`,
+      })
     }
     resolvedPriceId = price?.id ?? product.stripePriceId
 
