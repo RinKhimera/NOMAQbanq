@@ -20,6 +20,12 @@ export default function Error({
     console.error("Application Error:", error)
   }, [error])
 
+  // Rechargement complet volontaire : depuis une error boundary, l'arbre React
+  // est dans un état d'erreur et une navigation client ne le remonte pas.
+  /* eslint-disable @next/next/no-location-assign-relative-destination */
+  const goToHome = () => (window.location.href = "/")
+  /* eslint-enable @next/next/no-location-assign-relative-destination */
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-gray-900">
       <Card className="w-full max-w-md">
@@ -61,7 +67,7 @@ export default function Error({
             </Button>
 
             <Button
-              onClick={() => (window.location.href = "/")}
+              onClick={goToHome}
               variant="outline"
               className="flex items-center gap-2"
             >

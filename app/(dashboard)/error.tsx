@@ -20,6 +20,13 @@ export default function DashboardError({
     console.error("Dashboard Error:", error)
   }, [error])
 
+  // Rechargement complet volontaire : depuis une error boundary, l'arbre React
+  // est dans un état d'erreur et une navigation client ne le remonte pas.
+  /* eslint-disable @next/next/no-location-assign-relative-destination */
+  const goToDashboard = () => (window.location.href = "/tableau-de-bord")
+  const goToHome = () => (window.location.href = "/")
+  /* eslint-enable @next/next/no-location-assign-relative-destination */
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-gray-900">
       <Card className="w-full max-w-lg">
@@ -61,7 +68,7 @@ export default function DashboardError({
             </Button>
 
             <Button
-              onClick={() => (window.location.href = "/tableau-de-bord")}
+              onClick={goToDashboard}
               variant="outline"
               className="flex items-center gap-2"
             >
@@ -70,11 +77,7 @@ export default function DashboardError({
             </Button>
           </div>
 
-          <Button
-            onClick={() => (window.location.href = "/")}
-            variant="ghost"
-            className="text-sm"
-          >
+          <Button onClick={goToHome} variant="ghost" className="text-sm">
             Retour à l&apos;accueil
           </Button>
 
