@@ -23,8 +23,15 @@ l'événement arrive en `currency: "cad"` ; le montant local vit dans
 
 S'y ajoute une classe de bug structurelle : `price_…` et `prod_…` portent des
 préfixes **identiques en test et en live**. Un identifiant du mauvais mode ne se
-révèle qu'à la création de la session, en `resource_missing`. C'est ce qui laisse
-aujourd'hui 4 produits sur 5 intestables en local.
+révèle qu'à la création de la session, en `resource_missing`.
+
+> **Vérifié le 2026-08-21 (lecture seule, mode test) :** les 5 produits de la base
+> de dev pointent désormais tous sur un prix **test**, et leurs montants concordent
+> avec Stripe. Le point 4 de l'issue — « 4 produits sur 5 intestables en local » —
+> et le gotcha correspondant d'`AGENTS.md` sont **périmés** : quelqu'un a fait
+> l'`UPDATE` entre-temps. Ce que la présente campagne apporte n'est donc pas la
+> correction de cet état, mais l'impossibilité d'y retomber — un `UPDATE` manuel
+> reste réversible par le prochain, une `lookup_key` non.
 
 ## Décision structurante
 

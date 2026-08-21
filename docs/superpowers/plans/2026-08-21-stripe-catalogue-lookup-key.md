@@ -38,12 +38,23 @@
   Attendu : dans CHACUNE des deux listes, un prix actif dont `lookup_key` vaut
   exactement `exam_access`, `training_access`, `exam_access_promo`,
   `training_access_promo`, `premium_access`. Noter aussi les `unit_amount` — ce
-  sont eux qui devront concorder avec `products.price_cad` (attendu au 2026-08-06 :
-  35000 / 20000 / 20000 / 5000 / 5000 en cents).
+  sont eux qui devront concorder avec `products.price_cad`.
 
   **Si une seule clé manque ou diffère : ne pas lancer la migration.** Poser la
   `lookup_key` manquante sur le prix concerné (`transfer_lookup_key=true` si elle
   est portée par un ancien prix), puis recommencer la vérification.
+
+  **État au 2026-08-21 :**
+
+  - ✅ **MODE TEST — vérifié, conforme.** 5 prix actifs, portant exactement les 5
+    `lookup_key` attendues, tous en `cad`, montants `premium_access` 35000 ·
+    `exam_access_promo` 20000 · `training_access_promo` 20000 · `exam_access` 5000
+    · `training_access` 5000. Croisé avec la base de dev : **aucune dérive**, et
+    les 5 `stripe_price_id` de dev sont bien des prix de test.
+  - ⛔ **MODE LIVE — non vérifié.** Le profil CLI `nomaqbanq` n'a pas de clé live
+    (`stripe whoami` → `live_mode_key.available: false`) et le serveur MCP Stripe
+    n'est pas authentifié. **C'est le seul prérequis encore ouvert**, et c'est
+    celui qui compte : la migration s'appliquera à la base de production.
 
 - [ ] **Vérifier la permission de la clé Stripe runtime.** `prices.list` exige la lecture sur Prices, ce que la création d'une session avec un price ID n'exigeait pas. Si `STRIPE_SECRET_KEY` (Vercel + `.env.local`) porte une clé restreinte `rk_`, ajouter `prices:read` **avant** de déployer, sinon tous les checkouts tombent en `permission_error`. Une clé `sk_` a la permission par défaut.
 
