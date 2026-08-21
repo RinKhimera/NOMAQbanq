@@ -36,7 +36,12 @@ import type {
   SelectableUser,
   UserPanelData,
 } from "@/features/users/dal"
-import { formatExpiration, formatMediumDate } from "@/lib/format"
+import {
+  formatCurrency,
+  formatExpiration,
+  formatMediumDate,
+  formatPresentmentAmount,
+} from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 // Lazy-load ManualPaymentModal to reduce initial bundle size
@@ -163,15 +168,6 @@ function AccessCard({
 }
 
 function TransactionItem({ transaction }: { transaction: PanelTransaction }) {
-  const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat("fr-CA", {
-      style: "currency",
-      currency: currency === "XAF" ? "XAF" : "CAD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: currency === "XAF" ? 0 : 2,
-    }).format(amount / 100)
-  }
-
   const statusConfig = {
     completed: {
       icon: Check,
@@ -213,9 +209,21 @@ function TransactionItem({ transaction }: { transaction: PanelTransaction }) {
           </p>
         </div>
       </div>
-      <span className="text-sm font-semibold text-gray-900 dark:text-white">
-        +{formatCurrency(transaction.amountPaid, transaction.currency)}
-      </span>
+      <div className="text-right">
+        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+          +{formatCurrency(transaction.amountPaid, transaction.currency)}
+        </span>
+        {transaction.presentmentCurrency !== null &&
+          transaction.presentmentAmount !== null && (
+            <p className="text-xs text-gray-500">
+              présenté :{" "}
+              {formatPresentmentAmount(
+                transaction.presentmentAmount,
+                transaction.presentmentCurrency,
+              )}
+            </p>
+          )}
+      </div>
     </div>
   )
 }

@@ -18,6 +18,7 @@ import {
   formatLongDateTime,
   formatMediumDate,
   formatPaddedMediumDate,
+  formatPresentmentAmount,
   formatShortDate,
   formatTimeOnly,
   formatTimeRemaining,
@@ -89,6 +90,28 @@ describe("formatCurrency", () => {
     it("gère les montants à zéro", () => {
       expect(normalizeSpaces(formatCurrency(0, "XAF"))).toBe("0 XAF")
     })
+  })
+})
+
+describe("formatPresentmentAmount", () => {
+  // Toute espace Unicode (insecable, fine) est normalisee : Intl varie selon la
+  // version d'ICU, et ce n'est pas ce qu'on teste ici.
+  const flat = (s: string) => s.replace(/\s/g, " ")
+
+  // Le piege : `formatCurrency` divise toujours par 100. Le XAF n'a pas de
+  // sous-unite — 228 000 FCFA s'afficheraient en « 2 280 ».
+  it("devise zéro-décimal : l'unité mineure EST l'unité", () => {
+    const out = flat(formatPresentmentAmount(2280000, "xaf"))
+    expect(out).toContain("2 280 000")
+    expect(out).not.toContain("22 800")
+  })
+
+  it("devise à deux décimales : division par 100", () => {
+    expect(flat(formatPresentmentAmount(5000, "cad"))).toContain("50")
+  })
+
+  it("code de devise inconnu d'Intl → repli lisible, pas d'exception", () => {
+    expect(formatPresentmentAmount(1234, "zz")).toBe("1234 ZZ")
   })
 })
 
