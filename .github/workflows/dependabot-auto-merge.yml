@@ -1,0 +1,32 @@
+name: Dependabot auto-merge
+
+# pull_request_target (et non pull_request) : sur une PR de Dependabot, le
+# GITHUB_TOKEN d'un run `pull_request` est en lecture seule et ne peut pas
+# activer l'auto-merge. Aucun code de la PR n'est récupéré ni exécuté ici.
+on: pull_request_target
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    name: Auto-merge outillage
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Métadonnées Dependabot
+        id: meta
+        uses: dependabot/fetch-metadata@v2
+
+      # L'auto-merge attend les checks requis par la règle de branche
+      # (Quality Checks + Integration Tests) : rien ne part sur un CI rouge.
+      - name: Activer l'auto-merge
+        if: >-
+          steps.meta.outputs.dependency-group == 'tooling'
+          && steps.meta.outputs.update-type != 'version-update:semver-major'
+        run: gh pr merge --auto --squash "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

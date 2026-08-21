@@ -9,18 +9,51 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "America/Montreal"
-    open-pull-requests-limit: 10
-    # Grouper les mises à jour pour éviter trop de PRs.
+    open-pull-requests-limit: 5
+    # Laisser retomber les publications fraîches : une release cassée est
+    # généralement corrigée en quelques jours, avant d'entrer dans une PR.
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
     # Ordre = priorité : une dépendance va dans le PREMIER groupe qui la capture.
     groups:
-      # Framework critique en premier : isolé, toutes versions, pour review attentive
+      # Le linter et les types React doivent monter EN MÊME TEMPS que le
+      # framework : décalés, ils appliquent les règles d'une version de Next
+      # qui n'est pas celle installée.
       nextjs:
         patterns:
           - "next"
           - "react"
           - "react-dom"
-      # Tout le reste en minor + patch : 1 seule PR (idéale pour l'auto-merge)
-      minor-and-patch:
+          - "eslint-config-next"
+          - "@next/*"
+          - "@types/react"
+          - "@types/react-dom"
+      # Outillage sans effet sur le bundle livré : candidat à l'auto-merge
+      # (cf. .github/workflows/dependabot-auto-merge.yml).
+      tooling:
+        patterns:
+          - "eslint"
+          - "@eslint/*"
+          - "eslint-plugin-*"
+          - "eslint-config-*"
+          - "prettier"
+          - "prettier-plugin-*"
+          - "@trivago/prettier-plugin-*"
+          - "typescript"
+          - "@types/*"
+          - "vitest"
+          - "@vitest/*"
+          - "@vitejs/*"
+          - "happy-dom"
+          - "@testing-library/*"
+          - "playwright"
+          - "@playwright/*"
+        update-types:
+          - "minor"
+          - "patch"
+      # Tout ce qui part en production, en minor + patch : relecture humaine.
+      runtime:
         patterns:
           - "*"
         update-types:
@@ -43,6 +76,10 @@ updates:
       # Retirer quand Vitest embarquera Vite 8 (v6 importe vite/internal, absent de Vite 7)
       - dependency-name: "@vitejs/plugin-react"
         update-types: ["version-update:semver-major"]
+      # Le SDK AWS publie quasi quotidiennement ; ses patchs n'apportent rien
+      # aux trois clients utilisés ici (S3, SESv2, presigned POST).
+      - dependency-name: "@aws-sdk/*"
+        update-types: ["version-update:semver-patch"]
     labels:
       - "dependencies"
       - "automated"
