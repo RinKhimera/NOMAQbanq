@@ -16,9 +16,39 @@
 
 ## Prérequis avant de commencer
 
+- [ ] **BLOQUANT — vérifier que les `lookup_key` existent réellement, dans les deux modes.**
+
+  Toute la migration repose sur une affirmation extérieure au dépôt : un commentaire
+  d'issue du 2026-08-06 disant que les 5 `lookup_key` Stripe portent exactement la
+  même chaîne que `products.code`, en test comme en live. **Personne ne l'a
+  revérifiée depuis.** Le backfill remplace un pointeur connu-bon en production
+  (`stripe_price_id`) par un pointeur jamais éprouvé : si la clé d'un seul produit
+  diffère, son checkout part en repli (voir Task 3) et l'alerte Sentry se déclenche
+  à chaque achat.
+
+  Lecture seule, aucune écriture, aucun objet créé :
+
+  ```bash
+  # LIVE
+  stripe prices list --limit 20 --live -d "active=true"
+  # TEST
+  stripe prices list --limit 20 -d "active=true"
+  ```
+
+  Attendu : dans CHACUNE des deux listes, un prix actif dont `lookup_key` vaut
+  exactement `exam_access`, `training_access`, `exam_access_promo`,
+  `training_access_promo`, `premium_access`. Noter aussi les `unit_amount` — ce
+  sont eux qui devront concorder avec `products.price_cad` (attendu au 2026-08-06 :
+  35000 / 20000 / 20000 / 5000 / 5000 en cents).
+
+  **Si une seule clé manque ou diffère : ne pas lancer la migration.** Poser la
+  `lookup_key` manquante sur le prix concerné (`transfer_lookup_key=true` si elle
+  est portée par un ancien prix), puis recommencer la vérification.
+
 - [ ] **Vérifier la permission de la clé Stripe runtime.** `prices.list` exige la lecture sur Prices, ce que la création d'une session avec un price ID n'exigeait pas. Si `STRIPE_SECRET_KEY` (Vercel + `.env.local`) porte une clé restreinte `rk_`, ajouter `prices:read` **avant** de déployer, sinon tous les checkouts tombent en `permission_error`. Une clé `sk_` a la permission par défaut.
 
-Cette vérification ne bloque pas l'écriture du code (les tests moquent Stripe), mais elle bloque le déploiement.
+La première vérification bloque l'écriture du code — elle valide la prémisse de la
+migration. La seconde bloque le déploiement seulement (les tests moquent Stripe).
 
 ---
 
@@ -170,43 +200,61 @@ describe("describePriceDrift", () => {
     expect(describePriceDrift(5000, PRICE)).toBeNull()
   })
 
-  it("montant divergent → dérive décrite avec les deux valeurs", () => {
+  // Un montant diverge légalement : `transfer_lookup_key` déplace la clé sur un
+  // nouveau prix quand le tarif change. On alerte, on ne bloque pas.
+  it("montant divergent → dérive NON bloquante, décrite avec les deux valeurs", () => {
     const drift = describePriceDrift(3000, PRICE)
-    expect(drift).toContain("5000")
-    expect(drift).toContain("3000")
+    expect(drift?.currencyMismatch).toBe(false)
+    expect(drift?.message).toContain("5000")
+    expect(drift?.message).toContain("3000")
   })
 
-  it("devise du prix Stripe ≠ cad → dérive", () => {
-    expect(describePriceDrift(5000, { ...PRICE, currency: "usd" })).toContain(
-      "usd",
-    )
+  // La devise d'un prix Stripe est immuable : elle ne peut pas avoir « changé ».
+  // Une devise ≠ cad signifie que la clé pointe sur le mauvais prix.
+  it("devise du prix Stripe ≠ cad → dérive bloquante", () => {
+    const drift = describePriceDrift(5000, { ...PRICE, currency: "usd" })
+    expect(drift?.currencyMismatch).toBe(true)
+    expect(drift?.message).toContain("usd")
   })
 
-  it("unit_amount null (prix à montant libre) → dérive, pas de crash", () => {
-    expect(
-      describePriceDrift(5000, { ...PRICE, unit_amount: null }),
-    ).not.toBeNull()
+  it("unit_amount null (prix à montant libre) → dérive non bloquante", () => {
+    const drift = describePriceDrift(5000, { ...PRICE, unit_amount: null })
+    expect(drift).not.toBeNull()
+    expect(drift?.currencyMismatch).toBe(false)
   })
 })
 
 describe("resolveStripePrice", () => {
-  it("interroge Stripe sur la clé, en prix actifs seulement", async () => {
+  it("interroge Stripe sur la clé, en prix actifs seulement, requête bornée", async () => {
     const list = vi.fn(async () => ({ data: [PRICE] }))
     const stripe = { prices: { list } } as never
 
     const price = await resolveStripePrice(stripe, "exam_access")
 
     expect(price).toEqual(PRICE)
-    expect(list).toHaveBeenCalledWith({
-      lookup_keys: ["exam_access"],
-      active: true,
-      limit: 2,
-    })
+    expect(list).toHaveBeenCalledWith(
+      { lookup_keys: ["exam_access"], active: true, limit: 2 },
+      { timeout: 8000, maxNetworkRetries: 1 },
+    )
   })
 
   it("aucun prix actif pour la clé → null (et non une exception)", async () => {
     const stripe = { prices: { list: async () => ({ data: [] }) } } as never
     expect(await resolveStripePrice(stripe, "inconnu")).toBeNull()
+  })
+
+  // `limit: 2` n'a d'intérêt que si quelqu'un lit le second élément : sans ça,
+  // une clé portée par deux prix actifs se réglerait au hasard, en silence.
+  it("deux prix actifs pour la même clé → anomalie signalée", async () => {
+    const onAmbiguous = vi.fn()
+    const stripe = {
+      prices: { list: async () => ({ data: [PRICE, { ...PRICE, id: "price_2" }] }) },
+    } as never
+
+    const price = await resolveStripePrice(stripe, "exam_access", onAmbiguous)
+
+    expect(price).toEqual(PRICE)
+    expect(onAmbiguous).toHaveBeenCalledWith("exam_access", 2)
   })
 })
 ```
@@ -227,55 +275,79 @@ import type Stripe from "stripe"
 type PriceShape = Pick<Stripe.Price, "id" | "unit_amount" | "currency">
 
 /**
+ * Requête bornée. Le SDK Stripe attend 80 s par défaut et réessaie 2 fois
+ * (`stripe.core.js`) : un appel qui pend peut donc durer ~4 min. C'est
+ * inacceptable sur le chemin du checkout, où l'utilisateur attend, comme dans le
+ * cron, dont l'appelant GitHub Actions coupe à `--max-time 60` puis relance
+ * (`--retry-all-errors`) — soit jusqu'à 4 exécutions complètes du cron par heure.
+ */
+const PRICE_REQUEST_OPTIONS = { timeout: 8000, maxNetworkRetries: 1 }
+
+/**
  * Résout le prix Stripe d'un produit par sa `lookup_key`. Contrairement à un
  * `price_…`, une `lookup_key` est identique en test et en live : c'est ce qui
- * rend impossible l'usage d'un identifiant du mauvais mode. Stripe garantit
- * l'unicité de la clé parmi les prix actifs (`transfer_lookup_key` la déplace
- * sur le nouveau prix lors d'un changement de tarif) — `limit: 2` laisse
- * néanmoins voir une éventuelle anomalie plutôt que de la masquer.
+ * rend impossible l'usage d'un identifiant du mauvais mode.
+ *
+ * `onAmbiguous` est appelé si PLUSIEURS prix actifs portent la clé — cas que
+ * Stripe n'est pas censé produire, et qu'on refuse de trancher au hasard en
+ * silence. Le premier prix est renvoyé quand même : alerter ne doit pas couper
+ * la vente.
  *
  * `null` = aucun prix actif ne porte cette clé dans le mode de la clé API.
  */
 export const resolveStripePrice = async (
   stripe: Stripe,
   lookupKey: string,
+  onAmbiguous?: (lookupKey: string, count: number) => void,
 ): Promise<Stripe.Price | null> => {
-  const { data } = await stripe.prices.list({
-    lookup_keys: [lookupKey],
-    active: true,
-    limit: 2,
-  })
+  const { data } = await stripe.prices.list(
+    { lookup_keys: [lookupKey], active: true, limit: 2 },
+    PRICE_REQUEST_OPTIONS,
+  )
+  if (data.length > 1) onAmbiguous?.(lookupKey, data.length)
   return data[0] ?? null
+}
+
+export type PriceDrift = {
+  /**
+   * La devise du prix Stripe n'est pas le CAD. Traité à part du montant : la
+   * devise d'un prix Stripe est IMMUABLE (on ne modifie pas un prix, on en crée
+   * un autre), donc elle ne peut pas avoir « changé » légitimement — c'est une
+   * erreur de configuration, pas un état transitoire. Un montant, lui, diverge
+   * normalement le temps qu'un `transfer_lookup_key` soit répercuté en base.
+   */
+  currencyMismatch: boolean
+  message: string
 }
 
 /**
  * Écart entre le prix AFFICHÉ (`products.priceCad`, en cents, lu par la grille
  * tarifaire et les paywalls) et le prix que Stripe FACTURERA. Les deux vivent
  * dans des systèmes différents ; sans cette comparaison, une modification de
- * tarif au dashboard non répercutée en base laisse le client lire un montant et
- * en payer un autre.
+ * tarif au dashboard non répercutée en base passe inaperçue.
  *
- * `null` = ils concordent. Sinon, une description prête à partir dans Sentry.
+ * `null` = ils concordent.
  */
 export const describePriceDrift = (
   priceCad: number,
   price: PriceShape,
-): string | null => {
+): PriceDrift | null => {
+  const currencyMismatch = price.currency !== "cad"
   const parts: string[] = []
-  if (price.currency !== "cad") {
-    parts.push(`devise Stripe ${price.currency} ≠ cad`)
-  }
+  if (currencyMismatch) parts.push(`devise Stripe ${price.currency} ≠ cad`)
   if (price.unit_amount !== priceCad) {
     parts.push(`montant Stripe ${price.unit_amount ?? "null"} ≠ base ${priceCad}`)
   }
-  return parts.length > 0 ? `${price.id} : ${parts.join(" · ")}` : null
+  return parts.length > 0
+    ? { currencyMismatch, message: `${price.id} : ${parts.join(" · ")}` }
+    : null
 }
 ```
 
 - [ ] **Step 4 : Lancer le test pour vérifier qu'il passe**
 
 Run: `bun run test tests/features/payments-catalog.test.ts`
-Expected: PASS, 6 tests.
+Expected: PASS, 7 tests.
 
 - [ ] **Step 5 : Commit**
 
@@ -318,11 +390,13 @@ vi.mock("@/lib/stripe", () => ({
 }))
 ```
 
-Remplacer `stripePriceId` par `stripePriceLookupKey` dans `ACTIVE_PRODUCT` :
+**Ajouter** `stripePriceLookupKey` à `ACTIVE_PRODUCT` en conservant `stripePriceId`
+(le repli de phase 1 le lit) :
 
 ```ts
 const ACTIVE_PRODUCT = {
   id: "p1",
+  stripePriceId: "price_1",
   stripePriceLookupKey: "exam_access",
   priceCad: 5000,
   accessType: "exam",
@@ -366,22 +440,28 @@ Ajouter dans le `describe("createStripeCheckout", …)` de `tests/features/payme
     expect(arg.line_items[0].price).toBe("price_resolved")
   })
 
-  it("lookup_key sans prix actif → produit mal configuré, aucune session", async () => {
+  // Phase 1 : la lookup_key n'est pas encore éprouvée en production, le pointeur
+  // historique l'est. Une clé qui ne résout rien alerte mais ne coupe pas la vente.
+  it("lookup_key sans prix actif → repli sur stripe_price_id, vente conservée", async () => {
     mocks.pricesList.mockResolvedValue({ data: [] })
+    mocks.checkoutCreate.mockResolvedValueOnce({
+      id: "cs_1",
+      url: "https://stripe.test/pay",
+    })
+
     const res = await createStripeCheckout(input)
 
-    expect(res).toEqual({
-      error: "Ce produit est mal configuré. Contactez le support.",
-    })
-    expect(mocks.checkoutCreate).not.toHaveBeenCalled()
-    expect(mocks.insertValues).not.toHaveBeenCalled()
+    expect(res).toEqual({ checkoutUrl: "https://stripe.test/pay" })
+    const arg = mocks.checkoutCreate.mock.calls[0]![0] as unknown as {
+      line_items: { price: string }[]
+    }
+    expect(arg.line_items[0].price).toBe("price_1")
     expect(mocks.captureServerError).toHaveBeenCalled()
   })
 
-  // Le prix affiché vient de la base, le prix facturé vient de Stripe. Un écart
-  // doit ALERTER sans bloquer : couper les ventes d'un produit sur une erreur
-  // d'ops coûte plus cher que l'écart lui-même.
-  it("prix Stripe divergent → alerte mais la vente aboutit", async () => {
+  // Un montant diverge légalement le temps qu'un changement de tarif Stripe soit
+  // répercuté en base : alerter suffit, couper les ventes coûterait plus cher.
+  it("montant Stripe divergent → alerte mais la vente aboutit", async () => {
     mocks.pricesList.mockResolvedValue({
       data: [{ id: "price_resolved", unit_amount: 9900, currency: "cad" }],
     })
@@ -393,6 +473,23 @@ Ajouter dans le `describe("createStripeCheckout", …)` de `tests/features/payme
     const res = await createStripeCheckout(input)
 
     expect(res).toEqual({ checkoutUrl: "https://stripe.test/pay" })
+    expect(mocks.captureServerError).toHaveBeenCalled()
+  })
+
+  // La devise d'un prix Stripe est immuable : un écart de devise n'est jamais un
+  // état transitoire légitime, c'est une clé qui pointe sur le mauvais prix.
+  it("devise Stripe ≠ cad → refus, aucune session ni pending", async () => {
+    mocks.pricesList.mockResolvedValue({
+      data: [{ id: "price_resolved", unit_amount: 5000, currency: "usd" }],
+    })
+
+    const res = await createStripeCheckout(input)
+
+    expect(res).toEqual({
+      error: "Ce produit est mal configuré. Contactez le support.",
+    })
+    expect(mocks.checkoutCreate).not.toHaveBeenCalled()
+    expect(mocks.insertValues).not.toHaveBeenCalled()
     expect(mocks.captureServerError).toHaveBeenCalled()
   })
 
@@ -419,9 +516,12 @@ Dans `features/payments/actions.ts`, ajouter l'import (bloc `@/` de l'ordre Pret
 import { describePriceDrift, resolveStripePrice } from "./catalog"
 ```
 
-Remplacer le champ sélectionné (`features/payments/actions.ts:341`) :
+**Ajouter** le champ sélectionné (`features/payments/actions.ts:341`) sans retirer
+`stripePriceId` — il porte le repli de phase 1 ci-dessous, et disparaîtra avec lui
+en phase 2 :
 
 ```ts
+      stripePriceId: products.stripePriceId,
       stripePriceLookupKey: products.stripePriceLookupKey,
 ```
 
@@ -431,45 +531,90 @@ Dans le `try`, entre `const base = appBase()` et `stripe.checkout.sessions.creat
     const price = await resolveStripePrice(
       stripe,
       product.stripePriceLookupKey,
+      (lookupKey, count) =>
+        captureServerError(
+          "[createStripeCheckout]",
+          new Error("plusieurs prix actifs pour une même lookup_key"),
+          { userId: session.user.id, detail: `${lookupKey} · ${count} prix` },
+        ),
     )
+
+    // Repli de phase 1 (expand/contract). `stripe_price_id` est le pointeur
+    // historique, éprouvé en production ; la `lookup_key` ne l'est pas encore.
+    // Tant que la colonne existe, une clé qui ne résout rien ne doit PAS couper
+    // la vente — elle alerte. Ce repli disparaît en phase 2, avec la colonne :
+    // tant que l'alerte ne se déclenche pas, la bascule est vérifiée.
     if (!price) {
       captureServerError(
         "[createStripeCheckout]",
-        new Error("aucun prix actif pour cette lookup_key"),
+        new Error("aucun prix actif pour cette lookup_key — repli sur stripe_price_id"),
         {
           userId: session.user.id,
           detail: `lookup_key ${product.stripePriceLookupKey} absente du mode de la clé active (produit ${productCode})`,
         },
       )
-      return { error: "Ce produit est mal configuré. Contactez le support." }
     }
+    resolvedPriceId = price?.id ?? product.stripePriceId
 
-    // Le client a vu `priceCad` sur la grille tarifaire ; Stripe encaissera
-    // `price.unit_amount`. On alerte sans bloquer : une vente refusée sur une
-    // erreur de configuration coûte plus cher que l'écart.
-    const drift = describePriceDrift(product.priceCad, price)
+    // Devise et montant ne se traitent PAS de la même façon. La devise d'un prix
+    // Stripe est immuable : elle ne peut pas avoir changé légitimement, donc une
+    // devise ≠ cad signifie que la clé pointe sur le mauvais prix → refus. Un
+    // montant, lui, diverge normalement le temps qu'un changement de tarif soit
+    // répercuté en base → alerte seule. Le client voit de toute façon le montant
+    // sur Checkout avant de confirmer.
+    const drift = price ? describePriceDrift(product.priceCad, price) : null
     if (drift) {
       captureServerError(
         "[createStripeCheckout]",
-        new Error("prix affiché divergent du prix Stripe"),
-        { userId: session.user.id, detail: `produit ${productCode} · ${drift}` },
+        new Error(
+          drift.currencyMismatch
+            ? "devise du prix Stripe inattendue"
+            : "prix affiché divergent du prix Stripe",
+        ),
+        {
+          userId: session.user.id,
+          detail: `produit ${productCode} · ${drift.message}`,
+        },
       )
+      if (drift.currencyMismatch) {
+        return { error: "Ce produit est mal configuré. Contactez le support." }
+      }
     }
 ```
 
 Puis remplacer la ligne `line_items` :
 
 ```ts
-      line_items: [{ price: price.id, quantity: 1 }],
+      line_items: [{ price: resolvedPriceId, quantity: 1 }],
 ```
 
-Enfin, remplacer le commentaire du bloc `isStripeResourceMissing` (`features/payments/actions.ts:399-404`) — il décrit un mécanisme qui n'existe plus :
+Enfin, reprendre le bloc `isStripeResourceMissing`
+(`features/payments/actions.ts:399-410`) : son commentaire décrit un mécanisme qui
+n'existe plus, et sa ligne `detail:` désigne un `stripe_price_id` qui n'est plus
+celui qu'on a envoyé à Stripe — le prix réellement facturé est `resolvedPriceId`,
+qui peut venir de la résolution comme du repli. Remplacer le bloc entier par :
 
 ```ts
     // `resource_missing` à la CRÉATION de la session (≠ verifyStripeCheckout, où
     // il vient d'une URL périmée). Le prix étant désormais résolu en amont, ce
     // cas ne peut plus venir d'un identifiant du mauvais mode : il signale un
     // objet Stripe supprimé entre la résolution et la création.
+    if (isStripeResourceMissing(error)) {
+      captureServerError("[createStripeCheckout]", error, {
+        userId: session.user.id,
+        detail: `prix ${resolvedPriceId ?? "non résolu"} (lookup_key ${product.stripePriceLookupKey}) introuvable (produit ${productCode})`,
+      })
+      return { error: "Ce produit est mal configuré. Contactez le support." }
+    }
+```
+
+`price` est déclaré **dans** le `try` : il n'est pas visible depuis le `catch`.
+D'où la variable de portée supérieure, à déclarer juste avant le `try` (et à
+affecter après la résolution, à l'étape suivante) :
+
+```ts
+  let resolvedPriceId: string | null = null
+  try {
 ```
 
 - [ ] **Step 5 : Lancer les tests pour vérifier qu'ils passent**
@@ -502,12 +647,15 @@ vi.mock("@/lib/stripe", () => ({
 
 Le `db.insert(products)` du `beforeAll` porte déjà `stripePriceLookupKey` depuis la Task 1 — vérifier que c'est bien le cas, sinon l'ajouter.
 
-Ajouter le test qui prouve qu'aucun `pending` n'est créé quand la clé ne résout rien :
+Ajouter le test qui prouve qu'aucun `pending` n'est créé quand la vente est
+refusée — le seul cas de refus restant est la devise :
 
 ```ts
-  it("lookup_key sans prix actif → aucune transaction pending créée", async () => {
+  it("devise Stripe ≠ cad → aucune transaction pending créée", async () => {
     mocks.create.mockClear()
-    mocks.pricesList.mockResolvedValueOnce({ data: [] })
+    mocks.pricesList.mockResolvedValueOnce({
+      data: [{ id: "price_resolved", unit_amount: 5000, currency: "usd" }],
+    })
 
     const before = await db
       .select({ id: transactions.id })
@@ -628,7 +776,7 @@ describe("auditProductPriceDrift", () => {
 
     const res = await auditProductPriceDrift()
 
-    expect(res).toEqual({ checked: 1, drifted: 0 })
+    expect(res).toEqual({ checked: 1, drifted: 0, failed: false })
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
@@ -646,7 +794,7 @@ describe("auditProductPriceDrift", () => {
 
     const res = await auditProductPriceDrift()
 
-    expect(res).toEqual({ checked: 1, drifted: 1 })
+    expect(res).toEqual({ checked: 1, drifted: 1, failed: false })
     expect(mocks.captureServerError).toHaveBeenCalledTimes(1)
   })
 
@@ -655,7 +803,7 @@ describe("auditProductPriceDrift", () => {
 
     const res = await auditProductPriceDrift()
 
-    expect(res).toEqual({ checked: 1, drifted: 1 })
+    expect(res).toEqual({ checked: 1, drifted: 1, failed: false })
     expect(mocks.captureServerError).toHaveBeenCalledTimes(1)
   })
 
@@ -683,14 +831,46 @@ describe("auditProductPriceDrift", () => {
     const res = await auditProductPriceDrift()
 
     expect(mocks.pricesList).toHaveBeenCalledTimes(2)
-    expect(res).toEqual({ checked: 12, drifted: 0 })
+    expect(res).toEqual({ checked: 12, drifted: 0, failed: false })
   })
 
   it("Stripe non configuré → tâche neutre, aucun appel", async () => {
     mocks.env.STRIPE_SECRET_KEY = undefined
     const res = await auditProductPriceDrift()
-    expect(res).toEqual({ checked: 0, drifted: 0 })
+    expect(res).toEqual({ checked: 0, drifted: 0, failed: false })
     expect(mocks.pricesList).not.toHaveBeenCalled()
+  })
+
+  // Invariant capital : un audit informatif ne doit JAMAIS faire répondre 500 au
+  // cron. L'appelant GitHub Actions relance sur erreur — une panne Stripe
+  // rejouerait clôtures et notifications jusqu'à 4 fois par heure.
+  it("Stripe en panne → échec signalé, aucune exception propagée", async () => {
+    mocks.pricesList.mockRejectedValue(new Error("Stripe down"))
+
+    const res = await auditProductPriceDrift()
+
+    expect(res).toEqual({ checked: 0, drifted: 0, failed: true })
+    expect(mocks.captureServerError).toHaveBeenCalled()
+  })
+
+  it("borne la requête Stripe (le SDK attend 80 s et réessaie 2 fois par défaut)", async () => {
+    mocks.pricesList.mockResolvedValue({
+      data: [
+        {
+          id: "price_1",
+          lookup_key: "exam_access",
+          unit_amount: 5000,
+          currency: "cad",
+        },
+      ],
+    })
+
+    await auditProductPriceDrift()
+
+    expect(mocks.pricesList).toHaveBeenCalledWith(expect.anything(), {
+      timeout: 8000,
+      maxNetworkRetries: 1,
+    })
   })
 })
 ```
@@ -715,7 +895,11 @@ import { captureServerError } from "@/lib/observability"
 import { getStripe } from "@/lib/stripe"
 import { describePriceDrift } from "./catalog"
 
-export type PriceDriftResult = { checked: number; drifted: number }
+export type PriceDriftResult = {
+  checked: number
+  drifted: number
+  failed: boolean
+}
 
 // Borne de l'API Stripe : `prices.list` accepte au plus 10 `lookup_keys` par
 // requête. Au-delà, la liste serait tronquée en silence et les produits
@@ -729,9 +913,15 @@ const LOOKUP_KEYS_PER_CALL = 10
  * semaines sans que personne ne l'apprenne.
  *
  * Lecture seule : aucune écriture en base, aucune écriture chez Stripe.
+ *
+ * **Ne lève JAMAIS.** Une panne Stripe ferait répondre 500 au dispatcher, or
+ * l'appelant GitHub Actions relance sur erreur (`--retry 3 --retry-all-errors`) :
+ * un audit informatif provoquerait jusqu'à 4 exécutions complètes du cron par
+ * heure, clôtures et notifications comprises. L'échec se signale par `failed`
+ * et par Sentry, pas par une exception.
  */
 export async function auditProductPriceDrift(): Promise<PriceDriftResult> {
-  if (!env.STRIPE_SECRET_KEY) return { checked: 0, drifted: 0 }
+  if (!env.STRIPE_SECRET_KEY) return { checked: 0, drifted: 0, failed: false }
 
   const rows = await db
     .select({
@@ -742,21 +932,33 @@ export async function auditProductPriceDrift(): Promise<PriceDriftResult> {
     .from(products)
     .where(eq(products.isActive, true))
     .limit(50)
-  if (rows.length === 0) return { checked: 0, drifted: 0 }
+  if (rows.length === 0) return { checked: 0, drifted: 0, failed: false }
 
-  const stripe = getStripe()
   const byLookupKey = new Map<string, Stripe.Price>()
-  for (let i = 0; i < rows.length; i += LOOKUP_KEYS_PER_CALL) {
-    const { data } = await stripe.prices.list({
-      lookup_keys: rows
-        .slice(i, i + LOOKUP_KEYS_PER_CALL)
-        .map((r) => r.lookupKey),
-      active: true,
-      limit: LOOKUP_KEYS_PER_CALL,
-    })
-    for (const price of data) {
-      if (price.lookup_key) byLookupKey.set(price.lookup_key, price)
+  try {
+    const stripe = getStripe()
+    for (let i = 0; i < rows.length; i += LOOKUP_KEYS_PER_CALL) {
+      const { data } = await stripe.prices.list(
+        {
+          lookup_keys: rows
+            .slice(i, i + LOOKUP_KEYS_PER_CALL)
+            .map((r) => r.lookupKey),
+          active: true,
+          limit: LOOKUP_KEYS_PER_CALL,
+        },
+        // Mêmes bornes qu'au checkout : le SDK attend 80 s et réessaie 2 fois par
+        // défaut, contre un `--max-time 60` côté appelant.
+        { timeout: 8000, maxNetworkRetries: 1 },
+      )
+      for (const price of data) {
+        if (price.lookup_key) byLookupKey.set(price.lookup_key, price)
+      }
     }
+  } catch (error) {
+    captureServerError("[cron:price-drift]", error, {
+      detail: `lecture des prix Stripe impossible (${rows.length} produits non audités)`,
+    })
+    return { checked: 0, drifted: 0, failed: true }
   }
 
   let drifted = 0
@@ -776,20 +978,24 @@ export async function auditProductPriceDrift(): Promise<PriceDriftResult> {
       drifted++
       captureServerError(
         "[cron:price-drift]",
-        new Error("prix affiché divergent du prix Stripe"),
-        { detail: `produit ${row.code} · ${drift}` },
+        new Error(
+          drift.currencyMismatch
+            ? "devise du prix Stripe inattendue"
+            : "prix affiché divergent du prix Stripe",
+        ),
+        { detail: `produit ${row.code} · ${drift.message}` },
       )
     }
   }
 
-  return { checked: rows.length, drifted }
+  return { checked: rows.length, drifted, failed: false }
 }
 ```
 
 - [ ] **Step 4 : Lancer le test pour vérifier qu'il passe**
 
 Run: `bun run test tests/features/payments-cron.test.ts`
-Expected: PASS, 5 tests.
+Expected: PASS, 7 tests.
 
 - [ ] **Step 5 : Brancher la tâche dans le dispatcher**
 
@@ -806,7 +1012,7 @@ Ajouter l'appel après `quizRateLimitCleanup` et avant le bloc `notifications` :
     "dérive des prix catalogue",
     "[cron:price-drift]",
     auditProductPriceDrift,
-    { checked: 0, drifted: 0 },
+    { checked: 0, drifted: 0, failed: false },
   )
 ```
 
@@ -839,7 +1045,11 @@ Mettre à jour le JSDoc de la route, qui annonce aujourd'hui deux tâches :
 Dans `tests/features/cron-close-expired.test.ts`, ajouter au bloc `vi.hoisted` :
 
 ```ts
-    auditProductPriceDrift: vi.fn(async () => ({ checked: 0, drifted: 0 })),
+    auditProductPriceDrift: vi.fn(async () => ({
+      checked: 0,
+      drifted: 0,
+      failed: false,
+    })),
 ```
 
 Et le mock du module :
@@ -850,7 +1060,24 @@ vi.mock("@/features/payments/cron", () => ({
 }))
 ```
 
-Ajouter le test qui prouve l'isolation — l'invariant du fichier :
+**Mettre à jour l'assertion exacte du compte-rendu** (`tests/features/cron-close-expired.test.ts:92-98`).
+C'est un `toEqual` strict : ajouter une clé au `Response.json` de la route le fait
+échouer. Remplacer par :
+
+```ts
+    await expect(res.json()).resolves.toEqual({
+      examParticipations: { closedCount: 2 },
+      trainingSessions: { closedCount: 0 },
+      anonymizedAccounts: { anonymizedCount: 0 },
+      notifications: { examResultsSent: 3, accessRemindersSent: 1 },
+      quizRateLimitCleanup: { deletedCount: 0 },
+      priceDrift: { checked: 0, drifted: 0, failed: false },
+    })
+```
+
+Ajouter le test qui prouve l'isolation — l'invariant du fichier. La tâche est
+écrite pour ne jamais lever, mais le dispatcher doit rester la ceinture de
+sécurité si un jour elle le fait :
 
 ```ts
   it("échec de l'audit de prix → les autres tâches tournent quand même", async () => {
@@ -1417,14 +1644,31 @@ git commit -m "test: vérification complète du catalogue par lookup_key"
 
 ## Déploiement
 
-1. **Vérifier la permission `prices:read`** sur la clé Stripe de production (voir Prérequis). C'est le seul point qui casse tout le checkout s'il est manqué.
-2. Merger ce PR. La migration s'applique au build Vercel (`build:vercel` → `migrate-deploy`), avant l'activation du déploiement — d'où le maintien de `stripe_price_id` : l'ancien code tourne encore pendant le build et continue de lire cette colonne.
-3. Après vérification en production (un achat réel, ou l'absence d'alerte `[cron:price-drift]` pendant 24 h), ouvrir le PR de suivi : `DROP COLUMN stripe_price_id`, retrait du champ de `db/schema/payments.ts` et de tous les inserts de tests.
+Deux choses cassent le checkout si elles sont manquées, pas une : la permission
+`prices:read` **et** une `lookup_key` erronée. Les deux sont couvertes par les
+Prérequis — les refaire ici, sur la cible de production, avant de merger.
+
+1. **Vérifier la permission `prices:read`** sur la clé Stripe de production.
+2. **Rejouer la vérification des `lookup_key` en mode live** (`stripe prices list --live`).
+   Le repli de phase 1 amortit une erreur, il ne la répare pas.
+3. Merger ce PR. La migration s'applique au build Vercel (`build:vercel` →
+   `migrate-deploy`), avant l'activation du déploiement — d'où le maintien de
+   `stripe_price_id` : l'ancien code tourne encore pendant le build et continue de
+   lire cette colonne.
+4. **Surveiller Sentry pendant 24 à 48 h.** Le tag `[createStripeCheckout]` avec le
+   message « repli sur stripe_price_id » est le signal que la bascule a échoué pour
+   un produit. Silence = les `lookup_key` sont bonnes en production.
+5. Seulement alors, ouvrir le PR de suivi (phase 2) : retrait du repli
+   `price?.id ?? product.stripePriceId` dans `actions.ts`, retrait du champ du
+   `select`, `DROP COLUMN stripe_price_id`, retrait de `db/schema/payments.ts` et
+   de tous les inserts de tests. Le refus sur `lookup_key` introuvable redevient
+   alors le comportement (« Ce produit est mal configuré »), et le test de repli de
+   la Task 3 est réécrit en ce sens.
 
 ## Hors périmètre — ne pas dériver
 
 - Aucun prix en XAF (couperait la conversion Adaptive Pricing sur cette devise).
 - Aucun backfill de `presentment_details` sur l'historique.
 - Aucun affichage dans la table transactions admin ni dans l'historique client.
-- Aucun blocage de vente sur dérive de prix.
+- Aucun blocage de vente sur un écart de montant (la devise, elle, refuse).
 - Aucun cache sur la résolution du prix.
