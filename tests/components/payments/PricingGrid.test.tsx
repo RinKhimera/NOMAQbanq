@@ -50,8 +50,6 @@ const products = [
     durationDays: 30,
     accessType: "exam" as const,
     isCombo: false,
-    stripeProductId: "prod_test",
-    stripePriceId: "price_test",
   },
 ]
 

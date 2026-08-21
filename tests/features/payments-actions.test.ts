@@ -31,12 +31,11 @@ const { mocks } = vi.hoisted(() => ({
           cancel_url: string
         }) => Promise<{ id: string; url: string | null }>
       >(),
-    pricesList:
-      vi.fn<
-        () => Promise<{
-          data: { id: string; unit_amount: number | null; currency: string }[]
-        }>
-      >(),
+    pricesList: vi.fn<
+      () => Promise<{
+        data: { id: string; unit_amount: number | null; currency: string }[]
+      }>
+    >(),
     customersList: vi.fn<() => Promise<{ data: { id: string }[] }>>(),
     portalCreate:
       vi.fn<(arg: { return_url: string }) => Promise<{ url: string }>>(),

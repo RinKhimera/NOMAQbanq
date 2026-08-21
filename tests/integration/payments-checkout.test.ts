@@ -14,14 +14,13 @@ const { mocks } = vi.hoisted(() => ({
           metadata: { userId: string }
         }) => Promise<{ id: string; url: string | null }>
       >(),
-    pricesList:
-      vi.fn<
-        () => Promise<{
-          data: { id: string; unit_amount: number | null; currency: string }[]
-        }>
-      >(async () => ({
-        data: [{ id: "price_resolved", unit_amount: 5000, currency: "cad" }],
-      })),
+    pricesList: vi.fn<
+      () => Promise<{
+        data: { id: string; unit_amount: number | null; currency: string }[]
+      }>
+    >(async () => ({
+      data: [{ id: "price_resolved", unit_amount: 5000, currency: "cad" }],
+    })),
   },
 }))
 

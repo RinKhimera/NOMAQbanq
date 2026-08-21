@@ -7,17 +7,16 @@ const { mocks } = vi.hoisted(() => ({
   mocks: {
     captureServerError: vi.fn(),
     productRows: { current: [] as unknown[] },
-    pricesList:
-      vi.fn<
-        () => Promise<{
-          data: {
-            id: string
-            lookup_key: string | null
-            unit_amount: number | null
-            currency: string
-          }[]
-        }>
-      >(),
+    pricesList: vi.fn<
+      () => Promise<{
+        data: {
+          id: string
+          lookup_key: string | null
+          unit_amount: number | null
+          currency: string
+        }[]
+      }>
+    >(),
     env: { STRIPE_SECRET_KEY: "sk_test_x" as string | undefined },
   },
 }))

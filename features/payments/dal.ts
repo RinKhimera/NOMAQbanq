@@ -113,8 +113,6 @@ export type ProductView = {
   durationDays: number
   accessType: "exam" | "training"
   isCombo: boolean
-  stripeProductId: string
-  stripePriceId: string
 }
 
 /**
@@ -133,8 +131,6 @@ export const getAvailableProducts = cache(async (): Promise<ProductView[]> => {
       durationDays: products.durationDays,
       accessType: products.accessType,
       isCombo: products.isCombo,
-      stripeProductId: products.stripeProductId,
-      stripePriceId: products.stripePriceId,
     })
     .from(products)
     .where(eq(products.isActive, true))

@@ -55,19 +55,43 @@ voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
   deux mécanismes est en jeu.
 - **La réconciliation ne doit jamais faire échouer un paiement valide.** Montant
   ou devise inexploitables → on conserve les valeurs provisoires et on logue.
+- **`presentment_details` est persisté** (`transactions.presentment_amount` /
+  `presentment_currency`, nullables, devise en texte libre — la conversion couvre
+  plus de 150 pays, l'enum `currency` n'en connaît que deux). C'est la seule façon
+  de recouper un client qui écrit « j'ai payé 228 000 FCFA ». Ces colonnes ne sont
+  PAS comptables : `amountPaid`/`currency` restent l'encaissement. Le hash n'est
+  présent que si le client a payé en devise locale — la doc n'énonce pas la
+  réciproque, donc le taux de lignes non nulles est une BORNE BASSE de la
+  proportion de conversions, pas une mesure exacte.
 
 ## Catalogue produits
 
 - **Le prix affiché et le prix facturé viennent de deux sources.**
   `products.priceCad` (Postgres) alimente la grille tarifaire et les paywalls ;
-  `products.stripePriceId` détermine ce que Stripe facture réellement. Modifier
-  un prix au dashboard Stripe SANS mettre à jour la ligne `products` fait
-  diverger les deux en silence — le client voit un montant et en paie un autre.
-- **Les préfixes `price_` / `prod_` sont identiques en test et en live.** Un
-  identifiant du mauvais mode ne se voit qu'à la création de la session, en
-  `resource_missing` — d'où le message dédié « produit mal configuré » plutôt
-  qu'une erreur réseau générique. C'est le seul signal existant : le vérifier
-  avant de conclure à une panne Stripe.
+  Stripe facture le prix résolu au checkout depuis
+  `products.stripePriceLookupKey`. Modifier un prix au dashboard Stripe SANS
+  mettre à jour la ligne `products` fait diverger les deux. Deux garde-fous
+  alertent dans Sentry : la comparaison au checkout et la tâche cron
+  `auditProductPriceDrift` (qui couvre les produits que personne n'achète).
+- **Devise et montant ne se traitent PAS pareil dans cette comparaison.** La
+  devise d'un prix Stripe est immuable (on ne modifie pas un prix, on en crée un
+  autre et on lui transfère la clé) : une devise ≠ `cad` n'est jamais un état
+  transitoire légitime → la vente est REFUSÉE. Un montant, lui, diverge
+  normalement le temps que l'`UPDATE` de `priceCad` suive → on alerte SANS
+  bloquer. Couper les ventes sur un écart de montant coûte plus cher que l'écart,
+  d'autant que Checkout affiche le montant au client avant qu'il ne confirme.
+- **Une `lookup_key` est identique en test et en live**, contrairement aux
+  identifiants `price_…` / `prod_…` dont les préfixes n'encodent pas le mode.
+  C'est ce qui rend impossible la classe « identifiant du mauvais mode » : la clé
+  résout le prix de test sous une clé de test, le prix live sous une clé live.
+  Changer un tarif se fait par `transfer_lookup_key=true`.
+- **Repli transitoire (phase expand/contract)** : tant que `stripe_price_id`
+  existe, une `lookup_key` qui ne résout rien retombe dessus et alerte, au lieu
+  de couper la vente. Le silence de cette alerte en production est ce qui
+  autorise le `DROP COLUMN` — après quoi une clé introuvable redevient un refus.
+- **La résolution du prix exige `prices:read` sur la clé Stripe runtime.** Créer
+  une session avec un price ID ne le demandait pas ; `prices.list` si. Une clé
+  restreinte sans ce droit casse TOUS les checkouts en `permission_error`.
 - **Adaptive Pricing exige que la devise des prix soit une devise de règlement**
   du compte. Les prix restent donc en CAD ; ne pas créer de prix en devise
   locale « pour aider », ça désactive la conversion automatique.

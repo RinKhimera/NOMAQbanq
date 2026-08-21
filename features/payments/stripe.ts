@@ -44,8 +44,12 @@ const CURRENCY_BY_STRIPE = new Map<string, "CAD" | "XAF">([
  * et répond 200 (pas de retry utile).
  *
  * `amountTotal`/`currency` (session Checkout) écrasent les valeurs provisoires du
- * pending (prix catalogue CAD) : codes promo et Adaptive Pricing (XAF) rendent le
- * montant réellement facturé différent. Valeurs inexploitables (`amount_total`
+ * pending (prix catalogue CAD) : seuls les CODES PROMO font effectivement diverger
+ * le montant facturé du prix catalogue. Adaptive Pricing, lui, ne change ni la
+ * devise ni le montant de la session — le montant local vit dans
+ * `presentment_details`, persisté à part. La conversion XAF ×100 ci-dessous reste
+ * correcte (le XAF est zéro-décimal chez Stripe) mais n'est atteinte que si un
+ * prix est RÉELLEMENT libellé en XAF. Valeurs inexploitables (`amount_total`
  * null, devise hors enum) → on conserve le provisoire et on logue — un paiement
  * valide ne doit jamais échouer pour un problème de réconciliation.
  */

@@ -1,8 +1,10 @@
 /**
  * Audit LECTURE SEULE des transactions Stripe historiques. Compare
  * `amountPaid`/`currency` en base avec `amount_total`/`currency` des sessions
- * Checkout réelles — les codes promo et l'Adaptive Pricing XAF sont les deux
- * sources de divergence. AUCUNE écriture : selects + GET Stripe.
+ * Checkout réelles. Source de divergence attendue : les CODES PROMO. Adaptive
+ * Pricing n'en est PAS une — il laisse la session dans la devise d'intégration
+ * (le montant local vit dans `presentment_details`). AUCUNE écriture : selects
+ * + GET Stripe.
  *
  * Usage :
  *   AUDIT_DATABASE_URL=... STRIPE_AUDIT_KEY=rk_live_... bun scripts/audit-stripe-transactions.ts
