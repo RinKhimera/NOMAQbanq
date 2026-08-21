@@ -31,6 +31,12 @@ const { mocks } = vi.hoisted(() => ({
           cancel_url: string
         }) => Promise<{ id: string; url: string | null }>
       >(),
+    pricesList:
+      vi.fn<
+        () => Promise<{
+          data: { id: string; unit_amount: number | null; currency: string }[]
+        }>
+      >(),
     customersList: vi.fn<() => Promise<{ data: { id: string }[] }>>(),
     portalCreate:
       vi.fn<(arg: { return_url: string }) => Promise<{ url: string }>>(),
@@ -103,6 +109,7 @@ vi.mock("@/lib/stripe", () => ({
     checkout: { sessions: { create: mocks.checkoutCreate } },
     customers: { list: mocks.customersList },
     billingPortal: { sessions: { create: mocks.portalCreate } },
+    prices: { list: mocks.pricesList },
   }),
 }))
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
@@ -110,7 +117,7 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 const ACTIVE_PRODUCT = {
   id: "p1",
   stripePriceId: "price_1",
-  stripePriceLookupKey: "price_1",
+  stripePriceLookupKey: "exam_access",
   priceCad: 5000,
   accessType: "exam",
   durationDays: 90,
@@ -138,6 +145,9 @@ const rejectWith = (message: string) =>
 
 beforeEach(() => {
   mocks.productRows.current = [ACTIVE_PRODUCT]
+  mocks.pricesList.mockResolvedValue({
+    data: [{ id: "price_resolved", unit_amount: 5000, currency: "cad" }],
+  })
 })
 
 describe("recordManualPayment", () => {
@@ -284,6 +294,85 @@ describe("createStripeCheckout", () => {
     const res = await createStripeCheckout(input)
     expect(res).toEqual({ error: "Ce produit n'est plus disponible" })
     expect(mocks.checkoutCreate).not.toHaveBeenCalled()
+  })
+
+  it("facture le prix resolu par lookup_key, pas un identifiant stocke", async () => {
+    mocks.checkoutCreate.mockResolvedValueOnce({
+      id: "cs_1",
+      url: "https://stripe.test/pay",
+    })
+    await createStripeCheckout(input)
+
+    expect(mocks.pricesList).toHaveBeenCalledWith(
+      { lookup_keys: ["exam_access"], active: true, limit: 2 },
+      { timeout: 8000, maxNetworkRetries: 1 },
+    )
+    const arg = mocks.checkoutCreate.mock.calls[0]![0] as unknown as {
+      line_items: { price: string }[]
+    }
+    expect(arg.line_items[0].price).toBe("price_resolved")
+  })
+
+  // Phase 1 : la lookup_key n'est pas encore eprouvee en production, le pointeur
+  // historique l'est. Une cle qui ne resout rien alerte mais ne coupe pas la vente.
+  it("lookup_key sans prix actif → repli sur stripe_price_id, vente conservee", async () => {
+    mocks.pricesList.mockResolvedValue({ data: [] })
+    mocks.checkoutCreate.mockResolvedValueOnce({
+      id: "cs_1",
+      url: "https://stripe.test/pay",
+    })
+
+    const res = await createStripeCheckout(input)
+
+    expect(res).toEqual({ checkoutUrl: "https://stripe.test/pay" })
+    const arg = mocks.checkoutCreate.mock.calls[0]![0] as unknown as {
+      line_items: { price: string }[]
+    }
+    expect(arg.line_items[0].price).toBe("price_1")
+    expect(mocks.captureServerError).toHaveBeenCalled()
+  })
+
+  // Un montant diverge legalement le temps qu'un changement de tarif Stripe soit
+  // repercute en base : alerter suffit, couper les ventes couterait plus cher.
+  it("montant Stripe divergent → alerte mais la vente aboutit", async () => {
+    mocks.pricesList.mockResolvedValue({
+      data: [{ id: "price_resolved", unit_amount: 9900, currency: "cad" }],
+    })
+    mocks.checkoutCreate.mockResolvedValueOnce({
+      id: "cs_1",
+      url: "https://stripe.test/pay",
+    })
+
+    const res = await createStripeCheckout(input)
+
+    expect(res).toEqual({ checkoutUrl: "https://stripe.test/pay" })
+    expect(mocks.captureServerError).toHaveBeenCalled()
+  })
+
+  // La devise d'un prix Stripe est immuable : un ecart de devise n'est jamais un
+  // etat transitoire legitime, c'est une cle qui pointe sur le mauvais prix.
+  it("devise Stripe ≠ cad → refus, aucune session ni pending", async () => {
+    mocks.pricesList.mockResolvedValue({
+      data: [{ id: "price_resolved", unit_amount: 5000, currency: "usd" }],
+    })
+
+    const res = await createStripeCheckout(input)
+
+    expect(res).toEqual({
+      error: "Ce produit est mal configuré. Contactez le support.",
+    })
+    expect(mocks.checkoutCreate).not.toHaveBeenCalled()
+    expect(mocks.insertValues).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalled()
+  })
+
+  it("prix Stripe conforme → aucune alerte", async () => {
+    mocks.checkoutCreate.mockResolvedValueOnce({
+      id: "cs_1",
+      url: "https://stripe.test/pay",
+    })
+    await createStripeCheckout(input)
+    expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
   it("session Stripe sans url → erreur, aucun pending insere", async () => {

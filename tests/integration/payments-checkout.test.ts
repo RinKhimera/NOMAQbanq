@@ -14,6 +14,14 @@ const { mocks } = vi.hoisted(() => ({
           metadata: { userId: string }
         }) => Promise<{ id: string; url: string | null }>
       >(),
+    pricesList:
+      vi.fn<
+        () => Promise<{
+          data: { id: string; unit_amount: number | null; currency: string }[]
+        }>
+      >(async () => ({
+        data: [{ id: "price_resolved", unit_amount: 5000, currency: "cad" }],
+      })),
   },
 }))
 
@@ -28,7 +36,10 @@ vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
 }))
 vi.mock("@/lib/stripe", () => ({
-  getStripe: () => ({ checkout: { sessions: { create: mocks.create } } }),
+  getStripe: () => ({
+    checkout: { sessions: { create: mocks.create } },
+    prices: { list: mocks.pricesList },
+  }),
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
@@ -96,6 +107,37 @@ describe("createStripeCheckout", () => {
     expect(tx.type).toBe("stripe")
     expect(tx.userId).toBe(USER_ID)
     expect(tx.stripeSessionId).toBe(sessionId)
+  })
+
+  // La devise d'un prix Stripe est immuable : un ecart ne peut pas etre un etat
+  // transitoire legitime. C'est le seul cas de refus restant au checkout.
+  it("devise Stripe ≠ cad → aucune transaction pending creee", async () => {
+    mocks.create.mockClear()
+    mocks.pricesList.mockResolvedValueOnce({
+      data: [{ id: "price_resolved", unit_amount: 5000, currency: "usd" }],
+    })
+
+    const before = await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.userId, USER_ID))
+
+    const res = await createStripeCheckout({
+      productCode: "exam_access",
+      successPath: "/tableau-de-bord",
+      cancelPath: "/tarifs",
+    })
+
+    expect(res).toEqual({
+      error: "Ce produit est mal configuré. Contactez le support.",
+    })
+    expect(mocks.create).not.toHaveBeenCalled()
+
+    const after = await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.userId, USER_ID))
+    expect(after.length).toBe(before.length)
   })
 
   it("refuse un productCode inconnu (pas d'appel Stripe)", async () => {
