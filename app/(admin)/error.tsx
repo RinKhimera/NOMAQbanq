@@ -20,6 +20,13 @@ export default function AdminError({
     console.error("Admin Panel Error:", error)
   }, [error])
 
+  // Rechargement complet volontaire : depuis une error boundary, l'arbre React
+  // est dans un état d'erreur et une navigation client ne le remonte pas.
+  /* eslint-disable @next/next/no-location-assign-relative-destination */
+  const goToAdmin = () => (window.location.href = "/admin")
+  const goToDashboard = () => (window.location.href = "/tableau-de-bord")
+  /* eslint-enable @next/next/no-location-assign-relative-destination */
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4 dark:bg-gray-900">
       <Card className="w-full max-w-lg">
@@ -62,7 +69,7 @@ export default function AdminError({
             </Button>
 
             <Button
-              onClick={() => (window.location.href = "/admin")}
+              onClick={goToAdmin}
               variant="outline"
               className="flex items-center gap-2"
             >
@@ -71,11 +78,7 @@ export default function AdminError({
             </Button>
           </div>
 
-          <Button
-            onClick={() => (window.location.href = "/tableau-de-bord")}
-            variant="ghost"
-            className="text-sm"
-          >
+          <Button onClick={goToDashboard} variant="ghost" className="text-sm">
             Aller au tableau de bord utilisateur
           </Button>
 

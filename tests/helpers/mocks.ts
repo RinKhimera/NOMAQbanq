@@ -4,17 +4,21 @@ import type { QuestionDoc } from "@/components/quiz/question-card/types"
 import type { SessionQuestion } from "@/components/quiz/session/types"
 
 // ===== Router Mock =====
+// Mock volontairement partiel : seuls les membres réellement appelés par les
+// composants sont fournis. Le cast absorbe ceux que Next ajoute à l'interface
+// au fil des versions, qui casseraient sinon le type-check de toute la suite.
 export const mockRouter = (
   overrides?: Partial<AppRouterInstance>,
-): AppRouterInstance => ({
-  push: vi.fn(),
-  replace: vi.fn(),
-  refresh: vi.fn(),
-  back: vi.fn(),
-  forward: vi.fn(),
-  prefetch: vi.fn(),
-  ...overrides,
-})
+): AppRouterInstance =>
+  ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+    back: vi.fn(),
+    forward: vi.fn(),
+    prefetch: vi.fn(),
+    ...overrides,
+  }) as unknown as AppRouterInstance
 
 // ===== Better Auth User Mock =====
 // Forme exposée par `authClient.useSession().data.user` (cf. lib/auth-client.ts).
