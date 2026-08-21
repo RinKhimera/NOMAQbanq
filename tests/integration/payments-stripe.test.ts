@@ -121,6 +121,7 @@ beforeAll(async () => {
       isCombo: false,
       stripeProductId: `prod_e_${suffix}`,
       stripePriceId: `price_e_${suffix}`,
+      stripePriceLookupKey: `price_e_${suffix}`,
     },
     {
       id: PCOMBO,
@@ -133,6 +134,7 @@ beforeAll(async () => {
       isCombo: true,
       stripeProductId: `prod_c_${suffix}`,
       stripePriceId: `price_c_${suffix}`,
+      stripePriceLookupKey: `price_c_${suffix}`,
     },
   ])
 })

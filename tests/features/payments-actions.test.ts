@@ -110,6 +110,7 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 const ACTIVE_PRODUCT = {
   id: "p1",
   stripePriceId: "price_1",
+  stripePriceLookupKey: "price_1",
   priceCad: 5000,
   accessType: "exam",
   durationDays: 90,

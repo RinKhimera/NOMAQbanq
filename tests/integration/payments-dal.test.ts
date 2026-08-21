@@ -35,6 +35,7 @@ beforeAll(async () => {
     accessType: "exam",
     stripeProductId: "prod_it",
     stripePriceId: "price_it",
+    stripePriceLookupKey: "price_it",
   })
 
   // 3 transactions complétées au MÊME createdAt → force le tie-break (createdAt, id)

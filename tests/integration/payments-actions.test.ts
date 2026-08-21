@@ -88,6 +88,7 @@ beforeAll(async () => {
     isCombo: true,
     stripeProductId: `prod_${suffix}`,
     stripePriceId: `price_${suffix}`,
+    stripePriceLookupKey: `price_${suffix}`,
   })
   mocks.adminId.current = ADMIN_ID
 })

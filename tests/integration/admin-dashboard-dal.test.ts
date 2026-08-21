@@ -108,6 +108,7 @@ beforeAll(async () => {
     accessType: "exam",
     stripeProductId: `prod_${suffix}`,
     stripePriceId: `price_${suffix}`,
+    stripePriceLookupKey: `price_${suffix}`,
   })
   await db.insert(exams).values({
     id: E,

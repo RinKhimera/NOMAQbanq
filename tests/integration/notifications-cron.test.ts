@@ -166,6 +166,7 @@ describe("sendAccessExpiryReminders", () => {
       accessType: "exam",
       stripeProductId: `prod_${pid}`,
       stripePriceId: `price_${pid}`,
+      stripePriceLookupKey: `price_${pid}`,
     })
     await db.insert(transactions).values({
       id: tid,
@@ -233,6 +234,7 @@ describe("reset du marqueur de rappel au renouvellement", () => {
       accessType: "exam",
       stripeProductId: `prod_${pid}`,
       stripePriceId: `price_${pid}`,
+      stripePriceLookupKey: `price_${pid}`,
     })
     // Transaction initiale + accès existant DÉJÀ notifié (marqueur posé).
     await db.insert(transactions).values({
@@ -309,6 +311,7 @@ describe("reset du marqueur de rappel au renouvellement", () => {
       accessType: "exam",
       stripeProductId: `prod_${pid}`,
       stripePriceId: `price_${pid}`,
+      stripePriceLookupKey: `price_${pid}`,
     })
     // Transaction initiale (FK de l'accès existant) + accès DÉJÀ notifié.
     await db.insert(transactions).values({
@@ -383,6 +386,7 @@ describe("reset du marqueur de rappel au renouvellement", () => {
       isCombo: true,
       stripeProductId: `prod_${pid}`,
       stripePriceId: `price_${pid}`,
+      stripePriceLookupKey: `price_${pid}`,
     })
     await db.insert(transactions).values([
       {

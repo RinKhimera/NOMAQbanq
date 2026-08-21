@@ -136,6 +136,7 @@ beforeAll(async () => {
     accessType: "exam",
     stripeProductId: `prod_${suffix}`,
     stripePriceId: `price_${suffix}`,
+    stripePriceLookupKey: `price_${suffix}`,
   })
   await grantExamAccess(STUDENT_ID)
   await grantExamAccess(INTRUDER_ID)
