@@ -55,6 +55,34 @@ export const formatCurrency = (
 }
 
 /**
+ * Montant présenté au client par Adaptive Pricing, dans SA devise.
+ *
+ * Ne pas confondre avec `formatCurrency`, qui divise toujours par 100 parce que
+ * l'app stocke ses montants en centièmes. Ici la devise est arbitraire (plus de
+ * 150 pays) et peut être zéro-décimal — XAF, JPY : l'unité mineure y EST
+ * l'unité. Le facteur se dérive d'`Intl` plutôt que d'une liste de devises
+ * zéro-décimal écrite en dur, qui vieillirait sans que rien ne le signale.
+ */
+export const formatPresentmentAmount = (
+  minorUnits: number,
+  currency: string,
+): string => {
+  const code = currency.toUpperCase()
+  try {
+    const formatter = new Intl.NumberFormat("fr-CA", {
+      style: "currency",
+      currency: code,
+    })
+    const digits = formatter.resolvedOptions().maximumFractionDigits ?? 2
+    return formatter.format(minorUnits / 10 ** digits)
+  } catch {
+    // Intl lève un RangeError sur un code non conforme : mieux vaut un affichage
+    // brut qu'un panneau admin qui plante sur une devise exotique.
+    return `${minorUnits} ${code}`
+  }
+}
+
+/**
  * Formate un timestamp en date lisible
  */
 export const formatExpiration = (timestamp: number): string => {

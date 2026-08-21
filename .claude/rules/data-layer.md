@@ -70,12 +70,16 @@ storagePath,order}` pour rester assignable aux composants partagés
   **requis** : ils se résolvent AVANT d'ouvrir la transaction (voir la règle
   suivante), et un oubli casse la compilation au lieu du silence.
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
-  transaction** : le pool est à `max: 5` **sans** `connectionTimeoutMillis`
+  transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une
-  fige la requête indéfiniment — et cinq transactions concurrentes figent
-  l'application entière, pas seulement la fonctionnalité fautive. Ce qu'une
-  transaction doit lire ailleurs se résout avant de l'ouvrir et se passe en
-  paramètre (`hasAccess` et `resolveRevisionLock` dans `createTrainingSession`).
+  bloque 10 s puis échoue — mieux qu'avant (blocage indéfini), mais toujours un
+  bug à corriger à la source. Ce qu'une transaction doit lire ailleurs se résout
+  avant de l'ouvrir et se passe en paramètre (`hasAccess` et
+  `resolveRevisionLock` dans `createTrainingSession`). Le pool retente par
+  ailleurs l'**acquisition** sur les erreurs de réveil Neon 53300/57P03
+  (`db/retry-pool.ts`, post-mortem NOMAQBANQ-1F) — sûr car aucune requête n'est
+  encore partie ; ne JAMAIS étendre ce retry aux requêtes elles-mêmes ni au
+  timeout de file local (sans code pg), que retenter aggraverait.
 - **Narrowing TS** : renvoyer la valeur DEPUIS le callback de transaction
   (`const r = await db.transaction(async tx => { … return v })`), PAS via un
   `let` capturé dans la closure — TS ne le narrow pas après un garde `if (!r)`

@@ -84,6 +84,7 @@ beforeAll(async () => {
       accessType: "exam",
       stripeProductId: `prod_exam_${suffix}`,
       stripePriceId: `price_exam_${suffix}`,
+      stripePriceLookupKey: `price_exam_${suffix}`,
     },
     {
       id: pCombo.id,
@@ -96,6 +97,7 @@ beforeAll(async () => {
       isCombo: true,
       stripeProductId: `prod_combo_${suffix}`,
       stripePriceId: `price_combo_${suffix}`,
+      stripePriceLookupKey: `price_combo_${suffix}`,
     },
   ])
   // Accès exam pré-existant à +10 jours (scénario cumul) et +200 jours (comboMax).

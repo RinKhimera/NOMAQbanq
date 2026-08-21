@@ -589,6 +589,9 @@ export type PanelTransaction = {
   status: (typeof transactions.status.enumValues)[number]
   amountPaid: number
   currency: "CAD" | "XAF"
+  /** Unité mineure de `presentmentCurrency`. Nul hors Adaptive Pricing. */
+  presentmentAmount: number | null
+  presentmentCurrency: string | null
   /** Epoch ms. */
   createdAt: number
   product: { name: string } | null
@@ -641,6 +644,8 @@ export const getUserPanelData = async (
         status: transactions.status,
         amountPaid: transactions.amountPaid,
         currency: transactions.currency,
+        presentmentAmount: transactions.presentmentAmount,
+        presentmentCurrency: transactions.presentmentCurrency,
         createdAt: transactions.createdAt,
         productName: products.name,
       })
@@ -672,6 +677,8 @@ export const getUserPanelData = async (
       status: r.status,
       amountPaid: r.amountPaid,
       currency: r.currency,
+      presentmentAmount: r.presentmentAmount,
+      presentmentCurrency: r.presentmentCurrency,
       createdAt: r.createdAt.getTime(),
       product: r.productName ? { name: r.productName } : null,
     })),

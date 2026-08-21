@@ -85,6 +85,7 @@ beforeAll(async () => {
     accessType: "exam",
     stripeProductId: `prod_${suffix}`,
     stripePriceId: `price_${suffix}`,
+    stripePriceLookupKey: `price_${suffix}`,
   })
 
   const now = Date.now()

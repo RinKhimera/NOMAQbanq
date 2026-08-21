@@ -29,7 +29,7 @@ const suffix = createId().slice(0, 8)
 
 const PEXAM = createId() // produit exam non-combo
 const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 11 }, () => createId())
+const U = Array.from({ length: 13 }, () => createId())
 const [
   U_HAPPY,
   U_CUMUL,
@@ -42,6 +42,8 @@ const [
   U_DEGUSD,
   U_PROMO100,
   U_RACE,
+  U_PRESENT,
+  U_NOPRESENT,
 ] = U
 
 const accessOf = (userId: string, accessType: "exam" | "training") =>
@@ -67,6 +69,8 @@ const txStatus = (id: string) =>
       accessExpiresAt: transactions.accessExpiresAt,
       amountPaid: transactions.amountPaid,
       currency: transactions.currency,
+      presentmentAmount: transactions.presentmentAmount,
+      presentmentCurrency: transactions.presentmentCurrency,
     })
     .from(transactions)
     .where(eq(transactions.id, id))
@@ -121,6 +125,7 @@ beforeAll(async () => {
       isCombo: false,
       stripeProductId: `prod_e_${suffix}`,
       stripePriceId: `price_e_${suffix}`,
+      stripePriceLookupKey: `price_e_${suffix}`,
     },
     {
       id: PCOMBO,
@@ -133,6 +138,7 @@ beforeAll(async () => {
       isCombo: true,
       stripeProductId: `prod_c_${suffix}`,
       stripePriceId: `price_c_${suffix}`,
+      stripePriceLookupKey: `price_c_${suffix}`,
     },
   ])
 })
@@ -145,6 +151,65 @@ afterAll(async () => {
 })
 
 describe("completeStripeTransaction", () => {
+  // Adaptive Pricing : le client voit des FCFA, l'evenement arrive en CAD. Le
+  // montant local ne vit que dans `presentment_details` — sans persistance, un
+  // client qui ecrit « j'ai paye 228 000 FCFA » n'est recoupable par personne.
+  it("persiste le montant présenté sans toucher au montant encaissé", async () => {
+    const txId = createId()
+    const sid = `sess_present_${suffix}`
+    await seedPending({
+      id: txId,
+      userId: U_PRESENT,
+      productId: PEXAM,
+      sessionId: sid,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    await completeStripeTransaction({
+      stripeSessionId: sid,
+      stripePaymentIntentId: "pi_present",
+      stripeEventId: `evt_present_${suffix}`,
+      amountTotal: 5000,
+      currency: "cad",
+      presentmentAmount: 2280000,
+      presentmentCurrency: "xaf",
+    })
+
+    const tx = await txStatus(txId)
+    expect(tx?.presentmentAmount).toBe(2280000)
+    expect(tx?.presentmentCurrency).toBe("XAF")
+    // Invariant comptable : l'encaissement reste le CAD.
+    expect(tx?.amountPaid).toBe(5000)
+    expect(tx?.currency).toBe("CAD")
+  })
+
+  it("client sans conversion (pas de presentment_details) → colonnes nulles", async () => {
+    const txId = createId()
+    const sid = `sess_nopresent_${suffix}`
+    await seedPending({
+      id: txId,
+      userId: U_NOPRESENT,
+      productId: PEXAM,
+      sessionId: sid,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    await completeStripeTransaction({
+      stripeSessionId: sid,
+      stripePaymentIntentId: "pi_nopresent",
+      stripeEventId: `evt_nopresent_${suffix}`,
+      amountTotal: 5000,
+      currency: "cad",
+    })
+
+    const tx = await txStatus(txId)
+    expect(tx?.presentmentAmount).toBeNull()
+    expect(tx?.presentmentCurrency).toBeNull()
+    expect(tx?.amountPaid).toBe(5000)
+  })
+
   it("non-combo : complète la transaction et crédite l'accès (now + durée)", async () => {
     const txId = createId()
     const sid = `sess_happy_${suffix}`

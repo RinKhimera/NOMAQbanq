@@ -96,6 +96,7 @@ beforeAll(async () => {
     accessType: "exam",
     stripeProductId: `prod_ac_${suffix}`,
     stripePriceId: `price_ac_${suffix}`,
+    stripePriceLookupKey: `price_ac_${suffix}`,
   })
   const txId = createId()
   await db.insert(transactions).values({

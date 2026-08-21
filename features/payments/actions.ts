@@ -2,6 +2,7 @@
 
 import { asc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import type Stripe from "stripe"
 import { db } from "@/db"
 import { products, transactions, user } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
@@ -9,6 +10,7 @@ import { getBaseUrl } from "@/lib/base-url"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { getStripe } from "@/lib/stripe"
+import { describePriceDrift, resolveStripePrice } from "./catalog"
 import {
   type AccessImpact,
   type AccessStatus,
@@ -339,6 +341,7 @@ export const createStripeCheckout = async (input: {
     .select({
       id: products.id,
       stripePriceId: products.stripePriceId,
+      stripePriceLookupKey: products.stripePriceLookupKey,
       priceCad: products.priceCad,
       accessType: products.accessType,
       durationDays: products.durationDays,
@@ -352,15 +355,84 @@ export const createStripeCheckout = async (input: {
   if (!product) return { error: "Produit introuvable" }
   if (!product.isActive) return { error: "Ce produit n'est plus disponible" }
 
+  // Déclaré hors du `try` : le `catch` en a besoin pour nommer le prix réellement
+  // envoyé à Stripe, qui peut venir de la résolution comme du repli.
+  let resolvedPriceId: string | null = null
   try {
     const stripe = getStripe()
     const base = appBase()
+
+    // Repli de phase 1 (expand/contract). `stripe_price_id` est le pointeur
+    // historique, éprouvé en production ; la `lookup_key` ne l'est pas encore.
+    // Tant que la colonne existe, la résolution ne doit JAMAIS couper la vente —
+    // ni quand la clé ne résout rien, ni quand l'appel LUI-MÊME échoue (droit
+    // `prices:read` absent de la clé restreinte, 429, réseau). Sans ce catch,
+    // l'exception sauterait par-dessus le repli jusqu'au message générique
+    // « Réessayez », qui invite à retenter une panne permanente. Deux messages
+    // distincts : les deux causes appellent des remèdes opposés.
+    let price: Stripe.Price | null = null
+    try {
+      price = await resolveStripePrice(
+        stripe,
+        product.stripePriceLookupKey,
+        (lookupKey, count) =>
+          captureServerError(
+            "[createStripeCheckout]",
+            new Error("plusieurs prix actifs pour une même lookup_key"),
+            { userId: session.user.id, detail: `${lookupKey} · ${count} prix` },
+          ),
+      )
+      if (!price) {
+        captureServerError(
+          "[createStripeCheckout]",
+          new Error(
+            "aucun prix actif pour cette lookup_key — repli sur stripe_price_id",
+          ),
+          {
+            userId: session.user.id,
+            detail: `lookup_key ${product.stripePriceLookupKey} absente du mode de la clé active (produit ${productCode})`,
+          },
+        )
+      }
+    } catch (error) {
+      captureServerError("[createStripeCheckout]", error, {
+        userId: session.user.id,
+        detail: `résolution de la lookup_key ${product.stripePriceLookupKey} impossible — repli sur stripe_price_id (produit ${productCode})`,
+      })
+    }
+    resolvedPriceId = price?.id ?? product.stripePriceId
+
+    // Devise et montant ne se traitent PAS de la même façon. La devise d'un prix
+    // Stripe est immuable : elle ne peut pas avoir changé légitimement, donc une
+    // devise ≠ cad signifie que la clé pointe sur le mauvais prix → refus. Un
+    // montant, lui, diverge normalement le temps qu'un changement de tarif soit
+    // répercuté en base → alerte seule. Le client voit de toute façon le montant
+    // sur Checkout avant de confirmer.
+    const drift = price ? describePriceDrift(product.priceCad, price) : null
+    if (drift) {
+      captureServerError(
+        "[createStripeCheckout]",
+        new Error(
+          drift.currencyMismatch
+            ? "devise du prix Stripe inattendue"
+            : "prix affiché divergent du prix Stripe",
+        ),
+        {
+          userId: session.user.id,
+          detail: `produit ${productCode} · ${drift.message}`,
+        },
+      )
+      if (drift.currencyMismatch) {
+        return { error: "Ce produit est mal configuré. Contactez le support." }
+      }
+    }
+
     const checkout = await stripe.checkout.sessions.create({
       mode: "payment",
       customer_email: session.user.email,
       // Force la création d'un customer Stripe (nécessaire au portail de facturation).
       customer_creation: "always",
-      line_items: [{ price: product.stripePriceId, quantity: 1 }],
+      line_items: [{ price: resolvedPriceId, quantity: 1 }],
       metadata: {
         userId: session.user.id,
         productId: product.id,
@@ -396,16 +468,16 @@ export const createStripeCheckout = async (input: {
 
     return { checkoutUrl: checkout.url }
   } catch (error) {
-    // `resource_missing` à la CRÉATION (≠ verifyStripeCheckout, où il vient d'une
-    // URL périmée) : le `stripe_price_id` en base n'existe pas dans le mode de la
-    // clé active — identifiant live sous clé test, ou l'inverse. Les préfixes
-    // `price_`/`prod_` étant identiques dans les deux modes, c'est le seul moment
-    // où l'incohérence devient visible. Aucune nouvelle tentative n'y changera
-    // rien : le message générique enverrait chercher une panne réseau.
+    // `resource_missing` à la CRÉATION de la session (≠ verifyStripeCheckout, où
+    // il vient d'une URL périmée). Le prix étant désormais résolu en amont, ce
+    // cas ne peut plus venir d'un identifiant du mauvais mode : il signale un
+    // objet Stripe supprimé entre la résolution et la création. Aucune nouvelle
+    // tentative n'y changera rien : le message générique enverrait chercher une
+    // panne réseau.
     if (isStripeResourceMissing(error)) {
       captureServerError("[createStripeCheckout]", error, {
         userId: session.user.id,
-        detail: `price ${product.stripePriceId} absent du mode de la clé active (produit ${productCode})`,
+        detail: `prix ${resolvedPriceId ?? "non résolu"} (lookup_key ${product.stripePriceLookupKey}) introuvable (produit ${productCode})`,
       })
       return { error: "Ce produit est mal configuré. Contactez le support." }
     }

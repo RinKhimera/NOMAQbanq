@@ -481,6 +481,7 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
       accessType: "training",
       stripeProductId: `prod_t_${suffix}`,
       stripePriceId: `price_t_${suffix}`,
+      stripePriceLookupKey: `price_t_${suffix}`,
     })
     await db.insert(transactions).values({
       id: TXID2,

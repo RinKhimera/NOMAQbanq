@@ -77,9 +77,17 @@ export async function POST(request: Request) {
                 ? checkoutSession.payment_intent
                 : "",
             stripeEventId: event.id,
-            // Montant/devise réellement facturés (promo, Adaptive Pricing).
+            // Montant réellement facturé : un code promo fait diverger
+            // `amount_total` du prix catalogue. (Adaptive Pricing, lui, ne change
+            // PAS la devise de la session — voir `presentment_details` juste en
+            // dessous.)
             amountTotal: checkoutSession.amount_total,
             currency: checkoutSession.currency,
+            // Ce que le client a réellement vu et payé dans sa devise locale.
+            presentmentAmount:
+              checkoutSession.presentment_details?.presentment_amount,
+            presentmentCurrency:
+              checkoutSession.presentment_details?.presentment_currency,
           })
           if (result.status === "not_found") {
             // Transaction fantôme (payé sans pending en base) : anomalie réelle,

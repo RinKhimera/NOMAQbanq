@@ -151,6 +151,39 @@ describe("webhook Stripe — contrat HTTP", () => {
     })
   })
 
+  // Adaptive Pricing : sans ce test, rien ne verifie que la route transmet le
+  // hash au fulfillment. L'assertion voisine ne l'attrape pas — `toEqual` ignore
+  // les proprietes `undefined`, donc elle passe que le cablage existe ou non.
+  it("presentment_details → transmis au fulfillment", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_present",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_present",
+          payment_status: "paid",
+          payment_intent: "pi_present",
+          amount_total: 5000,
+          currency: "cad",
+          presentment_details: {
+            presentment_amount: 2280000,
+            presentment_currency: "xaf",
+          },
+        },
+      },
+    })
+
+    const res = await POST(request())
+
+    expect(res.status).toBe(200)
+    expect(mocks.completeStripeTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        presentmentAmount: 2280000,
+        presentmentCurrency: "xaf",
+      }),
+    )
+  })
+
   it("async_payment_failed → failStripeTransaction, 200", async () => {
     mocks.constructEventAsync.mockResolvedValueOnce({
       id: "evt_async_ko",

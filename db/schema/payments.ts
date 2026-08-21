@@ -32,6 +32,11 @@ export const products = pgTable(
     durationDays: integer("duration_days").notNull(),
     accessType: accessType("access_type").notNull(),
     stripeProductId: text("stripe_product_id").notNull(),
+    // Clé de prix Stripe, IDENTIQUE en test et en live — contrairement aux
+    // `price_…`, dont le préfixe n'encode pas le mode. C'est elle qui résout le
+    // prix au checkout ; `stripePriceId` n'est plus qu'un repli le temps de la
+    // bascule.
+    stripePriceLookupKey: text("stripe_price_lookup_key").notNull(),
     stripePriceId: text("stripe_price_id").notNull(),
     isActive: boolean("is_active").default(true).notNull(),
     isCombo: boolean("is_combo").default(false).notNull(),
@@ -66,6 +71,13 @@ export const transactions = pgTable(
     status: transactionStatus("status").notNull(),
     amountPaid: integer("amount_paid").notNull(), // cents
     currency: currency("currency").notNull(),
+    // Montant réellement présenté au client par Adaptive Pricing, dans SA devise.
+    // Texte libre et non l'enum `currency` : la conversion couvre plus de 150 pays,
+    // contraindre ici perdrait la donnée qu'on cherche à capturer. Nul quand le
+    // client a payé dans la devise d'intégration. Ces colonnes ne sont PAS
+    // comptables : `amountPaid`/`currency` restent le montant d'encaissement.
+    presentmentAmount: integer("presentment_amount"),
+    presentmentCurrency: text("presentment_currency"),
     stripeSessionId: text("stripe_session_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     stripeEventId: text("stripe_event_id"), // idempotence (unique below)

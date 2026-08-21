@@ -138,6 +138,7 @@ beforeAll(async () => {
     accessType: "exam",
     stripeProductId: `prod_aud_${suffix}`,
     stripePriceId: `price_aud_${suffix}`,
+    stripePriceLookupKey: `price_aud_${suffix}`,
   })
   // outsider + subscriber ont un abonnement examen actif ; member/member2/nosub n'en ont pas.
   await grantExamAccess(OUTSIDER_ID)

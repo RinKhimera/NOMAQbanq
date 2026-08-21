@@ -44,8 +44,12 @@ const CURRENCY_BY_STRIPE = new Map<string, "CAD" | "XAF">([
  * et répond 200 (pas de retry utile).
  *
  * `amountTotal`/`currency` (session Checkout) écrasent les valeurs provisoires du
- * pending (prix catalogue CAD) : codes promo et Adaptive Pricing (XAF) rendent le
- * montant réellement facturé différent. Valeurs inexploitables (`amount_total`
+ * pending (prix catalogue CAD) : seuls les CODES PROMO font effectivement diverger
+ * le montant facturé du prix catalogue. Adaptive Pricing, lui, ne change ni la
+ * devise ni le montant de la session — le montant local vit dans
+ * `presentment_details`, persisté à part. La conversion XAF ×100 ci-dessous reste
+ * correcte (le XAF est zéro-décimal chez Stripe) mais n'est atteinte que si un
+ * prix est RÉELLEMENT libellé en XAF. Valeurs inexploitables (`amount_total`
  * null, devise hors enum) → on conserve le provisoire et on logue — un paiement
  * valide ne doit jamais échouer pour un problème de réconciliation.
  */
@@ -55,6 +59,8 @@ export async function completeStripeTransaction(params: {
   stripeEventId: string
   amountTotal?: number | null
   currency?: string | null
+  presentmentAmount?: number | null
+  presentmentCurrency?: string | null
 }): Promise<CompleteStripeResult> {
   return db.transaction(async (tx) => {
     // Transaction pending (pour obtenir l'userId à verrouiller).
@@ -145,6 +151,19 @@ export async function completeStripeTransaction(params: {
       )
     }
 
+    // Adaptive Pricing : présent UNIQUEMENT si le client a payé dans sa devise
+    // locale. Absent pour un client canadien — les colonnes restent nulles, et
+    // c'est ce qui rend la proportion de conversions mesurable. Ne jamais faire
+    // échouer un paiement valide sur de la traçabilité : valeurs partielles
+    // ⇒ on n'écrit rien.
+    const presentment =
+      params.presentmentAmount != null && params.presentmentCurrency
+        ? {
+            presentmentAmount: params.presentmentAmount,
+            presentmentCurrency: params.presentmentCurrency.toUpperCase(),
+          }
+        : null
+
     await tx
       .update(transactions)
       .set({
@@ -154,6 +173,7 @@ export async function completeStripeTransaction(params: {
         accessExpiresAt: txAccessExpiresAt,
         completedAt: now,
         ...(reconcile ?? {}),
+        ...(presentment ?? {}),
       })
       .where(eq(transactions.id, pending.id))
 
