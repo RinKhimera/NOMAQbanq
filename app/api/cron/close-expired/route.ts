@@ -1,5 +1,6 @@
 import { closeExpiredExamParticipations } from "@/features/exams/cron"
 import { sendPendingNotifications } from "@/features/notifications/cron"
+import { auditProductPriceDrift } from "@/features/payments/cron"
 import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { anonymizeExpiredDeletedAccounts } from "@/features/users/cron"
 import { env } from "@/lib/env/server"
@@ -10,8 +11,9 @@ import { cleanupQuizRateLimits } from "@/lib/quiz-rate-limit"
 export const runtime = "nodejs"
 
 /**
- * Cron : ferme les participations d'examen et les sessions d'entraînement
- * expirées. Une seule route pour les deux tâches.
+ * Cron : clôtures (examens, entraînements), anonymisation RGPD, purge du
+ * rate-limit quiz, notifications en attente et audit de dérive des prix
+ * catalogue. Une seule route pour l'ensemble.
  *
  * Sécurité : l'appelant doit envoyer `Authorization: Bearer ${CRON_SECRET}`.
  * Fail-closed : sans `CRON_SECRET` configuré, on répond 401 (jamais ouvert).
@@ -88,6 +90,13 @@ export async function GET(request: Request) {
     { deletedCount: 0 },
   )
 
+  const priceDrift = await run(
+    "dérive des prix catalogue",
+    "[cron:price-drift]",
+    auditProductPriceDrift,
+    { checked: 0, drifted: 0, failed: false },
+  )
+
   // APRÈS les clôtures (pour inclure les `auto_submitted` du même run).
   const notifications = await run(
     "notifications",
@@ -120,5 +129,6 @@ export async function GET(request: Request) {
     anonymizedAccounts,
     notifications,
     quizRateLimitCleanup,
+    priceDrift,
   })
 }

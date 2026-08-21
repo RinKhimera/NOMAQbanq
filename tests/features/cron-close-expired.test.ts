@@ -15,6 +15,11 @@ const { mocks } = vi.hoisted(() => ({
       anonymizedCount: 0,
     })),
     cleanupQuizRateLimits: vi.fn(async () => ({ deletedCount: 0 })),
+    auditProductPriceDrift: vi.fn(async () => ({
+      checked: 0,
+      drifted: 0,
+      failed: false,
+    })),
     sendPendingNotifications: vi.fn(async () => ({
       examResultsSent: 0,
       accessRemindersSent: 0,
@@ -33,6 +38,9 @@ vi.mock("@/features/users/cron", () => ({
 }))
 vi.mock("@/features/notifications/cron", () => ({
   sendPendingNotifications: mocks.sendPendingNotifications,
+}))
+vi.mock("@/features/payments/cron", () => ({
+  auditProductPriceDrift: mocks.auditProductPriceDrift,
 }))
 vi.mock("@/lib/quiz-rate-limit", () => ({
   cleanupQuizRateLimits: mocks.cleanupQuizRateLimits,
@@ -94,7 +102,21 @@ describe("execution des taches", () => {
       anonymizedAccounts: { anonymizedCount: 0 },
       notifications: { examResultsSent: 3, accessRemindersSent: 1 },
       quizRateLimitCleanup: { deletedCount: 0 },
+      priceDrift: { checked: 0, drifted: 0, failed: false },
     })
+  })
+
+  // La tache est ecrite pour ne jamais lever, mais le dispatcher doit rester la
+  // ceinture de securite si un jour elle le fait.
+  it("echec de l'audit de prix → les autres taches tournent quand meme", async () => {
+    mocks.auditProductPriceDrift.mockRejectedValueOnce(new Error("Stripe down"))
+
+    const res = await call("Bearer s3cret")
+
+    expect(res.status).toBe(500)
+    expect(mocks.anonymizeExpiredDeletedAccounts).toHaveBeenCalled()
+    expect(mocks.sendPendingNotifications).toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalled()
   })
 
   // Les notifications doivent voir les `auto_submitted` du meme run.
