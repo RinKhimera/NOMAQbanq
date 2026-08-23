@@ -52,6 +52,8 @@ interface EvaluationClientProps {
   initialSession: ExamSessionView
   /** Réponses déjà enregistrées (anti-triche : sans isCorrect). */
   initialAnswersRaw: ExamAnswerForParticipation[]
+  /** Horloge serveur du rendu — ancre le premier affichage du chrono. */
+  initialNow: number
 }
 
 const isInProgress = (s: ExamSessionView): boolean =>
@@ -63,6 +65,7 @@ export function EvaluationClient({
   questions,
   initialSession,
   initialAnswersRaw,
+  initialNow,
 }: EvaluationClientProps) {
   const router = useRouter()
   const [isStarting, startTransition] = useTransition()
@@ -121,7 +124,7 @@ export function EvaluationClient({
     kind: "exam",
     accent: "blue",
     timer: serverStartTime
-      ? { serverStartTime, totalSeconds: exam.completionTime }
+      ? { serverStartTime, totalSeconds: exam.completionTime, initialNow }
       : null,
     pause: exam.enablePause ? "rest" : null,
     feedback: "deferred",

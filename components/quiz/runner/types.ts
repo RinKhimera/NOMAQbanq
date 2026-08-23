@@ -20,7 +20,12 @@ export type AnswersMap = Record<string, AnswerState>
 export type QuizMode = {
   kind: "exam" | "training"
   accent: "blue" | "emerald"
-  timer: { serverStartTime: number; totalSeconds: number } | null
+  timer: {
+    serverStartTime: number
+    totalSeconds: number
+    /** Horloge serveur du rendu, ancre du premier rendu — voir `useExamTimer`. */
+    initialNow: number
+  } | null
   pause: "rest" | null
   feedback: "deferred" | "immediate"
   showMeta: boolean

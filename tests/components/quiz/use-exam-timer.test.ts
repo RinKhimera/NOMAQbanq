@@ -12,6 +12,7 @@ describe("useExamTimer", () => {
     const { result } = renderHook(() =>
       useExamTimer({
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 2,
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -32,6 +33,7 @@ describe("useExamTimer", () => {
     renderHook(() =>
       useExamTimer({
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 1,
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -53,6 +55,7 @@ describe("useExamTimer", () => {
       useExamTimer({
         enabled: false,
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 0,
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -71,6 +74,7 @@ describe("useExamTimer", () => {
       ({ p }: { p: boolean }) =>
         useExamTimer({
           serverStartTime: start,
+          initialNow: start,
           totalSeconds: 100,
           isPaused: p,
           totalPauseDurationMs: 0,
@@ -100,6 +104,7 @@ describe("useExamTimer", () => {
     const { result } = renderHook(() =>
       useExamTimer({
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 9 * 60, // 9 min total → already running out
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -116,6 +121,7 @@ describe("useExamTimer", () => {
     const { result } = renderHook(() =>
       useExamTimer({
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 4 * 60, // 4 min total → already critical
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -133,6 +139,7 @@ describe("useExamTimer", () => {
     const { result } = renderHook(() =>
       useExamTimer({
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 60,
         isPaused: false,
         totalPauseDurationMs: 20 * 1000,

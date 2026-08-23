@@ -400,7 +400,11 @@ describe("useQuizSession — timer composé", () => {
         questions: makeQuestions(2),
         initialAnswers: {},
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 3600 },
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
         }),
         callbacks: makeCallbacks(),
       }),
@@ -417,7 +421,7 @@ describe("useQuizSession — timer composé", () => {
         questions: makeQuestions(2),
         initialAnswers: {},
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 1 },
+          timer: { serverStartTime: start, totalSeconds: 1, initialNow: start },
         }),
         callbacks: makeCallbacks({ onFinish }),
       }),
@@ -501,7 +505,11 @@ describe("useQuizSession — pause (rest break)", () => {
         questions: makeQuestions(2),
         initialAnswers: {},
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 3600 },
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
         }),
         callbacks: makeCallbacks({ onPause }),
       }),
@@ -556,7 +564,11 @@ describe("useQuizSession — pause (rest break)", () => {
         // Démarre en pause, sans offset cumulé
         initialPause: { isPaused: true, totalPauseDurationMs: 0 },
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 3600 },
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
         }),
         callbacks: makeCallbacks({ onResume }),
       }),
@@ -657,7 +669,11 @@ describe("useQuizSession — pause (rest break)", () => {
         initialAnswers: {},
         initialPause: { isPaused: true, totalPauseDurationMs: 12_000 },
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 3600 },
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
         }),
         callbacks: makeCallbacks({ onResume }),
       }),

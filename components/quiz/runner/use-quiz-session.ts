@@ -430,6 +430,7 @@ export function useQuizSession({
     enabled: !!timerConfig,
     serverStartTime: timerConfig?.serverStartTime ?? 0,
     totalSeconds: timerConfig?.totalSeconds ?? 0,
+    initialNow: timerConfig?.initialNow ?? 0,
     isPaused,
     totalPauseDurationMs,
     onExpire: stableOnExpire,

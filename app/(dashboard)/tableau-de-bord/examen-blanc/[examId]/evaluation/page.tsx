@@ -7,6 +7,9 @@ import {
 } from "@/features/exams/dal"
 import { EvaluationClient } from "./_components/evaluation-client"
 
+// Hors composant : isole l'horloge (impure) du corps de rendu (react-hooks/purity).
+const currentTimeMs = () => Date.now()
+
 export const metadata: Metadata = { title: "Évaluation d'examen" }
 
 export default async function EvaluationPage({
@@ -49,6 +52,7 @@ export default async function EvaluationPage({
       questions={inProgress ? data.questions : []}
       initialSession={session}
       initialAnswersRaw={initialAnswersRaw}
+      initialNow={currentTimeMs()}
     />
   )
 }
