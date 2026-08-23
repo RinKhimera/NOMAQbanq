@@ -121,11 +121,20 @@ export async function POST(request: Request) {
       // Traitement humain (aucune révocation automatique d'accès).
       case "charge.dispute.created": {
         const dispute = event.data.object as Stripe.Dispute
+        // Le `payment_intent` est la SEULE clé qui relie le litige à un client :
+        // il rejoint `transactions.stripe_payment_intent_id`. Sans lui, l'alerte
+        // n'identifie personne et il faut passer par le dashboard Stripe pour
+        // savoir qui conteste — du temps perdu sur une fenêtre de réponse
+        // limitée.
+        const disputedPaymentIntent =
+          typeof dispute.payment_intent === "string"
+            ? dispute.payment_intent
+            : dispute.payment_intent?.id
         captureServerError(
           "[stripe:webhook]",
           new Error("litige ouvert sur un paiement Stripe"),
           {
-            detail: `dispute ${dispute.id} · ${dispute.amount} ${dispute.currency} · motif ${dispute.reason}`,
+            detail: `dispute ${dispute.id} · ${dispute.amount} ${dispute.currency} · motif ${dispute.reason} · payment_intent ${disputedPaymentIntent ?? "absent"}`,
           },
         )
         break
