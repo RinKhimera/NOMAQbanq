@@ -41,8 +41,14 @@ export function useExamTimer({
 }: UseExamTimerOptions): UseExamTimerResult {
   const computeRemaining = useCallback(
     (at: number) => {
+      const totalMs = totalSeconds * 1000
       const elapsed = at - serverStartTime - totalPauseDurationMs
-      return Math.max(0, totalSeconds * 1000 - elapsed)
+      // Plafond : le temps de pause crédité par le serveur ne peut pas dépasser
+      // le temps réellement écoulé, donc un elapsed négatif ne décrit pas un
+      // état d'examen — c'est une ancre plus ancienne que le démarrage, ou une
+      // horloge cliente en retard sur celle du serveur. Afficher plus que la
+      // durée de l'examen serait un mensonge dans les deux cas.
+      return Math.min(totalMs, Math.max(0, totalMs - elapsed))
     },
     [serverStartTime, totalSeconds, totalPauseDurationMs],
   )
