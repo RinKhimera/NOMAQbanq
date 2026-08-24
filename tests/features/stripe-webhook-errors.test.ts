@@ -208,6 +208,38 @@ describe("webhook Stripe — contrat HTTP", () => {
           amount: 9900,
           currency: "cad",
           reason: "fraudulent",
+          payment_intent: "pi_dispute",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    // Le payment_intent est ce qui relie l'alerte a une transaction, donc a un
+    // client : sans lui, personne n'est identifiable depuis Sentry.
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.any(Error),
+      {
+        detail:
+          "dispute dp_1 · 9900 cad · motif fraudulent · payment_intent pi_dispute",
+      },
+    )
+    expect(mocks.fail).not.toHaveBeenCalled()
+  })
+
+  // Jumeau du precedent : l'absence de payment_intent ne doit ni faire planter la
+  // route ni escamoter l'alerte — un litige non identifiable reste un litige.
+  it("litige sans payment_intent → alerte quand meme, 200", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_orphelin",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_2",
+          amount: 9900,
+          currency: "cad",
+          reason: "fraudulent",
+          payment_intent: null,
         },
       },
     })
@@ -216,8 +248,7 @@ describe("webhook Stripe — contrat HTTP", () => {
     expect(mocks.captureServerError).toHaveBeenCalledWith(
       "[stripe:webhook]",
       expect.any(Error),
-      { detail: "dispute dp_1 · 9900 cad · motif fraudulent" },
+      { detail: expect.stringContaining("payment_intent absent") },
     )
-    expect(mocks.fail).not.toHaveBeenCalled()
   })
 })

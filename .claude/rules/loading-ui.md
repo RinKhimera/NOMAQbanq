@@ -71,6 +71,19 @@ justifie dans le code.
   L'autre cause de la même issue était le salut du hero calculé sur l'heure du
   runtime (corrigé par #130, `getAppZoneHour`).
 
+- **Une valeur d'horloge se rend depuis une ancre serveur, pas depuis
+  `Date.now()`.** Le premier rendu s'exécute DEUX fois — SSR puis hydratation —
+  à deux instants ; tout ce qui s'affiche à la seconde (ou bascule à minuit)
+  diverge alors mécaniquement, d'autant plus que la page est lente à hydrater.
+  Le Server Component descend l'instant du rendu en prop (`initialNow`, via un
+  helper d'horloge au scope module pour `react-hooks/purity`) ; le premier rendu
+  s'ancre dessus et seul le premier tick, post-hydratation, reprend l'horloge
+  locale. Câblé ainsi dans `dashboard-hero`, `examen-blanc-client`,
+  `admin-dashboard-client` et `useExamTimer`. Le chrono d'examen était la
+  dernière exception : cause prouvée de **NOMAQBANQ-13** (replay du 2026-08-23,
+  « 02:06:51 » servi contre « 02:06:50 » hydraté) — l'arbre de la page de
+  passation était régénéré en plein examen.
+
 ## Socle
 
 `components/ui/spinner.tsx` · `components/ui/skeleton.tsx` ·

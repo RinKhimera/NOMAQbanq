@@ -11,6 +11,14 @@ export type UseExamTimerOptions = {
   enabled?: boolean
   serverStartTime: number
   totalSeconds: number
+  /**
+   * Horloge SERVEUR de l'instant du rendu. Le premier rendu — SSR **et**
+   * hydratation — doit lire cette ancre figée, jamais `Date.now()` : le
+   * décompte s'affiche à la seconde, et le délai entre les deux passes suffit à
+   * faire diverger le texte. React traite l'écart en régénérant l'arbre, en
+   * plein examen. Le premier tick, post-hydratation, reprend l'horloge locale.
+   */
+  initialNow: number
   isPaused: boolean
   totalPauseDurationMs: number
   onExpire: () => void
@@ -26,17 +34,28 @@ export function useExamTimer({
   enabled = true,
   serverStartTime,
   totalSeconds,
+  initialNow,
   isPaused,
   totalPauseDurationMs,
   onExpire,
 }: UseExamTimerOptions): UseExamTimerResult {
-  const computeRemaining = useCallback(() => {
-    const now = Date.now()
-    const elapsed = now - serverStartTime - totalPauseDurationMs
-    return Math.max(0, totalSeconds * 1000 - elapsed)
-  }, [serverStartTime, totalSeconds, totalPauseDurationMs])
+  const computeRemaining = useCallback(
+    (at: number) => {
+      const totalMs = totalSeconds * 1000
+      const elapsed = at - serverStartTime - totalPauseDurationMs
+      // Plafond : le temps de pause crédité par le serveur ne peut pas dépasser
+      // le temps réellement écoulé, donc un elapsed négatif ne décrit pas un
+      // état d'examen — c'est une ancre plus ancienne que le démarrage, ou une
+      // horloge cliente en retard sur celle du serveur. Afficher plus que la
+      // durée de l'examen serait un mensonge dans les deux cas.
+      return Math.min(totalMs, Math.max(0, totalMs - elapsed))
+    },
+    [serverStartTime, totalSeconds, totalPauseDurationMs],
+  )
 
-  const [remainingMs, setRemainingMs] = useState<number>(computeRemaining)
+  const [remainingMs, setRemainingMs] = useState<number>(() =>
+    computeRemaining(initialNow),
+  )
   const expiredRef = useRef(false)
   const onExpireRef = useRef(onExpire)
 
@@ -51,7 +70,7 @@ export function useExamTimer({
     // Tick immediately to pick up any changes (e.g. after resume updates totalPauseDurationMs)
     // and then on interval
     const tick = () => {
-      const remaining = computeRemaining()
+      const remaining = computeRemaining(Date.now())
       setRemainingMs(remaining)
       if (remaining <= 0 && !expiredRef.current) {
         expiredRef.current = true

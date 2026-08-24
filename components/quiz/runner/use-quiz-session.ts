@@ -426,10 +426,12 @@ export function useQuizSession({
   // totalSeconds=0 → remaining<=0 au montage → onExpire auto-soumettrait la
   // session instantanément.
   const timerConfig = mode.timer
+  const timerStart = timerConfig?.serverStartTime ?? 0
   const timerResult = useExamTimer({
     enabled: !!timerConfig,
-    serverStartTime: timerConfig?.serverStartTime ?? 0,
+    serverStartTime: timerStart,
     totalSeconds: timerConfig?.totalSeconds ?? 0,
+    initialNow: timerConfig?.initialNow ?? timerStart,
     isPaused,
     totalPauseDurationMs,
     onExpire: stableOnExpire,

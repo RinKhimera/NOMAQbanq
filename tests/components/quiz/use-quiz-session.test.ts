@@ -400,7 +400,11 @@ describe("useQuizSession — timer composé", () => {
         questions: makeQuestions(2),
         initialAnswers: {},
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 3600 },
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
         }),
         callbacks: makeCallbacks(),
       }),
@@ -417,7 +421,7 @@ describe("useQuizSession — timer composé", () => {
         questions: makeQuestions(2),
         initialAnswers: {},
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 1 },
+          timer: { serverStartTime: start, totalSeconds: 1, initialNow: start },
         }),
         callbacks: makeCallbacks({ onFinish }),
       }),
@@ -501,7 +505,11 @@ describe("useQuizSession — pause (rest break)", () => {
         questions: makeQuestions(2),
         initialAnswers: {},
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 3600 },
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
         }),
         callbacks: makeCallbacks({ onPause }),
       }),
@@ -548,7 +556,10 @@ describe("useQuizSession — pause (rest break)", () => {
     const onResume = vi
       .fn()
       .mockResolvedValue({ ok: true, totalPauseDurationMs: 30_000 })
-    const start = Date.now()
+    // L'examen tourne depuis 60 s : une pause de 30 s a pu s'y loger. Un examen
+    // qui aurait cumulé de la pause avant de démarrer n'existe pas.
+    const now = Date.now()
+    const start = now - 60_000
     const { result } = renderHook(() =>
       useQuizSession({
         questions: makeQuestions(2),
@@ -556,7 +567,11 @@ describe("useQuizSession — pause (rest break)", () => {
         // Démarre en pause, sans offset cumulé
         initialPause: { isPaused: true, totalPauseDurationMs: 0 },
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 3600 },
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: now,
+          },
         }),
         callbacks: makeCallbacks({ onResume }),
       }),
@@ -577,10 +592,11 @@ describe("useQuizSession — pause (rest break)", () => {
     const afterTick = result.current.timer?.remainingMs ?? 0
     expect(afterTick).toBeLessThan(beforeTick)
 
-    // L'offset de pause serveur (30s) est appliqué : remaining ≈ total + offset - elapsed.
-    // Avec 3600s total, ~3s écoulées et 30s de pause créditées, on doit rester
-    // au-dessus de (3600 - 5)s, donc > 3595s en ms.
-    expect(afterTick).toBeGreaterThan((3600 - 5) * 1000)
+    // L'offset de pause serveur (30 s) est crédité : 63 s écoulées − 30 s de
+    // pause = 33 s consommées, donc ~3567 s restantes. Sans l'offset on serait à
+    // 3537 s : le seuil discrimine.
+    expect(afterTick).toBeGreaterThan(3560 * 1000)
+    expect(afterTick).toBeLessThanOrEqual(3600 * 1000)
   })
 
   it("resume() est un no-op si pas en pause", async () => {
@@ -657,7 +673,11 @@ describe("useQuizSession — pause (rest break)", () => {
         initialAnswers: {},
         initialPause: { isPaused: true, totalPauseDurationMs: 12_000 },
         mode: makeMode({
-          timer: { serverStartTime: start, totalSeconds: 3600 },
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
         }),
         callbacks: makeCallbacks({ onResume }),
       }),

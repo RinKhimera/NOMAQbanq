@@ -40,6 +40,12 @@ interface AdminDashboardClientProps {
   recentActivity: AdminActivity[]
   dashboardTrends: DashboardTrends
   failedPaymentsCount: number
+  /**
+   * Horloge serveur du rendu. La date du bandeau se lit dans le fuseau de
+   * l'app : à cheval sur minuit, un `new Date()` local basculerait au jour
+   * suivant entre le SSR et l'hydratation et régénérerait l'arbre.
+   */
+  initialNow: number
 }
 
 /**
@@ -56,10 +62,11 @@ export function AdminDashboardClient({
   recentActivity,
   dashboardTrends,
   failedPaymentsCount,
+  initialNow,
 }: AdminDashboardClientProps) {
   const router = useRouter()
   const [showManualPaymentModal, setShowManualPaymentModal] = useState(false)
-  const [today] = useState(() => formatWeekdayLongDate(new Date()))
+  const today = formatWeekdayLongDate(initialNow)
 
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">

@@ -12,6 +12,7 @@ describe("useExamTimer", () => {
     const { result } = renderHook(() =>
       useExamTimer({
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 2,
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -32,6 +33,7 @@ describe("useExamTimer", () => {
     renderHook(() =>
       useExamTimer({
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 1,
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -53,6 +55,7 @@ describe("useExamTimer", () => {
       useExamTimer({
         enabled: false,
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 0,
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -71,6 +74,7 @@ describe("useExamTimer", () => {
       ({ p }: { p: boolean }) =>
         useExamTimer({
           serverStartTime: start,
+          initialNow: start,
           totalSeconds: 100,
           isPaused: p,
           totalPauseDurationMs: 0,
@@ -100,6 +104,7 @@ describe("useExamTimer", () => {
     const { result } = renderHook(() =>
       useExamTimer({
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 9 * 60, // 9 min total → already running out
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -116,6 +121,7 @@ describe("useExamTimer", () => {
     const { result } = renderHook(() =>
       useExamTimer({
         serverStartTime: start,
+        initialNow: start,
         totalSeconds: 4 * 60, // 4 min total → already critical
         isPaused: false,
         totalPauseDurationMs: 0,
@@ -125,22 +131,39 @@ describe("useExamTimer", () => {
     expect(result.current.isCritical).toBe(true)
   })
 
-  it("prend en compte totalPauseDurationMs pour le calcul", () => {
-    const start = Date.now()
+  it("crédite totalPauseDurationMs : le temps en pause ne décompte pas", () => {
+    const now = Date.now()
     const onExpire = vi.fn()
-    // total 60s, 20s of pause already accumulated
-    // effective elapsed at t=0 is: (now - start - 20000) = -20000 → remaining = 60000 + 20000 = 80000
     const { result } = renderHook(() =>
       useExamTimer({
-        serverStartTime: start,
+        serverStartTime: now - 40_000, // examen démarré il y a 40 s…
+        initialNow: now,
         totalSeconds: 60,
         isPaused: false,
-        totalPauseDurationMs: 20 * 1000,
+        totalPauseDurationMs: 20_000, // …dont 20 s passées en pause
         onExpire,
       }),
     )
-    // remaining = 60000 - (0 - 20000) = 80000
-    expect(result.current.remainingMs).toBeGreaterThan(60 * 1000)
+    // 40 s écoulées − 20 s de pause = 20 s consommées sur 60.
+    expect(result.current.remainingMs).toBe(40_000)
     expect(onExpire).not.toHaveBeenCalled()
+  })
+
+  it("ne dépasse jamais la durée de l'examen, ancre incohérente comprise", () => {
+    // Ancre antérieure au démarrage (payload serveur plus ancien que startExam,
+    // ou horloge cliente en retard) : sans plafond, l'affichage annoncerait plus
+    // de temps que n'en dure l'examen.
+    const now = Date.now()
+    const { result } = renderHook(() =>
+      useExamTimer({
+        serverStartTime: now,
+        initialNow: now - 90_000,
+        totalSeconds: 60,
+        isPaused: false,
+        totalPauseDurationMs: 0,
+        onExpire: vi.fn(),
+      }),
+    )
+    expect(result.current.remainingMs).toBe(60_000)
   })
 })
