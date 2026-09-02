@@ -10,6 +10,7 @@ import {
 import {
   completeStripeTransaction,
   failStripeTransaction,
+  recordStripeDispute,
 } from "@/features/payments/stripe"
 import { toAppZoneCalendarDay } from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
@@ -29,7 +30,7 @@ const suffix = createId().slice(0, 8)
 
 const PEXAM = createId() // produit exam non-combo
 const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 13 }, () => createId())
+const U = Array.from({ length: 15 }, () => createId())
 const [
   U_HAPPY,
   U_CUMUL,
@@ -44,6 +45,8 @@ const [
   U_RACE,
   U_PRESENT,
   U_NOPRESENT,
+  U_DISPUTE,
+  U_CONFIRM,
 ] = U
 
 const accessOf = (userId: string, accessType: "exam" | "training") =>
@@ -644,5 +647,120 @@ describe("réconciliation montant/devise au fulfillment", () => {
       .where(eq(transactions.stripeSessionId, `sess_promo_${suffix}`))
       .limit(1)
     expect(tx?.amountPaid).toBe(4000)
+  })
+})
+
+describe("recordStripeDispute", () => {
+  const disputeOf = (id: string) =>
+    db
+      .select({
+        disputeId: transactions.stripeDisputeId,
+        disputeStatus: transactions.disputeStatus,
+      })
+      .from(transactions)
+      .where(eq(transactions.id, id))
+      .limit(1)
+      .then((r) => r[0])
+
+  const seedCompleted = async (id: string, paymentIntentId: string) => {
+    await seedPending({
+      id,
+      userId: U_DISPUTE,
+      productId: PEXAM,
+      sessionId: `cs_${id}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+    await db
+      .update(transactions)
+      .set({ status: "completed", stripePaymentIntentId: paymentIntentId })
+      .where(eq(transactions.id, id))
+  }
+
+  it("pose l'id et le statut du litige sur la transaction du payment_intent", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+
+    const result = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_1",
+      disputeStatus: "needs_response",
+    })
+
+    expect(result).toEqual({ status: "recorded" })
+    expect(await disputeOf(tx)).toEqual({
+      disputeId: "dp_1",
+      disputeStatus: "needs_response",
+    })
+  })
+
+  it("même litige : un statut non terminal n'écrase jamais un terminal (ordre de livraison non garanti)", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_2",
+      disputeStatus: "won",
+    })
+
+    const late = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_2",
+      disputeStatus: "under_review",
+    })
+
+    expect(late).toEqual({ status: "kept_terminal" })
+    expect((await disputeOf(tx)).disputeStatus).toBe("won")
+  })
+
+  // Stripe documente « plusieurs litiges par paiement » : un litige clos ne
+  // doit jamais masquer un nouveau chargeback vivant sur le même paiement.
+  it("second litige sur le même paiement : remplace le précédent, même clos", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_first",
+      disputeStatus: "won",
+    })
+
+    const second = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_second",
+      disputeStatus: "needs_response",
+    })
+
+    expect(second).toEqual({ status: "recorded" })
+    expect(await disputeOf(tx)).toEqual({
+      disputeId: "dp_second",
+      disputeStatus: "needs_response",
+    })
+  })
+
+  it("un statut terminal remplace un non terminal", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_3",
+      disputeStatus: "under_review",
+    })
+
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_3",
+      disputeStatus: "lost",
+    })
+
+    expect((await disputeOf(tx)).disputeStatus).toBe("lost")
+  })
+
+  it("payment_intent inconnu → not_found, rien d'écrit", async () => {
+    const result = await recordStripeDispute({
+      stripePaymentIntentId: `pi_inconnu_${suffix}`,
+      stripeDisputeId: "dp_4",
+      disputeStatus: "needs_response",
+    })
+    expect(result).toEqual({ status: "not_found" })
   })
 })

@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNull, ne, notInArray, or } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
@@ -261,4 +261,69 @@ export async function failStripeTransaction(params: {
       ? { status: "failed" }
       : { status: "already_processed" }
   })
+}
+
+// Statuts après lesquels Stripe ne renvoie plus de changement d'état pour CE
+// litige (`prevented` existe dans le SDK et est terminal).
+const TERMINAL_DISPUTE_STATUSES = [
+  "won",
+  "lost",
+  "warning_closed",
+  "prevented",
+] as const
+
+export type RecordDisputeResult = {
+  status: "recorded" | "kept_terminal" | "not_found"
+}
+
+/**
+ * Rattache un litige Stripe à la transaction de son `payment_intent` et
+ * enregistre son statut courant. Idempotent (même valeur réécrite).
+ *
+ * Stripe ne garantit pas l'ordre de livraison : un statut terminal n'est
+ * jamais écrasé par un statut non terminal DU MÊME litige arrivé en retard.
+ * Un litige différent (Stripe documente « plusieurs litiges par paiement »)
+ * remplace toujours le précédent, même clos : sinon un « litige gagné »
+ * masquerait un chargeback vivant. L'UPDATE unique suffit à sérialiser deux
+ * livraisons concurrentes (le prédicat est réévalué sur la ligne réécrite).
+ */
+export async function recordStripeDispute(params: {
+  stripePaymentIntentId: string
+  stripeDisputeId: string
+  disputeStatus: string
+}): Promise<RecordDisputeResult> {
+  const incomingIsTerminal = (
+    TERMINAL_DISPUTE_STATUSES as readonly string[]
+  ).includes(params.disputeStatus)
+
+  const updated = await db
+    .update(transactions)
+    .set({
+      stripeDisputeId: params.stripeDisputeId,
+      disputeStatus: params.disputeStatus,
+    })
+    .where(
+      and(
+        eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId),
+        incomingIsTerminal
+          ? undefined
+          : or(
+              isNull(transactions.stripeDisputeId),
+              ne(transactions.stripeDisputeId, params.stripeDisputeId),
+              isNull(transactions.disputeStatus),
+              notInArray(transactions.disputeStatus, [
+                ...TERMINAL_DISPUTE_STATUSES,
+              ]),
+            ),
+      ),
+    )
+    .returning({ id: transactions.id })
+  if (updated.length > 0) return { status: "recorded" }
+
+  const [existing] = await db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId))
+    .limit(1)
+  return { status: existing ? "kept_terminal" : "not_found" }
 }
