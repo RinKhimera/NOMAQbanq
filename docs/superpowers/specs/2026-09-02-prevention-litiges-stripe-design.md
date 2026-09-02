@@ -45,13 +45,12 @@ Faits vérifiés le 2026-09-02 (compte Stripe en lecture seule, clé test ; AWS 
 
 - **3DS gratuit** : `request_three_d_secure: "any"` sur toutes les sessions,
   sans Radar for Fraud Teams. Il couvre les paiements carte (directs ou via le
-  portefeuille Link), pas Link « pur ». **Si le paiement d'août était du Link
-  pur, ce n'est pas cette mesure qui adresse son cas** : c'est l'alerte EFW et
-  le remboursement proactif. La forme exacte du paiement d'août se lit dans le
-  Dashboard (page du paiement, ligne « Moyen de paiement ») avant de conclure.
-  Exclure Link du Checkout (`payment_method_types: ["card"]`) n'est PAS
-  retenu par défaut : coût de conversion certain pour un gain incertain ; à
-  reconsidérer si un second litige Link survient. Clause de sortie du 3DS : si
+  portefeuille Link), pas Link « pur ». **Le paiement d'août était du Link pur**
+  (Dashboard, ligne « Moyen de paiement » : « Link » seul, vérifié le
+  2026-09-02) : ce n'est donc pas cette mesure qui aurait couvert son cas, c'est
+  l'alerte EFW et le remboursement proactif. Exclure Link du Checkout
+  (`payment_method_types: ["card"]`) est **refusé par l'utilisateur** : coût
+  de conversion certain pour un gain incertain. Clause de sortie du 3DS : si
   la conversion du checkout baisse visiblement, retirer le paramètre.
 - **Pas de facture post-paiement** (A4 hors périmètre). Le reçu Stripe suffit à
   prévenir un litige ; la facture ne se justifie que pour un remboursement
@@ -64,7 +63,9 @@ Faits vérifiés le 2026-09-02 (compte Stripe en lecture seule, clé test ; AWS 
 - **Adresse de support explicite** : nouvelle variable d'environnement
   optionnelle `SUPPORT_EMAIL`. Quand elle est présente, elle sert de `Reply-To`
   à tous les courriels et figure dans le courriel de confirmation. Sans elle, le
-  courriel n'invite pas à répondre.
+  courriel n'invite pas à répondre. Valeur initiale : l'adresse personnelle du
+  propriétaire (décision du 2026-09-02, à remplacer par une boîte dédiée plus
+  tard).
 
 ## Lot 1 — Prévenir et voir
 
