@@ -37,13 +37,20 @@ const isStripeResourceMissing = (error: unknown): boolean =>
   error !== null &&
   (error as { code?: unknown }).code === "resource_missing"
 
-// Erreur Stripe dont le `param` désigne la collecte de consentement : l'URL
-// des CGU manque dans les informations publiques du compte.
-const isStripeConsentConfigError = (error: unknown): boolean =>
-  typeof error === "object" &&
-  error !== null &&
-  typeof (error as { param?: unknown }).param === "string" &&
-  (error as { param: string }).param.startsWith("consent_collection")
+// Erreur Stripe liée à la collecte de consentement : l'URL des CGU manque dans
+// les informations publiques du compte. Stripe n'a pas été observé sur ce cas
+// précis : une erreur de configuration de compte peut arriver avec `param`
+// nul, d'où la double reconnaissance par `param` ET par message.
+const isStripeConsentConfigError = (error: unknown): boolean => {
+  if (typeof error !== "object" || error === null) return false
+  const { param, message } = error as { param?: unknown; message?: unknown }
+  const text = typeof message === "string" ? message.toLowerCase() : ""
+  return (
+    (typeof param === "string" && param.startsWith("consent_collection")) ||
+    text.includes("terms of service") ||
+    text.includes("consent_collection")
+  )
+}
 
 /**
  * Charge la page suivante de l'historique des transactions de l'utilisateur

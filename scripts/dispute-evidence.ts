@@ -5,7 +5,7 @@
  * `customer_email_address`, `product_description`, `access_activity_log`).
  *
  * Usage :
- *   AUDIT_DATABASE_URL=... [AUDIT_STRIPE_KEY=rk_live_...] bun scripts/dispute-evidence.ts <payment_intent> [--out dossier.md]
+ *   AUDIT_DATABASE_URL=... [AUDIT_STRIPE_KEY=rk_live_...] bun scripts/dispute-evidence.ts <payment_intent> [--out dispute-evidence-<client>.md]
  *
  * Env (délibérément DISTINCT des vars runtime) :
  * - AUDIT_DATABASE_URL : branche Neon à lire (idéalement clonée de la prod).
@@ -265,7 +265,7 @@ const main = async (): Promise<number> => {
   const stripeKey = process.env.AUDIT_STRIPE_KEY
   if (!paymentIntentId || !paymentIntentId.startsWith("pi_") || !dbUrl) {
     console.error(
-      "Usage : AUDIT_DATABASE_URL=... [AUDIT_STRIPE_KEY=rk_live_...] bun scripts/dispute-evidence.ts <pi_...> [--out fichier.md]",
+      "Usage : AUDIT_DATABASE_URL=... [AUDIT_STRIPE_KEY=rk_live_...] bun scripts/dispute-evidence.ts <pi_...> [--out dispute-evidence-<client>.md]",
     )
     return 2
   }
@@ -424,6 +424,14 @@ const main = async (): Promise<number> => {
     const out = flagValue("--out")
     if (out) {
       const { writeFileSync } = await import("node:fs")
+      const { basename } = await import("node:path")
+      // Le dossier contient nom, courriel et IP du client : seul le motif
+      // `dispute-evidence*.md` est ignoré par git.
+      if (!/^dispute-evidence.*\.md$/.test(basename(out))) {
+        console.error(
+          `⚠ ${out} n'est pas couvert par .gitignore (motif dispute-evidence*.md) : ne pas le commiter.`,
+        )
+      }
       writeFileSync(out, markdown)
       console.error(`Preuves écrites dans ${out}`)
     } else {

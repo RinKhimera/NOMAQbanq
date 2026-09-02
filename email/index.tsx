@@ -114,6 +114,13 @@ export function sendPurchaseConfirmationEmail({
     presentmentAmount != null && presentmentCurrency
       ? formatPresentmentAmount(presentmentAmount, presentmentCurrency)
       : null
+  // Sans adresse de support, l'invitation à écrire avant toute démarche
+  // bancaire — la seule phrase préventive du courriel — disparaît : signaler.
+  if (!env.SUPPORT_EMAIL) {
+    console.warn(
+      "[email] SUPPORT_EMAIL absente : courriel de confirmation envoyé sans adresse de support",
+    )
+  }
   return sendEmail({
     to,
     subject: "Confirmation de votre achat — NOMAQbanq",

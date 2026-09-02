@@ -1,4 +1,4 @@
-import { waitUntil } from "@vercel/functions"
+import { after } from "next/server"
 import type Stripe from "stripe"
 import { sendPurchaseConfirmationEmail } from "@/email"
 import {
@@ -43,10 +43,15 @@ const sendConfirmation = async (
   result: Extract<CompleteStripeResult, { status: "completed" }>,
 ) => {
   const c = result.confirmation
+  // Compte anonymisé : cas nominal (suppression de compte en cours), pas une
+  // erreur — un simple log, sans Sentry.
+  if (!c.userEmail) {
+    console.warn(
+      `[stripe webhook] courriel de confirmation non envoyé, compte anonymisé · transaction ${result.transactionId}`,
+    )
+    return
+  }
   try {
-    if (!c.userEmail) {
-      throw new Error("compte anonymisé, aucun destinataire")
-    }
     const messageId = await sendPurchaseConfirmationEmail({
       to: c.userEmail,
       productName: c.productName,
@@ -141,8 +146,11 @@ export async function POST(request: Request) {
               { detail: `session ${checkoutSession.id}` },
             )
           }
+          // `after` de Next : exécuté après l'envoi de la réponse, avec un
+          // repli local (contrairement à `waitUntil` de `@vercel/functions`,
+          // qui est un no-op silencieux hors Vercel).
           if (result.status === "completed") {
-            waitUntil(sendConfirmation(result))
+            after(() => sendConfirmation(result))
           }
         }
         break

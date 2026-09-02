@@ -10,9 +10,10 @@ import {
 const { sendEmailSpy } = vi.hoisted(() => ({ sendEmailSpy: vi.fn() }))
 vi.mock("@/email/send", () => ({ sendEmail: sendEmailSpy }))
 vi.mock("@/lib/base-url", () => ({ getBaseUrl: () => "https://nomaqbanq.ca" }))
-vi.mock("@/lib/env/server", () => ({
-  env: { SUPPORT_EMAIL: "support@nomaqbanq.ca" },
+const { envState } = vi.hoisted(() => ({
+  envState: { SUPPORT_EMAIL: "support@nomaqbanq.ca" as string | undefined },
 }))
+vi.mock("@/lib/env/server", () => ({ env: envState }))
 
 interface Arg {
   to: string
@@ -104,6 +105,32 @@ describe("sendPurchaseConfirmationEmail", () => {
       "https://nomaqbanq.ca/tableau-de-bord/abonnements",
     )
     expect(props.supportEmail).toBe("support@nomaqbanq.ca")
+  })
+
+  // Sans adresse de support, la phrase préventive disparaît : ça doit se voir.
+  it("SUPPORT_EMAIL absente → supportEmail null et avertissement", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    envState.SUPPORT_EMAIL = undefined
+    try {
+      await sendPurchaseConfirmationEmail({
+        to: "u@x.com",
+        productName: "Accès examens",
+        amountPaid: 20000,
+        currency: "CAD",
+        presentmentAmount: null,
+        presentmentCurrency: null,
+        purchasedAt: new Date("2026-09-02T14:00:00Z"),
+        grantedAccess: [],
+      })
+      const props = (firstArg().react as { props: Record<string, unknown> })
+        .props
+      expect(props.supportEmail).toBeNull()
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("SUPPORT_EMAIL absente"),
+      )
+    } finally {
+      envState.SUPPORT_EMAIL = "support@nomaqbanq.ca"
+    }
   })
 
   it("sans montant local → presentmentLabel null", async () => {

@@ -9,7 +9,7 @@ const { mocks } = vi.hoisted(() => ({
     recordDispute: vi.fn<() => Promise<unknown>>(),
     sendPurchaseConfirmationEmail: vi.fn<() => Promise<string>>(),
     markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
-    waitUntil: vi.fn<(p: Promise<unknown>) => void>(),
+    after: vi.fn<(cb: () => Promise<unknown>) => void>(),
     constructEventAsync: vi.fn<() => Promise<unknown>>(),
     sessionsList: vi.fn<() => Promise<{ data: { id: string }[] }>>(),
   },
@@ -27,7 +27,7 @@ vi.mock("@/features/payments/stripe", () => ({
 vi.mock("@/email", () => ({
   sendPurchaseConfirmationEmail: mocks.sendPurchaseConfirmationEmail,
 }))
-vi.mock("@vercel/functions", () => ({ waitUntil: mocks.waitUntil }))
+vi.mock("next/server", () => ({ after: mocks.after }))
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({
     webhooks: { constructEventAsync: mocks.constructEventAsync },
@@ -515,14 +515,13 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
 
   // La promesse passée à waitUntil est le travail différé : on l'attend
   // explicitement pour observer ses effets.
-  const deferred = () =>
-    mocks.waitUntil.mock.calls[0]?.[0] as Promise<unknown> | undefined
+  const deferred = () => mocks.after.mock.calls[0]?.[0]?.()
 
   it("fulfillment completed → envoi confié à waitUntil, MessageId enregistré", async () => {
     mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_mail"))
     const res = await POST(request())
     expect(res.status).toBe(200)
-    expect(mocks.waitUntil).toHaveBeenCalledTimes(1)
+    expect(mocks.after).toHaveBeenCalledTimes(1)
     await deferred()
     expect(mocks.sendPurchaseConfirmationEmail).toHaveBeenCalledWith({
       to: "u@test.invalid",
@@ -549,11 +548,12 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
     mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_replay"))
     const res = await POST(request())
     expect(res.status).toBe(200)
-    expect(mocks.waitUntil).not.toHaveBeenCalled()
+    expect(mocks.after).not.toHaveBeenCalled()
     expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
   })
 
-  it("compte anonymisé (courriel nul) → aucun envoi, capture explicite", async () => {
+  it("compte anonymisé (courriel nul) → aucun envoi, simple avertissement", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
     mocks.completeStripeTransaction.mockResolvedValueOnce({
       status: "completed",
       transactionId: "tx_anon",
@@ -573,11 +573,9 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
     expect(res.status).toBe(200)
     await deferred()
     expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
-    expect(mocks.captureServerError).toHaveBeenCalledWith(
-      "[stripe:webhook]",
-      expect.any(Error),
-      { detail: "courriel de confirmation non envoyé · transaction tx_anon" },
-    )
+    // Cas nominal (suppression de compte en cours) : un log, pas Sentry.
+    expect(mocks.captureServerError).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("tx_anon"))
   })
 
   // L'accès est déjà commité et le 200 déjà parti : Sentry est la seule trace.
