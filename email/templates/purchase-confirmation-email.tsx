@@ -67,10 +67,9 @@ export function PurchaseConfirmationEmail({
         </Text>
         {supportEmail ? (
           <Text style={{ fontSize: "13px", color: "#52525b" }}>
-            Une question sur cet achat ? Écrivez-nous à{" "}
+            Un souci avec cet achat ? Écrivez-nous à{" "}
             <Link href={`mailto:${supportEmail}`}>{supportEmail}</Link> avant
-            toute démarche auprès de votre banque : nous réglons la plupart des
-            demandes le jour même.
+            toute démarche auprès de votre banque.
           </Text>
         ) : null}
       </Section>
