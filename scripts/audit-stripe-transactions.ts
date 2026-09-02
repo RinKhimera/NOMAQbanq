@@ -7,13 +7,13 @@
  * + GET Stripe.
  *
  * Usage :
- *   AUDIT_DATABASE_URL=... STRIPE_AUDIT_KEY=rk_live_... bun scripts/audit-stripe-transactions.ts
+ *   AUDIT_DATABASE_URL=... AUDIT_STRIPE_KEY=rk_live_... bun scripts/audit-stripe-transactions.ts
  *   ... -- --json rapport.json   # dump JSON détaillé en plus du rapport console
  *
  * Env requis (délibérément DISTINCT des vars runtime, pour qu'un `.env.local`
  * dev ne soit jamais audité contre le Stripe live par accident) :
  * - AUDIT_DATABASE_URL : branche Neon lecture (idéalement clonée de la prod).
- * - STRIPE_AUDIT_KEY   : clé live à permissions lecture (Checkout Sessions).
+ * - AUDIT_STRIPE_KEY   : clé live à permissions lecture (Checkout Sessions).
  *
  * N'importe pas @/db ni lib/stripe (schéma d'env complet requis hors Next) :
  * pool pg et client Stripe locaux.
@@ -37,16 +37,16 @@ const JSON_OUT =
   jsonFlag === -1 ? null : (process.argv[jsonFlag + 1] ?? "stripe-audit.json")
 
 const dbUrl = process.env.AUDIT_DATABASE_URL
-const stripeKey = process.env.STRIPE_AUDIT_KEY
+const stripeKey = process.env.AUDIT_STRIPE_KEY
 if (!dbUrl || !stripeKey) {
   console.error(
-    "Env manquant : AUDIT_DATABASE_URL (branche Neon lue) et STRIPE_AUDIT_KEY (clé live lecture).",
+    "Env manquant : AUDIT_DATABASE_URL (branche Neon lue) et AUDIT_STRIPE_KEY (clé live lecture).",
   )
   process.exit(1)
 }
 if (!/^(rk|sk)_live_/.test(stripeKey)) {
   console.error(
-    "STRIPE_AUDIT_KEY n'est pas une clé live (rk_live_/sk_live_) : les sessions historiques sont en mode live.",
+    "AUDIT_STRIPE_KEY n'est pas une clé live (rk_live_/sk_live_) : les sessions historiques sont en mode live.",
   )
   process.exit(1)
 }
