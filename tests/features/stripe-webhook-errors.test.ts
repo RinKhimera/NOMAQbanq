@@ -11,6 +11,7 @@ const { mocks } = vi.hoisted(() => ({
     markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
     waitUntil: vi.fn<(p: Promise<unknown>) => void>(),
     constructEventAsync: vi.fn<() => Promise<unknown>>(),
+    sessionsList: vi.fn<() => Promise<{ data: { id: string }[] }>>(),
   },
 }))
 
@@ -30,6 +31,7 @@ vi.mock("@vercel/functions", () => ({ waitUntil: mocks.waitUntil }))
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({
     webhooks: { constructEventAsync: mocks.constructEventAsync },
+    checkout: { sessions: { list: mocks.sessionsList } },
   }),
   getStripeWebhookSecret: () => "whsec_test",
 }))
@@ -61,6 +63,7 @@ beforeEach(() => {
     },
   })
   mocks.recordDispute.mockResolvedValue({ status: "recorded" })
+  mocks.sessionsList.mockResolvedValue({ data: [] })
   mocks.sendPurchaseConfirmationEmail.mockResolvedValue("ses-msg-1")
   mocks.markConfirmationEmailSent.mockResolvedValue(undefined)
 })
@@ -426,6 +429,45 @@ describe("webhook Stripe — contrat HTTP", () => {
       "litige ouvert sur un paiement Stripe",
       "litige sans transaction correspondante",
     ])
+  })
+
+  // Avec la carte de test 0259, Stripe livre le litige AVANT le fulfillment :
+  // la transaction est encore pending, sans payment_intent.
+  it("litige avant le fulfillment → rattaché par la session Checkout, 200", async () => {
+    mocks.recordDispute
+      .mockResolvedValueOnce({ status: "not_found" })
+      .mockResolvedValueOnce({ status: "recorded" })
+    mocks.sessionsList.mockResolvedValueOnce({ data: [{ id: "cs_early" }] })
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_early",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_early",
+          amount: 5000,
+          currency: "cad",
+          reason: "fraudulent",
+          status: "needs_response",
+          payment_intent: "pi_early",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.sessionsList).toHaveBeenCalledWith({
+      payment_intent: "pi_early",
+      limit: 1,
+    })
+    expect(mocks.recordDispute).toHaveBeenNthCalledWith(2, {
+      stripePaymentIntentId: "pi_early",
+      stripeSessionId: "cs_early",
+      stripeDisputeId: "dp_early",
+      disputeStatus: "needs_response",
+    })
+    const messages = mocks.captureServerError.mock.calls.map(
+      ([, error]) => (error as Error).message,
+    )
+    expect(messages).toEqual(["litige ouvert sur un paiement Stripe"])
   })
 
   it("radar.early_fraud_warning.created → alerte avec charge et payment_intent, 200", async () => {

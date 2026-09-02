@@ -855,6 +855,43 @@ describe("recordStripeDispute", () => {
     })
     expect(result).toEqual({ status: "not_found" })
   })
+
+  // Un litige peut précéder le fulfillment (carte de test 0259, paiement
+  // différé) : la transaction est encore `pending`, sans payment_intent. La
+  // session Checkout, elle, est connue dès la création du pending.
+  it("transaction encore pending (sans payment_intent) → rattachée par la session Checkout", async () => {
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_DISPUTE,
+      productId: PEXAM,
+      sessionId: `cs_early_${tx}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const byIntent = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_early",
+      disputeStatus: "needs_response",
+    })
+    expect(byIntent).toEqual({ status: "not_found" })
+
+    const bySession = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeSessionId: `cs_early_${tx}`,
+      stripeDisputeId: "dp_early",
+      disputeStatus: "needs_response",
+    })
+    expect(bySession).toEqual({ status: "recorded" })
+    expect(await disputeOf(tx)).toEqual({
+      disputeId: "dp_early",
+      disputeStatus: "needs_response",
+    })
+    // Le payment_intent est posé au passage : le fulfillment le réécrira à
+    // l'identique, et les événements suivants du litige le retrouveront.
+    expect((await txStatus(tx))?.pi).toBe(`pi_${tx}`)
+  })
 })
 
 describe("markConfirmationEmailSent", () => {

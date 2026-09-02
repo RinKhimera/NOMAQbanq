@@ -330,22 +330,37 @@ export type RecordDisputeResult = {
  */
 export async function recordStripeDispute(params: {
   stripePaymentIntentId: string
+  /**
+   * Repli quand la transaction est encore `pending` (litige arrivé avant le
+   * fulfillment) : elle n'a pas de payment_intent, mais sa session Checkout
+   * est connue dès le pending. Le payment_intent est alors posé au passage.
+   */
+  stripeSessionId?: string
   stripeDisputeId: string
   disputeStatus: string
 }): Promise<RecordDisputeResult> {
   const incomingIsTerminal = (
     TERMINAL_DISPUTE_STATUSES as readonly string[]
   ).includes(params.disputeStatus)
+  const matchesTransaction = params.stripeSessionId
+    ? or(
+        eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId),
+        eq(transactions.stripeSessionId, params.stripeSessionId),
+      )
+    : eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId)
 
   const updated = await db
     .update(transactions)
     .set({
       stripeDisputeId: params.stripeDisputeId,
       disputeStatus: params.disputeStatus,
+      ...(params.stripeSessionId
+        ? { stripePaymentIntentId: params.stripePaymentIntentId }
+        : {}),
     })
     .where(
       and(
-        eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId),
+        matchesTransaction,
         incomingIsTerminal
           ? undefined
           : or(
@@ -364,7 +379,7 @@ export async function recordStripeDispute(params: {
   const [existing] = await db
     .select({ id: transactions.id })
     .from(transactions)
-    .where(eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId))
+    .where(matchesTransaction)
     .limit(1)
   return { status: existing ? "kept_terminal" : "not_found" }
 }

@@ -44,6 +44,12 @@ voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
   Sentry AVANT d'écrire en base (une panne Neon ne doit pas priver l'alerte
   de son détail), puis persiste `stripe_dispute_id` / `dispute_status` via
   `recordStripeDispute` ; la décision de contester reste humaine.
+- **Un litige peut précéder le fulfillment.** Stripe livre
+  `charge.dispute.created` AVANT `checkout.session.completed` avec la carte de
+  test 0259, et un paiement différé peut être contesté avant confirmation : la
+  transaction est alors `pending`, sans `payment_intent`. Sur `not_found`, le
+  webhook résout la session Checkout (`checkout.sessions.list({ payment_intent })`)
+  et rattache par `stripe_session_id`, connu dès le pending.
 - **Ordre des événements de litige non garanti, et plusieurs litiges par
   paiement possibles.** Un statut terminal (`won`, `lost`, `warning_closed`,
   `prevented`) n'est jamais écrasé par un non-terminal DU MÊME litige ; un

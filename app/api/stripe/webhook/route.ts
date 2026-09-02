@@ -206,11 +206,32 @@ export async function POST(request: Request) {
         }
 
         if (disputedPaymentIntent) {
-          const recorded = await recordStripeDispute({
+          let recorded = await recordStripeDispute({
             stripePaymentIntentId: disputedPaymentIntent,
             stripeDisputeId: dispute.id,
             disputeStatus: dispute.status,
           })
+          if (recorded.status === "not_found") {
+            // Le litige peut précéder le fulfillment (Stripe livre
+            // `charge.dispute.created` avant `checkout.session.completed` avec
+            // la carte de test, et un paiement différé peut être contesté avant
+            // d'être confirmé) : la transaction est encore `pending`, sans
+            // payment_intent. Sa session Checkout, elle, existe depuis le
+            // pending. Une erreur Stripe ici remonte au catch → 500 → retry.
+            const sessions = await stripe.checkout.sessions.list({
+              payment_intent: disputedPaymentIntent,
+              limit: 1,
+            })
+            const sessionId = sessions.data[0]?.id
+            if (sessionId) {
+              recorded = await recordStripeDispute({
+                stripePaymentIntentId: disputedPaymentIntent,
+                stripeSessionId: sessionId,
+                stripeDisputeId: dispute.id,
+                disputeStatus: dispute.status,
+              })
+            }
+          }
           if (recorded.status === "not_found") {
             captureServerError(
               "[stripe:webhook]",
