@@ -36,6 +36,7 @@ interface SesInput {
     }
   }
   ConfigurationSetName?: string
+  ReplyToAddresses?: string[]
 }
 
 const react = createElement("div", null, "x")
@@ -53,6 +54,20 @@ beforeEach(() => {
 })
 
 describe("sendEmail", () => {
+  it("pose l'adresse de support en Reply-To quand elle est configurée", async () => {
+    envMock.current = {
+      EMAIL_FROM: "NOMAQbanq <noreply@nomaqbanq.ca>",
+      SUPPORT_EMAIL: "support@nomaqbanq.ca",
+    }
+    await sendEmail({ to: "user@example.com", subject: "Sujet", react })
+    expect(lastInput().ReplyToAddresses).toEqual(["support@nomaqbanq.ca"])
+  })
+
+  it("aucun Reply-To sans adresse de support", async () => {
+    await sendEmail({ to: "user@example.com", subject: "Sujet", react })
+    expect(lastInput().ReplyToAddresses).toBeUndefined()
+  })
+
   it("builds the SES command with HTML and text bodies", async () => {
     const id = await sendEmail({
       to: "user@example.com",
