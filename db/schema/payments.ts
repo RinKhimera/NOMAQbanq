@@ -81,6 +81,18 @@ export const transactions = pgTable(
     stripeSessionId: text("stripe_session_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     stripeEventId: text("stripe_event_id"), // idempotence (unique below)
+    // Litige courant rattaché par `stripe_payment_intent_id`. Un paiement
+    // peut recevoir plusieurs litiges : l'id distingue une redélivrance d'un
+    // nouveau litige. Statut en texte libre : l'enum Stripe peut s'étendre,
+    // une valeur inconnue ne doit pas faire échouer le webhook.
+    stripeDisputeId: text("stripe_dispute_id"),
+    disputeStatus: text("dispute_status"),
+    // Preuve d'envoi du courriel de confirmation (MessageId SES) : seule clé
+    // qui relie une transaction à une entrée du journal SES.
+    confirmationEmailMessageId: text("confirmation_email_message_id"),
+    confirmationEmailSentAt: timestamp("confirmation_email_sent_at", {
+      withTimezone: true,
+    }),
     paymentMethod: text("payment_method"),
     recordedBy: text("recorded_by").references(() => user.id, {
       onDelete: "set null",
