@@ -1,6 +1,14 @@
+import { getBaseUrl } from "@/lib/base-url"
+import { env } from "@/lib/env/server"
+import {
+  formatCurrency,
+  formatExpiration,
+  formatPresentmentAmount,
+} from "@/lib/format"
 import { sendEmail } from "./send"
 import { AccessExpiringEmail } from "./templates/access-expiring-email"
 import { ExamResultsEmail } from "./templates/exam-results-email"
+import { PurchaseConfirmationEmail } from "./templates/purchase-confirmation-email"
 import { ResetPasswordEmail } from "./templates/reset-password-email"
 import { VerificationEmail } from "./templates/verification-email"
 
@@ -70,6 +78,57 @@ export function sendAccessExpiringEmail({
         accessType={accessType}
         daysRemaining={daysRemaining}
         renewUrl={renewUrl}
+      />
+    ),
+  })
+}
+
+const ACCESS_LABEL = {
+  exam: "Accès aux examens",
+  training: "Accès à l'entraînement",
+} as const
+
+export function sendPurchaseConfirmationEmail({
+  to,
+  productName,
+  amountPaid,
+  currency,
+  presentmentAmount,
+  presentmentCurrency,
+  purchasedAt,
+  grantedAccess,
+}: {
+  to: string
+  productName: string
+  /** Centièmes, devise d'encaissement. */
+  amountPaid: number
+  currency: "CAD" | "XAF"
+  /** Unités mineures de la devise locale (Adaptive Pricing), null sans conversion. */
+  presentmentAmount: number | null
+  presentmentCurrency: string | null
+  purchasedAt: Date
+  /** Expirations EFFECTIVES écrites par le fulfillment, une par type octroyé. */
+  grantedAccess: { accessType: "exam" | "training"; expiresAt: Date }[]
+}) {
+  const presentmentLabel =
+    presentmentAmount != null && presentmentCurrency
+      ? formatPresentmentAmount(presentmentAmount, presentmentCurrency)
+      : null
+  return sendEmail({
+    to,
+    subject: "Confirmation de votre achat — NOMAQbanq",
+    react: (
+      <PurchaseConfirmationEmail
+        productName={productName}
+        amountLabel={formatCurrency(amountPaid, currency)}
+        presentmentLabel={presentmentLabel}
+        purchasedAtLabel={formatExpiration(purchasedAt.getTime())}
+        grantedAccess={grantedAccess.map((a) => ({
+          label: ACCESS_LABEL[a.accessType],
+          expiresAtLabel: formatExpiration(a.expiresAt.getTime()),
+        }))}
+        accountUrl={`${getBaseUrl()}/tableau-de-bord/abonnements`}
+        supportEmail={env.SUPPORT_EMAIL ?? null}
       />
     ),
   })
