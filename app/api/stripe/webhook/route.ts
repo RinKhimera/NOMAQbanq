@@ -1,7 +1,11 @@
+import { waitUntil } from "@vercel/functions"
 import type Stripe from "stripe"
+import { sendPurchaseConfirmationEmail } from "@/email"
 import {
+  type CompleteStripeResult,
   completeStripeTransaction,
   failStripeTransaction,
+  markConfirmationEmailSent,
   recordStripeDispute,
 } from "@/features/payments/stripe"
 import { captureServerError } from "@/lib/observability"
@@ -26,6 +30,44 @@ const FULFILLABLE_PAYMENT_STATUSES: ReadonlyArray<Stripe.Checkout.Session.Paymen
  * ⚠️ Config déploiement : pointer l'endpoint webhook du dashboard Stripe vers
  * `/api/stripe/webhook` et renseigner `STRIPE_WEBHOOK_SECRET`.
  */
+/**
+ * Courriel de confirmation, APRÈS le 200 et en best-effort. Stripe exige une
+ * réponse rapide avant toute logique longue ; `sendEmail` fait deux rendus
+ * React Email puis un appel SES, et un dépassement de délai déclencherait un
+ * retry qui retomberait en `already_processed` — courriel perdu sans trace.
+ * L'accès est déjà COMMITÉ quand on arrive ici : un échec ne change rien au
+ * fulfillment. Le reçu Stripe (`receipt_email`) part de son côté. Sentry est
+ * la seule trace d'un échec.
+ */
+const sendConfirmation = async (
+  result: Extract<CompleteStripeResult, { status: "completed" }>,
+) => {
+  const c = result.confirmation
+  try {
+    if (!c.userEmail) {
+      throw new Error("compte anonymisé, aucun destinataire")
+    }
+    const messageId = await sendPurchaseConfirmationEmail({
+      to: c.userEmail,
+      productName: c.productName,
+      amountPaid: c.amountPaid,
+      currency: c.currency,
+      presentmentAmount: c.presentmentAmount,
+      presentmentCurrency: c.presentmentCurrency,
+      purchasedAt: c.completedAt,
+      grantedAccess: c.grantedAccess,
+    })
+    await markConfirmationEmailSent({
+      transactionId: result.transactionId,
+      messageId,
+    })
+  } catch (error) {
+    captureServerError("[stripe:webhook]", error, {
+      detail: `courriel de confirmation non envoyé · transaction ${result.transactionId}`,
+    })
+  }
+}
+
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature")
   if (!signature) {
@@ -98,6 +140,9 @@ export async function POST(request: Request) {
               new Error("aucune transaction pour la session Stripe"),
               { detail: `session ${checkoutSession.id}` },
             )
+          }
+          if (result.status === "completed") {
+            waitUntil(sendConfirmation(result))
           }
         }
         break

@@ -7,6 +7,9 @@ const { mocks } = vi.hoisted(() => ({
     completeStripeTransaction: vi.fn<() => Promise<unknown>>(),
     fail: vi.fn(),
     recordDispute: vi.fn<() => Promise<unknown>>(),
+    sendPurchaseConfirmationEmail: vi.fn<() => Promise<string>>(),
+    markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
+    waitUntil: vi.fn<(p: Promise<unknown>) => void>(),
     constructEventAsync: vi.fn<() => Promise<unknown>>(),
   },
 }))
@@ -18,7 +21,12 @@ vi.mock("@/features/payments/stripe", () => ({
   completeStripeTransaction: mocks.completeStripeTransaction,
   failStripeTransaction: mocks.fail,
   recordStripeDispute: mocks.recordDispute,
+  markConfirmationEmailSent: mocks.markConfirmationEmailSent,
 }))
+vi.mock("@/email", () => ({
+  sendPurchaseConfirmationEmail: mocks.sendPurchaseConfirmationEmail,
+}))
+vi.mock("@vercel/functions", () => ({ waitUntil: mocks.waitUntil }))
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({
     webhooks: { constructEventAsync: mocks.constructEventAsync },
@@ -36,8 +44,25 @@ const request = () =>
 beforeEach(() => {
   vi.clearAllMocks()
   // Défaut happy path pour les tests qui ne posent pas leur propre valeur.
-  mocks.completeStripeTransaction.mockResolvedValue({ status: "completed" })
+  mocks.completeStripeTransaction.mockResolvedValue({
+    status: "completed",
+    transactionId: "tx_1",
+    confirmation: {
+      userEmail: "u@test.invalid",
+      productName: "Accès examens",
+      amountPaid: 20000,
+      currency: "CAD",
+      presentmentAmount: null,
+      presentmentCurrency: null,
+      completedAt: new Date("2026-09-02T14:00:00Z"),
+      grantedAccess: [
+        { accessType: "exam", expiresAt: new Date("2026-12-01T14:00:00Z") },
+      ],
+    },
+  })
   mocks.recordDispute.mockResolvedValue({ status: "recorded" })
+  mocks.sendPurchaseConfirmationEmail.mockResolvedValue("ses-msg-1")
+  mocks.markConfirmationEmailSent.mockResolvedValue(undefined)
 })
 
 describe("webhook Stripe — contrat HTTP", () => {
@@ -428,5 +453,114 @@ describe("webhook Stripe — contrat HTTP", () => {
           "efw issfr_1 · charge ch_1 · type made_with_stolen_card · payment_intent pi_efw · remboursement proactif à envisager",
       },
     )
+  })
+})
+
+describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
+  const paidEvent = (id: string) => ({
+    id,
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: `cs_${id}`,
+        payment_status: "paid",
+        payment_intent: `pi_${id}`,
+        amount_total: 20000,
+        currency: "cad",
+      },
+    },
+  })
+
+  // La promesse passée à waitUntil est le travail différé : on l'attend
+  // explicitement pour observer ses effets.
+  const deferred = () =>
+    mocks.waitUntil.mock.calls[0]?.[0] as Promise<unknown> | undefined
+
+  it("fulfillment completed → envoi confié à waitUntil, MessageId enregistré", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_mail"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.waitUntil).toHaveBeenCalledTimes(1)
+    await deferred()
+    expect(mocks.sendPurchaseConfirmationEmail).toHaveBeenCalledWith({
+      to: "u@test.invalid",
+      productName: "Accès examens",
+      amountPaid: 20000,
+      currency: "CAD",
+      presentmentAmount: null,
+      presentmentCurrency: null,
+      purchasedAt: new Date("2026-09-02T14:00:00Z"),
+      grantedAccess: [
+        { accessType: "exam", expiresAt: new Date("2026-12-01T14:00:00Z") },
+      ],
+    })
+    expect(mocks.markConfirmationEmailSent).toHaveBeenCalledWith({
+      transactionId: "tx_1",
+      messageId: "ses-msg-1",
+    })
+  })
+
+  it("already_processed → rien n'est différé (un seul envoi par achat)", async () => {
+    mocks.completeStripeTransaction.mockResolvedValueOnce({
+      status: "already_processed",
+    })
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_replay"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.waitUntil).not.toHaveBeenCalled()
+    expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
+  })
+
+  it("compte anonymisé (courriel nul) → aucun envoi, capture explicite", async () => {
+    mocks.completeStripeTransaction.mockResolvedValueOnce({
+      status: "completed",
+      transactionId: "tx_anon",
+      confirmation: {
+        userEmail: null,
+        productName: "Accès examens",
+        amountPaid: 20000,
+        currency: "CAD",
+        presentmentAmount: null,
+        presentmentCurrency: null,
+        completedAt: new Date("2026-09-02T14:00:00Z"),
+        grantedAccess: [],
+      },
+    })
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_anon"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    await deferred()
+    expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.any(Error),
+      { detail: "courriel de confirmation non envoyé · transaction tx_anon" },
+    )
+  })
+
+  // L'accès est déjà commité et le 200 déjà parti : Sentry est la seule trace.
+  it("échec SES → capture Sentry, le 200 est déjà parti", async () => {
+    mocks.sendPurchaseConfirmationEmail.mockRejectedValueOnce(
+      new Error("SES down"),
+    )
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_ses_ko"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    await deferred()
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.any(Error),
+      { detail: "courriel de confirmation non envoyé · transaction tx_1" },
+    )
+    expect(mocks.markConfirmationEmailSent).not.toHaveBeenCalled()
+  })
+
+  it("échec de l'écriture du MessageId → capture (le courriel est parti)", async () => {
+    mocks.markConfirmationEmailSent.mockRejectedValueOnce(new Error("Neon"))
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_mark_ko"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    await deferred()
+    expect(mocks.captureServerError).toHaveBeenCalled()
   })
 })
