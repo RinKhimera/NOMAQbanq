@@ -63,9 +63,8 @@ Faits vérifiés le 2026-09-02 (compte Stripe en lecture seule, clé test ; AWS 
 - **Adresse de support explicite** : nouvelle variable d'environnement
   optionnelle `SUPPORT_EMAIL`. Quand elle est présente, elle sert de `Reply-To`
   à tous les courriels et figure dans le courriel de confirmation. Sans elle, le
-  courriel n'invite pas à répondre. Valeur initiale : l'adresse personnelle du
-  propriétaire (décision du 2026-09-02, à remplacer par une boîte dédiée plus
-  tard).
+  courriel n'invite pas à répondre. Valeur : `nomaqbanq@outlook.com`, la même
+  que le courriel de support des informations publiques Stripe (2026-09-02).
 
 ## Lot 1 — Prévenir et voir
 
