@@ -801,7 +801,7 @@ describe("recordStripeDispute", () => {
       disputeStatus: "under_review",
     })
 
-    expect(late).toEqual({ status: "kept_terminal" })
+    expect(late).toEqual({ status: "kept" })
     expect((await disputeOf(tx)).disputeStatus).toBe("won")
   })
 
@@ -827,6 +827,49 @@ describe("recordStripeDispute", () => {
       disputeId: "dp_second",
       disputeStatus: "needs_response",
     })
+  })
+
+  // Miroir du cas précédent : un `closed` d'un ANCIEN litige, rejoué en retard
+  // (retry Stripe après un 500), ne doit pas masquer le chargeback en cours.
+  it("clôture tardive d'un ancien litige : n'écrase pas un litige vivant", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_live",
+      disputeStatus: "needs_response",
+    })
+
+    const late = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_old",
+      disputeStatus: "won",
+    })
+
+    expect(late).toEqual({ status: "kept" })
+    expect(await disputeOf(tx)).toEqual({
+      disputeId: "dp_live",
+      disputeStatus: "needs_response",
+    })
+  })
+
+  it("nouveau litige déjà clos (prevented) par-dessus un ancien clos : remplace", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_first",
+      disputeStatus: "lost",
+    })
+
+    const next = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_next",
+      disputeStatus: "prevented",
+    })
+
+    expect(next).toEqual({ status: "recorded" })
+    expect((await disputeOf(tx)).disputeId).toBe("dp_next")
   })
 
   it("un statut terminal remplace un non terminal", async () => {

@@ -53,8 +53,10 @@ voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
 - **Ordre des événements de litige non garanti, et plusieurs litiges par
   paiement possibles.** Un statut terminal (`won`, `lost`, `warning_closed`,
   `prevented`) n'est jamais écrasé par un non-terminal DU MÊME litige ; un
-  litige d'id différent remplace toujours le précédent, même clos. Ne pas
-  « simplifier » l'UPDATE conditionnel.
+  litige d'id différent remplace un litige CLOS ; et, dans l'autre sens, un
+  terminal d'un ANCIEN litige rejoué en retard n'écrase jamais un litige
+  encore vivant. Ne pas « simplifier » l'UPDATE conditionnel, ni dans un sens
+  ni dans l'autre.
 - **`radar.early_fraud_warning.created` est un signal AVANT litige** : Stripe
   indique que 80 % deviennent un litige si rien n'est fait. L'alerte propose le
   remboursement proactif, qui évite les frais (15 $ + 15 $ CA) et le coup au

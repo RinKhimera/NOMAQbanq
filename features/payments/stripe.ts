@@ -1,4 +1,4 @@
-import { and, eq, isNull, ne, notInArray, or } from "drizzle-orm"
+import { and, eq, inArray, isNull, ne, notInArray, or } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
@@ -314,7 +314,7 @@ const TERMINAL_DISPUTE_STATUSES = [
 ] as const
 
 export type RecordDisputeResult = {
-  status: "recorded" | "kept_terminal" | "not_found"
+  status: "recorded" | "kept" | "not_found"
 }
 
 /**
@@ -361,8 +361,19 @@ export async function recordStripeDispute(params: {
     .where(
       and(
         matchesTransaction,
+        // Garde-fou symétrique. Statut entrant NON terminal : écrit sauf si le
+        // MÊME litige est déjà clos (redélivrance tardive). Statut entrant
+        // terminal : écrit sauf si un AUTRE litige est encore vivant (un
+        // `closed` rejoué en retard ne doit pas masquer un chargeback en cours).
         incomingIsTerminal
-          ? undefined
+          ? or(
+              isNull(transactions.stripeDisputeId),
+              eq(transactions.stripeDisputeId, params.stripeDisputeId),
+              isNull(transactions.disputeStatus),
+              inArray(transactions.disputeStatus, [
+                ...TERMINAL_DISPUTE_STATUSES,
+              ]),
+            )
           : or(
               isNull(transactions.stripeDisputeId),
               ne(transactions.stripeDisputeId, params.stripeDisputeId),
@@ -381,7 +392,7 @@ export async function recordStripeDispute(params: {
     .from(transactions)
     .where(matchesTransaction)
     .limit(1)
-  return { status: existing ? "kept_terminal" : "not_found" }
+  return { status: existing ? "kept" : "not_found" }
 }
 
 /** Trace d'envoi du courriel de confirmation (corrélation avec le journal SES). */

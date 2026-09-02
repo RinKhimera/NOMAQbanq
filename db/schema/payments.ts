@@ -115,6 +115,10 @@ export const transactions = pgTable(
     uniqueIndex("transactions_stripe_event_id_unique").on(t.stripeEventId),
     index("transactions_user_id_idx").on(t.userId),
     index("transactions_stripe_session_id_idx").on(t.stripeSessionId),
+    // Clé de rattachement des événements de litige (`payment_intent`).
+    index("transactions_stripe_payment_intent_id_idx").on(
+      t.stripePaymentIntentId,
+    ),
     index("transactions_status_idx").on(t.status),
     index("transactions_type_idx").on(t.type),
     index("transactions_user_access_type_idx").on(t.userId, t.accessType),

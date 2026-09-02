@@ -1,0 +1,1 @@
+CREATE INDEX "transactions_stripe_payment_intent_id_idx" ON "transactions" USING btree ("stripe_payment_intent_id");
