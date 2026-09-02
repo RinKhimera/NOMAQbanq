@@ -4,18 +4,20 @@
 
 **Goal:** Donner au client une trace écrite reconnaissable de son achat, faire connaître à l'application l'issue d'un litige, et produire le journal d'activité d'un client en une commande.
 
-**Architecture:** Trois lots indépendants sur la même branche. Lot 1 : paramètres de session Checkout + quatre événements de litige dans le webhook, persistés sur `transactions` et affichés dans l'admin. Lot 2 : courriel de confirmation envoyé en best-effort après le fulfillment, `MessageId` SES stocké, journal SES → EventBridge → CloudWatch Logs. Lot 3 : script de lecture seule qui assemble les preuves au format attendu par Stripe.
+**Architecture:** Trois lots sur la même branche. Lot 1 : quatre événements de litige dans le webhook (alerte avant écriture), persistés sur `transactions` et affichés dans l'admin, puis les paramètres de session Checkout dans un commit isolé. Lot 2 : `Reply-To` support, courriel de confirmation passé à `waitUntil` après le 200, `MessageId` SES stocké, journal SES → EventBridge → CloudWatch Logs. Lot 3 : script de lecture seule qui assemble les preuves au format Stripe.
 
-**Tech Stack:** Next.js 16 · Drizzle/Neon · Stripe SDK 22 · React Email + SES v2 · Vitest (projets `frontend` et `integration`) · AWS via profil `claude-ops`.
+**Tech Stack:** Next.js 16 · Drizzle/Neon · Stripe SDK 22.4 · React Email + SES v2 · `@vercel/functions` (`waitUntil`) · Vitest (projets `frontend` et `integration`) · AWS via profil `claude-ops`.
 
 **Spec :** `docs/superpowers/specs/2026-09-02-prevention-litiges-stripe-design.md`
+**Revue de design intégrée :** `docs/superpowers/reviews/2026-09-02-revue-design-prevention-litiges-stripe.md`
 
 **Conventions du dépôt à respecter :**
 
-- `bun run test` (jamais `bun test`), `bun run test:integration <fichier>` pour un test sur branche Neon éphémère (crée, migre, détruit ; plusieurs minutes), `bun run check` avant chaque commit.
+- `bun run test` (jamais `bun test`), `bun run test:integration <fichier>` pour un test sur branche Neon éphémère (crée, migre, détruit ; plusieurs minutes), `bun run check` avant chaque commit. La couverture ne se mesure qu'avec `bun run test:coverage` et `bun run test:coverage:full`.
 - Commentaires : le « pourquoi » non évident seulement. Jamais d'étiquette de tâche, jamais de narration de changement.
 - Pas d'attribution Claude dans les commits.
 - Ne jamais lancer `bun dev` : demander le port à l'utilisateur.
+- Prettier impose l'ordre des imports : 1) node/npm 2) `@/` 3) relatifs, chaque groupe trié.
 
 ---
 
@@ -24,29 +26,29 @@
 | Fichier | Rôle |
 |---|---|
 | `db/schema/payments.ts` | + 4 colonnes nullables sur `transactions` |
-| `drizzle/0014_*.sql` | migration générée |
+| `drizzle/0014_*.sql` | migration générée (expand only, ne jamais la reverter seule) |
 | `features/payments/stripe.ts` | + `recordStripeDispute`, + `markConfirmationEmailSent`, retour enrichi de `completeStripeTransaction` |
-| `features/payments/actions.ts` | 4 paramètres de session Checkout |
+| `features/payments/actions.ts` | 4 paramètres de session Checkout + erreur `consent_collection` |
 | `features/payments/dal.ts` | `disputeStatus` dans `AdminTransactionView` |
-| `app/api/stripe/webhook/route.ts` | 4 événements, courriel best-effort |
-| `components/shared/payments/dispute-badge.ts` | logique pure du badge (testable sans rendu) |
+| `app/api/stripe/webhook/route.ts` | 4 événements, courriel via `waitUntil` |
+| `components/shared/payments/dispute-badge.ts` | logique pure du badge |
 | `components/shared/payments/transaction-table.tsx` | affichage du badge |
-| `email/templates/purchase-confirmation-email.tsx` | gabarit |
-| `email/index.tsx` | `sendPurchaseConfirmationEmail` |
+| `lib/env/schema.ts`, `email/send.ts` | `SUPPORT_EMAIL` + `Reply-To` |
+| `email/templates/purchase-confirmation-email.tsx`, `email/index.tsx` | gabarit + `sendPurchaseConfirmationEmail` |
 | `scripts/dispute-evidence.ts` | script lecture seule |
 | `tests/features/stripe-webhook-errors.test.ts` | événements + courriel |
-| `tests/features/payments-actions.test.ts` | paramètres Checkout |
+| `tests/features/payments-actions.test.ts` | paramètres Checkout + erreur CGU |
 | `tests/integration/payments-stripe.test.ts` | DAL litige + retour enrichi |
 | `tests/integration/payments-admin-dal.test.ts` | `disputeStatus` exposé |
-| `tests/components/payments/dispute-badge.test.ts` | badge |
-| `tests/email/templates.test.ts`, `tests/email/index.test.ts` | courriel |
+| `tests/components/payments/dispute-badge.test.ts`, `tests/components/payments/TransactionTable.test.tsx` | badge |
+| `tests/email/send.test.ts`, `tests/email/templates.test.ts`, `tests/email/index.test.ts` | courriel |
 | `tests/scripts/dispute-evidence.test.ts` | formatage des preuves |
 | `.claude/rules/payments.md` | invariants ajoutés |
 | `package.json`, `.gitignore` | script + sortie ignorée |
 
 ---
 
-## Lot 1 — Prévenir et voir
+## Lot 1 — Voir, puis prévenir
 
 ### Task 1 : Colonnes `transactions` + migration
 
@@ -60,9 +62,10 @@ Dans `db/schema/payments.ts`, juste après la ligne
 `stripeEventId: text("stripe_event_id"), // idempotence (unique below)` :
 
 ```ts
-    // Litige Stripe rattaché par `stripe_payment_intent_id`. Statut en texte
-    // libre : l'enum Stripe peut s'étendre, une valeur inconnue ne doit pas
-    // faire échouer le webhook.
+    // Litige courant rattaché par `stripe_payment_intent_id`. Un paiement
+    // peut recevoir plusieurs litiges : l'id distingue une redélivrance d'un
+    // nouveau litige. Statut en texte libre : l'enum Stripe peut s'étendre,
+    // une valeur inconnue ne doit pas faire échouer le webhook.
     stripeDisputeId: text("stripe_dispute_id"),
     disputeStatus: text("dispute_status"),
     // Preuve d'envoi du courriel de confirmation (MessageId SES) : seule clé
@@ -81,7 +84,7 @@ Expected: un nouveau fichier `drizzle/0014_<nom>.sql` contenant exactement quatr
 - [ ] **Step 3 : Appliquer sur la base de dev**
 
 Run: `bun run db:migrate`
-Expected: `migrations applied` sans erreur (cible `DATABASE_URL_UNPOOLED` de `.env.local`, branche Neon develop).
+Expected: migration appliquée sans erreur (cible `DATABASE_URL_UNPOOLED` de `.env.local`, branche Neon develop).
 
 - [ ] **Step 4 : Vérifier le type-check**
 
@@ -105,7 +108,11 @@ git commit -m "feat(payments): colonnes litige et preuve d'envoi sur transaction
 
 - [ ] **Step 1 : Écrire les tests d'intégration (échouent : fonction absente)**
 
-Dans `tests/integration/payments-stripe.test.ts`, ajouter `recordStripeDispute` à l'import depuis `@/features/payments/stripe`, ajouter un utilisateur au tableau `U` (passer `length: 13` à `length: 14` et ajouter `U_DISPUTE` en dernière position de la déstructuration), puis ajouter en fin de fichier :
+Dans `tests/integration/payments-stripe.test.ts` :
+
+1. Ajouter `recordStripeDispute` à l'import depuis `@/features/payments/stripe`.
+2. Passer `Array.from({ length: 13 }, …)` à `length: 15` et ajouter `U_DISPUTE, U_CONFIRM` à la fin de la déstructuration (`U_CONFIRM` sert à la Task 9).
+3. Ajouter en fin de fichier :
 
 ```ts
 describe("recordStripeDispute", () => {
@@ -152,7 +159,7 @@ describe("recordStripeDispute", () => {
     })
   })
 
-  it("un statut non terminal n'écrase jamais un statut terminal (ordre de livraison non garanti)", async () => {
+  it("même litige : un statut non terminal n'écrase jamais un terminal (ordre de livraison non garanti)", async () => {
     const tx = createId()
     await seedCompleted(tx, `pi_${tx}`)
     await recordStripeDispute({
@@ -169,6 +176,30 @@ describe("recordStripeDispute", () => {
 
     expect(late).toEqual({ status: "kept_terminal" })
     expect((await disputeOf(tx)).disputeStatus).toBe("won")
+  })
+
+  // Stripe documente « plusieurs litiges par paiement » : un litige clos ne
+  // doit jamais masquer un nouveau chargeback vivant sur le même paiement.
+  it("second litige sur le même paiement : remplace le précédent, même clos", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_first",
+      disputeStatus: "won",
+    })
+
+    const second = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_second",
+      disputeStatus: "needs_response",
+    })
+
+    expect(second).toEqual({ status: "recorded" })
+    expect(await disputeOf(tx)).toEqual({
+      disputeId: "dp_second",
+      disputeStatus: "needs_response",
+    })
   })
 
   it("un statut terminal remplace un non terminal", async () => {
@@ -210,14 +241,20 @@ Expected: échec à l'import, `recordStripeDispute` n'est pas exporté.
 Dans `features/payments/stripe.ts`, remplacer la première ligne d'import drizzle par :
 
 ```ts
-import { and, eq, isNull, notInArray, or } from "drizzle-orm"
+import { and, eq, isNull, ne, notInArray, or } from "drizzle-orm"
 ```
 
 et ajouter en fin de fichier :
 
 ```ts
-// Statuts après lesquels Stripe ne renvoie plus de changement d'état.
-const TERMINAL_DISPUTE_STATUSES = ["won", "lost", "warning_closed"] as const
+// Statuts après lesquels Stripe ne renvoie plus de changement d'état pour CE
+// litige (`prevented` existe dans le SDK et est terminal).
+const TERMINAL_DISPUTE_STATUSES = [
+  "won",
+  "lost",
+  "warning_closed",
+  "prevented",
+] as const
 
 export type RecordDisputeResult = {
   status: "recorded" | "kept_terminal" | "not_found"
@@ -225,9 +262,14 @@ export type RecordDisputeResult = {
 
 /**
  * Rattache un litige Stripe à la transaction de son `payment_intent` et
- * enregistre son statut courant. Idempotent (même valeur réécrite). Stripe ne
- * garantit pas l'ordre de livraison des événements : un statut terminal n'est
- * jamais écrasé par un statut non terminal arrivé en retard.
+ * enregistre son statut courant. Idempotent (même valeur réécrite).
+ *
+ * Stripe ne garantit pas l'ordre de livraison : un statut terminal n'est
+ * jamais écrasé par un statut non terminal DU MÊME litige arrivé en retard.
+ * Un litige différent (Stripe documente « plusieurs litiges par paiement »)
+ * remplace toujours le précédent, même clos : sinon un « litige gagné »
+ * masquerait un chargeback vivant. L'UPDATE unique suffit à sérialiser deux
+ * livraisons concurrentes (le prédicat est réévalué sur la ligne réécrite).
  */
 export async function recordStripeDispute(params: {
   stripePaymentIntentId: string
@@ -250,6 +292,8 @@ export async function recordStripeDispute(params: {
         incomingIsTerminal
           ? undefined
           : or(
+              isNull(transactions.stripeDisputeId),
+              ne(transactions.stripeDisputeId, params.stripeDisputeId),
               isNull(transactions.disputeStatus),
               notInArray(transactions.disputeStatus, [
                 ...TERMINAL_DISPUTE_STATUSES,
@@ -274,13 +318,13 @@ export async function recordStripeDispute(params: {
 - [ ] **Step 4 : Lancer les tests**
 
 Run: `bun run test:integration tests/integration/payments-stripe.test.ts`
-Expected: tous verts, dont les 4 nouveaux.
+Expected: tous verts, dont les 5 nouveaux.
 
 - [ ] **Step 5 : Commit**
 
 ```bash
 git add features/payments/stripe.ts tests/integration/payments-stripe.test.ts
-git commit -m "feat(payments): recordStripeDispute avec garde-fou sur les statuts terminaux"
+git commit -m "feat(payments): recordStripeDispute, garde-fou terminal scopé au litige"
 ```
 
 ---
@@ -316,7 +360,7 @@ Dans `beforeEach`, ajouter :
 Remplacer le test existant `"charge.dispute.created → alerte, 200, aucune révocation d'accès"` par :
 
 ```ts
-  it("charge.dispute.created → persiste le litige, alerte, 200, aucune révocation d'accès", async () => {
+  it("charge.dispute.created → alerte, persiste le litige, 200, aucune révocation d'accès", async () => {
     mocks.constructEventAsync.mockResolvedValueOnce({
       id: "evt_dispute",
       type: "charge.dispute.created",
@@ -333,11 +377,6 @@ Remplacer le test existant `"charge.dispute.created → alerte, 200, aucune rév
     })
     const res = await POST(request())
     expect(res.status).toBe(200)
-    expect(mocks.recordDispute).toHaveBeenCalledWith({
-      stripePaymentIntentId: "pi_dispute",
-      stripeDisputeId: "dp_1",
-      disputeStatus: "needs_response",
-    })
     // Le payment_intent est ce qui relie l'alerte a une transaction, donc a un
     // client : sans lui, personne n'est identifiable depuis Sentry.
     expect(mocks.captureServerError).toHaveBeenCalledWith(
@@ -348,6 +387,11 @@ Remplacer le test existant `"charge.dispute.created → alerte, 200, aucune rév
           "dispute dp_1 · 9900 cad · motif fraudulent · statut needs_response · payment_intent pi_dispute",
       },
     )
+    expect(mocks.recordDispute).toHaveBeenCalledWith({
+      stripePaymentIntentId: "pi_dispute",
+      stripeDisputeId: "dp_1",
+      disputeStatus: "needs_response",
+    })
     expect(mocks.fail).not.toHaveBeenCalled()
   })
 ```
@@ -361,6 +405,34 @@ Dans le test `"litige sans payment_intent → alerte quand meme, 200"`, ajouter 
 Ajouter ensuite, dans le même `describe` :
 
 ```ts
+  // L'alerte est le seul signal qui ouvre la fenêtre de réponse : elle doit
+  // partir même si la base est indisponible, avec tout son détail.
+  it("charge.dispute.created + Neon en panne → alerte détaillée émise, puis 500", async () => {
+    mocks.recordDispute.mockRejectedValueOnce(new Error("Neon down"))
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_db",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_1",
+          amount: 9900,
+          currency: "cad",
+          reason: "fraudulent",
+          status: "needs_response",
+          payment_intent: "pi_dispute",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(500)
+    const [, error, context] = mocks.captureServerError.mock.calls[0]!
+    expect((error as Error).message).toBe("litige ouvert sur un paiement Stripe")
+    expect(context).toEqual({
+      detail:
+        "dispute dp_1 · 9900 cad · motif fraudulent · statut needs_response · payment_intent pi_dispute",
+    })
+  })
+
   it("charge.dispute.updated → persiste sans alerter", async () => {
     mocks.constructEventAsync.mockResolvedValueOnce({
       id: "evt_dispute_upd",
@@ -389,7 +461,8 @@ Ajouter ensuite, dans le même `describe` :
   it.each([
     ["won", "litige gagné"],
     ["lost", "litige perdu"],
-  ])("charge.dispute.closed (%s) → persiste et alerte « %s »", async (status, message) => {
+    ["warning_closed", "litige clos"],
+  ])("charge.dispute.closed (%s) → alerte « %s » et persiste", async (status, message) => {
     mocks.constructEventAsync.mockResolvedValueOnce({
       id: `evt_closed_${status}`,
       type: "charge.dispute.closed",
@@ -406,17 +479,17 @@ Ajouter ensuite, dans le même `describe` :
     })
     const res = await POST(request())
     expect(res.status).toBe(200)
-    expect(mocks.recordDispute).toHaveBeenCalledWith(
-      expect.objectContaining({ disputeStatus: status }),
-    )
     const [, error, context] = mocks.captureServerError.mock.calls[0]!
     expect((error as Error).message).toBe(message)
     expect(context).toEqual({
       detail: `dispute dp_1 · 9900 cad · motif fraudulent · statut ${status} · payment_intent pi_dispute`,
     })
+    expect(mocks.recordDispute).toHaveBeenCalledWith(
+      expect.objectContaining({ disputeStatus: status }),
+    )
   })
 
-  it("charge.dispute.funds_reinstated → persiste et signale la restitution", async () => {
+  it("charge.dispute.funds_reinstated → alerte de restitution et persiste", async () => {
     mocks.constructEventAsync.mockResolvedValueOnce({
       id: "evt_reinstated",
       type: "charge.dispute.funds_reinstated",
@@ -433,53 +506,38 @@ Ajouter ensuite, dans le même `describe` :
     })
     const res = await POST(request())
     expect(res.status).toBe(200)
-    expect(mocks.recordDispute).toHaveBeenCalled()
     const [, error] = mocks.captureServerError.mock.calls[0]!
     expect((error as Error).message).toBe("fonds restitués après litige")
+    expect(mocks.recordDispute).toHaveBeenCalled()
   })
 
-  it("litige sur un payment_intent sans transaction → alerte dédiée, 200", async () => {
+  // Deux alertes, pas une : « un litige vient de s'ouvrir » reste dit, et
+  // l'anomalie « aucune transaction » s'y ajoute.
+  it("litige sur un payment_intent sans transaction → alerte de cycle de vie ET alerte dédiée, 200", async () => {
     mocks.recordDispute.mockResolvedValueOnce({ status: "not_found" })
     mocks.constructEventAsync.mockResolvedValueOnce({
       id: "evt_dispute_ghost",
-      type: "charge.dispute.updated",
+      type: "charge.dispute.created",
       data: {
         object: {
           id: "dp_9",
           amount: 100,
           currency: "cad",
           reason: "general",
-          status: "under_review",
+          status: "needs_response",
           payment_intent: "pi_ghost",
         },
       },
     })
     const res = await POST(request())
     expect(res.status).toBe(200)
-    const [, error] = mocks.captureServerError.mock.calls[0]!
-    expect((error as Error).message).toBe(
-      "litige sans transaction correspondante",
+    const messages = mocks.captureServerError.mock.calls.map(
+      ([, error]) => (error as Error).message,
     )
-  })
-
-  it("échec DB sur un événement de litige → 500 (retry Stripe)", async () => {
-    mocks.recordDispute.mockRejectedValueOnce(new Error("Neon down"))
-    mocks.constructEventAsync.mockResolvedValueOnce({
-      id: "evt_dispute_db",
-      type: "charge.dispute.updated",
-      data: {
-        object: {
-          id: "dp_1",
-          amount: 9900,
-          currency: "cad",
-          reason: "fraudulent",
-          status: "under_review",
-          payment_intent: "pi_dispute",
-        },
-      },
-    })
-    const res = await POST(request())
-    expect(res.status).toBe(500)
+    expect(messages).toEqual([
+      "litige ouvert sur un paiement Stripe",
+      "litige sans transaction correspondante",
+    ])
   })
 
   it("radar.early_fraud_warning.created → alerte avec charge et payment_intent, 200", async () => {
@@ -534,6 +592,8 @@ Remplacer tout le bloc `case "charge.dispute.created": { … break }` par :
       // limitée : sans alerte, elle se referme sans que personne ne l'ait vue.
       // Traitement humain (aucune révocation automatique d'accès : couper
       // l'accès affaiblirait la position « service livré et utilisé »).
+      // L'alerte part AVANT l'écriture en base : une panne Neon ne doit pas
+      // la priver de son détail.
       case "charge.dispute.created":
       case "charge.dispute.updated":
       case "charge.dispute.closed":
@@ -546,22 +606,6 @@ Remplacer tout le bloc `case "charge.dispute.created": { … break }` par :
             ? dispute.payment_intent
             : dispute.payment_intent?.id
         const detail = `dispute ${dispute.id} · ${dispute.amount} ${dispute.currency} · motif ${dispute.reason} · statut ${dispute.status} · payment_intent ${disputedPaymentIntent ?? "absent"}`
-
-        if (disputedPaymentIntent) {
-          const recorded = await recordStripeDispute({
-            stripePaymentIntentId: disputedPaymentIntent,
-            stripeDisputeId: dispute.id,
-            disputeStatus: dispute.status,
-          })
-          if (recorded.status === "not_found") {
-            captureServerError(
-              "[stripe:webhook]",
-              new Error("litige sans transaction correspondante"),
-              { detail },
-            )
-            break
-          }
-        }
 
         if (event.type === "charge.dispute.created") {
           captureServerError(
@@ -585,6 +629,21 @@ Remplacer tout le bloc `case "charge.dispute.created": { … break }` par :
             new Error("fonds restitués après litige"),
             { detail },
           )
+        }
+
+        if (disputedPaymentIntent) {
+          const recorded = await recordStripeDispute({
+            stripePaymentIntentId: disputedPaymentIntent,
+            stripeDisputeId: dispute.id,
+            disputeStatus: dispute.status,
+          })
+          if (recorded.status === "not_found") {
+            captureServerError(
+              "[stripe:webhook]",
+              new Error("litige sans transaction correspondante"),
+              { detail },
+            )
+          }
         }
         break
       }
@@ -628,91 +687,13 @@ git commit -m "feat(payments): cycle de vie du litige et early fraud warning dan
 
 ---
 
-### Task 4 : Paramètres de session Checkout
-
-**Files:**
-- Modify: `features/payments/actions.ts` (`createStripeCheckout`)
-- Test: `tests/features/payments-actions.test.ts`
-
-- [ ] **Step 1 : Écrire le test (échoue)**
-
-Dans `tests/features/payments-actions.test.ts`, ajouter `name: "Accès examens",` à la constante `ACTIVE_PRODUCT` (juste avant `priceCad: 5000,`). Puis, dans `describe("createStripeCheckout", …)`, ajouter :
-
-```ts
-  it("reçu garanti, CGU obligatoires et 3DS demandé sur chaque session", async () => {
-    mocks.checkoutCreate.mockResolvedValueOnce({
-      id: "cs_1",
-      url: "https://stripe.test/pay",
-    })
-    await createStripeCheckout(input)
-
-    expect(mocks.checkoutCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        // `receipt_email` posé sur le PaymentIntent : Stripe envoie alors un
-        // reçu en live quel que soit le réglage « Paiements réussis ».
-        payment_intent_data: {
-          receipt_email: "u1@test.invalid",
-          description: "Accès examens",
-        },
-        consent_collection: { terms_of_service: "required" },
-        payment_method_options: {
-          card: { request_three_d_secure: "any" },
-        },
-      }),
-    )
-  })
-```
-
-- [ ] **Step 2 : Lancer pour vérifier l'échec**
-
-Run: `bun run test tests/features/payments-actions.test.ts`
-Expected: le nouveau test échoue (paramètres absents).
-
-- [ ] **Step 3 : Implémenter**
-
-Dans `features/payments/actions.ts`, `createStripeCheckout` : ajouter `name: products.name,` dans le `select` du produit (après `id: products.id,`). Puis dans l'appel `stripe.checkout.sessions.create({ … })`, après `customer_creation: "always",` :
-
-```ts
-      // Reçu Stripe indépendant du toggle Dashboard « Paiements réussis » :
-      // un `receipt_email` sur le PaymentIntent déclenche l'envoi en live.
-      payment_intent_data: {
-        receipt_email: session.user.email,
-        description: product.name,
-      },
-      // Case CGU au checkout : preuve que Stripe recommande dans un dossier
-      // de litige. Exige l'URL des CGU dans les informations publiques du
-      // compte, sinon Stripe REFUSE la création de session.
-      consent_collection: { terms_of_service: "required" },
-      // 3DS demandé sur chaque paiement carte (préférence frictionless, la
-      // banque décide). Un litige « fraudulent » sur un paiement authentifié
-      // retombe sur la banque. Clause de sortie : retirer si la conversion
-      // du checkout chute.
-      payment_method_options: {
-        card: { request_three_d_secure: "any" },
-      },
-```
-
-- [ ] **Step 4 : Lancer les tests**
-
-Run: `bun run test tests/features/payments-actions.test.ts`
-Expected: tous verts.
-
-- [ ] **Step 5 : Commit**
-
-```bash
-git add features/payments/actions.ts tests/features/payments-actions.test.ts
-git commit -m "feat(payments): reçu garanti, CGU et 3DS sur la session Checkout"
-```
-
----
-
-### Task 5 : Badge « Litige » dans l'admin
+### Task 4 : Badge « Litige » dans l'admin
 
 **Files:**
 - Modify: `features/payments/dal.ts` (`AdminTransactionView`, `getAllTransactions`)
 - Create: `components/shared/payments/dispute-badge.ts`
 - Modify: `components/shared/payments/transaction-table.tsx`
-- Test: `tests/components/payments/dispute-badge.test.ts`, `tests/integration/payments-admin-dal.test.ts`
+- Test: `tests/components/payments/dispute-badge.test.ts`, `tests/components/payments/TransactionTable.test.tsx`, `tests/integration/payments-admin-dal.test.ts`
 
 - [ ] **Step 1 : Test unitaire du badge (échoue)**
 
@@ -742,8 +723,12 @@ describe("disputeBadge", () => {
     }
   })
 
-  it("gagné → vert, perdu → gris, enquête close → gris", () => {
+  it("gagné et évité → vert ; perdu et enquête close → gris", () => {
     expect(disputeBadge("won")).toEqual({ label: "Litige gagné", tone: "success" })
+    expect(disputeBadge("prevented")).toEqual({
+      label: "Litige évité",
+      tone: "success",
+    })
     expect(disputeBadge("lost")).toEqual({ label: "Litige perdu", tone: "muted" })
     expect(disputeBadge("warning_closed")).toEqual({
       label: "Enquête close",
@@ -787,6 +772,8 @@ export const disputeBadge = (
   switch (status) {
     case "won":
       return { label: "Litige gagné", tone: "success" }
+    case "prevented":
+      return { label: "Litige évité", tone: "success" }
     case "lost":
       return { label: "Litige perdu", tone: "muted" }
     case "warning_closed":
@@ -804,7 +791,7 @@ Expected: vert.
 
 - [ ] **Step 5 : Exposer `disputeStatus` dans le DAL admin (test d'intégration d'abord)**
 
-Dans `tests/integration/payments-admin-dal.test.ts`, repérer le test existant qui appelle `getAllTransactions` et vérifie les items (chercher `getAllTransactions(`). Ajouter un test dans le même `describe` :
+Dans `tests/integration/payments-admin-dal.test.ts`, dans le `describe` qui teste `getAllTransactions`, ajouter :
 
 ```ts
   it("expose le statut de litige de chaque transaction", async () => {
@@ -827,7 +814,7 @@ Puis dans `features/payments/dal.ts` :
 Dans `AdminTransactionView`, après `notes: string | null` :
 
 ```ts
-  /** Statut Stripe brut du litige, null sans litige. */
+  /** Statut Stripe brut du litige courant, null sans litige. */
   disputeStatus: string | null
 ```
 
@@ -844,16 +831,38 @@ Dans le `map` vers `items`, après `notes: r.notes,` :
 ```
 
 Run: `bun run type-check`
-Expected: erreurs là où `AdminTransactionView` est construit à la main (tests ou mocks) : ajouter `disputeStatus: null` à chaque objet signalé, puis 0 erreur.
+Expected: 0 erreur (`AdminTransactionView` n'est construit qu'ici ; aucun autre site à corriger).
 
 Run: `bun run test:integration tests/integration/payments-admin-dal.test.ts`
 Expected: vert.
 
-- [ ] **Step 6 : Afficher le badge dans la table**
+- [ ] **Step 6 : Test de rendu du badge (échoue)**
+
+Dans `tests/components/payments/TransactionTable.test.tsx`, dans le `describe` qui affiche les données d'une transaction (celui contenant `"affiche les données d'une transaction"`), ajouter :
+
+```tsx
+    it("affiche le badge de litige à côté du statut", () => {
+      const transaction = makeTransaction({ disputeStatus: "needs_response" })
+      render(<TransactionTable transactions={[transaction]} />)
+
+      expect(screen.getByText("Litige en cours")).toBeInTheDocument()
+    })
+
+    it("n'affiche aucun badge de litige sans litige", () => {
+      render(<TransactionTable transactions={[makeTransaction()]} />)
+
+      expect(screen.queryByText(/Litige/)).not.toBeInTheDocument()
+    })
+```
+
+Run: `bun run test tests/components/payments/TransactionTable.test.tsx`
+Expected: le premier nouveau test échoue (texte absent).
+
+- [ ] **Step 7 : Afficher le badge dans la table**
 
 Dans `components/shared/payments/transaction-table.tsx` :
 
-Ajouter l'import :
+Ajouter l'import, dans le groupe des imports relatifs :
 
 ```ts
 import { disputeBadge } from "./dispute-badge"
@@ -916,39 +925,240 @@ par :
                 </TableCell>
 ```
 
-- [ ] **Step 7 : Vérification et commit**
+- [ ] **Step 8 : Vérification et commit**
 
 Run: `bun run check && bun run test`
 Expected: tout vert.
 
 ```bash
-git add features/payments/dal.ts components/shared/payments/dispute-badge.ts components/shared/payments/transaction-table.tsx tests/components/payments/dispute-badge.test.ts tests/integration/payments-admin-dal.test.ts
+git add features/payments/dal.ts components/shared/payments/dispute-badge.ts components/shared/payments/transaction-table.tsx tests/components/payments/dispute-badge.test.ts tests/components/payments/TransactionTable.test.tsx tests/integration/payments-admin-dal.test.ts
 git commit -m "feat(admin): badge de litige sur les transactions"
 ```
 
 ---
 
-### Task 6 : Vérifications Dashboard Stripe et test manuel du lot 1
+### Task 5 : Vérifications Dashboard Stripe et test manuel (avant la Task 6)
 
-**Files:** aucun (Dashboard Stripe + navigateur). Tâche à faire par l'utilisateur, l'agent guide.
+**Files:** aucun (Dashboard Stripe + navigateur). Tâche à faire par l'utilisateur, l'agent guide. **La Task 6 ne commence qu'une fois les points 1 et 4 confirmés.**
 
 - [ ] **Step 1 : Informations publiques** — Dashboard → Réglages → Informations publiques : nom commercial, courriel de support, URL du site, **URL des conditions d'utilisation**, URL de politique de confidentialité. Sans l'URL des CGU, la création de session échoue en test comme en live (réglage partagé).
 
 - [ ] **Step 2 : Courriels aux clients** — Réglages → Courriels aux clients → « Paiements réussis » activé.
 
-- [ ] **Step 3 : Endpoint webhook de production** — Développeurs → Webhooks → endpoint `/api/stripe/webhook` : cocher `charge.dispute.updated`, `charge.dispute.closed`, `charge.dispute.funds_reinstated`, `radar.early_fraud_warning.created` (fait le 2026-09-02, à re-vérifier).
+- [ ] **Step 3 : Endpoint webhook de production** — Développeurs → Webhooks → endpoint `/api/stripe/webhook` : `charge.dispute.updated`, `charge.dispute.closed`, `charge.dispute.funds_reinstated`, `radar.early_fraud_warning.created` cochés (fait le 2026-09-02, à re-vérifier).
 
-- [ ] **Step 4 : Test manuel en mode test** (l'utilisateur lance `bun dev` et `stripe listen --forward-to localhost:<port>/api/stripe/webhook`) :
-  1. Acheter un produit avec la carte `4242 4242 4242 4242` : la page Checkout affiche la case CGU ; après paiement, la charge dans le Dashboard test a `receipt_email` renseigné et la description du produit.
-  2. Acheter avec la carte `4000 0000 0000 0259` : un litige est créé ; le terminal `stripe listen` montre `charge.dispute.created` en 200 ; la transaction porte le badge « Litige en cours » dans `/admin/transactions`.
-  3. Dans le Dashboard test, contester ce litige avec le texte libre `winning_evidence` : `charge.dispute.closed` arrive, le badge passe à « Litige gagné ».
-  4. Acheter avec la carte `4000 0000 0000 5423` : `radar.early_fraud_warning.created` arrive en 200 et la console serveur affiche l'alerte EFW.
+- [ ] **Step 4 : Forme du paiement d'août** — ouvrir le paiement contesté dans le Dashboard (mode live) et noter la ligne « Moyen de paiement » : « Link » seul (Link pur, non couvert par 3DS) ou une marque de carte « via Link » (couvert). Reporter la réponse dans la section « Décisions » du spec.
+
+- [ ] **Step 5 : Test manuel du cycle de litige en mode test** (l'utilisateur lance `bun dev` et `stripe listen --forward-to localhost:<port>/api/stripe/webhook`) :
+  1. Acheter avec la carte `4000 0000 0000 0259` : un litige est créé ; le terminal `stripe listen` montre `charge.dispute.created` en 200 ; la transaction porte le badge « Litige en cours » dans `/admin/transactions`.
+  2. Dans le Dashboard test, contester ce litige avec le texte libre `winning_evidence` : `charge.dispute.closed` arrive, le badge passe à « Litige gagné ».
+  3. Acheter avec la carte `4000 0000 0000 5423` : `radar.early_fraud_warning.created` arrive en 200 et la console serveur affiche l'alerte EFW.
+
+---
+
+### Task 6 : Paramètres de session Checkout (commit isolé)
+
+**Files:**
+- Modify: `features/payments/actions.ts` (`createStripeCheckout`)
+- Test: `tests/features/payments-actions.test.ts`
+
+- [ ] **Step 1 : Écrire les tests (échouent)**
+
+Dans `tests/features/payments-actions.test.ts`, ajouter `name: "Accès examens",` à la constante `ACTIVE_PRODUCT` (juste avant `priceCad: 5000,`). Puis, dans `describe("createStripeCheckout", …)`, ajouter :
+
+```ts
+  it("reçu garanti, CGU obligatoires et 3DS demandé sur chaque session", async () => {
+    mocks.checkoutCreate.mockResolvedValueOnce({
+      id: "cs_1",
+      url: "https://stripe.test/pay",
+    })
+    await createStripeCheckout(input)
+
+    expect(mocks.checkoutCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // `receipt_email` posé sur le PaymentIntent : Stripe envoie alors un
+        // reçu en live quel que soit le réglage « Paiements réussis ».
+        payment_intent_data: {
+          receipt_email: "u1@test.invalid",
+          description: "Accès examens",
+        },
+        consent_collection: { terms_of_service: "required" },
+        payment_method_options: {
+          card: { request_three_d_secure: "any" },
+        },
+      }),
+    )
+  })
+
+  // Sans URL de CGU dans le compte, Stripe refuse la session : « Réessayez »
+  // enverrait chercher une panne réseau alors que c'est une configuration.
+  it("URL des CGU absente du compte Stripe → message de configuration + alerte nommée", async () => {
+    mocks.checkoutCreate.mockRejectedValueOnce(
+      Object.assign(new Error("terms of service URL missing"), {
+        type: "StripeInvalidRequestError",
+        param: "consent_collection[terms_of_service]",
+      }),
+    )
+    const res = await createStripeCheckout(input)
+
+    expect(res).toEqual({
+      error: "Ce produit est mal configuré. Contactez le support.",
+    })
+    expect(mocks.insertValues).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[createStripeCheckout]",
+      expect.any(Error),
+      expect.objectContaining({
+        userId: "u1",
+        detail: expect.stringContaining("URL des CGU"),
+      }),
+    )
+  })
+```
+
+- [ ] **Step 2 : Lancer pour vérifier l'échec**
+
+Run: `bun run test tests/features/payments-actions.test.ts`
+Expected: les deux nouveaux tests échouent.
+
+- [ ] **Step 3 : Implémenter**
+
+Dans `features/payments/actions.ts` :
+
+Après `isStripeResourceMissing`, ajouter :
+
+```ts
+// Erreur Stripe dont le `param` désigne la collecte de consentement : l'URL
+// des CGU manque dans les informations publiques du compte.
+const isStripeConsentConfigError = (error: unknown): boolean =>
+  typeof error === "object" &&
+  error !== null &&
+  typeof (error as { param?: unknown }).param === "string" &&
+  (error as { param: string }).param.startsWith("consent_collection")
+```
+
+Dans `createStripeCheckout`, ajouter `name: products.name,` dans le `select` du produit (après `id: products.id,`). Dans l'appel `stripe.checkout.sessions.create({ … })`, après `customer_creation: "always",` :
+
+```ts
+      // Reçu Stripe indépendant du toggle Dashboard « Paiements réussis » :
+      // un `receipt_email` sur le PaymentIntent déclenche l'envoi en live.
+      payment_intent_data: {
+        receipt_email: session.user.email,
+        description: product.name,
+      },
+      // Case CGU au checkout : preuve que Stripe recommande dans un dossier
+      // de litige. Exige l'URL des CGU dans les informations publiques du
+      // compte, sinon Stripe REFUSE la création de session.
+      consent_collection: { terms_of_service: "required" },
+      // 3DS demandé sur chaque paiement CARTE (préférence frictionless, la
+      // banque décide) ; un paiement Link pur n'est pas couvert. Un litige
+      // « fraudulent » sur un paiement authentifié retombe sur la banque.
+      // Clause de sortie : retirer si la conversion du checkout chute.
+      payment_method_options: {
+        card: { request_three_d_secure: "any" },
+      },
+```
+
+Dans le `catch`, avant `if (isStripeResourceMissing(error)) {` :
+
+```ts
+    if (isStripeConsentConfigError(error)) {
+      captureServerError("[createStripeCheckout]", error, {
+        userId: session.user.id,
+        detail:
+          "URL des CGU absente des informations publiques du compte Stripe : consent_collection refusé, toutes les ventes bloquées",
+      })
+      return { error: "Ce produit est mal configuré. Contactez le support." }
+    }
+```
+
+- [ ] **Step 4 : Lancer les tests**
+
+Run: `bun run test tests/features/payments-actions.test.ts`
+Expected: tous verts.
+
+- [ ] **Step 5 : Achat de test réel** — l'utilisateur relance un achat en mode test avec `4242 4242 4242 4242` : la page Checkout affiche la case CGU ; la charge a `receipt_email` renseigné et la description du produit. Si la session échoue, la Task 5 Step 1 n'est pas faite : ne pas commiter.
+
+- [ ] **Step 6 : Commit isolé**
+
+```bash
+git add features/payments/actions.ts tests/features/payments-actions.test.ts
+git commit -m "feat(payments): reçu garanti, CGU et 3DS sur la session Checkout"
+```
 
 ---
 
 ## Lot 2 — Confirmation d'achat et preuve d'envoi
 
-### Task 7 : Gabarit et fonction d'envoi
+### Task 7 : `SUPPORT_EMAIL` et `Reply-To`
+
+**Files:**
+- Modify: `lib/env/schema.ts`
+- Modify: `email/send.ts`
+- Test: `tests/email/send.test.ts`
+
+- [ ] **Step 1 : Variable d'environnement** — l'utilisateur exécute, avec l'adresse de support réelle :
+
+```bash
+vercel env add SUPPORT_EMAIL development
+vercel env add SUPPORT_EMAIL preview
+vercel env add SUPPORT_EMAIL production
+bun run env:sync
+```
+
+- [ ] **Step 2 : Test (échoue)**
+
+Dans `tests/email/send.test.ts`, ajouter `ReplyToAddresses?: string[]` à l'interface `SesInput`, puis dans `describe("sendEmail", …)` :
+
+```ts
+  it("pose l'adresse de support en Reply-To quand elle est configurée", async () => {
+    envMock.current = {
+      EMAIL_FROM: "NOMAQbanq <noreply@nomaqbanq.ca>",
+      SUPPORT_EMAIL: "support@nomaqbanq.ca",
+    }
+    await sendEmail({ to: "user@example.com", subject: "Sujet", react })
+    expect(lastInput().ReplyToAddresses).toEqual(["support@nomaqbanq.ca"])
+  })
+
+  it("aucun Reply-To sans adresse de support", async () => {
+    await sendEmail({ to: "user@example.com", subject: "Sujet", react })
+    expect(lastInput().ReplyToAddresses).toBeUndefined()
+  })
+```
+
+Run: `bun run test tests/email/send.test.ts`
+Expected: le premier nouveau test échoue.
+
+- [ ] **Step 3 : Implémenter**
+
+Dans `lib/env/schema.ts`, après `EMAIL_OVERRIDE_TO: z.string().optional(),` :
+
+```ts
+      // Boîte lue par un humain : Reply-To de tous les courriels et adresse
+      // affichée dans le courriel de confirmation d'achat. `EMAIL_FROM` est
+      // une adresse noreply.
+      SUPPORT_EMAIL: z.string().optional(),
+```
+
+Dans `email/send.ts`, dans le `SendEmailCommand`, après `Destination: { ToAddresses: [recipient] },` :
+
+```ts
+      ...(env.SUPPORT_EMAIL ? { ReplyToAddresses: [env.SUPPORT_EMAIL] } : {}),
+```
+
+- [ ] **Step 4 : Lancer les tests et commiter**
+
+Run: `bun run test tests/email && bun run check`
+Expected: tout vert.
+
+```bash
+git add lib/env/schema.ts email/send.ts tests/email/send.test.ts
+git commit -m "feat(email): adresse de support en Reply-To"
+```
+
+---
+
+### Task 8 : Gabarit et fonction d'envoi
 
 **Files:**
 - Create: `email/templates/purchase-confirmation-email.tsx`
@@ -957,53 +1167,75 @@ git commit -m "feat(admin): badge de litige sur les transactions"
 
 - [ ] **Step 1 : Tests (échouent)**
 
-Dans `tests/email/templates.test.ts`, ajouter l'import :
+Dans `tests/email/templates.test.ts`, ajouter l'import (groupe `@/`, trié) :
 
 ```ts
 import { PurchaseConfirmationEmail } from "@/email/templates/purchase-confirmation-email"
 ```
 
-et le test :
+et les tests :
 
 ```ts
-  it("purchase confirmation email : produit, montant, libellé de relevé et fin d'accès", async () => {
+  const confirmationProps = {
+    productName: "Accès examens — 90 jours",
+    amountLabel: "200,00 $",
+    presentmentLabel: "228 000 FCFA",
+    purchasedAtLabel: "2 septembre 2026",
+    grantedAccess: [
+      { label: "Accès aux examens", expiresAtLabel: "31 décembre 2026" },
+      { label: "Accès à l'entraînement", expiresAtLabel: "2 octobre 2026" },
+    ],
+    accountUrl: "https://nomaqbanq.ca/tableau-de-bord/abonnements",
+    supportEmail: "support@nomaqbanq.ca",
+  }
+
+  it("purchase confirmation email : produit, montant, libellé de relevé, un accès par ligne, support", async () => {
     const html = await render(
-      createElement(PurchaseConfirmationEmail, {
-        productName: "Accès examens — 90 jours",
-        amountLabel: "200,00 $",
-        presentmentLabel: "228 000 FCFA",
-        purchasedAtLabel: "2 septembre 2026",
-        accessExpiresAtLabel: "1 décembre 2026",
-        accountUrl: "https://nomaqbanq.ca/tableau-de-bord/abonnements",
-      }),
+      createElement(PurchaseConfirmationEmail, confirmationProps),
     )
     expect(html).toContain("Accès examens — 90 jours")
     expect(html).toContain("200,00 $")
     expect(html).toContain("228 000 FCFA")
     expect(html).toContain("NOMAQBANQ")
-    expect(html).toContain("1 décembre 2026")
+    expect(html).toContain("Accès aux examens")
+    expect(html).toContain("31 décembre 2026")
+    expect(html).toContain("2 octobre 2026")
+    expect(html).toContain("support@nomaqbanq.ca")
     expect(html).toContain("https://nomaqbanq.ca/tableau-de-bord/abonnements")
   })
 
-  it("purchase confirmation email : sans montant local, aucune mention de conversion", async () => {
+  it("purchase confirmation email : sans montant local ni support, aucune mention correspondante", async () => {
     const html = await render(
       createElement(PurchaseConfirmationEmail, {
-        productName: "Accès examens — 90 jours",
-        amountLabel: "200,00 $",
+        ...confirmationProps,
         presentmentLabel: null,
-        purchasedAtLabel: "2 septembre 2026",
-        accessExpiresAtLabel: "1 décembre 2026",
-        accountUrl: "https://nomaqbanq.ca/tableau-de-bord/abonnements",
+        supportEmail: null,
       }),
     )
     expect(html).not.toContain("soit environ")
+    expect(html).not.toContain("Écrivez-nous")
   })
 ```
 
-Dans `tests/email/index.test.ts`, ajouter `sendPurchaseConfirmationEmail` à l'import depuis `@/email` et le test :
+Dans `tests/email/index.test.ts` :
+
+Ajouter `sendPurchaseConfirmationEmail` à l'import depuis `@/email`, puis, après les `vi.mock` existants :
 
 ```ts
-  it("sendPurchaseConfirmationEmail formate montants et dates en français", async () => {
+vi.mock("@/lib/base-url", () => ({ getBaseUrl: () => "https://nomaqbanq.ca" }))
+vi.mock("@/lib/env/server", () => ({
+  env: { SUPPORT_EMAIL: "support@nomaqbanq.ca" },
+}))
+```
+
+et les tests :
+
+```ts
+  // Intl fr-CA sépare avec des espaces insécables (U+00A0 / U+202F) : on
+  // normalise avant de comparer.
+  const plain = (s: string) => s.replace(/[  ]/g, " ")
+
+  it("sendPurchaseConfirmationEmail formate montants, dates et accès en français", async () => {
     const messageId = await sendPurchaseConfirmationEmail({
       to: "u@x.com",
       productName: "Accès examens",
@@ -1012,20 +1244,44 @@ Dans `tests/email/index.test.ts`, ajouter `sendPurchaseConfirmationEmail` à l'i
       presentmentAmount: 9120000,
       presentmentCurrency: "XAF",
       purchasedAt: new Date("2026-09-02T14:00:00Z"),
-      accessExpiresAt: new Date("2026-12-01T14:00:00Z"),
+      grantedAccess: [
+        { accessType: "exam", expiresAt: new Date("2026-12-31T14:00:00Z") },
+        { accessType: "training", expiresAt: new Date("2026-10-02T14:00:00Z") },
+      ],
     })
     expect(messageId).toBe("msg-1")
     const arg = firstArg()
     expect(arg.to).toBe("u@x.com")
     expect(arg.subject).toBe("Confirmation de votre achat — NOMAQbanq")
     const props = (arg.react as { props: Record<string, unknown> }).props
-    expect(props.amountLabel).toBe("200 $")
-    // Le symbole (« XAF » ou « FCFA ») dépend des données ICU du runtime :
-    // on ne vérifie que la valeur.
-    expect(props.presentmentLabel).toContain("91")
+    expect(plain(props.amountLabel as string)).toBe("200 $")
+    expect(plain(props.presentmentLabel as string).replace(/ /g, "")).toContain(
+      "9120000",
+    )
     expect(props.purchasedAtLabel).toBe("2 septembre 2026")
-    expect(props.accessExpiresAtLabel).toBe("1 décembre 2026")
-    expect(props.accountUrl).toMatch(/\/tableau-de-bord\/abonnements$/)
+    expect(props.grantedAccess).toEqual([
+      { label: "Accès aux examens", expiresAtLabel: "31 décembre 2026" },
+      { label: "Accès à l'entraînement", expiresAtLabel: "2 octobre 2026" },
+    ])
+    expect(props.accountUrl).toBe("https://nomaqbanq.ca/tableau-de-bord/abonnements")
+    expect(props.supportEmail).toBe("support@nomaqbanq.ca")
+  })
+
+  it("sendPurchaseConfirmationEmail sans montant local → presentmentLabel null", async () => {
+    await sendPurchaseConfirmationEmail({
+      to: "u@x.com",
+      productName: "Accès examens",
+      amountPaid: 20000,
+      currency: "CAD",
+      presentmentAmount: null,
+      presentmentCurrency: null,
+      purchasedAt: new Date("2026-09-02T14:00:00Z"),
+      grantedAccess: [
+        { accessType: "exam", expiresAt: new Date("2026-12-01T14:00:00Z") },
+      ],
+    })
+    const props = (firstArg().react as { props: Record<string, unknown> }).props
+    expect(props.presentmentLabel).toBeNull()
   })
 ```
 
@@ -1044,20 +1300,24 @@ import { EmailLayout } from "./email-layout"
 
 const row = { fontSize: "14px", color: "#18181b", margin: "4px 0" } as const
 
+export type GrantedAccessLine = { label: string; expiresAtLabel: string }
+
 export function PurchaseConfirmationEmail({
   productName,
   amountLabel,
   presentmentLabel,
   purchasedAtLabel,
-  accessExpiresAtLabel,
+  grantedAccess,
   accountUrl,
+  supportEmail,
 }: {
   productName: string
   amountLabel: string
   presentmentLabel: string | null
   purchasedAtLabel: string
-  accessExpiresAtLabel: string
+  grantedAccess: GrantedAccessLine[]
   accountUrl: string
+  supportEmail: string | null
 }) {
   return (
     <EmailLayout preview={`Votre achat : ${productName}`}>
@@ -1075,9 +1335,12 @@ export function PurchaseConfirmationEmail({
         <Text style={row}>
           <strong>Date :</strong> {purchasedAtLabel}
         </Text>
-        <Text style={row}>
-          <strong>Accès valide jusqu&apos;au :</strong> {accessExpiresAtLabel}
-        </Text>
+        {grantedAccess.map((access) => (
+          <Text key={access.label} style={row}>
+            <strong>{access.label} :</strong> valide jusqu&apos;au{" "}
+            {access.expiresAtLabel}
+          </Text>
+        ))}
         <Text style={{ fontSize: "13px", color: "#52525b", marginTop: "16px" }}>
           Cette transaction apparaîtra sous le libellé <strong>NOMAQBANQ</strong>{" "}
           sur votre relevé bancaire. Un reçu Stripe vous est envoyé séparément.
@@ -1098,11 +1361,14 @@ export function PurchaseConfirmationEmail({
         <Text style={{ fontSize: "13px", color: "#52525b" }}>
           Ou copiez ce lien : <Link href={accountUrl}>{accountUrl}</Link>
         </Text>
-        <Text style={{ fontSize: "13px", color: "#52525b" }}>
-          Une question sur cet achat ? Répondez à ce courriel avant toute
-          démarche auprès de votre banque : nous réglons la plupart des
-          demandes le jour même.
-        </Text>
+        {supportEmail ? (
+          <Text style={{ fontSize: "13px", color: "#52525b" }}>
+            Une question sur cet achat ? Écrivez-nous à{" "}
+            <Link href={`mailto:${supportEmail}`}>{supportEmail}</Link> avant
+            toute démarche auprès de votre banque : nous réglons la plupart des
+            demandes le jour même.
+          </Text>
+        ) : null}
       </Section>
     </EmailLayout>
   )
@@ -1111,21 +1377,32 @@ export function PurchaseConfirmationEmail({
 
 - [ ] **Step 4 : Ajouter la fonction d'envoi**
 
-Dans `email/index.tsx`, ajouter les imports :
+Dans `email/index.tsx`, les imports deviennent (ordre Prettier : `@/` puis relatifs, triés) :
 
 ```ts
 import { getBaseUrl } from "@/lib/base-url"
+import { env } from "@/lib/env/server"
 import {
   formatCurrency,
   formatExpiration,
   formatPresentmentAmount,
 } from "@/lib/format"
+import { sendEmail } from "./send"
+import { AccessExpiringEmail } from "./templates/access-expiring-email"
+import { ExamResultsEmail } from "./templates/exam-results-email"
 import { PurchaseConfirmationEmail } from "./templates/purchase-confirmation-email"
+import { ResetPasswordEmail } from "./templates/reset-password-email"
+import { VerificationEmail } from "./templates/verification-email"
 ```
 
 et en fin de fichier :
 
 ```tsx
+const ACCESS_LABEL = {
+  exam: "Accès aux examens",
+  training: "Accès à l'entraînement",
+} as const
+
 export function sendPurchaseConfirmationEmail({
   to,
   productName,
@@ -1134,7 +1411,7 @@ export function sendPurchaseConfirmationEmail({
   presentmentAmount,
   presentmentCurrency,
   purchasedAt,
-  accessExpiresAt,
+  grantedAccess,
 }: {
   to: string
   productName: string
@@ -1145,7 +1422,8 @@ export function sendPurchaseConfirmationEmail({
   presentmentAmount: number | null
   presentmentCurrency: string | null
   purchasedAt: Date
-  accessExpiresAt: Date
+  /** Expirations EFFECTIVES écrites par le fulfillment, une par type octroyé. */
+  grantedAccess: { accessType: "exam" | "training"; expiresAt: Date }[]
 }) {
   const presentmentLabel =
     presentmentAmount != null && presentmentCurrency
@@ -1160,24 +1438,22 @@ export function sendPurchaseConfirmationEmail({
         amountLabel={formatCurrency(amountPaid, currency)}
         presentmentLabel={presentmentLabel}
         purchasedAtLabel={formatExpiration(purchasedAt.getTime())}
-        accessExpiresAtLabel={formatExpiration(accessExpiresAt.getTime())}
+        grantedAccess={grantedAccess.map((a) => ({
+          label: ACCESS_LABEL[a.accessType],
+          expiresAtLabel: formatExpiration(a.expiresAt.getTime()),
+        }))}
         accountUrl={`${getBaseUrl()}/tableau-de-bord/abonnements`}
+        supportEmail={env.SUPPORT_EMAIL ?? null}
       />
     ),
   })
 }
 ```
 
-Si `tests/email/index.test.ts` échoue sur `getBaseUrl` (variable d'env absente en test), ajouter en tête du fichier de test :
-
-```ts
-vi.mock("@/lib/base-url", () => ({ getBaseUrl: () => "https://nomaqbanq.ca" }))
-```
-
 - [ ] **Step 5 : Lancer les tests**
 
 Run: `bun run test tests/email`
-Expected: tous verts.
+Expected: tous verts. Si d'autres tests de `tests/email/index.test.ts` échouent à cause du mock de `@/lib/env/server`, c'est qu'ils lisaient l'environnement réel : le mock ne doit exposer que `SUPPORT_EMAIL`, les autres fonctions n'utilisent pas `env`.
 
 - [ ] **Step 6 : Commit**
 
@@ -1188,7 +1464,7 @@ git commit -m "feat(email): courriel de confirmation d'achat"
 
 ---
 
-### Task 8 : Fulfillment enrichi + `markConfirmationEmailSent`
+### Task 9 : Fulfillment enrichi + `markConfirmationEmailSent`
 
 **Files:**
 - Modify: `features/payments/stripe.ts`
@@ -1196,14 +1472,14 @@ git commit -m "feat(email): courriel de confirmation d'achat"
 
 - [ ] **Step 1 : Tests (échouent)**
 
-Dans `tests/integration/payments-stripe.test.ts`, ajouter `markConfirmationEmailSent` à l'import du DAL, puis dans `describe("completeStripeTransaction", …)` :
+Dans `tests/integration/payments-stripe.test.ts`, ajouter `markConfirmationEmailSent` à l'import du DAL, puis **en fin** du `describe("completeStripeTransaction", …)` (l'utilisateur `U_CONFIRM` est dédié : aucun test existant ne mesure son accès) :
 
 ```ts
   it("completed → retourne les données du courriel de confirmation", async () => {
     const tx = createId()
     await seedPending({
       id: tx,
-      userId: U_HAPPY,
+      userId: U_CONFIRM,
       productId: PEXAM,
       sessionId: `cs_confirm_${tx}`,
       accessType: "exam",
@@ -1228,8 +1504,66 @@ Dans `tests/integration/payments-stripe.test.ts`, ajouter `markConfirmationEmail
     expect(result.confirmation.currency).toBe("CAD")
     expect(result.confirmation.presentmentAmount).toBe(2280000)
     expect(result.confirmation.presentmentCurrency).toBe("XAF")
-    expect(result.confirmation.accessExpiresAt).toBeInstanceOf(Date)
     expect(result.confirmation.completedAt).toBeInstanceOf(Date)
+    expect(result.confirmation.grantedAccess).toHaveLength(1)
+    expect(result.confirmation.grantedAccess[0].accessType).toBe("exam")
+    expect(
+      approxDays(result.confirmation.grantedAccess[0].expiresAt, 90),
+    ).toBe(true)
+  })
+
+  // Un combo pose `now + durée` sur la transaction, mais l'accès exam existant
+  // (90 j ci-dessus) est plus long : le courriel doit annoncer la date réelle.
+  it("combo par-dessus un accès plus long → grantedAccess porte les expirations effectives", async () => {
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_CONFIRM,
+      productId: PCOMBO,
+      sessionId: `cs_confirm_combo_${tx}`,
+      accessType: "exam",
+      durationDays: 30,
+    })
+
+    const result = await completeStripeTransaction({
+      stripeSessionId: `cs_confirm_combo_${tx}`,
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeEventId: `evt_confirm_combo_${tx}`,
+    })
+
+    expect(result.status).toBe("completed")
+    if (result.status !== "completed") return
+    const byType = Object.fromEntries(
+      result.confirmation.grantedAccess.map((a) => [a.accessType, a.expiresAt]),
+    )
+    expect(approxDays(byType.exam, 90)).toBe(true)
+    expect(approxDays(byType.training, 30)).toBe(true)
+  })
+
+  it("compte anonymisé → userEmail null (aucun courriel à envoyer)", async () => {
+    await db
+      .update(user)
+      .set({ anonymizedAt: new Date() })
+      .where(eq(user.id, U_CONFIRM))
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_CONFIRM,
+      productId: PEXAM,
+      sessionId: `cs_anon_${tx}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const result = await completeStripeTransaction({
+      stripeSessionId: `cs_anon_${tx}`,
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeEventId: `evt_anon_${tx}`,
+    })
+
+    expect(result.status).toBe("completed")
+    if (result.status !== "completed") return
+    expect(result.confirmation.userEmail).toBeNull()
   })
 ```
 
@@ -1241,7 +1575,7 @@ describe("markConfirmationEmailSent", () => {
     const tx = createId()
     await seedPending({
       id: tx,
-      userId: U_HAPPY,
+      userId: U_DISPUTE,
       productId: PEXAM,
       sessionId: `cs_mail_${tx}`,
       accessType: "exam",
@@ -1277,14 +1611,16 @@ Remplacer le type de résultat :
 
 ```ts
 export type PurchaseConfirmationData = {
-  userEmail: string
+  /** Null si le compte est anonymisé : aucun courriel à envoyer. */
+  userEmail: string | null
   productName: string
   amountPaid: number
   currency: "CAD" | "XAF"
   presentmentAmount: number | null
   presentmentCurrency: string | null
   completedAt: Date
-  accessExpiresAt: Date
+  /** Expirations EFFECTIVEMENT écrites (max(existant, transaction)), une par type. */
+  grantedAccess: { accessType: "exam" | "training"; expiresAt: Date }[]
 }
 
 export type CompleteStripeResult =
@@ -1297,7 +1633,7 @@ export type CompleteStripeResult =
   | { status: "not_found" }
 ```
 
-Dans `completeStripeTransaction`, la lecture du `pending` doit aussi ramener les montants provisoires : ajouter à son `select` :
+Dans `completeStripeTransaction`, ajouter au `select` du `pending` :
 
 ```ts
         amountPaid: transactions.amountPaid,
@@ -1308,10 +1644,14 @@ Remplacer le verrou utilisateur (qui ne lisait que `id`) par :
 
 ```ts
     // Verrou utilisateur : sérialise octrois/révocations concurrents. Le
-    // courriel du compte est lu ici, sous le même verrou, pour le courriel
-    // de confirmation.
+    // courriel et l'état d'anonymisation sont lus sous le même verrou pour
+    // le courriel de confirmation.
     const [lockedUser] = await tx
-      .select({ id: user.id, email: user.email })
+      .select({
+        id: user.id,
+        email: user.email,
+        anonymizedAt: user.anonymizedAt,
+      })
       .from(user)
       .where(eq(user.id, pending.userId))
       .for("update")
@@ -1328,6 +1668,18 @@ Remplacer le `select` du produit par :
     const isCombo = product?.isCombo ?? false
 ```
 
+Juste avant la boucle `for (const accessType of types) {`, ajouter :
+
+```ts
+    const grantedAccess: PurchaseConfirmationData["grantedAccess"] = []
+```
+
+Dans la boucle, juste après le calcul de `finalExpiry`, ajouter :
+
+```ts
+      grantedAccess.push({ accessType, expiresAt: finalExpiry })
+```
+
 Remplacer le `return { status: "completed", transactionId: pending.id }` final par :
 
 ```ts
@@ -1335,14 +1687,15 @@ Remplacer le `return { status: "completed", transactionId: pending.id }` final p
       status: "completed",
       transactionId: pending.id,
       confirmation: {
-        userEmail: lockedUser?.email ?? "",
+        userEmail:
+          lockedUser && !lockedUser.anonymizedAt ? lockedUser.email : null,
         productName: product?.name ?? "Accès NOMAQbanq",
         amountPaid: reconcile?.amountPaid ?? pending.amountPaid,
         currency: reconcile?.currency ?? pending.currency,
         presentmentAmount: presentment?.presentmentAmount ?? null,
         presentmentCurrency: presentment?.presentmentCurrency ?? null,
         completedAt: now,
-        accessExpiresAt: txAccessExpiresAt,
+        grantedAccess,
       },
     }
 ```
@@ -1368,12 +1721,12 @@ export async function markConfirmationEmailSent(params: {
 - [ ] **Step 4 : Lancer les tests**
 
 Run: `bun run test:integration tests/integration/payments-stripe.test.ts`
-Expected: tous verts (les tests existants sur `completed` restent valides : ils ne lisent que `status` et `transactionId`).
+Expected: tous verts (les tests existants sur `completed` ne lisent que `status` et `transactionId`).
 
 - [ ] **Step 5 : Type-check et commit**
 
 Run: `bun run type-check`
-Expected: 0 erreur (le webhook ignore encore `confirmation`, c'est la tâche suivante).
+Expected: 0 erreur.
 
 ```bash
 git add features/payments/stripe.ts tests/integration/payments-stripe.test.ts
@@ -1382,7 +1735,7 @@ git commit -m "feat(payments): données de confirmation au fulfillment et trace 
 
 ---
 
-### Task 9 : Envoi best-effort depuis le webhook
+### Task 10 : Envoi après le 200 via `waitUntil`
 
 **Files:**
 - Modify: `app/api/stripe/webhook/route.ts`
@@ -1397,6 +1750,7 @@ Dans `vi.hoisted`, ajouter :
 ```ts
     sendPurchaseConfirmationEmail: vi.fn<() => Promise<string>>(),
     markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
+    waitUntil: vi.fn<(p: Promise<unknown>) => void>(),
 ```
 
 Dans `vi.mock("@/features/payments/stripe", …)`, ajouter :
@@ -1405,12 +1759,13 @@ Dans `vi.mock("@/features/payments/stripe", …)`, ajouter :
   markConfirmationEmailSent: mocks.markConfirmationEmailSent,
 ```
 
-Ajouter un mock du module courriel :
+Ajouter deux mocks de module :
 
 ```ts
 vi.mock("@/email", () => ({
   sendPurchaseConfirmationEmail: mocks.sendPurchaseConfirmationEmail,
 }))
+vi.mock("@vercel/functions", () => ({ waitUntil: mocks.waitUntil }))
 ```
 
 Dans `beforeEach`, remplacer la valeur par défaut de `completeStripeTransaction` par :
@@ -1427,7 +1782,9 @@ Dans `beforeEach`, remplacer la valeur par défaut de `completeStripeTransaction
       presentmentAmount: null,
       presentmentCurrency: null,
       completedAt: new Date("2026-09-02T14:00:00Z"),
-      accessExpiresAt: new Date("2026-12-01T14:00:00Z"),
+      grantedAccess: [
+        { accessType: "exam", expiresAt: new Date("2026-12-01T14:00:00Z") },
+      ],
     },
   })
   mocks.sendPurchaseConfirmationEmail.mockResolvedValue("ses-msg-1")
@@ -1437,7 +1794,7 @@ Dans `beforeEach`, remplacer la valeur par défaut de `completeStripeTransaction
 Ajouter un `describe` :
 
 ```ts
-describe("webhook Stripe — courriel de confirmation", () => {
+describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
   const paidEvent = (id: string) => ({
     id,
     type: "checkout.session.completed",
@@ -1452,10 +1809,17 @@ describe("webhook Stripe — courriel de confirmation", () => {
     },
   })
 
-  it("fulfillment completed → courriel envoyé et MessageId enregistré", async () => {
+  // La promesse passée à waitUntil est le travail différé : on l'attend
+  // explicitement pour observer ses effets.
+  const deferred = () =>
+    mocks.waitUntil.mock.calls[0]?.[0] as Promise<unknown> | undefined
+
+  it("fulfillment completed → envoi confié à waitUntil, MessageId enregistré", async () => {
     mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_mail"))
     const res = await POST(request())
     expect(res.status).toBe(200)
+    expect(mocks.waitUntil).toHaveBeenCalledTimes(1)
+    await deferred()
     expect(mocks.sendPurchaseConfirmationEmail).toHaveBeenCalledWith({
       to: "u@test.invalid",
       productName: "Accès examens",
@@ -1464,7 +1828,9 @@ describe("webhook Stripe — courriel de confirmation", () => {
       presentmentAmount: null,
       presentmentCurrency: null,
       purchasedAt: new Date("2026-09-02T14:00:00Z"),
-      accessExpiresAt: new Date("2026-12-01T14:00:00Z"),
+      grantedAccess: [
+        { accessType: "exam", expiresAt: new Date("2026-12-01T14:00:00Z") },
+      ],
     })
     expect(mocks.markConfirmationEmailSent).toHaveBeenCalledWith({
       transactionId: "tx_1",
@@ -1472,26 +1838,53 @@ describe("webhook Stripe — courriel de confirmation", () => {
     })
   })
 
-  it("already_processed → aucun courriel (un seul envoi par achat)", async () => {
+  it("already_processed → rien n'est différé (un seul envoi par achat)", async () => {
     mocks.completeStripeTransaction.mockResolvedValueOnce({
       status: "already_processed",
     })
     mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_replay"))
     const res = await POST(request())
     expect(res.status).toBe(200)
+    expect(mocks.waitUntil).not.toHaveBeenCalled()
     expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
   })
 
-  // L'accès est déjà commité quand le courriel part : un 500 ferait rejouer
-  // un fulfillment idempotent pour rien, et un client resterait sans courriel
-  // de toute façon. Sentry est la seule trace.
-  it("échec SES → capture Sentry, réponse 200 conservée", async () => {
+  it("compte anonymisé (courriel nul) → aucun envoi, capture explicite", async () => {
+    mocks.completeStripeTransaction.mockResolvedValueOnce({
+      status: "completed",
+      transactionId: "tx_anon",
+      confirmation: {
+        userEmail: null,
+        productName: "Accès examens",
+        amountPaid: 20000,
+        currency: "CAD",
+        presentmentAmount: null,
+        presentmentCurrency: null,
+        completedAt: new Date("2026-09-02T14:00:00Z"),
+        grantedAccess: [],
+      },
+    })
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_anon"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    await deferred()
+    expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.any(Error),
+      { detail: "courriel de confirmation non envoyé · transaction tx_anon" },
+    )
+  })
+
+  // L'accès est déjà commité et le 200 déjà parti : Sentry est la seule trace.
+  it("échec SES → capture Sentry, le 200 est déjà parti", async () => {
     mocks.sendPurchaseConfirmationEmail.mockRejectedValueOnce(
       new Error("SES down"),
     )
     mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_ses_ko"))
     const res = await POST(request())
     expect(res.status).toBe(200)
+    await deferred()
     expect(mocks.captureServerError).toHaveBeenCalledWith(
       "[stripe:webhook]",
       expect.any(Error),
@@ -1500,11 +1893,12 @@ describe("webhook Stripe — courriel de confirmation", () => {
     expect(mocks.markConfirmationEmailSent).not.toHaveBeenCalled()
   })
 
-  it("échec de l'écriture du MessageId → capture, 200 (le courriel est parti)", async () => {
+  it("échec de l'écriture du MessageId → capture (le courriel est parti)", async () => {
     mocks.markConfirmationEmailSent.mockRejectedValueOnce(new Error("Neon"))
     mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_mark_ko"))
     const res = await POST(request())
     expect(res.status).toBe(200)
+    await deferred()
     expect(mocks.captureServerError).toHaveBeenCalled()
   })
 })
@@ -1513,15 +1907,17 @@ describe("webhook Stripe — courriel de confirmation", () => {
 - [ ] **Step 2 : Lancer pour vérifier l'échec**
 
 Run: `bun run test tests/features/stripe-webhook-errors.test.ts`
-Expected: les 4 nouveaux tests échouent (aucun envoi).
+Expected: les nouveaux tests échouent (`waitUntil` jamais appelé).
 
 - [ ] **Step 3 : Implémenter**
 
 Dans `app/api/stripe/webhook/route.ts` :
 
-Ajouter aux imports :
+Les imports deviennent (ordre Prettier) :
 
 ```ts
+import { waitUntil } from "@vercel/functions"
+import type Stripe from "stripe"
 import { sendPurchaseConfirmationEmail } from "@/email"
 import {
   type CompleteStripeResult,
@@ -1530,25 +1926,30 @@ import {
   markConfirmationEmailSent,
   recordStripeDispute,
 } from "@/features/payments/stripe"
+import { captureServerError } from "@/lib/observability"
+import { getStripe, getStripeWebhookSecret } from "@/lib/stripe"
 ```
-
-(remplacer l'import existant de `@/features/payments/stripe`.)
 
 Ajouter avant `export async function POST` :
 
 ```ts
 /**
- * Courriel de confirmation, en best-effort : l'accès est déjà COMMITÉ quand
- * on arrive ici. Un échec ne doit ni changer le code de réponse (un 500
- * ferait rejouer un fulfillment idempotent pour rien) ni bloquer l'octroi.
- * Le reçu Stripe (`receipt_email`) part de son côté : le client n'est jamais
- * sans trace. Sentry est la seule trace de l'échec.
+ * Courriel de confirmation, APRÈS le 200 et en best-effort. Stripe exige une
+ * réponse rapide avant toute logique longue ; `sendEmail` fait deux rendus
+ * React Email puis un appel SES, et un dépassement de délai déclencherait un
+ * retry qui retomberait en `already_processed` — courriel perdu sans trace.
+ * L'accès est déjà COMMITÉ quand on arrive ici : un échec ne change rien au
+ * fulfillment. Le reçu Stripe (`receipt_email`) part de son côté. Sentry est
+ * la seule trace d'un échec.
  */
 const sendConfirmation = async (
   result: Extract<CompleteStripeResult, { status: "completed" }>,
 ) => {
+  const c = result.confirmation
   try {
-    const c = result.confirmation
+    if (!c.userEmail) {
+      throw new Error("compte anonymisé, aucun destinataire")
+    }
     const messageId = await sendPurchaseConfirmationEmail({
       to: c.userEmail,
       productName: c.productName,
@@ -1557,7 +1958,7 @@ const sendConfirmation = async (
       presentmentAmount: c.presentmentAmount,
       presentmentCurrency: c.presentmentCurrency,
       purchasedAt: c.completedAt,
-      accessExpiresAt: c.accessExpiresAt,
+      grantedAccess: c.grantedAccess,
     })
     await markConfirmationEmailSent({
       transactionId: result.transactionId,
@@ -1575,7 +1976,7 @@ Dans le `case "checkout.session.completed"`, après le bloc `if (result.status =
 
 ```ts
           if (result.status === "completed") {
-            await sendConfirmation(result)
+            waitUntil(sendConfirmation(result))
           }
 ```
 
@@ -1591,12 +1992,12 @@ Expected: tout vert.
 
 ```bash
 git add app/api/stripe/webhook/route.ts tests/features/stripe-webhook-errors.test.ts
-git commit -m "feat(payments): courriel de confirmation best-effort après le fulfillment"
+git commit -m "feat(payments): courriel de confirmation différé après le 200 du webhook"
 ```
 
 ---
 
-### Task 10 : Journal SES → EventBridge → CloudWatch Logs
+### Task 11 : Journal SES → EventBridge → CloudWatch Logs
 
 **Files:** aucun dans le dépôt. Exécuté par l'agent via le MCP `aws-mcp` (profil `claude-ops`, `us-east-2`). Chaque étape lit avant d'écrire et est idempotente.
 
@@ -1691,13 +2092,11 @@ result = await main(); result
 
 Expected: au moins un événement `Send` puis `Delivery` portant le `messageId` et le destinataire, aucun corps de courriel.
 
-- [ ] **Step 6 : Note dans les règles** (voir Task 12).
-
 ---
 
 ## Lot 3 — Script `dispute:evidence`
 
-### Task 11 : Script de lecture seule et son test
+### Task 12 : Script de lecture seule et son test
 
 **Files:**
 - Create: `scripts/dispute-evidence.ts`
@@ -1714,6 +2113,7 @@ import {
   type EvidenceInput,
   buildActivityEvents,
   buildEvidenceMarkdown,
+  describePaymentMethod,
   formatActivityLog,
 } from "@/scripts/dispute-evidence"
 
@@ -1783,15 +2183,56 @@ describe("buildActivityEvents + formatActivityLog", () => {
     expect(lines[1]).toContain("connexion · IP 203.0.113.7 · Mozilla/5.0")
     expect(log).toContain("achat · Accès examens · 200 $ CAD · payment_intent pi_1")
     expect(log).toContain("courriel de confirmation envoyé")
-    expect(log).toContain(
-      "examen commencé · Examen blanc 3",
-    )
+    expect(log).toContain("examen commencé · Examen blanc 3")
     expect(log).toContain("examen terminé · Examen blanc 3 · 230 réponses")
     expect(log).toContain("courriel de résultats envoyé · Examen blanc 3")
     expect(log).toContain("entraînement commencé · 20 questions")
-    // Ordre strictement croissant.
     const stamps = lines.map((l) => l.slice(0, 20))
     expect([...stamps].sort()).toEqual(stamps)
+  })
+})
+
+describe("describePaymentMethod", () => {
+  it("carte : pays et résultat 3DS", () => {
+    expect(
+      describePaymentMethod({
+        type: "card",
+        card: {
+          country: "CA",
+          three_d_secure: { result: "authenticated", authentication_flow: "frictionless" },
+        },
+      }),
+    ).toEqual({
+      paymentMethodType: "card",
+      cardCountry: "CA",
+      threeDSecure: "authenticated (frictionless)",
+    })
+  })
+
+  it("carte sans 3DS tenté", () => {
+    expect(
+      describePaymentMethod({ type: "card", card: { country: "CA", three_d_secure: null } }),
+    ).toEqual({ paymentMethodType: "card", cardCountry: "CA", threeDSecure: "non tenté" })
+  })
+
+  // Le litige d'août est passé par Link : le dossier ne doit pas dire « non
+  // tenté » comme si 3DS avait été possible.
+  it("Link pur : pays de financement, 3DS non applicable", () => {
+    expect(
+      describePaymentMethod({ type: "link", link: { country: "CA" } }),
+    ).toEqual({
+      paymentMethodType: "link",
+      cardCountry: "CA",
+      threeDSecure: "non applicable (Link)",
+    })
+  })
+
+  it("détails absents", () => {
+    expect(describePaymentMethod(null)).toEqual({
+      paymentMethodType: "inconnu",
+      cardCountry: null,
+      threeDSecure: "inconnu",
+    })
   })
 })
 
@@ -1815,14 +2256,16 @@ describe("buildEvidenceMarkdown", () => {
         amount: 20000,
         currency: "cad",
         dueBy: at("2026-09-30T00:00:00Z"),
+        paymentMethodType: "link",
         cardCountry: "CA",
-        threeDSecure: "non tenté",
+        threeDSecure: "non applicable (Link)",
       },
     })
     expect(md).toContain("## Contexte du litige")
     expect(md).toContain("dp_1")
     expect(md).toContain("2026-09-30")
     expect(md).toContain("fraudulent")
+    expect(md).toContain("Moyen de paiement : link")
   })
 })
 ```
@@ -1849,13 +2292,13 @@ Créer `scripts/dispute-evidence.ts` :
  * Env (délibérément DISTINCT des vars runtime) :
  * - AUDIT_DATABASE_URL : branche Neon à lire (idéalement clonée de la prod).
  * - AUDIT_STRIPE_KEY   : optionnelle, clé LIVE en lecture ; ajoute motif,
- *   date limite, pays de la carte et résultat 3DS. Sans elle, ces lignes sont
- *   omises et le journal reste complet.
+ *   date limite, moyen de paiement, pays et résultat 3DS. Sans elle, ces
+ *   lignes sont omises et le journal reste complet.
  *
  * N'importe pas @/db ni lib/stripe (schéma d'env complet requis hors Next).
  */
 import { config } from "dotenv"
-import { and, count, desc, eq, isNotNull } from "drizzle-orm"
+import { asc, count, eq } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { Pool } from "pg"
 import Stripe from "stripe"
@@ -1922,12 +2365,26 @@ export type EvidenceInput = {
     amount: number
     currency: string
     dueBy: Date | null
+    paymentMethodType: string
     cardCountry: string | null
     threeDSecure: string
   } | null
 }
 
 export type ActivityEvent = { at: Date; kind: string; detail: string }
+
+/** Sous-ensemble de `Stripe.Charge.PaymentMethodDetails` que le dossier lit. */
+export type PaymentMethodDetailsLike = {
+  type: string
+  card?: {
+    country?: string | null
+    three_d_secure?: {
+      result?: string | null
+      authentication_flow?: string | null
+    } | null
+  } | null
+  link?: { country?: string | null } | null
+} | null
 
 const stamp = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, "Z")
 
@@ -1940,6 +2397,37 @@ const money = (cents: number, currency: string) => {
     ? String(amount)
     : amount.toFixed(2).replace(".", ",")
   return `${label} $ ${currency}`
+}
+
+/**
+ * Un paiement Link « pur » n'a pas de `card` et ne peut structurellement pas
+ * porter de résultat 3DS : dire « non tenté » laisserait croire qu'il aurait
+ * pu l'être. Link comme portefeuille d'une carte passe par la branche `card`.
+ */
+export const describePaymentMethod = (
+  details: PaymentMethodDetailsLike,
+): { paymentMethodType: string; cardCountry: string | null; threeDSecure: string } => {
+  if (!details) {
+    return { paymentMethodType: "inconnu", cardCountry: null, threeDSecure: "inconnu" }
+  }
+  if (details.card) {
+    const tds = details.card.three_d_secure
+    return {
+      paymentMethodType: details.type,
+      cardCountry: details.card.country ?? null,
+      threeDSecure: tds
+        ? `${tds.result ?? "?"} (${tds.authentication_flow ?? "?"})`
+        : "non tenté",
+    }
+  }
+  if (details.link) {
+    return {
+      paymentMethodType: details.type,
+      cardCountry: details.link.country ?? null,
+      threeDSecure: "non applicable (Link)",
+    }
+  }
+  return { paymentMethodType: details.type, cardCountry: null, threeDSecure: "inconnu" }
 }
 
 export const buildActivityEvents = (input: EvidenceInput): ActivityEvent[] => {
@@ -1978,11 +2466,7 @@ export const buildActivityEvents = (input: EvidenceInput): ActivityEvent[] => {
   }
   for (const p of input.participations) {
     if (p.startedAt)
-      events.push({
-        at: p.startedAt,
-        kind: "examen commencé",
-        detail: p.examTitle,
-      })
+      events.push({ at: p.startedAt, kind: "examen commencé", detail: p.examTitle })
     if (p.completedAt)
       events.push({
         at: p.completedAt,
@@ -2026,7 +2510,7 @@ export const buildEvidenceMarkdown = (input: EvidenceInput): string => {
   ]
   if (dispute) {
     sections.push(
-      `## Contexte du litige\n\n- Litige : ${dispute.id}\n- Motif : ${dispute.reason}\n- Statut : ${dispute.status}\n- Montant : ${dispute.amount} ${dispute.currency}\n- Date limite de réponse : ${dispute.dueBy ? stamp(dispute.dueBy) : "inconnue"}\n- Pays de la carte : ${dispute.cardCountry ?? "inconnu"}\n- 3D Secure : ${dispute.threeDSecure}`,
+      `## Contexte du litige\n\n- Litige : ${dispute.id}\n- Motif : ${dispute.reason}\n- Statut : ${dispute.status}\n- Montant : ${dispute.amount} ${dispute.currency}\n- Date limite de réponse : ${dispute.dueBy ? stamp(dispute.dueBy) : "inconnue"}\n- Moyen de paiement : ${dispute.paymentMethodType}\n- Pays de la carte : ${dispute.cardCountry ?? "inconnu"}\n- 3D Secure : ${dispute.threeDSecure}`,
     )
   }
   return sections.join("\n\n") + "\n"
@@ -2097,6 +2581,7 @@ const main = async (): Promise<number> => {
       .select({ providerId: account.providerId })
       .from(account)
       .where(eq(account.userId, tx.userId))
+      .orderBy(asc(account.createdAt))
       .limit(LIMIT)
     const sessions = await db
       .select({
@@ -2106,10 +2591,11 @@ const main = async (): Promise<number> => {
       })
       .from(session)
       .where(eq(session.userId, tx.userId))
-      .orderBy(desc(session.createdAt))
+      .orderBy(asc(session.createdAt))
       .limit(LIMIT)
-    // Jointure + groupBy plutôt qu'une sous-requête `.as()` : Drizzle déqualifie
-    // les colonnes d'une sous-requête mono-table et casse la corrélation.
+    // Jointure + groupBy par clé primaire plutôt qu'une sous-requête `.as()` :
+    // Drizzle déqualifie les colonnes d'une sous-requête mono-table et casse
+    // la corrélation. `count(col)` ignore déjà les NULL (questions non répondues).
     const participations = await db
       .select({
         examTitle: exams.title,
@@ -2121,15 +2607,10 @@ const main = async (): Promise<number> => {
       })
       .from(examParticipations)
       .innerJoin(exams, eq(exams.id, examParticipations.examId))
-      .leftJoin(
-        examAnswers,
-        and(
-          eq(examAnswers.participationId, examParticipations.id),
-          isNotNull(examAnswers.selectedAnswer),
-        ),
-      )
+      .leftJoin(examAnswers, eq(examAnswers.participationId, examParticipations.id))
       .where(eq(examParticipations.userId, tx.userId))
       .groupBy(examParticipations.id, exams.title)
+      .orderBy(asc(examParticipations.startedAt))
       .limit(LIMIT)
     const trainings = await db
       .select({
@@ -2142,13 +2623,11 @@ const main = async (): Promise<number> => {
       .from(trainingSessions)
       .leftJoin(
         trainingSessionItems,
-        and(
-          eq(trainingSessionItems.sessionId, trainingSessions.id),
-          isNotNull(trainingSessionItems.selectedAnswer),
-        ),
+        eq(trainingSessionItems.sessionId, trainingSessions.id),
       )
       .where(eq(trainingSessions.userId, tx.userId))
       .groupBy(trainingSessions.id)
+      .orderBy(asc(trainingSessions.startedAt))
       .limit(LIMIT)
 
     let dispute: EvidenceInput["dispute"] = null
@@ -2162,20 +2641,16 @@ const main = async (): Promise<number> => {
       if (d) {
         const chargeId = typeof d.charge === "string" ? d.charge : d.charge.id
         const charge = await stripe.charges.retrieve(chargeId)
-        const card = charge.payment_method_details?.card
         dispute = {
           id: d.id,
           reason: d.reason,
           status: d.status,
           amount: d.amount,
           currency: d.currency,
-          dueBy: d.evidence_details?.due_by
+          dueBy: d.evidence_details.due_by
             ? new Date(d.evidence_details.due_by * 1000)
             : null,
-          cardCountry: card?.country ?? null,
-          threeDSecure: card?.three_d_secure
-            ? `${card.three_d_secure.result ?? "?"} (${card.three_d_secure.authentication_flow ?? "?"})`
-            : "non tenté",
+          ...describePaymentMethod(charge.payment_method_details),
         }
       }
     }
@@ -2270,11 +2745,10 @@ git commit -m "feat(scripts): dispute:evidence, journal d'activité prêt pour S
 
 ---
 
-### Task 12 : Règles du dépôt et clôture
+### Task 13 : Règles du dépôt et clôture
 
 **Files:**
 - Modify: `.claude/rules/payments.md`
-- Modify: `docs/superpowers/specs/2026-09-02-prevention-litiges-stripe-design.md` (nom de la variable `AUDIT_STRIPE_KEY`)
 
 - [ ] **Step 1 : Ajouter une section aux règles**
 
@@ -2284,50 +2758,54 @@ Dans `.claude/rules/payments.md`, après la section « Webhook — contrat de r�
 ## Litiges et confirmation d'achat
 
 - **L'accès n'est jamais révoqué sur litige**, délibérément : couper l'accès
-  affaiblirait la position « service livré et utilisé ». Le webhook persiste
-  `stripe_dispute_id` / `dispute_status` sur la transaction (via
-  `recordStripeDispute`) et alerte Sentry ; la décision de contester reste
-  humaine.
-- **Ordre des événements de litige non garanti.** Un statut terminal (`won`,
-  `lost`, `warning_closed`) n'est jamais écrasé par un non-terminal arrivé en
-  retard. Ne pas « simplifier » l'UPDATE conditionnel.
+  affaiblirait la position « service livré et utilisé ». Le webhook alerte
+  Sentry AVANT d'écrire en base (une panne Neon ne doit pas priver l'alerte
+  de son détail), puis persiste `stripe_dispute_id` / `dispute_status` via
+  `recordStripeDispute` ; la décision de contester reste humaine.
+- **Ordre des événements de litige non garanti, et plusieurs litiges par
+  paiement possibles.** Un statut terminal (`won`, `lost`, `warning_closed`,
+  `prevented`) n'est jamais écrasé par un non-terminal DU MÊME litige ; un
+  litige d'id différent remplace toujours le précédent, même clos. Ne pas
+  « simplifier » l'UPDATE conditionnel.
 - **`radar.early_fraud_warning.created` est un signal AVANT litige** : Stripe
   indique que 80 % deviennent un litige si rien n'est fait. L'alerte propose le
   remboursement proactif, qui évite les frais (15 $ + 15 $ CA) et le coup au
-  taux de litige.
-- **Le courriel de confirmation est best-effort et part APRÈS le commit** du
-  fulfillment. Un échec est capturé dans Sentry sans changer le code de
-  réponse : un 500 ferait rejouer un fulfillment idempotent pour rien. Le reçu
-  Stripe (`payment_intent_data.receipt_email`) part de son côté, donc le client
-  n'est jamais sans trace. Le `MessageId` SES est stocké
-  (`confirmation_email_message_id`) : c'est la clé de corrélation avec le
-  journal SES.
+  taux de litige. C'est la seule mesure qui couvre un paiement Link pur, que
+  `request_three_d_secure` (carte uniquement) ne protège pas.
+- **Le courriel de confirmation part APRÈS le 200** (`waitUntil`) et en
+  best-effort : Stripe exige une réponse rapide, et un retry retomberait en
+  `already_processed` sans courriel ni trace. Un échec est capturé dans
+  Sentry ; le reçu Stripe (`payment_intent_data.receipt_email`) part de son
+  côté, donc le client n'est jamais sans trace. Le `MessageId` SES est stocké
+  (`confirmation_email_message_id`) : clé de corrélation avec le journal SES.
+  Compte anonymisé → aucun envoi (TLD `.invalid`, hard bounce).
 - **Journal SES** : configuration set `nomaqbanq-transactional` → destination
   EventBridge → règle `nomaqbanq-ses-events` → CloudWatch Logs
   `/aws/events/nomaqbanq-ses` (rétention 400 j, métadonnées seulement, jamais
   le corps). C'est la seule preuve d'envoi a posteriori.
 - **`consent_collection.terms_of_service: "required"` exige l'URL des CGU dans
   les informations publiques du compte Stripe**, sinon la création de session
-  échoue (réglage partagé test/live).
+  échoue (réglage partagé test/live) ; `createStripeCheckout` reconnaît ce cas
+  par le `param` de l'erreur et alerte en nommant la cause.
 - **Preuves de litige** : `bun run dispute:evidence <pi_…>` (lecture seule,
   env `AUDIT_DATABASE_URL` + `AUDIT_STRIPE_KEY` optionnelle) produit le journal
-  d'activité au format des champs Stripe pour un produit numérique.
+  d'activité au format des champs Stripe pour un produit numérique, et distingue
+  un paiement carte d'un paiement Link.
 ```
 
-- [ ] **Step 2 : Aligner le spec**
+- [ ] **Step 2 : Vérification finale avec couverture**
 
-Dans le spec, remplacer `STRIPE_AUDIT_KEY` par `AUDIT_STRIPE_KEY` (nom retenu par le script le plus récent du dépôt, `audit-stripe-orphelins.ts`).
+Run: `bun run check && bun run test:coverage`
+Expected: tout vert, seuils 80 % tenus sur les quatre axes.
 
-- [ ] **Step 3 : Vérification finale complète**
+Run: `bun run test:coverage:full`
+Expected: vert (branche Neon éphémère créée puis détruite), seuils tenus.
 
-Run: `bun run check && bun run test && bun run test:integration`
-Expected: tout vert, couverture ≥ 80 % sur les quatre axes.
-
-- [ ] **Step 4 : Commit**
+- [ ] **Step 3 : Commit**
 
 ```bash
-git add .claude/rules/payments.md docs/superpowers/specs/2026-09-02-prevention-litiges-stripe-design.md
+git add .claude/rules/payments.md
 git commit -m "docs(payments): invariants litiges, confirmation d'achat et journal SES"
 ```
 
-- [ ] **Step 5 : Fin de feature** — proposer un test e2e (`/e2e-scenario` : achat en mode test, badge litige, courriel reçu en sandbox) et une revue adversariale de l'implémentation (`/adversarial-review-prompt`) dans une session séparée, puis ouvrir la PR vers `main` en référençant `#154`.
+- [ ] **Step 4 : Fin de feature** — proposer un test e2e (`/e2e-scenario` : achat en mode test, badge litige, courriel reçu en sandbox) et une revue adversariale de l'implémentation (`/adversarial-review-prompt`) dans une session séparée, puis ouvrir la PR vers `main` en référençant `#154`.
