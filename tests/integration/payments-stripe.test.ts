@@ -30,7 +30,7 @@ const suffix = createId().slice(0, 8)
 
 const PEXAM = createId() // produit exam non-combo
 const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 15 }, () => createId())
+const U = Array.from({ length: 14 }, () => createId())
 const [
   U_HAPPY,
   U_CUMUL,
@@ -46,7 +46,6 @@ const [
   U_PRESENT,
   U_NOPRESENT,
   U_DISPUTE,
-  U_CONFIRM,
 ] = U
 
 const accessOf = (userId: string, accessType: "exam" | "training") =>

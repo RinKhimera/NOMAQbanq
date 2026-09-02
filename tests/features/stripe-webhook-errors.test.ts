@@ -6,6 +6,7 @@ const { mocks } = vi.hoisted(() => ({
     captureServerError: vi.fn(),
     completeStripeTransaction: vi.fn<() => Promise<unknown>>(),
     fail: vi.fn(),
+    recordDispute: vi.fn<() => Promise<unknown>>(),
     constructEventAsync: vi.fn<() => Promise<unknown>>(),
   },
 }))
@@ -16,6 +17,7 @@ vi.mock("@/lib/observability", () => ({
 vi.mock("@/features/payments/stripe", () => ({
   completeStripeTransaction: mocks.completeStripeTransaction,
   failStripeTransaction: mocks.fail,
+  recordStripeDispute: mocks.recordDispute,
 }))
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({
@@ -35,6 +37,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   // Défaut happy path pour les tests qui ne posent pas leur propre valeur.
   mocks.completeStripeTransaction.mockResolvedValue({ status: "completed" })
+  mocks.recordDispute.mockResolvedValue({ status: "recorded" })
 })
 
 describe("webhook Stripe — contrat HTTP", () => {
@@ -198,7 +201,7 @@ describe("webhook Stripe — contrat HTTP", () => {
     })
   })
 
-  it("charge.dispute.created → alerte, 200, aucune révocation d'accès", async () => {
+  it("charge.dispute.created → alerte, persiste le litige, 200, aucune révocation d'accès", async () => {
     mocks.constructEventAsync.mockResolvedValueOnce({
       id: "evt_dispute",
       type: "charge.dispute.created",
@@ -208,6 +211,7 @@ describe("webhook Stripe — contrat HTTP", () => {
           amount: 9900,
           currency: "cad",
           reason: "fraudulent",
+          status: "needs_response",
           payment_intent: "pi_dispute",
         },
       },
@@ -221,9 +225,14 @@ describe("webhook Stripe — contrat HTTP", () => {
       expect.any(Error),
       {
         detail:
-          "dispute dp_1 · 9900 cad · motif fraudulent · payment_intent pi_dispute",
+          "dispute dp_1 · 9900 cad · motif fraudulent · statut needs_response · payment_intent pi_dispute",
       },
     )
+    expect(mocks.recordDispute).toHaveBeenCalledWith({
+      stripePaymentIntentId: "pi_dispute",
+      stripeDisputeId: "dp_1",
+      disputeStatus: "needs_response",
+    })
     expect(mocks.fail).not.toHaveBeenCalled()
   })
 
@@ -239,6 +248,7 @@ describe("webhook Stripe — contrat HTTP", () => {
           amount: 9900,
           currency: "cad",
           reason: "fraudulent",
+          status: "needs_response",
           payment_intent: null,
         },
       },
@@ -249,6 +259,174 @@ describe("webhook Stripe — contrat HTTP", () => {
       "[stripe:webhook]",
       expect.any(Error),
       { detail: expect.stringContaining("payment_intent absent") },
+    )
+    expect(mocks.recordDispute).not.toHaveBeenCalled()
+  })
+
+  // L'alerte est le seul signal qui ouvre la fenêtre de réponse : elle doit
+  // partir même si la base est indisponible, avec tout son détail.
+  it("charge.dispute.created + Neon en panne → alerte détaillée émise, puis 500", async () => {
+    mocks.recordDispute.mockRejectedValueOnce(new Error("Neon down"))
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_db",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_1",
+          amount: 9900,
+          currency: "cad",
+          reason: "fraudulent",
+          status: "needs_response",
+          payment_intent: "pi_dispute",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(500)
+    const [, error, context] = mocks.captureServerError.mock.calls[0]!
+    expect((error as Error).message).toBe(
+      "litige ouvert sur un paiement Stripe",
+    )
+    expect(context).toEqual({
+      detail:
+        "dispute dp_1 · 9900 cad · motif fraudulent · statut needs_response · payment_intent pi_dispute",
+    })
+  })
+
+  it("charge.dispute.updated → persiste sans alerter", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_upd",
+      type: "charge.dispute.updated",
+      data: {
+        object: {
+          id: "dp_1",
+          amount: 9900,
+          currency: "cad",
+          reason: "fraudulent",
+          status: "under_review",
+          payment_intent: "pi_dispute",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.recordDispute).toHaveBeenCalledWith({
+      stripePaymentIntentId: "pi_dispute",
+      stripeDisputeId: "dp_1",
+      disputeStatus: "under_review",
+    })
+    expect(mocks.captureServerError).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["won", "litige gagné"],
+    ["lost", "litige perdu"],
+    ["warning_closed", "litige clos"],
+  ])(
+    "charge.dispute.closed (%s) → alerte « %s » et persiste",
+    async (status, message) => {
+      mocks.constructEventAsync.mockResolvedValueOnce({
+        id: `evt_closed_${status}`,
+        type: "charge.dispute.closed",
+        data: {
+          object: {
+            id: "dp_1",
+            amount: 9900,
+            currency: "cad",
+            reason: "fraudulent",
+            status,
+            payment_intent: "pi_dispute",
+          },
+        },
+      })
+      const res = await POST(request())
+      expect(res.status).toBe(200)
+      const [, error, context] = mocks.captureServerError.mock.calls[0]!
+      expect((error as Error).message).toBe(message)
+      expect(context).toEqual({
+        detail: `dispute dp_1 · 9900 cad · motif fraudulent · statut ${status} · payment_intent pi_dispute`,
+      })
+      expect(mocks.recordDispute).toHaveBeenCalledWith(
+        expect.objectContaining({ disputeStatus: status }),
+      )
+    },
+  )
+
+  it("charge.dispute.funds_reinstated → alerte de restitution et persiste", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_reinstated",
+      type: "charge.dispute.funds_reinstated",
+      data: {
+        object: {
+          id: "dp_1",
+          amount: 9900,
+          currency: "cad",
+          reason: "fraudulent",
+          status: "won",
+          payment_intent: "pi_dispute",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    const [, error] = mocks.captureServerError.mock.calls[0]!
+    expect((error as Error).message).toBe("fonds restitués après litige")
+    expect(mocks.recordDispute).toHaveBeenCalled()
+  })
+
+  // Deux alertes, pas une : « un litige vient de s'ouvrir » reste dit, et
+  // l'anomalie « aucune transaction » s'y ajoute.
+  it("litige sur un payment_intent sans transaction → alerte de cycle de vie ET alerte dédiée, 200", async () => {
+    mocks.recordDispute.mockResolvedValueOnce({ status: "not_found" })
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_ghost",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_9",
+          amount: 100,
+          currency: "cad",
+          reason: "general",
+          status: "needs_response",
+          payment_intent: "pi_ghost",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    const messages = mocks.captureServerError.mock.calls.map(
+      ([, error]) => (error as Error).message,
+    )
+    expect(messages).toEqual([
+      "litige ouvert sur un paiement Stripe",
+      "litige sans transaction correspondante",
+    ])
+  })
+
+  it("radar.early_fraud_warning.created → alerte avec charge et payment_intent, 200", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_efw",
+      type: "radar.early_fraud_warning.created",
+      data: {
+        object: {
+          id: "issfr_1",
+          charge: "ch_1",
+          fraud_type: "made_with_stolen_card",
+          actionable: true,
+          payment_intent: "pi_efw",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.recordDispute).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.any(Error),
+      {
+        detail:
+          "efw issfr_1 · charge ch_1 · type made_with_stolen_card · payment_intent pi_efw · remboursement proactif à envisager",
+      },
     )
   })
 })

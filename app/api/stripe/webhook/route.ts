@@ -2,6 +2,7 @@ import type Stripe from "stripe"
 import {
   completeStripeTransaction,
   failStripeTransaction,
+  recordStripeDispute,
 } from "@/features/payments/stripe"
 import { captureServerError } from "@/lib/observability"
 import { getStripe, getStripeWebhookSecret } from "@/lib/stripe"
@@ -118,23 +119,82 @@ export async function POST(request: Request) {
 
       // Un litige prélève la somme + des frais et ouvre une fenêtre de réponse
       // limitée : sans alerte, elle se referme sans que personne ne l'ait vue.
-      // Traitement humain (aucune révocation automatique d'accès).
-      case "charge.dispute.created": {
+      // Traitement humain (aucune révocation automatique d'accès : couper
+      // l'accès affaiblirait la position « service livré et utilisé »).
+      // L'alerte part AVANT l'écriture en base : une panne Neon ne doit pas
+      // la priver de son détail.
+      case "charge.dispute.created":
+      case "charge.dispute.updated":
+      case "charge.dispute.closed":
+      case "charge.dispute.funds_reinstated": {
         const dispute = event.data.object as Stripe.Dispute
         // Le `payment_intent` est la SEULE clé qui relie le litige à un client :
-        // il rejoint `transactions.stripe_payment_intent_id`. Sans lui, l'alerte
-        // n'identifie personne et il faut passer par le dashboard Stripe pour
-        // savoir qui conteste — du temps perdu sur une fenêtre de réponse
-        // limitée.
+        // il rejoint `transactions.stripe_payment_intent_id`.
         const disputedPaymentIntent =
           typeof dispute.payment_intent === "string"
             ? dispute.payment_intent
             : dispute.payment_intent?.id
+        const detail = `dispute ${dispute.id} · ${dispute.amount} ${dispute.currency} · motif ${dispute.reason} · statut ${dispute.status} · payment_intent ${disputedPaymentIntent ?? "absent"}`
+
+        if (event.type === "charge.dispute.created") {
+          captureServerError(
+            "[stripe:webhook]",
+            new Error("litige ouvert sur un paiement Stripe"),
+            { detail },
+          )
+        } else if (event.type === "charge.dispute.closed") {
+          const outcome =
+            dispute.status === "won"
+              ? "litige gagné"
+              : dispute.status === "lost"
+                ? "litige perdu"
+                : "litige clos"
+          captureServerError("[stripe:webhook]", new Error(outcome), {
+            detail,
+          })
+        } else if (event.type === "charge.dispute.funds_reinstated") {
+          captureServerError(
+            "[stripe:webhook]",
+            new Error("fonds restitués après litige"),
+            { detail },
+          )
+        }
+
+        if (disputedPaymentIntent) {
+          const recorded = await recordStripeDispute({
+            stripePaymentIntentId: disputedPaymentIntent,
+            stripeDisputeId: dispute.id,
+            disputeStatus: dispute.status,
+          })
+          if (recorded.status === "not_found") {
+            captureServerError(
+              "[stripe:webhook]",
+              new Error("litige sans transaction correspondante"),
+              { detail },
+            )
+          }
+        }
+        break
+      }
+
+      // Signal des réseaux AVANT le litige : Stripe indique que 80 % des EFW
+      // deviennent un litige si rien n'est fait. Rembourser proactivement évite
+      // les frais de litige et le coup au taux de litige.
+      case "radar.early_fraud_warning.created": {
+        const warning = event.data.object as Stripe.Radar.EarlyFraudWarning
+        const chargeId =
+          typeof warning.charge === "string"
+            ? warning.charge
+            : warning.charge.id
+        const paymentIntent =
+          typeof warning.payment_intent === "string"
+            ? warning.payment_intent
+            : warning.payment_intent?.id
         captureServerError(
           "[stripe:webhook]",
-          new Error("litige ouvert sur un paiement Stripe"),
+          new Error("signal de fraude avant litige (early fraud warning)"),
           {
-            detail: `dispute ${dispute.id} · ${dispute.amount} ${dispute.currency} · motif ${dispute.reason} · payment_intent ${disputedPaymentIntent ?? "absent"}`,
+            detail: `efw ${warning.id} · charge ${chargeId} · type ${warning.fraud_type} · payment_intent ${paymentIntent ?? "absent"} · remboursement proactif à envisager`,
           },
         )
         break
