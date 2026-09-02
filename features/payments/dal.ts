@@ -306,6 +306,8 @@ export type AdminTransactionView = {
   completedAt: number | null
   paymentMethod: string | null
   notes: string | null
+  /** Statut Stripe brut du litige courant, null sans litige. */
+  disputeStatus: string | null
   product: { id: string; name: string } | null
   user: { id: string; name: string; email: string } | null
 }
@@ -370,6 +372,7 @@ export const getAllTransactions = async ({
       completedAt: transactions.completedAt,
       paymentMethod: transactions.paymentMethod,
       notes: transactions.notes,
+      disputeStatus: transactions.disputeStatus,
       productId: products.id,
       productName: products.name,
       buyerId: user.id,
@@ -399,6 +402,7 @@ export const getAllTransactions = async ({
     completedAt: r.completedAt ? r.completedAt.getTime() : null,
     paymentMethod: r.paymentMethod,
     notes: r.notes,
+    disputeStatus: r.disputeStatus,
     product: r.productId ? { id: r.productId, name: r.productName! } : null,
     user: { id: r.buyerId, name: r.buyerName, email: r.buyerEmail },
   }))
