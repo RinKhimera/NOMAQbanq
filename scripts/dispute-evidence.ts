@@ -9,9 +9,10 @@
  *
  * Env (délibérément DISTINCT des vars runtime) :
  * - AUDIT_DATABASE_URL : branche Neon à lire (idéalement clonée de la prod).
- * - AUDIT_STRIPE_KEY   : optionnelle, clé LIVE en lecture ; ajoute motif,
- *   date limite, moyen de paiement, pays et résultat 3DS. Sans elle, ces
- *   lignes sont omises et le journal reste complet.
+ * - AUDIT_STRIPE_KEY   : optionnelle, clé LIVE restreinte avec les droits de
+ *   LECTURE « Disputes » et « Charges » (sinon `more_permissions_required`) ;
+ *   ajoute motif, date limite, moyen de paiement, pays et résultat 3DS. Sans
+ *   elle, ces lignes sont omises et le journal reste complet.
  *
  * N'importe pas @/db ni lib/stripe (schéma d'env complet requis hors Next).
  */
