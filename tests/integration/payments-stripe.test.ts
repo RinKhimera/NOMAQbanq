@@ -10,6 +10,7 @@ import {
 import {
   completeStripeTransaction,
   failStripeTransaction,
+  markConfirmationEmailSent,
   recordStripeDispute,
 } from "@/features/payments/stripe"
 import { toAppZoneCalendarDay } from "@/lib/app-zone"
@@ -30,7 +31,7 @@ const suffix = createId().slice(0, 8)
 
 const PEXAM = createId() // produit exam non-combo
 const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 14 }, () => createId())
+const U = Array.from({ length: 15 }, () => createId())
 const [
   U_HAPPY,
   U_CUMUL,
@@ -46,6 +47,7 @@ const [
   U_PRESENT,
   U_NOPRESENT,
   U_DISPUTE,
+  U_CONFIRM,
 ] = U
 
 const accessOf = (userId: string, accessType: "exam" | "training") =>
@@ -229,7 +231,7 @@ describe("completeStripeTransaction", () => {
       stripePaymentIntentId: "pi_happy",
       stripeEventId: `evt_happy_${suffix}`,
     })
-    expect(res).toEqual({ status: "completed", transactionId: txId })
+    expect(res).toMatchObject({ status: "completed", transactionId: txId })
 
     const tx = await txStatus(txId)
     expect(tx?.status).toBe("completed")
@@ -393,6 +395,97 @@ describe("completeStripeTransaction", () => {
     expect(rows).toHaveLength(1)
     // Cumul des deux durées (90 + 90). Tombe à ~90 si le verrou FOR UPDATE saute.
     expect(approxDays(rows[0].expiresAt, 180)).toBe(true)
+  })
+
+  it("completed → retourne les données du courriel de confirmation", async () => {
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_CONFIRM,
+      productId: PEXAM,
+      sessionId: `cs_confirm_${tx}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const result = await completeStripeTransaction({
+      stripeSessionId: `cs_confirm_${tx}`,
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeEventId: `evt_confirm_${tx}`,
+      amountTotal: 5000,
+      currency: "cad",
+      presentmentAmount: 2280000,
+      presentmentCurrency: "xaf",
+    })
+
+    expect(result.status).toBe("completed")
+    if (result.status !== "completed") return
+    expect(result.confirmation.userEmail).toMatch(/@test\.invalid$/)
+    expect(result.confirmation.productName).toBe(`Exam ${suffix}`)
+    expect(result.confirmation.amountPaid).toBe(5000)
+    expect(result.confirmation.currency).toBe("CAD")
+    expect(result.confirmation.presentmentAmount).toBe(2280000)
+    expect(result.confirmation.presentmentCurrency).toBe("XAF")
+    expect(result.confirmation.completedAt).toBeInstanceOf(Date)
+    expect(result.confirmation.grantedAccess).toHaveLength(1)
+    expect(result.confirmation.grantedAccess[0].accessType).toBe("exam")
+    expect(approxDays(result.confirmation.grantedAccess[0].expiresAt, 90)).toBe(
+      true,
+    )
+  })
+
+  // Un combo pose `now + durée` sur la transaction, mais l'accès exam existant
+  // (90 j ci-dessus) est plus long : le courriel doit annoncer la date réelle.
+  it("combo par-dessus un accès plus long → grantedAccess porte les expirations effectives", async () => {
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_CONFIRM,
+      productId: PCOMBO,
+      sessionId: `cs_confirm_combo_${tx}`,
+      accessType: "exam",
+      durationDays: 30,
+    })
+
+    const result = await completeStripeTransaction({
+      stripeSessionId: `cs_confirm_combo_${tx}`,
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeEventId: `evt_confirm_combo_${tx}`,
+    })
+
+    expect(result.status).toBe("completed")
+    if (result.status !== "completed") return
+    const byType = Object.fromEntries(
+      result.confirmation.grantedAccess.map((a) => [a.accessType, a.expiresAt]),
+    )
+    expect(approxDays(byType.exam, 90)).toBe(true)
+    expect(approxDays(byType.training, 30)).toBe(true)
+  })
+
+  it("compte anonymisé → userEmail null (aucun courriel à envoyer)", async () => {
+    await db
+      .update(user)
+      .set({ anonymizedAt: new Date() })
+      .where(eq(user.id, U_CONFIRM))
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_CONFIRM,
+      productId: PEXAM,
+      sessionId: `cs_anon_${tx}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const result = await completeStripeTransaction({
+      stripeSessionId: `cs_anon_${tx}`,
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeEventId: `evt_anon_${tx}`,
+    })
+
+    expect(result.status).toBe("completed")
+    if (result.status !== "completed") return
+    expect(result.confirmation.userEmail).toBeNull()
   })
 })
 
@@ -761,5 +854,32 @@ describe("recordStripeDispute", () => {
       disputeStatus: "needs_response",
     })
     expect(result).toEqual({ status: "not_found" })
+  })
+})
+
+describe("markConfirmationEmailSent", () => {
+  it("pose le MessageId et l'horodatage d'envoi", async () => {
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_DISPUTE,
+      productId: PEXAM,
+      sessionId: `cs_mail_${tx}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    await markConfirmationEmailSent({ transactionId: tx, messageId: "ses-123" })
+
+    const [row] = await db
+      .select({
+        messageId: transactions.confirmationEmailMessageId,
+        sentAt: transactions.confirmationEmailSentAt,
+      })
+      .from(transactions)
+      .where(eq(transactions.id, tx))
+      .limit(1)
+    expect(row.messageId).toBe("ses-123")
+    expect(row.sentAt).toBeInstanceOf(Date)
   })
 })

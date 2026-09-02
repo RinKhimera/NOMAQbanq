@@ -18,8 +18,25 @@ const readAccess = (tx: Tx, userId: string, accessType: "exam" | "training") =>
     .limit(1)
     .then((r) => r[0])
 
+export type PurchaseConfirmationData = {
+  /** Null si le compte est anonymisé : aucun courriel à envoyer. */
+  userEmail: string | null
+  productName: string
+  amountPaid: number
+  currency: "CAD" | "XAF"
+  presentmentAmount: number | null
+  presentmentCurrency: string | null
+  completedAt: Date
+  /** Expirations EFFECTIVEMENT écrites (max(existant, transaction)), une par type. */
+  grantedAccess: { accessType: "exam" | "training"; expiresAt: Date }[]
+}
+
 export type CompleteStripeResult =
-  | { status: "completed"; transactionId: string }
+  | {
+      status: "completed"
+      transactionId: string
+      confirmation: PurchaseConfirmationData
+    }
   | { status: "already_processed" }
   | { status: "not_found" }
 
@@ -71,15 +88,23 @@ export async function completeStripeTransaction(params: {
         productId: transactions.productId,
         accessType: transactions.accessType,
         durationDays: transactions.durationDays,
+        amountPaid: transactions.amountPaid,
+        currency: transactions.currency,
       })
       .from(transactions)
       .where(eq(transactions.stripeSessionId, params.stripeSessionId))
       .limit(1)
     if (!pending) return { status: "not_found" }
 
-    // Verrou utilisateur : sérialise octrois/révocations concurrents.
-    await tx
-      .select({ id: user.id })
+    // Verrou utilisateur : sérialise octrois/révocations concurrents. Le
+    // courriel et l'état d'anonymisation sont lus sous le même verrou pour
+    // le courriel de confirmation.
+    const [lockedUser] = await tx
+      .select({
+        id: user.id,
+        email: user.email,
+        anonymizedAt: user.anonymizedAt,
+      })
       .from(user)
       .where(eq(user.id, pending.userId))
       .for("update")
@@ -100,7 +125,7 @@ export async function completeStripeTransaction(params: {
     if (fresh?.status === "completed") return { status: "already_processed" }
 
     const [product] = await tx
-      .select({ isCombo: products.isCombo })
+      .select({ isCombo: products.isCombo, name: products.name })
       .from(products)
       .where(eq(products.id, pending.productId))
       .limit(1)
@@ -180,6 +205,7 @@ export async function completeStripeTransaction(params: {
     const types: Array<"exam" | "training"> = isCombo
       ? ["exam", "training"]
       : [pending.accessType]
+    const grantedAccess: PurchaseConfirmationData["grantedAccess"] = []
     for (const accessType of types) {
       const existing = await readAccess(tx, pending.userId, accessType)
       const finalExpiry = new Date(
@@ -188,6 +214,7 @@ export async function completeStripeTransaction(params: {
           txAccessExpiresAt.getTime(),
         ),
       )
+      grantedAccess.push({ accessType, expiresAt: finalExpiry })
       // Renouvellement réel de CE type = l'expiration avance (ou 1er octroi).
       const renewed =
         !existing || finalExpiry.getTime() > existing.expiresAt.getTime()
@@ -210,7 +237,21 @@ export async function completeStripeTransaction(params: {
         })
     }
 
-    return { status: "completed", transactionId: pending.id }
+    return {
+      status: "completed",
+      transactionId: pending.id,
+      confirmation: {
+        userEmail:
+          lockedUser && !lockedUser.anonymizedAt ? lockedUser.email : null,
+        productName: product?.name ?? "Accès NOMAQbanq",
+        amountPaid: reconcile?.amountPaid ?? pending.amountPaid,
+        currency: reconcile?.currency ?? pending.currency,
+        presentmentAmount: presentment?.presentmentAmount ?? null,
+        presentmentCurrency: presentment?.presentmentCurrency ?? null,
+        completedAt: now,
+        grantedAccess,
+      },
+    }
   })
 }
 
@@ -326,4 +367,18 @@ export async function recordStripeDispute(params: {
     .where(eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId))
     .limit(1)
   return { status: existing ? "kept_terminal" : "not_found" }
+}
+
+/** Trace d'envoi du courriel de confirmation (corrélation avec le journal SES). */
+export async function markConfirmationEmailSent(params: {
+  transactionId: string
+  messageId: string
+}): Promise<void> {
+  await db
+    .update(transactions)
+    .set({
+      confirmationEmailMessageId: params.messageId,
+      confirmationEmailSentAt: new Date(),
+    })
+    .where(eq(transactions.id, params.transactionId))
 }
