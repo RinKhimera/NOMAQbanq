@@ -37,6 +37,43 @@ acquitter une erreur transitoire en 200** : le fulfillment serait perdu sans
 trace. La route catche puis renvoie une `Response`, donc `onRequestError` ne
 voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
 
+## Litiges et confirmation d'achat
+
+- **L'accès n'est jamais révoqué sur litige**, délibérément : couper l'accès
+  affaiblirait la position « service livré et utilisé ». Le webhook alerte
+  Sentry AVANT d'écrire en base (une panne Neon ne doit pas priver l'alerte
+  de son détail), puis persiste `stripe_dispute_id` / `dispute_status` via
+  `recordStripeDispute` ; la décision de contester reste humaine.
+- **Ordre des événements de litige non garanti, et plusieurs litiges par
+  paiement possibles.** Un statut terminal (`won`, `lost`, `warning_closed`,
+  `prevented`) n'est jamais écrasé par un non-terminal DU MÊME litige ; un
+  litige d'id différent remplace toujours le précédent, même clos. Ne pas
+  « simplifier » l'UPDATE conditionnel.
+- **`radar.early_fraud_warning.created` est un signal AVANT litige** : Stripe
+  indique que 80 % deviennent un litige si rien n'est fait. L'alerte propose le
+  remboursement proactif, qui évite les frais (15 $ + 15 $ CA) et le coup au
+  taux de litige. C'est la seule mesure qui couvre un paiement Link pur, que
+  `request_three_d_secure` (carte uniquement) ne protège pas.
+- **Le courriel de confirmation part APRÈS le 200** (`waitUntil`) et en
+  best-effort : Stripe exige une réponse rapide, et un retry retomberait en
+  `already_processed` sans courriel ni trace. Un échec est capturé dans
+  Sentry ; le reçu Stripe (`payment_intent_data.receipt_email`) part de son
+  côté, donc le client n'est jamais sans trace. Le `MessageId` SES est stocké
+  (`confirmation_email_message_id`) : clé de corrélation avec le journal SES.
+  Compte anonymisé → aucun envoi (TLD `.invalid`, hard bounce).
+- **Journal SES** : configuration set `nomaqbanq-transactional` → destination
+  EventBridge → règle `nomaqbanq-ses-events` → CloudWatch Logs
+  `/aws/events/nomaqbanq-ses` (rétention 400 j, métadonnées seulement, jamais
+  le corps). C'est la seule preuve d'envoi a posteriori.
+- **`consent_collection.terms_of_service: "required"` exige l'URL des CGU dans
+  les informations publiques du compte Stripe**, sinon la création de session
+  échoue (réglage partagé test/live) ; `createStripeCheckout` reconnaît ce cas
+  par le `param` de l'erreur et alerte en nommant la cause.
+- **Preuves de litige** : `bun run dispute:evidence <pi_…>` (lecture seule,
+  env `AUDIT_DATABASE_URL` + `AUDIT_STRIPE_KEY` optionnelle) produit le journal
+  d'activité au format des champs Stripe pour un produit numérique, et distingue
+  un paiement carte d'un paiement Link.
+
 ## Montants et devises
 
 - **Tout est stocké en centièmes** (`amountPaid`), y compris le XAF. Or le XAF
