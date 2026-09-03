@@ -7,6 +7,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core"
 import { userRole } from "./enums"
 
@@ -67,6 +68,11 @@ export const account = pgTable(
     id: text("id").primaryKey(),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
+    // Autorité qui a émis `accountId` ; l'identité d'un compte est la paire
+    // (issuer, accountId), pas (providerId, accountId). Valeurs écrites par
+    // Better Auth : `local:credential` (mot de passe) et, pour Google, l'issuer
+    // OIDC `https://accounts.google.com`.
+    issuer: text("issuer").notNull(),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -88,7 +94,13 @@ export const account = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [index("account_userId_idx").on(table.userId)],
+  (table) => [
+    index("account_userId_idx").on(table.userId),
+    uniqueIndex("account_issuer_account_id_uidx").on(
+      table.issuer,
+      table.accountId,
+    ),
+  ],
 )
 
 export const verification = pgTable(

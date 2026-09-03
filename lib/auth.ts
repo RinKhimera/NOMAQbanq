@@ -20,12 +20,17 @@ export const auth = betterAuth({
     storage: "database",
     customRules: {
       "/request-password-reset": { window: 60, max: 3 },
-      "/forget-password": { window: 60, max: 3 },
       // Renvoi de vérification : borné comme le reset (anti-spam SES).
       "/send-verification-email": { window: 60, max: 3 },
     },
   },
   // Rattache automatiquement Google aux users migrés (même email) en préservant leur id.
+  // Identité des comptes = (account.issuer, account.accountId). La 1.7.2 n'expose
+  // pas encore `identityStrategy` (décrit dans le guide de montée, publié après
+  // cette version) : Google écrit son issuer OIDC `https://accounts.google.com`,
+  // valeur retenue par la migration 0016. Le jour où l'option arrive, c'est
+  // `"issuer"` qui conserve les lignes existantes ; `"provider-id"` exigerait
+  // de reclé les lignes Google en `local:oauth:google`.
   account: {
     accountLinking: { enabled: true, trustedProviders: ["google"] },
   },
