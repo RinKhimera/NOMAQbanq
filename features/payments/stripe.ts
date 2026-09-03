@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray, isNull, ne, notInArray, or } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
@@ -18,8 +18,25 @@ const readAccess = (tx: Tx, userId: string, accessType: "exam" | "training") =>
     .limit(1)
     .then((r) => r[0])
 
+export type PurchaseConfirmationData = {
+  /** Null si le compte est anonymisé : aucun courriel à envoyer. */
+  userEmail: string | null
+  productName: string
+  amountPaid: number
+  currency: "CAD" | "XAF"
+  presentmentAmount: number | null
+  presentmentCurrency: string | null
+  completedAt: Date
+  /** Expirations EFFECTIVEMENT écrites (max(existant, transaction)), une par type. */
+  grantedAccess: { accessType: "exam" | "training"; expiresAt: Date }[]
+}
+
 export type CompleteStripeResult =
-  | { status: "completed"; transactionId: string }
+  | {
+      status: "completed"
+      transactionId: string
+      confirmation: PurchaseConfirmationData
+    }
   | { status: "already_processed" }
   | { status: "not_found" }
 
@@ -71,15 +88,23 @@ export async function completeStripeTransaction(params: {
         productId: transactions.productId,
         accessType: transactions.accessType,
         durationDays: transactions.durationDays,
+        amountPaid: transactions.amountPaid,
+        currency: transactions.currency,
       })
       .from(transactions)
       .where(eq(transactions.stripeSessionId, params.stripeSessionId))
       .limit(1)
     if (!pending) return { status: "not_found" }
 
-    // Verrou utilisateur : sérialise octrois/révocations concurrents.
-    await tx
-      .select({ id: user.id })
+    // Verrou utilisateur : sérialise octrois/révocations concurrents. Le
+    // courriel et l'état d'anonymisation sont lus sous le même verrou pour
+    // le courriel de confirmation.
+    const [lockedUser] = await tx
+      .select({
+        id: user.id,
+        email: user.email,
+        anonymizedAt: user.anonymizedAt,
+      })
       .from(user)
       .where(eq(user.id, pending.userId))
       .for("update")
@@ -100,7 +125,7 @@ export async function completeStripeTransaction(params: {
     if (fresh?.status === "completed") return { status: "already_processed" }
 
     const [product] = await tx
-      .select({ isCombo: products.isCombo })
+      .select({ isCombo: products.isCombo, name: products.name })
       .from(products)
       .where(eq(products.id, pending.productId))
       .limit(1)
@@ -180,6 +205,7 @@ export async function completeStripeTransaction(params: {
     const types: Array<"exam" | "training"> = isCombo
       ? ["exam", "training"]
       : [pending.accessType]
+    const grantedAccess: PurchaseConfirmationData["grantedAccess"] = []
     for (const accessType of types) {
       const existing = await readAccess(tx, pending.userId, accessType)
       const finalExpiry = new Date(
@@ -188,6 +214,7 @@ export async function completeStripeTransaction(params: {
           txAccessExpiresAt.getTime(),
         ),
       )
+      grantedAccess.push({ accessType, expiresAt: finalExpiry })
       // Renouvellement réel de CE type = l'expiration avance (ou 1er octroi).
       const renewed =
         !existing || finalExpiry.getTime() > existing.expiresAt.getTime()
@@ -210,7 +237,21 @@ export async function completeStripeTransaction(params: {
         })
     }
 
-    return { status: "completed", transactionId: pending.id }
+    return {
+      status: "completed",
+      transactionId: pending.id,
+      confirmation: {
+        userEmail:
+          lockedUser && !lockedUser.anonymizedAt ? lockedUser.email : null,
+        productName: product?.name ?? "Accès NOMAQbanq",
+        amountPaid: reconcile?.amountPaid ?? pending.amountPaid,
+        currency: reconcile?.currency ?? pending.currency,
+        presentmentAmount: presentment?.presentmentAmount ?? null,
+        presentmentCurrency: presentment?.presentmentCurrency ?? null,
+        completedAt: now,
+        grantedAccess,
+      },
+    }
   })
 }
 
@@ -261,4 +302,109 @@ export async function failStripeTransaction(params: {
       ? { status: "failed" }
       : { status: "already_processed" }
   })
+}
+
+// Statuts après lesquels Stripe ne renvoie plus de changement d'état pour CE
+// litige (`prevented` existe dans le SDK et est terminal).
+const TERMINAL_DISPUTE_STATUSES = [
+  "won",
+  "lost",
+  "warning_closed",
+  "prevented",
+] as const
+
+export type RecordDisputeResult = {
+  status: "recorded" | "kept" | "not_found"
+}
+
+/**
+ * Rattache un litige Stripe à la transaction de son `payment_intent` et
+ * enregistre son statut courant. Idempotent (même valeur réécrite).
+ *
+ * Stripe ne garantit pas l'ordre de livraison : un statut terminal n'est
+ * jamais écrasé par un statut non terminal DU MÊME litige arrivé en retard.
+ * Un litige différent (Stripe documente « plusieurs litiges par paiement »)
+ * remplace toujours le précédent, même clos : sinon un « litige gagné »
+ * masquerait un chargeback vivant. L'UPDATE unique suffit à sérialiser deux
+ * livraisons concurrentes (le prédicat est réévalué sur la ligne réécrite).
+ */
+export async function recordStripeDispute(params: {
+  stripePaymentIntentId: string
+  /**
+   * Repli quand la transaction est encore `pending` (litige arrivé avant le
+   * fulfillment) : elle n'a pas de payment_intent, mais sa session Checkout
+   * est connue dès le pending. Le payment_intent est alors posé au passage.
+   */
+  stripeSessionId?: string
+  stripeDisputeId: string
+  disputeStatus: string
+}): Promise<RecordDisputeResult> {
+  const incomingIsTerminal = (
+    TERMINAL_DISPUTE_STATUSES as readonly string[]
+  ).includes(params.disputeStatus)
+  const matchesTransaction = params.stripeSessionId
+    ? or(
+        eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId),
+        eq(transactions.stripeSessionId, params.stripeSessionId),
+      )
+    : eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId)
+
+  const updated = await db
+    .update(transactions)
+    .set({
+      stripeDisputeId: params.stripeDisputeId,
+      disputeStatus: params.disputeStatus,
+      ...(params.stripeSessionId
+        ? { stripePaymentIntentId: params.stripePaymentIntentId }
+        : {}),
+    })
+    .where(
+      and(
+        matchesTransaction,
+        // Garde-fou symétrique. Statut entrant NON terminal : écrit sauf si le
+        // MÊME litige est déjà clos (redélivrance tardive). Statut entrant
+        // terminal : écrit sauf si un AUTRE litige est encore vivant (un
+        // `closed` rejoué en retard ne doit pas masquer un chargeback en cours).
+        incomingIsTerminal
+          ? or(
+              isNull(transactions.stripeDisputeId),
+              eq(transactions.stripeDisputeId, params.stripeDisputeId),
+              isNull(transactions.disputeStatus),
+              inArray(transactions.disputeStatus, [
+                ...TERMINAL_DISPUTE_STATUSES,
+              ]),
+            )
+          : or(
+              isNull(transactions.stripeDisputeId),
+              ne(transactions.stripeDisputeId, params.stripeDisputeId),
+              isNull(transactions.disputeStatus),
+              notInArray(transactions.disputeStatus, [
+                ...TERMINAL_DISPUTE_STATUSES,
+              ]),
+            ),
+      ),
+    )
+    .returning({ id: transactions.id })
+  if (updated.length > 0) return { status: "recorded" }
+
+  const [existing] = await db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(matchesTransaction)
+    .limit(1)
+  return { status: existing ? "kept" : "not_found" }
+}
+
+/** Trace d'envoi du courriel de confirmation (corrélation avec le journal SES). */
+export async function markConfirmationEmailSent(params: {
+  transactionId: string
+  messageId: string
+}): Promise<void> {
+  await db
+    .update(transactions)
+    .set({
+      confirmationEmailMessageId: params.messageId,
+      confirmationEmailSentAt: new Date(),
+    })
+    .where(eq(transactions.id, params.transactionId))
 }

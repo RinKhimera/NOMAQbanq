@@ -1,7 +1,12 @@
+import { after } from "next/server"
 import type Stripe from "stripe"
+import { sendPurchaseConfirmationEmail } from "@/email"
 import {
+  type CompleteStripeResult,
   completeStripeTransaction,
   failStripeTransaction,
+  markConfirmationEmailSent,
+  recordStripeDispute,
 } from "@/features/payments/stripe"
 import { captureServerError } from "@/lib/observability"
 import { getStripe, getStripeWebhookSecret } from "@/lib/stripe"
@@ -25,6 +30,49 @@ const FULFILLABLE_PAYMENT_STATUSES: ReadonlyArray<Stripe.Checkout.Session.Paymen
  * ⚠️ Config déploiement : pointer l'endpoint webhook du dashboard Stripe vers
  * `/api/stripe/webhook` et renseigner `STRIPE_WEBHOOK_SECRET`.
  */
+/**
+ * Courriel de confirmation, APRÈS le 200 et en best-effort. Stripe exige une
+ * réponse rapide avant toute logique longue ; `sendEmail` fait deux rendus
+ * React Email puis un appel SES, et un dépassement de délai déclencherait un
+ * retry qui retomberait en `already_processed` — courriel perdu sans trace.
+ * L'accès est déjà COMMITÉ quand on arrive ici : un échec ne change rien au
+ * fulfillment. Le reçu Stripe (`receipt_email`) part de son côté. Sentry est
+ * la seule trace d'un échec.
+ */
+const sendConfirmation = async (
+  result: Extract<CompleteStripeResult, { status: "completed" }>,
+) => {
+  const c = result.confirmation
+  // Compte anonymisé : cas nominal (suppression de compte en cours), pas une
+  // erreur — un simple log, sans Sentry.
+  if (!c.userEmail) {
+    console.warn(
+      `[stripe webhook] courriel de confirmation non envoyé, compte anonymisé · transaction ${result.transactionId}`,
+    )
+    return
+  }
+  try {
+    const messageId = await sendPurchaseConfirmationEmail({
+      to: c.userEmail,
+      productName: c.productName,
+      amountPaid: c.amountPaid,
+      currency: c.currency,
+      presentmentAmount: c.presentmentAmount,
+      presentmentCurrency: c.presentmentCurrency,
+      purchasedAt: c.completedAt,
+      grantedAccess: c.grantedAccess,
+    })
+    await markConfirmationEmailSent({
+      transactionId: result.transactionId,
+      messageId,
+    })
+  } catch (error) {
+    captureServerError("[stripe:webhook]", error, {
+      detail: `courriel de confirmation non envoyé · transaction ${result.transactionId}`,
+    })
+  }
+}
+
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature")
   if (!signature) {
@@ -98,6 +146,12 @@ export async function POST(request: Request) {
               { detail: `session ${checkoutSession.id}` },
             )
           }
+          // `after` de Next : exécuté après l'envoi de la réponse, avec un
+          // repli local (contrairement à `waitUntil` de `@vercel/functions`,
+          // qui est un no-op silencieux hors Vercel).
+          if (result.status === "completed") {
+            after(() => sendConfirmation(result))
+          }
         }
         break
       }
@@ -118,23 +172,103 @@ export async function POST(request: Request) {
 
       // Un litige prélève la somme + des frais et ouvre une fenêtre de réponse
       // limitée : sans alerte, elle se referme sans que personne ne l'ait vue.
-      // Traitement humain (aucune révocation automatique d'accès).
-      case "charge.dispute.created": {
+      // Traitement humain (aucune révocation automatique d'accès : couper
+      // l'accès affaiblirait la position « service livré et utilisé »).
+      // L'alerte part AVANT l'écriture en base : une panne Neon ne doit pas
+      // la priver de son détail.
+      case "charge.dispute.created":
+      case "charge.dispute.updated":
+      case "charge.dispute.closed":
+      case "charge.dispute.funds_reinstated": {
         const dispute = event.data.object as Stripe.Dispute
         // Le `payment_intent` est la SEULE clé qui relie le litige à un client :
-        // il rejoint `transactions.stripe_payment_intent_id`. Sans lui, l'alerte
-        // n'identifie personne et il faut passer par le dashboard Stripe pour
-        // savoir qui conteste — du temps perdu sur une fenêtre de réponse
-        // limitée.
+        // il rejoint `transactions.stripe_payment_intent_id`.
         const disputedPaymentIntent =
           typeof dispute.payment_intent === "string"
             ? dispute.payment_intent
             : dispute.payment_intent?.id
+        const detail = `dispute ${dispute.id} · ${dispute.amount} ${dispute.currency} · motif ${dispute.reason} · statut ${dispute.status} · payment_intent ${disputedPaymentIntent ?? "absent"}`
+
+        if (event.type === "charge.dispute.created") {
+          captureServerError(
+            "[stripe:webhook]",
+            new Error("litige ouvert sur un paiement Stripe"),
+            { detail },
+          )
+        } else if (event.type === "charge.dispute.closed") {
+          const outcome =
+            dispute.status === "won"
+              ? "litige gagné"
+              : dispute.status === "lost"
+                ? "litige perdu"
+                : "litige clos"
+          captureServerError("[stripe:webhook]", new Error(outcome), {
+            detail,
+          })
+        } else if (event.type === "charge.dispute.funds_reinstated") {
+          captureServerError(
+            "[stripe:webhook]",
+            new Error("fonds restitués après litige"),
+            { detail },
+          )
+        }
+
+        if (disputedPaymentIntent) {
+          let recorded = await recordStripeDispute({
+            stripePaymentIntentId: disputedPaymentIntent,
+            stripeDisputeId: dispute.id,
+            disputeStatus: dispute.status,
+          })
+          if (recorded.status === "not_found") {
+            // Le litige peut précéder le fulfillment (Stripe livre
+            // `charge.dispute.created` avant `checkout.session.completed` avec
+            // la carte de test, et un paiement différé peut être contesté avant
+            // d'être confirmé) : la transaction est encore `pending`, sans
+            // payment_intent. Sa session Checkout, elle, existe depuis le
+            // pending. Une erreur Stripe ici remonte au catch → 500 → retry.
+            const sessions = await stripe.checkout.sessions.list({
+              payment_intent: disputedPaymentIntent,
+              limit: 1,
+            })
+            const sessionId = sessions.data[0]?.id
+            if (sessionId) {
+              recorded = await recordStripeDispute({
+                stripePaymentIntentId: disputedPaymentIntent,
+                stripeSessionId: sessionId,
+                stripeDisputeId: dispute.id,
+                disputeStatus: dispute.status,
+              })
+            }
+          }
+          if (recorded.status === "not_found") {
+            captureServerError(
+              "[stripe:webhook]",
+              new Error("litige sans transaction correspondante"),
+              { detail },
+            )
+          }
+        }
+        break
+      }
+
+      // Signal des réseaux AVANT le litige : Stripe indique que 80 % des EFW
+      // deviennent un litige si rien n'est fait. Rembourser proactivement évite
+      // les frais de litige et le coup au taux de litige.
+      case "radar.early_fraud_warning.created": {
+        const warning = event.data.object as Stripe.Radar.EarlyFraudWarning
+        const chargeId =
+          typeof warning.charge === "string"
+            ? warning.charge
+            : warning.charge.id
+        const paymentIntent =
+          typeof warning.payment_intent === "string"
+            ? warning.payment_intent
+            : warning.payment_intent?.id
         captureServerError(
           "[stripe:webhook]",
-          new Error("litige ouvert sur un paiement Stripe"),
+          new Error("signal de fraude avant litige (early fraud warning)"),
           {
-            detail: `dispute ${dispute.id} · ${dispute.amount} ${dispute.currency} · motif ${dispute.reason} · payment_intent ${disputedPaymentIntent ?? "absent"}`,
+            detail: `efw ${warning.id} · charge ${chargeId} · type ${warning.fraud_type} · payment_intent ${paymentIntent ?? "absent"} · remboursement proactif à envisager`,
           },
         )
         break

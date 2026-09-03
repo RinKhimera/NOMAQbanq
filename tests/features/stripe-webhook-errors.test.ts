@@ -6,7 +6,12 @@ const { mocks } = vi.hoisted(() => ({
     captureServerError: vi.fn(),
     completeStripeTransaction: vi.fn<() => Promise<unknown>>(),
     fail: vi.fn(),
+    recordDispute: vi.fn<() => Promise<unknown>>(),
+    sendPurchaseConfirmationEmail: vi.fn<() => Promise<string>>(),
+    markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
+    after: vi.fn<(cb: () => Promise<unknown>) => void>(),
     constructEventAsync: vi.fn<() => Promise<unknown>>(),
+    sessionsList: vi.fn<() => Promise<{ data: { id: string }[] }>>(),
   },
 }))
 
@@ -16,10 +21,17 @@ vi.mock("@/lib/observability", () => ({
 vi.mock("@/features/payments/stripe", () => ({
   completeStripeTransaction: mocks.completeStripeTransaction,
   failStripeTransaction: mocks.fail,
+  recordStripeDispute: mocks.recordDispute,
+  markConfirmationEmailSent: mocks.markConfirmationEmailSent,
 }))
+vi.mock("@/email", () => ({
+  sendPurchaseConfirmationEmail: mocks.sendPurchaseConfirmationEmail,
+}))
+vi.mock("next/server", () => ({ after: mocks.after }))
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({
     webhooks: { constructEventAsync: mocks.constructEventAsync },
+    checkout: { sessions: { list: mocks.sessionsList } },
   }),
   getStripeWebhookSecret: () => "whsec_test",
 }))
@@ -34,7 +46,26 @@ const request = () =>
 beforeEach(() => {
   vi.clearAllMocks()
   // Défaut happy path pour les tests qui ne posent pas leur propre valeur.
-  mocks.completeStripeTransaction.mockResolvedValue({ status: "completed" })
+  mocks.completeStripeTransaction.mockResolvedValue({
+    status: "completed",
+    transactionId: "tx_1",
+    confirmation: {
+      userEmail: "u@test.invalid",
+      productName: "Accès examens",
+      amountPaid: 20000,
+      currency: "CAD",
+      presentmentAmount: null,
+      presentmentCurrency: null,
+      completedAt: new Date("2026-09-02T14:00:00Z"),
+      grantedAccess: [
+        { accessType: "exam", expiresAt: new Date("2026-12-01T14:00:00Z") },
+      ],
+    },
+  })
+  mocks.recordDispute.mockResolvedValue({ status: "recorded" })
+  mocks.sessionsList.mockResolvedValue({ data: [] })
+  mocks.sendPurchaseConfirmationEmail.mockResolvedValue("ses-msg-1")
+  mocks.markConfirmationEmailSent.mockResolvedValue(undefined)
 })
 
 describe("webhook Stripe — contrat HTTP", () => {
@@ -198,7 +229,7 @@ describe("webhook Stripe — contrat HTTP", () => {
     })
   })
 
-  it("charge.dispute.created → alerte, 200, aucune révocation d'accès", async () => {
+  it("charge.dispute.created → alerte, persiste le litige, 200, aucune révocation d'accès", async () => {
     mocks.constructEventAsync.mockResolvedValueOnce({
       id: "evt_dispute",
       type: "charge.dispute.created",
@@ -208,6 +239,7 @@ describe("webhook Stripe — contrat HTTP", () => {
           amount: 9900,
           currency: "cad",
           reason: "fraudulent",
+          status: "needs_response",
           payment_intent: "pi_dispute",
         },
       },
@@ -221,9 +253,14 @@ describe("webhook Stripe — contrat HTTP", () => {
       expect.any(Error),
       {
         detail:
-          "dispute dp_1 · 9900 cad · motif fraudulent · payment_intent pi_dispute",
+          "dispute dp_1 · 9900 cad · motif fraudulent · statut needs_response · payment_intent pi_dispute",
       },
     )
+    expect(mocks.recordDispute).toHaveBeenCalledWith({
+      stripePaymentIntentId: "pi_dispute",
+      stripeDisputeId: "dp_1",
+      disputeStatus: "needs_response",
+    })
     expect(mocks.fail).not.toHaveBeenCalled()
   })
 
@@ -239,6 +276,7 @@ describe("webhook Stripe — contrat HTTP", () => {
           amount: 9900,
           currency: "cad",
           reason: "fraudulent",
+          status: "needs_response",
           payment_intent: null,
         },
       },
@@ -250,5 +288,319 @@ describe("webhook Stripe — contrat HTTP", () => {
       expect.any(Error),
       { detail: expect.stringContaining("payment_intent absent") },
     )
+    expect(mocks.recordDispute).not.toHaveBeenCalled()
+  })
+
+  // L'alerte est le seul signal qui ouvre la fenêtre de réponse : elle doit
+  // partir même si la base est indisponible, avec tout son détail.
+  it("charge.dispute.created + Neon en panne → alerte détaillée émise, puis 500", async () => {
+    mocks.recordDispute.mockRejectedValueOnce(new Error("Neon down"))
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_db",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_1",
+          amount: 9900,
+          currency: "cad",
+          reason: "fraudulent",
+          status: "needs_response",
+          payment_intent: "pi_dispute",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(500)
+    const [, error, context] = mocks.captureServerError.mock.calls[0]!
+    expect((error as Error).message).toBe(
+      "litige ouvert sur un paiement Stripe",
+    )
+    expect(context).toEqual({
+      detail:
+        "dispute dp_1 · 9900 cad · motif fraudulent · statut needs_response · payment_intent pi_dispute",
+    })
+  })
+
+  it("charge.dispute.updated → persiste sans alerter", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_upd",
+      type: "charge.dispute.updated",
+      data: {
+        object: {
+          id: "dp_1",
+          amount: 9900,
+          currency: "cad",
+          reason: "fraudulent",
+          status: "under_review",
+          payment_intent: "pi_dispute",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.recordDispute).toHaveBeenCalledWith({
+      stripePaymentIntentId: "pi_dispute",
+      stripeDisputeId: "dp_1",
+      disputeStatus: "under_review",
+    })
+    expect(mocks.captureServerError).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ["won", "litige gagné"],
+    ["lost", "litige perdu"],
+    ["warning_closed", "litige clos"],
+  ])(
+    "charge.dispute.closed (%s) → alerte « %s » et persiste",
+    async (status, message) => {
+      mocks.constructEventAsync.mockResolvedValueOnce({
+        id: `evt_closed_${status}`,
+        type: "charge.dispute.closed",
+        data: {
+          object: {
+            id: "dp_1",
+            amount: 9900,
+            currency: "cad",
+            reason: "fraudulent",
+            status,
+            payment_intent: "pi_dispute",
+          },
+        },
+      })
+      const res = await POST(request())
+      expect(res.status).toBe(200)
+      const [, error, context] = mocks.captureServerError.mock.calls[0]!
+      expect((error as Error).message).toBe(message)
+      expect(context).toEqual({
+        detail: `dispute dp_1 · 9900 cad · motif fraudulent · statut ${status} · payment_intent pi_dispute`,
+      })
+      expect(mocks.recordDispute).toHaveBeenCalledWith(
+        expect.objectContaining({ disputeStatus: status }),
+      )
+    },
+  )
+
+  it("charge.dispute.funds_reinstated → alerte de restitution et persiste", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_reinstated",
+      type: "charge.dispute.funds_reinstated",
+      data: {
+        object: {
+          id: "dp_1",
+          amount: 9900,
+          currency: "cad",
+          reason: "fraudulent",
+          status: "won",
+          payment_intent: "pi_dispute",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    const [, error] = mocks.captureServerError.mock.calls[0]!
+    expect((error as Error).message).toBe("fonds restitués après litige")
+    expect(mocks.recordDispute).toHaveBeenCalled()
+  })
+
+  // Deux alertes, pas une : « un litige vient de s'ouvrir » reste dit, et
+  // l'anomalie « aucune transaction » s'y ajoute.
+  it("litige sur un payment_intent sans transaction → alerte de cycle de vie ET alerte dédiée, 200", async () => {
+    mocks.recordDispute.mockResolvedValueOnce({ status: "not_found" })
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_ghost",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_9",
+          amount: 100,
+          currency: "cad",
+          reason: "general",
+          status: "needs_response",
+          payment_intent: "pi_ghost",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    const messages = mocks.captureServerError.mock.calls.map(
+      ([, error]) => (error as Error).message,
+    )
+    expect(messages).toEqual([
+      "litige ouvert sur un paiement Stripe",
+      "litige sans transaction correspondante",
+    ])
+  })
+
+  // Avec la carte de test 0259, Stripe livre le litige AVANT le fulfillment :
+  // la transaction est encore pending, sans payment_intent.
+  it("litige avant le fulfillment → rattaché par la session Checkout, 200", async () => {
+    mocks.recordDispute
+      .mockResolvedValueOnce({ status: "not_found" })
+      .mockResolvedValueOnce({ status: "recorded" })
+    mocks.sessionsList.mockResolvedValueOnce({ data: [{ id: "cs_early" }] })
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_dispute_early",
+      type: "charge.dispute.created",
+      data: {
+        object: {
+          id: "dp_early",
+          amount: 5000,
+          currency: "cad",
+          reason: "fraudulent",
+          status: "needs_response",
+          payment_intent: "pi_early",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.sessionsList).toHaveBeenCalledWith({
+      payment_intent: "pi_early",
+      limit: 1,
+    })
+    expect(mocks.recordDispute).toHaveBeenNthCalledWith(2, {
+      stripePaymentIntentId: "pi_early",
+      stripeSessionId: "cs_early",
+      stripeDisputeId: "dp_early",
+      disputeStatus: "needs_response",
+    })
+    const messages = mocks.captureServerError.mock.calls.map(
+      ([, error]) => (error as Error).message,
+    )
+    expect(messages).toEqual(["litige ouvert sur un paiement Stripe"])
+  })
+
+  it("radar.early_fraud_warning.created → alerte avec charge et payment_intent, 200", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_efw",
+      type: "radar.early_fraud_warning.created",
+      data: {
+        object: {
+          id: "issfr_1",
+          charge: "ch_1",
+          fraud_type: "made_with_stolen_card",
+          actionable: true,
+          payment_intent: "pi_efw",
+        },
+      },
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.recordDispute).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.any(Error),
+      {
+        detail:
+          "efw issfr_1 · charge ch_1 · type made_with_stolen_card · payment_intent pi_efw · remboursement proactif à envisager",
+      },
+    )
+  })
+})
+
+describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
+  const paidEvent = (id: string) => ({
+    id,
+    type: "checkout.session.completed",
+    data: {
+      object: {
+        id: `cs_${id}`,
+        payment_status: "paid",
+        payment_intent: `pi_${id}`,
+        amount_total: 20000,
+        currency: "cad",
+      },
+    },
+  })
+
+  // La promesse passée à waitUntil est le travail différé : on l'attend
+  // explicitement pour observer ses effets.
+  const deferred = () => mocks.after.mock.calls[0]?.[0]?.()
+
+  it("fulfillment completed → envoi confié à waitUntil, MessageId enregistré", async () => {
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_mail"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.after).toHaveBeenCalledTimes(1)
+    await deferred()
+    expect(mocks.sendPurchaseConfirmationEmail).toHaveBeenCalledWith({
+      to: "u@test.invalid",
+      productName: "Accès examens",
+      amountPaid: 20000,
+      currency: "CAD",
+      presentmentAmount: null,
+      presentmentCurrency: null,
+      purchasedAt: new Date("2026-09-02T14:00:00Z"),
+      grantedAccess: [
+        { accessType: "exam", expiresAt: new Date("2026-12-01T14:00:00Z") },
+      ],
+    })
+    expect(mocks.markConfirmationEmailSent).toHaveBeenCalledWith({
+      transactionId: "tx_1",
+      messageId: "ses-msg-1",
+    })
+  })
+
+  it("already_processed → rien n'est différé (un seul envoi par achat)", async () => {
+    mocks.completeStripeTransaction.mockResolvedValueOnce({
+      status: "already_processed",
+    })
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_replay"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.after).not.toHaveBeenCalled()
+    expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
+  })
+
+  it("compte anonymisé (courriel nul) → aucun envoi, simple avertissement", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {})
+    mocks.completeStripeTransaction.mockResolvedValueOnce({
+      status: "completed",
+      transactionId: "tx_anon",
+      confirmation: {
+        userEmail: null,
+        productName: "Accès examens",
+        amountPaid: 20000,
+        currency: "CAD",
+        presentmentAmount: null,
+        presentmentCurrency: null,
+        completedAt: new Date("2026-09-02T14:00:00Z"),
+        grantedAccess: [],
+      },
+    })
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_anon"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    await deferred()
+    expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
+    // Cas nominal (suppression de compte en cours) : un log, pas Sentry.
+    expect(mocks.captureServerError).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("tx_anon"))
+  })
+
+  // L'accès est déjà commité et le 200 déjà parti : Sentry est la seule trace.
+  it("échec SES → capture Sentry, le 200 est déjà parti", async () => {
+    mocks.sendPurchaseConfirmationEmail.mockRejectedValueOnce(
+      new Error("SES down"),
+    )
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_ses_ko"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    await deferred()
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.any(Error),
+      { detail: "courriel de confirmation non envoyé · transaction tx_1" },
+    )
+    expect(mocks.markConfirmationEmailSent).not.toHaveBeenCalled()
+  })
+
+  it("échec de l'écriture du MessageId → capture (le courriel est parti)", async () => {
+    mocks.markConfirmationEmailSent.mockRejectedValueOnce(new Error("Neon"))
+    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_mark_ko"))
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    await deferred()
+    expect(mocks.captureServerError).toHaveBeenCalled()
   })
 })

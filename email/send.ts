@@ -35,6 +35,7 @@ export async function sendEmail({
     new SendEmailCommand({
       FromEmailAddress: env.EMAIL_FROM,
       Destination: { ToAddresses: [recipient] },
+      ...(env.SUPPORT_EMAIL ? { ReplyToAddresses: [env.SUPPORT_EMAIL] } : {}),
       Content: {
         Simple: {
           Subject: { Data: finalSubject, Charset: "UTF-8" },

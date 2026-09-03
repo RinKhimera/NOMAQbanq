@@ -10,6 +10,8 @@ import {
 import {
   completeStripeTransaction,
   failStripeTransaction,
+  markConfirmationEmailSent,
+  recordStripeDispute,
 } from "@/features/payments/stripe"
 import { toAppZoneCalendarDay } from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
@@ -29,7 +31,7 @@ const suffix = createId().slice(0, 8)
 
 const PEXAM = createId() // produit exam non-combo
 const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 13 }, () => createId())
+const U = Array.from({ length: 15 }, () => createId())
 const [
   U_HAPPY,
   U_CUMUL,
@@ -44,6 +46,8 @@ const [
   U_RACE,
   U_PRESENT,
   U_NOPRESENT,
+  U_DISPUTE,
+  U_CONFIRM,
 ] = U
 
 const accessOf = (userId: string, accessType: "exam" | "training") =>
@@ -227,7 +231,7 @@ describe("completeStripeTransaction", () => {
       stripePaymentIntentId: "pi_happy",
       stripeEventId: `evt_happy_${suffix}`,
     })
-    expect(res).toEqual({ status: "completed", transactionId: txId })
+    expect(res).toMatchObject({ status: "completed", transactionId: txId })
 
     const tx = await txStatus(txId)
     expect(tx?.status).toBe("completed")
@@ -391,6 +395,97 @@ describe("completeStripeTransaction", () => {
     expect(rows).toHaveLength(1)
     // Cumul des deux durées (90 + 90). Tombe à ~90 si le verrou FOR UPDATE saute.
     expect(approxDays(rows[0].expiresAt, 180)).toBe(true)
+  })
+
+  it("completed → retourne les données du courriel de confirmation", async () => {
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_CONFIRM,
+      productId: PEXAM,
+      sessionId: `cs_confirm_${tx}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const result = await completeStripeTransaction({
+      stripeSessionId: `cs_confirm_${tx}`,
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeEventId: `evt_confirm_${tx}`,
+      amountTotal: 5000,
+      currency: "cad",
+      presentmentAmount: 2280000,
+      presentmentCurrency: "xaf",
+    })
+
+    expect(result.status).toBe("completed")
+    if (result.status !== "completed") return
+    expect(result.confirmation.userEmail).toMatch(/@test\.invalid$/)
+    expect(result.confirmation.productName).toBe(`Exam ${suffix}`)
+    expect(result.confirmation.amountPaid).toBe(5000)
+    expect(result.confirmation.currency).toBe("CAD")
+    expect(result.confirmation.presentmentAmount).toBe(2280000)
+    expect(result.confirmation.presentmentCurrency).toBe("XAF")
+    expect(result.confirmation.completedAt).toBeInstanceOf(Date)
+    expect(result.confirmation.grantedAccess).toHaveLength(1)
+    expect(result.confirmation.grantedAccess[0].accessType).toBe("exam")
+    expect(approxDays(result.confirmation.grantedAccess[0].expiresAt, 90)).toBe(
+      true,
+    )
+  })
+
+  // Un combo pose `now + durée` sur la transaction, mais l'accès exam existant
+  // (90 j ci-dessus) est plus long : le courriel doit annoncer la date réelle.
+  it("combo par-dessus un accès plus long → grantedAccess porte les expirations effectives", async () => {
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_CONFIRM,
+      productId: PCOMBO,
+      sessionId: `cs_confirm_combo_${tx}`,
+      accessType: "exam",
+      durationDays: 30,
+    })
+
+    const result = await completeStripeTransaction({
+      stripeSessionId: `cs_confirm_combo_${tx}`,
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeEventId: `evt_confirm_combo_${tx}`,
+    })
+
+    expect(result.status).toBe("completed")
+    if (result.status !== "completed") return
+    const byType = Object.fromEntries(
+      result.confirmation.grantedAccess.map((a) => [a.accessType, a.expiresAt]),
+    )
+    expect(approxDays(byType.exam, 90)).toBe(true)
+    expect(approxDays(byType.training, 30)).toBe(true)
+  })
+
+  it("compte anonymisé → userEmail null (aucun courriel à envoyer)", async () => {
+    await db
+      .update(user)
+      .set({ anonymizedAt: new Date() })
+      .where(eq(user.id, U_CONFIRM))
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_CONFIRM,
+      productId: PEXAM,
+      sessionId: `cs_anon_${tx}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const result = await completeStripeTransaction({
+      stripeSessionId: `cs_anon_${tx}`,
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeEventId: `evt_anon_${tx}`,
+    })
+
+    expect(result.status).toBe("completed")
+    if (result.status !== "completed") return
+    expect(result.confirmation.userEmail).toBeNull()
   })
 })
 
@@ -644,5 +739,227 @@ describe("réconciliation montant/devise au fulfillment", () => {
       .where(eq(transactions.stripeSessionId, `sess_promo_${suffix}`))
       .limit(1)
     expect(tx?.amountPaid).toBe(4000)
+  })
+})
+
+describe("recordStripeDispute", () => {
+  const disputeOf = (id: string) =>
+    db
+      .select({
+        disputeId: transactions.stripeDisputeId,
+        disputeStatus: transactions.disputeStatus,
+      })
+      .from(transactions)
+      .where(eq(transactions.id, id))
+      .limit(1)
+      .then((r) => r[0])
+
+  const seedCompleted = async (id: string, paymentIntentId: string) => {
+    await seedPending({
+      id,
+      userId: U_DISPUTE,
+      productId: PEXAM,
+      sessionId: `cs_${id}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+    await db
+      .update(transactions)
+      .set({ status: "completed", stripePaymentIntentId: paymentIntentId })
+      .where(eq(transactions.id, id))
+  }
+
+  it("pose l'id et le statut du litige sur la transaction du payment_intent", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+
+    const result = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_1",
+      disputeStatus: "needs_response",
+    })
+
+    expect(result).toEqual({ status: "recorded" })
+    expect(await disputeOf(tx)).toEqual({
+      disputeId: "dp_1",
+      disputeStatus: "needs_response",
+    })
+  })
+
+  it("même litige : un statut non terminal n'écrase jamais un terminal (ordre de livraison non garanti)", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_2",
+      disputeStatus: "won",
+    })
+
+    const late = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_2",
+      disputeStatus: "under_review",
+    })
+
+    expect(late).toEqual({ status: "kept" })
+    expect((await disputeOf(tx)).disputeStatus).toBe("won")
+  })
+
+  // Stripe documente « plusieurs litiges par paiement » : un litige clos ne
+  // doit jamais masquer un nouveau chargeback vivant sur le même paiement.
+  it("second litige sur le même paiement : remplace le précédent, même clos", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_first",
+      disputeStatus: "won",
+    })
+
+    const second = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_second",
+      disputeStatus: "needs_response",
+    })
+
+    expect(second).toEqual({ status: "recorded" })
+    expect(await disputeOf(tx)).toEqual({
+      disputeId: "dp_second",
+      disputeStatus: "needs_response",
+    })
+  })
+
+  // Miroir du cas précédent : un `closed` d'un ANCIEN litige, rejoué en retard
+  // (retry Stripe après un 500), ne doit pas masquer le chargeback en cours.
+  it("clôture tardive d'un ancien litige : n'écrase pas un litige vivant", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_live",
+      disputeStatus: "needs_response",
+    })
+
+    const late = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_old",
+      disputeStatus: "won",
+    })
+
+    expect(late).toEqual({ status: "kept" })
+    expect(await disputeOf(tx)).toEqual({
+      disputeId: "dp_live",
+      disputeStatus: "needs_response",
+    })
+  })
+
+  it("nouveau litige déjà clos (prevented) par-dessus un ancien clos : remplace", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_first",
+      disputeStatus: "lost",
+    })
+
+    const next = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_next",
+      disputeStatus: "prevented",
+    })
+
+    expect(next).toEqual({ status: "recorded" })
+    expect((await disputeOf(tx)).disputeId).toBe("dp_next")
+  })
+
+  it("un statut terminal remplace un non terminal", async () => {
+    const tx = createId()
+    await seedCompleted(tx, `pi_${tx}`)
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_3",
+      disputeStatus: "under_review",
+    })
+
+    await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_3",
+      disputeStatus: "lost",
+    })
+
+    expect((await disputeOf(tx)).disputeStatus).toBe("lost")
+  })
+
+  it("payment_intent inconnu → not_found, rien d'écrit", async () => {
+    const result = await recordStripeDispute({
+      stripePaymentIntentId: `pi_inconnu_${suffix}`,
+      stripeDisputeId: "dp_4",
+      disputeStatus: "needs_response",
+    })
+    expect(result).toEqual({ status: "not_found" })
+  })
+
+  // Un litige peut précéder le fulfillment (carte de test 0259, paiement
+  // différé) : la transaction est encore `pending`, sans payment_intent. La
+  // session Checkout, elle, est connue dès la création du pending.
+  it("transaction encore pending (sans payment_intent) → rattachée par la session Checkout", async () => {
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_DISPUTE,
+      productId: PEXAM,
+      sessionId: `cs_early_${tx}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    const byIntent = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeDisputeId: "dp_early",
+      disputeStatus: "needs_response",
+    })
+    expect(byIntent).toEqual({ status: "not_found" })
+
+    const bySession = await recordStripeDispute({
+      stripePaymentIntentId: `pi_${tx}`,
+      stripeSessionId: `cs_early_${tx}`,
+      stripeDisputeId: "dp_early",
+      disputeStatus: "needs_response",
+    })
+    expect(bySession).toEqual({ status: "recorded" })
+    expect(await disputeOf(tx)).toEqual({
+      disputeId: "dp_early",
+      disputeStatus: "needs_response",
+    })
+    // Le payment_intent est posé au passage : le fulfillment le réécrira à
+    // l'identique, et les événements suivants du litige le retrouveront.
+    expect((await txStatus(tx))?.pi).toBe(`pi_${tx}`)
+  })
+})
+
+describe("markConfirmationEmailSent", () => {
+  it("pose le MessageId et l'horodatage d'envoi", async () => {
+    const tx = createId()
+    await seedPending({
+      id: tx,
+      userId: U_DISPUTE,
+      productId: PEXAM,
+      sessionId: `cs_mail_${tx}`,
+      accessType: "exam",
+      durationDays: 90,
+    })
+
+    await markConfirmationEmailSent({ transactionId: tx, messageId: "ses-123" })
+
+    const [row] = await db
+      .select({
+        messageId: transactions.confirmationEmailMessageId,
+        sentAt: transactions.confirmationEmailSentAt,
+      })
+      .from(transactions)
+      .where(eq(transactions.id, tx))
+      .limit(1)
+    expect(row.messageId).toBe("ses-123")
+    expect(row.sentAt).toBeInstanceOf(Date)
   })
 })

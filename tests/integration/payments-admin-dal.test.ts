@@ -227,6 +227,20 @@ describe("getAllTransactions (admin : filtres + keyset)", () => {
     expect(new Set(ids).size).toBe(6) // 4 + 2, aucun doublon
     expect(page2.nextCursor).toBeNull()
   })
+
+  it("expose le statut de litige de chaque transaction", async () => {
+    await db
+      .update(transactions)
+      .set({ stripeDisputeId: "dp_admin", disputeStatus: "needs_response" })
+      .where(eq(transactions.id, txCadStripeRecent))
+
+    const page = await getAllTransactions({ userId: uid, limit: 50 })
+    const disputed = page.items.find((t) => t.id === txCadStripeRecent)
+    const clean = page.items.find((t) => t.id === txCadManualOld)
+
+    expect(disputed?.disputeStatus).toBe("needs_response")
+    expect(clean?.disputeStatus).toBeNull()
+  })
 })
 
 describe("getTransactionAccessImpact", () => {

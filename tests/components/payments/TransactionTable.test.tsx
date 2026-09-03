@@ -97,6 +97,19 @@ describe("TransactionTable", () => {
       expect(screen.getByText(/30 jours · Examens/)).toBeInTheDocument()
     })
 
+    it("affiche le badge de litige à côté du statut", () => {
+      const transaction = makeTransaction({ disputeStatus: "needs_response" })
+      render(<TransactionTable transactions={[transaction]} />)
+
+      expect(screen.getByText("Litige en cours")).toBeInTheDocument()
+    })
+
+    it("n'affiche aucun badge de litige sans litige", () => {
+      render(<TransactionTable transactions={[makeTransaction()]} />)
+
+      expect(screen.queryByText(/Litige/)).not.toBeInTheDocument()
+    })
+
     it("affiche 'Produit inconnu' quand le produit est null", () => {
       const transaction = makeTransaction({ product: null })
       render(<TransactionTable transactions={[transaction]} />)

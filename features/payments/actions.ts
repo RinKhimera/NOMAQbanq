@@ -37,6 +37,21 @@ const isStripeResourceMissing = (error: unknown): boolean =>
   error !== null &&
   (error as { code?: unknown }).code === "resource_missing"
 
+// Erreur Stripe liée à la collecte de consentement : l'URL des CGU manque dans
+// les informations publiques du compte. Stripe n'a pas été observé sur ce cas
+// précis : une erreur de configuration de compte peut arriver avec `param`
+// nul, d'où la double reconnaissance par `param` ET par message.
+const isStripeConsentConfigError = (error: unknown): boolean => {
+  if (typeof error !== "object" || error === null) return false
+  const { param, message } = error as { param?: unknown; message?: unknown }
+  const text = typeof message === "string" ? message.toLowerCase() : ""
+  return (
+    (typeof param === "string" && param.startsWith("consent_collection")) ||
+    text.includes("terms of service") ||
+    text.includes("consent_collection")
+  )
+}
+
 /**
  * Charge la page suivante de l'historique des transactions de l'utilisateur
  * courant (pagination keyset). Appelée dans un `startTransition` côté client.
@@ -340,6 +355,7 @@ export const createStripeCheckout = async (input: {
   const [product] = await db
     .select({
       id: products.id,
+      name: products.name,
       stripePriceId: products.stripePriceId,
       stripePriceLookupKey: products.stripePriceLookupKey,
       priceCad: products.priceCad,
@@ -432,6 +448,23 @@ export const createStripeCheckout = async (input: {
       customer_email: session.user.email,
       // Force la création d'un customer Stripe (nécessaire au portail de facturation).
       customer_creation: "always",
+      // Reçu Stripe indépendant du toggle Dashboard « Paiements réussis » :
+      // un `receipt_email` sur le PaymentIntent déclenche l'envoi en live.
+      payment_intent_data: {
+        receipt_email: session.user.email,
+        description: product.name,
+      },
+      // Case CGU au checkout : preuve que Stripe recommande dans un dossier
+      // de litige. Exige l'URL des CGU dans les informations publiques du
+      // compte, sinon Stripe REFUSE la création de session.
+      consent_collection: { terms_of_service: "required" },
+      // 3DS demandé sur chaque paiement CARTE (préférence frictionless, la
+      // banque décide) ; un paiement Link pur n'est pas couvert. Un litige
+      // « fraudulent » sur un paiement authentifié retombe sur la banque.
+      // Clause de sortie : retirer si la conversion du checkout chute.
+      payment_method_options: {
+        card: { request_three_d_secure: "any" },
+      },
       line_items: [{ price: resolvedPriceId, quantity: 1 }],
       metadata: {
         userId: session.user.id,
@@ -474,6 +507,14 @@ export const createStripeCheckout = async (input: {
     // objet Stripe supprimé entre la résolution et la création. Aucune nouvelle
     // tentative n'y changera rien : le message générique enverrait chercher une
     // panne réseau.
+    if (isStripeConsentConfigError(error)) {
+      captureServerError("[createStripeCheckout]", error, {
+        userId: session.user.id,
+        detail:
+          "URL des CGU absente des informations publiques du compte Stripe : consent_collection refusé, toutes les ventes bloquées",
+      })
+      return { error: "Ce produit est mal configuré. Contactez le support." }
+    }
     if (isStripeResourceMissing(error)) {
       captureServerError("[createStripeCheckout]", error, {
         userId: session.user.id,

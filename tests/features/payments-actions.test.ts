@@ -117,6 +117,7 @@ const ACTIVE_PRODUCT = {
   id: "p1",
   stripePriceId: "price_1",
   stripePriceLookupKey: "exam_access",
+  name: "Accès examens",
   priceCad: 5000,
   accessType: "exam",
   durationDays: 90,
@@ -280,6 +281,79 @@ describe("createStripeCheckout", () => {
     successPath: "/tableau-de-bord",
     cancelPath: "/tarifs",
   }
+
+  it("reçu garanti, CGU obligatoires et 3DS demandé sur chaque session", async () => {
+    mocks.checkoutCreate.mockResolvedValueOnce({
+      id: "cs_1",
+      url: "https://stripe.test/pay",
+    })
+    await createStripeCheckout(input)
+
+    expect(mocks.checkoutCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        // `receipt_email` posé sur le PaymentIntent : Stripe envoie alors un
+        // reçu en live quel que soit le réglage « Paiements réussis ».
+        payment_intent_data: {
+          receipt_email: "u1@test.invalid",
+          description: "Accès examens",
+        },
+        consent_collection: { terms_of_service: "required" },
+        payment_method_options: {
+          card: { request_three_d_secure: "any" },
+        },
+      }),
+    )
+  })
+
+  // Sans URL de CGU dans le compte, Stripe refuse la session : « Réessayez »
+  // enverrait chercher une panne réseau alors que c'est une configuration.
+  it("URL des CGU absente du compte Stripe → message de configuration + alerte nommée", async () => {
+    mocks.checkoutCreate.mockRejectedValueOnce(
+      Object.assign(new Error("terms of service URL missing"), {
+        type: "StripeInvalidRequestError",
+        param: "consent_collection[terms_of_service]",
+      }),
+    )
+    const res = await createStripeCheckout(input)
+
+    expect(res).toEqual({
+      error: "Ce produit est mal configuré. Contactez le support.",
+    })
+    expect(mocks.insertValues).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[createStripeCheckout]",
+      expect.any(Error),
+      expect.objectContaining({
+        userId: "u1",
+        detail: expect.stringContaining("URL des CGU"),
+      }),
+    )
+  })
+
+  // Une erreur de configuration de compte peut arriver sans `param` : le
+  // message doit suffire à la reconnaître.
+  it("erreur CGU sans param (message seul) → même traitement", async () => {
+    mocks.checkoutCreate.mockRejectedValueOnce(
+      Object.assign(
+        new Error(
+          "There must be a valid terms of service URL set in your Dashboard settings.",
+        ),
+        { type: "StripeInvalidRequestError", param: null },
+      ),
+    )
+    const res = await createStripeCheckout(input)
+
+    expect(res).toEqual({
+      error: "Ce produit est mal configuré. Contactez le support.",
+    })
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[createStripeCheckout]",
+      expect.any(Error),
+      expect.objectContaining({
+        detail: expect.stringContaining("URL des CGU"),
+      }),
+    )
+  })
 
   it("produit absent de la base → refus avant Stripe", async () => {
     mocks.productRows.current = []

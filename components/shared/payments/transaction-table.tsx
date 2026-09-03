@@ -34,6 +34,7 @@ import {
 import type { AdminTransactionView } from "@/features/payments/dal"
 import { formatCurrency, formatShortDate, formatTimeOnly } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { disputeBadge } from "./dispute-badge"
 
 type TransactionStatus = "pending" | "completed" | "failed" | "refunded"
 type TransactionType = "stripe" | "manual"
@@ -52,6 +53,7 @@ interface Transaction {
   completedAt?: number | null
   paymentMethod?: string | null
   notes?: string | null
+  disputeStatus?: string | null
   product?: { _id: string; name: string } | null
   user?: { _id: string; name: string; email: string } | null
 }
@@ -85,6 +87,7 @@ export const adminTransactionToRow = (
   completedAt: tx.completedAt,
   paymentMethod: tx.paymentMethod,
   notes: tx.notes,
+  disputeStatus: tx.disputeStatus,
   product: tx.product ? { _id: tx.product.id, name: tx.product.name } : null,
   user: tx.user
     ? { _id: tx.user.id, name: tx.user.name, email: tx.user.email }
@@ -144,6 +147,28 @@ const typeConfig: Record<
     className:
       "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
   },
+}
+
+const disputeToneClass = {
+  danger: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+  success:
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
+  muted: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
+} as const
+
+const DisputeBadge = ({ status }: { status: string | null | undefined }) => {
+  const badge = disputeBadge(status)
+  if (!badge) return null
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
+        disputeToneClass[badge.tone],
+      )}
+    >
+      {badge.label}
+    </span>
+  )
 }
 
 const StatusBadge = ({ status }: { status: TransactionStatus }) => {
@@ -297,7 +322,10 @@ export const TransactionTable = ({
                   <TypeBadge type={transaction.type} />
                 </TableCell>
                 <TableCell>
-                  <StatusBadge status={transaction.status} />
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <StatusBadge status={transaction.status} />
+                    <DisputeBadge status={transaction.disputeStatus} />
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <span

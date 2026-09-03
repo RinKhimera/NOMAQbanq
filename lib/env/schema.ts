@@ -38,6 +38,10 @@ export const buildServerSchema = () =>
       EMAIL_FROM: z.string().optional(),
       SES_CONFIGURATION_SET: z.string().optional(),
       EMAIL_OVERRIDE_TO: z.string().optional(),
+      // Boîte lue par un humain : Reply-To de tous les courriels et adresse
+      // affichée dans le courriel de confirmation d'achat. `EMAIL_FROM` est
+      // une adresse noreply.
+      SUPPORT_EMAIL: z.string().optional(),
       // Stripe (paiements) — optionnelles : l'app démarre sans, le code Stripe
       // (`getStripe`/webhook) lève une erreur claire à l'usage si une valeur manque.
       STRIPE_SECRET_KEY: z.string().optional(),

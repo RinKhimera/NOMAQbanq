@@ -99,6 +99,20 @@
       "when": 1787327354153,
       "tag": "0013_sharp_gwen_stacy",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788354445174,
+      "tag": "0014_tranquil_slapstick",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1788367617981,
+      "tag": "0015_previous_strong_guy",
+      "breakpoints": true
     }
   ]
 }
