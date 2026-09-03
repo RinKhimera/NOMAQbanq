@@ -76,6 +76,12 @@ updates:
       # Retirer quand Vitest embarquera Vite 8 (v6 importe vite/internal, absent de Vite 7)
       - dependency-name: "@vitejs/plugin-react"
         update-types: ["version-update:semver-major"]
+      # Les mineures de better-auth embarquent des migrations de schéma (1.7 :
+      # account.issuer) et peuvent changer la résolution de l'émetteur sans
+      # toucher la constante que tests/db/account-issuer-migration.test.ts
+      # épingle : montée à la main, jamais par le groupe runtime.
+      - dependency-name: "better-auth"
+        update-types: ["version-update:semver-minor"]
       # Le SDK AWS publie quasi quotidiennement ; ses patchs n'apportent rien
       # aux trois clients utilisés ici (S3, SESv2, presigned POST).
       - dependency-name: "@aws-sdk/*"

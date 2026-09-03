@@ -112,23 +112,23 @@ describe("getLoginMethods", () => {
     mocks.rows.current = { account: [], user: [] }
     expect(await getLoginMethods()).toEqual({
       hasPassword: false,
-      google: { linked: false, linkedAt: null },
+      google: { linked: false },
       emailVerified: false,
     })
   })
 
-  it("signale les deux methodes et la date de liaison Google", async () => {
+  it("signale les deux methodes, la date de liaison et l'id de la ligne Google", async () => {
     const linkedAt = new Date("2026-01-01T00:00:00.000Z")
     mocks.rows.current = {
       account: [
-        { providerId: "credential", createdAt: new Date() },
-        { providerId: "google", createdAt: linkedAt },
+        { id: "acc-cred", providerId: "credential", createdAt: new Date() },
+        { id: "acc-google", providerId: "google", createdAt: linkedAt },
       ],
       user: [{ emailVerified: true }],
     }
     expect(await getLoginMethods()).toEqual({
       hasPassword: true,
-      google: { linked: true, linkedAt },
+      google: { linked: true, linkedAt, accountId: "acc-google" },
       emailVerified: true,
     })
   })

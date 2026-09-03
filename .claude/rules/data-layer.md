@@ -216,8 +216,9 @@ repose sur la **modélisation** (recommandation officielle Next), à maintenir :
   secrète (`password`, `account.{accessToken,refreshToken,idToken}`,
   `session.token`) pour de la donnée destinée au client.
 - **Exception self-scoped (gestion de compte)** : `getLoginMethods` /
-  `getUserSessions` (`features/users/dal.ts`) lisent `account` (`providerId`,
-  `createdAt`) et `session` (`ipAddress`, `userAgent`, `updatedAt`, `id`)
+  `getUserSessions` (`features/users/dal.ts`) lisent `account` (`id`, `providerId`,
+  `createdAt` — l'`id` est la poignée que `unlinkAccount` exige depuis
+  better-auth 1.7) et `session` (`ipAddress`, `userAgent`, `updatedAt`, `id`)
   UNIQUEMENT pour l'utilisateur de la session courante, et NE sélectionnent
   JAMAIS `token`, `password`, ni les tokens OAuth. Afficher à l'utilisateur ses
   propres appareils/méthodes de connexion est un affichage volontaire (comme
