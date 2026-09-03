@@ -46,8 +46,11 @@ export const ProfileLoginMethods = ({
   }
 
   const unlinkGoogle = async () => {
+    if (!methods.google.linked) return
     setBusy(true)
-    const { error } = await authClient.unlinkAccount({ providerId: "google" })
+    const { error } = await authClient.unlinkAccount({
+      accountId: methods.google.accountId,
+    })
     setBusy(false)
     if (error) {
       const code = (error as { code?: string }).code

@@ -85,12 +85,15 @@ export type CurrentUser = NonNullable<
 
 export type LoginMethods = {
   hasPassword: boolean
-  google: { linked: boolean; linkedAt: Date | null }
+  // `accountId` = clé primaire de la ligne `account` (ce que `unlinkAccount`
+  // attend), pas l'identifiant Google de l'utilisateur.
+  google:
+    { linked: true; linkedAt: Date; accountId: string } | { linked: false }
   emailVerified: boolean
 }
 
-// Méthodes de connexion de l'utilisateur courant. Lit `account` (providerId + date
-// seulement — JAMAIS password/accessToken/refreshToken/idToken/scope) et
+// Méthodes de connexion de l'utilisateur courant. Lit `account` (id, providerId,
+// date seulement — JAMAIS password/accessToken/refreshToken/idToken/scope) et
 // `user.emailVerified`. Self-scoped : filtré sur la session courante.
 export const getLoginMethods = cache(async (): Promise<LoginMethods | null> => {
   const authSession = await getCurrentSession()
@@ -98,9 +101,14 @@ export const getLoginMethods = cache(async (): Promise<LoginMethods | null> => {
   const uid = authSession.user.id
 
   const rows = await db
-    .select({ providerId: account.providerId, createdAt: account.createdAt })
+    .select({
+      id: account.id,
+      providerId: account.providerId,
+      createdAt: account.createdAt,
+    })
     .from(account)
     .where(eq(account.userId, uid))
+    .limit(10)
 
   const [u] = await db
     .select({ emailVerified: user.emailVerified })
@@ -111,7 +119,9 @@ export const getLoginMethods = cache(async (): Promise<LoginMethods | null> => {
   const google = rows.find((r) => r.providerId === "google")
   return {
     hasPassword: rows.some((r) => r.providerId === "credential"),
-    google: { linked: Boolean(google), linkedAt: google?.createdAt ?? null },
+    google: google
+      ? { linked: true, linkedAt: google.createdAt, accountId: google.id }
+      : { linked: false },
     emailVerified: u?.emailVerified ?? false,
   }
 })

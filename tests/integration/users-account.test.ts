@@ -27,6 +27,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("next/headers", () => ({ headers: vi.fn() }))
 
 const userId = createId()
+const googleAccountId = createId()
 const currentSessionId = createId()
 const otherSessionId = createId()
 const userEmail = `account-${userId}@test.invalid`
@@ -43,14 +44,16 @@ beforeAll(async () => {
       id: createId(),
       userId,
       providerId: "credential",
+      issuer: "local:credential",
       accountId: userId,
       password: "hash",
     },
     {
-      id: createId(),
+      id: googleAccountId,
       userId,
       providerId: "google",
-      accountId: "google-sub-123",
+      issuer: "https://accounts.google.com",
+      accountId: `google-sub-${userId}`,
     },
   ])
   await db.insert(session).values([
@@ -92,9 +95,41 @@ describe("getLoginMethods", () => {
     const methods = await getLoginMethods()
     expect(methods).not.toBeNull()
     expect(methods?.hasPassword).toBe(true)
-    expect(methods?.google.linked).toBe(true)
+    // La clé primaire de la ligne, pas l'identifiant Google : c'est ce que
+    // `unlinkAccount` attend.
+    expect(methods?.google).toEqual({
+      linked: true,
+      linkedAt: expect.any(Date),
+      accountId: googleAccountId,
+    })
     expect(methods?.emailVerified).toBe(true)
     expect(JSON.stringify(methods)).not.toContain("hash")
+  })
+})
+
+describe("account — identité (issuer, account_id)", () => {
+  it("refuse qu'un second utilisateur lie le même compte Google", async () => {
+    const otherId = createId()
+    await db.insert(user).values({
+      id: otherId,
+      name: "Autre",
+      email: `other-${otherId}@test.invalid`,
+    })
+    await expect(
+      db.insert(account).values({
+        id: createId(),
+        userId: otherId,
+        providerId: "google",
+        issuer: "https://accounts.google.com",
+        accountId: `google-sub-${userId}`,
+      }),
+    ).rejects.toThrow()
+    const rows = await db
+      .select({ id: account.id })
+      .from(account)
+      .where(eq(account.userId, otherId))
+    expect(rows).toHaveLength(0)
+    await db.delete(user).where(eq(user.id, otherId))
   })
 })
 
@@ -241,7 +276,8 @@ describe("anonymizeExpiredDeletedAccounts", () => {
       id: createId(),
       userId: oldId,
       providerId: "google",
-      accountId: "sub-old",
+      issuer: "https://accounts.google.com",
+      accountId: `google-sub-${oldId}`,
     })
 
     const res: AnonymizeResult = await anonymizeExpiredDeletedAccounts()
