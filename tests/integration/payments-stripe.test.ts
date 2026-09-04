@@ -421,6 +421,7 @@ describe("completeStripeTransaction", () => {
     expect(result.status).toBe("completed")
     if (result.status !== "completed") return
     expect(result.confirmation.userEmail).toMatch(/@test\.invalid$/)
+    expect(typeof result.confirmation.userName).toBe("string")
     expect(result.confirmation.productName).toBe(`Exam ${suffix}`)
     expect(result.confirmation.amountPaid).toBe(5000)
     expect(result.confirmation.currency).toBe("CAD")

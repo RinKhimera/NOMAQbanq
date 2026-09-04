@@ -54,6 +54,7 @@ const sendConfirmation = async (
   try {
     const messageId = await sendPurchaseConfirmationEmail({
       to: c.userEmail,
+      name: c.userName,
       productName: c.productName,
       amountPaid: c.amountPaid,
       currency: c.currency,

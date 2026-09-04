@@ -114,7 +114,11 @@ describe("sendExamResultsNotifications", () => {
 
     // Opt-in de l'examen clos : email envoyé ; opt-out : jamais.
     expect(examResults).toHaveBeenCalledWith(
-      expect.objectContaining({ to: `in-${optIn}@test.invalid`, score: 80 }),
+      expect.objectContaining({
+        to: `in-${optIn}@test.invalid`,
+        name: "Opt In",
+        score: 80,
+      }),
     )
     expect(examResults).not.toHaveBeenCalledWith(
       expect.objectContaining({ to: `out-${optOut}@test.invalid` }),

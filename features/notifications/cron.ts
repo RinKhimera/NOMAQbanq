@@ -34,6 +34,7 @@ export async function sendExamResultsNotifications(): Promise<number> {
       examId: examParticipations.examId,
       score: examParticipations.score,
       email: user.email,
+      name: user.name,
       notify: user.notifyExamResults,
       examTitle: exams.title,
     })
@@ -76,6 +77,7 @@ export async function sendExamResultsNotifications(): Promise<number> {
 
       await sendExamResultsEmail({
         to: r.email,
+        name: r.name,
         examTitle: r.examTitle,
         score: r.score,
         resultUrl: `${getBaseUrl()}/tableau-de-bord/examen-blanc/${r.examId}/resultats`,
@@ -105,6 +107,7 @@ export async function sendAccessExpiryReminders(): Promise<number> {
       accessType: userAccess.accessType,
       expiresAt: userAccess.expiresAt,
       email: user.email,
+      name: user.name,
       notify: user.notifyAccessExpiry,
     })
     .from(userAccess)
@@ -143,6 +146,7 @@ export async function sendAccessExpiryReminders(): Promise<number> {
 
       await sendAccessExpiringEmail({
         to: r.email,
+        name: r.name,
         accessType: r.accessType,
         daysRemaining: Math.ceil(
           (r.expiresAt.getTime() - now.getTime()) / DAY_MS,

@@ -51,6 +51,7 @@ beforeEach(() => {
     transactionId: "tx_1",
     confirmation: {
       userEmail: "u@test.invalid",
+      userName: "Samuel Pokam",
       productName: "Accès examens",
       amountPaid: 20000,
       currency: "CAD",
@@ -525,6 +526,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
     await deferred()
     expect(mocks.sendPurchaseConfirmationEmail).toHaveBeenCalledWith({
       to: "u@test.invalid",
+      name: "Samuel Pokam",
       productName: "Accès examens",
       amountPaid: 20000,
       currency: "CAD",
@@ -559,6 +561,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
       transactionId: "tx_anon",
       confirmation: {
         userEmail: null,
+        userName: null,
         productName: "Accès examens",
         amountPaid: 20000,
         currency: "CAD",

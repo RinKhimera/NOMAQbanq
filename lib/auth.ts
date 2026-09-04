@@ -83,12 +83,12 @@ export const auth = betterAuth({
     // que les nouvelles inscriptions email.
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
-      await sendResetPassword({ to: user.email, url })
+      await sendResetPassword({ to: user.email, name: user.name, url })
     },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
-      await sendVerificationEmail({ to: user.email, url })
+      await sendVerificationEmail({ to: user.email, name: user.name, url })
     },
     sendOnSignUp: true, // l'email part à l'inscription ; n'impose rien sans requireEmailVerification
     autoSignInAfterVerification: true,
