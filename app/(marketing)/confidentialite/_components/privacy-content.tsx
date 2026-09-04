@@ -261,7 +261,8 @@ export const PrivacyContent = () => {
             <strong>Téléphone :</strong> +1 (438) 875-0746
           </li>
           <li>
-            <strong>Adresse :</strong> Montréal, QC, Canada
+            <strong>Adresse :</strong> 114 rue Isabelle, Gatineau (Québec) J8Y
+            5H3, Canada
           </li>
         </ul>
         <p className="mt-4 text-sm text-gray-500 dark:text-gray-500">
