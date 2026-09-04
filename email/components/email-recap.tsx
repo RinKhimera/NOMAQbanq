@@ -13,6 +13,9 @@ export function EmailRecap({ rows }: { rows: EmailRecapRow[] }) {
   return (
     <table
       role="presentation"
+      // Sans ce marqueur, le rendu texte brut (corps `Text` envoyé par SES)
+      // colle toutes les cellules sur une ligne illisible.
+      data-text-format="dataTable"
       cellPadding={0}
       cellSpacing={0}
       width="100%"
@@ -41,16 +44,18 @@ export function EmailRecap({ rows }: { rows: EmailRecapRow[] }) {
               <td style={{ ...cell, color: colors.text, fontWeight: 600 }}>
                 {row.value}
                 {row.sub ? (
-                  <span
-                    style={{
-                      display: "block",
-                      fontWeight: 400,
-                      fontSize: "12.5px",
-                      color: colors.muted,
-                    }}
-                  >
-                    {row.sub}
-                  </span>
+                  <>
+                    <br />
+                    <span
+                      style={{
+                        fontWeight: 400,
+                        fontSize: "12.5px",
+                        color: colors.muted,
+                      }}
+                    >
+                      {row.sub}
+                    </span>
+                  </>
                 ) : null}
               </td>
             </tr>

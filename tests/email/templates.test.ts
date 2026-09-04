@@ -110,6 +110,22 @@ describe("email templates", () => {
     expect(html).toContain("https://nomaqbanq.ca/tableau-de-bord/abonnements")
   })
 
+  // Le corps `Text` envoyé par SES est ce rendu : le récapitulatif doit y rester
+  // lisible, une donnée par ligne, pas des cellules collées.
+  it("purchase confirmation email : le texte brut garde une ligne par donnée du récapitulatif", async () => {
+    const text = await render(
+      createElement(PurchaseConfirmationEmail, confirmationProps),
+      { plainText: true },
+    )
+    expect(text).not.toContain("ProduitAccès")
+    expect(text).toMatch(/Produit\s+Accès examens — 90 jours/)
+    expect(text).toMatch(/Montant\s+200,00 \$/)
+    expect(text).not.toContain("$soit")
+    expect(text).toContain("soit environ 228 000 FCFA")
+    expect(text).toMatch(/Date\s+2 septembre 2026/)
+    expect(text).toContain("Bonjour Samuel,")
+  })
+
   it("purchase confirmation email : sans montant local ni support, aucune mention correspondante", async () => {
     const html = await render(
       createElement(PurchaseConfirmationEmail, {

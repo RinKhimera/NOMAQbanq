@@ -197,6 +197,7 @@ describe("sendAccessExpiryReminders", () => {
     expect(accessExpiring).toHaveBeenCalledWith(
       expect.objectContaining({
         to: `acc-${uid}@test.invalid`,
+        name: "Accès",
         accessType: "exam",
       }),
     )

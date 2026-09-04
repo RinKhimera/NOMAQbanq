@@ -60,7 +60,6 @@ export function EmailLayout({
       <Head>
         <meta name="color-scheme" content="light" />
         <meta name="supported-color-schemes" content="light" />
-        <link rel="stylesheet" href={emailTheme.fontStylesheetUrl} />
       </Head>
       <Preview>{preview}</Preview>
       <Body style={{ margin: 0, backgroundColor: colors.page, fontFamily }}>

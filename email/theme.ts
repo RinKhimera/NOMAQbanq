@@ -15,12 +15,11 @@ export const emailTheme = {
     border: "#e3e8f0",
     divider: "#eef1f6",
   },
-  // Plus Jakarta Sans (police d'affichage du site) n'est rendue que par Apple
-  // Mail et iOS ; ailleurs la pile de secours s'applique.
+  // Plus Jakarta Sans (police d'affichage du site) ne s'affiche que si elle est
+  // installée chez le destinataire : aucune police web n'est chargée, pour ne
+  // faire contacter aucun tiers à l'ouverture d'un courriel transactionnel.
   fontFamily:
     '"Plus Jakarta Sans", -apple-system, "Segoe UI", Helvetica, Arial, sans-serif',
-  fontStylesheetUrl:
-    "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500..800&display=swap",
   radius: { card: "12px", button: "8px", table: "8px" },
   cardWidth: 480,
 } as const
