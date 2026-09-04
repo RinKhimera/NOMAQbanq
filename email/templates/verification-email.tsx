@@ -1,36 +1,34 @@
-import { Button, Link, Section, Text } from "@react-email/components"
+import { EmailButton } from "../components/email-button"
+import { EmailFallbackLink } from "../components/email-fallback-link"
+import { EmailParagraph } from "../components/email-paragraph"
 import { EmailLayout } from "./email-layout"
 
-export function VerificationEmail({ url }: { url: string }) {
+export function VerificationEmail({
+  url,
+  firstName,
+  baseUrl,
+}: {
+  url: string
+  firstName: string | null
+  baseUrl: string
+}) {
   return (
-    <EmailLayout preview="Confirmez votre adresse courriel">
-      <Section>
-        <Text style={{ fontSize: "16px", color: "#18181b" }}>
-          Bienvenue ! Confirmez votre adresse courriel pour activer votre
-          compte.
-        </Text>
-        <Button
-          href={url}
-          style={{
-            backgroundColor: "#18181b",
-            color: "#ffffff",
-            padding: "12px 20px",
-            borderRadius: "6px",
-            fontSize: "14px",
-            display: "inline-block",
-          }}
-        >
-          Vérifier mon adresse
-        </Button>
-        <Text style={{ fontSize: "13px", color: "#52525b" }}>
-          Ou copiez ce lien dans votre navigateur :{" "}
-          <Link href={url}>{url}</Link>
-        </Text>
-        <Text style={{ fontSize: "13px", color: "#71717a" }}>
-          Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de
-          cette demande, ignorez ce message.
-        </Text>
-      </Section>
+    <EmailLayout
+      category="transactional"
+      preview="Confirmez votre adresse courriel"
+      heading="Confirmez votre adresse courriel"
+      firstName={firstName}
+      baseUrl={baseUrl}
+    >
+      <EmailParagraph>
+        Bienvenue ! Confirmez votre adresse courriel pour activer votre compte.
+      </EmailParagraph>
+      <EmailButton href={url}>Vérifier mon adresse</EmailButton>
+      <EmailFallbackLink href={url} />
+      <EmailParagraph muted>
+        Ce lien expirera bientôt. Si vous n&apos;êtes pas à l&apos;origine de
+        cette demande, ignorez ce message.
+      </EmailParagraph>
     </EmailLayout>
   )
 }

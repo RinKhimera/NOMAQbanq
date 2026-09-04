@@ -1,39 +1,42 @@
-import { Button, Link, Section, Text } from "@react-email/components"
+import { EmailButton } from "../components/email-button"
+import { EmailFallbackLink } from "../components/email-fallback-link"
+import { EmailParagraph } from "../components/email-paragraph"
+import { EmailRecap } from "../components/email-recap"
 import { EmailLayout } from "./email-layout"
 
 export function ExamResultsEmail({
   examTitle,
   score,
   resultUrl,
+  firstName,
+  baseUrl,
 }: {
   examTitle: string
   score: number
   resultUrl: string
+  firstName: string | null
+  baseUrl: string
 }) {
   return (
-    <EmailLayout preview={`Vos résultats pour ${examTitle} sont disponibles`}>
-      <Section>
-        <Text style={{ fontSize: "16px", color: "#18181b" }}>
-          Vos résultats pour <strong>{examTitle}</strong> sont maintenant
-          disponibles. Score : <strong>{score}%</strong>.
-        </Text>
-        <Button
-          href={resultUrl}
-          style={{
-            backgroundColor: "#18181b",
-            color: "#ffffff",
-            padding: "12px 20px",
-            borderRadius: "6px",
-            fontSize: "14px",
-            display: "inline-block",
-          }}
-        >
-          Voir mes résultats
-        </Button>
-        <Text style={{ fontSize: "13px", color: "#52525b" }}>
-          Ou copiez ce lien : <Link href={resultUrl}>{resultUrl}</Link>
-        </Text>
-      </Section>
+    <EmailLayout
+      category="transactional"
+      preview={`Vos résultats pour ${examTitle} sont disponibles`}
+      heading="Vos résultats sont disponibles"
+      firstName={firstName}
+      baseUrl={baseUrl}
+    >
+      <EmailParagraph>
+        Les résultats de votre examen blanc sont maintenant consultables, avec
+        le détail de chaque question.
+      </EmailParagraph>
+      <EmailRecap
+        rows={[
+          { label: "Examen", value: examTitle },
+          { label: "Score", value: `${score} %` },
+        ]}
+      />
+      <EmailButton href={resultUrl}>Voir mes résultats</EmailButton>
+      <EmailFallbackLink href={resultUrl} />
     </EmailLayout>
   )
 }

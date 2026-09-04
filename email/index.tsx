@@ -5,6 +5,7 @@ import {
   formatExpiration,
   formatPresentmentAmount,
 } from "@/lib/format"
+import { firstNameOf } from "./first-name"
 import { sendEmail } from "./send"
 import { AccessExpiringEmail } from "./templates/access-expiring-email"
 import { ExamResultsEmail } from "./templates/exam-results-email"
@@ -12,39 +13,45 @@ import { PurchaseConfirmationEmail } from "./templates/purchase-confirmation-ema
 import { ResetPasswordEmail } from "./templates/reset-password-email"
 import { VerificationEmail } from "./templates/verification-email"
 
+/** Nom complet du destinataire tel qu'en base ; le prénom en est extrait ici. */
+type Recipient = { to: string; name?: string | null }
+
+const layoutProps = (name: string | null | undefined) => ({
+  firstName: firstNameOf(name),
+  baseUrl: getBaseUrl(),
+})
+
 export function sendVerificationEmail({
   to,
+  name,
   url,
-}: {
-  to: string
-  url: string
-}) {
+}: Recipient & { url: string }) {
   return sendEmail({
     to,
     subject: "Vérifiez votre adresse courriel — NOMAQbanq",
-    react: <VerificationEmail url={url} />,
+    react: <VerificationEmail url={url} {...layoutProps(name)} />,
   })
 }
 
-export function sendResetPassword({ to, url }: { to: string; url: string }) {
+export function sendResetPassword({
+  to,
+  name,
+  url,
+}: Recipient & { url: string }) {
   return sendEmail({
     to,
     subject: "Réinitialisation de votre mot de passe — NOMAQbanq",
-    react: <ResetPasswordEmail url={url} />,
+    react: <ResetPasswordEmail url={url} {...layoutProps(name)} />,
   })
 }
 
 export function sendExamResultsEmail({
   to,
+  name,
   examTitle,
   score,
   resultUrl,
-}: {
-  to: string
-  examTitle: string
-  score: number
-  resultUrl: string
-}) {
+}: Recipient & { examTitle: string; score: number; resultUrl: string }) {
   return sendEmail({
     to,
     subject: `Résultats disponibles : ${examTitle} — NOMAQbanq`,
@@ -53,6 +60,7 @@ export function sendExamResultsEmail({
         examTitle={examTitle}
         score={score}
         resultUrl={resultUrl}
+        {...layoutProps(name)}
       />
     ),
   })
@@ -60,11 +68,11 @@ export function sendExamResultsEmail({
 
 export function sendAccessExpiringEmail({
   to,
+  name,
   accessType,
   daysRemaining,
   renewUrl,
-}: {
-  to: string
+}: Recipient & {
   accessType: "exam" | "training"
   daysRemaining: number
   renewUrl: string
@@ -78,6 +86,7 @@ export function sendAccessExpiringEmail({
         accessType={accessType}
         daysRemaining={daysRemaining}
         renewUrl={renewUrl}
+        {...layoutProps(name)}
       />
     ),
   })
@@ -90,6 +99,7 @@ const ACCESS_LABEL = {
 
 export function sendPurchaseConfirmationEmail({
   to,
+  name,
   productName,
   amountPaid,
   currency,
@@ -97,8 +107,7 @@ export function sendPurchaseConfirmationEmail({
   presentmentCurrency,
   purchasedAt,
   grantedAccess,
-}: {
-  to: string
+}: Recipient & {
   productName: string
   /** Centièmes, devise d'encaissement. */
   amountPaid: number
@@ -121,6 +130,7 @@ export function sendPurchaseConfirmationEmail({
       "[email] SUPPORT_EMAIL absente : courriel de confirmation envoyé sans adresse de support",
     )
   }
+  const { baseUrl, firstName } = layoutProps(name)
   return sendEmail({
     to,
     subject: "Confirmation de votre achat — NOMAQbanq",
@@ -134,8 +144,10 @@ export function sendPurchaseConfirmationEmail({
           label: ACCESS_LABEL[a.accessType],
           expiresAtLabel: formatExpiration(a.expiresAt.getTime()),
         }))}
-        accountUrl={`${getBaseUrl()}/tableau-de-bord/abonnements`}
+        accountUrl={`${baseUrl}/tableau-de-bord/abonnements`}
         supportEmail={env.SUPPORT_EMAIL ?? null}
+        firstName={firstName}
+        baseUrl={baseUrl}
       />
     ),
   })

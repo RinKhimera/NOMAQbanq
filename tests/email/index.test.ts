@@ -36,6 +36,24 @@ describe("email domain helpers", () => {
     expect(arg.react).toBeTruthy()
   })
 
+  it("transmet le prénom (premier mot du nom) et l'URL de base au template", async () => {
+    await sendVerificationEmail({
+      to: "u@x.com",
+      url: "https://x/v",
+      name: "Samuel Pokam",
+    })
+    const props = (firstArg().react as { props: Record<string, unknown> }).props
+    expect(props.firstName).toBe("Samuel")
+    expect(props.baseUrl).toBe("https://nomaqbanq.ca")
+  })
+
+  it("sans nom → firstName null", async () => {
+    await sendResetPassword({ to: "u@x.com", url: "https://x/r" })
+    const props = (firstArg().react as { props: Record<string, unknown> }).props
+    expect(props.firstName).toBeNull()
+    expect(props.baseUrl).toBe("https://nomaqbanq.ca")
+  })
+
   it("sendResetPassword uses the reset subject", async () => {
     await sendResetPassword({ to: "u@x.com", url: "https://x/r" })
     expect(firstArg().subject).toContain("Réinitialisation")
@@ -76,6 +94,7 @@ describe("sendPurchaseConfirmationEmail", () => {
   it("formate montants, dates et accès en français", async () => {
     const messageId = await sendPurchaseConfirmationEmail({
       to: "u@x.com",
+      name: "Aïcha Diallo",
       productName: "Accès examens",
       amountPaid: 20000,
       currency: "CAD",
@@ -105,6 +124,8 @@ describe("sendPurchaseConfirmationEmail", () => {
       "https://nomaqbanq.ca/tableau-de-bord/abonnements",
     )
     expect(props.supportEmail).toBe("support@nomaqbanq.ca")
+    expect(props.firstName).toBe("Aïcha")
+    expect(props.baseUrl).toBe("https://nomaqbanq.ca")
   })
 
   // Sans adresse de support, la phrase préventive disparaît : ça doit se voir.

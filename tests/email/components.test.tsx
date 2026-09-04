@@ -82,7 +82,7 @@ describe("EmailNotice", () => {
     ["success", emailTheme.colors.success],
   ] as const)("variante %s : filet de la teinte", async (variant, rule) => {
     const html = await render(
-      <EmailNotice variant={variant}>Contenu de l'avis</EmailNotice>,
+      <EmailNotice variant={variant}>{"Contenu de l'avis"}</EmailNotice>,
     )
     expect(html).toContain(`data-variant="${variant}"`)
     expect(html).toContain(rule)
