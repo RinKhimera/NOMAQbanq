@@ -1,11 +1,14 @@
 import { render } from "@react-email/render"
 import { createElement } from "react"
 import { describe, expect, it } from "vitest"
+import { AbandonedCartEmail } from "@/email/templates/abandoned-cart-email"
 import { AccessExpiringEmail } from "@/email/templates/access-expiring-email"
 import { ExamResultsEmail } from "@/email/templates/exam-results-email"
+import { InactivityReminderEmail } from "@/email/templates/inactivity-reminder-email"
 import { PurchaseConfirmationEmail } from "@/email/templates/purchase-confirmation-email"
 import { ResetPasswordEmail } from "@/email/templates/reset-password-email"
 import { VerificationEmail } from "@/email/templates/verification-email"
+import { WelcomeEmail } from "@/email/templates/welcome-email"
 
 const common = { firstName: "Samuel", baseUrl: "https://nomaqbanq.ca" }
 
@@ -136,5 +139,58 @@ describe("email templates", () => {
     )
     expect(html).not.toContain("soit environ")
     expect(html).not.toContain("Écrivez-nous")
+  })
+})
+
+describe("courriels de cycle de vie", () => {
+  it("welcome email : transactionnel, trois premiers pas, tableau de bord", async () => {
+    const html = await render(createElement(WelcomeEmail, common))
+    expect(html).toContain("Bienvenue sur NOMAQbanq")
+    expect(html).toContain("Bonjour Samuel,")
+    expect(html).toContain('href="https://nomaqbanq.ca/tableau-de-bord/profil"')
+    expect(html).toContain(
+      'href="https://nomaqbanq.ca/tableau-de-bord/entrainement"',
+    )
+    expect(html).toContain(
+      'href="https://nomaqbanq.ca/tableau-de-bord/examen-blanc"',
+    )
+    expect(html).toContain("Accéder à mon tableau de bord")
+    expect(html).not.toContain("Ne plus recevoir ces rappels")
+  })
+
+  it("inactivity reminder : commercial avec désabonnement, bouton entraînement", async () => {
+    const html = await render(
+      createElement(InactivityReminderEmail, {
+        ...common,
+        unsubscribeUrl: "https://nomaqbanq.ca/desabonnement?token=abc",
+      }),
+    )
+    expect(html).toContain("Votre préparation vous attend")
+    expect(html).toContain("Reprendre l")
+    expect(html).toContain(
+      'href="https://nomaqbanq.ca/tableau-de-bord/entrainement"',
+    )
+    expect(html).toContain("Ne plus recevoir ces rappels")
+    expect(html).toContain(
+      'href="https://nomaqbanq.ca/desabonnement?token=abc"',
+    )
+  })
+
+  it("abandoned cart : commercial, récapitulatif produit et prix, bouton tarifs", async () => {
+    const html = await render(
+      createElement(AbandonedCartEmail, {
+        ...common,
+        unsubscribeUrl: "https://nomaqbanq.ca/desabonnement?token=abc",
+        productName: "Accès aux examens — 90 jours",
+        priceLabel: "200 $",
+      }),
+    )
+    expect(html).toContain("Votre commande n")
+    expect(html).toContain("Accès aux examens — 90 jours")
+    expect(html).toContain("200 $")
+    expect(html).toContain("Reprendre mon achat")
+    expect(html).toContain('href="https://nomaqbanq.ca/tarifs"')
+    expect(html).toContain("Ne plus recevoir ces rappels")
+    expect(html).not.toContain("rabais")
   })
 })

@@ -9,13 +9,15 @@ import { render } from "@react-email/render"
 import { mkdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import type { ReactElement } from "react"
-import { EmailParagraph } from "@/email/components/email-paragraph"
+import { AbandonedCartEmail } from "@/email/templates/abandoned-cart-email"
 import { AccessExpiringEmail } from "@/email/templates/access-expiring-email"
-import { EmailLayout } from "@/email/templates/email-layout"
 import { ExamResultsEmail } from "@/email/templates/exam-results-email"
+import { InactivityReminderEmail } from "@/email/templates/inactivity-reminder-email"
 import { PurchaseConfirmationEmail } from "@/email/templates/purchase-confirmation-email"
 import { ResetPasswordEmail } from "@/email/templates/reset-password-email"
 import { VerificationEmail } from "@/email/templates/verification-email"
+import { WelcomeEmail } from "@/email/templates/welcome-email"
+import { formatCurrency } from "@/lib/format"
 
 // Origine de prod : le logo et les liens doivent résoudre depuis un navigateur.
 const baseUrl = "https://nomaqbanq.ca"
@@ -80,19 +82,20 @@ const samples: Record<string, ReactElement> = {
       supportEmail={null}
     />
   ),
-  "commercial-exemple": (
-    <EmailLayout
+  bienvenue: <WelcomeEmail {...common} />,
+  inactivite: (
+    <InactivityReminderEmail
       {...common}
-      category="commercial"
       unsubscribeUrl={`${baseUrl}/desabonnement?token=exemple`}
-      preview="Exemple de courriel commercial"
-      heading="Exemple de courriel commercial"
-    >
-      <EmailParagraph>
-        Ce gabarit montre le pied de page avec désabonnement, réservé aux
-        relances.
-      </EmailParagraph>
-    </EmailLayout>
+    />
+  ),
+  "panier-abandonne": (
+    <AbandonedCartEmail
+      {...common}
+      unsubscribeUrl={`${baseUrl}/desabonnement?token=exemple`}
+      productName="Accès aux examens — 90 jours"
+      priceLabel={formatCurrency(20000, "CAD")}
+    />
   ),
 }
 
