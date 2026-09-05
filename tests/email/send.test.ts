@@ -33,6 +33,7 @@ interface SesInput {
     Simple: {
       Subject: { Data: string }
       Body: { Html: { Data: string }; Text: { Data: string } }
+      Headers?: { Name: string; Value: string }[]
     }
   }
   ConfigurationSetName?: string
@@ -98,6 +99,26 @@ describe("sendEmail", () => {
     expect(input.Content.Simple.Subject.Data).toBe(
       "[DEV → real@user.com] Sujet",
     )
+  })
+
+  it("pose List-Unsubscribe quand une URL de désabonnement est fournie", async () => {
+    await sendEmail({
+      to: "user@example.com",
+      subject: "Sujet",
+      react,
+      unsubscribeUrl: "https://nomaqbanq.ca/desabonnement?token=abc",
+    })
+    expect(lastInput().Content.Simple.Headers).toEqual([
+      {
+        Name: "List-Unsubscribe",
+        Value: "<https://nomaqbanq.ca/desabonnement?token=abc>",
+      },
+    ])
+  })
+
+  it("aucun en-tête sans URL de désabonnement", async () => {
+    await sendEmail({ to: "user@example.com", subject: "Sujet", react })
+    expect(lastInput().Content.Simple.Headers).toBeUndefined()
   })
 
   it("throws when EMAIL_FROM is missing", async () => {
