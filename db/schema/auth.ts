@@ -24,11 +24,24 @@ export const user = pgTable(
     bio: text("bio"),
     notifyExamResults: boolean("notify_exam_results").default(true).notNull(),
     notifyAccessExpiry: boolean("notify_access_expiry").default(true).notNull(),
+    notifyMarketing: boolean("notify_marketing").default(true).notNull(),
     banned: boolean("banned").default(false).notNull(),
     banReason: text("ban_reason"),
     banExpires: timestamp("ban_expires", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     anonymizedAt: timestamp("anonymized_at", { withTimezone: true }),
+    // Trace de visite : la déconnexion supprime la ligne `session`, une session
+    // vivante ne suffit donc pas à mesurer l'inactivité.
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    welcomeEmailSentAt: timestamp("welcome_email_sent_at", {
+      withTimezone: true,
+    }),
+    inactivityReminderSentAt: timestamp("inactivity_reminder_sent_at", {
+      withTimezone: true,
+    }),
+    cartReminderSentAt: timestamp("cart_reminder_sent_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

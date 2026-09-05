@@ -10,6 +10,7 @@ import { requireSession } from "@/lib/auth-guards"
 const schema = z.object({
   examResults: z.boolean(),
   accessExpiry: z.boolean(),
+  marketing: z.boolean(),
 })
 
 export type UpdateNotificationsResult = { success: boolean; error?: string }
@@ -17,6 +18,7 @@ export type UpdateNotificationsResult = { success: boolean; error?: string }
 export const updateNotificationPreferences = async (input: {
   examResults: boolean
   accessExpiry: boolean
+  marketing: boolean
 }): Promise<UpdateNotificationsResult> => {
   const session = await requireSession()
   const parsed = schema.safeParse(input)
@@ -31,6 +33,7 @@ export const updateNotificationPreferences = async (input: {
     .set({
       notifyExamResults: parsed.data.examResults,
       notifyAccessExpiry: parsed.data.accessExpiry,
+      notifyMarketing: parsed.data.marketing,
     })
     .where(eq(user.id, session.user.id))
   revalidatePath("/tableau-de-bord/profil")

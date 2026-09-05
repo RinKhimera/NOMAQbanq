@@ -73,7 +73,11 @@ export default async function ProfilPage() {
       {/* Preferences */}
       <ProfilePreferences
         notificationPreferences={
-          notificationPreferences ?? { examResults: true, accessExpiry: true }
+          notificationPreferences ?? {
+            examResults: true,
+            accessExpiry: true,
+            marketing: true,
+          }
         }
       />
 
