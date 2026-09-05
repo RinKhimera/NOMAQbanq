@@ -6,6 +6,8 @@ import {
   examParticipations,
   exams,
   products,
+  session,
+  trainingSessions,
   transactions,
   user,
   userAccess,
@@ -13,6 +15,7 @@ import {
 import {
   sendAccessExpiryReminders,
   sendExamResultsNotifications,
+  sendInactivityReminders,
 } from "@/features/notifications/cron"
 import { grantManualAccess } from "@/features/payments/lib"
 import { completeStripeTransaction } from "@/features/payments/stripe"
@@ -20,9 +23,11 @@ import { createId } from "@/lib/ids"
 
 const examResults = vi.fn().mockResolvedValue("id")
 const accessExpiring = vi.fn().mockResolvedValue("id")
+const inactivity = vi.fn().mockResolvedValue("id")
 vi.mock("@/email", () => ({
   sendExamResultsEmail: (...a: unknown[]) => examResults(...a),
   sendAccessExpiringEmail: (...a: unknown[]) => accessExpiring(...a),
+  sendInactivityReminderEmail: (...a: unknown[]) => inactivity(...a),
 }))
 
 const creator = createId()
@@ -551,5 +556,132 @@ describe("backfill 0010 (anti-blast historique)", () => {
     await db.delete(exams).where(eq(exams.id, closedBf))
     await db.delete(exams).where(eq(exams.id, openBf))
     await db.delete(user).where(eq(user.id, creatorBf))
+  })
+})
+
+describe("sendInactivityReminders", () => {
+  const DAY = 86400000
+  const old = new Date(now - 30 * DAY)
+  const ids = {
+    eligible: createId(),
+    liveSession: createId(),
+    recentLogin: createId(),
+    recentTraining: createId(),
+    optOut: createId(),
+    stale: createId(),
+    staleBuyer: createId(),
+    admin: createId(),
+    unverified: createId(),
+  }
+  const pid = createId()
+  const calledFor = () =>
+    inactivity.mock.calls.map((c) => (c[0] as { userId: string }).userId)
+
+  beforeAll(async () => {
+    const base = (id: string, name: string) => ({
+      id,
+      name,
+      email: `inact-${id}@test.invalid`,
+      emailVerified: true,
+      createdAt: old,
+    })
+    await db.insert(user).values([
+      base(ids.eligible, "Éligible"),
+      base(ids.liveSession, "Session vivante"),
+      {
+        ...base(ids.recentLogin, "Connexion récente"),
+        lastLoginAt: new Date(now - 2 * DAY),
+      },
+      base(ids.recentTraining, "Entraînement récent"),
+      { ...base(ids.optOut, "Refus"), notifyMarketing: false },
+      { ...base(ids.stale, "Ancien"), createdAt: new Date(now - 200 * DAY) },
+      {
+        ...base(ids.staleBuyer, "Ancien acheteur"),
+        createdAt: new Date(now - 200 * DAY),
+      },
+      { ...base(ids.admin, "Admin"), role: "admin" as const },
+      { ...base(ids.unverified, "Non vérifié"), emailVerified: false },
+    ])
+    await db.insert(session).values({
+      id: createId(),
+      token: createId(),
+      userId: ids.liveSession,
+      expiresAt: future,
+      updatedAt: new Date(now - 2 * DAY),
+    })
+    await db.insert(trainingSessions).values({
+      id: createId(),
+      userId: ids.recentTraining,
+      status: "in_progress",
+      questionCount: 10,
+      startedAt: new Date(now - 3 * DAY),
+      expiresAt: future,
+    })
+    await db.insert(products).values({
+      id: pid,
+      code: "training_access",
+      name: "Entraînement",
+      description: "Accès entraînement",
+      priceCad: 1000,
+      durationDays: 30,
+      accessType: "training",
+      stripeProductId: `prod_${pid}`,
+      stripePriceId: `price_${pid}`,
+      stripePriceLookupKey: `price_${pid}`,
+    })
+    await db.insert(transactions).values({
+      id: createId(),
+      userId: ids.staleBuyer,
+      productId: pid,
+      type: "manual",
+      status: "completed",
+      amountPaid: 1000,
+      currency: "CAD",
+      accessType: "training",
+      durationDays: 30,
+      accessExpiresAt: future,
+      createdAt: new Date(now - 10 * DAY),
+      completedAt: new Date(now - 10 * DAY),
+    })
+  })
+
+  afterAll(async () => {
+    await db.delete(transactions).where(eq(transactions.userId, ids.staleBuyer))
+    await db.delete(products).where(eq(products.id, pid))
+    await db
+      .delete(trainingSessions)
+      .where(eq(trainingSessions.userId, ids.recentTraining))
+    for (const id of Object.values(ids)) {
+      await db.delete(user).where(eq(user.id, id))
+    }
+  })
+
+  it("relance les inactifs consentants, une seule fois", async () => {
+    await sendInactivityReminders()
+    expect(calledFor()).toContain(ids.eligible)
+    expect(calledFor()).toContain(ids.staleBuyer)
+    for (const id of [
+      ids.liveSession,
+      ids.recentLogin,
+      ids.recentTraining,
+      ids.optOut,
+      ids.stale,
+      ids.admin,
+      ids.unverified,
+    ]) {
+      expect(calledFor()).not.toContain(id)
+    }
+    expect(inactivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: `inact-${ids.eligible}@test.invalid`,
+        name: "Éligible",
+        userId: ids.eligible,
+      }),
+    )
+
+    inactivity.mockClear()
+    await sendInactivityReminders()
+    expect(calledFor()).not.toContain(ids.eligible)
+    expect(calledFor()).not.toContain(ids.staleBuyer)
   })
 })
