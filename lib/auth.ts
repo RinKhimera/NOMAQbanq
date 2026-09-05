@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm"
 import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { sendResetPassword, sendVerificationEmail } from "@/email"
+import { sendWelcomeEmailOnce } from "@/features/notifications/welcome"
 import { isGraceExpired } from "@/features/users/lib/account-deletion"
 import { getBaseUrl } from "@/lib/base-url"
 import { env } from "@/lib/env/server"
@@ -40,6 +41,17 @@ export const auth = betterAuth({
   //  - after  : réactive (efface deletedAt) un compte supprimé qui se reconnecte
   //    DANS la fenêtre de grâce → « se reconnecter annule la suppression ».
   databaseHooks: {
+    user: {
+      create: {
+        // Compte Google : adresse déjà vérifiée, aucun `afterEmailVerification`
+        // ne viendra. Compte courriel : `emailVerified` est faux ici.
+        after: async (createdUser) => {
+          if (createdUser.emailVerified) {
+            await sendWelcomeEmailOnce(createdUser.id)
+          }
+        },
+      },
+    },
     session: {
       create: {
         before: async (session) => {
@@ -52,18 +64,14 @@ export const auth = betterAuth({
             return false
           }
         },
+        // `before` a déjà refusé un compte dont la grâce est expirée : tout
+        // compte qui arrive ici est vivant ou légitimement réactivé. Même
+        // UPDATE pour la trace de visite, que la déconnexion ne peut effacer.
         after: async (session) => {
-          const [u] = await db
-            .select({ deletedAt: schema.user.deletedAt })
-            .from(schema.user)
+          await db
+            .update(schema.user)
+            .set({ lastLoginAt: new Date(), deletedAt: null })
             .where(eq(schema.user.id, session.userId))
-            .limit(1)
-          if (u?.deletedAt) {
-            await db
-              .update(schema.user)
-              .set({ deletedAt: null })
-              .where(eq(schema.user.id, session.userId))
-          }
         },
       },
     },
@@ -95,6 +103,9 @@ export const auth = betterAuth({
     // Compte non vérifié qui tente de se connecter → renvoi auto du lien (puis
     // erreur EMAIL_NOT_VERIFIED). Débloque la « zone grise » des nouveaux inscrits.
     sendOnSignIn: true,
+    afterEmailVerification: async (verifiedUser) => {
+      await sendWelcomeEmailOnce(verifiedUser.id)
+    },
   },
   // Google configuré UNIQUEMENT si les deux creds sont présents : un
   // `clientId: ""` casse Google silencieusement.
