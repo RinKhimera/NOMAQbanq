@@ -260,9 +260,9 @@ export async function completeStripeTransaction(params: {
   })
 }
 
-export type FailStripeResult = {
-  status: "failed" | "already_processed" | "not_found"
-}
+export type FailStripeResult =
+  | { status: "failed"; transactionId: string }
+  | { status: "already_processed" | "not_found" }
 
 /**
  * Marque une transaction Stripe comme échouée (webhook `checkout.session.expired`).
@@ -304,7 +304,7 @@ export async function failStripeTransaction(params: {
       .returning({ id: transactions.id })
 
     return updated.length > 0
-      ? { status: "failed" }
+      ? { status: "failed", transactionId: pending.id }
       : { status: "already_processed" }
   })
 }

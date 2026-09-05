@@ -507,7 +507,7 @@ describe("failStripeTransaction", () => {
       stripeSessionId: sid,
       stripeEventId: `evt_fail_${suffix}`,
     })
-    expect(res).toEqual({ status: "failed" })
+    expect(res).toEqual({ status: "failed", transactionId: txId })
     expect((await txStatus(txId))?.status).toBe("failed")
     // Aucun accès crédité.
     expect(await accessOf(U_FAIL, "exam")).toBeUndefined()

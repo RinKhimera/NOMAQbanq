@@ -8,6 +8,7 @@ const { mocks } = vi.hoisted(() => ({
     fail: vi.fn(),
     recordDispute: vi.fn<() => Promise<unknown>>(),
     sendPurchaseConfirmationEmail: vi.fn<() => Promise<string>>(),
+    sendAbandonedCartReminder: vi.fn<() => Promise<boolean>>(),
     markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
     after: vi.fn<(cb: () => Promise<unknown>) => void>(),
     constructEventAsync: vi.fn<() => Promise<unknown>>(),
@@ -28,6 +29,9 @@ vi.mock("@/email", () => ({
   sendPurchaseConfirmationEmail: mocks.sendPurchaseConfirmationEmail,
 }))
 vi.mock("next/server", () => ({ after: mocks.after }))
+vi.mock("@/features/notifications/abandoned-cart", () => ({
+  sendAbandonedCartReminder: mocks.sendAbandonedCartReminder,
+}))
 vi.mock("@/lib/stripe", () => ({
   getStripe: () => ({
     webhooks: { constructEventAsync: mocks.constructEventAsync },
@@ -144,7 +148,11 @@ describe("webhook Stripe — contrat HTTP", () => {
     expect(mocks.captureServerError).toHaveBeenCalled()
   })
 
-  it("checkout.session.expired → failStripeTransaction, 200", async () => {
+  it("checkout.session.expired → failStripeTransaction, 200, rappel après le 200", async () => {
+    mocks.fail.mockResolvedValueOnce({
+      status: "failed",
+      transactionId: "tx_e",
+    })
     mocks.constructEventAsync.mockResolvedValueOnce({
       id: "evt_exp",
       type: "checkout.session.expired",
@@ -156,6 +164,35 @@ describe("webhook Stripe — contrat HTTP", () => {
       stripeSessionId: "cs_exp",
       stripeEventId: "evt_exp",
     })
+    expect(mocks.after).toHaveBeenCalledTimes(1)
+    await mocks.after.mock.calls[0]?.[0]?.()
+    expect(mocks.sendAbandonedCartReminder).toHaveBeenCalledWith("tx_e")
+  })
+
+  it("expired rejoué (already_processed) → pas de rappel", async () => {
+    mocks.fail.mockResolvedValueOnce({ status: "already_processed" })
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_exp2",
+      type: "checkout.session.expired",
+      data: { object: { id: "cs_exp" } },
+    })
+    expect((await POST(request())).status).toBe(200)
+    expect(mocks.after).not.toHaveBeenCalled()
+  })
+
+  it("async_payment_failed → échec enregistré, jamais de rappel de panier", async () => {
+    mocks.fail.mockResolvedValueOnce({
+      status: "failed",
+      transactionId: "tx_a",
+    })
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_apf",
+      type: "checkout.session.async_payment_failed",
+      data: { object: { id: "cs_apf" } },
+    })
+    expect((await POST(request())).status).toBe(200)
+    expect(mocks.fail).toHaveBeenCalled()
+    expect(mocks.after).not.toHaveBeenCalled()
   })
 
   it("async_payment_succeeded → même chemin d'octroi que completed", async () => {

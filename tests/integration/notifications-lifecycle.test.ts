@@ -9,7 +9,8 @@ import {
   vi,
 } from "vitest"
 import { db } from "@/db"
-import { user } from "@/db/schema"
+import { products, transactions, user, userAccess } from "@/db/schema"
+import { sendAbandonedCartReminder } from "@/features/notifications/abandoned-cart"
 import { sendWelcomeEmailOnce } from "@/features/notifications/welcome"
 import { auth } from "@/lib/auth"
 import { createId } from "@/lib/ids"
@@ -123,5 +124,198 @@ describe("hooks Better Auth", () => {
     await hooks.session.create.after({ userId: loginUid } as never)
     expect(await column(loginUid, "lastLoginAt")).toBeInstanceOf(Date)
     expect(await column(loginUid, "deletedAt")).toBeNull()
+  })
+})
+
+describe("sendAbandonedCartReminder", () => {
+  const DAY = 86400000
+  const exam = createId()
+  const combo = createId()
+  const buyer = createId()
+  const optOut = createId()
+  const banned = createId()
+  const owner = createId()
+  const halfOwner = createId()
+  const recentBuyer = createId()
+  const all = [buyer, optOut, banned, owner, halfOwner, recentBuyer]
+
+  const seedTx = async (
+    userId: string,
+    productId: string,
+    extra: Partial<typeof transactions.$inferInsert> = {},
+  ) => {
+    const id = createId()
+    await db.insert(transactions).values({
+      id,
+      userId,
+      productId,
+      type: "stripe",
+      status: "failed",
+      amountPaid: 20000,
+      currency: "CAD",
+      accessType: "exam",
+      durationDays: 90,
+      accessExpiresAt: new Date(Date.now() + 90 * DAY),
+      stripeSessionId: `cs_${id}`,
+      ...extra,
+    })
+    return id
+  }
+
+  beforeAll(async () => {
+    await db.insert(products).values([
+      {
+        id: exam,
+        code: "exam_access",
+        name: "Accès examens",
+        description: "Accès examens",
+        priceCad: 20000,
+        durationDays: 90,
+        accessType: "exam",
+        stripeProductId: `prod_${exam}`,
+        stripePriceId: `price_${exam}`,
+        stripePriceLookupKey: `price_${exam}`,
+      },
+      {
+        id: combo,
+        code: "premium_access",
+        name: "Accès premium",
+        description: "Examens + entraînement",
+        priceCad: 35000,
+        durationDays: 180,
+        accessType: "exam",
+        isCombo: true,
+        stripeProductId: `prod_${combo}`,
+        stripePriceId: `price_${combo}`,
+        stripePriceLookupKey: `price_${combo}`,
+      },
+    ])
+    await db.insert(user).values([
+      { id: buyer, name: "Panier", email: `cart-${buyer}@test.invalid` },
+      {
+        id: optOut,
+        name: "Refus",
+        email: `cart-${optOut}@test.invalid`,
+        notifyMarketing: false,
+      },
+      {
+        id: banned,
+        name: "Banni",
+        email: `cart-${banned}@test.invalid`,
+        banned: true,
+      },
+      { id: owner, name: "Déjà", email: `cart-${owner}@test.invalid` },
+      {
+        id: halfOwner,
+        name: "Moitié",
+        email: `cart-${halfOwner}@test.invalid`,
+      },
+      {
+        id: recentBuyer,
+        name: "Récent",
+        email: `cart-${recentBuyer}@test.invalid`,
+      },
+    ])
+    // `user_access.last_transaction_id` est NOT NULL : un achat complété ancien
+    // sert d'ancre, hors de la fenêtre de 7 jours.
+    const ownerTx = await seedTx(owner, exam, {
+      status: "completed",
+      completedAt: new Date(Date.now() - 30 * DAY),
+    })
+    await db.insert(userAccess).values({
+      userId: owner,
+      accessType: "exam",
+      expiresAt: new Date(Date.now() + 30 * DAY),
+      lastTransactionId: ownerTx,
+    })
+    const halfTx = await seedTx(halfOwner, exam, {
+      status: "completed",
+      accessType: "training",
+      completedAt: new Date(Date.now() - 30 * DAY),
+    })
+    await db.insert(userAccess).values({
+      userId: halfOwner,
+      accessType: "training",
+      expiresAt: new Date(Date.now() + 30 * DAY),
+      lastTransactionId: halfTx,
+    })
+  })
+
+  afterAll(async () => {
+    for (const id of all) {
+      await db.delete(userAccess).where(eq(userAccess.userId, id))
+      await db.delete(transactions).where(eq(transactions.userId, id))
+      await db.delete(user).where(eq(user.id, id))
+    }
+    await db.delete(products).where(eq(products.id, exam))
+    await db.delete(products).where(eq(products.id, combo))
+  })
+
+  const cartSentAt = async (id: string) =>
+    (
+      await db
+        .select({ v: user.cartReminderSentAt })
+        .from(user)
+        .where(eq(user.id, id))
+        .limit(1)
+    )[0]?.v
+
+  it("envoie une fois, marque l'utilisateur, puis refuse (rejeu et second panier)", async () => {
+    const tx = await seedTx(buyer, exam)
+    expect(await sendAbandonedCartReminder(tx)).toBe(true)
+    expect(cart).toHaveBeenCalledWith({
+      to: `cart-${buyer}@test.invalid`,
+      name: "Panier",
+      userId: buyer,
+      productName: "Accès examens",
+      priceCad: 20000,
+    })
+    expect(await cartSentAt(buyer)).toBeInstanceOf(Date)
+    expect(await sendAbandonedCartReminder(tx)).toBe(false)
+    expect(await sendAbandonedCartReminder(await seedTx(buyer, exam))).toBe(
+      false,
+    )
+    expect(cart).toHaveBeenCalledTimes(1)
+  })
+
+  it("préférence désactivée ou compte banni → rien", async () => {
+    expect(await sendAbandonedCartReminder(await seedTx(optOut, exam))).toBe(
+      false,
+    )
+    expect(await sendAbandonedCartReminder(await seedTx(banned, exam))).toBe(
+      false,
+    )
+    expect(cart).not.toHaveBeenCalled()
+  })
+
+  it("accès visé déjà actif → rien ; combo avec un seul accès → envoi", async () => {
+    expect(await sendAbandonedCartReminder(await seedTx(owner, exam))).toBe(
+      false,
+    )
+    expect(cart).not.toHaveBeenCalled()
+    expect(
+      await sendAbandonedCartReminder(await seedTx(halfOwner, combo)),
+    ).toBe(true)
+    expect(cart).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: halfOwner,
+        productName: "Accès premium",
+      }),
+    )
+  })
+
+  it("achat complété la veille → rien", async () => {
+    await seedTx(recentBuyer, exam, {
+      status: "completed",
+      completedAt: new Date(Date.now() - DAY),
+    })
+    expect(
+      await sendAbandonedCartReminder(await seedTx(recentBuyer, exam)),
+    ).toBe(false)
+    expect(cart).not.toHaveBeenCalled()
+  })
+
+  it("transaction inconnue → false sans exception", async () => {
+    expect(await sendAbandonedCartReminder("tx_inconnue")).toBe(false)
   })
 })

@@ -1,6 +1,7 @@
 import { after } from "next/server"
 import type Stripe from "stripe"
 import { sendPurchaseConfirmationEmail } from "@/email"
+import { sendAbandonedCartReminder } from "@/features/notifications/abandoned-cart"
 import {
   type CompleteStripeResult,
   completeStripeTransaction,
@@ -157,11 +158,26 @@ export async function POST(request: Request) {
         break
       }
 
+      // Panier abandonné : seule l'expiration de la session Checkout (24 h sans
+      // paiement) vaut abandon. Le rappel part APRÈS le 200, comme la
+      // confirmation ; un rejeu Stripe retombe en `already_processed`.
+      case "checkout.session.expired": {
+        const checkoutSession = event.data.object as Stripe.Checkout.Session
+        const result = await failStripeTransaction({
+          stripeSessionId: checkoutSession.id,
+          stripeEventId: event.id,
+        })
+        if (result.status === "failed") {
+          const { transactionId } = result
+          after(() => sendAbandonedCartReminder(transactionId))
+        }
+        break
+      }
+
       // `async_payment_failed` : le paiement différé n'a jamais abouti. La
       // transaction est restée `pending` (aucun fulfillment sur `unpaid`), et
       // `failStripeTransaction` garde son UPDATE sur ce statut — un `completed`
       // ne peut donc pas être révoqué par cette branche.
-      case "checkout.session.expired":
       case "checkout.session.async_payment_failed": {
         const checkoutSession = event.data.object as Stripe.Checkout.Session
         await failStripeTransaction({
