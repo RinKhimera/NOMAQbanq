@@ -12,14 +12,19 @@ import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
 import { sendAbandonedCartReminder } from "@/features/notifications/abandoned-cart"
 import { sendWelcomeEmailOnce } from "@/features/notifications/welcome"
+import { DELETION_GRACE_MS } from "@/features/users/lib/account-deletion"
 import { auth } from "@/lib/auth"
 import { createId } from "@/lib/ids"
 
 const welcome = vi.fn().mockResolvedValue("id")
 const cart = vi.fn().mockResolvedValue("id")
+const reset = vi.fn().mockResolvedValue("id")
+const verify = vi.fn().mockResolvedValue("id")
 vi.mock("@/email", () => ({
   sendWelcomeEmail: (...a: unknown[]) => welcome(...a),
   sendAbandonedCartEmail: (...a: unknown[]) => cart(...a),
+  sendResetPassword: (...a: unknown[]) => reset(...a),
+  sendVerificationEmail: (...a: unknown[]) => verify(...a),
 }))
 
 const uid = createId()
@@ -124,6 +129,50 @@ describe("hooks Better Auth", () => {
     await hooks.session.create.after({ userId: loginUid } as never)
     expect(await column(loginUid, "lastLoginAt")).toBeInstanceOf(Date)
     expect(await column(loginUid, "deletedAt")).toBeNull()
+  })
+
+  it("création de session refusée quand la grâce de suppression est expirée", async () => {
+    const expiredUid = createId()
+    await db.insert(user).values({
+      id: expiredUid,
+      name: "Expiré",
+      email: `x-${expiredUid}@test.invalid`,
+      deletedAt: new Date(Date.now() - DELETION_GRACE_MS - 86400000),
+    })
+    const before = await hooks.session.create.before({
+      userId: expiredUid,
+    } as never)
+    expect(before).toBe(false)
+    expect(await column(expiredUid, "deletedAt")).not.toBeNull()
+    await db.delete(user).where(eq(user.id, expiredUid))
+  })
+
+  it("réinitialisation et vérification transmettent le nom au courriel", async () => {
+    const authUser = {
+      id: loginUid,
+      email: `l-${loginUid}@test.invalid`,
+      name: "Connexion Test",
+    } as never
+    await auth.options.emailAndPassword.sendResetPassword({
+      user: authUser,
+      url: "https://x/r",
+      token: "t",
+    } as never)
+    expect(reset).toHaveBeenCalledWith({
+      to: `l-${loginUid}@test.invalid`,
+      name: "Connexion Test",
+      url: "https://x/r",
+    })
+    await auth.options.emailVerification.sendVerificationEmail({
+      user: authUser,
+      url: "https://x/v",
+      token: "t",
+    } as never)
+    expect(verify).toHaveBeenCalledWith({
+      to: `l-${loginUid}@test.invalid`,
+      name: "Connexion Test",
+      url: "https://x/v",
+    })
   })
 })
 

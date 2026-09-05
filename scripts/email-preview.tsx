@@ -56,7 +56,7 @@ const samples: Record<string, ReactElement> = {
     <PurchaseConfirmationEmail
       {...common}
       productName="Accès aux examens — 90 jours"
-      amountLabel="200,00 $"
+      amountLabel={formatCurrency(20000, "CAD")}
       presentmentLabel="228 000 FCFA"
       purchasedAtLabel="3 septembre 2026"
       grantedAccess={[
@@ -71,7 +71,7 @@ const samples: Record<string, ReactElement> = {
       baseUrl={baseUrl}
       firstName={null}
       productName="Accès premium — 180 jours"
-      amountLabel="350,00 $"
+      amountLabel={formatCurrency(35000, "CAD")}
       presentmentLabel={null}
       purchasedAtLabel="3 septembre 2026"
       grantedAccess={[
