@@ -218,9 +218,7 @@ describe("courriels de cycle de vie", () => {
     expect(arg.unsubscribeUrl).toContain("token=tok-user_1")
     const props = (arg.react as { props: Record<string, unknown> }).props
     expect(props.productName).toBe("Accès examens")
-    expect((props.priceLabel as string).replace(/[00a0202f]/g, " ")).toBe(
-      "200 $",
-    )
+    expect((props.priceLabel as string).replace(/[  ]/g, " ")).toBe("200 $")
     expect(props.firstName).toBeNull()
   })
 })
