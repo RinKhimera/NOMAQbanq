@@ -5,7 +5,10 @@ import {
   formatExpiration,
   formatPresentmentAmount,
 } from "@/lib/format"
-import { createUnsubscribeUrl } from "@/lib/unsubscribe-token"
+import {
+  createOneClickUnsubscribeUrl,
+  createUnsubscribeUrl,
+} from "@/lib/unsubscribe-token"
 import { firstNameOf } from "./first-name"
 import { sendEmail } from "./send"
 import { AbandonedCartEmail } from "./templates/abandoned-cart-email"
@@ -178,7 +181,7 @@ export function sendInactivityReminderEmail({
   return sendEmail({
     to,
     subject: "Votre préparation vous attend — NOMAQbanq",
-    unsubscribeUrl,
+    unsubscribeUrl: createOneClickUnsubscribeUrl(baseUrl, userId),
     react: (
       <InactivityReminderEmail
         firstName={firstName}
@@ -201,7 +204,7 @@ export function sendAbandonedCartEmail({
   return sendEmail({
     to,
     subject: "Votre commande n'a pas été finalisée — NOMAQbanq",
-    unsubscribeUrl,
+    unsubscribeUrl: createOneClickUnsubscribeUrl(baseUrl, userId),
     react: (
       <AbandonedCartEmail
         firstName={firstName}

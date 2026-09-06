@@ -9,7 +9,7 @@ export interface SendEmailInput {
   to: string
   subject: string
   react: ReactElement
-  /** Courriel commercial : pose l'en-tête List-Unsubscribe (bouton natif Gmail/Apple Mail). */
+  /** Courriel commercial : URL en un clic (RFC 8058) pour les en-têtes List-Unsubscribe. */
   unsubscribeUrl?: string
 }
 
@@ -50,6 +50,10 @@ export async function sendEmail({
             ? {
                 Headers: [
                   { Name: "List-Unsubscribe", Value: `<${unsubscribeUrl}>` },
+                  {
+                    Name: "List-Unsubscribe-Post",
+                    Value: "List-Unsubscribe=One-Click",
+                  },
                 ],
               }
             : {}),

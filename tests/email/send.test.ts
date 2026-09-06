@@ -113,6 +113,7 @@ describe("sendEmail", () => {
         Name: "List-Unsubscribe",
         Value: "<https://nomaqbanq.ca/desabonnement?token=abc>",
       },
+      { Name: "List-Unsubscribe-Post", Value: "List-Unsubscribe=One-Click" },
     ])
   })
 

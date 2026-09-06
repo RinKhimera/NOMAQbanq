@@ -20,6 +20,8 @@ vi.mock("@/lib/env/server", () => ({ env: envState }))
 vi.mock("@/lib/unsubscribe-token", () => ({
   createUnsubscribeUrl: (base: string, id: string) =>
     `${base}/desabonnement?token=tok-${id}`,
+  createOneClickUnsubscribeUrl: (base: string, id: string) =>
+    `${base}/api/desabonnement?token=tok-${id}`,
 }))
 
 interface Arg {
@@ -199,10 +201,12 @@ describe("courriels de cycle de vie", () => {
     const arg = firstArg()
     expect(arg.subject).toContain("Votre préparation vous attend")
     expect(arg.unsubscribeUrl).toBe(
-      "https://nomaqbanq.ca/desabonnement?token=tok-user_1",
+      "https://nomaqbanq.ca/api/desabonnement?token=tok-user_1",
     )
     const props = (arg.react as { props: Record<string, unknown> }).props
-    expect(props.unsubscribeUrl).toBe(arg.unsubscribeUrl)
+    expect(props.unsubscribeUrl).toBe(
+      "https://nomaqbanq.ca/desabonnement?token=tok-user_1",
+    )
   })
 
   it("panier abandonné : prix formaté en CAD", async () => {

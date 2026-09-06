@@ -229,7 +229,7 @@ export function EmailLayout({
                   <Link href={unsubscribeUrl} style={footerLink}>
                     Ne plus recevoir ces rappels
                   </Link>{" "}
-                  (un clic, sans connexion) ou{" "}
+                  ou{" "}
                   <Link
                     href={absolute(emailBrand.links.preferences)}
                     style={footerLink}

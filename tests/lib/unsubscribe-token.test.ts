@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import {
+  createOneClickUnsubscribeUrl,
   createUnsubscribeToken,
   createUnsubscribeUrl,
   verifyUnsubscribeToken,
@@ -43,5 +44,17 @@ describe("jeton de désabonnement", () => {
     ["null", () => null],
   ])("%s → null", (_label, make) => {
     expect(verifyUnsubscribeToken(make())).toBeNull()
+  })
+})
+
+describe("URL en un clic", () => {
+  it("pointe sur la route API avec le même jeton", () => {
+    const url = createOneClickUnsubscribeUrl("https://nomaqbanq.ca", "user_123")
+    expect(
+      url.startsWith("https://nomaqbanq.ca/api/desabonnement?token="),
+    ).toBe(true)
+    expect(verifyUnsubscribeToken(new URL(url).searchParams.get("token"))).toBe(
+      "user_123",
+    )
   })
 })

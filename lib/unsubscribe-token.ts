@@ -40,3 +40,10 @@ export const verifyUnsubscribeToken = (
 
 export const createUnsubscribeUrl = (baseUrl: string, userId: string): string =>
   `${baseUrl}/desabonnement?token=${encodeURIComponent(createUnsubscribeToken(userId))}`
+
+/** URL de l'en-tête `List-Unsubscribe` (POST en un clic, RFC 8058). */
+export const createOneClickUnsubscribeUrl = (
+  baseUrl: string,
+  userId: string,
+): string =>
+  `${baseUrl}/api/desabonnement?token=${encodeURIComponent(createUnsubscribeToken(userId))}`
