@@ -98,8 +98,7 @@ export async function sendExamResultsNotifications(): Promise<number> {
 
 // Rappel de fin d'accès : accès expirant dans ≤ 7 j, une seule fois. Marqueur
 // `expiryReminderSentAt` (réinitialisé au renouvellement — Stripe + manuel).
-// Même claim atomique que ci-dessus (anti double-envoi concurrent). Comptes
-// supprimés et suspendus exclus, marqueur non posé.
+// Même claim atomique que ci-dessus (anti double-envoi concurrent).
 export async function sendAccessExpiryReminders(): Promise<number> {
   const now = new Date()
   const in7d = new Date(now.getTime() + 7 * DAY_MS)

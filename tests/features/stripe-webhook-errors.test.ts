@@ -797,8 +797,8 @@ describe("webhook Stripe — retours de fonds", () => {
       stripePaymentIntentId: "pi_d",
       refundedAt: new Date(1_800_000_500 * 1000),
     })
-    // L'`it.each` existant sur `charge.dispute.closed` reste vrai : la
-    // première alerte est celle d'avant, sans suffixe.
+    // Première alerte : celle du bloc commun `charge.dispute.closed`, sans
+    // suffixe ; la seconde porte l'issue du retrait.
     const [first, second] = mocks.captureServerError.mock.calls
     expect((first?.[1] as Error).message).toBe("litige perdu")
     expect(first?.[2]).toEqual({

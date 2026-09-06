@@ -109,8 +109,6 @@ export const transactions = pgTable(
       .defaultNow()
       .notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    // Date du retour de fonds (événement Stripe ou transition manuelle) ; nul
-    // tant que la transaction n'est pas `refunded`.
     refundedAt: timestamp("refunded_at", { withTimezone: true }),
   },
   (t) => [

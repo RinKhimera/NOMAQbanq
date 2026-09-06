@@ -75,7 +75,6 @@ const sendConfirmation = async (
   }
 }
 
-// Libellé de l'issue d'un retrait d'accès, pour les alertes et les logs.
 const describeRefund = (result: RefundStripeResult): string => {
   if (result.status === "refunded") {
     return result.accessReducedOrRemoved
@@ -90,9 +89,8 @@ const describeRefund = (result: RefundStripeResult): string => {
   return "transaction introuvable"
 }
 
-// Après un retrait d'accès : un rejeu (déjà refunded) ou un succès sont des
-// logs ; un retour de fonds sur une transaction pending/failed est une anomalie
-// à alerter — un paiement différé encore pending peut être complété APRÈS le
+// Un retour de fonds sur une transaction pending/failed est une anomalie à
+// alerter : un paiement différé encore pending peut être complété APRÈS le
 // remboursement et octroyer un accès que personne ne verrait.
 const reportRefundOutcome = (refund: RefundStripeResult, detail: string) => {
   if (refund.status === "not_found") {
@@ -294,9 +292,9 @@ export async function POST(request: Request) {
         }
 
         // Litige perdu : les fonds sont partis, le service est retiré. Idempotent
-        // au rejeu (Stripe redélivre) et rejouable depuis le Dashboard pour un
-        // litige perdu avant ce code. L'alerte « litige perdu » est déjà partie
-        // plus haut ; celle-ci ne porte que l'issue du retrait.
+        // au rejeu (Stripe redélivre, et un événement peut être renvoyé depuis le
+        // Dashboard). L'alerte « litige perdu » est déjà partie plus haut ;
+        // celle-ci ne porte que l'issue du retrait.
         if (
           event.type === "charge.dispute.closed" &&
           dispute.status === "lost" &&
