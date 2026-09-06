@@ -8,6 +8,7 @@ import * as schema from "@/db/schema"
 import { sendResetPassword, sendVerificationEmail } from "@/email"
 import { sendWelcomeEmailOnce } from "@/features/notifications/welcome"
 import { isGraceExpired } from "@/features/users/lib/account-deletion"
+import { isBannedUser } from "@/features/users/lib/banned"
 import { getBaseUrl } from "@/lib/base-url"
 import { env } from "@/lib/env/server"
 
@@ -90,12 +91,16 @@ export const auth = betterAuth({
     // (emailVerified=true) ni les comptes déjà `email_verified=true` ; ne concerne
     // que les nouvelles inscriptions email.
     requireEmailVerification: true,
+    // Un compte suspendu ne reçoit aucun courriel de la plateforme, y compris
+    // ceux d'auth : Better Auth les enverrait AVANT le refus de session.
     sendResetPassword: async ({ user, url }) => {
+      if (isBannedUser(user)) return
       await sendResetPassword({ to: user.email, name: user.name, url })
     },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
+      if (isBannedUser(user)) return
       await sendVerificationEmail({ to: user.email, name: user.name, url })
     },
     sendOnSignUp: true, // l'email part à l'inscription ; n'impose rien sans requireEmailVerification
@@ -141,7 +146,13 @@ export const auth = betterAuth({
     "/admin/has-permission",
   ],
   plugins: [
-    admin({ defaultRole: "user", adminRoles: ["admin"] }),
+    admin({
+      defaultRole: "user",
+      adminRoles: ["admin"],
+      // Message du hook de refus de session ; il voyage dans l'URL d'erreur
+      // du callback OAuth (`error_description`), donc en français.
+      bannedUserMessage: "Ce compte est suspendu.",
+    }),
     nextCookies(), // ⚠️ DOIT rester le dernier plugin
   ],
 })

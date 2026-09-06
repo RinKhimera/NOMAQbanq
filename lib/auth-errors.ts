@@ -3,7 +3,7 @@
 // porte le code HTTP (429 sur rate-limit). Le `kind` pilote l'UI des forms.
 
 export type AuthErrorKind =
-  "invalid_credentials" | "email_not_verified" | "generic"
+  "invalid_credentials" | "email_not_verified" | "banned" | "generic"
 
 export interface MappedAuthError {
   kind: AuthErrorKind
@@ -29,6 +29,10 @@ export function mapAuthError(
       kind: "email_not_verified",
       message: "Votre compte n'est pas encore activé.",
     }
+  }
+
+  if (code === "BANNED_USER") {
+    return { kind: "banned", message: "Ce compte est suspendu." }
   }
 
   if (code === "INVALID_EMAIL_OR_PASSWORD") {

@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
+import { ArrowDown, ArrowUp, ArrowUpDown, ShieldOff } from "lucide-react"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
@@ -230,16 +230,27 @@ export function UsersTable({
                 <span className="max-w-50 truncate">{user.email}</span>
               </TableCell>
               <TableCell>
-                <Badge
-                  variant={user.role === "admin" ? "default" : "secondary"}
-                  className={cn(
-                    user.role === "admin"
-                      ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
-                      : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge
+                    variant={user.role === "admin" ? "default" : "secondary"}
+                    className={cn(
+                      user.role === "admin"
+                        ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
+                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+                    )}
+                  >
+                    {user.role === "admin" ? "Admin" : "User"}
+                  </Badge>
+                  {user.banned && (
+                    <Badge
+                      data-testid="ban-badge"
+                      className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"
+                    >
+                      <ShieldOff className="mr-1 h-3 w-3" />
+                      Suspendu
+                    </Badge>
                   )}
-                >
-                  {user.role === "admin" ? "Admin" : "User"}
-                </Badge>
+                </div>
               </TableCell>
               <TableCell>
                 <div className="flex gap-1.5">

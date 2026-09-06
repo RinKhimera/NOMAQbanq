@@ -48,7 +48,9 @@ export type NotificationSweepResult = {
 // Notifie les participants d'examens CLOS (endDate passée) dont les résultats sont
 // désormais visibles. Marqueur `resultsNotifiedAt` = envoi unique. On pose le
 // marqueur pour tout éligible-par-date (envoi seulement aux opt-in) → pas de
-// re-scan des lignes opt-out. Borné + résilient (par ligne).
+// re-scan des lignes opt-out. Comptes supprimés et suspendus exclus, marqueur
+// non posé (le courriel repart si la suspension est levée). Borné + résilient
+// (par ligne).
 //
 // ⚠️ Concurrence : `close-expired` est frappé par DEUX schedulers (GitHub Actions
 // horaire + Vercel quotidien) qui se recouvrent à minuit UTC. Deux runs lisent le
@@ -77,6 +79,7 @@ export async function sendExamResultsNotifications(): Promise<number> {
         inArray(examParticipations.status, ["completed", "auto_submitted"]),
         isNull(examParticipations.resultsNotifiedAt),
         isNull(user.deletedAt),
+        eq(user.banned, false),
       ),
     )
     .limit(EXAM_RESULTS_LIMIT)
@@ -148,6 +151,7 @@ export async function sendAccessExpiryReminders(): Promise<number> {
         lt(userAccess.expiresAt, in7d),
         isNull(userAccess.expiryReminderSentAt),
         isNull(user.deletedAt),
+        eq(user.banned, false),
       ),
     )
     .limit(ACCESS_REMINDER_LIMIT)

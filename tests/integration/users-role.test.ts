@@ -152,6 +152,23 @@ describe("updateUserRole", () => {
     expect(await getRole(targetId)).toBe("user")
   })
 
+  it("refuse de promouvoir un compte suspendu", async () => {
+    await db
+      .update(user)
+      .set({ banned: true, banReason: "test" })
+      .where(eq(user.id, targetId))
+    const result = await updateUserRole({ userId: targetId, role: "admin" })
+    expect(result).toEqual({
+      success: false,
+      error: "Levez d'abord la suspension de ce compte.",
+    })
+    expect(await getRole(targetId)).toBe("user")
+    await db
+      .update(user)
+      .set({ banned: false, banReason: null })
+      .where(eq(user.id, targetId))
+  })
+
   it("refuse un rôle hors enum (zod)", async () => {
     const result = await updateUserRole({
       userId: targetId,

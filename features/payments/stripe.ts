@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull, ne, notInArray, or } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
+import { recomputeAccess } from "./lib"
 
 // Type du handle de transaction Drizzle (sans importer le type verbeux de pg-core).
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
@@ -398,6 +399,81 @@ export async function recordStripeDispute(params: {
     .where(matchesTransaction)
     .limit(1)
   return { status: existing ? "kept" : "not_found" }
+}
+
+export type RefundStripeResult =
+  | { status: "refunded"; userId: string; accessReducedOrRemoved: boolean }
+  | {
+      status: "skipped"
+      currentStatus: (typeof transactions.status.enumValues)[number]
+    }
+  | { status: "not_found" }
+
+/**
+ * Retour de fonds Stripe (remboursement complet ou litige perdu) : la
+ * transaction passe de `completed` à `refunded` et l'accès qu'elle portait
+ * est recalculé depuis les transactions restantes (`recomputeAccess`).
+ * Idempotent par construction : seul un statut `completed` est réécrit — un
+ * rejeu de l'événement retombe en `skipped`. Verrou `user FOR UPDATE` AVANT
+ * l'écriture sur `transactions`, même ordre que `updateManualTransaction`.
+ * Un remboursement partiel ne passe jamais ici (décidé par le webhook).
+ */
+export async function refundStripeTransaction(params: {
+  stripePaymentIntentId: string
+  refundedAt: Date
+}): Promise<RefundStripeResult> {
+  return db.transaction(async (tx) => {
+    const [found] = await tx
+      .select({
+        id: transactions.id,
+        userId: transactions.userId,
+        status: transactions.status,
+      })
+      .from(transactions)
+      .where(
+        eq(transactions.stripePaymentIntentId, params.stripePaymentIntentId),
+      )
+      .limit(1)
+    if (!found) return { status: "not_found" as const }
+
+    await tx
+      .select({ id: user.id })
+      .from(user)
+      .where(eq(user.id, found.userId))
+      .for("update")
+
+    const updated = await tx
+      .update(transactions)
+      .set({ status: "refunded", refundedAt: params.refundedAt })
+      .where(
+        and(
+          eq(transactions.id, found.id),
+          eq(transactions.status, "completed"),
+        ),
+      )
+      .returning({ id: transactions.id })
+    if (updated.length === 0) {
+      // Relu SOUS verrou : le statut peut avoir changé depuis le premier SELECT.
+      const [fresh] = await tx
+        .select({ status: transactions.status })
+        .from(transactions)
+        .where(eq(transactions.id, found.id))
+        .limit(1)
+      return {
+        status: "skipped" as const,
+        currentStatus: fresh?.status ?? found.status,
+      }
+    }
+
+    const { accessReducedOrRemoved } = await recomputeAccess(tx, {
+      userId: found.userId,
+    })
+    return {
+      status: "refunded" as const,
+      userId: found.userId,
+      accessReducedOrRemoved,
+    }
+  })
 }
 
 /** Trace d'envoi du courriel de confirmation (corrélation avec le journal SES). */

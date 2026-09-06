@@ -93,6 +93,21 @@ describe("sendWelcomeEmailOnce", () => {
   it("utilisateur inconnu : false sans exception", async () => {
     await expect(sendWelcomeEmailOnce("inconnu")).resolves.toBe(false)
   })
+
+  it("compte suspendu : rien, marqueur non posé", async () => {
+    const id = createId()
+    await db.insert(user).values({
+      id,
+      name: "Suspendu",
+      email: `b-${id}@test.invalid`,
+      banned: true,
+      banReason: "test",
+    })
+    await expect(sendWelcomeEmailOnce(id)).resolves.toBe(false)
+    expect(welcome).not.toHaveBeenCalled()
+    expect(await column(id, "welcomeEmailSentAt")).toBeNull()
+    await db.delete(user).where(eq(user.id, id))
+  })
 })
 
 describe("hooks Better Auth", () => {

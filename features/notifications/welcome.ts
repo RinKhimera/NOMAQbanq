@@ -20,6 +20,7 @@ export async function sendWelcomeEmailOnce(userId: string): Promise<boolean> {
           eq(user.id, userId),
           isNull(user.welcomeEmailSentAt),
           isNull(user.deletedAt),
+          eq(user.banned, false),
         ),
       )
       .returning({ email: user.email, name: user.name })

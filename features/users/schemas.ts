@@ -35,3 +35,21 @@ export const updateUserRoleSchema = z.object({
   userId: z.string().min(1, "Utilisateur requis"),
   role: z.enum(["user", "admin"]),
 })
+
+export const banUserSchema = z.object({
+  userId: z.string().min(1, "Utilisateur requis"),
+  reason: z
+    .string()
+    .trim()
+    .min(5, "Le motif doit contenir au moins 5 caractères")
+    .max(500, "Le motif ne peut pas dépasser 500 caractères"),
+})
+
+export const unbanUserSchema = z.object({
+  userId: z.string().min(1, "Utilisateur requis"),
+  reason: z
+    .string()
+    .trim()
+    .max(500, "Le motif ne peut pas dépasser 500 caractères")
+    .optional(),
+})

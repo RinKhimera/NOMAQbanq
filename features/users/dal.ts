@@ -26,6 +26,7 @@ import {
   transactions,
   user,
   userAccess,
+  userBans,
 } from "@/db/schema"
 import { describeUserAgent } from "@/features/users/lib/user-agent"
 import {
@@ -243,6 +244,7 @@ export type AdminUserRow = {
   image: string | null
   bio: string | null
   role: "user" | "admin"
+  banned: boolean
   /** Epoch ms. */
   createdAt: number
   examAccess: AccessInfo
@@ -372,6 +374,7 @@ export const getUsersWithFilters = async ({
         image: user.image,
         bio: user.bio,
         role: user.role,
+        banned: user.banned,
         createdAt: user.createdAt,
         examExpiresAt: exam.expiresAt,
         trainingExpiresAt: training.expiresAt,
@@ -417,6 +420,7 @@ export const getUsersWithFilters = async ({
     image: r.image,
     bio: r.bio,
     role: r.role,
+    banned: r.banned,
     createdAt: r.createdAt.getTime(),
     examAccess: toAccessInfo(r.examExpiresAt, nowMs),
     trainingAccess: toAccessInfo(r.trainingExpiresAt, nowMs),
@@ -554,6 +558,7 @@ export type AdminUserDetail = {
   image: string | null
   bio: string | null
   role: "user" | "admin"
+  banned: boolean
   /** Epoch ms. */
   createdAt: number
 }
@@ -577,6 +582,7 @@ export const getUserForAdmin = async (
       image: user.image,
       bio: user.bio,
       role: user.role,
+      banned: user.banned,
       createdAt: user.createdAt,
     })
     .from(user)
@@ -694,6 +700,61 @@ export const getUserPanelData = async (
     })),
     totalTransactionCount: countRows[0]?.count ?? 0,
   }
+}
+
+// ============================================
+// [Admin] Journal des suspensions
+// ============================================
+
+export type UserBanView = {
+  id: string
+  reason: string
+  /** Epoch ms. */
+  bannedAt: number
+  /** Nul uniquement si la ligne `user` de l'auteur a disparu (FK set null). */
+  bannedByName: string | null
+  /** Epoch ms ; nul = épisode ouvert (au plus un par compte). */
+  liftedAt: number | null
+  liftedByName: string | null
+  liftReason: string | null
+}
+
+/**
+ * [Admin] Épisodes de suspension d'un compte, du plus récent au plus ancien,
+ * noms des admins joints (deux alias sur `user`). Borné à 20. Garde admin.
+ */
+export const getUserBans = async (userId: string): Promise<UserBanView[]> => {
+  await requireRole(["admin"])
+
+  const bannedBy = alias(user, "banned_by_user")
+  const liftedBy = alias(user, "lifted_by_user")
+
+  const rows = await db
+    .select({
+      id: userBans.id,
+      reason: userBans.reason,
+      bannedAt: userBans.bannedAt,
+      bannedByName: bannedBy.name,
+      liftedAt: userBans.liftedAt,
+      liftedByName: liftedBy.name,
+      liftReason: userBans.liftReason,
+    })
+    .from(userBans)
+    .leftJoin(bannedBy, eq(bannedBy.id, userBans.bannedBy))
+    .leftJoin(liftedBy, eq(liftedBy.id, userBans.liftedBy))
+    .where(eq(userBans.userId, userId))
+    .orderBy(desc(userBans.bannedAt), desc(userBans.id))
+    .limit(20)
+
+  return rows.map((r) => ({
+    id: r.id,
+    reason: r.reason,
+    bannedAt: r.bannedAt.getTime(),
+    bannedByName: r.bannedByName,
+    liftedAt: r.liftedAt ? r.liftedAt.getTime() : null,
+    liftedByName: r.liftedByName,
+    liftReason: r.liftReason,
+  }))
 }
 
 // ============================================

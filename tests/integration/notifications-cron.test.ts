@@ -559,6 +559,92 @@ describe("backfill 0010 (anti-blast historique)", () => {
   })
 })
 
+describe("comptes suspendus", () => {
+  const banned = createId()
+  const bannedProduct = createId()
+  let bannedTxId: string
+
+  beforeAll(async () => {
+    await db.insert(user).values({
+      id: banned,
+      name: "Suspendu",
+      email: `ban-${banned}@test.invalid`,
+      banned: true,
+      banReason: "test",
+    })
+    await db.insert(examParticipations).values({
+      id: createId(),
+      examId: closedExam,
+      userId: banned,
+      score: 70,
+      status: "completed",
+      completedAt: past,
+    })
+    await db.insert(products).values({
+      id: bannedProduct,
+      code: "exam_access",
+      name: "Exam court",
+      description: "d",
+      priceCad: 100,
+      durationDays: 3,
+      accessType: "exam",
+      stripeProductId: `prod_ban_${banned}`,
+      stripePriceId: `price_ban_${banned}`,
+      stripePriceLookupKey: `price_ban_${banned}`,
+    })
+    bannedTxId = await db.transaction((tx) =>
+      grantManualAccess(tx, {
+        userId: banned,
+        product: {
+          id: bannedProduct,
+          accessType: "exam",
+          durationDays: 3,
+          isCombo: false,
+        },
+        amountPaid: 100,
+        currency: "CAD",
+        paymentMethod: "interac",
+        recordedBy: banned,
+      }),
+    )
+  })
+
+  afterAll(async () => {
+    await db.delete(userAccess).where(eq(userAccess.userId, banned))
+    await db.delete(transactions).where(eq(transactions.id, bannedTxId))
+    await db.delete(products).where(eq(products.id, bannedProduct))
+    await db
+      .delete(examParticipations)
+      .where(eq(examParticipations.userId, banned))
+    await db.delete(user).where(eq(user.id, banned))
+  })
+
+  it("aucun courriel, aucun marqueur posé : le rappel repart si la suspension est levée", async () => {
+    examResults.mockClear()
+    accessExpiring.mockClear()
+
+    await sendExamResultsNotifications()
+    await sendAccessExpiryReminders()
+
+    expect(examResults).not.toHaveBeenCalledWith(
+      expect.objectContaining({ to: `ban-${banned}@test.invalid` }),
+    )
+    expect(accessExpiring).not.toHaveBeenCalledWith(
+      expect.objectContaining({ to: `ban-${banned}@test.invalid` }),
+    )
+    const [p] = await db
+      .select({ notified: examParticipations.resultsNotifiedAt })
+      .from(examParticipations)
+      .where(eq(examParticipations.userId, banned))
+    expect(p?.notified).toBeNull()
+    const [a] = await db
+      .select({ reminded: userAccess.expiryReminderSentAt })
+      .from(userAccess)
+      .where(eq(userAccess.userId, banned))
+    expect(a?.reminded).toBeNull()
+  })
+})
+
 describe("sendInactivityReminders", () => {
   const DAY = 86400000
   const old = new Date(now - 30 * DAY)

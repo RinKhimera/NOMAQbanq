@@ -109,6 +109,7 @@ export const transactions = pgTable(
       .defaultNow()
       .notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
+    refundedAt: timestamp("refunded_at", { withTimezone: true }),
   },
   (t) => [
     // Nullable unique: Postgres allows multiple NULLs (manual txns have no event id).

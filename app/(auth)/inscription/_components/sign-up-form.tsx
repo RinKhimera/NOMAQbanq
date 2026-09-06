@@ -54,6 +54,7 @@ export const SignUpForm = () => {
     const { error: googleError } = await authClient.signIn.social({
       provider: "google",
       callbackURL: "/tableau-de-bord",
+      errorCallbackURL: "/connexion",
     })
     if (googleError) {
       setError(mapAuthError(googleError))

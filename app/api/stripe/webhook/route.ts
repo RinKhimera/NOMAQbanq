@@ -4,10 +4,12 @@ import { sendPurchaseConfirmationEmail } from "@/email"
 import { sendAbandonedCartReminder } from "@/features/notifications/abandoned-cart"
 import {
   type CompleteStripeResult,
+  type RefundStripeResult,
   completeStripeTransaction,
   failStripeTransaction,
   markConfirmationEmailSent,
   recordStripeDispute,
+  refundStripeTransaction,
 } from "@/features/payments/stripe"
 import { captureServerError } from "@/lib/observability"
 import { getStripe, getStripeWebhookSecret } from "@/lib/stripe"
@@ -72,6 +74,46 @@ const sendConfirmation = async (
     captureServerError("[stripe:webhook]", error, {
       detail: `courriel de confirmation non envoyé · transaction ${result.transactionId}`,
     })
+  }
+}
+
+const describeRefund = (result: RefundStripeResult): string => {
+  if (result.status === "refunded") {
+    return result.accessReducedOrRemoved
+      ? "accès retiré"
+      : "accès conservé, une autre transaction couvre"
+  }
+  if (result.status === "skipped") {
+    return result.currentStatus === "refunded"
+      ? "déjà refunded"
+      : `transaction non complétée (${result.currentStatus})`
+  }
+  return "transaction introuvable"
+}
+
+// Un retour de fonds sur une transaction pending/failed est une anomalie à
+// alerter : un paiement différé encore pending peut être complété APRÈS le
+// remboursement et octroyer un accès que personne ne verrait.
+const reportRefundOutcome = (refund: RefundStripeResult, detail: string) => {
+  if (refund.status === "not_found") {
+    captureServerError(
+      "[stripe:webhook]",
+      new Error("remboursement sans transaction correspondante"),
+      { detail },
+    )
+  } else if (
+    refund.status === "skipped" &&
+    refund.currentStatus !== "refunded"
+  ) {
+    captureServerError(
+      "[stripe:webhook]",
+      new Error("retour de fonds sur une transaction non complétée"),
+      { detail: `${detail} · statut ${refund.currentStatus}` },
+    )
+  } else {
+    console.warn(
+      `[stripe webhook] retour de fonds · ${detail} · ${describeRefund(refund)}`,
+    )
   }
 }
 
@@ -265,6 +307,69 @@ export async function POST(request: Request) {
             )
           }
         }
+
+        // Litige perdu : les fonds sont partis, le service est retiré. Idempotent
+        // au rejeu (Stripe redélivre, et un événement peut être renvoyé depuis le
+        // Dashboard). L'alerte « litige perdu » est déjà partie plus haut ;
+        // celle-ci ne porte que l'issue du retrait.
+        if (
+          event.type === "charge.dispute.closed" &&
+          dispute.status === "lost" &&
+          disputedPaymentIntent
+        ) {
+          const refund = await refundStripeTransaction({
+            stripePaymentIntentId: disputedPaymentIntent,
+            refundedAt: new Date(event.created * 1000),
+          })
+          captureServerError(
+            "[stripe:webhook]",
+            new Error("litige perdu · retrait d'accès"),
+            { detail: `${detail} · ${describeRefund(refund)}` },
+          )
+        }
+        break
+      }
+
+      // Remboursement depuis le Dashboard (ou remboursement proactif après
+      // EFW) : COMPLET → la transaction passe en refunded et l'accès est
+      // recalculé ; PARTIEL → geste commercial, accès conservé, alerte seule.
+      // Stripe = source de vérité pour l'argent, comme pour l'octroi. L'alerte
+      // part AVANT l'écriture (même règle que les litiges).
+      case "charge.refunded": {
+        const charge = event.data.object as Stripe.Charge
+        const paymentIntent =
+          typeof charge.payment_intent === "string"
+            ? charge.payment_intent
+            : charge.payment_intent?.id
+        const detail = `charge ${charge.id} · ${charge.amount_refunded}/${charge.amount} ${charge.currency} · payment_intent ${paymentIntent ?? "absent"}`
+
+        if (!paymentIntent) {
+          captureServerError(
+            "[stripe:webhook]",
+            new Error("remboursement sans payment_intent"),
+            { detail },
+          )
+          break
+        }
+        if (!charge.refunded) {
+          captureServerError(
+            "[stripe:webhook]",
+            new Error("remboursement partiel, accès conservé"),
+            { detail },
+          )
+          break
+        }
+
+        captureServerError(
+          "[stripe:webhook]",
+          new Error("remboursement Stripe complet"),
+          { detail },
+        )
+        const refund = await refundStripeTransaction({
+          stripePaymentIntentId: paymentIntent,
+          refundedAt: new Date(event.created * 1000),
+        })
+        reportRefundOutcome(refund, detail)
         break
       }
 

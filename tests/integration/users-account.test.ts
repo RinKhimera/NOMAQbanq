@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm"
+import { and, eq, isNull, ne } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { account, session, user } from "@/db/schema"
@@ -374,5 +374,49 @@ describe("deleteMyAccount — garde dernier admin", () => {
     expect(u?.deletedAt === null).toBe(isSoleAdmin)
 
     await db.delete(user).where(eq(user.id, soloAdmin))
+  })
+
+  it("un admin suspendu ne compte pas comme « autre admin »", async () => {
+    const adminA = createId()
+    const bannedB = createId()
+    const emailA = `admin-a-${adminA}@test.invalid`
+    await db.insert(user).values([
+      { id: adminA, name: "Admin A", email: emailA, role: "admin" },
+      {
+        id: bannedB,
+        name: "Admin B suspendu",
+        email: `admin-b-${bannedB}@test.invalid`,
+        role: "admin",
+        banned: true,
+        banReason: "test",
+      },
+    ])
+    // L'attendu exclut B par son id, PAS par le prédicat `banned` de
+    // l'implémentation : sur une base sans autre admin, un garde manquant
+    // compterait B et ferait échouer ce test. Sur une base partagée avec
+    // d'autres admins actifs, le test ne discrimine plus (limite connue).
+    const otherAdminsIgnoringB = await db
+      .select({ id: user.id })
+      .from(user)
+      .where(
+        and(
+          eq(user.role, "admin"),
+          isNull(user.deletedAt),
+          ne(user.id, adminA),
+          ne(user.id, bannedB),
+        ),
+      )
+    vi.mocked(requireSession).mockResolvedValueOnce({
+      user: { id: adminA, email: emailA, role: "admin" },
+      session: { id: createId() },
+    } as never)
+
+    const res = await deleteMyAccount({ confirmEmail: emailA })
+    // B est admin mais suspendu : il ne sauve pas A.
+    expect(res.success).toBe(otherAdminsIgnoringB.length > 0)
+
+    await db.delete(session).where(eq(session.userId, adminA))
+    await db.delete(user).where(eq(user.id, adminA))
+    await db.delete(user).where(eq(user.id, bannedB))
   })
 })
