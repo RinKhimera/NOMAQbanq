@@ -5,7 +5,7 @@ import { and, eq, inArray, isNull, ne } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { headers } from "next/headers"
 import { db } from "@/db"
-import { session as sessionTable, user } from "@/db/schema"
+import { session as sessionTable, user, userBans } from "@/db/schema"
 import {
   type AdminUsersPage,
   type UserPanelData,
@@ -13,7 +13,12 @@ import {
   getUserPanelData,
   getUsersWithFilters,
 } from "@/features/users/dal"
-import { profileSchema, updateUserRoleSchema } from "@/features/users/schemas"
+import {
+  banUserSchema,
+  profileSchema,
+  unbanUserSchema,
+  updateUserRoleSchema,
+} from "@/features/users/schemas"
 import { auth } from "@/lib/auth"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createPresignedUpload } from "@/lib/aws"
@@ -54,13 +59,59 @@ export const loadUserPanelData = async (
   return getUserPanelData(userId)
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+type LockedUser = {
+  id: string
+  role: "user" | "admin"
+  deletedAt: Date | null
+  banned: boolean
+}
+
+// Un seul SELECT ... FOR UPDATE trié par id : verrouille appelant + cible
+// dans un ordre déterministe (pas de deadlock entre deux appels croisés) et
+// re-vérifie que l'appelant est encore admin actif SOUS verrou — requireRole
+// est hors transaction, l'appelant a pu être rétrogradé entre-temps.
+const lockCallerAndTarget = async (
+  tx: Tx,
+  callerId: string,
+  targetId: string,
+): Promise<{ ok: true; target: LockedUser } | { ok: false; error: string }> => {
+  const rows = await tx
+    .select({
+      id: user.id,
+      role: user.role,
+      deletedAt: user.deletedAt,
+      banned: user.banned,
+    })
+    .from(user)
+    .where(inArray(user.id, [callerId, targetId]))
+    .orderBy(user.id)
+    .for("update")
+
+  const caller = rows.find((r) => r.id === callerId)
+  if (!caller || caller.role !== "admin" || caller.deletedAt !== null) {
+    return {
+      ok: false,
+      error: "Votre compte n'a plus les droits administrateur.",
+    }
+  }
+  const target = rows.find((r) => r.id === targetId)
+  if (!target || target.deletedAt !== null) {
+    return { ok: false, error: "Utilisateur introuvable." }
+  }
+  return { ok: true, target }
+}
+
 // [Admin] Change le rôle d'un utilisateur. Invariant « jamais zéro admin
 // actif » garanti sans compter les admins : l'auto-modification est interdite
 // ET l'appelant est re-vérifié admin actif sous verrou dans la transaction —
 // après l'écriture il reste donc toujours au moins lui. Le verrou couvre la
 // race « l'appelant vient d'être rétrogradé » (requireRole est hors
 // transaction). Pas de révocation de sessions : sans cookieCache, Better Auth
-// relit le rôle en base à chaque requête.
+// relit le rôle en base à chaque requête. Un compte suspendu ne devient pas
+// admin : il ne peut pas se connecter et fausserait le décompte des admins
+// utilisables (deleteMyAccount).
 export const updateUserRole = async (input: {
   userId: string
   role: "user" | "admin"
@@ -84,29 +135,15 @@ export const updateUserRole = async (input: {
   }
 
   const result = await db.transaction(async (tx) => {
-    // Un seul SELECT ... FOR UPDATE trié par id : verrouille appelant + cible
-    // dans un ordre déterministe (pas de deadlock entre deux appels croisés).
-    const rows = await tx
-      .select({ id: user.id, role: user.role, deletedAt: user.deletedAt })
-      .from(user)
-      .where(inArray(user.id, [authSession.user.id, targetId]))
-      .orderBy(user.id)
-      .for("update")
-
-    const caller = rows.find((r) => r.id === authSession.user.id)
-    if (!caller || caller.role !== "admin" || caller.deletedAt !== null) {
+    const locked = await lockCallerAndTarget(tx, authSession.user.id, targetId)
+    if (!locked.ok) return locked
+    if (role === "admin" && locked.target.banned) {
       return {
         ok: false as const,
-        error: "Votre compte n'a plus les droits administrateur.",
+        error: "Levez d'abord la suspension de ce compte.",
       }
     }
-
-    const target = rows.find((r) => r.id === targetId)
-    if (!target || target.deletedAt !== null) {
-      return { ok: false as const, error: "Utilisateur introuvable." }
-    }
-
-    if (target.role !== role) {
+    if (locked.target.role !== role) {
       await tx.update(user).set({ role }).where(eq(user.id, targetId))
     }
     return { ok: true as const }
@@ -114,6 +151,154 @@ export const updateUserRole = async (input: {
 
   if (!result.ok) {
     return { success: false, error: result.error }
+  }
+
+  revalidatePath("/admin/utilisateurs")
+  revalidatePath(`/admin/utilisateurs/${targetId}`)
+  return { success: true }
+}
+
+// [Admin] Suspend un compte : journal + drapeau lu par le plugin admin de
+// Better Auth + suppression de toutes ses sessions (le plugin ne revérifie
+// jamais une session existante). Accès et transactions intacts : la levée
+// restaure l'état exact. Un admin se rétrograde avant d'être suspendu, ce qui
+// règle « dernier admin » sans compteur, comme updateUserRole.
+export const banUser = async (input: {
+  userId: string
+  reason: string
+}): Promise<AccountActionResult> => {
+  const authSession = await requireRole(["admin"])
+
+  const parsed = banUserSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Données invalides",
+    }
+  }
+  const { userId: targetId, reason } = parsed.data
+
+  if (targetId === authSession.user.id) {
+    return {
+      success: false,
+      error: "Vous ne pouvez pas suspendre votre propre compte.",
+    }
+  }
+
+  let result: { ok: true } | { ok: false; error: string }
+  try {
+    result = await db.transaction(async (tx) => {
+      const locked = await lockCallerAndTarget(
+        tx,
+        authSession.user.id,
+        targetId,
+      )
+      if (!locked.ok) return locked
+      if (locked.target.role === "admin") {
+        return {
+          ok: false as const,
+          error: "Retirez d'abord le rôle administrateur de ce compte.",
+        }
+      }
+      if (locked.target.banned) {
+        return { ok: false as const, error: "Ce compte est déjà suspendu." }
+      }
+
+      await tx.insert(userBans).values({
+        userId: targetId,
+        reason,
+        bannedBy: authSession.user.id,
+      })
+      await tx
+        .update(user)
+        .set({ banned: true, banReason: reason })
+        .where(eq(user.id, targetId))
+      await tx.delete(sessionTable).where(eq(sessionTable.userId, targetId))
+      return { ok: true as const }
+    })
+  } catch (error) {
+    // Course perdue sur l'index unique partiel : pas une anomalie.
+    if (isPgUniqueViolation(error)) {
+      return { success: false, error: "Ce compte est déjà suspendu." }
+    }
+    captureServerError("[banUser]", error, { userId: authSession.user.id })
+    return { success: false, error: "Erreur serveur. Réessayez." }
+  }
+
+  if (!result.ok) return { success: false, error: result.error }
+
+  revalidatePath("/admin/utilisateurs")
+  revalidatePath(`/admin/utilisateurs/${targetId}`)
+  return { success: true }
+}
+
+// [Admin] Lève une suspension : clôt l'épisode ouvert du journal, efface le
+// drapeau. Un drapeau sans épisode ouvert (état incohérent) est levé quand
+// même et signalé : un journal cassé ne doit pas bloquer la levée.
+export const unbanUser = async (input: {
+  userId: string
+  reason?: string
+}): Promise<AccountActionResult> => {
+  const authSession = await requireRole(["admin"])
+
+  const parsed = unbanUserSchema.safeParse(input)
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Données invalides",
+    }
+  }
+  const { userId: targetId } = parsed.data
+  const liftReason = parsed.data.reason ? parsed.data.reason : null
+
+  if (targetId === authSession.user.id) {
+    return {
+      success: false,
+      error: "Vous ne pouvez pas lever votre propre suspension.",
+    }
+  }
+
+  let result:
+    { ok: true; journalMissing: boolean } | { ok: false; error: string }
+  try {
+    result = await db.transaction(async (tx) => {
+      const locked = await lockCallerAndTarget(
+        tx,
+        authSession.user.id,
+        targetId,
+      )
+      if (!locked.ok) return locked
+      if (!locked.target.banned) {
+        return { ok: false as const, error: "Ce compte n'est pas suspendu." }
+      }
+
+      const closed = await tx
+        .update(userBans)
+        .set({
+          liftedBy: authSession.user.id,
+          liftedAt: new Date(),
+          liftReason,
+        })
+        .where(and(eq(userBans.userId, targetId), isNull(userBans.liftedAt)))
+        .returning({ id: userBans.id })
+      await tx
+        .update(user)
+        .set({ banned: false, banReason: null })
+        .where(eq(user.id, targetId))
+      return { ok: true as const, journalMissing: closed.length === 0 }
+    })
+  } catch (error) {
+    captureServerError("[unbanUser]", error, { userId: authSession.user.id })
+    return { success: false, error: "Erreur serveur. Réessayez." }
+  }
+
+  if (!result.ok) return { success: false, error: result.error }
+  if (result.journalMissing) {
+    captureServerError(
+      "[unbanUser]",
+      new Error("suspension levée sans épisode ouvert dans user_bans"),
+      { userId: targetId },
+    )
   }
 
   revalidatePath("/admin/utilisateurs")
@@ -390,10 +575,18 @@ export const deleteMyAccount = async (input: {
   // le TOCTOU d'un `count` hors transaction (cf. data-layer.md).
   const result = await db.transaction(async (tx) => {
     if (authSession.user.role === "admin") {
+      // Un admin suspendu ne compte pas : il ne peut ni se connecter, ni
+      // lever une suspension, ni administrer.
       const admins = await tx
         .select({ id: user.id })
         .from(user)
-        .where(and(eq(user.role, "admin"), isNull(user.deletedAt)))
+        .where(
+          and(
+            eq(user.role, "admin"),
+            isNull(user.deletedAt),
+            eq(user.banned, false),
+          ),
+        )
         .orderBy(user.id)
         .for("update")
       const hasOtherAdmin = admins.some((a) => a.id !== authSession.user.id)
