@@ -120,6 +120,13 @@
       "when": 1788472601678,
       "tag": "0016_account_issuer",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788653040767,
+      "tag": "0017_user_bans",
+      "breakpoints": true
     }
   ]
 }

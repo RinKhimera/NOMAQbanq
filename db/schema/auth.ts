@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm"
+import { relations, sql } from "drizzle-orm"
 import {
   bigint,
   boolean,
@@ -9,6 +9,7 @@ import {
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core"
+import { createId } from "@/lib/ids"
 import { userRole } from "./enums"
 
 export const user = pgTable(
@@ -132,9 +133,50 @@ export const rateLimit = pgTable(
   (t) => [index("rate_limit_key_idx").on(t.key)],
 )
 
+// Journal des suspensions. `user.banned` / `user.ban_reason` restent le verrou
+// lu par le plugin admin de Better Auth ; cette table est l'historique (qui,
+// quand, pourquoi, levée par qui). L'index unique partiel garantit au plus un
+// épisode ouvert par compte sous deux clics concurrents.
+export const userBans = pgTable(
+  "user_bans",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    reason: text("reason").notNull(),
+    // `set null` : la suppression du compte admin ne doit pas bloquer sur un
+    // ban qu'il a prononcé ; la ligne survit, l'auteur se lit « supprimé ».
+    bannedBy: text("banned_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    bannedAt: timestamp("banned_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    liftedBy: text("lifted_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    liftedAt: timestamp("lifted_at", { withTimezone: true }),
+    liftReason: text("lift_reason"),
+  },
+  (t) => [
+    index("user_bans_user_id_idx").on(t.userId),
+    uniqueIndex("user_bans_active_uidx")
+      .on(t.userId)
+      .where(sql`${t.liftedAt} is null`),
+  ],
+)
+
 export const userRelations = relations(user, ({ many }) => ({
   sessions: many(session),
   accounts: many(account),
+  bans: many(userBans),
+}))
+
+export const userBansRelations = relations(userBans, ({ one }) => ({
+  user: one(user, { fields: [userBans.userId], references: [user.id] }),
 }))
 
 export const sessionRelations = relations(session, ({ one }) => ({
