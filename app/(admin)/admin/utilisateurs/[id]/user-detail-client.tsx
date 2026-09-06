@@ -28,8 +28,13 @@ import type {
   AdminTransactionView,
   ProductView,
 } from "@/features/payments/dal"
-import type { AdminUserDetail, SelectableUser } from "@/features/users/dal"
+import type {
+  AdminUserDetail,
+  SelectableUser,
+  UserBanView,
+} from "@/features/users/dal"
 import { UserAccessSection } from "./_components/user-access-section"
+import { UserBanSection } from "./_components/user-ban-section"
 import { UserInfoCard } from "./_components/user-info-card"
 import { UserRoleSection } from "./_components/user-role-section"
 
@@ -41,6 +46,7 @@ interface UserDetailClientProps {
   initialCursor: string | null
   products: ProductView[]
   selectableUsers: SelectableUser[]
+  bans: UserBanView[]
 }
 
 export function UserDetailClient({
@@ -51,6 +57,7 @@ export function UserDetailClient({
   initialCursor,
   products,
   selectableUsers,
+  bans,
 }: UserDetailClientProps) {
   const [showModal, setShowModal] = useState(false)
   const [access, setAccess] = useState<AccessStatus>(initialAccess)
@@ -115,6 +122,11 @@ export function UserDetailClient({
         <div className="space-y-6 lg:col-span-1">
           <UserInfoCard user={user} />
           <UserRoleSection user={user} currentUserId={currentUserId} />
+          <UserBanSection
+            user={user}
+            bans={bans}
+            currentUserId={currentUserId}
+          />
         </div>
 
         <div className="space-y-6 lg:col-span-2">

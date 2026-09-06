@@ -6,7 +6,11 @@ import {
   getAllTransactions,
   getAvailableProducts,
 } from "@/features/payments/dal"
-import { getSelectableUsers, getUserForAdmin } from "@/features/users/dal"
+import {
+  getSelectableUsers,
+  getUserBans,
+  getUserForAdmin,
+} from "@/features/users/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { UserDetailClient } from "./user-detail-client"
 
@@ -47,11 +51,12 @@ export default async function AdminUserDetailPage({
     )
   }
 
-  const [access, txPage, products, selectableUsers] = await Promise.all([
+  const [access, txPage, products, selectableUsers, bans] = await Promise.all([
     getAccessStatus(id),
     getAllTransactions({ userId: id, limit: 10 }),
     getAvailableProducts(),
     getSelectableUsers(),
+    getUserBans(id),
   ])
 
   return (
@@ -63,6 +68,7 @@ export default async function AdminUserDetailPage({
       initialCursor={txPage.nextCursor}
       products={products}
       selectableUsers={selectableUsers}
+      bans={bans}
     />
   )
 }
