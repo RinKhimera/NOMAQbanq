@@ -14,6 +14,9 @@
 /coverage
 e2e/test-results/
 
+# rendu local des courriels (bun run email:preview)
+.email-preview/
+
 # superpowers brainstorm/visual-companion artifacts (session-local)
 .superpowers/
 e2e/playwright-report/

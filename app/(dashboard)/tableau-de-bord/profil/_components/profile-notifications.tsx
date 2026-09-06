@@ -48,6 +48,14 @@ export const ProfileNotifications = ({
         testId="notif-toggle-access-expiry"
         onCheckedChange={(v) => update({ ...prefs, accessExpiry: v })}
       />
+      <NotifRow
+        label="Rappels et suggestions"
+        description="Une relance si vous ne venez plus, et un rappel si une commande n'est pas finalisée."
+        checked={prefs.marketing}
+        disabled={busy}
+        testId="notif-toggle-marketing"
+        onCheckedChange={(v) => update({ ...prefs, marketing: v })}
+      />
     </div>
   )
 }

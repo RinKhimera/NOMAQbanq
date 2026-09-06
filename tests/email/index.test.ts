@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
+  sendAbandonedCartEmail,
   sendAccessExpiringEmail,
   sendExamResultsEmail,
+  sendInactivityReminderEmail,
   sendPurchaseConfirmationEmail,
   sendResetPassword,
   sendVerificationEmail,
+  sendWelcomeEmail,
 } from "@/email"
 
 const { sendEmailSpy } = vi.hoisted(() => ({ sendEmailSpy: vi.fn() }))
@@ -14,11 +17,18 @@ const { envState } = vi.hoisted(() => ({
   envState: { SUPPORT_EMAIL: "support@nomaqbanq.ca" as string | undefined },
 }))
 vi.mock("@/lib/env/server", () => ({ env: envState }))
+vi.mock("@/lib/unsubscribe-token", () => ({
+  createUnsubscribeUrl: (base: string, id: string) =>
+    `${base}/desabonnement?token=tok-${id}`,
+  createOneClickUnsubscribeUrl: (base: string, id: string) =>
+    `${base}/api/desabonnement?token=tok-${id}`,
+}))
 
 interface Arg {
   to: string
   subject: string
   react: unknown
+  unsubscribeUrl?: string
 }
 const firstArg = () => sendEmailSpy.mock.calls[0]?.[0] as Arg
 
@@ -34,6 +44,24 @@ describe("email domain helpers", () => {
     expect(arg.to).toBe("u@x.com")
     expect(arg.subject).toContain("Vérifiez votre adresse")
     expect(arg.react).toBeTruthy()
+  })
+
+  it("transmet le prénom (premier mot du nom) et l'URL de base au template", async () => {
+    await sendVerificationEmail({
+      to: "u@x.com",
+      url: "https://x/v",
+      name: "Samuel Pokam",
+    })
+    const props = (firstArg().react as { props: Record<string, unknown> }).props
+    expect(props.firstName).toBe("Samuel")
+    expect(props.baseUrl).toBe("https://nomaqbanq.ca")
+  })
+
+  it("sans nom → firstName null", async () => {
+    await sendResetPassword({ to: "u@x.com", url: "https://x/r" })
+    const props = (firstArg().react as { props: Record<string, unknown> }).props
+    expect(props.firstName).toBeNull()
+    expect(props.baseUrl).toBe("https://nomaqbanq.ca")
   })
 
   it("sendResetPassword uses the reset subject", async () => {
@@ -76,6 +104,7 @@ describe("sendPurchaseConfirmationEmail", () => {
   it("formate montants, dates et accès en français", async () => {
     const messageId = await sendPurchaseConfirmationEmail({
       to: "u@x.com",
+      name: "Aïcha Diallo",
       productName: "Accès examens",
       amountPaid: 20000,
       currency: "CAD",
@@ -105,6 +134,8 @@ describe("sendPurchaseConfirmationEmail", () => {
       "https://nomaqbanq.ca/tableau-de-bord/abonnements",
     )
     expect(props.supportEmail).toBe("support@nomaqbanq.ca")
+    expect(props.firstName).toBe("Aïcha")
+    expect(props.baseUrl).toBe("https://nomaqbanq.ca")
   })
 
   // Sans adresse de support, la phrase préventive disparaît : ça doit se voir.
@@ -148,5 +179,50 @@ describe("sendPurchaseConfirmationEmail", () => {
     })
     const props = (firstArg().react as { props: Record<string, unknown> }).props
     expect(props.presentmentLabel).toBeNull()
+  })
+})
+
+describe("courriels de cycle de vie", () => {
+  it("bienvenue : transactionnel, sans en-tête de désabonnement", async () => {
+    await sendWelcomeEmail({ to: "u@x.com", name: "Samuel Pokam" })
+    const arg = firstArg()
+    expect(arg.subject).toBe("Bienvenue sur NOMAQbanq")
+    expect(arg.unsubscribeUrl).toBeUndefined()
+    const props = (arg.react as { props: Record<string, unknown> }).props
+    expect(props.firstName).toBe("Samuel")
+  })
+
+  it("inactivité : URL de désabonnement au template ET à l'envoi", async () => {
+    await sendInactivityReminderEmail({
+      to: "u@x.com",
+      name: "Samuel Pokam",
+      userId: "user_1",
+    })
+    const arg = firstArg()
+    expect(arg.subject).toContain("Votre préparation vous attend")
+    expect(arg.unsubscribeUrl).toBe(
+      "https://nomaqbanq.ca/api/desabonnement?token=tok-user_1",
+    )
+    const props = (arg.react as { props: Record<string, unknown> }).props
+    expect(props.unsubscribeUrl).toBe(
+      "https://nomaqbanq.ca/desabonnement?token=tok-user_1",
+    )
+  })
+
+  it("panier abandonné : prix formaté en CAD", async () => {
+    await sendAbandonedCartEmail({
+      to: "u@x.com",
+      name: null,
+      userId: "user_1",
+      productName: "Accès examens",
+      priceCad: 20000,
+    })
+    const arg = firstArg()
+    expect(arg.subject).toContain("Votre commande n'a pas été finalisée")
+    expect(arg.unsubscribeUrl).toContain("token=tok-user_1")
+    const props = (arg.react as { props: Record<string, unknown> }).props
+    expect(props.productName).toBe("Accès examens")
+    expect((props.priceLabel as string).replace(/[  ]/g, " ")).toBe("200 $")
+    expect(props.firstName).toBeNull()
   })
 })

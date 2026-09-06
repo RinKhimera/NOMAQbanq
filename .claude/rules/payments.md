@@ -88,6 +88,13 @@ voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
   côté, donc le client n'est jamais sans trace. Le `MessageId` SES est stocké
   (`confirmation_email_message_id`) : clé de corrélation avec le journal SES.
   Compte anonymisé → aucun envoi (TLD `.invalid`, hard bounce).
+- **Panier abandonné** : `checkout.session.expired` (et lui seul, jamais
+  `async_payment_failed`) déclenche un rappel commercial APRÈS le 200 via
+  `sendAbandonedCartReminder` (`features/notifications/abandoned-cart.ts`).
+  Garde-fous : préférence `notify_marketing`, compte banni, tous les accès
+  visés déjà actifs, achat complété depuis 7 j, claim par UTILISATEUR sur
+  `user.cart_reminder_sent_at` (plafond 7 j : deux paniers = un courriel). Un
+  rejeu Stripe retombe en `already_processed` et n'envoie rien.
 - **Journal SES** : configuration set `nomaqbanq-transactional` → destination
   EventBridge → règle `nomaqbanq-ses-events` → CloudWatch Logs
   `/aws/events/nomaqbanq-ses` (rétention 400 j, métadonnées seulement, jamais

@@ -30,23 +30,29 @@ afterAll(async () => {
 describe("préférences de notification", () => {
   it("valeurs par défaut = opt-out (les 2 activées)", async () => {
     const prefs = await getNotificationPreferences()
-    expect(prefs).toEqual({ examResults: true, accessExpiry: true })
+    expect(prefs).toEqual({
+      examResults: true,
+      accessExpiry: true,
+      marketing: true,
+    })
   })
 
   it("updateNotificationPreferences persiste les 2 booléens", async () => {
     const res = await updateNotificationPreferences({
       examResults: false,
       accessExpiry: true,
+      marketing: false,
     })
     expect(res.success).toBe(true)
     const [row] = await db
       .select({
         e: user.notifyExamResults,
         a: user.notifyAccessExpiry,
+        m: user.notifyMarketing,
       })
       .from(user)
       .where(eq(user.id, uid))
       .limit(1)
-    expect(row).toEqual({ e: false, a: true })
+    expect(row).toEqual({ e: false, a: true, m: false })
   })
 })

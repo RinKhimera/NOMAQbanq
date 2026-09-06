@@ -1,18 +1,48 @@
-import { and, eq, gt, inArray, isNull, lt } from "drizzle-orm"
+import {
+  and,
+  eq,
+  exists,
+  gt,
+  inArray,
+  isNull,
+  lt,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
-import { examParticipations, exams, user, userAccess } from "@/db/schema"
-import { sendAccessExpiringEmail, sendExamResultsEmail } from "@/email"
+import {
+  examParticipations,
+  exams,
+  session,
+  trainingSessions,
+  transactions,
+  user,
+  userAccess,
+} from "@/db/schema"
+import {
+  sendAccessExpiringEmail,
+  sendExamResultsEmail,
+  sendInactivityReminderEmail,
+} from "@/email"
 import { getBaseUrl } from "@/lib/base-url"
 import { captureServerError } from "@/lib/observability"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const EXAM_RESULTS_LIMIT = 500
 const ACCESS_REMINDER_LIMIT = 200
+const INACTIVITY_DAYS = 21
+// Consentement tacite LCAP : 6 mois après une demande (inscription) ou un achat.
+const CONSENT_WINDOW_DAYS = 183
+// Borne basse : l'appel du cron horaire (GitHub Actions) est limité dans le
+// temps ; un arriéré vidé d'un coup le dépasserait et déclencherait des retries.
+const INACTIVITY_LIMIT = 50
 
 export type NotificationSweepResult = {
   examResultsSent: number
   accessRemindersSent: number
+  inactivityRemindersSent: number
 }
 
 // Notifie les participants d'examens CLOS (endDate passée) dont les résultats sont
@@ -36,6 +66,7 @@ export async function sendExamResultsNotifications(): Promise<number> {
       examId: examParticipations.examId,
       score: examParticipations.score,
       email: user.email,
+      name: user.name,
       notify: user.notifyExamResults,
       examTitle: exams.title,
     })
@@ -79,6 +110,7 @@ export async function sendExamResultsNotifications(): Promise<number> {
 
       await sendExamResultsEmail({
         to: r.email,
+        name: r.name,
         examTitle: r.examTitle,
         score: r.score,
         resultUrl: `${getBaseUrl()}/tableau-de-bord/examen-blanc/${r.examId}/resultats`,
@@ -108,6 +140,7 @@ export async function sendAccessExpiryReminders(): Promise<number> {
       accessType: userAccess.accessType,
       expiresAt: userAccess.expiresAt,
       email: user.email,
+      name: user.name,
       notify: user.notifyAccessExpiry,
     })
     .from(userAccess)
@@ -147,6 +180,7 @@ export async function sendAccessExpiryReminders(): Promise<number> {
 
       await sendAccessExpiringEmail({
         to: r.email,
+        name: r.name,
         accessType: r.accessType,
         daysRemaining: Math.ceil(
           (r.expiresAt.getTime() - now.getTime()) / DAY_MS,
@@ -163,8 +197,111 @@ export async function sendAccessExpiryReminders(): Promise<number> {
   return sent
 }
 
+// Relance d'inactivité : compte vérifié sans visite ni activité depuis 21 j,
+// une seule fois par compte (marqueur jamais réinitialisé), dans la fenêtre de
+// consentement. Quatre traces de visite : session vivante rafraîchie, connexion
+// (la déconnexion supprime la session), entraînement lancé, examen lancé.
+export async function sendInactivityReminders(): Promise<number> {
+  const now = new Date()
+  const inactiveSince = new Date(now.getTime() - INACTIVITY_DAYS * DAY_MS)
+  const consentSince = new Date(now.getTime() - CONSENT_WINDOW_DAYS * DAY_MS)
+  const one = sql`1`
+  const rows = await db
+    .select({ id: user.id, email: user.email, name: user.name })
+    .from(user)
+    .where(
+      and(
+        eq(user.role, "user"),
+        eq(user.banned, false),
+        isNull(user.deletedAt),
+        eq(user.emailVerified, true),
+        eq(user.notifyMarketing, true),
+        isNull(user.inactivityReminderSentAt),
+        lt(user.createdAt, inactiveSince),
+        or(isNull(user.lastLoginAt), lt(user.lastLoginAt, inactiveSince)),
+        notExists(
+          db
+            .select({ one })
+            .from(session)
+            .where(
+              and(
+                eq(session.userId, user.id),
+                gt(session.updatedAt, inactiveSince),
+              ),
+            ),
+        ),
+        notExists(
+          db
+            .select({ one })
+            .from(trainingSessions)
+            .where(
+              and(
+                eq(trainingSessions.userId, user.id),
+                gt(trainingSessions.startedAt, inactiveSince),
+              ),
+            ),
+        ),
+        notExists(
+          db
+            .select({ one })
+            .from(examParticipations)
+            .where(
+              and(
+                eq(examParticipations.userId, user.id),
+                gt(examParticipations.startedAt, inactiveSince),
+              ),
+            ),
+        ),
+        or(
+          gt(user.createdAt, consentSince),
+          exists(
+            db
+              .select({ one })
+              .from(transactions)
+              .where(
+                and(
+                  eq(transactions.userId, user.id),
+                  eq(transactions.status, "completed"),
+                  gt(transactions.completedAt, consentSince),
+                ),
+              ),
+          ),
+        ),
+      ),
+    )
+    .limit(INACTIVITY_LIMIT)
+
+  if (rows.length === INACTIVITY_LIMIT) {
+    console.warn(
+      `[notif] inactivité — borne ${INACTIVITY_LIMIT} atteinte : le reste sera traité au prochain run`,
+    )
+  }
+
+  let sent = 0
+  for (const r of rows) {
+    try {
+      const claimed = await db
+        .update(user)
+        .set({ inactivityReminderSentAt: now })
+        .where(and(eq(user.id, r.id), isNull(user.inactivityReminderSentAt)))
+        .returning({ id: user.id })
+      if (claimed.length === 0) continue
+      await sendInactivityReminderEmail({
+        to: r.email,
+        name: r.name,
+        userId: r.id,
+      })
+      sent++
+    } catch (error) {
+      captureServerError("[notif:inactivite]", error, { userId: r.id })
+    }
+  }
+  return sent
+}
+
 export async function sendPendingNotifications(): Promise<NotificationSweepResult> {
   const examResultsSent = await sendExamResultsNotifications()
   const accessRemindersSent = await sendAccessExpiryReminders()
-  return { examResultsSent, accessRemindersSent }
+  const inactivityRemindersSent = await sendInactivityReminders()
+  return { examResultsSent, accessRemindersSent, inactivityRemindersSent }
 }

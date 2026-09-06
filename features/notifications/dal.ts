@@ -8,6 +8,7 @@ import { getCurrentSession } from "@/lib/dal"
 export type NotificationPreferences = {
   examResults: boolean
   accessExpiry: boolean
+  marketing: boolean
 }
 
 // Préférences de notification de l'utilisateur courant (self-scoped).
@@ -19,6 +20,7 @@ export const getNotificationPreferences = cache(
       .select({
         examResults: user.notifyExamResults,
         accessExpiry: user.notifyAccessExpiry,
+        marketing: user.notifyMarketing,
       })
       .from(user)
       .where(eq(user.id, session.user.id))

@@ -1,7 +1,11 @@
-import { Button, Link, Section, Text } from "@react-email/components"
+import { Link } from "@react-email/components"
+import { EmailButton } from "../components/email-button"
+import { EmailFallbackLink } from "../components/email-fallback-link"
+import { EmailNotice } from "../components/email-notice"
+import { EmailParagraph } from "../components/email-paragraph"
+import { EmailRecap } from "../components/email-recap"
+import { emailTheme } from "../theme"
 import { EmailLayout } from "./email-layout"
-
-const row = { fontSize: "14px", color: "#18181b", margin: "4px 0" } as const
 
 export type GrantedAccessLine = { label: string; expiresAtLabel: string }
 
@@ -13,6 +17,8 @@ export function PurchaseConfirmationEmail({
   grantedAccess,
   accountUrl,
   supportEmail,
+  firstName,
+  baseUrl,
 }: {
   productName: string
   amountLabel: string
@@ -21,59 +27,54 @@ export function PurchaseConfirmationEmail({
   grantedAccess: GrantedAccessLine[]
   accountUrl: string
   supportEmail: string | null
+  firstName: string | null
+  baseUrl: string
 }) {
   return (
-    <EmailLayout preview={`Votre achat : ${productName}`}>
-      <Section>
-        <Text style={{ fontSize: "16px", color: "#18181b" }}>
-          Merci pour votre achat. Voici le récapitulatif de votre commande.
-        </Text>
-        <Text style={row}>
-          <strong>Produit :</strong> {productName}
-        </Text>
-        <Text style={row}>
-          <strong>Montant :</strong> {amountLabel}
-          {presentmentLabel ? ` (soit environ ${presentmentLabel})` : ""}
-        </Text>
-        <Text style={row}>
-          <strong>Date :</strong> {purchasedAtLabel}
-        </Text>
-        {grantedAccess.map((access) => (
-          <Text key={access.label} style={row}>
-            <strong>{access.label} :</strong> valide jusqu&apos;au{" "}
-            {access.expiresAtLabel}
-          </Text>
-        ))}
-        <Text style={{ fontSize: "13px", color: "#52525b", marginTop: "16px" }}>
-          Cette transaction apparaîtra sous le libellé{" "}
-          <strong>NOMAQBANQ</strong> sur votre relevé bancaire. Un reçu Stripe
-          vous est envoyé séparément.
-        </Text>
-        <Button
-          href={accountUrl}
-          style={{
-            backgroundColor: "#18181b",
-            color: "#ffffff",
-            padding: "12px 20px",
-            borderRadius: "6px",
-            fontSize: "14px",
-            display: "inline-block",
-          }}
-        >
-          Voir mes accès
-        </Button>
-        <Text style={{ fontSize: "13px", color: "#52525b" }}>
-          Ou copiez ce lien : <Link href={accountUrl}>{accountUrl}</Link>
-        </Text>
-        {supportEmail ? (
-          <Text style={{ fontSize: "13px", color: "#52525b" }}>
-            Une question sur cet achat ? Écrivez-nous à{" "}
-            <Link href={`mailto:${supportEmail}`}>{supportEmail}</Link> avant
-            toute démarche auprès de votre banque : nous réglons la plupart des
-            demandes le jour même.
-          </Text>
-        ) : null}
-      </Section>
+    <EmailLayout
+      category="transactional"
+      preview={`Votre achat : ${productName}`}
+      heading="Merci pour votre achat"
+      firstName={firstName}
+      baseUrl={baseUrl}
+    >
+      <EmailParagraph>
+        Votre accès est activé. Voici le récapitulatif de votre commande.
+      </EmailParagraph>
+      <EmailRecap
+        rows={[
+          { label: "Produit", value: productName },
+          {
+            label: "Montant",
+            value: amountLabel,
+            sub: presentmentLabel ? `soit environ ${presentmentLabel}` : null,
+          },
+          { label: "Date", value: purchasedAtLabel },
+          ...grantedAccess.map((access) => ({
+            label: access.label,
+            value: `jusqu'au ${access.expiresAtLabel}`,
+          })),
+        ]}
+      />
+      <EmailNotice variant="info">
+        Cette transaction apparaîtra sous le libellé <strong>NOMAQBANQ</strong>{" "}
+        sur votre relevé bancaire. Un reçu Stripe vous est envoyé séparément.
+      </EmailNotice>
+      <EmailButton href={accountUrl}>Voir mes accès</EmailButton>
+      <EmailFallbackLink href={accountUrl} />
+      {supportEmail ? (
+        <EmailParagraph muted>
+          Une question sur cet achat ? Écrivez-nous à{" "}
+          <Link
+            href={`mailto:${supportEmail}`}
+            style={{ color: emailTheme.colors.accent }}
+          >
+            {supportEmail}
+          </Link>{" "}
+          avant toute démarche auprès de votre banque : nous réglons la plupart
+          des demandes le jour même.
+        </EmailParagraph>
+      ) : null}
     </EmailLayout>
   )
 }

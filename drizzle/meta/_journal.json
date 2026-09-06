@@ -124,8 +124,15 @@
     {
       "idx": 17,
       "version": "7",
+      "when": 1788632571767,
+      "tag": "0017_lifecycle_emails",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
       "when": 1788653040767,
-      "tag": "0017_user_bans",
+      "tag": "0018_user_bans",
       "breakpoints": true
     }
   ]
