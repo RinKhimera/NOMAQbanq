@@ -35,8 +35,8 @@ const ACCESS_REMINDER_LIMIT = 200
 const INACTIVITY_DAYS = 21
 // Consentement tacite LCAP : 6 mois après une demande (inscription) ou un achat.
 const CONSENT_WINDOW_DAYS = 183
-// Borne basse : le cron est appelé sous `--max-time 60` par GitHub Actions ;
-// un arriéré vidé d'un coup dépasserait la minute.
+// Borne basse : l'appel du cron horaire (GitHub Actions) est limité dans le
+// temps ; un arriéré vidé d'un coup le dépasserait et déclencherait des retries.
 const INACTIVITY_LIMIT = 50
 
 export type NotificationSweepResult = {
