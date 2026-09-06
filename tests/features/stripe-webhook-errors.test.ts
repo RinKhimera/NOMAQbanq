@@ -7,6 +7,7 @@ const { mocks } = vi.hoisted(() => ({
     completeStripeTransaction: vi.fn<() => Promise<unknown>>(),
     fail: vi.fn(),
     recordDispute: vi.fn<() => Promise<unknown>>(),
+    refund: vi.fn<() => Promise<unknown>>(),
     sendPurchaseConfirmationEmail: vi.fn<() => Promise<string>>(),
     markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
     after: vi.fn<(cb: () => Promise<unknown>) => void>(),
@@ -22,6 +23,7 @@ vi.mock("@/features/payments/stripe", () => ({
   completeStripeTransaction: mocks.completeStripeTransaction,
   failStripeTransaction: mocks.fail,
   recordStripeDispute: mocks.recordDispute,
+  refundStripeTransaction: mocks.refund,
   markConfirmationEmailSent: mocks.markConfirmationEmailSent,
 }))
 vi.mock("@/email", () => ({
@@ -63,6 +65,11 @@ beforeEach(() => {
     },
   })
   mocks.recordDispute.mockResolvedValue({ status: "recorded" })
+  mocks.refund.mockResolvedValue({
+    status: "refunded",
+    userId: "u_1",
+    accessReducedOrRemoved: true,
+  })
   mocks.sessionsList.mockResolvedValue({ data: [] })
   mocks.sendPurchaseConfirmationEmail.mockResolvedValue("ses-msg-1")
   mocks.markConfirmationEmailSent.mockResolvedValue(undefined)
@@ -602,5 +609,231 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
     expect(res.status).toBe(200)
     await deferred()
     expect(mocks.captureServerError).toHaveBeenCalled()
+  })
+})
+
+describe("webhook Stripe — retours de fonds", () => {
+  const refunded = (charge: Record<string, unknown>) =>
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: "evt_refund",
+      type: "charge.refunded",
+      created: 1_800_000_000,
+      data: { object: { id: "ch_1", currency: "cad", ...charge } },
+    })
+
+  it("remboursement complet → alerte AVANT l'écriture, puis refundStripeTransaction à la date de l'événement, 200", async () => {
+    refunded({
+      payment_intent: "pi_r",
+      refunded: true,
+      amount: 20000,
+      amount_refunded: 20000,
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.refund).toHaveBeenCalledWith({
+      stripePaymentIntentId: "pi_r",
+      refundedAt: new Date(1_800_000_000 * 1000),
+    })
+    // Une seule alerte, émise avant l'écriture : une panne Neon ne doit pas
+    // la priver de son détail.
+    expect(mocks.captureServerError).toHaveBeenCalledTimes(1)
+    const [, error, context] = mocks.captureServerError.mock.calls[0]!
+    expect((error as Error).message).toBe("remboursement Stripe complet")
+    expect(context).toEqual({
+      detail: "charge ch_1 · 20000/20000 cad · payment_intent pi_r",
+    })
+    expect(mocks.captureServerError.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.refund.mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it("erreur DB pendant le remboursement → l'alerte détaillée est déjà partie, 500", async () => {
+    mocks.refund.mockRejectedValueOnce(new Error("Neon down"))
+    refunded({
+      payment_intent: "pi_r",
+      refunded: true,
+      amount: 1,
+      amount_refunded: 1,
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(500)
+    expect(mocks.captureServerError.mock.calls[0]?.[2]).toEqual({
+      detail: "charge ch_1 · 1/1 cad · payment_intent pi_r",
+    })
+  })
+
+  it("remboursement partiel → aucun retrait, alerte, 200", async () => {
+    refunded({
+      payment_intent: "pi_p",
+      refunded: false,
+      amount: 20000,
+      amount_refunded: 1000,
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.refund).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.objectContaining({
+        message: "remboursement partiel, accès conservé",
+      }),
+      expect.objectContaining({
+        detail: expect.stringContaining("1000/20000"),
+      }),
+    )
+  })
+
+  it("payment_intent objet → id extrait", async () => {
+    refunded({
+      payment_intent: { id: "pi_obj" },
+      refunded: true,
+      amount: 1,
+      amount_refunded: 1,
+    })
+    await POST(request())
+    expect(mocks.refund).toHaveBeenCalledWith(
+      expect.objectContaining({ stripePaymentIntentId: "pi_obj" }),
+    )
+  })
+
+  it("sans payment_intent → alerte, 200", async () => {
+    refunded({
+      payment_intent: null,
+      refunded: true,
+      amount: 1,
+      amount_refunded: 1,
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.refund).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalled()
+  })
+
+  it("rejeu (skipped: refunded) → pas d'alerte d'issue, 200", async () => {
+    mocks.refund.mockResolvedValueOnce({
+      status: "skipped",
+      currentStatus: "refunded",
+    })
+    refunded({
+      payment_intent: "pi_r",
+      refunded: true,
+      amount: 1,
+      amount_refunded: 1,
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    // Seule l'alerte préalable « remboursement Stripe complet ».
+    expect(mocks.captureServerError).toHaveBeenCalledTimes(1)
+  })
+
+  it("transaction encore pending (skipped: pending) → alerte d'anomalie, 200", async () => {
+    // Paiement différé : les fonds partent, puis la complétion arrive et
+    // octroierait l'accès. Sans alerte, personne ne le saurait.
+    mocks.refund.mockResolvedValueOnce({
+      status: "skipped",
+      currentStatus: "pending",
+    })
+    refunded({
+      payment_intent: "pi_late",
+      refunded: true,
+      amount: 1,
+      amount_refunded: 1,
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.objectContaining({
+        message: "retour de fonds sur une transaction non complétée",
+      }),
+      expect.objectContaining({
+        detail: expect.stringContaining("statut pending"),
+      }),
+    )
+  })
+
+  it("transaction introuvable → alerte, 200", async () => {
+    mocks.refund.mockResolvedValueOnce({ status: "not_found" })
+    refunded({
+      payment_intent: "pi_ghost",
+      refunded: true,
+      amount: 1,
+      amount_refunded: 1,
+    })
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[stripe:webhook]",
+      expect.objectContaining({
+        message: "remboursement sans transaction correspondante",
+      }),
+      expect.anything(),
+    )
+  })
+
+  const disputeClosed = (status: "won" | "lost") =>
+    mocks.constructEventAsync.mockResolvedValueOnce({
+      id: `evt_dispute_${status}`,
+      type: "charge.dispute.closed",
+      created: 1_800_000_500,
+      data: {
+        object: {
+          id: "dp_1",
+          amount: 20000,
+          currency: "cad",
+          reason: "fraudulent",
+          status,
+          payment_intent: "pi_d",
+        },
+      },
+    })
+
+  it("litige perdu → alerte existante inchangée, dispute enregistré, remboursement, seconde alerte d'issue", async () => {
+    disputeClosed("lost")
+    const res = await POST(request())
+    expect(res.status).toBe(200)
+    expect(mocks.recordDispute).toHaveBeenCalled()
+    expect(mocks.refund).toHaveBeenCalledWith({
+      stripePaymentIntentId: "pi_d",
+      refundedAt: new Date(1_800_000_500 * 1000),
+    })
+    // L'`it.each` existant sur `charge.dispute.closed` reste vrai : la
+    // première alerte est celle d'avant, sans suffixe.
+    const [first, second] = mocks.captureServerError.mock.calls
+    expect((first?.[1] as Error).message).toBe("litige perdu")
+    expect(first?.[2]).toEqual({
+      detail:
+        "dispute dp_1 · 20000 cad · motif fraudulent · statut lost · payment_intent pi_d",
+    })
+    expect((second?.[1] as Error).message).toBe(
+      "litige perdu · retrait d'accès",
+    )
+    expect(second?.[2]).toEqual({
+      detail:
+        "dispute dp_1 · 20000 cad · motif fraudulent · statut lost · payment_intent pi_d · accès retiré",
+    })
+  })
+
+  it("litige perdu sur une transaction pending → seconde alerte « non complétée »", async () => {
+    mocks.refund.mockResolvedValueOnce({
+      status: "skipped",
+      currentStatus: "pending",
+    })
+    disputeClosed("lost")
+    await POST(request())
+    const second = mocks.captureServerError.mock.calls[1]
+    expect((second?.[1] as Error).message).toBe(
+      "litige perdu · retrait d'accès",
+    )
+    expect(second?.[2]).toEqual({
+      detail:
+        "dispute dp_1 · 20000 cad · motif fraudulent · statut lost · payment_intent pi_d · transaction non complétée (pending)",
+    })
+  })
+
+  it("litige gagné → aucun remboursement", async () => {
+    disputeClosed("won")
+    await POST(request())
+    expect(mocks.refund).not.toHaveBeenCalled()
   })
 })

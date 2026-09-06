@@ -39,11 +39,30 @@ voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
 
 ## Litiges et confirmation d'achat
 
-- **L'accès n'est jamais révoqué sur litige**, délibérément : couper l'accès
-  affaiblirait la position « service livré et utilisé ». Le webhook alerte
-  Sentry AVANT d'écrire en base (une panne Neon ne doit pas priver l'alerte
-  de son détail), puis persiste `stripe_dispute_id` / `dispute_status` via
-  `recordStripeDispute` ; la décision de contester reste humaine.
+- **L'accès n'est jamais révoqué PENDANT un litige**, délibérément : couper
+  l'accès affaiblirait la position « service livré et utilisé ». Le webhook
+  alerte Sentry AVANT d'écrire en base (une panne Neon ne doit pas priver
+  l'alerte de son détail : le `catch` général ne connaît que `event.type`),
+  puis persiste `stripe_dispute_id` / `dispute_status` via
+  `recordStripeDispute` ; la décision de contester reste humaine. **À la
+  perte** (`charge.dispute.closed`, `status: lost`) et sur tout
+  **remboursement complet** (`charge.refunded`, `refunded: true`),
+  `refundStripeTransaction` passe la transaction en `refunded` (avec
+  `refunded_at` = `event.created`) et `recomputeAccess` retire l'accès : les
+  fonds sont partis, le service suit. La règle « alerte avant écriture » tient
+  aussi là : l'alerte humaine (« litige perdu », « remboursement Stripe
+  complet ») précède l'écriture ; une alerte d'issue distincte ou un log suit.
+  Un remboursement PARTIEL ne retire rien (geste commercial) et alerte
+  seulement. Idempotent : seul un statut `completed` est réécrit, un rejeu
+  retombe en `skipped` ; un retour de fonds sur une transaction encore
+  `pending` (paiement différé) est alerté, car la complétion qui suivrait
+  octroierait l'accès. **L'endpoint du Dashboard est en événements
+  sélectionnés** : `charge.refunded` doit y être coché (endpoint live, fait le
+  2026-09-05), sinon ce chemin est mort en prod alors que `stripe listen`
+  relaie tout en dev. Pour un litige perdu avant ce code, renvoyer
+  l'événement depuis le Dashboard (Développeurs → Webhooks). Fonds restitués
+  après une perte : alerte seule, re-crédit humain. Suspendre le compte est un
+  geste DISTINCT (`banUser`), jamais automatique.
 - **Un litige peut précéder le fulfillment.** Stripe livre
   `charge.dispute.created` AVANT `checkout.session.completed` avec la carte de
   test 0259, et un paiement différé peut être contesté avant confirmation : la
