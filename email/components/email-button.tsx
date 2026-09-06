@@ -13,7 +13,10 @@ export function EmailButton({
     <Button
       href={href}
       style={{
-        display: "inline-block",
+        display: "block",
+        width: "100%",
+        boxSizing: "border-box",
+        textAlign: "center",
         backgroundColor: emailTheme.colors.accent,
         color: "#ffffff",
         fontFamily: emailTheme.fontFamily,

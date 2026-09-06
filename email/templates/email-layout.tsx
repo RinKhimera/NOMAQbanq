@@ -115,7 +115,7 @@ export function EmailLayout({
                 <tr>
                   <td style={{ width: "52px", verticalAlign: "middle" }}>
                     <Img
-                      src={absolute(emailBrand.logoPath)}
+                      src={emailBrand.logoUrl}
                       alt={emailBrand.name}
                       width={40}
                       height={40}
@@ -189,7 +189,12 @@ export function EmailLayout({
               }}
             >
               <Text style={footerText}>
-                {emailBrand.name} · {emailBrand.postalAddress}
+                {emailBrand.name} ·{" "}
+                {/* Ancre sans href : empêche Gmail et Apple Mail de transformer
+                    l'adresse en lien bleu souligné. */}
+                <a style={{ color: colors.footer, textDecoration: "none" }}>
+                  {emailBrand.postalAddress}
+                </a>
               </Text>
               <Text style={footerText}>
                 <Link href={absolute(emailBrand.links.help)} style={footerLink}>
