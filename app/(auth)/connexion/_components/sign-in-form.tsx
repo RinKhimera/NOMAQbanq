@@ -50,6 +50,11 @@ export const SignInForm = () => {
         setPendingVerificationEmail(values.email)
         return
       }
+      if (mapped.kind === "banned") {
+        // Page dédiée, sans entrée d'historique : rien à réessayer ici.
+        router.replace("/compte-suspendu")
+        return
+      }
       setError(mapped)
       return
     }
@@ -63,6 +68,9 @@ export const SignInForm = () => {
     const { error: googleError } = await authClient.signIn.social({
       provider: "google",
       callbackURL: "/tableau-de-bord",
+      // Sans elle, une erreur du callback OAuth (compte suspendu…) atterrit
+      // sur la page d'erreur brute de Better Auth.
+      errorCallbackURL: "/connexion",
     })
     if (googleError) {
       toast.error(googleError.message ?? "Échec de la connexion avec Google")

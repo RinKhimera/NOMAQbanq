@@ -8,6 +8,7 @@ const signInEmail = vi.fn()
 const signInSocial = vi.fn()
 const sendVerificationEmail = vi.fn()
 const push = vi.fn()
+const replace = vi.fn()
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
@@ -18,7 +19,9 @@ vi.mock("@/lib/auth-client", () => ({
     sendVerificationEmail: (...a: unknown[]) => sendVerificationEmail(...a),
   },
 }))
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }))
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, replace }),
+}))
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
@@ -66,5 +69,26 @@ describe("SignInForm", () => {
     await fillAndSubmit()
 
     expect(await screen.findByTestId("auth-check-email")).toBeInTheDocument()
+  })
+
+  it("redirige vers /compte-suspendu sur BANNED_USER, sans alerte", async () => {
+    signInEmail.mockResolvedValue({
+      error: { code: "BANNED_USER", status: 403 },
+    })
+    render(<SignInForm />)
+    await fillAndSubmit()
+    expect(replace).toHaveBeenCalledWith("/compte-suspendu")
+    expect(screen.queryByTestId("auth-error-alert")).toBeNull()
+  })
+
+  it("passe une errorCallbackURL à la connexion Google", async () => {
+    signInSocial.mockResolvedValue({ error: null })
+    render(<SignInForm />)
+    await userEvent.setup().click(screen.getByTestId("auth-google"))
+    expect(signInSocial).toHaveBeenCalledWith({
+      provider: "google",
+      callbackURL: "/tableau-de-bord",
+      errorCallbackURL: "/connexion",
+    })
   })
 })

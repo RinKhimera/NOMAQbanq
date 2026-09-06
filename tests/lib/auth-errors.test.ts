@@ -14,6 +14,12 @@ describe("mapAuthError", () => {
     )
   })
 
+  it("classe BANNED_USER en suspension", () => {
+    const r = mapAuthError({ code: "BANNED_USER", status: 403 })
+    expect(r.kind).toBe("banned")
+    expect(r.message).toBe("Ce compte est suspendu.")
+  })
+
   it("classe le 429 en message de rate-limit", () => {
     const r = mapAuthError({ status: 429 })
     expect(r.kind).toBe("generic")

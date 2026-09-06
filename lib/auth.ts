@@ -130,7 +130,13 @@ export const auth = betterAuth({
     "/admin/has-permission",
   ],
   plugins: [
-    admin({ defaultRole: "user", adminRoles: ["admin"] }),
+    admin({
+      defaultRole: "user",
+      adminRoles: ["admin"],
+      // Message du hook de refus de session ; il voyage dans l'URL d'erreur
+      // du callback OAuth (`error_description`), donc en français.
+      bannedUserMessage: "Ce compte est suspendu.",
+    }),
     nextCookies(), // ⚠️ DOIT rester le dernier plugin
   ],
 })
