@@ -231,3 +231,15 @@ repose sur la **modélisation** (recommandation officielle Next), à maintenir :
   prop d'un composant client.
 - Les emails/noms qui atteignent le client (profil de l'utilisateur, listes admin,
   activity feed) sont des affichages **volontaires** — ne pas les « durcir ».
+- **Suspension (`user.banned`) = pas de session.** `getCurrentSession`
+  renvoie `null` pour un compte suspendu ; aucune garde ni DAL ne doit tester
+  `banned` par ailleurs. Le plugin admin refuse la CRÉATION de session d'un
+  banni mais ne revérifie jamais une session existante : `banUser` supprime
+  donc les sessions, et ce `null` couvre la requête en vol. Le journal vit dans
+  `user_bans` ; le drapeau reste le verrou lu par le plugin.
+- **Tout expéditeur de courriel qui sélectionne ses destinataires filtre
+  `banned = false`**, au même endroit que `isNull(user.deletedAt)`, sans poser
+  de marqueur (le courriel doit repartir si la suspension est levée). Ce n'est
+  pas propre aux deux crons de `features/notifications/cron.ts` : un nouvel
+  expéditeur (bienvenue, relance, panier abandonné…) reçoit le garde ET un cas
+  de test « compte suspendu exclu ».
