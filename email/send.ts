@@ -9,12 +9,15 @@ export interface SendEmailInput {
   to: string
   subject: string
   react: ReactElement
+  /** Courriel commercial : URL en un clic (RFC 8058) pour les en-têtes List-Unsubscribe. */
+  unsubscribeUrl?: string
 }
 
 export async function sendEmail({
   to,
   subject,
   react,
+  unsubscribeUrl,
 }: SendEmailInput): Promise<string> {
   if (!env.EMAIL_FROM) {
     throw new Error("EMAIL_FROM manquante")
@@ -43,6 +46,17 @@ export async function sendEmail({
             Html: { Data: html, Charset: "UTF-8" },
             Text: { Data: text, Charset: "UTF-8" },
           },
+          ...(unsubscribeUrl
+            ? {
+                Headers: [
+                  { Name: "List-Unsubscribe", Value: `<${unsubscribeUrl}>` },
+                  {
+                    Name: "List-Unsubscribe-Post",
+                    Value: "List-Unsubscribe=One-Click",
+                  },
+                ],
+              }
+            : {}),
         },
       },
       ...(env.SES_CONFIGURATION_SET

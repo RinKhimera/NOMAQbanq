@@ -23,6 +23,7 @@ const { mocks } = vi.hoisted(() => ({
     sendPendingNotifications: vi.fn(async () => ({
       examResultsSent: 0,
       accessRemindersSent: 0,
+      inactivityRemindersSent: 0,
     })),
   },
 }))
@@ -92,6 +93,7 @@ describe("execution des taches", () => {
     mocks.sendPendingNotifications.mockResolvedValueOnce({
       examResultsSent: 3,
       accessRemindersSent: 1,
+      inactivityRemindersSent: 0,
     })
 
     const res = await call("Bearer s3cret")
@@ -100,7 +102,11 @@ describe("execution des taches", () => {
       examParticipations: { closedCount: 2 },
       trainingSessions: { closedCount: 0 },
       anonymizedAccounts: { anonymizedCount: 0 },
-      notifications: { examResultsSent: 3, accessRemindersSent: 1 },
+      notifications: {
+        examResultsSent: 3,
+        accessRemindersSent: 1,
+        inactivityRemindersSent: 0,
+      },
       quizRateLimitCleanup: { deletedCount: 0 },
       priceDrift: { checked: 0, drifted: 0, failed: false },
     })
@@ -128,7 +134,11 @@ describe("execution des taches", () => {
     })
     mocks.sendPendingNotifications.mockImplementationOnce(async () => {
       order.push("notifications")
-      return { examResultsSent: 0, accessRemindersSent: 0 }
+      return {
+        examResultsSent: 0,
+        accessRemindersSent: 0,
+        inactivityRemindersSent: 0,
+      }
     })
 
     await call("Bearer s3cret")

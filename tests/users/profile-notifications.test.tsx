@@ -18,7 +18,11 @@ describe("ProfileNotifications", () => {
   it("reflète l'état initial et appelle l'action au toggle", async () => {
     render(
       <ProfileNotifications
-        preferences={{ examResults: true, accessExpiry: false }}
+        preferences={{
+          examResults: true,
+          accessExpiry: false,
+          marketing: true,
+        }}
       />,
     )
     const exam = screen.getByTestId("notif-toggle-exam-results")
@@ -31,6 +35,7 @@ describe("ProfileNotifications", () => {
       expect(mocks.update).toHaveBeenCalledWith({
         examResults: false,
         accessExpiry: false,
+        marketing: true,
       }),
     )
   })
@@ -39,11 +44,35 @@ describe("ProfileNotifications", () => {
     mocks.update.mockResolvedValueOnce({ success: false, error: "boom" })
     render(
       <ProfileNotifications
-        preferences={{ examResults: false, accessExpiry: false }}
+        preferences={{
+          examResults: false,
+          accessExpiry: false,
+          marketing: true,
+        }}
       />,
     )
     const exam = screen.getByTestId("notif-toggle-exam-results")
     fireEvent.click(exam)
     await waitFor(() => expect(exam).not.toBeChecked()) // revenu à false
+  })
+})
+
+describe("ProfileNotifications — rappels commerciaux", () => {
+  it("expose l'interrupteur des rappels commerciaux", async () => {
+    render(
+      <ProfileNotifications
+        preferences={{ examResults: true, accessExpiry: true, marketing: true }}
+      />,
+    )
+    const marketing = screen.getByTestId("notif-toggle-marketing")
+    expect(marketing).toBeChecked()
+    fireEvent.click(marketing)
+    await waitFor(() =>
+      expect(mocks.update).toHaveBeenCalledWith({
+        examResults: true,
+        accessExpiry: true,
+        marketing: false,
+      }),
+    )
   })
 })

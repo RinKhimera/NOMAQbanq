@@ -21,6 +21,8 @@ const readAccess = (tx: Tx, userId: string, accessType: "exam" | "training") =>
 export type PurchaseConfirmationData = {
   /** Null si le compte est anonymisé : aucun courriel à envoyer. */
   userEmail: string | null
+  /** Nom complet, null si anonymisé (comme userEmail) : sert à la salutation. */
+  userName: string | null
   productName: string
   amountPaid: number
   currency: "CAD" | "XAF"
@@ -103,6 +105,7 @@ export async function completeStripeTransaction(params: {
       .select({
         id: user.id,
         email: user.email,
+        name: user.name,
         anonymizedAt: user.anonymizedAt,
       })
       .from(user)
@@ -243,6 +246,8 @@ export async function completeStripeTransaction(params: {
       confirmation: {
         userEmail:
           lockedUser && !lockedUser.anonymizedAt ? lockedUser.email : null,
+        userName:
+          lockedUser && !lockedUser.anonymizedAt ? lockedUser.name : null,
         productName: product?.name ?? "Accès NOMAQbanq",
         amountPaid: reconcile?.amountPaid ?? pending.amountPaid,
         currency: reconcile?.currency ?? pending.currency,
@@ -255,9 +260,9 @@ export async function completeStripeTransaction(params: {
   })
 }
 
-export type FailStripeResult = {
-  status: "failed" | "already_processed" | "not_found"
-}
+export type FailStripeResult =
+  | { status: "failed"; transactionId: string }
+  | { status: "already_processed" | "not_found" }
 
 /**
  * Marque une transaction Stripe comme échouée (webhook `checkout.session.expired`).
@@ -299,7 +304,7 @@ export async function failStripeTransaction(params: {
       .returning({ id: transactions.id })
 
     return updated.length > 0
-      ? { status: "failed" }
+      ? { status: "failed", transactionId: pending.id }
       : { status: "already_processed" }
   })
 }

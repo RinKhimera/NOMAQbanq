@@ -13,6 +13,7 @@ export default function robots(): MetadataRoute.Robots {
           "/inscription",
           "/mot-de-passe-oublie",
           "/reinitialiser-mot-de-passe",
+          "/desabonnement",
         ],
       },
     ],

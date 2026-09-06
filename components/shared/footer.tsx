@@ -103,9 +103,9 @@ export default function Footer() {
                   <MapPin className="h-5 w-5 text-blue-400" />
                 </div>
                 <span className="text-gray-300">
-                  Montréal, QC
+                  114 rue Isabelle
                   <br />
-                  Canada
+                  Gatineau (Québec) J8Y 5H3, Canada
                 </span>
               </li>
             </ul>

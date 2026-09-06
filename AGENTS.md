@@ -32,6 +32,7 @@ bun run test:e2e         # Tests E2E Playwright (bunx, pas npx)
 bun run e2e:ui           # Playwright UI mode
 bun run db:generate      # Drizzle: genere une migration depuis le schema
 bun run db:migrate       # Drizzle: applique les migrations (cible via DATABASE_URL_UNPOOLED)
+bun run email:preview    # Rend chaque courriel (HTML + texte) dans .email-preview/ pour les ouvrir dans un navigateur
 ```
 
 CI: `.github/workflows/ci.yml` — type-check -> lint -> format:check -> test + coverage (seuil 80%, échoue sous la barre).
@@ -92,6 +93,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **Dev server qui crashe au demarrage** (`An error occurred while loading instrumentation hook ... module factory is not available`, hook Sentry `instrumentation.ts`) : cache `.next` corrompu (souvent apres un gros diff ou des runs e2e), PAS la config → `rm -rf .next` puis relancer `bun dev`
 - **Image domains** : pexels.com, \*.cloudfront.net, cdn.nomaqbanq.ca (next.config.ts)
 - **Uploads médias** : presigned POST direct navigateur→S3 (`lib/aws.ts` + `lib/storage.ts`) ; rate-limit + validation à l'étape presign ; jamais via Server Action proxy
+- **Courriels** : socle dans `email/` (`theme.ts` jetons + identité, `components/`, `templates/email-layout.tsx` à catégories `transactional` / `commercial`). Un courriel commercial exige `unsubscribeUrl` (Loi canadienne anti-pourriel). Les templates ne lisent jamais l'env : `email/index.tsx` passe `baseUrl` et le prénom. Pas de SVG dans un courriel (Gmail/Outlook), pas de thème sombre. Courriels commerciaux (relance d'inactivité, panier abandonné) : préférence `user.notify_marketing`, désabonnement sans connexion sur `/desabonnement?token=` (jeton HMAC `lib/unsubscribe-token.ts`, aucune écriture au rendu, bouton de confirmation puis réactivation) ; en-têtes `List-Unsubscribe` + `List-Unsubscribe-Post` (RFC 8058) pointant sur `POST /api/desabonnement`, sans quoi Gmail n'affiche pas son bouton natif. Marqueurs d'envoi unique sur `user` : `welcome_email_sent_at`, `inactivity_reminder_sent_at`, `cart_reminder_sent_at` (plafond 7 j). `lib/auth.ts` n'importe que `features/notifications/welcome.ts` (pas de cycle)
 - **ESM** : `"type": "module"` — pas de `__dirname`, utiliser `fileURLToPath(import.meta.url)`
 - **Env** : valide via zod (`lib/env/schema.ts`) ; nouvelles vars optionnelles + erreur claire a l'usage. `.env.local` est GÉNÉRÉ (`bun run env:sync` depuis le scope Vercel Development) : nouvelle var = `vercel env add <KEY> development` d'abord, pas d'édition manuelle durable
 - **data-testid** : Obligatoire sur composants quiz interactifs (`components/quiz/`). Convention : `answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`

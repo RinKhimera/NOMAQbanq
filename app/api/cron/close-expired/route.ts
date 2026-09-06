@@ -95,7 +95,7 @@ export async function GET(request: Request) {
     "notifications",
     "[cron:notifications]",
     sendPendingNotifications,
-    { examResultsSent: 0, accessRemindersSent: 0 },
+    { examResultsSent: 0, accessRemindersSent: 0, inactivityRemindersSent: 0 },
   )
 
   // EN DERNIER : seule tâche purement informative du lot, et seule à faire un
@@ -116,14 +116,16 @@ export async function GET(request: Request) {
     trainingSessions.closedCount > 0 ||
     anonymizedAccounts.anonymizedCount > 0 ||
     notifications.examResultsSent > 0 ||
-    notifications.accessRemindersSent > 0
+    notifications.accessRemindersSent > 0 ||
+    notifications.inactivityRemindersSent > 0
   ) {
     console.log(
       `[cron close-expired] examens fermés=${examParticipations.closedCount} ` +
         `sessions fermées=${trainingSessions.closedCount} ` +
         `comptes anonymisés=${anonymizedAccounts.anonymizedCount} ` +
         `notif résultats=${notifications.examResultsSent} ` +
-        `notif accès=${notifications.accessRemindersSent}`,
+        `notif accès=${notifications.accessRemindersSent} ` +
+        `notif inactivité=${notifications.inactivityRemindersSent}`,
     )
   }
 
