@@ -226,6 +226,8 @@ export const updateManualTransaction = async (
         .where(eq(user.id, transaction.userId))
         .for("update")
 
+      const statusChange =
+        data.status && data.status !== transaction.status ? data.status : null
       await tx
         .update(transactions)
         .set({
@@ -233,13 +235,18 @@ export const updateManualTransaction = async (
           currency: data.currency,
           paymentMethod: data.paymentMethod,
           notes: data.notes ?? null,
-          ...(data.status ? { status: data.status } : {}),
+          ...(statusChange
+            ? {
+                status: statusChange,
+                refundedAt: statusChange === "refunded" ? new Date() : null,
+              }
+            : {}),
         })
         .where(eq(transactions.id, data.transactionId))
 
       // Toute transition de statut (completed ↔ refunded) rejoue le calcul
       // d'accès : couvre la révocation ET le re-crédit (bug refunded → completed).
-      if (data.status && data.status !== transaction.status) {
+      if (statusChange) {
         await recomputeAccess(tx, { userId: transaction.userId })
       }
     })
