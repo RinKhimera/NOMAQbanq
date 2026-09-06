@@ -391,15 +391,19 @@ describe("deleteMyAccount — garde dernier admin", () => {
         banReason: "test",
       },
     ])
-    const otherUsableAdmins = await db
+    // L'attendu exclut B par son id, PAS par le prédicat `banned` de
+    // l'implémentation : sur une base sans autre admin, un garde manquant
+    // compterait B et ferait échouer ce test. Sur une base partagée avec
+    // d'autres admins actifs, le test ne discrimine plus (limite connue).
+    const otherAdminsIgnoringB = await db
       .select({ id: user.id })
       .from(user)
       .where(
         and(
           eq(user.role, "admin"),
           isNull(user.deletedAt),
-          eq(user.banned, false),
           ne(user.id, adminA),
+          ne(user.id, bannedB),
         ),
       )
     vi.mocked(requireSession).mockResolvedValueOnce({
@@ -408,9 +412,8 @@ describe("deleteMyAccount — garde dernier admin", () => {
     } as never)
 
     const res = await deleteMyAccount({ confirmEmail: emailA })
-    // B est admin mais suspendu : il ne sauve pas A. Le refus n'est dû que si
-    // aucun autre admin utilisable n'existe dans la base à cet instant.
-    expect(res.success).toBe(otherUsableAdmins.length > 0)
+    // B est admin mais suspendu : il ne sauve pas A.
+    expect(res.success).toBe(otherAdminsIgnoringB.length > 0)
 
     await db.delete(session).where(eq(session.userId, adminA))
     await db.delete(user).where(eq(user.id, adminA))

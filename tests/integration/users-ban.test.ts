@@ -276,6 +276,32 @@ describe("banUser", () => {
     expect(result.error).toBe("Le motif doit contenir au moins 5 caractères")
   })
 
+  it("drapeau retombé avec épisode ouvert : la suspension passe, l'orphelin est clos et signalé", async () => {
+    await banUser({ userId: targetId, reason: "Épisode devenu orphelin" })
+    // Le plugin admin remet `banned=false` tout seul quand `ban_expires` est
+    // passé ; on simule cet état sans passer par unbanUser.
+    await db
+      .update(user)
+      .set({ banned: false, banReason: null })
+      .where(eq(user.id, targetId))
+
+    const result = await banUser({ userId: targetId, reason: "Nouvel épisode" })
+    expect(result).toEqual({ success: true })
+
+    const bans = await bansOf(targetId)
+    expect(bans).toHaveLength(2)
+    const orphan = bans.find((b) => b.reason === "Épisode devenu orphelin")
+    expect(orphan?.liftedAt).toBeInstanceOf(Date)
+    expect(orphan?.liftReason).toContain("clos automatiquement")
+    expect(bans.find((b) => b.reason === "Nouvel épisode")?.liftedAt).toBeNull()
+    expect((await readUser(targetId))?.banned).toBe(true)
+    expect(captureServerError).toHaveBeenCalledWith(
+      "[banUser]",
+      expect.any(Error),
+      { userId: targetId },
+    )
+  })
+
   it("sérialise deux suspensions concurrentes : un seul épisode", async () => {
     const [a, b] = await Promise.all([
       banUser({ userId: targetId, reason: "Motif A concurrent" }),

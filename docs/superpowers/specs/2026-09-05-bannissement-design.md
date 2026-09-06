@@ -229,8 +229,29 @@ branches, chacun doit recevoir le garde `banned = false`, avec un cas de test.
   `requireSession`, donc inaccessibles sans session. Rien à ajouter.
 - Inscription avec le même courriel : déjà refusée (`USER_ALREADY_EXISTS`).
   Un banni peut créer un compte sous un autre courriel ; hors périmètre.
-- Réinitialisation de mot de passe : le courriel part encore ; la connexion
-  reste refusée. Accepté.
+- Courriels d'auth (réinitialisation de mot de passe, renvoi du lien de
+  vérification) : Better Auth les envoie AVANT le refus de session, donc les
+  callbacks `sendResetPassword` / `sendVerificationEmail` de `lib/auth.ts`
+  sortent sans envoyer pour un compte suspendu (`isBannedUser`). Limite
+  connue : un compte suspendu **jamais vérifié** voit « compte non activé »
+  à la connexion, pas la page de suspension — la vérification précède le
+  hook de session dans le cœur Better Auth ; un hook amont sur
+  `/sign-in/email` exposerait le statut de suspension à quiconque connaît
+  l'adresse, ce qu'on refuse.
+- Fenêtre résiduelle connue : le hook du plugin lit `banned` hors de notre
+  transaction, donc une connexion strictement concurrente au ban peut créer
+  une session APRÈS la suppression des sessions. Côté serveur elle vaut
+  déconnexion (`getCurrentSession` → `null`), mais `/api/auth/get-session`
+  renverrait alors `banReason` à l'intéressé lui-même, une fois. Le masquer
+  par `user.additionalFields.banReason.returned = false` ne marche PAS : les
+  champs du plugin sont fusionnés après les `additionalFields`
+  (`better-auth/dist/db/schema.mjs`, `getFields`). Accepté : fenêtre de
+  quelques millisecondes, lecteur = le compte concerné, motif jamais exposé
+  à un tiers.
+- État incohérent « drapeau retombé, épisode ouvert » (le plugin efface
+  `banned` tout seul si `ban_expires` est un jour posé) : `banUser` clôt
+  l'épisode orphelin, signale l'incident, puis ouvre le nouveau — l'index
+  unique partiel ne bloque jamais une suspension légitime.
 - Un compte banni qui demande la suppression de son compte : impossible sans
   session. Un compte supprimé (`deletedAt`) ne peut pas être banni
   (« Utilisateur introuvable. »).

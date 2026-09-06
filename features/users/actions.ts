@@ -185,7 +185,7 @@ export const banUser = async (input: {
     }
   }
 
-  let result: { ok: true } | { ok: false; error: string }
+  let result: { ok: true; orphanClosed: boolean } | { ok: false; error: string }
   try {
     result = await db.transaction(async (tx) => {
       const locked = await lockCallerAndTarget(
@@ -204,6 +204,18 @@ export const banUser = async (input: {
         return { ok: false as const, error: "Ce compte est déjà suspendu." }
       }
 
+      // Drapeau retombé sans levée (ex. `ban_expires` posé à la main : le
+      // plugin efface `banned` tout seul) : l'épisode orphelin est clos, sinon
+      // l'index unique partiel bloquerait toute nouvelle suspension.
+      const orphans = await tx
+        .update(userBans)
+        .set({
+          liftedAt: new Date(),
+          liftReason: "Épisode clos automatiquement : drapeau déjà retombé",
+        })
+        .where(and(eq(userBans.userId, targetId), isNull(userBans.liftedAt)))
+        .returning({ id: userBans.id })
+
       await tx.insert(userBans).values({
         userId: targetId,
         reason,
@@ -214,7 +226,7 @@ export const banUser = async (input: {
         .set({ banned: true, banReason: reason })
         .where(eq(user.id, targetId))
       await tx.delete(sessionTable).where(eq(sessionTable.userId, targetId))
-      return { ok: true as const }
+      return { ok: true as const, orphanClosed: orphans.length > 0 }
     })
   } catch (error) {
     // Course perdue sur l'index unique partiel : pas une anomalie.
@@ -226,6 +238,15 @@ export const banUser = async (input: {
   }
 
   if (!result.ok) return { success: false, error: result.error }
+  if (result.orphanClosed) {
+    captureServerError(
+      "[banUser]",
+      new Error(
+        "épisode de suspension orphelin clos avant une nouvelle suspension",
+      ),
+      { userId: targetId },
+    )
+  }
 
   revalidatePath("/admin/utilisateurs")
   revalidatePath(`/admin/utilisateurs/${targetId}`)

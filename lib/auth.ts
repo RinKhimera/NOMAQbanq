@@ -7,6 +7,7 @@ import { db } from "@/db"
 import * as schema from "@/db/schema"
 import { sendResetPassword, sendVerificationEmail } from "@/email"
 import { isGraceExpired } from "@/features/users/lib/account-deletion"
+import { isBannedUser } from "@/features/users/lib/banned"
 import { getBaseUrl } from "@/lib/base-url"
 import { env } from "@/lib/env/server"
 
@@ -82,12 +83,16 @@ export const auth = betterAuth({
     // (emailVerified=true) ni les comptes déjà `email_verified=true` ; ne concerne
     // que les nouvelles inscriptions email.
     requireEmailVerification: true,
+    // Un compte suspendu ne reçoit aucun courriel de la plateforme, y compris
+    // ceux d'auth : Better Auth les enverrait AVANT le refus de session.
     sendResetPassword: async ({ user, url }) => {
+      if (isBannedUser(user)) return
       await sendResetPassword({ to: user.email, url })
     },
   },
   emailVerification: {
     sendVerificationEmail: async ({ user, url }) => {
+      if (isBannedUser(user)) return
       await sendVerificationEmail({ to: user.email, url })
     },
     sendOnSignUp: true, // l'email part à l'inscription ; n'impose rien sans requireEmailVerification
