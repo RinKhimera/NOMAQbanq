@@ -109,7 +109,11 @@ export const NavSecondary = ({
                         : "hover:bg-muted/50",
                   )}
                 >
-                  <Link href={item.url} className="flex items-center gap-3">
+                  <Link
+                    href={item.url}
+                    prefetch={false}
+                    className="flex items-center gap-3"
+                  >
                     <item.icon
                       className={cn(
                         "size-4.5 transition-colors",
@@ -141,6 +145,7 @@ export const NavSecondary = ({
               >
                 <Link
                   href={navigationButton.href}
+                  prefetch={false}
                   className="flex items-center gap-2"
                 >
                   <IconCirclePlusFilled className="size-5" />

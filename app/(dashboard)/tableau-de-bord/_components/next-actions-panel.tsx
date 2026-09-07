@@ -218,7 +218,7 @@ export const NextActionsPanel = (props: NextActionsPanelProps) => {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.4, delay: 0.5 + index * 0.1 }}
             >
-              <Link href={action.href}>
+              <Link href={action.href} prefetch={false}>
                 <div
                   className={cn(
                     "group flex items-center justify-between rounded-xl border border-gray-200/50 bg-white/80 p-4 backdrop-blur-sm transition-all duration-300",

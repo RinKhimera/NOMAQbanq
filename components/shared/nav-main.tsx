@@ -27,6 +27,9 @@ interface NavMainProps {
 export const NavMain = ({ items, isAdmin = false }: NavMainProps) => {
   const pathname = usePathname()
 
+  // Routes dynamiques : un prefetch ne rapporte que le squelette (`loading.tsx`)
+  // mais coûte une invocation Vercel (layout + session Neon) par lien visible,
+  // rejouée à l'expiration du cache. Les `loading.tsx` couvrent la navigation.
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-1 px-2">
@@ -65,7 +68,11 @@ export const NavMain = ({ items, isAdmin = false }: NavMainProps) => {
                         : "hover:bg-muted/50",
                   )}
                 >
-                  <Link href={item.url} className="flex items-center gap-3">
+                  <Link
+                    href={item.url}
+                    prefetch={false}
+                    className="flex items-center gap-3"
+                  >
                     {item.icon && (
                       <item.icon
                         className={cn(

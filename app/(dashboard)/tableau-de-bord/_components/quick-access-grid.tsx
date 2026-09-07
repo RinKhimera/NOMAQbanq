@@ -68,6 +68,7 @@ export const QuickAccessGrid = () => {
           >
             <Link
               href={action.href}
+              prefetch={false}
               data-testid={`quick-access-${action.title}`}
             >
               <div
