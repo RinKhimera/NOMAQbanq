@@ -9,8 +9,8 @@ import type { NextRequest } from "next/server"
 // La zone protégée n'est PAS gardée ici mais dans les layouts `(dashboard)` /
 // `(admin)` (`requireSession` / `requireRole`) et dans chaque Server Action.
 // Ce proxy est une fonction facturée en CPU actif à CHAQUE requête qu'il
-// matche : un matcher large (`/api`, dashboard, prefetch…) a coûté ~60 % des
-// invocations du projet en 2026-09. Ne pas l'élargir.
+// matche : un matcher large (`/api`, dashboard, prefetch…) multiplie les
+// invocations sans rien garder de plus. Ne pas l'élargir.
 export default function proxy(request: NextRequest) {
   if (getSessionCookie(request)) {
     return NextResponse.redirect(new URL("/tableau-de-bord", request.url))
