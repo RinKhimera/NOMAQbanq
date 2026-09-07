@@ -56,7 +56,7 @@ export const OnboardingForm = ({
       })
 
       if (result.success) {
-        toast.success("Profil complété !")
+        toast.success("Profil enregistré, ouverture du tableau de bord…")
         // Un seul geste, volontairement. Le layout SERVEUR porte la sidebar et
         // la prop `hasUsername` du guard, et ne se re-rend pas sur une
         // navigation client ; or une navigation dispatchée pendant un refresh
