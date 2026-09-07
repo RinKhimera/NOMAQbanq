@@ -95,7 +95,7 @@ test.describe("Examen Blanc — page de résultats", () => {
     expect(before).toBeGreaterThan(0)
 
     await examenResultats.toggleFilterIncorrect()
-    // Small settle for framer-motion exit animations
+    // Small settle for motion exit animations
     await page.waitForTimeout(400)
 
     const after = await examenResultats.countVisibleQuestions()

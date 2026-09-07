@@ -12,7 +12,7 @@ import { uploadRateLimits } from "@/db/schema"
  * user ne peuvent plus dépasser la limite — le `SELECT … FOR UPDATE` les
  * sérialise) ; (b) plus résistant à l'abus (une requête qui spamme l'endpoint
  * est comptée même si l'upload échoue ensuite). Contrepartie acceptée : un
- * upload qui échoue côté Bunny consomme tout de même un slot (limites
+ * upload qui échoue côté S3 consomme tout de même un slot (limites
  * généreuses : 5/h avatars, 50/h images de questions).
  */
 

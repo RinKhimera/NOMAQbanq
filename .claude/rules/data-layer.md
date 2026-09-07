@@ -99,7 +99,7 @@ storagePath,order}` pour rester assignable aux composants partagés
 - **Avatars** : toujours `<UserAvatar name image className fallbackClassName>`
   (`components/shared/user-avatar.tsx`) — JAMAIS `AvatarImage src={user.image}`
   brut ni `next/image` sur `user.image` (valeur polymorphe : clé S3 brute
-  legacy, URL Google/CDN/Clerk morte, `data:`). Le primitif `ui/avatar.tsx` est
+  legacy, URL Google/CDN morte, `data:`). Le primitif `ui/avatar.tsx` est
   du shadcn stock, sans logique CDN. Initiales : `getInitials` (`lib/utils.ts`),
   ne pas dupliquer.
 - **Suppression de question = hybride** (`deleteQuestion`) : on TENTE le hard

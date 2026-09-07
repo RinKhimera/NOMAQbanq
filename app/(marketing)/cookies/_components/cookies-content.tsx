@@ -35,21 +35,22 @@ export const CookiesContent = () => {
         <ul className="list-disc space-y-2 pl-6">
           <li>
             <strong>Cookies essentiels :</strong> indispensables au
-            fonctionnement du site
+            fonctionnement du site (session de connexion, sécurité)
           </li>
           <li>
-            <strong>Cookies fonctionnels :</strong> améliorent votre expérience
-            utilisateur
+            <strong>Cookies fonctionnels :</strong> mémorisent vos préférences
+            d&apos;affichage
           </li>
           <li>
-            <strong>Cookies analytiques :</strong> nous aident à comprendre
-            comment vous utilisez le site
-          </li>
-          <li>
-            <strong>Cookies tiers :</strong> déposés par nos partenaires de
-            services
+            <strong>Cookies tiers :</strong> déposés par nos partenaires
+            uniquement lors d&apos;un paiement ou d&apos;une connexion avec un
+            compte Google
           </li>
         </ul>
+        <p>
+          NOMAQbanq n&apos;utilise actuellement aucun cookie analytique ni
+          publicitaire.
+        </p>
       </LegalSection>
 
       <LegalSection
@@ -64,16 +65,21 @@ export const CookiesContent = () => {
         </p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            <strong>Authentification (Clerk) :</strong> permettent de vous
-            identifier et maintenir votre session de connexion
+            <strong>Session de connexion :</strong> un cookie{" "}
+            <code>better-auth.session_token</code>, posé par l&apos;application
+            elle-même, vous identifie et maintient votre session. Il est
+            inaccessible aux scripts (HttpOnly) et transmis uniquement en HTTPS
           </li>
           <li>
-            <strong>Sécurité :</strong> protègent contre les attaques CSRF et
-            autres menaces
+            <strong>Sécurité :</strong> des cookies temporaires protègent le
+            flux de connexion avec un compte Google contre la falsification de
+            requête ; ils sont supprimés dès la connexion terminée
           </li>
           <li>
-            <strong>Préférences :</strong> mémorisent vos choix (thème
-            clair/sombre)
+            <strong>Préférences d&apos;affichage :</strong> l&apos;état ouvert
+            ou replié du menu latéral (<code>sidebar_state</code>). Le thème
+            clair/sombre est mémorisé dans le stockage local du navigateur, pas
+            dans un cookie
           </li>
         </ul>
         <p className="mt-4 rounded-lg bg-amber-50 p-4 text-sm dark:bg-amber-950/30">
@@ -85,22 +91,19 @@ export const CookiesContent = () => {
       <LegalSection
         id="analytiques"
         number={4}
-        title="Cookies analytiques"
+        title="Mesure d'audience et erreurs"
         accentColor="amber"
       >
         <p>
-          Ces cookies nous permettent de mesurer l&apos;audience du site et
-          d&apos;analyser son utilisation pour l&apos;améliorer :
+          NOMAQbanq n&apos;utilise actuellement aucun cookie de mesure
+          d&apos;audience. Les seules mesures d&apos;usage proviennent des
+          journaux techniques de notre hébergeur (Vercel), qui ne reposent sur
+          aucun cookie.
         </p>
-        <ul className="list-disc space-y-2 pl-6">
-          <li>Nombre de visiteurs et pages consultées</li>
-          <li>Temps passé sur chaque page</li>
-          <li>Parcours de navigation sur le site</li>
-          <li>Erreurs rencontrées par les utilisateurs</li>
-        </ul>
         <p>
-          Ces données sont anonymisées et ne permettent pas de vous identifier
-          personnellement.
+          Le suivi des erreurs techniques (Sentry) ne dépose pas de cookie : il
+          enregistre le contexte d&apos;une erreur (page, navigateur, compte
+          connecté) uniquement lorsqu&apos;elle survient, afin de la corriger.
         </p>
       </LegalSection>
 
@@ -116,17 +119,17 @@ export const CookiesContent = () => {
         </p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            <strong>Clerk :</strong> gestion de l&apos;authentification et des
-            sessions utilisateur
+            <strong>Stripe :</strong> traitement sécurisé des paiements. Ses
+            cookies sont déposés sur la page de paiement hébergée par Stripe,
+            pas sur nomaqbanq.ca
           </li>
           <li>
-            <strong>Stripe :</strong> traitement sécurisé des paiements
+            <strong>Google :</strong> uniquement si vous vous connectez avec un
+            compte Google, sur les pages de Google
           </li>
           <li>
-            <strong>Sentry :</strong> détection et suivi des erreurs techniques
-          </li>
-          <li>
-            <strong>Vercel :</strong> optimisation des performances et du cache
+            <strong>Vercel :</strong> hébergement du site ; ne dépose aucun
+            cookie de suivi
           </li>
         </ul>
         <p>
@@ -175,18 +178,15 @@ export const CookiesContent = () => {
         <p>La durée de conservation des cookies varie selon leur type :</p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            <strong>Cookies de session :</strong> supprimés à la fermeture du
-            navigateur
+            <strong>Session de connexion :</strong> 7 jours, prolongés à chaque
+            jour d&apos;utilisation ; supprimée dès votre déconnexion
           </li>
           <li>
-            <strong>Cookies d&apos;authentification :</strong> jusqu&apos;à 30
-            jours (selon vos préférences de connexion)
+            <strong>Cookies de sécurité (connexion Google) :</strong> quelques
+            minutes, le temps de la connexion
           </li>
           <li>
-            <strong>Cookies de préférences :</strong> jusqu&apos;à 1 an
-          </li>
-          <li>
-            <strong>Cookies analytiques :</strong> jusqu&apos;à 13 mois
+            <strong>Préférence du menu latéral :</strong> 7 jours
           </li>
         </ul>
       </LegalSection>

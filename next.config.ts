@@ -16,14 +16,6 @@ const nextConfig: NextConfig = {
         hostname: "images.pexels.com",
       },
       {
-        protocol: "https",
-        hostname: "img.clerk.com",
-      },
-      {
-        protocol: "https",
-        hostname: "images.clerk.dev",
-      },
-      {
         // Domaine par défaut de la distribution CloudFront — utile pour tester en
         // preview avant la bascule DNS (NEXT_PUBLIC_CDN_HOSTNAME=dxxxx.cloudfront.net).
         protocol: "https",

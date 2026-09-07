@@ -10,7 +10,7 @@ test.describe("Pages d'authentification", () => {
       timeout: 15_000,
     })
 
-    // Formulaire email/mot de passe Better Auth (plus de widget Clerk).
+    // Formulaire email/mot de passe Better Auth.
     await expect(page.getByTestId("auth-email")).toBeVisible()
     await expect(page.getByTestId("auth-password")).toBeVisible()
     await expect(page.getByTestId("auth-submit")).toBeVisible()
