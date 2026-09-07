@@ -378,7 +378,7 @@ export const QuestionImageUploader = ({
   }
 
   // Retire l'image de la liste locale (ré-indexe l'ordre). La suppression réelle
-  // du fichier sur le CDN Bunny est déléguée à `setQuestionImages` au moment de
+  // du fichier sur S3 est déléguée à `setQuestionImages` au moment de
   // l'enregistrement (chemins retirés calculés côté serveur).
   const handleRemove = (storagePath: string) => {
     onImagesChange((prev) =>

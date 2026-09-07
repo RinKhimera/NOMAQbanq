@@ -9,12 +9,12 @@ paths:
 Un indicateur par **type d'attente**. Cette table fait foi ; toute exception se
 justifie dans le code.
 
-| Type d'attente                                  | Indicateur                                                      | Jamais             |
-| ----------------------------------------------- | --------------------------------------------------------------- | ------------------ |
-| **Navigation** (le contenu n'existe pas encore) | Squelette à la forme du contenu (`loading.tsx` ou `<Suspense>`) | Spinner, overlay   |
-| **Rechargement en place** (filtre, tri, page)   | `<PendingRegion isPending>` — contenu conservé, grisé           | Squelette, spinner |
-| **Action utilisateur** (bouton, form, upload)   | `<Spinner size="sm">` DANS le déclencheur + `disabled`          | Écran d'attente    |
-| **Attente sur un tiers** (Stripe)               | Écran dédié plein cadre, texte explicite                        | —                  |
+| Type d'attente                                  | Indicateur                                                                                                                                            | Jamais             |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| **Navigation** (le contenu n'existe pas encore) | Squelette à la forme du contenu (`loading.tsx` ou `<Suspense>`) ; sans prefetch, `<LinkPendingIndicator>` dans le lien cliqué en attendant la réponse | Overlay            |
+| **Rechargement en place** (filtre, tri, page)   | `<PendingRegion isPending>` — contenu conservé, grisé                                                                                                 | Squelette, spinner |
+| **Action utilisateur** (bouton, form, upload)   | `<Spinner size="sm">` DANS le déclencheur + `disabled`                                                                                                | Écran d'attente    |
+| **Attente sur un tiers** (Stripe)               | Écran dédié plein cadre, texte explicite                                                                                                              | —                  |
 
 ## Invariants
 
@@ -106,14 +106,47 @@ revanche correct — c'est exactement ce qu'on écrirait.
 **À l'ajout d'une route authentifiée, vérifier de quel `loading.tsx` elle
 hérite** avant de conclure qu'elle n'en a pas besoin.
 
-## Le garde d'onboarding ne peut pas vivre dans un layout
+## Le garde d'onboarding lit la session du layout, sans la refetcher
 
 `OnboardingGuard` (`components/shared/onboarding-guard.tsx`) reste un composant
-client monté par `app/(dashboard)/layout.tsx`. Ne pas « simplifier » sa logique
-en la remontant dans le layout : un layout ne se re-rend pas à la navigation et
-n'a donc pas accès à `pathname`
-(`node_modules/next/dist/docs/.../layout.md:240`) — un utilisateur sans
-`username` quittant `/bienvenue` par la sidebar ne serait jamais ramené.
+client monté par `app/(dashboard)/layout.tsx`, parce qu'un layout n'a pas accès
+à `pathname` (`node_modules/next/dist/docs/.../layout.md:240`). Mais il ne lit
+PAS la session côté client : le layout la résout déjà et lui passe
+`hasUsername`. Un `useSession()` de plus = un `GET /api/auth/get-session`
+(invocation Vercel + Neon) sur chaque page du dashboard. Même règle pour
+`NavSecondary` (`isUserAdmin` vient de `DashboardShell`).
+
+Conséquence : la prop vient d'un layout qui **ne se re-rend pas à la navigation
+client**. La fin d'onboarding (`onboarding-form.tsx`) ne fait QUE
+`router.refresh()` — jamais un `router.replace()` derrière : une navigation
+dispatchée pendant un refresh en vol écarte ce refresh
+(`next/dist/client/components/app-router-instance.js`, « discarded »), la prop
+resterait fausse et le guard ferait ping-pong `/tableau-de-bord` ↔ `/bienvenue`.
+Le refresh rejoue lui-même le `redirect()` serveur de `bienvenue/page.tsx` avec
+un arbre frais ; à défaut, le guard navigue sur prop fraîche.
+
+## Liens à fort volume vers une route authentifiée : `prefetch={false}` + indicateur
+
+Toutes les routes sous `/tableau-de-bord` et `/admin` sont dynamiques : le
+prefetch par défaut d'un `<Link>` rend le layout côté serveur (→
+`requireSession` → Neon) pour chaque lien entré dans le viewport, et le rejoue
+à l'expiration du cache — une invocation Vercel par lien visible. Les liens
+présents sur chaque page ou en liste — sidebar (`nav-main`, `nav-secondary`) et
+accueil du dashboard (`quick-access-grid`, `next-actions-panel`,
+`recent-activity-feed`, un lien par activité) — sont donc en `prefetch={false}`.
+
+Le prix, à ne pas oublier : **sans prefetch, le squelette `loading.tsx` de la
+cible n'arrive qu'avec la réponse du serveur** (`loading.md` : « The Fallback UI
+is prefetched, making navigation immediate »). Le clic resterait sans retour
+visuel le temps du layout, réveil Neon compris. D'où `<LinkPendingIndicator />`
+(`components/shared/link-pending-indicator.tsx`, `useLinkStatus`) rendu DANS
+chaque lien concerné : le `Spinner` du socle, différé de 150 ms pour ne pas
+clignoter sur une navigation rapide. C'est l'exception assumée à « jamais de
+spinner pour une navigation ».
+
+Les liens de détail (panneaux admin, pages de résultats, paiement, profil)
+gardent le prefetch par défaut : volume négligeable, à mesurer après
+déploiement avant toute extension. Un nouveau lien suit la règle de sa surface.
 
 ## Couverture
 

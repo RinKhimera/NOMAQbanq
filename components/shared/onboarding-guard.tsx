@@ -2,28 +2,34 @@
 
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect } from "react"
-import { useCurrentUser } from "@/hooks/useCurrentUser"
 
-// Redirects authenticated users without a username to onboarding page.
-// If already onboarded and on the onboarding page, redirect to dashboard.
-export const OnboardingGuard = () => {
-  const { currentUser, isLoading } = useCurrentUser()
+const ONBOARDING_PATH = "/tableau-de-bord/bienvenue"
+
+type OnboardingGuardProps = {
+  hasUsername: boolean
+}
+
+// Reçoit l'état de la session résolue par le layout serveur : relire la session
+// côté client coûterait un `get-session` (invocation + Neon) à chaque page.
+// Le layout ne connaît pas `pathname`, d'où le composant client.
+//
+// Cette prop vient d'un layout qui ne se re-rend PAS à la navigation client :
+// la fin d'onboarding ne fait qu'un `router.refresh()`, jamais une navigation
+// enchaînée derrière (voir `onboarding-form.tsx`), sinon la prop resterait
+// fausse et ce guard renverrait en boucle vers l'onboarding.
+export const OnboardingGuard = ({ hasUsername }: OnboardingGuardProps) => {
   const pathname = usePathname()
   const router = useRouter()
 
   useEffect(() => {
-    if (isLoading) return
-    if (!currentUser) return // not logged in, let other auth logic handle
-
-    const hasUsername = !!currentUser.username
-    const onOnboarding = pathname === "/tableau-de-bord/bienvenue"
+    const onOnboarding = pathname === ONBOARDING_PATH
 
     if (!hasUsername && !onOnboarding) {
-      router.replace("/tableau-de-bord/bienvenue")
+      router.replace(ONBOARDING_PATH)
     } else if (hasUsername && onOnboarding) {
       router.replace("/tableau-de-bord")
     }
-  }, [currentUser, isLoading, pathname, router])
+  }, [hasUsername, pathname, router])
 
   return null
 }

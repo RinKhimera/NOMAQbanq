@@ -19,7 +19,9 @@ type SpinnerProps = {
 /**
  * Le seul spinner de l'application. Réservé aux attentes déclenchées par une
  * action de l'utilisateur (bouton, formulaire, upload) — jamais pour une
- * navigation, qui relève du squelette. Voir `.claude/rules/loading-ui.md`.
+ * navigation, qui relève du squelette, à une exception près : l'indicateur
+ * inline d'un lien sans prefetch (`LinkPendingIndicator`), le temps que la
+ * réponse arrive. Voir `.claude/rules/loading-ui.md`.
  */
 export const Spinner = ({
   size = "md",

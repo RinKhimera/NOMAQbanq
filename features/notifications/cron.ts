@@ -35,8 +35,10 @@ const ACCESS_REMINDER_LIMIT = 200
 const INACTIVITY_DAYS = 21
 // Consentement tacite LCAP : 6 mois après une demande (inscription) ou un achat.
 const CONSENT_WINDOW_DAYS = 183
-// Borne basse : l'appel du cron horaire (GitHub Actions) est limité dans le
-// temps ; un arriéré vidé d'un coup le dépasserait et déclencherait des retries.
+// Borne par EXÉCUTION (pas par cadence) : un appel du cron GitHub Actions est
+// limité dans le temps, un arriéré vidé d'un coup le dépasserait et
+// déclencherait des retries. À 8 appels/jour, débit maximal 400 relances/jour —
+// un ordre de grandeur au-dessus du besoin.
 const INACTIVITY_LIMIT = 50
 
 export type NotificationSweepResult = {
@@ -53,7 +55,7 @@ export type NotificationSweepResult = {
 // (par ligne).
 //
 // ⚠️ Concurrence : `close-expired` est frappé par DEUX schedulers (GitHub Actions
-// horaire + Vercel quotidien) qui se recouvrent à minuit UTC. Deux runs lisent le
+// toutes les 3 h + Vercel quotidien) qui se recouvrent à minuit UTC. Deux runs lisent le
 // même lot `IS NULL`. On CLAIM donc chaque ligne par un UPDATE gardé atomique
 // (`SET marqueur=now WHERE marqueur IS NULL RETURNING`) AVANT l'envoi : seul le
 // run qui gagne le claim envoie → jamais de double email (même idiome que la

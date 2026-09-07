@@ -5,7 +5,7 @@ import { env } from "@/lib/env/server"
 /**
  * Couche stockage médias (server-only) : config, sécurité des chemins, helpers
  * de chemins dérivés serveur, validation, et suppression best-effort. Les I/O
- * réseau S3 (presign, delete) sont dans `lib/aws.ts`. Porté de `lib/bunny.ts`.
+ * réseau S3 (presign, delete) sont dans `lib/aws.ts`.
  */
 
 /**

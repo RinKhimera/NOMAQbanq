@@ -4,6 +4,7 @@ import { type Icon as TablerIcon } from "@tabler/icons-react"
 import { type LucideIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -27,6 +28,10 @@ interface NavMainProps {
 export const NavMain = ({ items, isAdmin = false }: NavMainProps) => {
   const pathname = usePathname()
 
+  // Routes dynamiques : un prefetch ne rapporte que le squelette (`loading.tsx`)
+  // mais coûte une invocation Vercel (layout + session Neon) par lien visible,
+  // rejouée à l'expiration du cache. Sans prefetch, le squelette n'arrive
+  // qu'avec la réponse : `LinkPendingIndicator` donne le retour visuel d'ici là.
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-1 px-2">
@@ -65,7 +70,11 @@ export const NavMain = ({ items, isAdmin = false }: NavMainProps) => {
                         : "hover:bg-muted/50",
                   )}
                 >
-                  <Link href={item.url} className="flex items-center gap-3">
+                  <Link
+                    href={item.url}
+                    prefetch={false}
+                    className="flex items-center gap-3"
+                  >
                     {item.icon && (
                       <item.icon
                         className={cn(
@@ -78,6 +87,7 @@ export const NavMain = ({ items, isAdmin = false }: NavMainProps) => {
                       />
                     )}
                     <span>{item.title}</span>
+                    <LinkPendingIndicator className="ml-auto" />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

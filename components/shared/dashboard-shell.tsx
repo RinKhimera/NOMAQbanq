@@ -39,6 +39,7 @@ export const DashboardShell = ({
         navigation={navigation}
         homeUrl={homeUrl}
         isAdmin={isAdmin}
+        isUserAdmin={user.role === "admin"}
         userComponent={<GenericNavUser user={user} isAdmin={isAdmin} />}
       />
       <SidebarInset className={cn(isAdmin ? "admin-theme-bg" : "theme-bg")}>

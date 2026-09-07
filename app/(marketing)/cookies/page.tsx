@@ -15,7 +15,7 @@ const sections = [
   { id: "definition", title: "Qu'est-ce qu'un cookie ?" },
   { id: "types", title: "Types de cookies" },
   { id: "essentiels", title: "Cookies essentiels" },
-  { id: "analytiques", title: "Cookies analytiques" },
+  { id: "analytiques", title: "Mesure d'audience et erreurs" },
   { id: "tiers", title: "Cookies tiers" },
   { id: "gestion", title: "Gestion des préférences" },
   { id: "duree", title: "Durée de conservation" },

@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 setup.describe.configure({ mode: "serial" })
 
 // Connexion via le formulaire Better Auth réel (email/mot de passe), puis
-// sauvegarde du cookie de session dans le storageState. Remplace `clerk.signIn`.
+// sauvegarde du cookie de session dans le storageState.
 const signIn = async (page: Page, email: string, password: string) => {
   await page.goto("/connexion")
   await page.getByTestId("auth-email").fill(email)

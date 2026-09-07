@@ -8,6 +8,7 @@ import { type LucideIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as React from "react"
+import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -15,7 +16,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { cn } from "@/lib/utils"
 
 type IconType = TablerIcon | LucideIcon
@@ -28,37 +28,40 @@ interface NavSecondaryProps extends React.ComponentPropsWithoutRef<
     url: string
     icon: IconType
   }[]
+  /** Variante admin du shell (thème, sens des liens). */
   isAdmin?: boolean
+  /** Rôle de l'utilisateur, fourni par le layout serveur — un admin sur le
+   *  dashboard étudiant a `isAdmin=false` et `isUserAdmin=true`. */
+  isUserAdmin: boolean
 }
 
 export const NavSecondary = ({
   items,
   isAdmin = false,
+  isUserAdmin,
   ...props
 }: NavSecondaryProps) => {
   const pathname = usePathname()
-  const { currentUser } = useCurrentUser()
-  const isCurrentUserAdmin = currentUser?.role === "admin"
 
   const isOnAdminPage = pathname.startsWith("/admin")
   const isOnDashboardPage = pathname.startsWith("/tableau-de-bord")
 
   const getNavigationButton = () => {
-    if (isOnAdminPage && isCurrentUserAdmin) {
+    if (isOnAdminPage && isUserAdmin) {
       return {
         href: "/tableau-de-bord",
         text: "Aller au Dashboard",
         theme:
           "bg-linear-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md shadow-blue-500/25",
       }
-    } else if (isOnDashboardPage && isCurrentUserAdmin) {
+    } else if (isOnDashboardPage && isUserAdmin) {
       return {
         href: "/admin",
         text: "Aller à l'Admin",
         theme:
           "bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md shadow-orange-500/25",
       }
-    } else if (isOnDashboardPage && !isCurrentUserAdmin) {
+    } else if (isOnDashboardPage && !isUserAdmin) {
       return null
     }
 
@@ -109,7 +112,11 @@ export const NavSecondary = ({
                         : "hover:bg-muted/50",
                   )}
                 >
-                  <Link href={item.url} className="flex items-center gap-3">
+                  <Link
+                    href={item.url}
+                    prefetch={false}
+                    className="flex items-center gap-3"
+                  >
                     <item.icon
                       className={cn(
                         "size-4.5 transition-colors",
@@ -120,6 +127,7 @@ export const NavSecondary = ({
                       )}
                     />
                     <span>{item.title}</span>
+                    <LinkPendingIndicator className="ml-auto" />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -141,10 +149,12 @@ export const NavSecondary = ({
               >
                 <Link
                   href={navigationButton.href}
+                  prefetch={false}
                   className="flex items-center gap-2"
                 >
                   <IconCirclePlusFilled className="size-5" />
                   <span className="font-medium">{navigationButton.text}</span>
+                  <LinkPendingIndicator className="ml-auto" />
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

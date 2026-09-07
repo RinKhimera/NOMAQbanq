@@ -97,6 +97,7 @@ constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 - **ESM** : `"type": "module"` — pas de `__dirname`, utiliser `fileURLToPath(import.meta.url)`
 - **Env** : valide via zod (`lib/env/schema.ts`) ; nouvelles vars optionnelles + erreur claire a l'usage. `.env.local` est GÉNÉRÉ (`bun run env:sync` depuis le scope Vercel Development) : nouvelle var = `vercel env add <KEY> development` d'abord, pas d'édition manuelle durable
 - **data-testid** : Obligatoire sur composants quiz interactifs (`components/quiz/`). Convention : `answer-option-{index}`, `btn-next`, `btn-previous`, `btn-flag`, `btn-finish`
+- **Usage Vercel (Hobby, 4 h d'Active CPU/mois)** : chaque invocation compte, proxy inclus. `proxy.ts` ne matche que `/`, `/a-propos`, `/domaines` **avec cookie de session** — la zone protégée est gardée par les layouts, ne pas ré-élargir le matcher (verrou : `tests/proxy.test.ts`). Prefetch et session côté client : `.claude/rules/loading-ui.md`. Sentry serveur : `lib/sentry-sampling.ts`. Diagnostic : MCP `vercel` (`get_runtime_logs` `group_by: source`), page Usage. Spec : `docs/superpowers/specs/2026-09-06-usage-vercel-design.md`
 
 ## Instruction Routing
 

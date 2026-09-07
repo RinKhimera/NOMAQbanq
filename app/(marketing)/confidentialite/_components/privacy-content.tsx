@@ -97,15 +97,19 @@ export const PrivacyContent = () => {
         </p>
         <ul className="list-disc space-y-2 pl-6">
           <li>
-            <strong>Prestataires techniques :</strong> Neon (hébergement de
-            données), AWS (courriels et médias), Vercel (hébergement web)
+            <strong>Prestataires techniques :</strong> Neon (base de données),
+            Amazon Web Services (envoi des courriels, stockage et diffusion des
+            médias), Vercel (hébergement web), Sentry (suivi des erreurs
+            techniques : contexte de l&apos;erreur et reconstitution de
+            l&apos;écran au moment où elle survient)
           </li>
           <li>
             <strong>Prestataire de paiement :</strong> Stripe
           </li>
           <li>
-            <strong>Outils d&apos;analyse :</strong> pour comprendre
-            l&apos;utilisation de la plateforme
+            <strong>Connexion avec un compte Google :</strong> si vous
+            choisissez ce mode de connexion, Google nous transmet votre nom,
+            votre adresse courriel et votre photo de profil
           </li>
           <li>
             <strong>Autorités compétentes :</strong> en cas d&apos;obligation
@@ -113,8 +117,9 @@ export const PrivacyContent = () => {
           </li>
         </ul>
         <p>
-          Nous ne vendons jamais vos données personnelles à des tiers à des fins
-          commerciales.
+          Nous n&apos;utilisons actuellement aucun outil d&apos;analyse
+          d&apos;audience tiers. Nous ne vendons jamais vos données personnelles
+          à des tiers à des fins commerciales.
         </p>
       </LegalSection>
 
@@ -131,7 +136,11 @@ export const PrivacyContent = () => {
         <ul className="list-disc space-y-2 pl-6">
           <li>Chiffrement des données en transit (HTTPS/TLS)</li>
           <li>Chiffrement des données sensibles au repos</li>
-          <li>Authentification sécurisée via Clerk</li>
+          <li>
+            Authentification gérée par l&apos;application elle-même : mots de
+            passe hachés (jamais conservés en clair), sessions enregistrées dans
+            notre base de données, connexion avec un compte Google en option
+          </li>
           <li>
             Accès restreint aux données sur la base du besoin d&apos;en
             connaître
@@ -218,7 +227,8 @@ export const PrivacyContent = () => {
         <p>
           Certaines de vos données peuvent être transférées et traitées en
           dehors du Québec et du Canada, notamment aux États-Unis, par nos
-          prestataires de services (Neon, AWS, Stripe, Vercel).
+          prestataires de services (Neon, Amazon Web Services, Stripe, Vercel,
+          Sentry et, si vous vous connectez avec un compte Google, Google).
         </p>
         <p>
           Ces transferts sont encadrés par des garanties appropriées, notamment

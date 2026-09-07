@@ -24,6 +24,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   homeUrl: string
   userComponent: React.ReactNode
   isAdmin?: boolean
+  isUserAdmin: boolean
 }
 
 export const AppSidebar = ({
@@ -31,6 +32,7 @@ export const AppSidebar = ({
   homeUrl,
   userComponent,
   isAdmin = false,
+  isUserAdmin,
   ...props
 }: AppSidebarProps) => {
   const pathname = usePathname()
@@ -103,6 +105,7 @@ export const AppSidebar = ({
         <NavSecondary
           items={navigation.navSecondary}
           isAdmin={isAdmin}
+          isUserAdmin={isUserAdmin}
           className="mt-auto"
         />
       </SidebarContent>

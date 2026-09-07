@@ -13,7 +13,7 @@ export default async function DashboardLayout({
 
   return (
     <>
-      <OnboardingGuard />
+      <OnboardingGuard hasUsername={!!session.user.username} />
       <DashboardShell variant="user" user={toSessionUser(session)}>
         {children}
       </DashboardShell>
