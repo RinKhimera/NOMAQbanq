@@ -15,7 +15,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { cn } from "@/lib/utils"
 
 type IconType = TablerIcon | LucideIcon
@@ -28,37 +27,40 @@ interface NavSecondaryProps extends React.ComponentPropsWithoutRef<
     url: string
     icon: IconType
   }[]
+  /** Variante admin du shell (thème, sens des liens). */
   isAdmin?: boolean
+  /** Rôle de l'utilisateur, fourni par le layout serveur — un admin sur le
+   *  dashboard étudiant a `isAdmin=false` et `isUserAdmin=true`. */
+  isUserAdmin: boolean
 }
 
 export const NavSecondary = ({
   items,
   isAdmin = false,
+  isUserAdmin,
   ...props
 }: NavSecondaryProps) => {
   const pathname = usePathname()
-  const { currentUser } = useCurrentUser()
-  const isCurrentUserAdmin = currentUser?.role === "admin"
 
   const isOnAdminPage = pathname.startsWith("/admin")
   const isOnDashboardPage = pathname.startsWith("/tableau-de-bord")
 
   const getNavigationButton = () => {
-    if (isOnAdminPage && isCurrentUserAdmin) {
+    if (isOnAdminPage && isUserAdmin) {
       return {
         href: "/tableau-de-bord",
         text: "Aller au Dashboard",
         theme:
           "bg-linear-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md shadow-blue-500/25",
       }
-    } else if (isOnDashboardPage && isCurrentUserAdmin) {
+    } else if (isOnDashboardPage && isUserAdmin) {
       return {
         href: "/admin",
         text: "Aller à l'Admin",
         theme:
           "bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md shadow-orange-500/25",
       }
-    } else if (isOnDashboardPage && !isCurrentUserAdmin) {
+    } else if (isOnDashboardPage && !isUserAdmin) {
       return null
     }
 
