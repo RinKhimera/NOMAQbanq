@@ -23,10 +23,12 @@ Sentry.init({
     }),
   ],
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: process.env.NODE_ENV === "production" ? 0.15 : 1,
-  // Enable logs to be sent to Sentry
-  enableLogs: true,
+  // 5 % suffit à voir les tendances de performance ; chaque trace transite par
+  // le tunnel `/monitoring` et consomme le quota Sentry Developer. Le serveur
+  // hérite de cette décision pour les traces qu'il reçoit du navigateur.
+  tracesSampleRate: process.env.NODE_ENV === "production" ? 0.05 : 1,
+  // Aucun émetteur de log Sentry dans le code : option fermée, sans gain attendu.
+  enableLogs: false,
 
   // Mode buffer pur : aucune session enregistree tant qu'aucune erreur ne
   // survient. Le plan Developer plafonne a 50 replays/mois ; un taux de session
