@@ -24,7 +24,6 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { updateProfile } from "@/features/users/actions"
-import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { UserFormValues, userFormSchema } from "@/schemas/user"
 
 type OnboardingFormProps = {
@@ -36,7 +35,6 @@ export const OnboardingForm = ({
   defaultName,
   defaultBio,
 }: OnboardingFormProps) => {
-  const { refetch } = useCurrentUser()
   const router = useRouter()
 
   // Valeurs initiales rendues côté serveur : plus d'effet de préremplissage,
@@ -59,12 +57,14 @@ export const OnboardingForm = ({
 
       if (result.success) {
         toast.success("Profil complété !")
-        await refetch({ query: { disableCookieCache: true } }).catch(() => {})
-        // `refresh()` obligatoire : la sidebar est rendue par le layout SERVEUR,
-        // et un layout partagé ne se re-rend pas sur une navigation client —
-        // sans ça le nom affiché reste celui d'avant.
+        // Un seul geste, volontairement. Le layout SERVEUR porte la sidebar et
+        // la prop `hasUsername` du guard, et ne se re-rend pas sur une
+        // navigation client ; or une navigation dispatchée pendant un refresh
+        // en vol ÉCARTE ce refresh (file d'actions du routeur Next) → prop
+        // périmée → ping-pong avec `/bienvenue`. Le refresh rejoue lui-même le
+        // `redirect()` serveur de la page avec un arbre frais ; à défaut, le
+        // guard navigue sur prop fraîche.
         router.refresh()
-        router.replace("/tableau-de-bord")
       } else {
         toast.error(result.error)
       }

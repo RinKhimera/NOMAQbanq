@@ -3,10 +3,8 @@ import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { OnboardingForm } from "@/app/(dashboard)/tableau-de-bord/bienvenue/_components/onboarding-form"
 import { updateProfile } from "@/features/users/actions"
-import { useCurrentUser } from "@/hooks/useCurrentUser"
-import { createMockBetterAuthUser, mockRouter } from "../helpers/mocks"
+import { mockRouter } from "../helpers/mocks"
 
-vi.mock("@/hooks/useCurrentUser", () => ({ useCurrentUser: vi.fn() }))
 vi.mock("next/navigation", () => ({ useRouter: vi.fn() }))
 vi.mock("@/features/users/actions", () => ({ updateProfile: vi.fn() }))
 vi.mock("sonner", () => ({
@@ -18,28 +16,13 @@ vi.mock("sonner", () => ({
 // tests/components/OnboardingGuard.test.tsx.
 describe("OnboardingForm (page bienvenue)", () => {
   const mockReplace = vi.fn()
-  const mockRefetch = vi.fn()
-
-  const setUser = (username: string | null) =>
-    vi.mocked(useCurrentUser).mockImplementation(
-      () =>
-        ({
-          currentUser: createMockBetterAuthUser({
-            username,
-            name: "N.M.Y",
-            bio: null,
-          }),
-          isLoading: false,
-          isAuthenticated: true,
-          refetch: mockRefetch,
-        }) as unknown as ReturnType<typeof useCurrentUser>,
-    )
+  const mockRefresh = vi.fn()
 
   beforeEach(() => {
     vi.clearAllMocks()
-    mockRefetch.mockResolvedValue(undefined)
-    vi.mocked(useRouter).mockReturnValue(mockRouter({ replace: mockReplace }))
-    setUser(null)
+    vi.mocked(useRouter).mockReturnValue(
+      mockRouter({ replace: mockReplace, refresh: mockRefresh }),
+    )
   })
 
   it("laisse saisir le username sans l'effacer (pas de boucle de reset)", () => {
@@ -53,7 +36,7 @@ describe("OnboardingForm (page bienvenue)", () => {
     expect(username.value).toBe("youssouf123")
   })
 
-  it("resynchronise la session puis redirige après soumission réussie", async () => {
+  it("rafraîchit le layout serveur après soumission réussie, sans naviguer lui-même", async () => {
     vi.mocked(updateProfile).mockResolvedValue({ success: true })
 
     render(<OnboardingForm defaultName="" defaultBio="" />)
@@ -72,17 +55,10 @@ describe("OnboardingForm (page bienvenue)", () => {
       ),
     )
 
-    await waitFor(() =>
-      expect(mockRefetch).toHaveBeenCalledWith({
-        query: { disableCookieCache: true },
-      }),
-    )
-    await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalledWith("/tableau-de-bord"),
-    )
-    expect(mockRefetch.mock.invocationCallOrder[0]).toBeLessThan(
-      mockReplace.mock.invocationCallOrder[0],
-    )
+    await waitFor(() => expect(mockRefresh).toHaveBeenCalledTimes(1))
+    // La navigation appartient au redirect serveur rejoué par le refresh, ou
+    // au guard sur prop fraîche : un `replace()` ici écarterait le refresh.
+    expect(mockReplace).not.toHaveBeenCalled()
   })
 
   it("ne navigue pas si la soumission échoue", async () => {
@@ -102,7 +78,7 @@ describe("OnboardingForm (page bienvenue)", () => {
     fireEvent.click(screen.getByRole("button", { name: /terminer/i }))
 
     await waitFor(() => expect(updateProfile).toHaveBeenCalled())
-    expect(mockRefetch).not.toHaveBeenCalled()
+    expect(mockRefresh).not.toHaveBeenCalled()
     expect(mockReplace).not.toHaveBeenCalled()
   })
 
