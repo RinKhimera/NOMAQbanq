@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
+import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -258,6 +259,7 @@ export const NextActionsPanel = (props: NextActionsPanelProps) => {
                     <span className="mr-1">Commencer</span>
                     <ChevronRight className="h-4 w-4" />
                   </Button>
+                  <LinkPendingIndicator className="ml-3" />
                 </div>
               </Link>
             </motion.div>

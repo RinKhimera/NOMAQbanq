@@ -9,6 +9,7 @@ import {
 } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
+import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -69,6 +70,7 @@ export const RecentActivityFeed = ({
           >
             Voir tout
             <ChevronRight className="h-4 w-4" />
+            <LinkPendingIndicator />
           </Link>
         )}
       </div>
@@ -96,6 +98,7 @@ export const RecentActivityFeed = ({
                   prefetch={false}
                 >
                   <div className="group relative flex items-center gap-4 rounded-xl border border-gray-200/50 bg-white/80 p-4 backdrop-blur-sm transition-all duration-300 hover:border-gray-300 hover:shadow-md dark:border-gray-700/50 dark:bg-gray-900/80 dark:hover:border-gray-600">
+                    <LinkPendingIndicator className="absolute top-3 right-3" />
                     {/* Timeline dot */}
                     <div className="absolute top-1/2 -left-0.75 -translate-y-1/2">
                       <div
@@ -170,6 +173,7 @@ export const RecentActivityFeed = ({
             <Button asChild className="mt-4 bg-blue-500 hover:bg-blue-600">
               <Link href="/tableau-de-bord/examen-blanc" prefetch={false}>
                 Passer un examen
+                <LinkPendingIndicator className="ml-2" />
               </Link>
             </Button>
           </div>

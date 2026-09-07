@@ -8,6 +8,7 @@ import { type LucideIcon } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as React from "react"
+import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -126,6 +127,7 @@ export const NavSecondary = ({
                       )}
                     />
                     <span>{item.title}</span>
+                    <LinkPendingIndicator className="ml-auto" />
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -152,6 +154,7 @@ export const NavSecondary = ({
                 >
                   <IconCirclePlusFilled className="size-5" />
                   <span className="font-medium">{navigationButton.text}</span>
+                  <LinkPendingIndicator className="ml-auto" />
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

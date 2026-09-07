@@ -7,6 +7,7 @@ import { NavSecondary } from "@/components/shared/nav-secondary"
 const linkProps = vi.fn()
 
 vi.mock("next/link", () => ({
+  useLinkStatus: () => ({ pending: false }),
   default: ({
     children,
     href,

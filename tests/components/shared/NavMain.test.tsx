@@ -7,6 +7,7 @@ import { NavMain } from "@/components/shared/nav-main"
 const linkProps = vi.fn()
 
 vi.mock("next/link", () => ({
+  useLinkStatus: () => ({ pending: false }),
   default: ({
     children,
     href,

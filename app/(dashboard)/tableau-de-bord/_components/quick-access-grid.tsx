@@ -3,6 +3,7 @@
 import { Brain, ChevronRight, GraduationCap, User } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
+import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { cn } from "@/lib/utils"
 
 const quickActions = [
@@ -82,6 +83,7 @@ export const QuickAccessGrid = () => {
                   transformStyle: "preserve-3d",
                 }}
               >
+                <LinkPendingIndicator className="absolute top-4 right-4 z-10" />
                 {/* Glow effect on hover */}
                 <div
                   className={cn(
