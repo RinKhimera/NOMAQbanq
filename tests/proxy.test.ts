@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { getCookies } from "better-auth/cookies"
 import { NextRequest } from "next/server"
 import { describe, expect, it } from "vitest"
 import proxy, { config } from "@/proxy"
@@ -51,10 +52,12 @@ describe("proxy", () => {
   })
 
   it("ne s'exécute que pour un porteur de cookie sur les trois pages vitrine — ne pas élargir sans lire la spec 2026-09-06", () => {
-    const sessionCookies = [
-      "__Secure-better-auth.session_token",
-      "better-auth.session_token",
-    ]
+    // Nom calculé par Better Auth : `lib/auth.ts` n'a aucune option `advanced`,
+    // donc `{}` reproduit sa configuration. Le jour où elle en reçoit une, la
+    // passer ici — un changement de préfixe doit casser ce test, pas rendre le
+    // proxy silencieusement inerte.
+    const { sessionToken } = getCookies({})
+    const sessionCookies = [`__Secure-${sessionToken.name}`, sessionToken.name]
     expect(config.matcher).toEqual(
       ["/", "/a-propos", "/domaines"].flatMap((source) =>
         sessionCookies.map((key) => ({

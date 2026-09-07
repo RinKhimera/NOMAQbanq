@@ -21,7 +21,10 @@ export default function proxy(request: NextRequest) {
 // `has` cookie sans `value` = test de présence, évalué avant d'invoquer la
 // fonction : bots et anonymes (la majorité du trafic de `/`) ne la réveillent
 // plus. Deux noms : `__Secure-` en HTTPS, nu en HTTP. Littéraux obligatoires
-// (analyse statique au build), d'où la répétition.
+// (analyse statique au build), d'où la répétition. Les noms sont les défauts
+// de Better Auth (`getCookies`, better-auth/cookies) : toute option
+// `advanced.cookiePrefix` / `cookies.session_token.name` ajoutée à `lib/auth.ts`
+// se répercute ici — `tests/proxy.test.ts` le vérifie.
 export const config = {
   matcher: [
     {
