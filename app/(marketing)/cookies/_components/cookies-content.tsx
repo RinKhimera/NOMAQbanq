@@ -101,9 +101,12 @@ export const CookiesContent = () => {
           aucun cookie.
         </p>
         <p>
-          Le suivi des erreurs techniques (Sentry) ne dépose pas de cookie : il
-          enregistre le contexte d&apos;une erreur (page, navigateur, compte
-          connecté) uniquement lorsqu&apos;elle survient, afin de la corriger.
+          Le suivi des erreurs techniques (Sentry) ne dépose pas de cookie.
+          Lorsqu&apos;une erreur survient, il reçoit le contexte technique
+          (page, navigateur, adresse IP, identifiant et adresse courriel du
+          compte connecté) ainsi qu&apos;une reconstitution des dernières
+          secondes de votre navigation (contenu affiché à l&apos;écran, clics,
+          défilement), afin de reproduire et corriger le problème.
         </p>
       </LegalSection>
 

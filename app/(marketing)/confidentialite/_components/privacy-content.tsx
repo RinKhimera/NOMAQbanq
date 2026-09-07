@@ -100,7 +100,8 @@ export const PrivacyContent = () => {
             <strong>Prestataires techniques :</strong> Neon (base de données),
             Amazon Web Services (envoi des courriels, stockage et diffusion des
             médias), Vercel (hébergement web), Sentry (suivi des erreurs
-            techniques)
+            techniques : contexte de l&apos;erreur et reconstitution de
+            l&apos;écran au moment où elle survient)
           </li>
           <li>
             <strong>Prestataire de paiement :</strong> Stripe
