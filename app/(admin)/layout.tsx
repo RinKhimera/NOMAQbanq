@@ -2,8 +2,8 @@ import { DashboardShell } from "@/components/shared/dashboard-shell"
 import { requireRole } from "@/lib/auth-guards"
 import { toSessionUser } from "@/lib/session-user"
 
-// Garde SERVEUR (la vraie barrière) : redirige tout non-admin avant le moindre rendu.
-// Le proxy.ts ne fait qu'un check optimiste de cookie ; l'autorisation fait foi ICI.
+// Garde SERVEUR (la seule barrière de la zone) : redirige tout non-admin avant
+// le moindre rendu. `proxy.ts` ne couvre pas cette zone.
 export default async function AdminLayout({
   children,
 }: {

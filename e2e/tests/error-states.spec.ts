@@ -46,8 +46,8 @@ test.describe("Pages d'erreur", () => {
     // Navigate to a protected page without auth (chromium project)
     await page.goto("/tableau-de-bord")
 
-    // Should either redirect to sign-in or show auth content
-    await expect(page).toHaveURL(/\/connexion|\/tableau-de-bord/, {
+    // Redirection servie par le layout (dashboard), plus par le proxy.
+    await expect(page).toHaveURL(/\/connexion/, {
       timeout: 15_000,
     })
   })
