@@ -44,7 +44,6 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
       bookmarked: 1,
     })),
     pickRevisionQuestionIds: vi.fn(async () => ["q1"]),
-    resolveRevisionLock: vi.fn(async () => new Set<string>()),
   }
 
   const table = (name: string) => ({ __table: name })
@@ -111,7 +110,6 @@ vi.mock("@/features/training/dal", () => ({
 vi.mock("@/features/training/revision", () => ({
   getRevisionCounts: mocks.getRevisionCounts,
   pickRevisionQuestionIds: mocks.pickRevisionQuestionIds,
-  resolveRevisionLock: mocks.resolveRevisionLock,
 }))
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(async () => mocks.session.current),
@@ -170,9 +168,10 @@ describe("lectures gardees", () => {
 
   it("loadRevisionCounts : portee valide → compteurs de l'utilisateur courant", async () => {
     const res = await loadRevisionCounts({ domain: "Cardiologie" })
-    expect(mocks.getRevisionCounts).toHaveBeenCalledWith("u1", {
-      domain: "Cardiologie",
-    })
+    expect(mocks.getRevisionCounts).toHaveBeenCalledWith(
+      { id: "u1", role: "user" },
+      { domain: "Cardiologie" },
+    )
     expect(res).toEqual({ failed: 3, unseen: 2, bookmarked: 1 })
   })
 
@@ -218,14 +217,19 @@ describe("createTrainingSession", () => {
     expect(mocks.hasAccess).not.toHaveBeenCalled()
   })
 
-  it("revision : verrouille les questions d'examen ouvert avant la transaction", async () => {
+  // Le verrou anti-triche vit dans le tirage lui-meme (excludeLocked) : l'action
+  // doit transmettre le lecteur, role compris, sans rien resoudre avant.
+  it("revision : transmet le lecteur au tirage", async () => {
+    runCallback()
+    setRows({ trainingSessions: [], user: [{ id: "u1" }] })
     await createTrainingSession({ ...input, revisionFilters: ["failed"] })
-    expect(mocks.resolveRevisionLock).toHaveBeenCalledWith("u1")
-  })
-
-  it("hors revision : aucun verrou d'examen a resoudre", async () => {
-    await createTrainingSession(input)
-    expect(mocks.resolveRevisionLock).not.toHaveBeenCalled()
+    expect(mocks.pickRevisionQuestionIds).toHaveBeenCalledWith(
+      fakeDb,
+      expect.objectContaining({
+        viewer: { id: "u1", role: "user" },
+        criteria: ["failed"],
+      }),
+    )
   })
 
   it("succes : renvoie le nombre REELLEMENT retenu", async () => {

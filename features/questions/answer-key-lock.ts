@@ -1,4 +1,4 @@
-import { and, eq, gt, inArray } from "drizzle-orm"
+import { type SQL, and, eq, gt, inArray, sql } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
 import { examParticipations, examQuestions, exams } from "@/db/schema"
@@ -17,13 +17,14 @@ import { examParticipations, examQuestions, exams } from "@/db/schema"
  * `viewer`), quelles questions sont retenues, et ce que « retenir » blanchit.
  */
 
-export type LockViewer = { id: string; role: "user" | "admin" } | "anonymous"
+export type LockUser = { id: string; role: "user" | "admin" }
+export type LockViewer = LockUser | "anonymous"
 
 /** Projection d'un utilisateur de session Better Auth en lecteur du verrou. */
 export const viewerOf = (user: {
   id: string
   role?: string | null
-}): LockViewer => ({
+}): LockUser => ({
   id: user.id,
   role: user.role === "admin" ? "admin" : "user",
 })
@@ -116,4 +117,29 @@ export const lockFor = async (
             and(eq(examParticipations.userId, viewer.id), isOpen, inCandidates),
           )
   return AnswerKeyLock.fromIds(rows.map((r) => r.questionId))
+}
+
+/**
+ * Même règle que `lockFor`, mais appliquée à la SÉLECTION : un prédicat à
+ * insérer dans le WHERE d'un tirage (corpus de révision, quiz public), pour
+ * qu'une question retenue n'entre jamais dans un lot — son appartenance au
+ * lot « mes ratées » dirait déjà « tu t'es trompé ». Corrélé sur
+ * `questionId` (colonne de la requête appelante), donc ni liste d'ids à
+ * résoudre au préalable, ni lecture non bornée.
+ */
+export const excludeLocked = (viewer: LockViewer, questionId: SQL): SQL => {
+  if (viewer !== "anonymous" && viewer.role === "admin") return sql`true`
+  const participation =
+    viewer === "anonymous"
+      ? sql``
+      : sql`join exam_participations akl_p
+              on akl_p.exam_id = akl_q.exam_id and akl_p.user_id = ${viewer.id}`
+  return sql`not exists (
+    select 1
+      from exam_questions akl_q
+      join exams akl_e on akl_e.id = akl_q.exam_id
+      ${participation}
+     where akl_q.question_id = ${questionId}
+       and akl_e.end_date > now()
+  )`
 }

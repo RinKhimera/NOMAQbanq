@@ -28,7 +28,6 @@ import {
   type RevisionCounts,
   getRevisionCounts,
   pickRevisionQuestionIds,
-  resolveRevisionLock,
 } from "./revision"
 import {
   type CreateTrainingSessionInput,
@@ -70,7 +69,7 @@ export const loadRevisionCounts = async (
   const session = await requireSession()
   const parsed = revisionCountsScopeSchema.safeParse(args)
   if (!parsed.success) return { failed: 0, unseen: 0, bookmarked: 0 }
-  return getRevisionCounts(session.user.id, parsed.data)
+  return getRevisionCounts(viewerOf(session.user), parsed.data)
 }
 
 /** [Auth] Objectifs CMC filtrés par domaine (re-requête du formulaire). */
@@ -134,11 +133,6 @@ export const createTrainingSession = async (
     const expiresAt = new Date(now.getTime() + SESSION_EXPIRATION_MS)
     const sessionId = createId()
 
-    // Résolu HORS transaction : une requête sur le `db` global depuis l'intérieur
-    // réclamerait une 2e connexion au pool (max 5, sans timeout d'acquisition)
-    // → interblocage à cinq créations concurrentes.
-    const lockedIds = isRevision ? await resolveRevisionLock(userId) : []
-
     // Verrou de ligne user : sérialise les créations concurrentes du même
     // utilisateur. Rate-limit + « session déjà en cours » + sélection + insert
     // deviennent atomiques (sinon, deux requêtes simultanées → 2 sessions
@@ -192,12 +186,11 @@ export const createTrainingSession = async (
       let picked: { id: string }[]
       if (isRevision) {
         const ids = await pickRevisionQuestionIds(tx, {
-          userId,
+          viewer: viewerOf(session.user),
           criteria,
           domain,
           objectifsCMCs,
           limit: questionCount,
-          lockedIds,
         })
         if (ids.length === 0) throw new Error("EMPTY_REVISION")
         picked = ids.map((id) => ({ id }))

@@ -20,7 +20,6 @@ import {
 import {
   getRevisionCounts,
   pickRevisionQuestionIds,
-  resolveRevisionLock,
 } from "@/features/training/revision"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
@@ -31,15 +30,22 @@ vi.mock("react", async (orig) => {
 })
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
+vi.mock("@/features/payments/dal", () => ({
+  hasAccess: vi.fn(async () => true),
+}))
 
+// Session « user » (pas admin) : un admin n'est pas soumis au verrou de clé de
+// réponse, et ce fichier prouve justement ce verrou. La garde payante est
+// doublée : ce fichier teste le corpus, pas les accès.
 const asUser = (id: string) =>
   vi
     .mocked(getCurrentSession)
-    .mockResolvedValue({ user: { id, role: "admin" } } as never)
+    .mockResolvedValue({ user: { id, role: "user" } } as never)
 
 const suffix = createId().slice(0, 8)
 const USER_ID = createId()
 const OTHER_USER_ID = createId()
+const AS_USER = { id: USER_ID, role: "user" as const }
 const DOMAIN = `RC-${suffix}`
 const OBJ = `Obj RC ${suffix}`
 // Deuxième objectif, porté par la seule question d'index 4 : exerce la branche
@@ -215,8 +221,7 @@ afterAll(async () => {
 describe("corpus de révision", () => {
   it("« ratée » = dernière tentative fausse (une réussite ultérieure la retire)", async () => {
     const ids = await pickRevisionQuestionIds(db, {
-      userId: USER_ID,
-      lockedIds: await resolveRevisionLock(USER_ID),
+      viewer: AS_USER,
       criteria: ["failed"],
       domain: DOMAIN,
       limit: 20,
@@ -227,8 +232,7 @@ describe("corpus de révision", () => {
 
   it("« non vue » = jamais répondue", async () => {
     const ids = await pickRevisionQuestionIds(db, {
-      userId: USER_ID,
-      lockedIds: await resolveRevisionLock(USER_ID),
+      viewer: AS_USER,
       criteria: ["unseen"],
       domain: DOMAIN,
       limit: 20,
@@ -238,8 +242,7 @@ describe("corpus de révision", () => {
 
   it("les critères s'unissent en OU", async () => {
     const ids = await pickRevisionQuestionIds(db, {
-      userId: USER_ID,
-      lockedIds: await resolveRevisionLock(USER_ID),
+      viewer: AS_USER,
       criteria: ["failed", "bookmarked"],
       domain: DOMAIN,
       limit: 20,
@@ -250,8 +253,7 @@ describe("corpus de révision", () => {
 
   it("borne le tirage à la limite demandée", async () => {
     const ids = await pickRevisionQuestionIds(db, {
-      userId: USER_ID,
-      lockedIds: await resolveRevisionLock(USER_ID),
+      viewer: AS_USER,
       criteria: ["unseen"],
       domain: DOMAIN,
       limit: 2,
@@ -261,8 +263,7 @@ describe("corpus de révision", () => {
 
   it("n'emprunte jamais l'historique d'un autre étudiant", async () => {
     const ids = await pickRevisionQuestionIds(db, {
-      userId: USER_ID,
-      lockedIds: await resolveRevisionLock(USER_ID),
+      viewer: AS_USER,
       criteria: ["failed"],
       domain: DOMAIN,
       limit: 20,
@@ -289,8 +290,7 @@ describe("corpus de révision", () => {
     })
 
     const ids = await pickRevisionQuestionIds(db, {
-      userId: USER_ID,
-      lockedIds: await resolveRevisionLock(USER_ID),
+      viewer: AS_USER,
       criteria: ["unseen"],
       domain: DOMAIN,
       limit: 20,
@@ -300,8 +300,7 @@ describe("corpus de révision", () => {
 
   it("intersecte avec le filtre d'objectifs CMC", async () => {
     const ids = await pickRevisionQuestionIds(db, {
-      userId: USER_ID,
-      lockedIds: await resolveRevisionLock(USER_ID),
+      viewer: AS_USER,
       criteria: ["unseen"],
       domain: DOMAIN,
       objectifsCMCs: [OBJ_ALT],
@@ -309,7 +308,7 @@ describe("corpus de révision", () => {
     })
     expect(ids).toEqual([qIds[4]])
 
-    const counts = await getRevisionCounts(USER_ID, {
+    const counts = await getRevisionCounts(AS_USER, {
       domain: DOMAIN,
       objectifsCMCs: [OBJ_ALT],
     })
@@ -317,7 +316,7 @@ describe("corpus de révision", () => {
   })
 
   it("les compteurs décrivent le même corpus que le tirage", async () => {
-    const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
+    const counts = await getRevisionCounts(AS_USER, { domain: DOMAIN })
     expect(counts).toEqual({ failed: 0, unseen: 2, bookmarked: 1 })
   })
 })
@@ -325,8 +324,7 @@ describe("corpus de révision", () => {
 describe("corpus de révision — verrou examen ouvert", () => {
   it("exclut du TIRAGE les questions d'un examen ouvert où l'étudiant participe", async () => {
     const ids = await pickRevisionQuestionIds(db, {
-      userId: USER_ID,
-      lockedIds: await resolveRevisionLock(USER_ID),
+      viewer: AS_USER,
       criteria: ["failed", "bookmarked", "unseen"],
       domain: DOMAIN,
       limit: 20,
@@ -336,17 +334,16 @@ describe("corpus de révision — verrou examen ouvert", () => {
   })
 
   it("exclut aussi des COMPTEURS (sinon le compteur redevient l'oracle)", async () => {
-    const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
+    const counts = await getRevisionCounts(AS_USER, { domain: DOMAIN })
     expect(counts.failed).toBe(0) // la seule ratée est dans l'examen ouvert
   })
 
   it("un examen CLOS ne verrouille rien : sa question marquée reste révisable", async () => {
-    const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
+    const counts = await getRevisionCounts(AS_USER, { domain: DOMAIN })
     expect(counts.bookmarked).toBe(1) // qIds[5], marquée via l'examen clos
 
     const ids = await pickRevisionQuestionIds(db, {
-      userId: USER_ID,
-      lockedIds: await resolveRevisionLock(USER_ID),
+      viewer: AS_USER,
       criteria: ["bookmarked"],
       domain: DOMAIN,
       limit: 20,
@@ -382,15 +379,14 @@ describe("corpus de révision — session d'entraînement en cours", () => {
 
     try {
       const ids = await pickRevisionQuestionIds(db, {
-        userId: USER_ID,
-        lockedIds: await resolveRevisionLock(USER_ID),
+        viewer: AS_USER,
         criteria: ["failed"],
         domain: DOMAIN,
         limit: 20,
       })
       expect(ids).not.toContain(qIds[2])
 
-      const counts = await getRevisionCounts(USER_ID, { domain: DOMAIN })
+      const counts = await getRevisionCounts(AS_USER, { domain: DOMAIN })
       expect(counts.failed).toBe(0)
     } finally {
       await db

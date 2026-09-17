@@ -1,6 +1,9 @@
+import { type SQL, sql } from "drizzle-orm"
+import { PgDialect } from "drizzle-orm/pg-core"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   AnswerKeyLock,
+  excludeLocked,
   lockFor,
   viewerOf,
 } from "@/features/questions/answer-key-lock"
@@ -157,5 +160,35 @@ describe("lockFor — requête et bypass", () => {
   it("utilisateur : joint les participations (deux jointures)", async () => {
     await lockFor({ id: "u1", role: "user" }, ["q1"])
     expect(mocks.calls.innerJoin).toBe(2)
+  })
+})
+
+describe("excludeLocked — exclusion à la sélection (fragment SQL)", () => {
+  const render = (fragment: SQL) => new PgDialect().sqlToQuery(fragment)
+
+  it("anonyme : not exists sur les examens ouverts, sans participation", () => {
+    const { sql: text, params } = render(excludeLocked("anonymous", sql`q.id`))
+    expect(text).toMatch(/not exists/i)
+    expect(text).toMatch(/exam_questions/)
+    expect(text).toMatch(/end_date > now\(\)/)
+    expect(text).not.toMatch(/exam_participations/)
+    expect(params).toEqual([])
+  })
+
+  it("utilisateur : borné à ses participations", () => {
+    const { sql: text, params } = render(
+      excludeLocked({ id: "u1", role: "user" }, sql`q.id`),
+    )
+    expect(text).toMatch(/not exists/i)
+    expect(text).toMatch(/exam_participations/)
+    expect(text).toMatch(/user_id = \$1/)
+    expect(params).toEqual(["u1"])
+  })
+
+  it("admin : aucune exclusion", () => {
+    const { sql: text } = render(
+      excludeLocked({ id: "adm", role: "admin" }, sql`q.id`),
+    )
+    expect(text).toBe("true")
   })
 })
