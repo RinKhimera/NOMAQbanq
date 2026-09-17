@@ -72,6 +72,8 @@ export type ExamQuestionView = {
   correctAnswer?: string
   explanation?: string
   references?: string[]
+  /** Clé retenue par un examen ouvert : correction différée à sa clôture. */
+  keyWithheld?: true
 }
 
 export const countQuestionsByExam = async (

@@ -154,7 +154,9 @@ describe("verrou de clé de réponse (examen ouvert)", () => {
     const [q1, q2] = view!.questions
     expect(q1).not.toHaveProperty("correctAnswer")
     expect(q1).not.toHaveProperty("explanation")
+    expect(q1).toMatchObject({ keyWithheld: true })
     expect(q2).toMatchObject({ correctAnswer: "A", explanation: "Parce que." })
+    expect(q2).not.toHaveProperty("keyWithheld")
     expect(view!.answers.q1).toEqual({ selectedAnswer: "A" })
     expect(view!.answers.q2).toEqual({ selectedAnswer: "A", isCorrect: true })
   })
@@ -165,6 +167,7 @@ describe("verrou de clé de réponse (examen ouvert)", () => {
     const [q1, q2] = view.questions
     expect(q1).not.toHaveProperty("correctAnswer")
     expect(q1).not.toHaveProperty("explanationImages")
+    expect(q1).toMatchObject({ keyWithheld: true })
     expect(q2).toMatchObject({ correctAnswer: "A", explanationImages: [] })
     expect(view.answers.q1).toEqual({ selectedAnswer: "A" })
     expect(view.answers.q2).toEqual({ selectedAnswer: "A", isCorrect: true })

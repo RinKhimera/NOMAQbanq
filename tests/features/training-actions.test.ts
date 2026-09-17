@@ -399,13 +399,16 @@ describe("saveTrainingAnswer", () => {
 
   // Anti-triche : la reponse est enregistree, mais la correction est retenue
   // tant que l'examen qui porte cette question est ouvert.
-  it("mode tuteur, question verrouillee par un examen ouvert → aucune revelation", async () => {
+  it("mode tuteur, question verrouillee par un examen ouvert → cle retenue, pas de correction", async () => {
     mocks.lockedIds.current = new Set(["q1"])
     setRows({
       trainingSessions: [openSession({ mode: "tutor" })],
       trainingSessionItems: [{ itemId: "i1", correctAnswer: "A" }],
     })
-    expect(await saveTrainingAnswer(input)).toEqual({ success: true })
+    expect(await saveTrainingAnswer(input)).toEqual({
+      success: true,
+      reveal: { keyWithheld: true },
+    })
   })
 
   // Le bypass admin est la decision du verrou (tests/questions/answer-key-lock) ;

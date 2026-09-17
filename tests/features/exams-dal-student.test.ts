@@ -284,7 +284,9 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
     if (!view || "error" in view) throw new Error("vue attendue")
     const [q1, q2] = view.questions
     expect(q1).not.toHaveProperty("correctAnswer")
+    expect(q1).toMatchObject({ keyWithheld: true })
     expect(q2).toMatchObject({ correctAnswer: "A" })
+    expect(q2).not.toHaveProperty("keyWithheld")
     expect(view.participant.answers).toEqual([
       { questionId: "q1", selectedAnswer: "A", isCorrect: null },
       { questionId: "q2", selectedAnswer: "B", isCorrect: false },

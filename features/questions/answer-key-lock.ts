@@ -39,11 +39,17 @@ type RevealableRow<TImage> = {
   explanationImages?: TImage[]
 }
 
+/**
+ * Champs de correction d'une question, ou le seul marqueur `keyWithheld`
+ * quand la clé est retenue — pour qu'un lecteur en aval distingue « retenue »
+ * de « pas encore corrigée » et ne compte pas la réponse comme fausse.
+ */
 export type Revealed<TImage> = {
   correctAnswer?: string
   explanation?: string
   references?: string[]
   explanationImages?: TImage[]
+  keyWithheld?: true
 }
 
 export class AnswerKeyLock {
@@ -62,16 +68,17 @@ export class AnswerKeyLock {
   }
 
   /**
-   * Champs de correction d'une question, selon le niveau demandé — ou rien si
-   * la clé est retenue. L'appelant décide s'il a le droit de révéler (session
-   * terminée, mode tuteur…) ; le verrou décide si la clé est disponible.
+   * Champs de correction d'une question, selon le niveau demandé — ou le seul
+   * marqueur `keyWithheld` si la clé est retenue. L'appelant décide s'il a le
+   * droit de révéler (session terminée, mode tuteur…) ; le verrou décide si la
+   * clé est disponible.
    */
   reveal<TImage>(
     questionId: string,
     row: RevealableRow<TImage>,
     level: RevealLevel,
   ): Revealed<TImage> {
-    if (this.has(questionId)) return {}
+    if (this.has(questionId)) return { keyWithheld: true }
     if (level === "key") return { correctAnswer: row.correctAnswer }
     const correction = {
       correctAnswer: row.correctAnswer,

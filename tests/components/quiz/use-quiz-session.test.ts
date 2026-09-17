@@ -162,7 +162,31 @@ describe("useQuizSession — answerSelect", () => {
       selected: "B",
       isCorrect: true,
     })
-    expect(result.current.revealed["q1"]?.correctAnswer).toBe("B")
+    expect(result.current.revealed["q1"]).toMatchObject({ correctAnswer: "B" })
+    expect(result.current.pendingSelection["q1"]).toBeUndefined()
+  })
+
+  it("mode tuteur : clé retenue → question validée sans correction ni isCorrect", async () => {
+    const onAnswer = vi.fn().mockResolvedValue({
+      ok: true,
+      reveal: { keyWithheld: true },
+    })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+        initialAnswers: {},
+        mode: makeMode({ feedback: "immediate" }),
+        callbacks: makeCallbacks({ onAnswer }),
+      }),
+    )
+    await act(async () => {
+      await result.current.answerSelect(1) // "B"
+    })
+    await act(async () => {
+      await result.current.confirmAnswer()
+    })
+    expect(result.current.answers["q1"]).toEqual({ selected: "B" })
+    expect(result.current.revealed["q1"]).toEqual({ keyWithheld: true })
     expect(result.current.pendingSelection["q1"]).toBeUndefined()
   })
 

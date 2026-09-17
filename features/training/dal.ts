@@ -79,6 +79,8 @@ export type TrainingSessionQuestion = {
    * correction (session complétée). Jamais sur le pont d'énoncé `images`.
    */
   explanationImages?: TrainingImageView[]
+  /** Clé retenue par un examen ouvert : correction différée à sa clôture. */
+  keyWithheld?: true
 }
 
 export type TrainingAnswerRecord = Record<

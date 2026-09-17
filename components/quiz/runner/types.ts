@@ -12,10 +12,18 @@ export type QuizQuestion = {
   explanation?: string
   references?: string[]
   explanationImages?: QuizImage[]
+  /**
+   * Clé retenue par un examen ouvert : la correction est différée à sa
+   * clôture. Une réponse à cette question n'est ni juste ni fausse.
+   */
+  keyWithheld?: true
 }
 
 export type AnswerState = { selected: string; isCorrect?: boolean }
 export type AnswersMap = Record<string, AnswerState>
+
+export const KEY_WITHHELD_MESSAGE =
+  "Correction différée jusqu'à la clôture de l'examen"
 
 export type QuizMode = {
   kind: "exam" | "training"
@@ -33,11 +41,14 @@ export type QuizMode = {
   backUrl: string
 }
 
-export type QuizRevealPayload = {
-  correctAnswer: string
-  explanation: string
-  references: string[]
-}
+export type QuizRevealPayload =
+  | {
+      keyWithheld?: undefined
+      correctAnswer: string
+      explanation: string
+      references: string[]
+    }
+  | { keyWithheld: true }
 
 export type QuizCallbacks = {
   onAnswer: (

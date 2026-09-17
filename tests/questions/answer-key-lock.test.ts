@@ -64,11 +64,12 @@ describe("AnswerKeyLock — partie pure", () => {
     expect(lock.reveal("q1", row, "key")).toEqual({ correctAnswer: "B" })
   })
 
-  it("reveal : rien du tout quand la question est verrouillée", () => {
+  it("reveal : seulement le marqueur « clé retenue » quand la question est verrouillée", () => {
     const lock = AnswerKeyLock.fromIds(["q1"])
-    expect(lock.reveal("q1", row, "key")).toEqual({})
-    expect(lock.reveal("q1", row, "correction")).toEqual({})
-    expect(lock.reveal("q1", row, "correction-with-images")).toEqual({})
+    const withheld = { keyWithheld: true }
+    expect(lock.reveal("q1", row, "key")).toEqual(withheld)
+    expect(lock.reveal("q1", row, "correction")).toEqual(withheld)
+    expect(lock.reveal("q1", row, "correction-with-images")).toEqual(withheld)
   })
 
   it("reveal correction : clé + explication + références, sans images", () => {

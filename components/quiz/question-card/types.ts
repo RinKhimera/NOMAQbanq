@@ -19,6 +19,9 @@ export type QuestionDoc = {
   // Images d'explication (`kind='explanation'`) — rendues UNIQUEMENT dans le
   // variant "review" (correction), jamais en "exam" (passation) : anti-triche.
   explanationImages?: Array<{ url: string; storagePath: string; order: number }>
+  // Clé retenue par un examen ouvert : correction différée à sa clôture. La
+  // réponse n'est alors ni juste ni fausse, et aucune option n'est marquée.
+  keyWithheld?: true
 }
 
 // Sous-ensemble de QuestionDoc que QuestionCard accepte réellement. Défini comme

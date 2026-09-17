@@ -268,11 +268,13 @@ export type SaveTrainingAnswerResult =
   | {
       success: true
       isCorrect?: boolean
-      reveal?: {
-        correctAnswer: string
-        explanation?: string
-        references?: string[]
-      }
+      reveal?:
+        | {
+            correctAnswer: string
+            explanation?: string
+            references?: string[]
+          }
+        | { keyWithheld: true }
     }
   | { success: false; error: string }
 
@@ -355,7 +357,9 @@ export const saveTrainingAnswer = async (
       // Clé retenue par un examen ouvert : la réponse est enregistrée, seule
       // la correction est retenue.
       const lock = await lockFor(viewerOf(session.user), [questionId])
-      if (lock.has(questionId)) return { success: true }
+      if (lock.has(questionId)) {
+        return { success: true, reveal: { keyWithheld: true } }
+      }
       const [exp] = await db
         .select({
           explanation: questionExplanations.explanation,

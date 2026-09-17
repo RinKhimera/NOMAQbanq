@@ -5,6 +5,8 @@ export type ResultAccentColor = "blue" | "emerald"
 export interface QuestionResultItem {
   isCorrect: boolean
   isAnswered: boolean
+  /** Répondue, mais clé retenue par un examen ouvert : ni juste ni fausse. */
+  isWithheld?: boolean
 }
 
 export interface ResultsNavigatorProps {
@@ -32,9 +34,12 @@ export const resultColors = {
       "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50",
     unanswered:
       "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600",
+    withheld:
+      "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50",
     legendCorrect: "bg-green-100 dark:bg-green-900/40",
     legendIncorrect: "bg-red-100 dark:bg-red-900/40",
     legendUnanswered: "bg-gray-100 dark:bg-gray-800",
+    legendWithheld: "bg-amber-100 dark:bg-amber-900/40",
     tipBg: "bg-blue-50/80 dark:bg-blue-900/20",
     accentText: "text-blue-600 dark:text-blue-400",
   },
@@ -48,9 +53,12 @@ export const resultColors = {
       "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50",
     unanswered:
       "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600",
+    withheld:
+      "bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50",
     legendCorrect: "bg-emerald-100 dark:bg-emerald-900/40",
     legendIncorrect: "bg-red-100 dark:bg-red-900/40",
     legendUnanswered: "bg-gray-100 dark:bg-gray-800",
+    legendWithheld: "bg-amber-100 dark:bg-amber-900/40",
     tipBg: "bg-emerald-50/80 dark:bg-emerald-900/20",
     accentText: "text-emerald-600 dark:text-emerald-400",
   },

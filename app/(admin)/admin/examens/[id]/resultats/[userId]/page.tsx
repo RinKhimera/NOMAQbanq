@@ -39,6 +39,7 @@ export default async function AdminParticipantResultsPage({
     domain: q.domain ?? undefined,
     objectifCMC: q.objectifCMC ?? undefined,
     correctAnswer: q.correctAnswer,
+    keyWithheld: q.keyWithheld,
   }))
 
   // Map DAL answers → AnswersMap (sparse-safe)
@@ -53,20 +54,6 @@ export default async function AdminParticipantResultsPage({
   }
 
   const score = data.participant.score
-
-  let correct = 0
-  let incorrect = 0
-  const answeredIds = new Set(
-    data.participant.answers
-      .filter((a) => a.selectedAnswer !== null && a.selectedAnswer !== "")
-      .map((a) => a.questionId),
-  )
-  for (const a of data.participant.answers) {
-    if (a.selectedAnswer === null || a.selectedAnswer === "") continue
-    if (a.isCorrect) correct++
-    else incorrect++
-  }
-  const unanswered = questions.length - answeredIds.size
 
   const participant = data.participantUser
     ? {
@@ -88,7 +75,7 @@ export default async function AdminParticipantResultsPage({
       />
       <SessionResults
         accent="blue"
-        summary={{ score, correct, incorrect, unanswered }}
+        score={score}
         questions={questions}
         answers={answers}
         loadExplanations={loadExamQuestionExplanations}
