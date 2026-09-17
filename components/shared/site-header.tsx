@@ -11,25 +11,38 @@ interface SiteHeaderProps {
   isAdmin?: boolean
 }
 
+// Pages atteintes sans lien de menu (onboarding, retour Stripe).
+const offMenuSections = [
+  { title: "Bienvenue", url: "/tableau-de-bord/bienvenue" },
+  { title: "Paiement", url: "/tableau-de-bord/paiement" },
+]
+
 export const SiteHeader = ({ isAdmin = false }: SiteHeaderProps) => {
   const pathname = usePathname()
 
   const getCurrentPageTitle = () => {
     const isAdminPage = pathname.startsWith("/admin")
     const navigation = isAdminPage ? adminNavigation : dashboardNavigation
+    const sections = [
+      ...navigation.navMain,
+      ...navigation.navSecondary,
+      ...offMenuSections,
+    ]
 
-    const mainNavItem = navigation.navMain.find((item) => item.url === pathname)
-    if (mainNavItem) return mainNavItem.title
+    // Préfixe de segment le plus long : une sous-page (`/examen-blanc/[id]/evaluation`)
+    // garde le titre de sa section. La racine de zone ne vaut que pour elle-même,
+    // sinon elle préfixe tout et le repli ci-dessous devient inatteignable.
+    const zoneRoot = isAdminPage ? "/admin" : "/tableau-de-bord"
+    const section = sections
+      .filter(
+        (item) =>
+          pathname === item.url ||
+          (item.url !== zoneRoot && pathname.startsWith(`${item.url}/`)),
+      )
+      .sort((a, b) => b.url.length - a.url.length)[0]
+    if (section) return section.title
 
-    const secondaryNavItem = navigation.navSecondary.find(
-      (item) => item.url === pathname,
-    )
-    if (secondaryNavItem) return secondaryNavItem.title
-
-    if (pathname === "/admin") return "Tableau de bord"
-    if (pathname === "/tableau-de-bord") return "Tableau de bord"
-
-    return isAdminPage ? "Administration" : "Dashboard"
+    return isAdminPage ? "Administration" : "Tableau de bord"
   }
 
   return (

@@ -113,3 +113,17 @@ Regles specialisees dans `.claude/rules/`:
 | `e2e-testing.md` | `e2e/**`, `playwright.config.ts`, `components/quiz/**`                       | Playwright, data-testid, auth Better Auth, selectors                                                        |
 
 Ajouter les nouveaux patterns au fichier rules correspondant, pas ici.
+
+## Agent skills
+
+### Issue tracker
+
+Les issues vivent dans GitHub Issues (`RinKhimera/NOMAQbanq`, via le CLI `gh`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Labels par défaut : `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context : `CONTEXT.md` + `docs/adr/` à la racine (créés à la demande par `/domain-modeling`). See `docs/agents/domain.md`.
