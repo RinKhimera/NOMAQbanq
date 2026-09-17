@@ -23,7 +23,7 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
       } | null,
     },
     cdnUrl: vi.fn((p: string) => `https://cdn.test/${p}`),
-    getOpenExamLockedQuestionIds: vi.fn(async () => new Set<string>()),
+    lockedIds: { current: new Set<string>() },
   }
 
   const table = (name: string) => ({ __table: name })
@@ -83,9 +83,17 @@ vi.mock("@/lib/auth-guards", () => ({
   }),
 }))
 vi.mock("@/lib/cdn", () => ({ cdnUrl: mocks.cdnUrl }))
-vi.mock("@/features/exams/dal", () => ({
-  getOpenExamLockedQuestionIds: mocks.getOpenExamLockedQuestionIds,
-}))
+// Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
+vi.mock("@/features/questions/answer-key-lock", async (orig) => {
+  const actual =
+    await orig<typeof import("@/features/questions/answer-key-lock")>()
+  return {
+    ...actual,
+    lockFor: vi.fn(async () =>
+      actual.AnswerKeyLock.fromIds(mocks.lockedIds.current),
+    ),
+  }
+})
 
 const anonymous = () => {
   mocks.session.current = null
@@ -113,7 +121,54 @@ const sessionRow = (over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   mocks.rows.current = {}
+  mocks.lockedIds.current = new Set()
   asUser()
+})
+
+const itemRow = (questionId: string, over: Record<string, unknown> = {}) => ({
+  questionId,
+  selectedAnswer: "A",
+  isCorrect: true,
+  qCreatedAt: new Date(),
+  question: `Q ${questionId}`,
+  options: ["A", "B"],
+  correctAnswer: "A",
+  objectifCMC: "Obj",
+  domain: "CARDIO",
+  explanation: "Parce que.",
+  references: ["Ref"],
+  ...over,
+})
+
+describe("verrou de clé de réponse (examen ouvert)", () => {
+  beforeEach(() => {
+    mocks.lockedIds.current = new Set(["q1"])
+    mocks.rows.current = {
+      training_sessions: [sessionRow({ status: "completed", score: 50 })],
+      training_session_items: [itemRow("q1"), itemRow("q2")],
+    }
+  })
+
+  it("getTrainingSessionById retient la correction d'une question verrouillée", async () => {
+    const view = await getTrainingSessionById("s1")
+    const [q1, q2] = view!.questions
+    expect(q1).not.toHaveProperty("correctAnswer")
+    expect(q1).not.toHaveProperty("explanation")
+    expect(q2).toMatchObject({ correctAnswer: "A", explanation: "Parce que." })
+    expect(view!.answers.q1).toEqual({ selectedAnswer: "A" })
+    expect(view!.answers.q2).toEqual({ selectedAnswer: "A", isCorrect: true })
+  })
+
+  it("getTrainingSessionResults retient la correction d'une question verrouillée", async () => {
+    const view = await getTrainingSessionResults("s1")
+    if (!view || "error" in view) throw new Error("vue attendue")
+    const [q1, q2] = view.questions
+    expect(q1).not.toHaveProperty("correctAnswer")
+    expect(q1).not.toHaveProperty("explanationImages")
+    expect(q2).toMatchObject({ correctAnswer: "A", explanationImages: [] })
+    expect(view.answers.q1).toEqual({ selectedAnswer: "A" })
+    expect(view.answers.q2).toEqual({ selectedAnswer: "A", isCorrect: true })
+  })
 })
 
 describe("gardes de session", () => {

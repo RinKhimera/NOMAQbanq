@@ -4,7 +4,6 @@ import { and, eq, isNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
-import { getOpenExamQuestionIds } from "@/features/exams/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { copyInS3, createPresignedUpload } from "@/lib/aws"
 import { getPgErrorCode } from "@/lib/db-errors"
@@ -21,6 +20,7 @@ import {
   validateImageFile,
 } from "@/lib/storage"
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
+import { lockFor } from "./answer-key-lock"
 import {
   type QuestionDetail,
   type QuestionExportRow,
@@ -165,9 +165,10 @@ export const scoreQuizAnswers = async (args: {
   if (answers.length === 0) return EMPTY_SCORE
 
   const answeredIds = answers.map((a) => a.questionId)
-  const lockedIds = await getOpenExamQuestionIds(answeredIds)
+  // Un examen a pu OUVRIR pendant la vie du jeton : la clé reste retenue.
+  const lock = await lockFor("anonymous", answeredIds)
   const keyMap = await getQuizAnswerKey(
-    answeredIds.filter((id) => !lockedIds.has(id)),
+    answeredIds.filter((id) => !lock.has(id)),
   )
 
   let score = 0

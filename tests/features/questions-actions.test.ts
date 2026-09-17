@@ -39,7 +39,8 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
         >(),
     ),
     getQuestionsForExport: vi.fn(async () => []),
-    getOpenExamQuestionIds: vi.fn(async () => new Set<string>()),
+    lockedIds: { current: new Set<string>() },
+    lockFor: vi.fn(),
     signQuizToken: vi.fn(() => "tok"),
     verifyQuizToken: vi.fn<() => Set<string> | null>(() => new Set(["q1"])),
     tryDeleteFromStorage: vi.fn(async () => undefined),
@@ -87,9 +88,15 @@ vi.mock("@/db/schema", () => ({
   questionImages: table("questionImages"),
   questions: table("questions"),
 }))
-vi.mock("@/features/exams/dal", () => ({
-  getOpenExamQuestionIds: mocks.getOpenExamQuestionIds,
-}))
+// Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
+vi.mock("@/features/questions/answer-key-lock", async (orig) => {
+  const actual =
+    await orig<typeof import("@/features/questions/answer-key-lock")>()
+  mocks.lockFor.mockImplementation(async () =>
+    actual.AnswerKeyLock.fromIds(mocks.lockedIds.current),
+  )
+  return { ...actual, lockFor: mocks.lockFor }
+})
 vi.mock("@/features/questions/dal", () => ({
   getAllQuestionIds: vi.fn(async () => []),
   getQuestionById: vi.fn(async () => null),
@@ -151,6 +158,7 @@ const answerKey = (correctAnswer: string) => ({
 
 beforeEach(() => {
   mocks.rows.current = {}
+  mocks.lockedIds.current = new Set()
   mocks.returning.current = [{ id: "q1" }]
   mocks.transaction.mockResolvedValue(undefined)
 })
@@ -239,7 +247,7 @@ describe("scoreQuizAnswers — anti-triche", () => {
   // Un examen a pu OUVRIR pendant la vie du jeton : la cle reste verrouillee.
   it("question d'un examen ouvert → exclue de la demande de cle", async () => {
     mocks.verifyQuizToken.mockReturnValueOnce(new Set(["q1", "q2"]))
-    mocks.getOpenExamQuestionIds.mockResolvedValueOnce(new Set(["q1"]))
+    mocks.lockedIds.current = new Set(["q1"])
     mocks.getQuizAnswerKey.mockResolvedValueOnce(
       new Map([["q2", answerKey("B")]]),
     )
@@ -250,6 +258,7 @@ describe("scoreQuizAnswers — anti-triche", () => {
       ],
       token: "tok",
     })
+    expect(mocks.lockFor).toHaveBeenCalledWith("anonymous", ["q1", "q2"])
     expect(mocks.getQuizAnswerKey).toHaveBeenCalledWith(["q2"])
     expect(res.questionResults.map((r) => r.questionId)).toEqual(["q2"])
     expect(res.totalQuestions).toBe(1)

@@ -28,11 +28,11 @@ import {
 } from "@/db/schema"
 import { getCurrentSession } from "@/lib/dal"
 import { hasAccess } from "../payments/dal"
+import { lockFor, viewerOf } from "../questions/answer-key-lock"
 import {
   type ExamQuestionView,
   countQuestionsByExam,
   fetchImages,
-  getOpenExamLockedQuestionIds,
 } from "./dal.shared"
 
 // ============================================
@@ -577,13 +577,9 @@ export const getParticipantExamResults = async (
     .orderBy(asc(examQuestions.position))
 
   const resultQuestionIds = items.map((i) => i.questionId)
-  // Questions figurant AUSSI dans un examen encore ouvert où le lecteur
-  // participe : correction différée jusqu'à la clôture (clé de réponse).
-  const [imgMap, lockedIds] = await Promise.all([
+  const [imgMap, lock] = await Promise.all([
     fetchImages(resultQuestionIds),
-    isAdmin
-      ? new Set<string>()
-      : getOpenExamLockedQuestionIds(session.user.id, resultQuestionIds),
+    lockFor(viewerOf(session.user), resultQuestionIds),
   ])
 
   const questionsView: ExamQuestionView[] = items.map((i) => ({
@@ -594,7 +590,7 @@ export const getParticipantExamResults = async (
     objectifCMC: i.objectifCMC,
     domain: i.domain,
     images: imgMap.get(i.questionId) ?? [],
-    ...(lockedIds.has(i.questionId) ? {} : { correctAnswer: i.correctAnswer }),
+    ...lock.reveal(i.questionId, i, "key"),
   }))
 
   const answerRows = await db
@@ -619,7 +615,7 @@ export const getParticipantExamResults = async (
         questionId: a.questionId,
         selectedAnswer: a.selectedAnswer ?? null,
         // isCorrect + selectedAnswer révèle la clé → masqué si verrouillée.
-        isCorrect: lockedIds.has(a.questionId) ? null : (a.isCorrect ?? null),
+        isCorrect: lock.has(a.questionId) ? null : (a.isCorrect ?? null),
       })),
     },
     participantUser,
@@ -668,7 +664,7 @@ export const getExamQuestionExplanations = async (
   } else {
     const uid = session.user.id
     const nowDate = new Date()
-    const [viaExam, viaTraining, locked] = await Promise.all([
+    const [viaExam, viaTraining, lock] = await Promise.all([
       db
         .selectDistinct({ questionId: examQuestions.questionId })
         .from(examQuestions)
@@ -701,7 +697,7 @@ export const getExamQuestionExplanations = async (
             inArray(trainingSessionItems.questionId, requested),
           ),
         ),
-      getOpenExamLockedQuestionIds(uid, requested),
+      lockFor(viewerOf(session.user), requested),
     ])
     // Les DEUX branches sont filtrées : un examen clos complété ne doit pas
     // révéler une question qui figure aussi dans un examen encore ouvert.
@@ -710,7 +706,7 @@ export const getExamQuestionExplanations = async (
         ...viaExam.map((r) => r.questionId),
         ...viaTraining.map((r) => r.questionId),
       ]),
-    ].filter((id) => !locked.has(id))
+    ].filter((id) => !lock.has(id))
   }
 
   if (authorized.length === 0) return []
