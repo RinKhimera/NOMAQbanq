@@ -58,24 +58,31 @@ storagePath,order}` pour rester assignable aux composants partagés
   (`saveExamAnswer` refuse au-delà de `startedAt + completionTime + grâce`), pas
   seulement à la finalisation (`isAutoSubmit` vient du client). `updateExam` et
   `startExam` prennent un `FOR UPDATE` commun sur la ligne `exams`.
-- **Révision ciblée — le verrou s'applique à la SÉLECTION** : tout canal qui
-  compose un lot de questions à partir de l'historique d'un étudiant (corpus de
-  révision, `features/training/revision.ts`) DOIT retrancher
-  `getUserOpenExamLockedQuestionIds` — du lot **et** des compteurs affichés.
-  Masquer la correction ne suffit pas : l'appartenance d'une question au lot
-  « mes ratées » dit déjà « tu t'es trompé », donc triche pendant qu'un examen
-  est ouvert, sans jamais voir la clé. `getOpenExamLockedQuestionIds` n'est
-  qu'une restriction du même jeu — une seule définition de la règle.
-  `pickRevisionQuestionIds` prend les identifiants verrouillés en paramètre
-  **requis** : ils se résolvent AVANT d'ouvrir la transaction (voir la règle
-  suivante), et un oubli casse la compilation au lieu du silence.
+- **Verrou de clé de réponse = un seul module**,
+  `features/questions/answer-key-lock.ts` (voir `CONTEXT.md`). Tant qu'un
+  examen contenant une question est ouvert, sa clé est retenue pour tout
+  lecteur qui y participe (pour tout le monde sur le canal anonyme ; jamais
+  pour un admin). Deux entrées, à ne pas contourner : `lockFor(viewer,
+candidats)` → `Lock.reveal(row, niveau)` sur les canaux de RÉVÉLATION
+  (correction d'entraînement, résultats et explications d'examen, notation du
+  quiz public) — c'est lui qui décide quels champs blanchir et pose
+  `keyWithheld` ; `excludeLocked(viewer, colonne)` dans le WHERE des canaux de
+  SÉLECTION (corpus de révision, tirage du quiz public). Masquer la correction
+  ne suffit pas : l'appartenance d'une question au lot « mes ratées » dit déjà
+  « tu t'es trompé ». `pickRevisionQuestionIds` et `getRevisionCounts`
+  prennent le `viewer` en paramètre **requis** : un oubli casse la
+  compilation au lieu du silence. Une réponse dont la clé est retenue n'est
+  **ni juste ni fausse** : `SessionResults` la compte « différée », et un
+  lecteur qui dérive un compteur de `isCorrect` doit d'abord lire
+  `keyWithheld`.
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
   transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une
   bloque 10 s puis échoue — mieux qu'avant (blocage indéfini), mais toujours un
   bug à corriger à la source. Ce qu'une transaction doit lire ailleurs se résout
-  avant de l'ouvrir et se passe en paramètre (`hasAccess` et
-  `resolveRevisionLock` dans `createTrainingSession`). Le pool retente par
+  avant de l'ouvrir et se passe en paramètre (`hasAccess` dans
+  `createTrainingSession`), ou s'exprime en sous-requête corrélée dans la
+  requête elle-même (`excludeLocked`). Le pool retente par
   ailleurs l'**acquisition** sur les erreurs de réveil Neon 53300/57P03
   (`db/retry-pool.ts`, post-mortem NOMAQBANQ-1F) — sûr car aucune requête n'est
   encore partie ; ne JAMAIS étendre ce retry aux requêtes elles-mêmes ni au

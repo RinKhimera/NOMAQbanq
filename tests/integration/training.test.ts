@@ -582,14 +582,14 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
     expect(v.answers[qIds[2]]?.isCorrect).toBe(true)
   })
 
-  it("saveTrainingAnswer (tuteur) : pas de reveal immédiat pour une question d'un examen ouvert", async () => {
+  it("saveTrainingAnswer (tuteur) : clé retenue, pas de correction pour une question d'un examen ouvert", async () => {
     asStudent2()
     const locked = await saveTrainingAnswer({
       sessionId: tutorSid,
       questionId: qIds[0],
       selectedAnswer: "A",
     })
-    expect(locked).toEqual({ success: true })
+    expect(locked).toEqual({ success: true, reveal: { keyWithheld: true } })
 
     const served = await saveTrainingAnswer({
       sessionId: tutorSid,

@@ -645,9 +645,9 @@ export type QuestionExplanationView = {
  * termine tôt de tirer explications + références + images (= les bonnes réponses)
  * AVANT l'ouverture des résultats et de les partager pendant la fenêtre d'examen.
  * Parité avec `getParticipantExamResults` (résultats visibles après `endDate`).
- * Les DEUX branches sont ensuite filtrées par `getOpenExamLockedQuestionIds`
- * (banque partagée : ni le training ni un examen clos ne doivent révéler une
- * question d'un examen encore ouvert).
+ * Les DEUX branches sont ensuite filtrées par le verrou de clé de réponse
+ * (`lockFor`, banque partagée : ni le training ni un examen clos ne doivent
+ * révéler une question d'un examen encore ouvert).
  */
 export const getExamQuestionExplanations = async (
   questionIds: string[],

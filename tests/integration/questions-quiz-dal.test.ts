@@ -11,11 +11,11 @@ import {
   quizRateLimits,
   user,
 } from "@/db/schema"
-import { getOpenExamQuestionIds } from "@/features/exams/dal"
 import {
   loadRandomQuizQuestions,
   scoreQuizAnswers,
 } from "@/features/questions/actions"
+import { lockFor } from "@/features/questions/answer-key-lock"
 import {
   getQuizAnswerKey,
   getRandomQuizQuestions,
@@ -139,19 +139,11 @@ afterAll(async () => {
   await db.delete(user).where(eq(user.id, examCreatorId))
 })
 
-describe("getOpenExamQuestionIds (verrou anonyme)", () => {
+describe("lockFor anonyme (verrou du quiz public)", () => {
   it("verrouille les questions d'un examen ouvert, pas celles d'un examen clos", async () => {
-    const locked = await getOpenExamQuestionIds([
-      qOpen,
-      qClosed,
-      q2,
-      createId(),
-    ])
-    expect(locked).toEqual(new Set([qOpen]))
-  })
-
-  it("Set vide pour une liste vide", async () => {
-    expect((await getOpenExamQuestionIds([])).size).toBe(0)
+    const candidates = [qOpen, qClosed, q2, createId()]
+    const lock = await lockFor("anonymous", candidates)
+    expect(candidates.filter((id) => lock.has(id))).toEqual([qOpen])
   })
 })
 
