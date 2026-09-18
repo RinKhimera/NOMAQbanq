@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { QuestionExplanationView } from "@/features/exams/dal"
 import { useIsVisible } from "@/hooks/use-is-visible"
+import { classify, summarize } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 // ============================================
@@ -60,28 +61,6 @@ export interface SessionResultsProps {
 // ============================================
 
 const PASS_THRESHOLD = 60
-
-// Sparse-answer compat : clé absente OU entrée sans `selected` = non répondu.
-const hasSelected = (
-  entry: AnswersMap[string] | undefined,
-): entry is AnswersMap[string] =>
-  entry !== undefined &&
-  entry.selected !== undefined &&
-  entry.selected !== null &&
-  entry.selected !== ""
-
-/**
- * Garde côté composant, jumelle de `scoreWithheldFor` (DAL) : le score
- * enregistré compte les réponses différées alors que les compteurs affichés
- * les excluent — « score × N / 100 − justes affichées » révélerait combien de
- * différées sont justes. La DAL passe déjà `null` ; ceci retient aussi un
- * appelant qui passerait un score avec des questions à clé retenue.
- */
-export const isScoreWithheld = (
-  questions: readonly QuizQuestion[],
-  answers: AnswersMap,
-): boolean =>
-  questions.some((q) => q.keyWithheld === true && hasSelected(answers[q._id]))
 
 const getScoreColor = (score: number, accent: "blue" | "emerald") => {
   if (score >= 80) {
@@ -209,43 +188,28 @@ export function SessionResults({
     }
   }, [expandedQuestionIds, loadExplanations])
 
-  // Build question results with sparse-answer compat.
-  // "no key" == unanswered; "entry with empty/null selected" == unanswered.
   // Une réponse dont la clé est retenue (examen ouvert) n'est ni juste ni
-  // fausse : elle sort des compteurs et du filtre « Erreurs ».
+  // fausse : elle sort des compteurs et du filtre « Erreurs » (`classify`).
   const questionResults = useMemo(
     () =>
       questions.map((q) => {
-        const entry = answers[q._id]
-        const hasAnswer = hasSelected(entry)
-        const isWithheld = hasAnswer && !!q.keyWithheld
-        const isCorrect =
-          hasAnswer && !isWithheld ? (entry.isCorrect ?? false) : false
+        const outcome = classify(q, answers[q._id])
         return {
           question: q,
-          isAnswered: hasAnswer,
-          isWithheld,
-          isCorrect,
-          isError: hasAnswer ? !isWithheld && !isCorrect : true,
-          userAnswer: hasAnswer ? entry.selected : null,
+          isAnswered: outcome !== "unanswered",
+          isWithheld: outcome === "withheld",
+          isCorrect: outcome === "correct",
+          isError: outcome === "incorrect" || outcome === "unanswered",
+          userAnswer: outcome === "unanswered" ? null : answers[q._id].selected,
         }
       }),
     [questions, answers],
   )
 
-  const summary = useMemo(() => {
-    let correct = 0
-    let incorrect = 0
-    let unanswered = 0
-    let withheld = 0
-    for (const r of questionResults) {
-      if (!r.isAnswered) unanswered++
-      else if (r.isWithheld) withheld++
-      else if (r.isCorrect) correct++
-      else incorrect++
-    }
-    return { correct, incorrect, unanswered, withheld }
-  }, [questionResults])
+  const summary = useMemo(
+    () => summarize(questions, answers),
+    [questions, answers],
+  )
 
   const navigatorResults = useMemo(
     () =>
@@ -290,7 +254,7 @@ export function SessionResults({
   }, [])
 
   // Même prédicat que les pages : la parité corps/en-tête est structurelle.
-  const scoreWithheld = score === null || isScoreWithheld(questions, answers)
+  const scoreWithheld = score === null || summary.scoreWithheld
   const shownScore = score ?? 0
   const isPassing = shownScore >= PASS_THRESHOLD
 
