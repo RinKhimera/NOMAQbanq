@@ -16,11 +16,12 @@ interface PauseDialogProps {
   pauseStartedAt: number | undefined
   pauseDurationMinutes: number
   /**
-   * Horloge serveur du rendu, ancre du premier rendu (SSR et hydratation) quand
-   * la page se charge déjà en pause. Absente (pause prise en cours de session),
-   * le début de la pause sert d'ancre : le décompte part du plafond. Les
-   * ticks avancent par delta monotone depuis l'ancre (`useAnchoredClock`),
-   * jamais par `Date.now()`.
+   * Dernier instant serveur connu : celui du rendu (ancre du premier rendu,
+   * SSR et hydratation, quand la page se charge déjà en pause), puis celui des
+   * actions et de la resync au réveil — une nouvelle valeur réaligne le
+   * décompte après une veille. Absente, le début de la pause sert d'ancre : le
+   * décompte part du plafond. Les ticks avancent par delta monotone depuis
+   * l'ancre (`useAnchoredClock`), jamais par `Date.now()`.
    */
   initialNow?: number
   isResuming?: boolean

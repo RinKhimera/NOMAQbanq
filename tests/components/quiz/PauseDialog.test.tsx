@@ -182,6 +182,40 @@ describe("PauseDialog — décompte", () => {
     expect(screen.getByTestId("pause-timer")).toHaveTextContent("00:00")
   })
 
+  it("une nouvelle ancre serveur (resync au réveil) réaligne le décompte et déclenche la reprise si la pause est échue", () => {
+    vi.useFakeTimers()
+    const onResume = vi.fn()
+    const pauseStartedAt = 1_000_000
+    const { rerender } = render(
+      <PauseDialog
+        isOpen
+        onResume={onResume}
+        pauseStartedAt={pauseStartedAt}
+        pauseDurationMinutes={10}
+        initialNow={pauseStartedAt}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(screen.getByTestId("pause-timer")).toHaveTextContent("09:00")
+    // Veille de 20 min pendant la pause : le serveur, lui, a vu le temps passer.
+    rerender(
+      <PauseDialog
+        isOpen
+        onResume={onResume}
+        pauseStartedAt={pauseStartedAt}
+        pauseDurationMinutes={10}
+        initialNow={pauseStartedAt + 21 * 60 * 1000}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(screen.getByTestId("pause-timer")).toHaveTextContent("00:00")
+    expect(onResume).toHaveBeenCalledTimes(1)
+  })
+
   it("chargée en pause avec une ancre serveur : le décompte part de l'ancre, delta monotone ensuite", () => {
     vi.useFakeTimers()
     const onResume = vi.fn()

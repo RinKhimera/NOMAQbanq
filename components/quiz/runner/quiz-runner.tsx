@@ -184,9 +184,7 @@ function QuizRunnerInner({
           onResume={handleResume}
           pauseStartedAt={session.pauseStartedAt}
           pauseDurationMinutes={pauseDurationMinutes}
-          initialNow={
-            initialPause?.isPaused ? mode.timer?.initialNow : undefined
-          }
+          initialNow={session.serverNow}
           isResuming={isResuming}
         />
       )}

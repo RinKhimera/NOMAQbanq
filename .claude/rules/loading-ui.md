@@ -95,9 +95,13 @@ justifie dans le code.
   au-delà de 2 s d'écart, pour ne pas faire sauter le décompte au RTT). Au
   réveil de l'onglet (`visibilitychange`/`focus`), un écart de plus de 5 s
   entre l'horloge murale et la monotone trahit une veille : le runner demande
-  l'heure au serveur (`readServerClock`) et ré-ancre — jamais sur
+  l'heure au serveur (`readServerClock`, rejoué au retour du réseau) et
+  ré-ancre chrono ET décompte de pause (`session.serverNow`) — jamais sur
   `Date.now()` seul, qui reproduirait le bug. Sur refus `TIME_UP` d'une
-  réponse, le moteur soumet l'examen au lieu de faire réessayer. `useClock` (phases
+  réponse, le moteur soumet l'examen au lieu de faire réessayer ; après
+  l'expiration, une remise manuelle part en `isAutoSubmit` (seule forme
+  exemptée du budget), sinon un étudiant dont l'auto-soumission a échoué
+  resterait bloqué jusqu'au cron. `useClock` (phases
   d'examen, tick à la minute) reste sur `Date.now()` : pur affichage, rien à
   déclencher. Le chrono d'examen était la
   dernière exception : cause prouvée de **NOMAQBANQ-13** (replay du 2026-08-23,

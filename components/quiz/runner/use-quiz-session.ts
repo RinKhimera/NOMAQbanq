@@ -71,6 +71,9 @@ export type UseQuizSessionResult = {
   // Début de la pause en cours (instant SERVEUR), ancre du décompte de
   // l'overlay ; absent hors pause. Jamais l'horloge locale.
   pauseStartedAt: number | undefined
+  // Dernier instant serveur connu (rendu, actions, resync au réveil) : ancre
+  // du chrono et de l'overlay de pause.
+  serverNow: number
   // Résolvent `true` en succès seulement — l'UI (timestamps locaux de
   // l'overlay) ne doit pas avancer sur une pause/reprise qui a échoué.
   pause: () => Promise<boolean>
@@ -185,11 +188,15 @@ export function useQuizSession({
           inFlight = false
         })
     }
+    // `online` : un réveil sans réseau laisse la dérive armée, le retour du
+    // réseau rejoue la lecture.
     document.addEventListener("visibilitychange", onWake)
     window.addEventListener("focus", onWake)
+    window.addEventListener("online", onWake)
     return () => {
       document.removeEventListener("visibilitychange", onWake)
       window.removeEventListener("focus", onWake)
+      window.removeEventListener("online", onWake)
     }
   }, [hasTimer, syncServerClock])
 
@@ -462,22 +469,45 @@ export function useQuizSession({
     setFinishDialogOpen(true)
   }, [])
 
+  // Timer hook — always called (hooks rules) but only ACTIF quand mode.timer
+  // existe. Sans `enabled`, un mode sans chrono (entraînement) passe
+  // totalSeconds=0 → remaining<=0 au montage → onExpire auto-soumettrait la
+  // session instantanément.
+  const timerConfig = mode.timer
+  const timerStart = timerConfig?.serverStartTime ?? 0
+  const timerResult = useExamTimer({
+    enabled: !!timerConfig,
+    serverStartTime: timerStart,
+    totalSeconds: timerConfig?.totalSeconds ?? 0,
+    initialNow: serverNow,
+    isPaused,
+    totalPauseDurationMs,
+    onExpire: autoSubmitOnce,
+  })
+
+  const timer = timerConfig ? timerResult : null
+
+  // Chrono épuisé : une remise ordinaire serait refusée par le budget serveur,
+  // seule l'auto-soumission en est exemptée. Un clic « Terminer » après
+  // l'expiration (auto-soumission échouée : réseau) part donc en `isAutoSubmit`.
+  const timeIsUp = !!timerConfig && timerResult.remainingMs <= 0
+
   const confirmFinish = useCallback(
     async (opts?: { isAutoSubmit?: boolean }) => {
+      const isAutoSubmit = opts?.isAutoSubmit ?? timeIsUp
       startTransition(async () => {
+        let ok = false
         try {
-          const result = await callbacks.onFinish({
-            isAutoSubmit: opts?.isAutoSubmit ?? false,
-          })
-          if (result.ok && result.redirectTo) {
-            // Navigation happens outside hook; caller handles redirect
-          }
+          ok = (await callbacks.onFinish({ isAutoSubmit })).ok
         } catch {
           // rejet réseau : le dialog reste ouvert, retentable
         }
+        // Une auto-soumission échouée relâche le verrou : le prochain refus
+        // TIME_UP ou le bouton « Terminer » doit pouvoir la relancer.
+        if (!ok && isAutoSubmit) autoSubmitFiredRef.current = false
       })
     },
-    [callbacks],
+    [callbacks, timeIsUp],
   )
 
   // ---- Keyboard shortcuts ----
@@ -516,24 +546,6 @@ export function useQuizSession({
     }
   }, [confirmFinish])
 
-  // Timer hook — always called (hooks rules) but only ACTIF quand mode.timer
-  // existe. Sans `enabled`, un mode sans chrono (entraînement) passe
-  // totalSeconds=0 → remaining<=0 au montage → onExpire auto-soumettrait la
-  // session instantanément.
-  const timerConfig = mode.timer
-  const timerStart = timerConfig?.serverStartTime ?? 0
-  const timerResult = useExamTimer({
-    enabled: !!timerConfig,
-    serverStartTime: timerStart,
-    totalSeconds: timerConfig?.totalSeconds ?? 0,
-    initialNow: serverNow,
-    isPaused,
-    totalPauseDurationMs,
-    onExpire: autoSubmitOnce,
-  })
-
-  const timer = timerConfig ? timerResult : null
-
   // ---- Derived counts ----
 
   const answeredCount = Object.keys(answers).length
@@ -560,6 +572,7 @@ export function useQuizSession({
     isPaused,
     pauseAlreadyUsed,
     pauseStartedAt,
+    serverNow,
     pause,
     resume,
     timer,

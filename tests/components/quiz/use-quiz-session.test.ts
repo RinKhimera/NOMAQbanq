@@ -613,6 +613,45 @@ describe("useQuizSession — timer composé", () => {
     )
   })
 
+  it("réveil sans réseau : la lecture échoue, la dérive reste armée et le retour du réseau (`online`) la rejoue", async () => {
+    const start = Date.now()
+    const THIRTY_MINUTES = 30 * 60 * 1000
+    const onSyncClock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValue({ ok: true, serverNow: start + THIRTY_MINUTES })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          kind: "exam",
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
+        }),
+        callbacks: makeCallbacks({ onSyncClock }),
+      }),
+    )
+    vi.setSystemTime(start + THIRTY_MINUTES)
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
+    expect(result.current.timer?.remainingMs).toBe(3_600_000)
+    await act(async () => {
+      window.dispatchEvent(new Event("online"))
+    })
+    expect(onSyncClock).toHaveBeenCalledTimes(2)
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(result.current.timer?.remainingMs).toBe(
+      3_600_000 - THIRTY_MINUTES - 1000,
+    )
+  })
+
   it("jumeau : retour de visibilité sans dérive (ou dérive d'un simple RTT) → aucun appel serveur", async () => {
     const start = Date.now()
     const onSyncClock = vi
@@ -665,6 +704,68 @@ describe("useQuizSession — timer composé", () => {
       }),
     )
     expect(result.current.pauseStartedAt).toBe(start + 9000)
+  })
+
+  it("auto-soumission échouée (réseau) : le verrou se relâche, le refus TIME_UP suivant la relance", async () => {
+    const start = Date.now()
+    const onAnswer = vi
+      .fn()
+      .mockResolvedValue({ ok: false, error: "Temps écoulé.", timeUp: true })
+    const onFinish = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValue({ ok: true })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          kind: "exam",
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
+        }),
+        callbacks: makeCallbacks({ onAnswer, onFinish }),
+      }),
+    )
+    await act(async () => {
+      await result.current.answerSelect(0)
+    })
+    await act(async () => {
+      await result.current.answerSelect(1)
+    })
+    expect(onFinish).toHaveBeenCalledTimes(2)
+  })
+
+  it("remise manuelle après expiration du chrono : envoyée en auto-soumission (le budget refuserait une remise ordinaire)", async () => {
+    const start = Date.now()
+    const onFinish = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValue({ ok: true })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          kind: "exam",
+          timer: { serverStartTime: start, totalSeconds: 1, initialNow: start },
+        }),
+        callbacks: makeCallbacks({ onFinish }),
+      }),
+    )
+    // L'expiration tente l'auto-soumission, qui échoue (réseau).
+    await act(async () => {
+      vi.advanceTimersByTime(2000)
+    })
+    expect(onFinish).toHaveBeenCalledTimes(1)
+    // L'étudiant clique « Terminer » : la remise part exemptée du budget.
+    await act(async () => {
+      await result.current.confirmFinish()
+    })
+    expect(onFinish).toHaveBeenLastCalledWith({ isAutoSubmit: true })
   })
 
   it("temps écoulé côté serveur (réponse refusée timeUp) : auto-soumission, une seule fois même si le chrono expire ensuite", async () => {

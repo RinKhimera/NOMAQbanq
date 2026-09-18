@@ -211,7 +211,7 @@ export function EvaluationClient({
       : undefined,
     // Silencieux : lecture de fond au réveil de l'onglet, rien à annoncer.
     onSyncClock: async () => {
-      const res = await callAction(() => readServerClock())
+      const res = await callAction(() => readServerClock(), { retries: 1 })
       return res.success
         ? { ok: true, serverNow: res.serverNow }
         : { ok: false }
