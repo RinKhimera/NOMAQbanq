@@ -11,14 +11,16 @@ import {
   exams,
   questions,
   user,
-  userAccess,
 } from "@/db/schema"
-import { isExpired, pauseCredit } from "@/lib/attempt-clock"
+import { pauseCredit } from "@/lib/attempt-clock"
 import { requireRole, requireSession } from "@/lib/auth-guards"
+import { isOpen } from "@/lib/exam-phase"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { computeScorePercent } from "@/lib/score"
-import { hasAccess } from "../payments/dal"
+import { type Refusal, refusalMessage, requireAttempt } from "../attempts/guard"
+import { hasActiveAccess } from "../payments/dal"
+import { viewerOf } from "../questions/answer-key-lock"
 import { type SelectableUser, searchSelectableUsers } from "../users/dal"
 import {
   type ExamAudienceUser,
@@ -421,6 +423,10 @@ export const deleteParticipation = async ({
 // Étudiant : cycle de vie de la passation
 // ============================================
 
+/** Refus de la garde de tentative (code) ou refus local (message). */
+const refused = (r: Refusal | { message: string }) =>
+  fail("code" in r ? refusalMessage(r.code, "exam") : r.message)
+
 export type StartExamResult =
   | { success: true; participationId: string; startedAt: number }
   | { success: false; error: string }
@@ -466,13 +472,17 @@ export const startExam = async ({
       if (!exam) throw new Error("NOT_FOUND")
 
       const now = Date.now()
-      if (now < exam.startDate.getTime() || now > exam.endDate.getTime()) {
+      const window = {
+        startDate: exam.startDate.getTime(),
+        endDate: exam.endDate.getTime(),
+      }
+      if (now < window.startDate || !isOpen(window, now)) {
         throw new Error("OUTSIDE_WINDOW")
       }
 
       // Garde d'accès « sélection = accès » :
       // - restricted → appartenance à examAudience requise (pas d'abonnement) ;
-      // - subscribers → abonnement examen actif (comportement historique).
+      // - subscribers → abonnement examen actif, lu par la transaction.
       if (!isAdmin) {
         if (exam.audienceType === "restricted") {
           const [member] = await tx
@@ -486,24 +496,10 @@ export const startExam = async ({
             )
             .limit(1)
           if (!member) throw new Error("NOT_IN_AUDIENCE")
-        } else {
-          // subscribers : abonnement examen actif requis. Lecture via `tx`
-          // (et non `hasAccess`, qui emprunterait une 2e connexion du pool
-          // pendant la transaction → risque d'épuisement du pool sous
-          // concurrence). Parité avec la re-vérification de finalizeExam.
-          const [acc] = await tx
-            .select({ expiresAt: userAccess.expiresAt })
-            .from(userAccess)
-            .where(
-              and(
-                eq(userAccess.userId, userId),
-                eq(userAccess.accessType, "exam"),
-              ),
-            )
-            .limit(1)
-          if (!acc || acc.expiresAt.getTime() <= now) {
-            throw new Error("ACCESS_EXPIRED")
-          }
+        } else if (
+          !(await hasActiveAccess(tx, { userId, type: "exam", now }))
+        ) {
+          throw new Error("ACCESS_EXPIRED")
         }
       }
 
@@ -589,16 +585,15 @@ export const startExam = async ({
 }
 
 /**
- * [Auth] Enregistre ou met à jour la réponse d'une question (anti-triche :
- * isCorrect jamais retourné au client). Vérifie fenêtre de dates, statut de
- * participation, pause active, et appartenance de la question à l'examen.
+ * [Auth] Enregistre ou met à jour la réponse d'une question sous la garde
+ * `answer` de la participation (fenêtre, accès, pause, budget de temps à
+ * L'ÉCRITURE). Anti-triche : isCorrect jamais retourné au client.
  */
 export const saveExamAnswer = async (
   input: SaveExamAnswerInput,
 ): Promise<{ success: boolean; error?: string }> => {
   const session = await requireSession()
-  const userId = session.user.id
-  const isAdmin = session.user.role === "admin"
+  const actor = viewerOf(session.user)
 
   const parsed = saveExamAnswerSchema.safeParse(input)
   if (!parsed.success)
@@ -606,32 +601,6 @@ export const saveExamAnswer = async (
   const { examId, questionId, selectedAnswer } = parsed.data
 
   try {
-    const now = Date.now()
-    const [exam] = await db
-      .select({
-        startDate: exams.startDate,
-        endDate: exams.endDate,
-        audienceType: exams.audienceType,
-        completionTime: exams.completionTime,
-      })
-      .from(exams)
-      .where(eq(exams.id, examId))
-      .limit(1)
-    if (!exam) return fail("Examen introuvable.")
-    if (now < exam.startDate.getTime() || now > exam.endDate.getTime())
-      return fail("L'examen n'est pas disponible à cette période.")
-
-    // Accès asymétrique (parité startExam/finalizeExam) : restricted → la
-    // participation in_progress (vérifiée plus bas) EST l'autorisation, pas
-    // besoin d'abonnement (la sélection octroie l'accès) ; subscribers →
-    // abonnement examen actif requis.
-    if (
-      !isAdmin &&
-      exam.audienceType === "subscribers" &&
-      !(await hasAccess("exam"))
-    )
-      return fail("Votre accès aux examens a expiré.")
-
     // Question immuable (appartenance + bonne réponse) : hors transaction.
     const [q] = await db
       .select({ correctAnswer: questions.correctAnswer })
@@ -647,122 +616,87 @@ export const saveExamAnswer = async (
     if (!q) return fail("Cette question ne fait pas partie de l'examen.")
     const isCorrect = q.correctAnswer === selectedAnswer
 
-    // Verrou participation englobant check-statut + budget + écriture : sérialise
-    // avec finalizeExam (qui verrouille la même ligne) → aucune écriture après le
-    // score. Budget-temps gardé À L'ÉCRITURE (anti-triche : finalize saute TIME_UP
-    // quand isAutoSubmit=true, flag client). Narrowing : valeur renvoyée DEPUIS le
-    // callback (AGENTS.md).
+    const now = Date.now()
     const outcome = await db.transaction(async (tx) => {
-      const [p] = await tx
-        .select({
-          id: examParticipations.id,
-          status: examParticipations.status,
-          startedAt: examParticipations.startedAt,
-          totalPauseDurationMs: examParticipations.totalPauseDurationMs,
-          pauseStartedAt: examParticipations.pauseStartedAt,
-        })
-        .from(examParticipations)
-        .where(
-          and(
-            eq(examParticipations.examId, examId),
-            eq(examParticipations.userId, userId),
-          ),
-        )
-        .for("update")
-        .limit(1)
-      if (!p) return { ok: false as const, msg: "Participation introuvable." }
-      if (p.status !== "in_progress")
-        return {
-          ok: false as const,
-          msg: "Cette session d'examen n'est plus active.",
-        }
-      if (p.pauseStartedAt)
-        return {
-          ok: false as const,
-          msg: "Réponse impossible pendant la pause.",
-        }
-
-      // Pause ACTIVE déjà exclue → seul le crédit figé compte.
-      if (
-        !isAdmin &&
-        p.startedAt &&
-        isExpired(
-          {
-            startedAt: p.startedAt.getTime(),
-            budgetSeconds: exam.completionTime,
-            pauseCreditMs: p.totalPauseDurationMs ?? 0,
-          },
-          now,
-        )
-      )
-        return { ok: false as const, msg: "Temps écoulé." }
+      const guard = await requireAttempt(tx, {
+        kind: "exam",
+        ref: examId,
+        actor,
+        now,
+        verb: "answer",
+      })
+      if (!guard.ok) return guard
 
       const updated = await tx
         .update(examAnswers)
         .set({ selectedAnswer, isCorrect })
         .where(
           and(
-            eq(examAnswers.participationId, p.id),
+            eq(examAnswers.participationId, guard.attempt.id),
             eq(examAnswers.questionId, questionId),
           ),
         )
         .returning({ id: examAnswers.id })
-      if (updated.length === 0)
+      if (updated.length === 0) {
         return {
           ok: false as const,
-          msg: "Réponse non enregistrée (session incohérente).",
+          message: "Réponse non enregistrée (session incohérente).",
         }
+      }
       return { ok: true as const }
     })
 
-    if (!outcome.ok) return fail(outcome.msg)
+    if (!outcome.ok) return refused(outcome)
     return { success: true } // never return isCorrect (anti-cheat)
   } catch (error) {
-    captureServerError("[saveExamAnswer]", error, { userId })
+    captureServerError("[saveExamAnswer]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
 
-/**
- * [Auth] Marque ou démarque une question (flag). Vérifie statut de participation.
- */
+/** [Auth] Marque ou démarque une question (garde `flag` : statut seul). */
 export const saveExamFlag = async (
   input: SaveExamFlagInput,
 ): Promise<{ success: boolean; error?: string }> => {
   const session = await requireSession()
+  const actor = viewerOf(session.user)
   const parsed = saveExamFlagSchema.safeParse(input)
   if (!parsed.success)
     return fail(parsed.error.issues[0]?.message ?? "Données invalides")
   const { examId, questionId, isFlagged } = parsed.data
   try {
-    const [p] = await db
-      .select({ id: examParticipations.id, status: examParticipations.status })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          eq(examParticipations.userId, session.user.id),
-        ),
-      )
-      .limit(1)
-    if (!p) return fail("Participation introuvable.")
-    if (p.status !== "in_progress")
-      return fail("Cette session d'examen n'est plus active.")
-    const updated = await db
-      .update(examAnswers)
-      .set({ isFlagged })
-      .where(
-        and(
-          eq(examAnswers.participationId, p.id),
-          eq(examAnswers.questionId, questionId),
-        ),
-      )
-      .returning({ id: examAnswers.id })
-    if (updated.length === 0)
-      return fail("Marquage non enregistré (session incohérente).")
+    const now = Date.now()
+    const outcome = await db.transaction(async (tx) => {
+      const guard = await requireAttempt(tx, {
+        kind: "exam",
+        ref: examId,
+        actor,
+        now,
+        verb: "flag",
+      })
+      if (!guard.ok) return guard
+      const updated = await tx
+        .update(examAnswers)
+        .set({ isFlagged })
+        .where(
+          and(
+            eq(examAnswers.participationId, guard.attempt.id),
+            eq(examAnswers.questionId, questionId),
+          ),
+        )
+        .returning({ id: examAnswers.id })
+      if (updated.length === 0) {
+        return {
+          ok: false as const,
+          message: "Marquage non enregistré (session incohérente).",
+        }
+      }
+      return { ok: true as const }
+    })
+    if (!outcome.ok) return refused(outcome)
     return { success: true }
   } catch (error) {
-    captureServerError("[saveExamFlag]", error, { userId: session.user.id })
+    captureServerError("[saveExamFlag]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -771,18 +705,19 @@ export type FinalizeExamResult =
   { success: true } | { success: false; error: string }
 
 /**
- * [Auth] Finalise un examen : calcule le score depuis les lignes examAnswers
- * pré-existantes, valide le budget-temps, met à jour le statut. Verrou de ligne
- * participation → soumission unique. Anti-triche : ni isCorrect ni le
- * décompte des justes ne repartent vers le navigateur (voir
- * `scoreWithheldFor`) ; les résultats se lisent par la DAL après clôture.
+ * [Auth] Finalise un examen sous la garde `close` : calcule le score depuis
+ * les lignes examAnswers pré-existantes, crédite une pause en cours, met à
+ * jour le statut. `isAutoSubmit` vient du client : la garde ne lui accorde
+ * que l'exemption du budget (les réponses sont gardées à l'écriture).
+ * Anti-triche : ni isCorrect ni le décompte des justes ne repartent vers le
+ * navigateur (voir `scoreWithheldFor`) ; les résultats se lisent par la DAL
+ * après clôture.
  */
 export const finalizeExam = async (
   input: FinalizeExamInput,
 ): Promise<FinalizeExamResult> => {
   const session = await requireSession()
-  const userId = session.user.id
-  const isAdmin = session.user.role === "admin"
+  const actor = viewerOf(session.user)
 
   const parsed = finalizeExamSchema.safeParse(input)
   if (!parsed.success)
@@ -790,81 +725,18 @@ export const finalizeExam = async (
   const { examId, isAutoSubmit } = parsed.data
 
   try {
-    await db.transaction(async (tx) => {
-      const [exam] = await tx
-        .select({
-          startDate: exams.startDate,
-          endDate: exams.endDate,
-          completionTime: exams.completionTime,
-          pauseDurationMinutes: exams.pauseDurationMinutes,
-          audienceType: exams.audienceType,
-        })
-        .from(exams)
-        .where(eq(exams.id, examId))
-        .limit(1)
-      if (!exam) throw new Error("NOT_FOUND")
-
-      const now = Date.now()
-      if (now < exam.startDate.getTime() || now > exam.endDate.getTime())
-        throw new Error("OUTSIDE_WINDOW")
-
-      const [p] = await tx
-        .select({
-          id: examParticipations.id,
-          status: examParticipations.status,
-          startedAt: examParticipations.startedAt,
-          pauseStartedAt: examParticipations.pauseStartedAt,
-          totalPauseDurationMs: examParticipations.totalPauseDurationMs,
-        })
-        .from(examParticipations)
-        .where(
-          and(
-            eq(examParticipations.examId, examId),
-            eq(examParticipations.userId, userId),
-          ),
-        )
-        .for("update")
-        .limit(1)
-      if (!p) throw new Error("NOT_FOUND_PART")
-      if (p.status === "completed" || p.status === "auto_submitted")
-        throw new Error("ALREADY_TAKEN")
-      if (p.status !== "in_progress") throw new Error("NOT_IN_PROGRESS")
-
-      // Re-vérification d'accès ASYMÉTRIQUE :
-      // - subscribers → re-vérifier l'abonnement (empêche de soumettre après
-      //   expiration) ;
-      // - restricted → AUCUNE re-vérification d'appartenance : une participation
-      //   in_progress n'existe que si startExam a déjà autorisé l'accès ; un
-      //   membre retiré de l'audience en cours doit pouvoir finaliser.
-      if (!isAdmin && exam.audienceType === "subscribers") {
-        const [acc] = await tx
-          .select({ expiresAt: userAccess.expiresAt })
-          .from(userAccess)
-          .where(
-            and(
-              eq(userAccess.userId, userId),
-              eq(userAccess.accessType, "exam"),
-            ),
-          )
-          .limit(1)
-        if (!acc || acc.expiresAt.getTime() <= now)
-          throw new Error("ACCESS_EXPIRED")
-      }
-
-      if (!p.startedAt) throw new Error("NOT_STARTED")
-      const timing = {
-        startedAt: p.startedAt.getTime(),
-        budgetSeconds: exam.completionTime,
-        pauseCreditMs: p.totalPauseDurationMs ?? 0,
-        pauseInProgress: p.pauseStartedAt
-          ? {
-              startedAt: p.pauseStartedAt.getTime(),
-              capMinutes: exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES,
-            }
-          : null,
-      }
-      const pauseMs = pauseCredit(timing, now)
-      if (!isAutoSubmit && isExpired(timing, now)) throw new Error("TIME_UP")
+    const now = Date.now()
+    const outcome = await db.transaction(async (tx) => {
+      const guard = await requireAttempt(tx, {
+        kind: "exam",
+        ref: examId,
+        actor,
+        now,
+        verb: "close",
+        isAutoSubmit,
+      })
+      if (!guard.ok) return guard
+      const { id, timing } = guard.attempt
 
       const [agg] = await tx
         .select({
@@ -875,10 +747,8 @@ export const finalizeExam = async (
           total: sql<number>`count(*)`.mapWith(Number),
         })
         .from(examAnswers)
-        .where(eq(examAnswers.participationId, p.id))
-      const correctAnswers = agg?.correct ?? 0
-      const totalQuestions = agg?.total ?? 0
-      const score = computeScorePercent(correctAnswers, totalQuestions)
+        .where(eq(examAnswers.participationId, id))
+      const score = computeScorePercent(agg?.correct ?? 0, agg?.total ?? 0)
 
       await tx
         .update(examParticipations)
@@ -887,35 +757,22 @@ export const finalizeExam = async (
           score,
           completedAt: new Date(now),
           pauseStartedAt: null,
-          totalPauseDurationMs: pauseMs,
+          totalPauseDurationMs: pauseCredit(timing, now),
         })
-        .where(eq(examParticipations.id, p.id))
+        .where(eq(examParticipations.id, id))
+      return { ok: true as const }
     })
+    if (!outcome.ok) return refused(outcome)
     return { success: true }
   } catch (error) {
-    if (error instanceof Error) {
-      const map: Record<string, string> = {
-        NOT_FOUND: "Examen introuvable.",
-        OUTSIDE_WINDOW: "L'examen n'est pas disponible à cette période.",
-        NOT_FOUND_PART: "Participation introuvable.",
-        ALREADY_TAKEN: "Vous avez déjà passé cet examen.",
-        NOT_IN_PROGRESS: "Cette session d'examen n'est plus active.",
-        ACCESS_EXPIRED: "Votre accès aux examens a expiré.",
-        NOT_STARTED: "L'examen n'a pas encore été démarré.",
-        TIME_UP:
-          "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
-      }
-      const msg = map[error.message]
-      if (msg) return fail(msg)
-    }
-    captureServerError("[finalizeExam]", error, { userId })
+    captureServerError("[finalizeExam]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
 
 /**
- * [Auth] Démarre la pause. Vérifie que la pause est activée, que l'examen est
- * en cours, et qu'aucune pause n'a déjà été utilisée. Verrou de ligne.
+ * [Auth] Démarre la pause (garde `pause` : statut seul). Vérifie que la pause
+ * est activée et qu'aucune pause n'a déjà été utilisée.
  */
 export const pauseExam = async ({
   examId,
@@ -928,62 +785,57 @@ export const pauseExam = async ({
   pauseDurationMinutes?: number
 }> => {
   const session = await requireSession()
+  const actor = viewerOf(session.user)
   if (!examId) return fail("Examen requis")
   try {
-    return await db.transaction(async (tx) => {
-      const [exam] = await tx
-        .select({
-          enablePause: exams.enablePause,
-          pauseDurationMinutes: exams.pauseDurationMinutes,
-        })
-        .from(exams)
-        .where(eq(exams.id, examId))
-        .limit(1)
-      if (!exam) return fail("Examen introuvable.")
-      if (!exam.enablePause)
-        return fail("La pause n'est pas activée pour cet examen.")
-      const [p] = await tx
-        .select({
-          id: examParticipations.id,
-          status: examParticipations.status,
-          pauseStartedAt: examParticipations.pauseStartedAt,
-          total: examParticipations.totalPauseDurationMs,
-        })
-        .from(examParticipations)
-        .where(
-          and(
-            eq(examParticipations.examId, examId),
-            eq(examParticipations.userId, session.user.id),
-          ),
-        )
-        .for("update")
-        .limit(1)
-      if (!p) return fail("Participation introuvable.")
-      if (p.status !== "in_progress")
-        return fail("L'examen n'est pas en cours.")
-      if (p.pauseStartedAt) return fail("Vous êtes déjà en pause.")
-      if ((p.total ?? 0) > 0) return fail("La pause a déjà été utilisée.")
-      const now = Date.now()
+    const now = Date.now()
+    const outcome = await db.transaction(async (tx) => {
+      const guard = await requireAttempt(tx, {
+        kind: "exam",
+        ref: examId,
+        actor,
+        now,
+        verb: "pause",
+      })
+      if (!guard.ok) return guard
+      const { id, timing, exam } = guard.attempt
+      if (!exam.enablePause) {
+        return {
+          ok: false as const,
+          message: "La pause n'est pas activée pour cet examen.",
+        }
+      }
+      if (timing.pauseInProgress) {
+        return { ok: false as const, message: "Vous êtes déjà en pause." }
+      }
+      if (timing.pauseCreditMs > 0) {
+        return { ok: false as const, message: "La pause a déjà été utilisée." }
+      }
       await tx
         .update(examParticipations)
         .set({ pauseStartedAt: new Date(now) })
-        .where(eq(examParticipations.id, p.id))
+        .where(eq(examParticipations.id, id))
       return {
-        success: true as const,
-        pauseStartedAt: now,
+        ok: true as const,
         pauseDurationMinutes:
           exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES,
       }
     })
+    if (!outcome.ok) return refused(outcome)
+    return {
+      success: true,
+      pauseStartedAt: now,
+      pauseDurationMinutes: outcome.pauseDurationMinutes,
+    }
   } catch (error) {
-    captureServerError("[pauseExam]", error, { userId: session.user.id })
+    captureServerError("[pauseExam]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
 
 /**
- * [Auth] Reprend après la pause. Calcule la durée réelle écoulée (plafonnée à
- * la durée max de pause) et la soustrait du budget-temps à la finalisation.
+ * [Auth] Reprend après la pause (garde `resume` : statut seul). Crédite la
+ * durée réelle écoulée, plafonnée à la durée de pause de l'examen.
  */
 export const resumeExam = async ({
   examId,
@@ -995,54 +847,34 @@ export const resumeExam = async ({
   totalPauseDurationMs?: number
 }> => {
   const session = await requireSession()
+  const actor = viewerOf(session.user)
   if (!examId) return fail("Examen requis")
   try {
-    return await db.transaction(async (tx) => {
-      const [exam] = await tx
-        .select({ pauseDurationMinutes: exams.pauseDurationMinutes })
-        .from(exams)
-        .where(eq(exams.id, examId))
-        .limit(1)
-      if (!exam) return fail("Examen introuvable.")
-      const [p] = await tx
-        .select({
-          id: examParticipations.id,
-          status: examParticipations.status,
-          pauseStartedAt: examParticipations.pauseStartedAt,
-          total: examParticipations.totalPauseDurationMs,
-        })
-        .from(examParticipations)
-        .where(
-          and(
-            eq(examParticipations.examId, examId),
-            eq(examParticipations.userId, session.user.id),
-          ),
-        )
-        .for("update")
-        .limit(1)
-      if (!p) return fail("Participation introuvable.")
-      if (p.status !== "in_progress")
-        return fail("L'examen n'est pas en cours.")
-      if (!p.pauseStartedAt) return fail("Vous n'êtes pas en pause.")
-      const now = Date.now()
-      const total = pauseCredit(
-        {
-          pauseCreditMs: p.total ?? 0,
-          pauseInProgress: {
-            startedAt: p.pauseStartedAt.getTime(),
-            capMinutes: exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES,
-          },
-        },
+    const now = Date.now()
+    const outcome = await db.transaction(async (tx) => {
+      const guard = await requireAttempt(tx, {
+        kind: "exam",
+        ref: examId,
+        actor,
         now,
-      )
+        verb: "resume",
+      })
+      if (!guard.ok) return guard
+      const { id, timing } = guard.attempt
+      if (!timing.pauseInProgress) {
+        return { ok: false as const, message: "Vous n'êtes pas en pause." }
+      }
+      const total = pauseCredit(timing, now)
       await tx
         .update(examParticipations)
         .set({ pauseStartedAt: null, totalPauseDurationMs: total })
-        .where(eq(examParticipations.id, p.id))
-      return { success: true as const, totalPauseDurationMs: total }
+        .where(eq(examParticipations.id, id))
+      return { ok: true as const, total }
     })
+    if (!outcome.ok) return refused(outcome)
+    return { success: true, totalPauseDurationMs: outcome.total }
   } catch (error) {
-    captureServerError("[resumeExam]", error, { userId: session.user.id })
+    captureServerError("[resumeExam]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
