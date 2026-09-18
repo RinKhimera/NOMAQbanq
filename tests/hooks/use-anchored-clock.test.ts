@@ -36,4 +36,29 @@ describe("useAnchoredClock", () => {
     vi.advanceTimersByTime(1000)
     expect(result.current()).toBe(ANCHOR + 91_000)
   })
+  it("une nouvelle ancre à moins de 2 s de l'horloge courante est ignorée : pas de gigue au fil des réponses", () => {
+    const { result, rerender } = renderHook(
+      ({ anchor }: { anchor: number }) => useAnchoredClock(anchor),
+      { initialProps: { anchor: ANCHOR } },
+    )
+    vi.advanceTimersByTime(60_000)
+    // Instant serveur d'une réponse, reçu un demi-RTT plus tard : garder le delta.
+    rerender({ anchor: ANCHOR + 60_000 - 800 })
+    expect(result.current()).toBe(ANCHOR + 60_000)
+  })
+
+  it("veille système : l'horloge monotone gèle, une ancre serveur plus récente réaligne", () => {
+    const { result, rerender } = renderHook(
+      ({ anchor }: { anchor: number }) => useAnchoredClock(anchor),
+      { initialProps: { anchor: ANCHOR } },
+    )
+    vi.advanceTimersByTime(10_000)
+    const frozen = performance.now()
+    const spy = vi.spyOn(performance, "now").mockReturnValue(frozen)
+    vi.setSystemTime(Date.now() + 30 * 60 * 1000)
+    expect(result.current()).toBe(ANCHOR + 10_000)
+    spy.mockRestore()
+    rerender({ anchor: ANCHOR + 10_000 + 30 * 60 * 1000 })
+    expect(result.current()).toBe(ANCHOR + 10_000 + 30 * 60 * 1000)
+  })
 })

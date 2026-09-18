@@ -138,7 +138,7 @@ export function EvaluationClient({
         }
       }
       // Anti-triche : ne JAMAIS renvoyer isCorrect ni reveal
-      return { ok: true }
+      return { ok: true, serverNow: res.serverNow }
     },
     onFlag: async (questionId, isFlagged) => {
       const res = await callAction(
@@ -175,14 +175,14 @@ export function EvaluationClient({
     onPause: exam.enablePause
       ? async () => {
           const res = await callAction(() => pauseExam({ examId }))
-          if (res.success) {
-            toast.info("⏸️ Pause - Prenez une pause bien méritée !", {
-              duration: 5000,
-            })
-          } else {
+          if (!res.success) {
             toast.error(res.error ?? "Erreur lors de la mise en pause")
+            return { ok: false }
           }
-          return { ok: res.success }
+          toast.info("⏸️ Pause - Prenez une pause bien méritée !", {
+            duration: 5000,
+          })
+          return { ok: true, serverNow: res.serverNow }
         }
       : undefined,
     onResume: exam.enablePause
@@ -190,7 +190,11 @@ export function EvaluationClient({
           const res = await callAction(() => resumeExam({ examId }))
           if (res.success) {
             toast.success("Pause terminée - Continuez l'examen !")
-            return { ok: true, totalPauseDurationMs: res.totalPauseDurationMs }
+            return {
+              ok: true,
+              totalPauseDurationMs: res.totalPauseDurationMs,
+              serverNow: res.serverNow,
+            }
           }
           toast.error(res.error ?? "Erreur lors de la reprise")
           return { ok: false }

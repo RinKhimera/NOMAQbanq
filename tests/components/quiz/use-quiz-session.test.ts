@@ -463,6 +463,79 @@ describe("useQuizSession — timer composé", () => {
     })
     expect(onFinish).toHaveBeenCalledWith({ isAutoSubmit: true })
   })
+  it("l'instant serveur d'une réponse ré-ancre le chrono (veille, retour arrière)", async () => {
+    const start = Date.now()
+    const THIRTY_MINUTES = 30 * 60 * 1000
+    const onAnswer = vi
+      .fn()
+      .mockResolvedValue({ ok: true, serverNow: start + THIRTY_MINUTES })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          kind: "exam",
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
+        }),
+        callbacks: makeCallbacks({ onAnswer }),
+      }),
+    )
+    expect(result.current.timer?.remainingMs).toBe(3_600_000)
+    await act(async () => {
+      await result.current.answerSelect(0)
+    })
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(result.current.timer?.remainingMs).toBe(
+      3_600_000 - THIRTY_MINUTES - 1000,
+    )
+  })
+
+  it("l'instant serveur de la reprise de pause ré-ancre le chrono", async () => {
+    const start = Date.now()
+    const TEN_MINUTES = 10 * 60 * 1000
+    const onPause = vi.fn().mockResolvedValue({ ok: true })
+    const onResume = vi.fn().mockResolvedValue({
+      ok: true,
+      totalPauseDurationMs: TEN_MINUTES,
+      serverNow: start + TEN_MINUTES + 30 * 60 * 1000,
+    })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          kind: "exam",
+          pause: "rest",
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
+        }),
+        callbacks: makeCallbacks({ onPause, onResume }),
+      }),
+    )
+    await act(async () => {
+      await result.current.pause()
+    })
+    // Veille pendant la pause : l'horloge monotone n'a rien vu.
+    await act(async () => {
+      await result.current.resume()
+    })
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+    // 40 min serveur − 10 min de crédit = 30 min consommées, puis 1 s.
+    expect(result.current.timer?.remainingMs).toBe(
+      3_600_000 - 30 * 60 * 1000 - 1000,
+    )
+  })
 })
 
 describe("useQuizSession — raccourcis clavier", () => {

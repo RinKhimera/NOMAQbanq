@@ -465,7 +465,8 @@ describe("saveExamAnswer", () => {
   it("succes : ecrit la reponse et son verdict, ne renvoie jamais isCorrect (anti-triche)", async () => {
     setRows(question)
     const res = await saveExamAnswer(input)
-    expect(res).toEqual({ success: true })
+    // `serverNow` ré-ancre le chrono client ; jamais isCorrect.
+    expect(res).toEqual({ success: true, serverNow: Date.now() })
     expect(state.set).toEqual({ selectedAnswer: "A", isCorrect: true })
   })
 
@@ -681,6 +682,7 @@ describe("pauseExam", () => {
       success: true,
       pauseStartedAt: NOW,
       pauseDurationMinutes: 20,
+      serverNow: NOW,
     })
     expect(state.set).toEqual({ pauseStartedAt: new Date(NOW) })
   })
@@ -760,6 +762,7 @@ describe("resumeExam", () => {
     expect(await resumeExam({ examId: "e1" })).toEqual({
       success: true,
       totalPauseDurationMs: 65_000,
+      serverNow: 100_000,
     })
     expect(state.set).toEqual({
       pauseStartedAt: null,
@@ -774,6 +777,7 @@ describe("resumeExam", () => {
     expect(await resumeExam({ examId: "e1" })).toEqual({
       success: true,
       totalPauseDurationMs: 60_000,
+      serverNow: 60 * 60 * 1000,
     })
   })
 

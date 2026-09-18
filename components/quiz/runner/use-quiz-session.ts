@@ -125,6 +125,17 @@ export function useQuizSession({
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [isSubmitting, startTransition] = useTransition()
 
+  // ---- Horloge serveur ----
+  // Dernier instant serveur connu : celui du rendu, puis celui de chaque
+  // réponse d'action (`serverNow`), qui ré-ancre le chrono après une veille
+  // ou un retour arrière (voir `useAnchoredClock`).
+  const [serverNow, setServerNow] = useState(
+    mode.timer?.initialNow ?? mode.timer?.serverStartTime ?? 0,
+  )
+  const syncServerClock = useCallback((res: { serverNow?: number }) => {
+    if (res.serverNow !== undefined) setServerNow(res.serverNow)
+  }, [])
+
   // ---- Pause (rest break) ----
   const [isPaused, setIsPaused] = useState(initialPause?.isPaused ?? false)
   const [totalPauseDurationMs, setTotalPauseDurationMs] = useState(
@@ -261,6 +272,7 @@ export function useQuizSession({
         // cible du rollback si l'envoi suivant échoue.
         if (res.ok) {
           persistedAnswers.current[qid] = current
+          syncServerClock(res)
         }
         const queued = state.queued
         state.queued = undefined
@@ -286,7 +298,7 @@ export function useQuizSession({
         return
       }
     },
-    [currentQuestion, callbacks, isImmediate, revealed],
+    [currentQuestion, callbacks, isImmediate, revealed, syncServerClock],
   )
 
   // ---- Confirm (mode tuteur uniquement) ----
@@ -305,6 +317,7 @@ export function useQuizSession({
       return // rejet réseau : pending conservé pour réessai, pas de reveal
     }
     if (!res.ok) return // toast géré dans onAnswer ; on garde le pending pour réessai
+    syncServerClock(res)
 
     if (res.reveal) {
       const reveal = res.reveal
@@ -321,7 +334,7 @@ export function useQuizSession({
         return next
       })
     }
-  }, [currentQuestion, revealed, pendingSelection, callbacks])
+  }, [currentQuestion, revealed, pendingSelection, callbacks, syncServerClock])
 
   // ---- Pause / resume (rest break) ----
 
@@ -330,6 +343,7 @@ export function useQuizSession({
     try {
       const res = await callbacks.onPause()
       if (res.ok) {
+        syncServerClock(res)
         setIsPaused(true)
       }
       return res.ok
@@ -337,13 +351,14 @@ export function useQuizSession({
       // rejet réseau : rester non-pausé, le callback de page a déjà toasté
       return false
     }
-  }, [callbacks, isPaused])
+  }, [callbacks, isPaused, syncServerClock])
 
   const resume = useCallback(async () => {
     if (!callbacks.onResume || !isPaused) return false
     try {
       const res = await callbacks.onResume()
       if (res.ok) {
+        syncServerClock(res)
         setTotalPauseDurationMs((prev) => res.totalPauseDurationMs ?? prev)
         setIsPaused(false)
         // The single rest pause is now consumed — hide the pause control.
@@ -354,7 +369,7 @@ export function useQuizSession({
       // rejet réseau : rester en pause, retentable via le bouton
       return false
     }
-  }, [callbacks, isPaused])
+  }, [callbacks, isPaused, syncServerClock])
 
   // ---- Finish ----
 
@@ -433,7 +448,7 @@ export function useQuizSession({
     enabled: !!timerConfig,
     serverStartTime: timerStart,
     totalSeconds: timerConfig?.totalSeconds ?? 0,
-    initialNow: timerConfig?.initialNow ?? timerStart,
+    initialNow: serverNow,
     isPaused,
     totalPauseDurationMs,
     onExpire: stableOnExpire,

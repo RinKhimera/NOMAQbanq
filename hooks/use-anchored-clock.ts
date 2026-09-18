@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef } from "react"
 
-type Anchor = { anchor: number; startedAt: number }
+type Anchor = { at: number; startedAt: number }
+
+/**
+ * Écart au-delà duquel une nouvelle ancre serveur est adoptée. En deçà, c'est
+ * le demi-RTT d'une réponse d'action : reposer le delta à chaque réponse ferait
+ * sauter le chrono d'une seconde dans un sens ou l'autre.
+ */
+const RESYNC_THRESHOLD_MS = 2000
 
 /**
  * Horloge d'une tentative côté client : `now()` = ancre serveur + delta
@@ -14,18 +21,30 @@ type Anchor = { anchor: number; startedAt: number }
  * `anchorNow` directement. Elle se pose au MONTAGE, pas à la première
  * lecture : une page rechargée en pause ne lit l'horloge qu'à la reprise, et
  * le temps passé en pause depuis le rendu serveur doit déjà être compté (le
- * serveur le crédite). Une nouvelle ancre (instant serveur plus récent) repose
- * le delta.
+ * serveur le crédite).
+ *
+ * L'horloge monotone ne court pas pendant la veille du système, et un retour
+ * arrière remonte le composant sur un instant serveur périmé : toute nouvelle
+ * valeur de `anchorNow` (instant renvoyé par une action) réaligne le delta dès
+ * qu'elle s'écarte de plus de `RESYNC_THRESHOLD_MS` de l'horloge courante.
  */
 export function useAnchoredClock(anchorNow: number): () => number {
   const anchorRef = useRef<Anchor | null>(null)
+
+  const read = useCallback((anchor: Anchor) => {
+    return anchor.at + (performance.now() - anchor.startedAt)
+  }, [])
+
   useEffect(() => {
-    anchorRef.current = { anchor: anchorNow, startedAt: performance.now() }
-  }, [anchorNow])
-  return useCallback(() => {
-    if (anchorRef.current?.anchor !== anchorNow) {
-      anchorRef.current = { anchor: anchorNow, startedAt: performance.now() }
+    const current = anchorRef.current
+    if (current && Math.abs(anchorNow - read(current)) < RESYNC_THRESHOLD_MS) {
+      return
     }
-    return anchorNow + (performance.now() - anchorRef.current.startedAt)
-  }, [anchorNow])
+    anchorRef.current = { at: anchorNow, startedAt: performance.now() }
+  }, [anchorNow, read])
+
+  return useCallback(() => {
+    anchorRef.current ??= { at: anchorNow, startedAt: performance.now() }
+    return read(anchorRef.current)
+  }, [anchorNow, read])
 }

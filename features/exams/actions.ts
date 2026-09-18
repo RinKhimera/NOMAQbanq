@@ -591,7 +591,7 @@ export const startExam = async ({
  */
 export const saveExamAnswer = async (
   input: SaveExamAnswerInput,
-): Promise<{ success: boolean; error?: string }> => {
+): Promise<{ success: boolean; error?: string; serverNow?: number }> => {
   const session = await requireSession()
   const actor = viewerOf(session.user)
 
@@ -654,7 +654,8 @@ export const saveExamAnswer = async (
     })
 
     if (!outcome.ok) return refused(outcome)
-    return { success: true } // never return isCorrect (anti-cheat)
+    // Jamais isCorrect (anti-triche) ; `serverNow` ré-ancre le chrono client.
+    return { success: true, serverNow: now }
   } catch (error) {
     captureServerError("[saveExamAnswer]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")
@@ -790,6 +791,7 @@ export const pauseExam = async ({
   error?: string
   pauseStartedAt?: number
   pauseDurationMinutes?: number
+  serverNow?: number
 }> => {
   const session = await requireSession()
   const actor = viewerOf(session.user)
@@ -833,6 +835,7 @@ export const pauseExam = async ({
       success: true,
       pauseStartedAt: now,
       pauseDurationMinutes: outcome.pauseDurationMinutes,
+      serverNow: now,
     }
   } catch (error) {
     captureServerError("[pauseExam]", error, { userId: actor.id })
@@ -852,6 +855,7 @@ export const resumeExam = async ({
   success: boolean
   error?: string
   totalPauseDurationMs?: number
+  serverNow?: number
 }> => {
   const session = await requireSession()
   const actor = viewerOf(session.user)
@@ -879,7 +883,11 @@ export const resumeExam = async ({
       return { ok: true as const, total }
     })
     if (!outcome.ok) return refused(outcome)
-    return { success: true, totalPauseDurationMs: outcome.total }
+    return {
+      success: true,
+      totalPauseDurationMs: outcome.total,
+      serverNow: now,
+    }
   } catch (error) {
     captureServerError("[resumeExam]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")
