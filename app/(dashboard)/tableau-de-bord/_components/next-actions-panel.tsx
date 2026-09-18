@@ -22,12 +22,12 @@ interface Exam {
 interface TrainingStats {
   totalSessions: number
   totalQuestions: number
-  averageScore: number
+  averageScore: number | null
 }
 
 interface NextActionsPanelProps {
   completedExamsCount: number
-  averageScore: number
+  averageScore: number | null
   availableExams: Exam[]
   trainingStats?: TrainingStats
 }
@@ -90,7 +90,7 @@ const getTrainingAction = (
     }
   }
 
-  if (trainingStats.averageScore < 60) {
+  if (trainingStats.averageScore !== null && trainingStats.averageScore < 60) {
     return {
       id: "improve-training",
       title: "Continuez à pratiquer",
@@ -148,7 +148,7 @@ const getActions = ({
       : null,
 
     // Priority 3: Review if score is low
-    completedExamsCount > 0 && averageScore < 60
+    completedExamsCount > 0 && averageScore !== null && averageScore < 60
       ? {
           id: "review",
           title: "Révisez les domaines faibles",
@@ -164,7 +164,7 @@ const getActions = ({
     getTrainingAction(trainingStats, completedExamsCount),
 
     // Priority 5: Keep going if doing well
-    completedExamsCount > 0 && averageScore >= 60
+    completedExamsCount > 0 && averageScore !== null && averageScore >= 60
       ? {
           id: "keep-going",
           title: "Maintenez votre niveau",

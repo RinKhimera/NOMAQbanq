@@ -433,13 +433,7 @@ export const setQuestionBookmark = async (
 }
 
 export type CompleteTrainingSessionResult =
-  | {
-      success: true
-      score: number
-      correctCount: number
-      totalQuestions: number
-    }
-  | { success: false; error: string }
+  { success: true } | { success: false; error: string }
 
 /** [Auth] Termine la session : calcule le score (% de bonnes réponses). */
 export const completeTrainingSession = async ({
@@ -517,7 +511,10 @@ export const completeTrainingSession = async ({
     }
 
     revalidatePath("/tableau-de-bord/entrainement")
-    return { success: true, score, correctCount, totalQuestions }
+    // Le décompte des justes compte les réponses différées : il ne repart pas
+    // vers le navigateur (voir `scoreWithheldFor`), la page de résultats lit
+    // la DAL.
+    return { success: true }
   } catch (error) {
     captureServerError("[completeTrainingSession]", error, {
       userId: session.user.id,

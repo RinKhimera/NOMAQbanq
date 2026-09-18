@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 interface ScoreHistoryItem {
   examId: string
   examTitle: string
-  score: number
+  score: number | null
   completedAt: number
 }
 

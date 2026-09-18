@@ -13,7 +13,7 @@ interface AccessStatus {
 
 interface DashboardHeroProps {
   userName?: string
-  averageScore: number
+  averageScore: number | null
   hasCompletedExams: boolean
   accessStatus?: AccessStatus | null
   /** Horloge SERVEUR (instant du rendu). Voir `getGreetingValue`. */
@@ -34,8 +34,9 @@ const getGreetingValue = (now: number) => {
   return "Bonsoir"
 }
 
-const getMotivationalMessage = (score: number, hasExams: boolean) => {
+const getMotivationalMessage = (score: number | null, hasExams: boolean) => {
   if (!hasExams) return "Commencez votre préparation pour l'EACMC Part I"
+  if (score === null) return "Vos résultats arrivent à la clôture de l'examen"
   if (score >= 80) return "Excellent travail ! Continuez sur cette lancée"
   if (score >= 60) return "Bonne progression ! Vous êtes sur la bonne voie"
   if (score >= 40) return "Persévérez, chaque examen vous rapproche du succès"
@@ -196,7 +197,7 @@ export const DashboardHero = ({
             className="flex items-center justify-center"
           >
             <ProgressRing
-              value={hasCompletedExams ? averageScore : 0}
+              value={averageScore ?? 0}
               size={180}
               strokeWidth={14}
             />

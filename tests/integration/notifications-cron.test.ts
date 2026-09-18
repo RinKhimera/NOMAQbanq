@@ -3,9 +3,12 @@ import { readFileSync } from "node:fs"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
+  examAnswers,
   examParticipations,
+  examQuestions,
   exams,
   products,
+  questions,
   session,
   trainingSessions,
   transactions,
@@ -33,6 +36,11 @@ vi.mock("@/email", () => ({
 const creator = createId()
 const optIn = createId()
 const optOut = createId()
+// Score retenu : une réponse de l'examen clos chevauche un examen ouvert où
+// l'utilisateur participe → le courriel ne doit pas imprimer le score.
+const optInLocked = createId()
+const lockedQuestion = createId()
+const lockedClosedPart = createId()
 const closedExam = createId()
 const openExam = createId()
 const now = Date.now()
@@ -43,6 +51,11 @@ beforeAll(async () => {
   await db.insert(user).values([
     { id: creator, name: "Créateur", email: `c-${creator}@test.invalid` },
     { id: optIn, name: "Opt In", email: `in-${optIn}@test.invalid` },
+    {
+      id: optInLocked,
+      name: "Opt In Retenu",
+      email: `lock-${optInLocked}@test.invalid`,
+    },
     {
       id: optOut,
       name: "Opt Out",
@@ -93,10 +106,49 @@ beforeAll(async () => {
       status: "completed",
       completedAt: past,
     },
+    {
+      id: lockedClosedPart,
+      examId: closedExam,
+      userId: optInLocked,
+      score: 60,
+      status: "completed",
+      completedAt: past,
+    },
+    {
+      id: createId(),
+      examId: openExam,
+      userId: optInLocked,
+      score: 0,
+      status: "in_progress",
+      startedAt: past,
+    },
   ])
+  await db.insert(questions).values({
+    id: lockedQuestion,
+    question: `Q retenue ${lockedQuestion} ?`,
+    correctAnswer: "A",
+    options: ["A", "B", "C", "D"],
+    objectifCmc: "Obj notif",
+    domain: "NOTIF",
+  })
+  await db.insert(examQuestions).values([
+    { examId: closedExam, questionId: lockedQuestion, position: 0 },
+    { examId: openExam, questionId: lockedQuestion, position: 0 },
+  ])
+  await db.insert(examAnswers).values({
+    id: createId(),
+    participationId: lockedClosedPart,
+    questionId: lockedQuestion,
+    selectedAnswer: "A",
+    isCorrect: true,
+  })
 })
 
 afterAll(async () => {
+  await db.delete(examAnswers).where(eq(examAnswers.questionId, lockedQuestion))
+  await db
+    .delete(examQuestions)
+    .where(eq(examQuestions.questionId, lockedQuestion))
   await db
     .delete(examParticipations)
     .where(eq(examParticipations.examId, closedExam))
@@ -105,6 +157,8 @@ afterAll(async () => {
     .where(eq(examParticipations.examId, openExam))
   await db.delete(exams).where(eq(exams.id, closedExam))
   await db.delete(exams).where(eq(exams.id, openExam))
+  await db.delete(questions).where(eq(questions.id, lockedQuestion))
+  await db.delete(user).where(eq(user.id, optInLocked))
   await db.delete(user).where(eq(user.id, creator))
   await db.delete(user).where(eq(user.id, optIn))
   await db.delete(user).where(eq(user.id, optOut))
@@ -128,6 +182,13 @@ describe("sendExamResultsNotifications", () => {
     expect(examResults).not.toHaveBeenCalledWith(
       expect.objectContaining({ to: `out-${optOut}@test.invalid` }),
     )
+    // Score retenu pour son propriétaire : courriel envoyé, sans chiffre.
+    expect(examResults).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: `lock-${optInLocked}@test.invalid`,
+        score: null,
+      }),
+    )
 
     // Marqueur posé sur les 2 participations de l'examen CLOS (opt-in + opt-out) ;
     // PAS sur l'examen OUVERT (résultats encore bloqués → non éligible).
@@ -135,7 +196,7 @@ describe("sendExamResultsNotifications", () => {
       .select({ notifiedAt: examParticipations.resultsNotifiedAt })
       .from(examParticipations)
       .where(eq(examParticipations.examId, closedExam))
-    expect(closed).toHaveLength(2)
+    expect(closed).toHaveLength(3)
     expect(closed.every((r) => r.notifiedAt !== null)).toBe(true)
 
     const openRow = await db

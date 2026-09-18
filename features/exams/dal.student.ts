@@ -28,12 +28,51 @@ import {
 } from "@/db/schema"
 import { getCurrentSession } from "@/lib/dal"
 import { hasAccess } from "../payments/dal"
-import { lockFor, viewerOf } from "../questions/answer-key-lock"
+import {
+  type LockUser,
+  lockFor,
+  scoreWithheldFor,
+  scoreWithheldForOwner,
+  viewerOf,
+} from "../questions/answer-key-lock"
 import {
   type ExamQuestionView,
   countQuestionsByExam,
   fetchImages,
 } from "./dal.shared"
+
+// Questions RÉPONDUES d'une participation, corrélées à la ligne
+// `exam_participations` lue — la forme attendue par `scoreWithheldFor`. Tant
+// que l'examen de la participation est lui-même ouvert, ses propres questions
+// sont retenues : un score d'examen ne se lit qu'après la clôture.
+const answeredQuestionIds = sql`
+  select a.question_id
+    from exam_answers a
+   where a.participation_id = ${examParticipations.id}
+     and a.selected_answer is not null
+     and a.selected_answer <> ''`
+
+/** Score enregistré, ou `null` s'il est retenu pour le lecteur (voir `scoreWithheldFor`). */
+const readableScore = (viewer: LockUser) =>
+  sql<
+    number | null
+  >`case when ${scoreWithheldFor(viewer, answeredQuestionIds)} then null else ${examParticipations.score} end`
+
+/** `mapWith(Number)` ferait de `null` un `0` — faux « 0 % » quand rien n'est lisible. */
+const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
+
+/** Filtre d'agrégat : seules les participations dont le score est lisible. */
+const scoreReadable = (viewer: LockUser) =>
+  sql`not ${scoreWithheldFor(viewer, answeredQuestionIds)}`
+
+/**
+ * Score de la ligne lue, ou `null` s'il est retenu pour son PROPRIÉTAIRE —
+ * pour les lectures où le lecteur n'est pas le propriétaire (classement,
+ * courriel de clôture). Un lecteur admin lit `examParticipations.score`.
+ */
+export const ownerReadableScore = sql<
+  number | null
+>`case when ${scoreWithheldForOwner(sql`${examParticipations.userId}`, answeredQuestionIds)} then null else ${examParticipations.score} end`
 
 // ============================================
 // Liste examens + participation (étudiant)
@@ -55,7 +94,8 @@ export type ExamListItem = {
   // même sans abonnement (calcul d'éligibilité par-examen côté client).
   audienceType: "subscribers" | "restricted"
   userHasTaken: boolean
-  userParticipation: { score: number; completedAt: number | null } | null
+  /** `score` null = retenu (examen encore ouvert, ou réponse en correction différée). */
+  userParticipation: { score: number | null; completedAt: number | null } | null
 }
 
 /**
@@ -115,13 +155,13 @@ export const getExamsWithParticipation = cache(
 
     const partMap = new Map<
       string,
-      { score: number; status: string; completedAt: Date | null }
+      { score: number | null; status: string; completedAt: Date | null }
     >()
     if (session?.user) {
       const parts = await db
         .select({
           examId: examParticipations.examId,
-          score: examParticipations.score,
+          score: readableScore(viewerOf(session.user)),
           status: examParticipations.status,
           completedAt: examParticipations.completedAt,
         })
@@ -310,7 +350,6 @@ export type ExamSessionView = {
   status: "in_progress" | "completed" | "auto_submitted"
   startedAt: number | null
   completedAt: number | null
-  score: number
   isPaused: boolean
   pauseStartedAt: number | null
   totalPauseDurationMs: number | null
@@ -328,7 +367,6 @@ export const getExamSession = cache(
         status: examParticipations.status,
         startedAt: examParticipations.startedAt,
         completedAt: examParticipations.completedAt,
-        score: examParticipations.score,
         pauseStartedAt: examParticipations.pauseStartedAt,
         totalPauseDurationMs: examParticipations.totalPauseDurationMs,
       })
@@ -347,7 +385,6 @@ export const getExamSession = cache(
       status: p.status,
       startedAt: p.startedAt?.getTime() ?? null,
       completedAt: p.completedAt?.getTime() ?? null,
-      score: p.score,
       isPaused: p.pauseStartedAt != null,
       pauseStartedAt: p.pauseStartedAt?.getTime() ?? null,
       totalPauseDurationMs: p.totalPauseDurationMs,
@@ -429,7 +466,8 @@ export type ExamResultsView =
       participant: {
         participationId: string
         userId: string
-        score: number
+        /** `null` = score retenu (une réponse en correction différée). */
+        score: number | null
         completedAt: number | null
         startedAt: number | null
         answers: {
@@ -608,7 +646,16 @@ export const getParticipantExamResults = async (
     participant: {
       participationId: p.id,
       userId: p.userId,
-      score: p.score,
+      // Le score compte les réponses différées : retenu avec elles (voir
+      // `scoreWithheldFor`), jamais transmis au client.
+      score: answerRows.some(
+        (a) =>
+          a.selectedAnswer !== null &&
+          a.selectedAnswer !== "" &&
+          lock.has(a.questionId),
+      )
+        ? null
+        : p.score,
       completedAt: p.completedAt?.getTime() ?? null,
       startedAt: p.startedAt?.getTime() ?? null,
       answers: answerRows.map((a) => ({
@@ -813,7 +860,8 @@ export type LeaderboardEntry = {
     username: string | null
     image: string | null
   } | null
-  score: number
+  /** `null` = score retenu pour le lecteur (sa propre ligne seulement). */
+  score: number | null
   completedAt: number | null
 }
 
@@ -868,10 +916,14 @@ export const getExamLeaderboard = async (
     }
   }
 
+  // Retenue selon le PROPRIÉTAIRE de chaque ligne : son score lu par un
+  // camarade lui revient. Les lignes retenues sortent du rang (tri sur le
+  // score lisible, `nulls last`) — trier sur le score brut serait un oracle.
+  const shownScore = isAdmin ? examParticipations.score : ownerReadableScore
   const rows = await db
     .select({
       participationId: examParticipations.id,
-      score: examParticipations.score,
+      score: shownScore,
       completedAt: examParticipations.completedAt,
       userId: user.id,
       name: user.name,
@@ -886,7 +938,7 @@ export const getExamLeaderboard = async (
       ),
     )
     .orderBy(
-      desc(examParticipations.score),
+      sql`${shownScore} desc nulls last`,
       asc(examParticipations.completedAt),
     )
     .limit(500)
@@ -911,7 +963,8 @@ export const getExamLeaderboard = async (
 export type MyDashboardStats = {
   availableExamsCount: number
   completedExamsCount: number
-  averageScore: number
+  /** `null` = aucun score lisible (rien de complété, ou tout retenu). */
+  averageScore: number | null
 }
 
 /**
@@ -944,6 +997,7 @@ export const getMyDashboardStats = cache(
     const session = await getCurrentSession()
     if (!session?.user) return null
     const uid = session.user.id
+    const viewer = viewerOf(session.user)
 
     const hasExamAccess = await hasAccess("exam", uid)
 
@@ -953,10 +1007,13 @@ export const getMyDashboardStats = cache(
           sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted'))`.mapWith(
             Number,
           ),
-        averageScore:
-          sql<number>`coalesce(round(avg(${examParticipations.score}) filter (where ${examParticipations.status} in ('completed','auto_submitted'))), 0)`.mapWith(
-            Number,
-          ),
+        // Une participation au score retenu n'entre pas dans la moyenne :
+        // avant/après la restituerait.
+        averageScore: sql<
+          number | null
+        >`round(avg(${examParticipations.score}) filter (where ${examParticipations.status} in ('completed','auto_submitted') and ${scoreReadable(viewer)}))`.mapWith(
+          nullableNumber,
+        ),
       })
       .from(examParticipations)
       .where(eq(examParticipations.userId, uid))
@@ -973,7 +1030,7 @@ export const getMyDashboardStats = cache(
     return {
       availableExamsCount,
       completedExamsCount: agg?.completed ?? 0,
-      averageScore: agg?.averageScore ?? 0,
+      averageScore: agg?.averageScore ?? null,
     }
   },
 )
@@ -984,6 +1041,7 @@ export type MyRecentExam = {
   startDate: number
   endDate: number
   isCompleted: boolean
+  /** `null` = non complété, ou score retenu (examen encore ouvert). */
   score: number | null
   completedAt: number | null
 }
@@ -1019,7 +1077,7 @@ export const getMyRecentExams = cache(async (): Promise<MyRecentExam[]> => {
     .select({
       examId: examParticipations.examId,
       status: examParticipations.status,
-      score: examParticipations.score,
+      score: readableScore(viewerOf(session.user)),
       completedAt: examParticipations.completedAt,
     })
     .from(examParticipations)
@@ -1058,7 +1116,8 @@ export const getMyRecentExams = cache(async (): Promise<MyRecentExam[]> => {
 export type MyScoreHistoryItem = {
   examId: string
   examTitle: string
-  score: number
+  /** `null` = score retenu (examen encore ouvert, ou réponse différée). */
+  score: number | null
   completedAt: number
 }
 
@@ -1076,7 +1135,7 @@ export const getMyScoreHistory = cache(
       .select({
         examId: examParticipations.examId,
         examTitle: exams.title,
-        score: examParticipations.score,
+        score: readableScore(viewerOf(session.user)),
         completedAt: examParticipations.completedAt,
       })
       .from(examParticipations)

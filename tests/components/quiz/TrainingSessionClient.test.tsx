@@ -58,7 +58,6 @@ const initialData: SessionData = {
     startedAt: 0,
     completedAt: null,
     expiresAt: Date.now() + 3_600_000,
-    score: null,
   },
   questions: [
     {

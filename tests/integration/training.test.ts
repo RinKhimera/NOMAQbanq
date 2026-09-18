@@ -209,14 +209,15 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
     expect(res.success).toBe(false)
   })
 
-  it("completeTrainingSession : score = % bonnes réponses", async () => {
+  it("completeTrainingSession : score = % bonnes réponses, lu en base", async () => {
     const res = await completeTrainingSession({ sessionId: activeSessionId })
-    expect(res).toMatchObject({
-      success: true,
-      correctCount: 1,
-      totalQuestions: 5,
-      score: 20,
-    })
+    // Le décompte des justes ne repart pas vers le navigateur.
+    expect(res).toEqual({ success: true })
+    const [s] = await db
+      .select({ score: trainingSessions.score })
+      .from(trainingSessions)
+      .where(eq(trainingSessions.id, activeSessionId))
+    expect(s?.score).toBe(20)
   })
 
   it("getTrainingSessionById : correctAnswer révélé après complétion", async () => {

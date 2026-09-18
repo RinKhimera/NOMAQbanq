@@ -9,6 +9,7 @@ import type {
   TrainingHistoryPage,
   TrainingStats,
 } from "@/features/training/dal"
+import { formatScore } from "@/lib/score"
 import { ResumeSessionCard } from "./resume-session-card"
 import { TrainingConfigForm } from "./training-config-form"
 import { TrainingHistorySection } from "./training-history-section"
@@ -90,7 +91,7 @@ export function EntrainementClient({
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   Score moyen :{" "}
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    {stats.averageScore}%
+                    {formatScore(stats.averageScore)}
                   </span>
                 </span>
               </div>

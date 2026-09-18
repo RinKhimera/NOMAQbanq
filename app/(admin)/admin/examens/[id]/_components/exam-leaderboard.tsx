@@ -5,6 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
+import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import {
   AlertDialog,
@@ -36,11 +37,13 @@ import { deleteParticipation } from "@/features/exams/actions"
 import type { LeaderboardEntry } from "@/features/exams/dal"
 import { formatCompactDateTime } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
+import { formatScore } from "@/lib/score"
+import { cn } from "@/lib/utils"
 
 interface ParticipantToDelete {
   participationId: string
   userName: string
-  score: number
+  score: number | null
 }
 
 interface ExamLeaderboardProps {
@@ -117,8 +120,18 @@ export function ExamLeaderboard({
               >
                 {/* Left side: Rank + Avatar + Name */}
                 <div className="flex min-w-0 flex-1 items-center gap-2 @sm:gap-3">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-blue-600 text-xs font-bold text-white @sm:h-8 @sm:w-8 dark:bg-blue-500">
-                    {index + 1}
+                  <div
+                    title={
+                      entry.score === null ? SCORE_WITHHELD_MESSAGE : undefined
+                    }
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded text-xs font-bold text-white @sm:h-8 @sm:w-8",
+                      entry.score === null
+                        ? "bg-gray-400 dark:bg-gray-600"
+                        : "bg-blue-600 dark:bg-blue-500",
+                    )}
+                  >
+                    {entry.score === null ? "—" : index + 1}
                   </div>
                   <UserAvatar
                     name={entry.user?.name}
@@ -141,7 +154,7 @@ export function ExamLeaderboard({
                 <div className="flex shrink-0 items-center gap-2">
                   <div className="text-right">
                     <p className="text-sm font-bold @sm:text-base">
-                      {entry.score}%
+                      {formatScore(entry.score)}
                     </p>
                     <p className="text-muted-foreground hidden text-xs @md:block">
                       {entry.completedAt &&
@@ -269,7 +282,10 @@ export function ExamLeaderboard({
                   <strong>{participantToDelete?.userName}</strong> ?
                 </p>
                 <p>
-                  Score obtenu : <strong>{participantToDelete?.score}%</strong>
+                  Score obtenu :{" "}
+                  <strong>
+                    {formatScore(participantToDelete?.score ?? null)}
+                  </strong>
                 </p>
                 <p className="text-red-600 dark:text-red-400">
                   ⚠️ Cette action est irréversible. Toutes les réponses de ce

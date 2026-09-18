@@ -17,11 +17,12 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Spinner } from "@/components/ui/spinner"
 import { deleteTrainingSession } from "@/features/training/actions"
+import { formatScore } from "@/lib/score"
 
 interface Session {
   id: string
   questionCount: number
-  score: number
+  score: number | null
   domain?: string | null
   completedAt?: number | null
 }
@@ -33,7 +34,8 @@ interface DeleteSessionDialogProps {
   onSuccess?: () => void
 }
 
-const getScoreColor = (score: number) => {
+const getScoreColor = (score: number | null) => {
+  if (score === null) return "text-gray-500 dark:text-gray-400"
   if (score >= 80) return "text-emerald-600 dark:text-emerald-400"
   if (score >= 60) return "text-amber-600 dark:text-amber-400"
   return "text-red-600 dark:text-red-400"
@@ -103,7 +105,7 @@ export const DeleteSessionDialog = ({
             <div className="flex items-center justify-between">
               <span className="text-gray-500 dark:text-gray-400">Score</span>
               <span className={`font-bold ${getScoreColor(session.score)}`}>
-                {session.score}%
+                {formatScore(session.score)}
               </span>
             </div>
             <div className="flex items-center justify-between">

@@ -16,8 +16,3 @@ export async function requireRole(roles: Array<"user" | "admin">) {
   if (!roles.includes(role)) redirect("/tableau-de-bord")
   return session
 }
-
-/** Route handler : renvoie la session ou null (ne redirige PAS — pour répondre 401/403). */
-export async function getSessionForRoute() {
-  return getCurrentSession()
-}

@@ -238,12 +238,19 @@ describe("finalizeExam", () => {
     await saveExamAnswer({ examId, questionId: ids[2], selectedAnswer: "B" })
 
     const res = await finalizeExam({ examId })
-    expect(res.success).toBe(true)
-    if (!res.success) return
+    // Le décompte des justes ne repart pas vers le navigateur : lu en base.
+    expect(res).toEqual({ success: true })
     // 1 correct (idx 0, A), 1 incorrect (idx 2, B), 2 unanswered = 1/4 = 25
-    expect(res.correctAnswers).toBe(1)
-    expect(res.totalQuestions).toBe(4)
-    expect(res.score).toBe(25)
+    const [p] = await db
+      .select({ score: examParticipations.score })
+      .from(examParticipations)
+      .where(
+        and(
+          eq(examParticipations.examId, examId),
+          eq(examParticipations.userId, STUDENT_ID),
+        ),
+      )
+    expect(p?.score).toBe(25)
   })
 
   it("finalizeExam refuse une 2e soumission", async () => {
@@ -378,9 +385,17 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
     expect(save.success).toBe(false) // TIME_UP
 
     const fin = await finalizeExam({ examId: eId, isAutoSubmit: true })
-    expect(fin.success).toBe(true)
-    if (!fin.success) throw new Error(fin.error)
-    expect(fin.correctAnswers).toBe(0)
+    expect(fin).toEqual({ success: true })
+    const [p] = await db
+      .select({ score: examParticipations.score })
+      .from(examParticipations)
+      .where(
+        and(
+          eq(examParticipations.examId, eId),
+          eq(examParticipations.userId, STUDENT_ID),
+        ),
+      )
+    expect(p?.score).toBe(0)
   })
 
   it("race déterministe : finalize PUIS save → save refusé (session plus active)", async () => {

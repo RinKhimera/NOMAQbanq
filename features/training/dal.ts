@@ -16,15 +16,19 @@ import { db } from "@/db"
 import {
   questionBookmarks,
   questionExplanations,
-  questionImages,
   questions,
   trainingSessionItems,
   trainingSessions,
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
-import { cdnUrl } from "@/lib/cdn"
 import { getCurrentSession } from "@/lib/dal"
-import { lockFor, viewerOf } from "../questions/answer-key-lock"
+import { type ExamImageView, fetchImages } from "../exams/dal.shared"
+import {
+  type LockUser,
+  lockFor,
+  scoreWithheldFor,
+  viewerOf,
+} from "../questions/answer-key-lock"
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
@@ -49,15 +53,31 @@ const decodeCursor = (
   }
 }
 
+// Questions RÉPONDUES d'une session, corrélées à la ligne `training_sessions`
+// lue — la forme attendue par `scoreWithheldFor`.
+const answeredQuestionIds = sql`
+  select i.question_id
+    from training_session_items i
+   where i.session_id = ${trainingSessions.id}
+     and i.selected_answer is not null
+     and i.selected_answer <> ''`
+
+/** Score enregistré, ou `null` s'il est retenu pour le lecteur (voir `scoreWithheldFor`). */
+const readableScore = (viewer: LockUser) =>
+  sql<
+    number | null
+  >`case when ${scoreWithheldFor(viewer, answeredQuestionIds)} then null else coalesce(${trainingSessions.score}, 0) end`
+
+/** `mapWith(Number)` ferait de `null` un `0` — faux « 0 % » quand rien n'est lisible. */
+const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
+
+/** Filtre d'agrégat : seules les sessions dont le score est lisible. */
+const scoreReadable = (viewer: LockUser) =>
+  sql`not ${scoreWithheldFor(viewer, answeredQuestionIds)}`
+
 // ============================================
 // Types de vue
 // ============================================
-
-export type TrainingImageView = {
-  url: string
-  storagePath: string
-  order: number
-}
 
 // Forme « pont » historique (`_id`/`_creationTime`/`images`) pour
 // rester assignable au contrat `QuestionCardQuestion`/`Doc<"questions">` des
@@ -70,7 +90,7 @@ export type TrainingSessionQuestion = {
   options: string[]
   objectifCMC: string
   domain: string
-  images: TrainingImageView[]
+  images: ExamImageView[]
   correctAnswer?: string
   explanation?: string
   references?: string[]
@@ -78,7 +98,7 @@ export type TrainingSessionQuestion = {
    * Images d'explication (`kind='explanation'`), révélées seulement à la
    * correction (session complétée). Jamais sur le pont d'énoncé `images`.
    */
-  explanationImages?: TrainingImageView[]
+  explanationImages?: ExamImageView[]
   /** Clé retenue par un examen ouvert : correction différée à sa clôture. */
   keyWithheld?: true
 }
@@ -87,44 +107,6 @@ export type TrainingAnswerRecord = Record<
   string,
   { selectedAnswer: string; isCorrect?: boolean }
 >
-
-const groupImages = (
-  rows: { questionId: string; storagePath: string; position: number }[],
-): Map<string, TrainingImageView[]> => {
-  const map = new Map<string, TrainingImageView[]>()
-  for (const img of rows) {
-    const list = map.get(img.questionId) ?? []
-    list.push({
-      url: cdnUrl(img.storagePath),
-      storagePath: img.storagePath,
-      order: img.position,
-    })
-    map.set(img.questionId, list)
-  }
-  return map
-}
-
-const fetchImages = async (
-  questionIds: string[],
-  kind: "statement" | "explanation" = "statement",
-) => {
-  if (questionIds.length === 0) return new Map<string, TrainingImageView[]>()
-  const rows = await db
-    .select({
-      questionId: questionImages.questionId,
-      storagePath: questionImages.storagePath,
-      position: questionImages.position,
-    })
-    .from(questionImages)
-    .where(
-      and(
-        eq(questionImages.kind, kind),
-        inArray(questionImages.questionId, questionIds),
-      ),
-    )
-    .orderBy(asc(questionImages.position))
-  return groupImages(rows)
-}
 
 // ============================================
 // Session active (carte « reprendre »)
@@ -193,7 +175,8 @@ export const getActiveTrainingSession = cache(
 export type TrainingHistoryItem = {
   id: string
   questionCount: number
-  score: number
+  /** `null` = score retenu (une réponse en correction différée). */
+  score: number | null
   domain: string | null
   completedAt: number | null
   startedAt: number
@@ -217,6 +200,7 @@ export const getTrainingHistory = async ({
 } = {}): Promise<TrainingHistoryPage> => {
   const session = await getCurrentSession()
   if (!session?.user) return { items: [], nextCursor: null }
+  const viewer = viewerOf(session.user)
 
   const safeLimit = clamp(limit, 1, 50)
   const decoded = cursor ? decodeCursor(cursor) : null
@@ -234,7 +218,7 @@ export const getTrainingHistory = async ({
     .select({
       id: trainingSessions.id,
       questionCount: trainingSessions.questionCount,
-      score: trainingSessions.score,
+      score: readableScore(viewer),
       domain: trainingSessions.domain,
       completedAt: trainingSessions.completedAt,
       startedAt: trainingSessions.startedAt,
@@ -256,7 +240,7 @@ export const getTrainingHistory = async ({
   const items: TrainingHistoryItem[] = pageRows.map((r) => ({
     id: r.id,
     questionCount: r.questionCount,
-    score: r.score ?? 0,
+    score: r.score,
     domain: r.domain,
     completedAt: r.completedAt?.getTime() ?? null,
     startedAt: r.startedAt.getTime(),
@@ -278,13 +262,15 @@ export const getTrainingHistory = async ({
 export type TrainingStats = {
   totalSessions: number
   totalQuestions: number
-  averageScore: number
+  /** `null` = aucun score lisible (rien de complété, ou tout retenu). */
+  averageScore: number | null
 } | null
 
 /** Stats de l'utilisateur (sessions complétées). `null` si non connecté. */
 export const getTrainingStats = cache(async (): Promise<TrainingStats> => {
   const session = await getCurrentSession()
   if (!session?.user) return null
+  const viewer = viewerOf(session.user)
 
   const [row] = await db
     .select({
@@ -293,10 +279,13 @@ export const getTrainingStats = cache(async (): Promise<TrainingStats> => {
         sql<number>`coalesce(sum(${trainingSessions.questionCount}), 0)`.mapWith(
           Number,
         ),
-      averageScore:
-        sql<number>`coalesce(round(avg(${trainingSessions.score})), 0)`.mapWith(
-          Number,
-        ),
+      // Une session au score retenu n'entre pas dans la moyenne : avant/après
+      // la restituerait.
+      averageScore: sql<
+        number | null
+      >`round(avg(${trainingSessions.score}) filter (where ${scoreReadable(viewer)}))`.mapWith(
+        nullableNumber,
+      ),
     })
     .from(trainingSessions)
     .where(
@@ -309,7 +298,7 @@ export const getTrainingStats = cache(async (): Promise<TrainingStats> => {
   return {
     totalSessions: row?.totalSessions ?? 0,
     totalQuestions: row?.totalQuestions ?? 0,
-    averageScore: row?.averageScore ?? 0,
+    averageScore: row?.averageScore ?? null,
   }
 })
 
@@ -343,7 +332,8 @@ export const getBookmarkedQuestionIds = async (
 export type TrainingScoreHistory = {
   sessions: {
     sessionId: string
-    score: number
+    /** `null` = score retenu (une réponse en correction différée). */
+    score: number | null
     completedAt: number
     questionCount: number
     domain: string
@@ -365,6 +355,7 @@ export const getMyTrainingScoreHistory = cache(
     const session = await getCurrentSession()
     if (!session?.user) return { sessions: [], domainPerformance: [] }
     const uid = session.user.id
+    const viewer = viewerOf(session.user)
 
     const completedWhere = and(
       eq(trainingSessions.userId, uid),
@@ -375,7 +366,7 @@ export const getMyTrainingScoreHistory = cache(
     const recent = await db
       .select({
         id: trainingSessions.id,
-        score: trainingSessions.score,
+        score: readableScore(viewer),
         completedAt: trainingSessions.completedAt,
         questionCount: trainingSessions.questionCount,
         domain: trainingSessions.domain,
@@ -387,13 +378,15 @@ export const getMyTrainingScoreHistory = cache(
 
     const sessions = recent.reverse().map((s) => ({
       sessionId: s.id,
-      score: s.score ?? 0,
+      score: s.score,
       completedAt: s.completedAt?.getTime() ?? 0,
       questionCount: s.questionCount,
       domain: s.domain ?? "Tous domaines",
     }))
 
-    // Score moyen par domaine sur toutes les sessions complétées, top 10.
+    // Score moyen par domaine sur les sessions complétées au score lisible,
+    // top 10 (une session retenue n'y compte pas, ni dans la moyenne ni dans
+    // l'effectif).
     const domainKey = sql<string>`coalesce(${trainingSessions.domain}, 'Tous domaines')`
     const domainRows = await db
       .select({
@@ -405,7 +398,7 @@ export const getMyTrainingScoreHistory = cache(
         sessionCount: sql<number>`count(*)`.mapWith(Number),
       })
       .from(trainingSessions)
-      .where(completedWhere)
+      .where(and(completedWhere, scoreReadable(viewer)))
       .groupBy(domainKey)
       .orderBy(desc(sql`avg(${trainingSessions.score})`))
       .limit(10)
@@ -501,7 +494,6 @@ export type TrainingSessionView = {
     startedAt: number
     completedAt: number | null
     expiresAt: number
-    score: number | null
   }
   questions: TrainingSessionQuestion[]
   answers: TrainingAnswerRecord
@@ -532,7 +524,6 @@ export const getTrainingSessionById = async (
       startedAt: trainingSessions.startedAt,
       completedAt: trainingSessions.completedAt,
       expiresAt: trainingSessions.expiresAt,
-      score: trainingSessions.score,
     })
     .from(trainingSessions)
     .where(eq(trainingSessions.id, sessionId))
@@ -618,7 +609,6 @@ export const getTrainingSessionById = async (
       startedAt: s.startedAt.getTime(),
       completedAt: s.completedAt?.getTime() ?? null,
       expiresAt: s.expiresAt.getTime(),
-      score: s.score,
     },
     questions: questionsView,
     answers,
@@ -632,7 +622,8 @@ export type TrainingResultsView =
   | {
       session: {
         id: string
-        score: number
+        /** `null` = score retenu (une réponse en correction différée). */
+        score: number | null
         questionCount: number
         startedAt: number
         completedAt: number | null
@@ -720,14 +711,15 @@ export const getTrainingSessionResults = async (
   }))
 
   const answers: TrainingAnswerRecord = {}
+  let scoreWithheld = false
   for (const i of items) {
-    if (i.selectedAnswer !== null) {
+    if (i.selectedAnswer !== null && i.selectedAnswer !== "") {
+      const withheld = lock.has(i.questionId)
+      scoreWithheld ||= withheld
       answers[i.questionId] = {
         selectedAnswer: i.selectedAnswer,
         // isCorrect + selectedAnswer révèle la clé → masqué si verrouillée.
-        ...(lock.has(i.questionId)
-          ? {}
-          : { isCorrect: i.isCorrect ?? undefined }),
+        ...(withheld ? {} : { isCorrect: i.isCorrect ?? undefined }),
       }
     }
   }
@@ -735,7 +727,9 @@ export const getTrainingSessionResults = async (
   return {
     session: {
       id: s.id,
-      score: s.score ?? 0,
+      // Le score compte les réponses différées : retenu avec elles (voir
+      // `scoreWithheldFor`), jamais transmis au client.
+      score: scoreWithheld ? null : (s.score ?? 0),
       questionCount: s.questionCount,
       startedAt: s.startedAt.getTime(),
       completedAt: s.completedAt?.getTime() ?? null,

@@ -53,6 +53,7 @@ export default async function AdminParticipantResultsPage({
     }
   }
 
+  // `null` = score retenu par la DAL, jamais transmis au client.
   const score = data.participant.score
 
   const participant = data.participantUser

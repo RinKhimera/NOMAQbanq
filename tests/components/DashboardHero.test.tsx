@@ -59,3 +59,21 @@ describe("DashboardHero — salutation", () => {
     expect(second).toBe(first)
   })
 })
+
+describe("DashboardHero — score retenu", () => {
+  it("moyenne null : message d'attente, pas un faux « 0 % »", () => {
+    render(
+      <DashboardHero
+        userName="Marie Dupont"
+        averageScore={null}
+        hasCompletedExams
+        accessStatus={null}
+        now={atTorontoHour(9)}
+      />,
+    )
+    expect(
+      screen.getByText("Vos résultats arrivent à la clôture de l'examen"),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/opportunité d'apprentissage/)).toBeNull()
+  })
+})

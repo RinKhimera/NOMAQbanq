@@ -5,6 +5,7 @@ import {
   Ellipsis,
   Eye,
   History,
+  Hourglass,
   Target,
   Trash2,
   Trophy,
@@ -13,6 +14,7 @@ import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
 import {
@@ -34,13 +36,18 @@ import { DeleteSessionDialog } from "./delete-session-dialog"
 
 type Session = TrainingHistoryItem
 
-const getScoreColor = (score: number) => {
+// `null` = score retenu (voir `scoreWithheldFor`) : couleur neutre, la
+// tranche trahirait le score.
+const getScoreColor = (score: number | null) => {
+  if (score === null) return "text-gray-500 dark:text-gray-400"
   if (score >= 80) return "text-emerald-600 dark:text-emerald-400"
   if (score >= 60) return "text-amber-600 dark:text-amber-400"
   return "text-red-600 dark:text-red-400"
 }
 
-const getScoreBg = (score: number) => {
+const getScoreBg = (score: number | null) => {
+  if (score === null)
+    return "bg-gray-100 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
   if (score >= 80)
     return "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800"
   if (score >= 60)
@@ -165,6 +172,12 @@ export const TrainingHistorySection = ({
                   >
                     {/* Score badge */}
                     <div
+                      data-testid="history-score"
+                      title={
+                        session.score === null
+                          ? SCORE_WITHHELD_MESSAGE
+                          : undefined
+                      }
                       className={cn(
                         "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border",
                         getScoreBg(session.score),
@@ -177,7 +190,14 @@ export const TrainingHistorySection = ({
                             getScoreColor(session.score),
                           )}
                         >
-                          {session.score}%
+                          {session.score === null ? (
+                            <Hourglass
+                              className="mx-auto h-5 w-5"
+                              aria-hidden
+                            />
+                          ) : (
+                            `${session.score}%`
+                          )}
                         </div>
                       </div>
                     </div>
@@ -188,7 +208,7 @@ export const TrainingHistorySection = ({
                         <span className="font-medium text-gray-900 dark:text-white">
                           {session.questionCount} questions
                         </span>
-                        {session.score >= 80 && (
+                        {session.score !== null && session.score >= 80 && (
                           <Trophy className="h-4 w-4 text-amber-500" />
                         )}
                       </div>

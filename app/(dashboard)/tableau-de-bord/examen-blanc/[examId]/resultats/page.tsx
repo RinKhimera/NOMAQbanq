@@ -67,6 +67,7 @@ export default async function MockExamResultsPage({
     }
   }
 
+  // `null` = score retenu par la DAL, jamais transmis au client.
   const score = data.participant.score
 
   return (

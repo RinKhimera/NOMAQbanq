@@ -25,6 +25,10 @@ export type AnswersMap = Record<string, AnswerState>
 export const KEY_WITHHELD_MESSAGE =
   "Correction différée jusqu'à la clôture de l'examen"
 
+/** Score `null` (retenu tant qu'une réponse est en correction différée). */
+export const SCORE_WITHHELD_MESSAGE =
+  "Score disponible après la clôture de l'examen"
+
 export type QuizMode = {
   kind: "exam" | "training"
   accent: "blue" | "emerald"

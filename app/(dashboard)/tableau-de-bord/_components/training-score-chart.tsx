@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface TrainingSessionItem {
   sessionId: string
-  score: number
+  score: number | null
   completedAt: number
   questionCount: number
   domain: string

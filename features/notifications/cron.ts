@@ -28,6 +28,7 @@ import {
 } from "@/email"
 import { getBaseUrl } from "@/lib/base-url"
 import { captureServerError } from "@/lib/observability"
+import { ownerReadableScore } from "../exams/dal.student"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const EXAM_RESULTS_LIMIT = 500
@@ -66,7 +67,9 @@ export async function sendExamResultsNotifications(): Promise<number> {
     .select({
       participationId: examParticipations.id,
       examId: examParticipations.examId,
-      score: examParticipations.score,
+      // Retenu pour son propriétaire tant qu'une réponse chevauche un examen
+      // ouvert : le courriel imprimerait sinon l'oracle de la page de résultats.
+      score: ownerReadableScore,
       email: user.email,
       name: user.name,
       notify: user.notifyExamResults,
