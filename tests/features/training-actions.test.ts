@@ -605,7 +605,10 @@ describe("deleteTrainingSession", () => {
   it("le DELETE porte la propriété dans son WHERE (id ET utilisateur)", async () => {
     setRows({ trainingSessions: [session()] })
     await deleteTrainingSession({ sessionId: "s1" })
-    const { params } = new PgDialect().sqlToQuery(state.deleteWhere as SQL)
-    expect(params).toEqual(expect.arrayContaining(["s1", "u1"]))
+    const { sql, params } = new PgDialect().sqlToQuery(state.deleteWhere as SQL)
+    // Colonnes simulées (rendues vides) : ce qui compte est la CONJONCTION de
+    // deux égalités — un `or`, ou un `ne` sur l'utilisateur, ne passerait pas.
+    expect(sql).toBe("( = $1 and  = $2)")
+    expect(params).toEqual(["s1", "u1"])
   })
 })

@@ -938,6 +938,18 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(hist.find((h) => h.examId === closedOnlyExamId)?.score).toBe(100)
     })
 
+    it("examen propre CLOS mais question répondue d'un examen OUVERT : retenu sur la liste et l'historique", async () => {
+      // pastExamId est clos (la clause « examen propre » ne joue pas) ; seule
+      // la réponse à examQIds[0], question des examens ouverts, le retient.
+      asStudent()
+      const list = await getExamsWithParticipation()
+      expect(
+        list.find((e) => e.id === pastExamId)?.userParticipation?.score,
+      ).toBeNull()
+      const hist = await getMyScoreHistory()
+      expect(hist.find((h) => h.examId === pastExamId)?.score).toBeNull()
+    })
+
     it("leaderboard : la ligne d'un propriétaire retenu est null pour LUI et pour les autres, et sort du rang", async () => {
       asStudent()
       const own = await getExamLeaderboard(pastExamId)
@@ -1001,12 +1013,14 @@ describe("score retenu — participation sans réponse", () => {
       email: `empty-${suffix}@test.invalid`,
     })
     await grantExamAccess(EMPTY_ID)
-    // Borne du verrou : `end_date > now()`. Un examen dont la date de fin est
-    // l'instant du seed est clos à la lecture (lisible) ; une minute plus loin,
-    // il est ouvert (retenu). Aucune question répondue dans les deux cas.
+    // Clos une minute avant le seed (lisible) ou ouvert une minute après
+    // (retenu), aucune question répondue dans les deux cas. La borne exacte
+    // `end_date > now()` (strict) est portée par le test du fragment SQL :
+    // une date de fin égale à l'horloge JS du seed dépendrait de l'écart entre
+    // cette horloge et celle de Neon.
     const specs = [
       makeBareExam(emptyOpenId, new Date(Date.now() + 60_000), qIds[2]),
-      makeBareExam(emptyClosedId, new Date(), qIds[3]),
+      makeBareExam(emptyClosedId, new Date(Date.now() - 60_000), qIds[3]),
       makeBareExam(emptyAdminOpenId, new Date(Date.now() + 60_000), qIds[4]),
     ]
     emptyExamIds = specs.map((s) => s.exam.id)
@@ -1069,7 +1083,7 @@ describe("score retenu — participation sans réponse", () => {
     } finally {
       await db
         .update(exams)
-        .set({ endDate: new Date() })
+        .set({ endDate: new Date(Date.now() - 60_000) })
         .where(eq(exams.id, emptyClosedId))
     }
   })

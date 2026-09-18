@@ -178,7 +178,7 @@ describe("saveExamAnswer", () => {
       questionId: qId,
       selectedAnswer: "A",
     })
-    expect(res).toEqual({ success: true })
+    expect(res).toEqual({ success: true, serverNow: expect.any(Number) })
     expect(res).not.toHaveProperty("isCorrect")
 
     // Verify in DB that isCorrect was set server-side
