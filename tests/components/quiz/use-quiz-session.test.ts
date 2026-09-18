@@ -536,6 +536,35 @@ describe("useQuizSession — timer composé", () => {
       3_600_000 - 30 * 60 * 1000 - 1000,
     )
   })
+
+  it("temps écoulé côté serveur (réponse refusée timeUp) : auto-soumission, une seule fois même si le chrono expire ensuite", async () => {
+    // Le chrono client est en retard (veille) : le serveur refuse la réponse.
+    // Réessayer ne sert à rien ; l'examen se soumet comme à l'expiration.
+    const start = Date.now()
+    const onAnswer = vi
+      .fn()
+      .mockResolvedValue({ ok: false, error: "Temps écoulé.", timeUp: true })
+    const onFinish = vi.fn().mockResolvedValue({ ok: true })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          kind: "exam",
+          timer: { serverStartTime: start, totalSeconds: 2, initialNow: start },
+        }),
+        callbacks: makeCallbacks({ onAnswer, onFinish }),
+      }),
+    )
+    await act(async () => {
+      await result.current.answerSelect(0)
+    })
+    expect(onFinish).toHaveBeenCalledWith({ isAutoSubmit: true })
+    await act(async () => {
+      vi.advanceTimersByTime(3000)
+    })
+    expect(onFinish).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe("useQuizSession — raccourcis clavier", () => {

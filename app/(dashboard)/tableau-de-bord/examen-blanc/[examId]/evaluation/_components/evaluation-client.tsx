@@ -131,11 +131,15 @@ export function EvaluationClient({
         { retries: 1 }, // upsert idempotent — absorbe les micro-coupures
       )
       if (!res.success) {
-        toast.error("Réponse non enregistrée, réessayez.")
-        return {
-          ok: false,
-          error: res.error ?? "Erreur lors de l'enregistrement",
+        const error = res.error ?? "Erreur lors de l'enregistrement"
+        // Budget épuisé côté serveur (chrono client en retard) : réessayer ne
+        // sert à rien, le moteur soumet l'examen.
+        if ("code" in res && res.code === "TIME_UP") {
+          toast.error("Temps écoulé : cette réponse n'a pas été enregistrée.")
+          return { ok: false, error, timeUp: true }
         }
+        toast.error("Réponse non enregistrée, réessayez.")
+        return { ok: false, error }
       }
       // Anti-triche : ne JAMAIS renvoyer isCorrect ni reveal
       return { ok: true, serverNow: res.serverNow }

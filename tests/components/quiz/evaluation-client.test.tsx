@@ -234,6 +234,25 @@ describe("EvaluationClient — callbacks", () => {
     )
   })
 
+  it("temps écoulé côté serveur : message distinct (pas « réessayez ») et signal timeUp au moteur", async () => {
+    renderClient()
+    vi.mocked(callAction).mockResolvedValue({
+      success: false,
+      error: "Temps écoulé.",
+      code: "TIME_UP",
+    } as never)
+
+    const res = await lastCallbacks!.onAnswer!("q1", "A")
+
+    expect(res).toEqual({ ok: false, error: "Temps écoulé.", timeUp: true })
+    expect(toast.error).toHaveBeenCalledWith(
+      "Temps écoulé : cette réponse n'a pas été enregistrée.",
+    )
+    expect(toast.error).not.toHaveBeenCalledWith(
+      "Réponse non enregistrée, réessayez.",
+    )
+  })
+
   it("acquitte une réponse enregistrée sans champ de correction", async () => {
     renderClient()
     vi.mocked(callAction).mockResolvedValue({ success: true } as never)

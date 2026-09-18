@@ -136,6 +136,18 @@ export function useQuizSession({
     if (res.serverNow !== undefined) setServerNow(res.serverNow)
   }, [])
 
+  // ---- Auto-soumission (une seule fois) ----
+  // Déclenchée par l'expiration du chrono client, ou par le serveur qui refuse
+  // une réponse `TIME_UP` (chrono client en retard : veille, retour arrière).
+  // Une seule soumission automatique, quelle que soit la source.
+  const autoSubmitFiredRef = useRef(false)
+  const autoSubmitRef = useRef<() => void>(() => {})
+  const autoSubmitOnce = useCallback(() => {
+    if (autoSubmitFiredRef.current) return
+    autoSubmitFiredRef.current = true
+    autoSubmitRef.current()
+  }, [])
+
   // ---- Pause (rest break) ----
   const [isPaused, setIsPaused] = useState(initialPause?.isPaused ?? false)
   const [totalPauseDurationMs, setTotalPauseDurationMs] = useState(
@@ -284,6 +296,7 @@ export function useQuizSession({
         }
         state.inFlight = false
         if (!res.ok) {
+          if (res.timeUp && mode.timer) autoSubmitOnce()
           const persisted = persistedAnswers.current[qid]
           setAnswers((a) => {
             const next = { ...a }
@@ -298,7 +311,15 @@ export function useQuizSession({
         return
       }
     },
-    [currentQuestion, callbacks, isImmediate, revealed, syncServerClock],
+    [
+      currentQuestion,
+      callbacks,
+      isImmediate,
+      revealed,
+      syncServerClock,
+      mode.timer,
+      autoSubmitOnce,
+    ],
   )
 
   // ---- Confirm (mode tuteur uniquement) ----
@@ -424,19 +445,12 @@ export function useQuizSession({
 
   // ---- Timer (composed, only when mode.timer) ----
 
-  const onExpireRef = useRef<() => void>(() => {
-    void confirmFinish({ isAutoSubmit: true })
-  })
   // Keep ref in sync so confirmFinish closure is always fresh
   useEffect(() => {
-    onExpireRef.current = () => {
+    autoSubmitRef.current = () => {
       void confirmFinish({ isAutoSubmit: true })
     }
   }, [confirmFinish])
-
-  const stableOnExpire = useCallback(() => {
-    onExpireRef.current()
-  }, [])
 
   // Timer hook — always called (hooks rules) but only ACTIF quand mode.timer
   // existe. Sans `enabled`, un mode sans chrono (entraînement) passe
@@ -451,7 +465,7 @@ export function useQuizSession({
     initialNow: serverNow,
     isPaused,
     totalPauseDurationMs,
-    onExpire: stableOnExpire,
+    onExpire: autoSubmitOnce,
   })
 
   const timer = timerConfig ? timerResult : null

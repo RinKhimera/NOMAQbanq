@@ -18,7 +18,12 @@ import { isOpen } from "@/lib/exam-phase"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { computeScorePercent } from "@/lib/score"
-import { type Refusal, refusalMessage, requireAttempt } from "../attempts/guard"
+import {
+  type Refusal,
+  type RefusalCode,
+  refusalMessage,
+  requireAttempt,
+} from "../attempts/guard"
 import { hasActiveAccess } from "../payments/dal"
 import { viewerOf } from "../questions/answer-key-lock"
 import { type SelectableUser, searchSelectableUsers } from "../users/dal"
@@ -423,9 +428,15 @@ export const deleteParticipation = async ({
 // Étudiant : cycle de vie de la passation
 // ============================================
 
-/** Refus de la garde de tentative (code) ou refus local (message). */
+/**
+ * Refus de la garde de tentative (code) ou refus local (message). Le code
+ * accompagne le message : le client distingue `TIME_UP` (soumettre, ne pas
+ * faire réessayer) sans comparer des libellés.
+ */
 const refused = (r: Refusal | { message: string }) =>
-  fail("code" in r ? refusalMessage(r.code, "exam") : r.message)
+  "code" in r
+    ? { ...fail(refusalMessage(r.code, "exam")), code: r.code }
+    : fail(r.message)
 
 export type StartExamResult =
   | { success: true; participationId: string; startedAt: number }
@@ -591,7 +602,12 @@ export const startExam = async ({
  */
 export const saveExamAnswer = async (
   input: SaveExamAnswerInput,
-): Promise<{ success: boolean; error?: string; serverNow?: number }> => {
+): Promise<{
+  success: boolean
+  error?: string
+  code?: RefusalCode
+  serverNow?: number
+}> => {
   const session = await requireSession()
   const actor = viewerOf(session.user)
 
