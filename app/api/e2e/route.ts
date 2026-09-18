@@ -16,7 +16,10 @@ import {
   user,
   userAccess,
 } from "@/db/schema"
-import { SECONDS_PER_QUESTION } from "@/features/exams/schemas"
+import {
+  DEFAULT_PAUSE_MINUTES,
+  SECONDS_PER_QUESTION,
+} from "@/features/exams/schemas"
 import { env } from "@/lib/env/server"
 import { createId } from "@/lib/ids"
 import { computeScorePercent } from "@/lib/score"
@@ -420,7 +423,7 @@ async function seedExam(opts: {
     endDate,
     completionTime,
     enablePause: opts.enablePause ?? false,
-    pauseDurationMinutes: opts.enablePause ? 15 : null,
+    pauseDurationMinutes: opts.enablePause ? DEFAULT_PAUSE_MINUTES : null,
     isActive: true,
     audienceType: "subscribers",
     createdBy: admin.id,

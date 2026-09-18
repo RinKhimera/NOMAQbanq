@@ -536,7 +536,9 @@ export function ExamForm(props: ExamFormProps) {
                               min={1}
                               max={60}
                               step={1}
-                              value={[field.value || 15]}
+                              value={[
+                                field.value || DEFAULT_PAUSE_DURATION_MINUTES,
+                              ]}
                               onValueChange={(value) =>
                                 field.onChange(value[0])
                               }

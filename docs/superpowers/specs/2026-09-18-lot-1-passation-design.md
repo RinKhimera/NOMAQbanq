@@ -136,6 +136,14 @@ disparaît (ses formatteurs migrent).
 
 ## Écarts constatés à l'implémentation de la PR 1 (2026-09-18)
 
+- La revue adversariale de la PR 1 (`docs/superpowers/reviews/2026-09-18-revue-adversariale-lot1-pr1.md`)
+  a rendu OUI sans 🔴 ; ses quatre constats (garde `revealKey` sans test, tick
+  au clic des gardes admin, crédit de pause du hook sans test, grâce de
+  finalisation sans test) et trois ℹ️ sont corrigés dans le commit qui suit.
+  Correction de la spec : ce n'est PAS le premier import `components → features`
+  (il en existait déjà une quinzaine en `import type`). Pour la PR 2 : le vrai
+  sujet de la grâce n'est pas 5 s vs 10 s mais `isAutoSubmit`, booléen client
+  qui exempte du budget — à garder à l'écriture par `requireAttempt`.
 - `QuizRevealPayload` ne disparaît pas : c'est le contrat du retour de
   `onAnswer` (correction complète garantie, ou clé retenue). Il est désormais
   dérivé de `Revealed` (`Required<Pick<…>>`), donc ne peut plus diverger.

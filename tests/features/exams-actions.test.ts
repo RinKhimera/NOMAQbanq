@@ -580,6 +580,50 @@ describe("finalizeExam — mapping des refus", () => {
   })
 })
 
+describe("finalizeExam — grâce câblée à l'horloge", () => {
+  // Budget 100 s, démarré à t=0 : la grâce (10 s) est la seule marge. Cas
+  // JUMEAUX à 1 ms près : ils ne prouvent la borne que parce qu'ils divergent.
+  const rows = () => ({
+    exams: [
+      {
+        startDate: new Date(0),
+        endDate: new Date(10_000_000),
+        completionTime: 100,
+        pauseDurationMinutes: null,
+        audienceType: "restricted",
+      },
+    ],
+    examParticipations: [inProgress({ startedAt: new Date(0) })],
+    examAnswers: [{ correct: 1, total: 2 }],
+  })
+
+  it("accepte une soumission manuelle dans la grâce", async () => {
+    runCallback()
+    vi.setSystemTime(100_000 + 10_000)
+    setRows(rows())
+    expect(await finalizeExam({ examId: "e1" })).toEqual({ success: true })
+  })
+
+  it("refuse une soumission manuelle 1 ms après la grâce", async () => {
+    runCallback()
+    vi.setSystemTime(100_000 + 10_000 + 1)
+    setRows(rows())
+    expect(await finalizeExam({ examId: "e1" })).toEqual({
+      success: false,
+      error: "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
+    })
+  })
+
+  it("l'auto-soumission est exemptée du budget", async () => {
+    runCallback()
+    vi.setSystemTime(100_000 + 60_000)
+    setRows(rows())
+    expect(await finalizeExam({ examId: "e1", isAutoSubmit: true })).toEqual({
+      success: true,
+    })
+  })
+})
+
 describe("pauseExam", () => {
   const openExam = { enablePause: true, pauseDurationMinutes: 20 }
 

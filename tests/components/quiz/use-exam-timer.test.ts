@@ -96,6 +96,22 @@ describe("useExamTimer", () => {
     expect(result.current.remainingMs).toBeLessThan(before)
   })
 
+  it("câble le crédit de pause dans l'horloge : le temps en pause ne décompte pas", () => {
+    const now = Date.now()
+    const { result } = renderHook(() =>
+      useExamTimer({
+        serverStartTime: now - 40_000,
+        initialNow: now,
+        totalSeconds: 60,
+        isPaused: false,
+        totalPauseDurationMs: 20_000,
+        onExpire: vi.fn(),
+      }),
+    )
+    // 40 s écoulées − 20 s de pause = 20 s consommées sur 60.
+    expect(result.current.remainingMs).toBe(40_000)
+  })
+
   it("expose la zone d'alerte de l'horloge", () => {
     const start = Date.now()
     const { result } = renderHook(() =>
