@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { type RefusalCode, refusalMessage } from "@/features/attempts/guard"
 import {
   createExam,
   deactivateExam,
@@ -16,92 +17,59 @@ import {
   startExam,
   updateExam,
 } from "@/features/exams/actions"
+import {
+  fakeTx,
+  rejectWith,
+  resetFakeDrizzle,
+  setRows,
+  state,
+} from "../helpers/fake-drizzle"
 
-// Couvre les decisions propres a `actions.ts` : gardes, validation zod, mapping
-// des erreurs metier vers un message, et les refus de passation (statut, pause,
-// budget-temps). Le SQL et la concurrence (verrous FOR UPDATE, cascades) sont
-// verifies sur une vraie base dans tests/integration/exam-*.test.ts.
-//
-// Le faux `db` sert des lignes indexees par nom de table, ce qui rend les tests
-// independants de l'ORDRE des requetes dans l'action — un simple tableau
-// consomme en file casserait au moindre refactor.
-// `vi.mock` est hoiste au-dessus des declarations du module : tout ce que ses
-// fabriques utilisent doit venir de `vi.hoisted`, sinon `Cannot access … before
-// initialization`.
-const { mocks, fakeDb, table } = vi.hoisted(() => {
-  const mocks = {
+// Couvre les decisions propres a `actions.ts` : gardes admin, validation zod,
+// mapping des erreurs metier vers un message, et — pour la passation — ce que
+// chaque action demande a la garde de tentative (`requireAttempt`, doublee ici ;
+// sa politique est testee dans tests/attempts/guard.test.ts), le succes et le
+// mapping des refus. Le SQL et la concurrence (verrous FOR UPDATE, cascades)
+// sont verifies sur une vraie base dans tests/integration/exam-*.test.ts.
+const { mocks } = vi.hoisted(() => ({
+  mocks: {
     captureServerError: vi.fn(),
     revalidatePath: vi.fn(),
-    transaction:
-      vi.fn<(cb: (tx: unknown) => Promise<unknown>) => Promise<unknown>>(),
-    rows: { current: {} as Record<string, unknown[]> },
-    returning: { current: [] as unknown[] },
     session: {
       current: { user: { id: "u1", role: "user" } } as {
         user: { id: string; role: string }
       },
     },
-    hasAccess: vi.fn(async () => true),
+    hasActiveAccess: vi.fn(async () => true),
+    requireAttempt: vi.fn(),
     searchSelectableUsers: vi.fn(async () => []),
     getExamAudience: vi.fn(async () => []),
     getExamQuestionExplanations: vi.fn(async () => []),
-  }
-
-  const table = (name: string) => ({ __table: name })
-
-  /**
-   * Chaine de requete Drizzle simulee : chaque methode se renvoie elle-meme et
-   * l'objet est « thenable », donc `await` fonctionne quel que soit le maillon
-   * terminal (`.limit()`, `.where()`, `.values()`…).
-   */
-  const queryChain = (initialTable?: string) => {
-    let target = initialTable
-    const chain: Record<string, unknown> = {
-      from: (t: { __table?: string }) => {
-        target = t?.__table
-        return chain
-      },
-      innerJoin: () => chain,
-      where: () => chain,
-      orderBy: () => chain,
-      for: () => chain,
-      limit: () => chain,
-      set: () => chain,
-      values: () => chain,
-      onConflictDoUpdate: () => chain,
-      returning: () => Promise.resolve(mocks.returning.current),
-      then: (onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
-        Promise.resolve(
-          (target ? mocks.rows.current[target] : undefined) ?? [],
-        ).then(onOk, onErr),
-    }
-    return chain
-  }
-
-  const fakeDb = {
-    transaction: (cb: (tx: unknown) => Promise<unknown>) =>
-      mocks.transaction(cb),
-    select: () => queryChain(),
-    insert: (t: { __table?: string }) => queryChain(t?.__table),
-    update: (t: { __table?: string }) => queryChain(t?.__table),
-    delete: (t: { __table?: string }) => queryChain(t?.__table),
-  }
-
-  return { mocks, fakeDb, table }
-})
-
-vi.mock("@/db", () => ({ db: fakeDb }))
-vi.mock("@/db/schema", () => ({
-  examAnswers: table("examAnswers"),
-  examAudience: table("examAudience"),
-  examParticipations: table("examParticipations"),
-  examQuestions: table("examQuestions"),
-  exams: table("exams"),
-  questions: table("questions"),
-  user: table("user"),
-  userAccess: table("userAccess"),
+  },
 }))
-vi.mock("@/features/payments/dal", () => ({ hasAccess: mocks.hasAccess }))
+
+vi.mock("@/db", async () => ({
+  db: (await import("../helpers/fake-drizzle")).fakeDb,
+}))
+vi.mock("@/db/schema", async () => {
+  const { table } = await import("../helpers/fake-drizzle")
+  return {
+    examAnswers: table("examAnswers"),
+    examAudience: table("examAudience"),
+    examParticipations: table("examParticipations"),
+    examQuestions: table("examQuestions"),
+    exams: table("exams"),
+    questions: table("questions"),
+    user: table("user"),
+  }
+})
+vi.mock("@/features/attempts/guard", async (orig) => {
+  const actual = await orig<typeof import("@/features/attempts/guard")>()
+  return { ...actual, requireAttempt: mocks.requireAttempt }
+})
+vi.mock("@/features/payments/dal", () => ({
+  hasActiveAccess: mocks.hasActiveAccess,
+}))
 vi.mock("@/features/users/dal", () => ({
   searchSelectableUsers: mocks.searchSelectableUsers,
 }))
@@ -119,6 +87,7 @@ vi.mock("@/lib/observability", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 
 const SERVER_ERROR = "Erreur serveur. Réessayez."
+const NOW = 1_500
 
 const examInput = {
   title: "Examen blanc",
@@ -127,38 +96,49 @@ const examInput = {
   questionIds: ["q1", "q2"],
 }
 
-/** Fait echouer le corps de la transaction avec un code metier. */
-const rejectWith = (message: string) =>
-  mocks.transaction.mockRejectedValueOnce(new Error(message))
+const ALL_REFUSALS: RefusalCode[] = [
+  "NOT_FOUND",
+  "NOT_IN_PROGRESS",
+  "NOT_STARTED",
+  "OUTSIDE_WINDOW",
+  "ACCESS_EXPIRED",
+  "PAUSED",
+  "TIME_UP",
+]
 
-/** Execute reellement le callback de transaction contre le faux `db`. */
-const runCallback = () =>
-  mocks.transaction.mockImplementationOnce(async (cb) => cb(fakeDb))
-
-const setRows = (rows: Record<string, unknown[]>) => {
-  mocks.rows.current = rows
-}
-
-const inProgress = (extra: Record<string, unknown> = {}) => ({
-  id: "p1",
-  status: "in_progress",
-  startedAt: new Date(1_500),
-  pauseStartedAt: null,
-  totalPauseDurationMs: 0,
-  total: 0,
-  ...extra,
+// Budget 100 s démarré à t = 0 ; aucune pause.
+const openAttempt = (extra: Record<string, unknown> = {}) => ({
+  ok: true as const,
+  attempt: {
+    kind: "exam" as const,
+    id: "p1",
+    timing: {
+      startedAt: 0,
+      budgetSeconds: 100,
+      pauseCreditMs: 0,
+      pauseInProgress: null,
+    },
+    exam: {
+      enablePause: true,
+      pauseDurationMinutes: 20,
+      audienceType: "subscribers" as const,
+    },
+    ...extra,
+  },
 })
+
+const refuse = (code: RefusalCode) =>
+  mocks.requireAttempt.mockResolvedValueOnce({ ok: false, code })
 
 beforeEach(() => {
   mocks.session.current = { user: { id: "u1", role: "user" } }
-  mocks.rows.current = {}
-  mocks.returning.current = [{ id: "a1" }]
-  mocks.transaction.mockResolvedValue(undefined)
+  mocks.requireAttempt.mockReset().mockResolvedValue(openAttempt())
+  resetFakeDrizzle([{ id: "a1" }])
   // Seul `Date` est simule : les actions lisent `Date.now()`, aucune n'attend de
   // minuterie. Aucune option de config ne restaure les faux timers (restoreMocks
   // ne parcourt que le registre des espions) — d'ou l'afterEach explicite.
   vi.useFakeTimers({ toFake: ["Date"] })
-  vi.setSystemTime(1_500)
+  vi.setSystemTime(NOW)
 })
 
 afterEach(() => {
@@ -204,10 +184,11 @@ describe("createExam", () => {
   ])("refuse une entree invalide : %#", async (input, error) => {
     const res = await createExam(input)
     expect(res).toEqual({ success: false, error })
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
   it("succes : renvoie l'id et revalide la liste", async () => {
+    setRows({ questions: [{ n: 2 }] })
     const res = await createExam(examInput)
     expect(res).toMatchObject({ success: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/examens")
@@ -244,10 +225,11 @@ describe("updateExam", () => {
   it("refuse un id vide sans ouvrir la transaction", async () => {
     const res = await updateExam({ ...input, id: "" })
     expect(res.success).toBe(false)
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
   it("succes : revalide la liste et la fiche", async () => {
+    setRows({ exams: [{ id: "e1" }], questions: [{ n: 2 }] })
     const res = await updateExam(input)
     expect(res).toEqual({ success: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/examens/e1")
@@ -315,11 +297,11 @@ describe("mutations admin simples", () => {
   })
 })
 
-describe("startExam — mapping des refus", () => {
+describe("startExam", () => {
   it("id vide → refus avant transaction", async () => {
     const res = await startExam({ examId: "" })
     expect(res).toEqual({ success: false, error: "Examen requis" })
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -335,6 +317,78 @@ describe("startExam — mapping des refus", () => {
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
+  // L'abonnement se lit par la transaction (`hasActiveAccess(tx, …)`), jamais
+  // par `hasAccess` qui emprunterait une 2e connexion du pool.
+  it("audience abonnés : l'abonnement se vérifie dans la transaction, à l'instant courant", async () => {
+    mocks.hasActiveAccess.mockResolvedValueOnce(false)
+    setRows({
+      user: [{ id: "u1" }],
+      exams: [
+        {
+          startDate: new Date(0),
+          endDate: new Date(10_000),
+          audienceType: "subscribers",
+        },
+      ],
+    })
+    const res = await startExam({ examId: "e1" })
+    expect(res).toEqual({
+      success: false,
+      error: "Votre accès aux examens a expiré.",
+    })
+    expect(mocks.hasActiveAccess).toHaveBeenCalledWith(fakeTx, {
+      userId: "u1",
+      type: "exam",
+      now: NOW,
+    })
+  })
+
+  it("succes : renvoie la participation et son instant de démarrage", async () => {
+    setRows({
+      user: [{ id: "u1" }],
+      exams: [
+        {
+          startDate: new Date(0),
+          endDate: new Date(10_000),
+          audienceType: "restricted",
+        },
+      ],
+      examAudience: [{ userId: "u1" }],
+      examParticipations: [],
+      examQuestions: [{ questionId: "q1" }],
+    })
+    const res = await startExam({ examId: "e1" })
+    expect(res).toMatchObject({ success: true, startedAt: NOW })
+  })
+
+  // Borne du glossaire (« examen ouvert » = date de fin non passée) : cas
+  // jumeaux à 1 ms près, comme la garde answer/close.
+  it.each([
+    [
+      NOW,
+      {
+        success: false,
+        error: "L'examen n'est pas disponible à cette période.",
+      },
+    ],
+    [NOW + 1, { success: true }],
+  ])("fenêtre : endDate = %d → %o", async (endDate, expected) => {
+    setRows({
+      user: [{ id: "u1" }],
+      exams: [
+        {
+          startDate: new Date(0),
+          endDate: new Date(endDate),
+          audienceType: "restricted",
+        },
+      ],
+      examAudience: [{ userId: "u1" }],
+      examParticipations: [],
+      examQuestions: [],
+    })
+    expect(await startExam({ examId: "e1" })).toMatchObject(expected)
+  })
+
   it("erreur inattendue → capture avec l'utilisateur", async () => {
     rejectWith("pool exhausted")
     const res = await startExam({ examId: "e1" })
@@ -347,150 +401,77 @@ describe("startExam — mapping des refus", () => {
   })
 })
 
-describe("saveExamAnswer — gardes de passation", () => {
+describe("saveExamAnswer", () => {
   const input = { examId: "e1", questionId: "q1", selectedAnswer: "A" }
-  const openExam = {
-    startDate: new Date(0),
-    endDate: new Date(10_000),
-    audienceType: "subscribers",
-    completionTime: 100,
-  }
+  const question = { examQuestions: [{ correctAnswer: "A" }] }
 
   it("entree invalide → refus avant lecture", async () => {
     const res = await saveExamAnswer({ ...input, selectedAnswer: "" })
     expect(res.success).toBe(false)
+    expect(mocks.requireAttempt).not.toHaveBeenCalled()
   })
 
-  it("examen introuvable", async () => {
-    setRows({ exams: [] })
-    expect(await saveExamAnswer(input)).toEqual({
-      success: false,
-      error: "Examen introuvable.",
-    })
-  })
-
-  it("hors fenetre de dates", async () => {
-    setRows({ exams: [{ ...openExam, startDate: new Date(5_000) }] })
-    expect(await saveExamAnswer(input)).toEqual({
-      success: false,
-      error: "L'examen n'est pas disponible à cette période.",
-    })
-  })
-
-  it("abonnement expire (audience subscribers)", async () => {
-    mocks.hasAccess.mockResolvedValueOnce(false)
-    setRows({ exams: [openExam] })
-    expect(await saveExamAnswer(input)).toEqual({
-      success: false,
-      error: "Votre accès aux examens a expiré.",
-    })
-  })
-
-  it("question etrangere a l'examen", async () => {
-    setRows({ exams: [openExam], examQuestions: [] })
+  // Lue APRES la garde : sinon le message distinguerait une question de
+  // l'examen d'une question etrangere pour un examen a venir ou un non-abonne.
+  it("question etrangere a l'examen → refus, apres la garde", async () => {
+    setRows({ examQuestions: [] })
     expect(await saveExamAnswer(input)).toEqual({
       success: false,
       error: "Cette question ne fait pas partie de l'examen.",
     })
+    expect(mocks.requireAttempt).toHaveBeenCalled()
   })
 
-  it("participation absente", async () => {
-    runCallback()
-    setRows({
-      exams: [openExam],
-      examQuestions: [{ correctAnswer: "A" }],
-      examParticipations: [],
-    })
+  it("garde refusee : la question n'est pas lue", async () => {
+    refuse("OUTSIDE_WINDOW")
+    setRows({ examQuestions: [] })
     expect(await saveExamAnswer(input)).toEqual({
       success: false,
-      error: "Participation introuvable.",
+      error: refusalMessage("OUTSIDE_WINDOW", "exam"),
     })
   })
 
-  it("participation deja terminee", async () => {
-    runCallback()
-    setRows({
-      exams: [openExam],
-      examQuestions: [{ correctAnswer: "A" }],
-      examParticipations: [inProgress({ status: "completed" })],
+  it("demande la garde `answer` sur l'examen, pour l'acteur courant, dans la transaction", async () => {
+    setRows(question)
+    await saveExamAnswer(input)
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeTx, {
+      kind: "exam",
+      ref: "e1",
+      actor: { id: "u1", role: "user" },
+      now: NOW,
+      verb: "answer",
     })
+  })
+
+  it.each(ALL_REFUSALS)("refus %s → message, aucune ecriture", async (code) => {
+    refuse(code)
+    setRows(question)
     expect(await saveExamAnswer(input)).toEqual({
       success: false,
-      error: "Cette session d'examen n'est plus active.",
+      error: refusalMessage(code, "exam"),
     })
-  })
-
-  it("pause en cours → ecriture refusee", async () => {
-    runCallback()
-    setRows({
-      exams: [openExam],
-      examQuestions: [{ correctAnswer: "A" }],
-      examParticipations: [inProgress({ pauseStartedAt: new Date(1_400) })],
-    })
-    expect(await saveExamAnswer(input)).toEqual({
-      success: false,
-      error: "Réponse impossible pendant la pause.",
-    })
-  })
-
-  it("budget-temps depasse → refus a l'ecriture (anti-triche)", async () => {
-    runCallback()
-    vi.setSystemTime(1_000_000)
-    setRows({
-      exams: [{ ...openExam, endDate: new Date(10_000_000) }],
-      examQuestions: [{ correctAnswer: "A" }],
-      examParticipations: [inProgress({ startedAt: new Date(0) })],
-    })
-    expect(await saveExamAnswer(input)).toEqual({
-      success: false,
-      error: "Temps écoulé.",
-    })
-  })
-
-  it("admin : le budget-temps ne s'applique pas", async () => {
-    mocks.session.current = { user: { id: "adm", role: "admin" } }
-    runCallback()
-    vi.setSystemTime(1_000_000)
-    setRows({
-      exams: [{ ...openExam, endDate: new Date(10_000_000) }],
-      examQuestions: [{ correctAnswer: "A" }],
-      examParticipations: [inProgress({ startedAt: new Date(0) })],
-    })
-    expect(await saveExamAnswer(input)).toEqual({ success: true })
+    expect(state.set).toBeUndefined()
   })
 
   it("aucune ligne mise a jour → session incoherente", async () => {
-    runCallback()
-    mocks.returning.current = []
-    setRows({
-      exams: [openExam],
-      examQuestions: [{ correctAnswer: "A" }],
-      examParticipations: [inProgress()],
-    })
+    state.returning = []
+    setRows(question)
     expect(await saveExamAnswer(input)).toEqual({
       success: false,
       error: "Réponse non enregistrée (session incohérente).",
     })
   })
 
-  it("succes : ne renvoie jamais isCorrect (anti-triche)", async () => {
-    runCallback()
-    setRows({
-      exams: [openExam],
-      examQuestions: [{ correctAnswer: "A" }],
-      examParticipations: [inProgress()],
-    })
+  it("succes : ecrit la reponse et son verdict, ne renvoie jamais isCorrect (anti-triche)", async () => {
+    setRows(question)
     const res = await saveExamAnswer(input)
     expect(res).toEqual({ success: true })
-    expect(res).not.toHaveProperty("isCorrect")
+    expect(state.set).toEqual({ selectedAnswer: "A", isCorrect: true })
   })
 
   it("panne base → capture", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("boom"))
-    setRows({
-      exams: [openExam],
-      examQuestions: [{ correctAnswer: "A" }],
-    })
+    rejectWith("boom")
+    setRows(question)
     expect(await saveExamAnswer(input)).toEqual({
       success: false,
       error: SERVER_ERROR,
@@ -511,25 +492,27 @@ describe("saveExamFlag", () => {
     expect(res.success).toBe(false)
   })
 
-  it("participation absente", async () => {
-    setRows({ examParticipations: [] })
-    expect(await saveExamFlag(input)).toEqual({
-      success: false,
-      error: "Participation introuvable.",
-    })
+  it("demande la garde `flag`", async () => {
+    await saveExamFlag(input)
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({ ref: "e1", verb: "flag" }),
+    )
   })
 
-  it("participation terminee", async () => {
-    setRows({ examParticipations: [inProgress({ status: "completed" })] })
-    expect(await saveExamFlag(input)).toEqual({
-      success: false,
-      error: "Cette session d'examen n'est plus active.",
-    })
-  })
+  it.each(["NOT_FOUND", "NOT_IN_PROGRESS"] as const)(
+    "refus %s → message",
+    async (code) => {
+      refuse(code)
+      expect(await saveExamFlag(input)).toEqual({
+        success: false,
+        error: refusalMessage(code, "exam"),
+      })
+    },
+  )
 
   it("aucune ligne marquee → session incoherente", async () => {
-    mocks.returning.current = []
-    setRows({ examParticipations: [inProgress()] })
+    state.returning = []
     expect(await saveExamFlag(input)).toEqual({
       success: false,
       error: "Marquage non enregistré (session incohérente).",
@@ -537,35 +520,83 @@ describe("saveExamFlag", () => {
   })
 
   it("succes", async () => {
-    setRows({ examParticipations: [inProgress()] })
     expect(await saveExamFlag(input)).toEqual({ success: true })
+    expect(state.set).toEqual({ isFlagged: true })
   })
 })
 
-describe("finalizeExam — mapping des refus", () => {
+describe("finalizeExam", () => {
+  const agg = { examAnswers: [{ correct: 1, total: 2 }] }
+
   it("entree invalide → refus avant transaction", async () => {
     const res = await finalizeExam({ examId: "" })
     expect(res.success).toBe(false)
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ["NOT_FOUND", "Examen introuvable."],
-    ["OUTSIDE_WINDOW", "L'examen n'est pas disponible à cette période."],
-    ["NOT_FOUND_PART", "Participation introuvable."],
-    ["ALREADY_TAKEN", "Vous avez déjà passé cet examen."],
-    ["NOT_IN_PROGRESS", "Cette session d'examen n'est plus active."],
-    ["ACCESS_EXPIRED", "Votre accès aux examens a expiré."],
-    ["NOT_STARTED", "L'examen n'a pas encore été démarré."],
-    [
-      "TIME_UP",
-      "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
-    ],
-  ])("%s → %s, sans capture", async (thrown, error) => {
-    rejectWith(thrown)
-    const res = await finalizeExam({ examId: "e1" })
-    expect(res).toEqual({ success: false, error })
-    expect(mocks.captureServerError).not.toHaveBeenCalled()
+  // `isAutoSubmit` (client) n'a qu'un effet : l'exemption du budget que la
+  // garde `close` applique — il transite tel quel.
+  it("demande la garde `close` et lui transmet isAutoSubmit", async () => {
+    setRows(agg)
+    await finalizeExam({ examId: "e1", isAutoSubmit: true })
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeTx, {
+      kind: "exam",
+      ref: "e1",
+      actor: { id: "u1", role: "user" },
+      now: NOW,
+      verb: "close",
+      isAutoSubmit: true,
+    })
+  })
+
+  it.each(ALL_REFUSALS)("refus %s → message, aucune ecriture", async (code) => {
+    refuse(code)
+    setRows(agg)
+    expect(await finalizeExam({ examId: "e1" })).toEqual({
+      success: false,
+      error: refusalMessage(code, "exam"),
+    })
+    expect(state.set).toBeUndefined()
+  })
+
+  it("succes manuel : score depuis les lignes en base, statut completed", async () => {
+    setRows(agg)
+    expect(await finalizeExam({ examId: "e1" })).toEqual({ success: true })
+    expect(state.set).toEqual({
+      status: "completed",
+      score: 50,
+      completedAt: new Date(NOW),
+      pauseStartedAt: null,
+      totalPauseDurationMs: 0,
+    })
+  })
+
+  it("auto-soumission : statut auto_submitted", async () => {
+    setRows(agg)
+    await finalizeExam({ examId: "e1", isAutoSubmit: true })
+    expect(state.set).toMatchObject({ status: "auto_submitted" })
+  })
+
+  // Une pause en cours à la clôture est créditée, plafonnée à la durée de
+  // l'examen, et refermée.
+  it("pause en cours : creditee (plafonnee) et refermee", async () => {
+    vi.setSystemTime(10 * 60_000)
+    mocks.requireAttempt.mockResolvedValueOnce(
+      openAttempt({
+        timing: {
+          startedAt: 0,
+          budgetSeconds: 3600,
+          pauseCreditMs: 1_000,
+          pauseInProgress: { startedAt: 0, capMinutes: 5 },
+        },
+      }),
+    )
+    setRows(agg)
+    await finalizeExam({ examId: "e1" })
+    expect(state.set).toMatchObject({
+      pauseStartedAt: null,
+      totalPauseDurationMs: 1_000 + 5 * 60_000,
+    })
   })
 
   it("erreur inattendue → capture", async () => {
@@ -580,124 +611,91 @@ describe("finalizeExam — mapping des refus", () => {
   })
 })
 
-describe("finalizeExam — grâce câblée à l'horloge", () => {
-  // Budget 100 s, démarré à t=0 : la grâce (10 s) est la seule marge. Cas
-  // JUMEAUX à 1 ms près : ils ne prouvent la borne que parce qu'ils divergent.
-  const rows = () => ({
-    exams: [
-      {
-        startDate: new Date(0),
-        endDate: new Date(10_000_000),
-        completionTime: 100,
-        pauseDurationMinutes: null,
-        audienceType: "restricted",
-      },
-    ],
-    examParticipations: [inProgress({ startedAt: new Date(0) })],
-    examAnswers: [{ correct: 1, total: 2 }],
-  })
-
-  it("accepte une soumission manuelle dans la grâce", async () => {
-    runCallback()
-    vi.setSystemTime(100_000 + 10_000)
-    setRows(rows())
-    expect(await finalizeExam({ examId: "e1" })).toEqual({ success: true })
-  })
-
-  it("refuse une soumission manuelle 1 ms après la grâce", async () => {
-    runCallback()
-    vi.setSystemTime(100_000 + 10_000 + 1)
-    setRows(rows())
-    expect(await finalizeExam({ examId: "e1" })).toEqual({
-      success: false,
-      error: "Temps écoulé ! La soumission n'a pas pu être traitée à temps.",
-    })
-  })
-
-  it("l'auto-soumission est exemptée du budget", async () => {
-    runCallback()
-    vi.setSystemTime(100_000 + 60_000)
-    setRows(rows())
-    expect(await finalizeExam({ examId: "e1", isAutoSubmit: true })).toEqual({
-      success: true,
-    })
-  })
-})
-
 describe("pauseExam", () => {
-  const openExam = { enablePause: true, pauseDurationMinutes: 20 }
-
   it("id vide → refus avant transaction", async () => {
     expect(await pauseExam({ examId: "" })).toEqual({
       success: false,
       error: "Examen requis",
     })
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
+  it("demande la garde `pause`", async () => {
+    await pauseExam({ examId: "e1" })
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({ ref: "e1", verb: "pause" }),
+    )
+  })
+
+  it.each(["NOT_FOUND", "NOT_IN_PROGRESS"] as const)(
+    "refus %s → message",
+    async (code) => {
+      refuse(code)
+      expect(await pauseExam({ examId: "e1" })).toEqual({
+        success: false,
+        error: refusalMessage(code, "exam"),
+      })
+    },
+  )
+
+  // Les refus propres à la pause restent locaux à l'action.
   it.each([
-    [{ exams: [] }, "Examen introuvable."],
     [
-      { exams: [{ enablePause: false }] },
+      openAttempt({ exam: { enablePause: false, pauseDurationMinutes: null } }),
       "La pause n'est pas activée pour cet examen.",
     ],
     [
-      { exams: [openExam], examParticipations: [] },
-      "Participation introuvable.",
-    ],
-    [
-      {
-        exams: [openExam],
-        examParticipations: [inProgress({ status: "completed" })],
-      },
-      "L'examen n'est pas en cours.",
-    ],
-    [
-      {
-        exams: [openExam],
-        examParticipations: [inProgress({ pauseStartedAt: new Date(1_400) })],
-      },
+      openAttempt({
+        timing: {
+          startedAt: 0,
+          budgetSeconds: 100,
+          pauseCreditMs: 0,
+          pauseInProgress: { startedAt: 1_400, capMinutes: 20 },
+        },
+      }),
       "Vous êtes déjà en pause.",
     ],
     [
-      {
-        exams: [openExam],
-        examParticipations: [inProgress({ total: 60_000 })],
-      },
+      openAttempt({
+        timing: {
+          startedAt: 0,
+          budgetSeconds: 100,
+          pauseCreditMs: 60_000,
+          pauseInProgress: null,
+        },
+      }),
       "La pause a déjà été utilisée.",
     ],
-  ])("refus : %#", async (rows, error) => {
-    runCallback()
-    setRows(rows)
+  ])("refus local : %#", async (attempt, error) => {
+    mocks.requireAttempt.mockResolvedValueOnce(attempt)
     expect(await pauseExam({ examId: "e1" })).toEqual({
       success: false,
       error,
     })
+    expect(state.set).toBeUndefined()
   })
 
   it("succes : renvoie l'instant et la duree de l'examen", async () => {
-    runCallback()
-    setRows({ exams: [openExam], examParticipations: [inProgress()] })
     expect(await pauseExam({ examId: "e1" })).toEqual({
       success: true,
-      pauseStartedAt: 1_500,
+      pauseStartedAt: NOW,
       pauseDurationMinutes: 20,
     })
+    expect(state.set).toEqual({ pauseStartedAt: new Date(NOW) })
   })
 
   it("duree non renseignee → repli sur la valeur par defaut", async () => {
-    runCallback()
-    setRows({
-      exams: [{ enablePause: true, pauseDurationMinutes: null }],
-      examParticipations: [inProgress()],
-    })
+    mocks.requireAttempt.mockResolvedValueOnce(
+      openAttempt({ exam: { enablePause: true, pauseDurationMinutes: null } }),
+    )
     expect(await pauseExam({ examId: "e1" })).toMatchObject({
       pauseDurationMinutes: 15,
     })
   })
 
   it("panne base → capture", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("boom"))
+    rejectWith("boom")
     expect(await pauseExam({ examId: "e1" })).toEqual({
       success: false,
       error: SERVER_ERROR,
@@ -711,6 +709,16 @@ describe("pauseExam", () => {
 })
 
 describe("resumeExam", () => {
+  const paused = (pauseStartedAt: number, pauseCreditMs = 0, capMinutes = 20) =>
+    openAttempt({
+      timing: {
+        startedAt: 0,
+        budgetSeconds: 3600,
+        pauseCreditMs,
+        pauseInProgress: { startedAt: pauseStartedAt, capMinutes },
+      },
+    })
+
   it("id vide → refus avant transaction", async () => {
     expect(await resumeExam({ examId: "" })).toEqual({
       success: false,
@@ -718,60 +726,51 @@ describe("resumeExam", () => {
     })
   })
 
-  it.each([
-    [{ exams: [] }, "Examen introuvable."],
-    [
-      { exams: [{ pauseDurationMinutes: 20 }], examParticipations: [] },
-      "Participation introuvable.",
-    ],
-    [
-      {
-        exams: [{ pauseDurationMinutes: 20 }],
-        examParticipations: [inProgress({ status: "auto_submitted" })],
-      },
-      "L'examen n'est pas en cours.",
-    ],
-    [
-      {
-        exams: [{ pauseDurationMinutes: 20 }],
-        examParticipations: [inProgress({ pauseStartedAt: null })],
-      },
-      "Vous n'êtes pas en pause.",
-    ],
-  ])("refus : %#", async (rows, error) => {
-    runCallback()
-    setRows(rows)
+  it("demande la garde `resume`", async () => {
+    mocks.requireAttempt.mockResolvedValueOnce(paused(1_000))
+    await resumeExam({ examId: "e1" })
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({ ref: "e1", verb: "resume" }),
+    )
+  })
+
+  it.each(["NOT_FOUND", "NOT_IN_PROGRESS"] as const)(
+    "refus %s → message",
+    async (code) => {
+      refuse(code)
+      expect(await resumeExam({ examId: "e1" })).toEqual({
+        success: false,
+        error: refusalMessage(code, "exam"),
+      })
+    },
+  )
+
+  it("pas en pause → refus local", async () => {
     expect(await resumeExam({ examId: "e1" })).toEqual({
       success: false,
-      error,
+      error: "Vous n'êtes pas en pause.",
     })
+    expect(state.set).toBeUndefined()
   })
 
   it("cumule la duree de pause reellement ecoulee", async () => {
-    runCallback()
     vi.setSystemTime(100_000)
-    setRows({
-      exams: [{ pauseDurationMinutes: 20 }],
-      examParticipations: [
-        inProgress({ pauseStartedAt: new Date(40_000), total: 5_000 }),
-      ],
-    })
+    mocks.requireAttempt.mockResolvedValueOnce(paused(40_000, 5_000))
     expect(await resumeExam({ examId: "e1" })).toEqual({
       success: true,
+      totalPauseDurationMs: 65_000,
+    })
+    expect(state.set).toEqual({
+      pauseStartedAt: null,
       totalPauseDurationMs: 65_000,
     })
   })
 
   // Sans plafond, une pause « oubliee » offrirait un budget-temps illimite.
   it("plafonne la pause a la duree autorisee de l'examen", async () => {
-    runCallback()
     vi.setSystemTime(60 * 60 * 1000)
-    setRows({
-      exams: [{ pauseDurationMinutes: 1 }],
-      examParticipations: [
-        inProgress({ pauseStartedAt: new Date(0), total: 0 }),
-      ],
-    })
+    mocks.requireAttempt.mockResolvedValueOnce(paused(0, 0, 1))
     expect(await resumeExam({ examId: "e1" })).toEqual({
       success: true,
       totalPauseDurationMs: 60_000,
@@ -779,7 +778,7 @@ describe("resumeExam", () => {
   })
 
   it("panne base → capture", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("boom"))
+    rejectWith("boom")
     expect(await resumeExam({ examId: "e1" })).toEqual({
       success: false,
       error: SERVER_ERROR,

@@ -1,8 +1,12 @@
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
-import { getAccessStatus, getMyTransactions } from "@/features/payments/dal"
+import {
+  getAccessStatus,
+  getMyTransactions,
+  hasActiveAccess,
+} from "@/features/payments/dal"
 import { requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 
@@ -143,5 +147,45 @@ describe("getMyTransactions (pagination keyset)", () => {
     expect(all.every((t) => t.status !== "pending")).toBe(true)
     // Ordre décroissant strict par createdAt (la plus récente d'abord).
     expect(all[0]?.id).toBe(accessTxId)
+  })
+})
+
+describe("hasActiveAccess (exécuteur en paramètre)", () => {
+  it("lit l'échéance réelle de la cible, sans bypass de rôle", async () => {
+    const now = Date.now()
+    expect(await hasActiveAccess(db, { userId: uid, type: "exam", now })).toBe(
+      true,
+    )
+    expect(
+      await hasActiveAccess(db, { userId: uid, type: "training", now }),
+    ).toBe(false)
+    expect(
+      await hasActiveAccess(db, { userId: createId(), type: "exam", now }),
+    ).toBe(false)
+  })
+
+  it("expire à l'instant exact de l'échéance (borne exclusive)", async () => {
+    const [row] = await db
+      .select({ expiresAt: userAccess.expiresAt })
+      .from(userAccess)
+      .where(and(eq(userAccess.userId, uid), eq(userAccess.accessType, "exam")))
+    const deadline = row!.expiresAt.getTime()
+    expect(
+      await hasActiveAccess(db, {
+        userId: uid,
+        type: "exam",
+        now: deadline - 1,
+      }),
+    ).toBe(true)
+    expect(
+      await hasActiveAccess(db, { userId: uid, type: "exam", now: deadline }),
+    ).toBe(false)
+  })
+
+  it("fonctionne depuis une transaction (aucune 2ᵉ connexion du pool)", async () => {
+    const inTx = await db.transaction((tx) =>
+      hasActiveAccess(tx, { userId: uid, type: "exam", now: Date.now() }),
+    )
+    expect(inTx).toBe(true)
   })
 })

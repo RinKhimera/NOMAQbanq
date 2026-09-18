@@ -1,7 +1,7 @@
 import { and, asc, desc, eq, gt, gte, lt, ne, or, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
-import { db } from "@/db"
+import { type Db, db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
 import {
   APP_TIME_ZONE,
@@ -68,6 +68,29 @@ export const getAccessStatus = cache(
 )
 
 /**
+ * Entitlement RÉEL d'une cible à l'instant `now`, lu par l'exécuteur donné
+ * (`db` ou la transaction en cours : une garde d'écriture ne doit jamais
+ * emprunter une 2ᵉ connexion du pool). Aucun bypass de rôle : c'est ce que la
+ * cible a acheté. Borne exclusive : à l'échéance exacte, l'accès est clos.
+ */
+export const hasActiveAccess = async (
+  exec: Pick<Db, "select">,
+  {
+    userId,
+    type,
+    now,
+  }: { userId: string; type: "exam" | "training"; now: number },
+): Promise<boolean> => {
+  const [row] = await exec
+    .select({ expiresAt: userAccess.expiresAt })
+    .from(userAccess)
+    .where(and(eq(userAccess.userId, userId), eq(userAccess.accessType, type)))
+    .limit(1)
+
+  return Boolean(row) && row.expiresAt.getTime() > now
+}
+
+/**
  * Gating d'accès pour le type donné.
  * - **Sans `userId`** (cas par défaut) : garde l'utilisateur **courant** (session).
  *   Les admins bypassent (ils accèdent à tout).
@@ -88,15 +111,7 @@ export const hasAccess = async (
     targetId = session.user.id
   }
 
-  const [row] = await db
-    .select({ expiresAt: userAccess.expiresAt })
-    .from(userAccess)
-    .where(
-      and(eq(userAccess.userId, targetId), eq(userAccess.accessType, type)),
-    )
-    .limit(1)
-
-  return Boolean(row) && row.expiresAt.getTime() > Date.now()
+  return hasActiveAccess(db, { userId: targetId, type, now: Date.now() })
 }
 
 // ============================================

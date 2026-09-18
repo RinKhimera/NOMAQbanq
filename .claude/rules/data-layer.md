@@ -53,16 +53,31 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   la dernière version committée et ne se met pas en file derrière un `FOR UPDATE`
   détenu (ex. `saveExamAnswer` vs `finalizeExam` sur la même participation →
   verrou de ligne, pas EXISTS).
+- **Écriture sur une tentative = `requireAttempt`** (`features/attempts/guard.ts`,
+  `docs/adr/0001`). Toute action qui écrit sur une participation ou une session
+  d'entraînement ouvre `db.transaction` et appelle
+  `requireAttempt(tx, { kind, ref, actor, now, verb })` : `SELECT … FOR UPDATE`
+  sur la tentative (propriété dans le WHERE — autrui = `NOT_FOUND`), puis la
+  politique du verbe (table en tête du module : fenêtre/TTL, accès, pause,
+  budget). Refus par code, message par `refusalMessage(code, kind)` ; les refus
+  propres à l'action (« question hors examen », « déjà en pause ») restent
+  locaux. Plus de garde de statut dans le WHERE des UPDATE : le verrou est la
+  discipline. **Le cron est le seul écrivain de la clôture par expiration** :
+  une action qui constate l'expiration refuse (`EXPIRED`) sans rien écrire ;
+  `createTrainingSession` libère la place via `expireTrainingSessions(tx, …)`,
+  le même écrivain scoré que le cron. `isAutoSubmit` (client) n'a qu'un effet :
+  exempter le `close` du budget — jamais une écriture de réponse.
 - **Passation d'examen — invariante d'accès** : le contenu des questions n'est
   livré/écrit que pour une participation `in_progress` (créée par `startExam`,
-  seul à vérifier fenêtre+accès+audience). La page evaluation ne met les
-  questions dans le payload RSC qu'en `in_progress` (le client `router.refresh()`
-  après `startExam`) ; `getExamWithQuestions` re-garde `hasAccess("exam")` pour
-  `subscribers` (défense en profondeur — un `null` sur la page détail rend la
-  carte paywall, PAS un 404). Budget-temps anti-triche gardé À L'ÉCRITURE
-  (`saveExamAnswer` refuse au-delà de `startedAt + completionTime + grâce`), pas
-  seulement à la finalisation (`isAutoSubmit` vient du client). `updateExam` et
-  `startExam` prennent un `FOR UPDATE` commun sur la ligne `exams`.
+  seul à vérifier audience + fenêtre + accès à la création). La page evaluation
+  ne met les questions dans le payload RSC qu'en `in_progress` (le client
+  `router.refresh()` après `startExam`) ; `getExamWithQuestions` re-garde
+  `hasAccess("exam")` pour `subscribers` (défense en profondeur — un `null` sur
+  la page détail rend la carte paywall, PAS un 404). Budget-temps anti-triche
+  gardé À L'ÉCRITURE (verbe `answer` de `requireAttempt`, au-delà de
+  `startedAt + completionTime + grâce`), pas seulement à la finalisation.
+  `updateExam` et `startExam` prennent un `FOR UPDATE` commun sur la ligne
+  `exams` ; `requireAttempt` ne verrouille QUE la participation (`OF p`).
 - **Verrou de clé de réponse = un seul module**,
   `features/questions/answer-key-lock.ts` (voir `CONTEXT.md`). Tant qu'un
   examen contenant une question est ouvert, sa clé est retenue pour tout
@@ -104,8 +119,9 @@ colonne)` dans le WHERE des canaux de
   bloque 10 s puis échoue — mieux qu'avant (blocage indéfini), mais toujours un
   bug à corriger à la source. Ce qu'une transaction doit lire ailleurs se résout
   avant de l'ouvrir et se passe en paramètre (`hasAccess` dans
-  `createTrainingSession`), ou s'exprime en sous-requête corrélée dans la
-  requête elle-même (`excludeLocked`). Le pool retente par
+  `createTrainingSession`), se lit par l'exécuteur de la transaction
+  (`hasActiveAccess(tx, …)`, `requireAttempt(tx, …)`), ou s'exprime en
+  sous-requête corrélée dans la requête elle-même (`excludeLocked`). Le pool retente par
   ailleurs l'**acquisition** sur les erreurs de réveil Neon 53300/57P03
   (`db/retry-pool.ts`, post-mortem NOMAQBANQ-1F) — sûr car aucune requête n'est
   encore partie ; ne JAMAIS étendre ce retry aux requêtes elles-mêmes ni au

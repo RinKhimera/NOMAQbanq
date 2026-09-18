@@ -7,6 +7,7 @@ import {
   examQuestions,
   exams,
 } from "@/db/schema"
+import { scoreSql } from "../attempts/score"
 
 export type CloseExpiredParticipationsResult = { closedCount: number }
 
@@ -20,8 +21,8 @@ export type CloseExpiredParticipationsResult = { closedCount: number }
  * - Garde `status='in_progress'` re-vérifiée dans le WHERE final : sous READ
  *   COMMITTED la condition est réévaluée sur la version verrouillée de la ligne
  *   → une soumission concurrente gagne, pas de clobber.
- * - Arrondi `round()` numeric = half-up EXACT — la référence du projet ;
- *   `finalizeExam` s'aligne via `computeScorePercent` (lib/score.ts).
+ * - Score : `scoreSql` (`features/attempts/score.ts`), la formule partagée avec
+ *   le cron d'entraînement et jumelle de `computeScorePercent`.
  * - Statut de fermeture = `auto_submitted`.
  */
 export async function closeExpiredExamParticipations(): Promise<CloseExpiredParticipationsResult> {
@@ -58,9 +59,7 @@ export async function closeExpiredExamParticipations(): Promise<CloseExpiredPart
     .update(examParticipations)
     .set({
       status: "auto_submitted",
-      score: sql`case when ${scored.total} > 0
-        then round(${scored.correct} * 100.0 / ${scored.total})::int
-        else 0 end`,
+      score: scoreSql(scored.correct, scored.total),
       completedAt: now,
     })
     .from(scored)

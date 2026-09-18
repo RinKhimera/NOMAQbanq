@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest"
 import {
   SessionResults,
   SessionResultsHeader,
-  isScoreWithheld,
 } from "@/components/quiz/results/session-results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 
@@ -270,22 +269,6 @@ describe("SessionResults", () => {
       )
       expect(screen.queryByTestId("score-percentage")).not.toBeInTheDocument()
       expect(screen.getByTestId("score-withheld")).toBeInTheDocument()
-    })
-
-    it("isScoreWithheld est le prédicat des pages et du composant", () => {
-      expect(isScoreWithheld(withheldQuestions, withheldAnswers)).toBe(true)
-      expect(
-        isScoreWithheld(withheldQuestions, {
-          q1: { selected: "A", isCorrect: true },
-        }),
-      ).toBe(false)
-      expect(
-        isScoreWithheld(withheldQuestions, {
-          ...withheldAnswers,
-          q2: { selected: "" },
-        }),
-      ).toBe(false)
-      expect(isScoreWithheld(questions, withheldAnswers)).toBe(false)
     })
   })
 

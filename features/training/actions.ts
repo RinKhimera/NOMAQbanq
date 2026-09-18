@@ -16,8 +16,10 @@ import { getPgErrorCode } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { computeScorePercent } from "@/lib/score"
+import { type Refusal, refusalMessage, requireAttempt } from "../attempts/guard"
 import { hasAccess } from "../payments/dal"
 import { lockFor, viewerOf } from "../questions/answer-key-lock"
+import { expireTrainingSessions } from "./cron"
 import {
   type ObjectifsView,
   type TrainingHistoryPage,
@@ -44,6 +46,10 @@ const SESSION_EXPIRATION_MS = 24 * 60 * 60 * 1000 // 24 h
 const MAX_SESSIONS_PER_HOUR = 10
 
 const fail = (error: string) => ({ success: false as const, error })
+
+/** Refus de la garde de tentative (code) ou refus local (message). */
+const refused = (r: Refusal | { message: string }) =>
+  fail("code" in r ? refusalMessage(r.code, "training") : r.message)
 
 // ============================================
 // Lectures (wrappers pour composants clients)
@@ -145,7 +151,7 @@ export const createTrainingSession = async (
         .for("update")
 
       if (!isAdmin) {
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000)
         const [rl] = await tx
           .select({ n: sql<number>`count(*)`.mapWith(Number) })
           .from(trainingSessions)
@@ -174,13 +180,12 @@ export const createTrainingSession = async (
         )
         .limit(1)
       if (existing) {
-        if (existing.expiresAt.getTime() >= Date.now()) {
+        if (existing.expiresAt.getTime() >= now.getTime()) {
           throw new Error("ACTIVE_EXISTS")
         }
-        await tx
-          .update(trainingSessions)
-          .set({ status: "abandoned" })
-          .where(eq(trainingSessions.id, existing.id))
+        // La session expirée qui barre la place est close par l'écrivain du
+        // cron (scorée, `completedAt` posé), sous le verrou courant.
+        await expireTrainingSessions(tx, { now, sessionId: existing.id })
       }
 
       let picked: { id: string }[]
@@ -280,13 +285,14 @@ export type SaveTrainingAnswerResult =
 
 /**
  * [Auth] Enregistre/met à jour la réponse d'un item (l'item existe déjà depuis
- * la création). Vérifie propriété + statut + expiration + accès. Pas de
- * revalidate (le client met à jour son état optimiste).
+ * la création), sous la garde `answer` de la tentative (propriété, statut,
+ * TTL, accès). Pas de revalidate (le client met à jour son état optimiste).
  */
 export const saveTrainingAnswer = async (
   input: SaveTrainingAnswerInput,
 ): Promise<SaveTrainingAnswerResult> => {
   const session = await requireSession()
+  const actor = viewerOf(session.user)
 
   const parsed = saveTrainingAnswerSchema.safeParse(input)
   if (!parsed.success) {
@@ -295,96 +301,83 @@ export const saveTrainingAnswer = async (
   const { sessionId, questionId, selectedAnswer } = parsed.data
 
   try {
-    const [s] = await db
-      .select({
-        userId: trainingSessions.userId,
-        status: trainingSessions.status,
-        expiresAt: trainingSessions.expiresAt,
-        mode: trainingSessions.mode,
+    const now = Date.now()
+    const outcome = await db.transaction(async (tx) => {
+      const guard = await requireAttempt(tx, {
+        kind: "training",
+        ref: sessionId,
+        actor,
+        now,
+        verb: "answer",
       })
-      .from(trainingSessions)
-      .where(eq(trainingSessions.id, sessionId))
-      .limit(1)
-    if (!s) return fail("Session introuvable")
-    if (s.userId !== session.user.id) {
-      return fail("Cette session ne vous appartient pas")
-    }
-    if (s.status !== "in_progress") {
-      return fail("Cette session n'est plus active")
-    }
-    if (s.expiresAt.getTime() < Date.now()) {
-      // Garde de statut : ne pas écraser une clôture concurrente (cron/autre onglet).
-      await db
-        .update(trainingSessions)
-        .set({ status: "abandoned" })
+      if (!guard.ok) return guard
+
+      // L'item doit appartenir à la session (sinon question hors session).
+      const [item] = await tx
+        .select({
+          itemId: trainingSessionItems.id,
+          correctAnswer: questions.correctAnswer,
+        })
+        .from(trainingSessionItems)
+        .innerJoin(questions, eq(questions.id, trainingSessionItems.questionId))
         .where(
           and(
-            eq(trainingSessions.id, sessionId),
-            eq(trainingSessions.status, "in_progress"),
+            eq(trainingSessionItems.sessionId, sessionId),
+            eq(trainingSessionItems.questionId, questionId),
           ),
         )
-      return fail("Cette session a expiré")
-    }
-    if (session.user.role !== "admin" && !(await hasAccess("training"))) {
-      return fail("Votre accès à l'entraînement a expiré.")
-    }
-
-    // L'item doit appartenir à la session (sinon question hors session).
-    const [item] = await db
-      .select({
-        itemId: trainingSessionItems.id,
-        correctAnswer: questions.correctAnswer,
-      })
-      .from(trainingSessionItems)
-      .innerJoin(questions, eq(questions.id, trainingSessionItems.questionId))
-      .where(
-        and(
-          eq(trainingSessionItems.sessionId, sessionId),
-          eq(trainingSessionItems.questionId, questionId),
-        ),
-      )
-      .limit(1)
-    if (!item) return fail("Cette question ne fait pas partie de la session")
-
-    const isCorrect = selectedAnswer === item.correctAnswer
-    await db
-      .update(trainingSessionItems)
-      .set({ selectedAnswer, isCorrect, answeredAt: new Date() })
-      .where(eq(trainingSessionItems.id, item.itemId))
-
-    // Mode tuteur : révéler la bonne réponse + explication immédiatement.
-    if (s.mode === "tutor") {
-      // Clé retenue par un examen ouvert : la réponse est enregistrée, seule
-      // la correction est retenue.
-      const lock = await lockFor(viewerOf(session.user), [questionId])
-      if (lock.has(questionId)) {
-        return { success: true, reveal: { keyWithheld: true } }
-      }
-      const [exp] = await db
-        .select({
-          explanation: questionExplanations.explanation,
-          references: questionExplanations.references,
-        })
-        .from(questionExplanations)
-        .where(eq(questionExplanations.questionId, questionId))
         .limit(1)
-      return {
-        success: true,
-        isCorrect,
-        reveal: {
-          correctAnswer: item.correctAnswer,
-          explanation: exp?.explanation ?? undefined,
-          references: exp?.references ?? undefined,
-        },
+      if (!item) {
+        return {
+          ok: false as const,
+          message: "Cette question ne fait pas partie de la session",
+        }
       }
-    }
+
+      const isCorrect = selectedAnswer === item.correctAnswer
+      await tx
+        .update(trainingSessionItems)
+        .set({ selectedAnswer, isCorrect, answeredAt: new Date(now) })
+        .where(eq(trainingSessionItems.id, item.itemId))
+      return {
+        ok: true as const,
+        mode: guard.attempt.mode,
+        isCorrect,
+        correctAnswer: item.correctAnswer,
+      }
+    })
+    if (!outcome.ok) return refused(outcome)
 
     // Mode test : ne pas exposer isCorrect sur le fil réseau (anti-triche).
-    return { success: true }
+    if (outcome.mode !== "tutor") return { success: true }
+
+    // Mode tuteur : révéler la bonne réponse + explication immédiatement, sauf
+    // clé retenue par un examen ouvert (la réponse est enregistrée, seule la
+    // correction est retenue). Lectures hors transaction : `lockFor` emprunte
+    // le `db` global.
+    const lock = await lockFor(actor, [questionId])
+    if (lock.has(questionId)) {
+      return { success: true, reveal: { keyWithheld: true } }
+    }
+    const [exp] = await db
+      .select({
+        explanation: questionExplanations.explanation,
+        references: questionExplanations.references,
+      })
+      .from(questionExplanations)
+      .where(eq(questionExplanations.questionId, questionId))
+      .limit(1)
+    return {
+      success: true,
+      isCorrect: outcome.isCorrect,
+      reveal: {
+        correctAnswer: outcome.correctAnswer,
+        explanation: exp?.explanation ?? undefined,
+        references: exp?.references ?? undefined,
+      },
+    }
   } catch (error) {
-    captureServerError("[saveTrainingAnswer]", error, {
-      userId: session.user.id,
-    })
+    captureServerError("[saveTrainingAnswer]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")
   }
 }
@@ -435,80 +428,53 @@ export const setQuestionBookmark = async (
 export type CompleteTrainingSessionResult =
   { success: true } | { success: false; error: string }
 
-/** [Auth] Termine la session : calcule le score (% de bonnes réponses). */
+/**
+ * [Auth] Termine la session sous la garde `close` : score = % de bonnes
+ * réponses sur le nombre de questions de la session. Une session expirée est
+ * refusée sans écriture, le cron la clôt.
+ */
 export const completeTrainingSession = async ({
   sessionId,
 }: {
   sessionId: string
 }): Promise<CompleteTrainingSessionResult> => {
   const session = await requireSession()
+  const actor = viewerOf(session.user)
   if (!sessionId) return fail("Session requise")
 
   try {
-    const [s] = await db
-      .select({
-        userId: trainingSessions.userId,
-        status: trainingSessions.status,
-        questionCount: trainingSessions.questionCount,
-        expiresAt: trainingSessions.expiresAt,
+    const now = Date.now()
+    const outcome = await db.transaction(async (tx) => {
+      const guard = await requireAttempt(tx, {
+        kind: "training",
+        ref: sessionId,
+        actor,
+        now,
+        verb: "close",
       })
-      .from(trainingSessions)
-      .where(eq(trainingSessions.id, sessionId))
-      .limit(1)
-    if (!s) return fail("Session introuvable")
-    if (s.userId !== session.user.id) {
-      return fail("Cette session ne vous appartient pas")
-    }
-    if (s.status !== "in_progress") {
-      return fail("Cette session n'est plus active")
-    }
-    if (s.expiresAt.getTime() < Date.now()) {
-      // Parité saveTrainingAnswer : une session expirée ne se score pas, elle
-      // bascule abandonnée (garde de statut contre une clôture concurrente).
-      await db
-        .update(trainingSessions)
-        .set({ status: "abandoned" })
-        .where(
-          and(
-            eq(trainingSessions.id, sessionId),
-            eq(trainingSessions.status, "in_progress"),
-          ),
-        )
-      return fail("Cette session a expiré")
-    }
-    if (session.user.role !== "admin" && !(await hasAccess("training"))) {
-      return fail("Votre accès à l'entraînement a expiré.")
-    }
+      if (!guard.ok) return guard
 
-    const [c] = await db
-      .select({
-        correct:
-          sql<number>`count(*) filter (where ${trainingSessionItems.isCorrect})`.mapWith(
-            Number,
-          ),
-      })
-      .from(trainingSessionItems)
-      .where(eq(trainingSessionItems.sessionId, sessionId))
-
-    const correctCount = c?.correct ?? 0
-    const totalQuestions = s.questionCount
-    const score = computeScorePercent(correctCount, totalQuestions)
-
-    // Garde de statut (règle concurrence du repo) : le cron d'expiration ou un
-    // appel concurrent peut avoir clos la session entre la lecture et l'écriture.
-    const updated = await db
-      .update(trainingSessions)
-      .set({ status: "completed", score, completedAt: new Date() })
-      .where(
-        and(
-          eq(trainingSessions.id, sessionId),
-          eq(trainingSessions.status, "in_progress"),
-        ),
+      const [c] = await tx
+        .select({
+          correct:
+            sql<number>`count(*) filter (where ${trainingSessionItems.isCorrect})`.mapWith(
+              Number,
+            ),
+        })
+        .from(trainingSessionItems)
+        .where(eq(trainingSessionItems.sessionId, sessionId))
+      const score = computeScorePercent(
+        c?.correct ?? 0,
+        guard.attempt.questionCount,
       )
-      .returning({ id: trainingSessions.id })
-    if (updated.length === 0) {
-      return fail("Cette session n'est plus active")
-    }
+
+      await tx
+        .update(trainingSessions)
+        .set({ status: "completed", score, completedAt: new Date(now) })
+        .where(eq(trainingSessions.id, guard.attempt.id))
+      return { ok: true as const }
+    })
+    if (!outcome.ok) return refused(outcome)
 
     revalidatePath("/tableau-de-bord/entrainement")
     // Le décompte des justes compte les réponses différées : il ne repart pas
@@ -517,59 +483,46 @@ export const completeTrainingSession = async ({
     return { success: true }
   } catch (error) {
     captureServerError("[completeTrainingSession]", error, {
-      userId: session.user.id,
+      userId: actor.id,
     })
     return fail("Erreur serveur. Réessayez.")
   }
 }
 
-/** [Auth] Abandonne une session en cours. */
+/** [Auth] Abandonne une session en cours (garde `abandon` : statut seul). */
 export const abandonTrainingSession = async ({
   sessionId,
 }: {
   sessionId: string
 }): Promise<{ success: boolean; error?: string }> => {
   const session = await requireSession()
+  const actor = viewerOf(session.user)
   if (!sessionId) return fail("Session requise")
 
   try {
-    const [s] = await db
-      .select({
-        userId: trainingSessions.userId,
-        status: trainingSessions.status,
+    const now = Date.now()
+    const outcome = await db.transaction(async (tx) => {
+      const guard = await requireAttempt(tx, {
+        kind: "training",
+        ref: sessionId,
+        actor,
+        now,
+        verb: "abandon",
       })
-      .from(trainingSessions)
-      .where(eq(trainingSessions.id, sessionId))
-      .limit(1)
-    if (!s) return fail("Session introuvable")
-    if (s.userId !== session.user.id) {
-      return fail("Cette session ne vous appartient pas")
-    }
-    if (s.status !== "in_progress") {
-      return fail("Cette session n'est pas en cours")
-    }
-
-    // Garde de statut (pattern du cron) : ne jamais écraser une clôture
-    // concurrente (ex. re-basculer une session completed en abandoned).
-    const updated = await db
-      .update(trainingSessions)
-      .set({ status: "abandoned" })
-      .where(
-        and(
-          eq(trainingSessions.id, sessionId),
-          eq(trainingSessions.status, "in_progress"),
-        ),
-      )
-      .returning({ id: trainingSessions.id })
-    if (updated.length === 0) {
-      return fail("Cette session n'est pas en cours")
-    }
+      if (!guard.ok) return guard
+      await tx
+        .update(trainingSessions)
+        .set({ status: "abandoned" })
+        .where(eq(trainingSessions.id, guard.attempt.id))
+      return { ok: true as const }
+    })
+    if (!outcome.ok) return refused(outcome)
 
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true }
   } catch (error) {
     captureServerError("[abandonTrainingSession]", error, {
-      userId: session.user.id,
+      userId: actor.id,
     })
     return fail("Erreur serveur. Réessayez.")
   }
