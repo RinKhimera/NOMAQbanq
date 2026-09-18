@@ -1,10 +1,10 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { type ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
-import { isScoreWithheld } from "@/components/quiz/results/score-withheld"
 import {
   SessionResults,
   SessionResultsHeader,
+  isScoreWithheld,
 } from "@/components/quiz/results/session-results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 
@@ -257,7 +257,20 @@ describe("SessionResults", () => {
       expect(screen.queryByTestId("score-withheld")).not.toBeInTheDocument()
     })
 
-    it("isScoreWithheld reflète exactement la condition du composant", () => {
+    it("un score `null` (retenu par la page) est retenu même sans marqueur sur les questions", () => {
+      render(
+        <SessionResults
+          accent="blue"
+          score={null}
+          questions={questions}
+          answers={denseAnswers}
+        />,
+      )
+      expect(screen.queryByTestId("score-percentage")).not.toBeInTheDocument()
+      expect(screen.getByTestId("score-withheld")).toBeInTheDocument()
+    })
+
+    it("isScoreWithheld est le prédicat des pages et du composant", () => {
       expect(isScoreWithheld(withheldQuestions, withheldAnswers)).toBe(true)
       expect(
         isScoreWithheld(withheldQuestions, {
@@ -283,7 +296,7 @@ describe("SessionResults", () => {
     }
 
     it("score retenu : statut neutre, ni trophée ni cible", () => {
-      render(<SessionResultsHeader {...headerProps} score={80} scoreWithheld />)
+      render(<SessionResultsHeader {...headerProps} score={null} />)
       expect(screen.getByTestId("score-status").dataset.status).toBe("withheld")
     })
 

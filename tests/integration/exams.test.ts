@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
@@ -35,8 +35,15 @@ import {
   getExamSession,
   getExamWithQuestions,
   getExamsStats,
+  getExamsWithParticipation,
+  getMyScoreHistory,
   getParticipantExamResults,
 } from "@/features/exams/dal"
+import {
+  getMyTrainingScoreHistory,
+  getTrainingHistory,
+  getTrainingStats,
+} from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
@@ -66,6 +73,20 @@ const setSession = (id: string, role: "user" | "admin") =>
     .mockResolvedValue({ user: { id, role } } as never)
 const asAdmin = () => setSession(ADMIN_ID, "admin")
 const asStudent = () => setSession(STUDENT_ID, "user")
+
+/** Score écrit par `finalizeExam` : il ne repart pas vers le navigateur. */
+const persistedScore = async (examId: string) => {
+  const [p] = await db
+    .select({ score: examParticipations.score })
+    .from(examParticipations)
+    .where(
+      and(
+        eq(examParticipations.examId, examId),
+        eq(examParticipations.userId, STUDENT_ID),
+      ),
+    )
+  return p?.score
+}
 const asIntruder = () => setSession(INTRUDER_ID, "user")
 const asNoAccess = () => setSession(NOACCESS_ID, "user")
 
@@ -350,12 +371,9 @@ describe("Passation sans pause (scoring serveur)", () => {
     })
 
     const res = await finalizeExam({ examId: noPauseId })
-    expect(res).toMatchObject({
-      success: true,
-      score: 50,
-      correctAnswers: 3,
-      totalQuestions: 6,
-    })
+    // Le décompte des justes ne repart pas vers le navigateur : lu en base.
+    expect(res).toEqual({ success: true })
+    expect(await persistedScore(noPauseId)).toBe(50)
   })
 
   it("startExam refuse une 2e passation (déjà passé)", async () => {
@@ -446,7 +464,8 @@ describe("Machine de pause", () => {
       })
     }
     const res = await finalizeExam({ examId: pauseId })
-    expect(res).toMatchObject({ success: true, score: 100, totalQuestions: 6 })
+    expect(res).toEqual({ success: true })
+    expect(await persistedScore(pauseId)).toBe(100)
   })
 })
 
@@ -624,8 +643,18 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
     })
   })
 
-  it("étudiant : ses propres résultats sont visibles après endDate", async () => {
+  it("étudiant : ses propres résultats sont visibles après endDate, score retenu tant qu'une réponse chevauche un examen ouvert", async () => {
+    // examQIds[0] est aussi dans noPauseId/pauseId, ouverts, où STUDENT a
+    // participé : la réponse est différée et le score (50) avec elle.
     asStudent()
+    const r = await getParticipantExamResults(pastExamId, STUDENT_ID)
+    expect(r && "participant" in r).toBe(true)
+    if (!r || "error" in r) return
+    expect(r.participant.score).toBeNull()
+  })
+
+  it("admin : jamais verrouillé, le score de la même participation se lit", async () => {
+    asAdmin()
     const r = await getParticipantExamResults(pastExamId, STUDENT_ID)
     expect(r && "participant" in r).toBe(true)
     if (!r || "error" in r) return
@@ -710,15 +739,24 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
     // Pas de lignes examAnswers (participation legacy)
     asStudent()
     const res = await finalizeExam({ examId: legacyExamId })
-    expect(res.success).toBe(true)
-    if (!res.success) return
-    expect(res.totalQuestions).toBe(0)
-    expect(res.score).toBe(0)
+    expect(res).toEqual({ success: true })
+    expect(await persistedScore(legacyExamId)).toBe(0)
   })
 })
 
 describe("Anti-triche : chevauchement training / examen OUVERT", () => {
-  const seedCompletedTraining = async (userId: string, questionId: string) => {
+  // Sessions de STUDENT : q9 (chevauche un examen ouvert → score retenu) et q8
+  // (examen clos seulement → score lisible). Scores distincts pour que la
+  // moyenne discrimine.
+  let withheldTrainingId: string
+  let readableTrainingId: string
+  let openId: string
+
+  const seedCompletedTraining = async (
+    userId: string,
+    questionId: string,
+    score = 100,
+  ) => {
     const now = Date.now()
     const tsId = createId()
     await db.insert(trainingSessions).values({
@@ -726,6 +764,7 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       userId,
       status: "completed",
       questionCount: 1,
+      score,
       startedAt: new Date(now - 3600_000),
       completedAt: new Date(now - 3500_000),
       expiresAt: new Date(now + DAY),
@@ -738,6 +777,7 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       selectedAnswer: "A",
       isCorrect: true,
     })
+    return tsId
   }
 
   beforeAll(async () => {
@@ -745,9 +785,10 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
     // q9 : examen OUVERT complété tôt par STUDENT + training complété. q9 ne doit
     // appartenir à aucun examen CLOS, sinon la branche examen l'autorise (trou
     // jumeau connu, hors périmètre ici).
-    const openId = await makeExam({ questionIds: [qIds[9]] })
+    openId = await makeExam({ questionIds: [qIds[9]] })
+    const openPartId = createId()
     await db.insert(examParticipations).values({
-      id: createId(),
+      id: openPartId,
       examId: openId,
       userId: STUDENT_ID,
       status: "completed",
@@ -755,7 +796,16 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       startedAt: new Date(now - 2000),
       completedAt: new Date(now - 1000),
     })
-    await seedCompletedTraining(STUDENT_ID, qIds[9])
+    // Réponse enregistrée : c'est elle qui retient le score de la participation
+    // tant que son examen est ouvert (une participation sans réponse ne retient rien).
+    await db.insert(examAnswers).values({
+      id: createId(),
+      participationId: openPartId,
+      questionId: qIds[9],
+      selectedAnswer: "A",
+      isCorrect: true,
+    })
+    withheldTrainingId = await seedCompletedTraining(STUDENT_ID, qIds[9], 40)
     // INTRUDER : participation in_progress + training sur q1.
     await db.insert(examParticipations).values({
       id: createId(),
@@ -783,7 +833,7 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       score: 0,
       startedAt: new Date(now - 3 * DAY + 1000),
     })
-    await seedCompletedTraining(STUDENT_ID, qIds[8])
+    readableTrainingId = await seedCompletedTraining(STUDENT_ID, qIds[8], 100)
   })
 
   it("participation complétée sur un examen ouvert : le training ne révèle pas la question", async () => {
@@ -833,5 +883,78 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
     expect(
       r.participant.answers.find((a) => a.questionId === qIds[10])?.isCorrect,
     ).toBe(true)
+    expect(r.participant.score).toBe(100)
+  })
+
+  // Score retenu : le score en base compte les réponses différées ; le lire à
+  // côté des compteurs qui les excluent le trahirait. Retenu à la lecture, sur
+  // toutes les surfaces étudiant ; jamais pour un admin.
+  describe("score retenu (scoreWithheldFor)", () => {
+    it("getTrainingHistory : null sur la session chevauchant un examen ouvert, lisible sinon", async () => {
+      asStudent()
+      const { items } = await getTrainingHistory({ limit: 50 })
+      expect(items.find((s) => s.id === withheldTrainingId)?.score).toBeNull()
+      expect(items.find((s) => s.id === readableTrainingId)?.score).toBe(100)
+    })
+
+    it("getTrainingStats : la moyenne exclut la session retenue (une moyenne avant/après la rendrait)", async () => {
+      asStudent()
+      const stats = await getTrainingStats()
+      // Sessions de STUDENT : 40 (retenue), 100 (lisible) et une sans score
+      // (q7, seedée plus haut) → 100, pas 70.
+      expect(stats?.totalSessions).toBe(3)
+      expect(stats?.averageScore).toBe(100)
+    })
+
+    it("getMyTrainingScoreHistory : point retenu à null, hors des moyennes par domaine", async () => {
+      asStudent()
+      const h = await getMyTrainingScoreHistory()
+      expect(
+        h.sessions.find((s) => s.sessionId === withheldTrainingId)?.score,
+      ).toBeNull()
+      expect(
+        h.sessions.find((s) => s.sessionId === readableTrainingId)?.score,
+      ).toBe(100)
+      // q8 (100) + q7 (sans score) restent ; la session retenue sort.
+      expect(h.domainPerformance).toEqual([
+        { domain: "Tous domaines", averageScore: 100, sessionCount: 2 },
+      ])
+    })
+
+    it("participation à un examen encore OUVERT : score retenu sur la liste, l'historique et la moyenne", async () => {
+      asStudent()
+      const list = await getExamsWithParticipation()
+      expect(
+        list.find((e) => e.id === openId)?.userParticipation?.score,
+      ).toBeNull()
+      expect(
+        list.find((e) => e.id === closedOnlyExamId)?.userParticipation?.score,
+      ).toBe(100)
+
+      const hist = await getMyScoreHistory()
+      expect(hist.find((h) => h.examId === openId)?.score).toBeNull()
+      expect(hist.find((h) => h.examId === closedOnlyExamId)?.score).toBe(100)
+    })
+
+    it("leaderboard : la ligne d'un propriétaire retenu est null pour LUI et pour les autres, et sort du rang", async () => {
+      asStudent()
+      const own = await getExamLeaderboard(pastExamId)
+      const mine = own.find((e) => e.user?.id === STUDENT_ID)
+      expect(mine).toBeDefined()
+      expect(mine?.score).toBeNull()
+      // Tri sur le score lisible, nulls last : la ligne retenue ferme la liste.
+      expect(own.at(-1)?.user?.id).toBe(STUDENT_ID)
+
+      // Un camarade (accès examen, autre compte) ne lit pas plus.
+      asIntruder()
+      const theirs = await getExamLeaderboard(pastExamId)
+      expect(theirs.find((e) => e.user?.id === STUDENT_ID)?.score).toBeNull()
+    })
+
+    it("admin : jamais verrouillé — mêmes lectures, scores lisibles", async () => {
+      asAdmin()
+      const lb = await getExamLeaderboard(openId)
+      expect(lb.find((e) => e.user?.id === STUDENT_ID)?.score).toBe(100)
+    })
   })
 })

@@ -17,13 +17,19 @@ import { formatExpiration } from "@/lib/format"
 interface ScoreHistoryItem {
   examId: string
   examTitle: string
-  score: number
+  /** `null` = score retenu (examen encore ouvert) : hors courbe. */
+  score: number | null
   completedAt: number
 }
 
 interface ScoreEvolutionChartContentProps {
   data: ScoreHistoryItem[]
 }
+
+type ReadableScoreItem = ScoreHistoryItem & { score: number }
+
+const isReadable = (item: ScoreHistoryItem): item is ReadableScoreItem =>
+  item.score !== null
 
 const CustomTooltip = ({
   active,
@@ -86,9 +92,11 @@ const EmptyState = () => (
 )
 
 export const ScoreEvolutionChartContent = ({
-  data,
+  data: allData,
 }: ScoreEvolutionChartContentProps) => {
-  if (!data || data.length === 0) {
+  const data = (allData ?? []).filter(isReadable)
+  const withheldCount = (allData?.length ?? 0) - data.length
+  if (data.length === 0) {
     return (
       <div className="relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80">
         <div className="mb-4 flex items-center gap-3">
@@ -151,6 +159,7 @@ export const ScoreEvolutionChartContent = ({
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {data.length} examen{data.length > 1 ? "s" : ""} complété
               {data.length > 1 ? "s" : ""}
+              {withheldCount > 0 && ` · ${withheldCount} en attente de clôture`}
             </p>
           </div>
         </div>

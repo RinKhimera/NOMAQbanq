@@ -17,13 +17,10 @@ import { toast } from "sonner"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import {
-  SCORE_WITHHELD_MESSAGE,
-  hasSelected,
-} from "@/components/quiz/results/score-withheld"
-import {
   type AnswersMap,
   KEY_WITHHELD_MESSAGE,
   type QuizQuestion,
+  SCORE_WITHHELD_MESSAGE,
 } from "@/components/quiz/runner/types"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { UserAvatar } from "@/components/shared/user-avatar"
@@ -45,8 +42,12 @@ export interface SessionResultsParticipant {
 
 export interface SessionResultsProps {
   accent: "blue" | "emerald"
-  /** Score enregistré en base. Les compteurs sont dérivés de `questions` + `answers`. */
-  score: number
+  /**
+   * Score enregistré en base, ou `null` quand la page le retient : un score
+   * retenu ne doit pas transiter dans le payload client, même caché.
+   * Les compteurs sont dérivés de `questions` + `answers`.
+   */
+  score: number | null
   questions: QuizQuestion[]
   /** Sparse-safe: absence of a key == unanswered; entry with no/empty selected == unanswered */
   answers: AnswersMap
@@ -59,6 +60,28 @@ export interface SessionResultsProps {
 // ============================================
 
 const PASS_THRESHOLD = 60
+
+// Sparse-answer compat : clé absente OU entrée sans `selected` = non répondu.
+const hasSelected = (
+  entry: AnswersMap[string] | undefined,
+): entry is AnswersMap[string] =>
+  entry !== undefined &&
+  entry.selected !== undefined &&
+  entry.selected !== null &&
+  entry.selected !== ""
+
+/**
+ * Garde côté composant, jumelle de `scoreWithheldFor` (DAL) : le score
+ * enregistré compte les réponses différées alors que les compteurs affichés
+ * les excluent — « score × N / 100 − justes affichées » révélerait combien de
+ * différées sont justes. La DAL passe déjà `null` ; ceci retient aussi un
+ * appelant qui passerait un score avec des questions à clé retenue.
+ */
+export const isScoreWithheld = (
+  questions: readonly QuizQuestion[],
+  answers: AnswersMap,
+): boolean =>
+  questions.some((q) => q.keyWithheld === true && hasSelected(answers[q._id]))
 
 const getScoreColor = (score: number, accent: "blue" | "emerald") => {
   if (score >= 80) {
@@ -221,8 +244,8 @@ export function SessionResults({
       else if (r.isCorrect) correct++
       else incorrect++
     }
-    return { score, correct, incorrect, unanswered, withheld }
-  }, [questionResults, score])
+    return { correct, incorrect, unanswered, withheld }
+  }, [questionResults])
 
   const navigatorResults = useMemo(
     () =>
@@ -266,8 +289,10 @@ export function SessionResults({
     }, 100)
   }, [])
 
-  const isPassing = summary.score >= PASS_THRESHOLD
-  const scoreWithheld = summary.withheld > 0
+  // Même prédicat que les pages : la parité corps/en-tête est structurelle.
+  const scoreWithheld = score === null || isScoreWithheld(questions, answers)
+  const shownScore = score ?? 0
+  const isPassing = shownScore >= PASS_THRESHOLD
 
   const accentNavColor = accent
 
@@ -321,7 +346,7 @@ export function SessionResults({
                 // neutralisée avec lui, sinon elle trahit la même information.
                 scoreWithheld
                   ? "from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5"
-                  : getScoreBgGradient(summary.score, accent),
+                  : getScoreBgGradient(shownScore, accent),
               )}
             >
               <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
@@ -351,10 +376,10 @@ export function SessionResults({
                         }}
                         className={cn(
                           "text-6xl font-bold",
-                          getScoreColor(summary.score, accent),
+                          getScoreColor(shownScore, accent),
                         )}
                       >
-                        {summary.score}%
+                        {shownScore}%
                       </motion.span>
                     )}
                   </div>
@@ -373,7 +398,7 @@ export function SessionResults({
                             : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
                         )}
                       >
-                        {getScoreLabel(summary.score, accent)}
+                        {getScoreLabel(shownScore, accent)}
                       </Badge>
                     </div>
                   )}
@@ -464,11 +489,11 @@ export function SessionResults({
                   <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${summary.score}%` }}
+                      animate={{ width: `${shownScore}%` }}
                       transition={{ duration: 1, ease: "easeOut" }}
                       className={cn(
                         "h-full rounded-full",
-                        getScoreProgressColor(summary.score, accent),
+                        getScoreProgressColor(shownScore, accent),
                       )}
                     />
                     {/* 60% marker */}
@@ -634,9 +659,8 @@ export function SessionResults({
 interface SessionResultsHeaderProps {
   title: string
   subtitle?: string
-  score: number
-  /** `isScoreWithheld(questions, answers)` : même condition que le corps. */
-  scoreWithheld?: boolean
+  /** `null` = score retenu (même valeur que celle passée au corps). */
+  score: number | null
   backHref: string
   backLabel: string
   backIcon: React.ReactNode
@@ -657,14 +681,13 @@ export function SessionResultsHeader({
   title,
   subtitle,
   score,
-  scoreWithheld = false,
   backHref,
   backLabel,
   backIcon,
 }: SessionResultsHeaderProps) {
   // Réussi/échoué est un bit du score : retenu avec lui.
   let status: ScoreStatus = "failing"
-  if (scoreWithheld) status = "withheld"
+  if (score === null) status = "withheld"
   else if (score >= PASS_THRESHOLD) status = "passing"
   const { gradient, Icon } = SCORE_STATUS_STYLES[status]
   return (

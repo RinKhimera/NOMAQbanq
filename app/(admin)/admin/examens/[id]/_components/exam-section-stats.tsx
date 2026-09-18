@@ -9,6 +9,8 @@ export function ExamSectionStats({
   leaderboard: LeaderboardEntry[]
 }) {
   const participants = leaderboard
+  // Un score retenu (`null`) ne pèse pas dans les agrégats.
+  const scores = leaderboard.flatMap((p) => (p.score === null ? [] : [p.score]))
 
   const statItems: ExamStatItem[] = [
     {
@@ -21,11 +23,8 @@ export function ExamSectionStats({
     {
       title: "Score moyen",
       value:
-        participants.length > 0
-          ? `${Math.round(
-              participants.reduce((sum, p) => sum + p.score, 0) /
-                participants.length,
-            )}%`
+        scores.length > 0
+          ? `${Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length)}%`
           : "0%",
       icon: Trophy,
       iconClassName:
@@ -33,10 +32,7 @@ export function ExamSectionStats({
     },
     {
       title: "Meilleur score",
-      value:
-        participants.length > 0
-          ? `${Math.max(...participants.map((p) => p.score))}%`
-          : "0%",
+      value: scores.length > 0 ? `${Math.max(...scores)}%` : "0%",
       icon: Trophy,
       iconClassName:
         "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300",

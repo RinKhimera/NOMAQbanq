@@ -58,7 +58,11 @@ export function sendExamResultsEmail({
   examTitle,
   score,
   resultUrl,
-}: Recipient & { examTitle: string; score: number; resultUrl: string }) {
+}: Recipient & {
+  examTitle: string
+  score: number | null
+  resultUrl: string
+}) {
   return sendEmail({
     to,
     subject: `Résultats disponibles : ${examTitle} — NOMAQbanq`,

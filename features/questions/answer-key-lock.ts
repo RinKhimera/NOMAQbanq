@@ -150,3 +150,44 @@ export const excludeLocked = (viewer: LockViewer, questionId: SQL): SQL => {
        and akl_e.end_date > now()
   )`
 }
+
+/**
+ * Même règle, appliquée aux LECTURES DE SCORE. Le score enregistré compte
+ * toutes les réponses, différées comprises ; le restituer à côté des compteurs
+ * qui les excluent donnerait, par soustraction, la justesse des réponses
+ * différées. Un score retenu se lit `null` — il n'est ni recalculé ni réécrit,
+ * seulement retenu à la lecture, et un agrégat l'exclut (une moyenne
+ * avant/après le rendrait).
+ *
+ * La retenue s'indexe sur le PROPRIÉTAIRE du score, pas sur le lecteur : c'est
+ * lui qui connaît ses réponses, et son score lu par un camarade lui revient.
+ * `ownerId` est une colonne SQL (`exam_participations.user_id`,
+ * `training_sessions.user_id`) ; `answeredQuestionIds`, une sous-requête des
+ * questions RÉPONDUES de la ligne lue, corrélée à elle. Un lecteur admin ne
+ * passe pas par ici : il lit le score brut.
+ */
+export const scoreWithheldForOwner = (
+  ownerId: SQL,
+  answeredQuestionIds: SQL,
+): SQL<boolean> => sql<boolean>`exists (
+    select 1
+      from exam_questions akl_q
+      join exams akl_e on akl_e.id = akl_q.exam_id
+      join exam_participations akl_p
+        on akl_p.exam_id = akl_q.exam_id and akl_p.user_id = ${ownerId}
+     where akl_q.question_id in (${answeredQuestionIds})
+       and akl_e.end_date > now()
+  )`
+
+/**
+ * Forme « lecteur » de `scoreWithheldForOwner`, pour les lectures où le
+ * lecteur est aussi le propriétaire (« mes sessions », « mes examens ») :
+ * un admin n'est jamais retenu.
+ */
+export const scoreWithheldFor = (
+  viewer: LockUser,
+  answeredQuestionIds: SQL,
+): SQL<boolean> =>
+  viewer.role === "admin"
+    ? sql<boolean>`false`
+    : scoreWithheldForOwner(sql`${viewer.id}`, answeredQuestionIds)

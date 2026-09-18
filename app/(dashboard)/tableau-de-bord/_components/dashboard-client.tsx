@@ -12,6 +12,7 @@ import type {
   TrainingScoreHistory,
   TrainingStats,
 } from "@/features/training/dal"
+import { formatScore } from "@/lib/score"
 import { DashboardHero } from "./dashboard-hero"
 import { NextActionsPanel } from "./next-actions-panel"
 import { QuickAccessGrid } from "./quick-access-grid"
@@ -79,14 +80,16 @@ export const DashboardClient = ({
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <VitalCard
             label="Score moyen"
-            value={
-              stats.completedExamsCount > 0 ? `${stats.averageScore}%` : "—"
-            }
+            value={formatScore(stats.averageScore)}
             icon={Percent}
             color="blue"
             delay={0.1}
             subtitle={
-              stats.completedExamsCount > 0 ? "Sur vos examens" : "Aucun examen"
+              stats.completedExamsCount === 0
+                ? "Aucun examen"
+                : stats.averageScore === null
+                  ? "En attente de clôture"
+                  : "Sur vos examens"
             }
           />
 

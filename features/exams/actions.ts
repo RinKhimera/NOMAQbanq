@@ -764,18 +764,14 @@ export const saveExamFlag = async (
 }
 
 export type FinalizeExamResult =
-  | {
-      success: true
-      score: number
-      correctAnswers: number
-      totalQuestions: number
-    }
-  | { success: false; error: string }
+  { success: true } | { success: false; error: string }
 
 /**
  * [Auth] Finalise un examen : calcule le score depuis les lignes examAnswers
  * pré-existantes, valide le budget-temps, met à jour le statut. Verrou de ligne
- * participation → soumission unique. Anti-triche : isCorrect jamais retourné.
+ * participation → soumission unique. Anti-triche : ni isCorrect ni le
+ * décompte des justes ne repartent vers le navigateur (voir
+ * `scoreWithheldFor`) ; les résultats se lisent par la DAL après clôture.
  */
 export const finalizeExam = async (
   input: FinalizeExamInput,
@@ -790,7 +786,7 @@ export const finalizeExam = async (
   const { examId, isAutoSubmit } = parsed.data
 
   try {
-    const result = await db.transaction(async (tx) => {
+    await db.transaction(async (tx) => {
       const [exam] = await tx
         .select({
           startDate: exams.startDate,
@@ -887,10 +883,8 @@ export const finalizeExam = async (
           totalPauseDurationMs: pauseMs,
         })
         .where(eq(examParticipations.id, p.id))
-
-      return { score, correctAnswers, totalQuestions }
     })
-    return { success: true, ...result }
+    return { success: true }
   } catch (error) {
     if (error instanceof Error) {
       const map: Record<string, string> = {

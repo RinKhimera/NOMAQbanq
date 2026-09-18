@@ -6,12 +6,15 @@ import {
   CircleX,
   Clock,
   GraduationCap,
+  Hourglass,
 } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
+import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
+import { formatScore } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 interface RecentExam {
@@ -81,7 +84,12 @@ export const RecentActivityFeed = ({
       <div className="relative space-y-3">
         {completedExams.length > 0 ? (
           completedExams.map((exam, index) => {
-            const isPassing = (exam.score ?? 0) >= 60
+            const scoreTone =
+              exam.score === null
+                ? "withheld"
+                : exam.score >= 60
+                  ? "passing"
+                  : "failing"
             const completedDate = exam.completedAt
               ? new Date(exam.completedAt)
               : null
@@ -104,7 +112,9 @@ export const RecentActivityFeed = ({
                       <div
                         className={cn(
                           "h-2 w-2 rounded-full",
-                          isPassing ? "bg-emerald-500" : "bg-red-500",
+                          scoreTone === "passing" && "bg-emerald-500",
+                          scoreTone === "failing" && "bg-red-500",
+                          scoreTone === "withheld" && "bg-gray-400",
                         )}
                       />
                     </div>
@@ -113,15 +123,22 @@ export const RecentActivityFeed = ({
                     <div
                       className={cn(
                         "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
-                        isPassing
-                          ? "bg-emerald-100 dark:bg-emerald-900/30"
-                          : "bg-red-100 dark:bg-red-900/30",
+                        scoreTone === "passing" &&
+                          "bg-emerald-100 dark:bg-emerald-900/30",
+                        scoreTone === "failing" &&
+                          "bg-red-100 dark:bg-red-900/30",
+                        scoreTone === "withheld" &&
+                          "bg-gray-100 dark:bg-gray-800/60",
                       )}
                     >
-                      {isPassing ? (
+                      {scoreTone === "passing" && (
                         <CircleCheck className="h-6 w-6 text-emerald-500" />
-                      ) : (
+                      )}
+                      {scoreTone === "failing" && (
                         <CircleX className="h-6 w-6 text-red-500" />
+                      )}
+                      {scoreTone === "withheld" && (
+                        <Hourglass className="h-6 w-6 text-gray-500" />
                       )}
                     </div>
 
@@ -146,12 +163,20 @@ export const RecentActivityFeed = ({
                     <div
                       className={cn(
                         "flex h-10 w-16 items-center justify-center rounded-lg font-bold",
-                        isPassing
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                        scoreTone === "passing" &&
+                          "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                        scoreTone === "failing" &&
+                          "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+                        scoreTone === "withheld" &&
+                          "bg-gray-100 text-gray-500 dark:bg-gray-800/60 dark:text-gray-400",
                       )}
+                      title={
+                        scoreTone === "withheld"
+                          ? SCORE_WITHHELD_MESSAGE
+                          : undefined
+                      }
                     >
-                      {exam.score}%
+                      {formatScore(exam.score)}
                     </div>
 
                     {/* Hover arrow */}

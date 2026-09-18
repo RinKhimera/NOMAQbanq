@@ -55,11 +55,13 @@ de « sans réponse » et de « incorrect ».
 _Avoid_ : en attente, indisponible
 
 **Score retenu** :
-L'état des résultats d'une session ou d'une participation dont au moins une
-réponse est en correction différée : le score enregistré, qui compte toutes les
-réponses, n'est pas restitué tant que l'examen n'est pas clos, sinon il
-trahirait par soustraction la justesse des réponses différées. Le score en base
-reste la vérité de l'historique et des statistiques.
+L'état d'une session ou d'une participation dont au moins une réponse est en
+correction différée : son score, qui compte toutes les réponses, n'est lu par
+aucune surface étudiant (résultats, historique, graphiques, moyennes,
+classement) tant que l'examen n'est pas clos, sinon il trahirait par
+soustraction la justesse des réponses différées. Le score reste enregistré tel
+quel ; il est retenu à la lecture, jamais recalculé. Un score d'examen est donc
+retenu tant que son propre examen est ouvert.
 _Avoid_ : score partiel, score masqué
 
 ### Passation

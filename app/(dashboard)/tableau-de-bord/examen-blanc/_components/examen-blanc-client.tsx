@@ -15,6 +15,7 @@ import {
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useMemo, useState } from "react"
+import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -31,6 +32,7 @@ import {
   formatFullDateTime,
   formatPaddedMediumDate,
 } from "@/lib/format"
+import { formatScore } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 type ExamVariant = "active" | "upcoming" | "past"
@@ -203,19 +205,30 @@ const ExamCard = ({
                 <p className="text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">
                   Votre score
                 </p>
-                <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
-                  {userResult.score}%
+                <p
+                  className="mt-1 text-2xl font-bold text-gray-900 dark:text-white"
+                  title={
+                    userResult.score === null
+                      ? SCORE_WITHHELD_MESSAGE
+                      : undefined
+                  }
+                >
+                  {formatScore(userResult.score)}
                 </p>
               </div>
               <div
                 className={cn(
                   "flex h-12 w-12 items-center justify-center rounded-full",
-                  userResult.score >= 60
-                    ? "bg-emerald-100 dark:bg-emerald-900/30"
-                    : "bg-amber-100 dark:bg-amber-900/30",
+                  userResult.score === null
+                    ? "bg-gray-100 dark:bg-gray-800/60"
+                    : userResult.score >= 60
+                      ? "bg-emerald-100 dark:bg-emerald-900/30"
+                      : "bg-amber-100 dark:bg-amber-900/30",
                 )}
               >
-                {userResult.score >= 60 ? (
+                {userResult.score === null ? (
+                  <Hourglass className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+                ) : userResult.score >= 60 ? (
                   <Trophy className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                 ) : (
                   <Award className="h-6 w-6 text-amber-600 dark:text-amber-400" />
@@ -410,25 +423,26 @@ export function ExamenBlancClient({
   )
 
   // Stats utilisateur : basées sur les examens réellement complétés (userHasTaken).
+  // Un score retenu (`null`, examen encore ouvert) ne pèse ni dans les réussis
+  // ni dans la moyenne.
   const userStats = useMemo(() => {
     const completedExams = exams.filter((exam) => exam.userHasTaken)
     const totalCompleted = completedExams.length
-    const passedExams = completedExams.filter(
-      (exam) => (exam.userParticipation?.score ?? 0) >= 60,
-    ).length
+    const scores = completedExams.flatMap((exam) =>
+      exam.userParticipation?.score == null
+        ? []
+        : [exam.userParticipation.score],
+    )
+    const passedExams = scores.filter((s) => s >= 60).length
     const averageScore =
-      totalCompleted > 0
-        ? Math.round(
-            completedExams.reduce(
-              (sum, exam) => sum + (exam.userParticipation?.score ?? 0),
-              0,
-            ) / totalCompleted,
-          )
-        : 0
+      scores.length > 0
+        ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length)
+        : null
 
     return {
       total: exams.length,
       completed: totalCompleted,
+      scored: scores.length,
       passed: passedExams,
       averageScore,
     }
@@ -517,7 +531,7 @@ export function ExamenBlancClient({
                 <div className="h-2 w-2 rounded-full bg-emerald-500" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    {userStats.passed}
+                    {userStats.scored === 0 ? "—" : userStats.passed}
                   </span>{" "}
                   réussi{userStats.passed > 1 ? "s" : ""}
                 </span>
@@ -527,7 +541,7 @@ export function ExamenBlancClient({
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   Score moyen :{" "}
                   <span className="font-semibold text-gray-900 dark:text-white">
-                    {userStats.averageScore}%
+                    {formatScore(userStats.averageScore)}
                   </span>
                 </span>
               </div>

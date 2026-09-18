@@ -27,6 +27,8 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
       vi.fn<(cb: (tx: unknown) => Promise<unknown>) => Promise<unknown>>(),
     rows: { current: {} as Record<string, unknown[]> },
     returning: { current: [] as unknown[] },
+    /** Dernier payload passé à `.set(...)` : le score écrit en base. */
+    set: { current: undefined as unknown },
     session: {
       current: { user: { id: "u1", role: "user" } } as {
         user: { id: string; role: string }
@@ -60,7 +62,10 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
       orderBy: () => chain,
       for: () => chain,
       limit: () => chain,
-      set: () => chain,
+      set: (payload: unknown) => {
+        mocks.set.current = payload
+        return chain
+      },
       values: () => chain,
       onConflictDoNothing: () => chain,
       returning: () => Promise.resolve(mocks.returning.current),
@@ -523,10 +528,9 @@ describe("completeTrainingSession", () => {
     })
     expect(await completeTrainingSession({ sessionId: "s1" })).toEqual({
       success: true,
-      score: 70,
-      correctCount: 7,
-      totalQuestions: 10,
     })
+    // Le décompte ne repart pas vers le navigateur : le score se lit en base.
+    expect(mocks.set.current).toMatchObject({ score: 70 })
   })
 
   // Garde de statut : le cron d'expiration a pu clore la session entre-temps.

@@ -308,6 +308,6 @@ describe("curseur keyset — entree arbitraire", () => {
     }
     const page = await getTrainingHistory({ limit: 1 })
     expect(page.nextCursor).toBeNull()
-    expect(page.items[0]).toMatchObject({ score: 0, completedAt: null })
+    expect(page.items[0]).toMatchObject({ completedAt: null })
   })
 })

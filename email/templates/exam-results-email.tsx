@@ -12,7 +12,8 @@ export function ExamResultsEmail({
   baseUrl,
 }: {
   examTitle: string
-  score: number
+  /** `null` = score retenu (correction différée) : la page seule le dira. */
+  score: number | null
   resultUrl: string
   firstName: string | null
   baseUrl: string
@@ -32,7 +33,7 @@ export function ExamResultsEmail({
       <EmailRecap
         rows={[
           { label: "Examen", value: examTitle },
-          { label: "Score", value: `${score} %` },
+          ...(score === null ? [] : [{ label: "Score", value: `${score} %` }]),
         ]}
       />
       <EmailButton href={resultUrl}>Voir mes résultats</EmailButton>

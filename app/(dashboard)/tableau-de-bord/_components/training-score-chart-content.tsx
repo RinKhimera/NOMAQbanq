@@ -20,11 +20,17 @@ import { formatExpiration } from "@/lib/format"
 
 interface TrainingSessionItem {
   sessionId: string
-  score: number
+  /** `null` = score retenu (réponse en correction différée) : hors courbe. */
+  score: number | null
   completedAt: number
   questionCount: number
   domain: string
 }
+
+type ReadableSessionItem = TrainingSessionItem & { score: number }
+
+const isReadable = (item: TrainingSessionItem): item is ReadableSessionItem =>
+  item.score !== null
 
 interface DomainPerformanceItem {
   domain: string
@@ -160,10 +166,12 @@ const truncateDomain = (domain: string, maxLength: number) => {
 }
 
 export const TrainingScoreChartContent = ({
-  sessions,
+  sessions: allSessions,
   domainPerformance,
 }: TrainingScoreChartProps) => {
-  if (!sessions || sessions.length === 0) {
+  const sessions = (allSessions ?? []).filter(isReadable)
+  const withheldCount = (allSessions?.length ?? 0) - sessions.length
+  if (sessions.length === 0) {
     return (
       <div className="relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80">
         <div className="mb-4 flex items-center gap-3">
@@ -232,6 +240,8 @@ export const TrainingScoreChartContent = ({
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {sessions.length} session{sessions.length > 1 ? "s" : ""}{" "}
               complétée{sessions.length > 1 ? "s" : ""}
+              {withheldCount > 0 &&
+                ` · ${withheldCount} en attente de clôture d'examen`}
             </p>
           </div>
         </div>

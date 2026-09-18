@@ -62,7 +62,7 @@ storagePath,order}` pour rester assignable aux composants partagés
   `features/questions/answer-key-lock.ts` (voir `CONTEXT.md`). Tant qu'un
   examen contenant une question est ouvert, sa clé est retenue pour tout
   lecteur qui y participe (pour tout le monde sur le canal anonyme ; jamais
-  pour un admin). Deux entrées, à ne pas contourner : `lockFor(viewer,
+  pour un admin). Trois entrées, à ne pas contourner : `lockFor(viewer,
 candidats)` → `Lock.reveal(row, niveau)` sur les canaux de RÉVÉLATION
   (correction d'entraînement, résultats et explications d'examen, notation du
   quiz public) — `reveal` décide quels champs de CORRECTION blanchir et pose
@@ -76,7 +76,23 @@ colonne)` dans le WHERE des canaux de
   compilation au lieu du silence. Une réponse dont la clé est retenue n'est
   **ni juste ni fausse** : `SessionResults` la compte « différée », et un
   lecteur qui dérive un compteur de `isCorrect` doit d'abord lire
-  `keyWithheld`.
+  `keyWithheld`. Troisième entrée, pour les LECTURES DE SCORE :
+  `scoreWithheldForOwner(colonneUserId, réponsesSQL)` — le score enregistré
+  compte les réponses différées, le lire à côté des compteurs qui les
+  excluent (ou avant/après dans une moyenne) redonnerait la clé par
+  soustraction. La retenue s'indexe sur le PROPRIÉTAIRE du score, pas sur le
+  lecteur : son score lu par un camarade (classement) ou envoyé par courriel
+  (cron de clôture) lui revient. `scoreWithheldFor(viewer, …)` est la forme
+  « je lis mes propres scores » (admin jamais retenu) ; un lecteur admin lit
+  le score brut partout. Toute lecture étudiant d'un `score` (session,
+  participation, historique, graphique, moyenne, classement, courriel) le
+  projette en `null` quand il est retenu et l'exclut des agrégats — une
+  moyenne sans lecture lisible est `null`, jamais `0` (faux « 0 % »). Les
+  composants rendent `null` comme « retenu » (`formatScore`). Le score n'est
+  jamais recalculé ni réécrit ; les vues de passation (`getExamSession`,
+  `getTrainingSessionById`) ne le portent pas. Corollaire :
+  `completeTrainingSession`/`finalizeExam` ne renvoient plus le décompte des
+  justes au navigateur.
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
   transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une

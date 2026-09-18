@@ -4,3 +4,7 @@
 // (ex. 23/40 → 57.4999… → 57 au lieu de 58).
 export const computeScorePercent = (correct: number, total: number): number =>
   total > 0 ? Math.floor((200 * correct + total) / (2 * total)) : 0
+
+/** Score affichable, ou « — » quand il est retenu (`null`, voir `scoreWithheldFor`). */
+export const formatScore = (score: number | null): string =>
+  score === null ? "—" : `${score}%`

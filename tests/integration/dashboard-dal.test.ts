@@ -2,9 +2,12 @@ import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
+  examAnswers,
   examParticipations,
+  examQuestions,
   exams,
   products,
+  questions,
   transactions,
   user,
   userAccess,
@@ -48,6 +51,9 @@ const setSession = (id: string | null, role: "user" | "admin" = "user") =>
 const asAdmin = () => setSession(ADMIN_ID, "admin")
 const asStudent = () => setSession(STUDENT_ID, "user")
 const asNoAccess = () => setSession(NOACCESS_ID, "user")
+const partA = createId()
+const partB = createId()
+const withheldQuestionId = createId()
 
 beforeAll(async () => {
   await db.insert(user).values([
@@ -118,7 +124,7 @@ beforeAll(async () => {
 
   await db.insert(examParticipations).values([
     {
-      id: createId(),
+      id: partA,
       examId: examA,
       userId: STUDENT_ID,
       status: "completed",
@@ -127,7 +133,7 @@ beforeAll(async () => {
       completedAt: new Date(now - 2 * DAY),
     },
     {
-      id: createId(),
+      id: partB,
       examId: examB,
       userId: STUDENT_ID,
       status: "completed",
@@ -163,7 +169,7 @@ describe("getMyDashboardStats", () => {
     expect(s).toEqual({
       availableExamsCount: 0,
       completedExamsCount: 0,
-      averageScore: 0,
+      averageScore: null,
     })
   })
 
@@ -220,5 +226,97 @@ describe("getMyAvailableExams", () => {
   it("sans accès : liste vide", async () => {
     asNoAccess()
     expect(await getMyAvailableExams()).toEqual([])
+  })
+})
+
+// Score retenu : tant que l'examen d'une participation est OUVERT, une réponse
+// enregistrée retient son score (`scoreWithheldFor`) — un score lisible
+// pendant la fenêtre donnerait les clés (100 % = toutes les bonnes options).
+// Les describes précédents lisent examA sans réponse enregistrée : lisible.
+describe("score retenu (examen encore ouvert)", () => {
+  beforeAll(async () => {
+    await db.insert(questions).values({
+      id: withheldQuestionId,
+      question: `Q retenue ${suffix} ?`,
+      correctAnswer: "A",
+      options: ["A", "B", "C", "D"],
+      objectifCmc: `Obj ${suffix}`,
+      domain: `DASH-${suffix}`,
+    })
+    await db.insert(examQuestions).values({
+      examId: examA,
+      questionId: withheldQuestionId,
+      position: 0,
+    })
+    await db.insert(examAnswers).values({
+      id: createId(),
+      participationId: partA,
+      questionId: withheldQuestionId,
+      selectedAnswer: "A",
+      isCorrect: true,
+    })
+  })
+
+  afterAll(async () => {
+    await db
+      .delete(examAnswers)
+      .where(eq(examAnswers.questionId, withheldQuestionId))
+    await db
+      .delete(examQuestions)
+      .where(eq(examQuestions.questionId, withheldQuestionId))
+    await db.delete(questions).where(eq(questions.id, withheldQuestionId))
+  })
+
+  it("getMyRecentExams / getMyScoreHistory : examA retenu (null), examB lisible", async () => {
+    asStudent()
+    const recent = await getMyRecentExams()
+    expect(recent.find((e) => e.id === examA)).toMatchObject({
+      isCompleted: true,
+      score: null,
+    })
+    expect(recent.find((e) => e.id === examB)?.score).toBe(40)
+
+    const hist = await getMyScoreHistory()
+    expect(hist.find((h) => h.examId === examA)?.score).toBeNull()
+    expect(hist.find((h) => h.examId === examB)?.score).toBe(40)
+  })
+
+  it("getMyDashboardStats : la participation retenue compte comme complétée mais sort de la moyenne", async () => {
+    asStudent()
+    const s = await getMyDashboardStats()
+    expect(s?.completedExamsCount).toBe(2)
+    expect(s?.averageScore).toBe(40) // 80 retenu, reste 40
+  })
+
+  // Tout retenu : la moyenne n'est pas « 0 % » (faux résultat) mais `null`.
+  describe("tout retenu", () => {
+    beforeAll(async () => {
+      await db.insert(examQuestions).values({
+        examId: examB,
+        questionId: withheldQuestionId,
+        position: 0,
+      })
+      await db.insert(examAnswers).values({
+        id: createId(),
+        participationId: partB,
+        questionId: withheldQuestionId,
+        selectedAnswer: "A",
+        isCorrect: true,
+      })
+    })
+
+    it("getMyDashboardStats : complétés comptés, moyenne null, jamais 0", async () => {
+      asStudent()
+      const s = await getMyDashboardStats()
+      expect(s?.completedExamsCount).toBe(2)
+      expect(s?.averageScore).toBeNull()
+    })
+
+    it("getMyScoreHistory : les deux points retenus", async () => {
+      asStudent()
+      const hist = await getMyScoreHistory()
+      expect(hist.find((h) => h.examId === examA)?.score).toBeNull()
+      expect(hist.find((h) => h.examId === examB)?.score).toBeNull()
+    })
   })
 })

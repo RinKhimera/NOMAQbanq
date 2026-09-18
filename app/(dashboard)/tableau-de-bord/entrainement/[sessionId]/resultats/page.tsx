@@ -1,7 +1,6 @@
 import { ArrowLeft } from "lucide-react"
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
-import { isScoreWithheld } from "@/components/quiz/results/score-withheld"
 import {
   SessionResults,
   SessionResultsHeader,
@@ -57,8 +56,8 @@ export default async function TrainingResultsPage({
     }
   }
 
+  // `null` = score retenu par la DAL, jamais transmis au client.
   const score = session.score
-  const scoreWithheld = isScoreWithheld(questions, answers)
 
   return (
     <>
@@ -66,7 +65,6 @@ export default async function TrainingResultsPage({
         title="Résultats"
         subtitle="Session d'entraînement"
         score={score}
-        scoreWithheld={scoreWithheld}
         backHref="/tableau-de-bord/entrainement"
         backLabel="Retour"
         backIcon={<ArrowLeft className="h-4 w-4" />}
