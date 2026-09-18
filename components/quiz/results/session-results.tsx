@@ -17,6 +17,10 @@ import { toast } from "sonner"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import {
+  SCORE_WITHHELD_MESSAGE,
+  hasSelected,
+} from "@/components/quiz/results/score-withheld"
+import {
   type AnswersMap,
   KEY_WITHHELD_MESSAGE,
   type QuizQuestion,
@@ -190,11 +194,7 @@ export function SessionResults({
     () =>
       questions.map((q) => {
         const entry = answers[q._id]
-        const hasAnswer =
-          entry !== undefined &&
-          entry.selected !== undefined &&
-          entry.selected !== null &&
-          entry.selected !== ""
+        const hasAnswer = hasSelected(entry)
         const isWithheld = hasAnswer && !!q.keyWithheld
         const isCorrect =
           hasAnswer && !isWithheld ? (entry.isCorrect ?? false) : false
@@ -267,6 +267,7 @@ export function SessionResults({
   }, [])
 
   const isPassing = summary.score >= PASS_THRESHOLD
+  const scoreWithheld = summary.withheld > 0
 
   const accentNavColor = accent
 
@@ -316,47 +317,66 @@ export function SessionResults({
               animate={{ opacity: 1, y: 0 }}
               className={cn(
                 "rounded-2xl border border-gray-200/80 bg-linear-to-br p-6 shadow-lg dark:border-gray-700/50",
-                getScoreBgGradient(summary.score, accent),
+                // La couleur de la carte suit la tranche du score : elle est
+                // neutralisée avec lui, sinon elle trahit la même information.
+                scoreWithheld
+                  ? "from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5"
+                  : getScoreBgGradient(summary.score, accent),
               )}
             >
               <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
                 {/* Score */}
                 <div className="text-center md:text-left">
                   <div className="mb-2 flex items-center justify-center gap-3 md:justify-start">
-                    <motion.span
-                      data-testid="score-percentage"
-                      initial={{ scale: 0.5, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      transition={{
-                        type: "spring",
-                        stiffness: 200,
-                        damping: 15,
-                      }}
-                      className={cn(
-                        "text-6xl font-bold",
-                        getScoreColor(summary.score, accent),
-                      )}
-                    >
-                      {summary.score}%
-                    </motion.span>
+                    {scoreWithheld ? (
+                      <motion.span
+                        data-testid="score-withheld"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        title={KEY_WITHHELD_MESSAGE}
+                        className="flex items-center gap-2 text-xl font-semibold text-amber-700 dark:text-amber-300"
+                      >
+                        <Hourglass className="h-5 w-5 shrink-0" aria-hidden />
+                        {SCORE_WITHHELD_MESSAGE}
+                      </motion.span>
+                    ) : (
+                      <motion.span
+                        data-testid="score-percentage"
+                        initial={{ scale: 0.5, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 200,
+                          damping: 15,
+                        }}
+                        className={cn(
+                          "text-6xl font-bold",
+                          getScoreColor(summary.score, accent),
+                        )}
+                      >
+                        {summary.score}%
+                      </motion.span>
+                    )}
                   </div>
                   <p className="text-gray-600 dark:text-gray-400">
                     {summary.correct} sur {questions.length - summary.withheld}{" "}
                     questions réussies
                   </p>
-                  <div className="mt-3">
-                    <Badge
-                      data-testid="score-badge"
-                      className={cn(
-                        "px-4 py-1 text-sm font-semibold",
-                        isPassing
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
-                          : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
-                      )}
-                    >
-                      {getScoreLabel(summary.score, accent)}
-                    </Badge>
-                  </div>
+                  {!scoreWithheld && (
+                    <div className="mt-3">
+                      <Badge
+                        data-testid="score-badge"
+                        className={cn(
+                          "px-4 py-1 text-sm font-semibold",
+                          isPassing
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
+                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
+                        )}
+                      >
+                        {getScoreLabel(summary.score, accent)}
+                      </Badge>
+                    </div>
+                  )}
                 </div>
 
                 {/* Stats */}
@@ -430,33 +450,35 @@ export function SessionResults({
                 </div>
               </div>
 
-              {/* Progress bar */}
-              <div className="mt-6">
-                <div className="mb-2 flex items-center justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">
-                    Progression
-                  </span>
-                  <span className="font-medium text-gray-700 dark:text-gray-300">
-                    Seuil de réussite : 60%
-                  </span>
+              {/* Progress bar : sa largeur EST le score, retenue avec lui. */}
+              {!scoreWithheld && (
+                <div data-testid="score-progress" className="mt-6">
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Progression
+                    </span>
+                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                      Seuil de réussite : 60%
+                    </span>
+                  </div>
+                  <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${summary.score}%` }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      className={cn(
+                        "h-full rounded-full",
+                        getScoreProgressColor(summary.score, accent),
+                      )}
+                    />
+                    {/* 60% marker */}
+                    <div
+                      className="absolute top-0 h-full w-0.5 bg-gray-900/30 dark:bg-white/30"
+                      style={{ left: "60%" }}
+                    />
+                  </div>
                 </div>
-                <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${summary.score}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className={cn(
-                      "h-full rounded-full",
-                      getScoreProgressColor(summary.score, accent),
-                    )}
-                  />
-                  {/* 60% marker */}
-                  <div
-                    className="absolute top-0 h-full w-0.5 bg-gray-900/30 dark:bg-white/30"
-                    style={{ left: "60%" }}
-                  />
-                </div>
-              </div>
+              )}
             </motion.div>
 
             {/* Filter & Actions */}
@@ -613,40 +635,55 @@ interface SessionResultsHeaderProps {
   title: string
   subtitle?: string
   score: number
+  /** `isScoreWithheld(questions, answers)` : même condition que le corps. */
+  scoreWithheld?: boolean
   backHref: string
   backLabel: string
   backIcon: React.ReactNode
+}
+
+type ScoreStatus = "passing" | "failing" | "withheld"
+
+const SCORE_STATUS_STYLES: Record<
+  ScoreStatus,
+  { gradient: string; Icon: typeof Trophy }
+> = {
+  passing: { gradient: "from-green-500 to-emerald-600", Icon: Trophy },
+  failing: { gradient: "from-amber-500 to-orange-600", Icon: Target },
+  withheld: { gradient: "from-slate-400 to-slate-500", Icon: Hourglass },
 }
 
 export function SessionResultsHeader({
   title,
   subtitle,
   score,
+  scoreWithheld = false,
   backHref,
   backLabel,
   backIcon,
 }: SessionResultsHeaderProps) {
-  const isPassing = score >= PASS_THRESHOLD
+  // Réussi/échoué est un bit du score : retenu avec lui.
+  let status: ScoreStatus = "failing"
+  if (scoreWithheld) status = "withheld"
+  else if (score >= PASS_THRESHOLD) status = "passing"
+  const { gradient, Icon } = SCORE_STATUS_STYLES[status]
   return (
     <div className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80">
       <div className="mx-auto max-w-6xl px-4 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <motion.div
+              data-testid="score-status"
+              data-status={status}
+              title={status === "withheld" ? KEY_WITHHELD_MESSAGE : undefined}
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               className={cn(
                 "flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-lg",
-                isPassing
-                  ? "from-green-500 to-emerald-600"
-                  : "from-amber-500 to-orange-600",
+                gradient,
               )}
             >
-              {isPassing ? (
-                <Trophy className="h-6 w-6 text-white" />
-              ) : (
-                <Target className="h-6 w-6 text-white" />
-              )}
+              <Icon className="h-6 w-6 text-white" />
             </motion.div>
             <div>
               <h1 className="text-xl font-bold text-gray-900 dark:text-white">

@@ -1,7 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { type ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
-import { SessionResults } from "@/components/quiz/results/session-results"
+import { isScoreWithheld } from "@/components/quiz/results/score-withheld"
+import {
+  SessionResults,
+  SessionResultsHeader,
+} from "@/components/quiz/results/session-results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 
 vi.mock("motion/react", async () => {
@@ -189,6 +193,108 @@ describe("SessionResults", () => {
         .getAllByTestId("results-navigator")
         .map((n) => Number(n.getAttribute("data-withheld")))
       expect(counts.some((c) => c === 1)).toBe(true)
+    })
+
+    // Le score en base agrège TOUTES les réponses : « score × N / 100 −
+    // justes affichées » donnerait le nombre de différées justes. Tant qu'une
+    // réponse est différée, le pourcentage et le badge sont retenus.
+    it("retient le score : ni pourcentage ni badge tant qu'une réponse est différée", () => {
+      render(
+        <SessionResults
+          accent="emerald"
+          score={33}
+          questions={withheldQuestions}
+          answers={withheldAnswers}
+        />,
+      )
+      expect(screen.queryByTestId("score-percentage")).not.toBeInTheDocument()
+      expect(screen.queryByTestId("score-badge")).not.toBeInTheDocument()
+      expect(screen.queryByTestId("score-progress")).not.toBeInTheDocument()
+      expect(screen.getByTestId("score-withheld").textContent).toBe(
+        "Score disponible après la clôture de l'examen",
+      )
+      expect(screen.getByText("1 sur 2 questions réussies")).toBeInTheDocument()
+    })
+
+    it("jumeau admin : mêmes réponses sans clé retenue → pourcentage et badge affichés", () => {
+      const revealedQuestions = withheldQuestions.map((q) => ({
+        ...q,
+        keyWithheld: undefined,
+        correctAnswer: "A",
+      }))
+      const revealedAnswers: AnswersMap = {
+        ...withheldAnswers,
+        q2: { selected: "B", isCorrect: false },
+      }
+      render(
+        <SessionResults
+          accent="emerald"
+          score={33}
+          questions={revealedQuestions}
+          answers={revealedAnswers}
+        />,
+      )
+      expect(screen.getByTestId("score-percentage").textContent).toContain(
+        "33%",
+      )
+      expect(screen.getByTestId("score-badge")).toBeInTheDocument()
+      expect(screen.getByTestId("score-progress")).toBeInTheDocument()
+      expect(screen.queryByTestId("score-withheld")).not.toBeInTheDocument()
+    })
+
+    it("une question à clé retenue SANS réponse ne retient pas le score", () => {
+      render(
+        <SessionResults
+          accent="emerald"
+          score={33}
+          questions={withheldQuestions}
+          answers={{ q1: { selected: "A", isCorrect: true } }}
+        />,
+      )
+      expect(screen.getByTestId("score-percentage").textContent).toContain(
+        "33%",
+      )
+      expect(screen.queryByTestId("score-withheld")).not.toBeInTheDocument()
+    })
+
+    it("isScoreWithheld reflète exactement la condition du composant", () => {
+      expect(isScoreWithheld(withheldQuestions, withheldAnswers)).toBe(true)
+      expect(
+        isScoreWithheld(withheldQuestions, {
+          q1: { selected: "A", isCorrect: true },
+        }),
+      ).toBe(false)
+      expect(
+        isScoreWithheld(withheldQuestions, {
+          ...withheldAnswers,
+          q2: { selected: "" },
+        }),
+      ).toBe(false)
+      expect(isScoreWithheld(questions, withheldAnswers)).toBe(false)
+    })
+  })
+
+  describe("SessionResultsHeader", () => {
+    const headerProps = {
+      title: "Résultats",
+      backHref: "/",
+      backLabel: "Retour",
+      backIcon: null,
+    }
+
+    it("score retenu : statut neutre, ni trophée ni cible", () => {
+      render(<SessionResultsHeader {...headerProps} score={80} scoreWithheld />)
+      expect(screen.getByTestId("score-status").dataset.status).toBe("withheld")
+    })
+
+    it("jumeau : sans retenue, le statut suit le seuil de réussite", () => {
+      const { unmount } = render(
+        <SessionResultsHeader {...headerProps} score={80} />,
+      )
+      expect(screen.getByTestId("score-status").dataset.status).toBe("passing")
+      unmount()
+      render(<SessionResultsHeader {...headerProps} score={33} />)
+      expect(screen.getByTestId("score-status").dataset.status).toBe("failing")
     })
   })
 

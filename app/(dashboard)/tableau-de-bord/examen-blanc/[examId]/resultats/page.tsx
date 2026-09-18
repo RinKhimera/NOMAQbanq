@@ -1,6 +1,7 @@
 import { CircleX, House } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
+import { isScoreWithheld } from "@/components/quiz/results/score-withheld"
 import {
   SessionResults,
   SessionResultsHeader,
@@ -68,6 +69,7 @@ export default async function MockExamResultsPage({
   }
 
   const score = data.participant.score
+  const scoreWithheld = isScoreWithheld(questions, answers)
 
   return (
     <>
@@ -75,6 +77,7 @@ export default async function MockExamResultsPage({
         title="Résultats de l'examen"
         subtitle={data.exam.title}
         score={score}
+        scoreWithheld={scoreWithheld}
         backHref="/tableau-de-bord/examen-blanc"
         backLabel="Tableau de bord"
         backIcon={<House className="h-4 w-4" />}

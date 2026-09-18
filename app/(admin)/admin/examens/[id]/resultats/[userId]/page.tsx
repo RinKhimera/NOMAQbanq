@@ -1,5 +1,6 @@
 import { ArrowLeft } from "lucide-react"
 import { notFound } from "next/navigation"
+import { isScoreWithheld } from "@/components/quiz/results/score-withheld"
 import {
   SessionResults,
   SessionResultsHeader,
@@ -54,6 +55,7 @@ export default async function AdminParticipantResultsPage({
   }
 
   const score = data.participant.score
+  const scoreWithheld = isScoreWithheld(questions, answers)
 
   const participant = data.participantUser
     ? {
@@ -69,6 +71,7 @@ export default async function AdminParticipantResultsPage({
         title="Résultats de l'examen"
         subtitle={data.exam.title}
         score={score}
+        scoreWithheld={scoreWithheld}
         backHref={`/admin/examens/${id}`}
         backLabel="Retour au classement"
         backIcon={<ArrowLeft className="h-4 w-4" />}

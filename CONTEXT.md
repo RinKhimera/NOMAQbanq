@@ -54,6 +54,14 @@ retenue : un état à part entière dans les résultats et en mode tuteur, disti
 de « sans réponse » et de « incorrect ».
 _Avoid_ : en attente, indisponible
 
+**Score retenu** :
+L'état des résultats d'une session ou d'une participation dont au moins une
+réponse est en correction différée : le score enregistré, qui compte toutes les
+réponses, n'est pas restitué tant que l'examen n'est pas clos, sinon il
+trahirait par soustraction la justesse des réponses différées. Le score en base
+reste la vérité de l'historique et des statistiques.
+_Avoid_ : score partiel, score masqué
+
 ### Passation
 
 **Examen blanc** :
