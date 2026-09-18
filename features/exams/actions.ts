@@ -601,21 +601,6 @@ export const saveExamAnswer = async (
   const { examId, questionId, selectedAnswer } = parsed.data
 
   try {
-    // Question immuable (appartenance + bonne réponse) : hors transaction.
-    const [q] = await db
-      .select({ correctAnswer: questions.correctAnswer })
-      .from(examQuestions)
-      .innerJoin(questions, eq(questions.id, examQuestions.questionId))
-      .where(
-        and(
-          eq(examQuestions.examId, examId),
-          eq(examQuestions.questionId, questionId),
-        ),
-      )
-      .limit(1)
-    if (!q) return fail("Cette question ne fait pas partie de l'examen.")
-    const isCorrect = q.correctAnswer === selectedAnswer
-
     const now = Date.now()
     const outcome = await db.transaction(async (tx) => {
       const guard = await requireAttempt(tx, {
@@ -626,6 +611,28 @@ export const saveExamAnswer = async (
         verb: "answer",
       })
       if (!guard.ok) return guard
+
+      // Appartenance + clé, lues APRÈS la garde : avant elle, le message
+      // distinguerait une question de l'examen d'une question étrangère pour
+      // un examen à venir ou un non-abonné.
+      const [q] = await tx
+        .select({ correctAnswer: questions.correctAnswer })
+        .from(examQuestions)
+        .innerJoin(questions, eq(questions.id, examQuestions.questionId))
+        .where(
+          and(
+            eq(examQuestions.examId, examId),
+            eq(examQuestions.questionId, questionId),
+          ),
+        )
+        .limit(1)
+      if (!q) {
+        return {
+          ok: false as const,
+          message: "Cette question ne fait pas partie de l'examen.",
+        }
+      }
+      const isCorrect = q.correctAnswer === selectedAnswer
 
       const updated = await tx
         .update(examAnswers)

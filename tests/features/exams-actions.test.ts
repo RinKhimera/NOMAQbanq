@@ -383,13 +383,24 @@ describe("saveExamAnswer", () => {
     expect(mocks.requireAttempt).not.toHaveBeenCalled()
   })
 
-  it("question etrangere a l'examen → refus avant la garde", async () => {
+  // Lue APRES la garde : sinon le message distinguerait une question de
+  // l'examen d'une question etrangere pour un examen a venir ou un non-abonne.
+  it("question etrangere a l'examen → refus, apres la garde", async () => {
     setRows({ examQuestions: [] })
     expect(await saveExamAnswer(input)).toEqual({
       success: false,
       error: "Cette question ne fait pas partie de l'examen.",
     })
-    expect(mocks.requireAttempt).not.toHaveBeenCalled()
+    expect(mocks.requireAttempt).toHaveBeenCalled()
+  })
+
+  it("garde refusee : la question n'est pas lue", async () => {
+    refuse("OUTSIDE_WINDOW")
+    setRows({ examQuestions: [] })
+    expect(await saveExamAnswer(input)).toEqual({
+      success: false,
+      error: refusalMessage("OUTSIDE_WINDOW", "exam"),
+    })
   })
 
   it("demande la garde `answer` sur l'examen, pour l'acteur courant, dans la transaction", async () => {
