@@ -10,12 +10,20 @@ import { useQuizSession } from "@/components/quiz/runner/use-quiz-session"
 
 // ---- Helpers ----
 
+const makeQuestion = (
+  id: string,
+  options = ["A", "B", "C", "D"],
+): QuizQuestion => ({
+  _id: id,
+  question: `Question ${id} ?`,
+  options,
+  domain: "Cardiologie",
+  objectifCMC: "Obj",
+  images: [],
+})
+
 const makeQuestions = (count: number): QuizQuestion[] =>
-  Array.from({ length: count }, (_, i) => ({
-    _id: `q${i + 1}`,
-    question: `Question ${i + 1} ?`,
-    options: ["A", "B", "C", "D"],
-  }))
+  Array.from({ length: count }, (_, i) => makeQuestion(`q${i + 1}`))
 
 const makeMode = (overrides: Partial<QuizMode> = {}): QuizMode => ({
   kind: "training",
@@ -122,7 +130,7 @@ describe("useQuizSession — answerSelect", () => {
     const onAnswer = vi.fn()
     const { result } = renderHook(() =>
       useQuizSession({
-        questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+        questions: [makeQuestion("q1", ["A", "B"])],
         initialAnswers: {},
         mode: makeMode({ feedback: "immediate" }),
         callbacks: makeCallbacks({ onAnswer }),
@@ -144,7 +152,7 @@ describe("useQuizSession — answerSelect", () => {
     })
     const { result } = renderHook(() =>
       useQuizSession({
-        questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+        questions: [makeQuestion("q1", ["A", "B"])],
         initialAnswers: {},
         mode: makeMode({ feedback: "immediate" }),
         callbacks: makeCallbacks({ onAnswer }),
@@ -173,7 +181,7 @@ describe("useQuizSession — answerSelect", () => {
     })
     const { result } = renderHook(() =>
       useQuizSession({
-        questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+        questions: [makeQuestion("q1", ["A", "B"])],
         initialAnswers: {},
         mode: makeMode({ feedback: "immediate" }),
         callbacks: makeCallbacks({ onAnswer }),
@@ -197,7 +205,7 @@ describe("useQuizSession — answerSelect", () => {
     })
     const { result } = renderHook(() =>
       useQuizSession({
-        questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+        questions: [makeQuestion("q1", ["A", "B"])],
         initialAnswers: {},
         mode: makeMode({ feedback: "immediate" }),
         callbacks: makeCallbacks({ onAnswer }),
@@ -220,7 +228,7 @@ describe("useQuizSession — answerSelect", () => {
     const onAnswer = vi.fn().mockResolvedValue({ ok: true }) // no reveal
     const { result } = renderHook(() =>
       useQuizSession({
-        questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+        questions: [makeQuestion("q1", ["A", "B"])],
         initialAnswers: {},
         mode: makeMode({ feedback: "deferred" }),
         callbacks: makeCallbacks({ onAnswer }),
@@ -240,7 +248,7 @@ describe("useQuizSession — answerSelect", () => {
       .mockResolvedValue({ ok: false, error: "Serveur KO" })
     const { result } = renderHook(() =>
       useQuizSession({
-        questions: [{ _id: "q1", question: "?", options: ["A", "B"] }],
+        questions: [makeQuestion("q1", ["A", "B"])],
         initialAnswers: {},
         mode: makeMode(),
         callbacks: makeCallbacks({ onAnswer }),

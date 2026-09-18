@@ -3,12 +3,9 @@
 import { ArrowRight } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
-import type {
-  QuestionCardQuestion,
-  QuestionDoc,
-} from "@/components/quiz/question-card/types"
 import QuizProgress from "@/components/quiz/quiz-progress"
 import QuizResults from "@/components/quiz/quiz-results"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -36,7 +33,7 @@ export default function QuizPage() {
   const quizQuestions = quizBundle ? quizBundle.questions : null
   const [scoredResults, setScoredResults] = useState<{
     score: number
-    mergedQuestions: QuestionDoc[]
+    mergedQuestions: QuizQuestion[]
   } | null>(null)
 
   const [quizState, setQuizState] = useState<QuizState>({
@@ -130,7 +127,7 @@ export default function QuizPage() {
             // Images d'explication révélées avec la clé de correction — rendues
             // par `QuestionCard variant="review"` uniquement (jamais en passation).
             explanationImages: scored?.explanationImages ?? [],
-          } satisfies QuestionDoc
+          } satisfies QuizQuestion
         })
         setScoredResults({ score: result.score, mergedQuestions: merged })
       })
@@ -253,7 +250,7 @@ export default function QuizPage() {
 
         <QuestionCard
           variant="exam"
-          question={currentQ as unknown as QuestionCardQuestion}
+          question={currentQ}
           selectedAnswer={currentAnswer}
           onAnswerSelect={handleAnswerSelect}
           showCorrectAnswer={false}

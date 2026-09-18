@@ -62,7 +62,6 @@ const initialData: SessionData = {
   questions: [
     {
       _id: "q1",
-      _creationTime: 0,
       question: "Q1 ?",
       options: ["A", "B"],
       objectifCMC: "Obj",

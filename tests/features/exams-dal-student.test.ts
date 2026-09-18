@@ -88,9 +88,13 @@ vi.mock("@/lib/dal", () => ({
 }))
 vi.mock("@/features/payments/dal", () => ({ hasAccess: mocks.hasAccess }))
 vi.mock("@/features/exams/dal.shared", () => ({
-  fetchImages: mocks.fetchImages,
   countQuestionsByExam: mocks.countQuestionsByExam,
 }))
+// Seule la lecture des images est doublée : le mappeur testé est le vrai.
+vi.mock("@/features/questions/quiz-bridge", async (orig) => {
+  const actual = await orig<typeof import("@/features/questions/quiz-bridge")>()
+  return { ...actual, fetchImages: mocks.fetchImages }
+})
 // Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
 vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   const actual =

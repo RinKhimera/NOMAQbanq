@@ -2,6 +2,7 @@
 
 import { and, eq, isNull } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
+import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
@@ -26,7 +27,6 @@ import {
   type QuestionExportRow,
   type QuestionFiltersInput,
   type QuestionsPage,
-  type QuizQuestionView,
   getAllQuestionIds,
   getQuestionById,
   getQuestionsForExport,
@@ -89,7 +89,7 @@ export const loadUniqueObjectifsCMC = async (): Promise<string[]> => {
  * La DAL masque `correctAnswer`/`explanation` et exclut les examens ouverts.
  */
 export type QuizBundle = {
-  questions: QuizQuestionView[]
+  questions: QuizQuestion[]
   token: string | null
 }
 
@@ -120,7 +120,7 @@ export type QuizQuestionResult = {
   correctAnswer: string
   explanation: string
   references: string[]
-  explanationImages: { url: string; storagePath: string; order: number }[]
+  explanationImages: QuizImage[]
 }
 
 export type QuizScore = {

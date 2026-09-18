@@ -5,17 +5,14 @@ import Link from "next/link"
 import { useState } from "react"
 import { ExamDetails } from "@/app/(admin)/admin/examens/[id]/_components/exam-details"
 import { ExamQuestionsModal } from "@/app/(admin)/admin/examens/[id]/_components/exam-questions-modal"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
-import type {
-  ExamQuestionView,
-  ExamWithQuestions,
-  LeaderboardEntry,
-} from "@/features/exams/dal"
+import type { ExamWithQuestions, LeaderboardEntry } from "@/features/exams/dal"
 
 interface StudentExamDetailsClientProps {
   examId: string
   exam: NonNullable<ExamWithQuestions>["exam"]
-  questions: ExamQuestionView[]
+  questions: QuizQuestion[]
   leaderboard: LeaderboardEntry[]
   currentUserId?: string
   showResultsLink: boolean

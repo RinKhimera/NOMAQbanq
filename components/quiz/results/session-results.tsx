@@ -580,7 +580,7 @@ export function SessionResults({
                     >
                       <QuestionCard
                         variant="review"
-                        question={result.question as never}
+                        question={result.question}
                         lazyExplanation={lazyExplanation}
                         lazyReferences={lazyReferences}
                         lazyExplanationImages={lazyExplanationImages}

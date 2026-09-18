@@ -168,12 +168,12 @@ function QuizRunnerInner({
   // répondues en cours de session (anti-triche DAL) ; on l'injecte depuis le
   // reveal serveur pour que QuestionCard puisse colorer la bonne réponse — ou
   // le marqueur « clé retenue », pour qu'elle affiche la correction différée.
-  const currentQuestionForCard =
-    currentQuestion && currentReveal
-      ? currentReveal.keyWithheld
-        ? { ...currentQuestion, keyWithheld: true as const }
-        : { ...currentQuestion, correctAnswer: currentReveal.correctAnswer }
-      : currentQuestion
+  const withReveal = (q: QuizQuestion): QuizQuestion =>
+    !currentReveal
+      ? q
+      : currentReveal.keyWithheld
+        ? { ...q, keyWithheld: true }
+        : { ...q, correctAnswer: currentReveal.correctAnswer }
   const currentCorrection =
     currentReveal && !currentReveal.keyWithheld ? currentReveal : undefined
 
@@ -239,7 +239,7 @@ function QuizRunnerInner({
                       transition={{ duration: 0.2 }}
                     >
                       <QuestionCard
-                        question={currentQuestionForCard as never}
+                        question={withReveal(currentQuestion)}
                         variant="exam"
                         questionNumber={session.currentIndex + 1}
                         selectedAnswer={selectedAnswer}
@@ -305,7 +305,7 @@ function QuizRunnerInner({
               <div className="hidden lg:block">
                 <div ref={desktopNavRef} className="h-1" />
                 <QuestionNavigator
-                  questions={questions as never}
+                  questions={questions}
                   answers={navigatorAnswers}
                   flaggedQuestions={session.flagged}
                   currentIndex={session.currentIndex}
@@ -326,7 +326,7 @@ function QuizRunnerInner({
             showNavFab={!isDesktopNavVisible}
             navFab={
               <QuestionNavigator
-                questions={questions as never}
+                questions={questions}
                 answers={navigatorAnswers}
                 flaggedQuestions={session.flagged}
                 currentIndex={session.currentIndex}

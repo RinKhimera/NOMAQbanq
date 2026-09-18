@@ -2,7 +2,7 @@
 
 import { FileText } from "lucide-react"
 import { QuestionCard } from "@/components/quiz/question-card"
-import type { QuestionDoc } from "@/components/quiz/question-card/types"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import {
   Card,
   CardContent,
@@ -14,7 +14,7 @@ import {
 export function ExamQuestions({
   examQuestions,
 }: {
-  examQuestions: QuestionDoc[]
+  examQuestions: QuizQuestion[]
 }) {
   return (
     <Card>

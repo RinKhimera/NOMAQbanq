@@ -10,7 +10,6 @@ export type {
   SessionMode,
   AccentColor,
   SessionConfig,
-  SessionQuestion,
   SessionAnswer,
   SessionHeaderProps,
   QuestionNavigatorProps,

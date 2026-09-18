@@ -12,6 +12,7 @@ import {
   sql,
 } from "drizzle-orm"
 import "server-only"
+import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
   examQuestions,
@@ -20,8 +21,8 @@ import {
   questions,
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
-import { cdnUrl } from "@/lib/cdn"
-import { excludeLocked } from "./answer-key-lock"
+import { AnswerKeyLock, excludeLocked } from "./answer-key-lock"
+import { fetchImages, toQuizQuestion } from "./quiz-bridge"
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
@@ -376,26 +377,6 @@ export const getAllQuestionIds = async (): Promise<string[]> => {
 // [Public] Quiz marketing (sans auth)
 // ============================================
 
-export type QuizImageView = {
-  url: string
-  storagePath: string
-  order: number
-}
-
-// Forme « pont » historique (`_id`/`_creationTime`/`images`) pour
-// rester assignable à `Omit<Doc<"questions">, "correctAnswer" | "explanation">`
-// — les composants quiz partagés (QuestionCard/QuizResults) consomment encore
-// ce contrat tant que les écrans examen/entraînement ne sont pas migrés.
-export type QuizQuestionView = {
-  _id: string
-  _creationTime: number
-  question: string
-  options: string[]
-  objectifCMC: string
-  domain: string
-  images: QuizImageView[]
-}
-
 /**
  * [Public] Questions aléatoires pour le quiz d'évaluation marketing. Aucune
  * garde (page publique). Masque `correctAnswer` et `explanation` (renvoyés
@@ -412,7 +393,7 @@ export const getRandomQuizQuestions = async ({
 }: {
   count: number
   domain?: string
-}): Promise<QuizQuestionView[]> => {
+}): Promise<QuizQuestion[]> => {
   const safeCount = clamp(count, 1, 10)
   const where = and(
     isNull(questions.deletedAt),
@@ -425,12 +406,11 @@ export const getRandomQuizQuestions = async ({
 
   const rows = await db
     .select({
-      id: questions.id,
+      questionId: questions.id,
       question: questions.question,
       options: questions.options,
       objectifCMC: questions.objectifCmc,
       domain: questions.domain,
-      createdAt: questions.createdAt,
     })
     .from(questions)
     .where(where)
@@ -438,44 +418,15 @@ export const getRandomQuizQuestions = async ({
     .limit(safeCount)
   if (rows.length === 0) return []
 
-  const imgs = await db
-    .select({
-      questionId: questionImages.questionId,
-      storagePath: questionImages.storagePath,
-      position: questionImages.position,
-    })
-    .from(questionImages)
-    .where(
-      and(
-        eq(questionImages.kind, "statement"),
-        inArray(
-          questionImages.questionId,
-          rows.map((r) => r.id),
-        ),
-      ),
-    )
-    .orderBy(asc(questionImages.position))
-
-  const imgMap = new Map<string, QuizImageView[]>()
-  for (const img of imgs) {
-    const list = imgMap.get(img.questionId) ?? []
-    list.push({
-      url: cdnUrl(img.storagePath),
-      storagePath: img.storagePath,
-      order: img.position,
-    })
-    imgMap.set(img.questionId, list)
-  }
-
-  return rows.map((r) => ({
-    _id: r.id,
-    _creationTime: r.createdAt.getTime(),
-    question: r.question,
-    options: r.options,
-    objectifCMC: r.objectifCMC,
-    domain: r.domain,
-    images: imgMap.get(r.id) ?? [],
-  }))
+  const imgMap = await fetchImages(rows.map((r) => r.questionId))
+  return rows.map((r) =>
+    toQuizQuestion(
+      r,
+      imgMap.get(r.questionId) ?? [],
+      AnswerKeyLock.none(),
+      null,
+    ),
+  )
 }
 
 export type QuizAnswerKey = {
@@ -483,43 +434,7 @@ export type QuizAnswerKey = {
   correctAnswer: string
   explanation: string
   references: string[]
-  explanationImages: QuizImageView[]
-}
-
-/**
- * Charge les images d'EXPLICATION (`kind='explanation'`) pour un lot d'ids,
- * groupées par question, URL CDN dérivée. Canal de révélation (correction) —
- * jamais sur le pont d'énoncé `images`. `Map` vide si aucun id.
- */
-const fetchExplanationImages = async (
-  questionIds: string[],
-): Promise<Map<string, QuizImageView[]>> => {
-  const map = new Map<string, QuizImageView[]>()
-  if (questionIds.length === 0) return map
-  const rows = await db
-    .select({
-      questionId: questionImages.questionId,
-      storagePath: questionImages.storagePath,
-      position: questionImages.position,
-    })
-    .from(questionImages)
-    .where(
-      and(
-        eq(questionImages.kind, "explanation"),
-        inArray(questionImages.questionId, questionIds),
-      ),
-    )
-    .orderBy(asc(questionImages.position))
-  for (const img of rows) {
-    const list = map.get(img.questionId) ?? []
-    list.push({
-      url: cdnUrl(img.storagePath),
-      storagePath: img.storagePath,
-      order: img.position,
-    })
-    map.set(img.questionId, list)
-  }
-  return map
+  explanationImages: QuizImage[]
 }
 
 /**
@@ -546,7 +461,10 @@ export const getQuizAnswerKey = async (
     )
     .where(and(inArray(questions.id, questionIds), isNull(questions.deletedAt)))
 
-  const explImgMap = await fetchExplanationImages(rows.map((r) => r.id))
+  const explImgMap = await fetchImages(
+    rows.map((r) => r.id),
+    "explanation",
+  )
 
   const map = new Map<string, QuizAnswerKey>()
   for (const r of rows) {

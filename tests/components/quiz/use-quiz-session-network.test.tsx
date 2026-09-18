@@ -8,7 +8,14 @@ import type {
 import { useQuizSession } from "@/components/quiz/runner/use-quiz-session"
 
 const QUESTIONS: QuizQuestion[] = [
-  { _id: "q1", question: "Q ?", options: ["A", "B", "C"], domain: "Cardio" },
+  {
+    _id: "q1",
+    question: "Q ?",
+    options: ["A", "B", "C"],
+    domain: "Cardio",
+    objectifCMC: "Obj",
+    images: [],
+  },
 ]
 
 const DEFERRED_MODE: QuizMode = {

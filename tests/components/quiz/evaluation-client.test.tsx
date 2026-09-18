@@ -58,7 +58,6 @@ const LISTE = "/tableau-de-bord/examen-blanc"
 
 const question = {
   _id: "q1",
-  _creationTime: 0,
   question: "Question ?",
   options: ["A", "B"],
   objectifCMC: "obj",

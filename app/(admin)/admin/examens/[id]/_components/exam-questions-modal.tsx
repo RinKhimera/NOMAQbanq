@@ -5,6 +5,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
 import { QuestionCard, createViewAction } from "@/components/quiz/question-card"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -12,12 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import type { ExamQuestionView } from "@/features/exams/dal"
 import { loadQuestionById } from "@/features/questions/actions"
 import type { QuestionDetail } from "@/features/questions/dal"
 
 type ExamQuestionsModalProps = {
-  questions: ExamQuestionView[]
+  questions: QuizQuestion[]
   open: boolean
   onOpenChange: (open: boolean) => void
   // Le détail par question charge le doc complet via loadQuestionById (admin
@@ -91,7 +91,7 @@ export function ExamQuestionsModal({
                   <QuestionCard
                     key={q._id}
                     variant="default"
-                    question={q as never}
+                    question={q}
                     questionNumber={startIndex + index + 1}
                     showCorrectAnswer={true}
                     showImage={false}

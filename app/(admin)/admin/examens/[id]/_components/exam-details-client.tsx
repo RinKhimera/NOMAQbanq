@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -23,7 +24,6 @@ import { sidebarMenuButtonVariants } from "@/components/ui/sidebar"
 import type {
   EligibleCandidate,
   ExamAudienceUser,
-  ExamQuestionView,
   ExamWithQuestions,
   LeaderboardEntry,
 } from "@/features/exams/dal"
@@ -34,7 +34,7 @@ import { ExamQuestionsModal } from "./exam-questions-modal"
 interface ExamDetailsClientProps {
   examId: string
   exam: NonNullable<ExamWithQuestions>["exam"]
-  questions: ExamQuestionView[]
+  questions: QuizQuestion[]
   leaderboard: LeaderboardEntry[]
   candidates: EligibleCandidate[]
   audience: ExamAudienceUser[]

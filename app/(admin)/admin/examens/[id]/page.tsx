@@ -15,7 +15,7 @@ export default async function AdminExamDetailsPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const data = await getExamWithQuestions(id)
+  const data = await getExamWithQuestions(id, { revealKey: true })
   if (!data) notFound()
 
   const [leaderboard, candidates, audience, session] = await Promise.all([
