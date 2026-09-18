@@ -77,6 +77,12 @@ Un examen blanc dont la date de fin n'est pas passée. C'est lui qui déclenche
 le verrou de clé de réponse.
 _Avoid_ : examen actif (l'activation est un réglage administrateur distinct)
 
+**Phase d'examen** :
+Ce qu'un examen blanc affiche à un instant donné : à venir, en cours, terminé
+ou désactivé. C'est un terme d'affichage ; un examen à venir ou en cours est
+« ouvert » au sens du verrou.
+_Avoid_ : statut d'examen, état
+
 **Participation** :
 La tentative d'un étudiant à un examen blanc, avec ses réponses et son score.
 _Avoid_ : passation, session d'examen
@@ -90,6 +96,29 @@ _Avoid_ : quiz, practice
 Le mode d'entraînement où la correction se révèle dès qu'une réponse est
 validée.
 _Avoid_ : feedback immédiat
+
+**Tentative** :
+Une participation ou une session d'entraînement, vue par le cycle de vie
+qu'elles partagent : ouverte, en pause, close ou expirée. « Passation » nomme
+l'activité, « tentative » l'entité qui la porte.
+_Avoid_ : attempt, passation (pour désigner une tentative précise)
+
+### Horloge de tentative
+
+**Budget de temps** :
+La durée allouée à une tentative pour répondre, décomptée depuis son
+démarrage, hors pause créditée.
+_Avoid_ : durée de l'examen, completion time, timer
+
+**Crédit de pause** :
+Le temps passé en pause qui est rendu au budget de temps, plafonné à la durée
+de pause autorisée par l'examen.
+_Avoid_ : temps de pause, pause cumulée
+
+**Grâce** :
+La tolérance accordée par le serveur au-delà du budget de temps épuisé, pour
+absorber la latence entre l'horloge de l'étudiant et la sienne.
+_Avoid_ : marge, tolérance réseau
 
 **Corpus de révision** :
 Les questions éligibles à une session de révision ciblée d'un étudiant :
