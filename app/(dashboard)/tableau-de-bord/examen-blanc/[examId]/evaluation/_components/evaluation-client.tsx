@@ -32,9 +32,9 @@ import {
 } from "@/features/exams/actions"
 import type {
   ExamAnswerForParticipation,
-  ExamQuestionView,
   ExamSessionView,
 } from "@/features/exams/dal"
+import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
 import { callAction } from "@/lib/safe-action"
 
 interface EvaluationExam {
@@ -47,7 +47,7 @@ interface EvaluationExam {
 interface EvaluationClientProps {
   examId: string
   exam: EvaluationExam
-  questions: ExamQuestionView[]
+  questions: QuizQuestion[]
   /** Participation existante (reprise / déjà soumise) ; null = pas encore démarrée. */
   initialSession: ExamSessionView
   /** Réponses déjà enregistrées (anti-triche : sans isCorrect). */
@@ -80,18 +80,8 @@ export function EvaluationClient({
   )
 
   const totalQuestions = questions.length
-  const pauseDurationMinutes = exam.pauseDurationMinutes ?? 15
-
-  // Mapper ExamQuestionView[] → QuizQuestion[] (sans champs sensibles — anti-triche)
-  const mappedQuestions: QuizQuestion[] = questions.map((q) => ({
-    _id: q._id,
-    question: q.question,
-    options: q.options,
-    domain: q.domain,
-    objectifCMC: q.objectifCMC,
-    images: q.images,
-    // NEVER include correctAnswer/explanation/references during exam (anti-cheat)
-  }))
+  const pauseDurationMinutes =
+    exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES
 
   // Mapper les réponses enregistrées → AnswersMap (sans isCorrect — anti-triche)
   const initialAnswers: AnswersMap = {}
@@ -362,7 +352,7 @@ export function EvaluationClient({
 
   return (
     <QuizRunner
-      questions={mappedQuestions}
+      questions={questions}
       initialAnswers={initialAnswers}
       initialFlags={initialFlags}
       initialPause={initialPause}

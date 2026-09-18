@@ -3,7 +3,7 @@ import { hydrateRoot } from "react-dom/client"
 import { renderToString } from "react-dom/server"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useExamTimer } from "@/components/quiz/runner/use-exam-timer"
-import { formatExamTime } from "@/lib/exam-timer"
+import { formatExamTime } from "@/lib/attempt-clock"
 
 const START = 1_700_000_000_000
 const TOTAL_SECONDS = 3600

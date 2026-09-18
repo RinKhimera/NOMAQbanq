@@ -27,23 +27,6 @@ export interface SessionConfig {
   accentColor?: AccentColor
 }
 
-// Question types
-export interface SessionQuestion {
-  _id: string
-  question: string
-  options: string[]
-  correctAnswer: string
-  domain: string
-  objectifCMC: string
-  explanation: string
-  references?: string[]
-  images?: Array<{
-    url: string
-    storagePath: string
-    order: number
-  }>
-}
-
 export interface SessionAnswer {
   selectedAnswer: string
   isCorrect?: boolean
@@ -71,7 +54,7 @@ export interface SessionHeaderProps {
 }
 
 export interface QuestionNavigatorProps {
-  questions: Array<{ _id: { toString(): string } }>
+  questions: Array<{ _id: string }>
   answers: Record<string, SessionAnswer>
   flaggedQuestions: Set<string>
   currentIndex: number

@@ -2,6 +2,8 @@ import { act, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useExamTimer } from "@/components/quiz/runner/use-exam-timer"
 
+// L'arithmétique (crédit de pause, plafond, clamp, zones) est prouvée par
+// `tests/lib/attempt-clock.test.ts` ; ici seuls le tick et ses effets.
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
@@ -68,7 +70,7 @@ describe("useExamTimer", () => {
     expect(onExpire).not.toHaveBeenCalled()
   })
 
-  it("gelé quand isPaused", () => {
+  it("gelé quand isPaused, reprend au dégel", () => {
     const start = Date.now()
     const { result, rerender } = renderHook(
       ({ p }: { p: boolean }) =>
@@ -86,84 +88,43 @@ describe("useExamTimer", () => {
     act(() => {
       vi.advanceTimersByTime(3000)
     })
-    expect(result.current.remainingMs).toBe(before) // figé
-    // Unpausing should resume
+    expect(result.current.remainingMs).toBe(before)
     rerender({ p: false })
     act(() => {
       vi.advanceTimersByTime(3000)
     })
-    // After unpause and 3 more seconds elapsed (fake time ran while paused, but
-    // totalPauseDurationMs=0 so the hook measures from serverStartTime - that's
-    // the expected behavior: pause duration tracking is done server-side)
     expect(result.current.remainingMs).toBeLessThan(before)
   })
 
-  it("isRunningOut est vrai quand moins de 10 min restantes", () => {
-    const start = Date.now()
-    const onExpire = vi.fn()
-    const { result } = renderHook(() =>
-      useExamTimer({
-        serverStartTime: start,
-        initialNow: start,
-        totalSeconds: 9 * 60, // 9 min total → already running out
-        isPaused: false,
-        totalPauseDurationMs: 0,
-        onExpire,
-      }),
-    )
-    expect(result.current.isRunningOut).toBe(true)
-    expect(result.current.isCritical).toBe(false)
-  })
-
-  it("isCritical est vrai quand moins de 5 min restantes", () => {
-    const start = Date.now()
-    const onExpire = vi.fn()
-    const { result } = renderHook(() =>
-      useExamTimer({
-        serverStartTime: start,
-        initialNow: start,
-        totalSeconds: 4 * 60, // 4 min total → already critical
-        isPaused: false,
-        totalPauseDurationMs: 0,
-        onExpire,
-      }),
-    )
-    expect(result.current.isCritical).toBe(true)
-  })
-
-  it("crédite totalPauseDurationMs : le temps en pause ne décompte pas", () => {
+  it("câble le crédit de pause dans l'horloge : le temps en pause ne décompte pas", () => {
     const now = Date.now()
-    const onExpire = vi.fn()
     const { result } = renderHook(() =>
       useExamTimer({
-        serverStartTime: now - 40_000, // examen démarré il y a 40 s…
+        serverStartTime: now - 40_000,
         initialNow: now,
         totalSeconds: 60,
         isPaused: false,
-        totalPauseDurationMs: 20_000, // …dont 20 s passées en pause
-        onExpire,
+        totalPauseDurationMs: 20_000,
+        onExpire: vi.fn(),
       }),
     )
     // 40 s écoulées − 20 s de pause = 20 s consommées sur 60.
     expect(result.current.remainingMs).toBe(40_000)
-    expect(onExpire).not.toHaveBeenCalled()
   })
 
-  it("ne dépasse jamais la durée de l'examen, ancre incohérente comprise", () => {
-    // Ancre antérieure au démarrage (payload serveur plus ancien que startExam,
-    // ou horloge cliente en retard) : sans plafond, l'affichage annoncerait plus
-    // de temps que n'en dure l'examen.
-    const now = Date.now()
+  it("expose la zone d'alerte de l'horloge", () => {
+    const start = Date.now()
     const { result } = renderHook(() =>
       useExamTimer({
-        serverStartTime: now,
-        initialNow: now - 90_000,
-        totalSeconds: 60,
+        serverStartTime: start,
+        initialNow: start,
+        totalSeconds: 4 * 60,
         isPaused: false,
         totalPauseDurationMs: 0,
         onExpire: vi.fn(),
       }),
     )
-    expect(result.current.remainingMs).toBe(60_000)
+    expect(result.current.isRunningOut).toBe(true)
+    expect(result.current.isCritical).toBe(true)
   })
 })

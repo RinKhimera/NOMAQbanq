@@ -3,7 +3,7 @@
 import { ArrowUp, List } from "lucide-react"
 import { CheckCircle, Clock, XCircle } from "lucide-react"
 import { useEffect, useState } from "react"
-import type { QuestionDoc } from "@/components/quiz/question-card/types"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 interface QuestionNavigationProps {
-  questions: QuestionDoc[]
+  questions: QuizQuestion[]
   userAnswers: (string | null)[]
   onExpandAll: () => void
   onCollapseAll: () => void

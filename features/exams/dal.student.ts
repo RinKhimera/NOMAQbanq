@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -27,19 +28,18 @@ import {
   user,
 } from "@/db/schema"
 import { getCurrentSession } from "@/lib/dal"
+import { canReadResults } from "@/lib/exam-phase"
 import { hasAccess } from "../payments/dal"
 import {
+  AnswerKeyLock,
   type LockUser,
   lockFor,
   scoreWithheldFor,
   scoreWithheldForOwner,
   viewerOf,
 } from "../questions/answer-key-lock"
-import {
-  type ExamQuestionView,
-  countQuestionsByExam,
-  fetchImages,
-} from "./dal.shared"
+import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
+import { countQuestionsByExam } from "./dal.shared"
 
 // Questions RÉPONDUES d'une participation, corrélées à la ligne
 // `exam_participations` lue — la forme attendue par `scoreWithheldFor`. Tant
@@ -217,16 +217,21 @@ export type ExamWithQuestions = {
     questionCount: number
     audienceType: "subscribers" | "restricted"
   }
-  questions: ExamQuestionView[]
+  questions: QuizQuestion[]
 } | null
 
 /**
- * Examen + questions ordonnées (forme « pont »). `correctAnswer` masqué pour les
- * non-admins (anti-triche pendant la passation), révélé pour les admins.
- * `explanation`/`references` jamais inclus ici (lazy-load séparé). Auth requise.
+ * Examen + questions ordonnées (forme-pont). La clé de réponse n'est jointe que
+ * sur `revealKey`, et seulement pour un admin (fiches de détail) : jamais sur la
+ * page de passation. `explanation`/`references` jamais inclus ici (lazy-load
+ * séparé). Auth requise.
  */
 export const getExamWithQuestions = async (
   examId: string,
+  opts?: {
+    /** Admin seulement : joint la clé de réponse (fiche admin, jamais la passation). */
+    revealKey?: boolean
+  },
 ): Promise<ExamWithQuestions> => {
   const session = await getCurrentSession()
   if (!session?.user) return null
@@ -298,7 +303,6 @@ export const getExamWithQuestions = async (
   const items = await db
     .select({
       questionId: examQuestions.questionId,
-      qCreatedAt: questions.createdAt,
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
@@ -312,16 +316,16 @@ export const getExamWithQuestions = async (
 
   const imgMap = await fetchImages(items.map((i) => i.questionId))
 
-  const questionsView: ExamQuestionView[] = items.map((i) => ({
-    _id: i.questionId,
-    _creationTime: i.qCreatedAt.getTime(),
-    question: i.question,
-    options: i.options,
-    objectifCMC: i.objectifCMC,
-    domain: i.domain,
-    images: imgMap.get(i.questionId) ?? [],
-    ...(isAdmin ? { correctAnswer: i.correctAnswer } : {}),
-  }))
+  // Un admin n'est jamais soumis au verrou ; personne d'autre ne reçoit la clé ici.
+  const level = opts?.revealKey && isAdmin ? "key" : null
+  const questionsView = items.map((i) =>
+    toQuizQuestion(
+      i,
+      imgMap.get(i.questionId) ?? [],
+      AnswerKeyLock.none(),
+      level,
+    ),
+  )
 
   return {
     exam: {
@@ -477,7 +481,7 @@ export type ExamResultsView =
         }[]
       }
       participantUser: ExamParticipantUser
-      questions: ExamQuestionView[]
+      questions: QuizQuestion[]
     }
   | null
 
@@ -522,8 +526,14 @@ export const getParticipantExamResults = async (
     .limit(1)
   if (!exam) return null
 
-  // Non-admin : résultats visibles seulement après la fin de l'examen.
-  if (!isAdmin && Date.now() < exam.endDate.getTime()) return null
+  if (
+    !canReadResults(
+      { endDate: exam.endDate.getTime() },
+      session.user,
+      Date.now(),
+    )
+  )
+    return null
 
   const examView: ExamResultsExam = {
     id: exam.id,
@@ -602,7 +612,6 @@ export const getParticipantExamResults = async (
   const items = await db
     .select({
       questionId: examQuestions.questionId,
-      qCreatedAt: questions.createdAt,
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
@@ -620,16 +629,9 @@ export const getParticipantExamResults = async (
     lockFor(viewerOf(session.user), resultQuestionIds),
   ])
 
-  const questionsView: ExamQuestionView[] = items.map((i) => ({
-    _id: i.questionId,
-    _creationTime: i.qCreatedAt.getTime(),
-    question: i.question,
-    options: i.options,
-    objectifCMC: i.objectifCMC,
-    domain: i.domain,
-    images: imgMap.get(i.questionId) ?? [],
-    ...lock.reveal(i.questionId, i, "key"),
-  }))
+  const questionsView = items.map((i) =>
+    toQuizQuestion(i, imgMap.get(i.questionId) ?? [], lock, "key"),
+  )
 
   const answerRows = await db
     .select({
@@ -885,7 +887,14 @@ export const getExamLeaderboard = async (
   const isAdmin = session?.user?.role === "admin"
   if (!isAdmin) {
     if (!session?.user) return []
-    if (Date.now() < exam.endDate.getTime()) return []
+    if (
+      !canReadResults(
+        { endDate: exam.endDate.getTime() },
+        session.user,
+        Date.now(),
+      )
+    )
+      return []
 
     if (exam.audienceType === "restricted") {
       // Examen restreint : seul un membre de l'audience voit le classement

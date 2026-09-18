@@ -14,6 +14,7 @@ import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
+import { canReadResults } from "@/lib/exam-phase"
 import { formatScore } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
@@ -39,7 +40,9 @@ export const RecentActivityFeed = ({
   isAdmin,
 }: RecentActivityFeedProps) => {
   const completedExams = recentExams.filter(
-    (exam) => exam.isCompleted && (isAdmin || now >= exam.endDate),
+    (exam) =>
+      exam.isCompleted &&
+      canReadResults(exam, isAdmin ? { role: "admin" } : null, now),
   )
 
   return (

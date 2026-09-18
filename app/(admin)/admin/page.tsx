@@ -10,10 +10,8 @@ import {
 } from "@/features/payments/dal"
 import { getQuestionStats } from "@/features/questions/dal"
 import { getAdminStats } from "@/features/users/dal"
+import { currentTimeMs } from "@/lib/clock"
 import { AdminDashboardClient } from "./_components/admin-dashboard-client"
-
-// Hors composant : isole l'horloge (impure) du corps de rendu (react-hooks/purity).
-const currentTimeMs = () => Date.now()
 
 export default async function AdminDashboardPage() {
   const [

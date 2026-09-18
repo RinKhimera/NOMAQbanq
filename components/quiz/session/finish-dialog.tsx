@@ -12,7 +12,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Spinner } from "@/components/ui/spinner"
-import { formatExamTime } from "@/lib/exam-timer"
+import { formatExamTime, zone } from "@/lib/attempt-clock"
 import { cn } from "@/lib/utils"
 import type { FinishDialogProps } from "./types"
 
@@ -73,9 +73,9 @@ export const FinishDialog = ({
                       <span
                         className={cn(
                           "font-mono font-semibold",
-                          timeRemaining < 5 * 60 * 1000
+                          zone(timeRemaining) === "critical"
                             ? "text-red-600 dark:text-red-400"
-                            : timeRemaining < 10 * 60 * 1000
+                            : zone(timeRemaining) === "warning"
                               ? "text-amber-600 dark:text-amber-400"
                               : "text-gray-700 dark:text-gray-300",
                         )}

@@ -6,11 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Spinner } from "@/components/ui/spinner"
-import {
-  calculatePauseTimeRemaining,
-  formatPauseTime,
-  isPauseExpired,
-} from "@/lib/exam-timer"
+import { formatPauseTime, pauseRemainingMs } from "@/lib/attempt-clock"
 import { cn } from "@/lib/utils"
 
 interface PauseDialogProps {
@@ -18,6 +14,12 @@ interface PauseDialogProps {
   onResume: () => void
   pauseStartedAt: number | undefined
   pauseDurationMinutes: number
+  /**
+   * Horloge serveur du rendu, ancre du premier rendu (SSR et hydratation) quand
+   * la page se charge déjà en pause. Absente (pause prise en cours de session),
+   * le début de la pause sert d'ancre : le décompte part du plafond.
+   */
+  initialNow?: number
   isResuming?: boolean
 }
 
@@ -32,9 +34,17 @@ export const PauseDialog = ({
   onResume,
   pauseStartedAt,
   pauseDurationMinutes,
+  initialNow,
   isResuming = false,
 }: PauseDialogProps) => {
-  const [pauseTimeRemaining, setPauseTimeRemaining] = useState(0)
+  const [pauseTimeRemaining, setPauseTimeRemaining] = useState(() =>
+    pauseStartedAt === undefined
+      ? 0
+      : pauseRemainingMs(
+          { startedAt: pauseStartedAt, capMinutes: pauseDurationMinutes },
+          initialNow ?? pauseStartedAt,
+        ),
+  )
   // L'auto-resume tourne dans un interval 1 s : sans one-shot, une reprise qui
   // échoue (réseau coupé) re-déclencherait onResume — et son toast d'erreur —
   // à chaque tick. La garde est la CLÉ de la pause (pauseStartedAt), jamais
@@ -55,17 +65,14 @@ export const PauseDialog = ({
     if (!isOpen || !pauseStartedAt) return
 
     const updatePauseTime = () => {
-      const remaining = calculatePauseTimeRemaining(
-        pauseStartedAt,
-        pauseDurationMinutes,
+      const remaining = pauseRemainingMs(
+        { startedAt: pauseStartedAt, capMinutes: pauseDurationMinutes },
+        Date.now(),
       )
       setPauseTimeRemaining(remaining)
 
       // Auto-resume when pause timer expires (one-shot par clé de pause)
-      if (
-        isPauseExpired(pauseStartedAt, pauseDurationMinutes) &&
-        autoResumeFiredForRef.current !== pauseStartedAt
-      ) {
+      if (remaining <= 0 && autoResumeFiredForRef.current !== pauseStartedAt) {
         autoResumeFiredForRef.current = pauseStartedAt
         onResume()
       }

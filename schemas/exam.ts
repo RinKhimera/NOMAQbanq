@@ -79,10 +79,12 @@ export const validateQuestionCount = (
   return selectedQuestions.length === requiredCount
 }
 
-// Constants for pause feature
-export const DEFAULT_PAUSE_DURATION_MINUTES = 15
-export const MAX_PAUSE_DURATION_MINUTES = 60
-export const MIN_PAUSE_DURATION_MINUTES = 1
+// Bornes de la pause : une seule source, celle du backend.
+export {
+  DEFAULT_PAUSE_MINUTES as DEFAULT_PAUSE_DURATION_MINUTES,
+  MAX_PAUSE_MINUTES as MAX_PAUSE_DURATION_MINUTES,
+  MIN_PAUSE_MINUTES as MIN_PAUSE_DURATION_MINUTES,
+} from "@/features/exams/schemas"
 
 // Helper to get default pause duration based on question count
 export const getDefaultPauseDuration = (questionCount: number): number => {

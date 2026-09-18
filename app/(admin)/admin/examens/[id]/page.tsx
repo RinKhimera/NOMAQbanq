@@ -5,6 +5,7 @@ import {
   getExamLeaderboard,
   getExamWithQuestions,
 } from "@/features/exams/dal"
+import { currentTimeMs } from "@/lib/clock"
 import { getCurrentSession } from "@/lib/dal"
 import { ExamDetailsClient } from "./_components/exam-details-client"
 
@@ -14,7 +15,7 @@ export default async function AdminExamDetailsPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const data = await getExamWithQuestions(id)
+  const data = await getExamWithQuestions(id, { revealKey: true })
   if (!data) notFound()
 
   const [leaderboard, candidates, audience, session] = await Promise.all([
@@ -33,6 +34,7 @@ export default async function AdminExamDetailsPage({
       candidates={candidates}
       audience={audience}
       currentUserId={session?.user?.id}
+      initialNow={currentTimeMs()}
     />
   )
 }

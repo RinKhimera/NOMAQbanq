@@ -10,11 +10,10 @@ import {
   getExamWithQuestions,
 } from "@/features/exams/dal"
 import { hasAccess } from "@/features/payments/dal"
+import { currentTimeMs } from "@/lib/clock"
 import { getCurrentSession } from "@/lib/dal"
+import { canReadResults } from "@/lib/exam-phase"
 import { StudentExamDetailsClient } from "./_components/student-exam-details-client"
-
-// Hors composant : isole l'horloge (impure) du corps de rendu.
-const isExamClosed = (endDateMs: number) => endDateMs < Date.now()
 
 // Carte « Accès non autorisé » : paywall (pas d'accès exam) ou résultats non
 // encore ouverts. Rendue aussi quand le DAL renvoie null pour un non-abonné
@@ -70,7 +69,8 @@ export default async function MockExamDetailsPage({
   const session = await getCurrentSession()
   const isAdmin = session?.user?.role === "admin"
 
-  const data = await getExamWithQuestions(examId)
+  // `revealKey` n'a d'effet que pour un admin (modale des questions).
+  const data = await getExamWithQuestions(examId, { revealKey: true })
   if (!data) {
     // Non-admin + null = pas d'accès (ou examen confidentiel) → carte paywall,
     // pas un 404 sec (préserve le tunnel d'achat). Admin ne voit null que si
@@ -79,7 +79,8 @@ export default async function MockExamDetailsPage({
     return <ExamAccessDeniedCard />
   }
 
-  const isClosed = isExamClosed(data.exam.endDate)
+  const now = currentTimeMs()
+  const resultsReadable = canReadResults(data.exam, session?.user, now)
   // Examen restreint : `getExamWithQuestions` a déjà autorisé l'accès (membre de
   // l'audience ou participation) — la sélection octroie l'accès, l'abonnement
   // n'est pas requis. L'abonnement ne conditionne la consultation que pour les
@@ -87,8 +88,8 @@ export default async function MockExamDetailsPage({
   const isRestricted = data.exam.audienceType === "restricted"
   const examAccess = isAdmin || isRestricted || (await hasAccess("exam"))
 
-  // Non-admins : accès aux détails uniquement si l'examen est fermé ET accès actif.
-  if (!isAdmin && (!isClosed || !examAccess)) {
+  // Détails visibles seulement quand les résultats le sont ET que l'accès est actif.
+  if (!resultsReadable || !examAccess) {
     return <ExamAccessDeniedCard resultsNotReady={examAccess} />
   }
 
@@ -107,7 +108,8 @@ export default async function MockExamDetailsPage({
       questions={data.questions}
       leaderboard={leaderboard}
       currentUserId={session?.user?.id}
-      showResultsLink={Boolean(hasCompleted) && (isAdmin || isClosed)}
+      showResultsLink={Boolean(hasCompleted) && resultsReadable}
+      initialNow={now}
     />
   )
 }

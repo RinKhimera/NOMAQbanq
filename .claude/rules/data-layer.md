@@ -16,12 +16,17 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   `@/lib/auth-guards`, ou `getCurrentSession` de `@/lib/dal`) + React `cache()` +
   colonnes ciblées. Comptes via SQL live (`count(*) filter (where …)`), pas de
   tables d'agrégat.
-- **Forme « pont » quiz** : renvoyer `_id`/`_creationTime`/`images:{url,
-storagePath,order}` pour rester assignable aux composants partagés
-  (`QuestionCard`, `QuizResults`). `correctAnswer`/`explanation`/`references`
-  **seulement quand autorisé** (admin, ou session/participation complétée) —
-  anti-triche. Au point de montage : `question={q as never}` (l'`_id` Drizzle est
-  un `string`, pas un `Id<>` brandé).
+- **Forme-pont quiz = un seul type, un seul mappeur.** `QuizQuestion`
+  (`components/quiz/runner/types.ts`) est possédé par le moteur de quiz et
+  importé en `import type` par les DAL, jamais redéclaré : sa partie révélée
+  est `Revealed`, le type de retour du verrou de clé de réponse. Toute DAL qui
+  livre des questions aux composants passe par le mappeur `toQuizQuestion` de
+  `features/questions/quiz-bridge.ts` (qui possède aussi `fetchImages`,
+  `groupImages` et la dérivation CDN) : `level: null` = énoncé
+  seul (passation, quiz public), sinon le verrou décide ce qu'il blanchit. Ni
+  spread de champs de correction à la main, ni mapping dans les pages, ni cast
+  au point de montage — `tsc` est la garde, `tests/integration/passation-anti-cheat.test.ts`
+  le filet.
 - Partage de types vers les clients : `import type { X } from "@/features/.../dal"`
   (le module `server-only` est effacé à la compilation — pas de fuite dans le
   bundle client).

@@ -1,23 +1,25 @@
+import type { Revealed } from "@/features/questions/answer-key-lock"
+
 export type QuizImage = { url: string; storagePath: string; order: number }
 
-export type QuizQuestion = {
+/** Énoncé d'une question, tel que tout canal (entraînement, examen, quiz public) le livre. */
+export type QuizStatement = {
   _id: string
   question: string
   options: string[]
-  images?: QuizImage[]
-  domain?: string
-  objectifCMC?: string
-  // révélés UNIQUEMENT quand autorisé (tuteur en direct, ou correction)
-  correctAnswer?: string
-  explanation?: string
-  references?: string[]
-  explanationImages?: QuizImage[]
-  /**
-   * Clé retenue par un examen ouvert : la correction est différée à sa
-   * clôture. Une réponse à cette question n'est ni juste ni fausse.
-   */
-  keyWithheld?: true
+  domain: string
+  objectifCMC: string
+  images: QuizImage[]
 }
+
+/**
+ * Forme-pont (`CONTEXT.md`) : l'énoncé, plus la correction quand un canal de
+ * révélation l'autorise. La partie révélée EST le type de retour du verrou de
+ * clé de réponse : elle ne peut pas diverger de ce qu'il blanchit. `keyWithheld`
+ * y signale une clé retenue par un examen ouvert : la réponse n'est ni juste
+ * ni fausse tant qu'il n'est pas clos.
+ */
+export type QuizQuestion = QuizStatement & Revealed<QuizImage>
 
 export type AnswerState = { selected: string; isCorrect?: boolean }
 export type AnswersMap = Record<string, AnswerState>
@@ -45,13 +47,11 @@ export type QuizMode = {
   backUrl: string
 }
 
+/** Ce que le serveur révèle après une réponse en mode tuteur : la correction complète, ou la clé retenue. */
 export type QuizRevealPayload =
-  | {
-      keyWithheld?: undefined
-      correctAnswer: string
-      explanation: string
-      references: string[]
-    }
+  | ({ keyWithheld?: undefined } & Required<
+      Pick<Revealed<QuizImage>, "correctAnswer" | "explanation" | "references">
+    >)
   | { keyWithheld: true }
 
 export type QuizCallbacks = {

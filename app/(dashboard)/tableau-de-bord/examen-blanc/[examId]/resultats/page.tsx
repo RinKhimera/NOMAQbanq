@@ -5,7 +5,7 @@ import {
   SessionResults,
   SessionResultsHeader,
 } from "@/components/quiz/results/session-results"
-import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
+import type { AnswersMap } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import { loadExamQuestionExplanations } from "@/features/exams/actions"
 import { getParticipantExamResults } from "@/features/exams/dal"
@@ -45,16 +45,7 @@ export default async function MockExamResultsPage({
     )
   }
 
-  const questions: QuizQuestion[] = data.questions.map((q) => ({
-    _id: q._id,
-    question: q.question,
-    options: q.options,
-    images: q.images ?? [],
-    domain: q.domain ?? undefined,
-    objectifCMC: q.objectifCMC ?? undefined,
-    correctAnswer: q.correctAnswer,
-    keyWithheld: q.keyWithheld,
-  }))
+  const questions = data.questions
 
   // Map DAL answers → AnswersMap (sparse-safe: absent key == unanswered)
   const answers: AnswersMap = {}

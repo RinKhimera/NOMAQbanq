@@ -1,22 +1,13 @@
-import { render, screen } from "@testing-library/react"
+import { act, render, screen } from "@testing-library/react"
 import { fireEvent } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
+import { renderToString } from "react-dom/server"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { PauseDialog } from "@/components/quiz/pause-dialog"
 
 vi.mock("motion/react", async () => {
   const { motionMockFactory } = await import("../../helpers/motion-mock")
   return motionMockFactory
 })
-
-vi.mock("@/lib/exam-timer", () => ({
-  calculatePauseTimeRemaining: vi.fn(() => 5 * 60 * 1000), // 5 min default
-  formatPauseTime: (ms: number) => {
-    const m = Math.floor(ms / 60000)
-    const s = Math.floor((ms % 60000) / 1000)
-    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-  },
-  isPauseExpired: vi.fn(() => false),
-}))
 
 describe("PauseDialog", () => {
   const defaultProps = {
@@ -107,5 +98,46 @@ describe("PauseDialog", () => {
     expect(screen.getByText(/Conseils pendant la pause/)).toBeInTheDocument()
     expect(screen.getByText(/Étirez-vous/)).toBeInTheDocument()
     expect(screen.getByText(/Buvez de l'eau/)).toBeInTheDocument()
+  })
+})
+
+describe("PauseDialog — décompte", () => {
+  afterEach(() => vi.useRealTimers())
+
+  it("ancre le rendu serveur sur initialNow, pas sur Date.now()", () => {
+    vi.useFakeTimers()
+    const pauseStartedAt = 1_000_000
+    // Horloge locale très en avance : sans ancre, le HTML servi dirait 00:00.
+    vi.setSystemTime(pauseStartedAt + 60 * 60 * 1000)
+    const html = renderToString(
+      <PauseDialog
+        isOpen
+        onResume={vi.fn()}
+        pauseStartedAt={pauseStartedAt}
+        pauseDurationMinutes={10}
+        initialNow={pauseStartedAt + 4 * 60 * 1000}
+      />,
+    )
+    expect(html).toContain("06:00")
+  })
+
+  it("reprend automatiquement, une seule fois, quand la pause est échue", () => {
+    vi.useFakeTimers()
+    const onResume = vi.fn()
+    const pauseStartedAt = 1_000_000
+    vi.setSystemTime(pauseStartedAt + 11 * 60 * 1000)
+    render(
+      <PauseDialog
+        isOpen
+        onResume={onResume}
+        pauseStartedAt={pauseStartedAt}
+        pauseDurationMinutes={10}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+    expect(onResume).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId("pause-timer")).toHaveTextContent("00:00")
   })
 })

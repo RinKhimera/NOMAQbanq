@@ -501,7 +501,7 @@ export const QuestionCard = ({
                 : getAnswerState(
                     option,
                     selectedAnswer,
-                    question.correctAnswer,
+                    question.correctAnswer ?? "",
                     showCorrectAnswer,
                     userAnswer,
                     isReviewVariant,

@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -23,10 +24,10 @@ import { sidebarMenuButtonVariants } from "@/components/ui/sidebar"
 import type {
   EligibleCandidate,
   ExamAudienceUser,
-  ExamQuestionView,
   ExamWithQuestions,
   LeaderboardEntry,
 } from "@/features/exams/dal"
+import { useClock } from "@/hooks/use-clock"
 import { cn } from "@/lib/utils"
 import { ExamDetails } from "./exam-details"
 import { ExamQuestionsModal } from "./exam-questions-modal"
@@ -34,11 +35,13 @@ import { ExamQuestionsModal } from "./exam-questions-modal"
 interface ExamDetailsClientProps {
   examId: string
   exam: NonNullable<ExamWithQuestions>["exam"]
-  questions: ExamQuestionView[]
+  questions: QuizQuestion[]
   leaderboard: LeaderboardEntry[]
   candidates: EligibleCandidate[]
   audience: ExamAudienceUser[]
   currentUserId?: string
+  /** Horloge serveur du rendu : la phase de l'examen s'en déduit. */
+  initialNow: number
 }
 
 export function ExamDetailsClient({
@@ -49,8 +52,10 @@ export function ExamDetailsClient({
   candidates,
   audience,
   currentUserId,
+  initialNow,
 }: ExamDetailsClientProps) {
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
+  const now = useClock(initialNow)
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
@@ -137,6 +142,7 @@ export function ExamDetailsClient({
         audience={audience}
         isAdmin={true}
         currentUserId={currentUserId}
+        now={now}
       />
 
       <ExamQuestionsModal

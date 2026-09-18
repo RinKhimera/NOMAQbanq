@@ -172,8 +172,8 @@ d'audience) → un membre sans abonnement peut le démarrer. Couvert par `examen
 ## F3 images d'explication (anti-triche)
 
 `explanation-images` n'est rendu qu'en `QuestionCard variant="review"` (correction).
-Garanti **absent** en passation : examen (`variant="exam"`, questions mappées sans
-explanation) et entraînement test `in_progress`. Correction entraînement : eager
+Garanti **absent** en passation : examen (`variant="exam"`, DAL sans niveau de
+révélation) et entraînement test `in_progress`. Correction entraînement : eager
 (`getTrainingSessionResults`) ; correction examen : lazy + **après `endDate`**
 seulement (`getExamQuestionExplanations`). Vitrine `/evaluation/quiz` = questions
 **aléatoires** → n'y tester que l'anti-triche en passation. Seed via

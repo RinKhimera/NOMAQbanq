@@ -79,10 +79,13 @@ justifie dans le code.
   helper d'horloge au scope module pour `react-hooks/purity`) ; le premier rendu
   s'ancre dessus et seul le premier tick, post-hydratation, reprend l'horloge
   locale. Câblé ainsi dans `dashboard-hero`, `examen-blanc-client`,
-  `admin-dashboard-client` et `useExamTimer`. Le chrono d'examen était la
+  `admin-dashboard-client`, `useExamTimer` et `PauseDialog` (rendu au premier
+  rendu quand la page se charge en pause). Le chrono d'examen était la
   dernière exception : cause prouvée de **NOMAQBANQ-13** (replay du 2026-08-23,
   « 02:06:51 » servi contre « 02:06:50 » hydraté) — l'arbre de la page de
-  passation était régénéré en plein examen.
+  passation était régénéré en plein examen. L'arithmétique elle-même vit dans
+  `lib/attempt-clock.ts`, dont chaque fonction prend `now` en paramètre : un
+  défaut sur `Date.now()` est exactement le piège.
 
 ## Socle
 

@@ -67,6 +67,8 @@ const makeQuestion = (id: string): QuizQuestion => ({
   _id: id,
   question: `Question ${id}`,
   options: ["A", "B", "C", "D"],
+  domain: "Cardiologie",
+  objectifCMC: "Obj",
   images: [],
   correctAnswer: "A",
 })

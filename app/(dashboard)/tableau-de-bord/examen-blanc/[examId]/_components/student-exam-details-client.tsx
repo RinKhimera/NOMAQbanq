@@ -5,20 +5,20 @@ import Link from "next/link"
 import { useState } from "react"
 import { ExamDetails } from "@/app/(admin)/admin/examens/[id]/_components/exam-details"
 import { ExamQuestionsModal } from "@/app/(admin)/admin/examens/[id]/_components/exam-questions-modal"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
-import type {
-  ExamQuestionView,
-  ExamWithQuestions,
-  LeaderboardEntry,
-} from "@/features/exams/dal"
+import type { ExamWithQuestions, LeaderboardEntry } from "@/features/exams/dal"
+import { useClock } from "@/hooks/use-clock"
 
 interface StudentExamDetailsClientProps {
   examId: string
   exam: NonNullable<ExamWithQuestions>["exam"]
-  questions: ExamQuestionView[]
+  questions: QuizQuestion[]
   leaderboard: LeaderboardEntry[]
   currentUserId?: string
   showResultsLink: boolean
+  /** Horloge serveur du rendu : la phase de l'examen s'en déduit. */
+  initialNow: number
 }
 
 export function StudentExamDetailsClient({
@@ -28,8 +28,10 @@ export function StudentExamDetailsClient({
   leaderboard,
   currentUserId,
   showResultsLink,
+  initialNow,
 }: StudentExamDetailsClientProps) {
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
+  const now = useClock(initialNow)
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
@@ -82,6 +84,7 @@ export function StudentExamDetailsClient({
         candidates={[]}
         isAdmin={false}
         currentUserId={currentUserId}
+        now={now}
       />
 
       <ExamQuestionsModal

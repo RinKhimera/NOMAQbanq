@@ -63,6 +63,7 @@ import type {
   ExamPickerOption,
   ExamWithQuestions,
 } from "@/features/exams/dal"
+import { SECONDS_PER_QUESTION } from "@/features/exams/schemas"
 import type { SelectableUser } from "@/features/users/dal"
 import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
@@ -142,7 +143,8 @@ export function ExamForm(props: ExamFormProps) {
             endDate: new Date(props.exam.endDate),
             questionIds: initialQuestionIds,
             enablePause: props.exam.enablePause,
-            pauseDurationMinutes: props.exam.pauseDurationMinutes ?? 15,
+            pauseDurationMinutes:
+              props.exam.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES,
             audienceType: props.exam.audienceType,
             audienceUserIds: initialAudience.map((u) => u.id),
           }
@@ -178,8 +180,9 @@ export function ExamForm(props: ExamFormProps) {
     name: "audienceType",
   })
 
-  // Durée estimée de l'examen (83 secondes par question).
-  const estimatedDuration = Math.ceil((numberOfQuestions * 83) / 60)
+  const estimatedDuration = Math.ceil(
+    (numberOfQuestions * SECONDS_PER_QUESTION) / 60,
+  )
 
   const handleAudienceUsersChange = (next: SelectableUser[]) => {
     setSelectedUsers(next)
@@ -200,7 +203,8 @@ export function ExamForm(props: ExamFormProps) {
     if (checked && !pauseDurationMinutes) {
       form.setValue(
         "pauseDurationMinutes",
-        getDefaultPauseDuration(numberOfQuestions) || 15,
+        getDefaultPauseDuration(numberOfQuestions) ||
+          DEFAULT_PAUSE_DURATION_MINUTES,
       )
     }
   }
@@ -532,7 +536,9 @@ export function ExamForm(props: ExamFormProps) {
                               min={1}
                               max={60}
                               step={1}
-                              value={[field.value || 15]}
+                              value={[
+                                field.value || DEFAULT_PAUSE_DURATION_MINUTES,
+                              ]}
                               onValueChange={(value) =>
                                 field.onChange(value[0])
                               }

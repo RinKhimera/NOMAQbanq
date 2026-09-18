@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import {
   questionBookmarks,
@@ -22,13 +23,13 @@ import {
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
-import { type ExamImageView, fetchImages } from "../exams/dal.shared"
 import {
   type LockUser,
   lockFor,
   scoreWithheldFor,
   viewerOf,
 } from "../questions/answer-key-lock"
+import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
@@ -78,30 +79,6 @@ const scoreReadable = (viewer: LockUser) =>
 // ============================================
 // Types de vue
 // ============================================
-
-// Forme « pont » historique (`_id`/`_creationTime`/`images`) pour
-// rester assignable au contrat `QuestionCardQuestion`/`Doc<"questions">` des
-// composants quiz partagés. `correctAnswer`/`explanation`/`references` ne sont
-// présents qu'en révision (session complétée) — anti-triche en cours de session.
-export type TrainingSessionQuestion = {
-  _id: string
-  _creationTime: number
-  question: string
-  options: string[]
-  objectifCMC: string
-  domain: string
-  images: ExamImageView[]
-  correctAnswer?: string
-  explanation?: string
-  references?: string[]
-  /**
-   * Images d'explication (`kind='explanation'`), révélées seulement à la
-   * correction (session complétée). Jamais sur le pont d'énoncé `images`.
-   */
-  explanationImages?: ExamImageView[]
-  /** Clé retenue par un examen ouvert : correction différée à sa clôture. */
-  keyWithheld?: true
-}
 
 export type TrainingAnswerRecord = Record<
   string,
@@ -495,7 +472,7 @@ export type TrainingSessionView = {
     completedAt: number | null
     expiresAt: number
   }
-  questions: TrainingSessionQuestion[]
+  questions: QuizQuestion[]
   answers: TrainingAnswerRecord
   /** Signets de l'utilisateur courant parmi les questions de la session. */
   bookmarkedIds: string[]
@@ -539,7 +516,6 @@ export const getTrainingSessionById = async (
       questionId: trainingSessionItems.questionId,
       selectedAnswer: trainingSessionItems.selectedAnswer,
       isCorrect: trainingSessionItems.isCorrect,
-      qCreatedAt: questions.createdAt,
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
@@ -567,19 +543,11 @@ export const getTrainingSessionById = async (
     isOwner ? getBookmarkedQuestionIds(sessionQuestionIds) : [],
   ])
 
-  const questionsView: TrainingSessionQuestion[] = items.map((i) => {
+  const questionsView = items.map((i) => {
     // Session terminée, ou question déjà répondue en mode tuteur.
     const mayReveal = isCompleted || (isTutor && i.selectedAnswer !== null)
-    return {
-      _id: i.questionId,
-      _creationTime: i.qCreatedAt.getTime(),
-      question: i.question,
-      options: i.options,
-      objectifCMC: i.objectifCMC,
-      domain: i.domain,
-      images: imgMap.get(i.questionId) ?? [],
-      ...(mayReveal ? lock.reveal(i.questionId, i, "correction") : {}),
-    }
+    const images = imgMap.get(i.questionId) ?? []
+    return toQuizQuestion(i, images, lock, mayReveal ? "correction" : null)
   })
 
   // Reveal isCorrect in answers only when session is completed or in tutor mode.
@@ -629,7 +597,7 @@ export type TrainingResultsView =
         completedAt: number | null
         domain: string | null
       }
-      questions: TrainingSessionQuestion[]
+      questions: QuizQuestion[]
       answers: TrainingAnswerRecord
     }
   | null
@@ -668,7 +636,6 @@ export const getTrainingSessionResults = async (
       questionId: trainingSessionItems.questionId,
       selectedAnswer: trainingSessionItems.selectedAnswer,
       isCorrect: trainingSessionItems.isCorrect,
-      qCreatedAt: questions.createdAt,
       question: questions.question,
       options: questions.options,
       correctAnswer: questions.correctAnswer,
@@ -695,20 +662,14 @@ export const getTrainingSessionResults = async (
     lockFor(viewerOf(session.user), questionIds),
   ])
 
-  const questionsView: TrainingSessionQuestion[] = items.map((i) => ({
-    _id: i.questionId,
-    _creationTime: i.qCreatedAt.getTime(),
-    question: i.question,
-    options: i.options,
-    objectifCMC: i.objectifCMC,
-    domain: i.domain,
-    images: imgMap.get(i.questionId) ?? [],
-    ...lock.reveal(
-      i.questionId,
+  const questionsView = items.map((i) =>
+    toQuizQuestion(
       { ...i, explanationImages: explImgMap.get(i.questionId) },
+      imgMap.get(i.questionId) ?? [],
+      lock,
       "correction-with-images",
     ),
-  }))
+  )
 
   const answers: TrainingAnswerRecord = {}
   let scoreWithheld = false

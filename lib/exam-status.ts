@@ -30,15 +30,3 @@ export const EXAM_STATUS_CONFIG: Record<ExamStatus, ExamStatusConfig> = {
     icon: CirclePause,
   },
 }
-
-export function getExamStatus(exam: {
-  isActive: boolean
-  startDate: number
-  endDate: number
-}): ExamStatus {
-  const now = Date.now()
-  if (!exam.isActive) return "inactive"
-  if (now < exam.startDate) return "upcoming"
-  if (now > exam.endDate) return "completed"
-  return "active"
-}

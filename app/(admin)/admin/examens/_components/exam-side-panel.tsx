@@ -25,13 +25,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import type { AdminExamListItem } from "@/features/exams/dal"
-import { EXAM_STATUS_CONFIG, getExamStatus } from "@/lib/exam-status"
+import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
+import { phaseOf } from "@/lib/exam-phase"
+import { EXAM_STATUS_CONFIG } from "@/lib/exam-status"
 import { formatMediumDate, formatTimeOnly } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface ExamSidePanelProps {
   exam: AdminExamListItem | null
   eligibleCount: number
+  now: number
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -39,6 +42,7 @@ interface ExamSidePanelProps {
 export function ExamSidePanel({
   exam,
   eligibleCount,
+  now,
   open,
   onOpenChange,
 }: ExamSidePanelProps) {
@@ -67,6 +71,7 @@ export function ExamSidePanel({
               key={exam.id}
               exam={exam}
               eligibleCount={eligibleCount}
+              now={now}
               onClose={() => onOpenChange(false)}
             />
           ) : (
@@ -97,15 +102,17 @@ function EmptyState() {
 interface PanelContentProps {
   exam: AdminExamListItem
   eligibleCount: number
+  now: number
   onClose: () => void
 }
 
-function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
-  const status = getExamStatus({
-    startDate: exam.startDate,
-    endDate: exam.endDate,
-    isActive: exam.isActive,
-  })
+function PanelContent({
+  exam,
+  eligibleCount,
+  now,
+  onClose,
+}: PanelContentProps) {
+  const status = phaseOf(exam, now)
   const statusConfig = EXAM_STATUS_CONFIG[status]
   const StatusIcon = statusConfig.icon
 
@@ -220,7 +227,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
             label="Pause"
             value={
               exam.enablePause
-                ? `${exam.pauseDurationMinutes ?? 15} min`
+                ? `${exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES} min`
                 : "Non"
             }
             color="amber"

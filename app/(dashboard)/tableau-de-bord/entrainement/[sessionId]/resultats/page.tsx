@@ -5,7 +5,7 @@ import {
   SessionResults,
   SessionResultsHeader,
 } from "@/components/quiz/results/session-results"
-import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
+import type { AnswersMap } from "@/components/quiz/runner/types"
 import { getTrainingSessionResults } from "@/features/training/dal"
 
 interface TrainingResultsPageProps {
@@ -29,22 +29,7 @@ export default async function TrainingResultsPage({
 
   const { session, questions: rawQuestions, answers: rawAnswers } = results
 
-  // Map DAL output → QuizQuestion[] (training results include correctAnswer + explanation)
-  const questions: QuizQuestion[] = rawQuestions.map((q) => ({
-    _id: q._id,
-    question: q.question,
-    options: q.options,
-    images: q.images ?? [],
-    domain: q.domain ?? undefined,
-    objectifCMC: q.objectifCMC ?? undefined,
-    correctAnswer: q.correctAnswer,
-    explanation: q.explanation,
-    references: q.references,
-    // Images d'explication (correction uniquement) — `SessionResults` les rend
-    // sous l'explication via `result.question.explanationImages`.
-    explanationImages: q.explanationImages ?? [],
-    keyWithheld: q.keyWithheld,
-  }))
+  const questions = rawQuestions
 
   const answers: AnswersMap = {}
   for (const [questionId, entry] of Object.entries(rawAnswers)) {

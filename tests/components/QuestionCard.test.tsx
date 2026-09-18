@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { ComponentPropsWithoutRef } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { QuestionCard } from "@/components/quiz/question-card"
-import type { QuestionDoc } from "@/components/quiz/question-card/types"
+import type { QuizQuestion } from "@/components/quiz/runner/types"
 
 // Props Framer Motion à exclure du DOM (hoisted pour être disponible dans vi.mock)
 const { filterMotionProps } = vi.hoisted(() => {
@@ -56,13 +56,10 @@ vi.mock("next/image", () => ({
   ),
 }))
 
-// QuestionCard accepte `QuestionCardQuestion` (QuestionDoc avec
-// explanation/references optionnels, lazy-loaded côté serveur via
-// questionExplanations). `QuestionDoc` porte déjà `explanation` (requis) et
-// `references` (optionnel), ce qui couvre le variant "review".
-const mockQuestion: QuestionDoc = {
+// Forme-pont avec sa correction : couvre le variant "review".
+const mockQuestion: QuizQuestion = {
   _id: "q1",
-  _creationTime: Date.now(),
+  images: [],
   question: "Quelle est la capitale de la France ?",
   options: ["Paris", "Lyon", "Marseille", "Bordeaux"],
   correctAnswer: "Paris",
@@ -319,7 +316,7 @@ describe("QuestionCard", () => {
       )
 
       expect(screen.getByText(/Explication :/i)).toBeInTheDocument()
-      expect(screen.getByText(mockQuestion.explanation)).toBeInTheDocument()
+      expect(screen.getByText(mockQuestion.explanation!)).toBeInTheDocument()
     })
 
     it("affiche les indicateurs de correction quand étendu", () => {

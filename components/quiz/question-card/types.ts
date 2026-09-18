@@ -1,40 +1,13 @@
+import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
+
 // ===== Variant Types =====
 export type QuestionCardVariant = "default" | "exam" | "review"
 
 // ===== Question shape =====
-// Forme native d'une question telle que la
-// consomment les composants quiz partagés. Conserve la convention `_id` /
-// `_creationTime` de la « forme pont » renvoyée par les DAL Drizzle.
-export type QuestionDoc = {
-  _id: string
-  _creationTime?: number
-  question: string
-  options: string[]
-  correctAnswer: string
-  domain: string
-  objectifCMC: string
-  explanation: string
-  references?: string[]
-  images?: Array<{ url: string; storagePath: string; order: number }>
-  // Images d'explication (`kind='explanation'`) — rendues UNIQUEMENT dans le
-  // variant "review" (correction), jamais en "exam" (passation) : anti-triche.
-  explanationImages?: Array<{ url: string; storagePath: string; order: number }>
-  // Clé retenue par un examen ouvert : correction différée à sa clôture. La
-  // réponse n'est alors ni juste ni fausse, et aucune option n'est marquée.
-  keyWithheld?: true
-}
-
-// Sous-ensemble de QuestionDoc que QuestionCard accepte réellement. Défini comme
-// type séparé pour que les pages puissent passer des questions chargées par des
-// requêtes qui ne renvoient pas `explanation`/`references` — ces champs sont
-// lazy-loadés via getQuestionExplanations.
-export type QuestionCardQuestion = Omit<
-  QuestionDoc,
-  "explanation" | "references"
-> & {
-  explanation?: string
-  references?: string[]
-}
+// La forme-pont appartient au moteur de quiz (`runner/types.ts`) ; la carte la
+// consomme telle quelle. `explanation`/`references` peuvent être absents et
+// arriver en différé via `lazy*`.
+export type { QuizQuestion } from "@/components/quiz/runner/types"
 
 // ===== Action Types =====
 export type QuestionActionType =
@@ -73,7 +46,7 @@ export type QuestionCardProps = {
   /** The question data. explanation/references are optional and lazy-loaded
    *  via getQuestionExplanations — pass them explicitly on the question
    *  object or via the `lazyExplanation` prop below. */
-  question: QuestionCardQuestion
+  question: QuizQuestion
 
   /** Lazy-loaded explanation/references. If provided, these take priority
    *  over `question.explanation` and `question.references`. Used by the
@@ -83,11 +56,7 @@ export type QuestionCardProps = {
   /** Images d'explication lazy-chargées (correction examen via
    *  getExamQuestionExplanations). Prioritaires sur `question.explanationImages`.
    *  Rendues UNIQUEMENT en variant "review" (jamais en passation). */
-  lazyExplanationImages?: Array<{
-    url: string
-    storagePath: string
-    order: number
-  }>
+  lazyExplanationImages?: QuizImage[]
 
   /** Display variant - determines overall layout and behavior */
   variant?: QuestionCardVariant
@@ -139,7 +108,7 @@ export type QuestionCardProps = {
 
 // ===== Sub-component Props =====
 export type QuestionHeaderProps = {
-  question: QuestionCardQuestion
+  question: QuizQuestion
   questionNumber?: number
   showDomainBadge?: boolean
   showObjectifBadge?: boolean
@@ -147,7 +116,7 @@ export type QuestionHeaderProps = {
 }
 
 export type QuestionContentProps = {
-  question: QuestionCardQuestion
+  question: QuizQuestion
   showImage?: boolean
   truncate?: boolean
 }

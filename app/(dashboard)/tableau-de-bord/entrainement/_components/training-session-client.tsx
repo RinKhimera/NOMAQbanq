@@ -8,7 +8,6 @@ import type {
   AnswersMap,
   QuizCallbacks,
   QuizMode,
-  QuizQuestion,
   QuizRevealPayload,
 } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
@@ -55,20 +54,6 @@ export const TrainingSessionClient = ({
       </div>
     )
   }
-
-  const mappedQuestions: QuizQuestion[] = initialData.questions.map((q) => ({
-    _id: q._id,
-    question: q.question,
-    options: q.options,
-    domain: q.domain,
-    objectifCMC: q.objectifCMC,
-    images: q.images,
-    // Champs révélés uniquement en tuteur pour les questions déjà répondues
-    correctAnswer: q.correctAnswer,
-    explanation: q.explanation,
-    references: q.references,
-    keyWithheld: q.keyWithheld,
-  }))
 
   const initialAnswers: AnswersMap = {}
   for (const [qid, a] of Object.entries(initialData.answers)) {
@@ -164,7 +149,7 @@ export const TrainingSessionClient = ({
 
   return (
     <QuizRunner
-      questions={mappedQuestions}
+      questions={initialData.questions}
       initialAnswers={initialAnswers}
       initialFlags={new Set(initialData.bookmarkedIds)}
       initialRevealed={initialRevealed}

@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -27,6 +27,8 @@ import {
 } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/ui/empty-state"
 import type { ExamListItem } from "@/features/exams/dal"
+import { useClock } from "@/hooks/use-clock"
+import { partition } from "@/lib/exam-phase"
 import {
   formatDeadline,
   formatFullDateTime,
@@ -399,28 +401,15 @@ export function ExamenBlancClient({
 }: ExamenBlancClientProps) {
   const [selectedExam, setSelectedExam] = useState<string | null>(null)
   const [confirmationOpen, setConfirmationOpen] = useState(false)
-  const [now, setNow] = useState(initialNow)
+  // Reclasse actifs/à venir/passés en temps réel.
+  const now = useClock(initialNow)
   const router = useRouter()
 
-  // Reclasse actifs/à venir/passés en temps réel (le setState est dans le
-  // callback du timer, pas dans le corps de l'effet/rendu).
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 60000)
-    return () => clearInterval(interval)
-  }, [])
-
-  const { activeExams, upcomingExams, pastExams } = useMemo(
-    () => ({
-      activeExams: exams.filter(
-        (exam) => exam.isActive && now >= exam.startDate && now <= exam.endDate,
-      ),
-      upcomingExams: exams.filter(
-        (exam) => exam.isActive && now < exam.startDate,
-      ),
-      pastExams: exams.filter((exam) => exam.isActive && now > exam.endDate),
-    }),
-    [exams, now],
-  )
+  const {
+    active: activeExams,
+    upcoming: upcomingExams,
+    completed: pastExams,
+  } = useMemo(() => partition(exams, now), [exams, now])
 
   // Stats utilisateur : basées sur les examens réellement complétés (userHasTaken).
   // Un score retenu (`null`, examen encore ouvert) ne pèse ni dans les réussis

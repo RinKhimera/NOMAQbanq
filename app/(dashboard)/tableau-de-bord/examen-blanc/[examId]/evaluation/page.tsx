@@ -5,10 +5,8 @@ import {
   getExamSession,
   getExamWithQuestions,
 } from "@/features/exams/dal"
+import { currentTimeMs } from "@/lib/clock"
 import { EvaluationClient } from "./_components/evaluation-client"
-
-// Hors composant : isole l'horloge (impure) du corps de rendu (react-hooks/purity).
-const currentTimeMs = () => Date.now()
 
 export const metadata: Metadata = { title: "Évaluation d'examen" }
 

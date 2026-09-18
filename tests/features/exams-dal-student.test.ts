@@ -3,6 +3,7 @@ import {
   getExamAnswersForParticipation,
   getExamQuestionExplanations,
   getExamSession,
+  getExamWithQuestions,
   getMyAvailableExams,
   getMyDashboardStats,
   getMyRecentExams,
@@ -88,9 +89,13 @@ vi.mock("@/lib/dal", () => ({
 }))
 vi.mock("@/features/payments/dal", () => ({ hasAccess: mocks.hasAccess }))
 vi.mock("@/features/exams/dal.shared", () => ({
-  fetchImages: mocks.fetchImages,
   countQuestionsByExam: mocks.countQuestionsByExam,
 }))
+// Seule la lecture des images est doublée : le mappeur testé est le vrai.
+vi.mock("@/features/questions/quiz-bridge", async (orig) => {
+  const actual = await orig<typeof import("@/features/questions/quiz-bridge")>()
+  return { ...actual, fetchImages: mocks.fetchImages }
+})
 // Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
 vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   const actual =
@@ -378,5 +383,53 @@ describe("acces payant du tableau de bord", () => {
   it("getMyRecentExams renvoie [] quand aucun examen actif", async () => {
     mocks.rows.current = { exams: [] }
     expect(await getMyRecentExams()).toEqual([])
+  })
+})
+
+describe("getExamWithQuestions — clé de réponse", () => {
+  // Trois cas JUMEAUX sur la même ligne de question : seule la combinaison
+  // (rôle, revealKey) change. Retirer `&& isAdmin` ou `opts?.revealKey` de la
+  // garde fait rougir l'un d'eux.
+  const exam = {
+    id: "e1",
+    title: "E",
+    description: null,
+    startDate: new Date(Date.now() - HOUR),
+    endDate: new Date(Date.now() + HOUR),
+    completionTime: 60,
+    isActive: true,
+    enablePause: false,
+    pauseDurationMinutes: null,
+    audienceType: "subscribers",
+  }
+  const item = {
+    questionId: "q1",
+    question: "?",
+    options: ["A", "B"],
+    correctAnswer: "A",
+    objectifCMC: "Obj",
+    domain: "Cardio",
+  }
+
+  it("étudiant avec revealKey : jamais la clé", async () => {
+    asUser()
+    mocks.rows.current = { exams: [exam], exam_questions: [item] }
+    const view = await getExamWithQuestions("e1", { revealKey: true })
+    expect(view?.questions[0]).not.toHaveProperty("correctAnswer")
+  })
+
+  it("admin sans revealKey : pas la clé non plus", async () => {
+    asAdmin()
+    mocks.rows.current = { exams: [exam], exam_questions: [item] }
+    const view = await getExamWithQuestions("e1")
+    expect(view?.questions[0]).not.toHaveProperty("correctAnswer")
+  })
+
+  it("admin avec revealKey : la clé, sans explication", async () => {
+    asAdmin()
+    mocks.rows.current = { exams: [exam], exam_questions: [item] }
+    const view = await getExamWithQuestions("e1", { revealKey: true })
+    expect(view?.questions[0]).toMatchObject({ correctAnswer: "A" })
+    expect(view?.questions[0]).not.toHaveProperty("explanation")
   })
 })
