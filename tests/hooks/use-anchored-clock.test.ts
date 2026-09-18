@@ -16,10 +16,12 @@ describe("useAnchoredClock", () => {
     expect(result.current()).toBe(ANCHOR + 2500)
   })
 
-  it("ne pose l'ancre qu'à la lecture, jamais au rendu : le temps écoulé avant la première lecture n'est pas compté", () => {
+  it("pose l'ancre au montage : le temps écoulé avant la première lecture est compté", () => {
+    // Page rechargée en pause : la première lecture n'a lieu qu'à la reprise,
+    // et la pause écoulée depuis le rendu serveur doit déjà être dans `now()`.
     const { result } = renderHook(() => useAnchoredClock(ANCHOR))
     vi.advanceTimersByTime(5000)
-    expect(result.current()).toBe(ANCHOR)
+    expect(result.current()).toBe(ANCHOR + 5000)
   })
 
   it("une nouvelle ancre serveur repose le delta", () => {

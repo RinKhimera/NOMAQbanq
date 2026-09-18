@@ -1,23 +1,31 @@
-import { useCallback, useRef } from "react"
+import { useCallback, useEffect, useRef } from "react"
+
+type Anchor = { anchor: number; startedAt: number }
 
 /**
  * Horloge d'une tentative côté client : `now()` = ancre serveur + delta
- * monotone depuis la première lecture. `performance.now()` ignore les
- * réglages de l'horloge système : un navigateur dont l'heure est fausse ne
- * gagne ni ne perd de temps par rapport au serveur — `Date.now()` en avance
- * du budget auto-soumettait l'examen au premier tick.
+ * monotone depuis le montage. `performance.now()` ignore les réglages de
+ * l'horloge système : un navigateur dont l'heure est fausse ne gagne ni ne
+ * perd de temps par rapport au serveur — `Date.now()` en avance du budget
+ * auto-soumettait l'examen au premier tick.
  *
- * L'ancre se pose à la première lecture, donc jamais pendant le rendu (règle
+ * L'ancre se pose dans un effet, donc jamais pendant le rendu (règle
  * d'hydratation, `.claude/rules/loading-ui.md`) : le premier rendu lit
- * `anchorNow` directement. Une nouvelle ancre (instant serveur plus récent)
- * repose le delta.
+ * `anchorNow` directement. Elle se pose au MONTAGE, pas à la première
+ * lecture : une page rechargée en pause ne lit l'horloge qu'à la reprise, et
+ * le temps passé en pause depuis le rendu serveur doit déjà être compté (le
+ * serveur le crédite). Une nouvelle ancre (instant serveur plus récent) repose
+ * le delta.
  */
 export function useAnchoredClock(anchorNow: number): () => number {
-  const clockRef = useRef<{ anchor: number; startedAt: number } | null>(null)
+  const anchorRef = useRef<Anchor | null>(null)
+  useEffect(() => {
+    anchorRef.current = { anchor: anchorNow, startedAt: performance.now() }
+  }, [anchorNow])
   return useCallback(() => {
-    if (clockRef.current?.anchor !== anchorNow) {
-      clockRef.current = { anchor: anchorNow, startedAt: performance.now() }
+    if (anchorRef.current?.anchor !== anchorNow) {
+      anchorRef.current = { anchor: anchorNow, startedAt: performance.now() }
     }
-    return anchorNow + (performance.now() - clockRef.current.startedAt)
+    return anchorNow + (performance.now() - anchorRef.current.startedAt)
   }, [anchorNow])
 }

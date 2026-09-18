@@ -184,3 +184,35 @@ describe("useExamTimer — horloge cliente fausse", () => {
     expect(result.current.remainingMs).toBe(afterOneSecond - 1000)
   })
 })
+
+describe("useExamTimer — page rechargée en pause", () => {
+  it("l'ancre se pose au montage, pas à la reprise : le crédit de pause ne fait pas bondir le restant", () => {
+    // Rechargement 60 s après le début, en pause. 8 min plus tard, reprise :
+    // le serveur crédite 8 min de pause, et le temps a bien couru 8 min
+    // depuis l'ancre → restant = budget − 60 s, pas budget − 60 s + 8 min.
+    const start = Date.now()
+    const EIGHT_MINUTES = 8 * 60 * 1000
+    const { result, rerender } = renderHook(
+      ({ paused, credit }: { paused: boolean; credit: number }) =>
+        useExamTimer({
+          serverStartTime: start,
+          initialNow: start + 60_000,
+          totalSeconds: 3600,
+          isPaused: paused,
+          totalPauseDurationMs: credit,
+          onExpire: vi.fn(),
+        }),
+      { initialProps: { paused: true, credit: 0 } },
+    )
+    expect(result.current.remainingMs).toBe(3_540_000)
+    act(() => {
+      vi.advanceTimersByTime(EIGHT_MINUTES)
+    })
+    rerender({ paused: false, credit: EIGHT_MINUTES })
+    expect(result.current.remainingMs).toBe(3_540_000)
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(result.current.remainingMs).toBe(3_539_000)
+  })
+})

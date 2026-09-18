@@ -399,14 +399,12 @@ describe("IDOR / propriété", () => {
   })
 
   it("un autre utilisateur ne supprime pas la session close d'autrui : introuvable, la ligne survit", async () => {
-    const res = await createTrainingSession({
-      questionCount: 5,
-      domain: DOMAIN,
-      mode: "test",
-    })
-    expect(res.success).toBe(true)
-    if (!res.success) return
-    const sid = res.sessionId
+    // La session in_progress du test précédent (une seule à la fois) — close
+    // d'abord, la suppression d'une session en cours étant refusée à tous.
+    const active = await getActiveTrainingSession()
+    expect(active?.session.id).toBeDefined()
+    if (!active) return
+    const sid = active.session.id
     expect((await abandonTrainingSession({ sessionId: sid })).success).toBe(
       true,
     )
