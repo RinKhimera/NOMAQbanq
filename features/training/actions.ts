@@ -184,7 +184,7 @@ export const createTrainingSession = async (
           throw new Error("ACTIVE_EXISTS")
         }
         // La session expirée qui barre la place est close par l'écrivain du
-        // cron (scorée, `completedAt` posé), pas par un flip de statut.
+        // cron (scorée, `completedAt` posé), sous le verrou courant.
         await expireTrainingSessions(tx, { now, sessionId: existing.id })
       }
 
