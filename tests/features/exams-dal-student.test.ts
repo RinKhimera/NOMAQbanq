@@ -9,6 +9,7 @@ import {
   getMyScoreHistory,
   getParticipantExamResults,
 } from "@/features/exams/dal.student"
+import { lockFor } from "@/features/questions/answer-key-lock"
 
 // Couvre les DECISIONS de la DAL etudiant : gardes de session, frontiere
 // admin/proprietaire, et la fenetre anti-fuite des resultats. La semantique SQL
@@ -282,6 +283,11 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
     }
     const view = await getParticipantExamResults("e1", "u1")
     if (!view || "error" in view) throw new Error("vue attendue")
+    // Le verrou est celui du LECTEUR (session), pas du participant consulté.
+    expect(vi.mocked(lockFor)).toHaveBeenCalledWith(
+      { id: "u1", role: "user" },
+      ["q1", "q2"],
+    )
     const [q1, q2] = view.questions
     expect(q1).not.toHaveProperty("correctAnswer")
     expect(q1).toMatchObject({ keyWithheld: true })

@@ -65,8 +65,10 @@ storagePath,order}` pour rester assignable aux composants partagés
   pour un admin). Deux entrées, à ne pas contourner : `lockFor(viewer,
 candidats)` → `Lock.reveal(row, niveau)` sur les canaux de RÉVÉLATION
   (correction d'entraînement, résultats et explications d'examen, notation du
-  quiz public) — c'est lui qui décide quels champs blanchir et pose
-  `keyWithheld` ; `excludeLocked(viewer, colonne)` dans le WHERE des canaux de
+  quiz public) — `reveal` décide quels champs de CORRECTION blanchir et pose
+  `keyWithheld` ; `isCorrect` d'une réponse se masque à côté, par `Lock.has`,
+  car il révèle la clé combiné à `selectedAnswer` ; `excludeLocked(viewer,
+colonne)` dans le WHERE des canaux de
   SÉLECTION (corpus de révision, tirage du quiz public). Masquer la correction
   ne suffit pas : l'appartenance d'une question au lot « mes ratées » dit déjà
   « tu t'es trompé ». `pickRevisionQuestionIds` et `getRevisionCounts`

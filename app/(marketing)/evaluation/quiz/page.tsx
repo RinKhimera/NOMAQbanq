@@ -110,8 +110,8 @@ export default function QuizPage() {
         // Refus TOTAL du serveur (jeton expiré, rate-limit, ou toutes les
         // questions verrouillées par un examen ouvert) → écran « session
         // expirée ». Un verrou PARTIEL (rare : examen ouvert pendant la vie du
-        // jeton couvrant une partie du lot) laisse ces questions avec
-        // `correctAnswer: ""` — compromis assumé.
+        // jeton couvrant une partie du lot) laisse ces questions sans
+        // correction : clé retenue, affichée comme « correction différée ».
         if (result.totalQuestions === 0) {
           setScoreFailed(true)
           return
@@ -123,6 +123,7 @@ export default function QuizPage() {
           const scored = resultMap.get(q._id)
           return {
             ...q,
+            ...(scored ? {} : { keyWithheld: true as const }),
             correctAnswer: scored?.correctAnswer ?? "",
             explanation: scored?.explanation ?? "",
             references: scored?.references ?? [],

@@ -138,11 +138,14 @@ export function SessionResults({
   >(new Map())
   const loadedIds = useRef<Set<string>>(new Set())
 
+  // Une question à clé retenue n'a pas d'explication à charger : le serveur la
+  // refuserait de toute façon.
   const expandedQuestionIds = useMemo(
     () =>
       [...expandedQuestions]
-        .map((index) => questions[index]?._id)
-        .filter((id): id is string => id !== undefined),
+        .map((index) => questions[index])
+        .filter((q) => q !== undefined && !q.keyWithheld)
+        .map((q) => q._id),
     [expandedQuestions, questions],
   )
 
@@ -338,7 +341,8 @@ export function SessionResults({
                     </motion.span>
                   </div>
                   <p className="text-gray-600 dark:text-gray-400">
-                    {summary.correct} sur {questions.length} questions réussies
+                    {summary.correct} sur {questions.length - summary.withheld}{" "}
+                    questions réussies
                   </p>
                   <div className="mt-3">
                     <Badge

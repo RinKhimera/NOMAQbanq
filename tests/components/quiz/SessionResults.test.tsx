@@ -144,6 +144,38 @@ describe("SessionResults", () => {
       expect(cards[0].textContent).toBe("Q3")
     })
 
+    it("« X sur N réussies » compte les questions corrigeables, pas les différées", () => {
+      render(
+        <SessionResults
+          accent="emerald"
+          score={33}
+          questions={withheldQuestions}
+          answers={withheldAnswers}
+        />,
+      )
+      expect(screen.getByText("1 sur 2 questions réussies")).toBeInTheDocument()
+    })
+
+    it("ne demande pas l'explication d'une question à clé retenue", async () => {
+      const loadExplanations = vi.fn<(ids: string[]) => Promise<never[]>>(
+        async () => [],
+      )
+      render(
+        <SessionResults
+          accent="blue"
+          score={33}
+          questions={withheldQuestions}
+          answers={withheldAnswers}
+          loadExplanations={loadExplanations}
+        />,
+      )
+      fireEvent.click(screen.getByTestId("btn-expand-all"))
+      await vi.waitFor(() => expect(loadExplanations).toHaveBeenCalled())
+      for (const ids of loadExplanations.mock.calls.map((c) => c[0])) {
+        expect(ids).not.toContain("q2")
+      }
+    })
+
     it("le navigateur reçoit le marqueur « différée »", () => {
       render(
         <SessionResults

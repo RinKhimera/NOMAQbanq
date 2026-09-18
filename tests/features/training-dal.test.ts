@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { lockFor } from "@/features/questions/answer-key-lock"
 import {
   getActiveTrainingSession,
   getAvailableDomains,
@@ -147,6 +148,15 @@ describe("verrou de clé de réponse (examen ouvert)", () => {
       training_sessions: [sessionRow({ status: "completed", score: 50 })],
       training_session_items: [itemRow("q1"), itemRow("q2")],
     }
+  })
+
+  it("le verrou est évalué pour le lecteur de la session, sur les questions de la session", async () => {
+    asAdmin()
+    await getTrainingSessionById("s1")
+    expect(vi.mocked(lockFor)).toHaveBeenCalledWith(
+      { id: "adm", role: "admin" },
+      ["q1", "q2"],
+    )
   })
 
   it("getTrainingSessionById retient la correction d'une question verrouillée", async () => {
