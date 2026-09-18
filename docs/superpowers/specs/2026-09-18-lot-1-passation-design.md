@@ -166,3 +166,48 @@ disparaît (ses formatteurs migrent).
   garde « fenêtre » de `requireAttempt` (PR 2), qui consommera `phaseOf`.
 - Périphérie ajoutée : `lib/clock.ts` (`currentTimeMs`, trois copies) et
   `hooks/use-clock.ts` (ancre + tick, quatre surfaces).
+
+## Écarts constatés à l'implémentation de la PR 2 (2026-09-18)
+
+- `requireAttempt` prend un `actor: { id, role }` (le `LockUser` de
+  `viewerOf`), pas un `actorId` : le bypass admin de l'accès et du budget est
+  une décision de la garde, l'action ne fait que transmettre le rôle. Un admin
+  est exempté du budget au `close` comme à l'`answer` (avant : à l'`answer`
+  seulement) — sa participation n'est pas une tentative notée.
+- `ref` d'un examen = identifiant de l'EXAMEN (la participation est unique par
+  `(exam, acteur)`), ce que les actions reçoivent déjà ; le verrou ne porte que
+  la participation (`FOR UPDATE OF p`), jamais la ligne `exams`.
+- Le SELECT verrouillé est en SQL brut (`exec.execute`, patron
+  `pickRevisionQuestionIds`) : Drizzle y laisse les `timestamptz` en chaîne, les
+  instants sont donc projetés en epoch ms côté SQL (`float8`). Découvert par
+  l'intégration, invisible aux unitaires.
+- `isAutoSubmit` reste un booléen client, avec un seul effet : exempter le
+  `close` du budget. Il n'exempte jamais une réponse (verbe `answer`), et le
+  statut `auto_submitted` continue de le refléter. La dérivation du statut
+  depuis l'horloge serveur (constat #9 de la revue PR 1) a été écartée : elle
+  changerait le libellé vu par l'étudiant dans la grâce, sans rien protéger de
+  plus.
+- Messages fusionnés par code : `ALREADY_TAKEN` de `finalizeExam` et
+  « L'examen n'est pas en cours. » de pause/resume deviennent
+  `NOT_IN_PROGRESS` (« Cette session d'examen n'est plus active. », que le
+  client redirige déjà) ; `TIME_UP` n'a plus qu'un message (« Temps écoulé. ») ;
+  « Examen introuvable. » à l'écriture devient `NOT_FOUND`
+  (« Participation introuvable. »). `startExam` garde ses codes propres (ce
+  n'est pas une écriture sur une tentative).
+- `scoreSql` vit dans `features/attempts/score.ts` (server-only), pas dans
+  `lib/score.ts` : ce dernier est importé par des composants client
+  (`formatScore`), y mettre `drizzle-orm` l'embarquerait dans le bundle.
+  `lib/score.ts` gagne `classify`/`summarize` (AttemptScore côté lecture) ;
+  `toAnswersMap` reste reporté, `summarize` n'en a pas eu besoin.
+- `hasActiveAccess(exec, { userId, type, now })` remplace aussi les deux
+  lectures inline de `user_access` de `startExam`/`finalizeExam` ; `hasAccess()`
+  reste l'enrobage sur `db` pour les DAL et `createTrainingSession`.
+- `saveExamFlag`, `pauseExam`, `resumeExam` et les trois écritures
+  d'entraînement passent désormais sous transaction + verrou ; les
+  `.returning().length` de garde de statut disparaissent, ceux qui détectent
+  une ligne `exam_answers` absente (« session incohérente ») restent.
+- Tests d'intégration : le scénario « session expirée → bascule abandonnée »
+  devient « refus sans écriture, puis le cron la clôt scorée », plus un cas
+  « création d'une nouvelle session clôt l'expirée par le même écrivain ».
+  `tests/integration/score-parity.test.ts` confronte `computeScorePercent` à
+  `scoreSql` sur les 20 301 couples (justes, total ≤ 200).
