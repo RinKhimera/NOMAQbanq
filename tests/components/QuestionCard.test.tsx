@@ -238,6 +238,38 @@ describe("QuestionCard", () => {
       expect(lyon).not.toHaveClass("bg-red-100")
     })
 
+    it("clé retenue, validée en tuteur : notice « correction différée », choix ni vert ni rouge", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={{ ...mockQuestion, correctAnswer: "", keyWithheld: true }}
+          selectedAnswer="Lyon"
+          showCorrectAnswer={true}
+        />,
+      )
+      expect(screen.getByTestId("key-withheld-notice")).toBeInTheDocument()
+      expect(
+        screen.queryByTestId("explanation-content"),
+      ).not.toBeInTheDocument()
+      const lyon = screen.getByText("Lyon").closest("div")
+      expect(lyon).toHaveClass("bg-blue-50", "border-blue-400")
+      expect(lyon).not.toHaveClass("bg-red-100")
+    })
+
+    it("clé retenue, pas encore validée : aucune notice", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={{ ...mockQuestion, correctAnswer: "", keyWithheld: true }}
+          selectedAnswer="Lyon"
+          showCorrectAnswer={false}
+        />,
+      )
+      expect(
+        screen.queryByTestId("key-withheld-notice"),
+      ).not.toBeInTheDocument()
+    })
+
     it("mode test : ne révèle PAS l'explication en passation (showCorrectAnswer=false)", () => {
       render(
         <QuestionCard
@@ -257,6 +289,25 @@ describe("QuestionCard", () => {
   })
 
   describe("Variant: review", () => {
+    it("clé retenue : statut « Correction différée », notice à la place de l'explication, réponse sans ✗", () => {
+      render(
+        <QuestionCard
+          variant="review"
+          question={{ ...mockQuestion, correctAnswer: "", keyWithheld: true }}
+          userAnswer="Lyon"
+          isExpanded={true}
+        />,
+      )
+      expect(screen.getByText("Correction différée")).toBeInTheDocument()
+      expect(screen.queryByText("Incorrect")).not.toBeInTheDocument()
+      expect(screen.getByTestId("key-withheld-notice")).toBeInTheDocument()
+      expect(
+        screen.queryByTestId("explanation-content"),
+      ).not.toBeInTheDocument()
+      const lyon = screen.getByText("Lyon").closest("div")
+      expect(lyon).not.toHaveClass("bg-red-100")
+    })
+
     it("affiche l'explication si étendu", () => {
       render(
         <QuestionCard

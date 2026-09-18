@@ -9,6 +9,7 @@ import {
   getMyScoreHistory,
   getParticipantExamResults,
 } from "@/features/exams/dal.student"
+import { lockFor } from "@/features/questions/answer-key-lock"
 
 // Couvre les DECISIONS de la DAL etudiant : gardes de session, frontiere
 // admin/proprietaire, et la fenetre anti-fuite des resultats. La semantique SQL
@@ -28,7 +29,7 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
     },
     hasAccess: vi.fn(async () => true),
     fetchImages: vi.fn(async () => new Map<string, unknown[]>()),
-    getOpenExamLockedQuestionIds: vi.fn(async () => new Set<string>()),
+    lockedIds: { current: new Set<string>() },
     countQuestionsByExam: vi.fn(async () => new Map<string, number>()),
   }
 
@@ -88,9 +89,19 @@ vi.mock("@/lib/dal", () => ({
 vi.mock("@/features/payments/dal", () => ({ hasAccess: mocks.hasAccess }))
 vi.mock("@/features/exams/dal.shared", () => ({
   fetchImages: mocks.fetchImages,
-  getOpenExamLockedQuestionIds: mocks.getOpenExamLockedQuestionIds,
   countQuestionsByExam: mocks.countQuestionsByExam,
 }))
+// Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
+vi.mock("@/features/questions/answer-key-lock", async (orig) => {
+  const actual =
+    await orig<typeof import("@/features/questions/answer-key-lock")>()
+  return {
+    ...actual,
+    lockFor: vi.fn(async () =>
+      actual.AnswerKeyLock.fromIds(mocks.lockedIds.current),
+    ),
+  }
+})
 
 const HOUR = 3600_000
 const anonymous = () => {
@@ -105,6 +116,7 @@ const asAdmin = () => {
 
 beforeEach(() => {
   mocks.rows.current = {}
+  mocks.lockedIds.current = new Set()
   asUser()
   mocks.hasAccess.mockResolvedValue(true)
 })
@@ -247,6 +259,46 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
     expect(await getParticipantExamResults("e1", "u1")).not.toBeNull()
   })
 
+  it("retient la cle d'une question verrouillee par un autre examen ouvert", async () => {
+    asUser("u1")
+    mocks.lockedIds.current = new Set(["q1"])
+    const questionRow = (questionId: string) => ({
+      questionId,
+      qCreatedAt: new Date(),
+      question: `Q ${questionId}`,
+      options: ["A", "B"],
+      correctAnswer: "A",
+      objectifCMC: "Obj",
+      domain: "CARDIO",
+    })
+    mocks.rows.current = {
+      exams: [closedExam],
+      user: [{ id: "u1", name: "Etu", email: "e@x.test", image: null }],
+      exam_participations: completedParticipation,
+      exam_questions: [questionRow("q1"), questionRow("q2")],
+      exam_answers: [
+        { questionId: "q1", selectedAnswer: "A", isCorrect: true },
+        { questionId: "q2", selectedAnswer: "B", isCorrect: false },
+      ],
+    }
+    const view = await getParticipantExamResults("e1", "u1")
+    if (!view || "error" in view) throw new Error("vue attendue")
+    // Le verrou est celui du LECTEUR (session), pas du participant consulté.
+    expect(vi.mocked(lockFor)).toHaveBeenCalledWith(
+      { id: "u1", role: "user" },
+      ["q1", "q2"],
+    )
+    const [q1, q2] = view.questions
+    expect(q1).not.toHaveProperty("correctAnswer")
+    expect(q1).toMatchObject({ keyWithheld: true })
+    expect(q2).toMatchObject({ correctAnswer: "A" })
+    expect(q2).not.toHaveProperty("keyWithheld")
+    expect(view.participant.answers).toEqual([
+      { questionId: "q1", selectedAnswer: "A", isCorrect: null },
+      { questionId: "q2", selectedAnswer: "B", isCorrect: false },
+    ])
+  })
+
   it("laisse l'admin voir les resultats d'un examen encore ouvert", async () => {
     asAdmin()
     mocks.rows.current = { exams: [openExam], user: [], exam_answers: [] }
@@ -305,7 +357,7 @@ describe("getExamQuestionExplanations", () => {
   // temoin »). Ici on couvre ce qui se decide en JS.
   it("retire les questions verrouillees par un examen ouvert", async () => {
     asUser("u1")
-    mocks.getOpenExamLockedQuestionIds.mockResolvedValueOnce(new Set(["q1"]))
+    mocks.lockedIds.current = new Set(["q1"])
     mocks.rows.current = {
       exam_questions: [{ questionId: "q1" }],
       training_session_items: [],

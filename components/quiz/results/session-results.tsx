@@ -5,6 +5,7 @@ import {
   CircleX,
   Clock,
   Funnel,
+  Hourglass,
   Target,
   TrendingUp,
   Trophy,
@@ -15,7 +16,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
-import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
+import {
+  type AnswersMap,
+  KEY_WITHHELD_MESSAGE,
+  type QuizQuestion,
+} from "@/components/quiz/runner/types"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
@@ -28,13 +33,6 @@ import { cn } from "@/lib/utils"
 // Types
 // ============================================
 
-export interface SessionResultsSummary {
-  score: number
-  correct: number
-  incorrect: number
-  unanswered: number
-}
-
 export interface SessionResultsParticipant {
   name: string
   email: string
@@ -43,7 +41,8 @@ export interface SessionResultsParticipant {
 
 export interface SessionResultsProps {
   accent: "blue" | "emerald"
-  summary: SessionResultsSummary
+  /** Score enregistré en base. Les compteurs sont dérivés de `questions` + `answers`. */
+  score: number
   questions: QuizQuestion[]
   /** Sparse-safe: absence of a key == unanswered; entry with no/empty selected == unanswered */
   answers: AnswersMap
@@ -108,7 +107,7 @@ const getScoreLabel = (score: number, accent: "blue" | "emerald") => {
  */
 export function SessionResults({
   accent,
-  summary,
+  score,
   questions,
   answers,
   loadExplanations,
@@ -139,11 +138,14 @@ export function SessionResults({
   >(new Map())
   const loadedIds = useRef<Set<string>>(new Set())
 
+  // Une question à clé retenue n'a pas d'explication à charger : le serveur la
+  // refuserait de toute façon.
   const expandedQuestionIds = useMemo(
     () =>
       [...expandedQuestions]
-        .map((index) => questions[index]?._id)
-        .filter((id): id is string => id !== undefined),
+        .map((index) => questions[index])
+        .filter((q) => q !== undefined && !q.keyWithheld)
+        .map((q) => q._id),
     [expandedQuestions, questions],
   )
 
@@ -182,6 +184,8 @@ export function SessionResults({
 
   // Build question results with sparse-answer compat.
   // "no key" == unanswered; "entry with empty/null selected" == unanswered.
+  // Une réponse dont la clé est retenue (examen ouvert) n'est ni juste ni
+  // fausse : elle sort des compteurs et du filtre « Erreurs ».
   const questionResults = useMemo(
     () =>
       questions.map((q) => {
@@ -191,22 +195,41 @@ export function SessionResults({
           entry.selected !== undefined &&
           entry.selected !== null &&
           entry.selected !== ""
-        const isCorrect = hasAnswer ? (entry.isCorrect ?? false) : false
+        const isWithheld = hasAnswer && !!q.keyWithheld
+        const isCorrect =
+          hasAnswer && !isWithheld ? (entry.isCorrect ?? false) : false
         return {
           question: q,
           isAnswered: hasAnswer,
+          isWithheld,
           isCorrect,
+          isError: hasAnswer ? !isWithheld && !isCorrect : true,
           userAnswer: hasAnswer ? entry.selected : null,
         }
       }),
     [questions, answers],
   )
 
+  const summary = useMemo(() => {
+    let correct = 0
+    let incorrect = 0
+    let unanswered = 0
+    let withheld = 0
+    for (const r of questionResults) {
+      if (!r.isAnswered) unanswered++
+      else if (r.isWithheld) withheld++
+      else if (r.isCorrect) correct++
+      else incorrect++
+    }
+    return { score, correct, incorrect, unanswered, withheld }
+  }, [questionResults, score])
+
   const navigatorResults = useMemo(
     () =>
       questionResults.map((r) => ({
         isCorrect: r.isCorrect,
         isAnswered: r.isAnswered,
+        isWithheld: r.isWithheld,
       })),
     [questionResults],
   )
@@ -217,7 +240,7 @@ export function SessionResults({
   )
 
   const filteredResults = showErrorsOnly
-    ? questionResults.filter((r) => !r.isCorrect)
+    ? questionResults.filter((r) => r.isError)
     : questionResults
 
   const toggleQuestionExpand = (index: number) => {
@@ -318,7 +341,8 @@ export function SessionResults({
                     </motion.span>
                   </div>
                   <p className="text-gray-600 dark:text-gray-400">
-                    {summary.correct} sur {questions.length} questions réussies
+                    {summary.correct} sur {questions.length - summary.withheld}{" "}
+                    questions réussies
                   </p>
                   <div className="mt-3">
                     <Badge
@@ -340,7 +364,10 @@ export function SessionResults({
                   <div className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60">
                     <div className="flex items-center gap-2">
                       <CircleCheckBig className="h-5 w-5 text-green-500" />
-                      <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      <span
+                        data-testid="stat-correct"
+                        className="text-2xl font-bold text-green-600 dark:text-green-400"
+                      >
                         {summary.correct}
                       </span>
                     </div>
@@ -352,7 +379,10 @@ export function SessionResults({
                   <div className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60">
                     <div className="flex items-center gap-2">
                       <CircleX className="h-5 w-5 text-red-500" />
-                      <span className="text-2xl font-bold text-red-600 dark:text-red-400">
+                      <span
+                        data-testid="stat-incorrect"
+                        className="text-2xl font-bold text-red-600 dark:text-red-400"
+                      >
                         {summary.incorrect}
                       </span>
                     </div>
@@ -361,11 +391,34 @@ export function SessionResults({
                     </span>
                   </div>
 
+                  {summary.withheld > 0 && (
+                    <div
+                      className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60"
+                      title={KEY_WITHHELD_MESSAGE}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Hourglass className="h-5 w-5 text-amber-500" />
+                        <span
+                          data-testid="stat-withheld"
+                          className="text-2xl font-bold text-amber-600 dark:text-amber-400"
+                        >
+                          {summary.withheld}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Différées
+                      </span>
+                    </div>
+                  )}
+
                   {summary.unanswered > 0 && (
                     <div className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60">
                       <div className="flex items-center gap-2">
                         <Clock className="h-5 w-5 text-gray-500" />
-                        <span className="text-2xl font-bold text-gray-600 dark:text-gray-400">
+                        <span
+                          data-testid="stat-unanswered"
+                          className="text-2xl font-bold text-gray-600 dark:text-gray-400"
+                        >
                           {summary.unanswered}
                         </span>
                       </div>

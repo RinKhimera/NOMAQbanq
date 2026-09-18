@@ -64,6 +64,31 @@ describe("ResultsQuestionNavigator", () => {
     expect(screen.getByText(/Vide \(1\)/)).toBeInTheDocument()
   })
 
+  it("une question à clé retenue est « différée » : ni correcte ni incorrecte", () => {
+    const withWithheld: QuestionResultItem[] = [
+      { isCorrect: true, isAnswered: true },
+      { isCorrect: false, isAnswered: true, isWithheld: true },
+    ]
+    render(
+      <ResultsQuestionNavigator
+        {...defaultProps}
+        questionResults={withWithheld}
+      />,
+    )
+    expect(screen.getByTestId("results-nav-item-1")).toHaveAttribute(
+      "data-state",
+      "withheld",
+    )
+    expect(screen.getByText(/Correct \(1\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Incorrect \(0\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Différée \(1\)/)).toBeInTheDocument()
+  })
+
+  it("n'affiche pas la légende Différée sans clé retenue", () => {
+    render(<ResultsQuestionNavigator {...defaultProps} />)
+    expect(screen.queryByText(/Différée/)).not.toBeInTheDocument()
+  })
+
   it("n'affiche pas la légende Vide quand il n'y a pas de questions sans réponse", () => {
     const allAnswered: QuestionResultItem[] = [
       { isCorrect: true, isAnswered: true },

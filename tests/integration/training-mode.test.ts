@@ -99,9 +99,9 @@ describe("mode entraînement", () => {
       expect(res.success).toBe(true)
       if (!res.success) return
       expect(typeof res.isCorrect).toBe("boolean")
-      expect(res.reveal).toBeDefined()
-      expect(typeof res.reveal?.correctAnswer).toBe("string")
-      expect(res.reveal?.correctAnswer).toBe("A")
+      expect(res.reveal).toEqual(
+        expect.objectContaining({ correctAnswer: "A" }),
+      )
     } finally {
       await abandonTrainingSession({ sessionId })
     }

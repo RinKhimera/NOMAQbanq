@@ -6,6 +6,7 @@ import {
   CircleCheckBig,
   CircleX,
   Flag,
+  Hourglass,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Image from "next/image"
@@ -13,6 +14,7 @@ import { QuestionImageGallery } from "@/components/shared/question-image-gallery
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { KEY_WITHHELD_MESSAGE } from "../runner/types"
 import { AnswerOption } from "./answer-option"
 import {
   QuestionHeader,
@@ -76,6 +78,19 @@ const getAnswerState = (
 
   return "default"
 }
+
+// ===== Key Withheld Notice =====
+// Clé retenue par un examen ouvert : tient lieu de correction, en passation
+// tuteur comme en révision, tant que l'examen n'est pas clos.
+const KeyWithheldNotice = () => (
+  <div
+    data-testid="key-withheld-notice"
+    className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+  >
+    {KEY_WITHHELD_MESSAGE}. Cette question figure dans un examen blanc encore
+    ouvert : sa correction sera disponible ici dès sa clôture.
+  </div>
+)
 
 // ===== Question Explanation Component =====
 type ExplanationImage = { url: string; storagePath: string; order: number }
@@ -195,6 +210,8 @@ export const QuestionCard = ({
   const effectiveExplanationImages =
     lazyExplanationImages ?? question.explanationImages
 
+  const isKeyWithheld = !!question.keyWithheld
+
   const getCardStyles = () => {
     if (variant === "review") {
       const wasAnswered = userAnswer !== null
@@ -202,6 +219,8 @@ export const QuestionCard = ({
 
       if (!wasAnswered) {
         return "bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700"
+      } else if (isKeyWithheld) {
+        return "bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800"
       } else if (isCorrect) {
         return "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800"
       } else {
@@ -221,6 +240,14 @@ export const QuestionCard = ({
         icon: <CircleX className="h-4 w-4 text-gray-400 sm:h-5 sm:w-5" />,
         text: "Non répondu",
         textColor: "text-gray-600 dark:text-gray-400",
+      }
+    } else if (isKeyWithheld) {
+      return {
+        icon: (
+          <Hourglass className="h-4 w-4 text-amber-600 sm:h-5 sm:w-5 dark:text-amber-400" />
+        ),
+        text: "Correction différée",
+        textColor: "text-amber-600 dark:text-amber-400",
       }
     } else if (isCorrect) {
       return {
@@ -250,6 +277,9 @@ export const QuestionCard = ({
   // mais SANS correctAnswer) — sinon le choix serait marqué faux à tort.
   const isExamReveal =
     isExamVariant && showCorrectAnswer && !!question.correctAnswer
+  // Passation tuteur validée sur une clé retenue : la notice tient lieu de
+  // correction ; aucune option n'est marquée (pas de bonne réponse connue).
+  const isExamWithheld = isExamVariant && showCorrectAnswer && isKeyWithheld
 
   return (
     <motion.div
@@ -460,18 +490,27 @@ export const QuestionCard = ({
             )}
           >
             {question.options.map((option, index) => {
-              const state = getAnswerState(
-                option,
-                selectedAnswer,
-                question.correctAnswer,
-                showCorrectAnswer,
-                userAnswer,
-                isReviewVariant,
-                isExamReveal,
-              )
+              // Clé retenue : rien n'est corrigé, la réponse reste « choisie ».
+              const state = isKeyWithheld
+                ? getAnswerState(
+                    option,
+                    userAnswer ?? selectedAnswer,
+                    "",
+                    false,
+                  )
+                : getAnswerState(
+                    option,
+                    selectedAnswer,
+                    question.correctAnswer,
+                    showCorrectAnswer,
+                    userAnswer,
+                    isReviewVariant,
+                    isExamReveal,
+                  )
 
-              const isCorrectAnswer = option === question.correctAnswer
-              const isUserAnswer = option === userAnswer
+              const isCorrectAnswer =
+                !isKeyWithheld && option === question.correctAnswer
+              const isUserAnswer = !isKeyWithheld && option === userAnswer
               const isSelectedOption =
                 selectedAnswer != null && option === selectedAnswer
 
@@ -511,7 +550,12 @@ export const QuestionCard = ({
           encore rendu les données : on affiche un skeleton dans ce cas pour ne
           pas faire sauter la UI. */}
       <AnimatePresence>
-        {isReviewVariant && isExpanded && (
+        {isReviewVariant && isExpanded && isKeyWithheld && (
+          <div className="mt-4">
+            <KeyWithheldNotice />
+          </div>
+        )}
+        {isReviewVariant && isExpanded && !isKeyWithheld && (
           <div className="mt-4">
             {effectiveExplanation !== undefined ? (
               <QuestionExplanation
@@ -544,6 +588,11 @@ export const QuestionCard = ({
               explanation={effectiveExplanation}
               references={effectiveReferences}
             />
+          </div>
+        )}
+        {isExamWithheld && (
+          <div className="mt-4">
+            <KeyWithheldNotice />
           </div>
         )}
       </AnimatePresence>

@@ -1,12 +1,7 @@
-import { and, asc, eq, gt, inArray, sql } from "drizzle-orm"
+import { and, asc, eq, inArray, sql } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
-import {
-  examParticipations,
-  examQuestions,
-  exams,
-  questionImages,
-} from "@/db/schema"
+import { examQuestions, questionImages } from "@/db/schema"
 import { cdnUrl } from "@/lib/cdn"
 
 // ============================================
@@ -72,6 +67,8 @@ export type ExamQuestionView = {
   correctAnswer?: string
   explanation?: string
   references?: string[]
+  /** Clé retenue par un examen ouvert : correction différée à sa clôture. */
+  keyWithheld?: true
 }
 
 export const countQuestionsByExam = async (
@@ -89,85 +86,4 @@ export const countQuestionsByExam = async (
     .groupBy(examQuestions.examId)
   for (const r of rows) map.set(r.examId, r.n)
   return map
-}
-
-/**
- * Parmi `questionIds`, celles appartenant à un examen OUVERT (`endDate` future)
- * où `userId` a une participation (tout statut). La banque de questions étant
- * partagée training/examens, la clé de réponse de ces questions ne doit fuiter
- * par AUCUN canal de révision pendant la fenêtre d'examen (explications lazy,
- * correction d'entraînement). Compromis assumé : la révision training de ces
- * questions est différée jusqu'à la clôture de l'examen.
- */
-export const getOpenExamLockedQuestionIds = async (
-  userId: string,
-  questionIds: string[],
-): Promise<Set<string>> => {
-  if (questionIds.length === 0) return new Set()
-  return getUserOpenExamLockedQuestionIds(userId, questionIds)
-}
-
-/**
- * TOUTES les questions verrouillées pour `userId`, sans liste de candidats à
- * restreindre. Source unique de la règle : `getOpenExamLockedQuestionIds` n'en
- * est qu'une restriction.
- *
- * Le corpus de révision s'en sert pour exclure AVANT le tirage — l'appartenance
- * d'une question au lot « mes ratées » dit déjà « tu t'es trompé », donc triche
- * pendant qu'un examen est ouvert, sans jamais voir la clé. Borné par les
- * examens auxquels l'utilisateur participe.
- */
-export const getUserOpenExamLockedQuestionIds = async (
-  userId: string,
-  /**
-   * Restreint la lecture à ces questions quand l'appelant en a la liste (canaux
-   * de révélation). Sans elle, la lecture reste bornée par les examens ouverts
-   * auxquels l'utilisateur participe — le corpus de révision n'a pas de liste de
-   * candidats à fournir, c'est tout l'objet de cette fonction.
-   */
-  questionIds?: string[],
-): Promise<Set<string>> => {
-  const rows = await db
-    .selectDistinct({ questionId: examQuestions.questionId })
-    .from(examQuestions)
-    .innerJoin(exams, eq(exams.id, examQuestions.examId))
-    .innerJoin(
-      examParticipations,
-      eq(examParticipations.examId, examQuestions.examId),
-    )
-    .where(
-      and(
-        eq(examParticipations.userId, userId),
-        gt(exams.endDate, new Date()),
-        questionIds?.length
-          ? inArray(examQuestions.questionId, questionIds)
-          : undefined,
-      ),
-    )
-  return new Set(rows.map((r) => r.questionId))
-}
-
-/**
- * Variante ANONYME de `getOpenExamLockedQuestionIds` : parmi `questionIds`,
- * celles figurant dans AU MOINS un examen ouvert (`endDate` future), sans
- * dimension utilisateur. Canal public du quiz marketing : l'appelant
- * étant anonyme, la clé d'une question d'examen ouvert ne doit fuiter pour
- * PERSONNE — une question aussi présente dans un examen clos reste verrouillée
- * (l'examen ouvert prime).
- */
-export const getOpenExamQuestionIds = async (
-  questionIds: string[],
-): Promise<Set<string>> => {
-  if (questionIds.length === 0) return new Set()
-  const rows = await db
-    .selectDistinct({ questionId: examQuestions.questionId })
-    .from(examQuestions)
-    .innerJoin(exams, eq(exams.id, examQuestions.examId))
-    .where(
-      and(
-        gt(exams.endDate, new Date()),
-        inArray(examQuestions.questionId, questionIds),
-      ),
-    )
-  return new Set(rows.map((r) => r.questionId))
 }

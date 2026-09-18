@@ -67,6 +67,7 @@ export const TrainingSessionClient = ({
     correctAnswer: q.correctAnswer,
     explanation: q.explanation,
     references: q.references,
+    keyWithheld: q.keyWithheld,
   }))
 
   const initialAnswers: AnswersMap = {}
@@ -80,20 +81,25 @@ export const TrainingSessionClient = ({
   // Mode : feedback immédiat en tuteur, différé en test
   const isTutor = initialData.session.mode === "tutor"
 
-  // En mode tuteur, hydrater les révélations des questions déjà répondues au montage
-  // afin que la QuestionCard affiche correctAnswer + explication dès le rechargement.
+  // En mode tuteur, hydrater les révélations des questions déjà répondues au
+  // montage afin que la QuestionCard affiche correctAnswer + explication dès le
+  // rechargement — ou la correction différée si la clé est retenue.
   const initialRevealed: Record<string, QuizRevealPayload> | undefined = isTutor
     ? Object.fromEntries(
-        initialData.questions
-          .filter((q) => q.correctAnswer !== undefined)
-          .map((q) => [
-            q._id,
-            {
-              correctAnswer: q.correctAnswer!,
-              explanation: q.explanation ?? "",
-              references: q.references ?? [],
-            },
-          ]),
+        initialData.questions.flatMap((q): [string, QuizRevealPayload][] => {
+          if (q.keyWithheld) return [[q._id, { keyWithheld: true }]]
+          if (q.correctAnswer === undefined) return []
+          return [
+            [
+              q._id,
+              {
+                correctAnswer: q.correctAnswer,
+                explanation: q.explanation ?? "",
+                references: q.references ?? [],
+              },
+            ],
+          ]
+        }),
       )
     : undefined
 
@@ -118,17 +124,17 @@ export const TrainingSessionClient = ({
         toast.error("Réponse non enregistrée, réessayez.")
         return { ok: false, error: res.error }
       }
-      // En mode tuteur, renvoyer le reveal (correctAnswer + explanation + references)
-      return {
-        ok: true,
-        reveal: res.reveal
-          ? {
+      // En mode tuteur, renvoyer le reveal (correction, ou clé retenue)
+      const reveal: QuizRevealPayload | undefined = !res.reveal
+        ? undefined
+        : "keyWithheld" in res.reveal
+          ? { keyWithheld: true }
+          : {
               correctAnswer: res.reveal.correctAnswer,
               explanation: res.reveal.explanation ?? "",
               references: res.reveal.references ?? [],
             }
-          : undefined,
-      }
+      return { ok: true, reveal }
     },
     onFlag: async (questionId, isFlagged) => {
       const res = await callAction(

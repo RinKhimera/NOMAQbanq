@@ -16,8 +16,8 @@ import { getPgErrorCode } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { computeScorePercent } from "@/lib/score"
-import { getOpenExamLockedQuestionIds } from "../exams/dal"
 import { hasAccess } from "../payments/dal"
+import { lockFor, viewerOf } from "../questions/answer-key-lock"
 import {
   type ObjectifsView,
   type TrainingHistoryPage,
@@ -28,7 +28,6 @@ import {
   type RevisionCounts,
   getRevisionCounts,
   pickRevisionQuestionIds,
-  resolveRevisionLock,
 } from "./revision"
 import {
   type CreateTrainingSessionInput,
@@ -70,7 +69,7 @@ export const loadRevisionCounts = async (
   const session = await requireSession()
   const parsed = revisionCountsScopeSchema.safeParse(args)
   if (!parsed.success) return { failed: 0, unseen: 0, bookmarked: 0 }
-  return getRevisionCounts(session.user.id, parsed.data)
+  return getRevisionCounts(viewerOf(session.user), parsed.data)
 }
 
 /** [Auth] Objectifs CMC filtrés par domaine (re-requête du formulaire). */
@@ -134,11 +133,6 @@ export const createTrainingSession = async (
     const expiresAt = new Date(now.getTime() + SESSION_EXPIRATION_MS)
     const sessionId = createId()
 
-    // Résolu HORS transaction : une requête sur le `db` global depuis l'intérieur
-    // réclamerait une 2e connexion au pool (max 5, sans timeout d'acquisition)
-    // → interblocage à cinq créations concurrentes.
-    const lockedIds = isRevision ? await resolveRevisionLock(userId) : []
-
     // Verrou de ligne user : sérialise les créations concurrentes du même
     // utilisateur. Rate-limit + « session déjà en cours » + sélection + insert
     // deviennent atomiques (sinon, deux requêtes simultanées → 2 sessions
@@ -192,12 +186,11 @@ export const createTrainingSession = async (
       let picked: { id: string }[]
       if (isRevision) {
         const ids = await pickRevisionQuestionIds(tx, {
-          userId,
+          viewer: viewerOf(session.user),
           criteria,
           domain,
           objectifsCMCs,
           limit: questionCount,
-          lockedIds,
         })
         if (ids.length === 0) throw new Error("EMPTY_REVISION")
         picked = ids.map((id) => ({ id }))
@@ -275,11 +268,13 @@ export type SaveTrainingAnswerResult =
   | {
       success: true
       isCorrect?: boolean
-      reveal?: {
-        correctAnswer: string
-        explanation?: string
-        references?: string[]
-      }
+      reveal?:
+        | {
+            correctAnswer: string
+            explanation?: string
+            references?: string[]
+          }
+        | { keyWithheld: true }
     }
   | { success: false; error: string }
 
@@ -359,14 +354,11 @@ export const saveTrainingAnswer = async (
 
     // Mode tuteur : révéler la bonne réponse + explication immédiatement.
     if (s.mode === "tutor") {
-      // Question d'un examen OUVERT où l'utilisateur participe : reveal différé
-      // jusqu'à la clôture (même verrou que getTrainingSessionById) — la réponse
-      // est enregistrée, seule la correction est retenue.
-      if (session.user.role !== "admin") {
-        const locked = await getOpenExamLockedQuestionIds(session.user.id, [
-          questionId,
-        ])
-        if (locked.has(questionId)) return { success: true }
+      // Clé retenue par un examen ouvert : la réponse est enregistrée, seule
+      // la correction est retenue.
+      const lock = await lockFor(viewerOf(session.user), [questionId])
+      if (lock.has(questionId)) {
+        return { success: true, reveal: { keyWithheld: true } }
       }
       const [exp] = await db
         .select({

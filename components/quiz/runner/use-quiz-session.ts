@@ -311,7 +311,9 @@ export function useQuizSession({
       setRevealed((r) => ({ ...r, [qid]: reveal }))
       setAnswers((a) => ({
         ...a,
-        [qid]: { selected, isCorrect: selected === reveal.correctAnswer },
+        [qid]: reveal.keyWithheld
+          ? { selected }
+          : { selected, isCorrect: selected === reveal.correctAnswer },
       }))
       setPendingSelection((p) => {
         const next = { ...p }

@@ -43,6 +43,7 @@ export default async function TrainingResultsPage({
     // Images d'explication (correction uniquement) — `SessionResults` les rend
     // sous l'explication via `result.question.explanationImages`.
     explanationImages: q.explanationImages ?? [],
+    keyWithheld: q.keyWithheld,
   }))
 
   const answers: AnswersMap = {}
@@ -56,14 +57,6 @@ export default async function TrainingResultsPage({
   }
 
   const score = session.score
-  let correct = 0
-  let incorrect = 0
-  for (const entry of Object.values(rawAnswers)) {
-    if (!entry.selectedAnswer) continue
-    if (entry.isCorrect) correct++
-    else incorrect++
-  }
-  const unanswered = questions.length - Object.keys(rawAnswers).length
 
   return (
     <>
@@ -77,7 +70,7 @@ export default async function TrainingResultsPage({
       />
       <SessionResults
         accent="emerald"
-        summary={{ score, correct, incorrect, unanswered }}
+        score={score}
         questions={questions}
         answers={answers}
         // Training results come eager (explanations embedded in questions),

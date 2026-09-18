@@ -24,7 +24,7 @@ import {
 import { requireSession } from "@/lib/auth-guards"
 import { cdnUrl } from "@/lib/cdn"
 import { getCurrentSession } from "@/lib/dal"
-import { getOpenExamLockedQuestionIds } from "../exams/dal"
+import { lockFor, viewerOf } from "../questions/answer-key-lock"
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
@@ -79,6 +79,8 @@ export type TrainingSessionQuestion = {
    * correction (session complétée). Jamais sur le pont d'énoncé `images`.
    */
   explanationImages?: TrainingImageView[]
+  /** Clé retenue par un examen ouvert : correction différée à sa clôture. */
+  keyWithheld?: true
 }
 
 export type TrainingAnswerRecord = Record<
@@ -565,24 +567,18 @@ export const getTrainingSessionById = async (
     .orderBy(asc(trainingSessionItems.position))
 
   const sessionQuestionIds = items.map((i) => i.questionId)
-  // Questions d'un examen OUVERT où l'utilisateur participe : clé de réponse
-  // différée jusqu'à la clôture (voir getOpenExamLockedQuestionIds).
   const isOwner = s.userId === session.user.id
-  const [imgMap, lockedIds, bookmarkedIds] = await Promise.all([
+  const [imgMap, lock, bookmarkedIds] = await Promise.all([
     fetchImages(sessionQuestionIds),
-    session.user.role === "admin"
-      ? new Set<string>()
-      : getOpenExamLockedQuestionIds(session.user.id, sessionQuestionIds),
+    lockFor(viewerOf(session.user), sessionQuestionIds),
     // Un signet est personnel : un admin qui inspecte la session d'un étudiant
     // verrait les SIENS, donc des drapeaux incohérents avec ce qu'il regarde.
     isOwner ? getBookmarkedQuestionIds(sessionQuestionIds) : [],
   ])
 
   const questionsView: TrainingSessionQuestion[] = items.map((i) => {
-    // In tutor mode, reveal correctAnswer + explanation + references for already-answered questions.
-    const revealAnswer =
-      (isCompleted || (isTutor && i.selectedAnswer !== null)) &&
-      !lockedIds.has(i.questionId)
+    // Session terminée, ou question déjà répondue en mode tuteur.
+    const mayReveal = isCompleted || (isTutor && i.selectedAnswer !== null)
     return {
       _id: i.questionId,
       _creationTime: i.qCreatedAt.getTime(),
@@ -591,13 +587,7 @@ export const getTrainingSessionById = async (
       objectifCMC: i.objectifCMC,
       domain: i.domain,
       images: imgMap.get(i.questionId) ?? [],
-      ...(revealAnswer
-        ? {
-            correctAnswer: i.correctAnswer,
-            explanation: i.explanation ?? "",
-            references: i.references ?? [],
-          }
-        : {}),
+      ...(mayReveal ? lock.reveal(i.questionId, i, "correction") : {}),
     }
   })
 
@@ -609,7 +599,7 @@ export const getTrainingSessionById = async (
   for (const i of items) {
     if (i.selectedAnswer !== null) {
       answers[i.questionId] =
-        revealAnswers && !lockedIds.has(i.questionId)
+        revealAnswers && !lock.has(i.questionId)
           ? {
               selectedAnswer: i.selectedAnswer,
               isCorrect: i.isCorrect ?? false,
@@ -708,14 +698,10 @@ export const getTrainingSessionResults = async (
   const questionIds = items.map((i) => i.questionId)
   // Session complétée → révélation : images d'énoncé ET d'explication. Le canal
   // explication reste séparé du pont d'énoncé `images` (anti-fuite en passation).
-  // Questions d'un examen OUVERT où l'utilisateur participe : correction différée
-  // jusqu'à la clôture (voir getOpenExamLockedQuestionIds).
-  const [imgMap, explImgMap, lockedIds] = await Promise.all([
+  const [imgMap, explImgMap, lock] = await Promise.all([
     fetchImages(questionIds),
     fetchImages(questionIds, "explanation"),
-    session.user.role === "admin"
-      ? new Set<string>()
-      : getOpenExamLockedQuestionIds(session.user.id, questionIds),
+    lockFor(viewerOf(session.user), questionIds),
   ])
 
   const questionsView: TrainingSessionQuestion[] = items.map((i) => ({
@@ -726,14 +712,11 @@ export const getTrainingSessionResults = async (
     objectifCMC: i.objectifCMC,
     domain: i.domain,
     images: imgMap.get(i.questionId) ?? [],
-    ...(lockedIds.has(i.questionId)
-      ? {}
-      : {
-          correctAnswer: i.correctAnswer,
-          explanation: i.explanation ?? "",
-          references: i.references ?? [],
-          explanationImages: explImgMap.get(i.questionId) ?? [],
-        }),
+    ...lock.reveal(
+      i.questionId,
+      { ...i, explanationImages: explImgMap.get(i.questionId) },
+      "correction-with-images",
+    ),
   }))
 
   const answers: TrainingAnswerRecord = {}
@@ -742,7 +725,7 @@ export const getTrainingSessionResults = async (
       answers[i.questionId] = {
         selectedAnswer: i.selectedAnswer,
         // isCorrect + selectedAnswer révèle la clé → masqué si verrouillée.
-        ...(lockedIds.has(i.questionId)
+        ...(lock.has(i.questionId)
           ? {}
           : { isCorrect: i.isCorrect ?? undefined }),
       }

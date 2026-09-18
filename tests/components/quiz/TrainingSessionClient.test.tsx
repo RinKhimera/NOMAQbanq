@@ -182,6 +182,25 @@ describe("TrainingSessionClient — réponses et fin de session", () => {
     expect(res.reveal).toMatchObject({ correctAnswer: "A" })
   })
 
+  it("mode tuteur : clé retenue → révélation hydratée et propagée sans correction", async () => {
+    saveTrainingAnswer.mockResolvedValue({
+      success: true,
+      reveal: { keyWithheld: true },
+    })
+
+    const props = mount({
+      ...initialData,
+      session: { ...initialData.session, mode: "tutor" },
+      questions: [{ ...initialData.questions[0], keyWithheld: true }],
+      answers: { q1: { selectedAnswer: "A" } },
+    })
+
+    expect(props.initialRevealed).toEqual({ q1: { keyWithheld: true } })
+
+    const res = await props.callbacks.onAnswer("q1", "A")
+    expect(res).toEqual({ ok: true, reveal: { keyWithheld: true } })
+  })
+
   it("signale une réponse non enregistrée", async () => {
     saveTrainingAnswer.mockResolvedValue({
       success: false,

@@ -34,7 +34,8 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
     },
     hasAccess: vi.fn(async () => true),
     getPgErrorCode: vi.fn<() => string | undefined>(() => undefined),
-    getOpenExamLockedQuestionIds: vi.fn(async () => new Set<string>()),
+    lockedIds: { current: new Set<string>() },
+    lockFor: vi.fn(),
     getTrainingHistory: vi.fn(async () => ({ items: [], nextCursor: null })),
     getAvailableObjectifsCMC: vi.fn(async () => ({ objectifs: [] })),
     getRevisionCounts: vi.fn(async () => ({
@@ -43,7 +44,6 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
       bookmarked: 1,
     })),
     pickRevisionQuestionIds: vi.fn(async () => ["q1"]),
-    resolveRevisionLock: vi.fn(async () => new Set<string>()),
   }
 
   const table = (name: string) => ({ __table: name })
@@ -93,9 +93,15 @@ vi.mock("@/db/schema", () => ({
   trainingSessions: table("trainingSessions"),
   user: table("user"),
 }))
-vi.mock("@/features/exams/dal", () => ({
-  getOpenExamLockedQuestionIds: mocks.getOpenExamLockedQuestionIds,
-}))
+// Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
+vi.mock("@/features/questions/answer-key-lock", async (orig) => {
+  const actual =
+    await orig<typeof import("@/features/questions/answer-key-lock")>()
+  mocks.lockFor.mockImplementation(async () =>
+    actual.AnswerKeyLock.fromIds(mocks.lockedIds.current),
+  )
+  return { ...actual, lockFor: mocks.lockFor }
+})
 vi.mock("@/features/payments/dal", () => ({ hasAccess: mocks.hasAccess }))
 vi.mock("@/features/training/dal", () => ({
   getAvailableObjectifsCMC: mocks.getAvailableObjectifsCMC,
@@ -104,7 +110,6 @@ vi.mock("@/features/training/dal", () => ({
 vi.mock("@/features/training/revision", () => ({
   getRevisionCounts: mocks.getRevisionCounts,
   pickRevisionQuestionIds: mocks.pickRevisionQuestionIds,
-  resolveRevisionLock: mocks.resolveRevisionLock,
 }))
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(async () => mocks.session.current),
@@ -137,6 +142,7 @@ const runCallback = () =>
 beforeEach(() => {
   mocks.session.current = { user: { id: "u1", role: "user" } }
   mocks.rows.current = {}
+  mocks.lockedIds.current = new Set()
   mocks.returning.current = [{ id: "s1" }]
   mocks.transaction.mockResolvedValue(5)
   // Aucune option de config ne restaure les faux timers — d'ou l'afterEach.
@@ -162,9 +168,10 @@ describe("lectures gardees", () => {
 
   it("loadRevisionCounts : portee valide → compteurs de l'utilisateur courant", async () => {
     const res = await loadRevisionCounts({ domain: "Cardiologie" })
-    expect(mocks.getRevisionCounts).toHaveBeenCalledWith("u1", {
-      domain: "Cardiologie",
-    })
+    expect(mocks.getRevisionCounts).toHaveBeenCalledWith(
+      { id: "u1", role: "user" },
+      { domain: "Cardiologie" },
+    )
     expect(res).toEqual({ failed: 3, unseen: 2, bookmarked: 1 })
   })
 
@@ -210,14 +217,19 @@ describe("createTrainingSession", () => {
     expect(mocks.hasAccess).not.toHaveBeenCalled()
   })
 
-  it("revision : verrouille les questions d'examen ouvert avant la transaction", async () => {
+  // Le verrou anti-triche vit dans le tirage lui-meme (excludeLocked) : l'action
+  // doit transmettre le lecteur, role compris, sans rien resoudre avant.
+  it("revision : transmet le lecteur au tirage", async () => {
+    runCallback()
+    setRows({ trainingSessions: [], user: [{ id: "u1" }] })
     await createTrainingSession({ ...input, revisionFilters: ["failed"] })
-    expect(mocks.resolveRevisionLock).toHaveBeenCalledWith("u1")
-  })
-
-  it("hors revision : aucun verrou d'examen a resoudre", async () => {
-    await createTrainingSession(input)
-    expect(mocks.resolveRevisionLock).not.toHaveBeenCalled()
+    expect(mocks.pickRevisionQuestionIds).toHaveBeenCalledWith(
+      fakeDb,
+      expect.objectContaining({
+        viewer: { id: "u1", role: "user" },
+        criteria: ["failed"],
+      }),
+    )
   })
 
   it("succes : renvoie le nombre REELLEMENT retenu", async () => {
@@ -387,16 +399,21 @@ describe("saveTrainingAnswer", () => {
 
   // Anti-triche : la reponse est enregistree, mais la correction est retenue
   // tant que l'examen qui porte cette question est ouvert.
-  it("mode tuteur, question verrouillee par un examen ouvert → aucune revelation", async () => {
-    mocks.getOpenExamLockedQuestionIds.mockResolvedValueOnce(new Set(["q1"]))
+  it("mode tuteur, question verrouillee par un examen ouvert → cle retenue, pas de correction", async () => {
+    mocks.lockedIds.current = new Set(["q1"])
     setRows({
       trainingSessions: [openSession({ mode: "tutor" })],
       trainingSessionItems: [{ itemId: "i1", correctAnswer: "A" }],
     })
-    expect(await saveTrainingAnswer(input)).toEqual({ success: true })
+    expect(await saveTrainingAnswer(input)).toEqual({
+      success: true,
+      reveal: { keyWithheld: true },
+    })
   })
 
-  it("admin : pas de verrou d'examen applique", async () => {
+  // Le bypass admin est la decision du verrou (tests/questions/answer-key-lock) ;
+  // l'action doit seulement lui transmettre le role.
+  it("admin : le role est transmis au verrou", async () => {
     mocks.session.current = { user: { id: "u1", role: "admin" } }
     setRows({
       trainingSessions: [openSession({ mode: "tutor" })],
@@ -405,7 +422,9 @@ describe("saveTrainingAnswer", () => {
     })
     const res = await saveTrainingAnswer(input)
     expect(res).toMatchObject({ success: true, isCorrect: true })
-    expect(mocks.getOpenExamLockedQuestionIds).not.toHaveBeenCalled()
+    expect(mocks.lockFor).toHaveBeenCalledWith({ id: "u1", role: "admin" }, [
+      "q1",
+    ])
   })
 })
 

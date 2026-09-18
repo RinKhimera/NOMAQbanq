@@ -4,7 +4,6 @@ import {
   desc,
   eq,
   exists,
-  gt,
   ilike,
   inArray,
   isNull,
@@ -16,13 +15,13 @@ import "server-only"
 import { db } from "@/db"
 import {
   examQuestions,
-  exams,
   questionExplanations,
   questionImages,
   questions,
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
 import { cdnUrl } from "@/lib/cdn"
+import { excludeLocked } from "./answer-key-lock"
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
@@ -420,18 +419,7 @@ export const getRandomQuizQuestions = async ({
     // Anti-triche : jamais de question d'un examen OUVERT dans le quiz
     // public. L'exclusion vit dans le WHERE (pas en post-filtrage) pour que
     // `ORDER BY random() LIMIT n` rende quand même n questions corrigeables.
-    notExists(
-      db
-        .select({ x: sql`1` })
-        .from(examQuestions)
-        .innerJoin(exams, eq(exams.id, examQuestions.examId))
-        .where(
-          and(
-            eq(examQuestions.questionId, questions.id),
-            gt(exams.endDate, sql`now()`),
-          ),
-        ),
-    ),
+    excludeLocked("anonymous", sql`${questions.id}`),
     domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
   )
 

@@ -1,7 +1,7 @@
 import { type SQL, sql } from "drizzle-orm"
 import "server-only"
 import { type Db, db } from "@/db"
-import { getUserOpenExamLockedQuestionIds } from "../exams/dal.shared"
+import { type LockUser, excludeLocked } from "../questions/answer-key-lock"
 import type { RevisionCriterion } from "./schemas"
 
 // `db` ou une transaction : le tirage doit pouvoir vivre dans la transaction qui
@@ -11,7 +11,11 @@ type Executor = Pick<Db, "execute">
 export type RevisionCounts = Record<RevisionCriterion, number>
 
 export type RevisionScope = {
-  userId: string
+  /**
+   * Lecteur du corpus, rôle compris : le verrou de clé de réponse s'applique à
+   * la SÉLECTION (voir `excludeLocked`), et un admin n'y est pas soumis.
+   */
+  viewer: LockUser
   domain?: string
   objectifsCMCs?: string[]
 }
@@ -65,10 +69,7 @@ const CRITERION_PREDICATE: Record<RevisionCriterion, SQL> = {
   unseen: sql`not exists (select 1 from attempts a2 where a2.question_id = q.id)`,
 }
 
-const corpusWhere = (
-  { domain, objectifsCMCs }: RevisionScope,
-  lockedIds: string[],
-): SQL => {
+const corpusWhere = ({ viewer, domain, objectifsCMCs }: RevisionScope): SQL => {
   const parts: SQL[] = [sql`q.deleted_at is null`]
   if (domain && domain !== "all") parts.push(sql`q.domain = ${domain}`)
 
@@ -86,41 +87,23 @@ const corpusWhere = (
   // Verrou anti-triche appliqué à la SÉLECTION, pas seulement à la révélation :
   // l'appartenance d'une question au lot est elle-même un oracle sur les
   // réponses d'un examen encore ouvert.
-  if (lockedIds.length > 0) {
-    parts.push(
-      sql`q.id not in (${sql.join(
-        lockedIds.map((id) => sql`${id}`),
-        sql`, `,
-      )})`,
-    )
-  }
+  parts.push(excludeLocked(viewer, sql`q.id`))
   return sql.join(parts, sql` and `)
 }
 
-/**
- * Identifiants à exclure du corpus. À résoudre AVANT d'ouvrir une transaction :
- * le pool pg est à `max: 5` sans timeout d'acquisition, donc réclamer une 2ᵉ
- * connexion pendant qu'on en détient une fige la requête — et cinq créations
- * concurrentes figent l'application.
- */
-export const resolveRevisionLock = async (
-  userId: string,
-): Promise<string[]> => [...(await getUserOpenExamLockedQuestionIds(userId))]
-
 /** Compteur par critère, sur le corpus filtré (domaine + objectifs). */
 export const getRevisionCounts = async (
-  userId: string,
-  scope: Omit<RevisionScope, "userId"> = {},
+  viewer: LockUser,
+  scope: Omit<RevisionScope, "viewer"> = {},
 ): Promise<RevisionCounts> => {
-  const lockedIds = await resolveRevisionLock(userId)
   const res = await db.execute(sql`
-    with ${historyCte(userId)}
+    with ${historyCte(viewer.id)}
     select
       (count(*) filter (where ${CRITERION_PREDICATE.failed}))::int as failed,
       (count(*) filter (where ${CRITERION_PREDICATE.unseen}))::int as unseen,
       (count(*) filter (where ${CRITERION_PREDICATE.bookmarked}))::int as bookmarked
       from questions q
-     where ${corpusWhere({ userId, ...scope }, lockedIds)}
+     where ${corpusWhere({ viewer, ...scope })}
   `)
   // Le cast `::int` est indispensable : sans lui, `count(*)` remonte en bigint,
   // que le driver pg rend en `string`.
@@ -142,16 +125,10 @@ export const pickRevisionQuestionIds = async (
   {
     criteria,
     limit,
-    lockedIds,
     ...scope
   }: RevisionScope & {
     criteria: RevisionCriterion[]
     limit: number
-    /**
-     * Résolus par `resolveRevisionLock` HORS transaction. Paramètre REQUIS : un
-     * oubli casse la compilation au lieu de rouvrir le trou anti-triche.
-     */
-    lockedIds: string[]
   },
 ): Promise<string[]> => {
   const unique = [...new Set(criteria)]
@@ -162,10 +139,10 @@ export const pickRevisionQuestionIds = async (
     sql` or `,
   )
   const res = await exec.execute(sql`
-    with ${historyCte(scope.userId)}
+    with ${historyCte(scope.viewer.id)}
     select q.id
       from questions q
-     where ${corpusWhere(scope, lockedIds)} and (${anyCriterion})
+     where ${corpusWhere(scope)} and (${anyCriterion})
      order by random()
      limit ${limit}
   `)

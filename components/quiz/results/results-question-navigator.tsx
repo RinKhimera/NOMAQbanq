@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "motion/react"
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { ResultsNavigatorProps } from "./types"
+import type { QuestionResultItem, ResultsNavigatorProps } from "./types"
 import { resultColors } from "./types"
 
 export const ResultsQuestionNavigator = ({
@@ -20,13 +20,27 @@ export const ResultsQuestionNavigator = ({
   const colors = resultColors[accentColor]
 
   const stats = useMemo(() => {
-    const correct = questionResults.filter((r) => r.isCorrect).length
+    const withheld = questionResults.filter(
+      (r) => r.isAnswered && r.isWithheld,
+    ).length
+    const correct = questionResults.filter(
+      (r) => r.isCorrect && !r.isWithheld,
+    ).length
     const incorrect = questionResults.filter(
-      (r) => !r.isCorrect && r.isAnswered,
+      (r) => !r.isCorrect && r.isAnswered && !r.isWithheld,
     ).length
     const unanswered = questionResults.filter((r) => !r.isAnswered).length
-    return { correct, incorrect, unanswered }
+    return { correct, incorrect, unanswered, withheld }
   }, [questionResults])
+
+  const stateOf = (result: QuestionResultItem) =>
+    !result.isAnswered
+      ? "unanswered"
+      : result.isWithheld
+        ? "withheld"
+        : result.isCorrect
+          ? "correct"
+          : "incorrect"
 
   const handleNavigate = (index: number) => {
     onNavigateToQuestion(index)
@@ -42,30 +56,23 @@ export const ResultsQuestionNavigator = ({
         questionResults.length > 15 ? "grid-cols-6" : "grid-cols-5",
       )}
     >
-      {questionResults.map((result, index) => (
-        <button
-          key={index}
-          data-testid={`results-nav-item-${index}`}
-          data-state={
-            result.isCorrect
-              ? "correct"
-              : !result.isAnswered
-                ? "unanswered"
-                : "incorrect"
-          }
-          onClick={() => handleNavigate(index)}
-          className={cn(
-            "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-xs font-medium transition-colors",
-            result.isCorrect
-              ? colors.correct
-              : !result.isAnswered
-                ? colors.unanswered
-                : colors.incorrect,
-          )}
-        >
-          {index + 1}
-        </button>
-      ))}
+      {questionResults.map((result, index) => {
+        const state = stateOf(result)
+        return (
+          <button
+            key={index}
+            data-testid={`results-nav-item-${index}`}
+            data-state={state}
+            onClick={() => handleNavigate(index)}
+            className={cn(
+              "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-xs font-medium transition-colors",
+              colors[state],
+            )}
+          >
+            {index + 1}
+          </button>
+        )
+      })}
     </div>
   )
 
@@ -92,6 +99,14 @@ export const ResultsQuestionNavigator = ({
             <div className={cn("h-3 w-3 rounded", colors.legendUnanswered)} />
             <span className="text-gray-600 dark:text-gray-400">
               Vide ({stats.unanswered})
+            </span>
+          </div>
+        )}
+        {stats.withheld > 0 && (
+          <div className="flex items-center gap-2">
+            <div className={cn("h-3 w-3 rounded", colors.legendWithheld)} />
+            <span className="text-gray-600 dark:text-gray-400">
+              Différée ({stats.withheld})
             </span>
           </div>
         )}
@@ -233,6 +248,19 @@ export const ResultsQuestionNavigator = ({
                       />
                       <span className="text-gray-500 dark:text-gray-400">
                         {stats.unanswered}
+                      </span>
+                    </div>
+                  )}
+                  {stats.withheld > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <div
+                        className={cn(
+                          "h-2.5 w-2.5 rounded",
+                          colors.legendWithheld,
+                        )}
+                      />
+                      <span className="text-gray-500 dark:text-gray-400">
+                        {stats.withheld}
                       </span>
                     </div>
                   )}

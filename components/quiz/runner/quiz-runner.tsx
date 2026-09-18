@@ -165,11 +165,16 @@ function QuizRunnerInner({
 
   // La question mappée au montage ne porte pas correctAnswer pour les questions
   // répondues en cours de session (anti-triche DAL) ; on l'injecte depuis le
-  // reveal serveur pour que QuestionCard puisse colorer la bonne réponse.
+  // reveal serveur pour que QuestionCard puisse colorer la bonne réponse — ou
+  // le marqueur « clé retenue », pour qu'elle affiche la correction différée.
   const currentQuestionForCard =
     currentQuestion && currentReveal
-      ? { ...currentQuestion, correctAnswer: currentReveal.correctAnswer }
+      ? currentReveal.keyWithheld
+        ? { ...currentQuestion, keyWithheld: true as const }
+        : { ...currentQuestion, correctAnswer: currentReveal.correctAnswer }
       : currentQuestion
+  const currentCorrection =
+    currentReveal && !currentReveal.keyWithheld ? currentReveal : undefined
 
   const isFlagged = currentQuestion
     ? session.flagged.has(currentQuestion._id)
@@ -247,12 +252,12 @@ function QuizRunnerInner({
                         showObjectifBadge={mode.showMeta}
                         lazyExplanation={
                           isCurrentRevealed
-                            ? currentReveal?.explanation
+                            ? currentCorrection?.explanation
                             : undefined
                         }
                         lazyReferences={
                           isCurrentRevealed
-                            ? currentReveal?.references
+                            ? currentCorrection?.references
                             : undefined
                         }
                       />
