@@ -186,7 +186,11 @@ export function EvaluationClient({
           toast.info("⏸️ Pause - Prenez une pause bien méritée !", {
             duration: 5000,
           })
-          return { ok: true, serverNow: res.serverNow }
+          return {
+            ok: true,
+            pauseStartedAt: res.pauseStartedAt,
+            serverNow: res.serverNow,
+          }
         }
       : undefined,
     onResume: exam.enablePause

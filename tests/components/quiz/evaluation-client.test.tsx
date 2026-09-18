@@ -350,8 +350,18 @@ describe("EvaluationClient — callbacks", () => {
 
   it("confirme la mise en pause, et la signale quand elle échoue", async () => {
     renderClient({ enablePause: true })
-    vi.mocked(callAction).mockResolvedValue({ success: true } as never)
-    expect(await lastCallbacks!.onPause!()).toEqual({ ok: true })
+    vi.mocked(callAction).mockResolvedValue({
+      success: true,
+      pauseStartedAt: 4_000,
+      serverNow: 4_000,
+    } as never)
+    // Le début de pause est l'instant SERVEUR : l'overlay ne lit jamais
+    // l'horloge locale.
+    expect(await lastCallbacks!.onPause!()).toEqual({
+      ok: true,
+      pauseStartedAt: 4_000,
+      serverNow: 4_000,
+    })
     expect(toast.info).toHaveBeenCalled()
 
     vi.mocked(callAction).mockResolvedValue({ success: false } as never)

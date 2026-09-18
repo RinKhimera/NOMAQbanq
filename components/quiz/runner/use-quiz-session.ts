@@ -15,7 +15,12 @@ export type UseQuizSessionOptions = {
   initialAnswers: AnswersMap
   initialFlags?: Set<string>
   // État de pause initial (réhydraté depuis ExamSessionView à la reprise).
-  initialPause?: { isPaused: boolean; totalPauseDurationMs: number }
+  initialPause?: {
+    isPaused: boolean
+    totalPauseDurationMs: number
+    /** Début de pause serveur (epoch ms), quand la page se charge en pause. */
+    pauseStartedAtMs?: number
+  }
   // Pré-révélations à hydrater au montage (mode tuteur : questions déjà répondues).
   initialRevealed?: Record<string, QuizRevealPayload>
   mode: QuizMode
@@ -60,6 +65,9 @@ export type UseQuizSessionResult = {
   // server already recorded a pause, or after a successful resume). Lets the UI
   // hide the pause button — the server only allows one pause.
   pauseAlreadyUsed: boolean
+  // Début de la pause en cours (instant SERVEUR), ancre du décompte de
+  // l'overlay ; absent hors pause. Jamais l'horloge locale.
+  pauseStartedAt: number | undefined
   // Résolvent `true` en succès seulement — l'UI (timestamps locaux de
   // l'overlay) ne doit pas avancer sur une pause/reprise qui a échoué.
   pause: () => Promise<boolean>
@@ -152,6 +160,9 @@ export function useQuizSession({
   const [isPaused, setIsPaused] = useState(initialPause?.isPaused ?? false)
   const [totalPauseDurationMs, setTotalPauseDurationMs] = useState(
     initialPause?.totalPauseDurationMs ?? 0,
+  )
+  const [pauseStartedAt, setPauseStartedAt] = useState<number | undefined>(
+    initialPause?.isPaused ? initialPause.pauseStartedAtMs : undefined,
   )
   // The single rest pause is "used" if the server already recorded pause time,
   // OR if we are currently mid-pause on reload (totalPauseDurationMs is still 0
@@ -365,6 +376,9 @@ export function useQuizSession({
       const res = await callbacks.onPause()
       if (res.ok) {
         syncServerClock(res)
+        // Sans instant de début (callback minimal), le dernier instant serveur
+        // connu sert d'ancre : le décompte part du plafond, comme au clic.
+        setPauseStartedAt(res.pauseStartedAt ?? res.serverNow ?? serverNow)
         setIsPaused(true)
       }
       return res.ok
@@ -372,7 +386,7 @@ export function useQuizSession({
       // rejet réseau : rester non-pausé, le callback de page a déjà toasté
       return false
     }
-  }, [callbacks, isPaused, syncServerClock])
+  }, [callbacks, isPaused, syncServerClock, serverNow])
 
   const resume = useCallback(async () => {
     if (!callbacks.onResume || !isPaused) return false
@@ -381,6 +395,7 @@ export function useQuizSession({
       if (res.ok) {
         syncServerClock(res)
         setTotalPauseDurationMs((prev) => res.totalPauseDurationMs ?? prev)
+        setPauseStartedAt(undefined)
         setIsPaused(false)
         // The single rest pause is now consumed — hide the pause control.
         setPauseAlreadyUsed(true)
@@ -495,6 +510,7 @@ export function useQuizSession({
     setFinishDialogOpen,
     isPaused,
     pauseAlreadyUsed,
+    pauseStartedAt,
     pause,
     resume,
     timer,

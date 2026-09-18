@@ -537,6 +537,67 @@ describe("useQuizSession — timer composé", () => {
     )
   })
 
+  it("le début de pause est l'instant serveur de pauseExam ; la reprise l'efface", async () => {
+    const start = Date.now()
+    const onPause = vi
+      .fn()
+      .mockResolvedValue({ ok: true, pauseStartedAt: start + 5000 })
+    const onResume = vi
+      .fn()
+      .mockResolvedValue({ ok: true, totalPauseDurationMs: 1000 })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          kind: "exam",
+          pause: "rest",
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
+        }),
+        callbacks: makeCallbacks({ onPause, onResume }),
+      }),
+    )
+    expect(result.current.pauseStartedAt).toBeUndefined()
+    await act(async () => {
+      await result.current.pause()
+    })
+    expect(result.current.pauseStartedAt).toBe(start + 5000)
+    await act(async () => {
+      await result.current.resume()
+    })
+    expect(result.current.pauseStartedAt).toBeUndefined()
+  })
+
+  it("rechargée en pause : le début de pause vient de la vue serveur", () => {
+    const start = Date.now()
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        initialPause: {
+          isPaused: true,
+          totalPauseDurationMs: 0,
+          pauseStartedAtMs: start + 9000,
+        },
+        mode: makeMode({
+          kind: "exam",
+          pause: "rest",
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
+        }),
+        callbacks: makeCallbacks(),
+      }),
+    )
+    expect(result.current.pauseStartedAt).toBe(start + 9000)
+  })
+
   it("temps écoulé côté serveur (réponse refusée timeUp) : auto-soumission, une seule fois même si le chrono expire ensuite", async () => {
     // Le chrono client est en retard (veille) : le serveur refuse la réponse.
     // Réessayer ne sert à rien ; l'examen se soumet comme à l'expiration.

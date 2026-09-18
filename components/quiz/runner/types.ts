@@ -76,7 +76,10 @@ export type QuizCallbacks = {
   onFinish: (opts: {
     isAutoSubmit: boolean
   }) => Promise<{ ok: boolean; redirectTo?: string }>
-  onPause?: () => Promise<{ ok: boolean } & ServerClock>
+  // Le serveur renvoie l'instant de début de pause : ancre du décompte.
+  onPause?: () => Promise<
+    { ok: boolean; pauseStartedAt?: number } & ServerClock
+  >
   // Le serveur renvoie la durée de pause cumulée et plafonnée.
   onResume?: () => Promise<
     { ok: boolean; totalPauseDurationMs?: number } & ServerClock
