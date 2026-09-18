@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { type RefusalCode, refusalMessage } from "@/features/attempts/guard"
 import {
   abandonTrainingSession,
   completeTrainingSession,
@@ -10,31 +11,31 @@ import {
   saveTrainingAnswer,
   setQuestionBookmark,
 } from "@/features/training/actions"
+import {
+  fakeDb,
+  rejectWith,
+  resetFakeDrizzle,
+  setRows,
+  state,
+} from "../helpers/fake-drizzle"
 
-// Couvre les decisions propres a `actions.ts` : gardes de propriete (IDOR),
-// statut, expiration, acces payant, et le mapping des erreurs metier. Le SQL, le
-// tirage aleatoire et la concurrence sont verifies sur une vraie base dans
-// tests/integration/training-*.test.ts.
-//
-// `vi.mock` etant hoiste, tout ce que ses fabriques utilisent vient de
-// `vi.hoisted`. Les lignes sont indexees par table pour ne pas dependre de
-// l'ORDRE des requetes dans l'action.
-const { mocks, fakeDb, table } = vi.hoisted(() => {
-  const mocks = {
+// Couvre les decisions propres a `actions.ts` : validation zod, ce que l'action
+// demande a la garde de tentative (`requireAttempt`, doublee ici — sa politique
+// est testee dans tests/attempts/guard.test.ts), le succes et le mapping des
+// refus vers un message. Le SQL et la concurrence sont verifies sur une vraie
+// base dans tests/integration/training-*.test.ts.
+const { mocks } = vi.hoisted(() => ({
+  mocks: {
     captureServerError: vi.fn(),
     revalidatePath: vi.fn(),
-    transaction:
-      vi.fn<(cb: (tx: unknown) => Promise<unknown>) => Promise<unknown>>(),
-    rows: { current: {} as Record<string, unknown[]> },
-    returning: { current: [] as unknown[] },
-    /** Dernier payload passé à `.set(...)` : le score écrit en base. */
-    set: { current: undefined as unknown },
     session: {
       current: { user: { id: "u1", role: "user" } } as {
         user: { id: string; role: string }
       },
     },
     hasAccess: vi.fn(async () => true),
+    requireAttempt: vi.fn(),
+    expireTrainingSessions: vi.fn(async () => ({ closedCount: 1 })),
     getPgErrorCode: vi.fn<() => string | undefined>(() => undefined),
     lockedIds: { current: new Set<string>() },
     lockFor: vi.fn(),
@@ -46,58 +47,27 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
       bookmarked: 1,
     })),
     pickRevisionQuestionIds: vi.fn(async () => ["q1"]),
-  }
-
-  const table = (name: string) => ({ __table: name })
-
-  const queryChain = (initialTable?: string) => {
-    let target = initialTable
-    const chain: Record<string, unknown> = {
-      from: (t: { __table?: string }) => {
-        target = t?.__table
-        return chain
-      },
-      innerJoin: () => chain,
-      where: () => chain,
-      orderBy: () => chain,
-      for: () => chain,
-      limit: () => chain,
-      set: (payload: unknown) => {
-        mocks.set.current = payload
-        return chain
-      },
-      values: () => chain,
-      onConflictDoNothing: () => chain,
-      returning: () => Promise.resolve(mocks.returning.current),
-      then: (onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
-        Promise.resolve(
-          (target ? mocks.rows.current[target] : undefined) ?? [],
-        ).then(onOk, onErr),
-    }
-    return chain
-  }
-
-  const fakeDb = {
-    transaction: (cb: (tx: unknown) => Promise<unknown>) =>
-      mocks.transaction(cb),
-    select: () => queryChain(),
-    insert: (t: { __table?: string }) => queryChain(t?.__table),
-    update: (t: { __table?: string }) => queryChain(t?.__table),
-    delete: (t: { __table?: string }) => queryChain(t?.__table),
-  }
-
-  return { mocks, fakeDb, table }
-})
-
-vi.mock("@/db", () => ({ db: fakeDb }))
-vi.mock("@/db/schema", () => ({
-  questionBookmarks: table("questionBookmarks"),
-  questionExplanations: table("questionExplanations"),
-  questions: table("questions"),
-  trainingSessionItems: table("trainingSessionItems"),
-  trainingSessions: table("trainingSessions"),
-  user: table("user"),
+  },
 }))
+
+vi.mock("@/db", async () => ({
+  db: (await import("../helpers/fake-drizzle")).fakeDb,
+}))
+vi.mock("@/db/schema", async () => {
+  const { table } = await import("../helpers/fake-drizzle")
+  return {
+    questionBookmarks: table("questionBookmarks"),
+    questionExplanations: table("questionExplanations"),
+    questions: table("questions"),
+    trainingSessionItems: table("trainingSessionItems"),
+    trainingSessions: table("trainingSessions"),
+    user: table("user"),
+  }
+})
+vi.mock("@/features/attempts/guard", async (orig) => {
+  const actual = await orig<typeof import("@/features/attempts/guard")>()
+  return { ...actual, requireAttempt: mocks.requireAttempt }
+})
 // Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
 vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   const actual =
@@ -108,6 +78,9 @@ vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   return { ...actual, lockFor: mocks.lockFor }
 })
 vi.mock("@/features/payments/dal", () => ({ hasAccess: mocks.hasAccess }))
+vi.mock("@/features/training/cron", () => ({
+  expireTrainingSessions: mocks.expireTrainingSessions,
+}))
 vi.mock("@/features/training/dal", () => ({
   getAvailableObjectifsCMC: mocks.getAvailableObjectifsCMC,
   getTrainingHistory: mocks.getTrainingHistory,
@@ -127,29 +100,33 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 
 const SERVER_ERROR = "Erreur serveur. Réessayez."
 const NOW = 1_000_000
+const REFUSALS: RefusalCode[] = [
+  "NOT_FOUND",
+  "NOT_IN_PROGRESS",
+  "EXPIRED",
+  "ACCESS_EXPIRED",
+]
 
-const setRows = (rows: Record<string, unknown[]>) => {
-  mocks.rows.current = rows
-}
-
-const openSession = (extra: Record<string, unknown> = {}) => ({
-  userId: "u1",
-  status: "in_progress",
-  questionCount: 10,
-  expiresAt: new Date(NOW + 60_000),
-  mode: "test",
-  ...extra,
+const openAttempt = (extra: Record<string, unknown> = {}) => ({
+  ok: true as const,
+  attempt: {
+    kind: "training" as const,
+    id: "s1",
+    mode: "test" as const,
+    questionCount: 10,
+    expiresAt: NOW + 60_000,
+    ...extra,
+  },
 })
 
-const runCallback = () =>
-  mocks.transaction.mockImplementationOnce(async (cb) => cb(fakeDb))
+const refuse = (code: RefusalCode) =>
+  mocks.requireAttempt.mockResolvedValueOnce({ ok: false, code })
 
 beforeEach(() => {
   mocks.session.current = { user: { id: "u1", role: "user" } }
-  mocks.rows.current = {}
   mocks.lockedIds.current = new Set()
-  mocks.returning.current = [{ id: "s1" }]
-  mocks.transaction.mockResolvedValue(5)
+  mocks.requireAttempt.mockReset().mockResolvedValue(openAttempt())
+  resetFakeDrizzle([{ id: "s1" }])
   // Aucune option de config ne restaure les faux timers — d'ou l'afterEach.
   vi.useFakeTimers({ toFake: ["Date"] })
   vi.setSystemTime(NOW)
@@ -189,14 +166,21 @@ describe("lectures gardees", () => {
 describe("createTrainingSession", () => {
   // `mode` est requis par le type d'entree (z.infer, pas z.input).
   const input = { questionCount: 10, mode: "test" as const }
+  const freshUser = () =>
+    setRows({
+      trainingSessions: [],
+      user: [{ id: "u1" }],
+      questions: [{ n: 50 }],
+    })
 
   it("refuse moins de 5 questions hors revision", async () => {
     const res = await createTrainingSession({ ...input, questionCount: 3 })
     expect(res).toEqual({ success: false, error: "Au moins 5 questions" })
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
   it("accepte moins de 5 questions en revision (corpus court legitime)", async () => {
+    freshUser()
     const res = await createTrainingSession({
       ...input,
       questionCount: 3,
@@ -212,11 +196,12 @@ describe("createTrainingSession", () => {
       success: false,
       error: "Votre accès à l'entraînement a expiré.",
     })
-    expect(mocks.transaction).not.toHaveBeenCalled()
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 
   it("admin : pas de garde d'acces payant", async () => {
     mocks.session.current = { user: { id: "adm", role: "admin" } }
+    state.transaction.mockResolvedValueOnce(5)
     const res = await createTrainingSession(input)
     expect(res).toMatchObject({ success: true })
     expect(mocks.hasAccess).not.toHaveBeenCalled()
@@ -225,8 +210,7 @@ describe("createTrainingSession", () => {
   // Le verrou anti-triche vit dans le tirage lui-meme (excludeLocked) : l'action
   // doit transmettre le lecteur, role compris, sans rien resoudre avant.
   it("revision : transmet le lecteur au tirage", async () => {
-    runCallback()
-    setRows({ trainingSessions: [], user: [{ id: "u1" }] })
+    freshUser()
     await createTrainingSession({ ...input, revisionFilters: ["failed"] })
     expect(mocks.pickRevisionQuestionIds).toHaveBeenCalledWith(
       fakeDb,
@@ -238,12 +222,42 @@ describe("createTrainingSession", () => {
   })
 
   it("succes : renvoie le nombre REELLEMENT retenu", async () => {
-    mocks.transaction.mockResolvedValueOnce(7)
+    state.transaction.mockResolvedValueOnce(7)
     const res = await createTrainingSession(input)
     expect(res).toMatchObject({ success: true, questionCount: 7 })
     expect(mocks.revalidatePath).toHaveBeenCalledWith(
       "/tableau-de-bord/entrainement",
     )
+  })
+
+  // La session expiree qui barre la place est close par L'ECRIVAIN DU CRON
+  // (scoree, `completedAt` pose), sous le verrou de la transaction courante.
+  it("session en cours expiree → cloture scoree par l'ecrivain du cron, puis creation", async () => {
+    setRows({
+      trainingSessions: [{ id: "old", expiresAt: new Date(NOW - 1) }],
+      user: [{ id: "u1" }],
+      questions: [{ n: 50 }],
+    })
+    const res = await createTrainingSession(input)
+    expect(res).toMatchObject({ success: true })
+    expect(mocks.expireTrainingSessions).toHaveBeenCalledWith(fakeDb, {
+      now: new Date(NOW),
+      sessionId: "old",
+    })
+  })
+
+  it("session en cours non expiree → refus, rien n'est clos", async () => {
+    setRows({
+      trainingSessions: [{ id: "old", expiresAt: new Date(NOW) }],
+      user: [{ id: "u1" }],
+    })
+    const res = await createTrainingSession(input)
+    expect(res).toEqual({
+      success: false,
+      error:
+        "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
+    })
+    expect(mocks.expireTrainingSessions).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -264,14 +278,14 @@ describe("createTrainingSession", () => {
       "Seulement 4 questions disponibles. Réduisez le nombre demandé.",
     ],
   ])("%s → message dedie, sans capture", async (thrown, error) => {
-    mocks.transaction.mockRejectedValueOnce(new Error(thrown))
+    rejectWith(thrown)
     const res = await createTrainingSession(input)
     expect(res).toEqual({ success: false, error })
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
   it("erreur inattendue → capture avec l'utilisateur", async () => {
-    mocks.transaction.mockRejectedValueOnce(new Error("pool exhausted"))
+    rejectWith("pool exhausted")
     const res = await createTrainingSession(input)
     expect(res).toEqual({ success: false, error: SERVER_ERROR })
     expect(mocks.captureServerError).toHaveBeenCalledWith(
@@ -282,9 +296,8 @@ describe("createTrainingSession", () => {
   })
 
   it("revision sans question disponible → message dedie", async () => {
-    runCallback()
+    freshUser()
     mocks.pickRevisionQuestionIds.mockResolvedValueOnce([])
-    setRows({ trainingSessions: [], user: [{ id: "u1" }] })
     const res = await createTrainingSession({
       ...input,
       revisionFilters: ["bookmarked"],
@@ -299,79 +312,53 @@ describe("createTrainingSession", () => {
 
 describe("saveTrainingAnswer", () => {
   const input = { sessionId: "s1", questionId: "q1", selectedAnswer: "A" }
+  const item = { itemId: "i1", correctAnswer: "A" }
 
   it("entree invalide → refus avant lecture", async () => {
     const res = await saveTrainingAnswer({ ...input, selectedAnswer: "" })
     expect(res.success).toBe(false)
+    expect(mocks.requireAttempt).not.toHaveBeenCalled()
   })
 
-  it("session introuvable", async () => {
-    setRows({ trainingSessions: [] })
-    expect(await saveTrainingAnswer(input)).toEqual({
-      success: false,
-      error: "Session introuvable",
-    })
-  })
-
-  // IDOR : la session appartient a quelqu'un d'autre.
-  it("session d'un autre utilisateur → refus", async () => {
-    setRows({ trainingSessions: [openSession({ userId: "autre" })] })
-    expect(await saveTrainingAnswer(input)).toEqual({
-      success: false,
-      error: "Cette session ne vous appartient pas",
+  it("demande la garde `answer` sur la session, pour l'acteur courant, dans la transaction", async () => {
+    setRows({ trainingSessionItems: [item] })
+    await saveTrainingAnswer(input)
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeDb, {
+      kind: "training",
+      ref: "s1",
+      actor: { id: "u1", role: "user" },
+      now: NOW,
+      verb: "answer",
     })
   })
 
-  it("session terminee", async () => {
-    setRows({ trainingSessions: [openSession({ status: "completed" })] })
+  it.each(REFUSALS)("refus %s → message, aucune ecriture", async (code) => {
+    refuse(code)
     expect(await saveTrainingAnswer(input)).toEqual({
       success: false,
-      error: "Cette session n'est plus active",
+      error: refusalMessage(code, "training"),
     })
-  })
-
-  it("session expiree → bascule abandonnee et refuse", async () => {
-    setRows({
-      trainingSessions: [openSession({ expiresAt: new Date(NOW - 1) })],
-    })
-    expect(await saveTrainingAnswer(input)).toEqual({
-      success: false,
-      error: "Cette session a expiré",
-    })
-  })
-
-  it("acces entrainement expire", async () => {
-    mocks.hasAccess.mockResolvedValueOnce(false)
-    setRows({ trainingSessions: [openSession()] })
-    expect(await saveTrainingAnswer(input)).toEqual({
-      success: false,
-      error: "Votre accès à l'entraînement a expiré.",
-    })
+    expect(state.set).toBeUndefined()
   })
 
   it("question hors session", async () => {
-    setRows({
-      trainingSessions: [openSession()],
-      trainingSessionItems: [],
-    })
+    setRows({ trainingSessionItems: [] })
     expect(await saveTrainingAnswer(input)).toEqual({
       success: false,
       error: "Cette question ne fait pas partie de la session",
     })
   })
 
-  it("mode test : n'expose jamais isCorrect (anti-triche)", async () => {
-    setRows({
-      trainingSessions: [openSession()],
-      trainingSessionItems: [{ itemId: "i1", correctAnswer: "A" }],
-    })
+  it("mode test : enregistre la reponse sans jamais exposer isCorrect (anti-triche)", async () => {
+    setRows({ trainingSessionItems: [item] })
     expect(await saveTrainingAnswer(input)).toEqual({ success: true })
+    expect(state.set).toMatchObject({ selectedAnswer: "A", isCorrect: true })
   })
 
   it("mode tuteur : revele la correction et l'explication", async () => {
+    mocks.requireAttempt.mockResolvedValueOnce(openAttempt({ mode: "tutor" }))
     setRows({
-      trainingSessions: [openSession({ mode: "tutor" })],
-      trainingSessionItems: [{ itemId: "i1", correctAnswer: "A" }],
+      trainingSessionItems: [item],
       questionExplanations: [{ explanation: "parce que", references: ["r1"] }],
     })
     expect(await saveTrainingAnswer(input)).toEqual({
@@ -386,8 +373,8 @@ describe("saveTrainingAnswer", () => {
   })
 
   it("mode tuteur sans explication enregistree → champs omis", async () => {
+    mocks.requireAttempt.mockResolvedValueOnce(openAttempt({ mode: "tutor" }))
     setRows({
-      trainingSessions: [openSession({ mode: "tutor" })],
       trainingSessionItems: [{ itemId: "i1", correctAnswer: "B" }],
       questionExplanations: [],
     })
@@ -405,31 +392,43 @@ describe("saveTrainingAnswer", () => {
   // Anti-triche : la reponse est enregistree, mais la correction est retenue
   // tant que l'examen qui porte cette question est ouvert.
   it("mode tuteur, question verrouillee par un examen ouvert → cle retenue, pas de correction", async () => {
+    mocks.requireAttempt.mockResolvedValueOnce(openAttempt({ mode: "tutor" }))
     mocks.lockedIds.current = new Set(["q1"])
-    setRows({
-      trainingSessions: [openSession({ mode: "tutor" })],
-      trainingSessionItems: [{ itemId: "i1", correctAnswer: "A" }],
-    })
+    setRows({ trainingSessionItems: [item] })
     expect(await saveTrainingAnswer(input)).toEqual({
       success: true,
       reveal: { keyWithheld: true },
     })
   })
 
-  // Le bypass admin est la decision du verrou (tests/questions/answer-key-lock) ;
-  // l'action doit seulement lui transmettre le role.
-  it("admin : le role est transmis au verrou", async () => {
+  // Le bypass admin est la decision du verrou (tests/questions/answer-key-lock)
+  // et de la garde ; l'action doit seulement leur transmettre le role.
+  it("admin : le role est transmis au verrou et a la garde", async () => {
     mocks.session.current = { user: { id: "u1", role: "admin" } }
-    setRows({
-      trainingSessions: [openSession({ mode: "tutor" })],
-      trainingSessionItems: [{ itemId: "i1", correctAnswer: "A" }],
-      questionExplanations: [],
-    })
+    mocks.requireAttempt.mockResolvedValueOnce(openAttempt({ mode: "tutor" }))
+    setRows({ trainingSessionItems: [item], questionExplanations: [] })
     const res = await saveTrainingAnswer(input)
     expect(res).toMatchObject({ success: true, isCorrect: true })
     expect(mocks.lockFor).toHaveBeenCalledWith({ id: "u1", role: "admin" }, [
       "q1",
     ])
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(
+      fakeDb,
+      expect.objectContaining({ actor: { id: "u1", role: "admin" } }),
+    )
+  })
+
+  it("panne base → capture", async () => {
+    rejectWith("boom")
+    expect(await saveTrainingAnswer(input)).toEqual({
+      success: false,
+      error: SERVER_ERROR,
+    })
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[saveTrainingAnswer]",
+      expect.any(Error),
+      { userId: "u1" },
+    )
   })
 })
 
@@ -488,62 +487,41 @@ describe("completeTrainingSession", () => {
       success: false,
       error: "Session requise",
     })
+    expect(mocks.requireAttempt).not.toHaveBeenCalled()
   })
 
-  it.each([
-    [{ trainingSessions: [] }, "Session introuvable"],
-    [
-      { trainingSessions: [openSession({ userId: "autre" })] },
-      "Cette session ne vous appartient pas",
-    ],
-    [
-      { trainingSessions: [openSession({ status: "abandoned" })] },
-      "Cette session n'est plus active",
-    ],
-    [
-      { trainingSessions: [openSession({ expiresAt: new Date(NOW - 1) })] },
-      "Cette session a expiré",
-    ],
-  ])("refus : %#", async (rows, error) => {
-    setRows(rows)
-    expect(await completeTrainingSession({ sessionId: "s1" })).toEqual({
-      success: false,
-      error,
-    })
+  it("demande la garde `close`", async () => {
+    setRows({ trainingSessionItems: [{ correct: 7 }] })
+    await completeTrainingSession({ sessionId: "s1" })
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(
+      fakeDb,
+      expect.objectContaining({ ref: "s1", verb: "close" }),
+    )
   })
 
-  it("acces expire → refus avant calcul du score", async () => {
-    mocks.hasAccess.mockResolvedValueOnce(false)
-    setRows({ trainingSessions: [openSession()] })
+  it.each(REFUSALS)("refus %s → message, aucune ecriture", async (code) => {
+    refuse(code)
     expect(await completeTrainingSession({ sessionId: "s1" })).toEqual({
       success: false,
-      error: "Votre accès à l'entraînement a expiré.",
+      error: refusalMessage(code, "training"),
     })
+    expect(state.set).toBeUndefined()
   })
 
   it("calcule le score sur le nombre de questions de la session", async () => {
-    setRows({
-      trainingSessions: [openSession({ questionCount: 10 })],
-      trainingSessionItems: [{ correct: 7 }],
-    })
+    setRows({ trainingSessionItems: [{ correct: 7 }] })
     expect(await completeTrainingSession({ sessionId: "s1" })).toEqual({
       success: true,
     })
     // Le décompte ne repart pas vers le navigateur : le score se lit en base.
-    expect(mocks.set.current).toMatchObject({ score: 70 })
-  })
-
-  // Garde de statut : le cron d'expiration a pu clore la session entre-temps.
-  it("cloture concurrente → aucune ligne mise a jour, refus", async () => {
-    mocks.returning.current = []
-    setRows({
-      trainingSessions: [openSession()],
-      trainingSessionItems: [{ correct: 1 }],
+    expect(state.set).toMatchObject({
+      status: "completed",
+      score: 70,
+      completedAt: new Date(NOW),
     })
-    expect(await completeTrainingSession({ sessionId: "s1" })).toEqual({
-      success: false,
-      error: "Cette session n'est plus active",
-    })
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      "/tableau-de-bord/entrainement",
+    )
   })
 })
 
@@ -555,42 +533,41 @@ describe("abandonTrainingSession", () => {
     })
   })
 
-  it.each([
-    [{ trainingSessions: [] }, "Session introuvable"],
-    [
-      { trainingSessions: [openSession({ userId: "autre" })] },
-      "Cette session ne vous appartient pas",
-    ],
-    [
-      { trainingSessions: [openSession({ status: "completed" })] },
-      "Cette session n'est pas en cours",
-    ],
-  ])("refus : %#", async (rows, error) => {
-    setRows(rows)
-    expect(await abandonTrainingSession({ sessionId: "s1" })).toEqual({
-      success: false,
-      error,
-    })
+  it("demande la garde `abandon`", async () => {
+    await abandonTrainingSession({ sessionId: "s1" })
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(
+      fakeDb,
+      expect.objectContaining({ ref: "s1", verb: "abandon" }),
+    )
   })
 
-  it("cloture concurrente → refus plutot qu'ecrasement", async () => {
-    mocks.returning.current = []
-    setRows({ trainingSessions: [openSession()] })
-    expect(await abandonTrainingSession({ sessionId: "s1" })).toEqual({
-      success: false,
-      error: "Cette session n'est pas en cours",
-    })
-  })
+  it.each(["NOT_FOUND", "NOT_IN_PROGRESS"] as const)(
+    "refus %s → message, aucune ecriture",
+    async (code) => {
+      refuse(code)
+      expect(await abandonTrainingSession({ sessionId: "s1" })).toEqual({
+        success: false,
+        error: refusalMessage(code, "training"),
+      })
+      expect(state.set).toBeUndefined()
+    },
+  )
 
   it("succes", async () => {
-    setRows({ trainingSessions: [openSession()] })
     expect(await abandonTrainingSession({ sessionId: "s1" })).toEqual({
       success: true,
     })
+    expect(state.set).toEqual({ status: "abandoned" })
   })
 })
 
 describe("deleteTrainingSession", () => {
+  const session = (extra: Record<string, unknown> = {}) => ({
+    userId: "u1",
+    status: "completed",
+    ...extra,
+  })
+
   it("id vide → refus", async () => {
     expect(await deleteTrainingSession({ sessionId: "" })).toEqual({
       success: false,
@@ -601,11 +578,11 @@ describe("deleteTrainingSession", () => {
   it.each([
     [{ trainingSessions: [] }, "Session introuvable"],
     [
-      { trainingSessions: [openSession({ userId: "autre" })] },
+      { trainingSessions: [session({ userId: "autre" })] },
       "Cette session ne vous appartient pas",
     ],
     [
-      { trainingSessions: [openSession({ status: "in_progress" })] },
+      { trainingSessions: [session({ status: "in_progress" })] },
       "Impossible de supprimer une session en cours. Terminez-la ou abandonnez-la d'abord.",
     ],
   ])("refus : %#", async (rows, error) => {
@@ -617,7 +594,7 @@ describe("deleteTrainingSession", () => {
   })
 
   it("succes sur une session terminee", async () => {
-    setRows({ trainingSessions: [openSession({ status: "completed" })] })
+    setRows({ trainingSessions: [session()] })
     expect(await deleteTrainingSession({ sessionId: "s1" })).toEqual({
       success: true,
     })

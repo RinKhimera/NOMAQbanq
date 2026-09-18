@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import {
   afterAll,
   beforeAll,
@@ -18,7 +18,9 @@ import {
 import {
   abandonTrainingSession,
   completeTrainingSession,
+  createTrainingSession,
 } from "@/features/training/actions"
+import { closeExpiredTrainingSessions } from "@/features/training/cron"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
@@ -32,7 +34,9 @@ vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)
 const USER_ID = createId()
-const QID = createId()
+// Cinq questions : le plancher d'un tirage aléatoire (createTrainingSession).
+const QIDS = Array.from({ length: 5 }, () => createId())
+const QID = QIDS[0]
 
 beforeAll(async () => {
   await db.insert(user).values({
@@ -40,14 +44,16 @@ beforeAll(async () => {
     name: "IT concurrence",
     email: `conc-${suffix}@test.invalid`,
   })
-  await db.insert(questions).values({
-    id: QID,
-    question: `Q ${suffix} ?`,
-    correctAnswer: "A",
-    options: ["A", "B", "C", "D"],
-    objectifCmc: `Obj ${suffix}`,
-    domain: `CONC-${suffix}`,
-  })
+  await db.insert(questions).values(
+    QIDS.map((id, i) => ({
+      id,
+      question: `Q${i} ${suffix} ?`,
+      correctAnswer: "A",
+      options: ["A", "B", "C", "D"],
+      objectifCmc: `Obj ${suffix}`,
+      domain: `CONC-${suffix}`,
+    })),
+  )
 })
 
 beforeEach(() => {
@@ -95,14 +101,33 @@ const statusOf = (id: string) =>
     .then((r) => r[0])
 
 describe("clôture de session : gardes de statut + expiration", () => {
-  it("session expirée : complétion refusée et session basculée abandonnée", async () => {
+  // Le cron est le seul écrivain de la clôture par expiration : le refus
+  // n'écrit rien, et la session fermée par le cron porte un score.
+  it("session expirée : complétion refusée SANS écriture, puis close et scorée par le cron", async () => {
     const sid = await seedSession({
       status: "in_progress",
       expiresAt: new Date(Date.now() - DAY),
     })
     const res = await completeTrainingSession({ sessionId: sid })
-    expect(res.success).toBe(false)
-    expect((await statusOf(sid))?.status).toBe("abandoned")
+    expect(res).toEqual({ success: false, error: "Cette session a expiré" })
+    expect(await statusOf(sid)).toEqual({ status: "in_progress", score: null })
+
+    await closeExpiredTrainingSessions()
+    expect(await statusOf(sid)).toEqual({ status: "abandoned", score: 100 })
+  })
+
+  it("session expirée : une nouvelle création la clôt scorée (même écrivain que le cron)", async () => {
+    const sid = await seedSession({
+      status: "in_progress",
+      expiresAt: new Date(Date.now() - DAY),
+    })
+    const res = await createTrainingSession({
+      questionCount: 5,
+      mode: "test",
+      domain: `CONC-${suffix}`,
+    })
+    expect(res.success).toBe(true)
+    expect(await statusOf(sid)).toEqual({ status: "abandoned", score: 100 })
   })
 
   it("session abandonnée par le cron : complétion refusée, statut intact", async () => {
@@ -153,6 +178,6 @@ describe("clôture de session : gardes de statut + expiration", () => {
 
 afterAll(async () => {
   await db.delete(trainingSessions).where(eq(trainingSessions.userId, USER_ID))
-  await db.delete(questions).where(eq(questions.id, QID))
+  await db.delete(questions).where(inArray(questions.id, QIDS))
   await db.delete(user).where(eq(user.id, USER_ID))
 })
