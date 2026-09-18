@@ -165,11 +165,19 @@ export const excludeLocked = (viewer: LockViewer, questionId: SQL): SQL => {
  * `training_sessions.user_id`) ; `answeredQuestionIds`, une sous-requête des
  * questions RÉPONDUES de la ligne lue, corrélée à elle. Un lecteur admin ne
  * passe pas par ici : il lit le score brut.
+ *
+ * `ownExamId` est l'examen propre d'une participation
+ * (`exam_participations.exam_id`) : son score est retenu tant que cet examen
+ * est ouvert, réponses ou non — une participation sans réponse a un score
+ * `0` enregistré, qu'un examen encore ouvert ne doit pas plus livrer qu'un
+ * autre. Une session d'entraînement n'a pas d'examen propre.
  */
 export const scoreWithheldForOwner = (
   ownerId: SQL,
   answeredQuestionIds: SQL,
-): SQL<boolean> => sql<boolean>`exists (
+  ownExamId?: SQL,
+): SQL<boolean> => {
+  const byAnsweredQuestions = sql<boolean>`exists (
     select 1
       from exam_questions akl_q
       join exams akl_e on akl_e.id = akl_q.exam_id
@@ -178,6 +186,14 @@ export const scoreWithheldForOwner = (
      where akl_q.question_id in (${answeredQuestionIds})
        and akl_e.end_date > now()
   )`
+  if (!ownExamId) return byAnsweredQuestions
+  return sql<boolean>`(exists (
+    select 1
+      from exams akl_o
+     where akl_o.id = ${ownExamId}
+       and akl_o.end_date > now()
+  ) or ${byAnsweredQuestions})`
+}
 
 /**
  * Forme « lecteur » de `scoreWithheldForOwner`, pour les lectures où le
@@ -187,7 +203,8 @@ export const scoreWithheldForOwner = (
 export const scoreWithheldFor = (
   viewer: LockUser,
   answeredQuestionIds: SQL,
+  ownExamId?: SQL,
 ): SQL<boolean> =>
   viewer.role === "admin"
     ? sql<boolean>`false`
-    : scoreWithheldForOwner(sql`${viewer.id}`, answeredQuestionIds)
+    : scoreWithheldForOwner(sql`${viewer.id}`, answeredQuestionIds, ownExamId)

@@ -5,6 +5,8 @@ import {
   AnswerKeyLock,
   excludeLocked,
   lockFor,
+  scoreWithheldFor,
+  scoreWithheldForOwner,
   viewerOf,
 } from "@/features/questions/answer-key-lock"
 
@@ -191,5 +193,45 @@ describe("excludeLocked — exclusion à la sélection (fragment SQL)", () => {
       excludeLocked({ id: "adm", role: "admin" }, sql`q.id`),
     )
     expect(text).toBe("true")
+  })
+})
+
+describe("scoreWithheldForOwner — retenue du score (fragment SQL)", () => {
+  const render = (fragment: SQL) => new PgDialect().sqlToQuery(fragment)
+  const answered = sql`select a.question_id from exam_answers a`
+
+  it("sans examen propre (session d'entraînement) : retenue par les questions répondues seulement", () => {
+    const { sql: text, params } = render(
+      scoreWithheldForOwner(sql`s.user_id`, answered),
+    )
+    expect(text.match(/end_date > now\(\)/g)).toHaveLength(1)
+    expect(text).toMatch(/exam_questions/)
+    expect(params).toEqual([])
+  })
+
+  it("avec examen propre (participation) : retenu aussi tant que cet examen est ouvert, réponses ou non — même borne que le verrou", () => {
+    const { sql: text, params } = render(
+      scoreWithheldForOwner(sql`p.user_id`, answered, sql`p.exam_id`),
+    )
+    // Deux clauses, chacune sur la borne stricte `end_date > now()` :
+    // `end_date = now()` est clos (lisible), `end_date = now() + 1 ms` ouvert.
+    expect(text.match(/end_date > now\(\)/g)).toHaveLength(2)
+    expect(text).toMatch(/id = p\.exam_id/)
+    expect(params).toEqual([])
+  })
+
+  it("forme lecteur : un admin n'est jamais retenu, examen propre ou non", () => {
+    const { sql: text } = render(
+      scoreWithheldFor({ id: "adm", role: "admin" }, answered, sql`p.exam_id`),
+    )
+    expect(text).toBe("false")
+  })
+
+  it("forme lecteur : un utilisateur porte les deux clauses sur son propre id", () => {
+    const { sql: text, params } = render(
+      scoreWithheldFor({ id: "u1", role: "user" }, answered, sql`p.exam_id`),
+    )
+    expect(text.match(/end_date > now\(\)/g)).toHaveLength(2)
+    expect(params).toEqual(["u1"])
   })
 })

@@ -97,12 +97,18 @@ colonne)` dans le WHERE des canaux de
   **ni juste ni fausse** : `SessionResults` la compte « différée », et un
   lecteur qui dérive un compteur de `isCorrect` doit d'abord lire
   `keyWithheld`. Troisième entrée, pour les LECTURES DE SCORE :
-  `scoreWithheldForOwner(colonneUserId, réponsesSQL)` — le score enregistré
-  compte les réponses différées, le lire à côté des compteurs qui les
-  excluent (ou avant/après dans une moyenne) redonnerait la clé par
-  soustraction. La retenue s'indexe sur le PROPRIÉTAIRE du score, pas sur le
-  lecteur : son score lu par un camarade (classement) ou envoyé par courriel
-  (cron de clôture) lui revient. `scoreWithheldFor(viewer, …)` est la forme
+  `scoreWithheldForOwner(colonneUserId, réponsesSQL, examenPropre?)` — le
+  score enregistré compte les réponses différées, le lire à côté des
+  compteurs qui les excluent (ou avant/après dans une moyenne) redonnerait la
+  clé par soustraction. Une PARTICIPATION passe en plus son examen propre
+  (`exam_participations.exam_id`) : son score est retenu tant que cet examen
+  est ouvert (`end_date > now()`, la borne du verrou), réponses ou non — une
+  participation auto-soumise sans réponse a un score `0` enregistré qui, lu
+  pendant la fenêtre, fabrique « 0 réussi · 0 % ». Une session
+  d'entraînement n'a pas d'examen propre : retenue par ses réponses seules.
+  La retenue s'indexe sur le PROPRIÉTAIRE du score, pas sur le lecteur : son
+  score lu par un camarade (classement) ou envoyé par courriel (cron de
+  clôture) lui revient. `scoreWithheldFor(viewer, …)` est la forme
   « je lis mes propres scores » (admin jamais retenu) ; un lecteur admin lit
   le score brut partout. Toute lecture étudiant d'un `score` (session,
   participation, historique, graphique, moyenne, classement, courriel) le

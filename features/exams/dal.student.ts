@@ -42,28 +42,30 @@ import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
 import { countQuestionsByExam } from "./dal.shared"
 
 // Questions RÉPONDUES d'une participation, corrélées à la ligne
-// `exam_participations` lue — la forme attendue par `scoreWithheldFor`. Tant
-// que l'examen de la participation est lui-même ouvert, ses propres questions
-// sont retenues : un score d'examen ne se lit qu'après la clôture.
+// `exam_participations` lue — la forme attendue par `scoreWithheldFor`. Avec
+// l'examen propre de la participation en plus : son score est retenu tant que
+// cet examen est ouvert, réponses ou non (une participation sans réponse a un
+// score `0` enregistré) — un score d'examen ne se lit qu'après la clôture.
 const answeredQuestionIds = sql`
   select a.question_id
     from exam_answers a
    where a.participation_id = ${examParticipations.id}
      and a.selected_answer is not null
      and a.selected_answer <> ''`
+const ownExamId = sql`${examParticipations.examId}`
 
 /** Score enregistré, ou `null` s'il est retenu pour le lecteur (voir `scoreWithheldFor`). */
 const readableScore = (viewer: LockUser) =>
   sql<
     number | null
-  >`case when ${scoreWithheldFor(viewer, answeredQuestionIds)} then null else ${examParticipations.score} end`
+  >`case when ${scoreWithheldFor(viewer, answeredQuestionIds, ownExamId)} then null else ${examParticipations.score} end`
 
 /** `mapWith(Number)` ferait de `null` un `0` — faux « 0 % » quand rien n'est lisible. */
 const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
 
 /** Filtre d'agrégat : seules les participations dont le score est lisible. */
 const scoreReadable = (viewer: LockUser) =>
-  sql`not ${scoreWithheldFor(viewer, answeredQuestionIds)}`
+  sql`not ${scoreWithheldFor(viewer, answeredQuestionIds, ownExamId)}`
 
 /**
  * Score de la ligne lue, ou `null` s'il est retenu pour son PROPRIÉTAIRE —
@@ -72,7 +74,7 @@ const scoreReadable = (viewer: LockUser) =>
  */
 export const ownerReadableScore = sql<
   number | null
->`case when ${scoreWithheldForOwner(sql`${examParticipations.userId}`, answeredQuestionIds)} then null else ${examParticipations.score} end`
+>`case when ${scoreWithheldForOwner(sql`${examParticipations.userId}`, answeredQuestionIds, ownExamId)} then null else ${examParticipations.score} end`
 
 // ============================================
 // Liste examens + participation (étudiant)
