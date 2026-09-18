@@ -133,3 +133,28 @@ disparaît (ses formatteurs migrent).
   `tests/helpers/` ; tests d'intégration conservés comme preuve de câblage.
 - **Un ADR** : verrou de ligne sur la tentative et cron seul écrivain de la
   clôture (difficile à défaire, surprenant, arbitré).
+
+## Écarts constatés à l'implémentation de la PR 1 (2026-09-18)
+
+- `QuizRevealPayload` ne disparaît pas : c'est le contrat du retour de
+  `onAnswer` (correction complète garantie, ou clé retenue). Il est désormais
+  dérivé de `Revealed` (`Required<Pick<…>>`), donc ne peut plus diverger.
+- `features/exams/dal.shared.ts` survit, réduit à `countQuestionsByExam`
+  (partagé par les DAL admin et étudiant d'exams, sans rapport avec le pont).
+- `toAnswersMap` est reporté : les DAL livrent encore leurs réponses sous
+  leur forme propre (`selectedAnswer`) et les pages les projettent en
+  `AnswersMap` (`selected`). Ce n'est pas une règle du verrou mais un nom de
+  clé, et l'unifier traverse les tests d'intégration ; à prendre avec
+  AttemptScore en PR 2 si `summarize` en a besoin.
+- La seconde issue prévue (spread `isAdmin` de `getExamWithQuestions`) est
+  absorbée : la clé n'est jointe que sur `revealKey`, pour un admin, par le
+  mappeur. L'issue #191 couvre le DELETE de `deleteTrainingSession`.
+- `isOpen(exam, now)` = `now < endDate`, la borne du verrou SQL
+  (`end_date > now()`) ; `phaseOf` passe à « terminé » au même instant. La
+  frontière historique « encore actif à l'instant exact de fin » est
+  abandonnée pour n'avoir qu'une définition d'« ouvert ».
+- Les trois fenêtres `now < startDate || now > endDate` écrites à la main
+  dans `startExam` / `saveExamAnswer` / `finalizeExam` restent : c'est la
+  garde « fenêtre » de `requireAttempt` (PR 2), qui consommera `phaseOf`.
+- Périphérie ajoutée : `lib/clock.ts` (`currentTimeMs`, trois copies) et
+  `hooks/use-clock.ts` (ancre + tick, quatre surfaces).
