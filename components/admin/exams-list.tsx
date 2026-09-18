@@ -23,17 +23,19 @@ import {
   reactivateExam,
 } from "@/features/exams/actions"
 import type { AdminExamListItem } from "@/features/exams/dal"
-import { ExamStatus, getExamStatus } from "@/lib/exam-status"
+import { phaseOf } from "@/lib/exam-phase"
+import type { ExamStatus } from "@/lib/exam-status"
 import { callAction } from "@/lib/safe-action"
 import { ExamCard } from "./exam-card"
 import { ExamStatusFilter } from "./exam-status-filter"
 
 interface ExamsListProps {
   exams: AdminExamListItem[]
+  now: number
   onExamSelect?: (examId: string) => void
 }
 
-export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
+export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
   const router = useRouter()
 
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
@@ -52,7 +54,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
 
     if (selectedStatuses.length > 0) {
       result = result.filter((exam) =>
-        selectedStatuses.includes(getExamStatus(exam)),
+        selectedStatuses.includes(phaseOf(exam, now)),
       )
     }
 
@@ -66,10 +68,10 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
     }
 
     return result
-  }, [exams, selectedStatuses, searchQuery])
+  }, [exams, now, selectedStatuses, searchQuery])
 
   const handleDeactivate = async (exam: AdminExamListItem) => {
-    if (getExamStatus(exam) === "active") {
+    if (phaseOf(exam, now) === "active") {
       setSelectedExam(exam)
       setShowDeactivateDialog(true)
     } else {
@@ -102,7 +104,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
   }
 
   const handleEdit = (exam: AdminExamListItem) => {
-    if (getExamStatus(exam) === "active") {
+    if (phaseOf(exam, now) === "active") {
       setSelectedExam(exam)
       setShowEditDialog(true)
     } else {
@@ -192,6 +194,7 @@ export function ExamsList({ exams, onExamSelect }: ExamsListProps) {
               <ExamCard
                 key={exam.id}
                 exam={exam}
+                now={now}
                 onView={onExamSelect}
                 onDeactivate={handleDeactivate}
                 onReactivate={handleReactivate}

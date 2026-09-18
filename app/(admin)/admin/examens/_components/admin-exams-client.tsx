@@ -16,12 +16,15 @@ interface AdminExamsClientProps {
   stats: ExamsStats
   exams: AdminExamListItem[]
   eligibleCount: number
+  /** Horloge serveur du rendu : la phase des examens s'en déduit. */
+  initialNow: number
 }
 
 export function AdminExamsClient({
   stats,
   exams,
   eligibleCount,
+  initialNow,
 }: AdminExamsClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -82,12 +85,17 @@ export function AdminExamsClient({
         transition={{ duration: 0.5, delay: 0.2 }}
         className="overflow-hidden rounded-2xl border border-gray-200/60 bg-white shadow-xl shadow-gray-200/50 dark:border-gray-700/60 dark:bg-gray-900 dark:shadow-none"
       >
-        <ExamsList exams={exams} onExamSelect={handleExamSelect} />
+        <ExamsList
+          exams={exams}
+          now={initialNow}
+          onExamSelect={handleExamSelect}
+        />
       </motion.div>
 
       <ExamSidePanel
         exam={selectedExam}
         eligibleCount={eligibleCount}
+        now={initialNow}
         open={isPanelOpen}
         onOpenChange={handlePanelOpenChange}
       />

@@ -39,6 +39,8 @@ interface ExamDetailsClientProps {
   candidates: EligibleCandidate[]
   audience: ExamAudienceUser[]
   currentUserId?: string
+  /** Horloge serveur du rendu : la phase de l'examen s'en déduit. */
+  initialNow: number
 }
 
 export function ExamDetailsClient({
@@ -49,6 +51,7 @@ export function ExamDetailsClient({
   candidates,
   audience,
   currentUserId,
+  initialNow,
 }: ExamDetailsClientProps) {
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
 
@@ -137,6 +140,7 @@ export function ExamDetailsClient({
         audience={audience}
         isAdmin={true}
         currentUserId={currentUserId}
+        now={initialNow}
       />
 
       <ExamQuestionsModal

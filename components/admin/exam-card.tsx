@@ -3,13 +3,14 @@
 import { Calendar, Clock, FileText, Users } from "lucide-react"
 import { motion } from "motion/react"
 import type { AdminExamListItem } from "@/features/exams/dal"
-import { getExamStatus } from "@/lib/exam-status"
+import { phaseOf } from "@/lib/exam-phase"
 import { formatMediumDate } from "@/lib/format"
 import { ExamActions } from "./exam-actions"
 import ExamStatusBadge from "./exam-status-badge"
 
 interface ExamCardProps {
   exam: AdminExamListItem
+  now: number
   onView?: (examId: string) => void
   onDeactivate: (exam: AdminExamListItem) => void
   onReactivate: (examId: string) => void
@@ -19,13 +20,14 @@ interface ExamCardProps {
 
 export function ExamCard({
   exam,
+  now,
   onView,
   onDeactivate,
   onReactivate,
   onEdit,
   onDelete,
 }: ExamCardProps) {
-  const status = getExamStatus(exam)
+  const status = phaseOf(exam, now)
 
   const handleCardClick = () => {
     if (onView) {

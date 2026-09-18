@@ -19,6 +19,8 @@ interface StudentExamDetailsClientProps {
   leaderboard: LeaderboardEntry[]
   currentUserId?: string
   showResultsLink: boolean
+  /** Horloge serveur du rendu : la phase de l'examen s'en déduit. */
+  initialNow: number
 }
 
 export function StudentExamDetailsClient({
@@ -28,6 +30,7 @@ export function StudentExamDetailsClient({
   leaderboard,
   currentUserId,
   showResultsLink,
+  initialNow,
 }: StudentExamDetailsClientProps) {
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
 
@@ -82,6 +85,7 @@ export function StudentExamDetailsClient({
         candidates={[]}
         isAdmin={false}
         currentUserId={currentUserId}
+        now={initialNow}
       />
 
       <ExamQuestionsModal

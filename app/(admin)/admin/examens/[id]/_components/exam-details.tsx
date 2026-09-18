@@ -13,7 +13,7 @@ import type {
   ExamWithQuestions,
   LeaderboardEntry,
 } from "@/features/exams/dal"
-import { getExamStatus } from "@/lib/exam-status"
+import { phaseOf } from "@/lib/exam-phase"
 import { formatDeadline } from "@/lib/format"
 import { EligibleCandidatesSection } from "./eligible-candidates-section"
 import { ExamLeaderboard } from "./exam-leaderboard"
@@ -29,6 +29,7 @@ interface ExamDetailsProps {
   audience?: ExamAudienceUser[]
   isAdmin?: boolean
   currentUserId?: string
+  now: number
 }
 
 export function ExamDetails({
@@ -38,8 +39,9 @@ export function ExamDetails({
   audience = [],
   isAdmin = false,
   currentUserId,
+  now,
 }: ExamDetailsProps) {
-  const status = getExamStatus(exam)
+  const status = phaseOf(exam, now)
 
   return (
     <div className="space-y-6">

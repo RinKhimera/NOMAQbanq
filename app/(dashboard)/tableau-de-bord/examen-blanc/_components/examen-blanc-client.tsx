@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog"
 import { EmptyState } from "@/components/ui/empty-state"
 import type { ExamListItem } from "@/features/exams/dal"
+import { partition } from "@/lib/exam-phase"
 import {
   formatDeadline,
   formatFullDateTime,
@@ -409,18 +410,11 @@ export function ExamenBlancClient({
     return () => clearInterval(interval)
   }, [])
 
-  const { activeExams, upcomingExams, pastExams } = useMemo(
-    () => ({
-      activeExams: exams.filter(
-        (exam) => exam.isActive && now >= exam.startDate && now <= exam.endDate,
-      ),
-      upcomingExams: exams.filter(
-        (exam) => exam.isActive && now < exam.startDate,
-      ),
-      pastExams: exams.filter((exam) => exam.isActive && now > exam.endDate),
-    }),
-    [exams, now],
-  )
+  const {
+    active: activeExams,
+    upcoming: upcomingExams,
+    completed: pastExams,
+  } = useMemo(() => partition(exams, now), [exams, now])
 
   // Stats utilisateur : basées sur les examens réellement complétés (userHasTaken).
   // Un score retenu (`null`, examen encore ouvert) ne pèse ni dans les réussis

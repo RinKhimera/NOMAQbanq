@@ -27,6 +27,7 @@ import {
   user,
 } from "@/db/schema"
 import { getCurrentSession } from "@/lib/dal"
+import { canReadResults } from "@/lib/exam-phase"
 import { hasAccess } from "../payments/dal"
 import {
   type LockUser,
@@ -522,8 +523,14 @@ export const getParticipantExamResults = async (
     .limit(1)
   if (!exam) return null
 
-  // Non-admin : résultats visibles seulement après la fin de l'examen.
-  if (!isAdmin && Date.now() < exam.endDate.getTime()) return null
+  if (
+    !canReadResults(
+      { endDate: exam.endDate.getTime() },
+      session.user,
+      Date.now(),
+    )
+  )
+    return null
 
   const examView: ExamResultsExam = {
     id: exam.id,
@@ -885,7 +892,14 @@ export const getExamLeaderboard = async (
   const isAdmin = session?.user?.role === "admin"
   if (!isAdmin) {
     if (!session?.user) return []
-    if (Date.now() < exam.endDate.getTime()) return []
+    if (
+      !canReadResults(
+        { endDate: exam.endDate.getTime() },
+        session.user,
+        Date.now(),
+      )
+    )
+      return []
 
     if (exam.audienceType === "restricted") {
       // Examen restreint : seul un membre de l'audience voit le classement

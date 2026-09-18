@@ -117,7 +117,13 @@ const defaultCallbacks = {
 
 describe("ExamCard", () => {
   it("affiche le titre et la description de l'examen", () => {
-    render(<ExamCard exam={createMockExam()} {...defaultCallbacks} />)
+    render(
+      <ExamCard
+        exam={createMockExam()}
+        now={Date.now()}
+        {...defaultCallbacks}
+      />,
+    )
 
     expect(screen.getByText("Examen de cardiologie")).toBeInTheDocument()
     expect(
@@ -129,6 +135,7 @@ describe("ExamCard", () => {
     render(
       <ExamCard
         exam={createMockExam({ description: undefined })}
+        now={Date.now()}
         {...defaultCallbacks}
       />,
     )
@@ -140,7 +147,13 @@ describe("ExamCard", () => {
   })
 
   it("affiche les dates formatées en français", () => {
-    render(<ExamCard exam={createMockExam()} {...defaultCallbacks} />)
+    render(
+      <ExamCard
+        exam={createMockExam()}
+        now={Date.now()}
+        {...defaultCallbacks}
+      />,
+    )
 
     // date-fns format "d MMM yyyy" avec locale fr : "15 janv. 2025" et "15 févr. 2025"
     expect(screen.getByText(/janv\./)).toBeInTheDocument()
@@ -148,14 +161,26 @@ describe("ExamCard", () => {
   })
 
   it("affiche le nombre de questions", () => {
-    render(<ExamCard exam={createMockExam()} {...defaultCallbacks} />)
+    render(
+      <ExamCard
+        exam={createMockExam()}
+        now={Date.now()}
+        {...defaultCallbacks}
+      />,
+    )
 
     expect(screen.getByText("3")).toBeInTheDocument()
     expect(screen.getByText("Questions")).toBeInTheDocument()
   })
 
   it("affiche le nombre de participants", () => {
-    render(<ExamCard exam={createMockExam()} {...defaultCallbacks} />)
+    render(
+      <ExamCard
+        exam={createMockExam()}
+        now={Date.now()}
+        {...defaultCallbacks}
+      />,
+    )
 
     expect(screen.getByText("45")).toBeInTheDocument()
     expect(screen.getByText("Participants")).toBeInTheDocument()
@@ -166,6 +191,7 @@ describe("ExamCard", () => {
     render(
       <ExamCard
         exam={createMockExam()}
+        now={Date.now()}
         {...defaultCallbacks}
         onView={onView}
       />,
@@ -181,6 +207,7 @@ describe("ExamCard", () => {
     render(
       <ExamCard
         exam={createMockExam()}
+        now={Date.now()}
         {...defaultCallbacks}
         onView={undefined}
       />,
@@ -191,7 +218,13 @@ describe("ExamCard", () => {
   })
 
   it("affiche les labels Début et Fin dans la grille de stats", () => {
-    render(<ExamCard exam={createMockExam()} {...defaultCallbacks} />)
+    render(
+      <ExamCard
+        exam={createMockExam()}
+        now={Date.now()}
+        {...defaultCallbacks}
+      />,
+    )
 
     expect(screen.getByText("Début")).toBeInTheDocument()
     expect(screen.getByText("Fin")).toBeInTheDocument()
