@@ -572,6 +572,75 @@ describe("useQuizSession — timer composé", () => {
     expect(result.current.pauseStartedAt).toBeUndefined()
   })
 
+  it("réveil de l'onglet après une veille (l'horloge murale a avancé, pas la monotone) : demande l'heure au serveur et ré-ancre", async () => {
+    const start = Date.now()
+    const THIRTY_MINUTES = 30 * 60 * 1000
+    const onSyncClock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, serverNow: start + THIRTY_MINUTES })
+    const { result } = renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          kind: "exam",
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
+        }),
+        // Identité instable, comme les callbacks inline de la page : la base
+        // de dérive doit survivre aux re-rendus (un par tick de chrono).
+        callbacks: makeCallbacks({ onSyncClock: () => onSyncClock() }),
+      }),
+    )
+    // Veille : `Date.now()` saute de 30 min, `performance.now()` ne bouge pas.
+    vi.setSystemTime(start + THIRTY_MINUTES)
+    // Le chrono tique (et re-rend) avant que l'onglet ne signale son réveil.
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
+    expect(onSyncClock).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(result.current.timer?.remainingMs).toBe(
+      3_600_000 - THIRTY_MINUTES - 1000,
+    )
+  })
+
+  it("jumeau : retour de visibilité sans dérive (ou dérive d'un simple RTT) → aucun appel serveur", async () => {
+    const start = Date.now()
+    const onSyncClock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, serverNow: start })
+    renderHook(() =>
+      useQuizSession({
+        questions: makeQuestions(2),
+        initialAnswers: {},
+        mode: makeMode({
+          kind: "exam",
+          timer: {
+            serverStartTime: start,
+            totalSeconds: 3600,
+            initialNow: start,
+          },
+        }),
+        callbacks: makeCallbacks({ onSyncClock }),
+      }),
+    )
+    await act(async () => {
+      vi.advanceTimersByTime(60_000)
+      vi.setSystemTime(Date.now() + 2000)
+      document.dispatchEvent(new Event("visibilitychange"))
+    })
+    expect(onSyncClock).not.toHaveBeenCalled()
+  })
+
   it("rechargée en pause : le début de pause vient de la vue serveur", () => {
     const start = Date.now()
     const { result } = renderHook(() =>

@@ -42,6 +42,7 @@ vi.mock("sonner", () => ({
 vi.mock("@/features/exams/actions", () => ({
   finalizeExam: vi.fn(),
   pauseExam: vi.fn(),
+  readServerClock: vi.fn(),
   resumeExam: vi.fn(),
   saveExamAnswer: vi.fn(),
   saveExamFlag: vi.fn(),
@@ -251,6 +252,26 @@ describe("EvaluationClient — callbacks", () => {
     expect(toast.error).not.toHaveBeenCalledWith(
       "Réponse non enregistrée, réessayez.",
     )
+  })
+
+  it("relit l'heure du serveur en silence au réveil de l'onglet, et avale l'échec", async () => {
+    renderClient()
+    vi.mocked(callAction).mockResolvedValue({
+      success: true,
+      serverNow: 12_345,
+    } as never)
+    expect(await lastCallbacks!.onSyncClock!()).toEqual({
+      ok: true,
+      serverNow: 12_345,
+    })
+
+    vi.mocked(callAction).mockResolvedValue({
+      success: false,
+      error: "Réseau",
+    } as never)
+    expect(await lastCallbacks!.onSyncClock!()).toEqual({ ok: false })
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(toast.info).not.toHaveBeenCalled()
   })
 
   it("acquitte une réponse enregistrée sans champ de correction", async () => {

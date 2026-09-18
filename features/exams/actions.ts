@@ -795,6 +795,20 @@ export const finalizeExam = async (
 }
 
 /**
+ * [Auth] Heure du serveur, sans lecture en base. Demandée par le runner au
+ * réveil de l'onglet quand son horloge monotone a décroché de l'horloge murale
+ * (veille du système) : la seule façon de réaligner le chrono sans se fier à
+ * l'horloge du navigateur.
+ */
+export const readServerClock = async (): Promise<{
+  success: true
+  serverNow: number
+}> => {
+  await requireSession()
+  return { success: true, serverNow: Date.now() }
+}
+
+/**
  * [Auth] Démarre la pause (garde `pause` : statut seul). Vérifie que la pause
  * est activée et qu'aucune pause n'a déjà été utilisée.
  */

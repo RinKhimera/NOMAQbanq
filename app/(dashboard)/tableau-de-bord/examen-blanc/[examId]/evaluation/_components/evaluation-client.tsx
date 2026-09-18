@@ -25,6 +25,7 @@ import { Spinner } from "@/components/ui/spinner"
 import {
   finalizeExam,
   pauseExam,
+  readServerClock,
   resumeExam,
   saveExamAnswer,
   saveExamFlag,
@@ -208,6 +209,13 @@ export function EvaluationClient({
           return { ok: false }
         }
       : undefined,
+    // Silencieux : lecture de fond au réveil de l'onglet, rien à annoncer.
+    onSyncClock: async () => {
+      const res = await callAction(() => readServerClock())
+      return res.success
+        ? { ok: true, serverNow: res.serverNow }
+        : { ok: false }
+    },
   }
 
   // Démarrage de l'examen. La page ne met les questions dans le payload RSC

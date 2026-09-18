@@ -84,4 +84,7 @@ export type QuizCallbacks = {
   onResume?: () => Promise<
     { ok: boolean; totalPauseDurationMs?: number } & ServerClock
   >
+  // Lecture seule de l'horloge serveur, demandée au réveil de l'onglet quand
+  // l'horloge monotone a décroché de l'horloge murale (veille du système).
+  onSyncClock?: () => Promise<{ ok: boolean } & ServerClock>
 }

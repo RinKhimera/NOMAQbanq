@@ -10,6 +10,9 @@ import type {
 } from "./types"
 import { useExamTimer } from "./use-exam-timer"
 
+/** Écart mural/monotone au-delà duquel on suppose une veille du système. */
+const SLEEP_DRIFT_MS = 5000
+
 export type UseQuizSessionOptions = {
   questions: QuizQuestion[]
   initialAnswers: AnswersMap
@@ -143,6 +146,52 @@ export function useQuizSession({
   const syncServerClock = useCallback((res: { serverNow?: number }) => {
     if (res.serverNow !== undefined) setServerNow(res.serverNow)
   }, [])
+
+  // Veille du système : l'horloge murale avance, la monotone non. Au réveil de
+  // l'onglet, un écart entre les deux au-delà de SLEEP_DRIFT_MS trahit la
+  // veille (ou un réglage d'horloge) ; on demande alors l'heure au serveur,
+  // jamais on ne corrige sur l'horloge murale seule (bug #196).
+  // Les callbacks de page sont recréés à chaque rendu (un par tick de chrono) :
+  // la base de dérive et le callback vivent dans des refs, hors des
+  // dépendances de l'effet, sinon chaque tick remettrait la dérive à zéro.
+  const hasTimer = !!mode.timer
+  const onSyncClockRef = useRef(callbacks.onSyncClock)
+  useEffect(() => {
+    onSyncClockRef.current = callbacks.onSyncClock
+  })
+  const driftBaseline = useRef<{ wall: number; perf: number } | null>(null)
+  useEffect(() => {
+    if (!hasTimer) return
+    driftBaseline.current ??= { wall: Date.now(), perf: performance.now() }
+    let inFlight = false
+    const onWake = () => {
+      const sync = onSyncClockRef.current
+      const base = driftBaseline.current
+      if (!sync || !base || inFlight) return
+      if (document.visibilityState !== "visible") return
+      const drift = Date.now() - base.wall - (performance.now() - base.perf)
+      if (Math.abs(drift) < SLEEP_DRIFT_MS) return
+      inFlight = true
+      void sync()
+        .then((res) => {
+          if (!res.ok) return
+          syncServerClock(res)
+          driftBaseline.current = { wall: Date.now(), perf: performance.now() }
+        })
+        .catch(() => {
+          // rejet réseau : la prochaine réponse ou le prochain réveil réaligne
+        })
+        .finally(() => {
+          inFlight = false
+        })
+    }
+    document.addEventListener("visibilitychange", onWake)
+    window.addEventListener("focus", onWake)
+    return () => {
+      document.removeEventListener("visibilitychange", onWake)
+      window.removeEventListener("focus", onWake)
+    }
+  }, [hasTimer, syncServerClock])
 
   // ---- Auto-soumission (une seule fois) ----
   // Déclenchée par l'expiration du chrono client, ou par le serveur qui refuse

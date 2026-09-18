@@ -11,6 +11,7 @@ import {
   loadSearchSelectableUsers,
   pauseExam,
   reactivateExam,
+  readServerClock,
   resumeExam,
   saveExamAnswer,
   saveExamFlag,
@@ -162,6 +163,11 @@ describe("lectures gardees", () => {
     await loadExamAudience("e1")
     expect(mocks.searchSelectableUsers).toHaveBeenCalledWith({ query: "ali" })
     expect(mocks.getExamAudience).toHaveBeenCalledWith("e1")
+  })
+
+  it("readServerClock : l'heure du serveur, sans toucher la base", async () => {
+    expect(await readServerClock()).toEqual({ success: true, serverNow: NOW })
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 })
 

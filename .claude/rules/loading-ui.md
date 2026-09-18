@@ -92,9 +92,12 @@ justifie dans le code.
   le runner sur le `initialNow` périmé du payload RSC réutilisé. D'où le
   ré-ancrage : `saveExamAnswer`, `pauseExam` et `resumeExam` renvoient
   `serverNow`, que `useQuizSession` repasse en ancre au chrono (adoptée
-  au-delà de 2 s d'écart, pour ne pas faire sauter le décompte au RTT). Entre
-  un réveil et la première interaction, l'affichage reste en retard — jamais
-  rattrapé sur `Date.now()`, qui reproduirait le bug. `useClock` (phases
+  au-delà de 2 s d'écart, pour ne pas faire sauter le décompte au RTT). Au
+  réveil de l'onglet (`visibilitychange`/`focus`), un écart de plus de 5 s
+  entre l'horloge murale et la monotone trahit une veille : le runner demande
+  l'heure au serveur (`readServerClock`) et ré-ancre — jamais sur
+  `Date.now()` seul, qui reproduirait le bug. Sur refus `TIME_UP` d'une
+  réponse, le moteur soumet l'examen au lieu de faire réessayer. `useClock` (phases
   d'examen, tick à la minute) reste sur `Date.now()` : pur affichage, rien à
   déclencher. Le chrono d'examen était la
   dernière exception : cause prouvée de **NOMAQBANQ-13** (replay du 2026-08-23,
