@@ -6,23 +6,6 @@
  */
 
 /**
- * Calculate the remaining time for an exam session
- * @param serverStartTime - Server timestamp when the exam started (milliseconds)
- * @param completionTimeSeconds - Total allowed time in seconds
- * @param currentTime - Current timestamp (defaults to Date.now() for production, injectable for tests)
- * @returns Remaining time in milliseconds (minimum 0)
- */
-export const calculateTimeRemaining = (
-  serverStartTime: number,
-  completionTimeSeconds: number,
-  currentTime: number = Date.now(),
-): number => {
-  const elapsedTime = currentTime - serverStartTime
-  const totalTimeMs = completionTimeSeconds * 1000
-  return Math.max(0, totalTimeMs - elapsedTime)
-}
-
-/**
  * Format milliseconds to HH:MM:SS display format
  * @param ms - Time in milliseconds
  * @returns Formatted string "HH:MM:SS"

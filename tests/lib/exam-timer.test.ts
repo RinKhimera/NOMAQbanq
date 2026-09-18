@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
   calculatePauseTimeRemaining,
-  calculateTimeRemaining,
   formatExamTime,
   formatPauseTime,
   isPauseExpired,
@@ -10,23 +9,8 @@ import {
 } from "@/lib/exam-timer"
 
 const ONE_HOUR_MS = 3600000
-const ONE_HOUR_S = 3600
 
 describe("Exam Timer Utilities", () => {
-  describe("calculateTimeRemaining", () => {
-    it.each([
-      { label: "partial (30 min in)", elapsed: 1800000, expected: 1800000 },
-      { label: "just started", elapsed: 0, expected: ONE_HOUR_MS },
-      { label: "exactly at limit", elapsed: ONE_HOUR_MS, expected: 0 },
-      { label: "beyond limit (expired)", elapsed: 4000000, expected: 0 },
-    ])("$label", ({ elapsed, expected }) => {
-      const start = 1000000
-      expect(calculateTimeRemaining(start, ONE_HOUR_S, start + elapsed)).toBe(
-        expected,
-      )
-    })
-  })
-
   describe("formatExamTime", () => {
     it.each([
       { ms: 0, expected: "00:00:00" },

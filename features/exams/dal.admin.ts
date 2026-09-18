@@ -165,21 +165,6 @@ export const getExamsStats = cache(async (): Promise<ExamsStats> => {
   }
 })
 
-/** [Admin] Nombre d'utilisateurs avec un accès examen actif (panneau latéral). */
-export const getActiveExamAccessCount = cache(async (): Promise<number> => {
-  await requireRole(["admin"])
-  const [row] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(userAccess)
-    .where(
-      and(
-        eq(userAccess.accessType, "exam"),
-        gt(userAccess.expiresAt, new Date()),
-      ),
-    )
-  return row?.n ?? 0
-})
-
 export type EligibleCandidate = {
   user: {
     id: string

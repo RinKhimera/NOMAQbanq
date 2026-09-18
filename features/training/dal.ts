@@ -16,14 +16,13 @@ import { db } from "@/db"
 import {
   questionBookmarks,
   questionExplanations,
-  questionImages,
   questions,
   trainingSessionItems,
   trainingSessions,
 } from "@/db/schema"
 import { requireSession } from "@/lib/auth-guards"
-import { cdnUrl } from "@/lib/cdn"
 import { getCurrentSession } from "@/lib/dal"
+import { type ExamImageView, fetchImages } from "../exams/dal.shared"
 import { lockFor, viewerOf } from "../questions/answer-key-lock"
 
 const clamp = (n: number, lo: number, hi: number) =>
@@ -53,12 +52,6 @@ const decodeCursor = (
 // Types de vue
 // ============================================
 
-export type TrainingImageView = {
-  url: string
-  storagePath: string
-  order: number
-}
-
 // Forme « pont » historique (`_id`/`_creationTime`/`images`) pour
 // rester assignable au contrat `QuestionCardQuestion`/`Doc<"questions">` des
 // composants quiz partagés. `correctAnswer`/`explanation`/`references` ne sont
@@ -70,7 +63,7 @@ export type TrainingSessionQuestion = {
   options: string[]
   objectifCMC: string
   domain: string
-  images: TrainingImageView[]
+  images: ExamImageView[]
   correctAnswer?: string
   explanation?: string
   references?: string[]
@@ -78,7 +71,7 @@ export type TrainingSessionQuestion = {
    * Images d'explication (`kind='explanation'`), révélées seulement à la
    * correction (session complétée). Jamais sur le pont d'énoncé `images`.
    */
-  explanationImages?: TrainingImageView[]
+  explanationImages?: ExamImageView[]
   /** Clé retenue par un examen ouvert : correction différée à sa clôture. */
   keyWithheld?: true
 }
@@ -87,44 +80,6 @@ export type TrainingAnswerRecord = Record<
   string,
   { selectedAnswer: string; isCorrect?: boolean }
 >
-
-const groupImages = (
-  rows: { questionId: string; storagePath: string; position: number }[],
-): Map<string, TrainingImageView[]> => {
-  const map = new Map<string, TrainingImageView[]>()
-  for (const img of rows) {
-    const list = map.get(img.questionId) ?? []
-    list.push({
-      url: cdnUrl(img.storagePath),
-      storagePath: img.storagePath,
-      order: img.position,
-    })
-    map.set(img.questionId, list)
-  }
-  return map
-}
-
-const fetchImages = async (
-  questionIds: string[],
-  kind: "statement" | "explanation" = "statement",
-) => {
-  if (questionIds.length === 0) return new Map<string, TrainingImageView[]>()
-  const rows = await db
-    .select({
-      questionId: questionImages.questionId,
-      storagePath: questionImages.storagePath,
-      position: questionImages.position,
-    })
-    .from(questionImages)
-    .where(
-      and(
-        eq(questionImages.kind, kind),
-        inArray(questionImages.questionId, questionIds),
-      ),
-    )
-    .orderBy(asc(questionImages.position))
-  return groupImages(rows)
-}
 
 // ============================================
 // Session active (carte « reprendre »)

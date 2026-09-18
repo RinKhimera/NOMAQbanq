@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { isValidAmount, parseAmountToCents } from "@/lib/currency"
+import { parseAmountToCents } from "@/lib/currency"
 
 describe("parseAmountToCents", () => {
   describe("CAD", () => {
@@ -97,25 +97,5 @@ describe("parseAmountToCents", () => {
       expect(parseAmountToCents("NaN", "CAD")).toBeNull()
       expect(parseAmountToCents("Infinity", "CAD")).toBeNull()
     })
-  })
-})
-
-describe("isValidAmount", () => {
-  it("retourne true pour un montant CAD valide", () => {
-    expect(isValidAmount("50.00", "CAD")).toBe(true)
-    expect(isValidAmount("99,99", "CAD")).toBe(true)
-    expect(isValidAmount("100", "CAD")).toBe(true)
-  })
-
-  it("retourne true pour un montant XAF valide", () => {
-    expect(isValidAmount("5000", "XAF")).toBe(true)
-    expect(isValidAmount("1", "XAF")).toBe(true)
-  })
-
-  it("retourne false pour un montant invalide", () => {
-    expect(isValidAmount("", "CAD")).toBe(false)
-    expect(isValidAmount("abc", "CAD")).toBe(false)
-    expect(isValidAmount("50.001", "CAD")).toBe(false)
-    expect(isValidAmount("50.5", "XAF")).toBe(false)
   })
 })

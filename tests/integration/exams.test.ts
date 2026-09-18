@@ -29,7 +29,6 @@ import {
   updateExam,
 } from "@/features/exams/actions"
 import {
-  getActiveExamAccessCount,
   getAllExamsAdmin,
   getExamLeaderboard,
   getExamQuestionExplanations,
@@ -282,14 +281,12 @@ describe("Admin CRUD", () => {
     expect(all.find((e) => e.id === id)?.isActive).toBe(true)
   })
 
-  it("getExamsStats + getActiveExamAccessCount reflètent l'état", async () => {
+  it("getExamsStats reflète l'état", async () => {
     asAdmin()
     const stats = await getExamsStats()
     expect(stats.total).toBeGreaterThanOrEqual(2)
     expect(stats.active).toBeGreaterThanOrEqual(2)
     expect(stats.eligibleCandidates).toBeGreaterThanOrEqual(1)
-
-    expect(await getActiveExamAccessCount()).toBeGreaterThanOrEqual(1)
   })
 })
 

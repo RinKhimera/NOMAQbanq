@@ -34,10 +34,3 @@ export const parseAmountToCents = (
     return Math.round(num * 100)
   }
 }
-
-/**
- * Valide si un montant est valide pour une devise donnée
- */
-export const isValidAmount = (input: string, currency: Currency): boolean => {
-  return parseAmountToCents(input, currency) !== null
-}
