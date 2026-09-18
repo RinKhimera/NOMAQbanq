@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Spinner } from "@/components/ui/spinner"
+import { useAnchoredClock } from "@/hooks/use-anchored-clock"
 import { formatPauseTime, pauseRemainingMs } from "@/lib/attempt-clock"
 import { cn } from "@/lib/utils"
 
@@ -17,7 +18,9 @@ interface PauseDialogProps {
   /**
    * Horloge serveur du rendu, ancre du premier rendu (SSR et hydratation) quand
    * la page se charge déjà en pause. Absente (pause prise en cours de session),
-   * le début de la pause sert d'ancre : le décompte part du plafond.
+   * le début de la pause sert d'ancre : le décompte part du plafond. Les
+   * ticks avancent par delta monotone depuis l'ancre (`useAnchoredClock`),
+   * jamais par `Date.now()`.
    */
   initialNow?: number
   isResuming?: boolean
@@ -53,6 +56,7 @@ export const PauseDialog = ({
   // le premier resume est en vol. En cas d'échec, le bouton reste la voie de
   // retentative.
   const autoResumeFiredForRef = useRef<number | undefined>(undefined)
+  const now = useAnchoredClock(initialNow ?? pauseStartedAt ?? 0)
 
   // Derive progress from pauseTimeRemaining (no need for separate state)
   const totalPauseMs = pauseDurationMinutes * 60 * 1000
@@ -67,7 +71,7 @@ export const PauseDialog = ({
     const updatePauseTime = () => {
       const remaining = pauseRemainingMs(
         { startedAt: pauseStartedAt, capMinutes: pauseDurationMinutes },
-        Date.now(),
+        now(),
       )
       setPauseTimeRemaining(remaining)
 
@@ -82,7 +86,7 @@ export const PauseDialog = ({
     const timer = setInterval(updatePauseTime, 1000)
 
     return () => clearInterval(timer)
-  }, [isOpen, pauseStartedAt, pauseDurationMinutes, onResume])
+  }, [isOpen, pauseStartedAt, pauseDurationMinutes, onResume, now])
 
   if (!isOpen) return null
 

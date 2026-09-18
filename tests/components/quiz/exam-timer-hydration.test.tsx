@@ -58,11 +58,14 @@ describe("chrono d'examen — hydratation", () => {
 
     expect(recoverable).toEqual([])
 
-    // L'ancre ne fige pas l'affichage : le premier tick reprend l'horloge locale.
+    // L'ancre ne fige pas l'affichage : les ticks avancent par delta monotone
+    // depuis `initialNow`. La latence de livraison (2,4 s) n'est pas rattrapée
+    // sur `Date.now()` — c'est la grâce serveur qui l'absorbe, pas l'horloge
+    // cliente, qui peut être fausse.
     await act(async () => {
       vi.advanceTimersByTime(1_000)
     })
-    expect(container.textContent).toBe("00:58:56")
+    expect(container.textContent).toBe("00:58:59")
   })
 
   it("un chrono ancré sur l'horloge locale, lui, casse l'hydratation", async () => {

@@ -121,11 +121,31 @@ describe("PauseDialog — décompte", () => {
     expect(html).toContain("06:00")
   })
 
-  it("reprend automatiquement, une seule fois, quand la pause est échue", () => {
+  it("reprend automatiquement, une seule fois, quand la page se charge sur une pause échue", () => {
     vi.useFakeTimers()
     const onResume = vi.fn()
     const pauseStartedAt = 1_000_000
-    vi.setSystemTime(pauseStartedAt + 11 * 60 * 1000)
+    render(
+      <PauseDialog
+        isOpen
+        onResume={onResume}
+        pauseStartedAt={pauseStartedAt}
+        pauseDurationMinutes={10}
+        initialNow={pauseStartedAt + 11 * 60 * 1000}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+    expect(onResume).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId("pause-timer")).toHaveTextContent("00:00")
+  })
+
+  it("horloge système avancée de +3 h après le montage : pas de reprise automatique, le décompte suit les minuteries", () => {
+    vi.useFakeTimers()
+    const onResume = vi.fn()
+    const pauseStartedAt = 1_000_000
+    vi.setSystemTime(pauseStartedAt)
     render(
       <PauseDialog
         isOpen
@@ -135,9 +155,52 @@ describe("PauseDialog — décompte", () => {
       />,
     )
     act(() => {
-      vi.advanceTimersByTime(3000)
+      vi.setSystemTime(pauseStartedAt + 3 * 60 * 60 * 1000)
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(onResume).not.toHaveBeenCalled()
+    expect(screen.getByTestId("pause-timer")).toHaveTextContent("09:00")
+  })
+
+  it("jumeau : les minuteries atteignent le plafond, horloge système intacte → reprise automatique une seule fois", () => {
+    vi.useFakeTimers()
+    const onResume = vi.fn()
+    const pauseStartedAt = 1_000_000
+    vi.setSystemTime(pauseStartedAt)
+    render(
+      <PauseDialog
+        isOpen
+        onResume={onResume}
+        pauseStartedAt={pauseStartedAt}
+        pauseDurationMinutes={10}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(10 * 60 * 1000 + 3000)
     })
     expect(onResume).toHaveBeenCalledTimes(1)
     expect(screen.getByTestId("pause-timer")).toHaveTextContent("00:00")
+  })
+
+  it("chargée en pause avec une ancre serveur : le décompte part de l'ancre, delta monotone ensuite", () => {
+    vi.useFakeTimers()
+    const onResume = vi.fn()
+    const pauseStartedAt = 1_000_000
+    // Horloge locale en retard de 3 h : sans delta monotone, la pause « gagnerait » 3 h.
+    vi.setSystemTime(pauseStartedAt - 3 * 60 * 60 * 1000)
+    render(
+      <PauseDialog
+        isOpen
+        onResume={onResume}
+        pauseStartedAt={pauseStartedAt}
+        pauseDurationMinutes={10}
+        initialNow={pauseStartedAt + 4 * 60 * 1000}
+      />,
+    )
+    act(() => {
+      vi.advanceTimersByTime(60_000)
+    })
+    expect(screen.getByTestId("pause-timer")).toHaveTextContent("05:00")
+    expect(onResume).not.toHaveBeenCalled()
   })
 })

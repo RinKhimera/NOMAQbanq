@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { useAnchoredClock } from "@/hooks/use-anchored-clock"
 import { remainingMs as clockRemainingMs, zone } from "@/lib/attempt-clock"
 
 export type UseExamTimerOptions = {
@@ -16,7 +17,8 @@ export type UseExamTimerOptions = {
    * hydratation — doit lire cette ancre figée, jamais `Date.now()` : le
    * décompte s'affiche à la seconde, et le délai entre les deux passes suffit à
    * faire diverger le texte. React traite l'écart en régénérant l'arbre, en
-   * plein examen. Le premier tick, post-hydratation, reprend l'horloge locale.
+   * plein examen. Les ticks suivants mesurent l'écoulé par delta monotone
+   * depuis cette ancre (`useAnchoredClock`), jamais par `Date.now()`.
    */
   initialNow: number
   isPaused: boolean
@@ -55,6 +57,7 @@ export function useExamTimer({
   const [remainingMs, setRemainingMs] = useState<number>(() =>
     computeRemaining(initialNow),
   )
+  const now = useAnchoredClock(initialNow)
   const expiredRef = useRef(false)
   const onExpireRef = useRef(onExpire)
 
@@ -69,7 +72,7 @@ export function useExamTimer({
     // Tick immediately to pick up any changes (e.g. after resume updates totalPauseDurationMs)
     // and then on interval
     const tick = () => {
-      const remaining = computeRemaining(Date.now())
+      const remaining = computeRemaining(now())
       setRemainingMs(remaining)
       if (remaining <= 0 && !expiredRef.current) {
         expiredRef.current = true
@@ -80,7 +83,7 @@ export function useExamTimer({
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [enabled, isPaused, computeRemaining])
+  }, [enabled, isPaused, computeRemaining, now])
 
   const timeZone = zone(remainingMs)
   return {

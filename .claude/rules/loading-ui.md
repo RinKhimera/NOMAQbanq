@@ -80,7 +80,15 @@ justifie dans le code.
   s'ancre dessus et seul le premier tick, post-hydratation, reprend l'horloge
   locale. Câblé ainsi dans `dashboard-hero`, `examen-blanc-client`,
   `admin-dashboard-client`, `useExamTimer` et `PauseDialog` (rendu au premier
-  rendu quand la page se charge en pause). Le chrono d'examen était la
+  rendu quand la page se charge en pause). **Ce qui déclenche quelque chose
+  (auto-soumission, reprise de pause) ne reprend JAMAIS `Date.now()`, même
+  après le montage** : `useExamTimer` et `PauseDialog` mesurent l'écoulé par
+  delta monotone depuis l'ancre (`hooks/use-anchored-clock.ts`,
+  `performance.now()`). Une horloge cliente en avance du budget auto-soumettait
+  l'examen au premier tick, sans recours (#196) ; la latence de livraison
+  entre le rendu serveur et le montage n'est pas rattrapée, c'est la grâce
+  serveur qui l'absorbe. `useClock` (phases d'examen, tick à la minute) reste
+  sur `Date.now()` : pur affichage, rien à déclencher. Le chrono d'examen était la
   dernière exception : cause prouvée de **NOMAQBANQ-13** (replay du 2026-08-23,
   « 02:06:51 » servi contre « 02:06:50 » hydraté) — l'arbre de la page de
   passation était régénéré en plein examen. L'arithmétique elle-même vit dans
