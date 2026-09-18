@@ -61,13 +61,21 @@ export const fakeDb = {
   delete: (t: { __table?: string }) => queryChain(t?.__table),
 }
 
+/**
+ * Le `tx` reçu par le callback de transaction : mêmes méthodes que `fakeDb`,
+ * identité DISTINCTE, pour qu'une assertion « appelé avec la transaction »
+ * distingue `tx` du `db` global (règle data-layer : jamais le `db` global
+ * sous transaction).
+ */
+export const fakeTx = { ...fakeDb, __tx: true as const }
+
 export const setRows = (rows: Record<string, unknown[]>) => {
   state.rows = rows
 }
 
 /** Exécute réellement le callback de transaction contre le faux `db`. */
 export const runCallback = () =>
-  state.transaction.mockImplementationOnce(async (cb) => cb(fakeDb))
+  state.transaction.mockImplementationOnce(async (cb) => cb(fakeTx))
 
 /** Fait échouer le corps de la transaction avec un code métier. */
 export const rejectWith = (message: string) =>
@@ -79,5 +87,5 @@ export const resetFakeDrizzle = (returning: unknown[] = []) => {
   state.returning = returning
   state.set = undefined
   state.transaction.mockReset()
-  state.transaction.mockImplementation(async (cb) => cb(fakeDb))
+  state.transaction.mockImplementation(async (cb) => cb(fakeTx))
 }

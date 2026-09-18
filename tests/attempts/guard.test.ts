@@ -171,9 +171,10 @@ describe("requireAttempt — entraînement", () => {
     expect(mocks.hasActiveAccess).not.toHaveBeenCalled()
   })
 
-  // abandon : ni TTL ni accès — on peut toujours renoncer.
-  it("abandon : session expirée sans accès → autorisé", async () => {
-    rows = [trainingRow({ expires_at: NOW - 1 })]
+  // abandon : pas d'accès requis pour renoncer, mais une session expirée
+  // n'a plus qu'un écrivain, le cron (sinon deux issues pour un même état).
+  it("abandon : sans accès → autorisé", async () => {
+    rows = [trainingRow()]
     mocks.hasActiveAccess.mockResolvedValue(false)
     const res = await requireAttempt(exec, {
       kind: "training",
@@ -184,6 +185,18 @@ describe("requireAttempt — entraînement", () => {
     })
     expect(res.ok).toBe(true)
     expect(mocks.hasActiveAccess).not.toHaveBeenCalled()
+  })
+
+  it("abandon : session expirée → EXPIRED, le cron la clôt scorée", async () => {
+    rows = [trainingRow({ expires_at: NOW - 1 })]
+    const res = await requireAttempt(exec, {
+      kind: "training",
+      ref: "s1",
+      actor: student,
+      now: NOW,
+      verb: "abandon",
+    })
+    expect(res).toEqual({ ok: false, code: "EXPIRED" })
   })
 })
 

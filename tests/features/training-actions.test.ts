@@ -13,6 +13,7 @@ import {
 } from "@/features/training/actions"
 import {
   fakeDb,
+  fakeTx,
   rejectWith,
   resetFakeDrizzle,
   setRows,
@@ -213,7 +214,7 @@ describe("createTrainingSession", () => {
     freshUser()
     await createTrainingSession({ ...input, revisionFilters: ["failed"] })
     expect(mocks.pickRevisionQuestionIds).toHaveBeenCalledWith(
-      fakeDb,
+      fakeTx,
       expect.objectContaining({
         viewer: { id: "u1", role: "user" },
         criteria: ["failed"],
@@ -240,7 +241,7 @@ describe("createTrainingSession", () => {
     })
     const res = await createTrainingSession(input)
     expect(res).toMatchObject({ success: true })
-    expect(mocks.expireTrainingSessions).toHaveBeenCalledWith(fakeDb, {
+    expect(mocks.expireTrainingSessions).toHaveBeenCalledWith(fakeTx, {
       now: new Date(NOW),
       sessionId: "old",
     })
@@ -323,7 +324,7 @@ describe("saveTrainingAnswer", () => {
   it("demande la garde `answer` sur la session, pour l'acteur courant, dans la transaction", async () => {
     setRows({ trainingSessionItems: [item] })
     await saveTrainingAnswer(input)
-    expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeDb, {
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeTx, {
       kind: "training",
       ref: "s1",
       actor: { id: "u1", role: "user" },
@@ -413,7 +414,7 @@ describe("saveTrainingAnswer", () => {
       "q1",
     ])
     expect(mocks.requireAttempt).toHaveBeenCalledWith(
-      fakeDb,
+      fakeTx,
       expect.objectContaining({ actor: { id: "u1", role: "admin" } }),
     )
   })
@@ -494,7 +495,7 @@ describe("completeTrainingSession", () => {
     setRows({ trainingSessionItems: [{ correct: 7 }] })
     await completeTrainingSession({ sessionId: "s1" })
     expect(mocks.requireAttempt).toHaveBeenCalledWith(
-      fakeDb,
+      fakeTx,
       expect.objectContaining({ ref: "s1", verb: "close" }),
     )
   })
@@ -536,7 +537,7 @@ describe("abandonTrainingSession", () => {
   it("demande la garde `abandon`", async () => {
     await abandonTrainingSession({ sessionId: "s1" })
     expect(mocks.requireAttempt).toHaveBeenCalledWith(
-      fakeDb,
+      fakeTx,
       expect.objectContaining({ ref: "s1", verb: "abandon" }),
     )
   })

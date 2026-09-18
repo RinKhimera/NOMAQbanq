@@ -21,12 +21,13 @@ import { hasActiveAccess } from "../payments/dal"
  * | flag    | –           | –     | permis   | –                         |
  * | pause   | –           | –     | (local)  | –                         |
  * | resume  | –           | –     | (local)  | –                         |
- * | abandon | –           | –     | permis   | –                         |
+ * | abandon | TTL         | –     | permis   | –                         |
  *
  * Un admin n'est soumis ni à l'accès payant ni au budget : sa participation
  * n'est pas une tentative notée. `isAutoSubmit` est déclaré par le client : il
  * n'exempte que la clôture, jamais une réponse — c'est la garde `answer` qui
- * tient le budget.
+ * tient le budget. Une session d'entraînement expirée ne s'abandonne pas : elle
+ * n'a plus qu'un écrivain, le cron, qui la score.
  */
 export type Executor = Pick<Db, "execute" | "select">
 
@@ -78,9 +79,15 @@ export type RequireAttemptArgs =
   | ({ kind: "exam"; ref: string; isAutoSubmit?: boolean } & Common)
 
 const GUARDED_VERBS: ReadonlySet<AttemptVerb> = new Set(["answer", "close"])
+const TTL_VERBS: ReadonlySet<AttemptVerb> = new Set([
+  "answer",
+  "close",
+  "abandon",
+])
 
 // Instants projetés en epoch ms (`float8`, que pg rend en nombre) : sur un
-// `execute` brut, Drizzle laisse les `timestamptz` en chaîne.
+// `execute` brut, Drizzle laisse les `timestamptz` en chaîne. Exact parce que
+// `extract(epoch …)` rend un `numeric` (PG ≥ 14, Neon sert 15+).
 const epochMs = (column: SQL) =>
   sql`floor(extract(epoch from ${column}) * 1000)::float8`
 
@@ -125,9 +132,11 @@ const requireTraining = async (
   }
 
   const expiresAt = row.expires_at
+  // Même borne que le cron de clôture (`expires_at < now`).
+  if (TTL_VERBS.has(verb) && expiresAt < now) {
+    return { ok: false, code: "EXPIRED" }
+  }
   if (GUARDED_VERBS.has(verb)) {
-    // Même borne que le cron de clôture (`expires_at < now`).
-    if (expiresAt < now) return { ok: false, code: "EXPIRED" }
     if (
       actor.role !== "admin" &&
       !(await hasActiveAccess(exec, {

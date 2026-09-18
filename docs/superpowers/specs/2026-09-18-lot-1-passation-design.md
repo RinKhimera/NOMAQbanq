@@ -211,3 +211,16 @@ disparaît (ses formatteurs migrent).
   « création d'une nouvelle session clôt l'expirée par le même écrivain ».
   `tests/integration/score-parity.test.ts` confronte `computeScorePercent` à
   `scoreSql` sur les 20 301 couples (justes, total ≤ 200).
+- Revue adversariale de la PR 2
+  (`docs/superpowers/reviews/2026-09-18-revue-adversariale-lot1-pr2.md`, OUI
+  sans 🔴 ni 🟠) : ses trois 🟡 sont corrigés — le faux `tx` des tests d'actions
+  est un objet distinct de `fakeDb` (`fakeTx`), sinon « appelé dans la
+  transaction » ne testait rien ; la borne `isOpen` de `startExam` (refus à
+  l'instant exact de `endDate`, `main` acceptait) est verrouillée par deux cas
+  jumeaux ; **`abandon` est soumis au TTL** (ligne de la table : « abandon :
+  TTL ») — une session expirée n'a plus qu'un écrivain, le cron, et la carte
+  d'abandon n'est de toute façon rendue que si `canResume`. Changements de
+  comportement notés par la revue, acceptés : `NOT_STARTED` s'applique à tous
+  les verbes d'examen (une participation `in_progress` sans `startedAt` est un
+  état que `startExam` ne produit pas) ; le libellé d'abandon « n'est pas en
+  cours » devient « n'est plus active » (aucun consommateur ne le matche).

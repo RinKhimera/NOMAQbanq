@@ -18,7 +18,7 @@ import {
   updateExam,
 } from "@/features/exams/actions"
 import {
-  fakeDb,
+  fakeTx,
   rejectWith,
   resetFakeDrizzle,
   setRows,
@@ -336,7 +336,7 @@ describe("startExam", () => {
       success: false,
       error: "Votre accès aux examens a expiré.",
     })
-    expect(mocks.hasActiveAccess).toHaveBeenCalledWith(fakeDb, {
+    expect(mocks.hasActiveAccess).toHaveBeenCalledWith(fakeTx, {
       userId: "u1",
       type: "exam",
       now: NOW,
@@ -359,6 +359,34 @@ describe("startExam", () => {
     })
     const res = await startExam({ examId: "e1" })
     expect(res).toMatchObject({ success: true, startedAt: NOW })
+  })
+
+  // Borne du glossaire (« examen ouvert » = date de fin non passée) : cas
+  // jumeaux à 1 ms près, comme la garde answer/close.
+  it.each([
+    [
+      NOW,
+      {
+        success: false,
+        error: "L'examen n'est pas disponible à cette période.",
+      },
+    ],
+    [NOW + 1, { success: true }],
+  ])("fenêtre : endDate = %d → %o", async (endDate, expected) => {
+    setRows({
+      user: [{ id: "u1" }],
+      exams: [
+        {
+          startDate: new Date(0),
+          endDate: new Date(endDate),
+          audienceType: "restricted",
+        },
+      ],
+      examAudience: [{ userId: "u1" }],
+      examParticipations: [],
+      examQuestions: [],
+    })
+    expect(await startExam({ examId: "e1" })).toMatchObject(expected)
   })
 
   it("erreur inattendue → capture avec l'utilisateur", async () => {
@@ -406,7 +434,7 @@ describe("saveExamAnswer", () => {
   it("demande la garde `answer` sur l'examen, pour l'acteur courant, dans la transaction", async () => {
     setRows(question)
     await saveExamAnswer(input)
-    expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeDb, {
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeTx, {
       kind: "exam",
       ref: "e1",
       actor: { id: "u1", role: "user" },
@@ -467,7 +495,7 @@ describe("saveExamFlag", () => {
   it("demande la garde `flag`", async () => {
     await saveExamFlag(input)
     expect(mocks.requireAttempt).toHaveBeenCalledWith(
-      fakeDb,
+      fakeTx,
       expect.objectContaining({ ref: "e1", verb: "flag" }),
     )
   })
@@ -511,7 +539,7 @@ describe("finalizeExam", () => {
   it("demande la garde `close` et lui transmet isAutoSubmit", async () => {
     setRows(agg)
     await finalizeExam({ examId: "e1", isAutoSubmit: true })
-    expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeDb, {
+    expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeTx, {
       kind: "exam",
       ref: "e1",
       actor: { id: "u1", role: "user" },
@@ -595,7 +623,7 @@ describe("pauseExam", () => {
   it("demande la garde `pause`", async () => {
     await pauseExam({ examId: "e1" })
     expect(mocks.requireAttempt).toHaveBeenCalledWith(
-      fakeDb,
+      fakeTx,
       expect.objectContaining({ ref: "e1", verb: "pause" }),
     )
   })
@@ -702,7 +730,7 @@ describe("resumeExam", () => {
     mocks.requireAttempt.mockResolvedValueOnce(paused(1_000))
     await resumeExam({ examId: "e1" })
     expect(mocks.requireAttempt).toHaveBeenCalledWith(
-      fakeDb,
+      fakeTx,
       expect.objectContaining({ ref: "e1", verb: "resume" }),
     )
   })
