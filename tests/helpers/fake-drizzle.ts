@@ -15,13 +15,15 @@ export const state = {
   returning: [] as unknown[],
   /** Dernier payload passé à `.set(...)`. */
   set: undefined as unknown,
+  /** Dernier `WHERE` d'un `delete(...)` : la propriété doit y vivre. */
+  deleteWhere: undefined as unknown,
   transaction:
     vi.fn<(cb: (tx: unknown) => Promise<unknown>) => Promise<unknown>>(),
 }
 
 export const table = (name: string) => ({ __table: name })
 
-const queryChain = (initialTable?: string) => {
+const queryChain = (initialTable?: string, verb?: "delete") => {
   let target = initialTable
   const chain: Record<string, unknown> = {
     from: (t: { __table?: string }) => {
@@ -30,7 +32,10 @@ const queryChain = (initialTable?: string) => {
     },
     innerJoin: () => chain,
     leftJoin: () => chain,
-    where: () => chain,
+    where: (condition: unknown) => {
+      if (verb === "delete") state.deleteWhere = condition
+      return chain
+    },
     orderBy: () => chain,
     groupBy: () => chain,
     for: () => chain,
@@ -58,7 +63,7 @@ export const fakeDb = {
   select: () => queryChain(),
   insert: (t: { __table?: string }) => queryChain(t?.__table),
   update: (t: { __table?: string }) => queryChain(t?.__table),
-  delete: (t: { __table?: string }) => queryChain(t?.__table),
+  delete: (t: { __table?: string }) => queryChain(t?.__table, "delete"),
 }
 
 /**
@@ -86,6 +91,7 @@ export const resetFakeDrizzle = (returning: unknown[] = []) => {
   state.rows = {}
   state.returning = returning
   state.set = undefined
+  state.deleteWhere = undefined
   state.transaction.mockReset()
   state.transaction.mockImplementation(async (cb) => cb(fakeTx))
 }

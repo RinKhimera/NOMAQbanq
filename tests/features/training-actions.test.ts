@@ -1,3 +1,5 @@
+import type { SQL } from "drizzle-orm"
+import { PgDialect } from "drizzle-orm/pg-core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { type RefusalCode, refusalMessage } from "@/features/attempts/guard"
 import {
@@ -576,12 +578,11 @@ describe("deleteTrainingSession", () => {
     })
   })
 
+  // La propriété vit dans le WHERE (id, userId) : la ligne d'autrui est
+  // invisible à la lecture comme à la suppression, donc `Session introuvable`
+  // — jamais « ne vous appartient pas », qui confirmerait son existence.
   it.each([
     [{ trainingSessions: [] }, "Session introuvable"],
-    [
-      { trainingSessions: [session({ userId: "autre" })] },
-      "Cette session ne vous appartient pas",
-    ],
     [
       { trainingSessions: [session({ status: "in_progress" })] },
       "Impossible de supprimer une session en cours. Terminez-la ou abandonnez-la d'abord.",
@@ -599,5 +600,12 @@ describe("deleteTrainingSession", () => {
     expect(await deleteTrainingSession({ sessionId: "s1" })).toEqual({
       success: true,
     })
+  })
+
+  it("le DELETE porte la propriété dans son WHERE (id ET utilisateur)", async () => {
+    setRows({ trainingSessions: [session()] })
+    await deleteTrainingSession({ sessionId: "s1" })
+    const { params } = new PgDialect().sqlToQuery(state.deleteWhere as SQL)
+    expect(params).toEqual(expect.arrayContaining(["s1", "u1"]))
   })
 })

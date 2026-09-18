@@ -538,25 +538,25 @@ export const deleteTrainingSession = async ({
   if (!sessionId) return fail("Session requise")
 
   try {
+    // La propriété vit dans le WHERE : la session d'autrui est introuvable,
+    // jamais « ne vous appartient pas » (qui confirmerait son existence).
+    const owned = and(
+      eq(trainingSessions.id, sessionId),
+      eq(trainingSessions.userId, session.user.id),
+    )
     const [s] = await db
-      .select({
-        userId: trainingSessions.userId,
-        status: trainingSessions.status,
-      })
+      .select({ status: trainingSessions.status })
       .from(trainingSessions)
-      .where(eq(trainingSessions.id, sessionId))
+      .where(owned)
       .limit(1)
     if (!s) return fail("Session introuvable")
-    if (s.userId !== session.user.id) {
-      return fail("Cette session ne vous appartient pas")
-    }
     if (s.status === "in_progress") {
       return fail(
         "Impossible de supprimer une session en cours. Terminez-la ou abandonnez-la d'abord.",
       )
     }
 
-    await db.delete(trainingSessions).where(eq(trainingSessions.id, sessionId))
+    await db.delete(trainingSessions).where(owned)
 
     revalidatePath("/tableau-de-bord/entrainement")
     return { success: true }
