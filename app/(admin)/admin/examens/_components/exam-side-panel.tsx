@@ -25,6 +25,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import type { AdminExamListItem } from "@/features/exams/dal"
+import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
 import { EXAM_STATUS_CONFIG, getExamStatus } from "@/lib/exam-status"
 import { formatMediumDate, formatTimeOnly } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -220,7 +221,7 @@ function PanelContent({ exam, eligibleCount, onClose }: PanelContentProps) {
             label="Pause"
             value={
               exam.enablePause
-                ? `${exam.pauseDurationMinutes ?? 15} min`
+                ? `${exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES} min`
                 : "Non"
             }
             color="amber"

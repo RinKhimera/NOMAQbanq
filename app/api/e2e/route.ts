@@ -16,6 +16,7 @@ import {
   user,
   userAccess,
 } from "@/db/schema"
+import { SECONDS_PER_QUESTION } from "@/features/exams/schemas"
 import { env } from "@/lib/env/server"
 import { createId } from "@/lib/ids"
 import { computeScorePercent } from "@/lib/score"
@@ -401,9 +402,8 @@ async function seedExam(opts: {
   }
 
   const now = Date.now()
-  // SECONDS_PER_QUESTION = 83 (cf. features/exams/schemas.ts) — court, pour que
-  // le fastForward(3h) de l'auto-submit dépasse toujours le budget-temps.
-  const completionTime = count * 83
+  // Budget court : le fastForward(3h) de l'auto-submit le dépasse toujours.
+  const completionTime = count * SECONDS_PER_QUESTION
   const startDate = opts.closed
     ? new Date(now - 2 * 60 * 60 * 1000) // ouvert il y a 2 h…
     : new Date(now - 60_000)

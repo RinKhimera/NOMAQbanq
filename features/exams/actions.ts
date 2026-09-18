@@ -13,6 +13,7 @@ import {
   user,
   userAccess,
 } from "@/db/schema"
+import { isExpired, pauseCredit } from "@/lib/attempt-clock"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
@@ -43,10 +44,6 @@ import {
 } from "./schemas"
 
 const fail = (error: string) => ({ success: false as const, error })
-
-// Grâce accordée au dernier envoi de réponse (latence réseau) au-delà du budget
-// de temps, distincte du +5 s de finalizeExam.
-const SAVE_GRACE_MS = 10_000
 
 const resolvePause = (enablePause: boolean, minutes?: number) => {
   if (!enablePause) return null
@@ -685,13 +682,20 @@ export const saveExamAnswer = async (
           msg: "Réponse impossible pendant la pause.",
         }
 
-      // Pause ACTIVE déjà exclue → pauseMs = cumul figé uniquement.
-      if (!isAdmin && p.startedAt) {
-        const pauseMs = p.totalPauseDurationMs ?? 0
-        const elapsed = now - p.startedAt.getTime() - pauseMs
-        if (elapsed > exam.completionTime * 1000 + SAVE_GRACE_MS)
-          return { ok: false as const, msg: "Temps écoulé." }
-      }
+      // Pause ACTIVE déjà exclue → seul le crédit figé compte.
+      if (
+        !isAdmin &&
+        p.startedAt &&
+        isExpired(
+          {
+            startedAt: p.startedAt.getTime(),
+            budgetSeconds: exam.completionTime,
+            pauseCreditMs: p.totalPauseDurationMs ?? 0,
+          },
+          now,
+        )
+      )
+        return { ok: false as const, msg: "Temps écoulé." }
 
       const updated = await tx
         .update(examAnswers)
@@ -847,17 +851,20 @@ export const finalizeExam = async (
           throw new Error("ACCESS_EXPIRED")
       }
 
-      let pauseMs = p.totalPauseDurationMs ?? 0
-      if (p.pauseStartedAt) {
-        const capMs =
-          (exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES) * 60 * 1000
-        pauseMs += Math.min(now - p.pauseStartedAt.getTime(), capMs)
-      }
-
       if (!p.startedAt) throw new Error("NOT_STARTED")
-      const elapsed = now - p.startedAt.getTime() - pauseMs
-      if (!isAutoSubmit && elapsed > exam.completionTime * 1000 + 5000)
-        throw new Error("TIME_UP")
+      const timing = {
+        startedAt: p.startedAt.getTime(),
+        budgetSeconds: exam.completionTime,
+        pauseCreditMs: p.totalPauseDurationMs ?? 0,
+        pauseInProgress: p.pauseStartedAt
+          ? {
+              startedAt: p.pauseStartedAt.getTime(),
+              capMinutes: exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES,
+            }
+          : null,
+      }
+      const pauseMs = pauseCredit(timing, now)
+      if (!isAutoSubmit && isExpired(timing, now)) throw new Error("TIME_UP")
 
       const [agg] = await tx
         .select({
@@ -1018,10 +1025,16 @@ export const resumeExam = async ({
         return fail("L'examen n'est pas en cours.")
       if (!p.pauseStartedAt) return fail("Vous n'êtes pas en pause.")
       const now = Date.now()
-      const capMs =
-        (exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES) * 60 * 1000
-      const elapsed = Math.min(now - p.pauseStartedAt.getTime(), capMs)
-      const total = (p.total ?? 0) + elapsed
+      const total = pauseCredit(
+        {
+          pauseCreditMs: p.total ?? 0,
+          pauseInProgress: {
+            startedAt: p.pauseStartedAt.getTime(),
+            capMinutes: exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES,
+          },
+        },
+        now,
+      )
       await tx
         .update(examParticipations)
         .set({ pauseStartedAt: null, totalPauseDurationMs: total })

@@ -35,6 +35,7 @@ import type {
   ExamQuestionView,
   ExamSessionView,
 } from "@/features/exams/dal"
+import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
 import { callAction } from "@/lib/safe-action"
 
 interface EvaluationExam {
@@ -80,7 +81,8 @@ export function EvaluationClient({
   )
 
   const totalQuestions = questions.length
-  const pauseDurationMinutes = exam.pauseDurationMinutes ?? 15
+  const pauseDurationMinutes =
+    exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES
 
   // Mapper ExamQuestionView[] → QuizQuestion[] (sans champs sensibles — anti-triche)
   const mappedQuestions: QuizQuestion[] = questions.map((q) => ({

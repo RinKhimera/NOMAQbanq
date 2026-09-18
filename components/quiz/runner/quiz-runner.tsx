@@ -13,6 +13,7 @@ import { SessionHeader } from "@/components/quiz/session/session-header"
 import { SessionNavigation } from "@/components/quiz/session/session-navigation"
 import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
 import { Button } from "@/components/ui/button"
+import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
 import { useIsVisible } from "@/hooks/use-is-visible"
 import { CalculatorProvider } from "@/hooks/useCalculator"
 import type {
@@ -36,7 +37,7 @@ export interface QuizRunnerProps {
   }
   /** Pré-révélations à hydrater au montage (mode tuteur : questions déjà répondues). */
   initialRevealed?: Record<string, QuizRevealPayload>
-  /** Pause duration in minutes (for the pause overlay countdown). Default: 15. */
+  /** Durée de la pause en minutes (décompte de l'overlay). */
   pauseDurationMinutes?: number
   mode: QuizMode
   callbacks: QuizCallbacks
@@ -48,7 +49,7 @@ function QuizRunnerInner({
   initialFlags,
   initialPause,
   initialRevealed,
-  pauseDurationMinutes = 15,
+  pauseDurationMinutes = DEFAULT_PAUSE_MINUTES,
   mode,
   callbacks,
 }: QuizRunnerProps) {
@@ -202,6 +203,7 @@ function QuizRunnerInner({
           onResume={handleResume}
           pauseStartedAt={localPauseStartedAt}
           pauseDurationMinutes={pauseDurationMinutes}
+          initialNow={mode.timer?.initialNow}
           isResuming={isResuming}
         />
       )}

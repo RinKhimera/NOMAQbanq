@@ -319,7 +319,7 @@ describe("pauseExam / resumeExam", () => {
 
 describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
   // completionTime = 4 questions × 83 s = 332 s ; budget dépassé au-delà de
-  // 332 s + SAVE_GRACE (10 s). Chaque test crée son examen + participation avec
+  // 332 s + GRACE_MS (10 s, `lib/attempt-clock`). Chaque test crée son examen + participation avec
   // un startedAt reculé.
   const makeStartedExam = async (backdateMs: number): Promise<string> => {
     asAdmin()

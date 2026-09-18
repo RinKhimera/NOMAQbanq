@@ -2,15 +2,6 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { FinishDialog } from "@/components/quiz/session/finish-dialog"
 
-vi.mock("@/lib/exam-timer", () => ({
-  formatExamTime: (ms: number) => {
-    const h = Math.floor(ms / 3600000)
-    const m = Math.floor((ms % 3600000) / 60000)
-    const s = Math.floor((ms % 60000) / 1000)
-    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-  },
-}))
-
 describe("FinishDialog", () => {
   const defaultProps = {
     isOpen: true,

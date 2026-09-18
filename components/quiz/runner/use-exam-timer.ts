@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { isTimeCritical, isTimeRunningOut } from "@/lib/exam-timer"
+import { remainingMs as clockRemainingMs, zone } from "@/lib/attempt-clock"
 
 export type UseExamTimerOptions = {
   /**
@@ -40,16 +40,15 @@ export function useExamTimer({
   onExpire,
 }: UseExamTimerOptions): UseExamTimerResult {
   const computeRemaining = useCallback(
-    (at: number) => {
-      const totalMs = totalSeconds * 1000
-      const elapsed = at - serverStartTime - totalPauseDurationMs
-      // Plafond : le temps de pause crédité par le serveur ne peut pas dépasser
-      // le temps réellement écoulé, donc un elapsed négatif ne décrit pas un
-      // état d'examen — c'est une ancre plus ancienne que le démarrage, ou une
-      // horloge cliente en retard sur celle du serveur. Afficher plus que la
-      // durée de l'examen serait un mensonge dans les deux cas.
-      return Math.min(totalMs, Math.max(0, totalMs - elapsed))
-    },
+    (at: number) =>
+      clockRemainingMs(
+        {
+          startedAt: serverStartTime,
+          budgetSeconds: totalSeconds,
+          pauseCreditMs: totalPauseDurationMs,
+        },
+        at,
+      ),
     [serverStartTime, totalSeconds, totalPauseDurationMs],
   )
 
@@ -83,9 +82,10 @@ export function useExamTimer({
     return () => clearInterval(id)
   }, [enabled, isPaused, computeRemaining])
 
+  const timeZone = zone(remainingMs)
   return {
     remainingMs,
-    isRunningOut: isTimeRunningOut(remainingMs),
-    isCritical: isTimeCritical(remainingMs),
+    isRunningOut: timeZone !== "normal",
+    isCritical: timeZone === "critical",
   }
 }
