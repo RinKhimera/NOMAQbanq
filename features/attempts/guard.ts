@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm"
+import { type SQL, sql } from "drizzle-orm"
 import "server-only"
 import type { Db } from "@/db"
 import { type AttemptTiming, isExpired } from "@/lib/attempt-clock"
@@ -79,23 +79,28 @@ export type RequireAttemptArgs =
 
 const GUARDED_VERBS: ReadonlySet<AttemptVerb> = new Set(["answer", "close"])
 
+// Instants projetés en epoch ms (`float8`, que pg rend en nombre) : sur un
+// `execute` brut, Drizzle laisse les `timestamptz` en chaîne.
+const epochMs = (column: SQL) =>
+  sql`floor(extract(epoch from ${column}) * 1000)::float8`
+
 type TrainingRow = {
   id: string
   status: string
   mode: "test" | "tutor"
   question_count: number
-  expires_at: Date
+  expires_at: number
 }
 
 type ExamRow = {
   id: string
   status: string
-  started_at: Date | null
-  pause_started_at: Date | null
+  started_at: number | null
+  pause_started_at: number | null
   /** bigint : le driver pg rend une chaîne. */
   total_pause_duration_ms: string | number | null
-  start_date: Date
-  end_date: Date
+  start_date: number
+  end_date: number
   completion_time: number
   pause_duration_minutes: number | null
   enable_pause: boolean
@@ -107,7 +112,8 @@ const requireTraining = async (
   { ref, actor, now, verb }: { ref: string } & Common,
 ): Promise<Outcome<TrainingAttempt>> => {
   const res = await exec.execute(sql`
-    select id, status, mode, question_count, expires_at
+    select id, status, mode, question_count,
+           ${epochMs(sql`expires_at`)} as expires_at
       from training_sessions
      where id = ${ref} and user_id = ${actor.id}
        for update
@@ -118,7 +124,7 @@ const requireTraining = async (
     return { ok: false, code: "NOT_IN_PROGRESS" }
   }
 
-  const expiresAt = row.expires_at.getTime()
+  const expiresAt = row.expires_at
   if (GUARDED_VERBS.has(verb)) {
     // Même borne que le cron de clôture (`expires_at < now`).
     if (expiresAt < now) return { ok: false, code: "EXPIRED" }
@@ -159,10 +165,14 @@ const requireExam = async (
   // `for update of p` : la ligne `exams` reste libre, sinon chaque réponse de
   // chaque candidat se mettrait en file derrière les autres.
   const res = await exec.execute(sql`
-    select p.id, p.status, p.started_at, p.pause_started_at,
+    select p.id, p.status,
+           ${epochMs(sql`p.started_at`)} as started_at,
+           ${epochMs(sql`p.pause_started_at`)} as pause_started_at,
            p.total_pause_duration_ms,
-           e.start_date, e.end_date, e.completion_time,
-           e.pause_duration_minutes, e.enable_pause, e.audience_type
+           ${epochMs(sql`e.start_date`)} as start_date,
+           ${epochMs(sql`e.end_date`)} as end_date,
+           e.completion_time, e.pause_duration_minutes, e.enable_pause,
+           e.audience_type
       from exam_participations p
       join exams e on e.id = p.exam_id
      where p.exam_id = ${ref} and p.user_id = ${actor.id}
@@ -173,25 +183,23 @@ const requireExam = async (
   if (row.status !== "in_progress") {
     return { ok: false, code: "NOT_IN_PROGRESS" }
   }
-  if (!row.started_at) return { ok: false, code: "NOT_STARTED" }
+  if (row.started_at === null) return { ok: false, code: "NOT_STARTED" }
 
   const timing: AttemptTiming = {
-    startedAt: row.started_at.getTime(),
+    startedAt: row.started_at,
     budgetSeconds: row.completion_time,
     pauseCreditMs: Number(row.total_pause_duration_ms ?? 0),
-    pauseInProgress: row.pause_started_at
-      ? {
-          startedAt: row.pause_started_at.getTime(),
-          capMinutes: row.pause_duration_minutes ?? DEFAULT_PAUSE_MINUTES,
-        }
-      : null,
+    pauseInProgress:
+      row.pause_started_at === null
+        ? null
+        : {
+            startedAt: row.pause_started_at,
+            capMinutes: row.pause_duration_minutes ?? DEFAULT_PAUSE_MINUTES,
+          },
   }
 
   if (GUARDED_VERBS.has(verb)) {
-    const window = {
-      startDate: row.start_date.getTime(),
-      endDate: row.end_date.getTime(),
-    }
+    const window = { startDate: row.start_date, endDate: row.end_date }
     if (now < window.startDate || !isOpen(window, now)) {
       return { ok: false, code: "OUTSIDE_WINDOW" }
     }

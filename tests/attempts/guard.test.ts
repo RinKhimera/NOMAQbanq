@@ -36,7 +36,8 @@ const trainingRow = (extra: Record<string, unknown> = {}) => ({
   status: "in_progress",
   mode: "test",
   question_count: 10,
-  expires_at: new Date(NOW + 60_000),
+  // Instants en epoch ms : ce que le SELECT du guard projette (`float8`).
+  expires_at: NOW + 60_000,
   ...extra,
 })
 
@@ -110,7 +111,7 @@ describe("requireAttempt — entraînement", () => {
   it.each(["answer", "close"] as const)(
     "%s : TTL dépassé → EXPIRED, aucune écriture",
     async (verb) => {
-      rows = [trainingRow({ expires_at: new Date(NOW - 1) })]
+      rows = [trainingRow({ expires_at: NOW - 1 })]
       const res = await requireAttempt(exec, {
         kind: "training",
         ref: "s1",
@@ -124,7 +125,7 @@ describe("requireAttempt — entraînement", () => {
   )
 
   it("TTL atteint à l'instant exact → encore ouverte (même borne que le cron)", async () => {
-    rows = [trainingRow({ expires_at: new Date(NOW) })]
+    rows = [trainingRow({ expires_at: NOW })]
     const res = await requireAttempt(exec, {
       kind: "training",
       ref: "s1",
@@ -172,7 +173,7 @@ describe("requireAttempt — entraînement", () => {
 
   // abandon : ni TTL ni accès — on peut toujours renoncer.
   it("abandon : session expirée sans accès → autorisé", async () => {
-    rows = [trainingRow({ expires_at: new Date(NOW - 1) })]
+    rows = [trainingRow({ expires_at: NOW - 1 })]
     mocks.hasActiveAccess.mockResolvedValue(false)
     const res = await requireAttempt(exec, {
       kind: "training",
@@ -190,12 +191,12 @@ describe("requireAttempt — entraînement", () => {
 const examRow = (extra: Record<string, unknown> = {}) => ({
   id: "p1",
   status: "in_progress",
-  started_at: new Date(NOW - 50_000),
+  started_at: NOW - 50_000,
   pause_started_at: null,
   // bigint → le driver pg rend une chaîne.
   total_pause_duration_ms: "0",
-  start_date: new Date(NOW - 3_600_000),
-  end_date: new Date(NOW + 3_600_000),
+  start_date: NOW - 3_600_000,
+  end_date: NOW + 3_600_000,
   completion_time: 100,
   pause_duration_minutes: 20,
   enable_pause: true,
@@ -274,7 +275,7 @@ describe("requireAttempt — examen", () => {
     it.each(["answer", "close"] as const)(
       "%s : avant la date de début → OUTSIDE_WINDOW",
       async (verb) => {
-        rows = [examRow({ start_date: new Date(NOW + 1) })]
+        rows = [examRow({ start_date: NOW + 1 })]
         expect(await exam(verb)).toEqual({
           ok: false,
           code: "OUTSIDE_WINDOW",
@@ -285,7 +286,7 @@ describe("requireAttempt — examen", () => {
     // Borne du glossaire (« examen ouvert » = date de fin non passée), la
     // même que le verrou de clé de réponse et que le cron de clôture.
     it("à l'instant exact de la fin, l'examen est clos", async () => {
-      rows = [examRow({ end_date: new Date(NOW) })]
+      rows = [examRow({ end_date: NOW })]
       expect(await exam("answer")).toEqual({
         ok: false,
         code: "OUTSIDE_WINDOW",
@@ -293,7 +294,7 @@ describe("requireAttempt — examen", () => {
     })
 
     it("1 ms avant la fin, encore ouvert", async () => {
-      rows = [examRow({ end_date: new Date(NOW + 1) })]
+      rows = [examRow({ end_date: NOW + 1 })]
       expect((await exam("answer")).ok).toBe(true)
     })
   })
@@ -334,12 +335,12 @@ describe("requireAttempt — examen", () => {
 
   describe("pause", () => {
     it("answer pendant la pause → PAUSED", async () => {
-      rows = [examRow({ pause_started_at: new Date(NOW - 1_000) })]
+      rows = [examRow({ pause_started_at: NOW - 1_000 })]
       expect(await exam("answer")).toEqual({ ok: false, code: "PAUSED" })
     })
 
     it("close pendant la pause → autorisé, la pause en cours est portée par l'horloge", async () => {
-      rows = [examRow({ pause_started_at: new Date(NOW - 1_000) })]
+      rows = [examRow({ pause_started_at: NOW - 1_000 })]
       const res = await exam("close")
       expect(res).toMatchObject({
         ok: true,
@@ -354,7 +355,7 @@ describe("requireAttempt — examen", () => {
     it("plafond de pause absent → durée par défaut", async () => {
       rows = [
         examRow({
-          pause_started_at: new Date(NOW - 1_000),
+          pause_started_at: NOW - 1_000,
           pause_duration_minutes: null,
         }),
       ]
@@ -366,7 +367,7 @@ describe("requireAttempt — examen", () => {
 
   describe("budget de temps", () => {
     // Budget 100 s + grâce 10 s : cas jumeaux à 1 ms près.
-    const started = examRow({ started_at: new Date(0) })
+    const started = examRow({ started_at: 0 })
     const withinGrace = 110_000
     const pastGrace = 110_001
 
@@ -384,9 +385,7 @@ describe("requireAttempt — examen", () => {
     })
 
     it("le crédit de pause figé repousse la borne", async () => {
-      rows = [
-        examRow({ started_at: new Date(0), total_pause_duration_ms: "1" }),
-      ]
+      rows = [examRow({ started_at: 0, total_pause_duration_ms: "1" })]
       expect((await exam("answer", { now: pastGrace })).ok).toBe(true)
     })
 
@@ -431,9 +430,9 @@ describe("requireAttempt — examen", () => {
     async (verb) => {
       rows = [
         examRow({
-          started_at: new Date(0),
-          end_date: new Date(NOW - 1),
-          pause_started_at: new Date(NOW - 1_000),
+          started_at: 0,
+          end_date: NOW - 1,
+          pause_started_at: NOW - 1_000,
         }),
       ]
       mocks.hasActiveAccess.mockResolvedValue(false)
