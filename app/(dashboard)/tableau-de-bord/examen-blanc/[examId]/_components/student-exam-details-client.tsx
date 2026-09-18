@@ -8,6 +8,7 @@ import { ExamQuestionsModal } from "@/app/(admin)/admin/examens/[id]/_components
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import type { ExamWithQuestions, LeaderboardEntry } from "@/features/exams/dal"
+import { useClock } from "@/hooks/use-clock"
 
 interface StudentExamDetailsClientProps {
   examId: string
@@ -30,6 +31,7 @@ export function StudentExamDetailsClient({
   initialNow,
 }: StudentExamDetailsClientProps) {
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
+  const now = useClock(initialNow)
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
@@ -82,7 +84,7 @@ export function StudentExamDetailsClient({
         candidates={[]}
         isAdmin={false}
         currentUserId={currentUserId}
-        now={initialNow}
+        now={now}
       />
 
       <ExamQuestionsModal

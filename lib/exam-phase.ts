@@ -18,13 +18,17 @@ export type ExamWindow = {
 export const phaseOf = (exam: ExamWindow, now: number): ExamStatus => {
   if (!exam.isActive) return "inactive"
   if (now < exam.startDate) return "upcoming"
-  if (now > exam.endDate) return "completed"
+  if (!isOpen(exam, now)) return "completed"
   return "active"
 }
 
-/** Examen ouvert : sa date de fin n'est pas passée (déclenche le verrou). */
+/**
+ * Examen ouvert : sa date de fin n'est pas passée. Même borne que le verrou de
+ * clé de réponse (`end_date > now()`) : à l'instant exact de la fin, l'examen
+ * est clos partout.
+ */
 export const isOpen = (exam: { endDate: number }, now: number): boolean =>
-  now <= exam.endDate
+  now < exam.endDate
 
 export type ExamPartition<T> = { active: T[]; upcoming: T[]; completed: T[] }
 

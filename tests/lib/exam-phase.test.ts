@@ -21,9 +21,10 @@ describe("ExamPhase — phaseOf", () => {
       expected: "active",
     },
     {
-      label: "encore en cours à l'instant exact de fermeture",
+      label:
+        "terminé à l'instant exact de fermeture (même borne que le verrou)",
       exam: { isActive: true, startDate: NOW - 10_000, endDate: NOW },
-      expected: "active",
+      expected: "completed",
     },
     {
       label: "terminé 1 ms après la fermeture",

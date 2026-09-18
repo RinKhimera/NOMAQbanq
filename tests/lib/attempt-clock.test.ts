@@ -121,6 +121,11 @@ describe("AttemptClock — pauseRemainingMs", () => {
     { label: "5 min plus tard", at: 5 * MIN, expected: 10 * MIN },
     { label: "à l'échéance", at: 15 * MIN, expected: 0 },
     { label: "après l'échéance", at: 20 * MIN, expected: 0 },
+    {
+      label: "ancre antérieure au début de pause",
+      at: -5 * MIN,
+      expected: 15 * MIN,
+    },
   ])("$label → $expected ms", ({ at, expected }) => {
     expect(pauseRemainingMs(pause, START + at)).toBe(expected)
   })

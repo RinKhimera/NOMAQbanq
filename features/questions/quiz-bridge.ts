@@ -35,12 +35,15 @@ export function toQuizQuestion(
   lock: AnswerKeyLock,
   level: null,
 ): QuizQuestion
-/** Énoncé + correction au niveau demandé, blanchie par le verrou. */
+/**
+ * Énoncé + correction au niveau demandé, blanchie par le verrou. Un niveau
+ * décidé à l'exécution (`null` possible) exige quand même la clé dans la ligne.
+ */
 export function toQuizQuestion(
   row: StatementRow & CorrectionRow,
   images: QuizImage[],
   lock: AnswerKeyLock,
-  level: RevealLevel,
+  level: RevealLevel | null,
 ): QuizQuestion
 export function toQuizQuestion(
   row: StatementRow & Partial<CorrectionRow>,
@@ -86,7 +89,9 @@ export const groupImages = (
 /**
  * Images d'un lot de questions, groupées par question, URL CDN dérivée. Le
  * canal `explanation` est un canal de révélation : jamais sur le pont
- * d'énoncé `images`.
+ * d'énoncé `images`. Pas de `.limit` : la lecture est bornée par le lot de
+ * l'appelant (au plus `MAX_EXAM_QUESTIONS` ids) et tronquer ferait disparaître
+ * en silence les images des dernières questions.
  */
 export const fetchImages = async (
   questionIds: string[],

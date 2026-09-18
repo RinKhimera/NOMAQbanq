@@ -221,9 +221,10 @@ export type ExamWithQuestions = {
 } | null
 
 /**
- * Examen + questions ordonnées (forme « pont »). `correctAnswer` masqué pour les
- * non-admins (anti-triche pendant la passation), révélé pour les admins.
- * `explanation`/`references` jamais inclus ici (lazy-load séparé). Auth requise.
+ * Examen + questions ordonnées (forme-pont). La clé de réponse n'est jointe que
+ * sur `revealKey`, et seulement pour un admin (fiches de détail) : jamais sur la
+ * page de passation. `explanation`/`references` jamais inclus ici (lazy-load
+ * séparé). Auth requise.
  */
 export const getExamWithQuestions = async (
   examId: string,
@@ -318,19 +319,12 @@ export const getExamWithQuestions = async (
   // Un admin n'est jamais soumis au verrou ; personne d'autre ne reçoit la clé ici.
   const level = opts?.revealKey && isAdmin ? "key" : null
   const questionsView = items.map((i) =>
-    level
-      ? toQuizQuestion(
-          i,
-          imgMap.get(i.questionId) ?? [],
-          AnswerKeyLock.none(),
-          level,
-        )
-      : toQuizQuestion(
-          i,
-          imgMap.get(i.questionId) ?? [],
-          AnswerKeyLock.none(),
-          null,
-        ),
+    toQuizQuestion(
+      i,
+      imgMap.get(i.questionId) ?? [],
+      AnswerKeyLock.none(),
+      level,
+    ),
   )
 
   return {

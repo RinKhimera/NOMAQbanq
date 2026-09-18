@@ -69,7 +69,8 @@ export default async function MockExamDetailsPage({
   const session = await getCurrentSession()
   const isAdmin = session?.user?.role === "admin"
 
-  const data = await getExamWithQuestions(examId)
+  // `revealKey` n'a d'effet que pour un admin (modale des questions).
+  const data = await getExamWithQuestions(examId, { revealKey: true })
   if (!data) {
     // Non-admin + null = pas d'accès (ou examen confidentiel) → carte paywall,
     // pas un 404 sec (préserve le tunnel d'achat). Admin ne voit null que si

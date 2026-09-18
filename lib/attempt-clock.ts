@@ -49,9 +49,14 @@ export const remainingMs = (timing: AttemptTiming, now: number): number => {
 export const isExpired = (timing: AttemptTiming, now: number): boolean =>
   elapsedMs(timing, now) > timing.budgetSeconds * SECOND + GRACE_MS
 
-/** Décompte de la pause en cours, jamais négatif. */
-export const pauseRemainingMs = (pause: PauseInProgress, now: number): number =>
-  Math.max(0, pause.capMinutes * MINUTE - (now - pause.startedAt))
+/** Décompte de la pause en cours, borné dans `[0, plafond]`. */
+export const pauseRemainingMs = (
+  pause: PauseInProgress,
+  now: number,
+): number => {
+  const capMs = pause.capMinutes * MINUTE
+  return Math.min(capMs, Math.max(0, capMs - (now - pause.startedAt)))
+}
 
 export type TimeZone = "normal" | "warning" | "critical"
 

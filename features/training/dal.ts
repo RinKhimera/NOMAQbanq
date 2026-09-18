@@ -547,9 +547,7 @@ export const getTrainingSessionById = async (
     // Session terminée, ou question déjà répondue en mode tuteur.
     const mayReveal = isCompleted || (isTutor && i.selectedAnswer !== null)
     const images = imgMap.get(i.questionId) ?? []
-    return mayReveal
-      ? toQuizQuestion(i, images, lock, "correction")
-      : toQuizQuestion(i, images, lock, null)
+    return toQuizQuestion(i, images, lock, mayReveal ? "correction" : null)
   })
 
   // Reveal isCorrect in answers only when session is completed or in tutor mode.

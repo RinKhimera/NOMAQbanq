@@ -16,8 +16,8 @@ interface PauseDialogProps {
   pauseDurationMinutes: number
   /**
    * Horloge serveur du rendu, ancre du premier rendu (SSR et hydratation) quand
-   * la page se charge déjà en pause. Absente, la pause vient d'être prise et
-   * son propre début sert d'ancre.
+   * la page se charge déjà en pause. Absente (pause prise en cours de session),
+   * le début de la pause sert d'ancre : le décompte part du plafond.
    */
   initialNow?: number
   isResuming?: boolean

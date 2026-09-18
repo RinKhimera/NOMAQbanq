@@ -27,6 +27,7 @@ import type {
   ExamWithQuestions,
   LeaderboardEntry,
 } from "@/features/exams/dal"
+import { useClock } from "@/hooks/use-clock"
 import { cn } from "@/lib/utils"
 import { ExamDetails } from "./exam-details"
 import { ExamQuestionsModal } from "./exam-questions-modal"
@@ -54,6 +55,7 @@ export function ExamDetailsClient({
   initialNow,
 }: ExamDetailsClientProps) {
   const [isQuestionsOpen, setIsQuestionsOpen] = useState(false)
+  const now = useClock(initialNow)
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
@@ -140,7 +142,7 @@ export function ExamDetailsClient({
         audience={audience}
         isAdmin={true}
         currentUserId={currentUserId}
-        now={initialNow}
+        now={now}
       />
 
       <ExamQuestionsModal
