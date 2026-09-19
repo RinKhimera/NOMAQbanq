@@ -15,17 +15,15 @@ import { sendWelcomeEmailOnce } from "@/features/notifications/welcome"
 import { DELETION_GRACE_MS } from "@/features/users/lib/account-deletion"
 import { auth } from "@/lib/auth"
 import { createId } from "@/lib/ids"
+import { fakeMailer, mailbox } from "../helpers/fake-mailer"
 
-const welcome = vi.fn().mockResolvedValue("id")
-const cart = vi.fn().mockResolvedValue("id")
-const reset = vi.fn().mockResolvedValue("id")
-const verify = vi.fn().mockResolvedValue("id")
-vi.mock("@/email", () => ({
-  sendWelcomeEmail: (...a: unknown[]) => welcome(...a),
-  sendAbandonedCartEmail: (...a: unknown[]) => cart(...a),
-  sendResetPassword: (...a: unknown[]) => reset(...a),
-  sendVerificationEmail: (...a: unknown[]) => verify(...a),
-}))
+vi.mock("@/email", () =>
+  import("../helpers/fake-mailer").then((m) => m.fakeMailer),
+)
+const welcome = fakeMailer.sendWelcomeEmail
+const cart = fakeMailer.sendAbandonedCartEmail
+const reset = fakeMailer.sendResetPassword
+const verify = fakeMailer.sendVerificationEmail
 
 const uid = createId()
 const googleUid = createId()
@@ -52,10 +50,7 @@ afterAll(async () => {
   }
 })
 
-beforeEach(() => {
-  welcome.mockClear()
-  cart.mockClear()
-})
+beforeEach(() => mailbox.reset())
 
 const column = async <
   K extends "welcomeEmailSentAt" | "lastLoginAt" | "deletedAt",
@@ -84,7 +79,7 @@ describe("sendWelcomeEmailOnce", () => {
     await db
       .insert(user)
       .values({ id, name: "Panne", email: `p-${id}@test.invalid` })
-    welcome.mockRejectedValueOnce(new Error("SES down"))
+    mailbox.failNext("sendWelcomeEmail", new Error("SES down"))
     await expect(sendWelcomeEmailOnce(id)).resolves.toBe(false)
     expect(await column(id, "welcomeEmailSentAt")).toBeInstanceOf(Date)
     await db.delete(user).where(eq(user.id, id))

@@ -24,15 +24,14 @@ import {
 import { grantManualAccess } from "@/features/payments/lib"
 import { completeStripeTransaction } from "@/features/payments/stripe"
 import { createId } from "@/lib/ids"
+import { fakeMailer } from "../helpers/fake-mailer"
 
-const examResults = vi.fn().mockResolvedValue("id")
-const accessExpiring = vi.fn().mockResolvedValue("id")
-const inactivity = vi.fn().mockResolvedValue("id")
-vi.mock("@/email", () => ({
-  sendExamResultsEmail: (...a: unknown[]) => examResults(...a),
-  sendAccessExpiringEmail: (...a: unknown[]) => accessExpiring(...a),
-  sendInactivityReminderEmail: (...a: unknown[]) => inactivity(...a),
-}))
+vi.mock("@/email", () =>
+  import("../helpers/fake-mailer").then((m) => m.fakeMailer),
+)
+const examResults = fakeMailer.sendExamResultsEmail
+const accessExpiring = fakeMailer.sendAccessExpiringEmail
+const inactivity = fakeMailer.sendInactivityReminderEmail
 
 const creator = createId()
 const optIn = createId()
