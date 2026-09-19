@@ -340,7 +340,7 @@ describe("applyGrant", () => {
     )
   })
 
-  it("utilisateur inconnu → USER_NOT_FOUND, rien d'écrit", async () => {
+  it("utilisateur inconnu → USER_NOT_FOUND", async () => {
     await expect(
       grant({
         userId: createId(),

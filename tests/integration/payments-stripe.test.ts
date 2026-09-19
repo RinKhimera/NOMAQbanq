@@ -212,16 +212,18 @@ describe("completeStripeTransaction", () => {
     expect(tx?.amountPaid).toBe(5000)
   })
 
-  it("non-combo : complète la transaction et crédite l'accès (now + durée)", async () => {
+  it("non-combo : complète la transaction et crédite l'accès (now + durée du SNAPSHOT)", async () => {
     const txId = createId()
     const sid = `sess_happy_${suffix}`
+    // Durée du pending ≠ durée courante du produit (90) : c'est le snapshot de
+    // la transaction qui doit être octroyé, pas le catalogue du jour.
     await seedPending({
       id: txId,
       userId: U_HAPPY,
       productId: PEXAM,
       sessionId: sid,
       accessType: "exam",
-      durationDays: 90,
+      durationDays: 45,
     })
 
     const res = await completeStripeTransaction({
@@ -237,11 +239,11 @@ describe("completeStripeTransaction", () => {
     expect(tx?.completedAt).toEqual(NOW)
     expect(tx?.pi).toBe("pi_happy")
     // Le précalcul du pending est écrasé par le snapshot du fulfillment.
-    expect(tx?.accessExpiresAt).toEqual(at(90))
+    expect(tx?.accessExpiresAt).toEqual(at(45))
 
     const acc = await accessOf(U_HAPPY, "exam")
     expect(acc?.lastTransactionId).toBe(txId)
-    expect(acc?.expiresAt).toEqual(at(90))
+    expect(acc?.expiresAt).toEqual(at(45))
   })
 
   it("idempotent : même event rejoué → already_processed, pas de double crédit", async () => {
@@ -268,7 +270,7 @@ describe("completeStripeTransaction", () => {
     expect(after?.expiresAt.getTime()).toBe(before?.expiresAt.getTime())
   })
 
-  it("combo : crédite exam ET training (now + durée)", async () => {
+  it("combo : crédite exam ET training (now + durée du snapshot)", async () => {
     const txId = createId()
     const sid = `sess_combo_${suffix}`
     await seedPending({
@@ -277,7 +279,7 @@ describe("completeStripeTransaction", () => {
       productId: PCOMBO,
       sessionId: sid,
       accessType: "exam",
-      durationDays: 30,
+      durationDays: 15, // produit courant : 30
     })
 
     const res = await completeStripeTransaction({
@@ -290,8 +292,8 @@ describe("completeStripeTransaction", () => {
 
     const exam = await accessOf(U_COMBO, "exam")
     const training = await accessOf(U_COMBO, "training")
-    expect(exam?.expiresAt).toEqual(at(30))
-    expect(training?.expiresAt).toEqual(at(30))
+    expect(exam?.expiresAt).toEqual(at(15))
+    expect(training?.expiresAt).toEqual(at(15))
     expect(exam?.lastTransactionId).toBe(txId)
     expect(training?.lastTransactionId).toBe(txId)
   })

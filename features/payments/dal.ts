@@ -526,10 +526,10 @@ export type AccessImpact = {
 }
 
 /**
- * [Admin] Indique si rembourser/supprimer cette transaction révoquera l'accès,
- * c.-à-d. si elle est la dernière à l'avoir accordé (`lastTransactionId`).
- * Renvoie `null` si la transaction
- * n'existe pas (l'UI traite alors « aucun impact »).
+ * [Admin] Indique si rembourser/supprimer cette transaction réduira l'accès :
+ * l'expiration restaurée par les transactions restantes est-elle inférieure à
+ * l'expiration courante ? Renvoie `null` si la transaction n'existe pas (l'UI
+ * traite alors « aucun impact »).
  */
 export const getTransactionAccessImpact = async (
   transactionId: string,
@@ -548,10 +548,7 @@ export const getTransactionAccessImpact = async (
   if (!tx) return null
 
   const [access] = await db
-    .select({
-      expiresAt: userAccess.expiresAt,
-      lastTransactionId: userAccess.lastTransactionId,
-    })
+    .select({ expiresAt: userAccess.expiresAt })
     .from(userAccess)
     .where(
       and(

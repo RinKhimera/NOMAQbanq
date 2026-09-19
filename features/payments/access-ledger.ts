@@ -15,8 +15,9 @@ import { products, transactions, user, userAccess } from "@/db/schema"
  * Les deux verbes prennent le verrou `user FOR UPDATE` en premier : il sérialise
  * tous les octrois/retraits d'un même utilisateur (sans lui, deux paiements
  * concurrents lisent la même expiration et l'un écrase l'autre). Un appelant
- * qui détient déjà ce verrou dans la même transaction le re-prend sans coût ;
- * l'ordre user → ligne `transactions` → `user_access` est le même partout.
+ * qui détient déjà ce verrou dans la même transaction le re-prend sans coût.
+ * C'est ce verrou, pris avant TOUTE écriture, qui exclut l'interblocage :
+ * l'ordre des lignes filles (`transactions`, `user_access`) est ensuite libre.
  *
  * Invariant relié aux deux verbes : chaque transaction `completed` porte dans
  * `accessExpiresAt` le snapshot du cumul au moment de son octroi ; la
@@ -46,8 +47,8 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /**
  * Verrou de ligne `user` : sérialise tous les écrivains d'accès d'un même
  * utilisateur. Les deux verbes le prennent eux-mêmes ; un appelant qui écrit
- * sur `transactions` AVANT de les appeler le prend d'abord, pour garder l'ordre
- * user → transactions → user_access partout.
+ * sur `transactions` AVANT de les appeler le prend d'abord, pour que le verrou
+ * précède toujours la première écriture.
  */
 export const lockUser = async (tx: Tx, userId: string): Promise<void> => {
   const [locked] = await tx
