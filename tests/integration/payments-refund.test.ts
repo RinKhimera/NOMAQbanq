@@ -2,8 +2,8 @@ import { and, eq } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
+import { rebuildFromTransactions } from "@/features/payments/access-ledger"
 import { updateManualTransaction } from "@/features/payments/actions"
-import { recomputeAccess } from "@/features/payments/lib"
 import { refundStripeTransaction } from "@/features/payments/stripe"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
@@ -84,7 +84,7 @@ const txRow = (id: string) =>
     .then((r) => r[0])
 
 const rebuild = (userId: string) =>
-  db.transaction((t) => recomputeAccess(t, { userId }))
+  db.transaction((t) => rebuildFromTransactions(t, { userId }))
 
 beforeAll(async () => {
   await db.insert(user).values([

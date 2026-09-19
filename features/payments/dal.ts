@@ -11,7 +11,7 @@ import {
 } from "@/lib/app-zone"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
-import { bestCoveringTransaction } from "./lib"
+import { bestCoveringTransaction } from "./access-ledger"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -526,10 +526,10 @@ export type AccessImpact = {
 }
 
 /**
- * [Admin] Indique si rembourser/supprimer cette transaction révoquera l'accès,
- * c.-à-d. si elle est la dernière à l'avoir accordé (`lastTransactionId`).
- * Renvoie `null` si la transaction
- * n'existe pas (l'UI traite alors « aucun impact »).
+ * [Admin] Indique si rembourser/supprimer cette transaction réduira l'accès :
+ * l'expiration restaurée par les transactions restantes est-elle inférieure à
+ * l'expiration courante ? Renvoie `null` si la transaction n'existe pas (l'UI
+ * traite alors « aucun impact »).
  */
 export const getTransactionAccessImpact = async (
   transactionId: string,
@@ -548,10 +548,7 @@ export const getTransactionAccessImpact = async (
   if (!tx) return null
 
   const [access] = await db
-    .select({
-      expiresAt: userAccess.expiresAt,
-      lastTransactionId: userAccess.lastTransactionId,
-    })
+    .select({ expiresAt: userAccess.expiresAt })
     .from(userAccess)
     .where(
       and(
@@ -571,7 +568,7 @@ export const getTransactionAccessImpact = async (
     }
   }
 
-  // Même calcul que recomputeAccess (source unique) : que reste-t-il sans cette
+  // Même calcul que rebuildFromTransactions (source unique) : que reste-t-il sans cette
   // transaction ? NE PAS dériver de lastTransactionId — il peut pointer une
   // transaction dont le snapshot est INFÉRIEUR à l'échéance courante (cas combo
   // conservant un accès plus tardif), et l'accès chuterait alors même que

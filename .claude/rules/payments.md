@@ -26,6 +26,21 @@ lisant et dont la violation coûte de l'argent ou un accès non rendu.
   `now + durée` et octroie les DEUX types. L'expiration est recalculée au
   fulfillment, jamais reprise du `pending` (le `now` a avancé, l'accès existant
   a pu changer entre-temps).
+- **Cette règle a UN propriétaire : `features/payments/access-ledger.ts`.**
+  `applyGrant(tx, …)` est le seul écrivain d'un octroi (Stripe et manuel) :
+  verrou `user FOR UPDATE`, arithmétique cumul/combo, snapshot du cumul écrit
+  dans `transactions.accessExpiresAt`, upsert `user_access` avec
+  `expiresAt = max(existant, transaction)` et re-arm de
+  `expiryReminderSentAt` UNIQUEMENT si l'expiration avance ;
+  `rebuildFromTransactions(tx, …)` est le seul écrivain d'un retrait ou d'un
+  re-crédit (il relit les snapshots, ne re-simule jamais le cumul). Les
+  appelants (`completeStripeTransaction`, `grantManualAccess`,
+  `refundStripeTransaction`, `updateManualTransaction`,
+  `deleteManualTransaction`) ne portent que le mapping vers ces deux verbes —
+  ne pas y recopier un `readAccess`, un `max` ou un `onConflictDoUpdate` sur
+  `user_access`. La règle est prouvée une fois,
+  `tests/integration/access-ledger.test.ts` ; les tests des appelants ne
+  gardent que ce qui leur est propre (idempotence, mapping des événements).
 - **Un admin court-circuite `hasAccess`** : aucun paiement requis pour lui.
   Tester un paywall depuis un compte admin ne prouve donc rien.
 
@@ -48,7 +63,7 @@ voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
   perte** (`charge.dispute.closed`, `status: lost`) et sur tout
   **remboursement complet** (`charge.refunded`, `refunded: true`),
   `refundStripeTransaction` passe la transaction en `refunded` (avec
-  `refunded_at` = `event.created`) et `recomputeAccess` retire l'accès : les
+  `refunded_at` = `event.created`) et `rebuildFromTransactions` retire l'accès : les
   fonds sont partis, le service suit. La règle « alerte avant écriture » tient
   aussi là : l'alerte humaine (« litige perdu », « remboursement Stripe
   complet ») précède l'écriture ; une alerte d'issue distincte ou un log suit.

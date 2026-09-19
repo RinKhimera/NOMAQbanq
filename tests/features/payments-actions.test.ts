@@ -91,9 +91,11 @@ vi.mock("@/features/payments/dal", () => ({
   getTransactionAccessImpact: mocks.getTransactionAccessImpact,
   getTransactionStats: mocks.getTransactionStats,
 }))
+vi.mock("@/features/payments/access-ledger", () => ({
+  rebuildFromTransactions: vi.fn(),
+}))
 vi.mock("@/features/payments/lib", () => ({
   grantManualAccess: vi.fn(),
-  recomputeAccess: vi.fn(),
 }))
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: mocks.requireSession,

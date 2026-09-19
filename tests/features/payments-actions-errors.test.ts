@@ -25,9 +25,11 @@ vi.mock("@/features/payments/dal", () => ({
   getTransactionAccessImpact: vi.fn(),
   getTransactionStats: vi.fn(),
 }))
+vi.mock("@/features/payments/access-ledger", () => ({
+  rebuildFromTransactions: vi.fn(),
+}))
 vi.mock("@/features/payments/lib", () => ({
   grantManualAccess: vi.fn(),
-  revokeAccessIfLast: vi.fn(),
 }))
 vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(async () => ({ user: { id: "u1", role: "user" } })),
