@@ -1,26 +1,22 @@
 import { eq } from "drizzle-orm"
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest"
 import { db } from "@/db"
 import { products, transactions, user } from "@/db/schema"
 import { createStripeCheckout } from "@/features/payments/actions"
 import { createId } from "@/lib/ids"
+import { fakeStripe, stripeBox } from "../helpers/fake-stripe"
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     sessionUserId: { current: "" },
-    create:
-      vi.fn<
-        (arg: {
-          metadata: { userId: string }
-        }) => Promise<{ id: string; url: string | null }>
-      >(),
-    pricesList: vi.fn<
-      () => Promise<{
-        data: { id: string; unit_amount: number | null; currency: string }[]
-      }>
-    >(async () => ({
-      data: [{ id: "price_resolved", unit_amount: 5000, currency: "cad" }],
-    })),
   },
 }))
 
@@ -34,17 +30,24 @@ vi.mock("@/lib/auth-guards", () => ({
   })),
   requireRole: vi.fn(),
 }))
-vi.mock("@/lib/stripe", () => ({
-  getStripe: () => ({
-    checkout: { sessions: { create: mocks.create } },
-    prices: { list: mocks.pricesList },
-  }),
-}))
+vi.mock("@/lib/stripe", () =>
+  import("../helpers/fake-stripe").then((m) => m.fakeStripe),
+)
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
 const suffix = createId().slice(0, 8)
 const USER_ID = createId()
 const PID = createId()
+
+beforeEach(() => {
+  stripeBox.reset()
+  stripeBox.prices.push({
+    id: "price_resolved",
+    unit_amount: 5000,
+    currency: "cad",
+    lookup_key: `price_${suffix}`,
+  })
+})
 
 beforeAll(async () => {
   await db.insert(user).values({
@@ -76,25 +79,19 @@ afterAll(async () => {
 
 describe("createStripeCheckout", () => {
   it("crée une transaction pending liée à la session Stripe + metadata.userId", async () => {
-    const sessionId = `cs_${suffix}`
-    mocks.create.mockResolvedValueOnce({
-      id: sessionId,
-      url: "https://stripe.test/checkout",
-    })
-
     const res = await createStripeCheckout({
       productCode: "exam_access",
       successPath: "/tableau-de-bord",
       cancelPath: "/tarifs",
     })
-    expect(res).toEqual({ checkoutUrl: "https://stripe.test/checkout" })
+    expect(res).toEqual({ checkoutUrl: "https://checkout.stripe.test/1" })
 
     // metadata.userId transmis à Stripe (invariant anti-IDOR côté verify +
     // fulfillment). PAS d'assertion sur metadata.productId : products.code n'est
     // pas unique et develop contient déjà un exam_access → le produit résolu
     // (ORDER BY id ASC) est non déterministe.
-    const arg = mocks.create.mock.calls[0]![0]
-    expect(arg.metadata.userId).toBe(USER_ID)
+    const [sessionId, created] = [...stripeBox.checkoutSessions][0]!
+    expect(created.metadata?.userId).toBe(USER_ID)
 
     // Transaction pending retrouvable par le webhook via stripeSessionId
     // (invariants robustes, indépendants du produit résolu).
@@ -111,10 +108,7 @@ describe("createStripeCheckout", () => {
   // La devise d'un prix Stripe est immuable : un ecart ne peut pas etre un etat
   // transitoire legitime. C'est le seul cas de refus restant au checkout.
   it("devise Stripe ≠ cad → aucune transaction pending creee", async () => {
-    mocks.create.mockClear()
-    mocks.pricesList.mockResolvedValueOnce({
-      data: [{ id: "price_resolved", unit_amount: 5000, currency: "usd" }],
-    })
+    stripeBox.prices[0]!.currency = "usd"
 
     const before = await db
       .select({ id: transactions.id })
@@ -130,7 +124,7 @@ describe("createStripeCheckout", () => {
     expect(res).toEqual({
       error: "Ce produit est mal configuré. Contactez le support.",
     })
-    expect(mocks.create).not.toHaveBeenCalled()
+    expect(fakeStripe.createCheckoutSession).not.toHaveBeenCalled()
 
     const after = await db
       .select({ id: transactions.id })
@@ -140,21 +134,20 @@ describe("createStripeCheckout", () => {
   })
 
   it("refuse un productCode inconnu (pas d'appel Stripe)", async () => {
-    mocks.create.mockClear()
     const res = await createStripeCheckout({
       productCode: "does_not_exist",
       successPath: "/tableau-de-bord",
       cancelPath: "/tarifs",
     })
     expect(res).toEqual({ error: "Produit invalide" })
-    expect(mocks.create).not.toHaveBeenCalled()
+    expect(fakeStripe.createCheckoutSession).not.toHaveBeenCalled()
   })
 
   it("price_id absent du mode de la clé → message de configuration, aucun pending", async () => {
-    mocks.create.mockClear()
     // Ce que Stripe renvoie quand le price_id appartient à l'autre mode : les
     // préfixes étant identiques en test et en live, c'est le seul signal.
-    mocks.create.mockRejectedValueOnce(
+    stripeBox.failNext(
+      "createCheckoutSession",
       Object.assign(new Error("No such price"), { code: "resource_missing" }),
     )
 

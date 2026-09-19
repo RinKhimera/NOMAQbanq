@@ -1,8 +1,13 @@
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   describePriceDrift,
   resolveStripePrice,
 } from "@/features/payments/catalog"
+import { fakeStripe, stripeBox } from "../helpers/fake-stripe"
+
+vi.mock("@/lib/stripe", () =>
+  import("../helpers/fake-stripe").then((m) => m.fakeStripe),
+)
 
 // `describePriceDrift` est pur : c'est lui qui decide si le prix affiche en base
 // et le prix que Stripe facturera racontent la meme chose. Chaque cas est ecrit
@@ -12,7 +17,10 @@ const PRICE = {
   id: "price_1",
   unit_amount: 5000,
   currency: "cad",
+  lookup_key: "exam_access",
 } as const
+
+beforeEach(() => stripeBox.reset())
 
 describe("describePriceDrift", () => {
   it("montant et devise concordants → aucune derive", () => {
@@ -44,35 +52,26 @@ describe("describePriceDrift", () => {
 })
 
 describe("resolveStripePrice", () => {
-  it("interroge Stripe sur la cle, en prix actifs seulement, requete bornee", async () => {
-    const list = vi.fn(async () => ({ data: [PRICE] }))
-    const stripe = { prices: { list } } as never
+  it("demande au port les prix actifs de la cle, et rend le premier", async () => {
+    stripeBox.prices.push(PRICE)
 
-    const price = await resolveStripePrice(stripe, "exam_access")
+    const price = await resolveStripePrice("exam_access")
 
     expect(price).toEqual(PRICE)
-    expect(list).toHaveBeenCalledWith(
-      { lookup_keys: ["exam_access"], active: true, limit: 2 },
-      { timeout: 8000, maxNetworkRetries: 1 },
-    )
+    expect(fakeStripe.listActivePrices).toHaveBeenCalledWith(["exam_access"])
   })
 
   it("aucun prix actif pour la cle → null (et non une exception)", async () => {
-    const stripe = { prices: { list: async () => ({ data: [] }) } } as never
-    expect(await resolveStripePrice(stripe, "inconnu")).toBeNull()
+    expect(await resolveStripePrice("inconnu")).toBeNull()
   })
 
-  // `limit: 2` n'a d'interet que si quelqu'un lit le second element : sans ca,
-  // une cle portee par deux prix actifs se reglerait au hasard, en silence.
+  // Le port rend TOUS les prix actifs de la cle : sans lire le second, une cle
+  // portee par deux prix actifs se reglerait au hasard, en silence.
   it("deux prix actifs pour la meme cle → anomalie signalee", async () => {
     const onAmbiguous = vi.fn()
-    const stripe = {
-      prices: {
-        list: async () => ({ data: [PRICE, { ...PRICE, id: "price_2" }] }),
-      },
-    } as never
+    stripeBox.prices.push(PRICE, { ...PRICE, id: "price_2" })
 
-    const price = await resolveStripePrice(stripe, "exam_access", onAmbiguous)
+    const price = await resolveStripePrice("exam_access", onAmbiguous)
 
     expect(price).toEqual(PRICE)
     expect(onAmbiguous).toHaveBeenCalledWith("exam_access", 2)

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { verifyStripeCheckout } from "@/features/payments/actions"
+import { stripeBox } from "../helpers/fake-stripe"
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
     captureServerError: vi.fn(),
-    retrieve: vi.fn<() => Promise<unknown>>(),
   },
 }))
 
@@ -36,22 +36,17 @@ vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
 }))
 vi.mock("@/lib/base-url", () => ({ getBaseUrl: () => "http://localhost:3000" }))
-vi.mock("@/lib/stripe", () => ({
-  getStripe: () => ({ checkout: { sessions: { retrieve: mocks.retrieve } } }),
-}))
+vi.mock("@/lib/stripe", () =>
+  import("../helpers/fake-stripe").then((m) => m.fakeStripe),
+)
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 
 beforeEach(() => {
-  mocks.captureServerError.mockClear()
+  stripeBox.reset()
 })
 
-describe("verifyStripeCheckout — catch filtré resource_missing", () => {
-  it("session_id invalide (resource_missing) → message métier, PAS de capture", async () => {
-    mocks.retrieve.mockRejectedValueOnce(
-      Object.assign(new Error("No such checkout.session"), {
-        code: "resource_missing",
-      }),
-    )
+describe("verifyStripeCheckout — session inconnue vs panne", () => {
+  it("session_id invalide (inconnue de Stripe) → message métier, PAS de capture", async () => {
     const res = await verifyStripeCheckout("cs_bidon")
     expect(res).toEqual({
       success: false,
@@ -62,7 +57,7 @@ describe("verifyStripeCheckout — catch filtré resource_missing", () => {
 
   it("erreur Stripe inattendue → même message + capture", async () => {
     const boom = new Error("Stripe API down")
-    mocks.retrieve.mockRejectedValueOnce(boom)
+    stripeBox.failNext("retrieveCheckoutSession", boom)
     const res = await verifyStripeCheckout("cs_x")
     expect(res).toEqual({
       success: false,
@@ -78,7 +73,8 @@ describe("verifyStripeCheckout — catch filtré resource_missing", () => {
 
 describe("verifyStripeCheckout — anti-IDOR + happy path", () => {
   it("metadata.userId ≠ session → refus (anti-IDOR), pas de capture", async () => {
-    mocks.retrieve.mockResolvedValueOnce({
+    stripeBox.seedCheckoutSession({
+      id: "cs_ok",
       metadata: { userId: "someone_else" },
       payment_status: "paid",
       amount_total: 5000,
@@ -94,7 +90,8 @@ describe("verifyStripeCheckout — anti-IDOR + happy path", () => {
   })
 
   it("metadata.userId == session → succès", async () => {
-    mocks.retrieve.mockResolvedValueOnce({
+    stripeBox.seedCheckoutSession({
+      id: "cs_ok",
       metadata: { userId: "u1" },
       payment_status: "paid",
       amount_total: 5000,
@@ -102,6 +99,12 @@ describe("verifyStripeCheckout — anti-IDOR + happy path", () => {
       customer_email: "x@test.invalid",
     })
     const res = await verifyStripeCheckout("cs_ok")
-    expect(res).toMatchObject({ success: true, status: "paid" })
+    expect(res).toEqual({
+      success: true,
+      status: "paid",
+      amountTotal: 5000,
+      currency: "cad",
+      customerEmail: "x@test.invalid",
+    })
   })
 })

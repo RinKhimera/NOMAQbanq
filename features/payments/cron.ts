@@ -1,11 +1,10 @@
 import { eq } from "drizzle-orm"
 import "server-only"
-import type Stripe from "stripe"
 import { db } from "@/db"
 import { products } from "@/db/schema"
 import { env } from "@/lib/env/server"
 import { captureServerError } from "@/lib/observability"
-import { getStripe } from "@/lib/stripe"
+import { type StripePrice, listActivePrices } from "@/lib/stripe"
 import { describePriceDrift } from "./catalog"
 
 export type PriceDriftResult = {
@@ -47,27 +46,11 @@ export async function auditProductPriceDrift(): Promise<PriceDriftResult> {
     .limit(50)
   if (rows.length === 0) return { checked: 0, drifted: 0, failed: false }
 
-  const byLookupKey = new Map<string, Stripe.Price>()
+  const byLookupKey = new Map<string, StripePrice>()
   try {
-    const stripe = getStripe()
     for (let i = 0; i < rows.length; i += LOOKUP_KEYS_PER_CALL) {
-      const { data } = await stripe.prices.list(
-        {
-          lookup_keys: rows
-            .slice(i, i + LOOKUP_KEYS_PER_CALL)
-            .map((r) => r.lookupKey),
-          active: true,
-          // PAS `LOOKUP_KEYS_PER_CALL` : une clé peut porter plusieurs prix
-          // actifs (`resolveStripePrice` prévoit ce cas), donc la réponse peut
-          // compter plus de lignes que de clés demandées. Un `limit` égal au
-          // nombre de clés tronquerait alors la liste, et les clés absentes du
-          // tronçon seraient signalées à tort comme « aucun prix actif ». 100 est
-          // le maximum accepté par l'API.
-          limit: 100,
-        },
-        // Mêmes bornes qu'au checkout : le SDK attend 80 s et réessaie 2 fois par
-        // défaut, contre un `--max-time 60` côté appelant.
-        { timeout: 8000, maxNetworkRetries: 1 },
+      const data = await listActivePrices(
+        rows.slice(i, i + LOOKUP_KEYS_PER_CALL).map((r) => r.lookupKey),
       )
       for (const price of data) {
         if (price.lookup_key) byLookupKey.set(price.lookup_key, price)

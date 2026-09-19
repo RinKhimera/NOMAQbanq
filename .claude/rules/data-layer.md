@@ -258,6 +258,13 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   puis `mailbox.sent` / `mailbox.failNext(verbe, erreur)` / `mailbox.reset()`.
   Jamais un mock partiel : un verbe absent rend `undefined`, l'erreur tombe
   dans le catch par ligne et aucun test ne rougit.
+- **`@/lib/stripe` se remplace par le faux Stripe complet**
+  (`tests/helpers/fake-stripe.ts`, `satisfies StripePort`) :
+  `vi.mock("@/lib/stripe", () => import("../helpers/fake-stripe").then((m) => m.fakeStripe))`,
+  puis `stripeBox.calls` / `stripeBox.failNext(verbe, erreur)` / l'état
+  (`prices`, `seedCheckoutSession`, `customers`, `nextEvent`) /
+  `stripeBox.reset()`. Même raison que le Mailer : un verbe Stripe ajouté au
+  port sans son faux ne compile plus, un faux partiel ne masque plus un appel.
 - Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants

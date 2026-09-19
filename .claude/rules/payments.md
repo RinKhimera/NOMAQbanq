@@ -51,6 +51,11 @@ Stripe **RÉESSAIE** · `200` traité ou volontairement ignoré. **Ne jamais
 acquitter une erreur transitoire en 200** : le fulfillment serait perdu sans
 trace. La route catche puis renvoie une `Response`, donc `onRequestError` ne
 voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
+La route ne possède que cet acquittement : les branches par type d'événement
+appartiennent à `fulfilStripeEvent` (`features/payments/fulfillment.ts`), qui
+rend le travail différé (courriel, rappel de panier) sans jamais appeler
+`after()` lui-même, et le port `@/lib/stripe` est le seul chemin vers Stripe
+(sept verbes, timeout/retry posés une fois ; le SDK n'est plus exporté).
 
 ## Litiges et confirmation d'achat
 
@@ -96,7 +101,7 @@ voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
   remboursement proactif, qui évite les frais (15 $ + 15 $ CA) et le coup au
   taux de litige. C'est la seule mesure qui couvre un paiement Link pur, que
   `request_three_d_secure` (carte uniquement) ne protège pas.
-- **Le courriel de confirmation part APRÈS le 200** (`waitUntil`) et en
+- **Le courriel de confirmation part APRÈS le 200** (`after()` de Next) et en
   best-effort : Stripe exige une réponse rapide, et un retry retomberait en
   `already_processed` sans courriel ni trace. Un échec est capturé dans
   Sentry ; le reçu Stripe (`payment_intent_data.receipt_email`) part de son
