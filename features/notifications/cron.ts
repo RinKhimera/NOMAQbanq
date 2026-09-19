@@ -27,7 +27,6 @@ import {
   sendInactivityReminderEmail,
 } from "@/email"
 import { getBaseUrl } from "@/lib/base-url"
-import { captureServerError } from "@/lib/observability"
 import { ownerReadableScore } from "../exams/dal.student"
 import { defineOneShot, eligibleRecipient, sendOnce } from "./one-shot"
 
@@ -167,102 +166,95 @@ export function sendAccessExpiryReminders(): Promise<number> {
 // une seule fois par compte (marqueur jamais réinitialisé), dans la fenêtre de
 // consentement. Quatre traces de visite : session vivante rafraîchie, connexion
 // (la déconnexion supprime la session), entraînement lancé, examen lancé.
-export async function sendInactivityReminders(): Promise<number> {
-  const now = new Date()
-  const inactiveSince = new Date(now.getTime() - INACTIVITY_DAYS * DAY_MS)
-  const consentSince = new Date(now.getTime() - CONSENT_WINDOW_DAYS * DAY_MS)
+export function sendInactivityReminders(): Promise<number> {
   const one = sql`1`
-  const rows = await db
-    .select({ id: user.id, email: user.email, name: user.name })
-    .from(user)
-    .where(
-      and(
-        eq(user.role, "user"),
-        eq(user.banned, false),
-        isNull(user.deletedAt),
-        eq(user.emailVerified, true),
-        eq(user.notifyMarketing, true),
-        isNull(user.inactivityReminderSentAt),
-        lt(user.createdAt, inactiveSince),
-        or(isNull(user.lastLoginAt), lt(user.lastLoginAt, inactiveSince)),
-        notExists(
-          db
-            .select({ one })
-            .from(session)
-            .where(
-              and(
-                eq(session.userId, user.id),
-                gt(session.updatedAt, inactiveSince),
-              ),
-            ),
-        ),
-        notExists(
-          db
-            .select({ one })
-            .from(trainingSessions)
-            .where(
-              and(
-                eq(trainingSessions.userId, user.id),
-                gt(trainingSessions.startedAt, inactiveSince),
-              ),
-            ),
-        ),
-        notExists(
-          db
-            .select({ one })
-            .from(examParticipations)
-            .where(
-              and(
-                eq(examParticipations.userId, user.id),
-                gt(examParticipations.startedAt, inactiveSince),
-              ),
-            ),
-        ),
-        or(
-          gt(user.createdAt, consentSince),
-          exists(
-            db
-              .select({ one })
-              .from(transactions)
-              .where(
-                and(
-                  eq(transactions.userId, user.id),
-                  eq(transactions.status, "completed"),
-                  gt(transactions.completedAt, consentSince),
+  return sendOnce({
+    label: "inactivité",
+    tag: "[notif:inactivite]",
+    limit: INACTIVITY_LIMIT,
+    select: ({ now, limit }) => {
+      const inactiveSince = new Date(now.getTime() - INACTIVITY_DAYS * DAY_MS)
+      const consentSince = new Date(
+        now.getTime() - CONSENT_WINDOW_DAYS * DAY_MS,
+      )
+      return db
+        .select({
+          id: user.id,
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        })
+        .from(user)
+        .where(
+          and(
+            eq(user.role, "user"),
+            eligibleRecipient,
+            eq(user.emailVerified, true),
+            eq(user.notifyMarketing, true),
+            isNull(user.inactivityReminderSentAt),
+            lt(user.createdAt, inactiveSince),
+            or(isNull(user.lastLoginAt), lt(user.lastLoginAt, inactiveSince)),
+            notExists(
+              db
+                .select({ one })
+                .from(session)
+                .where(
+                  and(
+                    eq(session.userId, user.id),
+                    gt(session.updatedAt, inactiveSince),
+                  ),
                 ),
+            ),
+            notExists(
+              db
+                .select({ one })
+                .from(trainingSessions)
+                .where(
+                  and(
+                    eq(trainingSessions.userId, user.id),
+                    gt(trainingSessions.startedAt, inactiveSince),
+                  ),
+                ),
+            ),
+            notExists(
+              db
+                .select({ one })
+                .from(examParticipations)
+                .where(
+                  and(
+                    eq(examParticipations.userId, user.id),
+                    gt(examParticipations.startedAt, inactiveSince),
+                  ),
+                ),
+            ),
+            or(
+              gt(user.createdAt, consentSince),
+              exists(
+                db
+                  .select({ one })
+                  .from(transactions)
+                  .where(
+                    and(
+                      eq(transactions.userId, user.id),
+                      eq(transactions.status, "completed"),
+                      gt(transactions.completedAt, consentSince),
+                    ),
+                  ),
               ),
+            ),
           ),
-        ),
-      ),
-    )
-    .limit(INACTIVITY_LIMIT)
-
-  if (rows.length === INACTIVITY_LIMIT) {
-    console.warn(
-      `[notif] inactivité — borne ${INACTIVITY_LIMIT} atteinte : le reste sera traité au prochain run`,
-    )
-  }
-
-  let sent = 0
-  for (const r of rows) {
-    try {
-      const claimed = await db
-        .update(user)
-        .set({ inactivityReminderSentAt: now })
-        .where(and(eq(user.id, r.id), isNull(user.inactivityReminderSentAt)))
-        .returning({ id: user.id })
-      if (claimed.length === 0) continue
-      await sendInactivityReminderEmail({
-        to: r.email,
-        name: r.name,
-        userId: r.id,
-      })
-      sent++
-    } catch (error) {
-      captureServerError("[notif:inactivite]", error, { userId: r.id })
-    }
-  }
-  return sent
+        )
+        .limit(limit)
+    },
+    claim: {
+      table: user,
+      idColumn: user.id,
+      markerColumn: user.inactivityReminderSentAt,
+    },
+    send: (r) =>
+      sendInactivityReminderEmail({ to: r.email, name: r.name, userId: r.id }),
+    context: (r) => ({ userId: r.id }),
+  })
 }
 
 export async function sendPendingNotifications(): Promise<NotificationSweepResult> {

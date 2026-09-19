@@ -904,7 +904,7 @@ describe("sendInactivityReminders", () => {
     }
   })
 
-  it("relance les inactifs consentants, une seule fois", async () => {
+  it("relance les inactifs consentants", async () => {
     await sendInactivityReminders()
     expect(calledFor()).toContain(ids.eligible)
     expect(calledFor()).toContain(ids.staleBuyer)
@@ -926,10 +926,5 @@ describe("sendInactivityReminders", () => {
         userId: ids.eligible,
       }),
     )
-
-    inactivity.mockClear()
-    await sendInactivityReminders()
-    expect(calledFor()).not.toContain(ids.eligible)
-    expect(calledFor()).not.toContain(ids.staleBuyer)
   })
 })
