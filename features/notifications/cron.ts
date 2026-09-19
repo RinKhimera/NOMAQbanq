@@ -27,8 +27,8 @@ import {
   sendInactivityReminderEmail,
 } from "@/email"
 import { getBaseUrl } from "@/lib/base-url"
-import { captureServerError } from "@/lib/observability"
 import { ownerReadableScore } from "../exams/dal.student"
+import { defineOneShot, eligibleRecipient, sendOnce } from "./one-shot"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const EXAM_RESULTS_LIMIT = 500
@@ -49,162 +49,107 @@ export type NotificationSweepResult = {
 }
 
 // Notifie les participants d'examens CLOS (endDate passée) dont les résultats sont
-// désormais visibles. Marqueur `resultsNotifiedAt` = envoi unique. On pose le
-// marqueur pour tout éligible-par-date (envoi seulement aux opt-in) → pas de
-// re-scan des lignes opt-out. Comptes supprimés et suspendus exclus, marqueur
-// non posé (le courriel repart si la suspension est levée). Borné + résilient
-// (par ligne).
+// désormais visibles. Marqueur posé pour tout éligible-par-date, envoi aux
+// seuls opt-in (`shouldSend`) → pas de re-scan des lignes opt-out.
 //
 // ⚠️ Concurrence : `close-expired` est frappé par DEUX schedulers (GitHub Actions
-// toutes les 3 h + Vercel quotidien) qui se recouvrent à minuit UTC. Deux runs lisent le
-// même lot `IS NULL`. On CLAIM donc chaque ligne par un UPDATE gardé atomique
-// (`SET marqueur=now WHERE marqueur IS NULL RETURNING`) AVANT l'envoi : seul le
-// run qui gagne le claim envoie → jamais de double email (même idiome que la
-// clôture d'examens, features/exams/cron.ts).
-export async function sendExamResultsNotifications(): Promise<number> {
-  const now = new Date()
-  const rows = await db
-    .select({
-      participationId: examParticipations.id,
-      examId: examParticipations.examId,
-      // Retenu pour son propriétaire tant qu'une réponse chevauche un examen
-      // ouvert : le courriel imprimerait sinon l'oracle de la page de résultats.
-      score: ownerReadableScore,
-      email: user.email,
-      name: user.name,
-      notify: user.notifyExamResults,
-      examTitle: exams.title,
-    })
-    .from(examParticipations)
-    .innerJoin(exams, eq(exams.id, examParticipations.examId))
-    .innerJoin(user, eq(user.id, examParticipations.userId))
-    .where(
-      and(
-        lt(exams.endDate, now),
-        inArray(examParticipations.status, ["completed", "auto_submitted"]),
-        isNull(examParticipations.resultsNotifiedAt),
-        isNull(user.deletedAt),
-        eq(user.banned, false),
-      ),
-    )
-    .limit(EXAM_RESULTS_LIMIT)
-
-  if (rows.length === EXAM_RESULTS_LIMIT) {
-    console.warn(
-      `[notif] résultats — borne ${EXAM_RESULTS_LIMIT} atteinte : le reste sera traité au prochain run`,
-    )
-  }
-
-  let sent = 0
-  for (const r of rows) {
-    try {
-      // Claim atomique (anti double-envoi concurrent) : ne poursuit que si CE run
-      // pose le marqueur ; un run concurrent obtient 0 ligne et saute.
-      const claimed = await db
-        .update(examParticipations)
-        .set({ resultsNotifiedAt: now })
+// toutes les 3 h + Vercel quotidien) qui se recouvrent à minuit UTC ; c'est le
+// claim de `sendOnce` qui garantit l'envoi unique.
+export const examResultsSpec = () =>
+  defineOneShot({
+    label: "résultats",
+    tag: "[notif:resultats]",
+    limit: EXAM_RESULTS_LIMIT,
+    select: ({ now, limit }) =>
+      db
+        .select({
+          id: examParticipations.id,
+          userId: examParticipations.userId,
+          examId: examParticipations.examId,
+          // Retenu pour son propriétaire tant qu'une réponse chevauche un examen
+          // ouvert : le courriel imprimerait sinon l'oracle de la page de résultats.
+          score: ownerReadableScore,
+          email: user.email,
+          name: user.name,
+          notify: user.notifyExamResults,
+          examTitle: exams.title,
+        })
+        .from(examParticipations)
+        .innerJoin(exams, eq(exams.id, examParticipations.examId))
+        .innerJoin(user, eq(user.id, examParticipations.userId))
         .where(
           and(
-            eq(examParticipations.id, r.participationId),
+            lt(exams.endDate, now),
+            inArray(examParticipations.status, ["completed", "auto_submitted"]),
             isNull(examParticipations.resultsNotifiedAt),
+            eligibleRecipient,
           ),
         )
-        .returning({ id: examParticipations.id })
-      if (claimed.length === 0) continue // déjà pris par un autre run
-      if (!r.notify) continue // opt-out : marqueur posé, pas d'envoi (spec §5)
-
-      await sendExamResultsEmail({
+        .limit(limit),
+    claim: {
+      table: examParticipations,
+      idColumn: examParticipations.id,
+      markerColumn: examParticipations.resultsNotifiedAt,
+    },
+    shouldSend: (r) => r.notify,
+    send: (r) =>
+      sendExamResultsEmail({
         to: r.email,
         name: r.name,
         examTitle: r.examTitle,
         score: r.score,
         resultUrl: `${getBaseUrl()}/tableau-de-bord/examen-blanc/${r.examId}/resultats`,
-      })
-      sent++
-    } catch (error) {
-      // Best-effort : si l'envoi échoue, le marqueur reste posé (anti-double), pas
-      // de réessai — les résultats restent visibles en app. Perte tolérée d'un
-      // email.
-      captureServerError("[notif:resultats]", error, {
-        detail: `participation ${r.participationId}`,
-      })
-    }
-  }
-  return sent
-}
+      }),
+    context: (r) => ({ detail: `participation ${r.id}` }),
+  })
 
-/**
- * Claim atomique du rappel de fin d'accès (anti double-envoi concurrent). Le
- * prédicat exige que `expiresAt` vaille encore la valeur lue : un renouvellement
- * (`applyGrant`) qui prolonge l'accès entre la lecture et le claim ré-arme le
- * marqueur, et le claim seul sur `IS NULL` passerait alors — courriel avec
- * l'ancienne échéance, et plus aucun rappel pour la nouvelle. Refus = le
- * prochain run relit l'échéance à jour.
- */
-export async function claimAccessExpiryReminder(o: {
-  accessId: string
-  expiresAt: Date
-  now: Date
-}): Promise<boolean> {
-  const claimed = await db
-    .update(userAccess)
-    .set({ expiryReminderSentAt: o.now })
-    .where(
-      and(
-        eq(userAccess.id, o.accessId),
-        eq(userAccess.expiresAt, o.expiresAt),
-        isNull(userAccess.expiryReminderSentAt),
-      ),
-    )
-    .returning({ id: userAccess.id })
-  return claimed.length > 0
+export function sendExamResultsNotifications(): Promise<number> {
+  return sendOnce(examResultsSpec())
 }
 
 // Rappel de fin d'accès : accès expirant dans ≤ 7 j, une seule fois. Marqueur
 // `expiryReminderSentAt` (réinitialisé au renouvellement — Stripe + manuel).
-export async function sendAccessExpiryReminders(): Promise<number> {
-  const now = new Date()
-  const in7d = new Date(now.getTime() + 7 * DAY_MS)
-  const rows = await db
-    .select({
-      accessId: userAccess.id,
-      accessType: userAccess.accessType,
-      expiresAt: userAccess.expiresAt,
-      email: user.email,
-      name: user.name,
-      notify: user.notifyAccessExpiry,
-    })
-    .from(userAccess)
-    .innerJoin(user, eq(user.id, userAccess.userId))
-    .where(
-      and(
-        gt(userAccess.expiresAt, now),
-        lt(userAccess.expiresAt, in7d),
-        isNull(userAccess.expiryReminderSentAt),
-        isNull(user.deletedAt),
-        eq(user.banned, false),
-      ),
-    )
-    .limit(ACCESS_REMINDER_LIMIT)
-
-  if (rows.length === ACCESS_REMINDER_LIMIT) {
-    console.warn(
-      `[notif] accès — borne ${ACCESS_REMINDER_LIMIT} atteinte : le reste sera traité au prochain run`,
-    )
-  }
-
-  let sent = 0
-  for (const r of rows) {
-    try {
-      const claimed = await claimAccessExpiryReminder({
-        accessId: r.accessId,
-        expiresAt: r.expiresAt,
-        now,
-      })
-      if (!claimed) continue // déjà pris par un autre run, ou accès prolongé
-      if (!r.notify) continue // opt-out : marqueur posé, pas d'envoi
-
-      await sendAccessExpiringEmail({
+// La garde du claim exige que `expiresAt` vaille encore la valeur lue : un
+// renouvellement (`applyGrant`) qui prolonge l'accès entre la lecture et le
+// claim ré-arme le marqueur, et un claim sur `IS NULL` seul passerait alors —
+// courriel avec l'ancienne échéance, et plus aucun rappel pour la nouvelle.
+// Refus = le prochain run relit l'échéance à jour.
+export const accessExpiryReminderSpec = () =>
+  defineOneShot({
+    label: "accès",
+    tag: "[notif:acces]",
+    limit: ACCESS_REMINDER_LIMIT,
+    select: ({ now, limit }) =>
+      db
+        .select({
+          id: userAccess.id,
+          userId: userAccess.userId,
+          accessType: userAccess.accessType,
+          expiresAt: userAccess.expiresAt,
+          email: user.email,
+          name: user.name,
+          notify: user.notifyAccessExpiry,
+        })
+        .from(userAccess)
+        .innerJoin(user, eq(user.id, userAccess.userId))
+        .where(
+          and(
+            gt(userAccess.expiresAt, now),
+            lt(userAccess.expiresAt, new Date(now.getTime() + 7 * DAY_MS)),
+            isNull(userAccess.expiryReminderSentAt),
+            eligibleRecipient,
+          ),
+        )
+        .limit(limit),
+    claim: {
+      table: userAccess,
+      idColumn: userAccess.id,
+      markerColumn: userAccess.expiryReminderSentAt,
+      guard: (r) => eq(userAccess.expiresAt, r.expiresAt),
+    },
+    shouldSend: (r) => r.notify,
+    send: (r, { now }) =>
+      sendAccessExpiringEmail({
         to: r.email,
         name: r.name,
         accessType: r.accessType,
@@ -212,117 +157,111 @@ export async function sendAccessExpiryReminders(): Promise<number> {
           (r.expiresAt.getTime() - now.getTime()) / DAY_MS,
         ),
         renewUrl: `${getBaseUrl()}/tableau-de-bord/abonnements`,
-      })
-      sent++
-    } catch (error) {
-      captureServerError("[notif:acces]", error, {
-        detail: `accès ${r.accessId}`,
-      })
-    }
-  }
-  return sent
+      }),
+    context: (r) => ({ detail: `accès ${r.id}` }),
+  })
+
+export function sendAccessExpiryReminders(): Promise<number> {
+  return sendOnce(accessExpiryReminderSpec())
 }
 
 // Relance d'inactivité : compte vérifié sans visite ni activité depuis 21 j,
 // une seule fois par compte (marqueur jamais réinitialisé), dans la fenêtre de
 // consentement. Quatre traces de visite : session vivante rafraîchie, connexion
 // (la déconnexion supprime la session), entraînement lancé, examen lancé.
-export async function sendInactivityReminders(): Promise<number> {
-  const now = new Date()
-  const inactiveSince = new Date(now.getTime() - INACTIVITY_DAYS * DAY_MS)
-  const consentSince = new Date(now.getTime() - CONSENT_WINDOW_DAYS * DAY_MS)
+export const inactivityReminderSpec = () => {
   const one = sql`1`
-  const rows = await db
-    .select({ id: user.id, email: user.email, name: user.name })
-    .from(user)
-    .where(
-      and(
-        eq(user.role, "user"),
-        eq(user.banned, false),
-        isNull(user.deletedAt),
-        eq(user.emailVerified, true),
-        eq(user.notifyMarketing, true),
-        isNull(user.inactivityReminderSentAt),
-        lt(user.createdAt, inactiveSince),
-        or(isNull(user.lastLoginAt), lt(user.lastLoginAt, inactiveSince)),
-        notExists(
-          db
-            .select({ one })
-            .from(session)
-            .where(
-              and(
-                eq(session.userId, user.id),
-                gt(session.updatedAt, inactiveSince),
-              ),
-            ),
-        ),
-        notExists(
-          db
-            .select({ one })
-            .from(trainingSessions)
-            .where(
-              and(
-                eq(trainingSessions.userId, user.id),
-                gt(trainingSessions.startedAt, inactiveSince),
-              ),
-            ),
-        ),
-        notExists(
-          db
-            .select({ one })
-            .from(examParticipations)
-            .where(
-              and(
-                eq(examParticipations.userId, user.id),
-                gt(examParticipations.startedAt, inactiveSince),
-              ),
-            ),
-        ),
-        or(
-          gt(user.createdAt, consentSince),
-          exists(
-            db
-              .select({ one })
-              .from(transactions)
-              .where(
-                and(
-                  eq(transactions.userId, user.id),
-                  eq(transactions.status, "completed"),
-                  gt(transactions.completedAt, consentSince),
+  return defineOneShot({
+    label: "inactivité",
+    tag: "[notif:inactivite]",
+    limit: INACTIVITY_LIMIT,
+    select: ({ now, limit }) => {
+      const inactiveSince = new Date(now.getTime() - INACTIVITY_DAYS * DAY_MS)
+      const consentSince = new Date(
+        now.getTime() - CONSENT_WINDOW_DAYS * DAY_MS,
+      )
+      return db
+        .select({
+          id: user.id,
+          userId: user.id,
+          email: user.email,
+          name: user.name,
+        })
+        .from(user)
+        .where(
+          and(
+            eq(user.role, "user"),
+            eligibleRecipient,
+            eq(user.emailVerified, true),
+            eq(user.notifyMarketing, true),
+            isNull(user.inactivityReminderSentAt),
+            lt(user.createdAt, inactiveSince),
+            or(isNull(user.lastLoginAt), lt(user.lastLoginAt, inactiveSince)),
+            notExists(
+              db
+                .select({ one })
+                .from(session)
+                .where(
+                  and(
+                    eq(session.userId, user.id),
+                    gt(session.updatedAt, inactiveSince),
+                  ),
                 ),
+            ),
+            notExists(
+              db
+                .select({ one })
+                .from(trainingSessions)
+                .where(
+                  and(
+                    eq(trainingSessions.userId, user.id),
+                    gt(trainingSessions.startedAt, inactiveSince),
+                  ),
+                ),
+            ),
+            notExists(
+              db
+                .select({ one })
+                .from(examParticipations)
+                .where(
+                  and(
+                    eq(examParticipations.userId, user.id),
+                    gt(examParticipations.startedAt, inactiveSince),
+                  ),
+                ),
+            ),
+            or(
+              gt(user.createdAt, consentSince),
+              exists(
+                db
+                  .select({ one })
+                  .from(transactions)
+                  .where(
+                    and(
+                      eq(transactions.userId, user.id),
+                      eq(transactions.status, "completed"),
+                      gt(transactions.completedAt, consentSince),
+                    ),
+                  ),
               ),
+            ),
           ),
-        ),
-      ),
-    )
-    .limit(INACTIVITY_LIMIT)
+        )
+        .limit(limit)
+    },
+    claim: {
+      table: user,
+      idColumn: user.id,
+      markerColumn: user.inactivityReminderSentAt,
+    },
+    send: (r) =>
+      sendInactivityReminderEmail({ to: r.email, name: r.name, userId: r.id }),
+    context: (r) => ({ userId: r.id }),
+  })
+}
 
-  if (rows.length === INACTIVITY_LIMIT) {
-    console.warn(
-      `[notif] inactivité — borne ${INACTIVITY_LIMIT} atteinte : le reste sera traité au prochain run`,
-    )
-  }
-
-  let sent = 0
-  for (const r of rows) {
-    try {
-      const claimed = await db
-        .update(user)
-        .set({ inactivityReminderSentAt: now })
-        .where(and(eq(user.id, r.id), isNull(user.inactivityReminderSentAt)))
-        .returning({ id: user.id })
-      if (claimed.length === 0) continue
-      await sendInactivityReminderEmail({
-        to: r.email,
-        name: r.name,
-        userId: r.id,
-      })
-      sent++
-    } catch (error) {
-      captureServerError("[notif:inactivite]", error, { userId: r.id })
-    }
-  }
-  return sent
+export function sendInactivityReminders(): Promise<number> {
+  return sendOnce(inactivityReminderSpec())
 }
 
 export async function sendPendingNotifications(): Promise<NotificationSweepResult> {

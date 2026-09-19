@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { POST } from "@/app/api/stripe/webhook/route"
+import { fakeMailer, mailbox } from "../helpers/fake-mailer"
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -8,7 +9,6 @@ const { mocks } = vi.hoisted(() => ({
     fail: vi.fn(),
     recordDispute: vi.fn<() => Promise<unknown>>(),
     refund: vi.fn<() => Promise<unknown>>(),
-    sendPurchaseConfirmationEmail: vi.fn<() => Promise<string>>(),
     sendAbandonedCartReminder: vi.fn<() => Promise<boolean>>(),
     markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
     after: vi.fn<(cb: () => Promise<unknown>) => void>(),
@@ -27,9 +27,9 @@ vi.mock("@/features/payments/stripe", () => ({
   refundStripeTransaction: mocks.refund,
   markConfirmationEmailSent: mocks.markConfirmationEmailSent,
 }))
-vi.mock("@/email", () => ({
-  sendPurchaseConfirmationEmail: mocks.sendPurchaseConfirmationEmail,
-}))
+vi.mock("@/email", () =>
+  import("../helpers/fake-mailer").then((m) => m.fakeMailer),
+)
 vi.mock("next/server", () => ({ after: mocks.after }))
 vi.mock("@/features/notifications/abandoned-cart", () => ({
   sendAbandonedCartReminder: mocks.sendAbandonedCartReminder,
@@ -51,6 +51,7 @@ const request = () =>
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mailbox.reset()
   // Défaut happy path pour les tests qui ne posent pas leur propre valeur.
   mocks.completeStripeTransaction.mockResolvedValue({
     status: "completed",
@@ -76,7 +77,6 @@ beforeEach(() => {
     accessReducedOrRemoved: true,
   })
   mocks.sessionsList.mockResolvedValue({ data: [] })
-  mocks.sendPurchaseConfirmationEmail.mockResolvedValue("ses-msg-1")
   mocks.markConfirmationEmailSent.mockResolvedValue(undefined)
 })
 
@@ -568,7 +568,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
     expect(res.status).toBe(200)
     expect(mocks.after).toHaveBeenCalledTimes(1)
     await deferred()
-    expect(mocks.sendPurchaseConfirmationEmail).toHaveBeenCalledWith({
+    expect(fakeMailer.sendPurchaseConfirmationEmail).toHaveBeenCalledWith({
       to: "u@test.invalid",
       name: "Samuel Pokam",
       productName: "Accès examens",
@@ -595,7 +595,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
     const res = await POST(request())
     expect(res.status).toBe(200)
     expect(mocks.after).not.toHaveBeenCalled()
-    expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
+    expect(fakeMailer.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
   })
 
   it("compte anonymisé (courriel nul) → aucun envoi, simple avertissement", async () => {
@@ -619,7 +619,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
     const res = await POST(request())
     expect(res.status).toBe(200)
     await deferred()
-    expect(mocks.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
+    expect(fakeMailer.sendPurchaseConfirmationEmail).not.toHaveBeenCalled()
     // Cas nominal (suppression de compte en cours) : un log, pas Sentry.
     expect(mocks.captureServerError).not.toHaveBeenCalled()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("tx_anon"))
@@ -627,9 +627,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
 
   // L'accès est déjà commité et le 200 déjà parti : Sentry est la seule trace.
   it("échec SES → capture Sentry, le 200 est déjà parti", async () => {
-    mocks.sendPurchaseConfirmationEmail.mockRejectedValueOnce(
-      new Error("SES down"),
-    )
+    mailbox.failNext("sendPurchaseConfirmationEmail", new Error("SES down"))
     mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_ses_ko"))
     const res = await POST(request())
     expect(res.status).toBe(200)

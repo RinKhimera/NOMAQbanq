@@ -252,6 +252,12 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
 
 ## Tests d'intégration (`tests/integration/**`)
 
+- **`@/email` se remplace par le faux Mailer complet**
+  (`tests/helpers/fake-mailer.ts`, `satisfies Mailer`) :
+  `vi.mock("@/email", () => import("../helpers/fake-mailer").then((m) => m.fakeMailer))`,
+  puis `mailbox.sent` / `mailbox.failNext(verbe, erreur)` / `mailbox.reset()`.
+  Jamais un mock partiel : un verbe absent rend `undefined`, l'erreur tombe
+  dans le catch par ligne et aucun test ne rougit.
 - Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants
@@ -289,9 +295,21 @@ repose sur la **modélisation** (recommandation officielle Next), à maintenir :
   banni mais ne revérifie jamais une session existante : `banUser` supprime
   donc les sessions, et ce `null` couvre la requête en vol. Le journal vit dans
   `user_bans` ; le drapeau reste le verrou lu par le plugin.
-- **Tout expéditeur de courriel qui sélectionne ses destinataires filtre
-  `banned = false`**, au même endroit que `isNull(user.deletedAt)`, sans poser
-  de marqueur (le courriel doit repartir si la suspension est levée). Ce n'est
-  pas propre aux deux crons de `features/notifications/cron.ts` : un nouvel
-  expéditeur (bienvenue, relance, panier abandonné…) reçoit le garde ET un cas
-  de test « compte suspendu exclu ».
+- **Tout courriel unique passe par `sendOnce`**
+  (`features/notifications/one-shot.ts` ; vocabulaire dans `CONTEXT.md`,
+  « Courriels »). Le claim applique l'éligibilité du destinataire
+  (`deletedAt IS NULL AND banned = false`, fragment `eligibleRecipient` à
+  reprendre aussi dans le select) SANS poser de marqueur — le courriel repart
+  si la suspension est levée —, pose le marqueur AVANT l'envoi et le laisse
+  posé sur échec. Portée de cette garantie : sur la ligne cible quand le
+  marqueur vit sur `user` (prédicat ré-évalué par Postgres après attente d'un
+  verrou, donc une suspension en cours de commit est vue) ; au snapshot du
+  claim quand il vit ailleurs (`EXISTS` corrélé, comme le select l'était
+  avant). Un nouvel expéditeur (bienvenue, relance, panier…) ne
+  réécrit ni `UPDATE … SET <marqueur> … WHERE <marqueur> IS NULL` ni son
+  try/catch par ligne : il déclare sa sélection (portes métier et préférences
+  comprises), son claim (`guard`, `cooldownMs`) et son payload ; ses tests ne
+  couvrent que ce qui lui est propre (candidats, payload, `boolean`), la règle
+  est prouvée une fois dans `tests/integration/one-shot.test.ts`. Seule
+  exception voulue : le courriel de confirmation d'achat (webhook, « envoi
+  puis marquage », `.claude/rules/payments.md`).

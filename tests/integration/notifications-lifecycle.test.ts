@@ -15,17 +15,15 @@ import { sendWelcomeEmailOnce } from "@/features/notifications/welcome"
 import { DELETION_GRACE_MS } from "@/features/users/lib/account-deletion"
 import { auth } from "@/lib/auth"
 import { createId } from "@/lib/ids"
+import { fakeMailer, mailbox } from "../helpers/fake-mailer"
 
-const welcome = vi.fn().mockResolvedValue("id")
-const cart = vi.fn().mockResolvedValue("id")
-const reset = vi.fn().mockResolvedValue("id")
-const verify = vi.fn().mockResolvedValue("id")
-vi.mock("@/email", () => ({
-  sendWelcomeEmail: (...a: unknown[]) => welcome(...a),
-  sendAbandonedCartEmail: (...a: unknown[]) => cart(...a),
-  sendResetPassword: (...a: unknown[]) => reset(...a),
-  sendVerificationEmail: (...a: unknown[]) => verify(...a),
-}))
+vi.mock("@/email", () =>
+  import("../helpers/fake-mailer").then((m) => m.fakeMailer),
+)
+const welcome = fakeMailer.sendWelcomeEmail
+const cart = fakeMailer.sendAbandonedCartEmail
+const reset = fakeMailer.sendResetPassword
+const verify = fakeMailer.sendVerificationEmail
 
 const uid = createId()
 const googleUid = createId()
@@ -52,10 +50,7 @@ afterAll(async () => {
   }
 })
 
-beforeEach(() => {
-  welcome.mockClear()
-  cart.mockClear()
-})
+beforeEach(() => mailbox.reset())
 
 const column = async <
   K extends "welcomeEmailSentAt" | "lastLoginAt" | "deletedAt",
@@ -79,34 +74,8 @@ describe("sendWelcomeEmailOnce", () => {
     expect(welcome).toHaveBeenCalledTimes(1)
   })
 
-  it("échec SES : marqueur posé, pas d'exception", async () => {
-    const id = createId()
-    await db
-      .insert(user)
-      .values({ id, name: "Panne", email: `p-${id}@test.invalid` })
-    welcome.mockRejectedValueOnce(new Error("SES down"))
-    await expect(sendWelcomeEmailOnce(id)).resolves.toBe(false)
-    expect(await column(id, "welcomeEmailSentAt")).toBeInstanceOf(Date)
-    await db.delete(user).where(eq(user.id, id))
-  })
-
   it("utilisateur inconnu : false sans exception", async () => {
     await expect(sendWelcomeEmailOnce("inconnu")).resolves.toBe(false)
-  })
-
-  it("compte suspendu : rien, marqueur non posé", async () => {
-    const id = createId()
-    await db.insert(user).values({
-      id,
-      name: "Suspendu",
-      email: `b-${id}@test.invalid`,
-      banned: true,
-      banReason: "test",
-    })
-    await expect(sendWelcomeEmailOnce(id)).resolves.toBe(false)
-    expect(welcome).not.toHaveBeenCalled()
-    expect(await column(id, "welcomeEmailSentAt")).toBeNull()
-    await db.delete(user).where(eq(user.id, id))
   })
 })
 
@@ -197,11 +166,10 @@ describe("sendAbandonedCartReminder", () => {
   const combo = createId()
   const buyer = createId()
   const optOut = createId()
-  const banned = createId()
   const owner = createId()
   const halfOwner = createId()
   const recentBuyer = createId()
-  const all = [buyer, optOut, banned, owner, halfOwner, recentBuyer]
+  const all = [buyer, optOut, owner, halfOwner, recentBuyer]
 
   const seedTx = async (
     userId: string,
@@ -261,12 +229,6 @@ describe("sendAbandonedCartReminder", () => {
         name: "Refus",
         email: `cart-${optOut}@test.invalid`,
         notifyMarketing: false,
-      },
-      {
-        id: banned,
-        name: "Banni",
-        email: `cart-${banned}@test.invalid`,
-        banned: true,
       },
       { id: owner, name: "Déjà", email: `cart-${owner}@test.invalid` },
       {
@@ -342,21 +304,20 @@ describe("sendAbandonedCartReminder", () => {
     expect(cart).toHaveBeenCalledTimes(1)
   })
 
-  it("préférence désactivée ou compte banni → rien", async () => {
+  it("préférence marketing désactivée → rien, aucun marqueur", async () => {
     expect(await sendAbandonedCartReminder(await seedTx(optOut, exam))).toBe(
       false,
     )
-    expect(await sendAbandonedCartReminder(await seedTx(banned, exam))).toBe(
-      false,
-    )
     expect(cart).not.toHaveBeenCalled()
+    expect(await cartSentAt(optOut)).toBeNull()
   })
 
-  it("accès visé déjà actif → rien ; combo avec un seul accès → envoi", async () => {
+  it("accès visé déjà actif → rien, plafond non consommé ; combo avec un seul accès → envoi", async () => {
     expect(await sendAbandonedCartReminder(await seedTx(owner, exam))).toBe(
       false,
     )
     expect(cart).not.toHaveBeenCalled()
+    expect(await cartSentAt(owner)).toBeNull()
     expect(
       await sendAbandonedCartReminder(await seedTx(halfOwner, combo)),
     ).toBe(true)
@@ -368,7 +329,7 @@ describe("sendAbandonedCartReminder", () => {
     )
   })
 
-  it("achat complété la veille → rien", async () => {
+  it("achat complété la veille → rien, plafond non consommé", async () => {
     await seedTx(recentBuyer, exam, {
       status: "completed",
       completedAt: new Date(Date.now() - DAY),
@@ -377,6 +338,7 @@ describe("sendAbandonedCartReminder", () => {
       await sendAbandonedCartReminder(await seedTx(recentBuyer, exam)),
     ).toBe(false)
     expect(cart).not.toHaveBeenCalled()
+    expect(await cartSentAt(recentBuyer)).toBeNull()
   })
 
   it("transaction inconnue → false sans exception", async () => {
