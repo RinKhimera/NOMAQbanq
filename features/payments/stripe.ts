@@ -1,23 +1,12 @@
 import { and, eq, inArray, isNull, ne, notInArray, or } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
-import { products, transactions, user, userAccess } from "@/db/schema"
-import { recomputeAccess } from "./lib"
-
-// Type du handle de transaction Drizzle (sans importer le type verbeux de pg-core).
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
-
-const DAY_MS = 24 * 60 * 60 * 1000
-
-const readAccess = (tx: Tx, userId: string, accessType: "exam" | "training") =>
-  tx
-    .select({ expiresAt: userAccess.expiresAt })
-    .from(userAccess)
-    .where(
-      and(eq(userAccess.userId, userId), eq(userAccess.accessType, accessType)),
-    )
-    .limit(1)
-    .then((r) => r[0])
+import { products, transactions, user } from "@/db/schema"
+import {
+  type GrantedAccess,
+  applyGrant,
+  rebuildFromTransactions,
+} from "./access-ledger"
 
 export type PurchaseConfirmationData = {
   /** Null si le compte est anonymisé : aucun courriel à envoyer. */
@@ -31,7 +20,7 @@ export type PurchaseConfirmationData = {
   presentmentCurrency: string | null
   completedAt: Date
   /** Expirations EFFECTIVEMENT écrites (max(existant, transaction)), une par type. */
-  grantedAccess: { accessType: "exam" | "training"; expiresAt: Date }[]
+  grantedAccess: GrantedAccess[]
 }
 
 export type CompleteStripeResult =
@@ -55,9 +44,9 @@ const CURRENCY_BY_STRIPE = new Map<string, "CAD" | "XAF">([
  *   `stripe_event_id` est le filet de sécurité). Deux livraisons concurrentes du
  *   même event ⇒ la 2e voit l'event déjà posé / la transaction déjà `completed`
  *   et sort sans re-créditer (la 1re sérialise via le verrou avant la 2e).
- * - **Cumul d'accès sûr** : verrou de ligne `user` (parité `grantManualAccess`).
- * - **Recalcul de l'expiration à la complétion** (plus correct que le précalcul au
- *   pending : `now` a avancé, l'accès existant a pu changer).
+ * - **Octroi par `applyGrant`** (`access-ledger.ts`) sous le même verrou de
+ *   ligne `user` : l'expiration est recalculée à la complétion (le précalcul du
+ *   pending est écrasé — `now` a avancé, l'accès existant a pu changer).
  *
  * `not_found` = aucune transaction pour cette session (anomalie : le pending est
  * créé avant la redirection Stripe, donc avant tout paiement) → l'appelant logue
@@ -81,7 +70,10 @@ export async function completeStripeTransaction(params: {
   currency?: string | null
   presentmentAmount?: number | null
   presentmentCurrency?: string | null
+  /** Instant du fulfillment (défaut : maintenant) ; injectable par les tests. */
+  now?: Date
 }): Promise<CompleteStripeResult> {
+  const now = params.now ?? new Date()
   return db.transaction(async (tx) => {
     // Transaction pending (pour obtenir l'userId à verrouiller).
     const [pending] = await tx
@@ -135,22 +127,6 @@ export async function completeStripeTransaction(params: {
       .limit(1)
     const isCombo = product?.isCombo ?? false
 
-    const now = new Date()
-    const durationMs = pending.durationDays * DAY_MS
-
-    // Expiration portée par la transaction : combo = now+durée ; non-combo = cumul.
-    let txAccessExpiresAt: Date
-    if (isCombo) {
-      txAccessExpiresAt = new Date(now.getTime() + durationMs)
-    } else {
-      const existing = await readAccess(tx, pending.userId, pending.accessType)
-      const base =
-        existing && existing.expiresAt.getTime() > now.getTime()
-          ? existing.expiresAt.getTime()
-          : now.getTime()
-      txAccessExpiresAt = new Date(base + durationMs)
-    }
-
     const realCurrency = params.currency
       ? CURRENCY_BY_STRIPE.get(params.currency.toLowerCase())
       : undefined
@@ -199,47 +175,21 @@ export async function completeStripeTransaction(params: {
         status: "completed",
         stripePaymentIntentId: params.stripePaymentIntentId || null,
         stripeEventId: params.stripeEventId,
-        accessExpiresAt: txAccessExpiresAt,
         completedAt: now,
         ...(reconcile ?? {}),
         ...(presentment ?? {}),
       })
       .where(eq(transactions.id, pending.id))
 
-    const types: Array<"exam" | "training"> = isCombo
-      ? ["exam", "training"]
-      : [pending.accessType]
-    const grantedAccess: PurchaseConfirmationData["grantedAccess"] = []
-    for (const accessType of types) {
-      const existing = await readAccess(tx, pending.userId, accessType)
-      const finalExpiry = new Date(
-        Math.max(
-          existing?.expiresAt.getTime() ?? 0,
-          txAccessExpiresAt.getTime(),
-        ),
-      )
-      grantedAccess.push({ accessType, expiresAt: finalExpiry })
-      // Renouvellement réel de CE type = l'expiration avance (ou 1er octroi).
-      const renewed =
-        !existing || finalExpiry.getTime() > existing.expiresAt.getTime()
-      await tx
-        .insert(userAccess)
-        .values({
-          userId: pending.userId,
-          accessType,
-          expiresAt: finalExpiry,
-          lastTransactionId: pending.id,
-        })
-        .onConflictDoUpdate({
-          target: [userAccess.userId, userAccess.accessType],
-          set: {
-            expiresAt: finalExpiry,
-            lastTransactionId: pending.id,
-            // Re-arme le rappel de fin d'accès uniquement si l'accès est prolongé.
-            ...(renewed ? { expiryReminderSentAt: null } : {}),
-          },
-        })
-    }
+    // La durée vient du snapshot de la transaction (prix/durée au moment de
+    // l'achat), pas du produit courant.
+    const grantedAccess = await applyGrant(tx, {
+      userId: pending.userId,
+      product: { accessType: pending.accessType, isCombo },
+      durationDays: pending.durationDays,
+      transactionId: pending.id,
+      now,
+    })
 
     return {
       status: "completed",
@@ -412,7 +362,7 @@ export type RefundStripeResult =
 /**
  * Retour de fonds Stripe (remboursement complet ou litige perdu) : la
  * transaction passe de `completed` à `refunded` et l'accès qu'elle portait
- * est recalculé depuis les transactions restantes (`recomputeAccess`).
+ * est recalculé depuis les transactions restantes (`rebuildFromTransactions`).
  * Idempotent par construction : seul un statut `completed` est réécrit — un
  * rejeu de l'événement retombe en `skipped`. Verrou `user FOR UPDATE` AVANT
  * l'écriture sur `transactions`, même ordre que `updateManualTransaction`.
@@ -465,7 +415,7 @@ export async function refundStripeTransaction(params: {
       }
     }
 
-    const { accessReducedOrRemoved } = await recomputeAccess(tx, {
+    const { accessReducedOrRemoved } = await rebuildFromTransactions(tx, {
       userId: found.userId,
     })
     return {

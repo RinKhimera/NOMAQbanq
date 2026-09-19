@@ -31,10 +31,9 @@ const suffix = createId().slice(0, 8)
 
 const PEXAM = createId() // produit exam non-combo
 const PCOMBO = createId() // produit combo (exam + training)
-const U = Array.from({ length: 15 }, () => createId())
+const U = Array.from({ length: 14 }, () => createId())
 const [
   U_HAPPY,
-  U_CUMUL,
   U_COMBO,
   U_FAIL,
   U_FAILDONE,
@@ -104,10 +103,9 @@ const seedPending = (o: {
     createdAt: new Date(),
   })
 
-const approxDays = (expiresAt: Date, days: number) => {
-  const diffDays = (expiresAt.getTime() - Date.now()) / DAY
-  return diffDays > days - 0.01 && diffDays < days + 0.01
-}
+// Instant de fulfillment injecté : les expirations se comparent à l'exact.
+const NOW = new Date("2026-09-18T12:00:00.000Z")
+const at = (days: number) => new Date(NOW.getTime() + days * DAY)
 
 beforeAll(async () => {
   await db.insert(user).values(
@@ -230,17 +228,20 @@ describe("completeStripeTransaction", () => {
       stripeSessionId: sid,
       stripePaymentIntentId: "pi_happy",
       stripeEventId: `evt_happy_${suffix}`,
+      now: NOW,
     })
     expect(res).toMatchObject({ status: "completed", transactionId: txId })
 
     const tx = await txStatus(txId)
     expect(tx?.status).toBe("completed")
-    expect(tx?.completedAt).not.toBeNull()
+    expect(tx?.completedAt).toEqual(NOW)
     expect(tx?.pi).toBe("pi_happy")
+    // Le précalcul du pending est écrasé par le snapshot du fulfillment.
+    expect(tx?.accessExpiresAt).toEqual(at(90))
 
     const acc = await accessOf(U_HAPPY, "exam")
     expect(acc?.lastTransactionId).toBe(txId)
-    expect(approxDays(acc!.expiresAt, 90)).toBe(true)
+    expect(acc?.expiresAt).toEqual(at(90))
   })
 
   it("idempotent : même event rejoué → already_processed, pas de double crédit", async () => {
@@ -267,54 +268,6 @@ describe("completeStripeTransaction", () => {
     expect(after?.expiresAt.getTime()).toBe(before?.expiresAt.getTime())
   })
 
-  it("cumul non-combo : accès existant + durée", async () => {
-    // Accès exam existant à +10j (lastTransactionId = une transaction préalable).
-    const priorTx = createId()
-    await db.insert(transactions).values({
-      id: priorTx,
-      userId: U_CUMUL,
-      productId: PEXAM,
-      type: "manual",
-      status: "completed",
-      amountPaid: 5000,
-      currency: "CAD",
-      accessType: "exam",
-      durationDays: 10,
-      accessExpiresAt: new Date(Date.now() + 10 * DAY),
-      createdAt: new Date(),
-      completedAt: new Date(),
-    })
-    await db.insert(userAccess).values({
-      userId: U_CUMUL,
-      accessType: "exam",
-      expiresAt: new Date(Date.now() + 10 * DAY),
-      lastTransactionId: priorTx,
-    })
-
-    const txId = createId()
-    const sid = `sess_cumul_${suffix}`
-    await seedPending({
-      id: txId,
-      userId: U_CUMUL,
-      productId: PEXAM,
-      sessionId: sid,
-      accessType: "exam",
-      durationDays: 90,
-    })
-
-    const res = await completeStripeTransaction({
-      stripeSessionId: sid,
-      stripePaymentIntentId: "pi_cumul",
-      stripeEventId: `evt_cumul_${suffix}`,
-    })
-    expect(res.status).toBe("completed")
-
-    const acc = await accessOf(U_CUMUL, "exam")
-    // Cumul : ~10 + 90 = 100 jours.
-    expect(approxDays(acc!.expiresAt, 100)).toBe(true)
-    expect(acc?.lastTransactionId).toBe(txId)
-  })
-
   it("combo : crédite exam ET training (now + durée)", async () => {
     const txId = createId()
     const sid = `sess_combo_${suffix}`
@@ -331,13 +284,14 @@ describe("completeStripeTransaction", () => {
       stripeSessionId: sid,
       stripePaymentIntentId: "pi_combo",
       stripeEventId: `evt_combo_${suffix}`,
+      now: NOW,
     })
     expect(res.status).toBe("completed")
 
     const exam = await accessOf(U_COMBO, "exam")
     const training = await accessOf(U_COMBO, "training")
-    expect(approxDays(exam!.expiresAt, 30)).toBe(true)
-    expect(approxDays(training!.expiresAt, 30)).toBe(true)
+    expect(exam?.expiresAt).toEqual(at(30))
+    expect(training?.expiresAt).toEqual(at(30))
     expect(exam?.lastTransactionId).toBe(txId)
     expect(training?.lastTransactionId).toBe(txId)
   })
@@ -378,6 +332,7 @@ describe("completeStripeTransaction", () => {
         stripeEventId: `evt_a_${suffix}`,
         amountTotal: 5000,
         currency: "cad",
+        now: NOW,
       }),
       completeStripeTransaction({
         stripeSessionId: sidB,
@@ -385,6 +340,7 @@ describe("completeStripeTransaction", () => {
         stripeEventId: `evt_b_${suffix}`,
         amountTotal: 5000,
         currency: "cad",
+        now: NOW,
       }),
     ])
 
@@ -393,8 +349,8 @@ describe("completeStripeTransaction", () => {
       .from(userAccess)
       .where(eq(userAccess.userId, U_RACE))
     expect(rows).toHaveLength(1)
-    // Cumul des deux durées (90 + 90). Tombe à ~90 si le verrou FOR UPDATE saute.
-    expect(approxDays(rows[0].expiresAt, 180)).toBe(true)
+    // Cumul des deux durées (90 + 90). Tombe à 90 si le verrou FOR UPDATE saute.
+    expect(rows[0].expiresAt).toEqual(at(180))
   })
 
   it("completed → retourne les données du courriel de confirmation", async () => {
@@ -416,6 +372,7 @@ describe("completeStripeTransaction", () => {
       currency: "cad",
       presentmentAmount: 2280000,
       presentmentCurrency: "xaf",
+      now: NOW,
     })
 
     expect(result.status).toBe("completed")
@@ -427,12 +384,10 @@ describe("completeStripeTransaction", () => {
     expect(result.confirmation.currency).toBe("CAD")
     expect(result.confirmation.presentmentAmount).toBe(2280000)
     expect(result.confirmation.presentmentCurrency).toBe("XAF")
-    expect(result.confirmation.completedAt).toBeInstanceOf(Date)
-    expect(result.confirmation.grantedAccess).toHaveLength(1)
-    expect(result.confirmation.grantedAccess[0].accessType).toBe("exam")
-    expect(approxDays(result.confirmation.grantedAccess[0].expiresAt, 90)).toBe(
-      true,
-    )
+    expect(result.confirmation.completedAt).toEqual(NOW)
+    expect(result.confirmation.grantedAccess).toEqual([
+      { accessType: "exam", expiresAt: at(90) },
+    ])
   })
 
   // Un combo pose `now + durée` sur la transaction, mais l'accès exam existant
@@ -452,6 +407,7 @@ describe("completeStripeTransaction", () => {
       stripeSessionId: `cs_confirm_combo_${tx}`,
       stripePaymentIntentId: `pi_${tx}`,
       stripeEventId: `evt_confirm_combo_${tx}`,
+      now: NOW,
     })
 
     expect(result.status).toBe("completed")
@@ -459,8 +415,7 @@ describe("completeStripeTransaction", () => {
     const byType = Object.fromEntries(
       result.confirmation.grantedAccess.map((a) => [a.accessType, a.expiresAt]),
     )
-    expect(approxDays(byType.exam, 90)).toBe(true)
-    expect(approxDays(byType.training, 30)).toBe(true)
+    expect(byType).toEqual({ exam: at(90), training: at(30) })
   })
 
   it("compte anonymisé → userEmail null (aucun courriel à envoyer)", async () => {
