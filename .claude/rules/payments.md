@@ -51,6 +51,11 @@ Stripe **RÉESSAIE** · `200` traité ou volontairement ignoré. **Ne jamais
 acquitter une erreur transitoire en 200** : le fulfillment serait perdu sans
 trace. La route catche puis renvoie une `Response`, donc `onRequestError` ne
 voit rien — le `captureServerError` explicite est la SEULE trace Sentry.
+La route ne possède que cet acquittement : les branches par type d'événement
+appartiennent à `fulfilStripeEvent` (`features/payments/fulfillment.ts`), qui
+rend le travail différé (courriel, rappel de panier) sans jamais appeler
+`after()` lui-même, et le port `@/lib/stripe` est le seul chemin vers Stripe
+(sept verbes, timeout/retry posés une fois ; le SDK n'est plus exporté).
 
 ## Litiges et confirmation d'achat
 

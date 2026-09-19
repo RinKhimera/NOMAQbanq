@@ -125,6 +125,25 @@ Les questions éligibles à une session de révision ciblée d'un étudiant :
 ratées, non vues ou marquées, dans son domaine et ses objectifs.
 _Avoid_ : pool, sélection
 
+### Paiements
+
+**Port Stripe** :
+La surface étroite par laquelle l'application parle à Stripe — les verbes
+qu'elle lui demande, typés sur ce qu'elle lit, et rien d'autre. Un adaptateur
+SDK en production, un faux en test.
+_Avoid_ : client Stripe, SDK, getStripe
+
+**Fulfillment** :
+Le traitement d'un événement Stripe vérifié — octroi, échec, litige,
+remboursement, signal de fraude —, décidé par le type d'événement, indépendant
+du transport HTTP. Une erreur de fulfillment est rejouée par Stripe.
+_Avoid_ : handler de webhook, traitement du webhook
+
+**Acquittement** :
+La réponse HTTP au webhook — 200 traité ou volontairement ignoré, 400
+signature (jamais rejoué), 500 à rejouer. Propriété de la route seule.
+_Avoid_ : ack, réponse du webhook
+
 ### Courriels
 
 **Courriel unique** :
