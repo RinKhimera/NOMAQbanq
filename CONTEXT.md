@@ -124,3 +124,29 @@ _Avoid_ : marge, tolérance réseau
 Les questions éligibles à une session de révision ciblée d'un étudiant :
 ratées, non vues ou marquées, dans son domaine et ses objectifs.
 _Avoid_ : pool, sélection
+
+### Courriels
+
+**Courriel unique** :
+Un courriel qu'un même destinataire ne reçoit qu'une fois par événement (ou
+par fenêtre de plafond), porté par un marqueur d'envoi : résultats d'examen,
+rappel de fin d'accès, relance d'inactivité, bienvenue, panier abandonné.
+_Avoid_ : notification, one-shot, courriel transactionnel
+
+**Marqueur d'envoi** :
+L'horodatage qui atteste qu'un courriel unique a été réclamé pour une ligne ;
+posé avant l'envoi, jamais retiré sur échec, ré-armé seulement par un événement
+métier (un renouvellement).
+_Avoid_ : flag, sentAt, drapeau d'envoi
+
+**Claim** :
+L'écriture atomique qui pose le marqueur si et seulement s'il est libre (ou
+plus vieux que le plafond) et que le destinataire est éligible ; celui qui
+gagne le claim envoie, un concurrent n'obtient rien.
+_Avoid_ : verrou d'envoi, réservation
+
+**Destinataire éligible** :
+Un compte ni supprimé ni suspendu. Les préférences de notification ne sont pas
+l'éligibilité : un refus de préférence est un choix du destinataire, pas une
+inéligibilité.
+_Avoid_ : destinataire actif, compte valide

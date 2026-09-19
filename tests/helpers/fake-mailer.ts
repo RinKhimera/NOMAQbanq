@@ -37,7 +37,7 @@ const verb = <K extends keyof Mailer>(name: K) =>
 
 /**
  * Remplace `@/email` en test : `vi.mock("@/email", () =>
- * import("@/tests/helpers/fake-mailer").then((m) => m.fakeMailer))`.
+ * import("../helpers/fake-mailer").then((m) => m.fakeMailer))`.
  * `satisfies Mailer` : un verbe ajouté à `@/email` sans son faux ne compile plus.
  */
 export const fakeMailer = {
