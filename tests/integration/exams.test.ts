@@ -36,6 +36,7 @@ import {
   getExamWithQuestions,
   getExamsStats,
   getExamsWithParticipation,
+  getMyDashboardStats,
   getMyScoreHistory,
   getParticipantExamResults,
 } from "@/features/exams/dal"
@@ -796,8 +797,9 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       startedAt: new Date(now - 2000),
       completedAt: new Date(now - 1000),
     })
-    // Réponse enregistrée : c'est elle qui retient le score de la participation
-    // tant que son examen est ouvert (une participation sans réponse ne retient rien).
+    // Réponse enregistrée : elle retient aussi le score de la session
+    // d'entraînement qui chevauche q9 (la participation, elle, est déjà retenue
+    // par son examen propre, ouvert).
     await db.insert(examAnswers).values({
       id: createId(),
       participationId: openPartId,
@@ -936,6 +938,18 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(hist.find((h) => h.examId === closedOnlyExamId)?.score).toBe(100)
     })
 
+    it("examen propre CLOS mais question répondue d'un examen OUVERT : retenu sur la liste et l'historique", async () => {
+      // pastExamId est clos (la clause « examen propre » ne joue pas) ; seule
+      // la réponse à examQIds[0], question des examens ouverts, le retient.
+      asStudent()
+      const list = await getExamsWithParticipation()
+      expect(
+        list.find((e) => e.id === pastExamId)?.userParticipation?.score,
+      ).toBeNull()
+      const hist = await getMyScoreHistory()
+      expect(hist.find((h) => h.examId === pastExamId)?.score).toBeNull()
+    })
+
     it("leaderboard : la ligne d'un propriétaire retenu est null pour LUI et pour les autres, et sort du rang", async () => {
       asStudent()
       const own = await getExamLeaderboard(pastExamId)
@@ -956,5 +970,131 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       const lb = await getExamLeaderboard(openId)
       expect(lb.find((e) => e.user?.id === STUDENT_ID)?.score).toBe(100)
     })
+  })
+})
+
+// Score retenu par l'examen propre : « un score d'examen est retenu tant que
+// son propre examen est ouvert » (CONTEXT.md), réponses ou non. Une
+// participation auto-soumise sans réponse a un score 0 enregistré ; le livrer
+// pendant la fenêtre ferait « 0 réussi · Score moyen : 0 % » là où la liste
+// affiche « — ».
+describe("score retenu — participation sans réponse", () => {
+  const EMPTY_ID = createId()
+  const emptyOpenId = createId()
+  const emptyClosedId = createId()
+  const emptyAdminOpenId = createId()
+  let emptyExamIds: string[]
+
+  const makeBareExam = (id: string, endDate: Date, questionId: string) => ({
+    exam: {
+      id,
+      title: `Empty ${suffix} ${id.slice(0, 4)}`,
+      startDate: new Date(Date.now() - DAY),
+      endDate,
+      createdBy: ADMIN_ID,
+      completionTime: 3600,
+    },
+    questionId,
+  })
+  const participation = (examId: string, userId: string) => ({
+    id: createId(),
+    examId,
+    userId,
+    status: "auto_submitted" as const,
+    score: 0,
+    startedAt: new Date(Date.now() - 2000),
+    completedAt: new Date(Date.now() - 1000),
+  })
+
+  beforeAll(async () => {
+    await db.insert(user).values({
+      id: EMPTY_ID,
+      name: "IT empty",
+      email: `empty-${suffix}@test.invalid`,
+    })
+    await grantExamAccess(EMPTY_ID)
+    // Clos une minute avant le seed (lisible) ou ouvert une minute après
+    // (retenu), aucune question répondue dans les deux cas. La borne exacte
+    // `end_date > now()` (strict) est portée par le test du fragment SQL :
+    // une date de fin égale à l'horloge JS du seed dépendrait de l'écart entre
+    // cette horloge et celle de Neon.
+    const specs = [
+      makeBareExam(emptyOpenId, new Date(Date.now() + 60_000), qIds[2]),
+      makeBareExam(emptyClosedId, new Date(Date.now() - 60_000), qIds[3]),
+      makeBareExam(emptyAdminOpenId, new Date(Date.now() + 60_000), qIds[4]),
+    ]
+    emptyExamIds = specs.map((s) => s.exam.id)
+    await db.insert(exams).values(specs.map((s) => s.exam))
+    await db.insert(examQuestions).values(
+      specs.map((s) => ({
+        examId: s.exam.id,
+        questionId: s.questionId,
+        position: 0,
+      })),
+    )
+    await db
+      .insert(examParticipations)
+      .values([
+        participation(emptyOpenId, EMPTY_ID),
+        participation(emptyClosedId, EMPTY_ID),
+        participation(emptyAdminOpenId, ADMIN_ID),
+      ])
+  })
+
+  afterAll(async () => {
+    await db.delete(exams).where(inArray(exams.id, emptyExamIds))
+    await db.delete(userAccess).where(eq(userAccess.userId, EMPTY_ID))
+    await db.delete(transactions).where(eq(transactions.userId, EMPTY_ID))
+    await db.delete(user).where(eq(user.id, EMPTY_ID))
+  })
+
+  it("liste des examens : null sur l'examen ouvert, 0 sur l'examen clos", async () => {
+    setSession(EMPTY_ID, "user")
+    const list = await getExamsWithParticipation()
+    expect(
+      list.find((e) => e.id === emptyOpenId)?.userParticipation,
+    ).toMatchObject({ score: null })
+    expect(
+      list.find((e) => e.id === emptyClosedId)?.userParticipation,
+    ).toMatchObject({ score: 0 })
+  })
+
+  it("historique et moyenne du tableau de bord : le point ouvert est null, la moyenne ne compte que le clos (0, pas null)", async () => {
+    setSession(EMPTY_ID, "user")
+    const hist = await getMyScoreHistory()
+    expect(hist.find((h) => h.examId === emptyOpenId)?.score).toBeNull()
+    expect(hist.find((h) => h.examId === emptyClosedId)?.score).toBe(0)
+
+    const stats = await getMyDashboardStats()
+    expect(stats?.completedExamsCount).toBe(2)
+    expect(stats?.averageScore).toBe(0)
+  })
+
+  it("tout retenu : la moyenne est null, jamais 0", async () => {
+    setSession(EMPTY_ID, "user")
+    await db
+      .update(exams)
+      .set({ endDate: new Date(Date.now() + 60_000) })
+      .where(eq(exams.id, emptyClosedId))
+    try {
+      const stats = await getMyDashboardStats()
+      expect(stats?.completedExamsCount).toBe(2)
+      expect(stats?.averageScore).toBeNull()
+    } finally {
+      await db
+        .update(exams)
+        .set({ endDate: new Date(Date.now() - 60_000) })
+        .where(eq(exams.id, emptyClosedId))
+    }
+  })
+
+  it("admin : lit le score brut de sa participation sur un examen ouvert", async () => {
+    asAdmin()
+    const list = await getExamsWithParticipation()
+    expect(
+      list.find((e) => e.id === emptyAdminOpenId)?.userParticipation,
+    ).toMatchObject({ score: 0 })
+    const hist = await getMyScoreHistory()
+    expect(hist.find((h) => h.examId === emptyAdminOpenId)?.score).toBe(0)
   })
 })

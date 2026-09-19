@@ -10,12 +10,20 @@ import type {
 } from "./types"
 import { useExamTimer } from "./use-exam-timer"
 
+/** Écart mural/monotone au-delà duquel on suppose une veille du système. */
+const SLEEP_DRIFT_MS = 5000
+
 export type UseQuizSessionOptions = {
   questions: QuizQuestion[]
   initialAnswers: AnswersMap
   initialFlags?: Set<string>
   // État de pause initial (réhydraté depuis ExamSessionView à la reprise).
-  initialPause?: { isPaused: boolean; totalPauseDurationMs: number }
+  initialPause?: {
+    isPaused: boolean
+    totalPauseDurationMs: number
+    /** Début de pause serveur (epoch ms), quand la page se charge en pause. */
+    pauseStartedAtMs?: number
+  }
   // Pré-révélations à hydrater au montage (mode tuteur : questions déjà répondues).
   initialRevealed?: Record<string, QuizRevealPayload>
   mode: QuizMode
@@ -60,6 +68,12 @@ export type UseQuizSessionResult = {
   // server already recorded a pause, or after a successful resume). Lets the UI
   // hide the pause button — the server only allows one pause.
   pauseAlreadyUsed: boolean
+  // Début de la pause en cours (instant SERVEUR), ancre du décompte de
+  // l'overlay ; absent hors pause. Jamais l'horloge locale.
+  pauseStartedAt: number | undefined
+  // Dernier instant serveur connu (rendu, actions, resync au réveil) : ancre
+  // du chrono et de l'overlay de pause.
+  serverNow: number
   // Résolvent `true` en succès seulement — l'UI (timestamps locaux de
   // l'overlay) ne doit pas avancer sur une pause/reprise qui a échoué.
   pause: () => Promise<boolean>
@@ -125,10 +139,86 @@ export function useQuizSession({
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [isSubmitting, startTransition] = useTransition()
 
+  // ---- Horloge serveur ----
+  // Dernier instant serveur connu : celui du rendu, puis celui de chaque
+  // réponse d'action (`serverNow`), qui ré-ancre le chrono après une veille
+  // ou un retour arrière (voir `useAnchoredClock`).
+  const [serverNow, setServerNow] = useState(
+    mode.timer?.initialNow ?? mode.timer?.serverStartTime ?? 0,
+  )
+  const syncServerClock = useCallback((res: { serverNow?: number }) => {
+    if (res.serverNow !== undefined) setServerNow(res.serverNow)
+  }, [])
+
+  // Veille du système : l'horloge murale avance, la monotone non. Au réveil de
+  // l'onglet, un écart entre les deux au-delà de SLEEP_DRIFT_MS trahit la
+  // veille (ou un réglage d'horloge) ; on demande alors l'heure au serveur,
+  // jamais on ne corrige sur l'horloge murale seule (bug #196).
+  // Les callbacks de page sont recréés à chaque rendu (un par tick de chrono) :
+  // la base de dérive et le callback vivent dans des refs, hors des
+  // dépendances de l'effet, sinon chaque tick remettrait la dérive à zéro.
+  const hasTimer = !!mode.timer
+  const onSyncClockRef = useRef(callbacks.onSyncClock)
+  useEffect(() => {
+    onSyncClockRef.current = callbacks.onSyncClock
+  })
+  const driftBaseline = useRef<{ wall: number; perf: number } | null>(null)
+  useEffect(() => {
+    if (!hasTimer) return
+    driftBaseline.current ??= { wall: Date.now(), perf: performance.now() }
+    let inFlight = false
+    const onWake = () => {
+      const sync = onSyncClockRef.current
+      const base = driftBaseline.current
+      if (!sync || !base || inFlight) return
+      if (document.visibilityState !== "visible") return
+      const drift = Date.now() - base.wall - (performance.now() - base.perf)
+      if (Math.abs(drift) < SLEEP_DRIFT_MS) return
+      inFlight = true
+      void sync()
+        .then((res) => {
+          if (!res.ok) return
+          syncServerClock(res)
+          driftBaseline.current = { wall: Date.now(), perf: performance.now() }
+        })
+        .catch(() => {
+          // rejet réseau : la prochaine réponse ou le prochain réveil réaligne
+        })
+        .finally(() => {
+          inFlight = false
+        })
+    }
+    // `online` : un réveil sans réseau laisse la dérive armée, le retour du
+    // réseau rejoue la lecture.
+    document.addEventListener("visibilitychange", onWake)
+    window.addEventListener("focus", onWake)
+    window.addEventListener("online", onWake)
+    return () => {
+      document.removeEventListener("visibilitychange", onWake)
+      window.removeEventListener("focus", onWake)
+      window.removeEventListener("online", onWake)
+    }
+  }, [hasTimer, syncServerClock])
+
+  // ---- Auto-soumission (une seule fois) ----
+  // Déclenchée par l'expiration du chrono client, ou par le serveur qui refuse
+  // une réponse `TIME_UP` (chrono client en retard : veille, retour arrière).
+  // Une seule soumission automatique, quelle que soit la source.
+  const autoSubmitFiredRef = useRef(false)
+  const autoSubmitRef = useRef<() => void>(() => {})
+  const autoSubmitOnce = useCallback(() => {
+    if (autoSubmitFiredRef.current) return
+    autoSubmitFiredRef.current = true
+    autoSubmitRef.current()
+  }, [])
+
   // ---- Pause (rest break) ----
   const [isPaused, setIsPaused] = useState(initialPause?.isPaused ?? false)
   const [totalPauseDurationMs, setTotalPauseDurationMs] = useState(
     initialPause?.totalPauseDurationMs ?? 0,
+  )
+  const [pauseStartedAt, setPauseStartedAt] = useState<number | undefined>(
+    initialPause?.isPaused ? initialPause.pauseStartedAtMs : undefined,
   )
   // The single rest pause is "used" if the server already recorded pause time,
   // OR if we are currently mid-pause on reload (totalPauseDurationMs is still 0
@@ -261,6 +351,7 @@ export function useQuizSession({
         // cible du rollback si l'envoi suivant échoue.
         if (res.ok) {
           persistedAnswers.current[qid] = current
+          syncServerClock(res)
         }
         const queued = state.queued
         state.queued = undefined
@@ -272,6 +363,7 @@ export function useQuizSession({
         }
         state.inFlight = false
         if (!res.ok) {
+          if (res.timeUp && mode.timer) autoSubmitOnce()
           const persisted = persistedAnswers.current[qid]
           setAnswers((a) => {
             const next = { ...a }
@@ -286,7 +378,15 @@ export function useQuizSession({
         return
       }
     },
-    [currentQuestion, callbacks, isImmediate, revealed],
+    [
+      currentQuestion,
+      callbacks,
+      isImmediate,
+      revealed,
+      syncServerClock,
+      mode.timer,
+      autoSubmitOnce,
+    ],
   )
 
   // ---- Confirm (mode tuteur uniquement) ----
@@ -305,6 +405,7 @@ export function useQuizSession({
       return // rejet réseau : pending conservé pour réessai, pas de reveal
     }
     if (!res.ok) return // toast géré dans onAnswer ; on garde le pending pour réessai
+    syncServerClock(res)
 
     if (res.reveal) {
       const reveal = res.reveal
@@ -321,7 +422,7 @@ export function useQuizSession({
         return next
       })
     }
-  }, [currentQuestion, revealed, pendingSelection, callbacks])
+  }, [currentQuestion, revealed, pendingSelection, callbacks, syncServerClock])
 
   // ---- Pause / resume (rest break) ----
 
@@ -330,6 +431,10 @@ export function useQuizSession({
     try {
       const res = await callbacks.onPause()
       if (res.ok) {
+        syncServerClock(res)
+        // Sans instant de début (callback minimal), le dernier instant serveur
+        // connu sert d'ancre : le décompte part du plafond, comme au clic.
+        setPauseStartedAt(res.pauseStartedAt ?? res.serverNow ?? serverNow)
         setIsPaused(true)
       }
       return res.ok
@@ -337,14 +442,16 @@ export function useQuizSession({
       // rejet réseau : rester non-pausé, le callback de page a déjà toasté
       return false
     }
-  }, [callbacks, isPaused])
+  }, [callbacks, isPaused, syncServerClock, serverNow])
 
   const resume = useCallback(async () => {
     if (!callbacks.onResume || !isPaused) return false
     try {
       const res = await callbacks.onResume()
       if (res.ok) {
+        syncServerClock(res)
         setTotalPauseDurationMs((prev) => res.totalPauseDurationMs ?? prev)
+        setPauseStartedAt(undefined)
         setIsPaused(false)
         // The single rest pause is now consumed — hide the pause control.
         setPauseAlreadyUsed(true)
@@ -354,7 +461,7 @@ export function useQuizSession({
       // rejet réseau : rester en pause, retentable via le bouton
       return false
     }
-  }, [callbacks, isPaused])
+  }, [callbacks, isPaused, syncServerClock])
 
   // ---- Finish ----
 
@@ -362,22 +469,45 @@ export function useQuizSession({
     setFinishDialogOpen(true)
   }, [])
 
+  // Timer hook — always called (hooks rules) but only ACTIF quand mode.timer
+  // existe. Sans `enabled`, un mode sans chrono (entraînement) passe
+  // totalSeconds=0 → remaining<=0 au montage → onExpire auto-soumettrait la
+  // session instantanément.
+  const timerConfig = mode.timer
+  const timerStart = timerConfig?.serverStartTime ?? 0
+  const timerResult = useExamTimer({
+    enabled: !!timerConfig,
+    serverStartTime: timerStart,
+    totalSeconds: timerConfig?.totalSeconds ?? 0,
+    initialNow: serverNow,
+    isPaused,
+    totalPauseDurationMs,
+    onExpire: autoSubmitOnce,
+  })
+
+  const timer = timerConfig ? timerResult : null
+
+  // Chrono épuisé : une remise ordinaire serait refusée par le budget serveur,
+  // seule l'auto-soumission en est exemptée. Un clic « Terminer » après
+  // l'expiration (auto-soumission échouée : réseau) part donc en `isAutoSubmit`.
+  const timeIsUp = !!timerConfig && timerResult.remainingMs <= 0
+
   const confirmFinish = useCallback(
     async (opts?: { isAutoSubmit?: boolean }) => {
+      const isAutoSubmit = opts?.isAutoSubmit ?? timeIsUp
       startTransition(async () => {
+        let ok = false
         try {
-          const result = await callbacks.onFinish({
-            isAutoSubmit: opts?.isAutoSubmit ?? false,
-          })
-          if (result.ok && result.redirectTo) {
-            // Navigation happens outside hook; caller handles redirect
-          }
+          ok = (await callbacks.onFinish({ isAutoSubmit })).ok
         } catch {
           // rejet réseau : le dialog reste ouvert, retentable
         }
+        // Une auto-soumission échouée relâche le verrou : le prochain refus
+        // TIME_UP ou le bouton « Terminer » doit pouvoir la relancer.
+        if (!ok && isAutoSubmit) autoSubmitFiredRef.current = false
       })
     },
-    [callbacks],
+    [callbacks, timeIsUp],
   )
 
   // ---- Keyboard shortcuts ----
@@ -409,37 +539,12 @@ export function useQuizSession({
 
   // ---- Timer (composed, only when mode.timer) ----
 
-  const onExpireRef = useRef<() => void>(() => {
-    void confirmFinish({ isAutoSubmit: true })
-  })
   // Keep ref in sync so confirmFinish closure is always fresh
   useEffect(() => {
-    onExpireRef.current = () => {
+    autoSubmitRef.current = () => {
       void confirmFinish({ isAutoSubmit: true })
     }
   }, [confirmFinish])
-
-  const stableOnExpire = useCallback(() => {
-    onExpireRef.current()
-  }, [])
-
-  // Timer hook — always called (hooks rules) but only ACTIF quand mode.timer
-  // existe. Sans `enabled`, un mode sans chrono (entraînement) passe
-  // totalSeconds=0 → remaining<=0 au montage → onExpire auto-soumettrait la
-  // session instantanément.
-  const timerConfig = mode.timer
-  const timerStart = timerConfig?.serverStartTime ?? 0
-  const timerResult = useExamTimer({
-    enabled: !!timerConfig,
-    serverStartTime: timerStart,
-    totalSeconds: timerConfig?.totalSeconds ?? 0,
-    initialNow: timerConfig?.initialNow ?? timerStart,
-    isPaused,
-    totalPauseDurationMs,
-    onExpire: stableOnExpire,
-  })
-
-  const timer = timerConfig ? timerResult : null
 
   // ---- Derived counts ----
 
@@ -466,6 +571,8 @@ export function useQuizSession({
     setFinishDialogOpen,
     isPaused,
     pauseAlreadyUsed,
+    pauseStartedAt,
+    serverNow,
     pause,
     resume,
     timer,

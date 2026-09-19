@@ -25,6 +25,7 @@ import { Spinner } from "@/components/ui/spinner"
 import {
   finalizeExam,
   pauseExam,
+  readServerClock,
   resumeExam,
   saveExamAnswer,
   saveExamFlag,
@@ -131,14 +132,18 @@ export function EvaluationClient({
         { retries: 1 }, // upsert idempotent — absorbe les micro-coupures
       )
       if (!res.success) {
-        toast.error("Réponse non enregistrée, réessayez.")
-        return {
-          ok: false,
-          error: res.error ?? "Erreur lors de l'enregistrement",
+        const error = res.error ?? "Erreur lors de l'enregistrement"
+        // Budget épuisé côté serveur (chrono client en retard) : réessayer ne
+        // sert à rien, le moteur soumet l'examen.
+        if ("code" in res && res.code === "TIME_UP") {
+          toast.error("Temps écoulé : cette réponse n'a pas été enregistrée.")
+          return { ok: false, error, timeUp: true }
         }
+        toast.error("Réponse non enregistrée, réessayez.")
+        return { ok: false, error }
       }
       // Anti-triche : ne JAMAIS renvoyer isCorrect ni reveal
-      return { ok: true }
+      return { ok: true, serverNow: res.serverNow }
     },
     onFlag: async (questionId, isFlagged) => {
       const res = await callAction(
@@ -175,14 +180,18 @@ export function EvaluationClient({
     onPause: exam.enablePause
       ? async () => {
           const res = await callAction(() => pauseExam({ examId }))
-          if (res.success) {
-            toast.info("⏸️ Pause - Prenez une pause bien méritée !", {
-              duration: 5000,
-            })
-          } else {
+          if (!res.success) {
             toast.error(res.error ?? "Erreur lors de la mise en pause")
+            return { ok: false }
           }
-          return { ok: res.success }
+          toast.info("⏸️ Pause - Prenez une pause bien méritée !", {
+            duration: 5000,
+          })
+          return {
+            ok: true,
+            pauseStartedAt: res.pauseStartedAt,
+            serverNow: res.serverNow,
+          }
         }
       : undefined,
     onResume: exam.enablePause
@@ -190,12 +199,23 @@ export function EvaluationClient({
           const res = await callAction(() => resumeExam({ examId }))
           if (res.success) {
             toast.success("Pause terminée - Continuez l'examen !")
-            return { ok: true, totalPauseDurationMs: res.totalPauseDurationMs }
+            return {
+              ok: true,
+              totalPauseDurationMs: res.totalPauseDurationMs,
+              serverNow: res.serverNow,
+            }
           }
           toast.error(res.error ?? "Erreur lors de la reprise")
           return { ok: false }
         }
       : undefined,
+    // Silencieux : lecture de fond au réveil de l'onglet, rien à annoncer.
+    onSyncClock: async () => {
+      const res = await callAction(() => readServerClock(), { retries: 1 })
+      return res.success
+        ? { ok: true, serverNow: res.serverNow }
+        : { ok: false }
+    },
   }
 
   // Démarrage de l'examen. La page ne met les questions dans le payload RSC

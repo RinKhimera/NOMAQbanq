@@ -178,7 +178,7 @@ describe("saveExamAnswer", () => {
       questionId: qId,
       selectedAnswer: "A",
     })
-    expect(res).toEqual({ success: true })
+    expect(res).toEqual({ success: true, serverNow: expect.any(Number) })
     expect(res).not.toHaveProperty("isCorrect")
 
     // Verify in DB that isCorrect was set server-side
@@ -356,7 +356,11 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
       questionId: qIds[0],
       selectedAnswer: "A",
     })
-    expect(res).toEqual({ success: false, error: "Temps écoulé." })
+    expect(res).toEqual({
+      success: false,
+      error: "Temps écoulé.",
+      code: "TIME_UP",
+    })
 
     const [row] = await db
       .select({ selectedAnswer: examAnswers.selectedAnswer })
@@ -412,6 +416,7 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
     expect(save).toEqual({
       success: false,
       error: "Cette session d'examen n'est plus active.",
+      code: "NOT_IN_PROGRESS",
     })
   })
 })

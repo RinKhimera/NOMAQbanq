@@ -57,17 +57,6 @@ function QuizRunnerInner({
 
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
   const [isLabValuesOpen, setIsLabValuesOpen] = useState(false)
-  // Track local pause start time for the overlay countdown (hook doesn't expose it)
-  const [localPauseStartedAt, setLocalPauseStartedAt] = useState<
-    number | undefined
-  >(
-    // On reload-while-paused: use the server pauseStartedAt so the overlay
-    // countdown reflects real elapsed time. Fall back to Date.now() only if
-    // the server timestamp is absent (shouldn't happen with a healthy session).
-    initialPause?.isPaused
-      ? (initialPause.pauseStartedAtMs ?? Date.now())
-      : undefined,
-  )
   const [isResuming, setIsResuming] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
 
@@ -110,26 +99,18 @@ function QuizRunnerInner({
       ? {
           canTakePause: true,
           onTakePause: () => {
-            // Capture start time before async call, then delegate to the hook
-            const startedAt = Date.now()
-            void session.pause().then((ok) => {
-              // session.isPaused may not have updated yet (async state); set
-              // optimistically — but only when the pause actually succeeded
-              if (ok) setLocalPauseStartedAt(startedAt)
-            })
+            void session.pause()
           },
         }
       : undefined
 
-  // Handle resume: call session.resume() and clear local pauseStartedAt
+  // Sur échec (réseau), le hook garde le début de pause : le décompte de
+  // l'overlay continue et l'auto-resume reste armé — seule une reprise RÉUSSIE
+  // ferme la pause.
   const handleResume = async () => {
     setIsResuming(true)
     try {
-      const ok = await session.resume()
-      // Sur échec (réseau), garder le timestamp : le décompte de l'overlay
-      // continue et l'auto-resume reste armé — seule une reprise RÉUSSIE
-      // ferme la pause.
-      if (ok) setLocalPauseStartedAt(undefined)
+      await session.resume()
     } finally {
       setIsResuming(false)
     }
@@ -201,11 +182,9 @@ function QuizRunnerInner({
         <PauseDialog
           isOpen={true}
           onResume={handleResume}
-          pauseStartedAt={localPauseStartedAt}
+          pauseStartedAt={session.pauseStartedAt}
           pauseDurationMinutes={pauseDurationMinutes}
-          initialNow={
-            initialPause?.isPaused ? mode.timer?.initialNow : undefined
-          }
+          initialNow={session.serverNow}
           isResuming={isResuming}
         />
       )}

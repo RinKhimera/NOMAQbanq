@@ -80,7 +80,30 @@ justifie dans le code.
   s'ancre dessus et seul le premier tick, post-hydratation, reprend l'horloge
   locale. Câblé ainsi dans `dashboard-hero`, `examen-blanc-client`,
   `admin-dashboard-client`, `useExamTimer` et `PauseDialog` (rendu au premier
-  rendu quand la page se charge en pause). Le chrono d'examen était la
+  rendu quand la page se charge en pause). **Ce qui déclenche quelque chose
+  (auto-soumission, reprise de pause) ne reprend JAMAIS `Date.now()`, même
+  après le montage** : `useExamTimer` et `PauseDialog` mesurent l'écoulé par
+  delta monotone depuis l'ancre (`hooks/use-anchored-clock.ts`,
+  `performance.now()`). Une horloge cliente en avance du budget auto-soumettait
+  l'examen au premier tick, sans recours (#196) ; la latence de livraison
+  entre le rendu serveur et le montage n'est pas rattrapée, c'est la grâce
+  serveur qui l'absorbe. Limite de l'horloge monotone : elle ne court pas
+  pendant la veille du système (iOS/macOS/Linux), et un retour arrière remonte
+  le runner sur le `initialNow` périmé du payload RSC réutilisé. D'où le
+  ré-ancrage : `saveExamAnswer`, `pauseExam` et `resumeExam` renvoient
+  `serverNow`, que `useQuizSession` repasse en ancre au chrono (adoptée
+  au-delà de 2 s d'écart, pour ne pas faire sauter le décompte au RTT). Au
+  réveil de l'onglet (`visibilitychange`/`focus`), un écart de plus de 5 s
+  entre l'horloge murale et la monotone trahit une veille : le runner demande
+  l'heure au serveur (`readServerClock`, rejoué au retour du réseau) et
+  ré-ancre chrono ET décompte de pause (`session.serverNow`) — jamais sur
+  `Date.now()` seul, qui reproduirait le bug. Sur refus `TIME_UP` d'une
+  réponse, le moteur soumet l'examen au lieu de faire réessayer ; après
+  l'expiration, une remise manuelle part en `isAutoSubmit` (seule forme
+  exemptée du budget), sinon un étudiant dont l'auto-soumission a échoué
+  resterait bloqué jusqu'au cron. `useClock` (phases
+  d'examen, tick à la minute) reste sur `Date.now()` : pur affichage, rien à
+  déclencher. Le chrono d'examen était la
   dernière exception : cause prouvée de **NOMAQBANQ-13** (replay du 2026-08-23,
   « 02:06:51 » servi contre « 02:06:50 » hydraté) — l'arbre de la page de
   passation était régénéré en plein examen. L'arithmétique elle-même vit dans

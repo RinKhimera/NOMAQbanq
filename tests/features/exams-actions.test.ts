@@ -11,6 +11,7 @@ import {
   loadSearchSelectableUsers,
   pauseExam,
   reactivateExam,
+  readServerClock,
   resumeExam,
   saveExamAnswer,
   saveExamFlag,
@@ -162,6 +163,11 @@ describe("lectures gardees", () => {
     await loadExamAudience("e1")
     expect(mocks.searchSelectableUsers).toHaveBeenCalledWith({ query: "ali" })
     expect(mocks.getExamAudience).toHaveBeenCalledWith("e1")
+  })
+
+  it("readServerClock : l'heure du serveur, sans toucher la base", async () => {
+    expect(await readServerClock()).toEqual({ success: true, serverNow: NOW })
+    expect(state.transaction).not.toHaveBeenCalled()
   })
 })
 
@@ -422,12 +428,22 @@ describe("saveExamAnswer", () => {
     expect(mocks.requireAttempt).toHaveBeenCalled()
   })
 
-  it("garde refusee : la question n'est pas lue", async () => {
+  it("garde refusee : la question n'est pas lue, le refus porte son code", async () => {
     refuse("OUTSIDE_WINDOW")
     setRows({ examQuestions: [] })
     expect(await saveExamAnswer(input)).toEqual({
       success: false,
       error: refusalMessage("OUTSIDE_WINDOW", "exam"),
+      code: "OUTSIDE_WINDOW",
+    })
+  })
+
+  it("temps ecoule : le refus porte TIME_UP, pour que le client soumette au lieu de faire reessayer", async () => {
+    refuse("TIME_UP")
+    expect(await saveExamAnswer(input)).toEqual({
+      success: false,
+      error: refusalMessage("TIME_UP", "exam"),
+      code: "TIME_UP",
     })
   })
 
@@ -449,6 +465,7 @@ describe("saveExamAnswer", () => {
     expect(await saveExamAnswer(input)).toEqual({
       success: false,
       error: refusalMessage(code, "exam"),
+      code,
     })
     expect(state.set).toBeUndefined()
   })
@@ -465,7 +482,8 @@ describe("saveExamAnswer", () => {
   it("succes : ecrit la reponse et son verdict, ne renvoie jamais isCorrect (anti-triche)", async () => {
     setRows(question)
     const res = await saveExamAnswer(input)
-    expect(res).toEqual({ success: true })
+    // `serverNow` ré-ancre le chrono client ; jamais isCorrect.
+    expect(res).toEqual({ success: true, serverNow: Date.now() })
     expect(state.set).toEqual({ selectedAnswer: "A", isCorrect: true })
   })
 
@@ -507,6 +525,7 @@ describe("saveExamFlag", () => {
       expect(await saveExamFlag(input)).toEqual({
         success: false,
         error: refusalMessage(code, "exam"),
+        code,
       })
     },
   )
@@ -555,6 +574,7 @@ describe("finalizeExam", () => {
     expect(await finalizeExam({ examId: "e1" })).toEqual({
       success: false,
       error: refusalMessage(code, "exam"),
+      code,
     })
     expect(state.set).toBeUndefined()
   })
@@ -635,6 +655,7 @@ describe("pauseExam", () => {
       expect(await pauseExam({ examId: "e1" })).toEqual({
         success: false,
         error: refusalMessage(code, "exam"),
+        code,
       })
     },
   )
@@ -681,6 +702,7 @@ describe("pauseExam", () => {
       success: true,
       pauseStartedAt: NOW,
       pauseDurationMinutes: 20,
+      serverNow: NOW,
     })
     expect(state.set).toEqual({ pauseStartedAt: new Date(NOW) })
   })
@@ -742,6 +764,7 @@ describe("resumeExam", () => {
       expect(await resumeExam({ examId: "e1" })).toEqual({
         success: false,
         error: refusalMessage(code, "exam"),
+        code,
       })
     },
   )
@@ -760,6 +783,7 @@ describe("resumeExam", () => {
     expect(await resumeExam({ examId: "e1" })).toEqual({
       success: true,
       totalPauseDurationMs: 65_000,
+      serverNow: 100_000,
     })
     expect(state.set).toEqual({
       pauseStartedAt: null,
@@ -774,6 +798,7 @@ describe("resumeExam", () => {
     expect(await resumeExam({ examId: "e1" })).toEqual({
       success: true,
       totalPauseDurationMs: 60_000,
+      serverNow: 60 * 60 * 1000,
     })
   })
 

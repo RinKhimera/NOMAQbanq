@@ -42,6 +42,7 @@ vi.mock("sonner", () => ({
 vi.mock("@/features/exams/actions", () => ({
   finalizeExam: vi.fn(),
   pauseExam: vi.fn(),
+  readServerClock: vi.fn(),
   resumeExam: vi.fn(),
   saveExamAnswer: vi.fn(),
   saveExamFlag: vi.fn(),
@@ -234,6 +235,45 @@ describe("EvaluationClient — callbacks", () => {
     )
   })
 
+  it("temps écoulé côté serveur : message distinct (pas « réessayez ») et signal timeUp au moteur", async () => {
+    renderClient()
+    vi.mocked(callAction).mockResolvedValue({
+      success: false,
+      error: "Temps écoulé.",
+      code: "TIME_UP",
+    } as never)
+
+    const res = await lastCallbacks!.onAnswer!("q1", "A")
+
+    expect(res).toEqual({ ok: false, error: "Temps écoulé.", timeUp: true })
+    expect(toast.error).toHaveBeenCalledWith(
+      "Temps écoulé : cette réponse n'a pas été enregistrée.",
+    )
+    expect(toast.error).not.toHaveBeenCalledWith(
+      "Réponse non enregistrée, réessayez.",
+    )
+  })
+
+  it("relit l'heure du serveur en silence au réveil de l'onglet, et avale l'échec", async () => {
+    renderClient()
+    vi.mocked(callAction).mockResolvedValue({
+      success: true,
+      serverNow: 12_345,
+    } as never)
+    expect(await lastCallbacks!.onSyncClock!()).toEqual({
+      ok: true,
+      serverNow: 12_345,
+    })
+
+    vi.mocked(callAction).mockResolvedValue({
+      success: false,
+      error: "Réseau",
+    } as never)
+    expect(await lastCallbacks!.onSyncClock!()).toEqual({ ok: false })
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(toast.info).not.toHaveBeenCalled()
+  })
+
   it("acquitte une réponse enregistrée sans champ de correction", async () => {
     renderClient()
     vi.mocked(callAction).mockResolvedValue({ success: true } as never)
@@ -331,8 +371,18 @@ describe("EvaluationClient — callbacks", () => {
 
   it("confirme la mise en pause, et la signale quand elle échoue", async () => {
     renderClient({ enablePause: true })
-    vi.mocked(callAction).mockResolvedValue({ success: true } as never)
-    expect(await lastCallbacks!.onPause!()).toEqual({ ok: true })
+    vi.mocked(callAction).mockResolvedValue({
+      success: true,
+      pauseStartedAt: 4_000,
+      serverNow: 4_000,
+    } as never)
+    // Le début de pause est l'instant SERVEUR : l'overlay ne lit jamais
+    // l'horloge locale.
+    expect(await lastCallbacks!.onPause!()).toEqual({
+      ok: true,
+      pauseStartedAt: 4_000,
+      serverNow: 4_000,
+    })
     expect(toast.info).toHaveBeenCalled()
 
     vi.mocked(callAction).mockResolvedValue({ success: false } as never)

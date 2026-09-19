@@ -2,12 +2,9 @@ import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
-  examAnswers,
   examParticipations,
-  examQuestions,
   exams,
   products,
-  questions,
   transactions,
   user,
   userAccess,
@@ -35,14 +32,27 @@ const NOACCESS_ID = createId()
 const PID = createId()
 
 // Examens seedés directement (dates/isActive maîtrisés). Pas besoin de questions :
-// les fonctions testées n'agrègent que exams + examParticipations.
-const examA = createId() // actif, en fenêtre, complété 80
-const examB = createId() // actif, en fenêtre, complété 40
+// les fonctions testées n'agrègent que exams + examParticipations. Les scores
+// lisibles vivent sur des examens CLOS : un score d'examen est retenu tant que
+// son propre examen est ouvert.
+const examA = createId() // actif, en fenêtre, sans participation
+const examB = createId() // actif, en fenêtre, sans participation
 const examC = createId() // actif, en fenêtre, sans participation
+const examClosedA = createId() // fenêtre passée, complété 80
+const examClosedB = createId() // fenêtre passée, complété 40
 const examInactive = createId() // inactif
 const examPast = createId() // actif mais fenêtre passée
 const examFuture = createId() // actif mais fenêtre future
-const allExamIds = [examA, examB, examC, examInactive, examPast, examFuture]
+const allExamIds = [
+  examA,
+  examB,
+  examC,
+  examClosedA,
+  examClosedB,
+  examInactive,
+  examPast,
+  examFuture,
+]
 
 const setSession = (id: string | null, role: "user" | "admin" = "user") =>
   vi
@@ -53,7 +63,6 @@ const asStudent = () => setSession(STUDENT_ID, "user")
 const asNoAccess = () => setSession(NOACCESS_ID, "user")
 const partA = createId()
 const partB = createId()
-const withheldQuestionId = createId()
 
 beforeAll(async () => {
   await db.insert(user).values([
@@ -106,6 +115,16 @@ beforeAll(async () => {
     { id: examB, title: `B ${suffix}`, ...win(now - 2 * DAY, now + 2 * DAY) },
     { id: examC, title: `C ${suffix}`, ...win(now - 2 * DAY, now + 2 * DAY) },
     {
+      id: examClosedA,
+      title: `CA ${suffix}`,
+      ...win(now - 6 * DAY, now - 2 * DAY),
+    },
+    {
+      id: examClosedB,
+      title: `CB ${suffix}`,
+      ...win(now - 5 * DAY, now - DAY),
+    },
+    {
       id: examInactive,
       title: `I ${suffix}`,
       ...win(now - 2 * DAY, now + 2 * DAY, false),
@@ -125,21 +144,21 @@ beforeAll(async () => {
   await db.insert(examParticipations).values([
     {
       id: partA,
-      examId: examA,
+      examId: examClosedA,
       userId: STUDENT_ID,
       status: "completed",
       score: 80,
-      startedAt: new Date(now - 2 * DAY - 1000),
-      completedAt: new Date(now - 2 * DAY),
+      startedAt: new Date(now - 3 * DAY - 1000),
+      completedAt: new Date(now - 3 * DAY),
     },
     {
       id: partB,
-      examId: examB,
+      examId: examClosedB,
       userId: STUDENT_ID,
       status: "completed",
       score: 40,
-      startedAt: new Date(now - DAY - 1000),
-      completedAt: new Date(now - DAY),
+      startedAt: new Date(now - 2 * DAY - 1000),
+      completedAt: new Date(now - 2 * DAY),
     },
   ])
 })
@@ -183,9 +202,17 @@ describe("getMyRecentExams", () => {
   it("complétés d'abord (date desc), enrichis du score", async () => {
     asStudent()
     const recent = await getMyRecentExams()
-    // examB complété le plus récemment → en tête, puis examA.
-    expect(recent[0]).toMatchObject({ id: examB, isCompleted: true, score: 40 })
-    expect(recent[1]).toMatchObject({ id: examA, isCompleted: true, score: 80 })
+    // examClosedB complété le plus récemment → en tête, puis examClosedA.
+    expect(recent[0]).toMatchObject({
+      id: examClosedB,
+      isCompleted: true,
+      score: 40,
+    })
+    expect(recent[1]).toMatchObject({
+      id: examClosedA,
+      isCompleted: true,
+      score: 80,
+    })
     // Les non complétés suivent.
     expect(recent.slice(2).every((e) => !e.isCompleted)).toBe(true)
   })
@@ -200,10 +227,13 @@ describe("getMyScoreHistory", () => {
   it("examens complétés en ordre chronologique ASC, avec titre", async () => {
     asStudent()
     const hist = await getMyScoreHistory()
-    const mine = hist.filter((h) => [examA, examB].includes(h.examId))
-    expect(mine.map((h) => h.examId)).toEqual([examA, examB]) // A (J-2) avant B (J-1)
-    expect(mine[0]).toMatchObject({ score: 80, examTitle: `A ${suffix}` })
-    expect(mine[1]).toMatchObject({ score: 40, examTitle: `B ${suffix}` })
+    const mine = hist.filter((h) =>
+      [examClosedA, examClosedB].includes(h.examId),
+    )
+    // CA (J-3) avant CB (J-2)
+    expect(mine.map((h) => h.examId)).toEqual([examClosedA, examClosedB])
+    expect(mine[0]).toMatchObject({ score: 80, examTitle: `CA ${suffix}` })
+    expect(mine[1]).toMatchObject({ score: 40, examTitle: `CB ${suffix}` })
   })
 })
 
@@ -229,94 +259,100 @@ describe("getMyAvailableExams", () => {
   })
 })
 
-// Score retenu : tant que l'examen d'une participation est OUVERT, une réponse
-// enregistrée retient son score (`scoreWithheldFor`) — un score lisible
-// pendant la fenêtre donnerait les clés (100 % = toutes les bonnes options).
-// Les describes précédents lisent examA sans réponse enregistrée : lisible.
-describe("score retenu (examen encore ouvert)", () => {
+// Score retenu : un score d'examen est retenu tant que son PROPRE examen est
+// ouvert, réponses ou non (`scoreWithheldFor`, examen propre) — une
+// participation sans réponse a un score 0 enregistré, qu'un examen encore
+// ouvert ne doit pas livrer (« 0 réussi · Score moyen : 0 % » là où la liste
+// affiche « — »). Les describes précédents lisent des examens CLOS : lisibles.
+describe("score retenu (examen propre encore ouvert)", () => {
+  const partOpen = createId()
+
   beforeAll(async () => {
-    await db.insert(questions).values({
-      id: withheldQuestionId,
-      question: `Q retenue ${suffix} ?`,
-      correctAnswer: "A",
-      options: ["A", "B", "C", "D"],
-      objectifCmc: `Obj ${suffix}`,
-      domain: `DASH-${suffix}`,
-    })
-    await db.insert(examQuestions).values({
+    const now = Date.now()
+    await db.insert(examParticipations).values({
+      id: partOpen,
       examId: examA,
-      questionId: withheldQuestionId,
-      position: 0,
-    })
-    await db.insert(examAnswers).values({
-      id: createId(),
-      participationId: partA,
-      questionId: withheldQuestionId,
-      selectedAnswer: "A",
-      isCorrect: true,
+      userId: STUDENT_ID,
+      status: "auto_submitted",
+      score: 0,
+      startedAt: new Date(now - 2000),
+      completedAt: new Date(now - 1000),
     })
   })
 
   afterAll(async () => {
     await db
-      .delete(examAnswers)
-      .where(eq(examAnswers.questionId, withheldQuestionId))
-    await db
-      .delete(examQuestions)
-      .where(eq(examQuestions.questionId, withheldQuestionId))
-    await db.delete(questions).where(eq(questions.id, withheldQuestionId))
+      .delete(examParticipations)
+      .where(eq(examParticipations.id, partOpen))
   })
 
-  it("getMyRecentExams / getMyScoreHistory : examA retenu (null), examB lisible", async () => {
+  it("getMyRecentExams / getMyScoreHistory : examA (ouvert, sans réponse) retenu (null), les clos lisibles", async () => {
     asStudent()
     const recent = await getMyRecentExams()
     expect(recent.find((e) => e.id === examA)).toMatchObject({
       isCompleted: true,
       score: null,
     })
-    expect(recent.find((e) => e.id === examB)?.score).toBe(40)
+    expect(recent.find((e) => e.id === examClosedB)?.score).toBe(40)
 
     const hist = await getMyScoreHistory()
     expect(hist.find((h) => h.examId === examA)?.score).toBeNull()
-    expect(hist.find((h) => h.examId === examB)?.score).toBe(40)
+    expect(hist.find((h) => h.examId === examClosedB)?.score).toBe(40)
   })
 
   it("getMyDashboardStats : la participation retenue compte comme complétée mais sort de la moyenne", async () => {
     asStudent()
     const s = await getMyDashboardStats()
-    expect(s?.completedExamsCount).toBe(2)
-    expect(s?.averageScore).toBe(40) // 80 retenu, reste 40
+    expect(s?.completedExamsCount).toBe(3)
+    expect(s?.averageScore).toBe(60) // 0 retenu, reste (80 + 40) / 2
+  })
+
+  it("admin : lit le score brut de sa propre participation sur un examen ouvert", async () => {
+    const adminPart = createId()
+    await db.insert(examParticipations).values({
+      id: adminPart,
+      examId: examB,
+      userId: ADMIN_ID,
+      status: "auto_submitted",
+      score: 0,
+      startedAt: new Date(Date.now() - 2000),
+      completedAt: new Date(Date.now() - 1000),
+    })
+    try {
+      asAdmin()
+      const hist = await getMyScoreHistory()
+      expect(hist.find((h) => h.examId === examB)?.score).toBe(0)
+    } finally {
+      await db
+        .delete(examParticipations)
+        .where(eq(examParticipations.id, adminPart))
+    }
   })
 
   // Tout retenu : la moyenne n'est pas « 0 % » (faux résultat) mais `null`.
   describe("tout retenu", () => {
-    beforeAll(async () => {
-      await db.insert(examQuestions).values({
-        examId: examB,
-        questionId: withheldQuestionId,
-        position: 0,
-      })
-      await db.insert(examAnswers).values({
-        id: createId(),
-        participationId: partB,
-        questionId: withheldQuestionId,
-        selectedAnswer: "A",
-        isCorrect: true,
-      })
-    })
+    const setEndDate = (endDate: Date) =>
+      db
+        .update(exams)
+        .set({ endDate })
+        .where(inArray(exams.id, [examClosedA, examClosedB]))
+
+    beforeAll(() => setEndDate(new Date(Date.now() + 2 * DAY)))
+    afterAll(() => setEndDate(new Date(Date.now() - DAY)))
 
     it("getMyDashboardStats : complétés comptés, moyenne null, jamais 0", async () => {
       asStudent()
       const s = await getMyDashboardStats()
-      expect(s?.completedExamsCount).toBe(2)
+      expect(s?.completedExamsCount).toBe(3)
       expect(s?.averageScore).toBeNull()
     })
 
-    it("getMyScoreHistory : les deux points retenus", async () => {
+    it("getMyScoreHistory : les trois points retenus", async () => {
       asStudent()
       const hist = await getMyScoreHistory()
-      expect(hist.find((h) => h.examId === examA)?.score).toBeNull()
-      expect(hist.find((h) => h.examId === examB)?.score).toBeNull()
+      for (const id of [examA, examClosedA, examClosedB]) {
+        expect(hist.find((h) => h.examId === id)?.score).toBeNull()
+      }
     })
   })
 })

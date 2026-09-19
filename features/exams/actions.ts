@@ -18,7 +18,12 @@ import { isOpen } from "@/lib/exam-phase"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { computeScorePercent } from "@/lib/score"
-import { type Refusal, refusalMessage, requireAttempt } from "../attempts/guard"
+import {
+  type Refusal,
+  type RefusalCode,
+  refusalMessage,
+  requireAttempt,
+} from "../attempts/guard"
 import { hasActiveAccess } from "../payments/dal"
 import { viewerOf } from "../questions/answer-key-lock"
 import { type SelectableUser, searchSelectableUsers } from "../users/dal"
@@ -423,9 +428,15 @@ export const deleteParticipation = async ({
 // Étudiant : cycle de vie de la passation
 // ============================================
 
-/** Refus de la garde de tentative (code) ou refus local (message). */
+/**
+ * Refus de la garde de tentative (code) ou refus local (message). Le code
+ * accompagne le message : le client distingue `TIME_UP` (soumettre, ne pas
+ * faire réessayer) sans comparer des libellés.
+ */
 const refused = (r: Refusal | { message: string }) =>
-  fail("code" in r ? refusalMessage(r.code, "exam") : r.message)
+  "code" in r
+    ? { ...fail(refusalMessage(r.code, "exam")), code: r.code }
+    : fail(r.message)
 
 export type StartExamResult =
   | { success: true; participationId: string; startedAt: number }
@@ -591,7 +602,12 @@ export const startExam = async ({
  */
 export const saveExamAnswer = async (
   input: SaveExamAnswerInput,
-): Promise<{ success: boolean; error?: string }> => {
+): Promise<{
+  success: boolean
+  error?: string
+  code?: RefusalCode
+  serverNow?: number
+}> => {
   const session = await requireSession()
   const actor = viewerOf(session.user)
 
@@ -654,7 +670,8 @@ export const saveExamAnswer = async (
     })
 
     if (!outcome.ok) return refused(outcome)
-    return { success: true } // never return isCorrect (anti-cheat)
+    // Jamais isCorrect (anti-triche) ; `serverNow` ré-ancre le chrono client.
+    return { success: true, serverNow: now }
   } catch (error) {
     captureServerError("[saveExamAnswer]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")
@@ -778,6 +795,20 @@ export const finalizeExam = async (
 }
 
 /**
+ * [Auth] Heure du serveur, sans lecture en base. Demandée par le runner au
+ * réveil de l'onglet quand son horloge monotone a décroché de l'horloge murale
+ * (veille du système) : la seule façon de réaligner le chrono sans se fier à
+ * l'horloge du navigateur.
+ */
+export const readServerClock = async (): Promise<{
+  success: true
+  serverNow: number
+}> => {
+  await requireSession()
+  return { success: true, serverNow: Date.now() }
+}
+
+/**
  * [Auth] Démarre la pause (garde `pause` : statut seul). Vérifie que la pause
  * est activée et qu'aucune pause n'a déjà été utilisée.
  */
@@ -790,6 +821,7 @@ export const pauseExam = async ({
   error?: string
   pauseStartedAt?: number
   pauseDurationMinutes?: number
+  serverNow?: number
 }> => {
   const session = await requireSession()
   const actor = viewerOf(session.user)
@@ -833,6 +865,7 @@ export const pauseExam = async ({
       success: true,
       pauseStartedAt: now,
       pauseDurationMinutes: outcome.pauseDurationMinutes,
+      serverNow: now,
     }
   } catch (error) {
     captureServerError("[pauseExam]", error, { userId: actor.id })
@@ -852,6 +885,7 @@ export const resumeExam = async ({
   success: boolean
   error?: string
   totalPauseDurationMs?: number
+  serverNow?: number
 }> => {
   const session = await requireSession()
   const actor = viewerOf(session.user)
@@ -879,7 +913,11 @@ export const resumeExam = async ({
       return { ok: true as const, total }
     })
     if (!outcome.ok) return refused(outcome)
-    return { success: true, totalPauseDurationMs: outcome.total }
+    return {
+      success: true,
+      totalPauseDurationMs: outcome.total,
+      serverNow: now,
+    }
   } catch (error) {
     captureServerError("[resumeExam]", error, { userId: actor.id })
     return fail("Erreur serveur. Réessayez.")

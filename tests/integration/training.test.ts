@@ -397,6 +397,31 @@ describe("IDOR / propriété", () => {
     })
     expect(save.success).toBe(false)
   })
+
+  it("un autre utilisateur ne supprime pas la session close d'autrui : introuvable, la ligne survit", async () => {
+    // La session in_progress du test précédent (une seule à la fois) — close
+    // d'abord, la suppression d'une session en cours étant refusée à tous.
+    const active = await getActiveTrainingSession()
+    expect(active?.session.id).toBeDefined()
+    if (!active) return
+    const sid = active.session.id
+    expect((await abandonTrainingSession({ sessionId: sid })).success).toBe(
+      true,
+    )
+
+    vi.mocked(getCurrentSession).mockResolvedValue({
+      user: { id: `intruder-${suffix}`, role: "user" },
+    } as never)
+    expect(await deleteTrainingSession({ sessionId: sid })).toEqual({
+      success: false,
+      error: "Session introuvable",
+    })
+    const [row] = await db
+      .select({ id: trainingSessions.id })
+      .from(trainingSessions)
+      .where(eq(trainingSessions.id, sid))
+    expect(row?.id).toBe(sid)
+  })
 })
 
 describe("anti-triche : correction training masquée pendant un examen ouvert", () => {

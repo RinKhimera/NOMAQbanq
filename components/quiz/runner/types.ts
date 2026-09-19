@@ -54,19 +54,37 @@ export type QuizRevealPayload =
     >)
   | { keyWithheld: true }
 
+/**
+ * Instant serveur (epoch ms) auquel une action a traité la requête : la seule
+ * horloge que le client réactualise après le montage. L'horloge monotone du
+ * chrono ne court pas pendant la veille du système, et un retour arrière
+ * remonte le runner sur l'instant périmé du rendu initial ; chaque réponse
+ * d'action réaligne (voir `useAnchoredClock`).
+ */
+export type ServerClock = { serverNow?: number }
+
 export type QuizCallbacks = {
   onAnswer: (
     questionId: string,
     selected: string,
   ) => Promise<
-    { ok: true; reveal?: QuizRevealPayload } | { ok: false; error: string }
+    | ({ ok: true; reveal?: QuizRevealPayload } & ServerClock)
+    | { ok: false; error: string; timeUp?: boolean }
   >
   // { ok } permet au moteur de rollback le flag local sur échec
   onFlag: (questionId: string, isFlagged: boolean) => Promise<{ ok: boolean }>
   onFinish: (opts: {
     isAutoSubmit: boolean
   }) => Promise<{ ok: boolean; redirectTo?: string }>
-  onPause?: () => Promise<{ ok: boolean }>
+  // Le serveur renvoie l'instant de début de pause : ancre du décompte.
+  onPause?: () => Promise<
+    { ok: boolean; pauseStartedAt?: number } & ServerClock
+  >
   // Le serveur renvoie la durée de pause cumulée et plafonnée.
-  onResume?: () => Promise<{ ok: boolean; totalPauseDurationMs?: number }>
+  onResume?: () => Promise<
+    { ok: boolean; totalPauseDurationMs?: number } & ServerClock
+  >
+  // Lecture seule de l'horloge serveur, demandée au réveil de l'onglet quand
+  // l'horloge monotone a décroché de l'horloge murale (veille du système).
+  onSyncClock?: () => Promise<{ ok: boolean } & ServerClock>
 }
