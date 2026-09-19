@@ -103,6 +103,17 @@ qu'elles partagent : ouverte, en pause, close ou expirée. « Passation » nomme
 l'activité, « tentative » l'entité qui la porte.
 _Avoid_ : attempt, passation (pour désigner une tentative précise)
 
+**Clôture** :
+L'écriture qui ferme une tentative et fixe son score de clôture, qu'elle vienne
+de l'étudiant (soumission) ou de l'expiration (cron). Une tentative n'est close
+qu'une fois.
+_Avoid_ : finalisation, complétion, fermeture
+
+**Score de clôture** :
+Le pourcentage de réponses justes sur le lot de la tentative — toutes ses
+questions, répondues ou non —, écrit une fois à la clôture et jamais recalculé.
+_Avoid_ : score sur les réponses données, note
+
 ### Horloge de tentative
 
 **Budget de temps** :
