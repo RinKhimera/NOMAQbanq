@@ -25,6 +25,10 @@ const DAY = 24 * 60 * 60 * 1000
 const NOW = new Date("2026-09-19T12:00:00.000Z")
 const ENDED = new Date("1990-06-01T00:00:00.000Z")
 const SWEEP = new Date("1991-01-01T00:00:00.000Z")
+// Fenêtre propre aux cas « limit » : leur assertion « exactement `limit`
+// closes » ne doit dépendre ni de l'ordre des cas ni d'une ligne héritée.
+const ENDED_LIMIT = new Date("1980-06-01T00:00:00.000Z")
+const SWEEP_LIMIT = new Date("1981-01-01T00:00:00.000Z")
 const suffix = createId().slice(0, 8)
 
 const OWNER = createId()
@@ -332,7 +336,7 @@ describe("closeAttempts — participation (kind: exam)", () => {
   })
 
   it("limit : un balayage borné ne clôt que `limit` participations", async () => {
-    const examId = await newExam(qIds)
+    const examId = await newExam(qIds, ENDED_LIMIT)
     const ids = await Promise.all(
       Array.from({ length: 3 }, () =>
         newParticipation({ examId, questionIds: qIds, answers: [true] }),
@@ -342,9 +346,10 @@ describe("closeAttempts — participation (kind: exam)", () => {
       kind: "exam",
       status: "auto_submitted",
       now: NOW,
-      where: { expiredBefore: SWEEP, limit: 2 },
+      where: { expiredBefore: SWEEP_LIMIT, limit: 2 },
     })
     expect(swept).toHaveLength(2)
+    expect(ids).toEqual(expect.arrayContaining(swept))
     const statuses = await Promise.all(ids.map(participation))
     expect(statuses.filter((p) => p.status === "in_progress")).toHaveLength(1)
   })
@@ -453,6 +458,22 @@ describe("closeAttempts — session d'entraînement (kind: training)", () => {
     expect((await session(id)).score).toBe(50)
   })
 
+  it("arrondi half-up : 23/40 → 58, parité avec computeScorePercent", async () => {
+    const forty = await newQuestions(40)
+    const id = await newSession({
+      questionIds: forty,
+      questionCount: 40,
+      items: Array.from({ length: 23 }, () => true),
+    })
+    await closeAttempts(db, {
+      kind: "training",
+      status: "completed",
+      now: NOW,
+      where: { id },
+    })
+    expect((await session(id)).score).toBe(58)
+  })
+
   it("aucun item : score 0, pas d'échec", async () => {
     const id = await newSession({
       questionIds: qIds,
@@ -514,16 +535,22 @@ describe("closeAttempts — session d'entraînement (kind: training)", () => {
   it("limit : un balayage borné ne clôt que `limit` sessions", async () => {
     const ids = await Promise.all(
       Array.from({ length: 3 }, () =>
-        newSession({ questionIds: qIds, questionCount: 4, items: [true] }),
+        newSession({
+          questionIds: qIds,
+          questionCount: 4,
+          items: [true],
+          expiresAt: ENDED_LIMIT,
+        }),
       ),
     )
     const swept = await closeAttempts(db, {
       kind: "training",
       status: "abandoned",
       now: NOW,
-      where: { expiredBefore: SWEEP, limit: 2 },
+      where: { expiredBefore: SWEEP_LIMIT, limit: 2 },
     })
     expect(swept).toHaveLength(2)
+    expect(ids).toEqual(expect.arrayContaining(swept))
     const statuses = await Promise.all(ids.map(session))
     expect(statuses.filter((s) => s.status === "in_progress")).toHaveLength(1)
   })

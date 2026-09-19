@@ -35,7 +35,11 @@ import { scoreSql } from "./score"
 export type Executor = Pick<Db, "select" | "update">
 
 export type CloseWhere =
-  /** Une tentative précise, sous le verrou de `requireAttempt`. */
+  /**
+   * Une tentative précise. La propriété n'est PAS re-vérifiée ici : `id`
+   * doit venir de `requireAttempt` (verrou + `user_id` dans le WHERE) ou
+   * d'une lecture filtrée par l'utilisateur courant, jamais du client.
+   */
   | { id: string }
   /**
    * Les tentatives expirées avant `expiredBefore`, bornées ; `id` restreint le

@@ -62,7 +62,9 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   budget). Refus par code, message par `refusalMessage(code, kind)` ; les refus
   propres à l'action (« question hors examen », « déjà en pause ») restent
   locaux. Plus de garde de statut dans le WHERE des UPDATE : le verrou est la
-  discipline. **Le cron est le seul écrivain de la clôture par expiration** :
+  discipline (seule exception : `closeAttempts`, qui sert aussi le balayage
+  du cron sans verrou et re-vérifie « encore ouverte » dans son WHERE final).
+  **Le cron est le seul écrivain de la clôture par expiration** :
   une action qui constate l'expiration refuse (`EXPIRED`) sans rien écrire.
   **La clôture elle-même a UN écrivain : `closeAttempts`**
   (`features/attempts/close.ts`, vocabulaire dans `CONTEXT.md`). Il possède le

@@ -5,11 +5,15 @@ import { captureServerError } from "@/lib/observability"
  * Une tâche du cron : `key` est sa clé dans le rapport JSON, `tag` son
  * étiquette Sentry, `label` son libellé humain (journal, détail d'erreur).
  * `boolean` parce que la dérive des prix renvoie un drapeau `failed`.
+ * `quiet` : le rapport de la tâche est une jauge (taille du catalogue), pas
+ * un compteur de travail — il ne figure pas dans le journal, sinon un passage
+ * qui n'a rien fait ne serait plus jamais silencieux.
  */
 export type CronTask = {
   key: string
   label: string
   tag: string
+  quiet?: true
   run: () => Promise<Record<string, number | boolean>>
 }
 
@@ -19,6 +23,7 @@ export type CronReport = Record<string, Record<string, number | boolean>>
 const summarize = (tasks: readonly CronTask[], report: CronReport): string =>
   tasks
     .map((task) => {
+      if (task.quiet) return ""
       const counters = Object.entries(report[task.key] ?? {})
         .filter(([, value]) => typeof value === "number" && value !== 0)
         .map(([key, value]) => `${key}=${value}`)

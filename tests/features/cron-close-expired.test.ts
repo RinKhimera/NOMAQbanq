@@ -164,7 +164,7 @@ describe("runSchedule", () => {
       task("b", async () => ({ sent: 0, reminders: 3, failed: true }), {
         label: "notifications",
       }),
-      task("c", async () => ({ checked: 0 })),
+      task("c", async () => ({ checked: 5 }), { quiet: true }),
     ])
     expect(log).toHaveBeenCalledTimes(1)
     const line = String(log.mock.calls[0]?.[0])
@@ -173,5 +173,14 @@ describe("runSchedule", () => {
     expect(line).not.toContain("sent=")
     expect(line).not.toContain("failed")
     expect(line).not.toContain("checked")
+  })
+
+  // Une jauge non nulle à chaque passage rendrait le journal bavard.
+  it("journal : une tâche `quiet` ne parle jamais, même non nulle", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {})
+    await runSchedule([
+      task("c", async () => ({ checked: 5 }), { quiet: true }),
+    ])
+    expect(log).not.toHaveBeenCalled()
   })
 })
