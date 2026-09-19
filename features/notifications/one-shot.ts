@@ -45,10 +45,15 @@ export type OneShotSpec<Row extends { id: string; userId: string }> = {
   }
   /** Évalué APRÈS le claim : faux = marqueur posé, pas d'envoi (opt-out sans re-scan). */
   shouldSend?: (row: Row) => boolean
-  send: (row: Row) => Promise<unknown>
+  send: (row: Row, ctx: OneShotContext) => Promise<unknown>
   context: (row: Row) => { userId?: string; detail?: string }
   now?: Date
 }
+
+/** Identité typée : déclare une spec hors de `sendOnce` (ex. pour la rejouer en test). */
+export const defineOneShot = <Row extends { id: string; userId: string }>(
+  spec: OneShotSpec<Row>,
+): OneShotSpec<Row> => spec
 
 /**
  * Courriel unique : lecture bornée des candidats, claim atomique du marqueur
@@ -63,7 +68,8 @@ export async function sendOnce<Row extends { id: string; userId: string }>(
   spec: OneShotSpec<Row>,
 ): Promise<number> {
   const now = spec.now ?? new Date()
-  const rows = await spec.select({ now, limit: spec.limit })
+  const ctx = { now, limit: spec.limit }
+  const rows = await spec.select(ctx)
 
   if (spec.label && rows.length >= spec.limit) {
     console.warn(
@@ -108,7 +114,7 @@ export async function sendOnce<Row extends { id: string; userId: string }>(
       if (claimed.length === 0) continue
       if (spec.shouldSend && !spec.shouldSend(row)) continue
 
-      await spec.send(row)
+      await spec.send(row, ctx)
       sent++
     } catch (error) {
       captureServerError(spec.tag, error, spec.context(row))

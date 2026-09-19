@@ -16,11 +16,12 @@ import {
   userAccess,
 } from "@/db/schema"
 import {
-  claimAccessExpiryReminder,
+  accessExpiryReminderSpec,
   sendAccessExpiryReminders,
   sendExamResultsNotifications,
   sendInactivityReminders,
 } from "@/features/notifications/cron"
+import { sendOnce } from "@/features/notifications/one-shot"
 import { grantManualAccess } from "@/features/payments/lib"
 import { completeStripeTransaction } from "@/features/payments/stripe"
 import { createId } from "@/lib/ids"
@@ -209,7 +210,7 @@ describe("sendExamResultsNotifications", () => {
 })
 
 describe("sendAccessExpiryReminders", () => {
-  it("envoie pour un accès ≤ 7 j, marque, 2e run no-op", async () => {
+  it("envoie pour un accès ≤ 7 j avec l'échéance en jours, marque", async () => {
     const uid = createId()
     const pid = createId()
     const tid = createId()
@@ -249,24 +250,20 @@ describe("sendAccessExpiryReminders", () => {
       lastTransactionId: tid,
     })
 
-    accessExpiring.mockClear()
     const sent = await sendAccessExpiryReminders()
     expect(sent).toBeGreaterThanOrEqual(1)
-    expect(accessExpiring).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: `acc-${uid}@test.invalid`,
-        name: "Accès",
-        accessType: "exam",
-      }),
-    )
-
-    accessExpiring.mockClear()
-    await sendAccessExpiryReminders()
-    // Le nôtre est déjà marqué → il ne renvoie pas (d'autres lignes du run global
-    // peuvent exister, mais pas la nôtre).
-    expect(accessExpiring).not.toHaveBeenCalledWith(
-      expect.objectContaining({ to: `acc-${uid}@test.invalid` }),
-    )
+    expect(accessExpiring).toHaveBeenCalledWith({
+      to: `acc-${uid}@test.invalid`,
+      name: "Accès",
+      accessType: "exam",
+      daysRemaining: 5,
+      renewUrl: expect.stringMatching(/\/tableau-de-bord\/abonnements$/),
+    })
+    const [access] = await db
+      .select({ marker: userAccess.expiryReminderSentAt })
+      .from(userAccess)
+      .where(eq(userAccess.userId, uid))
+    expect(access?.marker).toBeInstanceOf(Date)
 
     await db.delete(userAccess).where(eq(userAccess.userId, uid))
     await db.delete(transactions).where(eq(transactions.id, tid))
@@ -275,7 +272,7 @@ describe("sendAccessExpiryReminders", () => {
   })
 })
 
-describe("claimAccessExpiryReminder", () => {
+describe("garde du rappel de fin d'accès : échéance = valeur lue", () => {
   const seedAccess = async (expiresAt: Date) => {
     const uid = createId()
     const pid = createId()
@@ -335,33 +332,35 @@ describe("claimAccessExpiryReminder", () => {
     return { accessId: access.id, cleanup, marker }
   }
 
-  it("échéance inchangée depuis la lecture : claim posé, une seule fois", async () => {
-    const expiresAt = new Date(now + 5 * 86400000)
-    const a = await seedAccess(expiresAt)
+  // La course lecture → renouvellement → claim n'est pas injectable dans
+  // l'expéditeur : on rejoue sa spec avec la ligne LUE figée.
+  const readRow = async (accessId: string) => {
+    const spec = accessExpiryReminderSpec()
+    const rows = await spec.select({ now: new Date(now), limit: 1000 })
+    const row = rows.find((r) => r.id === accessId)
+    if (!row) throw new Error("ligne candidate introuvable")
+    return row
+  }
+
+  it("échéance inchangée depuis la lecture : claim posé, courriel envoyé", async () => {
+    const a = await seedAccess(new Date(now + 5 * 86400000))
+    const row = await readRow(a.accessId)
     const claimAt = new Date(now)
 
-    expect(
-      await claimAccessExpiryReminder({
-        accessId: a.accessId,
-        expiresAt,
-        now: claimAt,
-      }),
-    ).toBe(true)
-    expect(await a.marker()).toEqual(claimAt)
-    expect(
-      await claimAccessExpiryReminder({
-        accessId: a.accessId,
-        expiresAt,
-        now: claimAt,
-      }),
-    ).toBe(false)
+    const sent = await sendOnce({
+      ...accessExpiryReminderSpec(),
+      now: claimAt,
+      select: async () => [row],
+    })
 
+    expect(sent).toBe(1)
+    expect(await a.marker()).toEqual(claimAt)
     await a.cleanup()
   })
 
   it("échéance prolongée entre la lecture et le claim : refusé, marqueur intact (le prochain run rappellera la nouvelle échéance)", async () => {
-    const readExpiresAt = new Date(now + 5 * 86400000)
-    const a = await seedAccess(readExpiresAt)
+    const a = await seedAccess(new Date(now + 5 * 86400000))
+    const row = await readRow(a.accessId)
     // Un renouvellement concurrent (applyGrant) a fait avancer l'expiration et
     // ré-armé le marqueur après le SELECT du cron.
     await db
@@ -372,15 +371,15 @@ describe("claimAccessExpiryReminder", () => {
       })
       .where(eq(userAccess.id, a.accessId))
 
-    expect(
-      await claimAccessExpiryReminder({
-        accessId: a.accessId,
-        expiresAt: readExpiresAt,
-        now: new Date(now),
-      }),
-    ).toBe(false)
-    expect(await a.marker()).toBeNull()
+    const sent = await sendOnce({
+      ...accessExpiryReminderSpec(),
+      now: new Date(now),
+      select: async () => [row],
+    })
 
+    expect(sent).toBe(0)
+    expect(accessExpiring).not.toHaveBeenCalled()
+    expect(await a.marker()).toBeNull()
     await a.cleanup()
   })
 })

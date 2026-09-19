@@ -29,7 +29,7 @@ import {
 import { getBaseUrl } from "@/lib/base-url"
 import { captureServerError } from "@/lib/observability"
 import { ownerReadableScore } from "../exams/dal.student"
-import { eligibleRecipient, sendOnce } from "./one-shot"
+import { defineOneShot, eligibleRecipient, sendOnce } from "./one-shot"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const EXAM_RESULTS_LIMIT = 500
@@ -105,78 +105,49 @@ export function sendExamResultsNotifications(): Promise<number> {
   })
 }
 
-/**
- * Claim atomique du rappel de fin d'accès (anti double-envoi concurrent). Le
- * prédicat exige que `expiresAt` vaille encore la valeur lue : un renouvellement
- * (`applyGrant`) qui prolonge l'accès entre la lecture et le claim ré-arme le
- * marqueur, et le claim seul sur `IS NULL` passerait alors — courriel avec
- * l'ancienne échéance, et plus aucun rappel pour la nouvelle. Refus = le
- * prochain run relit l'échéance à jour.
- */
-export async function claimAccessExpiryReminder(o: {
-  accessId: string
-  expiresAt: Date
-  now: Date
-}): Promise<boolean> {
-  const claimed = await db
-    .update(userAccess)
-    .set({ expiryReminderSentAt: o.now })
-    .where(
-      and(
-        eq(userAccess.id, o.accessId),
-        eq(userAccess.expiresAt, o.expiresAt),
-        isNull(userAccess.expiryReminderSentAt),
-      ),
-    )
-    .returning({ id: userAccess.id })
-  return claimed.length > 0
-}
-
 // Rappel de fin d'accès : accès expirant dans ≤ 7 j, une seule fois. Marqueur
 // `expiryReminderSentAt` (réinitialisé au renouvellement — Stripe + manuel).
-export async function sendAccessExpiryReminders(): Promise<number> {
-  const now = new Date()
-  const in7d = new Date(now.getTime() + 7 * DAY_MS)
-  const rows = await db
-    .select({
-      accessId: userAccess.id,
-      accessType: userAccess.accessType,
-      expiresAt: userAccess.expiresAt,
-      email: user.email,
-      name: user.name,
-      notify: user.notifyAccessExpiry,
-    })
-    .from(userAccess)
-    .innerJoin(user, eq(user.id, userAccess.userId))
-    .where(
-      and(
-        gt(userAccess.expiresAt, now),
-        lt(userAccess.expiresAt, in7d),
-        isNull(userAccess.expiryReminderSentAt),
-        isNull(user.deletedAt),
-        eq(user.banned, false),
-      ),
-    )
-    .limit(ACCESS_REMINDER_LIMIT)
-
-  if (rows.length === ACCESS_REMINDER_LIMIT) {
-    console.warn(
-      `[notif] accès — borne ${ACCESS_REMINDER_LIMIT} atteinte : le reste sera traité au prochain run`,
-    )
-  }
-
-  let sent = 0
-  for (const r of rows) {
-    try {
-      const claimed = await claimAccessExpiryReminder({
-        accessId: r.accessId,
-        expiresAt: r.expiresAt,
-        now,
-      })
-      if (!claimed) continue // déjà pris par un autre run, ou accès prolongé
-      if (!r.notify) continue // opt-out : marqueur posé, pas d'envoi
-
-      await sendAccessExpiringEmail({
+// La garde du claim exige que `expiresAt` vaille encore la valeur lue : un
+// renouvellement (`applyGrant`) qui prolonge l'accès entre la lecture et le
+// claim ré-arme le marqueur, et un claim sur `IS NULL` seul passerait alors —
+// courriel avec l'ancienne échéance, et plus aucun rappel pour la nouvelle.
+// Refus = le prochain run relit l'échéance à jour.
+export const accessExpiryReminderSpec = () =>
+  defineOneShot({
+    label: "accès",
+    tag: "[notif:acces]",
+    limit: ACCESS_REMINDER_LIMIT,
+    select: ({ now, limit }) =>
+      db
+        .select({
+          id: userAccess.id,
+          userId: userAccess.userId,
+          accessType: userAccess.accessType,
+          expiresAt: userAccess.expiresAt,
+          email: user.email,
+          name: user.name,
+          notify: user.notifyAccessExpiry,
+        })
+        .from(userAccess)
+        .innerJoin(user, eq(user.id, userAccess.userId))
+        .where(
+          and(
+            gt(userAccess.expiresAt, now),
+            lt(userAccess.expiresAt, new Date(now.getTime() + 7 * DAY_MS)),
+            isNull(userAccess.expiryReminderSentAt),
+            eligibleRecipient,
+          ),
+        )
+        .limit(limit),
+    claim: {
+      table: userAccess,
+      idColumn: userAccess.id,
+      markerColumn: userAccess.expiryReminderSentAt,
+      guard: (r) => eq(userAccess.expiresAt, r.expiresAt),
+    },
+    shouldSend: (r) => r.notify,
+    send: (r, { now }) =>
+      sendAccessExpiringEmail({
         to: r.email,
         name: r.name,
         accessType: r.accessType,
@@ -184,15 +155,12 @@ export async function sendAccessExpiryReminders(): Promise<number> {
           (r.expiresAt.getTime() - now.getTime()) / DAY_MS,
         ),
         renewUrl: `${getBaseUrl()}/tableau-de-bord/abonnements`,
-      })
-      sent++
-    } catch (error) {
-      captureServerError("[notif:acces]", error, {
-        detail: `accès ${r.accessId}`,
-      })
-    }
-  }
-  return sent
+      }),
+    context: (r) => ({ detail: `accès ${r.id}` }),
+  })
+
+export function sendAccessExpiryReminders(): Promise<number> {
+  return sendOnce(accessExpiryReminderSpec())
 }
 
 // Relance d'inactivité : compte vérifié sans visite ni activité depuis 21 j,
