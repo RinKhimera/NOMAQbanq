@@ -19,8 +19,8 @@ import { stripeBox } from "../helpers/fake-stripe"
 
 // Fulfillment de bout en bout sur une vraie base, pour les chemins qui coûtent
 // de l'argent : octroi, idempotence, litige avant fulfillment, remboursement
-// complet vs partiel, litige perdu. La table exhaustive des événements (35 cas
-// sur verbes mockés) vit dans tests/features/stripe-fulfillment.test.ts.
+// complet vs partiel, litige perdu. La table exhaustive des événements, sur
+// verbes db mockés, vit dans tests/features/stripe-fulfillment.test.ts.
 vi.mock("@/lib/observability", () => ({ captureServerError: vi.fn() }))
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()

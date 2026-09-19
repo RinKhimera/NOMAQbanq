@@ -101,7 +101,7 @@ rend le travail différé (courriel, rappel de panier) sans jamais appeler
   remboursement proactif, qui évite les frais (15 $ + 15 $ CA) et le coup au
   taux de litige. C'est la seule mesure qui couvre un paiement Link pur, que
   `request_three_d_secure` (carte uniquement) ne protège pas.
-- **Le courriel de confirmation part APRÈS le 200** (`waitUntil`) et en
+- **Le courriel de confirmation part APRÈS le 200** (`after()` de Next) et en
   best-effort : Stripe exige une réponse rapide, et un retry retomberait en
   `already_processed` sans courriel ni trace. Un échec est capturé dans
   Sentry ; le reçu Stripe (`payment_intent_data.receipt_email`) part de son
