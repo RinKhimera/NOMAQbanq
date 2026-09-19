@@ -29,6 +29,7 @@ import {
 import { getBaseUrl } from "@/lib/base-url"
 import { captureServerError } from "@/lib/observability"
 import { ownerReadableScore } from "../exams/dal.student"
+import { eligibleRecipient, sendOnce } from "./one-shot"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 const EXAM_RESULTS_LIMIT = 500
@@ -49,88 +50,59 @@ export type NotificationSweepResult = {
 }
 
 // Notifie les participants d'examens CLOS (endDate passée) dont les résultats sont
-// désormais visibles. Marqueur `resultsNotifiedAt` = envoi unique. On pose le
-// marqueur pour tout éligible-par-date (envoi seulement aux opt-in) → pas de
-// re-scan des lignes opt-out. Comptes supprimés et suspendus exclus, marqueur
-// non posé (le courriel repart si la suspension est levée). Borné + résilient
-// (par ligne).
+// désormais visibles. Marqueur posé pour tout éligible-par-date, envoi aux
+// seuls opt-in (`shouldSend`) → pas de re-scan des lignes opt-out.
 //
 // ⚠️ Concurrence : `close-expired` est frappé par DEUX schedulers (GitHub Actions
-// toutes les 3 h + Vercel quotidien) qui se recouvrent à minuit UTC. Deux runs lisent le
-// même lot `IS NULL`. On CLAIM donc chaque ligne par un UPDATE gardé atomique
-// (`SET marqueur=now WHERE marqueur IS NULL RETURNING`) AVANT l'envoi : seul le
-// run qui gagne le claim envoie → jamais de double email (même idiome que la
-// clôture d'examens, features/exams/cron.ts).
-export async function sendExamResultsNotifications(): Promise<number> {
-  const now = new Date()
-  const rows = await db
-    .select({
-      participationId: examParticipations.id,
-      examId: examParticipations.examId,
-      // Retenu pour son propriétaire tant qu'une réponse chevauche un examen
-      // ouvert : le courriel imprimerait sinon l'oracle de la page de résultats.
-      score: ownerReadableScore,
-      email: user.email,
-      name: user.name,
-      notify: user.notifyExamResults,
-      examTitle: exams.title,
-    })
-    .from(examParticipations)
-    .innerJoin(exams, eq(exams.id, examParticipations.examId))
-    .innerJoin(user, eq(user.id, examParticipations.userId))
-    .where(
-      and(
-        lt(exams.endDate, now),
-        inArray(examParticipations.status, ["completed", "auto_submitted"]),
-        isNull(examParticipations.resultsNotifiedAt),
-        isNull(user.deletedAt),
-        eq(user.banned, false),
-      ),
-    )
-    .limit(EXAM_RESULTS_LIMIT)
-
-  if (rows.length === EXAM_RESULTS_LIMIT) {
-    console.warn(
-      `[notif] résultats — borne ${EXAM_RESULTS_LIMIT} atteinte : le reste sera traité au prochain run`,
-    )
-  }
-
-  let sent = 0
-  for (const r of rows) {
-    try {
-      // Claim atomique (anti double-envoi concurrent) : ne poursuit que si CE run
-      // pose le marqueur ; un run concurrent obtient 0 ligne et saute.
-      const claimed = await db
-        .update(examParticipations)
-        .set({ resultsNotifiedAt: now })
+// toutes les 3 h + Vercel quotidien) qui se recouvrent à minuit UTC ; c'est le
+// claim de `sendOnce` qui garantit l'envoi unique.
+export function sendExamResultsNotifications(): Promise<number> {
+  return sendOnce({
+    label: "résultats",
+    tag: "[notif:resultats]",
+    limit: EXAM_RESULTS_LIMIT,
+    select: ({ now, limit }) =>
+      db
+        .select({
+          id: examParticipations.id,
+          userId: examParticipations.userId,
+          examId: examParticipations.examId,
+          // Retenu pour son propriétaire tant qu'une réponse chevauche un examen
+          // ouvert : le courriel imprimerait sinon l'oracle de la page de résultats.
+          score: ownerReadableScore,
+          email: user.email,
+          name: user.name,
+          notify: user.notifyExamResults,
+          examTitle: exams.title,
+        })
+        .from(examParticipations)
+        .innerJoin(exams, eq(exams.id, examParticipations.examId))
+        .innerJoin(user, eq(user.id, examParticipations.userId))
         .where(
           and(
-            eq(examParticipations.id, r.participationId),
+            lt(exams.endDate, now),
+            inArray(examParticipations.status, ["completed", "auto_submitted"]),
             isNull(examParticipations.resultsNotifiedAt),
+            eligibleRecipient,
           ),
         )
-        .returning({ id: examParticipations.id })
-      if (claimed.length === 0) continue // déjà pris par un autre run
-      if (!r.notify) continue // opt-out : marqueur posé, pas d'envoi (spec §5)
-
-      await sendExamResultsEmail({
+        .limit(limit),
+    claim: {
+      table: examParticipations,
+      idColumn: examParticipations.id,
+      markerColumn: examParticipations.resultsNotifiedAt,
+    },
+    shouldSend: (r) => r.notify,
+    send: (r) =>
+      sendExamResultsEmail({
         to: r.email,
         name: r.name,
         examTitle: r.examTitle,
         score: r.score,
         resultUrl: `${getBaseUrl()}/tableau-de-bord/examen-blanc/${r.examId}/resultats`,
-      })
-      sent++
-    } catch (error) {
-      // Best-effort : si l'envoi échoue, le marqueur reste posé (anti-double), pas
-      // de réessai — les résultats restent visibles en app. Perte tolérée d'un
-      // email.
-      captureServerError("[notif:resultats]", error, {
-        detail: `participation ${r.participationId}`,
-      })
-    }
-  }
-  return sent
+      }),
+    context: (r) => ({ detail: `participation ${r.id}` }),
+  })
 }
 
 /**

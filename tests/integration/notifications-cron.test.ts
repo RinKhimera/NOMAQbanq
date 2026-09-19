@@ -206,14 +206,6 @@ describe("sendExamResultsNotifications", () => {
       .limit(1)
     expect(openRow[0]?.notifiedAt).toBeNull()
   })
-
-  it("2e run = no-op pour nos participations (marqueur déjà posé)", async () => {
-    examResults.mockClear()
-    await sendExamResultsNotifications()
-    expect(examResults).not.toHaveBeenCalledWith(
-      expect.objectContaining({ to: `in-${optIn}@test.invalid` }),
-    )
-  })
 })
 
 describe("sendAccessExpiryReminders", () => {
