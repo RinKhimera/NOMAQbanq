@@ -14,9 +14,9 @@ type OnboardingGuardProps = {
 // Le layout ne connaît pas `pathname`, d'où le composant client.
 //
 // Cette prop vient d'un layout qui ne se re-rend PAS à la navigation client :
-// la fin d'onboarding ne fait qu'un `router.refresh()`, jamais une navigation
-// enchaînée derrière (voir `onboarding-form.tsx`), sinon la prop resterait
-// fausse et ce guard renverrait en boucle vers l'onboarding.
+// c'est le `router.refresh()` de fin d'onboarding (`onboarding-form.tsx`) qui
+// la rafraîchit. Sans lui, elle resterait fausse et ce guard renverrait vers
+// l'onboarding.
 export const OnboardingGuard = ({ hasUsername }: OnboardingGuardProps) => {
   const pathname = usePathname()
   const router = useRouter()
