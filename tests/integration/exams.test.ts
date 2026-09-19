@@ -723,26 +723,6 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
     const ok = await finalizeExam({ examId: activeId, isAutoSubmit: true })
     expect(ok.success).toBe(true)
   })
-
-  it("compat participation legacy (sans lignes examAnswers pré-créées)", async () => {
-    // Tests que finalizeExam gère gracieusement une participation sans lignes EA
-    const legacyExamId = await makeExam({ questionIds: examQIds })
-    const partId = createId()
-    const now = Date.now()
-    await db.insert(examParticipations).values({
-      id: partId,
-      examId: legacyExamId,
-      userId: STUDENT_ID,
-      status: "in_progress",
-      score: 0,
-      startedAt: new Date(now - 100),
-    })
-    // Pas de lignes examAnswers (participation legacy)
-    asStudent()
-    const res = await finalizeExam({ examId: legacyExamId })
-    expect(res).toEqual({ success: true })
-    expect(await persistedScore(legacyExamId)).toBe(0)
-  })
 })
 
 describe("Anti-triche : chevauchement training / examen OUVERT", () => {

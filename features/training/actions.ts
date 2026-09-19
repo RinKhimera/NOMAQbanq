@@ -15,11 +15,10 @@ import { requireSession } from "@/lib/auth-guards"
 import { getPgErrorCode } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
-import { computeScorePercent } from "@/lib/score"
+import { closeAttempts } from "../attempts/close"
 import { type Refusal, refusalMessage, requireAttempt } from "../attempts/guard"
 import { hasAccess } from "../payments/dal"
 import { lockFor, viewerOf } from "../questions/answer-key-lock"
-import { expireTrainingSessions } from "./cron"
 import {
   type ObjectifsView,
   type TrainingHistoryPage,
@@ -185,7 +184,12 @@ export const createTrainingSession = async (
         }
         // La session expirée qui barre la place est close par l'écrivain du
         // cron (scorée, `completedAt` posé), sous le verrou courant.
-        await expireTrainingSessions(tx, { now, sessionId: existing.id })
+        await closeAttempts(tx, {
+          kind: "training",
+          status: "abandoned",
+          now,
+          where: { expiredBefore: now, limit: 1, id: existing.id },
+        })
       }
 
       let picked: { id: string }[]
@@ -429,9 +433,10 @@ export type CompleteTrainingSessionResult =
   { success: true } | { success: false; error: string }
 
 /**
- * [Auth] Termine la session sous la garde `close` : score = % de bonnes
- * réponses sur le nombre de questions de la session. Une session expirée est
- * refusée sans écriture, le cron la clôt.
+ * [Auth] Termine la session sous la garde `close` : la clôture (statut, score
+ * de clôture sur le nombre de questions tiré, `completedAt`) est écrite par
+ * `closeAttempts`. Une session expirée est refusée sans écriture, le cron la
+ * clôt.
  */
 export const completeTrainingSession = async ({
   sessionId,
@@ -454,24 +459,12 @@ export const completeTrainingSession = async ({
       })
       if (!guard.ok) return guard
 
-      const [c] = await tx
-        .select({
-          correct:
-            sql<number>`count(*) filter (where ${trainingSessionItems.isCorrect})`.mapWith(
-              Number,
-            ),
-        })
-        .from(trainingSessionItems)
-        .where(eq(trainingSessionItems.sessionId, sessionId))
-      const score = computeScorePercent(
-        c?.correct ?? 0,
-        guard.attempt.questionCount,
-      )
-
-      await tx
-        .update(trainingSessions)
-        .set({ status: "completed", score, completedAt: new Date(now) })
-        .where(eq(trainingSessions.id, guard.attempt.id))
+      await closeAttempts(tx, {
+        kind: "training",
+        status: "completed",
+        now: new Date(now),
+        where: { id: guard.attempt.id },
+      })
       return { ok: true as const }
     })
     if (!outcome.ok) return refused(outcome)

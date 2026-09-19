@@ -38,7 +38,7 @@ const { mocks } = vi.hoisted(() => ({
     },
     hasAccess: vi.fn(async () => true),
     requireAttempt: vi.fn(),
-    expireTrainingSessions: vi.fn(async () => ({ closedCount: 1 })),
+    closeAttempts: vi.fn(async () => ["old"]),
     getPgErrorCode: vi.fn<() => string | undefined>(() => undefined),
     lockedIds: { current: new Set<string>() },
     lockFor: vi.fn(),
@@ -67,6 +67,9 @@ vi.mock("@/db/schema", async () => {
     user: table("user"),
   }
 })
+vi.mock("@/features/attempts/close", () => ({
+  closeAttempts: mocks.closeAttempts,
+}))
 vi.mock("@/features/attempts/guard", async (orig) => {
   const actual = await orig<typeof import("@/features/attempts/guard")>()
   return { ...actual, requireAttempt: mocks.requireAttempt }
@@ -81,9 +84,6 @@ vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   return { ...actual, lockFor: mocks.lockFor }
 })
 vi.mock("@/features/payments/dal", () => ({ hasAccess: mocks.hasAccess }))
-vi.mock("@/features/training/cron", () => ({
-  expireTrainingSessions: mocks.expireTrainingSessions,
-}))
 vi.mock("@/features/training/dal", () => ({
   getAvailableObjectifsCMC: mocks.getAvailableObjectifsCMC,
   getTrainingHistory: mocks.getTrainingHistory,
@@ -243,9 +243,11 @@ describe("createTrainingSession", () => {
     })
     const res = await createTrainingSession(input)
     expect(res).toMatchObject({ success: true })
-    expect(mocks.expireTrainingSessions).toHaveBeenCalledWith(fakeTx, {
+    expect(mocks.closeAttempts).toHaveBeenCalledWith(fakeTx, {
+      kind: "training",
+      status: "abandoned",
       now: new Date(NOW),
-      sessionId: "old",
+      where: { expiredBefore: new Date(NOW), limit: 1, id: "old" },
     })
   })
 
@@ -260,7 +262,7 @@ describe("createTrainingSession", () => {
       error:
         "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
     })
-    expect(mocks.expireTrainingSessions).not.toHaveBeenCalled()
+    expect(mocks.closeAttempts).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -494,7 +496,6 @@ describe("completeTrainingSession", () => {
   })
 
   it("demande la garde `close`", async () => {
-    setRows({ trainingSessionItems: [{ correct: 7 }] })
     await completeTrainingSession({ sessionId: "s1" })
     expect(mocks.requireAttempt).toHaveBeenCalledWith(
       fakeTx,
@@ -508,19 +509,22 @@ describe("completeTrainingSession", () => {
       success: false,
       error: refusalMessage(code, "training"),
     })
-    expect(state.set).toBeUndefined()
+    expect(mocks.closeAttempts).not.toHaveBeenCalled()
   })
 
-  it("calcule le score sur le nombre de questions de la session", async () => {
-    setRows({ trainingSessionItems: [{ correct: 7 }] })
+  // La clôture (score sur le nombre de questions tiré) appartient à
+  // `closeAttempts`, prouvé dans tests/integration/attempt-close : l'action ne
+  // porte que le mapping vers la tentative verrouillée.
+  it("clôt la tentative verrouillée en completed, sous la transaction", async () => {
     expect(await completeTrainingSession({ sessionId: "s1" })).toEqual({
       success: true,
     })
     // Le décompte ne repart pas vers le navigateur : le score se lit en base.
-    expect(state.set).toMatchObject({
+    expect(mocks.closeAttempts).toHaveBeenCalledWith(fakeTx, {
+      kind: "training",
       status: "completed",
-      score: 70,
-      completedAt: new Date(NOW),
+      now: new Date(NOW),
+      where: { id: "s1" },
     })
     expect(mocks.revalidatePath).toHaveBeenCalledWith(
       "/tableau-de-bord/entrainement",

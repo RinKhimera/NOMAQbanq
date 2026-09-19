@@ -62,11 +62,27 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   budget). Refus par code, message par `refusalMessage(code, kind)` ; les refus
   propres à l'action (« question hors examen », « déjà en pause ») restent
   locaux. Plus de garde de statut dans le WHERE des UPDATE : le verrou est la
-  discipline. **Le cron est le seul écrivain de la clôture par expiration** :
-  une action qui constate l'expiration refuse (`EXPIRED`) sans rien écrire ;
-  `createTrainingSession` libère la place via `expireTrainingSessions(tx, …)`,
-  le même écrivain scoré que le cron. `isAutoSubmit` (client) n'a qu'un effet :
-  exempter le `close` du budget — jamais une écriture de réponse.
+  discipline (seule exception : `closeAttempts`, qui sert aussi le balayage
+  du cron sans verrou et re-vérifie « encore ouverte » dans son WHERE final).
+  **Le cron est le seul écrivain de la clôture par expiration** :
+  une action qui constate l'expiration refuse (`EXPIRED`) sans rien écrire.
+  **La clôture elle-même a UN écrivain : `closeAttempts`**
+  (`features/attempts/close.ts`, vocabulaire dans `CONTEXT.md`). Il possède le
+  compte des justes, le dénominateur par type (questions de l'examen blanc
+  pour une participation, nombre tiré pour une session d'entraînement), la
+  garde « encore ouverte » et l'écriture (statut, score, `completedAt`) ;
+  `{ id }` sous le verrou d'une action, `{ expiredBefore, limit, id? }` pour
+  les crons et pour `createTrainingSession` qui libère la place.
+  Un appelant ne recopie ni l'agrégat ni la formule (`scoreSql`) ni un UPDATE
+  sur la tentative ; la règle est prouvée une fois dans
+  `tests/integration/attempt-close.test.ts`, les tests des appelants ne
+  gardent que leur mapping (statut demandé, crédit de pause). `isAutoSubmit`
+  (client) n'a qu'un effet : exempter le `close` du budget — jamais une
+  écriture de réponse.
+- **Le cron est une liste** : `SCHEDULE` (`features/cron/schedule.ts`), exécutée
+  par `runSchedule` (`features/cron/run.ts`). Ajouter une tâche = ajouter une
+  entrée `{ key, label, tag, run }` à la bonne place, avec sa contrainte
+  d'ordre en commentaire à côté ; ni la route ni son test ne changent.
 - **Passation d'examen — invariante d'accès** : le contenu des questions n'est
   livré/écrit que pour une participation `in_progress` (créée par `startExam`,
   seul à vérifier audience + fenêtre + accès à la création). La page evaluation

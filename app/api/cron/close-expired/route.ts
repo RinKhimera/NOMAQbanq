@@ -1,19 +1,13 @@
-import { closeExpiredExamParticipations } from "@/features/exams/cron"
-import { sendPendingNotifications } from "@/features/notifications/cron"
-import { auditProductPriceDrift } from "@/features/payments/cron"
-import { closeExpiredTrainingSessions } from "@/features/training/cron"
-import { anonymizeExpiredDeletedAccounts } from "@/features/users/cron"
+import { runSchedule } from "@/features/cron/run"
+import { SCHEDULE } from "@/features/cron/schedule"
 import { env } from "@/lib/env/server"
-import { captureServerError } from "@/lib/observability"
-import { cleanupQuizRateLimits } from "@/lib/quiz-rate-limit"
 
 // Accès DB → runtime Node.
 export const runtime = "nodejs"
 
 /**
- * Cron : clôtures (examens, entraînements), anonymisation RGPD, purge du
- * rate-limit quiz, notifications en attente et audit de dérive des prix
- * catalogue. Une seule route pour l'ensemble.
+ * Cron : une seule route pour l'ensemble des tâches de `SCHEDULE`
+ * (`features/cron/schedule.ts`), exécutées par `runSchedule`.
  *
  * Sécurité : l'appelant doit envoyer `Authorization: Bearer ${CRON_SECRET}`.
  * Fail-closed : sans `CRON_SECRET` configuré, on répond 401 (jamais ouvert).
@@ -39,102 +33,7 @@ export async function GET(request: Request) {
     return new Response("Unauthorized", { status: 401 })
   }
 
-  // Séquentiel volontairement (Sentry NOMAQBANQ-17) : en parallèle sur un
-  // pool froid, chaque tâche ouvre sa propre connexion Neon (3-4 handshakes
-  // de ~100 ms) — le détecteur N+1 flaggait cette rafale. En séquence, la
-  // première connexion est réutilisée ; un cron de fond n'a pas de latence
-  // à optimiser.
-  //
-  // Chaque tâche est isolée : un échec persistant de l'une (ex. poison-row à
-  // la clôture examens) ne doit pas bloquer les suivantes — notamment
-  // l'anonymisation RGPD. Un échec quelconque → 500 après avoir tout tenté,
-  // pour conserver le retry du scheduler.
-  let failed = false
-  const run = async <T>(
-    label: string,
-    tag: string,
-    task: () => Promise<T>,
-    empty: T,
-  ): Promise<T> => {
-    try {
-      return await task()
-    } catch (error) {
-      failed = true
-      captureServerError(tag, error, { detail: label })
-      return empty
-    }
-  }
-
-  const examParticipations = await run(
-    "clôture examens",
-    "[cron:exams]",
-    closeExpiredExamParticipations,
-    { closedCount: 0 },
-  )
-  const trainingSessions = await run(
-    "clôture entraînements",
-    "[cron:trainings]",
-    closeExpiredTrainingSessions,
-    { closedCount: 0 },
-  )
-  const anonymizedAccounts = await run(
-    "anonymisation",
-    "[cron:anonymize]",
-    anonymizeExpiredDeletedAccounts,
-    { anonymizedCount: 0 },
-  )
-  const quizRateLimitCleanup = await run(
-    "purge rate-limit quiz",
-    "[cron:quiz-rl]",
-    cleanupQuizRateLimits,
-    { deletedCount: 0 },
-  )
-
-  // APRÈS les clôtures (pour inclure les `auto_submitted` du même run).
-  const notifications = await run(
-    "notifications",
-    "[cron:notifications]",
-    sendPendingNotifications,
-    { examResultsSent: 0, accessRemindersSent: 0, inactivityRemindersSent: 0 },
-  )
-
-  // EN DERNIER : seule tâche purement informative du lot, et seule à faire un
-  // aller-retour réseau hors Neon. L'appelant coupe à `--max-time 60` — ce qui
-  // peut être perdu ici est un rapport de dérive, pas une clôture d'examen ni un
-  // email en attente.
-  const priceDrift = await run(
-    "dérive des prix catalogue",
-    "[cron:price-drift]",
-    auditProductPriceDrift,
-    { checked: 0, drifted: 0, failed: false },
-  )
-
+  const { report, failed } = await runSchedule(SCHEDULE)
   if (failed) return new Response("Cron handler error", { status: 500 })
-
-  if (
-    examParticipations.closedCount > 0 ||
-    trainingSessions.closedCount > 0 ||
-    anonymizedAccounts.anonymizedCount > 0 ||
-    notifications.examResultsSent > 0 ||
-    notifications.accessRemindersSent > 0 ||
-    notifications.inactivityRemindersSent > 0
-  ) {
-    console.log(
-      `[cron close-expired] examens fermés=${examParticipations.closedCount} ` +
-        `sessions fermées=${trainingSessions.closedCount} ` +
-        `comptes anonymisés=${anonymizedAccounts.anonymizedCount} ` +
-        `notif résultats=${notifications.examResultsSent} ` +
-        `notif accès=${notifications.accessRemindersSent} ` +
-        `notif inactivité=${notifications.inactivityRemindersSent}`,
-    )
-  }
-
-  return Response.json({
-    examParticipations,
-    trainingSessions,
-    anonymizedAccounts,
-    notifications,
-    quizRateLimitCleanup,
-    priceDrift,
-  })
+  return Response.json(report)
 }

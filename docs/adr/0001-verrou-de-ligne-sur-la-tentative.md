@@ -11,9 +11,11 @@ sur le statut côté entraînement, avec trois flips d'expiration inline qui ne
 scoraient pas alors que le cron score. Nous décidons que toute écriture passe
 par `requireAttempt` (`features/attempts/guard.ts`), qui prend un
 `SELECT … FOR UPDATE` sur la ligne de la tentative dans la transaction de
-l'appelant, et que l'expiration n'est écrite que par l'écrivain scoré du cron
-(`expireTrainingSessions`, `closeExpiredExamParticipations`) : une action qui
-constate l'expiration refuse sans écrire.
+l'appelant, et que l'expiration n'est écrite que par l'écrivain scoré du cron :
+une action qui constate l'expiration refuse sans écrire. Cet écrivain est
+`closeAttempts` (`features/attempts/close.ts`), qui possède aussi le score de
+clôture et sert la soumission comme l'expiration ; il remplace
+`expireTrainingSessions` et l'écriture propre du cron des examens.
 
 ## Options écartées
 
