@@ -21,7 +21,7 @@ import { captureServerError } from "@/lib/observability"
  * sans poser de marqueur (le courriel repart si la suspension est levée). Les
  * préférences de notification ne sont PAS l'éligibilité.
  */
-export const eligibleRecipient: SQL = sql`${user.deletedAt} is null and ${user.banned} = false`
+export const eligibleRecipient: SQL = sql`(${user.deletedAt} is null and ${user.banned} = false)`
 
 export type OneShotContext = { now: Date; limit: number }
 
