@@ -17,7 +17,7 @@ import { requireRole, requireSession } from "@/lib/auth-guards"
 import { isOpen } from "@/lib/exam-phase"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
-import { computeScorePercent } from "@/lib/score"
+import { closeAttempts } from "../attempts/close"
 import {
   type Refusal,
   type RefusalCode,
@@ -729,10 +729,11 @@ export type FinalizeExamResult =
   { success: true } | { success: false; error: string }
 
 /**
- * [Auth] Finalise un examen sous la garde `close` : calcule le score depuis
- * les lignes examAnswers pré-existantes, crédite une pause en cours, met à
- * jour le statut. `isAutoSubmit` vient du client : la garde ne lui accorde
- * que l'exemption du budget (les réponses sont gardées à l'écriture).
+ * [Auth] Finalise un examen sous la garde `close` : la clôture (statut, score
+ * de clôture, `completedAt`) est écrite par `closeAttempts`, l'action n'y
+ * ajoute que le crédit d'une pause en cours. `isAutoSubmit` vient du client :
+ * la garde ne lui accorde que l'exemption du budget (les réponses sont gardées
+ * à l'écriture).
  * Anti-triche : ni isCorrect ni le décompte des justes ne repartent vers le
  * navigateur (voir `scoreWithheldFor`) ; les résultats se lisent par la DAL
  * après clôture.
@@ -762,28 +763,16 @@ export const finalizeExam = async (
       if (!guard.ok) return guard
       const { id, timing } = guard.attempt
 
-      const [agg] = await tx
-        .select({
-          correct:
-            sql<number>`count(*) filter (where ${examAnswers.isCorrect})`.mapWith(
-              Number,
-            ),
-          total: sql<number>`count(*)`.mapWith(Number),
-        })
-        .from(examAnswers)
-        .where(eq(examAnswers.participationId, id))
-      const score = computeScorePercent(agg?.correct ?? 0, agg?.total ?? 0)
-
-      await tx
-        .update(examParticipations)
-        .set({
-          status: isAutoSubmit ? "auto_submitted" : "completed",
-          score,
-          completedAt: new Date(now),
+      await closeAttempts(tx, {
+        kind: "exam",
+        status: isAutoSubmit ? "auto_submitted" : "completed",
+        now: new Date(now),
+        where: { id },
+        set: {
           pauseStartedAt: null,
           totalPauseDurationMs: pauseCredit(timing, now),
-        })
-        .where(eq(examParticipations.id, id))
+        },
+      })
       return { ok: true as const }
     })
     if (!outcome.ok) return refused(outcome)

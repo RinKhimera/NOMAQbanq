@@ -43,6 +43,7 @@ const { mocks } = vi.hoisted(() => ({
     },
     hasActiveAccess: vi.fn(async () => true),
     requireAttempt: vi.fn(),
+    closeAttempts: vi.fn(async () => ["p1"]),
     searchSelectableUsers: vi.fn(async () => []),
     getExamAudience: vi.fn(async () => []),
     getExamQuestionExplanations: vi.fn(async () => []),
@@ -64,6 +65,9 @@ vi.mock("@/db/schema", async () => {
     user: table("user"),
   }
 })
+vi.mock("@/features/attempts/close", () => ({
+  closeAttempts: mocks.closeAttempts,
+}))
 vi.mock("@/features/attempts/guard", async (orig) => {
   const actual = await orig<typeof import("@/features/attempts/guard")>()
   return { ...actual, requireAttempt: mocks.requireAttempt }
@@ -544,9 +548,11 @@ describe("saveExamFlag", () => {
   })
 })
 
+// La clôture elle-même (statut, score de clôture, `completedAt`) appartient à
+// `closeAttempts` (doublé ici, prouvé dans tests/integration/attempt-close) :
+// l'action ne porte que le mapping — statut demandé, tentative verrouillée,
+// crédit de pause.
 describe("finalizeExam", () => {
-  const agg = { examAnswers: [{ correct: 1, total: 2 }] }
-
   it("entree invalide → refus avant transaction", async () => {
     const res = await finalizeExam({ examId: "" })
     expect(res.success).toBe(false)
@@ -556,7 +562,6 @@ describe("finalizeExam", () => {
   // `isAutoSubmit` (client) n'a qu'un effet : l'exemption du budget que la
   // garde `close` applique — il transite tel quel.
   it("demande la garde `close` et lui transmet isAutoSubmit", async () => {
-    setRows(agg)
     await finalizeExam({ examId: "e1", isAutoSubmit: true })
     expect(mocks.requireAttempt).toHaveBeenCalledWith(fakeTx, {
       kind: "exam",
@@ -570,31 +575,31 @@ describe("finalizeExam", () => {
 
   it.each(ALL_REFUSALS)("refus %s → message, aucune ecriture", async (code) => {
     refuse(code)
-    setRows(agg)
     expect(await finalizeExam({ examId: "e1" })).toEqual({
       success: false,
       error: refusalMessage(code, "exam"),
       code,
     })
-    expect(state.set).toBeUndefined()
+    expect(mocks.closeAttempts).not.toHaveBeenCalled()
   })
 
-  it("succes manuel : score depuis les lignes en base, statut completed", async () => {
-    setRows(agg)
+  it("succes manuel : clôture de la tentative verrouillée en completed, sous la transaction", async () => {
     expect(await finalizeExam({ examId: "e1" })).toEqual({ success: true })
-    expect(state.set).toEqual({
+    expect(mocks.closeAttempts).toHaveBeenCalledWith(fakeTx, {
+      kind: "exam",
       status: "completed",
-      score: 50,
-      completedAt: new Date(NOW),
-      pauseStartedAt: null,
-      totalPauseDurationMs: 0,
+      now: new Date(NOW),
+      where: { id: "p1" },
+      set: { pauseStartedAt: null, totalPauseDurationMs: 0 },
     })
   })
 
   it("auto-soumission : statut auto_submitted", async () => {
-    setRows(agg)
     await finalizeExam({ examId: "e1", isAutoSubmit: true })
-    expect(state.set).toMatchObject({ status: "auto_submitted" })
+    expect(mocks.closeAttempts).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({ status: "auto_submitted" }),
+    )
   })
 
   // Une pause en cours à la clôture est créditée, plafonnée à la durée de
@@ -611,12 +616,13 @@ describe("finalizeExam", () => {
         },
       }),
     )
-    setRows(agg)
     await finalizeExam({ examId: "e1" })
-    expect(state.set).toMatchObject({
-      pauseStartedAt: null,
-      totalPauseDurationMs: 1_000 + 5 * 60_000,
-    })
+    expect(mocks.closeAttempts).toHaveBeenCalledWith(
+      fakeTx,
+      expect.objectContaining({
+        set: { pauseStartedAt: null, totalPauseDurationMs: 1_000 + 5 * 60_000 },
+      }),
+    )
   })
 
   it("erreur inattendue → capture", async () => {
