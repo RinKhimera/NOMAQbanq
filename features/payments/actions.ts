@@ -10,6 +10,7 @@ import { getBaseUrl } from "@/lib/base-url"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { getStripe } from "@/lib/stripe"
+import { rebuildFromTransactions } from "./access-ledger"
 import { describePriceDrift, resolveStripePrice } from "./catalog"
 import {
   type AccessImpact,
@@ -23,7 +24,7 @@ import {
   getTransactionAccessImpact,
   getTransactionStats,
 } from "./dal"
-import { grantManualAccess, recomputeAccess } from "./lib"
+import { grantManualAccess } from "./lib"
 import {
   type RecordManualPaymentInput,
   type UpdateManualTransactionInput,
@@ -121,7 +122,7 @@ export type ManualPaymentResult = {
 
 /**
  * [Admin] Enregistre un paiement manuel et accorde l'accès correspondant.
- * Tout est atomique (`db.transaction`) avec verrou utilisateur (cf. `grantManualAccess`).
+ * Tout est atomique (`db.transaction`) avec verrou utilisateur (cf. `applyGrant`).
  */
 export const recordManualPayment = async (
   input: RecordManualPaymentInput,
@@ -217,9 +218,9 @@ export const updateManualTransaction = async (
 
       // Verrou user AVANT toute écriture sur `transactions` : même ordre
       // d'acquisition (user → ligne transaction) que deleteManualTransaction et
-      // grantManualAccess. Sans ça : l'update verrouille la ligne PUIS
-      // recomputeAccess demande le user, pendant qu'un delete concurrent tient
-      // le user et demande la ligne → deadlock croisé.
+      // applyGrant. Sans ça : l'update verrouille la ligne PUIS
+      // rebuildFromTransactions demande le user, pendant qu'un delete concurrent
+      // tient le user et demande la ligne → deadlock croisé.
       await tx
         .select({ id: user.id })
         .from(user)
@@ -247,7 +248,7 @@ export const updateManualTransaction = async (
       // Toute transition de statut (completed ↔ refunded) rejoue le calcul
       // d'accès : couvre la révocation ET le re-crédit (bug refunded → completed).
       if (statusChange) {
-        await recomputeAccess(tx, { userId: transaction.userId })
+        await rebuildFromTransactions(tx, { userId: transaction.userId })
       }
     })
 
@@ -298,7 +299,7 @@ export const deleteManualTransaction = async (
       // Recompute AVANT le DELETE, en excluant la transaction : re-pointe ou
       // supprime les lignes d'accès qui la référencent (FK restrict), puis la
       // suppression passe.
-      const { accessReducedOrRemoved } = await recomputeAccess(tx, {
+      const { accessReducedOrRemoved } = await rebuildFromTransactions(tx, {
         userId: transaction.userId,
         excludeTransactionId: transaction.id,
       })

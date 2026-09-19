@@ -43,7 +43,13 @@ export type RebuildResult = {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-const lockUser = async (tx: Tx, userId: string) => {
+/**
+ * Verrou de ligne `user` : sérialise tous les écrivains d'accès d'un même
+ * utilisateur. Les deux verbes le prennent eux-mêmes ; un appelant qui écrit
+ * sur `transactions` AVANT de les appeler le prend d'abord, pour garder l'ordre
+ * user → transactions → user_access partout.
+ */
+export const lockUser = async (tx: Tx, userId: string): Promise<void> => {
   const [locked] = await tx
     .select({ id: user.id })
     .from(user)
