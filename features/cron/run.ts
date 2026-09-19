@@ -55,7 +55,7 @@ export const runSchedule = async (
   }
 
   const summary = summarize(tasks, report)
-  if (summary) console.log(`[cron close-expired] ${summary}`)
+  if (summary) console.log(`[cron] ${summary}`)
 
   return { report, failed }
 }

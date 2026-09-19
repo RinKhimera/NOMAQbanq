@@ -98,10 +98,6 @@ describe("runSchedule", () => {
     run,
   })
 
-  beforeEach(() => {
-    vi.spyOn(console, "log").mockImplementation(() => {})
-  })
-
   it("exécute les tâches en séquence et indexe le rapport par clé", async () => {
     const order: string[] = []
     const { report, failed } = await runSchedule([
