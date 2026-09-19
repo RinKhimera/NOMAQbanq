@@ -2,14 +2,19 @@
 
 import { asc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
-import type Stripe from "stripe"
 import { db } from "@/db"
 import { products, transactions, user } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getBaseUrl } from "@/lib/base-url"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
-import { getStripe } from "@/lib/stripe"
+import {
+  type StripePrice,
+  createCheckoutSession,
+  createPortalSession,
+  findCustomerByEmail,
+  retrieveCheckoutSession,
+} from "@/lib/stripe"
 import { rebuildFromTransactions } from "./access-ledger"
 import { describePriceDrift, resolveStripePrice } from "./catalog"
 import {
@@ -383,7 +388,6 @@ export const createStripeCheckout = async (input: {
   // envoyé à Stripe, qui peut venir de la résolution comme du repli.
   let resolvedPriceId: string | null = null
   try {
-    const stripe = getStripe()
     const base = appBase()
 
     // Repli de phase 1 (expand/contract). `stripe_price_id` est le pointeur
@@ -394,10 +398,9 @@ export const createStripeCheckout = async (input: {
     // l'exception sauterait par-dessus le repli jusqu'au message générique
     // « Réessayez », qui invite à retenter une panne permanente. Deux messages
     // distincts : les deux causes appellent des remèdes opposés.
-    let price: Stripe.Price | null = null
+    let price: StripePrice | null = null
     try {
       price = await resolveStripePrice(
-        stripe,
         product.stripePriceLookupKey,
         (lookupKey, count) =>
           captureServerError(
@@ -451,7 +454,7 @@ export const createStripeCheckout = async (input: {
       }
     }
 
-    const checkout = await stripe.checkout.sessions.create({
+    const checkout = await createCheckoutSession({
       mode: "payment",
       customer_email: session.user.email,
       // Force la création d'un customer Stripe (nécessaire au portail de facturation).
@@ -559,9 +562,10 @@ export const verifyStripeCheckout = async (
   if (!sessionId) return { success: false, error: "Session invalide" }
 
   try {
-    const stripe = getStripe()
-    const checkout = await stripe.checkout.sessions.retrieve(sessionId)
-    if (checkout.metadata?.userId !== session.user.id) {
+    // `null` = session_id d'URL invalide/périmé (contrôlable par l'utilisateur) :
+    // flux métier, même refus que la session d'un autre (anti-IDOR).
+    const checkout = await retrieveCheckoutSession(sessionId)
+    if (!checkout || checkout.metadata?.userId !== session.user.id) {
       return { success: false, error: "Session non trouvée ou invalide" }
     }
     return {
@@ -572,13 +576,9 @@ export const verifyStripeCheckout = async (
       customerEmail: checkout.customer_email,
     }
   } catch (error) {
-    // `resource_missing` = session_id d'URL invalide/périmé (contrôlable par
-    // l'utilisateur) : flux métier, pas une erreur inattendue.
-    if (!isStripeResourceMissing(error)) {
-      captureServerError("[verifyStripeCheckout]", error, {
-        userId: session.user.id,
-      })
-    }
+    captureServerError("[verifyStripeCheckout]", error, {
+      userId: session.user.id,
+    })
     return { success: false, error: "Session non trouvée ou invalide" }
   }
 }
@@ -596,16 +596,12 @@ export const createCustomerPortal = async (
   const session = await requireSession()
 
   try {
-    const stripe = getStripe()
-    const customers = await stripe.customers.list({
-      email: session.user.email,
-      limit: 1,
-    })
-    if (customers.data.length === 0) {
+    const customer = await findCustomerByEmail(session.user.email)
+    if (!customer) {
       return { error: "Aucun historique de paiement Stripe" }
     }
-    const portal = await stripe.billingPortal.sessions.create({
-      customer: customers.data[0].id,
+    const portal = await createPortalSession({
+      customer: customer.id,
       return_url: `${appBase()}${safePath(returnPath, "/tableau-de-bord/abonnements")}`,
     })
     return { portalUrl: portal.url }

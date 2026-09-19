@@ -13,7 +13,9 @@ vi.mock("@/lib/auth-guards", () => ({
   requireSession: vi.fn(),
 }))
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
-vi.mock("@/lib/stripe", () => ({ getStripe: () => ({}) }))
+vi.mock("@/lib/stripe", () =>
+  import("../helpers/fake-stripe").then((m) => m.fakeStripe),
+)
 
 const DAY = 24 * 60 * 60 * 1000
 const suffix = createId().slice(0, 8)

@@ -1,15 +1,7 @@
 import "server-only"
-import type Stripe from "stripe"
+import { type StripePrice, listActivePrices } from "@/lib/stripe"
 
-type PriceShape = Pick<Stripe.Price, "id" | "unit_amount" | "currency">
-
-/**
- * Requête bornée. Le SDK Stripe attend 80 s par défaut et réessaie 2 fois : un
- * appel qui pend peut donc durer ~4 min. Inacceptable sur le chemin du checkout,
- * où l'utilisateur attend, comme dans le cron, dont l'appelant coupe à
- * `--max-time 60` puis relance — soit jusqu'à 4 exécutions complètes par heure.
- */
-const PRICE_REQUEST_OPTIONS = { timeout: 8000, maxNetworkRetries: 1 }
+type PriceShape = Pick<StripePrice, "id" | "unit_amount" | "currency">
 
 /**
  * Résout le prix Stripe d'un produit par sa `lookup_key`. Contrairement à un
@@ -24,14 +16,10 @@ const PRICE_REQUEST_OPTIONS = { timeout: 8000, maxNetworkRetries: 1 }
  * `null` = aucun prix actif ne porte cette clé dans le mode de la clé API.
  */
 export const resolveStripePrice = async (
-  stripe: Stripe,
   lookupKey: string,
   onAmbiguous?: (lookupKey: string, count: number) => void,
-): Promise<Stripe.Price | null> => {
-  const { data } = await stripe.prices.list(
-    { lookup_keys: [lookupKey], active: true, limit: 2 },
-    PRICE_REQUEST_OPTIONS,
-  )
+): Promise<StripePrice | null> => {
+  const data = await listActivePrices([lookupKey])
   if (data.length > 1) onAmbiguous?.(lookupKey, data.length)
   return data[0] ?? null
 }

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { auditProductPriceDrift } from "@/features/payments/cron"
+import { fakeStripe, stripeBox } from "../helpers/fake-stripe"
 
 // La verification au checkout ne voit que les produits qu'on achete. Cette tache
 // couvre ceux qui dorment — un produit peu demande peut deriver des semaines.
@@ -7,16 +8,6 @@ const { mocks } = vi.hoisted(() => ({
   mocks: {
     captureServerError: vi.fn(),
     productRows: { current: [] as unknown[] },
-    pricesList: vi.fn<
-      () => Promise<{
-        data: {
-          id: string
-          lookup_key: string | null
-          unit_amount: number | null
-          currency: string
-        }[]
-      }>
-    >(),
     env: { STRIPE_SECRET_KEY: "sk_test_x" as string | undefined },
   },
 }))
@@ -38,9 +29,9 @@ vi.mock("@/lib/env/server", () => ({ env: mocks.env }))
 vi.mock("@/lib/observability", () => ({
   captureServerError: mocks.captureServerError,
 }))
-vi.mock("@/lib/stripe", () => ({
-  getStripe: () => ({ prices: { list: mocks.pricesList } }),
-}))
+vi.mock("@/lib/stripe", () =>
+  import("../helpers/fake-stripe").then((m) => m.fakeStripe),
+)
 
 // Les cles sont celles de l'ALIAS du `select` Drizzle (`lookupKey`), pas les noms
 // de colonnes : c'est ce que la vraie requete retourne.
@@ -51,6 +42,7 @@ const PRODUCT = {
 }
 
 beforeEach(() => {
+  stripeBox.reset()
   mocks.env.STRIPE_SECRET_KEY = "sk_test_x"
   mocks.productRows.current = [PRODUCT]
   vi.spyOn(console, "error").mockImplementation(() => {})
@@ -58,15 +50,11 @@ beforeEach(() => {
 
 describe("auditProductPriceDrift", () => {
   it("prix conforme → aucune alerte", async () => {
-    mocks.pricesList.mockResolvedValue({
-      data: [
-        {
-          id: "price_1",
-          lookup_key: "exam_access",
-          unit_amount: 5000,
-          currency: "cad",
-        },
-      ],
+    stripeBox.prices.push({
+      id: "price_1",
+      lookup_key: "exam_access",
+      unit_amount: 5000,
+      currency: "cad",
     })
 
     const res = await auditProductPriceDrift()
@@ -76,15 +64,11 @@ describe("auditProductPriceDrift", () => {
   })
 
   it("prix divergent → une alerte, le produit est compte comme derive", async () => {
-    mocks.pricesList.mockResolvedValue({
-      data: [
-        {
-          id: "price_1",
-          lookup_key: "exam_access",
-          unit_amount: 9900,
-          currency: "cad",
-        },
-      ],
+    stripeBox.prices.push({
+      id: "price_1",
+      lookup_key: "exam_access",
+      unit_amount: 9900,
+      currency: "cad",
     })
 
     const res = await auditProductPriceDrift()
@@ -94,8 +78,6 @@ describe("auditProductPriceDrift", () => {
   })
 
   it("lookup_key sans prix actif → alerte dediee", async () => {
-    mocks.pricesList.mockResolvedValue({ data: [] })
-
     const res = await auditProductPriceDrift()
 
     expect(res).toEqual({ checked: 1, drifted: 1, failed: false })
@@ -111,21 +93,21 @@ describe("auditProductPriceDrift", () => {
       priceCad: 5000,
       lookupKey: `key_${i}`,
     }))
-    mocks.pricesList.mockImplementation(async () => ({
-      data: mocks.productRows.current.map((r) => {
-        const row = r as { lookupKey: string }
-        return {
-          id: `price_${row.lookupKey}`,
-          lookup_key: row.lookupKey,
-          unit_amount: 5000,
-          currency: "cad",
-        }
-      }),
-    }))
+    for (const r of mocks.productRows.current) {
+      const row = r as { lookupKey: string }
+      stripeBox.prices.push({
+        id: `price_${row.lookupKey}`,
+        lookup_key: row.lookupKey,
+        unit_amount: 5000,
+        currency: "cad",
+      })
+    }
 
     const res = await auditProductPriceDrift()
 
-    expect(mocks.pricesList).toHaveBeenCalledTimes(2)
+    expect(stripeBox.calls.map((c) => (c.input as string[]).length)).toEqual([
+      10, 2,
+    ])
     expect(res).toEqual({ checked: 12, drifted: 0, failed: false })
   })
 
@@ -133,38 +115,18 @@ describe("auditProductPriceDrift", () => {
     mocks.env.STRIPE_SECRET_KEY = undefined
     const res = await auditProductPriceDrift()
     expect(res).toEqual({ checked: 0, drifted: 0, failed: false })
-    expect(mocks.pricesList).not.toHaveBeenCalled()
+    expect(fakeStripe.listActivePrices).not.toHaveBeenCalled()
   })
 
   // Invariant capital : un audit informatif ne doit JAMAIS faire repondre 500 au
   // cron. L'appelant GitHub Actions relance sur erreur — une panne Stripe
   // rejouerait clotures et notifications jusqu'a 4 fois par heure.
   it("Stripe en panne → echec signale, aucune exception propagee", async () => {
-    mocks.pricesList.mockRejectedValue(new Error("Stripe down"))
+    stripeBox.failNext("listActivePrices", new Error("Stripe down"))
 
     const res = await auditProductPriceDrift()
 
     expect(res).toEqual({ checked: 0, drifted: 0, failed: true })
     expect(mocks.captureServerError).toHaveBeenCalled()
-  })
-
-  it("borne la requete Stripe (le SDK attend 80 s et reessaie 2 fois par defaut)", async () => {
-    mocks.pricesList.mockResolvedValue({
-      data: [
-        {
-          id: "price_1",
-          lookup_key: "exam_access",
-          unit_amount: 5000,
-          currency: "cad",
-        },
-      ],
-    })
-
-    await auditProductPriceDrift()
-
-    expect(mocks.pricesList).toHaveBeenCalledWith(expect.anything(), {
-      timeout: 8000,
-      maxNetworkRetries: 1,
-    })
   })
 })

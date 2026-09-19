@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { POST } from "@/app/api/stripe/webhook/route"
 import { fakeMailer, mailbox } from "../helpers/fake-mailer"
+import { fakeStripe, stripeBox } from "../helpers/fake-stripe"
 
 const { mocks } = vi.hoisted(() => ({
   mocks: {
@@ -12,8 +13,6 @@ const { mocks } = vi.hoisted(() => ({
     sendAbandonedCartReminder: vi.fn<() => Promise<boolean>>(),
     markConfirmationEmailSent: vi.fn<() => Promise<void>>(),
     after: vi.fn<(cb: () => Promise<unknown>) => void>(),
-    constructEventAsync: vi.fn<() => Promise<unknown>>(),
-    sessionsList: vi.fn<() => Promise<{ data: { id: string }[] }>>(),
   },
 }))
 
@@ -34,13 +33,9 @@ vi.mock("next/server", () => ({ after: mocks.after }))
 vi.mock("@/features/notifications/abandoned-cart", () => ({
   sendAbandonedCartReminder: mocks.sendAbandonedCartReminder,
 }))
-vi.mock("@/lib/stripe", () => ({
-  getStripe: () => ({
-    webhooks: { constructEventAsync: mocks.constructEventAsync },
-    checkout: { sessions: { list: mocks.sessionsList } },
-  }),
-  getStripeWebhookSecret: () => "whsec_test",
-}))
+vi.mock("@/lib/stripe", () =>
+  import("../helpers/fake-stripe").then((m) => m.fakeStripe),
+)
 
 const request = () =>
   new Request("http://localhost/api/stripe/webhook", {
@@ -52,6 +47,7 @@ const request = () =>
 beforeEach(() => {
   vi.clearAllMocks()
   mailbox.reset()
+  stripeBox.reset()
   // Défaut happy path pour les tests qui ne posent pas leur propre valeur.
   mocks.completeStripeTransaction.mockResolvedValue({
     status: "completed",
@@ -76,14 +72,13 @@ beforeEach(() => {
     userId: "u_1",
     accessReducedOrRemoved: true,
   })
-  mocks.sessionsList.mockResolvedValue({ data: [] })
   mocks.markConfirmationEmailSent.mockResolvedValue(undefined)
 })
 
 describe("webhook Stripe — contrat HTTP", () => {
   it("échec de fulfillment → captureServerError + 500 (retry Stripe conservé)", async () => {
     const boom = new Error("Neon down")
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_1",
       type: "checkout.session.completed",
       data: {
@@ -117,13 +112,12 @@ describe("webhook Stripe — contrat HTTP", () => {
   })
 
   it("signature invalide → 400", async () => {
-    mocks.constructEventAsync.mockRejectedValueOnce(new Error("bad sig"))
     const res = await POST(request())
     expect(res.status).toBe(400)
   })
 
   it("payment_status non fulfillable → pas de fulfillment, 200", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_unpaid",
       type: "checkout.session.completed",
       data: { object: { id: "cs_unpaid", payment_status: "unpaid" } },
@@ -134,7 +128,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   })
 
   it("transaction fantôme (not_found) → capture + 200", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_ghost",
       type: "checkout.session.completed",
       data: {
@@ -160,7 +154,7 @@ describe("webhook Stripe — contrat HTTP", () => {
       status: "failed",
       transactionId: "tx_e",
     })
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_exp",
       type: "checkout.session.expired",
       data: { object: { id: "cs_exp" } },
@@ -178,7 +172,7 @@ describe("webhook Stripe — contrat HTTP", () => {
 
   it("expired rejoué (already_processed) → pas de rappel", async () => {
     mocks.fail.mockResolvedValueOnce({ status: "already_processed" })
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_exp2",
       type: "checkout.session.expired",
       data: { object: { id: "cs_exp" } },
@@ -192,7 +186,7 @@ describe("webhook Stripe — contrat HTTP", () => {
       status: "failed",
       transactionId: "tx_a",
     })
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_apf",
       type: "checkout.session.async_payment_failed",
       data: { object: { id: "cs_apf" } },
@@ -203,7 +197,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   })
 
   it("async_payment_succeeded → même chemin d'octroi que completed", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_async_ok",
       type: "checkout.session.async_payment_succeeded",
       data: {
@@ -231,7 +225,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   // hash au fulfillment. L'assertion voisine ne l'attrape pas — `toEqual` ignore
   // les proprietes `undefined`, donc elle passe que le cablage existe ou non.
   it("presentment_details → transmis au fulfillment", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_present",
       type: "checkout.session.completed",
       data: {
@@ -261,7 +255,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   })
 
   it("async_payment_failed → failStripeTransaction, 200", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_async_ko",
       type: "checkout.session.async_payment_failed",
       data: { object: { id: "cs_async_ko" } },
@@ -275,7 +269,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   })
 
   it("charge.dispute.created → alerte, persiste le litige, 200, aucune révocation d'accès", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_dispute",
       type: "charge.dispute.created",
       data: {
@@ -312,7 +306,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   // Jumeau du precedent : l'absence de payment_intent ne doit ni faire planter la
   // route ni escamoter l'alerte — un litige non identifiable reste un litige.
   it("litige sans payment_intent → alerte quand meme, 200", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_dispute_orphelin",
       type: "charge.dispute.created",
       data: {
@@ -340,7 +334,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   // partir même si la base est indisponible, avec tout son détail.
   it("charge.dispute.created + Neon en panne → alerte détaillée émise, puis 500", async () => {
     mocks.recordDispute.mockRejectedValueOnce(new Error("Neon down"))
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_dispute_db",
       type: "charge.dispute.created",
       data: {
@@ -367,7 +361,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   })
 
   it("charge.dispute.updated → persiste sans alerter", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_dispute_upd",
       type: "charge.dispute.updated",
       data: {
@@ -398,7 +392,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   ])(
     "charge.dispute.closed (%s) → alerte « %s » et persiste",
     async (status, message) => {
-      mocks.constructEventAsync.mockResolvedValueOnce({
+      stripeBox.nextEvent({
         id: `evt_closed_${status}`,
         type: "charge.dispute.closed",
         data: {
@@ -426,7 +420,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   )
 
   it("charge.dispute.funds_reinstated → alerte de restitution et persiste", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_reinstated",
       type: "charge.dispute.funds_reinstated",
       data: {
@@ -451,7 +445,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   // l'anomalie « aucune transaction » s'y ajoute.
   it("litige sur un payment_intent sans transaction → alerte de cycle de vie ET alerte dédiée, 200", async () => {
     mocks.recordDispute.mockResolvedValueOnce({ status: "not_found" })
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_dispute_ghost",
       type: "charge.dispute.created",
       data: {
@@ -482,8 +476,11 @@ describe("webhook Stripe — contrat HTTP", () => {
     mocks.recordDispute
       .mockResolvedValueOnce({ status: "not_found" })
       .mockResolvedValueOnce({ status: "recorded" })
-    mocks.sessionsList.mockResolvedValueOnce({ data: [{ id: "cs_early" }] })
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.seedCheckoutSession({
+      id: "cs_early",
+      payment_intent: "pi_early",
+    })
+    stripeBox.nextEvent({
       id: "evt_dispute_early",
       type: "charge.dispute.created",
       data: {
@@ -499,10 +496,9 @@ describe("webhook Stripe — contrat HTTP", () => {
     })
     const res = await POST(request())
     expect(res.status).toBe(200)
-    expect(mocks.sessionsList).toHaveBeenCalledWith({
-      payment_intent: "pi_early",
-      limit: 1,
-    })
+    expect(fakeStripe.findCheckoutSessionByPaymentIntent).toHaveBeenCalledWith(
+      "pi_early",
+    )
     expect(mocks.recordDispute).toHaveBeenNthCalledWith(2, {
       stripePaymentIntentId: "pi_early",
       stripeSessionId: "cs_early",
@@ -516,7 +512,7 @@ describe("webhook Stripe — contrat HTTP", () => {
   })
 
   it("radar.early_fraud_warning.created → alerte avec charge et payment_intent, 200", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_efw",
       type: "radar.early_fraud_warning.created",
       data: {
@@ -563,7 +559,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
   const deferred = () => mocks.after.mock.calls[0]?.[0]?.()
 
   it("fulfillment completed → envoi confié à waitUntil, MessageId enregistré", async () => {
-    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_mail"))
+    stripeBox.nextEvent(paidEvent("evt_mail"))
     const res = await POST(request())
     expect(res.status).toBe(200)
     expect(mocks.after).toHaveBeenCalledTimes(1)
@@ -591,7 +587,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
     mocks.completeStripeTransaction.mockResolvedValueOnce({
       status: "already_processed",
     })
-    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_replay"))
+    stripeBox.nextEvent(paidEvent("evt_replay"))
     const res = await POST(request())
     expect(res.status).toBe(200)
     expect(mocks.after).not.toHaveBeenCalled()
@@ -615,7 +611,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
         grantedAccess: [],
       },
     })
-    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_anon"))
+    stripeBox.nextEvent(paidEvent("evt_anon"))
     const res = await POST(request())
     expect(res.status).toBe(200)
     await deferred()
@@ -628,7 +624,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
   // L'accès est déjà commité et le 200 déjà parti : Sentry est la seule trace.
   it("échec SES → capture Sentry, le 200 est déjà parti", async () => {
     mailbox.failNext("sendPurchaseConfirmationEmail", new Error("SES down"))
-    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_ses_ko"))
+    stripeBox.nextEvent(paidEvent("evt_ses_ko"))
     const res = await POST(request())
     expect(res.status).toBe(200)
     await deferred()
@@ -642,7 +638,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
 
   it("échec de l'écriture du MessageId → capture (le courriel est parti)", async () => {
     mocks.markConfirmationEmailSent.mockRejectedValueOnce(new Error("Neon"))
-    mocks.constructEventAsync.mockResolvedValueOnce(paidEvent("evt_mark_ko"))
+    stripeBox.nextEvent(paidEvent("evt_mark_ko"))
     const res = await POST(request())
     expect(res.status).toBe(200)
     await deferred()
@@ -652,7 +648,7 @@ describe("webhook Stripe — courriel de confirmation (après le 200)", () => {
 
 describe("webhook Stripe — retours de fonds", () => {
   const refunded = (charge: Record<string, unknown>) =>
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: "evt_refund",
       type: "charge.refunded",
       created: 1_800_000_000,
@@ -810,7 +806,7 @@ describe("webhook Stripe — retours de fonds", () => {
   })
 
   const disputeClosed = (status: "won" | "lost") =>
-    mocks.constructEventAsync.mockResolvedValueOnce({
+    stripeBox.nextEvent({
       id: `evt_dispute_${status}`,
       type: "charge.dispute.closed",
       created: 1_800_000_500,

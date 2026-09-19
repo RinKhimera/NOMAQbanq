@@ -11,6 +11,7 @@ import {
   recordManualPayment,
   updateManualTransaction,
 } from "@/features/payments/actions"
+import { fakeStripe, stripeBox } from "../helpers/fake-stripe"
 
 // Ce fichier couvre ce qui appartient en propre a `actions.ts` : gardes, validation
 // zod, mapping des erreurs metier vers un message, revalidation, et la reecriture
@@ -24,21 +25,6 @@ const { mocks } = vi.hoisted(() => ({
     transaction: vi.fn<(cb: unknown) => Promise<unknown>>(async () => "tx_1"),
     productRows: { current: [] as unknown[] },
     insertValues: vi.fn(async () => undefined),
-    checkoutCreate:
-      vi.fn<
-        (arg: {
-          success_url: string
-          cancel_url: string
-        }) => Promise<{ id: string; url: string | null }>
-      >(),
-    pricesList: vi.fn<
-      () => Promise<{
-        data: { id: string; unit_amount: number | null; currency: string }[]
-      }>
-    >(),
-    customersList: vi.fn<() => Promise<{ data: { id: string }[] }>>(),
-    portalCreate:
-      vi.fn<(arg: { return_url: string }) => Promise<{ url: string }>>(),
     requireSession: vi.fn(async () => ({
       user: { id: "u1", email: "u1@test.invalid" },
     })),
@@ -105,14 +91,9 @@ vi.mock("@/lib/base-url", () => ({ getBaseUrl: () => "https://app.test" }))
 vi.mock("@/lib/observability", () => ({
   captureServerError: mocks.captureServerError,
 }))
-vi.mock("@/lib/stripe", () => ({
-  getStripe: () => ({
-    checkout: { sessions: { create: mocks.checkoutCreate } },
-    customers: { list: mocks.customersList },
-    billingPortal: { sessions: { create: mocks.portalCreate } },
-    prices: { list: mocks.pricesList },
-  }),
-}))
+vi.mock("@/lib/stripe", () =>
+  import("../helpers/fake-stripe").then((m) => m.fakeStripe),
+)
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 
 const ACTIVE_PRODUCT = {
@@ -145,11 +126,20 @@ const updateInput = {
 const rejectWith = (message: string) =>
   mocks.transaction.mockRejectedValueOnce(new Error(message))
 
+const RESOLVED_PRICE = {
+  id: "price_resolved",
+  unit_amount: 5000,
+  currency: "cad",
+  lookup_key: "exam_access",
+}
+
+const checkoutParams = () =>
+  vi.mocked(fakeStripe.createCheckoutSession).mock.calls[0]![0]
+
 beforeEach(() => {
+  stripeBox.reset()
   mocks.productRows.current = [ACTIVE_PRODUCT]
-  mocks.pricesList.mockResolvedValue({
-    data: [{ id: "price_resolved", unit_amount: 5000, currency: "cad" }],
-  })
+  stripeBox.prices.push(RESOLVED_PRICE)
 })
 
 describe("recordManualPayment", () => {
@@ -285,13 +275,9 @@ describe("createStripeCheckout", () => {
   }
 
   it("reçu garanti, CGU obligatoires et 3DS demandé sur chaque session", async () => {
-    mocks.checkoutCreate.mockResolvedValueOnce({
-      id: "cs_1",
-      url: "https://stripe.test/pay",
-    })
     await createStripeCheckout(input)
 
-    expect(mocks.checkoutCreate).toHaveBeenCalledWith(
+    expect(fakeStripe.createCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({
         // `receipt_email` posé sur le PaymentIntent : Stripe envoie alors un
         // reçu en live quel que soit le réglage « Paiements réussis ».
@@ -310,7 +296,8 @@ describe("createStripeCheckout", () => {
   // Sans URL de CGU dans le compte, Stripe refuse la session : « Réessayez »
   // enverrait chercher une panne réseau alors que c'est une configuration.
   it("URL des CGU absente du compte Stripe → message de configuration + alerte nommée", async () => {
-    mocks.checkoutCreate.mockRejectedValueOnce(
+    stripeBox.failNext(
+      "createCheckoutSession",
       Object.assign(new Error("terms of service URL missing"), {
         type: "StripeInvalidRequestError",
         param: "consent_collection[terms_of_service]",
@@ -335,7 +322,8 @@ describe("createStripeCheckout", () => {
   // Une erreur de configuration de compte peut arriver sans `param` : le
   // message doit suffire à la reconnaître.
   it("erreur CGU sans param (message seul) → même traitement", async () => {
-    mocks.checkoutCreate.mockRejectedValueOnce(
+    stripeBox.failNext(
+      "createCheckoutSession",
       Object.assign(
         new Error(
           "There must be a valid terms of service URL set in your Dashboard settings.",
@@ -361,49 +349,32 @@ describe("createStripeCheckout", () => {
     mocks.productRows.current = []
     const res = await createStripeCheckout(input)
     expect(res).toEqual({ error: "Produit introuvable" })
-    expect(mocks.checkoutCreate).not.toHaveBeenCalled()
+    expect(fakeStripe.createCheckoutSession).not.toHaveBeenCalled()
   })
 
   it("produit desactive → refus avant Stripe", async () => {
     mocks.productRows.current = [{ ...ACTIVE_PRODUCT, isActive: false }]
     const res = await createStripeCheckout(input)
     expect(res).toEqual({ error: "Ce produit n'est plus disponible" })
-    expect(mocks.checkoutCreate).not.toHaveBeenCalled()
+    expect(fakeStripe.createCheckoutSession).not.toHaveBeenCalled()
   })
 
   it("facture le prix resolu par lookup_key, pas un identifiant stocke", async () => {
-    mocks.checkoutCreate.mockResolvedValueOnce({
-      id: "cs_1",
-      url: "https://stripe.test/pay",
-    })
     await createStripeCheckout(input)
 
-    expect(mocks.pricesList).toHaveBeenCalledWith(
-      { lookup_keys: ["exam_access"], active: true, limit: 2 },
-      { timeout: 8000, maxNetworkRetries: 1 },
-    )
-    const arg = mocks.checkoutCreate.mock.calls[0]![0] as unknown as {
-      line_items: { price: string }[]
-    }
-    expect(arg.line_items[0].price).toBe("price_resolved")
+    expect(fakeStripe.listActivePrices).toHaveBeenCalledWith(["exam_access"])
+    expect(checkoutParams().line_items?.[0]?.price).toBe("price_resolved")
   })
 
   // Phase 1 : la lookup_key n'est pas encore eprouvee en production, le pointeur
   // historique l'est. Une cle qui ne resout rien alerte mais ne coupe pas la vente.
   it("lookup_key sans prix actif → repli sur stripe_price_id, vente conservee", async () => {
-    mocks.pricesList.mockResolvedValue({ data: [] })
-    mocks.checkoutCreate.mockResolvedValueOnce({
-      id: "cs_1",
-      url: "https://stripe.test/pay",
-    })
+    stripeBox.prices.length = 0
 
     const res = await createStripeCheckout(input)
 
-    expect(res).toEqual({ checkoutUrl: "https://stripe.test/pay" })
-    const arg = mocks.checkoutCreate.mock.calls[0]![0] as unknown as {
-      line_items: { price: string }[]
-    }
-    expect(arg.line_items[0].price).toBe("price_1")
+    expect(res).toEqual({ checkoutUrl: "https://checkout.stripe.test/1" })
+    expect(checkoutParams().line_items?.[0]?.price).toBe("price_1")
     expect(mocks.captureServerError).toHaveBeenCalled()
   })
 
@@ -411,71 +382,56 @@ describe("createStripeCheckout", () => {
   // une cle restreinte sans `prices:read` (ou un 429) renverrait « Reessayez »
   // pour une panne permanente, au lieu de vendre via le pointeur historique.
   it("resolution en echec (permission, 429) → repli sur stripe_price_id, vente conservee", async () => {
-    mocks.pricesList.mockRejectedValue(
+    stripeBox.failNext(
+      "listActivePrices",
       Object.assign(new Error("permission denied"), {
         code: "more_permissions_required",
       }),
     )
-    mocks.checkoutCreate.mockResolvedValueOnce({
-      id: "cs_1",
-      url: "https://stripe.test/pay",
-    })
 
     const res = await createStripeCheckout(input)
 
-    expect(res).toEqual({ checkoutUrl: "https://stripe.test/pay" })
-    const arg = mocks.checkoutCreate.mock.calls[0]![0] as unknown as {
-      line_items: { price: string }[]
-    }
-    expect(arg.line_items[0].price).toBe("price_1")
+    expect(res).toEqual({ checkoutUrl: "https://checkout.stripe.test/1" })
+    expect(checkoutParams().line_items?.[0]?.price).toBe("price_1")
     expect(mocks.captureServerError).toHaveBeenCalled()
   })
 
   // Un montant diverge legalement le temps qu'un changement de tarif Stripe soit
   // repercute en base : alerter suffit, couper les ventes couterait plus cher.
   it("montant Stripe divergent → alerte mais la vente aboutit", async () => {
-    mocks.pricesList.mockResolvedValue({
-      data: [{ id: "price_resolved", unit_amount: 9900, currency: "cad" }],
-    })
-    mocks.checkoutCreate.mockResolvedValueOnce({
-      id: "cs_1",
-      url: "https://stripe.test/pay",
-    })
+    stripeBox.prices.splice(0, 1, { ...RESOLVED_PRICE, unit_amount: 9900 })
 
     const res = await createStripeCheckout(input)
 
-    expect(res).toEqual({ checkoutUrl: "https://stripe.test/pay" })
+    expect(res).toEqual({ checkoutUrl: "https://checkout.stripe.test/1" })
     expect(mocks.captureServerError).toHaveBeenCalled()
   })
 
   // La devise d'un prix Stripe est immuable : un ecart de devise n'est jamais un
   // etat transitoire legitime, c'est une cle qui pointe sur le mauvais prix.
   it("devise Stripe ≠ cad → refus, aucune session ni pending", async () => {
-    mocks.pricesList.mockResolvedValue({
-      data: [{ id: "price_resolved", unit_amount: 5000, currency: "usd" }],
-    })
+    stripeBox.prices.splice(0, 1, { ...RESOLVED_PRICE, currency: "usd" })
 
     const res = await createStripeCheckout(input)
 
     expect(res).toEqual({
       error: "Ce produit est mal configuré. Contactez le support.",
     })
-    expect(mocks.checkoutCreate).not.toHaveBeenCalled()
+    expect(fakeStripe.createCheckoutSession).not.toHaveBeenCalled()
     expect(mocks.insertValues).not.toHaveBeenCalled()
     expect(mocks.captureServerError).toHaveBeenCalled()
   })
 
   it("prix Stripe conforme → aucune alerte", async () => {
-    mocks.checkoutCreate.mockResolvedValueOnce({
-      id: "cs_1",
-      url: "https://stripe.test/pay",
-    })
     await createStripeCheckout(input)
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
   it("session Stripe sans url → erreur, aucun pending insere", async () => {
-    mocks.checkoutCreate.mockResolvedValueOnce({ id: "cs_1", url: null })
+    vi.mocked(fakeStripe.createCheckoutSession).mockResolvedValueOnce({
+      id: "cs_1",
+      url: null,
+    })
     const res = await createStripeCheckout(input)
     expect(res).toEqual({
       error: "Échec de création de la session de paiement",
@@ -490,16 +446,12 @@ describe("createStripeCheckout", () => {
     ["https://evil.test", "https://app.test/tableau-de-bord"],
     ["pas-un-chemin", "https://app.test/tableau-de-bord"],
   ])("successPath %s → repli interne", async (successPath, expectedPrefix) => {
-    mocks.checkoutCreate.mockResolvedValueOnce({
-      id: "cs_1",
-      url: "https://stripe.test/pay",
-    })
     await createStripeCheckout({
       ...input,
       successPath,
       cancelPath: "//evil.test",
     })
-    const arg = mocks.checkoutCreate.mock.calls[0]![0]
+    const arg = checkoutParams()
     expect(arg.success_url).toBe(
       `${expectedPrefix}?session_id={CHECKOUT_SESSION_ID}`,
     )
@@ -507,16 +459,12 @@ describe("createStripeCheckout", () => {
   })
 
   it("chemin interne valide conserve tel quel", async () => {
-    mocks.checkoutCreate.mockResolvedValueOnce({
-      id: "cs_1",
-      url: "https://stripe.test/pay",
-    })
     await createStripeCheckout({
       ...input,
       successPath: "/merci",
       cancelPath: "/tarifs?annule=1",
     })
-    const arg = mocks.checkoutCreate.mock.calls[0]![0]
+    const arg = checkoutParams()
     expect(arg.success_url).toBe(
       "https://app.test/merci?session_id={CHECKOUT_SESSION_ID}",
     )
@@ -524,7 +472,7 @@ describe("createStripeCheckout", () => {
   })
 
   it("panne Stripe → message generique + capture", async () => {
-    mocks.checkoutCreate.mockRejectedValueOnce(new Error("Stripe API down"))
+    stripeBox.failNext("createCheckoutSession", new Error("Stripe API down"))
     const res = await createStripeCheckout(input)
     expect(res).toEqual({
       error: "Erreur lors de la création du paiement. Réessayez.",
@@ -539,24 +487,23 @@ describe("createStripeCheckout", () => {
 
 describe("createCustomerPortal", () => {
   it("aucun customer Stripe → message metier, pas de portail", async () => {
-    mocks.customersList.mockResolvedValueOnce({ data: [] })
     const res = await createCustomerPortal("/tableau-de-bord/abonnements")
     expect(res).toEqual({ error: "Aucun historique de paiement Stripe" })
-    expect(mocks.portalCreate).not.toHaveBeenCalled()
+    expect(fakeStripe.createPortalSession).not.toHaveBeenCalled()
   })
 
   it("returnPath externe → repli interne dans return_url", async () => {
-    mocks.customersList.mockResolvedValueOnce({ data: [{ id: "cus_1" }] })
-    mocks.portalCreate.mockResolvedValueOnce({ url: "https://stripe.test/p" })
+    stripeBox.customers.set("u1@test.invalid", { id: "cus_1" })
     const res = await createCustomerPortal("https://evil.test")
-    expect(res).toEqual({ portalUrl: "https://stripe.test/p" })
-    expect(mocks.portalCreate.mock.calls[0]![0].return_url).toBe(
-      "https://app.test/tableau-de-bord/abonnements",
-    )
+    expect(res).toEqual({ portalUrl: "https://billing.stripe.test/portal" })
+    expect(fakeStripe.createPortalSession).toHaveBeenCalledWith({
+      customer: "cus_1",
+      return_url: "https://app.test/tableau-de-bord/abonnements",
+    })
   })
 
   it("panne Stripe → message generique + capture", async () => {
-    mocks.customersList.mockRejectedValueOnce(new Error("Stripe API down"))
+    stripeBox.failNext("findCustomerByEmail", new Error("Stripe API down"))
     const res = await createCustomerPortal("/tableau-de-bord/abonnements")
     expect(res).toEqual({
       error: "Impossible d'ouvrir le portail de facturation. Réessayez.",

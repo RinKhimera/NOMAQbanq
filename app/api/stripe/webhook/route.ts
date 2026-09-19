@@ -12,10 +12,13 @@ import {
   refundStripeTransaction,
 } from "@/features/payments/stripe"
 import { captureServerError } from "@/lib/observability"
-import { getStripe, getStripeWebhookSecret } from "@/lib/stripe"
+import { findCheckoutSessionByPaymentIntent, verifyWebhook } from "@/lib/stripe"
 
 // Le SDK Stripe nécessite le runtime Node (pas Edge).
 export const runtime = "nodejs"
+
+const isStripeConfigurationError = (error: unknown): boolean =>
+  error instanceof Error && error.name === "StripeConfigurationError"
 
 // Une session promo 100 % est complétée avec `no_payment_required` (montant nul,
 // pas de PaymentIntent) : elle doit accorder l'accès au même titre qu'un `paid`.
@@ -123,26 +126,16 @@ export async function POST(request: Request) {
     return new Response("Missing stripe-signature header", { status: 400 })
   }
 
-  let stripe: Stripe
-  let webhookSecret: string
-  try {
-    stripe = getStripe()
-    webhookSecret = getStripeWebhookSecret()
-  } catch (error) {
-    captureServerError("[stripe:webhook]", error, { detail: "configuration" })
-    return new Response("Server configuration error", { status: 500 })
-  }
-
   const body = await request.text()
 
   let event: Stripe.Event
   try {
-    event = await stripe.webhooks.constructEventAsync(
-      body,
-      signature,
-      webhookSecret,
-    )
+    event = await verifyWebhook(body, signature)
   } catch (error) {
+    if (isStripeConfigurationError(error)) {
+      captureServerError("[stripe:webhook]", error, { detail: "configuration" })
+      return new Response("Server configuration error", { status: 500 })
+    }
     console.error("[stripe webhook] signature invalide", error)
     return new Response("Webhook signature verification failed", {
       status: 400,
@@ -285,11 +278,9 @@ export async function POST(request: Request) {
             // d'être confirmé) : la transaction est encore `pending`, sans
             // payment_intent. Sa session Checkout, elle, existe depuis le
             // pending. Une erreur Stripe ici remonte au catch → 500 → retry.
-            const sessions = await stripe.checkout.sessions.list({
-              payment_intent: disputedPaymentIntent,
-              limit: 1,
-            })
-            const sessionId = sessions.data[0]?.id
+            const sessionId = (
+              await findCheckoutSessionByPaymentIntent(disputedPaymentIntent)
+            )?.id
             if (sessionId) {
               recorded = await recordStripeDispute({
                 stripePaymentIntentId: disputedPaymentIntent,
