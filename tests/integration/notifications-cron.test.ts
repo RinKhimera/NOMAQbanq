@@ -17,6 +17,8 @@ import {
 } from "@/db/schema"
 import {
   accessExpiryReminderSpec,
+  examResultsSpec,
+  inactivityReminderSpec,
   sendAccessExpiryReminders,
   sendExamResultsNotifications,
   sendInactivityReminders,
@@ -33,6 +35,12 @@ vi.mock("@/email", () =>
 const examResults = fakeMailer.sendExamResultsEmail
 const accessExpiring = fakeMailer.sendAccessExpiringEmail
 const inactivity = fakeMailer.sendInactivityReminderEmail
+
+// Une ligne claimée ne doit plus être candidate : sans ça, le select relirait à
+// chaque run les lignes déjà marquées et, à la borne, affamerait les nouvelles.
+const candidateIds = async (spec: {
+  select: (ctx: { now: Date; limit: number }) => Promise<{ id: string }[]>
+}) => (await spec.select({ now: new Date(), limit: 1000 })).map((r) => r.id)
 
 const creator = createId()
 const optIn = createId()
@@ -206,6 +214,9 @@ describe("sendExamResultsNotifications", () => {
       .where(eq(examParticipations.examId, openExam))
       .limit(1)
     expect(openRow[0]?.notifiedAt).toBeNull()
+
+    const candidates = await candidateIds(examResultsSpec())
+    expect(candidates).not.toContain(lockedClosedPart)
   })
 })
 
@@ -260,10 +271,16 @@ describe("sendAccessExpiryReminders", () => {
       renewUrl: expect.stringMatching(/\/tableau-de-bord\/abonnements$/),
     })
     const [access] = await db
-      .select({ marker: userAccess.expiryReminderSentAt })
+      .select({
+        id: userAccess.id,
+        marker: userAccess.expiryReminderSentAt,
+      })
       .from(userAccess)
       .where(eq(userAccess.userId, uid))
     expect(access?.marker).toBeInstanceOf(Date)
+    expect(await candidateIds(accessExpiryReminderSpec())).not.toContain(
+      access?.id,
+    )
 
     await db.delete(userAccess).where(eq(userAccess.userId, uid))
     await db.delete(transactions).where(eq(transactions.id, tid))
@@ -925,6 +942,9 @@ describe("sendInactivityReminders", () => {
         name: "Éligible",
         userId: ids.eligible,
       }),
+    )
+    expect(await candidateIds(inactivityReminderSpec())).not.toContain(
+      ids.eligible,
     )
   })
 })

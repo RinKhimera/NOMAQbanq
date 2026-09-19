@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
 import { user } from "@/db/schema"
@@ -25,7 +25,13 @@ export async function sendWelcomeEmailOnce(userId: string): Promise<boolean> {
             name: user.name,
           })
           .from(user)
-          .where(and(eq(user.id, userId), eligibleRecipient))
+          .where(
+            and(
+              eq(user.id, userId),
+              isNull(user.welcomeEmailSentAt),
+              eligibleRecipient,
+            ),
+          )
           .limit(limit),
       claim: {
         table: user,

@@ -119,6 +119,34 @@ describe("sendOnce — destinataire éligible (garanti par le claim)", () => {
     },
   )
 
+  // READ COMMITTED : un UPDATE qui a attendu un verrou de ligne ré-évalue ses
+  // prédicats sur la version fraîche de la LIGNE CIBLE seulement ; un sous-select
+  // resterait au snapshot de départ (banned = false) et laisserait passer.
+  it("suspension commitée pendant l'attente du verrou de ligne : aucun envoi, aucun marqueur", async () => {
+    const id = await newUser()
+    const send = vi.fn().mockResolvedValue("id")
+    const suspension = db.transaction(async (tx) => {
+      await tx
+        .select({ id: user.id })
+        .from(user)
+        .where(eq(user.id, id))
+        .for("update")
+      await tx
+        .update(user)
+        .set({ banned: true, banReason: "test" })
+        .where(eq(user.id, id))
+      await new Promise((r) => setTimeout(r, 1500))
+    })
+    await new Promise((r) => setTimeout(r, 300))
+
+    const sent = await sendOnce(spec([id], { send }))
+    await suspension
+
+    expect(sent).toBe(0)
+    expect(send).not.toHaveBeenCalled()
+    expect(await marker(id)).toBeNull()
+  })
+
   it("eligibleRecipient dans un select exclut suspendus et supprimés", async () => {
     const ok = await newUser()
     const banned = await newUser({ banned: true, banReason: "test" })

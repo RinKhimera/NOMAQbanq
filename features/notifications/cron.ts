@@ -55,8 +55,8 @@ export type NotificationSweepResult = {
 // ⚠️ Concurrence : `close-expired` est frappé par DEUX schedulers (GitHub Actions
 // toutes les 3 h + Vercel quotidien) qui se recouvrent à minuit UTC ; c'est le
 // claim de `sendOnce` qui garantit l'envoi unique.
-export function sendExamResultsNotifications(): Promise<number> {
-  return sendOnce({
+export const examResultsSpec = () =>
+  defineOneShot({
     label: "résultats",
     tag: "[notif:resultats]",
     limit: EXAM_RESULTS_LIMIT,
@@ -102,6 +102,9 @@ export function sendExamResultsNotifications(): Promise<number> {
       }),
     context: (r) => ({ detail: `participation ${r.id}` }),
   })
+
+export function sendExamResultsNotifications(): Promise<number> {
+  return sendOnce(examResultsSpec())
 }
 
 // Rappel de fin d'accès : accès expirant dans ≤ 7 j, une seule fois. Marqueur
@@ -166,9 +169,9 @@ export function sendAccessExpiryReminders(): Promise<number> {
 // une seule fois par compte (marqueur jamais réinitialisé), dans la fenêtre de
 // consentement. Quatre traces de visite : session vivante rafraîchie, connexion
 // (la déconnexion supprime la session), entraînement lancé, examen lancé.
-export function sendInactivityReminders(): Promise<number> {
+export const inactivityReminderSpec = () => {
   const one = sql`1`
-  return sendOnce({
+  return defineOneShot({
     label: "inactivité",
     tag: "[notif:inactivite]",
     limit: INACTIVITY_LIMIT,
@@ -255,6 +258,10 @@ export function sendInactivityReminders(): Promise<number> {
       sendInactivityReminderEmail({ to: r.email, name: r.name, userId: r.id }),
     context: (r) => ({ userId: r.id }),
   })
+}
+
+export function sendInactivityReminders(): Promise<number> {
+  return sendOnce(inactivityReminderSpec())
 }
 
 export async function sendPendingNotifications(): Promise<NotificationSweepResult> {

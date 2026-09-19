@@ -301,7 +301,11 @@ repose sur la **modélisation** (recommandation officielle Next), à maintenir :
   (`deletedAt IS NULL AND banned = false`, fragment `eligibleRecipient` à
   reprendre aussi dans le select) SANS poser de marqueur — le courriel repart
   si la suspension est levée —, pose le marqueur AVANT l'envoi et le laisse
-  posé sur échec. Un nouvel expéditeur (bienvenue, relance, panier…) ne
+  posé sur échec. Portée de cette garantie : sur la ligne cible quand le
+  marqueur vit sur `user` (prédicat ré-évalué par Postgres après attente d'un
+  verrou, donc une suspension en cours de commit est vue) ; au snapshot du
+  claim quand il vit ailleurs (`EXISTS` corrélé, comme le select l'était
+  avant). Un nouvel expéditeur (bienvenue, relance, panier…) ne
   réécrit ni `UPDATE … SET <marqueur> … WHERE <marqueur> IS NULL` ni son
   try/catch par ligne : il déclare sa sélection (portes métier et préférences
   comprises), son claim (`guard`, `cooldownMs`) et son payload ; ses tests ne

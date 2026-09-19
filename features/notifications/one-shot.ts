@@ -78,11 +78,13 @@ export async function sendOnce<Row extends { id: string; userId: string }>(
   }
 
   const { table, idColumn, markerColumn, cooldownMs, guard } = spec.claim
-  const markerKey = Object.entries(getTableColumns(table)).find(
-    ([, column]) => column === markerColumn,
-  )?.[0]
+  const columns = Object.entries(getTableColumns(table))
+  const markerKey = columns.find(([, column]) => column === markerColumn)?.[0]
   if (!markerKey) {
     throw new Error("sendOnce : markerColumn n'appartient pas à claim.table")
+  }
+  if (!columns.some(([, column]) => column === idColumn)) {
+    throw new Error("sendOnce : idColumn n'appartient pas à claim.table")
   }
   const free = cooldownMs
     ? or(
@@ -91,25 +93,28 @@ export async function sendOnce<Row extends { id: string; userId: string }>(
       )
     : isNull(markerColumn)
 
+  // READ COMMITTED : après attente d'un verrou de ligne (suspension en cours de
+  // commit), Postgres ré-évalue les prédicats sur la version fraîche de la LIGNE
+  // CIBLE seulement — un sous-select garde le snapshot de départ. Quand le
+  // marqueur vit sur `user`, la cible EST le destinataire : l'éligibilité doit
+  // être un prédicat de la cible. Ailleurs, l'EXISTS vaut au snapshot du claim.
+  const eligible = (row: Row) =>
+    table === user
+      ? eligibleRecipient
+      : exists(
+          db
+            .select({ one: sql`1` })
+            .from(user)
+            .where(and(eq(user.id, row.userId), eligibleRecipient)),
+        )
+
   let sent = 0
   for (const row of rows) {
     try {
       const claimed = await db
         .update(table)
         .set({ [markerKey]: now })
-        .where(
-          and(
-            eq(idColumn, row.id),
-            free,
-            guard?.(row),
-            exists(
-              db
-                .select({ one: sql`1` })
-                .from(user)
-                .where(and(eq(user.id, row.userId), eligibleRecipient)),
-            ),
-          ),
-        )
+        .where(and(eq(idColumn, row.id), free, guard?.(row), eligible(row)))
         .returning({ id: idColumn })
       if (claimed.length === 0) continue
       if (spec.shouldSend && !spec.shouldSend(row)) continue
