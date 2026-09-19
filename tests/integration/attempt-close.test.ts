@@ -70,15 +70,13 @@ const newExam = async (questionIds: string[], endDate = ENDED) => {
     isActive: true,
     createdBy: OWNER,
   })
-  await db
-    .insert(examQuestions)
-    .values(
-      questionIds.map((questionId, position) => ({
-        examId: id,
-        questionId,
-        position,
-      })),
-    )
+  await db.insert(examQuestions).values(
+    questionIds.map((questionId, position) => ({
+      examId: id,
+      questionId,
+      position,
+    })),
+  )
   seededExams.push(id)
   return id
 }
@@ -456,7 +454,11 @@ describe("closeAttempts — session d'entraînement (kind: training)", () => {
   })
 
   it("aucun item : score 0, pas d'échec", async () => {
-    const id = await newSession({ questionIds: qIds, questionCount: 4, items: [] })
+    const id = await newSession({
+      questionIds: qIds,
+      questionCount: 4,
+      items: [],
+    })
     await closeAttempts(db, {
       kind: "training",
       status: "abandoned",
