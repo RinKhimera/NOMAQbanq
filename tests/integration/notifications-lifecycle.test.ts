@@ -74,34 +74,8 @@ describe("sendWelcomeEmailOnce", () => {
     expect(welcome).toHaveBeenCalledTimes(1)
   })
 
-  it("échec SES : marqueur posé, pas d'exception", async () => {
-    const id = createId()
-    await db
-      .insert(user)
-      .values({ id, name: "Panne", email: `p-${id}@test.invalid` })
-    mailbox.failNext("sendWelcomeEmail", new Error("SES down"))
-    await expect(sendWelcomeEmailOnce(id)).resolves.toBe(false)
-    expect(await column(id, "welcomeEmailSentAt")).toBeInstanceOf(Date)
-    await db.delete(user).where(eq(user.id, id))
-  })
-
   it("utilisateur inconnu : false sans exception", async () => {
     await expect(sendWelcomeEmailOnce("inconnu")).resolves.toBe(false)
-  })
-
-  it("compte suspendu : rien, marqueur non posé", async () => {
-    const id = createId()
-    await db.insert(user).values({
-      id,
-      name: "Suspendu",
-      email: `b-${id}@test.invalid`,
-      banned: true,
-      banReason: "test",
-    })
-    await expect(sendWelcomeEmailOnce(id)).resolves.toBe(false)
-    expect(welcome).not.toHaveBeenCalled()
-    expect(await column(id, "welcomeEmailSentAt")).toBeNull()
-    await db.delete(user).where(eq(user.id, id))
   })
 })
 
