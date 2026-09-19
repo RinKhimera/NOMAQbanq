@@ -69,6 +69,10 @@ export const stripeBox = {
     customers.clear()
     events.length = 0
     createdSessions = 0
+    // `restoreMocks` ignore les `vi.fn()` et `mockClear` ne vide pas la file
+    // des `mockResolvedValueOnce` : un `Once` non consommé fuirait dans le test
+    // suivant. `mockReset` restaure l'implémentation d'origine du faux.
+    for (const verb of Object.values(fakeStripe)) verb.mockReset()
   },
 }
 

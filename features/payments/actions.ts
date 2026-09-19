@@ -15,6 +15,7 @@ import {
   findCustomerByEmail,
   retrieveCheckoutSession,
 } from "@/lib/stripe"
+import { isStripeConfigurationError } from "@/lib/stripe-errors"
 import { rebuildFromTransactions } from "./access-ledger"
 import { describePriceDrift, resolveStripePrice } from "./catalog"
 import {
@@ -422,6 +423,9 @@ export const createStripeCheckout = async (input: {
         )
       }
     } catch (error) {
+      // Une clé absente n'est pas une panne de lecture : aucun repli ne
+      // vendra, et l'alerte de repli mentirait sur la cause.
+      if (isStripeConfigurationError(error)) throw error
       captureServerError("[createStripeCheckout]", error, {
         userId: session.user.id,
         detail: `résolution de la lookup_key ${product.stripePriceLookupKey} impossible — repli sur stripe_price_id (produit ${productCode})`,

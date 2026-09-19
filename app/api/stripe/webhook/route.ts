@@ -3,12 +3,10 @@ import type Stripe from "stripe"
 import { fulfilStripeEvent } from "@/features/payments/fulfillment"
 import { captureServerError } from "@/lib/observability"
 import { verifyWebhook } from "@/lib/stripe"
+import { isStripeConfigurationError } from "@/lib/stripe-errors"
 
 // Le SDK Stripe nécessite le runtime Node (pas Edge).
 export const runtime = "nodejs"
-
-const isStripeConfigurationError = (error: unknown): boolean =>
-  error instanceof Error && error.name === "StripeConfigurationError"
 
 /**
  * Webhook Stripe : vérifie la signature (port Stripe), délègue le fulfillment

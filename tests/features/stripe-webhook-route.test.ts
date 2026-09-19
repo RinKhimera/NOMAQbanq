@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { POST } from "@/app/api/stripe/webhook/route"
+import { StripeConfigurationError } from "@/lib/stripe-errors"
 import { stripeBox } from "../helpers/fake-stripe"
 
 // Contrat d'acquittement de la route, et lui seul : 400 signature (jamais
@@ -60,10 +61,7 @@ describe("webhook Stripe — acquittement", () => {
   // Un secret manquant n'est pas une signature invalide : Stripe doit rejouer
   // une fois la configuration réparée.
   it("erreur de configuration → 500 + capture « configuration »", async () => {
-    const missing = Object.assign(
-      new Error("Configuration Stripe manquante (STRIPE_WEBHOOK_SECRET)"),
-      { name: "StripeConfigurationError" },
-    )
+    const missing = new StripeConfigurationError("STRIPE_WEBHOOK_SECRET")
     stripeBox.failNext("verifyWebhook", missing)
     const res = await POST(request())
     expect(res.status).toBe(500)

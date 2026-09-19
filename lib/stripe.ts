@@ -2,15 +2,7 @@ import "server-only"
 import Stripe from "stripe"
 import { env } from "@/lib/env/server"
 import { STRIPE_API_VERSION } from "@/lib/stripe-api-version"
-
-// Reconnue par son `name` (la route répond 500 « configuration », pas 400
-// « signature ») : la classe reste privée, le module n'exporte que ses verbes.
-class StripeConfigurationError extends Error {
-  override readonly name = "StripeConfigurationError"
-  constructor(variable: string) {
-    super(`Configuration Stripe manquante (${variable})`)
-  }
-}
+import { StripeConfigurationError } from "@/lib/stripe-errors"
 
 /**
  * Port Stripe : les verbes que l'application demande à Stripe, typés sur ce
@@ -62,8 +54,7 @@ export type StripeCheckoutSession = Pick<
 
 /**
  * Vérifie la signature d'un webhook et rend l'événement. Lève sur signature
- * invalide ; lève une erreur de configuration (`name:
- * "StripeConfigurationError"`) si le secret ou la clé manquent.
+ * invalide ; lève `StripeConfigurationError` si le secret ou la clé manquent.
  */
 export async function verifyWebhook(
   body: string,

@@ -11,6 +11,7 @@ import {
   recordManualPayment,
   updateManualTransaction,
 } from "@/features/payments/actions"
+import { StripeConfigurationError } from "@/lib/stripe-errors"
 import { fakeStripe, stripeBox } from "../helpers/fake-stripe"
 
 // Ce fichier couvre ce qui appartient en propre a `actions.ts` : gardes, validation
@@ -394,6 +395,28 @@ describe("createStripeCheckout", () => {
     expect(res).toEqual({ checkoutUrl: "https://checkout.stripe.test/1" })
     expect(checkoutParams().line_items?.[0]?.price).toBe("price_1")
     expect(mocks.captureServerError).toHaveBeenCalled()
+  })
+
+  // Une clé absente n'est pas une panne de lecture : le repli sur
+  // stripe_price_id ne vendra pas, et l'alerte de repli mentirait sur la cause.
+  it("clé Stripe absente → une seule capture générique, aucun repli ni session", async () => {
+    stripeBox.failNext(
+      "listActivePrices",
+      new StripeConfigurationError("STRIPE_SECRET_KEY"),
+    )
+
+    const res = await createStripeCheckout(input)
+
+    expect(res).toEqual({
+      error: "Erreur lors de la création du paiement. Réessayez.",
+    })
+    expect(fakeStripe.createCheckoutSession).not.toHaveBeenCalled()
+    expect(mocks.captureServerError).toHaveBeenCalledTimes(1)
+    expect(mocks.captureServerError).toHaveBeenCalledWith(
+      "[createStripeCheckout]",
+      expect.objectContaining({ name: "StripeConfigurationError" }),
+      { userId: "u1" },
+    )
   })
 
   // Un montant diverge legalement le temps qu'un changement de tarif Stripe soit

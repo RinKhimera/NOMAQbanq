@@ -418,8 +418,10 @@ describe("fulfillment — litiges et retours de fonds", () => {
     expect(row.disputeStatus).toBe("lost")
     expect(await examAccess(userId)).toBeNull()
 
+    // Rejeu à un autre instant : si la ligne était réécrite, `refundedAt`
+    // bougerait — l'état devient discriminant, pas seulement l'alerte.
     vi.mocked(captureServerError).mockClear()
-    await fulfil(lost)
+    await fulfil({ ...lost, created: 1_800_000_999 })
 
     expect(await txRow(tx.id)).toEqual(row)
     const alerts = vi
