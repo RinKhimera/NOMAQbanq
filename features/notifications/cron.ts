@@ -133,9 +133,35 @@ export async function sendExamResultsNotifications(): Promise<number> {
   return sent
 }
 
+/**
+ * Claim atomique du rappel de fin d'accès (anti double-envoi concurrent). Le
+ * prédicat exige que `expiresAt` vaille encore la valeur lue : un renouvellement
+ * (`applyGrant`) qui prolonge l'accès entre la lecture et le claim ré-arme le
+ * marqueur, et le claim seul sur `IS NULL` passerait alors — courriel avec
+ * l'ancienne échéance, et plus aucun rappel pour la nouvelle. Refus = le
+ * prochain run relit l'échéance à jour.
+ */
+export async function claimAccessExpiryReminder(o: {
+  accessId: string
+  expiresAt: Date
+  now: Date
+}): Promise<boolean> {
+  const claimed = await db
+    .update(userAccess)
+    .set({ expiryReminderSentAt: o.now })
+    .where(
+      and(
+        eq(userAccess.id, o.accessId),
+        eq(userAccess.expiresAt, o.expiresAt),
+        isNull(userAccess.expiryReminderSentAt),
+      ),
+    )
+    .returning({ id: userAccess.id })
+  return claimed.length > 0
+}
+
 // Rappel de fin d'accès : accès expirant dans ≤ 7 j, une seule fois. Marqueur
 // `expiryReminderSentAt` (réinitialisé au renouvellement — Stripe + manuel).
-// Même claim atomique que ci-dessus (anti double-envoi concurrent).
 export async function sendAccessExpiryReminders(): Promise<number> {
   const now = new Date()
   const in7d = new Date(now.getTime() + 7 * DAY_MS)
@@ -170,17 +196,12 @@ export async function sendAccessExpiryReminders(): Promise<number> {
   let sent = 0
   for (const r of rows) {
     try {
-      const claimed = await db
-        .update(userAccess)
-        .set({ expiryReminderSentAt: now })
-        .where(
-          and(
-            eq(userAccess.id, r.accessId),
-            isNull(userAccess.expiryReminderSentAt),
-          ),
-        )
-        .returning({ id: userAccess.id })
-      if (claimed.length === 0) continue // déjà pris par un autre run
+      const claimed = await claimAccessExpiryReminder({
+        accessId: r.accessId,
+        expiresAt: r.expiresAt,
+        now,
+      })
+      if (!claimed) continue // déjà pris par un autre run, ou accès prolongé
       if (!r.notify) continue // opt-out : marqueur posé, pas d'envoi
 
       await sendAccessExpiringEmail({

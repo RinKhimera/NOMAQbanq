@@ -16,6 +16,7 @@ import {
   userAccess,
 } from "@/db/schema"
 import {
+  claimAccessExpiryReminder,
   sendAccessExpiryReminders,
   sendExamResultsNotifications,
   sendInactivityReminders,
@@ -280,6 +281,116 @@ describe("sendAccessExpiryReminders", () => {
     await db.delete(transactions).where(eq(transactions.id, tid))
     await db.delete(products).where(eq(products.id, pid))
     await db.delete(user).where(eq(user.id, uid))
+  })
+})
+
+describe("claimAccessExpiryReminder", () => {
+  const seedAccess = async (expiresAt: Date) => {
+    const uid = createId()
+    const pid = createId()
+    const tid = createId()
+    await db.insert(user).values({
+      id: uid,
+      name: "Claim",
+      email: `claim-${uid}@test.invalid`,
+    })
+    await db.insert(products).values({
+      id: pid,
+      code: "exam_access",
+      name: "Examens",
+      description: "Accès examens",
+      priceCad: 1000,
+      durationDays: 180,
+      accessType: "exam",
+      stripeProductId: `prod_${pid}`,
+      stripePriceId: `price_${pid}`,
+      stripePriceLookupKey: `price_${pid}`,
+    })
+    await db.insert(transactions).values({
+      id: tid,
+      userId: uid,
+      productId: pid,
+      type: "manual",
+      status: "completed",
+      amountPaid: 1000,
+      currency: "CAD",
+      accessType: "exam",
+      durationDays: 180,
+      accessExpiresAt: expiresAt,
+    })
+    const [access] = await db
+      .insert(userAccess)
+      .values({
+        userId: uid,
+        accessType: "exam",
+        expiresAt,
+        lastTransactionId: tid,
+      })
+      .returning({ id: userAccess.id })
+    const cleanup = async () => {
+      await db.delete(userAccess).where(eq(userAccess.userId, uid))
+      await db.delete(transactions).where(eq(transactions.id, tid))
+      await db.delete(products).where(eq(products.id, pid))
+      await db.delete(user).where(eq(user.id, uid))
+    }
+    const marker = async () => {
+      const [row] = await db
+        .select({ marker: userAccess.expiryReminderSentAt })
+        .from(userAccess)
+        .where(eq(userAccess.id, access.id))
+        .limit(1)
+      return row?.marker ?? null
+    }
+    return { accessId: access.id, cleanup, marker }
+  }
+
+  it("échéance inchangée depuis la lecture : claim posé, une seule fois", async () => {
+    const expiresAt = new Date(now + 5 * 86400000)
+    const a = await seedAccess(expiresAt)
+    const claimAt = new Date(now)
+
+    expect(
+      await claimAccessExpiryReminder({
+        accessId: a.accessId,
+        expiresAt,
+        now: claimAt,
+      }),
+    ).toBe(true)
+    expect(await a.marker()).toEqual(claimAt)
+    expect(
+      await claimAccessExpiryReminder({
+        accessId: a.accessId,
+        expiresAt,
+        now: claimAt,
+      }),
+    ).toBe(false)
+
+    await a.cleanup()
+  })
+
+  it("échéance prolongée entre la lecture et le claim : refusé, marqueur intact (le prochain run rappellera la nouvelle échéance)", async () => {
+    const readExpiresAt = new Date(now + 5 * 86400000)
+    const a = await seedAccess(readExpiresAt)
+    // Un renouvellement concurrent (applyGrant) a fait avancer l'expiration et
+    // ré-armé le marqueur après le SELECT du cron.
+    await db
+      .update(userAccess)
+      .set({
+        expiresAt: new Date(now + 35 * 86400000),
+        expiryReminderSentAt: null,
+      })
+      .where(eq(userAccess.id, a.accessId))
+
+    expect(
+      await claimAccessExpiryReminder({
+        accessId: a.accessId,
+        expiresAt: readExpiresAt,
+        now: new Date(now),
+      }),
+    ).toBe(false)
+    expect(await a.marker()).toBeNull()
+
+    await a.cleanup()
   })
 })
 
