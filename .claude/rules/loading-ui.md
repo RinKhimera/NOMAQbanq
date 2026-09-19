@@ -143,13 +143,12 @@ PAS la session côté client : le layout la résout déjà et lui passe
 `NavSecondary` (`isUserAdmin` vient de `DashboardShell`).
 
 Conséquence : la prop vient d'un layout qui **ne se re-rend pas à la navigation
-client**. La fin d'onboarding (`onboarding-form.tsx`) ne fait QUE
-`router.refresh()` — jamais un `router.replace()` derrière : une navigation
-dispatchée pendant un refresh en vol écarte ce refresh
-(`next/dist/client/components/app-router-instance.js`, « discarded »), la prop
-resterait fausse et le guard ferait ping-pong `/tableau-de-bord` ↔ `/bienvenue`.
-Le refresh rejoue lui-même le `redirect()` serveur de `bienvenue/page.tsx` avec
-un arbre frais ; à défaut, le guard navigue sur prop fraîche.
+client**. La fin d'onboarding (`onboarding-form.tsx`) fait `router.refresh()`,
+qui re-rend le layout et rejoue le `redirect()` serveur de `bienvenue/page.tsx`
+avec un arbre frais ; à défaut, le guard navigue sur prop fraîche. Un
+`router.replace()` enchaîné derrière est redondant, pas dangereux : en build de
+production (#170), la navigation concurrente n'écarte pas le refresh et ne
+provoque aucun ping-pong `/tableau-de-bord` ↔ `/bienvenue`.
 
 ## Liens à fort volume vers une route authentifiée : `prefetch={false}` + indicateur
 
@@ -157,7 +156,8 @@ Toutes les routes sous `/tableau-de-bord` et `/admin` sont dynamiques : le
 prefetch par défaut d'un `<Link>` rend le layout côté serveur (→
 `requireSession` → Neon) pour chaque lien entré dans le viewport, et le rejoue
 à l'expiration du cache — une invocation Vercel par lien visible. Les liens
-présents sur chaque page ou en liste — sidebar (`nav-main`, `nav-secondary`) et
+présents sur chaque page ou en liste — sidebar (logo d'`app-sidebar`,
+`nav-main`, `nav-secondary`) et
 accueil du dashboard (`quick-access-grid`, `next-actions-panel`,
 `recent-activity-feed`, un lien par activité) — sont donc en `prefetch={false}`.
 

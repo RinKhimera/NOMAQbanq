@@ -57,13 +57,11 @@ export const OnboardingForm = ({
 
       if (result.success) {
         toast.success("Profil enregistré, ouverture du tableau de bord…")
-        // Un seul geste, volontairement. Le layout SERVEUR porte la sidebar et
-        // la prop `hasUsername` du guard, et ne se re-rend pas sur une
-        // navigation client ; or une navigation dispatchée pendant un refresh
-        // en vol ÉCARTE ce refresh (file d'actions du routeur Next) → prop
-        // périmée → ping-pong avec `/bienvenue`. Le refresh rejoue lui-même le
-        // `redirect()` serveur de la page avec un arbre frais ; à défaut, le
-        // guard navigue sur prop fraîche.
+        // Un seul geste suffit : le layout SERVEUR (sidebar, prop `hasUsername`
+        // du guard) ne se re-rend pas sur une navigation client, et le refresh
+        // rejoue lui-même le `redirect()` serveur de la page avec un arbre
+        // frais ; à défaut, le guard navigue sur prop fraîche. Un `replace()`
+        // enchaîné derrière serait redondant, pas nuisible (#170).
         router.refresh()
       } else {
         toast.error(result.error)

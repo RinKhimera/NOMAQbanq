@@ -4,6 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import * as React from "react"
+import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { NavMain } from "@/components/shared/nav-main"
 import { NavSecondary } from "@/components/shared/nav-secondary"
 import {
@@ -60,7 +61,14 @@ export const AppSidebar = ({
                   : "hover:bg-blue-500/10 dark:hover:bg-blue-500/15",
               )}
             >
-              <Link href={homeUrl} className="flex h-10 items-center gap-3">
+              {/* Présent sur chaque page authentifiée : le prefetch par défaut
+                  rendrait le layout serveur (session + Neon) à chaque
+                  chargement, cf. `.claude/rules/loading-ui.md`. */}
+              <Link
+                href={homeUrl}
+                prefetch={false}
+                className="flex h-10 items-center gap-3"
+              >
                 <div
                   className={cn(
                     "relative flex size-11 items-center justify-center rounded-xl transition-all duration-300",
@@ -94,6 +102,7 @@ export const AppSidebar = ({
                     </span>
                   )}
                 </div>
+                <LinkPendingIndicator className="ml-auto" />
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
