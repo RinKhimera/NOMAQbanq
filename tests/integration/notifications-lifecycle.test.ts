@@ -166,11 +166,10 @@ describe("sendAbandonedCartReminder", () => {
   const combo = createId()
   const buyer = createId()
   const optOut = createId()
-  const banned = createId()
   const owner = createId()
   const halfOwner = createId()
   const recentBuyer = createId()
-  const all = [buyer, optOut, banned, owner, halfOwner, recentBuyer]
+  const all = [buyer, optOut, owner, halfOwner, recentBuyer]
 
   const seedTx = async (
     userId: string,
@@ -230,12 +229,6 @@ describe("sendAbandonedCartReminder", () => {
         name: "Refus",
         email: `cart-${optOut}@test.invalid`,
         notifyMarketing: false,
-      },
-      {
-        id: banned,
-        name: "Banni",
-        email: `cart-${banned}@test.invalid`,
-        banned: true,
       },
       { id: owner, name: "Déjà", email: `cart-${owner}@test.invalid` },
       {
@@ -311,21 +304,20 @@ describe("sendAbandonedCartReminder", () => {
     expect(cart).toHaveBeenCalledTimes(1)
   })
 
-  it("préférence désactivée ou compte banni → rien", async () => {
+  it("préférence marketing désactivée → rien, aucun marqueur", async () => {
     expect(await sendAbandonedCartReminder(await seedTx(optOut, exam))).toBe(
       false,
     )
-    expect(await sendAbandonedCartReminder(await seedTx(banned, exam))).toBe(
-      false,
-    )
     expect(cart).not.toHaveBeenCalled()
+    expect(await cartSentAt(optOut)).toBeNull()
   })
 
-  it("accès visé déjà actif → rien ; combo avec un seul accès → envoi", async () => {
+  it("accès visé déjà actif → rien, plafond non consommé ; combo avec un seul accès → envoi", async () => {
     expect(await sendAbandonedCartReminder(await seedTx(owner, exam))).toBe(
       false,
     )
     expect(cart).not.toHaveBeenCalled()
+    expect(await cartSentAt(owner)).toBeNull()
     expect(
       await sendAbandonedCartReminder(await seedTx(halfOwner, combo)),
     ).toBe(true)
@@ -337,7 +329,7 @@ describe("sendAbandonedCartReminder", () => {
     )
   })
 
-  it("achat complété la veille → rien", async () => {
+  it("achat complété la veille → rien, plafond non consommé", async () => {
     await seedTx(recentBuyer, exam, {
       status: "completed",
       completedAt: new Date(Date.now() - DAY),
@@ -346,6 +338,7 @@ describe("sendAbandonedCartReminder", () => {
       await sendAbandonedCartReminder(await seedTx(recentBuyer, exam)),
     ).toBe(false)
     expect(cart).not.toHaveBeenCalled()
+    expect(await cartSentAt(recentBuyer)).toBeNull()
   })
 
   it("transaction inconnue → false sans exception", async () => {
