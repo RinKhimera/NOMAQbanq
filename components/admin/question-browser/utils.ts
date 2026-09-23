@@ -1,3 +1,4 @@
+import type { QuestionSelection } from "@/features/questions/dal"
 import type { QuestionFilters, UsageFilter } from "./types"
 
 /**
@@ -11,6 +12,29 @@ export function nextUsageFilters(
   return "usageFilter" in next
     ? { ...prev, usageFilter: next.usageFilter, usedInExamId: null }
     : { ...prev, usedInExamId: next.usedInExamId, usageFilter: "all" }
+}
+
+/** Filtres de l'UI → sélection de la DAL, partagée par la liste et l'export. */
+export function toQuestionSelection(
+  filters: Pick<
+    QuestionFilters,
+    | "searchQuery"
+    | "domain"
+    | "hasImages"
+    | "usageFilter"
+    | "usedInExamId"
+    | "toVerify"
+  >,
+): QuestionSelection {
+  return {
+    search: filters.searchQuery || undefined,
+    domain: filters.domain !== "all" ? filters.domain : undefined,
+    hasImages:
+      filters.hasImages === "all" ? undefined : filters.hasImages === "with",
+    usageFilter: filters.usageFilter,
+    usedInExamId: filters.usedInExamId ?? undefined,
+    toVerify: filters.toVerify,
+  }
 }
 
 // Domain color mapping for medical specialties

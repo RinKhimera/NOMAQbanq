@@ -11,7 +11,10 @@ import {
   user,
 } from "@/db/schema"
 import { getQuestionAnswerBreakdown } from "@/features/analytics/dal"
-import { getQuestionsWithFilters } from "@/features/questions/dal"
+import {
+  getQuestionsForExport,
+  getQuestionsWithFilters,
+} from "@/features/questions/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
@@ -297,6 +300,23 @@ describe("filtre « À vérifier » et tri par taux de réussite", () => {
     const scored = [easy, tied, solidSuspect, suspect]
     expect(ids.filter((id) => scored.includes(id))).toEqual(scored)
     expect(ids.indexOf(tooFew)).toBeGreaterThan(ids.indexOf(suspect))
+  })
+
+  it("l'export suit le filtre « À vérifier »", async () => {
+    const rows = await getQuestionsForExport({ search: suffix, toVerify: true })
+    expect(rows.map((r) => r.id).sort()).toEqual([solidSuspect, suspect].sort())
+  })
+
+  it("l'export porte le taux de réussite et le nombre de réponses, sans taux sous le seuil", async () => {
+    const rows = await getQuestionsForExport({ search: suffix })
+    expect(rows.find((r) => r.id === easy)).toMatchObject({
+      answerCount: 10,
+      successRate: 100,
+    })
+    expect(rows.find((r) => r.id === tooFew)).toMatchObject({
+      answerCount: 9,
+      successRate: null,
+    })
   })
 })
 

@@ -114,20 +114,63 @@ export type QuestionsPage = {
 /** Tris de la liste de questions : seuls ceux que la requête sait faire. */
 export type QuestionSortBy = "createdAt" | "successRate"
 
-export type QuestionFiltersInput = {
-  /** 1-based. */
-  page?: number
-  limit?: number
+/** Les questions retenues par les filtres de la liste, que l'export reprend. */
+export type QuestionSelection = {
   search?: string
   domain?: string
   hasImages?: boolean
-  sortOrder?: "asc" | "desc"
-  /** `successRate` : non significatives en fin, quel que soit le sens. */
-  sortBy?: QuestionSortBy
   /** Clé probablement erronée : une autre option plus choisie que la clé. */
   toVerify?: boolean
   usageFilter?: "all" | "used" | "unused"
   usedInExamId?: string
+}
+
+export type QuestionFiltersInput = QuestionSelection & {
+  /** 1-based. */
+  page?: number
+  limit?: number
+  sortOrder?: "asc" | "desc"
+  /** `successRate` : non significatives en fin, quel que soit le sens. */
+  sortBy?: QuestionSortBy
+}
+
+/**
+ * Prédicat des filtres sans statistiques ; `toVerify` se pose à part, sur
+ * l'agrégat de la banque joint par l'appelant.
+ */
+const selectionWhere = ({
+  search,
+  domain,
+  hasImages,
+  usageFilter = "all",
+  usedInExamId,
+}: QuestionSelection) => {
+  const searchTerm = search?.trim()
+  // `usedInExamId` prime sur used/unused (l'UI garantit l'exclusion mutuelle).
+  const usagePredicate = usedInExamId
+    ? usedInExamSubquery(usedInExamId)
+    : usageFilter === "used"
+      ? usedSubquery
+      : usageFilter === "unused"
+        ? unusedSubquery
+        : undefined
+
+  return and(
+    isNull(questions.deletedAt),
+    domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
+    searchTerm
+      ? or(
+          ilike(questions.question, `%${escapeLike(searchTerm)}%`),
+          ilike(questions.objectifCmc, `%${escapeLike(searchTerm)}%`),
+        )
+      : undefined,
+    hasImages === undefined
+      ? undefined
+      : hasImages
+        ? hasImagesSubquery
+        : noImagesSubquery,
+    usagePredicate,
+  )
 }
 
 /**
@@ -157,33 +200,13 @@ export const getQuestionsWithFilters = async ({
   const offset = (safePage - 1) * safeLimit
   const isDesc = sortOrder !== "asc"
 
-  const searchTerm = search?.trim()
-
-  // `usedInExamId` prime sur used/unused (l'UI garantit l'exclusion mutuelle).
-  const usagePredicate = usedInExamId
-    ? usedInExamSubquery(usedInExamId)
-    : usageFilter === "used"
-      ? usedSubquery
-      : usageFilter === "unused"
-        ? unusedSubquery
-        : undefined
-
-  const where = and(
-    isNull(questions.deletedAt),
-    domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
-    searchTerm
-      ? or(
-          ilike(questions.question, `%${escapeLike(searchTerm)}%`),
-          ilike(questions.objectifCmc, `%${escapeLike(searchTerm)}%`),
-        )
-      : undefined,
-    hasImages === undefined
-      ? undefined
-      : hasImages
-        ? hasImagesSubquery
-        : noImagesSubquery,
-    usagePredicate,
-  )
+  const where = selectionWhere({
+    search,
+    domain,
+    hasImages,
+    usageFilter,
+    usedInExamId,
+  })
 
   const byCreation = isDesc
     ? [desc(questions.createdAt), desc(questions.id)]
@@ -640,42 +663,26 @@ export type QuestionExportRow = {
   imagesCount: number
   /** Epoch ms. */
   createdAt: number
+  /** Premières réponses d'étudiants comptées. */
+  answerCount: number
+  /** Taux de réussite en % ; `null` sous le seuil de signification. */
+  successRate: number | null
 }
 
 /**
- * [Admin] Questions pour l'export (mêmes filtres que la liste, sans pagination —
- * borné à 5000). Joint l'explication ; compte les images en batch. Remplace
- * l'action `getAllQuestionsForExport` + sa boucle de pagination interne.
+ * [Admin] Questions pour l'export : la sélection de la liste, sans pagination
+ * (borné à 5000), avec l'explication et le taux de
+ * réussite. L'agrégat couvre toute la banque, comme le filtre « À vérifier »
+ * de la liste.
  */
-export const getQuestionsForExport = async ({
-  search,
-  domain,
-  hasImages,
-}: {
-  search?: string
-  domain?: string
-  hasImages?: boolean
-} = {}): Promise<QuestionExportRow[]> => {
+export const getQuestionsForExport = async (
+  selection: QuestionSelection = {},
+): Promise<QuestionExportRow[]> => {
   await requireRole(["admin"])
 
-  const searchTerm = search?.trim()
-  const where = and(
-    isNull(questions.deletedAt),
-    domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
-    searchTerm
-      ? or(
-          ilike(questions.question, `%${escapeLike(searchTerm)}%`),
-          ilike(questions.objectifCmc, `%${escapeLike(searchTerm)}%`),
-        )
-      : undefined,
-    hasImages === undefined
-      ? undefined
-      : hasImages
-        ? hasImagesSubquery
-        : noImagesSubquery,
-  )
-
+  const bankStats = questionSuccessStats()
   const rows = await db
+    .with(bankStats)
     .select({
       id: questions.id,
       question: questions.question,
@@ -686,13 +693,21 @@ export const getQuestionsForExport = async ({
       createdAt: questions.createdAt,
       explanation: questionExplanations.explanation,
       references: questionExplanations.references,
+      answerCount: bankStats.answerCount,
+      successRate: bankStats.successRate,
     })
     .from(questions)
     .leftJoin(
       questionExplanations,
       eq(questionExplanations.questionId, questions.id),
     )
-    .where(where)
+    .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+    .where(
+      and(
+        selectionWhere(selection),
+        selection.toVerify ? eq(bankStats.keySuspect, true) : undefined,
+      ),
+    )
     .orderBy(desc(questions.createdAt), desc(questions.id))
     .limit(5000)
 
@@ -730,6 +745,8 @@ export const getQuestionsForExport = async ({
       hasImages: imagesCount > 0,
       imagesCount,
       createdAt: r.createdAt.getTime(),
+      answerCount: r.answerCount ?? 0,
+      successRate: r.successRate,
     }
   })
 }

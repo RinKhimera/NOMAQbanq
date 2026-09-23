@@ -22,7 +22,7 @@ import {
   UsageFilter,
   defaultFilters,
 } from "./types"
-import { nextUsageFilters } from "./utils"
+import { nextUsageFilters, toQuestionSelection } from "./utils"
 
 const QuestionBrowserContext =
   createContext<QuestionBrowserContextState | null>(null)
@@ -110,25 +110,29 @@ export function QuestionBrowserProvider({
     onFiltersChange?.(filters)
   }, [filters, onFiltersChange])
 
+  // Champ par champ : la saisie brute de la recherche ne doit pas relancer la
+  // requête, seule sa version différée le fait.
+  const { domain, hasImages, usageFilter, usedInExamId, toVerify } = filters
   const queryArgs = useMemo(
     () => ({
-      search: debouncedSearchQuery || undefined,
-      domain: filters.domain !== "all" ? filters.domain : undefined,
-      hasImages:
-        filters.hasImages === "all" ? undefined : filters.hasImages === "with",
-      usageFilter: filters.usageFilter,
-      usedInExamId: filters.usedInExamId ?? undefined,
-      toVerify: filters.toVerify,
+      ...toQuestionSelection({
+        searchQuery: debouncedSearchQuery,
+        domain,
+        hasImages,
+        usageFilter,
+        usedInExamId,
+        toVerify,
+      }),
       sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
     }),
     [
       debouncedSearchQuery,
-      filters.domain,
-      filters.hasImages,
-      filters.usageFilter,
-      filters.usedInExamId,
-      filters.toVerify,
+      domain,
+      hasImages,
+      usageFilter,
+      usedInExamId,
+      toVerify,
       filters.sortBy,
       filters.sortOrder,
     ],

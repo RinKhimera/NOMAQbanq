@@ -11,6 +11,7 @@ import {
   type QuestionFilters,
   defaultFilters,
 } from "@/components/admin/question-browser"
+import { toQuestionSelection } from "@/components/admin/question-browser/utils"
 import { Button } from "@/components/ui/button"
 import type { ExamPickerOption } from "@/features/exams/dal"
 import type { QuestionStatsEnriched } from "@/features/questions/dal"
@@ -67,21 +68,9 @@ export function QuestionsManager({
         actions={
           <>
             <ExportQuestionsButton
-              searchQuery={currentFilters.searchQuery}
-              domain={currentFilters.domain}
-              hasImages={
-                currentFilters.hasImages === "all"
-                  ? undefined
-                  : currentFilters.hasImages === "with"
-              }
+              selection={toQuestionSelection(currentFilters)}
               questionCount={stats.totalCount}
             />
-            {(currentFilters.usageFilter !== "all" ||
-              currentFilters.usedInExamId !== null) && (
-              <span className="text-xs text-amber-600">
-                L&apos;export ne tient pas compte du filtre d&apos;usage
-              </span>
-            )}
             <Button
               asChild
               className="gap-2 bg-linear-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-600 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30"

@@ -411,10 +411,14 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
 
 describe("loadQuestionsForExport", () => {
   it("exige le role admin puis delegue les filtres", async () => {
-    await loadQuestionsForExport({ domain: "Cardiologie" })
-    expect(mocks.requireRole).toHaveBeenCalledWith(["admin"])
-    expect(mocks.getQuestionsForExport).toHaveBeenCalledWith({
+    const filters = {
       domain: "Cardiologie",
-    })
+      toVerify: true,
+      usageFilter: "unused" as const,
+      usedInExamId: "exam-1",
+    }
+    await loadQuestionsForExport(filters)
+    expect(mocks.requireRole).toHaveBeenCalledWith(["admin"])
+    expect(mocks.getQuestionsForExport).toHaveBeenCalledWith(filters)
   })
 })

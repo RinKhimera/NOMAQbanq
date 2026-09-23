@@ -30,6 +30,7 @@ import {
   type QuestionDetail,
   type QuestionExportRow,
   type QuestionFiltersInput,
+  type QuestionSelection,
   type QuestionsPage,
   getAllQuestionIds,
   getQuestionById,
@@ -204,13 +205,11 @@ export const scoreQuizAnswers = async (args: {
 }
 
 /** [Admin] Questions filtrées pour l'export (CSV/XLSX/JSON). */
-export const loadQuestionsForExport = async (filters: {
-  search?: string
-  domain?: string
-  hasImages?: boolean
-}): Promise<QuestionExportRow[]> => {
+export const loadQuestionsForExport = async (
+  selection: QuestionSelection,
+): Promise<QuestionExportRow[]> => {
   await requireRole(["admin"])
-  return getQuestionsForExport(filters)
+  return getQuestionsForExport(selection)
 }
 
 export type CreateQuestionResult =
