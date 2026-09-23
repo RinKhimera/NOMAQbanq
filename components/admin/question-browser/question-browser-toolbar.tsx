@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, X } from "lucide-react"
+import { Search, TriangleAlert, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -127,6 +127,20 @@ export function QuestionBrowserToolbar({
               </SelectContent>
             </Select>
           )}
+
+          {/* Clés probablement erronées */}
+          <Button
+            variant={filters.toVerify ? "default" : "outline"}
+            aria-pressed={filters.toVerify}
+            onClick={() => updateFilter("toVerify", !filters.toVerify)}
+            title="Questions où une autre option est plus choisie que la clé"
+            className={cn(
+              "h-10 gap-1.5",
+              filters.toVerify && "bg-amber-500 text-white hover:bg-amber-600",
+            )}
+          >
+            <TriangleAlert className="h-4 w-4" />À vérifier
+          </Button>
 
           {/* Clear filters */}
           {hasActiveFilters && (

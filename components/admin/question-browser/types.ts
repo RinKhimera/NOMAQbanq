@@ -4,7 +4,8 @@ import type { ExamPickerOption } from "@/features/exams/dal"
 // Filter types
 export type ImageFilter = "all" | "with" | "without"
 export type UsageFilter = "all" | "used" | "unused"
-export type SortBy = "_creationTime" | "question" | "domain" | "objectifCMC"
+export type SortBy =
+  "_creationTime" | "question" | "domain" | "objectifCMC" | "successRate"
 export type SortOrder = "asc" | "desc"
 
 export interface QuestionFilters {
@@ -14,6 +15,8 @@ export interface QuestionFilters {
   usageFilter: UsageFilter
   /** Restreint aux questions utilisées dans cet examen (exclusif de usageFilter). */
   usedInExamId: string | null
+  /** Clé probablement erronée : une autre option plus choisie que la clé. */
+  toVerify: boolean
   sortBy: SortBy
   sortOrder: SortOrder
 }
@@ -24,6 +27,7 @@ export const defaultFilters: QuestionFilters = {
   hasImages: "all",
   usageFilter: "all",
   usedInExamId: null,
+  toVerify: false,
   sortBy: "_creationTime",
   sortOrder: "desc",
 }
@@ -46,6 +50,10 @@ export interface QuestionRow {
   imageCount: number
   /** Nombre d'examens référençant cette question. */
   usageCount: number
+  /** Premières réponses d'étudiants comptées. */
+  answerCount: number
+  /** Taux de réussite en % ; `null` sous le seuil de signification. */
+  successRate: number | null
 }
 
 // Component mode

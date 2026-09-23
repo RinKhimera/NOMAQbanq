@@ -432,3 +432,73 @@ export const getMyDomainMastery = cache(async (): Promise<DomainMastery[]> => {
     }
   })
 })
+
+// ============================================
+// Taux de réussite d'une question (admin)
+// ============================================
+
+/** En dessous de ce nombre de réponses, un taux de réussite n'est pas significatif. */
+export const QUESTION_SUCCESS_MIN_ANSWERS = 10
+
+/**
+ * Première réponse de chaque étudiant à chaque question (entraînement et
+ * examens), comptes admin et supprimés exclus. Une réponse d'examen est datée
+ * de la clôture de sa participation. Justesse jugée sur la clé ACTUELLE : une
+ * clé corrigée recompte les réponses passées. Lecture admin, donc pas de
+ * verrou de clé de réponse.
+ */
+const firstAnswersSql = (questionIds?: string[]) => sql`
+  select distinct on (x.user_id, x.question_id)
+         x.question_id, x.selected_answer
+    from (
+      select s.user_id, i.question_id, i.selected_answer, i.answered_at as at
+        from training_session_items i
+        join training_sessions s on s.id = i.session_id
+       where i.is_correct is not null
+      union all
+      select p.user_id, a.question_id, a.selected_answer, p.completed_at
+        from exam_answers a
+        join exam_participations p on p.id = a.participation_id
+       where a.is_correct is not null
+         and p.completed_at is not null
+    ) x
+    join "user" u on u.id = x.user_id
+   where u.role = 'user'
+     and u.deleted_at is null
+     ${questionIds ? sql`and ${inArray(sql`x.question_id`, questionIds)}` : sql``}
+   order by x.user_id, x.question_id, x.at`
+
+/**
+ * CTE des statistiques par question, à joindre sur `questions.id`. Colonnes
+ * préfixées `qs_` : Drizzle les référence sans qualification. Sans
+ * `questionIds`, couvre toute la banque (tri et filtre « À vérifier »).
+ */
+export const questionSuccessStats = (questionIds?: string[]) =>
+  db.$with("question_success", {
+    questionId: sql<string>`qs_question_id`.as("qs_question_id"),
+    answerCount: sql<number>`qs_answer_count`.as("qs_answer_count"),
+    successRate: sql<number | null>`qs_success_rate`.as("qs_success_rate"),
+    keySuspect: sql<boolean>`qs_key_suspect`.as("qs_key_suspect"),
+  }).as(sql`
+      with first_answers as (${firstAnswersSql(questionIds)}),
+      per_option as (
+        select f.question_id,
+               f.selected_answer = q.correct_answer as is_key,
+               count(*) as n
+          from first_answers f
+          join questions q on q.id = f.question_id
+         group by f.question_id, f.selected_answer, q.correct_answer
+      )
+      select question_id as qs_question_id,
+             sum(n)::int as qs_answer_count,
+             case when sum(n) >= ${QUESTION_SUCCESS_MIN_ANSWERS}
+               then round(
+                 100.0 * coalesce(sum(n) filter (where is_key), 0) / sum(n)
+               )::int
+             end as qs_success_rate,
+             sum(n) >= ${QUESTION_SUCCESS_MIN_ANSWERS}
+               and coalesce(max(n) filter (where not is_key), 0)
+                 > coalesce(sum(n) filter (where is_key), 0)
+               as qs_key_suspect
+        from per_option
+       group by question_id`)

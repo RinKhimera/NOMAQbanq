@@ -38,6 +38,8 @@ const toRow = (q: QuestionListItem): QuestionRow => ({
   options: q.options,
   imageCount: q.imageCount,
   usageCount: q.usageCount,
+  answerCount: q.answerCount,
+  successRate: q.successRate,
 })
 
 interface QuestionBrowserProviderProps {
@@ -116,6 +118,11 @@ export function QuestionBrowserProvider({
         filters.hasImages === "all" ? undefined : filters.hasImages === "with",
       usageFilter: filters.usageFilter,
       usedInExamId: filters.usedInExamId ?? undefined,
+      toVerify: filters.toVerify,
+      sortBy:
+        filters.sortBy === "successRate"
+          ? ("successRate" as const)
+          : ("createdAt" as const),
       sortOrder: filters.sortOrder,
     }),
     [
@@ -124,6 +131,8 @@ export function QuestionBrowserProvider({
       filters.hasImages,
       filters.usageFilter,
       filters.usedInExamId,
+      filters.toVerify,
+      filters.sortBy,
       filters.sortOrder,
     ],
   )
@@ -179,7 +188,8 @@ export function QuestionBrowserProvider({
     filters.domain !== "all" ||
     filters.hasImages !== "all" ||
     filters.usageFilter !== "all" ||
-    filters.usedInExamId !== null
+    filters.usedInExamId !== null ||
+    filters.toVerify
 
   const isQuotaReached = selectedIds.length >= maxSelection
 

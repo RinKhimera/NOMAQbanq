@@ -21,6 +21,7 @@ import {
   questions,
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
+import { questionSuccessStats } from "../analytics/dal"
 import { AnswerKeyLock, excludeLocked } from "./answer-key-lock"
 import { fetchImages, toQuizQuestion } from "./quiz-bridge"
 
@@ -98,6 +99,10 @@ export type QuestionListItem = {
   imageCount: number
   /** Nombre d'examens référençant cette question. */
   usageCount: number
+  /** Premières réponses d'étudiants comptées. */
+  answerCount: number
+  /** Taux de réussite en % ; `null` sous le seuil de signification. */
+  successRate: number | null
 }
 
 export type QuestionsPage = {
@@ -114,6 +119,10 @@ export type QuestionFiltersInput = {
   domain?: string
   hasImages?: boolean
   sortOrder?: "asc" | "desc"
+  /** `successRate` : non significatives en fin, quel que soit le sens. */
+  sortBy?: "createdAt" | "successRate"
+  /** Clé probablement erronée : une autre option plus choisie que la clé. */
+  toVerify?: boolean
   usageFilter?: "all" | "used" | "unused"
   usedInExamId?: string
 }
@@ -131,6 +140,8 @@ export const getQuestionsWithFilters = async ({
   domain,
   hasImages,
   sortOrder = "desc",
+  sortBy = "createdAt",
+  toVerify = false,
   usageFilter = "all",
   usedInExamId,
 }: QuestionFiltersInput = {}): Promise<QuestionsPage> => {
@@ -171,35 +182,69 @@ export const getQuestionsWithFilters = async ({
     usagePredicate,
   )
 
-  const order = isDesc
+  const byCreation = isDesc
     ? [desc(questions.createdAt), desc(questions.id)]
     : [asc(questions.createdAt), asc(questions.id)]
 
-  const [rows, totalRows] = await Promise.all([
-    db
-      .select({
-        id: questions.id,
-        question: questions.question,
-        domain: questions.domain,
-        objectifCMC: questions.objectifCmc,
-        options: questions.options,
-        createdAt: questions.createdAt,
-      })
-      .from(questions)
-      .where(where)
-      .orderBy(...order)
-      .limit(safeLimit)
-      .offset(offset),
-    db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
-      .from(questions)
-      .where(where),
-  ])
+  const listColumns = {
+    id: questions.id,
+    question: questions.question,
+    domain: questions.domain,
+    objectifCMC: questions.objectifCmc,
+    options: questions.options,
+    createdAt: questions.createdAt,
+  }
+  const countColumn = { n: sql<number>`count(*)`.mapWith(Number) }
+
+  // Tri et filtre sur le taux de réussite : agrégat de toute la banque, joint.
+  const bankStats = questionSuccessStats()
+  const useStats = sortBy === "successRate" || toVerify
+  const statsWhere = and(
+    where,
+    toVerify ? eq(bankStats.keySuspect, true) : undefined,
+  )
+  const byStats =
+    sortBy === "successRate"
+      ? [
+          sql`${bankStats.successRate} ${isDesc ? sql`desc` : sql`asc`} nulls last`,
+          asc(questions.id),
+        ]
+      : [desc(bankStats.answerCount), asc(questions.id)]
+
+  const [rows, totalRows] = useStats
+    ? await Promise.all([
+        db
+          .with(bankStats)
+          .select(listColumns)
+          .from(questions)
+          .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+          .where(statsWhere)
+          .orderBy(...byStats)
+          .limit(safeLimit)
+          .offset(offset),
+        db
+          .with(bankStats)
+          .select(countColumn)
+          .from(questions)
+          .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+          .where(statsWhere),
+      ])
+    : await Promise.all([
+        db
+          .select(listColumns)
+          .from(questions)
+          .where(where)
+          .orderBy(...byCreation)
+          .limit(safeLimit)
+          .offset(offset),
+        db.select(countColumn).from(questions).where(where),
+      ])
 
   const total = totalRows[0]?.n ?? 0
   const pageIds = rows.map((r) => r.id)
 
-  const [imageCounts, usageCounts] = pageIds.length
+  const pageStats = questionSuccessStats(pageIds)
+  const [imageCounts, usageCounts, successRows] = pageIds.length
     ? await Promise.all([
         db
           .select({
@@ -222,11 +267,20 @@ export const getQuestionsWithFilters = async ({
           .from(examQuestions)
           .where(inArray(examQuestions.questionId, pageIds))
           .groupBy(examQuestions.questionId),
+        db
+          .with(pageStats)
+          .select({
+            questionId: pageStats.questionId,
+            answerCount: pageStats.answerCount,
+            successRate: pageStats.successRate,
+          })
+          .from(pageStats),
       ])
-    : [[], []]
+    : [[], [], []]
 
   const imageMap = new Map(imageCounts.map((c) => [c.questionId, c.n]))
   const usageMap = new Map(usageCounts.map((c) => [c.questionId, c.n]))
+  const successMap = new Map(successRows.map((r) => [r.questionId, r]))
 
   const items: QuestionListItem[] = rows.map((r) => ({
     id: r.id,
@@ -237,6 +291,8 @@ export const getQuestionsWithFilters = async ({
     createdAt: r.createdAt.getTime(),
     imageCount: imageMap.get(r.id) ?? 0,
     usageCount: usageMap.get(r.id) ?? 0,
+    answerCount: successMap.get(r.id)?.answerCount ?? 0,
+    successRate: successMap.get(r.id)?.successRate ?? null,
   }))
 
   return { items, total }
