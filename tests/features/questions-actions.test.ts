@@ -89,6 +89,9 @@ vi.mock("@/db/schema", () => ({
   questions: table("questions"),
 }))
 // Seule la requête du verrou est doublée : le blanchiment testé est le vrai.
+vi.mock("@/features/analytics/dal", () => ({
+  getQuestionAnswerBreakdown: vi.fn(),
+}))
 vi.mock("@/features/questions/answer-key-lock", async (orig) => {
   const actual =
     await orig<typeof import("@/features/questions/answer-key-lock")>()

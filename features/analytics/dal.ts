@@ -17,6 +17,7 @@ import {
   examParticipations,
   exams,
   products,
+  questions,
   transactions,
   user,
 } from "@/db/schema"
@@ -502,3 +503,55 @@ export const questionSuccessStats = (questionIds?: string[]) =>
                as qs_key_suspect
         from per_option
        group by question_id`)
+
+export type QuestionAnswerBreakdown = {
+  answerCount: number
+  /** `null` sous le seuil de signification. */
+  successRate: number | null
+  /** Options dans l'ordre de la question ; `share` en % des réponses comptées. */
+  options: { option: string; count: number; share: number; isKey: boolean }[]
+}
+
+/**
+ * [Admin] Répartition des premières réponses d'étudiants entre les options
+ * d'une question. Réservée aux admins : pour un étudiant, elle livrerait la
+ * clé. Mêmes réponses comptées que le taux de réussite.
+ */
+export const getQuestionAnswerBreakdown = async (
+  questionId: string,
+): Promise<QuestionAnswerBreakdown> => {
+  await requireRole(["admin"])
+
+  const [question] = await db
+    .select({
+      options: questions.options,
+      correctAnswer: questions.correctAnswer,
+    })
+    .from(questions)
+    .where(eq(questions.id, questionId))
+    .limit(1)
+  if (!question) return { answerCount: 0, successRate: null, options: [] }
+
+  const counts = await db.execute<{ selected_answer: string; n: number }>(sql`
+    select f.selected_answer, count(*)::int as n
+      from (${firstAnswersSql([questionId])}) f
+     group by f.selected_answer`)
+
+  const byOption = new Map(counts.rows.map((r) => [r.selected_answer, r.n]))
+  const answerCount = counts.rows.reduce((sum, r) => sum + r.n, 0)
+  const share = (n: number) =>
+    answerCount === 0 ? 0 : Math.round((100 * n) / answerCount)
+  const keyCount = byOption.get(question.correctAnswer) ?? 0
+
+  return {
+    answerCount,
+    successRate:
+      answerCount >= QUESTION_SUCCESS_MIN_ANSWERS ? share(keyCount) : null,
+    options: question.options.map((option) => ({
+      option,
+      count: byOption.get(option) ?? 0,
+      share: share(byOption.get(option) ?? 0),
+      isKey: option === question.correctAnswer,
+    })),
+  }
+}

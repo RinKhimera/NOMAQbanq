@@ -21,6 +21,10 @@ import {
   validateImageFile,
 } from "@/lib/storage"
 import { consumeUploadRateLimit } from "@/lib/upload-rate-limit"
+import {
+  type QuestionAnswerBreakdown,
+  getQuestionAnswerBreakdown,
+} from "../analytics/dal"
 import { lockFor } from "./answer-key-lock"
 import {
   type QuestionDetail,
@@ -56,6 +60,14 @@ export const loadQuestionsPage = async (
 ): Promise<QuestionsPage> => {
   await requireRole(["admin"])
   return getQuestionsWithFilters(filters)
+}
+
+/** [Admin] Répartition des réponses d'une question (panneau latéral). */
+export const loadQuestionAnswerBreakdown = async (
+  id: string,
+): Promise<QuestionAnswerBreakdown> => {
+  await requireRole(["admin"])
+  return getQuestionAnswerBreakdown(id)
 }
 
 /** [Admin] Détail complet d'une question (panel / édition). `null` si introuvable. */

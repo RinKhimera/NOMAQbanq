@@ -7,6 +7,7 @@ import {
   trainingSessions,
   user,
 } from "@/db/schema"
+import { getQuestionAnswerBreakdown } from "@/features/analytics/dal"
 import { getQuestionsWithFilters } from "@/features/questions/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
@@ -215,5 +216,31 @@ describe("filtre « À vérifier » et tri par taux de réussite", () => {
     const scored = [easy, tied, solidSuspect, suspect]
     expect(ids.filter((id) => scored.includes(id))).toEqual(scored)
     expect(ids.indexOf(tooFew)).toBeGreaterThan(ids.indexOf(suspect))
+  })
+})
+
+describe("répartition des réponses d'une question", () => {
+  it("rend chaque option avec son nombre et sa part, la clé marquée, cohérente avec le taux", async () => {
+    const q = await newQuestion()
+    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "B", "B", "B", "A"])
+    const breakdown = await getQuestionAnswerBreakdown(q)
+    expect(breakdown).toEqual({
+      answerCount: 10,
+      successRate: 70,
+      options: [
+        { option: "A", count: 7, share: 70, isKey: true },
+        { option: "B", count: 3, share: 30, isKey: false },
+        { option: "C", count: 0, share: 0, isKey: false },
+      ],
+    })
+    expect((await rowOf(q))?.successRate).toBe(breakdown.successRate)
+  })
+
+  it("est refusée à un étudiant", async () => {
+    const q = await newQuestion()
+    vi.mocked(getCurrentSession).mockResolvedValueOnce({
+      user: { id: "student", role: "user" },
+    } as never)
+    await expect(getQuestionAnswerBreakdown(q)).rejects.toThrow()
   })
 })
