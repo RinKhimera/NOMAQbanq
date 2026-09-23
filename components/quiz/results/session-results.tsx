@@ -589,7 +589,8 @@ export function SessionResults({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
                       // Délai plafonné : une carte lointaine doit être visible
-                      // dès qu'on y navigue (index × 0,05 s = 11 s à la 230ᵉ).
+                      // dès qu'on y navigue (≈ 11 s sur une correction de 230
+                      // questions sans plafond).
                       transition={{ delay: Math.min(index, 10) * 0.05 }}
                     >
                       <QuestionCard

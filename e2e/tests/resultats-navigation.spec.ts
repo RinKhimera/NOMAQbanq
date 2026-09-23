@@ -30,7 +30,7 @@ async function expectQuestionReached(page: Page, index: number) {
       timeout: 2_000,
     })
     .toBe("1")
-  // La carte doit y rester : un retour de position après coup est le même bug.
+  // La carte doit rester à l'écran une fois atteinte.
   await page.waitForTimeout(1_500)
   await expect(card).toBeInViewport({ ratio: 0.1 })
 }

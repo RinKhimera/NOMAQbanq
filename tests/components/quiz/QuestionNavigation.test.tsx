@@ -59,7 +59,21 @@ describe("QuestionNavigation", () => {
     userAnswers: ["Paris", "Bordeaux", null] as (string | null)[],
     onExpandAll: vi.fn(),
     onCollapseAll: vi.fn(),
+    onNavigateToQuestion: vi.fn(),
   }
+
+  it("délègue la navigation au parent avec le numéro de la question", () => {
+    const onNavigateToQuestion = vi.fn()
+    render(
+      <QuestionNavigation
+        {...defaultProps}
+        onNavigateToQuestion={onNavigateToQuestion}
+      />,
+    )
+
+    fireEvent.click(screen.getByText("Question 2"))
+    expect(onNavigateToQuestion).toHaveBeenCalledWith(2)
+  })
 
   it("affiche le bouton de navigation des questions", () => {
     render(<QuestionNavigation {...defaultProps} />)

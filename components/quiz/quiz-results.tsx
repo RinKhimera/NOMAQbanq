@@ -3,6 +3,7 @@
 import { Eye, EyeOff, RotateCcw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
+import { flushSync } from "react-dom"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -56,6 +57,18 @@ export default function QuizResults({
 
   const collapseAll = () => {
     setExpandedQuestions(new Set())
+  }
+
+  // Même navigation que la correction d'examen (SessionResults) : la carte
+  // s'ouvre (rendu synchrone) avant un saut instantané, qu'aucune animation de
+  // hauteur ne peut interrompre.
+  const navigateToQuestion = (questionNumber: number) => {
+    flushSync(() => {
+      setExpandedQuestions((prev) => new Set(prev).add(questionNumber))
+    })
+    document
+      .getElementById(`question-${questionNumber}`)
+      ?.scrollIntoView({ behavior: "instant", block: "start" })
   }
 
   const totalQuestions = questions.length
@@ -154,6 +167,7 @@ export default function QuizResults({
               question={question}
               userAnswer={userAnswers[index]}
               questionNumber={index + 1}
+              className="scroll-mt-24"
               isExpanded={expandedQuestions.has(index + 1)}
               onToggleExpand={() => {
                 const newExpanded = new Set(expandedQuestions)
@@ -174,6 +188,7 @@ export default function QuizResults({
           userAnswers={userAnswers}
           onExpandAll={expandAll}
           onCollapseAll={collapseAll}
+          onNavigateToQuestion={navigateToQuestion}
         />
       </div>
     </div>

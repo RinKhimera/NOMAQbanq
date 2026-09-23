@@ -69,7 +69,7 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
 - `seed-explanation-image` (`examId`, `remove?`) : attache (ou retire si `remove`)
   une image `kind='explanation'` sur la **1re question** d'un examen. La question
   est PARTAGÉE (banque) → toujours `remove` en teardown (hors cascade examen).
-- `seed-exam` (`title`, `questionCount?`=5, `enablePause?`, `closed?`,
+- `seed-exam` (`title`, `questionCount?`=5 plafonné à 250, `enablePause?`, `closed?`,
   `completedFor?`) : crée un examen `subscribers` **dédié** (titre préfixé `[E2E]`)
   → isole chaque fichier `examen-blanc*` des collisions d'état partagé. Le student
   a déjà l'accès `exam` (global.setup) → éligible. `closed:true` = fenêtre passée

@@ -17,6 +17,7 @@ interface QuestionNavigationProps {
   userAnswers: (string | null)[]
   onExpandAll: () => void
   onCollapseAll: () => void
+  onNavigateToQuestion: (questionNumber: number) => void
 }
 
 const QuestionNavigation = ({
@@ -24,6 +25,7 @@ const QuestionNavigation = ({
   userAnswers,
   onExpandAll,
   onCollapseAll,
+  onNavigateToQuestion,
 }: QuestionNavigationProps) => {
   const [showScrollTop, setShowScrollTop] = useState(false)
 
@@ -41,16 +43,6 @@ const QuestionNavigation = ({
       top: 0,
       behavior: "smooth",
     })
-  }
-
-  const scrollToQuestion = (questionNumber: number) => {
-    const element = document.getElementById(`question-${questionNumber}`)
-    if (element) {
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      })
-    }
   }
 
   const getQuestionStatus = (index: number) => {
@@ -132,7 +124,7 @@ const QuestionNavigation = ({
                 return (
                   <DropdownMenuItem
                     key={index}
-                    onClick={() => scrollToQuestion(questionNumber)}
+                    onClick={() => onNavigateToQuestion(questionNumber)}
                     className="flex cursor-pointer items-center justify-between p-3 hover:bg-gray-50 dark:hover:bg-gray-800"
                   >
                     <div className="flex items-center space-x-3">

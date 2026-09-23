@@ -147,7 +147,7 @@ const QuestionExplanation = ({
                   width={800}
                   height={600}
                   sizes="(max-width: 768px) 100vw, 700px"
-                  className="h-auto max-h-48 w-auto rounded-lg border border-blue-200 dark:border-blue-800"
+                  className="h-auto max-h-48 w-auto max-w-full rounded-lg border border-blue-200 dark:border-blue-800"
                 />
               ))}
           </div>
