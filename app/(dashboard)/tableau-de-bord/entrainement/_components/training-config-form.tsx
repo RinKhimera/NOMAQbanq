@@ -36,6 +36,8 @@ interface TrainingConfigFormProps {
   domains: { domain: string; count: number }[]
   totalQuestions: number
   objectifs: Array<{ objectif: string; count: number }>
+  /** Domaine demandé par l'URL ; ignoré s'il n'est pas dans `domains`. */
+  initialDomain?: string
 }
 
 const QUESTION_MARKS = [5, 10, 15, 20]
@@ -44,10 +46,15 @@ export const TrainingConfigForm = ({
   domains,
   totalQuestions,
   objectifs,
+  initialDomain,
 }: TrainingConfigFormProps) => {
   const router = useRouter()
   const [questionCount, setQuestionCount] = useState(10)
-  const [selectedDomain, setSelectedDomain] = useState<string>("all")
+  const [selectedDomain, setSelectedDomain] = useState<string>(() =>
+    domains.some((d) => d.domain === initialDomain) && initialDomain
+      ? initialDomain
+      : "all",
+  )
   const [selectedObjectifs, setSelectedObjectifs] = useState<string[]>([])
   const [trainingMode, setTrainingMode] = useState<"tutor" | "test">("test")
   const [revisionFilters, setRevisionFilters] = useState<RevisionCriterion[]>(

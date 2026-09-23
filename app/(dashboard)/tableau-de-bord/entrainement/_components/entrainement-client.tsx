@@ -20,6 +20,7 @@ interface EntrainementClientProps {
   objectifs: ObjectifsView
   stats: TrainingStats
   initialHistory: TrainingHistoryPage
+  initialDomain?: string
 }
 
 export function EntrainementClient({
@@ -28,6 +29,7 @@ export function EntrainementClient({
   objectifs,
   stats,
   initialHistory,
+  initialDomain,
 }: EntrainementClientProps) {
   return (
     <div className="min-h-screen">
@@ -137,6 +139,7 @@ export function EntrainementClient({
                   domains={domains.domains}
                   totalQuestions={domains.totalQuestions}
                   objectifs={objectifs.objectifs}
+                  initialDomain={initialDomain}
                 />
               </motion.div>
             )}
