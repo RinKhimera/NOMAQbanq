@@ -26,6 +26,26 @@ vi.mock("next/navigation", () => ({
   }),
 }))
 
+vi.mock("@/components/quiz/question-navigation", () => ({
+  default: ({
+    questions,
+    onNavigateToQuestion,
+  }: {
+    questions: unknown[]
+    onNavigateToQuestion: (questionNumber: number) => void
+  }) => (
+    <div>
+      {questions.map((_, i) => (
+        <button
+          key={i}
+          data-testid={`nav-${i + 1}`}
+          onClick={() => onNavigateToQuestion(i + 1)}
+        />
+      ))}
+    </div>
+  ),
+}))
+
 describe("QuizResults", () => {
   const questions = [
     createMockQuestionDoc({
@@ -137,6 +157,29 @@ describe("QuizResults", () => {
 
     // Title should still be visible
     expect(screen.getByText("Quiz Terminé !")).toBeInTheDocument()
+  })
+
+  it("naviguer vers une question l'ouvre puis y défile", () => {
+    const scrollIntoView = vi.fn<Element["scrollIntoView"]>()
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      render(<QuizResults {...defaultProps} />)
+      expect(
+        screen.queryByRole("button", { name: "Réduire la question" }),
+      ).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId("nav-2"))
+
+      expect(
+        screen.getAllByRole("button", { name: "Réduire la question" }),
+      ).toHaveLength(1)
+      expect(
+        scrollIntoView.mock.contexts.map((el) => (el as Element).id),
+      ).toEqual(["question-2"])
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
   })
 
   it("appelle onRestart au clic sur Recommencer", () => {

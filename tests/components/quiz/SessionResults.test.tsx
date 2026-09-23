@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react"
 import { type ReactNode } from "react"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   SessionResults,
   SessionResultsHeader,
@@ -39,18 +39,28 @@ vi.mock("@/components/quiz/question-card", () => ({
 vi.mock("@/components/quiz/results", () => ({
   ResultsQuestionNavigator: ({
     questionResults,
+    onNavigateToQuestion,
   }: {
     questionResults: {
       isCorrect: boolean
       isAnswered: boolean
       isWithheld?: boolean
     }[]
+    onNavigateToQuestion: (index: number) => void
   }) => (
     <div
       data-testid="results-navigator"
       data-unanswered={questionResults.filter((r) => !r.isAnswered).length}
       data-withheld={questionResults.filter((r) => r.isWithheld).length}
-    />
+    >
+      {questionResults.map((_, i) => (
+        <button
+          key={i}
+          data-testid={`nav-${i}`}
+          onClick={() => onNavigateToQuestion(i)}
+        />
+      ))}
+    </div>
   ),
 }))
 
@@ -363,6 +373,64 @@ describe("SessionResults", () => {
       fireEvent.click(screen.getByTestId("btn-filter-errors"))
       // q1 (correcte) masquée → 2 cartes restantes (q2 incorrecte + q3 non répondue)
       expect(screen.getAllByTestId("question-card")).toHaveLength(2)
+    })
+
+    describe("navigation vers une question", () => {
+      const scrollIntoView = vi.fn<Element["scrollIntoView"]>()
+      const original = Element.prototype.scrollIntoView
+
+      beforeEach(() => {
+        Element.prototype.scrollIntoView = scrollIntoView
+        vi.stubGlobal(
+          "ResizeObserver",
+          class {
+            observe() {}
+            disconnect() {}
+          },
+        )
+      })
+
+      afterEach(() => {
+        Element.prototype.scrollIntoView = original
+        scrollIntoView.mockClear()
+        vi.unstubAllGlobals()
+      })
+
+      const renderFiltered = () => {
+        render(
+          <SessionResults
+            accent="blue"
+            score={33}
+            questions={questions}
+            answers={denseAnswers}
+          />,
+        )
+        fireEvent.click(screen.getByTestId("btn-filter-errors"))
+        expect(screen.getAllByTestId("question-card")).toHaveLength(2)
+      }
+
+      const scrolledIds = () =>
+        scrollIntoView.mock.contexts.map((el) => (el as Element).id)
+
+      it("une question masquée par le filtre « Erreurs » lève le filtre, puis y défile", () => {
+        renderFiltered()
+        fireEvent.click(screen.getByTestId("nav-0"))
+        expect(screen.getAllByTestId("question-card")).toHaveLength(3)
+        expect(screen.getByTestId("btn-filter-errors").textContent).toContain(
+          "Erreurs (2)",
+        )
+        expect(scrolledIds()).toEqual(["sr-question-0"])
+      })
+
+      it("jumeau : une question visible sous le filtre le conserve", () => {
+        renderFiltered()
+        fireEvent.click(screen.getByTestId("nav-1"))
+        expect(screen.getAllByTestId("question-card")).toHaveLength(2)
+        expect(screen.getByTestId("btn-filter-errors").textContent).toContain(
+          "Voir toutes",
+        )
+        expect(scrolledIds()).toEqual(["sr-question-1"])
+      })
     })
 
     it("tout déplier / tout replier", () => {

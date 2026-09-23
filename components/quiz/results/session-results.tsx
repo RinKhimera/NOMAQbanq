@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { flushSync } from "react-dom"
 import { toast } from "sonner"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { ResultsQuestionNavigator } from "@/components/quiz/results"
@@ -98,6 +99,38 @@ const getScoreLabel = (score: number, accent: "blue" | "emerald") => {
   if (score >= PASS_THRESHOLD)
     return accent === "emerald" ? "Bien joué !" : "Réussi"
   return accent === "emerald" ? "Continuez à pratiquer" : "À améliorer"
+}
+
+const KEEP_IN_VIEW_MS = 5000
+const USER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown", "pointerdown"]
+
+/**
+ * Garde `target` en haut de l'écran tant que la liste change de taille (une
+ * explication chargée au-dessus la pousserait hors de l'écran), jusqu'au
+ * premier geste de l'utilisateur. L'ancrage natif du défilement ne suffit pas :
+ * absent de Safari, et suspendu par les transforms des animations Motion.
+ * Renvoie la fonction d'arrêt.
+ */
+function keepInView(target: HTMLElement, list: HTMLElement): () => void {
+  const anchoredTop = target.getBoundingClientRect().top
+  const observer = new ResizeObserver(() => {
+    if (Math.abs(target.getBoundingClientRect().top - anchoredTop) > 1) {
+      target.scrollIntoView({ behavior: "instant", block: "start" })
+    }
+  })
+  const stop = () => {
+    observer.disconnect()
+    clearTimeout(timeout)
+    for (const type of USER_SCROLL_EVENTS) {
+      window.removeEventListener(type, stop)
+    }
+  }
+  const timeout = setTimeout(stop, KEEP_IN_VIEW_MS)
+  observer.observe(list)
+  for (const type of USER_SCROLL_EVENTS) {
+    window.addEventListener(type, stop, { passive: true })
+  }
+  return stop
 }
 
 // ============================================
@@ -244,14 +277,28 @@ export function SessionResults({
 
   const collapseAll = () => setExpandedQuestions(new Set())
 
-  const scrollToQuestion = useCallback((index: number) => {
-    setExpandedQuestions((prev) => new Set(prev).add(index))
-    setTimeout(() => {
-      document
-        .getElementById(`sr-question-${index}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" })
-    }, 100)
-  }, [])
+  const questionListRef = useRef<HTMLDivElement>(null)
+  const stopKeepInView = useRef<(() => void) | null>(null)
+  useEffect(() => () => stopKeepInView.current?.(), [])
+
+  const scrollToQuestion = useCallback(
+    (index: number) => {
+      // Rendu synchrone : la carte doit exister (filtre levé) avant de défiler.
+      flushSync(() => {
+        setExpandedQuestions((prev) => new Set(prev).add(index))
+        if (!questionResults[index]?.isError) setShowErrorsOnly(false)
+      })
+      const target = document.getElementById(`sr-question-${index}`)
+      const list = questionListRef.current
+      if (!target || !list) return
+      // Saut instantané : un défilement doux fige sa destination au départ,
+      // qu'une explication chargée au-dessus en cours de route rend fausse.
+      target.scrollIntoView({ behavior: "instant", block: "start" })
+      stopKeepInView.current?.()
+      stopKeepInView.current = keepInView(target, list)
+    },
+    [questionResults],
+  )
 
   // Même prédicat que les pages : la parité corps/en-tête est structurelle.
   const scoreWithheld = score === null || summary.scoreWithheld
@@ -516,7 +563,7 @@ export function SessionResults({
             </div>
 
             {/* Questions list */}
-            <div className="space-y-4">
+            <div ref={questionListRef} className="space-y-4">
               <AnimatePresence mode="popLayout">
                 {filteredResults.map((result, index) => {
                   const originalIndex = resultIndexMap.get(result) ?? index
@@ -537,10 +584,14 @@ export function SessionResults({
                     <motion.div
                       key={result.question._id}
                       id={`sr-question-${originalIndex}`}
+                      className="scroll-mt-28"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
-                      transition={{ delay: index * 0.05 }}
+                      // Délai plafonné : une carte lointaine doit être visible
+                      // dès qu'on y navigue (≈ 11 s sur une correction de 230
+                      // questions sans plafond).
+                      transition={{ delay: Math.min(index, 10) * 0.05 }}
                     >
                       <QuestionCard
                         variant="review"
