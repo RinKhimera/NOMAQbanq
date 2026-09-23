@@ -11,6 +11,7 @@ import {
 } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
+import { MEDICAL_DOMAINS } from "@/constants"
 import { db } from "@/db"
 import {
   examParticipations,
@@ -22,6 +23,7 @@ import {
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 import { ownerReadableScore } from "../exams/dal.student"
+import { excludeLocked, viewerOf } from "../questions/answer-key-lock"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -361,3 +363,72 @@ export const getExamPercentileForUser = async (
   await requireRole(["admin"])
   return (await percentilesOf(userId, [examId]))[examId] ?? null
 }
+
+// ============================================
+// Maîtrise par domaine
+// ============================================
+
+export type DomainMastery = {
+  domain: string
+  /** Questions comptées : la dernière réponse de l'étudiant à chacune. */
+  answered: number
+  /** Part de justes, en % ; `null` = domaine jamais pratiqué, jamais 0. */
+  mastery: number | null
+}
+
+/**
+ * Maîtrise de l'utilisateur courant pour chaque domaine médical, sur sa
+ * DERNIÈRE réponse à chaque question (entraînement et examens clos). Une
+ * réponse d'examen est datée de la clôture de sa participation. Une question
+ * dont la clé est retenue pour lui est écartée tout entière (`excludeLocked`) :
+ * la maîtrise ne bouge pas tant que l'examen est ouvert, rien ne se déduit
+ * par soustraction. `[]` sans session.
+ */
+export const getMyDomainMastery = cache(async (): Promise<DomainMastery[]> => {
+  const session = await getCurrentSession()
+  if (!session?.user) return []
+  const uid = session.user.id
+
+  const result = await db.execute<{
+    domain: string
+    answered: number
+    correct: number
+  }>(sql`
+      with answers as (
+        select i.question_id, i.is_correct, i.answered_at as answered_at
+          from training_session_items i
+          join training_sessions s on s.id = i.session_id
+         where s.user_id = ${uid}
+           and i.is_correct is not null
+        union all
+        select a.question_id, a.is_correct, p.completed_at
+          from exam_answers a
+          join exam_participations p on p.id = a.participation_id
+         where p.user_id = ${uid}
+           and p.completed_at is not null
+           and a.is_correct is not null
+      ),
+      latest as (
+        select distinct on (question_id) question_id, is_correct
+          from answers
+         order by question_id, answered_at desc
+      )
+      select q.domain,
+             count(*)::int as answered,
+             (count(*) filter (where l.is_correct))::int as correct
+        from latest l
+        join questions q on q.id = l.question_id
+       where q.deleted_at is null
+         and ${excludeLocked(viewerOf(session.user), sql`l.question_id`)}
+       group by q.domain`)
+
+  const byDomain = new Map(result.rows.map((r) => [r.domain, r]))
+  return MEDICAL_DOMAINS.map((domain) => {
+    const row = byDomain.get(domain)
+    return {
+      domain,
+      answered: row?.answered ?? 0,
+      mastery: row ? Math.round((100 * row.correct) / row.answered) : null,
+    }
+  })
+})

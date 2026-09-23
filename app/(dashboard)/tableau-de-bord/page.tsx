@@ -1,5 +1,8 @@
 import type { Metadata } from "next"
-import { getMyExamPercentiles } from "@/features/analytics/dal"
+import {
+  getMyDomainMastery,
+  getMyExamPercentiles,
+} from "@/features/analytics/dal"
 import {
   getMyAvailableExams,
   getMyDashboardStats,
@@ -29,6 +32,7 @@ export default async function DashboardPage() {
     availableExams,
     recentExams,
     examPercentiles,
+    domainMastery,
     scoreHistory,
     accessStatus,
     trainingStats,
@@ -38,6 +42,7 @@ export default async function DashboardPage() {
     getMyAvailableExams(),
     getMyRecentExams(),
     getMyExamPercentiles(),
+    getMyDomainMastery(),
     getMyScoreHistory(),
     getAccessStatus(),
     getTrainingStats(),
@@ -57,6 +62,7 @@ export default async function DashboardPage() {
       availableExams={availableExams}
       recentExams={recentExams}
       examPercentiles={examPercentiles}
+      domainMastery={domainMastery}
       scoreHistory={scoreHistory}
       accessStatus={accessStatus}
       trainingStats={trainingStats}
