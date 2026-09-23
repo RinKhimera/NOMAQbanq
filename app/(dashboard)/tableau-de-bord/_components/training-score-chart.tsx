@@ -4,7 +4,6 @@ import { Brain } from "lucide-react"
 import { motion } from "motion/react"
 import dynamic from "next/dynamic"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 interface TrainingSessionItem {
   sessionId: string
@@ -14,15 +13,8 @@ interface TrainingSessionItem {
   domain: string
 }
 
-interface DomainPerformanceItem {
-  domain: string
-  averageScore: number
-  sessionCount: number
-}
-
 interface TrainingScoreChartProps {
   sessions: TrainingSessionItem[]
-  domainPerformance: DomainPerformanceItem[]
 }
 
 // Lazy-load the heavy recharts component to reduce initial bundle size
@@ -48,16 +40,7 @@ const TrainingScoreChartContent = dynamic(
             <Skeleton className="h-4 w-40" />
           </div>
         </div>
-        <Tabs defaultValue="trend" className="w-full">
-          <TabsList className="mb-4 grid w-full grid-cols-3">
-            <TabsTrigger value="trend">Tendance</TabsTrigger>
-            <TabsTrigger value="history">Historique</TabsTrigger>
-            <TabsTrigger value="domains">Domaines</TabsTrigger>
-          </TabsList>
-          <TabsContent value="trend">
-            <Skeleton className="h-64 w-full" />
-          </TabsContent>
-        </Tabs>
+        <Skeleton className="h-64 w-full" />
       </motion.div>
     ),
     ssr: false,

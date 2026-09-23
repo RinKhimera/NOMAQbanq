@@ -315,22 +315,17 @@ export type TrainingScoreHistory = {
     questionCount: number
     domain: string
   }[]
-  domainPerformance: {
-    domain: string
-    averageScore: number
-    sessionCount: number
-  }[]
 }
 
 /**
  * Historique de score d'entraînement pour le dashboard : 10 dernières sessions
- * complétées (ordre chronologique ASC) + score moyen par domaine (top 10).
- * `domain` null → « Tous domaines ». Vide si non connecté.
+ * complétées (ordre chronologique ASC). `domain` null → « Tous domaines ».
+ * Vide si non connecté.
  */
 export const getMyTrainingScoreHistory = cache(
   async (): Promise<TrainingScoreHistory> => {
     const session = await getCurrentSession()
-    if (!session?.user) return { sessions: [], domainPerformance: [] }
+    if (!session?.user) return { sessions: [] }
     const uid = session.user.id
     const viewer = viewerOf(session.user)
 
@@ -361,33 +356,7 @@ export const getMyTrainingScoreHistory = cache(
       domain: s.domain ?? "Tous domaines",
     }))
 
-    // Score moyen par domaine sur les sessions complétées au score lisible,
-    // top 10 (une session retenue n'y compte pas, ni dans la moyenne ni dans
-    // l'effectif).
-    const domainKey = sql<string>`coalesce(${trainingSessions.domain}, 'Tous domaines')`
-    const domainRows = await db
-      .select({
-        domain: domainKey,
-        averageScore:
-          sql<number>`coalesce(round(avg(${trainingSessions.score})), 0)`.mapWith(
-            Number,
-          ),
-        sessionCount: sql<number>`count(*)`.mapWith(Number),
-      })
-      .from(trainingSessions)
-      .where(and(completedWhere, scoreReadable(viewer)))
-      .groupBy(domainKey)
-      .orderBy(desc(sql`avg(${trainingSessions.score})`))
-      .limit(10)
-
-    return {
-      sessions,
-      domainPerformance: domainRows.map((r) => ({
-        domain: r.domain,
-        averageScore: r.averageScore,
-        sessionCount: r.sessionCount,
-      })),
-    }
+    return { sessions }
   },
 )
 

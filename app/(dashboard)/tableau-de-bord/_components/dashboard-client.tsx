@@ -135,10 +135,7 @@ export const DashboardClient = ({
       {/* Charts Section */}
       <div className="grid gap-8 lg:grid-cols-2">
         <ScoreEvolutionChart data={scoreHistory} />
-        <TrainingScoreChart
-          sessions={trainingScoreHistory.sessions}
-          domainPerformance={trainingScoreHistory.domainPerformance}
-        />
+        <TrainingScoreChart sessions={trainingScoreHistory.sessions} />
       </div>
 
       <DomainMasteryPanel domains={domainMastery} />
