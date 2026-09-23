@@ -36,6 +36,8 @@ interface TrainingConfigFormProps {
   domains: { domain: string; count: number }[]
   totalQuestions: number
   objectifs: Array<{ objectif: string; count: number }>
+  /** Domaine demandé par l'URL ; ignoré s'il n'est pas dans `domains`. */
+  initialDomain?: string
 }
 
 const QUESTION_MARKS = [5, 10, 15, 20]
@@ -44,11 +46,25 @@ export const TrainingConfigForm = ({
   domains,
   totalQuestions,
   objectifs,
+  initialDomain,
 }: TrainingConfigFormProps) => {
   const router = useRouter()
   const [questionCount, setQuestionCount] = useState(10)
-  const [selectedDomain, setSelectedDomain] = useState<string>("all")
+  const domainFromUrl =
+    initialDomain && domains.some((d) => d.domain === initialDomain)
+      ? initialDomain
+      : "all"
+  const [selectedDomain, setSelectedDomain] = useState<string>(domainFromUrl)
   const [selectedObjectifs, setSelectedObjectifs] = useState<string[]>([])
+  // Une navigation client vers la même page avec un autre `?domaine=` ne
+  // remonte pas le formulaire : on réaligne l'état pendant le rendu.
+  const [appliedDomainFromUrl, setAppliedDomainFromUrl] =
+    useState(domainFromUrl)
+  if (domainFromUrl !== appliedDomainFromUrl) {
+    setAppliedDomainFromUrl(domainFromUrl)
+    setSelectedDomain(domainFromUrl)
+    setSelectedObjectifs([])
+  }
   const [trainingMode, setTrainingMode] = useState<"tutor" | "test">("test")
   const [revisionFilters, setRevisionFilters] = useState<RevisionCriterion[]>(
     [],

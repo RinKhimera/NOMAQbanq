@@ -33,9 +33,9 @@ import { useQuestionBrowser } from "./question-browser-context"
 import { QuestionBrowserTableProps, QuestionRow, SortBy } from "./types"
 import { getDomainColor, truncateText } from "./utils"
 
-/** Colonnes réelles : case à cocher, #, énoncé, domaine, objectif, images, date. */
+/** Colonnes réelles : case à cocher, #, énoncé, domaine, objectif, images, réussite, date. */
 function TableSkeleton() {
-  return <SkeletonTable columns={7} rows={10} />
+  return <SkeletonTable columns={8} rows={10} />
 }
 
 function EmptyState() {
@@ -88,9 +88,16 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
   } = useQuestionBrowser()
 
   const isSelectMode = mode === "select"
+  // Sous « À vérifier » sans tri par réussite, la DAL trie par nombre de
+  // réponses : la date n'est plus un tri disponible.
+  const sortedByAnswerCount =
+    filters.toVerify && filters.sortBy !== "successRate"
 
   const getSortIcon = (field: SortBy) => {
-    if (filters.sortBy !== field)
+    if (
+      filters.sortBy !== field ||
+      (field === "createdAt" && sortedByAnswerCount)
+    )
       return <ArrowUpDown className="ml-1.5 h-3.5 w-3.5 opacity-50" />
     return filters.sortOrder === "asc" ? (
       <ArrowUp className="ml-1.5 h-3.5 w-3.5" />
@@ -140,8 +147,8 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
             {/* Checkbox column for select mode */}
             {isSelectMode && <TableHead className="w-12.5 pl-4" />}
             <TableHead className="w-12.5 pl-4">#</TableHead>
-            {/* Tri keyset sur la date uniquement (les autres colonnes ne sont
-                pas triables côté DAL — pas d'indicateur trompeur). */}
+            {/* Seules la date et la réussite sont triables côté DAL — pas
+                d'indicateur trompeur sur les autres colonnes. */}
             <TableHead className="min-w-75 font-semibold">Question</TableHead>
             <TableHead className="w-37.5 font-semibold">Domaine</TableHead>
             <TableHead className="hidden w-45 font-semibold md:table-cell">
@@ -149,14 +156,30 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
             </TableHead>
             <TableHead className="w-20 text-center">Images</TableHead>
             <TableHead className="w-24 text-center">Utilisée</TableHead>
+            <TableHead className="w-28 text-center">
+              <Button
+                variant="ghost"
+                onClick={() => handleSort("successRate")}
+                className="h-auto p-0 font-semibold hover:bg-transparent"
+              >
+                Réussite
+                {getSortIcon("successRate")}
+              </Button>
+            </TableHead>
             <TableHead className="hidden w-30 lg:table-cell">
               <Button
                 variant="ghost"
-                onClick={() => handleSort("_creationTime")}
+                onClick={() => handleSort("createdAt")}
+                disabled={sortedByAnswerCount}
+                title={
+                  sortedByAnswerCount
+                    ? "Sous « À vérifier », triées par nombre de réponses"
+                    : undefined
+                }
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
                 Créée
-                {getSortIcon("_creationTime")}
+                {getSortIcon("createdAt")}
               </Button>
             </TableHead>
             {/* Preview button column */}
@@ -256,6 +279,28 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                     </Badge>
                   ) : (
                     <span className="text-gray-300 dark:text-gray-600">—</span>
+                  )}
+                </TableCell>
+                <TableCell
+                  data-testid="success-rate"
+                  className="text-center text-xs"
+                >
+                  {question.successRate === null ? (
+                    <span
+                      className="text-gray-400 dark:text-gray-500"
+                      title={`${question.answerCount} réponse${question.answerCount > 1 ? "s" : ""}`}
+                    >
+                      Données insuffisantes
+                    </span>
+                  ) : (
+                    <span className="flex flex-col items-center">
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {question.successRate} %
+                      </span>
+                      <span className="text-gray-500">
+                        {question.answerCount} rép.
+                      </span>
+                    </span>
                   )}
                 </TableCell>
                 <TableCell className="hidden text-gray-500 lg:table-cell">

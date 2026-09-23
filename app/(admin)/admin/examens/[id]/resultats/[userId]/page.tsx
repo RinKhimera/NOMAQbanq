@@ -5,6 +5,7 @@ import {
   SessionResultsHeader,
 } from "@/components/quiz/results/session-results"
 import type { AnswersMap } from "@/components/quiz/runner/types"
+import { getExamPercentileForUser } from "@/features/analytics/dal"
 import { loadExamQuestionExplanations } from "@/features/exams/actions"
 import { getParticipantExamResults } from "@/features/exams/dal"
 import { ParticipantResultsError } from "./_components/participant-results-error"
@@ -15,7 +16,10 @@ export default async function AdminParticipantResultsPage({
   params: Promise<{ id: string; userId: string }>
 }) {
   const { id, userId } = await params
-  const data = await getParticipantExamResults(id, userId)
+  const [data, percentile] = await Promise.all([
+    getParticipantExamResults(id, userId),
+    getExamPercentileForUser(id, userId),
+  ])
   if (!data) notFound()
 
   if ("error" in data) {
@@ -61,6 +65,8 @@ export default async function AdminParticipantResultsPage({
         title="Résultats de l'examen"
         subtitle={data.exam.title}
         score={score}
+        percentile={percentile}
+        percentileSubject="participant"
         backHref={`/admin/examens/${id}`}
         backLabel="Retour au classement"
         backIcon={<ArrowLeft className="h-4 w-4" />}

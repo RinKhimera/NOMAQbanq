@@ -1,10 +1,11 @@
 import { ReactNode } from "react"
 import type { ExamPickerOption } from "@/features/exams/dal"
+import type { QuestionSortBy } from "@/features/questions/dal"
 
 // Filter types
 export type ImageFilter = "all" | "with" | "without"
 export type UsageFilter = "all" | "used" | "unused"
-export type SortBy = "_creationTime" | "question" | "domain" | "objectifCMC"
+export type SortBy = QuestionSortBy
 export type SortOrder = "asc" | "desc"
 
 export interface QuestionFilters {
@@ -14,6 +15,8 @@ export interface QuestionFilters {
   usageFilter: UsageFilter
   /** Restreint aux questions utilisées dans cet examen (exclusif de usageFilter). */
   usedInExamId: string | null
+  /** Clé probablement erronée : une autre option plus choisie que la clé. */
+  toVerify: boolean
   sortBy: SortBy
   sortOrder: SortOrder
 }
@@ -24,7 +27,8 @@ export const defaultFilters: QuestionFilters = {
   hasImages: "all",
   usageFilter: "all",
   usedInExamId: null,
-  sortBy: "_creationTime",
+  toVerify: false,
+  sortBy: "createdAt",
   sortOrder: "desc",
 }
 
@@ -46,6 +50,10 @@ export interface QuestionRow {
   imageCount: number
   /** Nombre d'examens référençant cette question. */
   usageCount: number
+  /** Premières réponses d'étudiants comptées. */
+  answerCount: number
+  /** Taux de réussite en % ; `null` sous le seuil de signification. */
+  successRate: number | null
 }
 
 // Component mode
@@ -71,7 +79,7 @@ export interface QuestionBrowserProps {
   previewQuestionId?: string | null
   onPreviewChange?: (id: string | null) => void
 
-  // Callback pour exposer les filtres (pour export)
+  // Filtres appliqués à la liste (recherche différée), pour l'export
   onFiltersChange?: (filters: QuestionFilters) => void
 
   // Options du combobox « examen précis » (filtre usage). Vide/absent = masqué.

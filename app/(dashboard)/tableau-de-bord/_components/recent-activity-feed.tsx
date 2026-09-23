@@ -14,8 +14,9 @@ import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
+import type { ExamPercentiles } from "@/features/analytics/dal"
 import { canReadResults } from "@/lib/exam-phase"
-import { formatScore } from "@/lib/score"
+import { formatPercentile, formatScore } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 interface RecentExam {
@@ -30,12 +31,14 @@ interface RecentExam {
 
 interface RecentActivityFeedProps {
   recentExams: RecentExam[]
+  percentiles?: ExamPercentiles
   now: number
   isAdmin?: boolean
 }
 
 export const RecentActivityFeed = ({
   recentExams,
+  percentiles = {},
   now,
   isAdmin,
 }: RecentActivityFeedProps) => {
@@ -96,6 +99,7 @@ export const RecentActivityFeed = ({
             const completedDate = exam.completedAt
               ? new Date(exam.completedAt)
               : null
+            const percentile = percentiles[exam.id] ?? null
 
             return (
               <motion.div
@@ -160,6 +164,14 @@ export const RecentActivityFeed = ({
                           "Date inconnue"
                         )}
                       </p>
+                      {percentile !== null && (
+                        <p
+                          data-testid="exam-percentile"
+                          className="mt-0.5 text-xs font-medium text-blue-600 dark:text-blue-400"
+                        >
+                          {formatPercentile(percentile)}
+                        </p>
+                      )}
                     </div>
 
                     {/* Score badge */}

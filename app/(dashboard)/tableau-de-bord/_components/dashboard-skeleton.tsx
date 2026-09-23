@@ -66,6 +66,20 @@ export const DashboardSkeleton = () => {
         </div>
       </div>
 
+      {/* Domain Mastery */}
+      <div className="space-y-4">
+        <SkeletonPulse className="h-6 w-48" />
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map((i) => (
+            <SkeletonPulse
+              key={i}
+              className="h-16 rounded-xl"
+              style={{ animationDelay: `${i * 100}ms` }}
+            />
+          ))}
+        </div>
+      </div>
+
       {/* Bottom Grid */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Actions */}

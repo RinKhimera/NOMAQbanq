@@ -49,12 +49,6 @@ export const domainMetadataMap: Record<string, DomainMetadata> = {
     icon: "Activity",
     slug: "gastro-enterologie",
   },
-  Gastroentérologie: {
-    description:
-      "Troubles digestifs, hépatologie et pathologies inflammatoires",
-    icon: "Activity",
-    slug: "gastroenterologie",
-  },
   "Gynécologie obstétrique": {
     description:
       "Santé reproductive, obstétrique et pathologies gynécologiques",

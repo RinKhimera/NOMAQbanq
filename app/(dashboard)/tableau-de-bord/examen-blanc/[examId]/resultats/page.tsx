@@ -7,6 +7,7 @@ import {
 } from "@/components/quiz/results/session-results"
 import type { AnswersMap } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
+import { getMyExamPercentiles } from "@/features/analytics/dal"
 import { loadExamQuestionExplanations } from "@/features/exams/actions"
 import { getParticipantExamResults } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
@@ -24,7 +25,10 @@ export default async function MockExamResultsPage({
 
   // `getParticipantExamResults` (non-admin) ne renvoie un succès qu'après la fin
   // de l'examen ET pour ses propres résultats complétés ; sinon `null`.
-  const data = userId ? await getParticipantExamResults(examId, userId) : null
+  const [data, percentiles] = await Promise.all([
+    userId ? getParticipantExamResults(examId, userId) : null,
+    getMyExamPercentiles(),
+  ])
 
   if (!data || "error" in data) {
     return (
@@ -67,6 +71,7 @@ export default async function MockExamResultsPage({
         title="Résultats de l'examen"
         subtitle={data.exam.title}
         score={score}
+        percentile={percentiles[examId] ?? null}
         backHref="/tableau-de-bord/examen-blanc"
         backLabel="Tableau de bord"
         backIcon={<House className="h-4 w-4" />}

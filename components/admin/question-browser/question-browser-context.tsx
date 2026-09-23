@@ -22,7 +22,7 @@ import {
   UsageFilter,
   defaultFilters,
 } from "./types"
-import { nextUsageFilters } from "./utils"
+import { nextUsageFilters, toQuestionSelection } from "./utils"
 
 const QuestionBrowserContext =
   createContext<QuestionBrowserContextState | null>(null)
@@ -38,6 +38,8 @@ const toRow = (q: QuestionListItem): QuestionRow => ({
   options: q.options,
   imageCount: q.imageCount,
   usageCount: q.usageCount,
+  answerCount: q.answerCount,
+  successRate: q.successRate,
 })
 
 interface QuestionBrowserProviderProps {
@@ -104,26 +106,35 @@ export function QuestionBrowserProvider({
   const selectedIds = externalSelectedIds ?? internalSelectedIds
   const setSelectedIds = onSelectionChange ?? setInternalSelectedIds
 
+  // La recherche différée : l'export doit suivre ce que la liste affiche.
   useEffect(() => {
-    onFiltersChange?.(filters)
-  }, [filters, onFiltersChange])
+    onFiltersChange?.({ ...filters, searchQuery: debouncedSearchQuery })
+  }, [filters, debouncedSearchQuery, onFiltersChange])
 
+  // Champ par champ : la saisie brute de la recherche ne doit pas relancer la
+  // requête, seule sa version différée le fait.
+  const { domain, hasImages, usageFilter, usedInExamId, toVerify } = filters
   const queryArgs = useMemo(
     () => ({
-      search: debouncedSearchQuery || undefined,
-      domain: filters.domain !== "all" ? filters.domain : undefined,
-      hasImages:
-        filters.hasImages === "all" ? undefined : filters.hasImages === "with",
-      usageFilter: filters.usageFilter,
-      usedInExamId: filters.usedInExamId ?? undefined,
+      ...toQuestionSelection({
+        searchQuery: debouncedSearchQuery,
+        domain,
+        hasImages,
+        usageFilter,
+        usedInExamId,
+        toVerify,
+      }),
+      sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
     }),
     [
       debouncedSearchQuery,
-      filters.domain,
-      filters.hasImages,
-      filters.usageFilter,
-      filters.usedInExamId,
+      domain,
+      hasImages,
+      usageFilter,
+      usedInExamId,
+      toVerify,
+      filters.sortBy,
       filters.sortOrder,
     ],
   )
@@ -179,7 +190,8 @@ export function QuestionBrowserProvider({
     filters.domain !== "all" ||
     filters.hasImages !== "all" ||
     filters.usageFilter !== "all" ||
-    filters.usedInExamId !== null
+    filters.usedInExamId !== null ||
+    filters.toVerify
 
   const isQuotaReached = selectedIds.length >= maxSelection
 

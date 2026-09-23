@@ -29,7 +29,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { QuestionExplanationView } from "@/features/exams/dal"
 import { useIsVisible } from "@/hooks/use-is-visible"
-import { classify, summarize } from "@/lib/score"
+import { classify, formatPercentile, summarize } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 // ============================================
@@ -676,6 +676,10 @@ interface SessionResultsHeaderProps {
   subtitle?: string
   /** `null` = score retenu (même valeur que celle passée au corps). */
   score: number | null
+  /** Percentile d'examen ; `null`/absent = non disponible, rien n'est affiché. */
+  percentile?: number | null
+  /** À qui s'adresse le percentile : l'étudiant lui-même, ou un admin qui le consulte. */
+  percentileSubject?: "self" | "participant"
   backHref: string
   backLabel: string
   backIcon: React.ReactNode
@@ -696,6 +700,8 @@ export function SessionResultsHeader({
   title,
   subtitle,
   score,
+  percentile,
+  percentileSubject = "self",
   backHref,
   backLabel,
   backIcon,
@@ -730,6 +736,14 @@ export function SessionResultsHeader({
               {subtitle && (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   {subtitle}
+                </p>
+              )}
+              {percentile != null && (
+                <p
+                  data-testid="exam-percentile"
+                  className="text-sm font-medium text-blue-600 dark:text-blue-400"
+                >
+                  {formatPercentile(percentile, percentileSubject)}
                 </p>
               )}
             </div>

@@ -362,13 +362,6 @@ describe("getMyTrainingScoreHistory (graphique dashboard)", () => {
     expect(i2).toBeLessThan(i3)
     expect(sessions[i3]).toMatchObject({ domain: "Tous domaines", score: 30 })
   })
-
-  it("domainPerformance : score moyen par domaine", async () => {
-    asAdmin()
-    const { domainPerformance } = await getMyTrainingScoreHistory()
-    const mine = domainPerformance.find((d) => d.domain === DASH_DOM)
-    expect(mine).toMatchObject({ averageScore: 75, sessionCount: 2 }) // round((60+90)/2)
-  })
 })
 
 describe("IDOR / propriété", () => {

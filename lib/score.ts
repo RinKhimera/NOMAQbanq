@@ -22,6 +22,16 @@ export const computeScorePercent = (correct: number, total: number): number =>
 export const formatScore = (score: number | null): string =>
   score === null ? "—" : `${score}%`
 
+/**
+ * Percentile d'examen en phrase, pour un percentile disponible. `participant` :
+ * le lecteur n'est pas celui dont on parle (un admin consulte ses résultats).
+ */
+export const formatPercentile = (
+  percentile: number,
+  subject: "self" | "participant" = "self",
+): string =>
+  `${subject === "self" ? "Vous avez fait" : "A fait"} mieux que ${percentile} % des autres participants`
+
 export type AnswerOutcome = "correct" | "incorrect" | "unanswered" | "withheld"
 
 // Sparse-answer compat : clé absente OU entrée sans `selected` = non répondu.

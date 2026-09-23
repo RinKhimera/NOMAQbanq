@@ -76,6 +76,12 @@ export const dashboardNavigation = {
   ],
 }
 
+/** Paramètre d'URL qui présélectionne un domaine dans l'entraînement. */
+export const TRAINING_DOMAIN_PARAM = "domaine"
+
+export const trainingDomainUrl = (domain: string) =>
+  `/tableau-de-bord/entrainement?${TRAINING_DOMAIN_PARAM}=${encodeURIComponent(domain)}`
+
 // Domaines médicaux prédéfinis
 export const MEDICAL_DOMAINS = [
   "Anesthésie-Réanimation",
@@ -85,7 +91,6 @@ export const MEDICAL_DOMAINS = [
   "Dermatologie",
   "Endocrinologie",
   "Gastro-entérologie",
-  "Gastroentérologie",
   "Gynécologie obstétrique",
   "Hémato-oncologie",
   "Infectiologie",

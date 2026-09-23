@@ -304,6 +304,36 @@ describe("SessionResults", () => {
       render(<SessionResultsHeader {...headerProps} score={33} />)
       expect(screen.getByTestId("score-status").dataset.status).toBe("failing")
     })
+
+    it("situe le participant parmi les autres quand le percentile existe", () => {
+      render(
+        <SessionResultsHeader {...headerProps} score={70} percentile={75} />,
+      )
+      expect(screen.getByTestId("exam-percentile")).toHaveTextContent(
+        "Vous avez fait mieux que 75 % des autres participants",
+      )
+    })
+
+    it("parle du participant, pas du lecteur, quand un admin consulte ses résultats", () => {
+      render(
+        <SessionResultsHeader
+          {...headerProps}
+          score={70}
+          percentile={75}
+          percentileSubject="participant"
+        />,
+      )
+      expect(screen.getByTestId("exam-percentile")).toHaveTextContent(
+        "A fait mieux que 75 % des autres participants",
+      )
+    })
+
+    it("jumeau : sans percentile, aucune position ni « 0 % »", () => {
+      render(
+        <SessionResultsHeader {...headerProps} score={70} percentile={null} />,
+      )
+      expect(screen.queryByTestId("exam-percentile")).toBeNull()
+    })
   })
 
   describe("score card", () => {

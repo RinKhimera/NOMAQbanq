@@ -14,27 +14,26 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Spinner } from "@/components/ui/spinner"
 import { loadQuestionsForExport } from "@/features/questions/actions"
-import type { QuestionExportRow as ExportQuestion } from "@/features/questions/dal"
+import type {
+  QuestionExportRow as ExportQuestion,
+  QuestionSelection,
+} from "@/features/questions/dal"
 import {
-  csvQuote,
   downloadBlob,
   downloadCsv,
   exportRowsToXlsx,
   timestampedFilename,
 } from "@/lib/export"
 import { formatShortDate } from "@/lib/format"
+import { questionsCsvLines } from "./questions-csv"
 
 interface ExportQuestionsButtonProps {
-  searchQuery?: string
-  domain?: string
-  hasImages?: boolean
+  selection: QuestionSelection
   questionCount?: number
 }
 
 export function ExportQuestionsButton({
-  searchQuery,
-  domain,
-  hasImages,
+  selection,
   questionCount,
 }: ExportQuestionsButtonProps) {
   const [isExporting, setIsExporting] = useState(false)
@@ -42,11 +41,7 @@ export function ExportQuestionsButton({
   const fetchAndExport = async (format: "csv" | "json" | "xlsx") => {
     setIsExporting(true)
     try {
-      const questions = await loadQuestionsForExport({
-        search: searchQuery || undefined,
-        domain: domain === "all" ? undefined : domain,
-        hasImages,
-      })
+      const questions = await loadQuestionsForExport(selection)
 
       if (questions.length === 0) {
         toast.error("Aucune question à exporter")
@@ -73,45 +68,10 @@ export function ExportQuestionsButton({
   }
 
   const exportAsCSV = (questions: ExportQuestion[]) => {
-    const headers = [
-      "ID",
-      "Question",
-      "Option A",
-      "Option B",
-      "Option C",
-      "Option D",
-      "Option E",
-      "Réponse correcte",
-      "Explication",
-      "Domaine",
-      "Objectif CMC",
-      "Références",
-      "Avec images",
-      "Nombre d'images",
-      "Date de création",
-    ]
-
-    const rows = questions.map((q) => [
-      q.id,
-      csvQuote(q.question),
-      q.options[0] ? csvQuote(q.options[0]) : "",
-      q.options[1] ? csvQuote(q.options[1]) : "",
-      q.options[2] ? csvQuote(q.options[2]) : "",
-      q.options[3] ? csvQuote(q.options[3]) : "",
-      q.options[4] ? csvQuote(q.options[4]) : "",
-      csvQuote(q.correctAnswer),
-      csvQuote(q.explanation),
-      q.domain,
-      q.objectifCMC,
-      csvQuote(q.references.join("; ")),
-      q.hasImages ? "Oui" : "Non",
-      q.imagesCount,
-      new Date(q.createdAt).toISOString(),
-    ])
-
-    const lines = [headers.join(","), ...rows.map((row) => row.join(","))]
-
-    downloadCsv(lines, timestampedFilename("questions-export", "csv"))
+    downloadCsv(
+      questionsCsvLines(questions),
+      timestampedFilename("questions-export", "csv"),
+    )
     toast.success(`${questions.length} questions exportées en CSV`)
   }
 
@@ -140,12 +100,16 @@ export function ExportQuestionsButton({
       "Avec images": q.hasImages ? "Oui" : "Non",
       "Nombre d'images": q.imagesCount,
       "Date de création": formatShortDate(q.createdAt),
+      "Réussite (%)": q.successRate ?? "",
+      Réponses: q.answerCount,
     }))
 
     exportRowsToXlsx(data, {
       sheetName: "Questions",
       filename: timestampedFilename("questions-export", "xlsx"),
-      colWidths: [30, 50, 30, 30, 30, 30, 30, 30, 50, 20, 15, 40, 12, 15, 18],
+      colWidths: [
+        30, 50, 30, 30, 30, 30, 30, 30, 50, 20, 15, 40, 12, 15, 18, 12, 10,
+      ],
     })
     toast.success(`${questions.length} questions exportées en Excel`)
   }

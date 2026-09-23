@@ -232,3 +232,82 @@ describe("TrainingConfigForm — révision", () => {
     })
   })
 })
+
+describe("TrainingConfigForm — domaine présélectionné", () => {
+  it("part du domaine demandé quand il existe", async () => {
+    primeActions()
+    createTrainingSession.mockResolvedValue({
+      success: true,
+      sessionId: "s4",
+      questionCount: 10,
+    })
+
+    render(<TrainingConfigForm {...props} initialDomain="Cardiologie" />)
+    await waitFor(() =>
+      expect(loadRevisionCounts).toHaveBeenCalledWith(
+        expect.objectContaining({ domain: "Cardiologie" }),
+      ),
+    )
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Commencer l'entraînement/i }),
+    )
+    await waitFor(() => {
+      expect(createTrainingSession).toHaveBeenCalledWith(
+        expect.objectContaining({ domain: "Cardiologie" }),
+      )
+    })
+    expect(push).toHaveBeenCalledWith("/tableau-de-bord/entrainement/s4")
+  })
+
+  it("ignore un domaine inconnu et part de tous les domaines", async () => {
+    primeActions()
+    createTrainingSession.mockResolvedValue({
+      success: true,
+      sessionId: "s5",
+      questionCount: 10,
+    })
+
+    render(<TrainingConfigForm {...props} initialDomain="Gastroentérologie" />)
+    await waitFor(() => expect(loadRevisionCounts).toHaveBeenCalled())
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Commencer l'entraînement/i }),
+    )
+    await waitFor(() => {
+      expect(createTrainingSession).toHaveBeenCalledWith(
+        expect.objectContaining({ domain: undefined }),
+      )
+    })
+  })
+
+  it("suit un nouveau domaine demandé par l'URL sans remontage", async () => {
+    primeActions()
+    const domains = [...props.domains, { domain: "Neurologie", count: 80 }]
+    const { rerender } = render(
+      <TrainingConfigForm
+        {...props}
+        domains={domains}
+        initialDomain="Cardiologie"
+      />,
+    )
+    await waitFor(() =>
+      expect(loadRevisionCounts).toHaveBeenLastCalledWith(
+        expect.objectContaining({ domain: "Cardiologie" }),
+      ),
+    )
+
+    rerender(
+      <TrainingConfigForm
+        {...props}
+        domains={domains}
+        initialDomain="Neurologie"
+      />,
+    )
+    await waitFor(() =>
+      expect(loadRevisionCounts).toHaveBeenLastCalledWith(
+        expect.objectContaining({ domain: "Neurologie" }),
+      ),
+    )
+  })
+})

@@ -136,6 +136,46 @@ Les questions éligibles à une session de révision ciblée d'un étudiant :
 ratées, non vues ou marquées, dans son domaine et ses objectifs.
 _Avoid_ : pool, sélection
 
+### Statistiques
+
+**Percentile d'examen** :
+La part des autres participations d'un même examen blanc clos dont le score
+lisible est strictement inférieur à celui du participant (« mieux que X % des
+participants »). Les pairs sont les participations d'étudiants, hors comptes
+admin et supprimés. Il n'existe pas en dessous d'un effectif minimal de pairs,
+ni pour un examen ouvert.
+_Avoid_ : rang global, percentile d'entraînement
+
+**Maîtrise par domaine** :
+La part de réponses justes d'un étudiant dans un domaine médical, calculée sur
+sa DERNIÈRE réponse à chaque question (entraînement et examens clos). Une
+question dont la clé est retenue pour l'étudiant n'y entre pas du tout, ni sa
+réponse d'examen ni ses réponses d'entraînement antérieures, tant que l'examen
+est ouvert : la maîtrise peut baisser au démarrage d'un examen, jamais pendant. Un
+domaine jamais pratiqué n'a pas de maîtrise, pas une maîtrise de 0 %.
+_Avoid_ : score par domaine, taux de réussite (réservé à la question)
+
+**Taux de réussite d'une question** :
+La part de réponses justes à une question, calculée sur la PREMIÈRE réponse de
+chaque étudiant (entraînement et examens), hors comptes admin et supprimés.
+Mesure la difficulté de la question, pas le niveau d'un étudiant. Non
+significatif en dessous d'un nombre minimal de réponses.
+_Avoid_ : difficulté, maîtrise
+
+**Répartition des réponses** :
+La part de chaque option parmi les réponses comptées dans le taux de réussite
+d'une question. Une option autre que la clé plus choisie que la clé signale
+une clé de réponse probablement erronée.
+_Avoid_ : distribution des distracteurs
+
+**Date d'une réponse** :
+Le moment qui ordonne les réponses d'un étudiant à une même question, pour en
+trouver la première ou la dernière. Une réponse d'entraînement est datée de sa
+validation ; une réponse d'examen, de la clôture de sa participation, car elle
+reste modifiable jusque-là. Une session d'entraînement en cours n'a pas encore
+de réponse datée : en mode test, sa justesse reste cachée jusqu'à la fin.
+_Avoid_ : date de création de la réponse
+
 ### Paiements
 
 **Port Stripe** :

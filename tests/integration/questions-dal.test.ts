@@ -179,6 +179,25 @@ describe("getQuestionsWithFilters", () => {
     expect(rows.map((r) => r.id).sort()).toEqual([q1, q2, q3].sort())
   })
 
+  it("export : suit les filtres d'usage (used / unused / usedInExamId)", async () => {
+    const ids = async (filters: Parameters<typeof getQuestionsForExport>[0]) =>
+      (await getQuestionsForExport({ domain: DOMAIN, ...filters }))
+        .map((r) => r.id)
+        .sort()
+
+    expect(await ids({ usageFilter: "used" })).toEqual([q1])
+    expect(await ids({ usageFilter: "unused" })).toEqual([q2, q3].sort())
+    expect(await ids({ usedInExamId: examId })).toEqual([q1])
+  })
+
+  it("export : une question sans réponse a 0 réponse et aucun taux", async () => {
+    const rows = await getQuestionsForExport({ domain: DOMAIN })
+    expect(rows.find((r) => r.id === q2)).toMatchObject({
+      answerCount: 0,
+      successRate: null,
+    })
+  })
+
   it("filtre hasImages (EXISTS / NOT EXISTS)", async () => {
     const withImg = await getQuestionsWithFilters({
       domain: DOMAIN,

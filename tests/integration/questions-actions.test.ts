@@ -45,7 +45,6 @@ vi.mock("@/lib/storage", async (orig) => {
 })
 
 const suffix = createId().slice(0, 8)
-const DOMAIN = `ADOM-${suffix}`
 const created: string[] = []
 
 const base = {
@@ -55,7 +54,7 @@ const base = {
   explanation: "Exp",
   references: ["R1"],
   objectifCMC: "obj test",
-  domain: DOMAIN,
+  domain: "Autres" as const,
 }
 
 const makeOne = async () => {
@@ -99,6 +98,13 @@ describe("createQuestion", () => {
     })
     expect(res.success).toBe(false)
   })
+
+  it("refuse un domaine hors de la liste officielle", async () => {
+    const res = await createQuestion({ ...base, domain: "Gastroentérologie" })
+    expect(res.success).toBe(false)
+    const page = await getQuestionsWithFilters({ search: suffix, limit: 100 })
+    expect(page.items.map((q) => q.domain)).not.toContain("Gastroentérologie")
+  })
 })
 
 describe("updateQuestion", () => {
@@ -115,6 +121,13 @@ describe("updateQuestion", () => {
     expect(q?.explanation).toBe("Nouvelle explication")
     expect(q?.correctAnswer).toBe("B")
   })
+
+  it("refuse de déplacer une question vers un domaine hors liste", async () => {
+    const id = await makeOne()
+    const res = await updateQuestion({ ...base, id, domain: "Cardio" })
+    expect(res.success).toBe(false)
+    expect((await getQuestionById(id))?.domain).toBe("Autres")
+  })
 })
 
 describe("deleteQuestion", () => {
@@ -127,7 +140,7 @@ describe("deleteQuestion", () => {
     expect(res).toEqual({ success: true, mode: "hard" })
 
     expect(await getQuestionById(id)).toBeNull()
-    const page = await getQuestionsWithFilters({ domain: DOMAIN, limit: 100 })
+    const page = await getQuestionsWithFilters({ search: suffix, limit: 100 })
     expect(page.items.map((q) => q.id)).not.toContain(id)
   })
 })

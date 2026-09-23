@@ -21,6 +21,8 @@ const makePage = (total = 120) => ({
     createdAt: 0,
     imageCount: 0,
     usageCount: 0,
+    answerCount: i === 0 ? 10 : 4,
+    successRate: i === 0 ? 70 : null,
   })),
 })
 
@@ -104,5 +106,104 @@ describe("QuestionBrowser — pagination & reset", () => {
     } finally {
       vi.useRealTimers()
     }
+  })
+})
+
+describe("QuestionBrowser — filtres exposés à l'export", () => {
+  beforeEach(() => {
+    loadQuestionsPage.mockReset()
+    loadQuestionsPage.mockResolvedValue(makePage())
+  })
+
+  // Faux timers : même contrainte que le test de recherche ci-dessus.
+  it("expose la recherche appliquée à la liste, pas la saisie en cours", async () => {
+    vi.useFakeTimers()
+    const settle = async (ms = 0) => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms)
+      })
+    }
+    const onFiltersChange = vi.fn()
+    try {
+      render(
+        <QuestionBrowser mode="browse" onFiltersChange={onFiltersChange} />,
+      )
+      await settle()
+
+      fireEvent.change(
+        screen.getByPlaceholderText(/rechercher dans les questions/i),
+        { target: { value: "infarctus" } },
+      )
+      await settle()
+      expect(onFiltersChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ searchQuery: "" }),
+      )
+
+      await settle(SEARCH_DEBOUNCE_MS)
+      expect(onFiltersChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ searchQuery: "infarctus" }),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe("QuestionBrowser — taux de réussite", () => {
+  beforeEach(() => {
+    loadQuestionsPage.mockReset()
+    loadQuestionsPage.mockResolvedValue(makePage())
+  })
+
+  it("affiche le taux et le nombre de réponses, ou « données insuffisantes » sous le seuil", async () => {
+    render(<QuestionBrowser mode="browse" />)
+    const cells = await screen.findAllByTestId("success-rate")
+    expect(cells[0]).toHaveTextContent("70 %")
+    expect(cells[0]).toHaveTextContent("10 rép.")
+    expect(cells[1]).toHaveTextContent("Données insuffisantes")
+    expect(cells[1]).not.toHaveTextContent("%")
+  })
+
+  it("trie par taux de réussite depuis l'en-tête de colonne", async () => {
+    render(<QuestionBrowser mode="browse" />)
+    await screen.findByText("Question 0")
+    fireEvent.click(screen.getByRole("button", { name: /Réussite/ }))
+    await waitFor(() =>
+      expect(loadQuestionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sortBy: "successRate", page: 1 }),
+      ),
+    )
+  })
+
+  it("filtre les questions « À vérifier »", async () => {
+    render(<QuestionBrowser mode="browse" />)
+    await screen.findByText("Question 0")
+    fireEvent.click(screen.getByRole("button", { name: /À vérifier/ }))
+    await waitFor(() =>
+      expect(loadQuestionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ toVerify: true, page: 1 }),
+      ),
+    )
+  })
+})
+
+describe("QuestionBrowser — tri sous « À vérifier »", () => {
+  beforeEach(() => {
+    loadQuestionsPage.mockReset()
+    loadQuestionsPage.mockResolvedValue(makePage())
+  })
+
+  it("n'annonce plus un tri par date que la liste ne suit pas", async () => {
+    render(<QuestionBrowser mode="browse" />)
+    await screen.findByText("Question 0")
+    const byDate = screen.getByRole("button", { name: /Créée/ })
+    expect(byDate).toBeEnabled()
+
+    fireEvent.click(screen.getByRole("button", { name: /À vérifier/ }))
+    await waitFor(() => expect(byDate).toBeDisabled())
+    expect(byDate).toHaveAttribute(
+      "title",
+      "Sous « À vérifier », triées par nombre de réponses",
+    )
   })
 })

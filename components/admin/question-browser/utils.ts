@@ -1,3 +1,4 @@
+import type { QuestionSelection } from "@/features/questions/dal"
 import type { QuestionFilters, UsageFilter } from "./types"
 
 /**
@@ -13,6 +14,29 @@ export function nextUsageFilters(
     : { ...prev, usedInExamId: next.usedInExamId, usageFilter: "all" }
 }
 
+/** Filtres de l'UI → sélection de la DAL, partagée par la liste et l'export. */
+export function toQuestionSelection(
+  filters: Pick<
+    QuestionFilters,
+    | "searchQuery"
+    | "domain"
+    | "hasImages"
+    | "usageFilter"
+    | "usedInExamId"
+    | "toVerify"
+  >,
+): QuestionSelection {
+  return {
+    search: filters.searchQuery || undefined,
+    domain: filters.domain !== "all" ? filters.domain : undefined,
+    hasImages:
+      filters.hasImages === "all" ? undefined : filters.hasImages === "with",
+    usageFilter: filters.usageFilter,
+    usedInExamId: filters.usedInExamId ?? undefined,
+    toVerify: filters.toVerify,
+  }
+}
+
 // Domain color mapping for medical specialties
 export const domainColors: Record<string, string> = {
   Cardiologie:
@@ -26,8 +50,6 @@ export const domainColors: Record<string, string> = {
   "Gynécologie obstétrique":
     "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-300",
   "Gastro-entérologie":
-    "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
-  Gastroentérologie:
     "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
   Pneumologie: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
   Néphrologie:

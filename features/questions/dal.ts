@@ -21,6 +21,7 @@ import {
   questions,
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
+import { questionSuccessStats } from "../analytics/answers-sql"
 import { AnswerKeyLock, excludeLocked } from "./answer-key-lock"
 import { fetchImages, toQuizQuestion } from "./quiz-bridge"
 
@@ -98,6 +99,10 @@ export type QuestionListItem = {
   imageCount: number
   /** Nombre d'examens référençant cette question. */
   usageCount: number
+  /** Premières réponses d'étudiants comptées. */
+  answerCount: number
+  /** Taux de réussite en % ; `null` sous le seuil de signification. */
+  successRate: number | null
 }
 
 export type QuestionsPage = {
@@ -106,45 +111,41 @@ export type QuestionsPage = {
   total: number
 }
 
-export type QuestionFiltersInput = {
-  /** 1-based. */
-  page?: number
-  limit?: number
+/** Tris de la liste de questions : seuls ceux que la requête sait faire. */
+export type QuestionSortBy = "createdAt" | "successRate"
+
+/** Les questions retenues par les filtres de la liste, que l'export reprend. */
+export type QuestionSelection = {
   search?: string
   domain?: string
   hasImages?: boolean
-  sortOrder?: "asc" | "desc"
+  /** Clé probablement erronée : une autre option plus choisie que la clé. */
+  toVerify?: boolean
   usageFilter?: "all" | "used" | "unused"
   usedInExamId?: string
 }
 
+export type QuestionFiltersInput = QuestionSelection & {
+  /** 1-based. */
+  page?: number
+  limit?: number
+  sortOrder?: "asc" | "desc"
+  /** `successRate` : non significatives en fin, quel que soit le sens. */
+  sortBy?: QuestionSortBy
+}
+
 /**
- * [Admin] Questions filtrées + paginées (offset `page`/`limit` + `total` pour la
- * pagination numérotée). Recherche ILIKE sur le texte ET l'objectif CMC, filtre
- * domaine, filtre images et filtre usage examen via EXISTS corrélés. Comptes
- * d'images et d'usage batchés (pas de N+1). Ordre stable (tie-break id). Garde admin.
+ * Prédicat des filtres sans statistiques ; `toVerify` se pose à part, sur
+ * l'agrégat de la banque joint par l'appelant.
  */
-export const getQuestionsWithFilters = async ({
-  page = 1,
-  limit = 50,
+const selectionWhere = ({
   search,
   domain,
   hasImages,
-  sortOrder = "desc",
   usageFilter = "all",
   usedInExamId,
-}: QuestionFiltersInput = {}): Promise<QuestionsPage> => {
-  await requireRole(["admin"])
-
-  // `Number.isFinite` : un `page`/`limit` forgé (NaN/Infinity) ne doit pas
-  // traverser le clamp (Math.max(1, NaN) === NaN → erreur SQL).
-  const safeLimit = clamp(Number.isFinite(limit) ? limit : 50, 1, 100)
-  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1
-  const offset = (safePage - 1) * safeLimit
-  const isDesc = sortOrder !== "asc"
-
+}: QuestionSelection) => {
   const searchTerm = search?.trim()
-
   // `usedInExamId` prime sur used/unused (l'UI garantit l'exclusion mutuelle).
   const usagePredicate = usedInExamId
     ? usedInExamSubquery(usedInExamId)
@@ -154,7 +155,7 @@ export const getQuestionsWithFilters = async ({
         ? unusedSubquery
         : undefined
 
-  const where = and(
+  return and(
     isNull(questions.deletedAt),
     domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
     searchTerm
@@ -170,36 +171,110 @@ export const getQuestionsWithFilters = async ({
         : noImagesSubquery,
     usagePredicate,
   )
+}
 
-  const order = isDesc
+/**
+ * [Admin] Questions filtrées + paginées (offset `page`/`limit` + `total` pour la
+ * pagination numérotée). Recherche ILIKE sur le texte ET l'objectif CMC, filtre
+ * domaine, filtre images et filtre usage examen via EXISTS corrélés. Comptes
+ * d'images et d'usage batchés (pas de N+1). Ordre stable (tie-break id). Garde admin.
+ */
+export const getQuestionsWithFilters = async ({
+  page = 1,
+  limit = 50,
+  search,
+  domain,
+  hasImages,
+  sortOrder = "desc",
+  sortBy = "createdAt",
+  toVerify = false,
+  usageFilter = "all",
+  usedInExamId,
+}: QuestionFiltersInput = {}): Promise<QuestionsPage> => {
+  await requireRole(["admin"])
+
+  // `Number.isFinite` : un `page`/`limit` forgé (NaN/Infinity) ne doit pas
+  // traverser le clamp (Math.max(1, NaN) === NaN → erreur SQL).
+  const safeLimit = clamp(Number.isFinite(limit) ? limit : 50, 1, 100)
+  const safePage = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1
+  const offset = (safePage - 1) * safeLimit
+  const isDesc = sortOrder !== "asc"
+
+  const where = selectionWhere({
+    search,
+    domain,
+    hasImages,
+    usageFilter,
+    usedInExamId,
+  })
+
+  const byCreation = isDesc
     ? [desc(questions.createdAt), desc(questions.id)]
     : [asc(questions.createdAt), asc(questions.id)]
 
-  const [rows, totalRows] = await Promise.all([
-    db
-      .select({
-        id: questions.id,
-        question: questions.question,
-        domain: questions.domain,
-        objectifCMC: questions.objectifCmc,
-        options: questions.options,
-        createdAt: questions.createdAt,
-      })
-      .from(questions)
-      .where(where)
-      .orderBy(...order)
-      .limit(safeLimit)
-      .offset(offset),
-    db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
-      .from(questions)
-      .where(where),
-  ])
+  const listColumns = {
+    id: questions.id,
+    question: questions.question,
+    domain: questions.domain,
+    objectifCMC: questions.objectifCmc,
+    options: questions.options,
+    createdAt: questions.createdAt,
+  }
+  const countColumn = { n: sql<number>`count(*)`.mapWith(Number) }
+
+  // Tri et filtre sur le taux de réussite : agrégat de toute la banque, joint.
+  const bankStats = questionSuccessStats()
+  const useStats = sortBy === "successRate" || toVerify
+  const statsWhere = and(
+    where,
+    toVerify ? eq(bankStats.keySuspect, true) : undefined,
+  )
+  const byStats =
+    sortBy === "successRate"
+      ? [
+          sql`${bankStats.successRate} ${isDesc ? sql`desc` : sql`asc`} nulls last`,
+          asc(questions.id),
+        ]
+      : [desc(bankStats.answerCount), asc(questions.id)]
+
+  const [rows, totalRows] = useStats
+    ? await Promise.all([
+        db
+          .with(bankStats)
+          .select(listColumns)
+          .from(questions)
+          .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+          .where(statsWhere)
+          .orderBy(...byStats)
+          .limit(safeLimit)
+          .offset(offset),
+        // Le total ne dépend des stats que via le filtre : un simple tri ne
+        // le change pas, inutile de recalculer l'agrégat de la banque.
+        toVerify
+          ? db
+              .with(bankStats)
+              .select(countColumn)
+              .from(questions)
+              .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+              .where(statsWhere)
+          : db.select(countColumn).from(questions).where(where),
+      ])
+    : await Promise.all([
+        db
+          .select(listColumns)
+          .from(questions)
+          .where(where)
+          .orderBy(...byCreation)
+          .limit(safeLimit)
+          .offset(offset),
+        db.select(countColumn).from(questions).where(where),
+      ])
 
   const total = totalRows[0]?.n ?? 0
   const pageIds = rows.map((r) => r.id)
 
-  const [imageCounts, usageCounts] = pageIds.length
+  const pageStats = questionSuccessStats(pageIds)
+  const [imageCounts, usageCounts, successRows] = pageIds.length
     ? await Promise.all([
         db
           .select({
@@ -222,11 +297,20 @@ export const getQuestionsWithFilters = async ({
           .from(examQuestions)
           .where(inArray(examQuestions.questionId, pageIds))
           .groupBy(examQuestions.questionId),
+        db
+          .with(pageStats)
+          .select({
+            questionId: pageStats.questionId,
+            answerCount: pageStats.answerCount,
+            successRate: pageStats.successRate,
+          })
+          .from(pageStats),
       ])
-    : [[], []]
+    : [[], [], []]
 
   const imageMap = new Map(imageCounts.map((c) => [c.questionId, c.n]))
   const usageMap = new Map(usageCounts.map((c) => [c.questionId, c.n]))
+  const successMap = new Map(successRows.map((r) => [r.questionId, r]))
 
   const items: QuestionListItem[] = rows.map((r) => ({
     id: r.id,
@@ -237,6 +321,8 @@ export const getQuestionsWithFilters = async ({
     createdAt: r.createdAt.getTime(),
     imageCount: imageMap.get(r.id) ?? 0,
     usageCount: usageMap.get(r.id) ?? 0,
+    answerCount: successMap.get(r.id)?.answerCount ?? 0,
+    successRate: successMap.get(r.id)?.successRate ?? null,
   }))
 
   return { items, total }
@@ -577,42 +663,26 @@ export type QuestionExportRow = {
   imagesCount: number
   /** Epoch ms. */
   createdAt: number
+  /** Premières réponses d'étudiants comptées. */
+  answerCount: number
+  /** Taux de réussite en % ; `null` sous le seuil de signification. */
+  successRate: number | null
 }
 
 /**
- * [Admin] Questions pour l'export (mêmes filtres que la liste, sans pagination —
- * borné à 5000). Joint l'explication ; compte les images en batch. Remplace
- * l'action `getAllQuestionsForExport` + sa boucle de pagination interne.
+ * [Admin] Questions pour l'export : la sélection de la liste, sans pagination
+ * (borné à 5000), avec l'explication et le taux de
+ * réussite. L'agrégat couvre toute la banque, comme le filtre « À vérifier »
+ * de la liste.
  */
-export const getQuestionsForExport = async ({
-  search,
-  domain,
-  hasImages,
-}: {
-  search?: string
-  domain?: string
-  hasImages?: boolean
-} = {}): Promise<QuestionExportRow[]> => {
+export const getQuestionsForExport = async (
+  selection: QuestionSelection = {},
+): Promise<QuestionExportRow[]> => {
   await requireRole(["admin"])
 
-  const searchTerm = search?.trim()
-  const where = and(
-    isNull(questions.deletedAt),
-    domain && domain !== "all" ? eq(questions.domain, domain) : undefined,
-    searchTerm
-      ? or(
-          ilike(questions.question, `%${escapeLike(searchTerm)}%`),
-          ilike(questions.objectifCmc, `%${escapeLike(searchTerm)}%`),
-        )
-      : undefined,
-    hasImages === undefined
-      ? undefined
-      : hasImages
-        ? hasImagesSubquery
-        : noImagesSubquery,
-  )
-
+  const bankStats = questionSuccessStats()
   const rows = await db
+    .with(bankStats)
     .select({
       id: questions.id,
       question: questions.question,
@@ -623,13 +693,21 @@ export const getQuestionsForExport = async ({
       createdAt: questions.createdAt,
       explanation: questionExplanations.explanation,
       references: questionExplanations.references,
+      answerCount: bankStats.answerCount,
+      successRate: bankStats.successRate,
     })
     .from(questions)
     .leftJoin(
       questionExplanations,
       eq(questionExplanations.questionId, questions.id),
     )
-    .where(where)
+    .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+    .where(
+      and(
+        selectionWhere(selection),
+        selection.toVerify ? eq(bankStats.keySuspect, true) : undefined,
+      ),
+    )
     .orderBy(desc(questions.createdAt), desc(questions.id))
     .limit(5000)
 
@@ -667,6 +745,8 @@ export const getQuestionsForExport = async ({
       hasImages: imagesCount > 0,
       imagesCount,
       createdAt: r.createdAt.getTime(),
+      answerCount: r.answerCount ?? 0,
+      successRate: r.successRate,
     }
   })
 }

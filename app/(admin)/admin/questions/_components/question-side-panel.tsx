@@ -45,6 +45,7 @@ import { cdnUrl } from "@/lib/cdn"
 import { formatLongDateTime } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
+import { QuestionAnswerBreakdown } from "./question-answer-breakdown"
 
 interface QuestionSidePanelProps {
   questionId: string | null
@@ -268,6 +269,8 @@ function PanelContent({
             })}
           </div>
         </div>
+
+        <QuestionAnswerBreakdown questionId={questionId} />
 
         {/* Explanation (Toggle) */}
         <div className="space-y-2">

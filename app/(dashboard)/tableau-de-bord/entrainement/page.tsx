@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { TRAINING_DOMAIN_PARAM } from "@/constants"
 import { getAvailableProducts, hasAccess } from "@/features/payments/dal"
 import {
   getActiveTrainingSession,
@@ -15,7 +16,11 @@ import { TrainingPaywall } from "./_components/training-paywall"
 // interactions (création, réponses, pagination) passent par des Server Actions.
 export const metadata: Metadata = { title: "Entraînement" }
 
-export default async function EntrainementPage() {
+export default async function EntrainementPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [TRAINING_DOMAIN_PARAM]?: string | string[] }>
+}) {
   if (!(await hasAccess("training"))) {
     // Produit d'accès training (non-promo d'abord, promo en repli).
     const products = await getAvailableProducts()
@@ -28,6 +33,7 @@ export default async function EntrainementPage() {
     return <TrainingPaywall product={trainingProduct} />
   }
 
+  const requestedDomain = (await searchParams)[TRAINING_DOMAIN_PARAM]
   const [activeSession, domains, objectifs, stats, initialHistory] =
     await Promise.all([
       getActiveTrainingSession(),
@@ -44,6 +50,9 @@ export default async function EntrainementPage() {
       objectifs={objectifs}
       stats={stats}
       initialHistory={initialHistory}
+      initialDomain={
+        typeof requestedDomain === "string" ? requestedDomain : undefined
+      }
     />
   )
 }

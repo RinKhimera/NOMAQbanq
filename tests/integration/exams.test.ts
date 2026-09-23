@@ -888,7 +888,7 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(stats?.averageScore).toBe(100)
     })
 
-    it("getMyTrainingScoreHistory : point retenu à null, hors des moyennes par domaine", async () => {
+    it("getMyTrainingScoreHistory : point retenu à null", async () => {
       asStudent()
       const h = await getMyTrainingScoreHistory()
       expect(
@@ -897,10 +897,6 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(
         h.sessions.find((s) => s.sessionId === readableTrainingId)?.score,
       ).toBe(100)
-      // q8 (100) + q7 (sans score) restent ; la session retenue sort.
-      expect(h.domainPerformance).toEqual([
-        { domain: "Tous domaines", averageScore: 100, sessionCount: 2 },
-      ])
     })
 
     it("participation à un examen encore OUVERT : score retenu sur la liste, l'historique et la moyenne", async () => {

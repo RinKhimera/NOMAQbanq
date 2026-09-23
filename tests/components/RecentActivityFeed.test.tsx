@@ -51,3 +51,20 @@ describe("RecentActivityFeed — score retenu", () => {
     expect(screen.queryByText("%")).toBeNull()
   })
 })
+
+describe("RecentActivityFeed — percentile d'examen", () => {
+  it("situe chaque examen dont le percentile existe, et lui seul", () => {
+    render(
+      <RecentActivityFeed
+        recentExams={[closedExam("a", 72), closedExam("b", 55)]}
+        percentiles={{ a: 80, b: null }}
+        now={NOW}
+      />,
+    )
+    const shown = screen.getAllByTestId("exam-percentile")
+    expect(shown).toHaveLength(1)
+    expect(shown[0]).toHaveTextContent(
+      "Vous avez fait mieux que 80 % des autres participants",
+    )
+  })
+})

@@ -1,4 +1,5 @@
 import { z } from "zod"
+import { isMedicalDomain } from "@/constants"
 
 // Champs communs création/édition. Une question QCM = 2..8 options, la bonne
 // réponse devant figurer parmi elles (refine sur l'objet complet).
@@ -12,7 +13,11 @@ const questionFields = {
   explanation: z.string().trim().min(1, "L'explication est requise"),
   references: z.array(z.string().trim().min(1)).max(50).optional(),
   objectifCMC: z.string().trim().min(1, "L'objectif CMC est requis"),
-  domain: z.string().trim().min(1, "Le domaine est requis"),
+  domain: z
+    .string()
+    .trim()
+    .min(1, "Le domaine est requis")
+    .refine((domain): boolean => isMedicalDomain(domain), "Domaine inconnu"),
 }
 
 const correctAnswerInOptions = (d: {

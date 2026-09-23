@@ -1,6 +1,7 @@
 "use client"
 
 import { Brain, CircleCheck, Percent, Target } from "lucide-react"
+import type { DomainMastery, ExamPercentiles } from "@/features/analytics/dal"
 import type {
   MyAvailableExam,
   MyDashboardStats,
@@ -14,6 +15,7 @@ import type {
 } from "@/features/training/dal"
 import { formatScore } from "@/lib/score"
 import { DashboardHero } from "./dashboard-hero"
+import { DomainMasteryPanel } from "./domain-mastery-panel"
 import { NextActionsPanel } from "./next-actions-panel"
 import { QuickAccessGrid } from "./quick-access-grid"
 import { RecentActivityFeed } from "./recent-activity-feed"
@@ -29,6 +31,8 @@ interface DashboardClientProps {
   stats: MyDashboardStats
   availableExams: MyAvailableExam[]
   recentExams: MyRecentExam[]
+  examPercentiles: ExamPercentiles
+  domainMastery: DomainMastery[]
   scoreHistory: MyScoreHistoryItem[]
   accessStatus: AccessStatus | null
   trainingStats: TrainingStats
@@ -48,6 +52,8 @@ export const DashboardClient = ({
   stats,
   availableExams,
   recentExams,
+  examPercentiles,
+  domainMastery,
   scoreHistory,
   accessStatus,
   trainingStats,
@@ -129,11 +135,10 @@ export const DashboardClient = ({
       {/* Charts Section */}
       <div className="grid gap-8 lg:grid-cols-2">
         <ScoreEvolutionChart data={scoreHistory} />
-        <TrainingScoreChart
-          sessions={trainingScoreHistory.sessions}
-          domainPerformance={trainingScoreHistory.domainPerformance}
-        />
+        <TrainingScoreChart sessions={trainingScoreHistory.sessions} />
       </div>
+
+      <DomainMasteryPanel domains={domainMastery} />
 
       {/* Actions & Activity Grid */}
       <div className="grid gap-8 lg:grid-cols-2">
@@ -148,6 +153,7 @@ export const DashboardClient = ({
         {/* Recent Activity */}
         <RecentActivityFeed
           recentExams={recentExams}
+          percentiles={examPercentiles}
           now={now}
           isAdmin={isAdmin}
         />
