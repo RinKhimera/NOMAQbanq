@@ -314,6 +314,20 @@ describe("SessionResults", () => {
       )
     })
 
+    it("parle du participant, pas du lecteur, quand un admin consulte ses résultats", () => {
+      render(
+        <SessionResultsHeader
+          {...headerProps}
+          score={70}
+          percentile={75}
+          percentileSubject="participant"
+        />,
+      )
+      expect(screen.getByTestId("exam-percentile")).toHaveTextContent(
+        "A fait mieux que 75 % des autres participants",
+      )
+    })
+
     it("jumeau : sans percentile, aucune position ni « 0 % »", () => {
       render(
         <SessionResultsHeader {...headerProps} score={70} percentile={null} />,

@@ -678,6 +678,8 @@ interface SessionResultsHeaderProps {
   score: number | null
   /** Percentile d'examen ; `null`/absent = non disponible, rien n'est affiché. */
   percentile?: number | null
+  /** À qui s'adresse le percentile : l'étudiant lui-même, ou un admin qui le consulte. */
+  percentileSubject?: "self" | "participant"
   backHref: string
   backLabel: string
   backIcon: React.ReactNode
@@ -699,6 +701,7 @@ export function SessionResultsHeader({
   subtitle,
   score,
   percentile,
+  percentileSubject = "self",
   backHref,
   backLabel,
   backIcon,
@@ -740,7 +743,7 @@ export function SessionResultsHeader({
                   data-testid="exam-percentile"
                   className="text-sm font-medium text-blue-600 dark:text-blue-400"
                 >
-                  {formatPercentile(percentile)}
+                  {formatPercentile(percentile, percentileSubject)}
                 </p>
               )}
             </div>

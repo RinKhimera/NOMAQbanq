@@ -66,6 +66,7 @@ export default async function AdminParticipantResultsPage({
         subtitle={data.exam.title}
         score={score}
         percentile={percentile}
+        percentileSubject="participant"
         backHref={`/admin/examens/${id}`}
         backLabel="Retour au classement"
         backIcon={<ArrowLeft className="h-4 w-4" />}
