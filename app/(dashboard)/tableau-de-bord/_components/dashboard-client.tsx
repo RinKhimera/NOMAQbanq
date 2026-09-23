@@ -1,6 +1,7 @@
 "use client"
 
 import { Brain, CircleCheck, Percent, Target } from "lucide-react"
+import type { ExamPercentiles } from "@/features/analytics/dal"
 import type {
   MyAvailableExam,
   MyDashboardStats,
@@ -29,6 +30,7 @@ interface DashboardClientProps {
   stats: MyDashboardStats
   availableExams: MyAvailableExam[]
   recentExams: MyRecentExam[]
+  examPercentiles: ExamPercentiles
   scoreHistory: MyScoreHistoryItem[]
   accessStatus: AccessStatus | null
   trainingStats: TrainingStats
@@ -48,6 +50,7 @@ export const DashboardClient = ({
   stats,
   availableExams,
   recentExams,
+  examPercentiles,
   scoreHistory,
   accessStatus,
   trainingStats,
@@ -148,6 +151,7 @@ export const DashboardClient = ({
         {/* Recent Activity */}
         <RecentActivityFeed
           recentExams={recentExams}
+          percentiles={examPercentiles}
           now={now}
           isAdmin={isAdmin}
         />
