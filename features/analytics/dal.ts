@@ -1,4 +1,5 @@
 import {
+  type SQL,
   and,
   desc,
   eq,
@@ -366,6 +367,45 @@ export const getExamPercentileForUser = async (
 }
 
 // ============================================
+// Réponses datées (maîtrise, taux de réussite)
+// ============================================
+
+/**
+ * Toutes les réponses données (justesse connue), entraînement et examens,
+ * chacune avec sa date d'une réponse : la validation pour l'entraînement, la
+ * clôture de la participation pour un examen, car une réponse d'examen reste
+ * modifiable jusque-là. Une participation non close n'a pas encore de réponse
+ * datée. Colonnes : user_id, question_id, selected_answer, is_correct,
+ * answered_at.
+ */
+const datedAnswersSql = ({
+  userId,
+  questionIds,
+}: {
+  userId?: string
+  questionIds?: string[]
+}) => {
+  const scoped = (userColumn: SQL, questionColumn: SQL) =>
+    sql`${userId ? sql`and ${userColumn} = ${userId}` : sql``}
+        ${questionIds ? sql`and ${inArray(questionColumn, questionIds)}` : sql``}`
+  return sql`
+    select s.user_id, i.question_id, i.selected_answer, i.is_correct,
+           i.answered_at
+      from training_session_items i
+      join training_sessions s on s.id = i.session_id
+     where i.is_correct is not null
+       ${scoped(sql`s.user_id`, sql`i.question_id`)}
+    union all
+    select p.user_id, a.question_id, a.selected_answer, a.is_correct,
+           p.completed_at
+      from exam_answers a
+      join exam_participations p on p.id = a.participation_id
+     where a.is_correct is not null
+       and p.completed_at is not null
+       ${scoped(sql`p.user_id`, sql`a.question_id`)}`
+}
+
+// ============================================
 // Maîtrise par domaine
 // ============================================
 
@@ -395,20 +435,7 @@ export const getMyDomainMastery = cache(async (): Promise<DomainMastery[]> => {
     answered: number
     correct: number
   }>(sql`
-      with answers as (
-        select i.question_id, i.is_correct, i.answered_at as answered_at
-          from training_session_items i
-          join training_sessions s on s.id = i.session_id
-         where s.user_id = ${uid}
-           and i.is_correct is not null
-        union all
-        select a.question_id, a.is_correct, p.completed_at
-          from exam_answers a
-          join exam_participations p on p.id = a.participation_id
-         where p.user_id = ${uid}
-           and p.completed_at is not null
-           and a.is_correct is not null
-      ),
+      with answers as (${datedAnswersSql({ userId: uid })}),
       latest as (
         select distinct on (question_id) question_id, is_correct
           from answers
@@ -451,23 +478,11 @@ export const QUESTION_SUCCESS_MIN_ANSWERS = 10
 const firstAnswersSql = (questionIds?: string[]) => sql`
   select distinct on (x.user_id, x.question_id)
          x.question_id, x.selected_answer
-    from (
-      select s.user_id, i.question_id, i.selected_answer, i.answered_at as at
-        from training_session_items i
-        join training_sessions s on s.id = i.session_id
-       where i.is_correct is not null
-      union all
-      select p.user_id, a.question_id, a.selected_answer, p.completed_at
-        from exam_answers a
-        join exam_participations p on p.id = a.participation_id
-       where a.is_correct is not null
-         and p.completed_at is not null
-    ) x
+    from (${datedAnswersSql({ questionIds })}) x
     join "user" u on u.id = x.user_id
    where u.role = 'user'
      and u.deleted_at is null
-     ${questionIds ? sql`and ${inArray(sql`x.question_id`, questionIds)}` : sql``}
-   order by x.user_id, x.question_id, x.at`
+   order by x.user_id, x.question_id, x.answered_at`
 
 /**
  * CTE des statistiques par question, à joindre sur `questions.id`. Colonnes
@@ -532,21 +547,29 @@ export const getQuestionAnswerBreakdown = async (
     .limit(1)
   if (!question) return { answerCount: 0, successRate: null, options: [] }
 
-  const counts = await db.execute<{ selected_answer: string; n: number }>(sql`
-    select f.selected_answer, count(*)::int as n
-      from (${firstAnswersSql([questionId])}) f
-     group by f.selected_answer`)
+  const stats = questionSuccessStats([questionId])
+  const [counts, [summary]] = await Promise.all([
+    db.execute<{ selected_answer: string; n: number }>(sql`
+      select f.selected_answer, count(*)::int as n
+        from (${firstAnswersSql([questionId])}) f
+       group by f.selected_answer`),
+    db
+      .with(stats)
+      .select({
+        answerCount: stats.answerCount,
+        successRate: stats.successRate,
+      })
+      .from(stats),
+  ])
 
   const byOption = new Map(counts.rows.map((r) => [r.selected_answer, r.n]))
-  const answerCount = counts.rows.reduce((sum, r) => sum + r.n, 0)
+  const answerCount = summary?.answerCount ?? 0
   const share = (n: number) =>
     answerCount === 0 ? 0 : Math.round((100 * n) / answerCount)
-  const keyCount = byOption.get(question.correctAnswer) ?? 0
 
   return {
     answerCount,
-    successRate:
-      answerCount >= QUESTION_SUCCESS_MIN_ANSWERS ? share(keyCount) : null,
+    successRate: summary?.successRate ?? null,
     options: question.options.map((option) => ({
       option,
       count: byOption.get(option) ?? 0,
