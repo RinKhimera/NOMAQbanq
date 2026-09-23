@@ -98,6 +98,13 @@ describe("createQuestion", () => {
     })
     expect(res.success).toBe(false)
   })
+
+  it("refuse un domaine hors de la liste officielle", async () => {
+    const res = await createQuestion({ ...base, domain: "Gastroentérologie" })
+    expect(res.success).toBe(false)
+    const page = await getQuestionsWithFilters({ search: suffix, limit: 100 })
+    expect(page.items.map((q) => q.domain)).not.toContain("Gastroentérologie")
+  })
 })
 
 describe("updateQuestion", () => {
@@ -113,6 +120,13 @@ describe("updateQuestion", () => {
     const q = await getQuestionById(id)
     expect(q?.explanation).toBe("Nouvelle explication")
     expect(q?.correctAnswer).toBe("B")
+  })
+
+  it("refuse de déplacer une question vers un domaine hors liste", async () => {
+    const id = await makeOne()
+    const res = await updateQuestion({ ...base, id, domain: "Cardio" })
+    expect(res.success).toBe(false)
+    expect((await getQuestionById(id))?.domain).toBe("Autres")
   })
 })
 
