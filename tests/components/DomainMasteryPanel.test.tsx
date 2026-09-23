@@ -29,13 +29,12 @@ describe("DomainMasteryPanel", () => {
     { domain: "Psychiatrie", answered: 20, mastery: 45 },
   ]
 
-  it("classe les domaines du plus faible au plus fort, les domaines peu pratiqués puis jamais pratiqués après", () => {
+  it("classe les domaines pratiqués du plus faible au plus fort, les domaines peu pratiqués après", () => {
     render(<DomainMasteryPanel domains={domains} />)
     expect(rows().map(domainOf)).toEqual([
       "Psychiatrie",
       "Cardiologie",
       "Pédiatrie",
-      "Neurologie",
     ])
   })
 
@@ -53,11 +52,26 @@ describe("DomainMasteryPanel", () => {
     expect(pediatrie.dataset.significant).toBe("false")
   })
 
-  it("affiche un domaine jamais pratiqué comme tel, jamais à 0 %", () => {
+  it("regroupe les domaines jamais pratiqués en pastilles compactes, sans 0 %", () => {
     render(<DomainMasteryPanel domains={domains} />)
-    const neurologie = rows()[3]!
-    expect(neurologie).toHaveTextContent("Pas encore pratiqué")
-    expect(neurologie).not.toHaveTextContent("0 %")
+    const unpracticed = screen.getByTestId("domain-mastery-unpracticed")
+    expect(unpracticed).toHaveTextContent("Pas encore pratiqués (1)")
+    expect(unpracticed).not.toHaveTextContent("%")
+    expect(
+      within(unpracticed).getByRole("link", { name: /Neurologie/ }),
+    ).toHaveAttribute(
+      "href",
+      "/tableau-de-bord/entrainement?domaine=Neurologie",
+    )
+  })
+
+  it("n'affiche pas le bloc des domaines jamais pratiqués quand tous le sont", () => {
+    render(
+      <DomainMasteryPanel
+        domains={domains.filter((d) => d.mastery !== null)}
+      />,
+    )
+    expect(screen.queryByTestId("domain-mastery-unpracticed")).toBeNull()
   })
 
   it("mène à la révision de chaque domaine", () => {
