@@ -82,11 +82,10 @@ export const account = pgTable(
     id: text("id").primaryKey(),
     accountId: text("account_id").notNull(),
     providerId: text("provider_id").notNull(),
-    // Autorité qui a émis `accountId` ; l'identité d'un compte est la paire
-    // (issuer, accountId), pas (providerId, accountId). Valeurs écrites par
-    // Better Auth : `local:credential` (mot de passe) et, pour Google, l'issuer
-    // OIDC `https://accounts.google.com`.
-    issuer: text("issuer").notNull(),
+    // Plus écrite par better-auth depuis 1.7.3 : seules les lignes antérieures
+    // la portent. Gardée nullable le temps de pouvoir revenir à 1.7.2, qui
+    // l'écrit encore ; à supprimer ensuite.
+    issuer: text("issuer"),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
@@ -110,8 +109,10 @@ export const account = pgTable(
   },
   (table) => [
     index("account_userId_idx").on(table.userId),
-    uniqueIndex("account_issuer_account_id_uidx").on(
-      table.issuer,
+    // Identité d'un compte pour better-auth : il lève une erreur s'il trouve
+    // deux lignes pour la même paire, la base les refuse en amont.
+    uniqueIndex("account_provider_id_account_id_uidx").on(
+      table.providerId,
       table.accountId,
     ),
   ],
