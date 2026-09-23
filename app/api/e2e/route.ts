@@ -381,7 +381,7 @@ async function seedExam(opts: {
   closed?: boolean
   completedFor?: string
 }) {
-  const count = Math.min(Math.max(1, opts.questionCount ?? 5), 50)
+  const count = Math.min(Math.max(1, opts.questionCount ?? 5), 250)
 
   const [admin] = await db
     .select({ id: user.id })

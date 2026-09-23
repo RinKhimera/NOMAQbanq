@@ -107,12 +107,16 @@ const QuestionExplanation = ({
   explanationImages,
 }: QuestionExplanationProps) => {
   return (
+    // Pas d'animation de `height` : pour la mesurer, Motion fige la page par un
+    // `window.scrollTo`, qui interrompt tout défilement doux en cours (navigation
+    // vers une question, retour en haut). Ce panneau apparaît de façon paresseuse,
+    // souvent en plein défilement.
     <motion.div
-      initial={{ opacity: 0, height: 0 }}
-      animate={{ opacity: 1, height: "auto" }}
-      exit={{ opacity: 0, height: 0 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="space-y-4 overflow-hidden"
+      className="space-y-4"
     >
       {/* Explanation */}
       <div
@@ -122,7 +126,7 @@ const QuestionExplanation = ({
         <h4 className="mb-2 text-sm font-semibold text-blue-900 sm:text-base dark:text-blue-100">
           Explication :
         </h4>
-        <p className="text-sm leading-relaxed whitespace-pre-line text-blue-800 dark:text-blue-200">
+        <p className="text-sm leading-relaxed wrap-break-word whitespace-pre-line text-blue-800 dark:text-blue-200">
           {explanation}
         </p>
 
@@ -160,7 +164,7 @@ const QuestionExplanation = ({
             {references.map((ref, index) => (
               <div
                 key={index}
-                className="border-l-2 border-blue-400 pl-3 text-sm leading-relaxed text-gray-700 dark:border-blue-500 dark:text-gray-300"
+                className="border-l-2 border-blue-400 pl-3 text-sm leading-relaxed wrap-break-word text-gray-700 dark:border-blue-500 dark:text-gray-300"
               >
                 <span className="mr-2 font-semibold text-blue-600 dark:text-blue-400">
                   {index + 1}.
@@ -477,9 +481,10 @@ export const QuestionCard = ({
       <AnimatePresence mode="wait">
         {(!isReviewVariant || isExpanded) && (
           <motion.div
-            initial={isReviewVariant ? { opacity: 0, height: 0 } : false}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={isReviewVariant ? { opacity: 0, height: 0 } : undefined}
+            // Opacité seule, même raison que QuestionExplanation.
+            initial={isReviewVariant ? { opacity: 0 } : false}
+            animate={{ opacity: 1 }}
+            exit={isReviewVariant ? { opacity: 0 } : undefined}
             transition={{ duration: 0.2 }}
             role="group"
             aria-label="Choix de réponse"

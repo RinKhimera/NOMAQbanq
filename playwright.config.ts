@@ -77,6 +77,7 @@ export default defineConfig({
         /examen-blanc-offline\.spec\.ts/,
         /examen-blanc-deploy-skew\.spec\.ts/,
         /resultats-examen\.spec\.ts/,
+        /resultats-navigation\.spec\.ts/,
         /resultats-entrainement\.spec\.ts/,
         /profil\.spec\.ts/,
         /payment-access\.spec\.ts/,
