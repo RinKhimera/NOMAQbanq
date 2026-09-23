@@ -310,7 +310,7 @@ describe("SessionResults", () => {
         <SessionResultsHeader {...headerProps} score={70} percentile={75} />,
       )
       expect(screen.getByTestId("exam-percentile")).toHaveTextContent(
-        "Mieux que 75 % des participants",
+        "Vous avez fait mieux que 75 % des autres participants",
       )
     })
 

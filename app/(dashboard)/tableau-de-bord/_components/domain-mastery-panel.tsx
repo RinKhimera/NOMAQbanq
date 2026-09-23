@@ -95,8 +95,8 @@ export const DomainMasteryPanel = ({ domains }: DomainMasteryPanelProps) => {
                     prefetch={false}
                     className="flex shrink-0 items-center gap-1 text-xs font-medium text-teal-600 transition-colors hover:text-teal-700 dark:text-teal-400"
                   >
-                    Réviser
-                    <span className="sr-only"> {d.domain}</span>
+                    Réviser ce domaine
+                    <span className="sr-only"> : {d.domain}</span>
                     <ChevronRight className="h-3.5 w-3.5" />
                     <LinkPendingIndicator />
                   </Link>

@@ -63,6 +63,8 @@ describe("RecentActivityFeed — percentile d'examen", () => {
     )
     const shown = screen.getAllByTestId("exam-percentile")
     expect(shown).toHaveLength(1)
-    expect(shown[0]).toHaveTextContent("Mieux que 80 % des participants")
+    expect(shown[0]).toHaveTextContent(
+      "Vous avez fait mieux que 80 % des autres participants",
+    )
   })
 })

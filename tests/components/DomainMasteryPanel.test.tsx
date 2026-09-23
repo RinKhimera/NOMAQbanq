@@ -63,7 +63,7 @@ describe("DomainMasteryPanel", () => {
   it("mène à la révision de chaque domaine", () => {
     render(<DomainMasteryPanel domains={domains} />)
     expect(
-      within(rows()[0]!).getByRole("link", { name: /Réviser/ }),
+      within(rows()[0]!).getByRole("link", { name: /Réviser ce domaine/ }),
     ).toHaveAttribute(
       "href",
       "/tableau-de-bord/entrainement?domaine=Psychiatrie",

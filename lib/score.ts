@@ -24,7 +24,7 @@ export const formatScore = (score: number | null): string =>
 
 /** Percentile d'examen en phrase, pour un percentile disponible. */
 export const formatPercentile = (percentile: number): string =>
-  `Mieux que ${percentile} % des participants`
+  `Vous avez fait mieux que ${percentile} % des autres participants`
 
 export type AnswerOutcome = "correct" | "incorrect" | "unanswered" | "withheld"
 
