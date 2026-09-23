@@ -65,13 +65,14 @@ const newQuestion = async (
 const train = async (
   userId: string,
   items: { questionId: string; isCorrect: boolean | null; answeredAt: Date }[],
+  { status = "completed" }: { status?: "completed" | "in_progress" } = {},
 ) => {
   const sessionId = createId()
   createdSessions.push(sessionId)
   await db.insert(trainingSessions).values({
     id: sessionId,
     userId,
-    status: "completed",
+    status,
     mode: "test",
     questionCount: items.length,
     startedAt: at("00:00"),
@@ -87,6 +88,7 @@ const train = async (
       answeredAt: item.isCorrect === null ? null : item.answeredAt,
     })),
   )
+  return sessionId
 }
 
 const DAY = 24 * 60 * 60 * 1000
@@ -138,6 +140,12 @@ const sitExam = async (
   )
   return { examId, participationId }
 }
+
+const closeSession = (sessionId: string) =>
+  db
+    .update(trainingSessions)
+    .set({ status: "completed" })
+    .where(eq(trainingSessions.id, sessionId))
 
 const masteryOf = async (domain: string) =>
   (await getMyDomainMastery()).find((d) => d.domain === domain)
@@ -328,6 +336,55 @@ describe("maîtrise par domaine", () => {
     expect(await masteryOf("Rhumatologie")).toMatchObject({
       answered: 2,
       mastery: 50,
+    })
+  })
+
+  it("ignore une session d'entraînement en cours, juste ou fausse, puis la compte à sa clôture", async () => {
+    const student = await newStudent()
+    const known = await newQuestion("Urologie")
+    const probed = await newQuestion("Urologie")
+    await train(student, [
+      { questionId: known, isCorrect: true, answeredAt: at("10:00") },
+    ])
+    const baseline = await masteryOf("Urologie")
+    expect(baseline).toMatchObject({ answered: 1, mastery: 100 })
+
+    const sessionId = await train(
+      student,
+      [{ questionId: probed, isCorrect: false, answeredAt: at("11:00") }],
+      { status: "in_progress" },
+    )
+    expect(await masteryOf("Urologie")).toEqual(baseline)
+
+    await db
+      .update(trainingSessionItems)
+      .set({ isCorrect: true })
+      .where(eq(trainingSessionItems.sessionId, sessionId))
+    expect(await masteryOf("Urologie")).toEqual(baseline)
+
+    await closeSession(sessionId)
+    expect(await masteryOf("Urologie")).toMatchObject({
+      answered: 2,
+      mastery: 100,
+    })
+  })
+
+  it("ne prend pas une réponse sans date pour la plus récente", async () => {
+    const student = await newStudent()
+    const q = await newQuestion("Ophtalmologie")
+    await train(student, [
+      { questionId: q, isCorrect: true, answeredAt: at("10:00") },
+    ])
+    const undated = await train(student, [
+      { questionId: q, isCorrect: false, answeredAt: at("09:00") },
+    ])
+    await db
+      .update(trainingSessionItems)
+      .set({ answeredAt: null })
+      .where(eq(trainingSessionItems.sessionId, undated))
+    expect(await masteryOf("Ophtalmologie")).toMatchObject({
+      answered: 1,
+      mastery: 100,
     })
   })
 

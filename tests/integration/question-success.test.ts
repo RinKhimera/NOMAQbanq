@@ -2,6 +2,9 @@ import { inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
+  examAnswers,
+  examParticipations,
+  exams,
   questions,
   trainingSessionItems,
   trainingSessions,
@@ -22,6 +25,7 @@ const suffix = createId().slice(0, 8)
 const createdUsers: string[] = []
 const createdQuestions: string[] = []
 const createdSessions: string[] = []
+const createdExams: string[] = []
 
 const at = (minute: number) => new Date(Date.UTC(2026, 0, 1, 10, minute))
 
@@ -61,13 +65,14 @@ const answer = async (
   questionId: string,
   selected: "A" | "B" | "C",
   answeredAt = at(0),
+  status: "completed" | "in_progress" = "completed",
 ) => {
   const sessionId = createId()
   createdSessions.push(sessionId)
   await db.insert(trainingSessions).values({
     id: sessionId,
     userId,
-    status: "completed",
+    status,
     mode: "test",
     questionCount: 1,
     startedAt: answeredAt,
@@ -80,6 +85,43 @@ const answer = async (
     selectedAnswer: selected,
     isCorrect: selected === "A",
     answeredAt,
+  })
+}
+
+/**
+ * Réponse d'examen de `userId` à `questionId` (`null` = laissée vide), dans une
+ * participation close à `completedAt` (`null` = encore en cours).
+ */
+const answerInExam = async (
+  userId: string,
+  questionId: string,
+  selected: "A" | "B" | "C" | null,
+  completedAt: Date | null,
+) => {
+  const examId = createId()
+  createdExams.push(examId)
+  await db.insert(exams).values({
+    id: examId,
+    title: `Réussite ${suffix}`,
+    startDate: at(0),
+    endDate: at(59),
+    completionTime: 3600,
+    createdBy: userId,
+  })
+  const participationId = createId()
+  await db.insert(examParticipations).values({
+    id: participationId,
+    examId,
+    userId,
+    status: completedAt ? "completed" : "in_progress",
+    startedAt: at(0),
+    completedAt,
+  })
+  await db.insert(examAnswers).values({
+    participationId,
+    questionId,
+    selectedAnswer: selected,
+    isCorrect: selected === null ? null : selected === "A",
   })
 }
 
@@ -101,6 +143,7 @@ beforeAll(() => {
 })
 
 afterAll(async () => {
+  await db.delete(exams).where(inArray(exams.id, createdExams))
   await db
     .delete(trainingSessions)
     .where(inArray(trainingSessions.id, createdSessions))
@@ -136,6 +179,33 @@ describe("taux de réussite d'une question", () => {
   it("n'a pas de taux sous 10 réponses", async () => {
     const q = await newQuestion()
     await answeredBy(q, ["A", "A", "A", "A", "A", "B", "B", "B", "B"])
+    expect(await rowOf(q)).toMatchObject({ answerCount: 9, successRate: null })
+  })
+
+  it("date une réponse d'examen de la clôture : un examen clos avant l'entraînement est la première réponse", async () => {
+    const q = await newQuestion()
+    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
+    const student = await newUser()
+    await answerInExam(student, q, "B", at(1))
+    await answer(student, q, "A", at(2))
+    expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 90 })
+  })
+
+  it("jumeau : un examen clos après l'entraînement n'est pas la première réponse", async () => {
+    const q = await newQuestion()
+    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
+    const student = await newUser()
+    await answer(student, q, "A", at(1))
+    await answerInExam(student, q, "B", at(2))
+    expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 100 })
+  })
+
+  it("ne compte ni une question d'examen laissée vide, ni une participation non close, ni une session en cours", async () => {
+    const q = await newQuestion()
+    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "A", "A"])
+    await answerInExam(await newUser(), q, null, at(1))
+    await answerInExam(await newUser(), q, "B", null)
+    await answer(await newUser(), q, "B", at(1), "in_progress")
     expect(await rowOf(q)).toMatchObject({ answerCount: 9, successRate: null })
   })
 
@@ -201,6 +271,17 @@ describe("filtre « À vérifier » et tri par taux de réussite", () => {
       toVerify: true,
     })
     expect(page.total).toBe(2)
+  })
+
+  it("ne change pas le total quand on trie seulement par taux", async () => {
+    const sorted = await getQuestionsWithFilters({
+      search: suffix,
+      limit: 1,
+      sortBy: "successRate",
+    })
+    const plain = await getQuestionsWithFilters({ search: suffix, limit: 1 })
+    expect(sorted.total).toBe(plain.total)
+    expect(sorted.total).toBeGreaterThan(2)
   })
 
   it("trie par taux croissant, les questions non significatives en fin", async () => {

@@ -331,11 +331,12 @@ const percentilesOf = async (
     percentile: number | null
   }>(sql`
     with cohort as (${cohort})
+    -- Arrondi inférieur : « mieux que X % » ne doit jamais surestimer.
     select t.exam_id,
            case
              when t.score is null
                or count(o.score) < ${PERCENTILE_MIN_COHORT} then null
-             else round(
+             else floor(
                100.0 * count(*) filter (where o.score < t.score)
                      / (count(o.score) - 1)
              )::int
@@ -375,8 +376,11 @@ export const getExamPercentileForUser = async (
  * chacune avec sa date d'une réponse : la validation pour l'entraînement, la
  * clôture de la participation pour un examen, car une réponse d'examen reste
  * modifiable jusque-là. Une participation non close n'a pas encore de réponse
- * datée. Colonnes : user_id, question_id, selected_answer, is_correct,
- * answered_at.
+ * datée. Une session d'entraînement en cours non plus : en mode test, sa
+ * justesse est enregistrée mais cachée à l'étudiant jusqu'à la fin, et une
+ * statistique qui la compterait la lui donnerait réponse par réponse (même
+ * règle que le corpus de révision). Colonnes : answer_id (départage stable),
+ * user_id, question_id, selected_answer, is_correct, answered_at.
  */
 const datedAnswersSql = ({
   userId,
@@ -389,14 +393,15 @@ const datedAnswersSql = ({
     sql`${userId ? sql`and ${userColumn} = ${userId}` : sql``}
         ${questionIds ? sql`and ${inArray(questionColumn, questionIds)}` : sql``}`
   return sql`
-    select s.user_id, i.question_id, i.selected_answer, i.is_correct,
-           i.answered_at
+    select i.id as answer_id, s.user_id, i.question_id, i.selected_answer,
+           i.is_correct, i.answered_at
       from training_session_items i
       join training_sessions s on s.id = i.session_id
      where i.is_correct is not null
+       and s.status <> 'in_progress'
        ${scoped(sql`s.user_id`, sql`i.question_id`)}
     union all
-    select p.user_id, a.question_id, a.selected_answer, a.is_correct,
+    select a.id, p.user_id, a.question_id, a.selected_answer, a.is_correct,
            p.completed_at
       from exam_answers a
       join exam_participations p on p.id = a.participation_id
@@ -439,7 +444,7 @@ export const getMyDomainMastery = cache(async (): Promise<DomainMastery[]> => {
       latest as (
         select distinct on (question_id) question_id, is_correct
           from answers
-         order by question_id, answered_at desc
+         order by question_id, answered_at desc nulls last, answer_id
       )
       select q.domain,
              count(*)::int as answered,
@@ -482,7 +487,7 @@ const firstAnswersSql = (questionIds?: string[]) => sql`
     join "user" u on u.id = x.user_id
    where u.role = 'user'
      and u.deleted_at is null
-   order by x.user_id, x.question_id, x.answered_at`
+   order by x.user_id, x.question_id, x.answered_at nulls last, x.answer_id`
 
 /**
  * CTE des statistiques par question, à joindre sur `questions.id`. Colonnes

@@ -180,6 +180,21 @@ describe("percentile d'examen", () => {
     expect((await getMyExamPercentiles())[examId]).toBe(50)
   })
 
+  it("arrondit à l'entier inférieur, pour ne jamais surestimer la position", async () => {
+    const { examId, userIds } = await seedExam([
+      { score: 70 },
+      { score: 40 },
+      { score: 50 },
+      { score: 60 },
+      { score: 65 },
+      { score: 90 },
+      { score: 95 },
+    ])
+    asUser(userIds[0])
+    // 70 bat 4 des 6 autres : 66,67 %.
+    expect((await getMyExamPercentiles())[examId]).toBe(66)
+  })
+
   it("rend 100 au premier sans ex æquo", async () => {
     const { examId, userIds } = await seedExam([
       { score: 95 },

@@ -172,7 +172,8 @@ _Avoid_ : distribution des distracteurs
 Le moment qui ordonne les réponses d'un étudiant à une même question, pour en
 trouver la première ou la dernière. Une réponse d'entraînement est datée de sa
 validation ; une réponse d'examen, de la clôture de sa participation, car elle
-reste modifiable jusque-là.
+reste modifiable jusque-là. Une session d'entraînement en cours n'a pas encore
+de réponse datée : en mode test, sa justesse reste cachée jusqu'à la fin.
 _Avoid_ : date de création de la réponse
 
 ### Paiements
