@@ -119,10 +119,7 @@ export function QuestionBrowserProvider({
       usageFilter: filters.usageFilter,
       usedInExamId: filters.usedInExamId ?? undefined,
       toVerify: filters.toVerify,
-      sortBy:
-        filters.sortBy === "successRate"
-          ? ("successRate" as const)
-          : ("createdAt" as const),
+      sortBy: filters.sortBy,
       sortOrder: filters.sortOrder,
     }),
     [

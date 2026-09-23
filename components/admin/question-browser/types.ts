@@ -1,11 +1,11 @@
 import { ReactNode } from "react"
 import type { ExamPickerOption } from "@/features/exams/dal"
+import type { QuestionSortBy } from "@/features/questions/dal"
 
 // Filter types
 export type ImageFilter = "all" | "with" | "without"
 export type UsageFilter = "all" | "used" | "unused"
-export type SortBy =
-  "_creationTime" | "question" | "domain" | "objectifCMC" | "successRate"
+export type SortBy = QuestionSortBy
 export type SortOrder = "asc" | "desc"
 
 export interface QuestionFilters {
@@ -28,7 +28,7 @@ export const defaultFilters: QuestionFilters = {
   usageFilter: "all",
   usedInExamId: null,
   toVerify: false,
-  sortBy: "_creationTime",
+  sortBy: "createdAt",
   sortOrder: "desc",
 }
 

@@ -96,7 +96,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
   const getSortIcon = (field: SortBy) => {
     if (
       filters.sortBy !== field ||
-      (field === "_creationTime" && sortedByAnswerCount)
+      (field === "createdAt" && sortedByAnswerCount)
     )
       return <ArrowUpDown className="ml-1.5 h-3.5 w-3.5 opacity-50" />
     return filters.sortOrder === "asc" ? (
@@ -169,7 +169,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
             <TableHead className="hidden w-30 lg:table-cell">
               <Button
                 variant="ghost"
-                onClick={() => handleSort("_creationTime")}
+                onClick={() => handleSort("createdAt")}
                 disabled={sortedByAnswerCount}
                 title={
                   sortedByAnswerCount
@@ -179,7 +179,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
                 Créée
-                {getSortIcon("_creationTime")}
+                {getSortIcon("createdAt")}
               </Button>
             </TableHead>
             {/* Preview button column */}
