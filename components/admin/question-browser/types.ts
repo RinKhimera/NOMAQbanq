@@ -79,7 +79,7 @@ export interface QuestionBrowserProps {
   previewQuestionId?: string | null
   onPreviewChange?: (id: string | null) => void
 
-  // Callback pour exposer les filtres (pour export)
+  // Filtres appliqués à la liste (recherche différée), pour l'export
   onFiltersChange?: (filters: QuestionFilters) => void
 
   // Options du combobox « examen précis » (filtre usage). Vide/absent = masqué.

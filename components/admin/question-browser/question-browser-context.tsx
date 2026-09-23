@@ -106,9 +106,10 @@ export function QuestionBrowserProvider({
   const selectedIds = externalSelectedIds ?? internalSelectedIds
   const setSelectedIds = onSelectionChange ?? setInternalSelectedIds
 
+  // La recherche différée : l'export doit suivre ce que la liste affiche.
   useEffect(() => {
-    onFiltersChange?.(filters)
-  }, [filters, onFiltersChange])
+    onFiltersChange?.({ ...filters, searchQuery: debouncedSearchQuery })
+  }, [filters, debouncedSearchQuery, onFiltersChange])
 
   // Champ par champ : la saisie brute de la recherche ne doit pas relancer la
   // requête, seule sa version différée le fait.

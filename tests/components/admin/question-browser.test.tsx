@@ -109,6 +109,46 @@ describe("QuestionBrowser — pagination & reset", () => {
   })
 })
 
+describe("QuestionBrowser — filtres exposés à l'export", () => {
+  beforeEach(() => {
+    loadQuestionsPage.mockReset()
+    loadQuestionsPage.mockResolvedValue(makePage())
+  })
+
+  // Faux timers : même contrainte que le test de recherche ci-dessus.
+  it("expose la recherche appliquée à la liste, pas la saisie en cours", async () => {
+    vi.useFakeTimers()
+    const settle = async (ms = 0) => {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(ms)
+      })
+    }
+    const onFiltersChange = vi.fn()
+    try {
+      render(
+        <QuestionBrowser mode="browse" onFiltersChange={onFiltersChange} />,
+      )
+      await settle()
+
+      fireEvent.change(
+        screen.getByPlaceholderText(/rechercher dans les questions/i),
+        { target: { value: "infarctus" } },
+      )
+      await settle()
+      expect(onFiltersChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ searchQuery: "" }),
+      )
+
+      await settle(SEARCH_DEBOUNCE_MS)
+      expect(onFiltersChange).toHaveBeenLastCalledWith(
+        expect.objectContaining({ searchQuery: "infarctus" }),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
 describe("QuestionBrowser — taux de réussite", () => {
   beforeEach(() => {
     loadQuestionsPage.mockReset()
