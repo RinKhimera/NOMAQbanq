@@ -50,12 +50,21 @@ export const TrainingConfigForm = ({
 }: TrainingConfigFormProps) => {
   const router = useRouter()
   const [questionCount, setQuestionCount] = useState(10)
-  const [selectedDomain, setSelectedDomain] = useState<string>(() =>
-    domains.some((d) => d.domain === initialDomain) && initialDomain
+  const domainFromUrl =
+    initialDomain && domains.some((d) => d.domain === initialDomain)
       ? initialDomain
-      : "all",
-  )
+      : "all"
+  const [selectedDomain, setSelectedDomain] = useState<string>(domainFromUrl)
   const [selectedObjectifs, setSelectedObjectifs] = useState<string[]>([])
+  // Une navigation client vers la même page avec un autre `?domaine=` ne
+  // remonte pas le formulaire : on réaligne l'état pendant le rendu.
+  const [appliedDomainFromUrl, setAppliedDomainFromUrl] =
+    useState(domainFromUrl)
+  if (domainFromUrl !== appliedDomainFromUrl) {
+    setAppliedDomainFromUrl(domainFromUrl)
+    setSelectedDomain(domainFromUrl)
+    setSelectedObjectifs([])
+  }
   const [trainingMode, setTrainingMode] = useState<"tutor" | "test">("test")
   const [revisionFilters, setRevisionFilters] = useState<RevisionCriterion[]>(
     [],

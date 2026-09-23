@@ -280,4 +280,34 @@ describe("TrainingConfigForm — domaine présélectionné", () => {
       )
     })
   })
+
+  it("suit un nouveau domaine demandé par l'URL sans remontage", async () => {
+    primeActions()
+    const domains = [...props.domains, { domain: "Neurologie", count: 80 }]
+    const { rerender } = render(
+      <TrainingConfigForm
+        {...props}
+        domains={domains}
+        initialDomain="Cardiologie"
+      />,
+    )
+    await waitFor(() =>
+      expect(loadRevisionCounts).toHaveBeenLastCalledWith(
+        expect.objectContaining({ domain: "Cardiologie" }),
+      ),
+    )
+
+    rerender(
+      <TrainingConfigForm
+        {...props}
+        domains={domains}
+        initialDomain="Neurologie"
+      />,
+    )
+    await waitFor(() =>
+      expect(loadRevisionCounts).toHaveBeenLastCalledWith(
+        expect.objectContaining({ domain: "Neurologie" }),
+      ),
+    )
+  })
 })
