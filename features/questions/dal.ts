@@ -21,7 +21,7 @@ import {
   questions,
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
-import { questionSuccessStats } from "../analytics/dal"
+import { questionSuccessStats } from "../analytics/answers-sql"
 import { AnswerKeyLock, excludeLocked } from "./answer-key-lock"
 import { fetchImages, toQuizQuestion } from "./quiz-bridge"
 
@@ -111,6 +111,9 @@ export type QuestionsPage = {
   total: number
 }
 
+/** Tris de la liste de questions : seuls ceux que la requête sait faire. */
+export type QuestionSortBy = "createdAt" | "successRate"
+
 export type QuestionFiltersInput = {
   /** 1-based. */
   page?: number
@@ -120,7 +123,7 @@ export type QuestionFiltersInput = {
   hasImages?: boolean
   sortOrder?: "asc" | "desc"
   /** `successRate` : non significatives en fin, quel que soit le sens. */
-  sortBy?: "createdAt" | "successRate"
+  sortBy?: QuestionSortBy
   /** Clé probablement erronée : une autre option plus choisie que la clé. */
   toVerify?: boolean
   usageFilter?: "all" | "used" | "unused"
