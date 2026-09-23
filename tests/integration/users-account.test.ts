@@ -44,7 +44,6 @@ beforeAll(async () => {
       id: createId(),
       userId,
       providerId: "credential",
-      issuer: "local:credential",
       accountId: userId,
       password: "hash",
     },
@@ -52,7 +51,6 @@ beforeAll(async () => {
       id: googleAccountId,
       userId,
       providerId: "google",
-      issuer: "https://accounts.google.com",
       accountId: `google-sub-${userId}`,
     },
   ])
@@ -107,7 +105,10 @@ describe("getLoginMethods", () => {
   })
 })
 
-describe("account — identité (issuer, account_id)", () => {
+describe("account — identité (provider_id, account_id)", () => {
+  // Le code d'erreur est vérifié, pas un simple rejet : une insertion peut
+  // échouer pour une autre raison (colonne obligatoire oubliée) et faire passer
+  // à tort un test de refus.
   it("refuse qu'un second utilisateur lie le même compte Google", async () => {
     const otherId = createId()
     await db.insert(user).values({
@@ -120,15 +121,35 @@ describe("account — identité (issuer, account_id)", () => {
         id: createId(),
         userId: otherId,
         providerId: "google",
-        issuer: "https://accounts.google.com",
         accountId: `google-sub-${userId}`,
       }),
-    ).rejects.toThrow()
+    ).rejects.toMatchObject({ cause: { code: "23505" } })
     const rows = await db
       .select({ id: account.id })
       .from(account)
       .where(eq(account.userId, otherId))
     expect(rows).toHaveLength(0)
+    await db.delete(user).where(eq(user.id, otherId))
+  })
+
+  it("accepte le même account_id chez un autre fournisseur", async () => {
+    const otherId = createId()
+    await db.insert(user).values({
+      id: otherId,
+      name: "Autre",
+      email: `other-${otherId}@test.invalid`,
+    })
+    await db.insert(account).values({
+      id: createId(),
+      userId: otherId,
+      providerId: "credential",
+      accountId: `google-sub-${userId}`,
+    })
+    const rows = await db
+      .select({ id: account.id })
+      .from(account)
+      .where(eq(account.userId, otherId))
+    expect(rows).toHaveLength(1)
     await db.delete(user).where(eq(user.id, otherId))
   })
 })
@@ -276,7 +297,6 @@ describe("anonymizeExpiredDeletedAccounts", () => {
       id: createId(),
       userId: oldId,
       providerId: "google",
-      issuer: "https://accounts.google.com",
       accountId: `google-sub-${oldId}`,
     })
 
