@@ -146,3 +146,24 @@ describe("QuestionBrowser — taux de réussite", () => {
     )
   })
 })
+
+describe("QuestionBrowser — tri sous « À vérifier »", () => {
+  beforeEach(() => {
+    loadQuestionsPage.mockReset()
+    loadQuestionsPage.mockResolvedValue(makePage())
+  })
+
+  it("n'annonce plus un tri par date que la liste ne suit pas", async () => {
+    render(<QuestionBrowser mode="browse" />)
+    await screen.findByText("Question 0")
+    const byDate = screen.getByRole("button", { name: /Créée/ })
+    expect(byDate).toBeEnabled()
+
+    fireEvent.click(screen.getByRole("button", { name: /À vérifier/ }))
+    await waitFor(() => expect(byDate).toBeDisabled())
+    expect(byDate).toHaveAttribute(
+      "title",
+      "Sous « À vérifier », triées par nombre de réponses",
+    )
+  })
+})

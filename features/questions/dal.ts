@@ -222,12 +222,16 @@ export const getQuestionsWithFilters = async ({
           .orderBy(...byStats)
           .limit(safeLimit)
           .offset(offset),
-        db
-          .with(bankStats)
-          .select(countColumn)
-          .from(questions)
-          .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
-          .where(statsWhere),
+        // Le total ne dépend des stats que via le filtre : un simple tri ne
+        // le change pas, inutile de recalculer l'agrégat de la banque.
+        toVerify
+          ? db
+              .with(bankStats)
+              .select(countColumn)
+              .from(questions)
+              .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+              .where(statsWhere)
+          : db.select(countColumn).from(questions).where(where),
       ])
     : await Promise.all([
         db

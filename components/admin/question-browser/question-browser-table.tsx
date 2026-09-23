@@ -88,9 +88,16 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
   } = useQuestionBrowser()
 
   const isSelectMode = mode === "select"
+  // Sous « À vérifier » sans tri par réussite, la DAL trie par nombre de
+  // réponses : la date n'est plus un tri disponible.
+  const sortedByAnswerCount =
+    filters.toVerify && filters.sortBy !== "successRate"
 
   const getSortIcon = (field: SortBy) => {
-    if (filters.sortBy !== field)
+    if (
+      filters.sortBy !== field ||
+      (field === "_creationTime" && sortedByAnswerCount)
+    )
       return <ArrowUpDown className="ml-1.5 h-3.5 w-3.5 opacity-50" />
     return filters.sortOrder === "asc" ? (
       <ArrowUp className="ml-1.5 h-3.5 w-3.5" />
@@ -163,6 +170,12 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
               <Button
                 variant="ghost"
                 onClick={() => handleSort("_creationTime")}
+                disabled={sortedByAnswerCount}
+                title={
+                  sortedByAnswerCount
+                    ? "Sous « À vérifier », triées par nombre de réponses"
+                    : undefined
+                }
                 className="h-auto p-0 font-semibold hover:bg-transparent"
               >
                 Créée
