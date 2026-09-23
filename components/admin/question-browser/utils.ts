@@ -27,8 +27,6 @@ export const domainColors: Record<string, string> = {
     "bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/40 dark:text-fuchsia-300",
   "Gastro-entérologie":
     "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
-  Gastroentérologie:
-    "bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300",
   Pneumologie: "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300",
   Néphrologie:
     "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/40 dark:text-cyan-300",

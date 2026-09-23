@@ -85,7 +85,6 @@ export const MEDICAL_DOMAINS = [
   "Dermatologie",
   "Endocrinologie",
   "Gastro-entérologie",
-  "Gastroentérologie",
   "Gynécologie obstétrique",
   "Hémato-oncologie",
   "Infectiologie",

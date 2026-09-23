@@ -45,7 +45,6 @@ vi.mock("@/lib/storage", async (orig) => {
 })
 
 const suffix = createId().slice(0, 8)
-const DOMAIN = `ADOM-${suffix}`
 const created: string[] = []
 
 const base = {
@@ -55,7 +54,7 @@ const base = {
   explanation: "Exp",
   references: ["R1"],
   objectifCMC: "obj test",
-  domain: DOMAIN,
+  domain: "Autres" as const,
 }
 
 const makeOne = async () => {
@@ -127,7 +126,7 @@ describe("deleteQuestion", () => {
     expect(res).toEqual({ success: true, mode: "hard" })
 
     expect(await getQuestionById(id)).toBeNull()
-    const page = await getQuestionsWithFilters({ domain: DOMAIN, limit: 100 })
+    const page = await getQuestionsWithFilters({ search: suffix, limit: 100 })
     expect(page.items.map((q) => q.id)).not.toContain(id)
   })
 })

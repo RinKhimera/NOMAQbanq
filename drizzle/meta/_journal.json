@@ -141,6 +141,13 @@
       "when": 1790125327163,
       "tag": "0019_account_provider_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790131358862,
+      "tag": "0020_merge_gastro_domain",
+      "breakpoints": true
     }
   ]
 }
