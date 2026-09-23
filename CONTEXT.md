@@ -149,7 +149,9 @@ _Avoid_ : rang global, percentile d'entraînement
 **Maîtrise par domaine** :
 La part de réponses justes d'un étudiant dans un domaine médical, calculée sur
 sa DERNIÈRE réponse à chaque question (entraînement et examens clos). Une
-réponse en correction différée n'y entre pas tant que l'examen est ouvert. Un
+question dont la clé est retenue pour l'étudiant n'y entre pas du tout, ni sa
+réponse d'examen ni ses réponses d'entraînement antérieures, tant que l'examen
+est ouvert : la maîtrise peut baisser au démarrage d'un examen, jamais pendant. Un
 domaine jamais pratiqué n'a pas de maîtrise, pas une maîtrise de 0 %.
 _Avoid_ : score par domaine, taux de réussite (réservé à la question)
 

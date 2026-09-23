@@ -298,6 +298,39 @@ describe("maîtrise par domaine", () => {
     })
   })
 
+  it("écarte une question retenue tout entière, réponses d'entraînement antérieures comprises, jusqu'à la clôture", async () => {
+    const student = await newStudent()
+    const known = await newQuestion("Rhumatologie")
+    const alsoInExam = await newQuestion("Rhumatologie")
+    await train(student, [
+      { questionId: known, isCorrect: true, answeredAt: at("10:00") },
+      { questionId: alsoInExam, isCorrect: false, answeredAt: at("10:01") },
+    ])
+    expect(await masteryOf("Rhumatologie")).toMatchObject({
+      answered: 2,
+      mastery: 50,
+    })
+
+    const { examId } = await sitExam(
+      student,
+      [{ questionId: alsoInExam, isCorrect: null }],
+      { open: true, completedAt: null },
+    )
+    expect(await masteryOf("Rhumatologie")).toMatchObject({
+      answered: 1,
+      mastery: 100,
+    })
+
+    await db
+      .update(exams)
+      .set({ endDate: new Date(Date.now() - 1000) })
+      .where(eq(exams.id, examId))
+    expect(await masteryOf("Rhumatologie")).toMatchObject({
+      answered: 2,
+      mastery: 50,
+    })
+  })
+
   it("ne rend rien sans session", async () => {
     vi.mocked(getCurrentSession).mockResolvedValue(null)
     expect(await getMyDomainMastery()).toEqual([])
