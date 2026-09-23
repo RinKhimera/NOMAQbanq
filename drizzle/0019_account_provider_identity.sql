@@ -8,7 +8,9 @@
 -- l'écriture.
 --
 -- 1.7.2 retrouve un compte par `issuer` : ceux créés depuis ce déploiement
--- (issuer NULL) lui seraient invisibles. Avant un Instant Rollback vers 1.7.2 :
+-- (issuer NULL) lui seraient invisibles. Après un Instant Rollback vers 1.7.2,
+-- une fois la bascule faite (lancé avant, il laisse de côté les comptes créés
+-- entre-temps ; idempotent, donc sans risque à relancer) :
 -- UPDATE "account" SET "issuer" = CASE "provider_id"
 --   WHEN 'credential' THEN 'local:credential'
 --   WHEN 'google' THEN 'https://accounts.google.com' END
