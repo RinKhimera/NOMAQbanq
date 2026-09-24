@@ -77,6 +77,7 @@ export function TablePagination({
       {totalPages > 1 && (
         <div className="flex items-center gap-1">
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => onPageChange(page - 1)}
@@ -95,6 +96,7 @@ export function TablePagination({
               </span>
             ) : (
               <Button
+                type="button"
                 key={p}
                 variant={p === page ? "default" : "outline"}
                 size="sm"
@@ -108,6 +110,7 @@ export function TablePagination({
             ),
           )}
           <Button
+            type="button"
             variant="outline"
             size="sm"
             onClick={() => onPageChange(page + 1)}

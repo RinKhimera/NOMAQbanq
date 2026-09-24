@@ -1,5 +1,13 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { QuestionBrowser } from "@/components/admin/question-browser"
 
 const SEARCH_DEBOUNCE_MS = 300
@@ -204,6 +212,126 @@ describe("QuestionBrowser — tri sous « À vérifier »", () => {
     expect(byDate).toHaveAttribute(
       "title",
       "Sous « À vérifier », triées par nombre de réponses",
+    )
+  })
+})
+
+describe("QuestionBrowser — mode sélection", () => {
+  beforeEach(() => {
+    loadQuestionsPage.mockReset()
+    loadQuestionsPage.mockResolvedValue(makePage())
+  })
+
+  // Le formulaire de création d'examen englobe le navigateur : aucun clic
+  // dans le tableau ne doit le soumettre.
+  const renderInForm = () => {
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault())
+    render(
+      <form onSubmit={onSubmit}>
+        <QuestionBrowser mode="select" maxSelection={2} />
+      </form>,
+    )
+    return { onSubmit }
+  }
+
+  const counter = () => screen.getByText(/\d+ \/ 2 questions/)
+  const checkboxes = () =>
+    screen.getAllByRole("checkbox", { name: "Sélectionner la question" })
+
+  it("la case et la ligne sélectionnent chacune une question, une seule fois", async () => {
+    renderInForm()
+    await screen.findByText("Question 0")
+
+    fireEvent.click(checkboxes()[0])
+    expect(counter()).toHaveTextContent("1 / 2 questions")
+    expect(checkboxes()[0]).toBeChecked()
+
+    fireEvent.click(screen.getByText("Question 1"))
+    expect(counter()).toHaveTextContent("2 / 2 questions")
+    expect(checkboxes()[1]).toBeChecked()
+  })
+
+  it("au quota, une autre question ne peut plus être sélectionnée", async () => {
+    renderInForm()
+    await screen.findByText("Question 0")
+    fireEvent.click(checkboxes()[0])
+    fireEvent.click(checkboxes()[1])
+
+    expect(checkboxes()[2]).toBeDisabled()
+    fireEvent.click(screen.getByText("Question 2"))
+    expect(counter()).toHaveTextContent("2 / 2 questions")
+    expect(checkboxes()[2]).not.toBeChecked()
+  })
+
+  it("prévisualiser ou changer de page ne sélectionne rien et ne soumet pas le formulaire", async () => {
+    const { onSubmit } = renderInForm()
+    await screen.findByText("Question 0")
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Prévisualiser la question" })[0],
+    )
+    expect(counter()).toHaveTextContent("0 / 2 questions")
+
+    fireEvent.click(screen.getByRole("button", { name: "2" }))
+    await waitFor(() =>
+      expect(loadQuestionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2 }),
+      ),
+    )
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
+
+describe("QuestionBrowser — colonnes", () => {
+  beforeEach(() => {
+    loadQuestionsPage.mockReset()
+    loadQuestionsPage.mockResolvedValue(makePage())
+  })
+  afterEach(() => localStorage.clear())
+
+  const hideColumn = async (name: string) => {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Colonnes/ }))
+    await user.click(
+      within(await screen.findByRole("menu")).getByRole("menuitemcheckbox", {
+        name,
+      }),
+    )
+    await user.keyboard("{Escape}")
+  }
+  const hasHeader = (name: string) =>
+    screen
+      .queryAllByRole("columnheader")
+      .some((header) => header.textContent === name)
+
+  it("le choix fait en navigation ne touche pas la constitution d'examen", async () => {
+    const { unmount } = render(<QuestionBrowser mode="browse" />)
+    await screen.findByText("Question 0")
+    await hideColumn("Réussite")
+    expect(hasHeader("Réussite")).toBe(false)
+    unmount()
+
+    render(<QuestionBrowser mode="select" />)
+    await screen.findByText("Question 0")
+    expect(hasHeader("Réussite")).toBe(true)
+  })
+
+  it("masquer la colonne qui sert au tri ne change pas le tri", async () => {
+    render(<QuestionBrowser mode="browse" />)
+    await screen.findByText("Question 0")
+    fireEvent.click(screen.getByRole("button", { name: /Réussite/ }))
+    await waitFor(() =>
+      expect(loadQuestionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sortBy: "successRate" }),
+      ),
+    )
+
+    await hideColumn("Réussite")
+    fireEvent.click(await screen.findByRole("button", { name: "2" }))
+    await waitFor(() =>
+      expect(loadQuestionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, sortBy: "successRate" }),
+      ),
     )
   })
 })
