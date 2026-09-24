@@ -1,26 +1,15 @@
 "use client"
 
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Eye,
-  Image as ImageIcon,
-} from "lucide-react"
+import { Eye, Image as ImageIcon } from "lucide-react"
 import { TablePagination } from "@/components/admin/table-pagination"
+import {
+  DataTable,
+  type DataTableColumn,
+} from "@/components/shared/data-table/data-table"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { SkeletonTable } from "@/components/ui/skeleton-patterns"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import {
   Tooltip,
   TooltipContent,
@@ -32,11 +21,6 @@ import { cn } from "@/lib/utils"
 import { useQuestionBrowser } from "./question-browser-context"
 import { QuestionBrowserTableProps, QuestionRow, SortBy } from "./types"
 import { getDomainColor, truncateText } from "./utils"
-
-/** Colonnes réelles : case à cocher, #, énoncé, domaine, objectif, images, réussite, date. */
-function TableSkeleton() {
-  return <SkeletonTable columns={8} rows={10} />
-}
 
 function EmptyState() {
   return (
@@ -68,6 +52,77 @@ function EmptyState() {
   )
 }
 
+function ImagesCell({ count }: { count: number }) {
+  if (count === 0)
+    return <span className="text-gray-300 dark:text-gray-600">—</span>
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-100 px-2 py-1 dark:bg-blue-900/40">
+            <ImageIcon className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
+            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+              {count}
+            </span>
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>
+            {count} image{count > 1 ? "s" : ""}
+          </p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function SuccessRateCell({ question }: { question: QuestionRow }) {
+  if (question.successRate === null) {
+    return (
+      <span
+        className="text-gray-400 dark:text-gray-500"
+        title={`${question.answerCount} réponse${question.answerCount > 1 ? "s" : ""}`}
+      >
+        Données insuffisantes
+      </span>
+    )
+  }
+  return (
+    <span className="flex flex-col items-center">
+      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+        {question.successRate} %
+      </span>
+      <span className="text-gray-500">{question.answerCount} rép.</span>
+    </span>
+  )
+}
+
+function PreviewButton({ onClick }: { onClick: () => void }) {
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Prévisualiser la question"
+            className="h-8 w-8 text-gray-400 hover:text-gray-600"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClick()
+            }}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Prévisualiser</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
 export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
   const {
     questions,
@@ -93,269 +148,174 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
   const sortedByAnswerCount =
     filters.toVerify && filters.sortBy !== "successRate"
 
-  const getSortIcon = (field: SortBy) => {
-    if (
-      filters.sortBy !== field ||
-      (field === "createdAt" && sortedByAnswerCount)
-    )
-      return <ArrowUpDown className="ml-1.5 h-3.5 w-3.5 opacity-50" />
-    return filters.sortOrder === "asc" ? (
-      <ArrowUp className="ml-1.5 h-3.5 w-3.5" />
-    ) : (
-      <ArrowDown className="ml-1.5 h-3.5 w-3.5" />
-    )
+  const sortOf = (field: SortBy, disabledReason?: string) => ({
+    direction: filters.sortBy === field ? filters.sortOrder : null,
+    onToggle: () => handleSort(field),
+    disabledReason,
+  })
+
+  const isRowDisabled = (question: QuestionRow) =>
+    !isSelected(question._id) && isQuotaReached
+
+  const selectColumn: DataTableColumn<QuestionRow> = {
+    id: "select",
+    label: "Sélection",
+    header: <span className="sr-only">Sélection</span>,
+    required: true,
+    className: "w-12.5 pl-4",
+    cell: (question) => (
+      <Checkbox
+        checked={isSelected(question._id)}
+        disabled={isRowDisabled(question)}
+        onCheckedChange={() => toggleSelection(question._id)}
+        onClick={(e) => e.stopPropagation()}
+        aria-label="Sélectionner la question"
+        className="cursor-pointer"
+      />
+    ),
   }
 
-  const handleRowClick = (question: QuestionRow) => {
-    if (isSelectMode) {
-      toggleSelection(question._id)
-    } else {
-      setPreviewQuestionId(question._id)
-    }
-  }
-
-  const handlePreviewClick = (
-    e: React.MouseEvent,
-    questionId: QuestionRow["_id"],
-  ) => {
-    e.stopPropagation()
-    setPreviewQuestionId(questionId)
-  }
-
-  const handleCheckboxClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-  }
-
-  if (isLoading) {
-    return <TableSkeleton />
-  }
-
-  if (questions.length === 0) {
-    return <EmptyState />
-  }
+  // Seules la date et la réussite sont triables côté DAL — pas d'indicateur
+  // trompeur sur les autres colonnes.
+  const columns: DataTableColumn<QuestionRow>[] = [
+    ...(isSelectMode ? [selectColumn] : []),
+    {
+      id: "question",
+      label: "Question",
+      required: true,
+      className: cn("whitespace-normal", !isSelectMode && "pl-4"),
+      cell: (question) => (
+        <p className="line-clamp-2 max-w-105 min-w-28 font-medium wrap-anywhere hyphens-auto text-gray-900 dark:text-white">
+          {question.question}
+        </p>
+      ),
+    },
+    {
+      id: "domain",
+      label: "Domaine",
+      visibleFrom: "medium",
+      cell: (question) => (
+        <Badge
+          variant="secondary"
+          className={cn("font-medium", getDomainColor(question.domain))}
+        >
+          {truncateText(question.domain, 20)}
+        </Badge>
+      ),
+    },
+    {
+      id: "objectifCMC",
+      label: "Objectif CMC",
+      visibleFrom: isSelectMode ? "never" : "wide",
+      className: "whitespace-normal text-gray-600 dark:text-gray-400",
+      cell: (question) => (
+        <span className="line-clamp-2 max-w-60 min-w-32">
+          {question.objectifCMC}
+        </span>
+      ),
+    },
+    {
+      id: "images",
+      label: "Images",
+      visibleFrom: "wide",
+      className: "text-center",
+      cell: (question) => <ImagesCell count={question.imageCount} />,
+    },
+    {
+      id: "usage",
+      label: "Utilisée",
+      visibleFrom: "medium",
+      className: "text-center",
+      cell: (question) =>
+        question.usageCount > 0 ? (
+          <Badge
+            variant="secondary"
+            className="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
+          >
+            {question.usageCount} examen{question.usageCount > 1 ? "s" : ""}
+          </Badge>
+        ) : (
+          <span className="text-gray-300 dark:text-gray-600">—</span>
+        ),
+    },
+    {
+      id: "successRate",
+      label: "Réussite",
+      className: "text-center text-xs whitespace-normal",
+      sort: sortOf("successRate"),
+      cell: (question) => (
+        <div data-testid="success-rate">
+          <SuccessRateCell question={question} />
+        </div>
+      ),
+    },
+    {
+      id: "createdAt",
+      label: "Créée",
+      visibleFrom: isSelectMode ? "never" : "wide",
+      className: "text-gray-500",
+      sort: sortOf(
+        "createdAt",
+        sortedByAnswerCount
+          ? "Sous « À vérifier », triées par nombre de réponses"
+          : undefined,
+      ),
+      cell: (question) => (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help">
+                <RelativeTime timestamp={question._creationTime} />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{formatLongDateTime(question._creationTime)}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ),
+    },
+  ]
 
   return (
-    <div
-      className={cn(
-        "overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900",
-        className,
-      )}
-    >
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            {/* Checkbox column for select mode */}
-            {isSelectMode && <TableHead className="w-12.5 pl-4" />}
-            <TableHead className="w-12.5 pl-4">#</TableHead>
-            {/* Seules la date et la réussite sont triables côté DAL — pas
-                d'indicateur trompeur sur les autres colonnes. */}
-            <TableHead className="min-w-75 font-semibold">Question</TableHead>
-            <TableHead className="w-37.5 font-semibold">Domaine</TableHead>
-            <TableHead className="hidden w-45 font-semibold md:table-cell">
-              Objectif CMC
-            </TableHead>
-            <TableHead className="w-20 text-center">Images</TableHead>
-            <TableHead className="w-24 text-center">Utilisée</TableHead>
-            <TableHead className="w-28 text-center">
-              <Button
-                variant="ghost"
-                onClick={() => handleSort("successRate")}
-                className="h-auto p-0 font-semibold hover:bg-transparent"
-              >
-                Réussite
-                {getSortIcon("successRate")}
-              </Button>
-            </TableHead>
-            <TableHead className="hidden w-30 lg:table-cell">
-              <Button
-                variant="ghost"
-                onClick={() => handleSort("createdAt")}
-                disabled={sortedByAnswerCount}
-                title={
-                  sortedByAnswerCount
-                    ? "Sous « À vérifier », triées par nombre de réponses"
-                    : undefined
-                }
-                className="h-auto p-0 font-semibold hover:bg-transparent"
-              >
-                Créée
-                {getSortIcon("createdAt")}
-              </Button>
-            </TableHead>
-            {/* Preview button column */}
-            <TableHead className="w-12.5" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {questions.map((question, index) => {
-            const imagesCount = question.imageCount
-            const hasImages = imagesCount > 0
-            const questionIsSelected = isSelected(question._id)
-            const isDisabled = !questionIsSelected && isQuotaReached
-            const isHighlighted =
-              previewQuestionId === question._id ||
-              (mode === "browse" && previewQuestionId === question._id)
-
-            return (
-              <TableRow
-                key={question._id}
-                onClick={() => handleRowClick(question)}
-                className={cn(
-                  "cursor-pointer transition-all duration-150",
-                  isSelectMode && questionIsSelected
-                    ? "bg-violet-50/50 shadow-[inset_3px_0_0_0_rgb(139,92,246)] dark:bg-violet-900/20"
-                    : isHighlighted
-                      ? "bg-blue-50/50 shadow-[inset_3px_0_0_0_rgb(59,130,246)] dark:bg-blue-900/20"
-                      : "hover:bg-gray-50/50 dark:hover:bg-gray-800/30",
-                  isDisabled && "opacity-50",
-                )}
-              >
-                {/* Checkbox for select mode */}
-                {isSelectMode && (
-                  <TableCell className="pl-4" onClick={handleCheckboxClick}>
-                    <Checkbox
-                      checked={questionIsSelected}
-                      disabled={isDisabled}
-                      onCheckedChange={() => toggleSelection(question._id)}
-                      className="cursor-pointer"
-                    />
-                  </TableCell>
-                )}
-                <TableCell className="pl-4 font-medium text-gray-500">
-                  {(page - 1) * pageSize + index + 1}
-                </TableCell>
-                <TableCell>
-                  <p className="line-clamp-2 font-medium text-gray-900 dark:text-white">
-                    {truncateText(question.question, 100)}
-                  </p>
-                </TableCell>
-                <TableCell>
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      "font-medium",
-                      getDomainColor(question.domain),
-                    )}
-                  >
-                    {truncateText(question.domain, 20)}
-                  </Badge>
-                </TableCell>
-                <TableCell className="hidden text-gray-600 md:table-cell dark:text-gray-400">
-                  <span className="line-clamp-1">
-                    {truncateText(question.objectifCMC, 40)}
-                  </span>
-                </TableCell>
-                <TableCell className="text-center">
-                  {hasImages ? (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="inline-flex items-center justify-center gap-1 rounded-md bg-blue-100 px-2 py-1 dark:bg-blue-900/40">
-                            <ImageIcon className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                              {imagesCount}
-                            </span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>
-                            {imagesCount} image{imagesCount > 1 ? "s" : ""}
-                          </p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  ) : (
-                    <span className="text-gray-300 dark:text-gray-600">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-center">
-                  {question.usageCount > 0 ? (
-                    <Badge
-                      variant="secondary"
-                      className="bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300"
-                    >
-                      {question.usageCount} examen
-                      {question.usageCount > 1 ? "s" : ""}
-                    </Badge>
-                  ) : (
-                    <span className="text-gray-300 dark:text-gray-600">—</span>
-                  )}
-                </TableCell>
-                <TableCell
-                  data-testid="success-rate"
-                  className="text-center text-xs"
-                >
-                  {question.successRate === null ? (
-                    <span
-                      className="text-gray-400 dark:text-gray-500"
-                      title={`${question.answerCount} réponse${question.answerCount > 1 ? "s" : ""}`}
-                    >
-                      Données insuffisantes
-                    </span>
-                  ) : (
-                    <span className="flex flex-col items-center">
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                        {question.successRate} %
-                      </span>
-                      <span className="text-gray-500">
-                        {question.answerCount} rép.
-                      </span>
-                    </span>
-                  )}
-                </TableCell>
-                <TableCell className="hidden text-gray-500 lg:table-cell">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="cursor-help">
-                          <RelativeTime timestamp={question._creationTime} />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>{formatLongDateTime(question._creationTime)}</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </TableCell>
-                {/* Preview button */}
-                <TableCell>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label="Prévisualiser la question"
-                          className="h-8 w-8 text-gray-400 hover:text-gray-600"
-                          onClick={(e) => handlePreviewClick(e, question._id)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Prévisualiser</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-
-      {/* Pagination numérotée */}
-      {total > 0 && (
-        <TablePagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-          isLoading={isLoading}
-          itemNoun={{ one: "question", many: "questions" }}
-        />
-      )}
-    </div>
+    <DataTable
+      className={className}
+      columns={columns}
+      rows={questions}
+      getRowId={(question) => question._id}
+      preferencesKey={`question-browser:${mode}`}
+      isLoading={isLoading}
+      empty={<EmptyState />}
+      onRowClick={(question) =>
+        isSelectMode
+          ? toggleSelection(question._id)
+          : setPreviewQuestionId(question._id)
+      }
+      rowTone={(question) => {
+        if (isSelectMode && isSelected(question._id)) return "selected"
+        if (previewQuestionId === question._id) return "active"
+        return undefined
+      }}
+      isRowDisabled={isRowDisabled}
+      action={{
+        label: "Prévisualiser",
+        cell: (question) => (
+          <PreviewButton onClick={() => setPreviewQuestionId(question._id)} />
+        ),
+      }}
+      footer={
+        total > 0 && (
+          <TablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            isLoading={isLoading}
+            itemNoun={{ one: "question", many: "questions" }}
+          />
+        )
+      }
+    />
   )
 }
