@@ -938,6 +938,7 @@ export const getExamLeaderboard = async (
       completedAt: examParticipations.completedAt,
       userId: user.id,
       name: user.name,
+      username: user.username,
       image: user.image,
     })
     .from(examParticipations)
@@ -959,7 +960,8 @@ export const getExamLeaderboard = async (
     user: {
       id: r.userId,
       name: r.name,
-      username: null,
+      // Seul le classement admin affiche et recherche le @username.
+      username: isAdmin ? r.username : null,
       image: r.image ?? null,
     },
     score: r.score,

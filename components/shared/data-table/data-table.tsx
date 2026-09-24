@@ -229,8 +229,15 @@ export function DataTable<Row>({
     )
   }
 
+  // Le pied reste : une page vide n'implique pas une liste vide (page hors
+  // borne après une mutation), la pagination est alors le seul recours.
   if (rows.length === 0 && empty)
-    return <PendingRegion isPending={isPending}>{empty}</PendingRegion>
+    return (
+      <>
+        <PendingRegion isPending={isPending}>{empty}</PendingRegion>
+        {footer}
+      </>
+    )
 
   const hideableColumns = preferencesKey
     ? columns.filter((column) => !column.required)

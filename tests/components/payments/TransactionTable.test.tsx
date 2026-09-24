@@ -240,6 +240,24 @@ describe("TransactionTable", () => {
       expect(screen.getByText("Charger plus")).toBeInTheDocument()
     })
 
+    it("reste proposé sous le message vide, pour chercher au-delà de la page chargée", () => {
+      render(
+        <TransactionTable
+          transactions={[]}
+          hasMore
+          onLoadMore={vi.fn()}
+          emptyMessage="Aucune transaction ne correspond aux filtres"
+        />,
+      )
+
+      expect(
+        screen.getByText("Aucune transaction ne correspond aux filtres"),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole("button", { name: /charger plus/i }),
+      ).toBeInTheDocument()
+    })
+
     it("n'affiche pas le bouton quand hasMore est false", () => {
       const onLoadMore = vi.fn()
       render(

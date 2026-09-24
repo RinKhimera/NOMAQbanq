@@ -266,6 +266,22 @@ describe("DataTable — chargement", () => {
     ).not.toBeNull()
   })
 
+  it("une page vide garde son pied de tableau, hors de la zone grisée", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={[]}
+        getRowId={(r) => r.id}
+        isPending
+        empty={<p>Rien ici</p>}
+        footer={<button type="button">Page précédente</button>}
+      />,
+    )
+
+    const footer = screen.getByRole("button", { name: "Page précédente" })
+    expect(footer.closest("[aria-busy='true']")).toBeNull()
+  })
+
   it("hors rechargement, rien n'est marqué occupé", () => {
     render(<DataTable columns={columns} rows={rows} getRowId={(r) => r.id} />)
 
