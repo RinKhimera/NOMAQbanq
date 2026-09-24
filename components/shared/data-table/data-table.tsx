@@ -58,7 +58,10 @@ export type DataTableColumn<Row> = {
   /** Toujours affichée, absente du menu « Colonnes ». */
   required?: boolean
   sort?: DataTableSort
+  /** Mise en page commune à l'en-tête et aux cellules (largeur, marges, alignement). */
   className?: string
+  /** Style des seules cellules (couleur, taille du texte). */
+  cellClassName?: string
 }
 
 /** `selected` : ligne cochée ; `active` : ligne ouverte dans un panneau. */
@@ -131,6 +134,7 @@ function ColumnHeader<Row>({ column }: { column: DataTableColumn<Row> }) {
   const { direction, onToggle, disabledReason } = column.sort
   return (
     <Button
+      type="button"
       variant="ghost"
       onClick={onToggle}
       disabled={disabledReason !== undefined}
@@ -139,6 +143,37 @@ function ColumnHeader<Row>({ column }: { column: DataTableColumn<Row> }) {
     >
       {content}
       <SortIcon direction={disabledReason ? null : direction} />
+    </Button>
+  )
+}
+
+// `aria-disabled` plutôt que `disabled` : un bouton désactivé perd le focus
+// clavier, qui retomberait sur `body` au bout du défilement.
+function ScrollButton({
+  direction,
+  enabled,
+  onScroll,
+}: {
+  direction: -1 | 1
+  enabled: boolean
+  onScroll: (direction: -1 | 1) => void
+}) {
+  const Icon = direction === -1 ? ChevronLeft : ChevronRight
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 aria-disabled:cursor-default aria-disabled:opacity-50 aria-disabled:hover:bg-transparent"
+      aria-label={
+        direction === -1 ? "Défiler vers la gauche" : "Défiler vers la droite"
+      }
+      aria-disabled={!enabled}
+      onClick={() => {
+        if (enabled) onScroll(direction)
+      }}
+    >
+      <Icon className="h-4 w-4" />
     </Button>
   )
 }
@@ -205,26 +240,16 @@ export function DataTable<Row>({
         <div className="flex items-center justify-end gap-1 border-b border-gray-200/80 px-3 py-1.5 dark:border-gray-700/50">
           {overflows && (
             <>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                aria-label="Défiler vers la gauche"
-                disabled={!edges.start}
-                onClick={() => scrollBy(-1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                aria-label="Défiler vers la droite"
-                disabled={!edges.end}
-                onClick={() => scrollBy(1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+              <ScrollButton
+                direction={-1}
+                enabled={edges.start}
+                onScroll={scrollBy}
+              />
+              <ScrollButton
+                direction={1}
+                enabled={edges.end}
+                onScroll={scrollBy}
+              />
             </>
           )}
           {hideableColumns.length > 0 && (
@@ -306,7 +331,10 @@ export function DataTable<Row>({
                     )}
                   >
                     {renderedColumns.map(({ column, className: cellClass }) => (
-                      <TableCell key={column.id} className={cellClass}>
+                      <TableCell
+                        key={column.id}
+                        className={cn(cellClass, column.cellClassName)}
+                      >
                         {column.cell(row)}
                       </TableCell>
                     ))}

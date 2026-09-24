@@ -103,6 +103,7 @@ function PreviewButton({ onClick }: { onClick: () => void }) {
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             aria-label="Prévisualiser la question"
@@ -207,7 +208,8 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
       id: "objectifCMC",
       label: "Objectif CMC",
       visibleFrom: isSelectMode ? "never" : "wide",
-      className: "whitespace-normal text-gray-600 dark:text-gray-400",
+      className: "whitespace-normal",
+      cellClassName: "text-gray-600 dark:text-gray-400",
       cell: (question) => (
         <span className="line-clamp-2 max-w-60 min-w-32">
           {question.objectifCMC}
@@ -241,7 +243,8 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
     {
       id: "successRate",
       label: "Réussite",
-      className: "text-center text-xs whitespace-normal",
+      className: "text-center whitespace-normal",
+      cellClassName: "text-xs",
       sort: sortOf("successRate"),
       cell: (question) => (
         <div data-testid="success-rate">
@@ -253,7 +256,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
       id: "createdAt",
       label: "Créée",
       visibleFrom: isSelectMode ? "never" : "wide",
-      className: "text-gray-500",
+      cellClassName: "text-gray-500",
       sort: sortOf(
         "createdAt",
         sortedByAnswerCount

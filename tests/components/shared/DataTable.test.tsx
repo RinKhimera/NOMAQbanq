@@ -1,6 +1,7 @@
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { TIER_MIN_REM } from "@/components/shared/data-table/column-visibility"
 import {
   DataTable,
   type DataTableColumn,
@@ -21,13 +22,13 @@ const columns: DataTableColumn<Row>[] = [
 
 const KEY = "test:table"
 
-function renderTable() {
+function renderTable(preferencesKey = KEY) {
   return render(
     <DataTable
       columns={columns}
       rows={rows}
       getRowId={(r) => r.id}
-      preferencesKey={KEY}
+      preferencesKey={preferencesKey}
     />,
   )
 }
@@ -40,6 +41,11 @@ async function openColumnsMenu() {
 
 const headers = () =>
   screen.getAllByRole("columnheader").map((h) => h.textContent)
+
+// Les classes de conteneur sont écrites en toutes lettres pour Tailwind : ces
+// constantes vérifient qu'elles suivent les seuils utilisés par le menu.
+const MEDIUM_CLASS = `@min-[${TIER_MIN_REM.medium}rem]:table-cell`
+const WIDE_CLASS = `@min-[${TIER_MIN_REM.wide}rem]:table-cell`
 
 /** Simule un tableau large de `width` px (happy-dom ne calcule aucune mise en page). */
 function stubTableWidth(width: number) {
@@ -122,8 +128,8 @@ describe("DataTable — colonnes par défaut selon la largeur du tableau", () =>
 
     expect(headers()).toEqual(["Question", "Domaine", "Réussite"])
     const [, domain, rate] = screen.getAllByRole("columnheader")
-    expect(domain).toHaveClass("hidden", "@min-[36rem]:table-cell")
-    expect(rate).toHaveClass("hidden", "@min-[54rem]:table-cell")
+    expect(domain).toHaveClass("hidden", MEDIUM_CLASS)
+    expect(rate).toHaveClass("hidden", WIDE_CLASS)
   })
 
   it("un premier choix sur un tableau étroit fige ce qui y était affiché", async () => {
@@ -153,8 +159,94 @@ describe("DataTable — colonnes par défaut selon la largeur du tableau", () =>
     renderTiered()
 
     expect(headers()).toEqual(["Question", "Domaine", "Réussite"])
-    expect(screen.getAllByRole("columnheader")[2]).toHaveClass(
-      "@min-[54rem]:table-cell",
+    expect(screen.getAllByRole("columnheader")[2]).toHaveClass(WIDE_CLASS)
+  })
+})
+
+describe("DataTable — mise en forme", () => {
+  it("la mise en page s'applique à l'en-tête, le style des cellules non", () => {
+    render(
+      <DataTable
+        columns={[
+          {
+            id: "created",
+            label: "Créée",
+            className: "text-center",
+            cellClassName: "text-gray-500",
+            cell: () => "hier",
+          },
+        ]}
+        rows={rows}
+        getRowId={(r) => r.id}
+      />,
     )
+
+    const header = screen.getByRole("columnheader", { name: "Créée" })
+    expect(header).toHaveClass("text-center")
+    expect(header).not.toHaveClass("text-gray-500")
+    expect(screen.getAllByRole("cell")[0]).toHaveClass(
+      "text-center",
+      "text-gray-500",
+    )
+  })
+})
+
+describe("DataTable — dans un formulaire", () => {
+  // Le formulaire de création d'examen englobe le navigateur de questions :
+  // un bouton sans `type` y vaut `submit` et enregistrerait l'examen.
+  it("aucun bouton du tableau ne soumet le formulaire qui l'englobe", async () => {
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(1200)
+    stubTableWidth(800)
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault())
+    const onToggle = vi.fn()
+    render(
+      <form onSubmit={onSubmit}>
+        <DataTable
+          columns={[
+            ...columns,
+            {
+              id: "sorted",
+              label: "Triée",
+              cell: () => null,
+              sort: { direction: "asc", onToggle },
+            },
+          ]}
+          rows={rows}
+          getRowId={(r) => r.id}
+          preferencesKey={KEY}
+        />
+      </form>,
+    )
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole("button", { name: /Triée/ }))
+    await user.click(
+      screen.getByRole("button", { name: "Défiler vers la droite" }),
+    )
+
+    expect(onToggle).toHaveBeenCalledOnce()
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
+
+describe("DataTable — stockage indisponible", () => {
+  // Navigation privée stricte, données de site bloquées : localStorage lève.
+  it("le choix de colonnes vaut quand même pour la page ouverte", async () => {
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new DOMException("bloqué", "SecurityError")
+    })
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new DOMException("bloqué", "SecurityError")
+    })
+    // Clé propre : le repli en mémoire survit au test, au niveau du module.
+    renderTable("test:stockage-bloque")
+    const { user, menu } = await openColumnsMenu()
+
+    await user.click(
+      within(menu).getByRole("menuitemcheckbox", { name: "Domaine" }),
+    )
+    await user.keyboard("{Escape}")
+
+    expect(headers()).not.toContain("Domaine")
   })
 })

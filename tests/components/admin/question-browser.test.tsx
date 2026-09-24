@@ -207,3 +207,69 @@ describe("QuestionBrowser — tri sous « À vérifier »", () => {
     )
   })
 })
+
+describe("QuestionBrowser — mode sélection", () => {
+  beforeEach(() => {
+    loadQuestionsPage.mockReset()
+    loadQuestionsPage.mockResolvedValue(makePage())
+  })
+
+  // Le formulaire de création d'examen englobe le navigateur : aucun clic
+  // dans le tableau ne doit le soumettre.
+  const renderInForm = () => {
+    const onSubmit = vi.fn((event: React.FormEvent) => event.preventDefault())
+    render(
+      <form onSubmit={onSubmit}>
+        <QuestionBrowser mode="select" maxSelection={2} />
+      </form>,
+    )
+    return { onSubmit }
+  }
+
+  const counter = () => screen.getByText(/\d+ \/ 2 questions/)
+  const checkboxes = () =>
+    screen.getAllByRole("checkbox", { name: "Sélectionner la question" })
+
+  it("la case et la ligne sélectionnent chacune une question, une seule fois", async () => {
+    renderInForm()
+    await screen.findByText("Question 0")
+
+    fireEvent.click(checkboxes()[0])
+    expect(counter()).toHaveTextContent("1 / 2 questions")
+    expect(checkboxes()[0]).toBeChecked()
+
+    fireEvent.click(screen.getByText("Question 1"))
+    expect(counter()).toHaveTextContent("2 / 2 questions")
+    expect(checkboxes()[1]).toBeChecked()
+  })
+
+  it("au quota, une autre question ne peut plus être sélectionnée", async () => {
+    renderInForm()
+    await screen.findByText("Question 0")
+    fireEvent.click(checkboxes()[0])
+    fireEvent.click(checkboxes()[1])
+
+    expect(checkboxes()[2]).toBeDisabled()
+    fireEvent.click(screen.getByText("Question 2"))
+    expect(counter()).toHaveTextContent("2 / 2 questions")
+    expect(checkboxes()[2]).not.toBeChecked()
+  })
+
+  it("prévisualiser ou changer de page ne sélectionne rien et ne soumet pas le formulaire", async () => {
+    const { onSubmit } = renderInForm()
+    await screen.findByText("Question 0")
+
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Prévisualiser la question" })[0],
+    )
+    expect(counter()).toHaveTextContent("0 / 2 questions")
+
+    fireEvent.click(screen.getByRole("button", { name: "2" }))
+    await waitFor(() =>
+      expect(loadQuestionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2 }),
+      ),
+    )
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+})

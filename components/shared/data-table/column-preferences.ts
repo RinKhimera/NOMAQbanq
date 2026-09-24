@@ -24,9 +24,12 @@ function subscribe(listener: () => void) {
   }
 }
 
-// Stockage indisponible (navigation privée, données de site bloquées) : le
-// tableau retombe sur ses colonnes par défaut au lieu de planter.
+// Stockage indisponible (navigation privée, données de site bloquées, quota
+// plein) : le choix est gardé ici, et vaut jusqu'au rechargement de la page.
+const unsavedChoices = new Map<string, string | null>()
+
 function readRaw(key: string): string | null {
+  if (unsavedChoices.has(key)) return unsavedChoices.get(key) ?? null
   try {
     return window.localStorage.getItem(STORAGE_PREFIX + key)
   } catch {
@@ -38,8 +41,9 @@ function writeRaw(key: string, value: string | null) {
   try {
     if (value === null) window.localStorage.removeItem(STORAGE_PREFIX + key)
     else window.localStorage.setItem(STORAGE_PREFIX + key, value)
+    unsavedChoices.delete(key)
   } catch {
-    // Le choix vaut alors pour la page courante seulement.
+    unsavedChoices.set(key, value)
   }
   notify()
 }
