@@ -40,6 +40,17 @@ import { callAction } from "@/lib/safe-action"
 import { formatScore } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
+const foldForSearch = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+
+const matchesSearch = (entry: LeaderboardEntry, query: string) =>
+  [entry.user?.name, entry.user?.username].some(
+    (field) => field && foldForSearch(field).includes(query),
+  )
+
 interface ParticipantToDelete {
   participationId: string
   userName: string
@@ -64,6 +75,13 @@ export function ExamLeaderboard({
   const [participantToDelete, setParticipantToDelete] =
     useState<ParticipantToDelete | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [search, setSearch] = useState("")
+
+  const query = foldForSearch(search.trim())
+  // Le rang se calcule sur le classement complet : filtrer ne le change pas.
+  const rankedEntries = leaderboard
+    .map((entry, index) => ({ entry, rank: index + 1 }))
+    .filter(({ entry }) => query === "" || matchesSearch(entry, query))
 
   const handleDeleteClick = (participant: ParticipantToDelete) => {
     setParticipantToDelete(participant)
@@ -105,17 +123,26 @@ export function ExamLeaderboard({
             </CardDescription>
           </div>
           <Input
+            type="search"
             placeholder="Rechercher un participant..."
+            aria-label="Rechercher un participant"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
             className="w-full md:w-72"
           />
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {leaderboard.map((entry, index) => {
+        {rankedEntries.length === 0 && (
+          <p className="text-muted-foreground py-6 text-center text-sm">
+            Aucun participant ne correspond à « {search.trim()} ».
+          </p>
+        )}
+        <ul className="space-y-3">
+          {rankedEntries.map(({ entry, rank }) => {
             return (
-              <div
-                key={index}
+              <li
+                key={entry.participationId}
                 className="flex items-center gap-2 rounded-lg border p-3 @sm:gap-3"
               >
                 {/* Left side: Rank + Avatar + Name */}
@@ -131,7 +158,7 @@ export function ExamLeaderboard({
                         : "bg-blue-600 dark:bg-blue-500",
                     )}
                   >
-                    {entry.score === null ? "—" : index + 1}
+                    {entry.score === null ? "—" : rank}
                   </div>
                   <UserAvatar
                     name={entry.user?.name}
@@ -261,10 +288,10 @@ export function ExamLeaderboard({
                     </>
                   )}
                 </div>
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ul>
       </CardContent>
 
       {/* AlertDialog de confirmation de suppression */}

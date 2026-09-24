@@ -239,7 +239,7 @@ export const TrainingHistorySection = ({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+                        className="h-8 w-8 shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                         onClick={(e) => e.stopPropagation()}
                       >
                         <Ellipsis className="h-4 w-4" />

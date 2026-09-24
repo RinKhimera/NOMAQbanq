@@ -225,7 +225,7 @@ export const TransactionsManager = ({
         <TransactionTable
           transactions={filteredTransactions}
           showUserColumn
-          isLoading={isPending}
+          isPending={isPending}
           onLoadMore={handleLoadMore}
           hasMore={cursor !== null}
           onEditTransaction={setEditingTransaction}

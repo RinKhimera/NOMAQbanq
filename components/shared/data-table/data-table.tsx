@@ -19,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { PendingRegion } from "@/components/ui/pending-region"
 import { SkeletonTable } from "@/components/ui/skeleton-patterns"
 import {
   TableBody,
@@ -79,7 +80,13 @@ type DataTableProps<Row> = {
   rowTone?: (row: Row) => DataTableRowTone | undefined
   /** Ligne grisée ; sa colonne d'action reste pleinement lisible. */
   isRowDisabled?: (row: Row) => boolean
+  /** Premier chargement, rien à afficher encore : squelette. */
   isLoading?: boolean
+  /**
+   * Rechargement en place (tri, filtre, page) : lignes ou état vide conservés,
+   * grisés et inertes. Le pied garde son propre indicateur, hors de la zone.
+   */
+  isPending?: boolean
   /** Rendu à la place du tableau quand `rows` est vide. */
   empty?: ReactNode
   footer?: ReactNode
@@ -188,6 +195,7 @@ export function DataTable<Row>({
   rowTone,
   isRowDisabled,
   isLoading,
+  isPending = false,
   empty,
   footer,
   className,
@@ -221,7 +229,8 @@ export function DataTable<Row>({
     )
   }
 
-  if (rows.length === 0 && empty) return empty
+  if (rows.length === 0 && empty)
+    return <PendingRegion isPending={isPending}>{empty}</PendingRegion>
 
   const hideableColumns = preferencesKey
     ? columns.filter((column) => !column.required)
@@ -290,7 +299,7 @@ export function DataTable<Row>({
         </div>
       )}
 
-      <div className="relative">
+      <PendingRegion isPending={isPending} className="relative">
         {/* Pas le `Table` de shadcn : il enveloppe la table dans son propre
             conteneur défilant, sans ref, et les indices de défilement
             doivent observer celui-ci. */}
@@ -371,7 +380,7 @@ export function DataTable<Row>({
             className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-linear-to-l from-black/10 to-transparent dark:from-black/40"
           />
         )}
-      </div>
+      </PendingRegion>
 
       {footer}
     </div>

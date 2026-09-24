@@ -229,6 +229,66 @@ describe("DataTable — dans un formulaire", () => {
   })
 })
 
+describe("DataTable — chargement", () => {
+  it("un rechargement en place garde les lignes, grise le tableau mais pas son pied", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={rows}
+        getRowId={(r) => r.id}
+        isPending
+        footer={<button type="button">Page suivante</button>}
+      />,
+    )
+
+    const busy = screen.getByText("Première").closest("[aria-busy='true']")
+    expect(busy).not.toBeNull()
+    expect(
+      screen
+        .getByRole("button", { name: "Page suivante" })
+        .closest("[aria-busy='true']"),
+    ).toBeNull()
+  })
+
+  it("un rechargement qui aboutit à une liste vide grise aussi l'état vide", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={[]}
+        getRowId={(r) => r.id}
+        isPending
+        empty={<p>Rien ici</p>}
+      />,
+    )
+
+    expect(
+      screen.getByText("Rien ici").closest("[aria-busy='true']"),
+    ).not.toBeNull()
+  })
+
+  it("hors rechargement, rien n'est marqué occupé", () => {
+    render(<DataTable columns={columns} rows={rows} getRowId={(r) => r.id} />)
+
+    expect(
+      screen.getByText("Première").closest("[aria-busy='true']"),
+    ).toBeNull()
+  })
+
+  it("le premier chargement affiche un squelette à la place des lignes", () => {
+    render(
+      <DataTable
+        columns={columns}
+        rows={[]}
+        getRowId={(r) => r.id}
+        isLoading
+      />,
+    )
+
+    expect(screen.queryAllByRole("columnheader")).toHaveLength(0)
+    expect(screen.queryByText("Première")).not.toBeInTheDocument()
+  })
+})
+
 describe("DataTable — stockage indisponible", () => {
   // Navigation privée stricte, données de site bloquées : localStorage lève.
   it("le choix de colonnes vaut quand même pour la page ouverte", async () => {
