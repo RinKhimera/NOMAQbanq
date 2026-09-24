@@ -291,6 +291,9 @@ export function DataTable<Row>({
       )}
 
       <div className="relative">
+        {/* Pas le `Table` de shadcn : il enveloppe la table dans son propre
+            conteneur défilant, sans ref, et les indices de défilement
+            doivent observer celui-ci. */}
         <div ref={scrollRef} className="w-full overflow-x-auto">
           <table className="w-full caption-bottom text-sm">
             <TableHeader>

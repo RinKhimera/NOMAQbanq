@@ -1,5 +1,13 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { QuestionBrowser } from "@/components/admin/question-browser"
 
 const SEARCH_DEBOUNCE_MS = 300
@@ -271,5 +279,59 @@ describe("QuestionBrowser — mode sélection", () => {
       ),
     )
     expect(onSubmit).not.toHaveBeenCalled()
+  })
+})
+
+describe("QuestionBrowser — colonnes", () => {
+  beforeEach(() => {
+    loadQuestionsPage.mockReset()
+    loadQuestionsPage.mockResolvedValue(makePage())
+  })
+  afterEach(() => localStorage.clear())
+
+  const hideColumn = async (name: string) => {
+    const user = userEvent.setup()
+    await user.click(screen.getByRole("button", { name: /Colonnes/ }))
+    await user.click(
+      within(await screen.findByRole("menu")).getByRole("menuitemcheckbox", {
+        name,
+      }),
+    )
+    await user.keyboard("{Escape}")
+  }
+  const hasHeader = (name: string) =>
+    screen
+      .queryAllByRole("columnheader")
+      .some((header) => header.textContent === name)
+
+  it("le choix fait en navigation ne touche pas la constitution d'examen", async () => {
+    const { unmount } = render(<QuestionBrowser mode="browse" />)
+    await screen.findByText("Question 0")
+    await hideColumn("Réussite")
+    expect(hasHeader("Réussite")).toBe(false)
+    unmount()
+
+    render(<QuestionBrowser mode="select" />)
+    await screen.findByText("Question 0")
+    expect(hasHeader("Réussite")).toBe(true)
+  })
+
+  it("masquer la colonne qui sert au tri ne change pas le tri", async () => {
+    render(<QuestionBrowser mode="browse" />)
+    await screen.findByText("Question 0")
+    fireEvent.click(screen.getByRole("button", { name: /Réussite/ }))
+    await waitFor(() =>
+      expect(loadQuestionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sortBy: "successRate" }),
+      ),
+    )
+
+    await hideColumn("Réussite")
+    fireEvent.click(await screen.findByRole("button", { name: "2" }))
+    await waitFor(() =>
+      expect(loadQuestionsPage).toHaveBeenLastCalledWith(
+        expect.objectContaining({ page: 2, sortBy: "successRate" }),
+      ),
+    )
   })
 })
