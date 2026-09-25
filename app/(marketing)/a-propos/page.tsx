@@ -1,6 +1,6 @@
 import { Metadata } from "next"
 import { MARKETING_CLAIMS } from "@/constants"
-import { getMarketingStats } from "@/features/marketing/dal"
+import { getCachedMarketingStats } from "@/features/marketing/cached"
 import AProposPageClient from "./_components/a-propos-page-client"
 
 export const metadata: Metadata = {
@@ -26,10 +26,11 @@ export const metadata: Metadata = {
   },
 }
 
-// Stats quasi statiques : page régénérée au plus toutes les heures (ISR).
-export const revalidate = 3600
+// Aligné sur le cache des stats (1 semaine), invalidé plus tôt par leur tag :
+// une page régénérée plus souvent referait le rendu pour les mêmes données.
+export const revalidate = 604800
 
 export default async function AProposPage() {
-  const stats = await getMarketingStats()
+  const stats = await getCachedMarketingStats()
   return <AProposPageClient stats={stats} />
 }

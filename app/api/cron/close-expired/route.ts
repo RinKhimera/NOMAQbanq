@@ -14,7 +14,7 @@ export const runtime = "nodejs"
  *
  * ⚠️ Planification (plan Vercel Hobby — pas de cron infra-quotidien) :
  *   - `vercel.json` déclenche cet endpoint 1×/jour (`0 0 * * *`) = plancher garanti.
- *   - `.github/workflows/cron-close-expired.yml` le rappelle toutes les 3 h (best-effort).
+ *   - `.github/workflows/cron-close-expired.yml` le rappelle toutes les 6 h (best-effort).
  *   Définir `CRON_SECRET` côté Vercel ET en secret GitHub (+ variable
  *   `CRON_ENDPOINT_URL`). Vercel envoie automatiquement le bearer ; le workflow
  *   GitHub l'ajoute explicitement.

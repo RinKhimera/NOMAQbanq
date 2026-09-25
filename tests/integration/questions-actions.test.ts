@@ -25,7 +25,10 @@ vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}))
 // Évite tout appel réseau S3 ; `setQuestionImages` doit copier `tmp/`→`questions/`
 // via `copyInS3` et déléguer la suppression des chemins retirés/tmp à
 // `tryDeleteFromStorage`.

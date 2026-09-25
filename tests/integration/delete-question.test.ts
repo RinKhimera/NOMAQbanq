@@ -14,7 +14,10 @@ import { createId } from "@/lib/ids"
 import { tryDeleteFromStorage } from "@/lib/storage"
 
 vi.mock("@/lib/auth-guards", () => ({ requireRole: vi.fn() }))
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}))
 // S3 jamais touché par les tests : on stubbe la suppression best-effort.
 vi.mock("@/lib/storage", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/storage")>()),

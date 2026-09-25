@@ -1,10 +1,11 @@
-name: Cron — close expired (toutes les 3 h)
+name: Cron — close expired (toutes les 6 h)
 
 # Vercel Hobby ne permet qu'UN cron quotidien (cf. vercel.json = "0 0 * * *", le
-# filet de sécurité). Ce workflow appelle le MÊME endpoint toutes les 3 h pour
+# filet de sécurité). Ce workflow appelle le MÊME endpoint toutes les 6 h pour
 # fermer les participations d'examen et sessions d'entraînement expirées.
 # Chaque appel est une invocation Vercel à froid (réveil Neon + init du bundle)
-# facturée en CPU actif : la cadence est un poste du quota mensuel (4 h).
+# facturée en CPU actif, et chaque réveil tient Neon éveillé au moins 5 min
+# (quota de 100 CU-h) : la cadence pèse sur les deux quotas mensuels.
 #
 # Prérequis (Settings → Secrets and variables → Actions) :
 #   - secret   CRON_SECRET        : identique à la variable CRON_SECRET sur Vercel
@@ -19,7 +20,7 @@ name: Cron — close expired (toutes les 3 h)
 
 on:
   schedule:
-    - cron: "0 */3 * * *"
+    - cron: "0 */6 * * *"
   workflow_dispatch:
 
 # Évite les exécutions qui se chevauchent si une requête traîne.

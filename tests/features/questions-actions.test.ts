@@ -18,6 +18,7 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
   const mocks = {
     captureServerError: vi.fn(),
     revalidatePath: vi.fn(),
+    revalidateTag: vi.fn(),
     transaction:
       vi.fn<(cb: (tx: unknown) => Promise<unknown>) => Promise<unknown>>(),
     rows: { current: {} as Record<string, unknown[]> },
@@ -138,7 +139,10 @@ vi.mock("@/lib/storage", () => ({
 vi.mock("@/lib/upload-rate-limit", () => ({
   consumeUploadRateLimit: vi.fn(async () => true),
 }))
-vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
+vi.mock("next/cache", () => ({
+  revalidatePath: mocks.revalidatePath,
+  revalidateTag: mocks.revalidateTag,
+}))
 
 const SERVER_ERROR = "Erreur serveur. Réessayez."
 const EMPTY_SCORE = { score: 0, totalQuestions: 0, questionResults: [] }
@@ -295,10 +299,11 @@ describe("createQuestion", () => {
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
 
-  it("succes : revalide la liste admin", async () => {
+  it("succes : revalide la liste admin et les stats publiques", async () => {
     const res = await createQuestion(questionInput)
     expect(res).toMatchObject({ success: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/questions")
+    expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
   })
 
   it("erreur inattendue → capture", async () => {
@@ -328,12 +333,13 @@ describe("updateQuestion", () => {
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
-  it("succes : revalide la liste et la page d'edition", async () => {
+  it("succes : revalide la liste, la page d'edition et les stats publiques", async () => {
     const res = await updateQuestion(input)
     expect(res).toEqual({ success: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith(
       "/admin/questions/q1/modifier",
     )
+    expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
   })
 
   it("erreur inattendue → capture", async () => {
@@ -363,6 +369,7 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
     expect(mocks.tryDeleteFromStorage).toHaveBeenCalledWith(
       "questions/q1/a.jpg",
     )
+    expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
   })
 
   it("question inexistante → message metier, aucun soft delete tente", async () => {
@@ -384,6 +391,7 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
       const res = await deleteQuestion("q1")
       expect(res).toEqual({ success: true, mode: "soft" })
       expect(mocks.tryDeleteFromStorage).not.toHaveBeenCalled()
+      expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
       expect(mocks.captureServerError).not.toHaveBeenCalled()
     },
   )
@@ -396,6 +404,7 @@ describe("deleteQuestion — arbitrage hard/soft par les FK", () => {
       success: false,
       error: "Question introuvable",
     })
+    expect(mocks.revalidateTag).not.toHaveBeenCalled()
   })
 
   it("erreur non-FK → capture, pas de repli", async () => {

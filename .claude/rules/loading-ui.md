@@ -51,7 +51,7 @@ justifie dans le code.
   - page déjà dynamique → descendre l'information en **prop depuis le Server
     Component** (`app/(marketing)/tarifs/page.tsx` passe `isAuthenticated`) ;
   - page ISR, où lire les cookies casserait la génération statique
-    (`/`, `/domaines`, `/a-propos`, `/evaluation` sont en `revalidate = 3600`)
+    (`/`, `/domaines`, `/a-propos`, `/evaluation` sont en `revalidate = 604800`)
     → garder la session cliente mais la neutraliser pendant l'hydratation avec
     `useMounted()` (`hooks/use-mounted.ts`), comme `components/marketing-header`
     et `components/shared/theme-toggle.tsx`.

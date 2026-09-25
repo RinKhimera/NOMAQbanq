@@ -39,7 +39,10 @@ vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
   return { ...actual, cache: (fn: unknown) => fn }
 })
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}))
 vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 /**

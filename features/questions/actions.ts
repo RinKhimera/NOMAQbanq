@@ -1,7 +1,7 @@
 "use server"
 
 import { and, eq, isNull } from "drizzle-orm"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
@@ -25,6 +25,7 @@ import {
   type QuestionAnswerBreakdown,
   getQuestionAnswerBreakdown,
 } from "../analytics/dal"
+import { MARKETING_STATS_TAG } from "../marketing/cache-tags"
 import { lockFor } from "./answer-key-lock"
 import {
   type QuestionDetail,
@@ -248,6 +249,7 @@ export const createQuestion = async (
       })
     })
     revalidatePath("/admin/questions")
+    revalidateTag(MARKETING_STATS_TAG, "max")
     return { success: true, id }
   } catch (error) {
     captureServerError("[createQuestion]", error)
@@ -302,6 +304,7 @@ export const updateQuestion = async (
     })
     revalidatePath("/admin/questions")
     revalidatePath(`/admin/questions/${d.id}/modifier`)
+    revalidateTag(MARKETING_STATS_TAG, "max")
     return { success: true }
   } catch (error) {
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
@@ -364,6 +367,7 @@ export const deleteQuestion = async (
     // Hard delete commité : purge S3 best-effort (hors transaction).
     await Promise.all(imagePaths.map((p) => tryDeleteFromStorage(p)))
     revalidatePath("/admin/questions")
+    revalidateTag(MARKETING_STATS_TAG, "max")
     return { success: true, mode: "hard" }
   } catch (error) {
     if (error instanceof Error && error.message === "Q_NOT_FOUND") {
@@ -384,6 +388,7 @@ export const deleteQuestion = async (
     if (res.length === 0) return fail("Question introuvable")
 
     revalidatePath("/admin/questions")
+    revalidateTag(MARKETING_STATS_TAG, "max")
     return { success: true, mode: "soft" }
   } catch (error) {
     captureServerError("[deleteQuestion]", error)

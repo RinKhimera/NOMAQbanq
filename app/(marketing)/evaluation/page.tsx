@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import { getMarketingStats } from "@/features/marketing/dal"
+import { getCachedMarketingStats } from "@/features/marketing/cached"
 import StartQuizCTA from "../_components/start-quiz-cta"
 import EvaluationHeader from "./_components/evaluation-header"
 import EvaluationInstructions from "./_components/evaluation-instructions"
@@ -30,11 +30,12 @@ export const metadata: Metadata = {
   },
 }
 
-// Stats quasi statiques : page régénérée au plus toutes les heures (ISR).
-export const revalidate = 3600
+// Aligné sur le cache des stats (1 semaine), invalidé plus tôt par leur tag :
+// une page régénérée plus souvent referait le rendu pour les mêmes données.
+export const revalidate = 604800
 
 export default async function EvaluationPage() {
-  const stats = await getMarketingStats()
+  const stats = await getCachedMarketingStats()
   return (
     <div className="theme-bg">
       <div className="mx-auto max-w-7xl px-4 pt-8 pb-16 sm:px-6 lg:px-8">
