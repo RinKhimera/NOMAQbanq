@@ -38,7 +38,7 @@ const INACTIVITY_DAYS = 21
 const CONSENT_WINDOW_DAYS = 183
 // Borne par EXÉCUTION (pas par cadence) : un appel du cron GitHub Actions est
 // limité dans le temps, un arriéré vidé d'un coup le dépasserait et
-// déclencherait des retries. À 8 appels/jour, débit maximal 400 relances/jour —
+// déclencherait des retries. À 5 appels/jour, débit maximal 250 relances/jour —
 // un ordre de grandeur au-dessus du besoin.
 const INACTIVITY_LIMIT = 50
 
@@ -53,7 +53,7 @@ export type NotificationSweepResult = {
 // seuls opt-in (`shouldSend`) → pas de re-scan des lignes opt-out.
 //
 // ⚠️ Concurrence : `close-expired` est frappé par DEUX schedulers (GitHub Actions
-// toutes les 3 h + Vercel quotidien) qui se recouvrent à minuit UTC ; c'est le
+// toutes les 6 h + Vercel quotidien) qui se recouvrent à minuit UTC ; c'est le
 // claim de `sendOnce` qui garantit l'envoi unique.
 export const examResultsSpec = () =>
   defineOneShot({

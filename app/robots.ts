@@ -14,6 +14,9 @@ export default function robots(): MetadataRoute.Robots {
           "/mot-de-passe-oublie",
           "/reinitialiser-mot-de-passe",
           "/desabonnement",
+          // Le quiz tire ses questions en base au montage : un robot qui suit
+          // le lien depuis `/evaluation` réveillerait Neon à chaque passage.
+          "/evaluation/quiz",
         ],
       },
     ],

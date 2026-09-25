@@ -164,6 +164,18 @@ rend le travail différé (courriel, rappel de panier) sans jamais appeler
   mettre à jour la ligne `products` fait diverger les deux. Deux garde-fous
   alertent dans Sentry : la comparaison au checkout et la tâche cron
   `auditProductPriceDrift` (qui couvre les produits que personne n'achète).
+- **La grille publique lit un cache de 24 h** (`getCachedAvailableProducts`,
+  `features/marketing/cached.ts`, tag `products`) pour qu'une visite anonyme
+  ne réveille pas Neon. Chaque déploiement repart d'un cache vide (le
+  déploiement est dans la clé), ce qui couvre les migrations. Aucune action de
+  l'app n'écrit dans `products` : après un `UPDATE` manuel de la table (prix,
+  libellé, `is_active`), lancer
+  `vercel cache dangerously-delete --tag products --yes`, sinon `/tarifs`
+  affiche l'ancienne ligne jusqu'à 24 h. `invalidate`
+  ne suffit pas pour un prix : il sert encore une fois l'ancienne version
+  avant de rafraîchir. Les garde-fous d'écart ci-dessus lisent la base, pas
+  ce cache, et ne voient donc pas cet oubli. Un produit désactivé mais encore
+  affiché reste refusé au checkout, qui relit `is_active` en base.
 - **Devise et montant ne se traitent PAS pareil dans cette comparaison.** La
   devise d'un prix Stripe est immuable (on ne modifie pas un prix, on en crée un
   autre et on lui transfère la clé) : une devise ≠ `cad` n'est jamais un état

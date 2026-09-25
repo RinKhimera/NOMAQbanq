@@ -24,6 +24,12 @@ export const auth = betterAuth({
       "/request-password-reset": { window: 60, max: 3 },
       // Renvoi de vérification : borné comme le reset (anti-spam SES).
       "/send-verification-email": { window: 60, max: 3 },
+      // Appelé par l'en-tête de chaque page publique, visiteurs anonymes et
+      // robots compris : limité, il écrirait dans `rate_limit` et réveillerait
+      // Neon à chaque visite. Rien à protéger : un cookie absent ou mal signé
+      // ne touche pas la base, et le limiteur en base coûtait lui-même deux
+      // requêtes par appel.
+      "/get-session": false,
     },
   },
   // Rattache automatiquement Google aux users migrés (même email) en préservant leur id.

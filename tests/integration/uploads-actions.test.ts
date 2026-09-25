@@ -27,7 +27,10 @@ vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}))
 // Neutralise les I/O réseau S3 ; force la config présente. Les helpers purs de
 // `@/lib/storage` (validation, génération de chemins, dérivation d'URL) restent
 // RÉELS (mock partiel).

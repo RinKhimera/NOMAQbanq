@@ -32,7 +32,10 @@ vi.mock("@/lib/auth-guards", () => ({
   requireRole: vi.fn(),
   requireSession: vi.fn(),
 }))
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+  revalidateTag: vi.fn(),
+}))
 vi.mock("next/headers", () => ({ headers: vi.fn() }))
 
 // Chaque test prend une "IP" unique (chaîne arbitraire : elle est HMAC-ée) →

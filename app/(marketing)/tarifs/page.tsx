@@ -1,6 +1,9 @@
 import { Metadata } from "next"
-import { getMarketingStats } from "@/features/marketing/dal"
-import { getAccessStatus, getAvailableProducts } from "@/features/payments/dal"
+import {
+  getCachedAvailableProducts,
+  getCachedMarketingStats,
+} from "@/features/marketing/cached"
+import { getAccessStatus } from "@/features/payments/dal"
 import { getCurrentSession } from "@/lib/dal"
 import TarifsPageClient from "./_components/tarifs-page-client"
 
@@ -25,9 +28,9 @@ export default async function TarifsPage() {
   // session n'est pas résolue au SSR, un rendu qui en dépend produit deux
   // arbres DOM différents à l'hydratation.
   const [products, accessStatus, stats, session] = await Promise.all([
-    getAvailableProducts(),
+    getCachedAvailableProducts(),
     getAccessStatus(),
-    getMarketingStats(),
+    getCachedMarketingStats(),
     getCurrentSession(),
   ])
   return (
