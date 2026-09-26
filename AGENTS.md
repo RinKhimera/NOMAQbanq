@@ -127,3 +127,7 @@ Labels par défaut : `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for
 ### Domain docs
 
 Single-context : `CONTEXT.md` + `docs/adr/` à la racine (créés à la demande par `/domain-modeling`). See `docs/agents/domain.md`.
+
+### Revue adversariale
+
+Classes de défauts déjà vécues ici, chassées en premier par `/adversarial-review`. See `docs/agents/review-checklist.md`.

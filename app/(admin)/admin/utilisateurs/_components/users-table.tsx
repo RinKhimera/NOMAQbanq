@@ -1,19 +1,14 @@
 "use client"
 
-import { ArrowDown, ArrowUp, ArrowUpDown, ShieldOff } from "lucide-react"
+import { ShieldOff } from "lucide-react"
+import type { ReactNode } from "react"
+import {
+  DataTable,
+  type DataTableColumn,
+} from "@/components/shared/data-table/data-table"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { PendingRegion } from "@/components/ui/pending-region"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import {
   Tooltip,
   TooltipContent,
@@ -41,10 +36,9 @@ interface UsersTableProps {
   sortBy: SortBy
   sortOrder: SortOrder
   onSort: (field: SortBy) => void
-  isLoading?: boolean
-  /** Pagination numérotée (numéro de ligne global). */
-  page: number
-  pageSize: number
+  /** Rechargement en place (recherche, filtre, tri, page). */
+  isPending?: boolean
+  footer?: ReactNode
 }
 
 function AccessBadge({
@@ -97,6 +91,9 @@ function AccessBadge({
   )
 }
 
+const hasName = (user: EnrichedUser) =>
+  Boolean(user.name) && user.name !== "null null"
+
 export function UsersTable({
   users,
   selectedUserId,
@@ -104,178 +101,132 @@ export function UsersTable({
   sortBy,
   sortOrder,
   onSort,
-  isLoading,
-  page,
-  pageSize,
+  isPending = false,
+  footer,
 }: UsersTableProps) {
-  const getSortIcon = (field: SortBy) => {
-    if (sortBy !== field)
-      return <ArrowUpDown className="ml-1.5 h-3.5 w-3.5 opacity-50" />
-    return sortOrder === "asc" ? (
-      <ArrowUp className="ml-1.5 h-3.5 w-3.5" />
-    ) : (
-      <ArrowDown className="ml-1.5 h-3.5 w-3.5" />
-    )
-  }
+  const sortOn = (field: SortBy) => ({
+    direction: sortBy === field ? sortOrder : null,
+    onToggle: () => onSort(field),
+  })
 
-  const busy = isLoading ?? false
-
-  // L'état vide est lui aussi enveloppé : sans ça, un filtre appliqué sur une
-  // liste déjà vide ne donnerait AUCUN signal d'attente (sur `main`, la branche
-  // `isLoading` précédait ce cas).
-  if (users.length === 0) {
-    return (
-      <PendingRegion
-        isPending={busy}
-        className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900"
-      >
-        <div className="p-8 text-center">
-          <p className="text-gray-500">Aucun utilisateur trouvé</p>
-        </div>
-      </PendingRegion>
-    )
-  }
-
-  return (
-    <PendingRegion
-      isPending={busy}
-      className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900"
-    >
-      <Table>
-        <TableHeader>
-          <TableRow className="hover:bg-transparent">
-            <TableHead className="w-12.5 pl-4">#</TableHead>
-            <TableHead>
-              <Button
-                variant="ghost"
-                onClick={() => onSort("name")}
-                disabled={busy}
-                className="h-auto p-0 font-semibold hover:bg-transparent"
-              >
-                Utilisateur
-                {getSortIcon("name")}
-              </Button>
-            </TableHead>
-            <TableHead className="hidden md:table-cell">Email</TableHead>
-            <TableHead>
-              <Button
-                variant="ghost"
-                onClick={() => onSort("role")}
-                disabled={busy}
-                className="h-auto p-0 font-semibold hover:bg-transparent"
-              >
-                Rôle
-                {getSortIcon("role")}
-              </Button>
-            </TableHead>
-            <TableHead>Accès</TableHead>
-            <TableHead className="hidden lg:table-cell">
-              <Button
-                variant="ghost"
-                onClick={() => onSort("createdAt")}
-                disabled={busy}
-                className="h-auto p-0 font-semibold hover:bg-transparent"
-              >
-                Inscrit
-                {getSortIcon("createdAt")}
-              </Button>
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {users.map((user, index) => (
-            <TableRow
-              key={user.id}
-              onClick={() => onUserSelect(user)}
+  const columns: DataTableColumn<EnrichedUser>[] = [
+    {
+      id: "user",
+      label: "Utilisateur",
+      required: true,
+      sort: sortOn("name"),
+      cell: (user) => (
+        <div className="flex items-center gap-3">
+          <UserAvatar
+            name={user.name}
+            image={user.image}
+            className="h-9 w-9 border border-gray-100 dark:border-gray-800"
+            fallbackClassName="bg-linear-to-br from-blue-500 to-indigo-600 text-xs font-medium text-white"
+          />
+          <div className="flex flex-col">
+            <span
               className={cn(
-                "cursor-pointer transition-all duration-150",
-                selectedUserId === user.id
-                  ? "border-l-2 border-l-blue-500 bg-blue-50/50 dark:bg-blue-900/20"
-                  : "hover:bg-gray-50/50 dark:hover:bg-gray-800/30",
+                "font-medium",
+                hasName(user)
+                  ? "text-gray-900 dark:text-white"
+                  : "text-gray-400 italic",
               )}
             >
-              <TableCell className="pl-4 font-medium text-gray-500">
-                {(page - 1) * pageSize + index + 1}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <UserAvatar
-                    name={user.name}
-                    image={user.image}
-                    className="h-9 w-9 border border-gray-100 dark:border-gray-800"
-                    fallbackClassName="bg-linear-to-br from-blue-500 to-indigo-600 text-xs font-medium text-white"
-                  />
-                  <div className="flex flex-col">
-                    <span
-                      className={cn(
-                        "font-medium",
-                        !user.name || user.name === "null null"
-                          ? "text-gray-400 italic"
-                          : "text-gray-900 dark:text-white",
-                      )}
-                    >
-                      {user.name && user.name !== "null null"
-                        ? user.name
-                        : "Non défini"}
-                    </span>
-                    {user.username && (
-                      <span className="text-xs text-blue-600 dark:text-blue-400">
-                        @{user.username}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell className="hidden text-gray-500 md:table-cell">
-                <span className="max-w-50 truncate">{user.email}</span>
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Badge
-                    variant={user.role === "admin" ? "default" : "secondary"}
-                    className={cn(
-                      user.role === "admin"
-                        ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
-                        : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-                    )}
-                  >
-                    {user.role === "admin" ? "Admin" : "User"}
-                  </Badge>
-                  {user.banned && (
-                    <Badge
-                      data-testid="ban-badge"
-                      className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"
-                    >
-                      <ShieldOff className="mr-1 h-3 w-3" />
-                      Suspendu
-                    </Badge>
-                  )}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-1.5">
-                  <AccessBadge type="exam" access={user.examAccess} />
-                  <AccessBadge type="training" access={user.trainingAccess} />
-                </div>
-              </TableCell>
-              <TableCell className="hidden text-gray-500 lg:table-cell">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="cursor-help">
-                        <RelativeTime timestamp={user.createdAt} />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>{formatLongDateTime(user.createdAt)}</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </PendingRegion>
+              {hasName(user) ? user.name : "Non défini"}
+            </span>
+            {user.username && (
+              <span className="text-xs text-blue-600 dark:text-blue-400">
+                @{user.username}
+              </span>
+            )}
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "email",
+      label: "Email",
+      visibleFrom: "medium",
+      cellClassName: "text-gray-500",
+      cell: (user) => <span className="max-w-50 truncate">{user.email}</span>,
+    },
+    {
+      id: "role",
+      label: "Rôle",
+      visibleFrom: "medium",
+      sort: sortOn("role"),
+      cell: (user) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Badge
+            variant={user.role === "admin" ? "default" : "secondary"}
+            className={cn(
+              user.role === "admin"
+                ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
+                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
+            )}
+          >
+            {user.role === "admin" ? "Admin" : "User"}
+          </Badge>
+          {user.banned && (
+            <Badge
+              data-testid="ban-badge"
+              className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"
+            >
+              <ShieldOff className="mr-1 h-3 w-3" />
+              Suspendu
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "access",
+      label: "Accès",
+      cell: (user) => (
+        <div className="flex gap-1.5">
+          <AccessBadge type="exam" access={user.examAccess} />
+          <AccessBadge type="training" access={user.trainingAccess} />
+        </div>
+      ),
+    },
+    {
+      id: "createdAt",
+      label: "Inscrit",
+      visibleFrom: "wide",
+      sort: sortOn("createdAt"),
+      cellClassName: "text-gray-500",
+      cell: (user) => (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="cursor-help">
+                <RelativeTime timestamp={user.createdAt} />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{formatLongDateTime(user.createdAt)}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ),
+    },
+  ]
+
+  return (
+    <DataTable
+      columns={columns}
+      rows={users}
+      getRowId={(user) => user.id}
+      preferencesKey="admin-users"
+      isPending={isPending}
+      onRowClick={onUserSelect}
+      rowTone={(user) => (user.id === selectedUserId ? "active" : undefined)}
+      empty={
+        <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-8 text-center dark:border-gray-700/50 dark:bg-gray-900">
+          <p className="text-gray-500">Aucun utilisateur trouvé</p>
+        </div>
+      }
+      footer={footer}
+    />
   )
 }

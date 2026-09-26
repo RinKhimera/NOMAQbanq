@@ -255,22 +255,21 @@ export function UsersManager({
         sortBy={sortBy}
         sortOrder={sortOrder}
         onSort={handleSort}
-        isLoading={isPending}
-        page={page}
-        pageSize={pageSize}
+        isPending={isPending}
+        footer={
+          total > 0 && (
+            <TablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              onPageChange={setPage}
+              onPageSizeChange={handlePageSizeChange}
+              isLoading={isPending}
+              itemNoun={{ one: "utilisateur", many: "utilisateurs" }}
+            />
+          )
+        }
       />
-
-      {total > 0 && (
-        <TablePagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          onPageChange={setPage}
-          onPageSizeChange={handlePageSizeChange}
-          isLoading={isPending}
-          itemNoun={{ one: "utilisateur", many: "utilisateurs" }}
-        />
-      )}
 
       <UserSidePanel
         userId={selectedUserId}

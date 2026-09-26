@@ -143,7 +143,12 @@ let pauseOrderedIds: string[] = []
 beforeAll(async () => {
   await db.insert(user).values([
     { id: ADMIN_ID, name: "IT admin", email: `adm-${suffix}@test.invalid` },
-    { id: STUDENT_ID, name: "IT student", email: `stu-${suffix}@test.invalid` },
+    {
+      id: STUDENT_ID,
+      name: "IT student",
+      username: `it-stu-${suffix}`,
+      email: `stu-${suffix}@test.invalid`,
+    },
     { id: INTRUDER_ID, name: "IT intru", email: `int-${suffix}@test.invalid` },
     { id: NOACCESS_ID, name: "IT noacc", email: `noa-${suffix}@test.invalid` },
   ])
@@ -476,6 +481,7 @@ describe("Leaderboard", () => {
     const lb = await getExamLeaderboard(pauseId)
     expect(lb.length).toBeGreaterThanOrEqual(1)
     expect(lb[0].user?.id).toBe(STUDENT_ID)
+    expect(lb[0].user?.username).toBe(`it-stu-${suffix}`)
     expect(lb[0].score).toBe(100)
   })
 
@@ -666,6 +672,14 @@ describe("Gardes d'accès post-endDate + TIME_UP (F3)", () => {
     asStudent()
     const lb = await getExamLeaderboard(pastExamId)
     expect(lb.some((e) => e.user?.id === STUDENT_ID)).toBe(true)
+  })
+
+  it("leaderboard étudiant : les @username des participants ne partent pas au navigateur", async () => {
+    asIntruder()
+    const lb = await getExamLeaderboard(pastExamId)
+    const student = lb.find((e) => e.user?.id === STUDENT_ID)
+    expect(student).toBeDefined()
+    expect(student?.user?.username).toBeNull()
   })
 
   it("leaderboard après endDate : non-participant avec accès le voit", async () => {
