@@ -83,7 +83,11 @@ function ManageActions({
       </Button>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
+        <AlertDialogContent
+          onEscapeKeyDown={(event) => {
+            if (isDeleting) event.preventDefault()
+          }}
+        >
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <TriangleAlert className="h-5 w-5 text-red-500" />

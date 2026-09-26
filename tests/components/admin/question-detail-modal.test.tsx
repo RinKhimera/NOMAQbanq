@@ -22,6 +22,8 @@ vi.mock("@/features/questions/actions", () => ({
   loadAllQuestionIds: vi.fn().mockResolvedValue([]),
   loadQuestionAnswerBreakdown: vi.fn().mockResolvedValue(null),
 }))
+const toast = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
+vi.mock("sonner", () => ({ toast }))
 vi.mock("motion/react", async () => {
   const { motionMockFactory } = await import("../../helpers/motion-mock")
   return motionMockFactory
@@ -73,6 +75,8 @@ beforeEach(() => {
     Promise.resolve(makeDetail(id)),
   )
   deleteQuestion.mockReset()
+  toast.success.mockReset()
+  toast.error.mockReset()
 })
 
 describe("Modale de question — constitution d'examen", () => {
@@ -99,11 +103,15 @@ describe("Modale de question — constitution d'examen", () => {
     openPreview(0)
     await screen.findByText("Énoncé complet q0")
 
+    expect(screen.getByText("0 sur 2 sélectionnées")).toBeInTheDocument()
+
     fireEvent.click(screen.getByRole("button", { name: "Ajouter à l'examen" }))
     expect(counter()).toHaveTextContent("1 / 2 questions")
+    expect(screen.getByText("1 sur 2 sélectionnées")).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole("button", { name: "Retirer de l'examen" }))
     expect(counter()).toHaveTextContent("0 / 2 questions")
+    expect(screen.getByText("0 sur 2 sélectionnées")).toBeInTheDocument()
     expect(
       screen.getByRole("button", { name: "Ajouter à l'examen" }),
     ).toBeEnabled()
@@ -145,6 +153,26 @@ describe("Modale de question — constitution d'examen", () => {
     expect(counter()).toHaveTextContent("1 / 2 questions")
   })
 
+  it("un échec de chargement propose de réessayer, puis rend les actions", async () => {
+    loadQuestionById.mockRejectedValueOnce(new Error("Failed to fetch"))
+    renderSelect()
+    await screen.findByText("Question 0")
+    openPreview(0)
+
+    await screen.findByText("Chargement impossible")
+    expect(screen.queryByText("Question non trouvée")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Ajouter à l'examen" }),
+    ).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Réessayer" }))
+    await screen.findByText("Énoncé complet q0")
+    expect(loadQuestionById).toHaveBeenCalledTimes(2)
+    expect(
+      screen.getByRole("button", { name: "Ajouter à l'examen" }),
+    ).toBeEnabled()
+  })
+
   it("l'explication et les références sont repliées à l'ouverture de chaque question", async () => {
     renderSelect()
     await screen.findByText("Question 0")
@@ -157,6 +185,11 @@ describe("Modale de question — constitution d'examen", () => {
     fireEvent.click(screen.getByRole("button", { name: /Références/ }))
     expect(screen.getByText("Explication de q0")).toBeInTheDocument()
     expect(screen.getByText("Référence de q0")).toBeInTheDocument()
+
+    closeModal()
+    openPreview(0)
+    await screen.findByText("Énoncé complet q0")
+    expect(screen.queryByText("Explication de q0")).not.toBeInTheDocument()
 
     closeModal()
     openPreview(1)
@@ -251,5 +284,48 @@ describe("Modale de question — navigateur de questions", () => {
     expect(
       screen.queryByRole("button", { name: /Supprimer/ }),
     ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("link", { name: /Modifier/ }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Réessayer" }),
+    ).not.toBeInTheDocument()
+  })
+
+  it("Échap ne ferme pas la confirmation pendant la suppression", async () => {
+    deleteQuestion.mockReturnValue(new Promise(() => {}))
+    renderManage()
+    await screen.findByText("Question 0")
+    openPreview(0)
+    await screen.findByText("Énoncé complet q0")
+
+    fireEvent.click(screen.getByRole("button", { name: /Supprimer/ }))
+    await screen.findByText("Supprimer cette question ?")
+    fireEvent.click(screen.getByRole("button", { name: "Supprimer" }))
+    await screen.findByRole("button", { name: /Suppression/ })
+
+    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" })
+    expect(screen.getByText("Supprimer cette question ?")).toBeInTheDocument()
+  })
+
+  it("Copier l'ID n'annonce un succès que si la copie réussit", async () => {
+    const writeText = vi.fn()
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    })
+    renderManage()
+    await screen.findByText("Question 0")
+    openPreview(0)
+    await screen.findByText("Énoncé complet q0")
+
+    writeText.mockRejectedValueOnce(new Error("NotAllowedError"))
+    fireEvent.click(screen.getByRole("button", { name: "Copier l'ID" }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(toast.success).not.toHaveBeenCalled()
+
+    writeText.mockResolvedValueOnce(undefined)
+    fireEvent.click(screen.getByRole("button", { name: "Copier l'ID" }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("ID copié"))
   })
 })

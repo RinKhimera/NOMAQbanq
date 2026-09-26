@@ -9,6 +9,7 @@ import {
   Copy,
   ExternalLink,
   Image as ImageIcon,
+  RotateCcw,
 } from "lucide-react"
 import { motion } from "motion/react"
 import Image from "next/image"
@@ -38,10 +39,16 @@ interface QuestionDetailModalProps {
   insights?: (questionId: string) => ReactNode
   /**
    * Actions du pied, toujours visibles ; masquées si la question est
-   * introuvable, à désactiver tant qu'elle charge.
+   * introuvable ou n'a pas pu être chargée, à désactiver tant qu'elle charge.
    */
   footer: (questionId: string, isLoading: boolean) => ReactNode
 }
+
+type LoadState =
+  | { status: "loading" }
+  | { status: "ready"; question: QuestionDetail }
+  | { status: "missing" }
+  | { status: "error" }
 
 function DetailSkeleton() {
   return (
@@ -107,8 +114,10 @@ function QuestionBody({
   const references = question.references ?? []
 
   const handleCopyId = () => {
-    navigator.clipboard.writeText(questionId)
-    toast.success("ID copié")
+    navigator.clipboard.writeText(questionId).then(
+      () => toast.success("ID copié"),
+      () => toast.error("Copie impossible"),
+    )
   }
 
   return (
@@ -275,48 +284,77 @@ function ModalLayout({
   insights?: (questionId: string) => ReactNode
   footer: QuestionDetailModalProps["footer"]
 }) {
-  // `undefined` = en chargement ; `null` = introuvable. Monté avec
-  // key={questionId} : un nouvel id repart du squelette, sections repliées.
-  const [question, setQuestion] = useState<QuestionDetail | null | undefined>(
-    undefined,
-  )
+  // Monté avec key={questionId} : un nouvel id repart du squelette, sections
+  // repliées.
+  const [load, setLoad] = useState<LoadState>({ status: "loading" })
+  const [attempt, setAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
     loadQuestionById(questionId)
       .then((q) => {
-        if (active) setQuestion(q)
+        if (!active) return
+        setLoad(q ? { status: "ready", question: q } : { status: "missing" })
       })
       .catch(() => {
-        if (!active) return
-        setQuestion(null)
-        toast.error("Chargement impossible. Vérifiez votre réseau.")
+        if (active) setLoad({ status: "error" })
       })
     return () => {
       active = false
     }
-  }, [questionId])
+  }, [questionId, attempt])
+
+  const retry = () => {
+    setLoad({ status: "loading" })
+    setAttempt((n) => n + 1)
+  }
+
+  const hasActions = load.status === "loading" || load.status === "ready"
 
   return (
     <>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-        {question === undefined && <DetailSkeleton />}
-        {question === null && (
+        {load.status === "loading" && <DetailSkeleton />}
+        {load.status === "missing" && (
           <div className="flex h-full min-h-40 items-center justify-center">
             <p className="text-gray-500">Question non trouvée</p>
           </div>
         )}
-        {question && (
+        {load.status === "error" && (
+          <div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 text-center">
+            <div className="space-y-1">
+              <p className="font-medium text-gray-900 dark:text-white">
+                Chargement impossible
+              </p>
+              <p className="text-sm text-gray-500">
+                Vérifiez votre connexion, puis réessayez.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={retry}
+              className="gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Réessayer
+            </Button>
+          </div>
+        )}
+        {load.status === "ready" && (
           <QuestionBody
             questionId={questionId}
-            question={question}
+            question={load.question}
             insights={insights}
           />
         )}
       </div>
-      {question !== null && (
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t px-4 py-3 sm:px-6">
-          {footer(questionId, question === undefined)}
+      {hasActions && (
+        <div
+          data-testid="question-detail-footer"
+          className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t px-4 py-3 sm:px-6"
+        >
+          {footer(questionId, load.status === "loading")}
         </div>
       )}
     </>
@@ -342,7 +380,10 @@ export function QuestionDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 rounded-none border-0 p-0 sm:h-auto sm:max-h-[85dvh] sm:max-w-2xl sm:rounded-lg sm:border">
+      <DialogContent
+        data-testid="question-detail-modal"
+        className="flex h-dvh max-h-dvh w-full max-w-none flex-col gap-0 rounded-none border-0 p-0 sm:h-auto sm:max-h-[85dvh] sm:max-w-2xl sm:rounded-lg sm:border"
+      >
         <DialogHeader className="shrink-0 border-b px-4 py-4 pr-12 text-left sm:px-6">
           <DialogTitle>Détails de la question</DialogTitle>
           <DialogDescription className="sr-only">
