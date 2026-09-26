@@ -22,7 +22,7 @@ import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import {
   QuestionBrowser,
-  QuestionPreviewPanel,
+  QuestionSelectModal,
 } from "@/components/admin/question-browser"
 import { UserMultiSelect } from "@/components/admin/user-multi-select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -752,7 +752,7 @@ export function ExamForm(props: ExamFormProps) {
                     onSelectionChange={handleQuestionSelectionChange}
                     maxSelection={numberOfQuestions}
                     renderPanel={({ questionId, onClose }) => (
-                      <QuestionPreviewPanel
+                      <QuestionSelectModal
                         questionId={questionId}
                         open={!!questionId}
                         onOpenChange={(open) => !open && onClose()}

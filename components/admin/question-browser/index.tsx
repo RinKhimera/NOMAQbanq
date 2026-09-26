@@ -55,7 +55,7 @@ function QuestionBrowserContent({
       {/* Questions table */}
       <QuestionBrowserTable />
 
-      {/* Side panel (if renderPanel provided) */}
+      {/* Détail de la question (si renderPanel fourni) */}
       {renderPanel && <QuestionBrowserPanel renderPanel={renderPanel} />}
     </div>
   )
@@ -95,4 +95,5 @@ export { QuestionBrowserToolbar } from "./question-browser-toolbar"
 export { QuestionBrowserTable } from "./question-browser-table"
 export { QuestionBrowserSelectionBar } from "./question-browser-selection-bar"
 export { QuestionBrowserPanel } from "./question-browser-panel"
-export { QuestionPreviewPanel } from "./question-preview-panel"
+export { QuestionDetailModal } from "./question-detail-modal"
+export { QuestionSelectModal } from "./question-select-modal"
