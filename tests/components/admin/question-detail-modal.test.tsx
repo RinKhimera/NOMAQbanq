@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { QuestionManageModal } from "@/app/(admin)/admin/questions/_components/question-manage-modal"
 import {
@@ -103,6 +109,18 @@ describe("Modale de question — constitution d'examen", () => {
     ).toBeEnabled()
   })
 
+  it("tant que la question charge, ajouter est désactivé", async () => {
+    loadQuestionById.mockReturnValue(new Promise(() => {}))
+    renderSelect()
+    await screen.findByText("Question 0")
+    openPreview(0)
+
+    const add = await screen.findByRole("button", {
+      name: "Ajouter à l'examen",
+    })
+    expect(add).toBeDisabled()
+  })
+
   it("au quota, ajouter est désactivé mais retirer reste possible", async () => {
     renderSelect()
     await screen.findByText("Question 0")
@@ -192,6 +210,35 @@ describe("Modale de question — navigateur de questions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Supprimer" }))
     await waitFor(() => expect(onDeleted).toHaveBeenCalled())
     expect(deleteQuestion).toHaveBeenCalledWith("q0")
+  })
+
+  it("tant que la question charge, Supprimer est désactivé", async () => {
+    loadQuestionById.mockReturnValue(new Promise(() => {}))
+    renderManage()
+    await screen.findByText("Question 0")
+    openPreview(0)
+
+    expect(
+      await screen.findByRole("button", { name: /Supprimer/ }),
+    ).toBeDisabled()
+  })
+
+  it("la confirmation affiche un spinner pendant la suppression", async () => {
+    deleteQuestion.mockReturnValue(new Promise(() => {}))
+    renderManage()
+    await screen.findByText("Question 0")
+    openPreview(0)
+    await screen.findByText("Énoncé complet q0")
+
+    fireEvent.click(screen.getByRole("button", { name: /Supprimer/ }))
+    await screen.findByText("Supprimer cette question ?")
+    fireEvent.click(screen.getByRole("button", { name: "Supprimer" }))
+
+    const confirm = await screen.findByRole("button", {
+      name: /Suppression/,
+    })
+    expect(confirm).toBeDisabled()
+    expect(within(confirm).getByRole("status")).toBeInTheDocument()
   })
 
   it("une question introuvable n'offre aucune action", async () => {

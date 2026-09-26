@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
+import { Spinner } from "@/components/ui/spinner"
 import { deleteQuestion } from "@/features/questions/actions"
 import { callAction } from "@/lib/safe-action"
 import { QuestionAnswerBreakdown } from "./question-answer-breakdown"
@@ -32,9 +33,11 @@ interface QuestionManageModalProps {
 
 function ManageActions({
   questionId,
+  isLoading,
   onDeleted,
 }: {
   questionId: string
+  isLoading: boolean
   onDeleted?: () => void
 }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -67,6 +70,7 @@ function ManageActions({
         variant="outline"
         className="gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-900/20"
         onClick={() => setShowDeleteDialog(true)}
+        disabled={isLoading}
       >
         <Trash2 className="h-4 w-4" />
         Supprimer
@@ -93,11 +97,23 @@ function ManageActions({
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={(event) => {
+                // Radix ferme l'alerte au clic : elle doit rester ouverte, le
+                // spinner visible, jusqu'à la réponse.
+                event.preventDefault()
+                handleDelete()
+              }}
               disabled={isDeleting}
               className="bg-red-600 text-white hover:bg-red-700"
             >
-              {isDeleting ? "Suppression..." : "Supprimer"}
+              {isDeleting ? (
+                <>
+                  <Spinner size="sm" />
+                  Suppression…
+                </>
+              ) : (
+                "Supprimer"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -117,8 +133,12 @@ export function QuestionManageModal({
       insights={(questionId) => (
         <QuestionAnswerBreakdown questionId={questionId} />
       )}
-      footer={(questionId) => (
-        <ManageActions questionId={questionId} onDeleted={onDeleted} />
+      footer={(questionId, isLoading) => (
+        <ManageActions
+          questionId={questionId}
+          isLoading={isLoading}
+          onDeleted={onDeleted}
+        />
       )}
     />
   )

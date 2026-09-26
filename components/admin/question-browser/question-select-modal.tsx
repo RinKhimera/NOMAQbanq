@@ -11,7 +11,13 @@ interface QuestionSelectModalProps {
   onOpenChange: (open: boolean) => void
 }
 
-function SelectionActions({ questionId }: { questionId: string }) {
+function SelectionActions({
+  questionId,
+  isLoading,
+}: {
+  questionId: string
+  isLoading: boolean
+}) {
   const {
     isSelected,
     toggleSelection,
@@ -29,7 +35,7 @@ function SelectionActions({ questionId }: { questionId: string }) {
       <Button
         type="button"
         variant={selected ? "outline" : "default"}
-        disabled={!selected && isQuotaReached}
+        disabled={isLoading || (!selected && isQuotaReached)}
         onClick={() => toggleSelection(questionId)}
         className="gap-2"
       >
@@ -54,7 +60,9 @@ export function QuestionSelectModal(props: QuestionSelectModalProps) {
   return (
     <QuestionDetailModal
       {...props}
-      footer={(questionId) => <SelectionActions questionId={questionId} />}
+      footer={(questionId, isLoading) => (
+        <SelectionActions questionId={questionId} isLoading={isLoading} />
+      )}
     />
   )
 }

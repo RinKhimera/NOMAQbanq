@@ -36,8 +36,11 @@ interface QuestionDetailModalProps {
   onOpenChange: (open: boolean) => void
   /** Rendu sous les options. */
   insights?: (questionId: string) => ReactNode
-  /** Actions du pied, toujours visibles ; masquées si la question est introuvable. */
-  footer: (questionId: string) => ReactNode
+  /**
+   * Actions du pied, toujours visibles ; masquées si la question est
+   * introuvable, à désactiver tant qu'elle charge.
+   */
+  footer: (questionId: string, isLoading: boolean) => ReactNode
 }
 
 function DetailSkeleton() {
@@ -270,7 +273,7 @@ function ModalLayout({
 }: {
   questionId: string
   insights?: (questionId: string) => ReactNode
-  footer: (questionId: string) => ReactNode
+  footer: QuestionDetailModalProps["footer"]
 }) {
   // `undefined` = en chargement ; `null` = introuvable. Monté avec
   // key={questionId} : un nouvel id repart du squelette, sections repliées.
@@ -313,7 +316,7 @@ function ModalLayout({
       </div>
       {question !== null && (
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t px-4 py-3 sm:px-6">
-          {footer(questionId)}
+          {footer(questionId, question === undefined)}
         </div>
       )}
     </>
