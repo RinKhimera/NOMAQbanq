@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button"
 import type { ExamPickerOption } from "@/features/exams/dal"
 import type { QuestionStatsEnriched } from "@/features/questions/dal"
 import { ExportQuestionsButton } from "./export-questions-button"
-import { QuestionSidePanel } from "./question-side-panel"
+import { QuestionManageModal } from "./question-manage-modal"
 import { QuestionsStatsRow } from "./questions-stats-row"
 
 export function QuestionsManager({
@@ -93,7 +93,7 @@ export function QuestionsManager({
         onPreviewChange={handlePreviewChange}
         onFiltersChange={setCurrentFilters}
         renderPanel={({ questionId, onClose }) => (
-          <QuestionSidePanel
+          <QuestionManageModal
             questionId={questionId}
             open={!!questionId}
             onOpenChange={(open) => !open && onClose()}

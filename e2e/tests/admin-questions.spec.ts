@@ -103,28 +103,45 @@ test.describe("Admin — Gestion des Questions", () => {
     })
   })
 
-  test("le panneau lateral s'ouvre au clic sur une question", async ({
-    page,
-  }) => {
-    await questionsPage.goto()
-    await questionsPage.waitForReady()
+  for (const viewport of [
+    { width: 375, height: 667 },
+    { width: 1280, height: 800 },
+  ]) {
+    test(`la modale de question garde ses actions visibles à ${viewport.width} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(viewport)
+      await questionsPage.goto()
+      await questionsPage.waitForReady()
 
-    // Click the first question in the list
-    const main = page.locator("main")
-    const firstQuestion = main.locator("tr, [role='row']").nth(1)
-    const firstQuestionVisible = await firstQuestion
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false)
+      await page
+        .getByRole("button", { name: "Prévisualiser la question" })
+        .first()
+        .click()
 
-    if (firstQuestionVisible) {
-      await firstQuestion.click()
-
-      // Side panel or sheet should open
+      const modal = page.getByTestId("question-detail-modal")
+      await expect(modal.getByText("Question", { exact: true })).toBeVisible({
+        timeout: 15_000,
+      })
       await expect(
-        page.locator("[role='dialog'], [data-state='open']").first(),
-      ).toBeVisible({ timeout: 10_000 })
-    }
-  })
+        modal.getByRole("button", { name: /Explication/ }),
+      ).toHaveAttribute("aria-expanded", "false")
+
+      // Sans débordement, un pied visible ne prouverait rien.
+      const overflows = await modal
+        .locator(".overflow-y-auto")
+        .evaluate((el) => el.scrollHeight > el.clientHeight)
+      expect(overflows).toBe(true)
+
+      const footer = page.getByTestId("question-detail-footer")
+      await expect(
+        footer.getByRole("button", { name: "Supprimer" }),
+      ).toBeInViewport({ ratio: 1 })
+      await expect(
+        footer.getByRole("link", { name: /Modifier/ }),
+      ).toBeInViewport({ ratio: 1 })
+    })
+  }
 
   test("la suppression d'une question E2E fonctionne", async ({ page }) => {
     await questionsPage.goto()
@@ -139,10 +156,10 @@ test.describe("Admin — Gestion des Questions", () => {
       .catch(() => false)
 
     if (hasE2E) {
-      // Click to open side panel
+      // Ouvre la modale de la question
       await e2eQuestion.click()
 
-      // Find and click delete button in the panel
+      // Supprimer, dans le pied de la modale
       const deleteBtn = page.getByRole("button", { name: /Supprimer/ }).first()
       await expect(deleteBtn).toBeVisible({ timeout: 10_000 })
       await deleteBtn.click()
