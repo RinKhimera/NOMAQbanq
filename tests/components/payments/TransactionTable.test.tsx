@@ -1,6 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
+import { TIER_MIN_REM } from "@/components/shared/data-table/column-visibility"
 import type { Transaction } from "@/components/shared/payments/transaction-table"
 import { TransactionTable } from "@/components/shared/payments/transaction-table"
 
@@ -71,18 +73,6 @@ describe("TransactionTable", () => {
           "Les transactions apparaîtront ici une fois effectuées",
         ),
       ).toBeInTheDocument()
-    })
-  })
-
-  describe("état de chargement", () => {
-    it("affiche le squelette quand isLoading et aucune transaction", () => {
-      const { container } = render(
-        <TransactionTable transactions={[]} isLoading={true} />,
-      )
-
-      // Le squelette utilise des Skeleton components
-      const skeletons = container.querySelectorAll('[data-slot="skeleton"]')
-      expect(skeletons.length).toBeGreaterThan(0)
     })
   })
 
@@ -250,6 +240,24 @@ describe("TransactionTable", () => {
       expect(screen.getByText("Charger plus")).toBeInTheDocument()
     })
 
+    it("reste proposé sous le message vide, pour chercher au-delà de la page chargée", () => {
+      render(
+        <TransactionTable
+          transactions={[]}
+          hasMore
+          onLoadMore={vi.fn()}
+          emptyMessage="Aucune transaction ne correspond aux filtres"
+        />,
+      )
+
+      expect(
+        screen.getByText("Aucune transaction ne correspond aux filtres"),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole("button", { name: /charger plus/i }),
+      ).toBeInTheDocument()
+    })
+
     it("n'affiche pas le bouton quand hasMore est false", () => {
       const onLoadMore = vi.fn()
       render(
@@ -287,28 +295,28 @@ describe("TransactionTable", () => {
       expect(onLoadMore).toHaveBeenCalledTimes(1)
     })
 
-    it("affiche 'Chargement...' sur le bouton quand isLoading avec des transactions existantes", () => {
+    it("affiche 'Chargement...' sur le bouton pendant un chargement supplémentaire", () => {
       const onLoadMore = vi.fn()
       render(
         <TransactionTable
           transactions={[makeTransaction()]}
           hasMore={true}
           onLoadMore={onLoadMore}
-          isLoading={true}
+          isPending
         />,
       )
 
       expect(screen.getByText("Chargement...")).toBeInTheDocument()
     })
 
-    it("désactive le bouton charger plus quand isLoading", () => {
+    it("désactive le bouton charger plus pendant un chargement", () => {
       const onLoadMore = vi.fn()
       render(
         <TransactionTable
           transactions={[makeTransaction()]}
           hasMore={true}
           onLoadMore={onLoadMore}
-          isLoading={true}
+          isPending
         />,
       )
 
@@ -332,7 +340,7 @@ describe("TransactionTable", () => {
   describe("rechargement en place", () => {
     it("garde les lignes affichées et marque la zone occupée", () => {
       const { container } = render(
-        <TransactionTable transactions={[makeTransaction()]} isLoading />,
+        <TransactionTable transactions={[makeTransaction()]} isPending />,
       )
 
       // Le contenu reste : pas de squelette qui remplace une liste non vide.
@@ -340,15 +348,111 @@ describe("TransactionTable", () => {
       expect(container.querySelector('[aria-busy="true"]')).toBeInTheDocument()
     })
 
-    it("affiche un squelette quand il n'y a rien à conserver", () => {
+    it("un filtre appliqué à une liste vide garde le message, grisé", () => {
       const { container } = render(
-        <TransactionTable transactions={[]} isLoading />,
+        <TransactionTable transactions={[]} isPending />,
       )
 
-      expect(screen.queryByText("Aucune transaction trouvée")).toBeNull()
       expect(
-        container.querySelectorAll('[data-slot="skeleton"]').length,
-      ).toBeGreaterThan(0)
+        screen
+          .getByText("Aucune transaction trouvée")
+          .closest('[aria-busy="true"]'),
+      ).not.toBeNull()
+      expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(
+        0,
+      )
+    })
+  })
+
+  describe("colonnes selon la largeur du tableau", () => {
+    const header = (name: string) => screen.getByRole("columnheader", { name })
+    const MEDIUM_CLASS = `@min-[${TIER_MIN_REM.medium}rem]:table-cell`
+
+    it("Date, Produit, Statut et Montant restent affichés sur un tableau étroit", () => {
+      render(<TransactionTable transactions={[makeTransaction()]} />)
+
+      for (const name of ["Date", "Produit", "Statut", "Montant"])
+        expect(header(name)).not.toHaveClass("hidden")
+    })
+
+    it("Type et Utilisateur n'apparaissent qu'à partir du palier moyen", () => {
+      render(
+        <TransactionTable transactions={[makeTransaction()]} showUserColumn />,
+      )
+
+      expect(header("Type")).toHaveClass("hidden", MEDIUM_CLASS)
+      expect(header("Utilisateur")).toHaveClass("hidden", MEDIUM_CLASS)
+    })
+
+    it("n'offre pas de menu « Colonnes »", () => {
+      render(<TransactionTable transactions={[makeTransaction()]} />)
+
+      expect(
+        screen.queryByRole("button", { name: /Colonnes/ }),
+      ).not.toBeInTheDocument()
+    })
+  })
+
+  describe("actions sur une transaction manuelle", () => {
+    const manual = makeTransaction({ _id: "txn_manual", type: "manual" })
+    const stripe = makeTransaction({ _id: "txn_stripe", type: "stripe" })
+    const rowOf = (text: string) => {
+      const row = screen.getAllByText(text)[0].closest("tr")
+      if (!row) throw new Error(`ligne introuvable : ${text}`)
+      return row
+    }
+
+    it("propose le menu ⋮ sur une ligne manuelle, jamais sur une ligne Stripe", () => {
+      render(
+        <TransactionTable
+          transactions={[manual, stripe]}
+          showUserColumn
+          onEditTransaction={vi.fn()}
+          onDeleteTransaction={vi.fn()}
+        />,
+      )
+
+      expect(
+        within(rowOf("Manuel")).getByRole("button", { name: "Actions" }),
+      ).toBeInTheDocument()
+      expect(
+        within(rowOf("Stripe")).queryByRole("button", { name: "Actions" }),
+      ).not.toBeInTheDocument()
+    })
+
+    it("« Modifier » et « Supprimer » visent la transaction de la ligne", async () => {
+      const onEdit = vi.fn()
+      const onDelete = vi.fn()
+      render(
+        <TransactionTable
+          transactions={[stripe, manual]}
+          showUserColumn
+          onEditTransaction={onEdit}
+          onDeleteTransaction={onDelete}
+        />,
+      )
+      const user = userEvent.setup()
+
+      await user.click(screen.getByRole("button", { name: "Actions" }))
+      await user.click(
+        await screen.findByRole("menuitem", { name: /Modifier/ }),
+      )
+      await user.click(screen.getByRole("button", { name: "Actions" }))
+      await user.click(
+        await screen.findByRole("menuitem", { name: /Supprimer/ }),
+      )
+
+      expect(onEdit).toHaveBeenCalledWith(manual)
+      expect(onDelete).toHaveBeenCalledWith(manual)
+    })
+
+    it("sans callback d'action, aucune colonne d'action", () => {
+      render(<TransactionTable transactions={[manual]} showUserColumn />)
+
+      expect(
+        screen.queryByRole("button", { name: "Actions" }),
+      ).not.toBeInTheDocument()
+      expect(screen.getAllByRole("columnheader")).toHaveLength(6)
     })
   })
 })

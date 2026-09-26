@@ -408,7 +408,7 @@ export const AbonnementsClient = ({
         <CardContent>
           <TransactionTable
             transactions={tableTransactions}
-            isLoading={isLoadingMore}
+            isPending={isLoadingMore}
             onLoadMore={handleLoadMore}
             hasMore={cursor !== null}
             emptyMessage="Aucune transaction pour le moment"

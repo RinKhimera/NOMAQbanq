@@ -154,7 +154,7 @@ export function UserDetailClient({
               <CardContent>
                 <TransactionTable
                   transactions={items}
-                  isLoading={isLoadingMore}
+                  isPending={isLoadingMore}
                   onLoadMore={handleLoadMore}
                   hasMore={cursor !== null}
                   emptyMessage="Aucune transaction pour cet utilisateur"

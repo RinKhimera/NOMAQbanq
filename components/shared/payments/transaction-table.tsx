@@ -13,6 +13,10 @@ import {
   Trash2,
 } from "lucide-react"
 import { motion } from "motion/react"
+import {
+  DataTable,
+  type DataTableColumn,
+} from "@/components/shared/data-table/data-table"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -20,17 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { PendingRegion } from "@/components/ui/pending-region"
-import { SkeletonTable } from "@/components/ui/skeleton-patterns"
 import { Spinner } from "@/components/ui/spinner"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import type { AdminTransactionView } from "@/features/payments/dal"
 import { formatCurrency, formatShortDate, formatTimeOnly } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -61,7 +55,8 @@ interface Transaction {
 interface TransactionTableProps {
   transactions: Transaction[]
   showUserColumn?: boolean
-  isLoading?: boolean
+  /** Rechargement en place (filtre, « Charger plus ») : les lignes restent. */
+  isPending?: boolean
   onLoadMore?: () => void
   hasMore?: boolean
   emptyMessage?: string
@@ -205,187 +200,186 @@ const TypeBadge = ({ type }: { type: TransactionType }) => {
   )
 }
 
-/** Colonnes réelles : Date, Produit, [Utilisateur], Type, Statut, Montant. */
-const TableSkeleton = ({
-  rows = 5,
-  showUserColumn = false,
+const EmptyTransactions = ({ message }: { message: string }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50/50 py-16 dark:border-gray-700 dark:bg-gray-800/30"
+  >
+    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
+      <CreditCard className="h-8 w-8 text-gray-400" />
+    </div>
+    <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
+      {message}
+    </p>
+    <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
+      Les transactions apparaîtront ici une fois effectuées
+    </p>
+  </motion.div>
+)
+
+const ManualTransactionMenu = ({
+  transaction,
+  onEdit,
+  onDelete,
 }: {
-  rows?: number
-  showUserColumn?: boolean
-}) => <SkeletonTable columns={showUserColumn ? 6 : 5} rows={rows} />
+  transaction: Transaction
+  onEdit?: (transaction: Transaction) => void
+  onDelete?: (transaction: Transaction) => void
+}) => (
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
+        <EllipsisVertical className="h-4 w-4" />
+        <span className="sr-only">Actions</span>
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent align="end">
+      {onEdit && (
+        <DropdownMenuItem onClick={() => onEdit(transaction)}>
+          <Pencil className="mr-2 h-4 w-4" />
+          Modifier
+        </DropdownMenuItem>
+      )}
+      {onDelete && (
+        <DropdownMenuItem
+          onClick={() => onDelete(transaction)}
+          className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+        >
+          <Trash2 className="mr-2 h-4 w-4" />
+          Supprimer
+        </DropdownMenuItem>
+      )}
+    </DropdownMenuContent>
+  </DropdownMenu>
+)
+
+function transactionColumns(
+  showUserColumn: boolean,
+): DataTableColumn<Transaction>[] {
+  return [
+    {
+      id: "date",
+      label: "Date",
+      cellClassName: "font-medium",
+      cell: (transaction) => (
+        <div className="space-y-0.5">
+          <p className="text-sm text-gray-900 dark:text-white">
+            {formatShortDate(transaction.createdAt)}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {formatTimeOnly(transaction.createdAt)}
+          </p>
+        </div>
+      ),
+    },
+    {
+      id: "product",
+      label: "Produit",
+      cell: (transaction) => (
+        <div className="space-y-0.5">
+          <p className="font-medium text-gray-900 dark:text-white">
+            {transaction.product?.name || "Produit inconnu"}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            {transaction.durationDays} jours ·{" "}
+            {transaction.accessType === "exam" ? "Examens" : "Entraînement"}
+          </p>
+        </div>
+      ),
+    },
+    ...(showUserColumn
+      ? [
+          {
+            id: "user",
+            label: "Utilisateur",
+            visibleFrom: "medium",
+            cell: (transaction) => (
+              <div className="space-y-0.5">
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {transaction.user?.name || "Utilisateur"}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {transaction.user?.email}
+                </p>
+              </div>
+            ),
+          } satisfies DataTableColumn<Transaction>,
+        ]
+      : []),
+    {
+      id: "type",
+      label: "Type",
+      visibleFrom: "medium",
+      cell: (transaction) => <TypeBadge type={transaction.type} />,
+    },
+    {
+      id: "status",
+      label: "Statut",
+      cell: (transaction) => (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge status={transaction.status} />
+          <DisputeBadge status={transaction.disputeStatus} />
+        </div>
+      ),
+    },
+    {
+      id: "amount",
+      label: "Montant",
+      className: "text-right",
+      cell: (transaction) => (
+        <span
+          className={cn(
+            "text-lg font-bold",
+            transaction.status === "completed"
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-gray-900 dark:text-white",
+          )}
+        >
+          {formatCurrency(transaction.amountPaid, transaction.currency)}
+        </span>
+      ),
+    },
+  ]
+}
 
 export const TransactionTable = ({
   transactions,
   showUserColumn = false,
-  isLoading = false,
+  isPending = false,
   onLoadMore,
   hasMore = false,
   emptyMessage = "Aucune transaction trouvée",
   onEditTransaction,
   onDeleteTransaction,
 }: TransactionTableProps) => {
-  const showActionsColumn =
-    showUserColumn && (onEditTransaction || onDeleteTransaction)
-  if (isLoading && transactions.length === 0) {
-    return <TableSkeleton rows={5} showUserColumn={showUserColumn} />
-  }
-
-  if (transactions.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50/50 py-16 dark:border-gray-700 dark:bg-gray-800/30"
-      >
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-          <CreditCard className="h-8 w-8 text-gray-400" />
-        </div>
-        <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
-          {emptyMessage}
-        </p>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
-          Les transactions apparaîtront ici une fois effectuées
-        </p>
-      </motion.div>
-    )
-  }
+  const hasActions = Boolean(onEditTransaction || onDeleteTransaction)
 
   return (
     <div className="space-y-4">
-      {/* Seule la table est grisée : le bouton « Charger plus » porte déjà son
-          propre état d'attente, conformément à la doctrine. */}
-      <PendingRegion
-        isPending={isLoading}
-        className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900"
-      >
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-gray-50/80 hover:bg-gray-50/80 dark:bg-gray-800/50 dark:hover:bg-gray-800/50">
-              <TableHead className="font-semibold">Date</TableHead>
-              <TableHead className="font-semibold">Produit</TableHead>
-              {showUserColumn && (
-                <TableHead className="font-semibold">Utilisateur</TableHead>
-              )}
-              <TableHead className="font-semibold">Type</TableHead>
-              <TableHead className="font-semibold">Statut</TableHead>
-              <TableHead className="text-right font-semibold">
-                Montant
-              </TableHead>
-              {showActionsColumn && <TableHead className="w-12"></TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {transactions.map((transaction, index) => (
-              <motion.tr
-                key={transaction._id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.03 }}
-                className="group border-b border-gray-100 transition-colors hover:bg-gray-50/50 dark:border-gray-800 dark:hover:bg-gray-800/30"
-              >
-                <TableCell className="font-medium">
-                  <div className="space-y-0.5">
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      {formatShortDate(transaction.createdAt)}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatTimeOnly(transaction.createdAt)}
-                    </p>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="space-y-0.5">
-                    <p className="font-medium text-gray-900 dark:text-white">
-                      {transaction.product?.name || "Produit inconnu"}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {transaction.durationDays} jours ·{" "}
-                      {transaction.accessType === "exam"
-                        ? "Examens"
-                        : "Entraînement"}
-                    </p>
-                  </div>
-                </TableCell>
-                {showUserColumn && (
-                  <TableCell>
-                    <div className="space-y-0.5">
-                      <p className="font-medium text-gray-900 dark:text-white">
-                        {transaction.user?.name || "Utilisateur"}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {transaction.user?.email}
-                      </p>
-                    </div>
-                  </TableCell>
-                )}
-                <TableCell>
-                  <TypeBadge type={transaction.type} />
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <StatusBadge status={transaction.status} />
-                    <DisputeBadge status={transaction.disputeStatus} />
-                  </div>
-                </TableCell>
-                <TableCell className="text-right">
-                  <span
-                    className={cn(
-                      "text-lg font-bold",
-                      transaction.status === "completed"
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-gray-900 dark:text-white",
-                    )}
-                  >
-                    {formatCurrency(
-                      transaction.amountPaid,
-                      transaction.currency,
-                    )}
-                  </span>
-                </TableCell>
-                {showActionsColumn && (
-                  <TableCell>
-                    {transaction.type === "manual" && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                          >
-                            <EllipsisVertical className="h-4 w-4" />
-                            <span className="sr-only">Actions</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {onEditTransaction && (
-                            <DropdownMenuItem
-                              onClick={() => onEditTransaction(transaction)}
-                            >
-                              <Pencil className="mr-2 h-4 w-4" />
-                              Modifier
-                            </DropdownMenuItem>
-                          )}
-                          {onDeleteTransaction && (
-                            <DropdownMenuItem
-                              onClick={() => onDeleteTransaction(transaction)}
-                              className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Supprimer
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </TableCell>
-                )}
-              </motion.tr>
-            ))}
-          </TableBody>
-        </Table>
-      </PendingRegion>
+      <DataTable
+        columns={transactionColumns(showUserColumn)}
+        rows={transactions}
+        getRowId={(transaction) => transaction._id}
+        isPending={isPending}
+        empty={<EmptyTransactions message={emptyMessage} />}
+        action={
+          hasActions
+            ? {
+                label: "Actions",
+                cell: (transaction) =>
+                  transaction.type === "manual" && (
+                    <ManualTransactionMenu
+                      transaction={transaction}
+                      onEdit={onEditTransaction}
+                      onDelete={onDeleteTransaction}
+                    />
+                  ),
+              }
+            : undefined
+        }
+      />
 
-      {/* Load more button */}
       {hasMore && onLoadMore && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -393,12 +387,13 @@ export const TransactionTable = ({
           className="flex justify-center pt-4"
         >
           <Button
+            type="button"
             variant="outline"
-            onClick={() => onLoadMore?.()}
-            disabled={isLoading}
+            onClick={() => onLoadMore()}
+            disabled={isPending}
             className="rounded-xl"
           >
-            {isLoading ? (
+            {isPending ? (
               <span className="flex items-center gap-2">
                 <Spinner size="sm" />
                 Chargement...
