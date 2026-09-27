@@ -7,10 +7,11 @@
  * (features/questions/normalization.ts) ; ce script n'en est que la coque.
  *
  * Usage :
- *   REPRISE_DATABASE_URL=... bun scripts/reprise-corrections.ts
+ *   REPRISE_DATABASE_URL=... bun run reprise:corrections
  *   ... -- --apply                 # écrit
  *   ... -- --ids id1,id2           # limite la reprise à ces questions
- *   ... -- --report chemin.md      # défaut : reprise-corrections.md
+ *   ... -- --report chemin.md      # défaut : reprise-corrections-<mode>.md
+ *   ... -- --base-url http://localhost:3000   # liens d'édition (défaut : prod)
  *
  * Env distinct des vars runtime : une écriture en masse ne doit jamais partir
  * par accident sur la base de l'environnement courant. L'hôte ciblé est
@@ -20,6 +21,10 @@
  * supprimée) entre la lecture et l'écriture est sautée, jamais écrasée. La
  * normalisation se stabilise, donc relancer après une application n'écrit plus
  * rien.
+ *
+ * Le rapport s'écrit à la fin. Si une application s'interrompt, la relancer :
+ * les questions déjà écrites ressortent « déjà propres », mais leur état
+ * d'avant n'existe plus que dans l'instantané Neon pris avant.
  *
  * N'importe pas @/db (schéma d'env complet requis hors Next).
  *
@@ -31,27 +36,26 @@ import { writeFileSync } from "node:fs"
 import { Pool } from "pg"
 import { questionExplanations, questions } from "../db/schema"
 import {
-  type Correction,
   type FormatIssue,
+  type StoredCorrection,
   planCorrection,
 } from "../features/questions/normalization"
 
 const BATCH = 200
+const DEFAULT_BASE_URL = "https://nomaqbanq.ca"
 
 type Db = ReturnType<typeof drizzle>
 
-export type StoredCorrection = {
-  id: string
-  explanation: string
-  references: string[] | null
-}
+export type StoredRow = StoredCorrection & { id: string }
+
+type Action = "write" | "skip" | "review" | "conflict"
 
 export type RepairOutcome = {
   id: string
   /** `conflict` : prévue, mais la question a changé depuis la lecture. */
-  action: "write" | "skip" | "review" | "conflict"
-  before: Correction
-  after?: Correction
+  action: Action
+  before: StoredCorrection
+  after?: StoredCorrection
   issues: FormatIssue[]
 }
 
@@ -66,7 +70,7 @@ const activeQuestion = (db: Db, id: string) =>
 async function* readCorrections(
   db: Db,
   ids: readonly string[] | null,
-): AsyncGenerator<StoredCorrection[]> {
+): AsyncGenerator<StoredRow[]> {
   let cursor = ""
   for (;;) {
     const batch = await db
@@ -95,27 +99,20 @@ async function* readCorrections(
 /** Écrit `next` seulement si la ligne est encore celle lue ; `false` sinon. */
 export async function writeCorrection(
   db: Db,
-  row: StoredCorrection,
-  next: Correction,
+  row: StoredRow,
+  next: StoredCorrection,
 ): Promise<boolean> {
-  const col = questionExplanations.references
+  const storedReferences = questionExplanations.references
   const updated = await db
     .update(questionExplanations)
-    .set({
-      explanation: next.explanation,
-      // Pas de liste vide à la place d'un champ jamais rempli.
-      references:
-        row.references === null && next.references.length === 0
-          ? null
-          : next.references,
-    })
+    .set({ explanation: next.explanation, references: next.references })
     .where(
       and(
         eq(questionExplanations.questionId, row.id),
         eq(questionExplanations.explanation, row.explanation),
         row.references === null
-          ? isNull(col)
-          : sql`${col} = ${JSON.stringify(row.references)}::jsonb`,
+          ? isNull(storedReferences)
+          : sql`${storedReferences} = ${JSON.stringify(row.references)}::jsonb`,
         activeQuestion(db, row.id),
       ),
     )
@@ -132,7 +129,7 @@ export async function repairCorrections(
     for (const row of batch) {
       const before = {
         explanation: row.explanation,
-        references: row.references ?? [],
+        references: row.references,
       }
       const plan = planCorrection(before)
       if (plan.action !== "write") {
@@ -144,6 +141,8 @@ export async function repairCorrections(
         })
         continue
       }
+      // Une écriture par question : chacune est conditionnée à sa propre
+      // valeur lue, ce qu'un UPDATE groupé ne sait pas rapporter ligne à ligne.
       const written =
         !options.apply || (await writeCorrection(db, row, plan.next))
       outcomes.push({
@@ -160,17 +159,69 @@ export async function repairCorrections(
 
 // ===== Rapport =====
 
+/**
+ * Libellés par action, en passage à blanc puis à l'application. L'ordre des
+ * clés est celui du tableau des comptes ; `checkOrder` classe la liste « à
+ * vérifier » : ce qui n'a rien reçu d'abord, c'est là que le travail manuel
+ * commence.
+ */
+const ACTIONS: Record<
+  Action,
+  { checkOrder: number; category: [string, string]; status: [string, string] }
+> = {
+  write: {
+    checkOrder: 2,
+    category: ["À mettre en forme", "Mises en forme"],
+    status: ["à écrire", "écrite"],
+  },
+  skip: {
+    checkOrder: 3,
+    category: ["Déjà propres (sautées)", "Déjà propres (sautées)"],
+    status: ["déjà propre", "déjà propre"],
+  },
+  review: {
+    checkOrder: 0,
+    category: ["À vérifier, rien écrit", "À vérifier, rien écrit"],
+    status: ["rien écrit", "rien écrit"],
+  },
+  conflict: {
+    checkOrder: 1,
+    category: [
+      "Modifiées depuis la lecture (sautées)",
+      "Modifiées depuis la lecture (sautées)",
+    ],
+    status: ["modifiée depuis la lecture", "modifiée depuis la lecture"],
+  },
+}
+
+/** Un conflit n'existe qu'à l'application : le passage à blanc n'écrit rien. */
+const shownActions = (apply: boolean) =>
+  (Object.keys(ACTIONS) as Action[]).filter(
+    (action) => apply || action !== "conflict",
+  )
+
+export const countByAction = (outcomes: readonly RepairOutcome[]) => {
+  const counts: Record<Action, number> = {
+    write: 0,
+    skip: 0,
+    review: 0,
+    conflict: 0,
+  }
+  for (const o of outcomes) counts[o.action]++
+  return counts
+}
+
 const SAMPLE_COUNT = 5
 const SAMPLE_MAX_CHARS = 1500
 
-const CHECK_ORDER: Record<RepairOutcome["action"], number> = {
-  review: 0,
-  conflict: 1,
-  write: 2,
-  skip: 3,
-}
-
-const editLink = (id: string) => `/admin/questions/${id}/modifier`
+/** `n` éléments répartis sur toute la liste, pas seulement les premiers ids. */
+const spread = <T>(list: readonly T[], n: number): T[] =>
+  list.length <= n
+    ? [...list]
+    : Array.from(
+        { length: n },
+        (_, i) => list[Math.floor((i * list.length) / n)]!,
+      )
 
 const excerpt = (text: string) =>
   text.length > SAMPLE_MAX_CHARS
@@ -184,42 +235,63 @@ const describeIssue = (issue: FormatIssue) =>
     ? issue.message
     : `Référence ${issue.index + 1} : ${issue.message}`
 
-const sample = (outcome: RepairOutcome) => [
-  `### ${outcome.id}`,
+const referenceSample = (o: RepairOutcome) => {
+  const before = o.before.references ?? []
+  const after = o.after!.references ?? []
+  return [
+    `### ${o.id}`,
+    "",
+    `Avant : ${before.length} référence(s)`,
+    "",
+    fence(before.join("\n\n---\n\n")),
+    "",
+    `Après : ${after.length} référence(s)`,
+    "",
+    ...after.map((ref, i) => `${i + 1}. ${ref}`),
+    "",
+  ]
+}
+
+const explanationSample = (o: RepairOutcome) => [
+  `### ${o.id}`,
   "",
-  `Avant : ${outcome.before.references.length} référence(s)`,
+  "Avant :",
   "",
-  fence(outcome.before.references.join("\n\n---\n\n")),
+  fence(o.before.explanation),
   "",
-  `Après : ${outcome.after!.references.length} référence(s)`,
+  "Après :",
   "",
-  ...outcome.after!.references.map((ref, i) => `${i + 1}. ${ref}`),
+  fence(o.after!.explanation),
   "",
 ]
 
 /**
- * Rapport Markdown : comptes par catégorie, échantillons avant/après des
- * découpages, puis la liste « à vérifier » avec motif et lien d'édition.
+ * Rapport Markdown : comptes par catégorie, échantillons avant/après
+ * (découpages et explications), puis la liste « à vérifier » avec motif et
+ * lien d'édition.
  */
 export function formatReport(
   outcomes: readonly RepairOutcome[],
-  meta: { apply: boolean; host: string; date: Date },
+  meta: { apply: boolean; host: string; date: Date; baseUrl: string },
 ): string {
-  const count = (action: RepairOutcome["action"]) =>
-    outcomes.filter((o) => o.action === action).length
-  // Ce qui n'a rien reçu d'abord : c'est là que le travail manuel commence.
+  const mode = meta.apply ? 1 : 0
+  const counts = countByAction(outcomes)
   const toCheck = outcomes
     .filter((o) => o.issues.length > 0 || o.action === "conflict")
-    .sort((a, b) => CHECK_ORDER[a.action] - CHECK_ORDER[b.action])
-  const splits = outcomes
-    .filter(
+    .sort((a, b) => ACTIONS[a.action].checkOrder - ACTIONS[b.action].checkOrder)
+  const written = outcomes.filter((o) => o.action === "write")
+  const splits = spread(
+    written.filter(
       (o) =>
-        o.action === "write" &&
-        o.after!.references.length !== o.before.references.length,
-    )
-    .slice(0, SAMPLE_COUNT)
-
-  const verb = meta.apply ? "écrites" : "à écrire"
+        (o.after!.references?.length ?? 0) !==
+        (o.before.references?.length ?? 0),
+    ),
+    SAMPLE_COUNT,
+  )
+  const explanations = spread(
+    written.filter((o) => o.after!.explanation !== o.before.explanation),
+    SAMPLE_COUNT,
+  )
   const lines = [
     `# Reprise des corrections — ${meta.apply ? "application" : "passage à blanc"}`,
     "",
@@ -227,39 +299,35 @@ export function formatReport(
     "",
     "| Catégorie | Questions |",
     "| --- | --- |",
-    `| Mise en forme ${verb} | ${count("write")} |`,
-    `| Déjà propres (sautées) | ${count("skip")} |`,
-    `| À vérifier, rien écrit | ${count("review")} |`,
-    ...(meta.apply
-      ? [`| Modifiées depuis la lecture (sautées) | ${count("conflict")} |`]
-      : []),
+    ...shownActions(meta.apply).map(
+      (a) => `| ${ACTIONS[a].category[mode]} | ${counts[a]} |`,
+    ),
     `| **Total** | ${outcomes.length} |`,
     "",
-    `Mise en forme à vérifier : ${toCheck.length} question(s), dont ${toCheck.filter((o) => o.action === "write").length} ${verb} quand même (motif de contenu, pas de découpage douteux).`,
+    `Mise en forme à vérifier : ${toCheck.length} question(s), dont ${toCheck.filter((o) => o.action === "write").length} ${meta.apply ? "écrites" : "à écrire"} quand même (motif de contenu, pas de découpage douteux).`,
     "",
-    "## Échantillons avant / après",
+    "## Échantillons avant / après : références",
     "",
     ...(splits.length === 0
       ? ["Aucun découpage.", ""]
-      : splits.flatMap(sample)),
+      : splits.flatMap(referenceSample)),
+    "## Échantillons avant / après : explications",
+    "",
+    ...(explanations.length === 0
+      ? ["Aucune explication remise en forme.", ""]
+      : explanations.flatMap(explanationSample)),
     "## Mise en forme à vérifier",
     "",
   ]
   if (toCheck.length === 0) return [...lines, "Aucune.", ""].join("\n")
 
-  const status: Record<RepairOutcome["action"], string> = {
-    review: "rien écrit",
-    write: meta.apply ? "écrite" : "à écrire",
-    skip: "déjà propre",
-    conflict: "modifiée depuis la lecture",
-  }
   return [
     ...lines,
     "| Question | Statut | Motifs |",
     "| --- | --- | --- |",
     ...toCheck.map(
       (o) =>
-        `| [${o.id}](${editLink(o.id)}) | ${status[o.action]} | ${
+        `| [${o.id}](${meta.baseUrl}/admin/questions/${o.id}/modifier) | ${ACTIONS[o.action].status[mode]} | ${
           o.action === "conflict"
             ? "Relancer la reprise pour cette question."
             : o.issues.map(describeIssue).join("<br>")
@@ -286,7 +354,10 @@ const main = async (): Promise<number> => {
   }
   const apply = process.argv.includes("--apply")
   const ids = arg("--ids")?.split(",").filter(Boolean) ?? null
-  const reportPath = arg("--report") ?? "reprise-corrections.md"
+  const reportPath =
+    arg("--report") ??
+    `reprise-corrections-${apply ? "application" : "passage-a-blanc"}.md`
+  const baseUrl = (arg("--base-url") ?? DEFAULT_BASE_URL).replace(/\/$/, "")
   const host = new URL(url).hostname
 
   console.log(
@@ -296,12 +367,16 @@ const main = async (): Promise<number> => {
   const pool = new Pool({ connectionString: url, max: 2 })
   try {
     const outcomes = await repairCorrections(drizzle(pool), { apply, ids })
-    const report = formatReport(outcomes, { apply, host, date: new Date() })
-    writeFileSync(reportPath, report)
-    const tally = (action: RepairOutcome["action"]) =>
-      outcomes.filter((o) => o.action === action).length
+    writeFileSync(
+      reportPath,
+      formatReport(outcomes, { apply, host, date: new Date(), baseUrl }),
+    )
+    const counts = countByAction(outcomes)
+    const mode = apply ? 1 : 0
     console.log(
-      `${outcomes.length} question(s) · ${apply ? "écrites" : "à écrire"} ${tally("write")} · déjà propres ${tally("skip")} · à vérifier sans écriture ${tally("review")}${apply ? ` · modifiées entre-temps ${tally("conflict")}` : ""}`,
+      `${outcomes.length} question(s) · ${shownActions(apply)
+        .map((a) => `${ACTIONS[a].category[mode]} ${counts[a]}`)
+        .join(" · ")}`,
     )
     console.log(`Rapport : ${reportPath}`)
     return 0

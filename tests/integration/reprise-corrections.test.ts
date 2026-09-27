@@ -4,7 +4,7 @@ import { db } from "@/db"
 import { questionExplanations, questions } from "@/db/schema"
 import { createId } from "@/lib/ids"
 import {
-  type StoredCorrection,
+  type StoredRow,
   repairCorrections,
   writeCorrection,
 } from "@/scripts/reprise-corrections"
@@ -23,7 +23,7 @@ const ids = {
 }
 const all = Object.values(ids)
 
-const seed: Record<keyof typeof ids, StoredCorrection> = {
+const seed: Record<keyof typeof ids, StoredRow> = {
   block: { id: ids.block, explanation: "Texte [1].\n[2]", references: [BLOCK] },
   clean: {
     id: ids.clean,
@@ -93,27 +93,60 @@ describe("reprise des corrections", () => {
     })
   })
 
-  it("une question modifiée ou supprimée depuis la lecture est sautée, pas écrasée", async () => {
-    const next = { explanation: "Texte [1] [2].", references: SPLIT }
-    const edited = "Texte revu par un admin [1]."
+  /** Modifie une ligne le temps d'un test, puis la remet dans son état semé. */
+  const whileEdited = async (
+    row: StoredRow,
+    edit: Partial<Pick<StoredRow, "explanation" | "references">>,
+    run: () => Promise<void>,
+  ) => {
     await db
       .update(questionExplanations)
-      .set({ explanation: edited })
-      .where(eq(questionExplanations.questionId, ids.block))
+      .set(edit)
+      .where(eq(questionExplanations.questionId, row.id))
+    try {
+      await run()
+    } finally {
+      await db
+        .update(questionExplanations)
+        .set({ explanation: row.explanation, references: row.references })
+        .where(eq(questionExplanations.questionId, row.id))
+    }
+  }
 
-    expect(await writeCorrection(db, seed.block, next)).toBe(false)
-    expect((await stored(ids.block))?.explanation).toBe(edited)
+  const next = { explanation: "Texte [1] [2].", references: SPLIT }
 
+  it.each([
+    ["l'explication", { explanation: "Texte revu par un admin [1]." }],
+    ["les références", { references: ["Source revue par un admin."] }],
+  ])(
+    "une question modifiée depuis la lecture (%s) est sautée, pas écrasée",
+    async (_, edit) => {
+      await whileEdited(seed.block, edit, async () => {
+        const edited = await stored(ids.block)
+        expect(await writeCorrection(db, seed.block, next)).toBe(false)
+        expect(await stored(ids.block)).toEqual(edited)
+      })
+    },
+  )
+
+  it("des références ajoutées depuis la lecture à un champ vide ne sont pas écrasées", async () => {
+    await whileEdited(seed.noRefs, { references: ["Ajoutée."] }, async () => {
+      expect(
+        await writeCorrection(db, seed.noRefs, {
+          explanation: "Texte espacé.",
+          references: null,
+        }),
+      ).toBe(false)
+      expect((await stored(ids.noRefs))?.references).toEqual(["Ajoutée."])
+    })
+  })
+
+  it("une question supprimée n'est pas écrite", async () => {
     expect(await writeCorrection(db, seed.deleted, next)).toBe(false)
     expect(await stored(ids.deleted)).toEqual({
       explanation: seed.deleted.explanation,
       references: [BLOCK],
     })
-
-    await db
-      .update(questionExplanations)
-      .set({ explanation: seed.block.explanation })
-      .where(eq(questionExplanations.questionId, ids.block))
   })
 
   it("application : écrit les cas sûrs, puis un second passage n'écrit plus rien", async () => {
