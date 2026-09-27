@@ -1,8 +1,10 @@
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
+import { rebuildFromTransactions } from "@/features/payments/access-ledger"
 import {
+  type AccessImpact,
   type TransactionStatsView,
   getAllTransactions,
   getTransactionAccessImpact,
@@ -243,22 +245,25 @@ describe("getAllTransactions (admin : filtres + keyset)", () => {
   })
 })
 
+const impactOn = (
+  impacts: AccessImpact[] | null,
+  accessType: "exam" | "training",
+) => impacts?.find((i) => i.accessType === accessType)
+
 describe("getTransactionAccessImpact", () => {
   it("willAffectAccess=false quand les transactions restantes couvrent autant ou plus (même pour lastTransactionId)", async () => {
     // lastTxId est bien lastTransactionId de l'accès (+10 j), mais les autres
     // transactions complétées couvrent ~ +90 j : la retirer n'ABAISSE pas
     // l'accès : un critère `lastTransactionId === txId` mentirait ici.
-    const impact = await getTransactionAccessImpact(lastTxId)
-    expect(impact?.willAffectAccess).toBe(false)
-    expect(impact?.accessType).toBe("exam")
-    expect(impact?.currentAccessExpiresAt).not.toBeNull()
-    expect(impact?.restoredExpiresAt).not.toBeNull()
+    const exam = impactOn(await getTransactionAccessImpact(lastTxId), "exam")
+    expect(exam?.willAffectAccess).toBe(false)
+    expect(exam?.currentAccessExpiresAt).not.toBeNull()
+    expect(exam?.restoredExpiresAt).not.toBeNull()
   })
 
   it("willAffectAccess=false pour une transaction non déterminante", async () => {
-    const impact = await getTransactionAccessImpact(txCadManualOld)
-    expect(impact?.willAffectAccess).toBe(false)
-    expect(impact?.accessType).toBe("exam")
+    const impacts = await getTransactionAccessImpact(txCadManualOld)
+    expect(impacts?.some((i) => i.willAffectAccess)).toBe(false)
   })
 
   it("willAffectAccess=true quand la transaction porte seule l'échéance courante", async () => {
@@ -274,16 +279,186 @@ describe("getTransactionAccessImpact", () => {
       .set({ expiresAt: farOut })
       .where(eq(userAccess.userId, uid))
 
-    const impact = await getTransactionAccessImpact(lastTxId)
-    expect(impact?.willAffectAccess).toBe(true)
-    expect(impact?.restoredExpiresAt).not.toBeNull()
-    expect(impact!.restoredExpiresAt!).toBeLessThan(
-      impact!.currentAccessExpiresAt!,
-    )
+    const exam = impactOn(await getTransactionAccessImpact(lastTxId), "exam")
+    expect(exam?.willAffectAccess).toBe(true)
+    expect(exam?.restoredExpiresAt).not.toBeNull()
+    expect(exam!.restoredExpiresAt!).toBeLessThan(exam!.currentAccessExpiresAt!)
   })
 
   it("renvoie null pour une transaction inexistante", async () => {
     const impact = await getTransactionAccessImpact(createId())
     expect(impact).toBeNull()
+  })
+})
+
+// Un combo est enregistré avec `accessType: "exam"` mais couvre les DEUX types :
+// l'aperçu doit annoncer, type par type, ce que la reconstruction fera ensuite.
+describe("getTransactionAccessImpact — combo", () => {
+  const comboPid = createId()
+  const comboUsers: string[] = []
+
+  beforeAll(async () => {
+    await db.insert(products).values({
+      id: comboPid,
+      code: "premium_access",
+      name: "Premium",
+      description: "d",
+      priceCad: 9000,
+      durationDays: 60,
+      accessType: "exam",
+      isCombo: true,
+      stripeProductId: `prod_combo_${suffix}`,
+      stripePriceId: `price_combo_${suffix}`,
+      stripePriceLookupKey: `price_combo_${suffix}`,
+    })
+  })
+
+  afterAll(async () => {
+    await db.delete(userAccess).where(inArray(userAccess.userId, comboUsers))
+    await db
+      .delete(transactions)
+      .where(inArray(transactions.userId, comboUsers))
+    await db.delete(products).where(eq(products.id, comboPid))
+    await db.delete(user).where(inArray(user.id, comboUsers))
+  })
+
+  /**
+   * Un utilisateur, ses transactions `completed` (snapshot à +N jours) et ses
+   * lignes `user_access` alignées sur la meilleure couverture de chaque type.
+   */
+  const seed = async (
+    txs: {
+      kind: "combo" | "exam" | "training"
+      days: number
+      status?: "completed" | "refunded"
+    }[],
+  ) => {
+    const userId = createId()
+    comboUsers.push(userId)
+    await db.insert(user).values({
+      id: userId,
+      name: `IT Combo ${suffix}`,
+      email: `combo-${userId}@test.invalid`,
+    })
+    const now = Date.now()
+    const rows = txs.map((t) => ({
+      id: createId(),
+      userId,
+      productId: t.kind === "combo" ? comboPid : pid,
+      type: "manual" as const,
+      status: t.status ?? ("completed" as const),
+      amountPaid: 1,
+      currency: "CAD" as const,
+      accessType:
+        t.kind === "training" ? ("training" as const) : ("exam" as const),
+      durationDays: t.days,
+      accessExpiresAt: new Date(now + t.days * DAY),
+      createdAt: new Date(now - DAY),
+      completedAt: new Date(now - DAY),
+    }))
+    await db.insert(transactions).values(rows)
+    for (const accessType of ["exam", "training"] as const) {
+      const covering = rows.filter(
+        (r, i) =>
+          r.status === "completed" &&
+          (txs[i].kind === "combo" || r.accessType === accessType),
+      )
+      if (covering.length === 0) continue
+      const best = covering.reduce((a, b) =>
+        a.accessExpiresAt > b.accessExpiresAt ? a : b,
+      )
+      await db.insert(userAccess).values({
+        userId,
+        accessType,
+        expiresAt: best.accessExpiresAt,
+        lastTransactionId: best.id,
+      })
+    }
+    return { userId, ids: rows.map((r) => r.id) }
+  }
+
+  const snapshotOf = (transactionId: string) =>
+    db
+      .select({ at: transactions.accessExpiresAt })
+      .from(transactions)
+      .where(eq(transactions.id, transactionId))
+      .then((r) => r[0].at.getTime())
+
+  /** Applique la vraie reconstruction et relit `user_access` par type. */
+  const accessAfterRebuild = async (userId: string, excluded: string) => {
+    await db.transaction((tx) =>
+      rebuildFromTransactions(tx, { userId, excludeTransactionId: excluded }),
+    )
+    const rows = await db
+      .select({
+        accessType: userAccess.accessType,
+        expiresAt: userAccess.expiresAt,
+      })
+      .from(userAccess)
+      .where(eq(userAccess.userId, userId))
+    return (accessType: "exam" | "training") =>
+      rows.find((r) => r.accessType === accessType)?.expiresAt.getTime() ?? null
+  }
+
+  it("annonce le retrait de l'accès entraînement quand le combo en est la seule couverture", async () => {
+    // exam : un achat simple à +90 j couvre plus loin que le combo (+60 j) ;
+    // training : seul le combo le couvre.
+    const { userId, ids } = await seed([
+      { kind: "combo", days: 60 },
+      { kind: "exam", days: 90 },
+    ])
+    const [comboId, examId] = ids
+
+    const impacts = await getTransactionAccessImpact(comboId)
+    expect(impactOn(impacts, "exam")?.willAffectAccess).toBe(false)
+    expect(impactOn(impacts, "training")).toMatchObject({
+      willAffectAccess: true,
+      restoredExpiresAt: null,
+    })
+
+    const after = await accessAfterRebuild(userId, comboId)
+    expect(after("training")).toBeNull()
+    expect(after("exam")).toBe(await snapshotOf(examId))
+  })
+
+  it("annonce le raccourcissement des deux accès quand le combo porte les deux échéances", async () => {
+    const { userId, ids } = await seed([
+      { kind: "combo", days: 200 },
+      { kind: "exam", days: 90 },
+      { kind: "training", days: 30 },
+    ])
+    const [comboId, examId, trainingId] = ids
+    const examAt = await snapshotOf(examId)
+    const trainingAt = await snapshotOf(trainingId)
+
+    const impacts = await getTransactionAccessImpact(comboId)
+    expect(impactOn(impacts, "exam")).toMatchObject({
+      willAffectAccess: true,
+      restoredExpiresAt: examAt,
+    })
+    expect(impactOn(impacts, "training")).toMatchObject({
+      willAffectAccess: true,
+      restoredExpiresAt: trainingAt,
+    })
+
+    const after = await accessAfterRebuild(userId, comboId)
+    expect(after("exam")).toBe(examAt)
+    expect(after("training")).toBe(trainingAt)
+  })
+
+  it("transaction remboursée : aucun type annoncé touché, la reconstruction ne change rien", async () => {
+    const { userId, ids } = await seed([
+      { kind: "exam", days: 90 },
+      { kind: "exam", days: 200, status: "refunded" },
+    ])
+    const [examId, refundedId] = ids
+    const examAt = await snapshotOf(examId)
+
+    const impacts = await getTransactionAccessImpact(refundedId)
+    expect(impacts?.some((i) => i.willAffectAccess)).toBe(false)
+
+    const after = await accessAfterRebuild(userId, refundedId)
+    expect(after("exam")).toBe(examAt)
+    expect(after("training")).toBeNull()
   })
 })

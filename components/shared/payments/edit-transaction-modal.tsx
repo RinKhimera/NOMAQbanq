@@ -42,20 +42,18 @@ import {
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  loadTransactionAccessImpact,
-  updateManualTransaction,
-} from "@/features/payments/actions"
-import type { AccessImpact } from "@/features/payments/dal"
+import { updateManualTransaction } from "@/features/payments/actions"
 import { parseAmountToCents } from "@/lib/currency"
-import { formatCurrency, formatExpiration } from "@/lib/format"
+import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
   type EditTransactionFormValues,
   type PaymentMethod,
   editTransactionSchema,
 } from "@/schemas/payment"
+import { describeAccessImpact } from "./access-impact"
 import type { Transaction } from "./transaction-table"
+import { useAccessImpact } from "./use-access-impact"
 
 interface EditTransactionModalProps {
   transaction: Transaction | null
@@ -92,20 +90,8 @@ export const EditTransactionModal = ({
 }: EditTransactionModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
-  const [accessImpact, setAccessImpact] = useState<AccessImpact | null>(null)
-
-  // Impact d'accès chargé à l'ouverture (sert l'avertissement de révocation).
-  useEffect(() => {
-    if (transaction && open) {
-      // best-effort : l'avertissement de révocation est purement informatif,
-      // le serveur re-vérifie l'impact à la mutation
-      loadTransactionAccessImpact(transaction._id)
-        .then(setAccessImpact)
-        .catch(() => {})
-    } else {
-      setAccessImpact(null)
-    }
-  }, [transaction, open])
+  // Purement informatif : le remboursement recalcule l'accès sous verrou.
+  const impact = useAccessImpact(transaction?._id ?? null, open)
 
   const form = useForm<EditTransactionFormValues>({
     resolver: zodResolver(editTransactionSchema),
@@ -137,6 +123,7 @@ export const EditTransactionModal = ({
   const watchedStatus = form.watch("status")
   const showRefundWarning =
     watchedStatus === "refunded" && transaction?.status === "completed"
+  const impactPending = showRefundWarning && impact.status === "loading"
 
   const onSubmit = async (data: EditTransactionFormValues) => {
     if (!transaction) return
@@ -194,7 +181,7 @@ export const EditTransactionModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg overflow-hidden rounded-3xl border-0 p-0 shadow-2xl">
+      <DialogContent className="max-h-[90dvh] max-w-lg overflow-x-hidden overflow-y-auto rounded-3xl border-0 p-0 shadow-2xl">
         <AnimatePresence mode="wait">
           {showSuccess ? (
             <motion.div
@@ -463,25 +450,47 @@ export const EditTransactionModal = ({
                   )}
 
                   {/* Refund Warning */}
-                  {showRefundWarning && accessImpact?.willAffectAccess && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20"
-                    >
-                      <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500" />
-                      <div>
-                        <p className="font-medium text-amber-800 dark:text-amber-200">
-                          Attention : impact sur l{"'"}accès
-                        </p>
-                        <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
-                          {accessImpact.restoredExpiresAt !== null
-                            ? `Le remboursement ramènera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} à son échéance précédente (${formatExpiration(accessImpact.restoredExpiresAt)}).`
-                            : `Le remboursement révoquera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} de l'utilisateur : aucune autre transaction ne le couvre.`}
-                        </p>
-                      </div>
-                    </motion.div>
+                  {impactPending && (
+                    <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300">
+                      <Spinner size="sm" />
+                      Calcul de l{"'"}impact sur l{"'"}accès…
+                    </div>
                   )}
+                  {showRefundWarning && impact.status === "failed" && (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+                      Impact sur l{"'"}accès indisponible : le remboursement
+                      recalculera l{"'"}accès de l{"'"}utilisateur ; vérifiez-le
+                      après coup.
+                    </div>
+                  )}
+                  {showRefundWarning &&
+                    impact.status === "ready" &&
+                    impact.affected.length > 0 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20"
+                      >
+                        <TriangleAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500" />
+                        <div>
+                          <p className="font-medium text-amber-800 dark:text-amber-200">
+                            Attention : impact sur l{"'"}accès
+                          </p>
+                          {impact.affected.map((a) => (
+                            <p
+                              key={a.accessType}
+                              className="mt-1 text-sm text-amber-700 dark:text-amber-300"
+                            >
+                              {describeAccessImpact(
+                                a,
+                                "Le remboursement",
+                                impact.loadedAt,
+                              )}
+                            </p>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
 
                   {/* Actions */}
                   <div className="flex gap-3 pt-2">
@@ -495,7 +504,7 @@ export const EditTransactionModal = ({
                     </Button>
                     <Button
                       type="submit"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || impactPending}
                       className={cn(
                         "flex-1 rounded-xl text-white",
                         showRefundWarning

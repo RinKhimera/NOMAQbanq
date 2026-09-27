@@ -5,6 +5,7 @@ import { products, transactions, user } from "@/db/schema"
 import {
   type GrantedAccess,
   applyGrant,
+  lockUser,
   rebuildFromTransactions,
 } from "./access-ledger"
 
@@ -73,7 +74,6 @@ export async function completeStripeTransaction(params: {
   /** Instant du fulfillment (défaut : maintenant) ; injectable par les tests. */
   now?: Date
 }): Promise<CompleteStripeResult> {
-  const now = params.now ?? new Date()
   return db.transaction(async (tx) => {
     // Transaction pending (pour obtenir l'userId à verrouiller).
     const [pending] = await tx
@@ -92,18 +92,21 @@ export async function completeStripeTransaction(params: {
     if (!pending) return { status: "not_found" }
 
     // Verrou utilisateur : sérialise octrois/révocations concurrents. Le
-    // courriel et l'état d'anonymisation sont lus sous le même verrou pour
-    // le courriel de confirmation.
+    // courriel et l'état d'anonymisation se lisent après lui, pour le
+    // courriel de confirmation.
+    await lockUser(tx, pending.userId)
+    // Lu APRÈS le verrou : l'attente (réveil Neon, octroi concurrent) ne doit
+    // pas avancer l'octroi dans le passé.
+    const now = params.now ?? new Date()
     const [lockedUser] = await tx
       .select({
-        id: user.id,
         email: user.email,
         name: user.name,
         anonymizedAt: user.anonymizedAt,
       })
       .from(user)
       .where(eq(user.id, pending.userId))
-      .for("update")
+      .limit(1)
 
     // Idempotence SOUS verrou : event déjà traité, ou transaction déjà complétée.
     const [byEvent] = await tx
@@ -386,11 +389,7 @@ export async function refundStripeTransaction(params: {
       .limit(1)
     if (!found) return { status: "not_found" as const }
 
-    await tx
-      .select({ id: user.id })
-      .from(user)
-      .where(eq(user.id, found.userId))
-      .for("update")
+    await lockUser(tx, found.userId)
 
     const updated = await tx
       .update(transactions)

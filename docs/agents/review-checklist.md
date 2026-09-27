@@ -47,3 +47,12 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
     défaut : un composant réutilisable (tri, défilement, menu d'un tableau) monté dans
     un formulaire le soumet au clic. Tout bouton d'un composant partagé porte un `type`
     explicite.
+15. **Enum client recopié à la main.** Une liste de valeurs côté client (schéma zod d'un
+    formulaire) qui recopie un enum de la base au lieu d'en dériver diverge au premier
+    ajout : la valeur neuve est refusée par l'UI alors que le serveur l'accepte. Dériver
+    de l'enum Drizzle, ou verrouiller l'égalité par un test.
+16. **Donnée pas encore chargée présentée comme un état certain.** Un `null` de
+    chargement (ou d'échec avalé par `.catch(() => {})`) rendu comme « rien à
+    signaler » : l'utilisateur agit sur un avertissement qui n'est pas encore arrivé.
+    Distinguer chargement / échec / prêt, et ignorer la réponse d'une requête qui ne
+    correspond plus à l'élément affiché.

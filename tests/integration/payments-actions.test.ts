@@ -1,12 +1,14 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
+import { lockUser } from "@/features/payments/access-ledger"
 import {
   deleteManualTransaction,
   recordManualPayment,
   updateManualTransaction,
 } from "@/features/payments/actions"
+import { getTransactionAccessImpact } from "@/features/payments/dal"
 import type { RecordManualPaymentInput } from "@/features/payments/schemas"
 import { createId } from "@/lib/ids"
 
@@ -34,9 +36,10 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 const USER_ID = createId()
+const COMBO_USER_ID = createId()
 const PID = createId()
 
-const accessRow = (accessType: "exam" | "training") =>
+const accessRow = (accessType: "exam" | "training", userId: string = USER_ID) =>
   db
     .select({
       expiresAt: userAccess.expiresAt,
@@ -44,12 +47,47 @@ const accessRow = (accessType: "exam" | "training") =>
     })
     .from(userAccess)
     .where(
-      and(
-        eq(userAccess.userId, USER_ID),
-        eq(userAccess.accessType, accessType),
-      ),
+      and(eq(userAccess.userId, userId), eq(userAccess.accessType, accessType)),
     )
     .then((r) => r[0])
+
+/**
+ * Tient le verrou `user` dans une transaction a part. Les actions lancees
+ * pendant ce temps lisent la transaction PUIS attendent derriere ce verrou :
+ * l'entrelacement « deux lectures avant le premier commit » est force au lieu
+ * d'etre laisse au hasard du pool.
+ */
+const holdUserLock = async (userId: string) => {
+  let release!: () => void
+  const released = new Promise<void>((r) => (release = r))
+  let locked!: () => void
+  const isLocked = new Promise<void>((r) => (locked = r))
+  const holder = db.transaction(async (tx) => {
+    await lockUser(tx, userId)
+    locked()
+    await released
+  })
+  await isLocked
+
+  return {
+    /** Attend que `n` connexions soient bloquees sur un verrou. */
+    waitForWaiters: async (n: number) => {
+      for (let attempt = 0; attempt < 200; attempt++) {
+        const res = await db.execute(sql`
+          select count(*)::int as n from pg_stat_activity
+          where datname = current_database() and wait_event_type = 'Lock'
+        `)
+        if ((res.rows[0] as { n: number }).n >= n) return
+        await new Promise((r) => setTimeout(r, 25))
+      }
+      throw new Error(`${n} attente(s) de verrou jamais observee(s)`)
+    },
+    release: async () => {
+      release()
+      await holder
+    },
+  }
+}
 
 const manualInput: RecordManualPaymentInput = {
   userId: USER_ID,
@@ -76,6 +114,11 @@ beforeAll(async () => {
       email: `adm-${suffix}@test.invalid`,
     },
     { id: USER_ID, name: `Usr ${suffix}`, email: `usr-${suffix}@test.invalid` },
+    {
+      id: COMBO_USER_ID,
+      name: `Combo ${suffix}`,
+      email: `combo-${suffix}@test.invalid`,
+    },
   ])
   await db.insert(products).values({
     id: PID,
@@ -95,10 +138,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // FK restrict : les lignes d'acces referencent les transactions.
-  await db.delete(userAccess).where(eq(userAccess.userId, USER_ID))
-  await db.delete(transactions).where(eq(transactions.userId, USER_ID))
+  const seeded = [USER_ID, COMBO_USER_ID]
+  await db.delete(userAccess).where(inArray(userAccess.userId, seeded))
+  await db.delete(transactions).where(inArray(transactions.userId, seeded))
   await db.delete(products).where(eq(products.id, PID))
-  await db.delete(user).where(eq(user.id, USER_ID))
+  await db.delete(user).where(inArray(user.id, seeded))
   await db.delete(user).where(eq(user.id, ADMIN_ID))
 })
 
@@ -289,5 +333,71 @@ describe("deleteManualTransaction (DB)", () => {
   it("transaction inexistante → erreur metier", async () => {
     const res = await deleteManualTransaction(createId())
     expect(res).toEqual({ success: false, error: "Transaction introuvable" })
+  })
+
+  it("combo : l'aperçu annonce type par type ce que la suppression fait ensuite", async () => {
+    // Combo puis accès examen simple : l'examen cumule au-delà du combo, seul
+    // le combo couvre l'entraînement.
+    const comboId = await record({
+      userId: COMBO_USER_ID,
+      productCode: "premium_access",
+    })
+    await record({ userId: COMBO_USER_ID, productCode: "exam_access" })
+    const examBefore = (await accessRow("exam", COMBO_USER_ID)).expiresAt
+
+    const impacts = await getTransactionAccessImpact(comboId)
+    const on = (type: "exam" | "training") =>
+      impacts?.find((i) => i.accessType === type)
+    expect(on("exam")?.willAffectAccess).toBe(false)
+    expect(on("training")).toMatchObject({
+      willAffectAccess: true,
+      restoredExpiresAt: null,
+    })
+
+    const res = await deleteManualTransaction(comboId)
+    expect(res).toEqual({ success: true, accessRevoked: true })
+    expect(await accessRow("training", COMBO_USER_ID)).toBeUndefined()
+    expect((await accessRow("exam", COMBO_USER_ID)).expiresAt).toEqual(
+      examBefore,
+    )
+  })
+
+  it("double suppression concurrente : une seule reussit, l'autre dit introuvable", async () => {
+    const transactionId = await record()
+    const lock = await holdUserLock(USER_ID)
+
+    const first = deleteManualTransaction(transactionId)
+    const second = deleteManualTransaction(transactionId)
+    await lock.waitForWaiters(2)
+    await lock.release()
+    const results = await Promise.all([first, second])
+
+    expect(results.filter((r) => r.success)).toHaveLength(1)
+    expect(results.filter((r) => !r.success)).toEqual([
+      { success: false, error: "Transaction introuvable" },
+    ])
+  })
+
+  it("modification lancee pendant une suppression : introuvable, rien d'ecrit", async () => {
+    const transactionId = await record()
+    const lock = await holdUserLock(USER_ID)
+
+    const deleting = deleteManualTransaction(transactionId)
+    await lock.waitForWaiters(1)
+    const updating = updateManualTransaction({
+      transactionId,
+      amountPaid: 1,
+      currency: "CAD",
+      paymentMethod: "Comptant",
+      status: "refunded",
+    })
+    await lock.waitForWaiters(2)
+    await lock.release()
+
+    expect(await deleting).toEqual({ success: true, accessRevoked: true })
+    expect(await updating).toEqual({
+      success: false,
+      error: "Transaction introuvable",
+    })
   })
 })

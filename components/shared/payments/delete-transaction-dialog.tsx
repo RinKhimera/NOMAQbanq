@@ -1,8 +1,8 @@
 "use client"
 
-import { Info, Trash2, TriangleAlert } from "lucide-react"
+import { CircleHelp, Info, Trash2, TriangleAlert } from "lucide-react"
 import { motion } from "motion/react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -15,13 +15,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Spinner } from "@/components/ui/spinner"
-import {
-  deleteManualTransaction,
-  loadTransactionAccessImpact,
-} from "@/features/payments/actions"
-import type { AccessImpact } from "@/features/payments/dal"
-import { formatCurrency, formatExpiration, formatShortDate } from "@/lib/format"
+import { deleteManualTransaction } from "@/features/payments/actions"
+import { formatCurrency, formatShortDate } from "@/lib/format"
+import { describeAccessImpact } from "./access-impact"
 import type { Transaction } from "./transaction-table"
+import { useAccessImpact } from "./use-access-impact"
 
 interface DeleteTransactionDialogProps {
   transaction: Transaction | null
@@ -37,20 +35,8 @@ export const DeleteTransactionDialog = ({
   onSuccess,
 }: DeleteTransactionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false)
-  const [accessImpact, setAccessImpact] = useState<AccessImpact | null>(null)
-
-  // Impact d'accès chargé à l'ouverture (avertissement de révocation).
-  useEffect(() => {
-    if (transaction && open) {
-      // best-effort : l'avertissement de révocation est purement informatif,
-      // le serveur re-vérifie l'impact à la mutation
-      loadTransactionAccessImpact(transaction._id)
-        .then(setAccessImpact)
-        .catch(() => {})
-    } else {
-      setAccessImpact(null)
-    }
-  }, [transaction, open])
+  // Purement informatif : la suppression recalcule l'accès sous verrou.
+  const impact = useAccessImpact(transaction?._id ?? null, open)
 
   const handleDelete = async () => {
     if (!transaction) return
@@ -81,8 +67,6 @@ export const DeleteTransactionDialog = ({
   }
 
   if (!transaction) return null
-
-  const willAffectAccess = accessImpact?.willAffectAccess ?? false
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -132,7 +116,25 @@ export const DeleteTransactionDialog = ({
         </div>
 
         {/* Access Impact Warning */}
-        {willAffectAccess ? (
+        {impact.status === "loading" ? (
+          <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300">
+            <Spinner size="sm" />
+            Calcul de l{"'"}impact sur l{"'"}accès…
+          </div>
+        ) : impact.status === "failed" ? (
+          <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20">
+            <CircleHelp className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-500" />
+            <div>
+              <p className="font-medium text-amber-800 dark:text-amber-200">
+                Impact sur l{"'"}accès indisponible
+              </p>
+              <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
+                La suppression recalculera l{"'"}accès de l{"'"}utilisateur ;
+                vérifiez-le après coup.
+              </p>
+            </div>
+          </div>
+        ) : impact.affected.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
@@ -143,11 +145,14 @@ export const DeleteTransactionDialog = ({
               <p className="font-medium text-red-800 dark:text-red-200">
                 Impact sur l{"'"}accès
               </p>
-              <p className="mt-1 text-sm text-red-700 dark:text-red-300">
-                {accessImpact?.restoredExpiresAt != null
-                  ? `La suppression ramènera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} à son échéance précédente (${formatExpiration(accessImpact.restoredExpiresAt)}).`
-                  : `La suppression révoquera l'accès ${accessImpact?.accessType === "exam" ? "aux examens" : "à l'entraînement"} de l'utilisateur : aucune autre transaction ne le couvre.`}
-              </p>
+              {impact.affected.map((a) => (
+                <p
+                  key={a.accessType}
+                  className="mt-1 text-sm text-red-700 dark:text-red-300"
+                >
+                  {describeAccessImpact(a, "La suppression", impact.loadedAt)}
+                </p>
+              ))}
             </div>
           </motion.div>
         ) : (
@@ -175,7 +180,7 @@ export const DeleteTransactionDialog = ({
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
-            disabled={isDeleting}
+            disabled={isDeleting || impact.status === "loading"}
             className="flex-1 rounded-xl bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700"
           >
             {isDeleting ? (

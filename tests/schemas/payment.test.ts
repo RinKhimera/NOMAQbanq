@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { productCode } from "@/db/schema/enums"
 import {
   accessTypeSchema,
   editTransactionSchema,
@@ -11,6 +12,12 @@ import {
 
 describe("Payment Schema", () => {
   describe("productCodeSchema", () => {
+    it("accepte chaque code produit de la base, combo compris", () => {
+      expect([...productCodeSchema.options].sort()).toEqual(
+        [...productCode.enumValues].sort(),
+      )
+    })
+
     it("valide les codes de produits valides", () => {
       expect(productCodeSchema.safeParse("exam_access").success).toBe(true)
       expect(productCodeSchema.safeParse("training_access").success).toBe(true)

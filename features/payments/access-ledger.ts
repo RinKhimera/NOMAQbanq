@@ -11,6 +11,8 @@ import { products, transactions, user, userAccess } from "@/db/schema"
  *   par la transaction, upsert des types couverts, re-arm du rappel.
  * - `rebuildFromTransactions` : reconstruction depuis les transactions restantes
  *   (remboursement, litige perdu, modification ou suppression admin).
+ * - `planRebuild` : la même reconstruction en lecture seule — ce que l'aperçu
+ *   admin annonce avant un retrait.
  *
  * Les deux verbes prennent le verrou `user FOR UPDATE` en premier : il sérialise
  * tous les octrois/retraits d'un même utilisateur (sans lui, deux paiements
@@ -25,7 +27,7 @@ import { products, transactions, user, userAccess } from "@/db/schema"
  */
 
 // Type du handle de transaction Drizzle (sans importer le type verbeux de pg-core).
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 /** Accepte le handle de transaction OU l'instance db (lectures hors transaction). */
 type DbLike = Tx | typeof db
 
@@ -35,6 +37,17 @@ export type GrantedAccess = {
   accessType: AccessType
   /** Expiration EFFECTIVEMENT écrite (`max(existant, transaction)`). */
   expiresAt: Date
+}
+
+/** Ce que la reconstruction ferait d'un type d'accès, sans rien écrire. */
+export type AccessRebuildPlan = {
+  accessType: AccessType
+  /** Expiration actuelle dans `user_access`, null si aucune ligne. */
+  existingExpiresAt: Date | null
+  /** Meilleure transaction restante ; null = la ligne `user_access` disparaît. */
+  best: { id: string; accessExpiresAt: Date } | null
+  /** true si l'accès serait supprimé ou raccourci. */
+  reducedOrRemoved: boolean
 }
 
 export type RebuildResult = {
@@ -59,7 +72,7 @@ export const lockUser = async (tx: Tx, userId: string): Promise<void> => {
   if (!locked) throw new Error("USER_NOT_FOUND")
 }
 
-const readAccess = (tx: Tx, userId: string, accessType: AccessType) =>
+const readAccess = (tx: DbLike, userId: string, accessType: AccessType) =>
   tx
     .select({ expiresAt: userAccess.expiresAt })
     .from(userAccess)
@@ -219,6 +232,37 @@ export const bestCoveringTransaction = async (
 }
 
 /**
+ * Plan de la reconstruction, en LECTURE SEULE : pour chaque type d'accès,
+ * l'expiration actuelle et celle que restaureraient les transactions
+ * `completed` restantes. `rebuildFromTransactions` écrit ce plan ; l'aperçu
+ * admin d'un retrait l'affiche. Un seul calcul pour les deux, sinon l'aperçu
+ * dérive : un combo couvre les deux types alors que son `accessType` n'en
+ * nomme qu'un.
+ */
+export async function planRebuild(
+  dbOrTx: DbLike,
+  params: { userId: string; excludeTransactionId?: string },
+): Promise<AccessRebuildPlan[]> {
+  const { userId, excludeTransactionId } = params
+  const plans: AccessRebuildPlan[] = []
+  for (const accessType of ["exam", "training"] as const) {
+    const existingExpiresAt = await readAccess(dbOrTx, userId, accessType)
+    const best = await bestCoveringTransaction(
+      dbOrTx,
+      userId,
+      accessType,
+      excludeTransactionId,
+    )
+    const reducedOrRemoved =
+      existingExpiresAt !== null &&
+      (best === null ||
+        best.accessExpiresAt.getTime() < existingExpiresAt.getTime())
+    plans.push({ accessType, existingExpiresAt, best, reducedOrRemoved })
+  }
+  return plans
+}
+
+/**
  * Reconstruit `user_access` (exam ET training) depuis les transactions `completed`
  * de l'utilisateur — les transactions sont la source de vérité. À appeler sur
  * TOUTE transition de statut (`completed ↔ refunded`) et AVANT la suppression
@@ -235,22 +279,13 @@ export async function rebuildFromTransactions(
   tx: Tx,
   params: { userId: string; excludeTransactionId?: string },
 ): Promise<RebuildResult> {
-  const { userId, excludeTransactionId } = params
+  const { userId } = params
   await lockUser(tx, userId)
 
-  let accessReducedOrRemoved = false
-  for (const accessType of ["exam", "training"] as const) {
-    const existing = await readAccess(tx, userId, accessType)
-    const best = await bestCoveringTransaction(
-      tx,
-      userId,
-      accessType,
-      excludeTransactionId,
-    )
-
+  const plans = await planRebuild(tx, params)
+  for (const { accessType, existingExpiresAt, best } of plans) {
     if (!best) {
-      if (existing) {
-        accessReducedOrRemoved = true
+      if (existingExpiresAt) {
         await tx
           .delete(userAccess)
           .where(
@@ -263,16 +298,13 @@ export async function rebuildFromTransactions(
       continue
     }
 
-    if (existing && best.accessExpiresAt.getTime() < existing.getTime()) {
-      accessReducedOrRemoved = true
-    }
     await upsertAccess(tx, {
       userId,
       accessType,
       expiresAt: best.accessExpiresAt,
       transactionId: best.id,
-      existingExpiresAt: existing,
+      existingExpiresAt,
     })
   }
-  return { accessReducedOrRemoved }
+  return { accessReducedOrRemoved: plans.some((p) => p.reducedOrRemoved) }
 }

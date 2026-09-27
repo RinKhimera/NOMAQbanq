@@ -25,7 +25,10 @@ lisant et dont la violation coûte de l'argent ou un accès non rendu.
   Un produit `isCombo` (`premium_access`) pose au contraire une fenêtre fraîche
   `now + durée` et octroie les DEUX types. L'expiration est recalculée au
   fulfillment, jamais reprise du `pending` (le `now` a avancé, l'accès existant
-  a pu changer entre-temps).
+  a pu changer entre-temps). Ce `now` se lit APRÈS le verrou `user FOR UPDATE`,
+  pas avant `db.transaction` : un réveil Neon ou un octroi concurrent qui tient
+  le verrou ferait partir l'accès de plusieurs secondes trop tôt (pas le `now()`
+  SQL non plus : c'est l'heure de début de la transaction).
 - **Cette règle a UN propriétaire : `features/payments/access-ledger.ts`.**
   `applyGrant(tx, …)` est le seul écrivain d'un octroi (Stripe et manuel) :
   verrou `user FOR UPDATE`, arithmétique cumul/combo, snapshot du cumul écrit

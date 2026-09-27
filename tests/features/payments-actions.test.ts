@@ -219,13 +219,14 @@ describe("updateManualTransaction", () => {
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
-  it("erreur inattendue → capture sans userId", async () => {
+  it("erreur inattendue → capture avec l'admin", async () => {
     rejectWith("deadlock detected")
     const res = await updateManualTransaction(updateInput)
     expect(res).toEqual({ success: false, error: "Erreur serveur. Réessayez." })
     expect(mocks.captureServerError).toHaveBeenCalledWith(
       "[updateManualTransaction]",
       expect.any(Error),
+      { userId: "admin1" },
     )
   })
 })
@@ -257,13 +258,14 @@ describe("deleteManualTransaction", () => {
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
-  it("erreur inattendue → capture", async () => {
+  it("erreur inattendue → capture avec l'admin", async () => {
     rejectWith("update or delete violates foreign key")
     const res = await deleteManualTransaction("t1")
     expect(res).toEqual({ success: false, error: "Erreur serveur. Réessayez." })
     expect(mocks.captureServerError).toHaveBeenCalledWith(
       "[deleteManualTransaction]",
       expect.any(Error),
+      { userId: "admin1" },
     )
   })
 })
