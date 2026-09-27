@@ -301,7 +301,7 @@ const percentilesOf = async (
       id: examParticipations.id,
       examId: examParticipations.examId,
       userId: examParticipations.userId,
-      score: ownerReadableScore,
+      score: ownerReadableScore.as("score"),
     })
     .from(examParticipations)
     .innerJoin(exams, eq(exams.id, examParticipations.examId))
