@@ -265,3 +265,128 @@ describe("QuestionFormPage — options", () => {
     )
   })
 })
+
+describe("QuestionFormPage — correction collée", () => {
+  const BLOCK =
+    "1.\nSource A.\nLancet. 2020.\n\n2.\nSource B.\nBMJ. 2021.\n\n3.\nSource C.\nJAMA. 2022."
+
+  const openEdit = async (over: Partial<QuestionDetail>) => {
+    const question = makeQuestion(over)
+    loadQuestionById.mockResolvedValue(question)
+    loadUniqueObjectifsCMC.mockResolvedValue([])
+    updateQuestion.mockResolvedValue({ success: true })
+    setQuestionImages.mockResolvedValue({ success: true })
+    render(<QuestionFormPage mode="edit" questionId="q1" />)
+    await screen.findByDisplayValue(question.question)
+  }
+
+  const referenceValues = () =>
+    screen
+      .getAllByPlaceholderText("Référence bibliographique complète...")
+      .map((el) => (el as HTMLTextAreaElement).value)
+
+  it("un bloc collé produit un champ par source, à la position du champ collé", async () => {
+    const user = userEvent.setup()
+    await openEdit({ references: ["Réf A", "", "Réf C"] })
+
+    await user.click(screen.getByTestId("reference-input-1"))
+    await user.paste(BLOCK)
+
+    expect(referenceValues()).toEqual([
+      "Réf A",
+      "Source A. Lancet. 2020.",
+      "Source B. BMJ. 2021.",
+      "Source C. JAMA. 2022.",
+      "Réf C",
+    ])
+    expect(screen.getByTestId("format-undo-banner")).toHaveTextContent(
+      "Mise en forme appliquée",
+    )
+  })
+
+  it("« Annuler » rétablit le texte brut collé", async () => {
+    const user = userEvent.setup()
+    await openEdit({ references: ["Réf A", "", "Réf C"] })
+
+    await user.click(screen.getByTestId("reference-input-1"))
+    await user.paste(BLOCK)
+    await user.click(screen.getByTestId("btn-format-undo"))
+
+    expect(referenceValues()).toEqual(["Réf A", BLOCK, "Réf C"])
+    expect(screen.queryByTestId("format-undo-banner")).not.toBeInTheDocument()
+  })
+
+  it("« Découper » sépare un bloc sans numéro selon les lignes vides", async () => {
+    const user = userEvent.setup()
+    await openEdit({
+      references: ["Source A. Lancet. 2020.\n\nSource B. BMJ. 2021."],
+    })
+
+    await user.click(screen.getByTestId("btn-split-reference-0"))
+
+    expect(referenceValues()).toEqual([
+      "Source A. Lancet. 2020.",
+      "Source B. BMJ. 2021.",
+    ])
+  })
+
+  it("avertit dès l'ouverture sans empêcher l'enregistrement", async () => {
+    const user = userEvent.setup()
+    await openEdit({ explanation: "Voir [1] et [3].", references: [BLOCK] })
+
+    expect(screen.getByTestId("format-warning-reference-0")).toHaveTextContent(
+      "Ce champ contient 3 sources numérotées",
+    )
+    expect(screen.getByTestId("format-warning-explanation")).toHaveTextContent(
+      "au-delà de la liste",
+    )
+
+    await user.click(
+      screen.getByRole("button", { name: /Enregistrer les modifications/i }),
+    )
+    await waitFor(() => expect(updateQuestion).toHaveBeenCalledTimes(1))
+    expect(updateQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({ references: [BLOCK] }),
+    )
+  })
+
+  it("une explication collée est remise en forme sur place", async () => {
+    const user = userEvent.setup()
+    await openEdit({ explanation: "" })
+
+    await user.click(screen.getByTestId("explanation-input"))
+    await user.paste("Premier point.\n[1]\n\n\n\nSecond   point.")
+
+    expect(screen.getByTestId("explanation-input")).toHaveValue(
+      "Premier point. [1]\n\nSecond point.",
+    )
+    await user.click(screen.getByTestId("btn-format-undo"))
+    expect(screen.getByTestId("explanation-input")).toHaveValue(
+      "Premier point.\n[1]\n\n\n\nSecond   point.",
+    )
+  })
+
+  it("coller un mot propre ne reformate pas une explication ancienne", async () => {
+    const user = userEvent.setup()
+    await openEdit({ explanation: "Ancien  texte.\n[1]" })
+
+    await user.click(screen.getByTestId("explanation-input"))
+    await user.paste(" ajout")
+
+    expect(screen.getByTestId("explanation-input")).toHaveValue(
+      "Ancien  texte.\n[1] ajout",
+    )
+    expect(screen.queryByTestId("format-undo-banner")).not.toBeInTheDocument()
+  })
+
+  it("un collage déjà propre n'est pas intercepté", async () => {
+    const user = userEvent.setup()
+    await openEdit({ references: [""] })
+
+    await user.click(screen.getByTestId("reference-input-0"))
+    await user.paste("Source A. Lancet. 2020.")
+
+    expect(referenceValues()).toEqual(["Source A. Lancet. 2020."])
+    expect(screen.queryByTestId("format-undo-banner")).not.toBeInTheDocument()
+  })
+})

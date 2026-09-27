@@ -92,6 +92,9 @@ présent), `score-status` (`data-status="passing|failing|withheld"` sur l'en-tê
 Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-access-{titre}`
 (grille dashboard), `exam-side-panel`/`user-side-panel` (panels admin master-détail),
 `question-detail-modal`/`question-detail-footer` (modale de question admin),
+`explanation-input`, `reference-input-{i}`, `btn-split-reference-{i}`,
+`format-undo-banner`/`btn-format-undo`, `format-warning-explanation`,
+`format-warning-reference-{i}` (correction du formulaire de question admin),
 `{testId}-edit`/`-input`/`-save` (InlineEditField profil), `btn-pause` (bouton
 pause repos du header d'examen), `pause-overlay`/`pause-timer`/`btn-resume-exam`.
 États : `data-selected="true"`, `data-flagged="true"`. Tout nouveau composant

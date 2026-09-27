@@ -185,6 +185,68 @@ describe("updateQuestion", () => {
   })
 })
 
+describe("normalisation de la correction à l'enregistrement", () => {
+  const BLOCK =
+    "1.\nSource A.\nLancet. 2020.\n\n\n\n2.\nSource B.\nBMJ. 2021.   \n"
+
+  it("applique la partie sûre sans jamais découper une référence", async () => {
+    const res = await createQuestion({
+      ...base,
+      explanation:
+        "Premier   point.\n[1]\n\n\n\nSecond point, la glycémie[2].\nMedical Council of Canada | Le Conseil médical du Canada | 29\nFin.",
+      references: [BLOCK, "  Source C.  "],
+    })
+    expect(res.success).toBe(true)
+    if (!res.success) return
+    created.push(res.id)
+
+    const q = await getQuestionById(res.id)
+    expect(q?.explanation).toBe(
+      "Premier point. [1]\n\nSecond point, la glycémie [2].\nFin.",
+    )
+    expect(q?.references).toEqual([
+      "1.\nSource A.\nLancet. 2020.\n\n2.\nSource B.\nBMJ. 2021.",
+      "Source C.",
+    ])
+  })
+
+  it("réenregistrer une question propre la laisse identique", async () => {
+    const clean = {
+      explanation: "Paragraphe [1].\n\nSuite : fin [2].",
+      references: ["Source A. Lancet. 2020.", "Source B. BMJ. 2021."],
+    }
+    const id = await makeOne()
+    await updateQuestion({ ...base, ...clean, id })
+    const res = await updateQuestion({ ...base, ...clean, id })
+    expect(res.success).toBe(true)
+    const q = await getQuestionById(id)
+    expect(q?.explanation).toBe(clean.explanation)
+    expect(q?.references).toEqual(clean.references)
+  })
+
+  it("refuse une référence de plus de 2 000 caractères", async () => {
+    const res = await createQuestion({
+      ...base,
+      references: ["x".repeat(2001)],
+    })
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/référence.*2 000 caractères/),
+    })
+  })
+
+  it("refuse une explication au-delà du plafond", async () => {
+    const res = await createQuestion({
+      ...base,
+      explanation: "x".repeat(20_001),
+    })
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/explication.*20 000 caractères/),
+    })
+  })
+})
+
 describe("deleteQuestion", () => {
   // La question créée ici n'est jamais référencée (examens/entraînements) →
   // l'hybride part en HARD delete. Le chemin SOFT (référencée) est couvert par
