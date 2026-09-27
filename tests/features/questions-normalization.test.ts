@@ -208,8 +208,10 @@ describe("normalizeReferenceEntry", () => {
       "Thyroid Guidelines. Thyroid. 2025;35(8):841-985. doi:10.1177/1050.",
     ])
     expect(
-      normalizeReferenceEntry("Eating Disorders: A Review\nLancet. 2020."),
-    ).toEqual(["Eating Disorders: A Review Lancet. 2020."])
+      normalizeReferenceEntry(
+        "Eating Disorders: A Review\nLancet. 2020;395(1):1-2.",
+      ),
+    ).toEqual(["Eating Disorders: A Review Lancet. 2020;395(1):1-2."])
   })
 
   it("garde « Practice Guideline » quand il termine un titre", () => {
@@ -222,19 +224,89 @@ describe("normalizeReferenceEntry", () => {
     ])
   })
 
-  it("nettoie une source unique dont le DOI ou la page web portent plusieurs années", () => {
+  it("joint une source unique dont le DOI porte d'autres années", () => {
     expect(
       normalizeReferenceEntry(
         "Hemodynamic Assessment of Atrial Septal Defects.\nTorres AJ. Journal of Thoracic Disease. 2018;10(Suppl 24):S2882-S2889. doi:10.21037/jtd.2018.02.17.",
       ),
-    ).toHaveLength(1)
+    ).toEqual([
+      "Hemodynamic Assessment of Atrial Septal Defects. Torres AJ. Journal of Thoracic Disease. 2018;10(Suppl 24):S2882-S2889. doi:10.21037/jtd.2018.02.17.",
+    ])
+  })
+
+  it("ne joint pas des lignes sans repère de fin de source : rien ne dit qu'elles forment une seule source", () => {
+    const lines =
+      "Smith J. Title one. Paediatr Child Health. 2014, 19(9):485-91.\nDoe A. Title two. Consulté le 3 mars 2024.\nUpToDate. Title three. Wolters Kluwer."
+    expect(normalizeReferenceEntry(lines)).toEqual([lines])
+    expect(
+      diagnoseCorrection({ explanation: "Texte [1].", references: [lines] }),
+    ).toContainEqual(
+      expect.objectContaining({ code: "multiple-sources", index: 0 }),
+    )
+  })
+
+  it("garde le numéro de chapitre d'une source unique « 1. Titre »", () => {
     expect(
       normalizeReferenceEntry(
-        "Asthma Guidance.\nNational Institutes of Health. Published 2019. Updated 2023. Accessed 2024.",
+        "1. Improving Care and Promoting Health in Populations: Standards of Care in Diabetes-2025.\nDiabetes Care. 2025. American Diabetes Association.GuidelineNew",
       ),
     ).toEqual([
-      "Asthma Guidance. National Institutes of Health. Published 2019. Updated 2023. Accessed 2024.",
+      "1. Improving Care and Promoting Health in Populations: Standards of Care in Diabetes-2025. Diabetes Care. 2025. American Diabetes Association.",
     ])
+  })
+
+  it("ne retire pas une étiquette qui fait partie d'un mot", () => {
+    expect(
+      normalizeReferenceEntry(
+        "Title of Paper.\nLancet. 2020;1:1-2. Jane Smith, Robert McNew",
+      ),
+    ).toEqual(["Title of Paper. Lancet. 2020;1:1-2. Jane Smith, Robert McNew"])
+    expect(
+      normalizeReferenceEntry("Open Peer-Review\nBMJ. 2020;1:1-2."),
+    ).toEqual(["Open Peer-Review BMJ. 2020;1:1-2."])
+    expect(
+      normalizeReferenceEntry(
+        "Management of Anemia: Clinical Practice\nGuideline for Adults. Lancet. 2020;1:1-2.",
+      ),
+    ).toEqual([
+      "Management of Anemia: Clinical Practice Guideline for Adults. Lancet. 2020;1:1-2.",
+    ])
+  })
+
+  it("retire une étiquette de recommandation collée à un nom ou à des initiales", () => {
+    expect(
+      normalizeReferenceEntry(
+        "Placenta Accreta.\nObstet Gynecol. 2018;132(6):e259. Alessandro Ghidini MDGuideline",
+      ),
+    ).toEqual([
+      "Placenta Accreta. Obstet Gynecol. 2018;132(6):e259. Alessandro Ghidini MD",
+    ])
+    expect(
+      normalizeReferenceEntry(
+        "DSM-5.\nAPA. 2022;1:1. David Fassler, et alPractice Guideline",
+      ),
+    ).toEqual(["DSM-5. APA. 2022;1:1. David Fassler, et al"])
+    expect(
+      normalizeReferenceEntry(
+        "VA/DoD Guideline for Asthma.\nVA. 2025. U.S. Department of Veterans Affairs\nPractice Guideline",
+      ),
+    ).toEqual([
+      "VA/DoD Guideline for Asthma. VA. 2025. U.S. Department of Veterans Affairs",
+    ])
+    expect(
+      splitReferenceEntry(
+        "Management of Pregnancy (2023).\n\nColleen C. Blosser MSN RN, et al\n\nDepartment of Veterans Affairs\nPractice Guideline",
+      ).at(-1),
+    ).toBe("Department of Veterans Affairs")
+  })
+
+  it("ne produit jamais de source vide", () => {
+    expect(normalizeReferenceEntry("Review")).toEqual(["Review"])
+    expect(
+      normalizeReferenceEntry(
+        "1.\nFoo. Lancet. 2020;1:1-2.\nNew Research\n2.\nBar. BMJ. 2021;2:3-4.",
+      ),
+    ).toEqual(["Foo. Lancet. 2020;1:1-2.", "Bar. BMJ. 2021;2:3-4."])
   })
 
   it("retire une étiquette collée sans point et « New Research »", () => {
@@ -294,6 +366,18 @@ describe("normalizeReferenceEntry", () => {
 })
 
 describe("splitReferenceEntry (bouton « Découper »)", () => {
+  it("place le texte qui précède la numérotation dans son propre champ", () => {
+    expect(
+      splitReferenceEntry(
+        "Références\n1.\nSource A.\n\nLancet. 2020;1:1-2.\n2.\nSource B.\n\nBMJ. 2021;2:3-4.",
+      ),
+    ).toEqual([
+      "Références",
+      "Source A. Lancet. 2020;1:1-2.",
+      "Source B. BMJ. 2021;2:3-4.",
+    ])
+  })
+
   it("découpe d'abord selon les numéros", () => {
     expect(splitReferenceEntry(OE_COMPACT)).toEqual(
       normalizeReferenceEntry(OE_COMPACT),
@@ -350,6 +434,21 @@ describe("stabilisation : normaliser une deuxième fois ne change rien", () => {
       expect(tidyReference(tidyReference(entry))).toBe(tidyReference(entry))
     },
   )
+
+  it.each([
+    ["étiquette seule", "Review"],
+    ["source faite d'étiquettes", "1.\nFoo. Lancet. 2020.\n2.\nNew Research"],
+    ["préambule", "Références\n1.\nSource A.\n2.\nSource B."],
+    [
+      "source unique numérotée",
+      "1. Improving Care.\nDiabetes Care. 2025. ADA.",
+    ],
+  ])("cas limite : %s", (_, entry) => {
+    const once = normalizeReferenceEntry(entry)
+    expect(normalizeReferences(once)).toEqual(once)
+    const split = splitReferenceEntry(entry)
+    expect(normalizeReferences(split)).toEqual(split)
+  })
 
   it("un titre de chapitre « 1. … » découpé reste stable", () => {
     const once = normalizeReferenceEntry(
@@ -428,6 +527,24 @@ describe("diagnoseCorrection", () => {
     ])
   })
 
+  it("une source au format aéré, sans repère, ne déclenche pas d'avertissement", () => {
+    expect(
+      codes("Texte [1].", [
+        "Immunizations.\n\nAmerican Academy of Family Physicians (2025)",
+      ]),
+    ).toEqual([])
+  })
+
+  it("texte avant la première source numérotée", () => {
+    const pre =
+      "Références\n1.\nSource A. Lancet. 2020;1:1-2.\n2.\nSource B. BMJ. 2021;2:3-4."
+    expect(codes("Texte [1].", [pre])).toEqual([
+      ["multiple-sources", "references", 0],
+      ["text-before-numbering", "references", 0],
+    ])
+    expect(normalizeReferenceEntry(pre)).toEqual([pre])
+  })
+
   it("sous-liste FDA", () => {
     expect(codes("Texte [1].", [FDA])).toContainEqual([
       "fda-sublist",
@@ -466,6 +583,9 @@ describe("diagnoseCorrection", () => {
       explanation: "a texte [9].",
       references: [FDA],
     })
-    for (const issue of issues) expect(issue.message).toMatch(/[a-zé]/)
+    expect(issues.length).toBeGreaterThan(2)
+    for (const issue of issues) {
+      expect(issue.message).toMatch(/[àâçéèêîôû«]/)
+    }
   })
 })

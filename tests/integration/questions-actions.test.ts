@@ -210,18 +210,54 @@ describe("normalisation de la correction à l'enregistrement", () => {
     ])
   })
 
-  it("réenregistrer une question propre la laisse identique", async () => {
-    const clean = {
-      explanation: "Paragraphe [1].\n\nSuite : fin [2].",
-      references: ["Source A. Lancet. 2020.", "Source B. BMJ. 2021."],
+  it("réenregistrer ce qui a été enregistré ne change plus rien", async () => {
+    const nnbsp = "\u202f"
+    const nbsp = "\u00a0"
+    const dirty = {
+      explanation: `  Paragraphe${nnbsp}:  un   point.\n[1]\n\n\n\nSuite${nbsp}!\tfin[2].  `,
+      references: [
+        `  Source A${nnbsp}: Lancet. 2020.  `,
+        "Source B.\n\n\n\nBMJ. 2021.",
+      ],
     }
     const id = await makeOne()
-    await updateQuestion({ ...base, ...clean, id })
-    const res = await updateQuestion({ ...base, ...clean, id })
+    await updateQuestion({ ...base, ...dirty, id })
+    const first = await getQuestionById(id)
+    expect(first?.explanation).not.toBe(dirty.explanation)
+    expect(first?.explanation).toContain(`Paragraphe${nnbsp}:`)
+    expect(first?.explanation).toContain(`Suite${nbsp}!`)
+
+    const res = await updateQuestion({
+      ...base,
+      id,
+      explanation: first!.explanation,
+      references: first!.references ?? [],
+    })
     expect(res.success).toBe(true)
-    const q = await getQuestionById(id)
-    expect(q?.explanation).toBe(clean.explanation)
-    expect(q?.references).toEqual(clean.references)
+    const second = await getQuestionById(id)
+    expect(second?.explanation).toBe(first?.explanation)
+    expect(second?.references).toEqual(first?.references)
+  })
+
+  it("refuse une explication ou une référence vides une fois mises en forme", async () => {
+    const onlySpaces = await createQuestion({
+      ...base,
+      explanation: "\u202f \n\u00a0",
+    })
+    expect(onlySpaces).toEqual({
+      success: false,
+      error: "L'explication est requise",
+    })
+    const emptyReference = await createQuestion({
+      ...base,
+      references: [
+        "Medical Council of Canada | Le Conseil médical du Canada | 29",
+      ],
+    })
+    expect(emptyReference).toEqual({
+      success: false,
+      error: expect.stringMatching(/^Une référence est vide/),
+    })
   })
 
   it("refuse une référence de plus de 2 000 caractères", async () => {

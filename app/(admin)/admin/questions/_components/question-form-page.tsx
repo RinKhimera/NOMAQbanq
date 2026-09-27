@@ -18,7 +18,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { type ClipboardEvent, useEffect, useState } from "react"
+import { type ClipboardEvent, useEffect, useMemo, useState } from "react"
 import { type FieldErrors, useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { QuestionImageUploader } from "@/components/admin/question-image-uploader"
@@ -132,6 +132,13 @@ const buildDefaultValues = (q?: QuestionDetail): QuestionFormValues =>
       }
 
 type Correction = { explanation: string; references: string[] }
+
+/** Remplace le champ `index` par `entries` (plusieurs champs après un découpage). */
+const replaceAt = (list: string[], index: number, entries: string[]) => [
+  ...list.slice(0, index),
+  ...entries,
+  ...list.slice(index + 1),
+]
 
 /**
  * Le texte collé, et le champ tel que le collage brut l'aurait laissé. Seul le
@@ -302,10 +309,16 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
   } | null>(null)
 
   // Non bloquant : rien de tout ça n'entre dans la validation du formulaire.
-  const issues = diagnoseCorrection({
-    explanation: explanation ?? "",
-    references,
-  })
+  // Mis en cache : un bloc de références peut peser des centaines de milliers
+  // de caractères, et le formulaire se re-rend à chaque frappe d'une option.
+  const issues = useMemo(
+    () => diagnoseCorrection({ explanation: explanation ?? "", references }),
+    [explanation, references],
+  )
+  const canSplit = useMemo(
+    () => references.map((r) => splitReferenceEntry(r).length > 1),
+    [references],
+  )
   const explanationIssues = issues.filter((i) => i.field === "explanation")
   const referenceIssues = (index: number) =>
     issues.filter((i) => i.field === "references" && i.index === index)
@@ -348,14 +361,14 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
     const current = currentCorrection()
     setFormatUndo({
       field: "references",
-      raw: { ...current, references: references.with(index, raw) },
+      raw: { ...current, references: replaceAt(references, index, [raw]) },
     })
     applyCorrection({
       ...current,
-      references: references.toSpliced(
+      references: replaceAt(
+        references,
         index,
-        1,
-        ...(sources.length > 0 ? sources : [""]),
+        sources.length > 0 ? sources : [""],
       ),
     })
   }
@@ -365,10 +378,10 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
     setFormatUndo({ field: "references", raw: current })
     applyCorrection({
       ...current,
-      references: references.toSpliced(
+      references: replaceAt(
+        references,
         index,
-        1,
-        ...splitReferenceEntry(references[index]),
+        splitReferenceEntry(references[index]),
       ),
     })
   }
@@ -914,7 +927,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
                     className="min-h-20 resize-none border-gray-200 bg-white focus:border-teal-500 focus:ring-teal-500 dark:border-gray-700 dark:bg-gray-800"
                   />
                   <div className="mt-2 flex flex-col gap-1">
-                    {splitReferenceEntry(reference).length > 1 && (
+                    {canSplit[index] && (
                       <Button
                         type="button"
                         variant="ghost"

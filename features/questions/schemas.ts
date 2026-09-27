@@ -19,14 +19,18 @@ export const REFERENCE_MAX_LENGTH = 2000
 export const EXPLANATION_MAX_LENGTH = 20_000
 
 // Seule la partie sûre de la normalisation s'applique à l'enregistrement :
-// une référence n'est jamais découpée sans que l'admin l'ait vue.
+// une référence n'est jamais découpée sans que l'admin l'ait vue. La
+// normalisation garde les espaces fines insécables, d'où le `trim()` du test
+// de vacuité : un texte qui n'est fait que d'elles est vide.
+const hasText = (text: string) => text.trim() !== ""
+
 const explanationField = z
   .string()
   .transform(normalizeExplanation)
   .pipe(
     z
       .string()
-      .min(1, "L'explication est requise")
+      .refine(hasText, "L'explication est requise")
       .max(
         EXPLANATION_MAX_LENGTH,
         "L'explication dépasse 20 000 caractères : vérifiez qu'une page entière n'a pas été collée.",
@@ -39,7 +43,10 @@ const referenceField = z
   .pipe(
     z
       .string()
-      .min(1)
+      .refine(
+        hasText,
+        "Une référence est vide une fois mise en forme : retirez-la ou complétez-la.",
+      )
       .max(
         REFERENCE_MAX_LENGTH,
         "Une référence dépasse 2 000 caractères : elle contient sans doute plusieurs sources. Découpez-la avant d'enregistrer.",
