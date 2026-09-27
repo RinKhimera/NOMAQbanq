@@ -91,7 +91,9 @@ _Avoid_ : passation, session d'examen
 **Session d'entraînement** :
 Un lot de questions tiré pour un étudiant, en mode test (correction à la fin)
 ou tuteur (correction question par question), avec ses réponses et son score.
-_Avoid_ : quiz, practice
+L'étudiant la connaît sous le nom de **série** (« Nouvelle série », « Série en
+cours ») ; les deux mots désignent la même chose.
+_Avoid_ : quiz, practice, session (seul, ambigu avec la participation)
 
 **Mode tuteur** :
 Le mode d'entraînement où la correction se révèle dès qu'une réponse est
