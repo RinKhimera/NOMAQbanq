@@ -17,6 +17,7 @@ import { requireRole, requireSession } from "@/lib/auth-guards"
 import { isOpen } from "@/lib/exam-phase"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
+import { OPTION_CHANGED, optionChanged } from "../attempts/answer-refusal"
 import { closeAttempts } from "../attempts/close"
 import {
   type Refusal,
@@ -605,7 +606,7 @@ export const saveExamAnswer = async (
 ): Promise<{
   success: boolean
   error?: string
-  code?: RefusalCode
+  code?: RefusalCode | typeof OPTION_CHANGED
   serverNow?: number
 }> => {
   const session = await requireSession()
@@ -632,7 +633,10 @@ export const saveExamAnswer = async (
       // distinguerait une question de l'examen d'une question étrangère pour
       // un examen à venir ou un non-abonné.
       const [q] = await tx
-        .select({ correctAnswer: questions.correctAnswer })
+        .select({
+          correctAnswer: questions.correctAnswer,
+          options: questions.options,
+        })
         .from(examQuestions)
         .innerJoin(questions, eq(questions.id, examQuestions.questionId))
         .where(
@@ -647,6 +651,9 @@ export const saveExamAnswer = async (
           ok: false as const,
           message: "Cette question ne fait pas partie de l'examen.",
         }
+      }
+      if (!q.options.includes(selectedAnswer)) {
+        return { ok: false as const, optionChanged: true as const }
       }
       const isCorrect = q.correctAnswer === selectedAnswer
 
@@ -669,7 +676,8 @@ export const saveExamAnswer = async (
       return { ok: true as const }
     })
 
-    if (!outcome.ok) return refused(outcome)
+    if (!outcome.ok)
+      return "optionChanged" in outcome ? optionChanged() : refused(outcome)
     // Jamais isCorrect (anti-triche) ; `serverNow` ré-ancre le chrono client.
     return { success: true, serverNow: now }
   } catch (error) {

@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { questionExplanations, questionImages, questions } from "@/db/schema"
@@ -102,6 +102,18 @@ describe("createQuestion", () => {
     expect(res.success).toBe(false)
   })
 
+  it("refuse deux options identiques, casse et espaces de bord ignorés", async () => {
+    const question = `Doublon ${suffix}`
+    const res = await createQuestion({
+      ...base,
+      question,
+      options: ["A", "B", " b ", "C"],
+    })
+    expect(res).toMatchObject({ success: false })
+    const page = await getQuestionsWithFilters({ search: question, limit: 10 })
+    expect(page.items).toHaveLength(0)
+  })
+
   it("refuse un domaine hors de la liste officielle", async () => {
     const res = await createQuestion({ ...base, domain: "Gastroentérologie" })
     expect(res.success).toBe(false)
@@ -123,6 +135,46 @@ describe("updateQuestion", () => {
     const q = await getQuestionById(id)
     expect(q?.explanation).toBe("Nouvelle explication")
     expect(q?.correctAnswer).toBe("B")
+  })
+
+  it("garde le texte exact des options et de la clé : enregistrer ne reformule rien", async () => {
+    const id = await makeOne()
+    await db
+      .update(questions)
+      .set({ options: ["A ", "B	", "C", "D"], correctAnswer: "A " })
+      .where(eq(questions.id, id))
+    const res = await updateQuestion({
+      ...base,
+      id,
+      options: ["A ", "B	", "C", "D"],
+      correctAnswer: "A ",
+      explanation: "Explication seule modifiée",
+    })
+    expect(res.success).toBe(true)
+    const q = await getQuestionById(id)
+    expect(q?.options).toEqual(["A ", "B	", "C", "D"])
+    expect(q?.correctAnswer).toBe("A ")
+  })
+
+  it("refuse une option faite d'espaces", async () => {
+    const id = await makeOne()
+    const res = await updateQuestion({
+      ...base,
+      id,
+      options: ["A", "B", "C", "  "],
+    })
+    expect(res.success).toBe(false)
+  })
+
+  it("refuse d'enregistrer des options en double", async () => {
+    const id = await makeOne()
+    const res = await updateQuestion({
+      ...base,
+      id,
+      options: ["A", "B", "C", "a"],
+    })
+    expect(res.success).toBe(false)
+    expect((await getQuestionById(id))?.options).toEqual(["A", "B", "C", "D"])
   })
 
   it("refuse de déplacer une question vers un domaine hors liste", async () => {

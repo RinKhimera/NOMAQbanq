@@ -11,6 +11,7 @@ import type {
   QuizRevealPayload,
 } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
+import { answerNotSavedMessage } from "@/features/attempts/answer-refusal"
 import {
   completeTrainingSession,
   saveTrainingAnswer,
@@ -106,7 +107,7 @@ export const TrainingSessionClient = ({
         { retries: 1 }, // upsert idempotent — absorbe les micro-coupures
       )
       if (!res.success) {
-        toast.error("Réponse non enregistrée, réessayez.")
+        toast.error(answerNotSavedMessage(res))
         return { ok: false, error: res.error }
       }
       // En mode tuteur, renvoyer le reveal (correction, ou clé retenue)

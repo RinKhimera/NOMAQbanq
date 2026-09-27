@@ -437,6 +437,8 @@ export type QuestionAnswerBreakdown = {
   successRate: number | null
   /** Options dans l'ordre de la question ; `share` en % des réponses comptées. */
   options: { option: string; count: number; share: number; isKey: boolean }[]
+  /** Réponses dont le texte n'est plus une option de la question. */
+  formerWording: { count: number; share: number }
 }
 
 /**
@@ -457,14 +459,20 @@ export const getQuestionAnswerBreakdown = async (
     .from(questions)
     .where(eq(questions.id, questionId))
     .limit(1)
-  if (!question) return { answerCount: 0, successRate: null, options: [] }
+  if (!question)
+    return {
+      answerCount: 0,
+      successRate: null,
+      options: [],
+      formerWording: { count: 0, share: 0 },
+    }
 
   const stats = questionSuccessStats([questionId])
   const [counts, [summary]] = await Promise.all([
-    db.execute<{ selected_answer: string; n: number }>(sql`
-      select f.selected_answer, count(*)::int as n
+    db.execute<{ selected_answer: string; is_current: boolean; n: number }>(sql`
+      select f.selected_answer, f.is_current, count(*)::int as n
         from (${firstAnswersSql([questionId])}) f
-       group by f.selected_answer`),
+       group by f.selected_answer, f.is_current`),
     db
       .with(stats)
       .select({
@@ -474,7 +482,14 @@ export const getQuestionAnswerBreakdown = async (
       .from(stats),
   ])
 
-  const byOption = new Map(counts.rows.map((r) => [r.selected_answer, r.n]))
+  const byOption = new Map(
+    counts.rows
+      .filter((r) => r.is_current)
+      .map((r) => [r.selected_answer, r.n]),
+  )
+  const formerWordingCount = counts.rows
+    .filter((r) => !r.is_current)
+    .reduce((total, r) => total + r.n, 0)
   const answerCount = summary?.answerCount ?? 0
   const share = (n: number) =>
     answerCount === 0 ? 0 : Math.round((100 * n) / answerCount)
@@ -488,5 +503,9 @@ export const getQuestionAnswerBreakdown = async (
       share: share(byOption.get(option) ?? 0),
       isKey: option === question.correctAnswer,
     })),
+    formerWording: {
+      count: formerWordingCount,
+      share: share(formerWordingCount),
+    },
   }
 }

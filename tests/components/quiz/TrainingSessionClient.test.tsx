@@ -214,6 +214,25 @@ describe("TrainingSessionClient — réponses et fin de session", () => {
     )
   })
 
+  it("option modifiée depuis l'ouverture de la page : demande de recharger, pas de réessayer", async () => {
+    saveTrainingAnswer.mockResolvedValue({
+      success: false,
+      error: "Cette question a été modifiée. Rechargez la page.",
+      code: "OPTION_CHANGED",
+    })
+
+    const props = mount()
+    const res = await props.callbacks.onAnswer("q1", "A")
+
+    expect(res.ok).toBe(false)
+    expect(toastError).toHaveBeenCalledWith(
+      "Cette question a été modifiée. Rechargez la page.",
+    )
+    expect(toastError).not.toHaveBeenCalledWith(
+      "Réponse non enregistrée, réessayez.",
+    )
+  })
+
   it("redirige vers les résultats à la fin", async () => {
     completeTrainingSession.mockResolvedValue({ success: true, score: 100 })
 

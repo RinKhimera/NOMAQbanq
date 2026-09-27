@@ -254,6 +254,25 @@ describe("EvaluationClient — callbacks", () => {
     )
   })
 
+  it("option modifiée depuis l'ouverture de la page : demande de recharger, pas de réessayer", async () => {
+    renderClient()
+    vi.mocked(callAction).mockResolvedValue({
+      success: false,
+      error: "Cette question a été modifiée. Rechargez la page.",
+      code: "OPTION_CHANGED",
+    } as never)
+
+    const res = await lastCallbacks!.onAnswer!("q1", "A")
+
+    expect(res).toMatchObject({ ok: false })
+    expect(toast.error).toHaveBeenCalledWith(
+      "Cette question a été modifiée. Rechargez la page.",
+    )
+    expect(toast.error).not.toHaveBeenCalledWith(
+      "Réponse non enregistrée, réessayez.",
+    )
+  })
+
   it("relit l'heure du serveur en silence au réveil de l'onglet, et avale l'échec", async () => {
     renderClient()
     vi.mocked(callAction).mockResolvedValue({

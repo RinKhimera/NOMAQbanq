@@ -192,6 +192,7 @@ export const QuestionCard = ({
   isFlagged = false,
   onFlagToggle,
   userAnswer,
+  userVerdict,
   isExpanded = false,
   onToggleExpand,
   wasFlagged,
@@ -216,10 +217,19 @@ export const QuestionCard = ({
 
   const isKeyWithheld = !!question.keyWithheld
 
+  const matchesCurrentKey = userAnswer === question.correctAnswer
+  const isCorrect = userVerdict ?? matchesCurrentKey
+  const isFormerWording =
+    userAnswer != null && !question.options.includes(userAnswer)
+  const isKeyCorrected =
+    !isKeyWithheld &&
+    userVerdict !== undefined &&
+    !isFormerWording &&
+    userVerdict !== matchesCurrentKey
+
   const getCardStyles = () => {
     if (variant === "review") {
       const wasAnswered = userAnswer !== null
-      const isCorrect = userAnswer === question.correctAnswer
 
       if (!wasAnswered) {
         return "bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700"
@@ -237,7 +247,6 @@ export const QuestionCard = ({
 
   const getReviewStatus = () => {
     const wasAnswered = userAnswer !== null
-    const isCorrect = userAnswer === question.correctAnswer
 
     if (!wasAnswered) {
       return {
@@ -436,6 +445,14 @@ export const QuestionCard = ({
               {getReviewStatus().text}
             </span>
           </div>
+          {isKeyCorrected && (
+            <p
+              data-testid="key-corrected-notice"
+              className="text-xs text-amber-700 sm:text-sm dark:text-amber-300"
+            >
+              La clé de cette question a été corrigée depuis votre réponse
+            </p>
+          )}
         </div>
       )}
 
@@ -549,6 +566,25 @@ export const QuestionCard = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {isReviewVariant && isExpanded && isFormerWording && (
+        <div
+          data-testid="former-wording-answer"
+          className={cn(
+            "mt-3 rounded-xl border-2 p-3 text-sm",
+            isKeyWithheld
+              ? "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+              : isCorrect
+                ? "border-green-500 bg-green-100 text-green-800 dark:border-green-400 dark:bg-green-900/40 dark:text-green-200"
+                : "border-red-500 bg-red-100 text-red-800 dark:border-red-400 dark:bg-red-900/40 dark:text-red-200",
+          )}
+        >
+          <p className="text-xs font-semibold">
+            Votre réponse (texte de l&apos;option modifié depuis) :
+          </p>
+          <p className="mt-1 wrap-break-word">{userAnswer}</p>
+        </div>
+      )}
 
       {/* Explanation and references (for review variant when expanded).
           `effectiveExplanation` peut être undefined si la query lazy n'a pas

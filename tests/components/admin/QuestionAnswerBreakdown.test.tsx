@@ -19,6 +19,7 @@ describe("QuestionAnswerBreakdown", () => {
         { option: "Aspirine", count: 5, share: 42, isKey: true },
         { option: "Héparine", count: 7, share: 58, isKey: false },
       ],
+      formerWording: { count: 0, share: 0 },
     })
     render(<QuestionAnswerBreakdown questionId="q1" />)
 
@@ -32,6 +33,24 @@ describe("QuestionAnswerBreakdown", () => {
       "42 % de réussite sur 12 réponses",
     )
     expect(loadQuestionAnswerBreakdown).toHaveBeenCalledWith("q1")
+    expect(screen.queryByTestId("answer-share-former")).not.toBeInTheDocument()
+  })
+
+  it("ajoute la part « formulation antérieure » quand des réponses portent sur un ancien texte", async () => {
+    loadQuestionAnswerBreakdown.mockResolvedValue({
+      answerCount: 10,
+      successRate: 70,
+      options: [
+        { option: "Aspirine 100 mg", count: 0, share: 0, isKey: true },
+        { option: "Héparine", count: 3, share: 30, isKey: false },
+      ],
+      formerWording: { count: 7, share: 70 },
+    })
+    render(<QuestionAnswerBreakdown questionId="q1" />)
+
+    const former = await screen.findByTestId("answer-share-former")
+    expect(former).toHaveTextContent("Formulation antérieure")
+    expect(former).toHaveTextContent("70 % · 7")
   })
 
   it("signale un échantillon insuffisant sans afficher de taux", async () => {
@@ -42,6 +61,7 @@ describe("QuestionAnswerBreakdown", () => {
         { option: "Aspirine", count: 3, share: 75, isKey: true },
         { option: "Héparine", count: 1, share: 25, isKey: false },
       ],
+      formerWording: { count: 0, share: 0 },
     })
     render(<QuestionAnswerBreakdown questionId="q1" />)
 
@@ -55,6 +75,7 @@ describe("QuestionAnswerBreakdown", () => {
       answerCount: 0,
       successRate: null,
       options: [{ option: "Aspirine", count: 0, share: 0, isKey: true }],
+      formerWording: { count: 0, share: 0 },
     })
     render(<QuestionAnswerBreakdown questionId="q1" />)
 

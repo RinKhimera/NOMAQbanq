@@ -1,15 +1,23 @@
 import { z } from "zod"
 import { isMedicalDomain } from "@/constants"
 
+/**
+ * Texte non vide, enregistré tel quel. Options et clé ne sont jamais rognées :
+ * une réponse se compare au texte exact de l'option, et rogner à
+ * l'enregistrement reformulerait en silence des options existantes.
+ */
+const exactText = (message?: string) =>
+  z.string().refine((text) => text.trim().length > 0, message)
+
 // Champs communs création/édition. Une question QCM = 2..8 options, la bonne
 // réponse devant figurer parmi elles (refine sur l'objet complet).
 const questionFields = {
   question: z.string().trim().min(1, "La question est requise"),
   options: z
-    .array(z.string().trim().min(1))
+    .array(exactText("Une option ne peut pas être vide"))
     .min(2, "Au moins 2 options")
     .max(8, "Au plus 8 options"),
-  correctAnswer: z.string().trim().min(1, "La bonne réponse est requise"),
+  correctAnswer: exactText("La bonne réponse est requise"),
   explanation: z.string().trim().min(1, "L'explication est requise"),
   references: z.array(z.string().trim().min(1)).max(50).optional(),
   objectifCMC: z.string().trim().min(1, "L'objectif CMC est requis"),
@@ -29,15 +37,53 @@ const correctAnswerIssue = {
   path: ["correctAnswer"],
 }
 
+/**
+ * Premier doublon d'options, espaces de bord et casse ignorés : sinon la clé
+ * devient ambiguë et la répartition des réponses compte deux fois. Les
+ * options vides (cases non remplies du formulaire) ne comptent pas ; les
+ * index sont ceux du tableau reçu, donc les lettres affichées à l'admin.
+ */
+export const findDuplicateOption = (
+  options: string[],
+): { first: number; duplicate: number } | null => {
+  const seen = new Map<string, number>()
+  for (const [index, option] of options.entries()) {
+    const key = option.trim().toLocaleLowerCase("fr")
+    if (key === "") continue
+    const first = seen.get(key)
+    if (first !== undefined) return { first, duplicate: index }
+    seen.set(key, index)
+  }
+  return null
+}
+
+const optionLetter = (index: number) => String.fromCharCode(65 + index)
+
+/** Refus « options identiques » sur le champ des options, lettres à l'appui. */
+export const refineDistinctOptions = (
+  data: { options: string[] },
+  ctx: z.RefinementCtx,
+) => {
+  const found = findDuplicateOption(data.options)
+  if (!found) return
+  ctx.addIssue({
+    code: "custom",
+    path: ["options"],
+    message: `L'option ${optionLetter(found.duplicate)} est identique à l'option ${optionLetter(found.first)} (casse et espaces ignorés)`,
+  })
+}
+
 export const createQuestionSchema = z
   .object(questionFields)
   .refine(correctAnswerInOptions, correctAnswerIssue)
+  .superRefine(refineDistinctOptions)
 
 export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
 
 export const updateQuestionSchema = z
   .object({ id: z.string().min(1), ...questionFields })
   .refine(correctAnswerInOptions, correctAnswerIssue)
+  .superRefine(refineDistinctOptions)
 
 export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>
 

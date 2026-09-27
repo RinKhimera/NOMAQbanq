@@ -106,6 +106,29 @@ export function QuestionAnswerBreakdown({
                 </div>
               </li>
             ))}
+            {breakdown.formerWording.count > 0 && (
+              <li
+                data-testid="answer-share-former"
+                title="Réponses données sur un texte d'option modifié depuis"
+                className="space-y-1"
+              >
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="text-gray-500 italic dark:text-gray-400">
+                    Formulation antérieure
+                  </span>
+                  <span className="shrink-0 text-xs text-gray-500 tabular-nums">
+                    {breakdown.formerWording.share} %{" · "}
+                    {breakdown.formerWording.count}
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
+                  <div
+                    className="h-full rounded-full bg-gray-300 dark:bg-gray-600"
+                    style={{ width: `${breakdown.formerWording.share}%` }}
+                  />
+                </div>
+              </li>
+            )}
           </ul>
         </>
       )}

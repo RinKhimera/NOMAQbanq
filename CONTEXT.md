@@ -9,8 +9,9 @@ fixe les termes du domaine ; l'implémentation vit dans le code.
 ### Banque de questions
 
 **Question** :
-Un QCM de la banque, avec ses options, sa clé de réponse et sa correction. Une
-même question peut servir dans plusieurs examens et dans l'entraînement.
+Un QCM de la banque, avec ses options (distinctes deux à deux), sa clé de
+réponse et sa correction. Une même question peut servir dans plusieurs examens
+et dans l'entraînement.
 _Avoid_ : item, QCM (le mot désigne le format, pas l'entité)
 
 **Clé de réponse** :
@@ -155,17 +156,46 @@ est ouvert : la maîtrise peut baisser au démarrage d'un examen, jamais pendant
 domaine jamais pratiqué n'a pas de maîtrise, pas une maîtrise de 0 %.
 _Avoid_ : score par domaine, taux de réussite (réservé à la question)
 
+**Verdict d'une réponse** :
+Juste ou fausse, fixé au moment où l'étudiant répond, contre la clé de ce
+moment-là, et jamais réécrit. Scores, maîtrise par domaine, percentile et
+correction affichée à l'étudiant lisent ce verdict ; seul le taux de réussite
+d'une question rejuge une réponse sur la clé actuelle.
+_Avoid_ : justesse recalculée, is_correct
+
+**Clé corrigée** :
+Une clé de réponse remplacée par une AUTRE option de la question, parce
+qu'elle était erronée. Le taux de réussite recompte alors l'historique ; le
+verdict des réponses passées, et donc les scores, ne bougent pas. L'étudiant
+voit la clé actuelle, son propre verdict, et la mention que la clé a été
+corrigée depuis sa réponse.
+_Avoid_ : clé modifiée (ambigu avec une reformulation)
+
+**Option reformulée** :
+Une option dont le texte a changé sans changer de sens (coquille, précision).
+Une réponse enregistrée sur l'ancien texte porte sur une **formulation
+antérieure** : elle garde son verdict partout, y compris dans le taux de
+réussite, et l'étudiant voit son ancien texte tel quel. Limite assumée : si
+l'option-clé est reformulée puis la clé corrigée (dans la même édition ou
+plus tard), les réponses sur l'ancien texte de la clé restent justes.
+_Avoid_ : option modifiée, clé reformulée (quand on parle de l'effet sur le taux)
+
 **Taux de réussite d'une question** :
 La part de réponses justes à une question, calculée sur la PREMIÈRE réponse de
 chaque étudiant (entraînement et examens), hors comptes admin et supprimés.
+Une réponse est jugée sur la clé actuelle si son option existe encore, sur son
+verdict si elle porte sur une formulation antérieure.
 Mesure la difficulté de la question, pas le niveau d'un étudiant. Non
 significatif en dessous d'un nombre minimal de réponses.
 _Avoid_ : difficulté, maîtrise
 
 **Répartition des réponses** :
 La part de chaque option parmi les réponses comptées dans le taux de réussite
-d'une question. Une option autre que la clé plus choisie que la clé signale
-une clé de réponse probablement erronée.
+d'une question, plus une part « formulation antérieure » qui regroupe les
+réponses sur une option reformulée ; les parts couvrent toutes les réponses
+comptées (100 % à l'arrondi près). Une option actuelle autre que la clé, plus
+choisie que les réponses justes, signale une clé de réponse probablement
+erronée ; la formulation antérieure n'entre pas dans cette comparaison.
 _Avoid_ : distribution des distracteurs
 
 **Date d'une réponse** :

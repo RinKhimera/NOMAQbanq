@@ -317,7 +317,7 @@ describe("createTrainingSession", () => {
 
 describe("saveTrainingAnswer", () => {
   const input = { sessionId: "s1", questionId: "q1", selectedAnswer: "A" }
-  const item = { itemId: "i1", correctAnswer: "A" }
+  const item = { itemId: "i1", correctAnswer: "A", options: ["A", "B"] }
 
   it("entree invalide → refus avant lecture", async () => {
     const res = await saveTrainingAnswer({ ...input, selectedAnswer: "" })
@@ -354,6 +354,18 @@ describe("saveTrainingAnswer", () => {
     })
   })
 
+  it("texte hors options → refus OPTION_CHANGED, aucune ecriture", async () => {
+    setRows({ trainingSessionItems: [item] })
+    expect(
+      await saveTrainingAnswer({ ...input, selectedAnswer: "A " }),
+    ).toMatchObject({
+      success: false,
+      code: "OPTION_CHANGED",
+      error: expect.stringContaining("Rechargez"),
+    })
+    expect(state.set).toBeUndefined()
+  })
+
   it("mode test : enregistre la reponse sans jamais exposer isCorrect (anti-triche)", async () => {
     setRows({ trainingSessionItems: [item] })
     expect(await saveTrainingAnswer(input)).toEqual({ success: true })
@@ -380,7 +392,9 @@ describe("saveTrainingAnswer", () => {
   it("mode tuteur sans explication enregistree → champs omis", async () => {
     mocks.requireAttempt.mockResolvedValueOnce(openAttempt({ mode: "tutor" }))
     setRows({
-      trainingSessionItems: [{ itemId: "i1", correctAnswer: "B" }],
+      trainingSessionItems: [
+        { itemId: "i1", correctAnswer: "B", options: ["A", "B"] },
+      ],
       questionExplanations: [],
     })
     expect(await saveTrainingAnswer(input)).toEqual({

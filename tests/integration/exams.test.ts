@@ -375,6 +375,13 @@ describe("Passation sans pause (scoring serveur)", () => {
       questionId: ids[3],
       selectedAnswer: "B",
     })
+    // Hors options : refusé sans écriture (l'admin voit 4 réponses, plus bas).
+    const orphan = await saveExamAnswer({
+      examId: noPauseId,
+      questionId: ids[4],
+      selectedAnswer: "Z",
+    })
+    expect(orphan.success).toBe(false)
 
     const res = await finalizeExam({ examId: noPauseId })
     // Le décompte des justes ne repart pas vers le navigateur : lu en base.
@@ -458,6 +465,34 @@ describe("Machine de pause", () => {
     asStudent()
     const res = await pauseExam({ examId: pauseId })
     expect(res.success).toBe(false)
+  })
+
+  it("saveExamAnswer accepte le texte exact d'une option, espace de fin compris", async () => {
+    asStudent()
+    const questionId = pauseOrderedIds[0]
+    await db
+      .update(questions)
+      .set({ options: ["A ", "B", "C", "D"], correctAnswer: "A " })
+      .where(eq(questions.id, questionId))
+    try {
+      const trimmed = await saveExamAnswer({
+        examId: pauseId,
+        questionId,
+        selectedAnswer: "A",
+      })
+      expect(trimmed.success).toBe(false)
+      const exact = await saveExamAnswer({
+        examId: pauseId,
+        questionId,
+        selectedAnswer: "A ",
+      })
+      expect(exact.success).toBe(true)
+    } finally {
+      await db
+        .update(questions)
+        .set({ options: ["A", "B", "C", "D"], correctAnswer: "A" })
+        .where(eq(questions.id, questionId))
+    }
   })
 
   it("saveExamAnswer + finalizeExam → 100 après reprise", async () => {

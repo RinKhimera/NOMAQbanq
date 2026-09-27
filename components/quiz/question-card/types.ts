@@ -76,6 +76,12 @@ export type QuestionCardProps = {
   // === Review mode props (variant="review") ===
   /** User's submitted answer for review */
   userAnswer?: string | null
+  /**
+   * Verdict enregistré de la réponse, fixé contre la clé du moment : fait
+   * foi sur la clé actuelle, comme le score. Absent (quiz public, aperçu),
+   * la carte compare la réponse à la clé actuelle.
+   */
+  userVerdict?: boolean
   /** Whether the question review is expanded */
   isExpanded?: boolean
   /** Toggle expand/collapse callback */
