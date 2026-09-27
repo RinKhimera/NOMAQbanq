@@ -33,17 +33,21 @@ describe("options distinctes deux à deux", () => {
       "doublon aux espaces de bord près",
       ["Amoxicilline", "Doxycycline", " Doxycycline\t", "Céfazoline"],
     ],
-  ])("la création refuse un %s, sur le champ des options", (_, options) => {
-    const issues = issuesOf(
-      createQuestionSchema.safeParse({ ...question, options }),
-    )
-    expect(issues).toContainEqual(
-      expect.objectContaining({
-        path: ["options"],
-        message: expect.stringContaining("identiques"),
-      }),
-    )
-  })
+  ])(
+    "la création refuse un %s, en désignant les deux options",
+    (_, options) => {
+      const issues = issuesOf(
+        createQuestionSchema.safeParse({ ...question, options }),
+      )
+      expect(issues).toContainEqual(
+        expect.objectContaining({
+          path: ["options"],
+          message:
+            "L'option C est identique à l'option B (casse et espaces ignorés)",
+        }),
+      )
+    },
+  )
 
   it("l'édition refuse un doublon", () => {
     expect(
@@ -73,7 +77,8 @@ describe("options distinctes deux à deux", () => {
     expect(issuesOf(duplicate)).toContainEqual(
       expect.objectContaining({
         path: ["options"],
-        message: expect.stringContaining("identiques"),
+        message:
+          "L'option C est identique à l'option B (casse et espaces ignorés)",
       }),
     )
     expect(

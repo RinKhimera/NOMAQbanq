@@ -1,8 +1,5 @@
 import * as z from "zod"
-import {
-  distinctOptionsIssue,
-  hasDistinctOptions,
-} from "@/features/questions/schemas"
+import { refineDistinctOptions } from "@/features/questions/schemas"
 
 export const questionFormSchema = z
   .object({
@@ -29,11 +26,7 @@ export const questionFormSchema = z
       path: ["options"],
     },
   )
-  .refine(
-    (data) =>
-      hasDistinctOptions(data.options.filter((opt) => opt.trim() !== "")),
-    distinctOptionsIssue,
-  )
+  .superRefine(refineDistinctOptions)
 
 export type QuestionFormValues = z.infer<typeof questionFormSchema>
 

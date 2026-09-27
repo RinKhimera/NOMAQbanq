@@ -467,6 +467,34 @@ describe("Machine de pause", () => {
     expect(res.success).toBe(false)
   })
 
+  it("saveExamAnswer accepte le texte exact d'une option, espace de fin compris", async () => {
+    asStudent()
+    const questionId = pauseOrderedIds[0]
+    await db
+      .update(questions)
+      .set({ options: ["A ", "B", "C", "D"], correctAnswer: "A " })
+      .where(eq(questions.id, questionId))
+    try {
+      const trimmed = await saveExamAnswer({
+        examId: pauseId,
+        questionId,
+        selectedAnswer: "A",
+      })
+      expect(trimmed.success).toBe(false)
+      const exact = await saveExamAnswer({
+        examId: pauseId,
+        questionId,
+        selectedAnswer: "A ",
+      })
+      expect(exact.success).toBe(true)
+    } finally {
+      await db
+        .update(questions)
+        .set({ options: ["A", "B", "C", "D"], correctAnswer: "A" })
+        .where(eq(questions.id, questionId))
+    }
+  })
+
   it("saveExamAnswer + finalizeExam → 100 après reprise", async () => {
     asStudent()
     for (const qId of pauseOrderedIds) {

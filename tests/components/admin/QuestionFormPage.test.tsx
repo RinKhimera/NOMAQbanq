@@ -198,21 +198,48 @@ describe("QuestionFormPage — options", () => {
     )
   })
 
-  it("deux options identiques : pas d'envoi, champs d'options en rouge et message sur le champ", async () => {
+  it("deux options identiques : pas d'envoi, les deux options en rouge et désignées dans le message", async () => {
     const user = userEvent.setup()
     await openEdit(makeQuestion({ options: ["A", "a", "C", "D"] }))
     await submit(user)
 
     expect(
       await screen.findByText(
-        "Deux options sont identiques (casse et espaces ignorés)",
+        "L'option B est identique à l'option A (casse et espaces ignorés)",
       ),
     ).toBeInTheDocument()
     expect(updateQuestion).not.toHaveBeenCalled()
-    expect(screen.getByPlaceholderText("Option B")).toHaveAttribute(
-      "aria-invalid",
-      "true",
-    )
+    for (const [placeholder, invalid] of [
+      ["Option A", "true"],
+      ["Option B", "true"],
+      ["Option C", "false"],
+    ])
+      expect(screen.getByPlaceholderText(placeholder)).toHaveAttribute(
+        "aria-invalid",
+        invalid,
+      )
+  })
+
+  it("amène les options à l'écran", async () => {
+    const scrolled: Element[] = []
+    const scrollIntoView = vi
+      .spyOn(Element.prototype, "scrollIntoView")
+      .mockImplementation(function (this: Element) {
+        scrolled.push(this)
+      })
+    try {
+      const user = userEvent.setup()
+      await openEdit(makeQuestion({ options: ["A", "a", "C", "D"] }))
+      await submit(user)
+
+      await waitFor(() =>
+        expect(scrolled).toContain(
+          document.querySelector("[data-field=options]"),
+        ),
+      )
+    } finally {
+      scrollIntoView.mockRestore()
+    }
   })
 
   it("le message disparaît dès que le doublon est corrigé", async () => {
@@ -220,7 +247,7 @@ describe("QuestionFormPage — options", () => {
     await openEdit(makeQuestion({ options: ["A", "a", "C", "D"] }))
     await submit(user)
     await screen.findByText(
-      "Deux options sont identiques (casse et espaces ignorés)",
+      "L'option B est identique à l'option A (casse et espaces ignorés)",
     )
 
     await user.type(screen.getByPlaceholderText("Option B"), "2")
@@ -228,7 +255,7 @@ describe("QuestionFormPage — options", () => {
     await waitFor(() =>
       expect(
         screen.queryByText(
-          "Deux options sont identiques (casse et espaces ignorés)",
+          "L'option B est identique à l'option A (casse et espaces ignorés)",
         ),
       ).not.toBeInTheDocument(),
     )

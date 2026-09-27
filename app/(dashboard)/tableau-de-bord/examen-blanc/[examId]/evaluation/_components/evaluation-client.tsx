@@ -22,6 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { SkeletonCard, SkeletonText } from "@/components/ui/skeleton-patterns"
 import { Spinner } from "@/components/ui/spinner"
+import { answerNotSavedMessage } from "@/features/attempts/answer-refusal"
 import {
   finalizeExam,
   pauseExam,
@@ -139,11 +140,7 @@ export function EvaluationClient({
           toast.error("Temps écoulé : cette réponse n'a pas été enregistrée.")
           return { ok: false, error, timeUp: true }
         }
-        toast.error(
-          "code" in res && res.code === "OPTION_CHANGED"
-            ? error
-            : "Réponse non enregistrée, réessayez.",
-        )
+        toast.error(answerNotSavedMessage(res))
         return { ok: false, error }
       }
       // Anti-triche : ne JAMAIS renvoyer isCorrect ni reveal

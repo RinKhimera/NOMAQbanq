@@ -17,12 +17,11 @@ import { requireRole, requireSession } from "@/lib/auth-guards"
 import { isOpen } from "@/lib/exam-phase"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
+import { OPTION_CHANGED, optionChanged } from "../attempts/answer-refusal"
 import { closeAttempts } from "../attempts/close"
 import {
-  OPTION_CHANGED,
   type Refusal,
   type RefusalCode,
-  optionChanged,
   refusalMessage,
   requireAttempt,
 } from "../attempts/guard"

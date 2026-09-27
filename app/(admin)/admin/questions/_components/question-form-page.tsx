@@ -16,7 +16,7 @@ import {
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { useForm, useWatch } from "react-hook-form"
+import { type FieldErrors, useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { QuestionImageUploader } from "@/components/admin/question-image-uploader"
 import { Badge } from "@/components/ui/badge"
@@ -55,6 +55,7 @@ import {
   updateQuestion,
 } from "@/features/questions/actions"
 import type { QuestionDetail } from "@/features/questions/dal"
+import { findDuplicateOption } from "@/features/questions/schemas"
 import { cdnUrl } from "@/lib/cdn"
 import { cn } from "@/lib/utils"
 import {
@@ -377,17 +378,19 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
   }
 
   // Échec de validation zod : plus jamais silencieux. On prévient via toast et on
-  // amène le 1er champ invalide à l'écran — le bouton submit est sticky en bas, et
-  // les messages d'erreur (ex. « Le domaine est obligatoire ») peuvent être hors
-  // champ de vision. `aria-invalid` est posé par `FormControl` sur chaque champ.
-  const onError = () => {
+  // amène le 1er champ en erreur à l'écran — le bouton submit est sticky en bas,
+  // et les messages d'erreur peuvent être hors champ de vision. Cible trouvée
+  // par le nom du champ, présent avant l'échec : `aria-invalid` n'est posé
+  // qu'à un rendu ultérieur, que `onError` ne voit pas.
+  const onError = (errors: FieldErrors<QuestionFormValues>) => {
     toast.error("Veuillez corriger les champs en rouge.")
-    if (typeof document === "undefined") return
-    const firstInvalid = document.querySelector<HTMLElement>(
-      '[aria-invalid="true"]',
+    const field = Object.keys(errors)[0]
+    if (!field || typeof document === "undefined") return
+    const target = document.querySelector<HTMLElement>(
+      `[name="${field}"], [data-field="${field}"]`,
     )
-    firstInvalid?.scrollIntoView?.({ behavior: "smooth", block: "center" })
-    firstInvalid?.focus?.({ preventScroll: true })
+    target?.scrollIntoView?.({ behavior: "smooth", block: "center" })
+    target?.focus?.({ preventScroll: true })
   }
 
   return (
@@ -484,55 +487,69 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
             <FormField
               control={form.control}
               name="options"
-              render={({ fieldState }) => (
-                <FormItem>
-                  <div className="space-y-3">
-                    {options.map((option, index) => (
-                      <div key={index} className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            option.trim() &&
-                            form.setValue("correctAnswer", option)
-                          }
-                          disabled={!option.trim()}
-                          className={cn(
-                            "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 font-bold transition-all",
-                            correctAnswer === option && option.trim()
-                              ? "cursor-pointer border-emerald-500 bg-emerald-500 text-white"
-                              : option.trim()
-                                ? "cursor-pointer border-gray-300 bg-white text-gray-600 hover:border-violet-400 hover:bg-violet-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-                                : "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-600",
-                          )}
-                        >
-                          {correctAnswer === option && option.trim() ? (
-                            <CircleCheckBig className="h-5 w-5" />
-                          ) : (
-                            String.fromCharCode(65 + index)
-                          )}
-                        </button>
-                        <Input
-                          placeholder={`Option ${String.fromCharCode(65 + index)}`}
-                          value={option}
-                          aria-invalid={!!fieldState.error}
-                          onChange={(e) => updateOption(index, e.target.value)}
-                          className={cn(
-                            "border-gray-200 bg-white transition-colors focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800",
-                            correctAnswer === option && option.trim()
-                              ? "border-emerald-400 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-900/20"
-                              : "",
-                          )}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <FormDescription className="mt-4 text-xs">
-                    Cliquez sur la lettre pour marquer la bonne réponse. Minimum
-                    4 options, maximum 5.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ fieldState }) => {
+                // Doublon : rougir les deux options en cause ; autre erreur
+                // (moins de 4 options) : toute la liste.
+                const duplicate = fieldState.error
+                  ? findDuplicateOption(options)
+                  : null
+                const isInvalid = (index: number) =>
+                  !!fieldState.error &&
+                  (!duplicate ||
+                    index === duplicate.first ||
+                    index === duplicate.duplicate)
+                return (
+                  <FormItem data-field="options">
+                    <div className="space-y-3">
+                      {options.map((option, index) => (
+                        <div key={index} className="flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              option.trim() &&
+                              form.setValue("correctAnswer", option)
+                            }
+                            disabled={!option.trim()}
+                            className={cn(
+                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border-2 font-bold transition-all",
+                              correctAnswer === option && option.trim()
+                                ? "cursor-pointer border-emerald-500 bg-emerald-500 text-white"
+                                : option.trim()
+                                  ? "cursor-pointer border-gray-300 bg-white text-gray-600 hover:border-violet-400 hover:bg-violet-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                                  : "cursor-not-allowed border-gray-200 bg-gray-50 text-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-600",
+                            )}
+                          >
+                            {correctAnswer === option && option.trim() ? (
+                              <CircleCheckBig className="h-5 w-5" />
+                            ) : (
+                              String.fromCharCode(65 + index)
+                            )}
+                          </button>
+                          <Input
+                            placeholder={`Option ${String.fromCharCode(65 + index)}`}
+                            value={option}
+                            aria-invalid={isInvalid(index)}
+                            onChange={(e) =>
+                              updateOption(index, e.target.value)
+                            }
+                            className={cn(
+                              "border-gray-200 bg-white transition-colors focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800",
+                              correctAnswer === option && option.trim()
+                                ? "border-emerald-400 bg-emerald-50 dark:border-emerald-600 dark:bg-emerald-900/20"
+                                : "",
+                            )}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <FormDescription className="mt-4 text-xs">
+                      Cliquez sur la lettre pour marquer la bonne réponse.
+                      Minimum 4 options, maximum 5.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )
+              }}
             />
           </CardContent>
         </Card>

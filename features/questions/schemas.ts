@@ -38,31 +38,52 @@ const correctAnswerIssue = {
 }
 
 /**
- * Options distinctes deux à deux, espaces de bord et casse ignorés : sinon la
- * clé devient ambiguë et la répartition des réponses compte deux fois.
+ * Premier doublon d'options, espaces de bord et casse ignorés : sinon la clé
+ * devient ambiguë et la répartition des réponses compte deux fois. Les
+ * options vides (cases non remplies du formulaire) ne comptent pas ; les
+ * index sont ceux du tableau reçu, donc les lettres affichées à l'admin.
  */
-export const hasDistinctOptions = (options: string[]) => {
-  const keys = options.map((option) => option.trim().toLocaleLowerCase("fr"))
-  return new Set(keys).size === keys.length
+export const findDuplicateOption = (
+  options: string[],
+): { first: number; duplicate: number } | null => {
+  const seen = new Map<string, number>()
+  for (const [index, option] of options.entries()) {
+    const key = option.trim().toLocaleLowerCase("fr")
+    if (key === "") continue
+    const first = seen.get(key)
+    if (first !== undefined) return { first, duplicate: index }
+    seen.set(key, index)
+  }
+  return null
 }
-export const distinctOptionsIssue = {
-  message: "Deux options sont identiques (casse et espaces ignorés)",
-  path: ["options"],
+
+const optionLetter = (index: number) => String.fromCharCode(65 + index)
+
+/** Refus « options identiques » sur le champ des options, lettres à l'appui. */
+export const refineDistinctOptions = (
+  data: { options: string[] },
+  ctx: z.RefinementCtx,
+) => {
+  const found = findDuplicateOption(data.options)
+  if (!found) return
+  ctx.addIssue({
+    code: "custom",
+    path: ["options"],
+    message: `L'option ${optionLetter(found.duplicate)} est identique à l'option ${optionLetter(found.first)} (casse et espaces ignorés)`,
+  })
 }
-const optionsDistinct = (d: { options: string[] }) =>
-  hasDistinctOptions(d.options)
 
 export const createQuestionSchema = z
   .object(questionFields)
   .refine(correctAnswerInOptions, correctAnswerIssue)
-  .refine(optionsDistinct, distinctOptionsIssue)
+  .superRefine(refineDistinctOptions)
 
 export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
 
 export const updateQuestionSchema = z
   .object({ id: z.string().min(1), ...questionFields })
   .refine(correctAnswerInOptions, correctAnswerIssue)
-  .refine(optionsDistinct, distinctOptionsIssue)
+  .superRefine(refineDistinctOptions)
 
 export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>
 

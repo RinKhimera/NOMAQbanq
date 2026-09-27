@@ -15,14 +15,9 @@ import { requireSession } from "@/lib/auth-guards"
 import { getPgErrorCode } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
+import { OPTION_CHANGED, optionChanged } from "../attempts/answer-refusal"
 import { closeAttempts } from "../attempts/close"
-import {
-  OPTION_CHANGED,
-  type Refusal,
-  optionChanged,
-  refusalMessage,
-  requireAttempt,
-} from "../attempts/guard"
+import { type Refusal, refusalMessage, requireAttempt } from "../attempts/guard"
 import { hasAccess } from "../payments/dal"
 import { lockFor, viewerOf } from "../questions/answer-key-lock"
 import {
