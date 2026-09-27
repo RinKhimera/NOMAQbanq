@@ -1,6 +1,11 @@
 import { z } from "zod"
 import { isMedicalDomain } from "@/constants"
-import { normalizeExplanation, tidyReference } from "./normalization"
+import {
+  EXPLANATION_MAX_LENGTH,
+  REFERENCE_MAX_LENGTH,
+  normalizeExplanation,
+  tidyReference,
+} from "./normalization"
 
 /**
  * Texte non vide, enregistré tel quel. Options et clé ne sont jamais rognées :
@@ -10,13 +15,9 @@ import { normalizeExplanation, tidyReference } from "./normalization"
 const exactText = (message?: string) =>
   z.string().refine((text) => text.trim().length > 0, message)
 
-/**
- * Plafonds de la correction. La plus longue source légitime observée fait 737
- * caractères, la plus longue explication 11 902 (develop, 2026-09-27) : au-delà,
- * c'est un bloc de sources ou une page entière collés dans un seul champ.
- */
-export const REFERENCE_MAX_LENGTH = 2000
-export const EXPLANATION_MAX_LENGTH = 20_000
+// « 20 000 » : espace simple, pas l'espace insécable de toLocaleString, pour
+// un message identique quel que soit le moteur.
+const formatCount = (n: number) => String(n).replace(/\B(?=(\d{3})+$)/g, " ")
 
 // Seule la partie sûre de la normalisation s'applique à l'enregistrement :
 // une référence n'est jamais découpée sans que l'admin l'ait vue. La
@@ -33,7 +34,7 @@ const explanationField = z
       .refine(hasText, "L'explication est requise")
       .max(
         EXPLANATION_MAX_LENGTH,
-        "L'explication dépasse 20 000 caractères : vérifiez qu'une page entière n'a pas été collée.",
+        `L'explication dépasse ${formatCount(EXPLANATION_MAX_LENGTH)} caractères : vérifiez qu'une page entière n'a pas été collée.`,
       ),
   )
 
@@ -49,7 +50,7 @@ const referenceField = z
       )
       .max(
         REFERENCE_MAX_LENGTH,
-        "Une référence dépasse 2 000 caractères : elle contient sans doute plusieurs sources. Découpez-la avant d'enregistrer.",
+        `Une référence dépasse ${formatCount(REFERENCE_MAX_LENGTH)} caractères : elle contient sans doute plusieurs sources. Découpez-la avant d'enregistrer.`,
       ),
   )
 

@@ -1,8 +1,8 @@
 /**
  * Normalisation d'une correction collée (explication, références) : remise en
  * forme par règles fixes, sans jamais changer un mot du contenu, et stable
- * (l'appliquer à son propre résultat ne change rien). Module pur, partagé par
- * le formulaire admin, l'enregistrement serveur et le script de reprise.
+ * (l'appliquer à son propre résultat ne change rien). Module pur, sans base ni
+ * React : le navigateur et le serveur l'appliquent à l'identique.
  *
  * Deux niveaux :
  * - la partie SÛRE (`normalizeExplanation`, `tidyReference`) touche aux espaces,
@@ -13,6 +13,18 @@
  *   en silence à l'enregistrement.
  * Ce que les règles ne peuvent pas trancher est signalé par `diagnoseCorrection`.
  */
+
+export type Correction = { explanation: string; references: string[] }
+
+/**
+ * Longueurs d'une correction. La plus longue source légitime observée fait 737
+ * caractères, la plus longue explication 11 902 (develop, 2026-09-27) : au-delà
+ * du plafond, c'est un bloc de sources ou une page entière collés dans un seul
+ * champ. L'avertissement signale bien avant le refus.
+ */
+export const REFERENCE_MAX_LENGTH = 2000
+export const EXPLANATION_MAX_LENGTH = 20_000
+const REFERENCE_WARN_LENGTH = 1000
 
 // Espaces « horizontaux » seulement : les espaces fines insécables (U+202F)
 // devant la ponctuation française ne sont jamais touchées, d'où l'absence de
@@ -154,8 +166,6 @@ type NumberedParse = {
   preambleText: string
   /** Numéro hors suite (trou, doublon) dans le style de la liste. */
   gap: boolean
-  /** Du texte précède la première source numérotée. */
-  preamble: boolean
 }
 
 /**
@@ -170,7 +180,7 @@ function parseNumbered(text: string): NumberedParse {
   const before: string[] = []
   let gap = false
   if (!text.includes("\n")) {
-    return { sources: [], style, preambleText: "", gap, preamble: false }
+    return { sources: [], style, preambleText: "", gap }
   }
 
   for (const line of text.split("\n")) {
@@ -198,7 +208,6 @@ function parseNumbered(text: string): NumberedParse {
     style,
     preambleText,
     gap,
-    preamble: preambleText !== "",
   }
 }
 
@@ -210,16 +219,20 @@ const SOURCE_END =
   /\b(?:19|20)\d{2};|(?<=\. )(?:19|20)\d{2}\. (?=\p{Lu})|; (?:19|20)\d{2}\.(?!\d)/gu
 const sourceEnds = (text: string) => text.match(SOURCE_END)?.length ?? 0
 
+/** Plusieurs sources numérotées dans l'ordre, qu'un texte les précède ou non. */
+const isNumberedList = (parse: NumberedParse) =>
+  !parse.gap && parse.sources.length > 1
+
 /**
- * Une seule source « N. Titre » n'est pas une liste : son numéro peut être
- * celui d'un chapitre (« 1. Improving Care… », ADA). Seul un « 1. » ou « [1] »
- * seul en tête est à coup sûr un numéro de liste.
+ * Découpage sans intervention : une liste sans texte devant, ou une source
+ * unique précédée d'un « 1. » ou « [1] » seul. Une seule source « N. Titre »
+ * n'est pas une liste : son numéro peut être celui d'un chapitre
+ * (« 1. Improving Care… », ADA).
  */
-const splittable = (parse: NumberedParse) =>
-  parse.sources.length > 0 &&
-  !parse.gap &&
-  !parse.preamble &&
-  (parse.sources.length > 1 || parse.style !== "inline")
+const splitsOnPaste = (parse: NumberedParse) =>
+  parse.preambleText === "" &&
+  (isNumberedList(parse) ||
+    (parse.sources.length === 1 && !parse.gap && parse.style !== "inline"))
 
 /**
  * Plusieurs lignes non numérotées ne sont jointes que si elles portent UN
@@ -250,8 +263,10 @@ export function normalizeReferenceEntry(entry: string): string[] {
   const text = tidy(entry)
   if (text === "") return []
   const parse = parseNumbered(text)
-  if (splittable(parse)) return nonEmpty(parse.sources.map(cleanSource))
-  if (parse.gap || parse.preamble || !isOneSource(text)) return [text]
+  if (splitsOnPaste(parse)) return nonEmpty(parse.sources.map(cleanSource))
+  if (parse.gap || parse.preambleText !== "" || !isOneSource(text)) {
+    return [text]
+  }
   return nonEmpty([cleanSource(text)])
 }
 
@@ -270,7 +285,7 @@ export function splitReferenceEntry(entry: string): string[] {
   const text = tidy(entry)
   if (text === "") return []
   const parse = parseNumbered(text)
-  if (!parse.gap && parse.sources.length > 1) {
+  if (isNumberedList(parse)) {
     return nonEmpty(
       [parse.preambleText, ...parse.sources].map((part) =>
         part === "" ? "" : cleanSource(part),
@@ -305,9 +320,6 @@ export type FormatIssue = {
   message: string
 }
 
-/** Au-delà, une entrée contient presque sûrement plusieurs sources ou autre chose. */
-export const REFERENCE_WARN_LENGTH = 1000
-
 const collapse = (text: string) => text.replace(/\s+/g, " ").trim()
 
 const sameText = (a: string, b: string) => {
@@ -326,7 +338,7 @@ function diagnoseReference(
     issues.push({ code, field: "references", index, message })
 
   const parse = parseNumbered(text)
-  if (!parse.gap && parse.sources.length > 1) {
+  if (isNumberedList(parse)) {
     at(
       "multiple-sources",
       `Ce champ contient ${parse.sources.length} sources numérotées : « Découper » les sépare en un champ chacune.`,
@@ -337,7 +349,7 @@ function diagnoseReference(
       "Ce champ tient sur plusieurs lignes sans numérotation exploitable : s'il contient plusieurs sources, séparez-les par une ligne vide, puis « Découper ».",
     )
   }
-  if (parse.preamble) {
+  if (parse.preambleText !== "") {
     at(
       "text-before-numbering",
       "Du texte précède la première source numérotée : « Découper » le place dans son propre champ, à relire.",
@@ -411,10 +423,7 @@ function diagnoseExplanation(
 export function diagnoseCorrection({
   explanation,
   references,
-}: {
-  explanation: string
-  references: readonly string[]
-}): FormatIssue[] {
+}: Correction): FormatIssue[] {
   const text = normalizeExplanation(explanation)
   const filled = references
     .map((entry, index) => ({ entry, index }))

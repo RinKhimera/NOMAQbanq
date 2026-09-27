@@ -459,10 +459,13 @@ describe("stabilisation : normaliser une deuxième fois ne change rien", () => {
   })
 
   it.each(
-    [EXPLANATION_ISOLATED, EXPLANATION_FOOTER, EXPLANATION_NNBSP].map((e) => [
-      e.slice(0, 30),
-      e,
-    ]),
+    [
+      EXPLANATION_ISOLATED,
+      EXPLANATION_FOOTER,
+      EXPLANATION_NNBSP,
+      "a maladie coronarienne est la cause [1].\n[2]",
+      "Chaîne [1][3-5][7] d'appels,collés[2].",
+    ].map((e) => [e.slice(0, 30), e]),
   )("explication : %s", (_, text) => {
     const once = normalizeExplanation(text)
     expect(normalizeExplanation(once)).toBe(once)

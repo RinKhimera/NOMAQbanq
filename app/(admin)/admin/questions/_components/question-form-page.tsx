@@ -59,6 +59,7 @@ import {
 } from "@/features/questions/actions"
 import type { QuestionDetail } from "@/features/questions/dal"
 import {
+  type Correction,
   type FormatIssue,
   diagnoseCorrection,
   normalizeExplanation,
@@ -130,8 +131,6 @@ const buildDefaultValues = (q?: QuestionDetail): QuestionFormValues =>
         objectifCMC: "",
         domain: "",
       }
-
-type Correction = { explanation: string; references: string[] }
 
 /** Remplace le champ `index` par `entries` (plusieurs champs après un découpage). */
 const replaceAt = (list: string[], index: number, entries: string[]) => [
@@ -324,8 +323,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
     issues.filter((i) => i.field === "references" && i.index === index)
 
   const applyCorrection = (next: Correction) => {
-    setReferences(next.references)
-    form.setValue("references", next.references)
+    writeReferences(next.references)
     form.setValue("explanation", next.explanation, {
       shouldValidate: form.formState.isSubmitted,
     })
@@ -336,17 +334,26 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
     references,
   })
 
+  /** Applique une mise en forme en gardant de quoi l'annuler. */
+  const applyFormatted = (
+    field: "explanation" | "references",
+    raw: Correction,
+    next: Correction,
+  ) => {
+    setFormatUndo({ field, raw })
+    applyCorrection(next)
+  }
+
   const handleExplanationPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     const { text, raw } = readPaste(e)
     if (normalizeExplanation(text) === text) return
     e.preventDefault()
-    const normalized = normalizeExplanation(raw)
     const current = currentCorrection()
-    setFormatUndo({
-      field: "explanation",
-      raw: { ...current, explanation: raw },
-    })
-    applyCorrection({ ...current, explanation: normalized })
+    applyFormatted(
+      "explanation",
+      { ...current, explanation: raw },
+      { ...current, explanation: normalizeExplanation(raw) },
+    )
   }
 
   const handleReferencePaste = (
@@ -359,24 +366,23 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
     e.preventDefault()
     const sources = normalizeReferenceEntry(raw)
     const current = currentCorrection()
-    setFormatUndo({
-      field: "references",
-      raw: { ...current, references: replaceAt(references, index, [raw]) },
-    })
-    applyCorrection({
-      ...current,
-      references: replaceAt(
-        references,
-        index,
-        sources.length > 0 ? sources : [""],
-      ),
-    })
+    applyFormatted(
+      "references",
+      { ...current, references: replaceAt(references, index, [raw]) },
+      {
+        ...current,
+        references: replaceAt(
+          references,
+          index,
+          sources.length > 0 ? sources : [""],
+        ),
+      },
+    )
   }
 
   const splitReference = (index: number) => {
     const current = currentCorrection()
-    setFormatUndo({ field: "references", raw: current })
-    applyCorrection({
+    applyFormatted("references", current, {
       ...current,
       references: replaceAt(
         references,
@@ -392,29 +398,25 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
     setFormatUndo(null)
   }
 
-  const addReference = () => {
-    setFormatUndo(null)
-    const newReferences = [...references, ""]
-    setReferences(newReferences)
-    form.setValue("references", newReferences)
+  const writeReferences = (next: string[]) => {
+    setReferences(next)
+    form.setValue("references", next)
   }
+
+  // Toute saisie manuelle clôt la possibilité d'annuler la mise en forme.
+  const editReferences = (next: string[]) => {
+    setFormatUndo(null)
+    writeReferences(next)
+  }
+
+  const addReference = () => editReferences([...references, ""])
 
   const removeReference = (index: number) => {
-    if (references.length > 1) {
-      setFormatUndo(null)
-      const newReferences = references.filter((_, i) => i !== index)
-      setReferences(newReferences)
-      form.setValue("references", newReferences)
-    }
+    if (references.length > 1) editReferences(replaceAt(references, index, []))
   }
 
-  const updateReference = (index: number, value: string) => {
-    setFormatUndo(null)
-    const newReferences = [...references]
-    newReferences[index] = value
-    setReferences(newReferences)
-    form.setValue("references", newReferences)
-  }
+  const updateReference = (index: number, value: string) =>
+    editReferences(replaceAt(references, index, [value]))
 
   const updateOption = (index: number, value: string) => {
     const prev = options[index]
