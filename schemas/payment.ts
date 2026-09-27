@@ -5,6 +5,7 @@ export const productCodeSchema = z.enum([
   "training_access",
   "exam_access_promo",
   "training_access_promo",
+  "premium_access",
 ])
 
 export type ProductCode = z.infer<typeof productCodeSchema>

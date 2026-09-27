@@ -168,7 +168,7 @@ export const ManualPaymentModal = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg overflow-hidden rounded-3xl border-0 p-0 shadow-2xl">
+      <DialogContent className="max-h-[90dvh] max-w-lg overflow-x-hidden overflow-y-auto rounded-3xl border-0 p-0 shadow-2xl">
         <AnimatePresence mode="wait">
           {showSuccess ? (
             <motion.div
