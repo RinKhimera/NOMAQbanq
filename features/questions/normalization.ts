@@ -435,3 +435,55 @@ export function diagnoseCorrection({
     ),
   ]
 }
+
+// ===== Reprise de l'existant =====
+
+/**
+ * Motifs qui rendent le découpage douteux : personne ne relit une reprise, donc
+ * la question entière attend un admin. Les autres motifs portent sur le
+ * contenu (lettre coupée, coupures de PDF, appels) ou sont une simple note
+ * (sous-liste FDA) : la mise en forme s'écrit quand même, la question reste
+ * signalée.
+ */
+const BLOCKING_ISSUES: ReadonlySet<FormatIssueCode> = new Set([
+  "multiple-sources",
+  "numbering-gap",
+  "text-before-numbering",
+  "same-as-explanation",
+  "too-long",
+])
+
+/**
+ * Sort d'une question stockée lors de la reprise. `issues` rend la liste
+ * « à vérifier » : sur l'état écrit pour `write` et `skip`, sur l'état stocké
+ * pour `review`, où rien ne change — les positions sont celles que l'admin
+ * verra dans le formulaire.
+ */
+export type CorrectionPlan =
+  | { action: "write"; next: Correction; issues: FormatIssue[] }
+  | { action: "skip"; issues: FormatIssue[] }
+  | { action: "review"; issues: FormatIssue[] }
+
+const sameCorrection = (a: Correction, b: Correction) =>
+  a.explanation === b.explanation &&
+  a.references.length === b.references.length &&
+  a.references.every((entry, i) => entry === b.references[i])
+
+export function planCorrection(current: Correction): CorrectionPlan {
+  const next: Correction = {
+    explanation: normalizeExplanation(current.explanation),
+    references: normalizeReferences(current.references),
+  }
+  const blocks = (list: FormatIssue[]) =>
+    list.some((issue) => BLOCKING_ISSUES.has(issue.code))
+  const issues = diagnoseCorrection(next)
+  if (blocks(issues)) {
+    // Le nettoyage peut seul révéler le motif (deux sources sur une ligne) :
+    // sans lui, la question retenue sortirait de la liste sans motif.
+    const stored = diagnoseCorrection(current)
+    return { action: "review", issues: blocks(stored) ? stored : issues }
+  }
+  return sameCorrection(current, next)
+    ? { action: "skip", issues }
+    : { action: "write", next, issues }
+}

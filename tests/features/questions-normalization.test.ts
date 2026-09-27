@@ -4,6 +4,7 @@ import {
   normalizeExplanation,
   normalizeReferenceEntry,
   normalizeReferences,
+  planCorrection,
   splitReferenceEntry,
   tidyReference,
 } from "@/features/questions/normalization"
@@ -590,5 +591,124 @@ describe("diagnoseCorrection", () => {
     for (const issue of issues) {
       expect(issue.message).toMatch(/[àâçéèêîôû«]/)
     }
+  })
+})
+
+describe("planCorrection", () => {
+  const clean = "Texte appuyé [1]."
+  const codesOf = (plan: ReturnType<typeof planCorrection>) =>
+    plan.issues.map((issue) => issue.code)
+
+  it("écrit un bloc numéroté découpé et une explication normalisée", () => {
+    const plan = planCorrection({
+      explanation: EXPLANATION_ISOLATED,
+      references: [OE_COMPACT],
+    })
+    expect(plan.action).toBe("write")
+    if (plan.action !== "write") return
+    expect(plan.next).toEqual({
+      explanation: normalizeExplanation(EXPLANATION_ISOLATED),
+      references: normalizeReferences([OE_COMPACT]),
+    })
+    expect(plan.next.references).toHaveLength(3)
+  })
+
+  it("une question déjà propre est sautée : rejouer n'écrit rien", () => {
+    const first = planCorrection({
+      explanation: EXPLANATION_ISOLATED,
+      references: [OE_COMPACT],
+    })
+    if (first.action !== "write") throw new Error("écriture attendue")
+    expect(planCorrection(first.next)).toEqual({
+      action: "skip",
+      issues: first.issues,
+    })
+  })
+
+  it("des références absentes ne deviennent pas une liste vide", () => {
+    expect(planCorrection({ explanation: "Texte.", references: [] })).toEqual({
+      action: "skip",
+      issues: [],
+    })
+  })
+
+  it.each([
+    [
+      "numérotation trouée",
+      "numbering-gap",
+      "1.\nSource A. 2020.\n3.\nSource C. 2021.",
+    ],
+    [
+      "texte devant la liste",
+      "text-before-numbering",
+      `Sources consultées\n${OE_COMPACT}`,
+    ],
+    ["plusieurs sources sans numéros", "multiple-sources", MCC_UNNUMBERED],
+    ["copie de l'explication", "same-as-explanation", clean],
+    [
+      "entrée démesurée",
+      "too-long",
+      `Source unique ${"très ".repeat(300)}longue. 2020.`,
+    ],
+  ])("%s : rien n'est écrit, la question est à vérifier", (_, code, entry) => {
+    const plan = planCorrection({ explanation: clean, references: [entry] })
+    expect(plan.action).toBe("review")
+    expect(codesOf(plan)).toContain(code)
+  })
+
+  it("à vérifier : les motifs portent sur les champs tels qu'ils sont stockés", () => {
+    const plan = planCorrection({
+      explanation: clean,
+      references: [OE_COMPACT, MCC_UNNUMBERED],
+    })
+    expect(plan.action).toBe("review")
+    expect(plan.issues).toContainEqual(
+      expect.objectContaining({ code: "multiple-sources", index: 1 }),
+    )
+  })
+
+  it("à vérifier : un motif que seul le nettoyage révèle est quand même nommé", () => {
+    const plan = planCorrection({
+      explanation: clean,
+      references: [
+        "[1]\nSmith J. Title. JAMA. 2018;75(9):1-2.\nDoe K. Other. Lancet. 2019;3:4.",
+      ],
+    })
+    expect(plan.action).toBe("review")
+    expect(codesOf(plan)).toContain("multiple-sources")
+  })
+
+  it.each([
+    [
+      "première lettre coupée",
+      "lowercase-start",
+      "a maladie est fréquente [1].",
+    ],
+    [
+      "coupures de PDF",
+      "pdf-line-breaks",
+      "Une phrase coupée\nau milieu, puis\nencore coupée [1].",
+    ],
+    [
+      "appel au-delà de la liste",
+      "citation-out-of-range",
+      "Texte appuyé [1-9].",
+    ],
+  ])(
+    "%s : la mise en forme est écrite et la question reste à vérifier",
+    (_, code, explanation) => {
+      const plan = planCorrection({ explanation, references: [OE_COMPACT] })
+      expect(plan.action).toBe("write")
+      expect(codesOf(plan)).toEqual([code])
+    },
+  )
+
+  it("une sous-liste FDA n'empêche pas d'écrire le découpage", () => {
+    const plan = planCorrection({
+      explanation: clean,
+      references: [`${OE_COMPACT}\n${FDA.replace(/^3\./, "4.")}`],
+    })
+    expect(plan.action).toBe("write")
+    expect(codesOf(plan)).toEqual(["fda-sublist"])
   })
 })
