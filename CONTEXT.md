@@ -24,6 +24,31 @@ Ce qu'un lecteur reçoit quand la clé est révélée : la clé, l'explication, 
 références et, à la révision, les images d'explication.
 _Avoid_ : feedback, explication seule
 
+**Référence** :
+Une seule source bibliographique citée par une correction, numérotée par sa
+position dans la liste des références de la question. Un bloc de plusieurs
+sources collées dans une même entrée n'est pas une référence, c'est un défaut
+de mise en forme.
+_Avoid_ : bibliographie, source (pour une entrée), bloc de références
+
+**Appel de citation** :
+La marque `[n]`, `[n-m]` ou `[n][m]` dans le texte d'une explication, qui
+renvoie à la référence de même numéro.
+_Avoid_ : citation (désigne la source elle-même), renvoi, note
+
+**Normalisation** :
+La remise en forme d'un texte collé, qui touche aux espaces, aux coupures, à la
+numérotation et au découpage en références, sans jamais changer un mot du
+contenu. Appliquée une deuxième fois, elle ne change plus rien.
+_Avoid_ : nettoyage, reformatage, correction (terme réservé à la correction
+d'une question)
+
+**Mise en forme à vérifier** :
+L'état d'une question dont la normalisation ne peut pas trancher sans un
+humain : découpage ambigu, numérotation trouée, contenu versé dans le mauvais
+champ, texte tronqué.
+_Avoid_ : question corrompue, question en erreur
+
 **Forme-pont** :
 La forme d'une question telle que la consomment les composants de quiz
 partagés, quel que soit le canal qui l'a chargée (entraînement, examen, quiz

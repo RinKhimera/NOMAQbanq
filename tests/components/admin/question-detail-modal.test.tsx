@@ -197,6 +197,39 @@ describe("Modale de question — constitution d'examen", () => {
     expect(screen.queryByText("Explication de q1")).not.toBeInTheDocument()
     expect(screen.queryByText("Référence de q1")).not.toBeInTheDocument()
   })
+
+  it("affiche la correction comme l'étudiant : paragraphes, appels, bloc sans double numéro, images", async () => {
+    loadQuestionById.mockImplementation((id: string) =>
+      Promise.resolve({
+        ...makeDetail(id),
+        explanation: "Premier paragraphe [1].\n\nSecond paragraphe.",
+        references: ["1.\nMotor Delays.\n\n2.\nAutre source."],
+        explanationImages: [
+          { id: "img1", storagePath: "questions/x.png", position: 0 },
+        ],
+      }),
+    )
+    renderSelect()
+    await screen.findByText("Question 0")
+    openPreview(0)
+    await screen.findByText("Énoncé complet q0")
+    fireEvent.click(screen.getByRole("button", { name: /Explication/ }))
+    fireEvent.click(screen.getByRole("button", { name: /Références/ }))
+
+    expect(screen.getByText("Second paragraphe.").tagName).toBe("P")
+    expect(screen.getByTestId("explanation-images")).toBeInTheDocument()
+    const refs = screen
+      .getAllByRole("listitem")
+      .find((li) => li.textContent?.includes("Motor Delays"))
+    expect(refs?.textContent).toBe("1.\nMotor Delays.\n\n2.\nAutre source.")
+
+    fireEvent.click(screen.getByRole("button", { name: "Voir la référence 1" }))
+    expect(
+      within(
+        screen.getByRole("dialog", { name: "Voir la référence 1" }),
+      ).getByText(/Motor Delays/),
+    ).toBeInTheDocument()
+  })
 })
 
 describe("Modale de question — navigateur de questions", () => {
