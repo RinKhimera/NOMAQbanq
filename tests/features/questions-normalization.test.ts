@@ -596,26 +596,35 @@ describe("diagnoseCorrection", () => {
 
 describe("planCorrection", () => {
   const clean = "Texte appuyé [1]."
+  const CITING = `Douleur à l'effort, qui persiste après l'arrêt de l'activité.
+[1-2]
+
+
+La mesure des pressions intracompartimentales confirme le diagnostic.
+[3]`
   const codesOf = (plan: ReturnType<typeof planCorrection>) =>
     plan.issues.map((issue) => issue.code)
 
   it("écrit un bloc numéroté découpé et une explication normalisée", () => {
     const plan = planCorrection({
-      explanation: EXPLANATION_ISOLATED,
+      explanation: CITING,
       references: [OE_COMPACT],
     })
-    expect(plan.action).toBe("write")
-    if (plan.action !== "write") return
-    expect(plan.next).toEqual({
-      explanation: normalizeExplanation(EXPLANATION_ISOLATED),
-      references: normalizeReferences([OE_COMPACT]),
+    expect(plan).toEqual({
+      action: "write",
+      next: {
+        explanation: normalizeExplanation(CITING),
+        references: normalizeReferences([OE_COMPACT]),
+      },
+      issues: [],
     })
+    if (plan.action !== "write") return
     expect(plan.next.references).toHaveLength(3)
   })
 
   it("une question déjà propre est sautée : rejouer n'écrit rien", () => {
     const first = planCorrection({
-      explanation: EXPLANATION_ISOLATED,
+      explanation: `a ${CITING}`,
       references: [OE_COMPACT],
     })
     if (first.action !== "write") throw new Error("écriture attendue")
@@ -625,11 +634,50 @@ describe("planCorrection", () => {
     })
   })
 
-  it("des références absentes ne deviennent pas une liste vide", () => {
-    expect(planCorrection({ explanation: "Texte.", references: [] })).toEqual({
-      action: "skip",
+  it("des références jamais remplies ne deviennent pas une liste vide", () => {
+    expect(planCorrection({ explanation: "Texte.", references: null })).toEqual(
+      {
+        action: "skip",
+        issues: [],
+      },
+    )
+    expect(
+      planCorrection({ explanation: "Texte   espacé.", references: null }),
+    ).toEqual({
+      action: "write",
+      next: { explanation: "Texte espacé.", references: null },
       issues: [],
     })
+  })
+
+  it("des lignes sans numéro ne sont pas jointes sans relecture : deux sources fusionneraient", () => {
+    const plan = planCorrection({
+      explanation: clean,
+      references: [
+        "Brandt JS, Ananth CV. Placental abruption. Am J Obstet Gynecol. 2023;228(5):S1313.\nSociety of Obstetricians and Gynaecologists of Canada. Antepartum haemorrhage. SOGC Clinical Practice Guideline No. 431.",
+      ],
+    })
+    expect(plan.action).toBe("review")
+    expect(plan.issues).toEqual([
+      expect.objectContaining({ code: "loose-lines", index: 0 }),
+    ])
+  })
+
+  it("une source aérée sans numéro (format OpenEvidence) est jointe sur une ligne", () => {
+    const airy = OE_AIRY.split("\n\n\n\n\n\n")[0].replace(/^1\.\n/, "")
+    const plan = planCorrection({ explanation: clean, references: [airy] })
+    expect(plan.action).toBe("write")
+    if (plan.action !== "write") return
+    expect(plan.next.references).toEqual([
+      "Current Concepts in Diagnosis and Treatment of Functional Neurological Disorders. Espay AJ, Aybek S, Carson A, et al. JAMA Neurology. 2018;75(9):1132-1141. doi:10.1001/jamaneurol.2018.1264.",
+    ])
+  })
+
+  it("une référence qui recopie l'explication est retenue, même avec un appel collé", () => {
+    const text = `${"La metformine reste le traitement de première intention du diabète de type 2. ".repeat(3)}Elle réduit l'HbA1c[1].`
+    const plan = planCorrection({ explanation: text, references: [text] })
+    expect(plan.action).toBe("review")
+    expect(codesOf(plan)).toContain("same-as-explanation")
   })
 
   it.each([
@@ -689,11 +737,6 @@ describe("planCorrection", () => {
       "pdf-line-breaks",
       "Une phrase coupée\nau milieu, puis\nencore coupée [1].",
     ],
-    [
-      "appel au-delà de la liste",
-      "citation-out-of-range",
-      "Texte appuyé [1-9].",
-    ],
   ])(
     "%s : la mise en forme est écrite et la question reste à vérifier",
     (_, code, explanation) => {
@@ -702,6 +745,24 @@ describe("planCorrection", () => {
       expect(codesOf(plan)).toEqual([code])
     },
   )
+
+  it("appel au-delà d'une liste déjà découpée : écrit et à vérifier", () => {
+    const plan = planCorrection({
+      explanation: "Texte   appuyé [1-9].",
+      references: ALREADY_SPLIT,
+    })
+    expect(plan.action).toBe("write")
+    expect(codesOf(plan)).toEqual(["citation-out-of-range"])
+  })
+
+  it("appel au-delà d'une liste que le découpage vient de compter : rien n'est écrit", () => {
+    const plan = planCorrection({
+      explanation: "Texte appuyé [1-9].",
+      references: [OE_COMPACT],
+    })
+    expect(plan.action).toBe("review")
+    expect(codesOf(plan)).toContain("citation-out-of-range")
+  })
 
   it("une sous-liste FDA n'empêche pas d'écrire le découpage", () => {
     const plan = planCorrection({

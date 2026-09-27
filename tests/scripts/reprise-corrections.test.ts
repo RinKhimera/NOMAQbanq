@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest"
 import type { FormatIssue } from "@/features/questions/normalization"
-import { type RepairOutcome, formatReport } from "@/scripts/reprise-corrections"
+import {
+  type RepairOutcome,
+  countByAction,
+  formatReport,
+} from "@/scripts/reprise-corrections"
 
-const meta = { apply: false, host: "ep-test.neon.tech", date: new Date(0) }
+const meta = {
+  apply: false,
+  host: "ep-test.neon.tech",
+  date: new Date(0),
+  baseUrl: "https://nomaqbanq.ca",
+}
 
 const gap: FormatIssue = {
   code: "numbering-gap",
@@ -29,8 +38,8 @@ const split: RepairOutcome = {
 const flagged: RepairOutcome = {
   id: "q-lower",
   action: "write",
-  before: { explanation: "a maladie.", references: ["Source A. "] },
-  after: { explanation: "a maladie.", references: ["Source A."] },
+  before: { explanation: "a maladie.\n[1]", references: ["Source A. "] },
+  after: { explanation: "a maladie. [1]", references: ["Source A."] },
   issues: [lowercase],
 }
 const held: RepairOutcome = {
@@ -42,9 +51,12 @@ const held: RepairOutcome = {
 const clean: RepairOutcome = {
   id: "q-clean",
   action: "skip",
-  before: { explanation: "Texte.", references: ["Source A."] },
+  before: { explanation: "Texte.", references: null },
   issues: [],
 }
+
+const link = (id: string) =>
+  `[${id}](https://nomaqbanq.ca/admin/questions/${id}/modifier)`
 
 describe("formatReport", () => {
   it("compte chaque catégorie et nomme la base ciblée", () => {
@@ -52,10 +64,11 @@ describe("formatReport", () => {
 
     expect(report).toContain("passage à blanc")
     expect(report).toContain("`ep-test.neon.tech`")
-    expect(report).toContain("| Mise en forme à écrire | 2 |")
+    expect(report).toContain("| À mettre en forme | 2 |")
     expect(report).toContain("| Déjà propres (sautées) | 1 |")
     expect(report).toContain("| À vérifier, rien écrit | 1 |")
     expect(report).toContain("| **Total** | 4 |")
+    expect(report).toContain("dont 1 à écrire quand même")
     expect(report).not.toContain("Modifiées depuis la lecture")
   })
 
@@ -65,17 +78,27 @@ describe("formatReport", () => {
     expect(report).toContain("### q-split")
     expect(report).toContain("Avant : 1 référence(s)")
     expect(report).toContain("1. Source A.\n2. Source B.")
-    expect(report).not.toContain("### q-lower")
   })
 
-  it("liste les questions à vérifier avec motif, position et lien d'édition", () => {
+  it("montre aussi une explication remise en forme", () => {
+    const report = formatReport([split, flagged], meta)
+    const section = report.split(
+      "## Échantillons avant / après : explications",
+    )[1]
+
+    expect(section).toContain("### q-lower")
+    expect(section).toContain("a maladie. [1]")
+    expect(section).not.toContain("### q-split")
+  })
+
+  it("liste les questions à vérifier avec motif, position et lien d'édition absolu", () => {
     const report = formatReport([split, flagged, held, clean], meta)
 
     expect(report).toContain(
-      `| [q-gap](/admin/questions/q-gap/modifier) | rien écrit | Référence 2 : ${gap.message} |`,
+      `| ${link("q-gap")} | rien écrit | Référence 2 : ${gap.message} |`,
     )
     expect(report).toContain(
-      `| [q-lower](/admin/questions/q-lower/modifier) | à écrire | ${lowercase.message} |`,
+      `| ${link("q-lower")} | à écrire | ${lowercase.message} |`,
     )
     expect(report).not.toContain("[q-split]")
     expect(report).not.toContain("[q-clean]")
@@ -91,10 +114,10 @@ describe("formatReport", () => {
     const report = formatReport([split, conflict], { ...meta, apply: true })
 
     expect(report).toContain("# Reprise des corrections — application")
-    expect(report).toContain("| Mise en forme écrites | 1 |")
+    expect(report).toContain("| Mises en forme | 1 |")
     expect(report).toContain("| Modifiées depuis la lecture (sautées) | 1 |")
     expect(report).toContain(
-      "| [q-race](/admin/questions/q-race/modifier) | modifiée depuis la lecture | Relancer la reprise pour cette question. |",
+      `| ${link("q-race")} | modifiée depuis la lecture | Relancer la reprise pour cette question. |`,
     )
   })
 
@@ -102,5 +125,28 @@ describe("formatReport", () => {
     expect(formatReport([clean], meta)).toMatch(
       /## Mise en forme à vérifier\n\nAucune\.\n$/,
     )
+  })
+
+  it("les échantillons couvrent toute la liste, pas seulement les premiers ids", () => {
+    const many = Array.from({ length: 20 }, (_, i) => ({
+      ...split,
+      id: `q-${String(i).padStart(2, "0")}`,
+    }))
+    const report = formatReport(many, meta)
+
+    expect(report).toContain("### q-00")
+    expect(report).toContain("### q-16")
+    expect(report).not.toContain("### q-01")
+  })
+})
+
+describe("countByAction", () => {
+  it("compte chaque action, zéro compris", () => {
+    expect(countByAction([split, flagged, held])).toEqual({
+      write: 2,
+      skip: 0,
+      review: 1,
+      conflict: 0,
+    })
   })
 })
