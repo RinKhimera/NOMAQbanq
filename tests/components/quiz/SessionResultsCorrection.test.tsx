@@ -132,4 +132,22 @@ describe("correction affichée à l'étudiant", () => {
       within(card(1)).queryByTestId("key-corrected-notice"),
     ).not.toBeInTheDocument()
   })
+
+  it("formulation antérieure sous clé retenue : ancien texte en gris, ni juste ni faux", () => {
+    renderResults(
+      [
+        makeQuestion("q1", {
+          options: ["Aspirine 100 mg", "Héparine", "Warfarine", "Clopidogrel"],
+          correctAnswer: undefined,
+          keyWithheld: true,
+        }),
+      ],
+      { q1: { selected: "Aspirine" } },
+    )
+    const former = within(card(1)).getByTestId("former-wording-answer")
+    expect(former).toHaveTextContent("Aspirine")
+    expect(former).toHaveClass("bg-gray-50")
+    expect(former).not.toHaveClass("bg-green-100")
+    expect(former).not.toHaveClass("bg-red-100")
+  })
 })

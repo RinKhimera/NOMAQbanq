@@ -106,7 +106,11 @@ export const TrainingSessionClient = ({
         { retries: 1 }, // upsert idempotent — absorbe les micro-coupures
       )
       if (!res.success) {
-        toast.error("Réponse non enregistrée, réessayez.")
+        toast.error(
+          "code" in res && res.code === "OPTION_CHANGED"
+            ? res.error
+            : "Réponse non enregistrée, réessayez.",
+        )
         return { ok: false, error: res.error }
       }
       // En mode tuteur, renvoyer le reveal (correction, ou clé retenue)

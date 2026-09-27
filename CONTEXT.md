@@ -175,7 +175,9 @@ _Avoid_ : clé modifiée (ambigu avec une reformulation)
 Une option dont le texte a changé sans changer de sens (coquille, précision).
 Une réponse enregistrée sur l'ancien texte porte sur une **formulation
 antérieure** : elle garde son verdict partout, y compris dans le taux de
-réussite, et l'étudiant voit son ancien texte tel quel.
+réussite, et l'étudiant voit son ancien texte tel quel. Limite assumée : si
+l'option-clé est reformulée puis la clé corrigée (dans la même édition ou
+plus tard), les réponses sur l'ancien texte de la clé restent justes.
 _Avoid_ : option modifiée, clé reformulée (quand on parle de l'effet sur le taux)
 
 **Taux de réussite d'une question** :
@@ -190,9 +192,10 @@ _Avoid_ : difficulté, maîtrise
 **Répartition des réponses** :
 La part de chaque option parmi les réponses comptées dans le taux de réussite
 d'une question, plus une part « formulation antérieure » qui regroupe les
-réponses sur une option reformulée ; les parts somment à 100 %. Une option
-autre que la clé plus choisie que la clé signale une clé de réponse
-probablement erronée.
+réponses sur une option reformulée ; les parts couvrent toutes les réponses
+comptées (100 % à l'arrondi près). Une option actuelle autre que la clé, plus
+choisie que les réponses justes, signale une clé de réponse probablement
+erronée ; la formulation antérieure n'entre pas dans cette comparaison.
 _Avoid_ : distribution des distracteurs
 
 **Date d'une réponse** :

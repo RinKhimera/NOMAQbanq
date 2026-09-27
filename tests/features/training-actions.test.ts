@@ -354,13 +354,14 @@ describe("saveTrainingAnswer", () => {
     })
   })
 
-  it("texte hors options → refus, aucune ecriture", async () => {
+  it("texte hors options → refus OPTION_CHANGED, aucune ecriture", async () => {
     setRows({ trainingSessionItems: [item] })
     expect(
       await saveTrainingAnswer({ ...input, selectedAnswer: "A " }),
-    ).toEqual({
+    ).toMatchObject({
       success: false,
-      error: "Cette réponse ne fait pas partie des options",
+      code: "OPTION_CHANGED",
+      error: expect.stringContaining("Rechargez"),
     })
     expect(state.set).toBeUndefined()
   })

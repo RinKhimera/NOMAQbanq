@@ -16,7 +16,13 @@ import { getPgErrorCode } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { closeAttempts } from "../attempts/close"
-import { type Refusal, refusalMessage, requireAttempt } from "../attempts/guard"
+import {
+  OPTION_CHANGED,
+  type Refusal,
+  optionChanged,
+  refusalMessage,
+  requireAttempt,
+} from "../attempts/guard"
 import { hasAccess } from "../payments/dal"
 import { lockFor, viewerOf } from "../questions/answer-key-lock"
 import {
@@ -285,7 +291,7 @@ export type SaveTrainingAnswerResult =
           }
         | { keyWithheld: true }
     }
-  | { success: false; error: string }
+  | { success: false; error: string; code?: typeof OPTION_CHANGED }
 
 /**
  * [Auth] Enregistre/met à jour la réponse d'un item (l'item existe déjà depuis
@@ -339,10 +345,7 @@ export const saveTrainingAnswer = async (
         }
       }
       if (!item.options.includes(selectedAnswer)) {
-        return {
-          ok: false as const,
-          message: "Cette réponse ne fait pas partie des options",
-        }
+        return { ok: false as const, optionChanged: true as const }
       }
 
       const isCorrect = selectedAnswer === item.correctAnswer
@@ -357,7 +360,8 @@ export const saveTrainingAnswer = async (
         correctAnswer: item.correctAnswer,
       }
     })
-    if (!outcome.ok) return refused(outcome)
+    if (!outcome.ok)
+      return "optionChanged" in outcome ? optionChanged() : refused(outcome)
 
     // Mode test : ne pas exposer isCorrect sur le fil réseau (anti-triche).
     if (outcome.mode !== "tutor") return { success: true }

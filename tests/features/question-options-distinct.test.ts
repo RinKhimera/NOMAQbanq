@@ -83,4 +83,32 @@ describe("options distinctes deux à deux", () => {
       }).success,
     ).toBe(true)
   })
+
+  it("garde le texte exact des options et de la clé, espaces de bord compris", () => {
+    const parsed = createQuestionSchema.safeParse({
+      ...question,
+      options: ["Amoxicilline ", "Doxycycline	", "Céfazoline", "Vancomycine"],
+      correctAnswer: "Amoxicilline ",
+    })
+    expect(parsed.data?.options).toEqual([
+      "Amoxicilline ",
+      "Doxycycline	",
+      "Céfazoline",
+      "Vancomycine",
+    ])
+    expect(parsed.data?.correctAnswer).toBe("Amoxicilline ")
+  })
+
+  it("refuse une option ou une clé faite d'espaces", () => {
+    expect(
+      createQuestionSchema.safeParse({
+        ...question,
+        options: [...question.options.slice(0, 3), " 	"],
+      }).success,
+    ).toBe(false)
+    expect(
+      createQuestionSchema.safeParse({ ...question, correctAnswer: "  " })
+        .success,
+    ).toBe(false)
+  })
 })

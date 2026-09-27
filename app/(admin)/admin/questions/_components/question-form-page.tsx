@@ -244,14 +244,24 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
     const newOptions = [...options]
     newOptions[index] = value
     setOptions(newOptions)
-    form.setValue("options", newOptions)
+    // Après une soumission refusée, revalider à la frappe : sinon le message
+    // « options identiques » survit au doublon corrigé.
+    form.setValue("options", newOptions, {
+      shouldValidate: form.formState.isSubmitted,
+    })
 
     // Garde correctAnswer synchronisé si on RENOMME l'option actuellement
     // correcte. Garde `prev.trim() !== ""` indispensable : en création, options
     // et correctAnswer valent tous deux "" → sans elle, remplir la 1re option
     // (`"" === ""`) la marquerait par erreur comme bonne réponse (bouton-lettre
-    // verrouillé sur un check au lieu de la lettre).
-    if (prev.trim() !== "" && form.getValues("correctAnswer") === prev) {
+    // verrouillé sur un check au lieu de la lettre). Option unique exigée :
+    // renommer l'un de deux doublons de la clé déplacerait la clé.
+    const isUniqueOption = options.filter((o) => o === prev).length === 1
+    if (
+      prev.trim() !== "" &&
+      isUniqueOption &&
+      form.getValues("correctAnswer") === prev
+    ) {
       form.setValue("correctAnswer", value)
     }
   }
@@ -474,7 +484,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
             <FormField
               control={form.control}
               name="options"
-              render={() => (
+              render={({ fieldState }) => (
                 <FormItem>
                   <div className="space-y-3">
                     {options.map((option, index) => (
@@ -504,6 +514,7 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
                         <Input
                           placeholder={`Option ${String.fromCharCode(65 + index)}`}
                           value={option}
+                          aria-invalid={!!fieldState.error}
                           onChange={(e) => updateOption(index, e.target.value)}
                           className={cn(
                             "border-gray-200 bg-white transition-colors focus:border-violet-500 focus:ring-violet-500 dark:border-gray-700 dark:bg-gray-800",

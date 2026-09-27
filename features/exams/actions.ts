@@ -19,8 +19,10 @@ import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { closeAttempts } from "../attempts/close"
 import {
+  OPTION_CHANGED,
   type Refusal,
   type RefusalCode,
+  optionChanged,
   refusalMessage,
   requireAttempt,
 } from "../attempts/guard"
@@ -605,7 +607,7 @@ export const saveExamAnswer = async (
 ): Promise<{
   success: boolean
   error?: string
-  code?: RefusalCode
+  code?: RefusalCode | typeof OPTION_CHANGED
   serverNow?: number
 }> => {
   const session = await requireSession()
@@ -652,10 +654,7 @@ export const saveExamAnswer = async (
         }
       }
       if (!q.options.includes(selectedAnswer)) {
-        return {
-          ok: false as const,
-          message: "Cette réponse ne fait pas partie des options.",
-        }
+        return { ok: false as const, optionChanged: true as const }
       }
       const isCorrect = q.correctAnswer === selectedAnswer
 
@@ -678,7 +677,8 @@ export const saveExamAnswer = async (
       return { ok: true as const }
     })
 
-    if (!outcome.ok) return refused(outcome)
+    if (!outcome.ok)
+      return "optionChanged" in outcome ? optionChanged() : refused(outcome)
     // Jamais isCorrect (anti-triche) ; `serverNow` ré-ancre le chrono client.
     return { success: true, serverNow: now }
   } catch (error) {

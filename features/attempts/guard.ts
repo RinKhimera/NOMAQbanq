@@ -305,3 +305,18 @@ const MESSAGES: Record<RefusalCode, Record<AttemptKind, string>> = {
 
 export const refusalMessage = (code: RefusalCode, kind: AttemptKind): string =>
   MESSAGES[code][kind]
+
+/**
+ * Refus propre à l'écriture d'une réponse, hors politique de la garde : le
+ * texte envoyé n'est plus une option de la question, car la page a été
+ * chargée avant une édition. Réessayer renverrait le même texte ; seul un
+ * rechargement répare.
+ */
+export const OPTION_CHANGED = "OPTION_CHANGED"
+
+export const optionChanged = () => ({
+  success: false as const,
+  error:
+    "Cette question a été modifiée depuis l'ouverture de la page. Rechargez-la pour répondre.",
+  code: OPTION_CHANGED as typeof OPTION_CHANGED,
+})

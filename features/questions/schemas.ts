@@ -1,15 +1,23 @@
 import { z } from "zod"
 import { isMedicalDomain } from "@/constants"
 
+/**
+ * Texte non vide, enregistré tel quel. Options et clé ne sont jamais rognées :
+ * une réponse se compare au texte exact de l'option, et rogner à
+ * l'enregistrement reformulerait en silence des options existantes.
+ */
+const exactText = (message?: string) =>
+  z.string().refine((text) => text.trim().length > 0, message)
+
 // Champs communs création/édition. Une question QCM = 2..8 options, la bonne
 // réponse devant figurer parmi elles (refine sur l'objet complet).
 const questionFields = {
   question: z.string().trim().min(1, "La question est requise"),
   options: z
-    .array(z.string().trim().min(1))
+    .array(exactText("Une option ne peut pas être vide"))
     .min(2, "Au moins 2 options")
     .max(8, "Au plus 8 options"),
-  correctAnswer: z.string().trim().min(1, "La bonne réponse est requise"),
+  correctAnswer: exactText("La bonne réponse est requise"),
   explanation: z.string().trim().min(1, "L'explication est requise"),
   references: z.array(z.string().trim().min(1)).max(50).optional(),
   objectifCMC: z.string().trim().min(1, "L'objectif CMC est requis"),

@@ -139,7 +139,11 @@ export function EvaluationClient({
           toast.error("Temps écoulé : cette réponse n'a pas été enregistrée.")
           return { ok: false, error, timeUp: true }
         }
-        toast.error("Réponse non enregistrée, réessayez.")
+        toast.error(
+          "code" in res && res.code === "OPTION_CHANGED"
+            ? error
+            : "Réponse non enregistrée, réessayez.",
+        )
         return { ok: false, error }
       }
       // Anti-triche : ne JAMAIS renvoyer isCorrect ni reveal

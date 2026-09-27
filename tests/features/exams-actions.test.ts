@@ -434,13 +434,26 @@ describe("saveExamAnswer", () => {
     expect(mocks.requireAttempt).toHaveBeenCalled()
   })
 
-  it("texte hors options → refus, aucune ecriture", async () => {
+  it("texte hors options → refus OPTION_CHANGED, aucune ecriture", async () => {
     setRows(question)
-    expect(await saveExamAnswer({ ...input, selectedAnswer: "Z" })).toEqual({
+    expect(
+      await saveExamAnswer({ ...input, selectedAnswer: "Z" }),
+    ).toMatchObject({
       success: false,
-      error: "Cette réponse ne fait pas partie des options.",
+      code: "OPTION_CHANGED",
+      error: expect.stringContaining("Rechargez"),
     })
     expect(state.set).toBeUndefined()
+  })
+
+  it("jumeau : le texte exact d'une option, espace de fin compris, est accepte", async () => {
+    setRows({
+      examQuestions: [{ correctAnswer: "A ", options: ["A ", "B"] }],
+    })
+    expect(
+      await saveExamAnswer({ ...input, selectedAnswer: "A " }),
+    ).toMatchObject({ success: true })
+    expect(state.set).toEqual({ selectedAnswer: "A ", isCorrect: true })
   })
 
   it("garde refusee : la question n'est pas lue, le refus porte son code", async () => {

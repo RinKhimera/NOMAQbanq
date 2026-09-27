@@ -155,3 +155,86 @@ describe("QuestionFormPage — formulaire invalide", () => {
     expect(createQuestion).not.toHaveBeenCalled()
   })
 })
+
+describe("QuestionFormPage — options", () => {
+  const openEdit = async (question: QuestionDetail) => {
+    loadQuestionById.mockResolvedValue(question)
+    loadUniqueObjectifsCMC.mockResolvedValue([])
+    updateQuestion.mockResolvedValue({ success: true })
+    setQuestionImages.mockResolvedValue({ success: true })
+    render(<QuestionFormPage mode="edit" questionId="q1" />)
+    await screen.findByDisplayValue(question.question)
+  }
+
+  const submit = (user: ReturnType<typeof userEvent.setup>) =>
+    user.click(
+      screen.getByRole("button", { name: /Enregistrer les modifications/i }),
+    )
+
+  it("renommer l'option-clé déplace la clé avec elle", async () => {
+    const user = userEvent.setup()
+    await openEdit(makeQuestion())
+    await user.type(screen.getByPlaceholderText("Option A"), " bis")
+    await submit(user)
+
+    await waitFor(() => expect(updateQuestion).toHaveBeenCalledTimes(1))
+    expect(updateQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({ correctAnswer: "A bis" }),
+    )
+  })
+
+  it("jumeau : renommer un doublon de la clé ne déplace pas la clé", async () => {
+    const user = userEvent.setup()
+    await openEdit(makeQuestion({ options: ["A", "A", "C", "D"] }))
+    await user.type(screen.getByPlaceholderText("Option B"), "2")
+    await submit(user)
+
+    await waitFor(() => expect(updateQuestion).toHaveBeenCalledTimes(1))
+    expect(updateQuestion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: ["A", "A2", "C", "D"],
+        correctAnswer: "A",
+      }),
+    )
+  })
+
+  it("deux options identiques : pas d'envoi, champs d'options en rouge et message sur le champ", async () => {
+    const user = userEvent.setup()
+    await openEdit(makeQuestion({ options: ["A", "a", "C", "D"] }))
+    await submit(user)
+
+    expect(
+      await screen.findByText(
+        "Deux options sont identiques (casse et espaces ignorés)",
+      ),
+    ).toBeInTheDocument()
+    expect(updateQuestion).not.toHaveBeenCalled()
+    expect(screen.getByPlaceholderText("Option B")).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    )
+  })
+
+  it("le message disparaît dès que le doublon est corrigé", async () => {
+    const user = userEvent.setup()
+    await openEdit(makeQuestion({ options: ["A", "a", "C", "D"] }))
+    await submit(user)
+    await screen.findByText(
+      "Deux options sont identiques (casse et espaces ignorés)",
+    )
+
+    await user.type(screen.getByPlaceholderText("Option B"), "2")
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText(
+          "Deux options sont identiques (casse et espaces ignorés)",
+        ),
+      ).not.toBeInTheDocument(),
+    )
+    expect(screen.getByPlaceholderText("Option B")).toHaveAttribute(
+      "aria-invalid",
+      "false",
+    )
+  })
+})
