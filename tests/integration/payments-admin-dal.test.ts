@@ -327,7 +327,11 @@ describe("getTransactionAccessImpact — combo", () => {
    * lignes `user_access` alignées sur la meilleure couverture de chaque type.
    */
   const seed = async (
-    txs: { kind: "combo" | "exam" | "training"; days: number }[],
+    txs: {
+      kind: "combo" | "exam" | "training"
+      days: number
+      status?: "completed" | "refunded"
+    }[],
   ) => {
     const userId = createId()
     comboUsers.push(userId)
@@ -342,7 +346,7 @@ describe("getTransactionAccessImpact — combo", () => {
       userId,
       productId: t.kind === "combo" ? comboPid : pid,
       type: "manual" as const,
-      status: "completed" as const,
+      status: t.status ?? ("completed" as const),
       amountPaid: 1,
       currency: "CAD" as const,
       accessType:
@@ -355,7 +359,9 @@ describe("getTransactionAccessImpact — combo", () => {
     await db.insert(transactions).values(rows)
     for (const accessType of ["exam", "training"] as const) {
       const covering = rows.filter(
-        (r, i) => txs[i].kind === "combo" || r.accessType === accessType,
+        (r, i) =>
+          r.status === "completed" &&
+          (txs[i].kind === "combo" || r.accessType === accessType),
       )
       if (covering.length === 0) continue
       const best = covering.reduce((a, b) =>
@@ -438,5 +444,21 @@ describe("getTransactionAccessImpact — combo", () => {
     const after = await accessAfterRebuild(userId, comboId)
     expect(after("exam")).toBe(examAt)
     expect(after("training")).toBe(trainingAt)
+  })
+
+  it("transaction remboursée : aucun type annoncé touché, la reconstruction ne change rien", async () => {
+    const { userId, ids } = await seed([
+      { kind: "exam", days: 90 },
+      { kind: "exam", days: 200, status: "refunded" },
+    ])
+    const [examId, refundedId] = ids
+    const examAt = await snapshotOf(examId)
+
+    const impacts = await getTransactionAccessImpact(refundedId)
+    expect(impacts?.some((i) => i.willAffectAccess)).toBe(false)
+
+    const after = await accessAfterRebuild(userId, refundedId)
+    expect(after("exam")).toBe(examAt)
+    expect(after("training")).toBeNull()
   })
 })

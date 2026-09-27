@@ -128,12 +128,14 @@ describe("getAccessStatus", () => {
     expect(status?.examAccess).not.toBeNull()
     expect(status?.examAccess?.daysRemaining).toBeGreaterThan(0)
     expect(status?.trainingAccess).toBeNull()
+    expect(requireRole).not.toHaveBeenCalled()
   })
 
   it("lit l'utilisateur courant sans userId", async () => {
     signedInAs(uid)
     const status = await getAccessStatus()
     expect(status?.examAccess).not.toBeNull()
+    expect(requireRole).not.toHaveBeenCalled()
   })
 
   it("refuse la lecture d'un autre utilisateur à un non-admin", async () => {

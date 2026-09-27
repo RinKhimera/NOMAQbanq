@@ -197,25 +197,24 @@ export const recordManualPayment = async (
  */
 const lockManualTransaction = async (tx: Tx, transactionId: string) => {
   const [found] = await tx
-    .select({ userId: transactions.userId })
+    .select({ userId: transactions.userId, type: transactions.type })
     .from(transactions)
     .where(eq(transactions.id, transactionId))
     .limit(1)
   if (!found) throw new Error("TX_NOT_FOUND")
+  if (found.type !== "manual") throw new Error("TX_NOT_MANUAL")
   await lockUser(tx, found.userId)
 
   const [locked] = await tx
     .select({
       id: transactions.id,
       userId: transactions.userId,
-      type: transactions.type,
       status: transactions.status,
     })
     .from(transactions)
     .where(eq(transactions.id, transactionId))
     .for("update")
   if (!locked) throw new Error("TX_NOT_FOUND")
-  if (locked.type !== "manual") throw new Error("TX_NOT_MANUAL")
   return locked
 }
 
