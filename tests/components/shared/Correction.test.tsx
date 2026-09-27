@@ -58,6 +58,20 @@ describe("CorrectionExplanation", () => {
     expect(within(bubble).getByText("Source D")).toBeInTheDocument()
   })
 
+  it("la bulle ne double pas le numéro qu'une référence porte déjà", () => {
+    render(
+      <CorrectionExplanation
+        explanation="Texte [1]."
+        references={["1.\nMotor Delays.\n\n2.\nAutre source."]}
+      />,
+    )
+    fireEvent.click(screen.getByTestId("citation"))
+    const bubble = screen.getByTestId("citation-popover")
+    expect(within(bubble).getByRole("listitem").textContent).toBe(
+      "1.\nMotor Delays.\n\n2.\nAutre source.",
+    )
+  })
+
   it("un numéro répété dans un appel n'ouvre sa référence qu'une fois", () => {
     render(
       <CorrectionExplanation explanation="Texte [3,1-3]." references={REFS} />,
@@ -86,23 +100,25 @@ describe("CorrectionExplanation", () => {
   })
 
   it("un appel dont un numéro dépasse la liste reste du texte simple", () => {
-    render(
+    const { container } = render(
       <CorrectionExplanation
         explanation="Texte [4-6] et [0] et [2]."
         references={REFS}
       />,
     )
     expect(screen.getAllByRole("button")).toHaveLength(1)
-    expect(screen.getByText(/Texte \[4-6\] et \[0\] et/)).toBeInTheDocument()
+    expect(container.querySelector("p")?.textContent).toBe(
+      "Texte [4-6] et [0] et [2].",
+    )
     expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
 
   it("sans référence, aucun appel n'est interactif", () => {
-    render(
+    const { container } = render(
       <CorrectionExplanation explanation="Texte [1][2]." references={[]} />,
     )
     expect(screen.queryByRole("button")).not.toBeInTheDocument()
-    expect(screen.getByText("Texte [1][2].")).toBeInTheDocument()
+    expect(container.querySelector("p")?.textContent).toBe("Texte [1][2].")
   })
 
   it("les images d'explication s'affichent sous le texte", () => {

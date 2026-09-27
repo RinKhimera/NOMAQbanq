@@ -32,8 +32,8 @@ de mise en forme.
 _Avoid_ : bibliographie, source (pour une entrée), bloc de références
 
 **Appel de citation** :
-La marque `[n]`, `[n-m]` ou `[n][m]` dans le texte d'une explication, qui
-renvoie à la référence de même numéro.
+La marque `[n]`, `[n-m]`, `[n,m]` ou leurs chaînes (`[n][m]`) dans le texte
+d'une explication, qui renvoie à la référence de même numéro.
 _Avoid_ : citation (désigne la source elle-même), renvoi, note
 
 **Normalisation** :

@@ -85,9 +85,11 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
 Ne JAMAIS utiliser de sélecteurs CSS génériques (ils matchent la sidebar/header).
 Convention quiz : `answer-option-{i}`, `btn-next/previous/finish/flag`,
 `btn-header-finish`, `pause-overlay`, `pause-timer`, `btn-resume-exam`,
-`explanation-content`, `explanation-images`, `score-percentage`, `score-badge`,
-`score-progress`, `score-withheld` (score retenu : les trois absents, le message
-présent), `score-status` (`data-status="passing|failing|withheld"` sur l'en-tête),
+`explanation-content`, `explanation-images`, `citation` (appel de citation
+cliquable, rendu partagé `components/shared/correction.tsx`), `citation-popover`
+(sa bulle), `score-percentage`, `score-badge`, `score-progress`,
+`score-withheld` (score retenu : les trois absents, le message présent),
+`score-status` (`data-status="passing|failing|withheld"` sur l'en-tête),
 `btn-filter-errors`, `btn-expand-all`, `btn-collapse-all`, `results-nav-item-{i}`.
 Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-access-{titre}`
 (grille dashboard), `exam-side-panel`/`user-side-panel` (panels admin master-détail),

@@ -13,7 +13,9 @@ import { cn } from "@/lib/utils"
  * d'explication), partagé par le quiz et l'admin. Affiche ce qui est stocké et
  * n'interprète que deux conventions : une ligne vide sépare deux paragraphes,
  * et `[n]`, `[n-m]`, `[n,m]` sont des appels de citation vers la référence de
- * même position (base 1). L'habillage reste à la surface appelante.
+ * même position (base 1). Seule entorse : une référence qui porte déjà son
+ * numéro n'en reçoit pas un second (voir `carriesOwnNumber`). L'habillage
+ * reste à la surface appelante.
  */
 
 export type CorrectionImage = { key: string; url: string }
@@ -21,6 +23,7 @@ export type CorrectionImage = { key: string; url: string }
 type Segment =
   | { kind: "text"; text: string }
   | { kind: "citation"; text: string; numbers: number[] }
+  | { kind: "unresolved"; text: string }
 
 const CITATION = /\[(\d+(?:\s*[-–]\s*\d+)?(?:\s*,\s*\d+(?:\s*[-–]\s*\d+)?)*)\]/g
 
@@ -40,11 +43,14 @@ function parseParagraph(paragraph: string, count: number): Segment[] {
   let last = 0
   for (const match of paragraph.matchAll(CITATION)) {
     const numbers = resolveCitation(match[1], count)
-    if (!numbers) continue
     if (match.index > last) {
       segments.push({ kind: "text", text: paragraph.slice(last, match.index) })
     }
-    segments.push({ kind: "citation", text: match[0], numbers })
+    segments.push(
+      numbers
+        ? { kind: "citation", text: match[0], numbers }
+        : { kind: "unresolved", text: match[0] },
+    )
     last = match.index + match[0].length
   }
   if (last < paragraph.length) {
@@ -70,23 +76,20 @@ function Citation({
   return (
     <Popover>
       <PopoverTrigger
+        data-testid="citation"
         aria-label={label}
         className="cursor-pointer rounded-sm font-semibold underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
       >
         {text}
       </PopoverTrigger>
       <PopoverContent
+        data-testid="citation-popover"
         aria-label={label}
         className="max-h-72 w-80 max-w-[calc(100vw-2rem)] overflow-y-auto p-3"
       >
-        <ol className="space-y-2 text-sm leading-relaxed">
+        <ol className="space-y-2 text-sm">
           {numbers.map((n) => (
-            <li key={n} className="flex gap-2">
-              <span className="shrink-0 font-semibold">{n}.</span>
-              <span className="wrap-break-word whitespace-pre-line">
-                {references[n - 1]}
-              </span>
-            </li>
+            <ReferenceItem key={n} reference={references[n - 1]} position={n} />
           ))}
         </ol>
       </PopoverContent>
@@ -115,18 +118,24 @@ export function CorrectionExplanation({
           key={i}
           className="leading-relaxed wrap-break-word whitespace-pre-line"
         >
-          {parseParagraph(paragraph, refs.length).map((segment, j) =>
-            segment.kind === "text" ? (
-              segment.text
-            ) : (
+          {parseParagraph(paragraph, refs.length).map((segment, j) => {
+            if (segment.kind === "text") return segment.text
+            if (segment.kind === "unresolved") {
+              return (
+                <span key={j} className="whitespace-nowrap">
+                  {segment.text}
+                </span>
+              )
+            }
+            return (
               <Citation
                 key={j}
                 text={segment.text}
                 numbers={segment.numbers}
                 references={refs}
               />
-            ),
-          )}
+            )
+          })}
         </p>
       ))}
 
@@ -162,6 +171,25 @@ const carriesOwnNumber = (reference: string, position: number) =>
     reference,
   )
 
+function ReferenceItem({
+  reference,
+  position,
+}: {
+  reference: string
+  position: number
+}) {
+  return (
+    <li className="flex gap-2 leading-relaxed">
+      {!carriesOwnNumber(reference, position) && (
+        <span className="shrink-0 font-semibold">{position}.</span>
+      )}
+      <span className="min-w-0 wrap-break-word whitespace-pre-line">
+        {reference}
+      </span>
+    </li>
+  )
+}
+
 export function CorrectionReferences({
   references,
   className,
@@ -174,14 +202,7 @@ export function CorrectionReferences({
   return (
     <ol className={cn("space-y-2", className)}>
       {references.map((reference, index) => (
-        <li key={index} className="flex gap-2 leading-relaxed">
-          {!carriesOwnNumber(reference, index + 1) && (
-            <span className="shrink-0 font-semibold">{index + 1}.</span>
-          )}
-          <span className="min-w-0 wrap-break-word whitespace-pre-line">
-            {reference}
-          </span>
-        </li>
+        <ReferenceItem key={index} reference={reference} position={index + 1} />
       ))}
     </ol>
   )
