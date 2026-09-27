@@ -102,6 +102,18 @@ describe("createQuestion", () => {
     expect(res.success).toBe(false)
   })
 
+  it("refuse deux options identiques, casse et espaces de bord ignorés", async () => {
+    const question = `Doublon ${suffix}`
+    const res = await createQuestion({
+      ...base,
+      question,
+      options: ["A", "B", " b ", "C"],
+    })
+    expect(res).toMatchObject({ success: false })
+    const page = await getQuestionsWithFilters({ search: question, limit: 10 })
+    expect(page.items).toHaveLength(0)
+  })
+
   it("refuse un domaine hors de la liste officielle", async () => {
     const res = await createQuestion({ ...base, domain: "Gastroentérologie" })
     expect(res.success).toBe(false)
@@ -123,6 +135,17 @@ describe("updateQuestion", () => {
     const q = await getQuestionById(id)
     expect(q?.explanation).toBe("Nouvelle explication")
     expect(q?.correctAnswer).toBe("B")
+  })
+
+  it("refuse d'enregistrer des options en double", async () => {
+    const id = await makeOne()
+    const res = await updateQuestion({
+      ...base,
+      id,
+      options: ["A", "B", "C", "a"],
+    })
+    expect(res.success).toBe(false)
+    expect((await getQuestionById(id))?.options).toEqual(["A", "B", "C", "D"])
   })
 
   it("refuse de déplacer une question vers un domaine hors liste", async () => {

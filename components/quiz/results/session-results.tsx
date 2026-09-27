@@ -234,6 +234,8 @@ export function SessionResults({
           isCorrect: outcome === "correct",
           isError: outcome === "incorrect" || outcome === "unanswered",
           userAnswer: outcome === "unanswered" ? null : answers[q._id].selected,
+          userVerdict:
+            outcome === "unanswered" ? undefined : answers[q._id].isCorrect,
         }
       }),
     [questions, answers],
@@ -601,6 +603,7 @@ export function SessionResults({
                         lazyExplanationImages={lazyExplanationImages}
                         questionNumber={originalIndex + 1}
                         userAnswer={result.userAnswer}
+                        userVerdict={result.userVerdict}
                         isExpanded={expandedQuestions.has(originalIndex)}
                         onToggleExpand={() =>
                           toggleQuestionExpand(originalIndex)

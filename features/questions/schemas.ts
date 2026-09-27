@@ -29,15 +29,32 @@ const correctAnswerIssue = {
   path: ["correctAnswer"],
 }
 
+/**
+ * Options distinctes deux à deux, espaces de bord et casse ignorés : sinon la
+ * clé devient ambiguë et la répartition des réponses compte deux fois.
+ */
+export const hasDistinctOptions = (options: string[]) => {
+  const keys = options.map((option) => option.trim().toLocaleLowerCase("fr"))
+  return new Set(keys).size === keys.length
+}
+export const distinctOptionsIssue = {
+  message: "Deux options sont identiques (casse et espaces ignorés)",
+  path: ["options"],
+}
+const optionsDistinct = (d: { options: string[] }) =>
+  hasDistinctOptions(d.options)
+
 export const createQuestionSchema = z
   .object(questionFields)
   .refine(correctAnswerInOptions, correctAnswerIssue)
+  .refine(optionsDistinct, distinctOptionsIssue)
 
 export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
 
 export const updateQuestionSchema = z
   .object({ id: z.string().min(1), ...questionFields })
   .refine(correctAnswerInOptions, correctAnswerIssue)
+  .refine(optionsDistinct, distinctOptionsIssue)
 
 export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>
 

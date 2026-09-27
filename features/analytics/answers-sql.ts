@@ -59,21 +59,34 @@ export const datedAnswersSql = ({
 /** En dessous de ce nombre de réponses, un taux de réussite n'est pas significatif. */
 export const QUESTION_SUCCESS_MIN_ANSWERS = 10
 
-/**
- * Première réponse de chaque étudiant à chaque question (entraînement et
- * examens), comptes admin et supprimés exclus. Une réponse d'examen est datée
- * de la clôture de sa participation. Justesse jugée sur la clé ACTUELLE : une
- * clé corrigée recompte les réponses passées. Lecture admin, donc pas de
- * verrou de clé de réponse.
- */
-export const firstAnswersSql = (questionIds?: string[]) => sql`
+const studentFirstAnswersSql = (questionIds?: string[]) => sql`
   select distinct on (x.user_id, x.question_id)
-         x.question_id, x.selected_answer
+         x.question_id, x.selected_answer, x.is_correct
     from (${datedAnswersSql({ questionIds })}) x
     join "user" u on u.id = x.user_id
    where u.role = 'user'
      and u.deleted_at is null
    order by x.user_id, x.question_id, x.answered_at nulls last, x.answer_id`
+
+/**
+ * Première réponse de chaque étudiant à chaque question (entraînement et
+ * examens), comptes admin et supprimés exclus. Une réponse d'examen est datée
+ * de la clôture de sa participation. Colonnes : question_id, selected_answer,
+ * is_current (le texte est encore une option de la question) et is_correct,
+ * la justesse retenue : sur la clé ACTUELLE si l'option existe encore (une clé
+ * corrigée recompte les réponses passées), sur le verdict enregistré pour une
+ * formulation antérieure (une option-clé reformulée ne rend pas fausses les
+ * réponses justes). Lecture admin, donc pas de verrou de clé de réponse.
+ */
+export const firstAnswersSql = (questionIds?: string[]) => sql`
+  select f.question_id, f.selected_answer,
+         q.options ? f.selected_answer as is_current,
+         case when q.options ? f.selected_answer
+              then f.selected_answer = q.correct_answer
+              else f.is_correct
+         end as is_correct
+    from (${studentFirstAnswersSql(questionIds)}) f
+    join questions q on q.id = f.question_id`
 
 /**
  * CTE des statistiques par question, à joindre sur `questions.id`. Colonnes
@@ -89,23 +102,21 @@ export const questionSuccessStats = (questionIds?: string[]) =>
   }).as(sql`
       with first_answers as (${firstAnswersSql(questionIds)}),
       per_option as (
-        select f.question_id,
-               f.selected_answer = q.correct_answer as is_key,
-               count(*) as n
-          from first_answers f
-          join questions q on q.id = f.question_id
-         group by f.question_id, f.selected_answer, q.correct_answer
+        select question_id, is_current, is_correct, count(*) as n
+          from first_answers
+         group by question_id, selected_answer, is_current, is_correct
       )
       select question_id as qs_question_id,
              sum(n)::int as qs_answer_count,
              case when sum(n) >= ${QUESTION_SUCCESS_MIN_ANSWERS}
                then round(
-                 100.0 * coalesce(sum(n) filter (where is_key), 0) / sum(n)
+                 100.0 * coalesce(sum(n) filter (where is_correct), 0) / sum(n)
                )::int
              end as qs_success_rate,
              sum(n) >= ${QUESTION_SUCCESS_MIN_ANSWERS}
-               and coalesce(max(n) filter (where not is_key), 0)
-                 > coalesce(sum(n) filter (where is_key), 0)
+               and coalesce(
+                 max(n) filter (where is_current and not is_correct), 0
+               ) > coalesce(sum(n) filter (where is_correct), 0)
                as qs_key_suspect
         from per_option
        group by question_id`)

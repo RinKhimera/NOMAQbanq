@@ -1,4 +1,4 @@
-import { inArray } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
@@ -133,6 +133,13 @@ const answeredBy = async (questionId: string, choices: ("A" | "B" | "C")[]) => {
   for (const choice of choices)
     await answer(await newUser(), questionId, choice)
 }
+
+/** Réécrit les options et la clé de `questionId`, comme une édition admin. */
+const edit = (questionId: string, options: string[], correctAnswer: string) =>
+  db
+    .update(questions)
+    .set({ options, correctAnswer })
+    .where(eq(questions.id, questionId))
 
 const rowOf = async (questionId: string) =>
   (await getQuestionsWithFilters({ search: suffix, limit: 100 })).items.find(
@@ -333,6 +340,7 @@ describe("répartition des réponses d'une question", () => {
         { option: "B", count: 3, share: 30, isKey: false },
         { option: "C", count: 0, share: 0, isKey: false },
       ],
+      formerWording: { count: 0, share: 0 },
     })
     expect((await rowOf(q))?.successRate).toBe(breakdown.successRate)
   })
@@ -343,5 +351,76 @@ describe("répartition des réponses d'une question", () => {
       user: { id: "student", role: "user" },
     } as never)
     await expect(getQuestionAnswerBreakdown(q)).rejects.toThrow()
+  })
+})
+
+describe("clé corrigée et option reformulée", () => {
+  const listedToVerify = async () =>
+    (
+      await getQuestionsWithFilters({
+        search: suffix,
+        limit: 100,
+        toVerify: true,
+      })
+    ).items.map((q) => q.id)
+
+  it("une clé corrigée recompte l'historique sur la nouvelle clé", async () => {
+    const q = await newQuestion()
+    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"])
+    await edit(q, ["A", "B", "C"], "B")
+    expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 30 })
+    expect(await getQuestionAnswerBreakdown(q)).toMatchObject({
+      successRate: 30,
+      formerWording: { count: 0, share: 0 },
+    })
+  })
+
+  it("une option-clé reformulée garde justes les anciennes réponses justes, sans passer « À vérifier »", async () => {
+    const q = await newQuestion()
+    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"])
+    await edit(q, ["A 500 mg", "B", "C"], "A 500 mg")
+    expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 70 })
+    expect(await listedToVerify()).not.toContain(q)
+    expect(await getQuestionAnswerBreakdown(q)).toEqual({
+      answerCount: 10,
+      successRate: 70,
+      options: [
+        { option: "A 500 mg", count: 0, share: 0, isKey: true },
+        { option: "B", count: 3, share: 30, isKey: false },
+        { option: "C", count: 0, share: 0, isKey: false },
+      ],
+      formerWording: { count: 7, share: 70 },
+    })
+  })
+
+  it("un distracteur reformulé garde fausses ses réponses, rangées en formulation antérieure", async () => {
+    const q = await newQuestion()
+    await answeredBy(q, ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"])
+    await edit(q, ["A", "B bis", "C"], "A")
+    const breakdown = await getQuestionAnswerBreakdown(q)
+    expect(breakdown).toMatchObject({
+      answerCount: 10,
+      successRate: 70,
+      formerWording: { count: 3, share: 30 },
+    })
+    expect(breakdown.options.map((o) => o.count)).toEqual([7, 0, 0])
+    expect((await rowOf(q))?.successRate).toBe(70)
+  })
+
+  it("compte les formulations antérieures dans le seuil de significativité", async () => {
+    const q = await newQuestion()
+    await answeredBy(q, ["A", "A", "A", "A", "A", "B", "B", "B", "B"])
+    await edit(q, ["A 500 mg", "B", "C"], "A 500 mg")
+    await answer(await newUser(), q, "B")
+    expect(await rowOf(q)).toMatchObject({ answerCount: 10, successRate: 50 })
+  })
+
+  it("une formulation antérieure plus choisie que la clé actuelle ne rend pas la clé suspecte", async () => {
+    const q = await newQuestion()
+    await answeredBy(q, ["A", "A", "A", "A", "B", "B", "B", "B", "B", "B"])
+    // Les six réponses « B » deviennent une formulation antérieure : elles ne
+    // sont plus un distracteur actuel à comparer à la clé.
+    await edit(q, ["A", "B bis", "C"], "A")
+    expect(await listedToVerify()).not.toContain(q)
   })
 })

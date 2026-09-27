@@ -321,6 +321,7 @@ export const saveTrainingAnswer = async (
         .select({
           itemId: trainingSessionItems.id,
           correctAnswer: questions.correctAnswer,
+          options: questions.options,
         })
         .from(trainingSessionItems)
         .innerJoin(questions, eq(questions.id, trainingSessionItems.questionId))
@@ -335,6 +336,12 @@ export const saveTrainingAnswer = async (
         return {
           ok: false as const,
           message: "Cette question ne fait pas partie de la session",
+        }
+      }
+      if (!item.options.includes(selectedAnswer)) {
+        return {
+          ok: false as const,
+          message: "Cette réponse ne fait pas partie des options",
         }
       }
 

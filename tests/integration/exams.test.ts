@@ -375,6 +375,13 @@ describe("Passation sans pause (scoring serveur)", () => {
       questionId: ids[3],
       selectedAnswer: "B",
     })
+    // Hors options : refusé sans écriture (l'admin voit 4 réponses, plus bas).
+    const orphan = await saveExamAnswer({
+      examId: noPauseId,
+      questionId: ids[4],
+      selectedAnswer: "Z",
+    })
+    expect(orphan.success).toBe(false)
 
     const res = await finalizeExam({ examId: noPauseId })
     // Le décompte des justes ne repart pas vers le navigateur : lu en base.

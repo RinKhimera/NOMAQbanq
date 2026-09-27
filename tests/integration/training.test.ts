@@ -209,6 +209,44 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
     expect(res.success).toBe(false)
   })
 
+  it("saveTrainingAnswer : refuse un texte qui n'est pas une option, sans rien écrire", async () => {
+    const res = await saveTrainingAnswer({
+      sessionId: activeSessionId,
+      questionId: sessionQuestionIds[2],
+      selectedAnswer: "Z",
+    })
+    expect(res.success).toBe(false)
+    const view = await getTrainingSessionById(activeSessionId)
+    expect(view?.answers[sessionQuestionIds[2]]).toBeUndefined()
+  })
+
+  it("saveTrainingAnswer : compare le texte exact, espaces de fin compris", async () => {
+    const questionId = sessionQuestionIds[2]
+    await db
+      .update(questions)
+      .set({ options: ["A", "B ", "C", "D"] })
+      .where(eq(questions.id, questionId))
+    try {
+      const trimmed = await saveTrainingAnswer({
+        sessionId: activeSessionId,
+        questionId,
+        selectedAnswer: "B",
+      })
+      expect(trimmed.success).toBe(false)
+      const exact = await saveTrainingAnswer({
+        sessionId: activeSessionId,
+        questionId,
+        selectedAnswer: "B ",
+      })
+      expect(exact).toEqual({ success: true })
+    } finally {
+      await db
+        .update(questions)
+        .set({ options: ["A", "B", "C", "D"] })
+        .where(eq(questions.id, questionId))
+    }
+  })
+
   it("completeTrainingSession : score = % bonnes réponses, lu en base", async () => {
     const res = await completeTrainingSession({ sessionId: activeSessionId })
     // Le décompte des justes ne repart pas vers le navigateur.

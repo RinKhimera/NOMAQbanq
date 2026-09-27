@@ -413,7 +413,9 @@ describe("startExam", () => {
 
 describe("saveExamAnswer", () => {
   const input = { examId: "e1", questionId: "q1", selectedAnswer: "A" }
-  const question = { examQuestions: [{ correctAnswer: "A" }] }
+  const question = {
+    examQuestions: [{ correctAnswer: "A", options: ["A", "B"] }],
+  }
 
   it("entree invalide → refus avant lecture", async () => {
     const res = await saveExamAnswer({ ...input, selectedAnswer: "" })
@@ -430,6 +432,15 @@ describe("saveExamAnswer", () => {
       error: "Cette question ne fait pas partie de l'examen.",
     })
     expect(mocks.requireAttempt).toHaveBeenCalled()
+  })
+
+  it("texte hors options → refus, aucune ecriture", async () => {
+    setRows(question)
+    expect(await saveExamAnswer({ ...input, selectedAnswer: "Z" })).toEqual({
+      success: false,
+      error: "Cette réponse ne fait pas partie des options.",
+    })
+    expect(state.set).toBeUndefined()
   })
 
   it("garde refusee : la question n'est pas lue, le refus porte son code", async () => {

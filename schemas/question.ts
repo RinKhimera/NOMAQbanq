@@ -1,4 +1,8 @@
 import * as z from "zod"
+import {
+  distinctOptionsIssue,
+  hasDistinctOptions,
+} from "@/features/questions/schemas"
 
 export const questionFormSchema = z
   .object({
@@ -24,6 +28,11 @@ export const questionFormSchema = z
       message: "Au moins 4 options non vides sont requises",
       path: ["options"],
     },
+  )
+  .refine(
+    (data) =>
+      hasDistinctOptions(data.options.filter((opt) => opt.trim() !== "")),
+    distinctOptionsIssue,
   )
 
 export type QuestionFormValues = z.infer<typeof questionFormSchema>
