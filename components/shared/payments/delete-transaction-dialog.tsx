@@ -20,7 +20,8 @@ import {
   loadTransactionAccessImpact,
 } from "@/features/payments/actions"
 import type { AccessImpact } from "@/features/payments/dal"
-import { formatCurrency, formatExpiration, formatShortDate } from "@/lib/format"
+import { formatCurrency, formatShortDate } from "@/lib/format"
+import { affectedAccesses, describeAccessImpact } from "./access-impact"
 import type { Transaction } from "./transaction-table"
 
 interface DeleteTransactionDialogProps {
@@ -37,7 +38,7 @@ export const DeleteTransactionDialog = ({
   onSuccess,
 }: DeleteTransactionDialogProps) => {
   const [isDeleting, setIsDeleting] = useState(false)
-  const [accessImpact, setAccessImpact] = useState<AccessImpact | null>(null)
+  const [accessImpact, setAccessImpact] = useState<AccessImpact[] | null>(null)
 
   // Impact d'accès chargé à l'ouverture (avertissement de révocation).
   useEffect(() => {
@@ -82,7 +83,7 @@ export const DeleteTransactionDialog = ({
 
   if (!transaction) return null
 
-  const willAffectAccess = accessImpact?.willAffectAccess ?? false
+  const affected = affectedAccesses(accessImpact)
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -132,7 +133,7 @@ export const DeleteTransactionDialog = ({
         </div>
 
         {/* Access Impact Warning */}
-        {willAffectAccess ? (
+        {affected.length > 0 ? (
           <motion.div
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
@@ -143,11 +144,14 @@ export const DeleteTransactionDialog = ({
               <p className="font-medium text-red-800 dark:text-red-200">
                 Impact sur l{"'"}accès
               </p>
-              <p className="mt-1 text-sm text-red-700 dark:text-red-300">
-                {accessImpact?.restoredExpiresAt != null
-                  ? `La suppression ramènera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} à son échéance précédente (${formatExpiration(accessImpact.restoredExpiresAt)}).`
-                  : `La suppression révoquera l'accès ${accessImpact?.accessType === "exam" ? "aux examens" : "à l'entraînement"} de l'utilisateur : aucune autre transaction ne le couvre.`}
-              </p>
+              {affected.map((impact) => (
+                <p
+                  key={impact.accessType}
+                  className="mt-1 text-sm text-red-700 dark:text-red-300"
+                >
+                  {describeAccessImpact(impact, "La suppression")}
+                </p>
+              ))}
             </div>
           </motion.div>
         ) : (

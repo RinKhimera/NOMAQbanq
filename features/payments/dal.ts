@@ -11,7 +11,7 @@ import {
 } from "@/lib/app-zone"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
-import { bestCoveringTransaction } from "./access-ledger"
+import { type AccessType, planRebuild } from "./access-ledger"
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -32,18 +32,16 @@ const toAccessInfo = (
 }
 
 /**
- * Statut d'accès complet (exam + training). `userId` optionnel → défaut = session.
- * Remplace `getMyAccessStatus` + `getMyAccess`. `null` si non connecté.
+ * Statut d'accès complet (exam + training). `userId` optionnel → défaut = session ;
+ * celui d'un autre utilisateur exige le rôle admin. `null` si non connecté.
  * Borné par la contrainte UNIQUE(user_id, access_type) → au plus 2 lignes.
  */
 export const getAccessStatus = cache(
   async (userId?: string): Promise<AccessStatus | null> => {
-    let targetId = userId
-    if (!targetId) {
-      const session = await getCurrentSession()
-      if (!session?.user) return null
-      targetId = session.user.id
-    }
+    const session = await getCurrentSession()
+    const targetId = userId ?? session?.user.id
+    if (!targetId) return null
+    if (targetId !== session?.user.id) await requireRole(["admin"])
 
     const rows = await db
       .select({
@@ -513,7 +511,8 @@ export const getTransactionStats = async (): Promise<TransactionStatsView> => {
 // ============================================
 
 export type AccessImpact = {
-  /** true si retirer cette transaction SUPPRIME ou RACCOURCIT l'accès courant. */
+  accessType: AccessType
+  /** true si retirer cette transaction SUPPRIME ou RACCOURCIT cet accès. */
   willAffectAccess: boolean
   /** Epoch ms ou null. */
   currentAccessExpiresAt: number | null
@@ -522,72 +521,36 @@ export type AccessImpact = {
    * transactions restantes (epoch ms) — null si l'accès disparaît.
    */
   restoredExpiresAt: number | null
-  accessType: "exam" | "training"
 }
 
 /**
- * [Admin] Indique si rembourser/supprimer cette transaction réduira l'accès :
- * l'expiration restaurée par les transactions restantes est-elle inférieure à
- * l'expiration courante ? Renvoie `null` si la transaction n'existe pas (l'UI
- * traite alors « aucun impact »).
+ * [Admin] Ce que la suppression ou le remboursement de cette transaction fera
+ * à chaque type d'accès : le plan de reconstruction, lu sans écrire, en
+ * excluant la transaction. Renvoie `null` si la transaction n'existe pas
+ * (l'UI traite alors « aucun impact »).
  */
 export const getTransactionAccessImpact = async (
   transactionId: string,
-): Promise<AccessImpact | null> => {
+): Promise<AccessImpact[] | null> => {
   await requireRole(["admin"])
 
   const [tx] = await db
-    .select({
-      userId: transactions.userId,
-      accessType: transactions.accessType,
-      status: transactions.status,
-    })
+    .select({ userId: transactions.userId })
     .from(transactions)
     .where(eq(transactions.id, transactionId))
     .limit(1)
   if (!tx) return null
 
-  const [access] = await db
-    .select({ expiresAt: userAccess.expiresAt })
-    .from(userAccess)
-    .where(
-      and(
-        eq(userAccess.userId, tx.userId),
-        eq(userAccess.accessType, tx.accessType),
-      ),
-    )
-    .limit(1)
-
-  // Une transaction non-completed ne porte aucun accès : la retirer n'affecte rien.
-  if (!access || tx.status !== "completed") {
-    return {
-      willAffectAccess: false,
-      currentAccessExpiresAt: access ? access.expiresAt.getTime() : null,
-      restoredExpiresAt: null,
-      accessType: tx.accessType,
-    }
-  }
-
-  // Même calcul que rebuildFromTransactions (source unique) : que reste-t-il sans cette
-  // transaction ? NE PAS dériver de lastTransactionId — il peut pointer une
-  // transaction dont le snapshot est INFÉRIEUR à l'échéance courante (cas combo
-  // conservant un accès plus tardif), et l'accès chuterait alors même que
-  // « ce n'est pas la dernière ».
-  const restored = await bestCoveringTransaction(
-    db,
-    tx.userId,
-    tx.accessType,
-    transactionId,
-  )
-  const restoredMs = restored ? restored.accessExpiresAt.getTime() : null
-  const currentMs = access.expiresAt.getTime()
-
-  return {
-    willAffectAccess: restoredMs === null || restoredMs < currentMs,
-    currentAccessExpiresAt: currentMs,
-    restoredExpiresAt: restoredMs,
-    accessType: tx.accessType,
-  }
+  const plans = await planRebuild(db, {
+    userId: tx.userId,
+    excludeTransactionId: transactionId,
+  })
+  return plans.map((p) => ({
+    accessType: p.accessType,
+    willAffectAccess: p.reducedOrRemoved,
+    currentAccessExpiresAt: p.existingExpiresAt?.getTime() ?? null,
+    restoredExpiresAt: p.best?.accessExpiresAt.getTime() ?? null,
+  }))
 }
 
 // ============================================

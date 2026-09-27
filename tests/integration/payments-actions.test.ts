@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm"
+import { and, eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
@@ -7,6 +7,7 @@ import {
   recordManualPayment,
   updateManualTransaction,
 } from "@/features/payments/actions"
+import { getTransactionAccessImpact } from "@/features/payments/dal"
 import type { RecordManualPaymentInput } from "@/features/payments/schemas"
 import { createId } from "@/lib/ids"
 
@@ -34,9 +35,10 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }))
 const suffix = createId().slice(0, 8)
 const ADMIN_ID = createId()
 const USER_ID = createId()
+const COMBO_USER_ID = createId()
 const PID = createId()
 
-const accessRow = (accessType: "exam" | "training") =>
+const accessRow = (accessType: "exam" | "training", userId: string = USER_ID) =>
   db
     .select({
       expiresAt: userAccess.expiresAt,
@@ -44,10 +46,7 @@ const accessRow = (accessType: "exam" | "training") =>
     })
     .from(userAccess)
     .where(
-      and(
-        eq(userAccess.userId, USER_ID),
-        eq(userAccess.accessType, accessType),
-      ),
+      and(eq(userAccess.userId, userId), eq(userAccess.accessType, accessType)),
     )
     .then((r) => r[0])
 
@@ -76,6 +75,11 @@ beforeAll(async () => {
       email: `adm-${suffix}@test.invalid`,
     },
     { id: USER_ID, name: `Usr ${suffix}`, email: `usr-${suffix}@test.invalid` },
+    {
+      id: COMBO_USER_ID,
+      name: `Combo ${suffix}`,
+      email: `combo-${suffix}@test.invalid`,
+    },
   ])
   await db.insert(products).values({
     id: PID,
@@ -95,10 +99,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   // FK restrict : les lignes d'acces referencent les transactions.
-  await db.delete(userAccess).where(eq(userAccess.userId, USER_ID))
-  await db.delete(transactions).where(eq(transactions.userId, USER_ID))
+  const seeded = [USER_ID, COMBO_USER_ID]
+  await db.delete(userAccess).where(inArray(userAccess.userId, seeded))
+  await db.delete(transactions).where(inArray(transactions.userId, seeded))
   await db.delete(products).where(eq(products.id, PID))
-  await db.delete(user).where(eq(user.id, USER_ID))
+  await db.delete(user).where(inArray(user.id, seeded))
   await db.delete(user).where(eq(user.id, ADMIN_ID))
 })
 
@@ -289,5 +294,46 @@ describe("deleteManualTransaction (DB)", () => {
   it("transaction inexistante → erreur metier", async () => {
     const res = await deleteManualTransaction(createId())
     expect(res).toEqual({ success: false, error: "Transaction introuvable" })
+  })
+
+  it("combo : l'aperçu annonce type par type ce que la suppression fait ensuite", async () => {
+    // Combo puis accès examen simple : l'examen cumule au-delà du combo, seul
+    // le combo couvre l'entraînement.
+    const comboId = await record({
+      userId: COMBO_USER_ID,
+      productCode: "premium_access",
+    })
+    await record({ userId: COMBO_USER_ID, productCode: "exam_access" })
+    const examBefore = (await accessRow("exam", COMBO_USER_ID)).expiresAt
+
+    const impacts = await getTransactionAccessImpact(comboId)
+    const on = (type: "exam" | "training") =>
+      impacts?.find((i) => i.accessType === type)
+    expect(on("exam")?.willAffectAccess).toBe(false)
+    expect(on("training")).toMatchObject({
+      willAffectAccess: true,
+      restoredExpiresAt: null,
+    })
+
+    const res = await deleteManualTransaction(comboId)
+    expect(res).toEqual({ success: true, accessRevoked: true })
+    expect(await accessRow("training", COMBO_USER_ID)).toBeUndefined()
+    expect((await accessRow("exam", COMBO_USER_ID)).expiresAt).toEqual(
+      examBefore,
+    )
+  })
+
+  it("double suppression concurrente : une seule reussit, l'autre dit introuvable", async () => {
+    const transactionId = await record()
+
+    const results = await Promise.all([
+      deleteManualTransaction(transactionId),
+      deleteManualTransaction(transactionId),
+    ])
+
+    expect(results.filter((r) => r.success)).toHaveLength(1)
+    expect(results.filter((r) => !r.success)).toEqual([
+      { success: false, error: "Transaction introuvable" },
+    ])
   })
 })

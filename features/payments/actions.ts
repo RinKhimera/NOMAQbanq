@@ -3,7 +3,7 @@
 import { asc, eq } from "drizzle-orm"
 import { revalidatePath } from "next/cache"
 import { db } from "@/db"
-import { products, transactions, user } from "@/db/schema"
+import { products, transactions } from "@/db/schema"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getBaseUrl } from "@/lib/base-url"
 import { createId } from "@/lib/ids"
@@ -16,7 +16,7 @@ import {
   retrieveCheckoutSession,
 } from "@/lib/stripe"
 import { isStripeConfigurationError } from "@/lib/stripe-errors"
-import { rebuildFromTransactions } from "./access-ledger"
+import { type Tx, lockUser, rebuildFromTransactions } from "./access-ledger"
 import { describePriceDrift, resolveStripePrice } from "./catalog"
 import {
   type AccessImpact,
@@ -98,7 +98,7 @@ export const loadTransactionStats = async (): Promise<TransactionStatsView> => {
  */
 export const loadTransactionAccessImpact = async (
   transactionId: string,
-): Promise<AccessImpact | null> => {
+): Promise<AccessImpact[] | null> => {
   await requireRole(["admin"])
   return getTransactionAccessImpact(transactionId)
 }
@@ -190,13 +190,43 @@ export const recordManualPayment = async (
 }
 
 /**
+ * Relit une transaction manuelle sous verrou, en prenant d'abord le verrou
+ * `user` : même ordre d'acquisition (user → ligne transaction) qu'`applyGrant`
+ * et `rebuildFromTransactions`, sinon deadlock croisé. La relecture sous verrou
+ * écarte une ligne supprimée par une action concurrente pendant l'attente.
+ */
+const lockManualTransaction = async (tx: Tx, transactionId: string) => {
+  const [found] = await tx
+    .select({ userId: transactions.userId })
+    .from(transactions)
+    .where(eq(transactions.id, transactionId))
+    .limit(1)
+  if (!found) throw new Error("TX_NOT_FOUND")
+  await lockUser(tx, found.userId)
+
+  const [locked] = await tx
+    .select({
+      id: transactions.id,
+      userId: transactions.userId,
+      type: transactions.type,
+      status: transactions.status,
+    })
+    .from(transactions)
+    .where(eq(transactions.id, transactionId))
+    .for("update")
+  if (!locked) throw new Error("TX_NOT_FOUND")
+  if (locked.type !== "manual") throw new Error("TX_NOT_MANUAL")
+  return locked
+}
+
+/**
  * [Admin] Modifie une transaction MANUELLE. Si le statut passe `completed → refunded`,
  * révoque l'accès si cette transaction l'avait accordé en dernier. Atomique.
  */
 export const updateManualTransaction = async (
   input: UpdateManualTransactionInput,
 ): Promise<{ success: boolean; error?: string }> => {
-  await requireRole(["admin"])
+  const session = await requireRole(["admin"])
 
   const parsed = updateManualTransactionSchema.safeParse(input)
   if (!parsed.success) {
@@ -209,29 +239,7 @@ export const updateManualTransaction = async (
 
   try {
     await db.transaction(async (tx) => {
-      const [transaction] = await tx
-        .select({
-          id: transactions.id,
-          userId: transactions.userId,
-          type: transactions.type,
-          status: transactions.status,
-        })
-        .from(transactions)
-        .where(eq(transactions.id, data.transactionId))
-        .limit(1)
-      if (!transaction) throw new Error("TX_NOT_FOUND")
-      if (transaction.type !== "manual") throw new Error("TX_NOT_MANUAL")
-
-      // Verrou user AVANT toute écriture sur `transactions` : même ordre
-      // d'acquisition (user → ligne transaction) que deleteManualTransaction et
-      // applyGrant. Sans ça : l'update verrouille la ligne PUIS
-      // rebuildFromTransactions demande le user, pendant qu'un delete concurrent
-      // tient le user et demande la ligne → deadlock croisé.
-      await tx
-        .select({ id: user.id })
-        .from(user)
-        .where(eq(user.id, transaction.userId))
-        .for("update")
+      const transaction = await lockManualTransaction(tx, data.transactionId)
 
       const statusChange =
         data.status && data.status !== transaction.status ? data.status : null
@@ -270,7 +278,9 @@ export const updateManualTransaction = async (
         error: "Seules les transactions manuelles peuvent être modifiées",
       }
     }
-    captureServerError("[updateManualTransaction]", error)
+    captureServerError("[updateManualTransaction]", error, {
+      userId: session.user.id,
+    })
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 }
@@ -282,7 +292,7 @@ export const updateManualTransaction = async (
 export const deleteManualTransaction = async (
   transactionId: string,
 ): Promise<{ success: boolean; accessRevoked?: boolean; error?: string }> => {
-  await requireRole(["admin"])
+  const session = await requireRole(["admin"])
 
   if (!transactionId) {
     return { success: false, error: "Transaction requise" }
@@ -290,17 +300,7 @@ export const deleteManualTransaction = async (
 
   try {
     const accessRevoked = await db.transaction(async (tx) => {
-      const [transaction] = await tx
-        .select({
-          id: transactions.id,
-          userId: transactions.userId,
-          type: transactions.type,
-        })
-        .from(transactions)
-        .where(eq(transactions.id, transactionId))
-        .limit(1)
-      if (!transaction) throw new Error("TX_NOT_FOUND")
-      if (transaction.type !== "manual") throw new Error("TX_NOT_MANUAL")
+      const transaction = await lockManualTransaction(tx, transactionId)
 
       // Recompute AVANT le DELETE, en excluant la transaction : re-pointe ou
       // supprime les lignes d'accès qui la référencent (FK restrict), puis la
@@ -325,7 +325,9 @@ export const deleteManualTransaction = async (
         error: "Seules les transactions manuelles peuvent être supprimées",
       }
     }
-    captureServerError("[deleteManualTransaction]", error)
+    captureServerError("[deleteManualTransaction]", error, {
+      userId: session.user.id,
+    })
     return { success: false, error: "Erreur serveur. Réessayez." }
   }
 }

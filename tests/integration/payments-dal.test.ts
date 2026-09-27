@@ -7,7 +7,8 @@ import {
   getMyTransactions,
   hasActiveAccess,
 } from "@/features/payments/dal"
-import { requireSession } from "@/lib/auth-guards"
+import { requireRole, requireSession } from "@/lib/auth-guards"
+import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
 // `cache()` de React → identité (pas de contexte RSC en test node).
@@ -16,7 +17,11 @@ vi.mock("react", async (orig) => {
   return { ...actual, cache: (fn: unknown) => fn }
 })
 // Session mockée : on isole la logique DB.
-vi.mock("@/lib/auth-guards", () => ({ requireSession: vi.fn() }))
+vi.mock("@/lib/auth-guards", () => ({
+  requireSession: vi.fn(),
+  requireRole: vi.fn(),
+}))
+vi.mock("@/lib/dal", () => ({ getCurrentSession: vi.fn() }))
 
 const DAY = 24 * 60 * 60 * 1000
 const uid = createId()
@@ -113,12 +118,36 @@ afterAll(async () => {
 })
 
 describe("getAccessStatus", () => {
+  const signedInAs = (id: string) =>
+    vi.mocked(getCurrentSession).mockResolvedValue({ user: { id } } as never)
+
   it("retourne l'accès exam actif et ignore le training expiré", async () => {
+    signedInAs(uid)
     const status = await getAccessStatus(uid)
     expect(status).not.toBeNull()
     expect(status?.examAccess).not.toBeNull()
     expect(status?.examAccess?.daysRemaining).toBeGreaterThan(0)
     expect(status?.trainingAccess).toBeNull()
+  })
+
+  it("lit l'utilisateur courant sans userId", async () => {
+    signedInAs(uid)
+    const status = await getAccessStatus()
+    expect(status?.examAccess).not.toBeNull()
+  })
+
+  it("refuse la lecture d'un autre utilisateur à un non-admin", async () => {
+    signedInAs(createId())
+    vi.mocked(requireRole).mockRejectedValueOnce(new Error("NEXT_REDIRECT"))
+    await expect(getAccessStatus(uid)).rejects.toThrow("NEXT_REDIRECT")
+    expect(requireRole).toHaveBeenCalledWith(["admin"])
+  })
+
+  it("laisse un admin lire un autre utilisateur", async () => {
+    signedInAs(createId())
+    vi.mocked(requireRole).mockResolvedValueOnce({} as never)
+    const status = await getAccessStatus(uid)
+    expect(status?.examAccess).not.toBeNull()
   })
 })
 

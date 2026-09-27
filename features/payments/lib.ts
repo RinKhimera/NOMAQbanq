@@ -1,11 +1,7 @@
 import "server-only"
-import { db } from "@/db"
 import { transactions } from "@/db/schema"
 import { createId } from "@/lib/ids"
-import { applyGrant, lockUser } from "./access-ledger"
-
-// Type du handle de transaction Drizzle (sans importer le type verbeux de pg-core).
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+import { type Tx, applyGrant, lockUser } from "./access-ledger"
 
 export type ProductForGrant = {
   id: string
@@ -35,9 +31,10 @@ export async function grantManualAccess(
   },
 ): Promise<string> {
   const { userId, product } = params
-  const now = params.now ?? new Date()
-
   await lockUser(tx, userId)
+  // Lu APRÈS le verrou : l'attente d'un octroi concurrent ne doit pas avancer
+  // l'octroi dans le passé.
+  const now = params.now ?? new Date()
 
   const transactionId = createId()
   // `accessExpiresAt` provisoire : `applyGrant` pose la valeur définitive (la

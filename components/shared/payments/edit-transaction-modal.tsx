@@ -48,13 +48,14 @@ import {
 } from "@/features/payments/actions"
 import type { AccessImpact } from "@/features/payments/dal"
 import { parseAmountToCents } from "@/lib/currency"
-import { formatCurrency, formatExpiration } from "@/lib/format"
+import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
   type EditTransactionFormValues,
   type PaymentMethod,
   editTransactionSchema,
 } from "@/schemas/payment"
+import { affectedAccesses, describeAccessImpact } from "./access-impact"
 import type { Transaction } from "./transaction-table"
 
 interface EditTransactionModalProps {
@@ -92,7 +93,7 @@ export const EditTransactionModal = ({
 }: EditTransactionModalProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
-  const [accessImpact, setAccessImpact] = useState<AccessImpact | null>(null)
+  const [accessImpact, setAccessImpact] = useState<AccessImpact[] | null>(null)
 
   // Impact d'accès chargé à l'ouverture (sert l'avertissement de révocation).
   useEffect(() => {
@@ -137,6 +138,7 @@ export const EditTransactionModal = ({
   const watchedStatus = form.watch("status")
   const showRefundWarning =
     watchedStatus === "refunded" && transaction?.status === "completed"
+  const affected = affectedAccesses(accessImpact)
 
   const onSubmit = async (data: EditTransactionFormValues) => {
     if (!transaction) return
@@ -463,7 +465,7 @@ export const EditTransactionModal = ({
                   )}
 
                   {/* Refund Warning */}
-                  {showRefundWarning && accessImpact?.willAffectAccess && (
+                  {showRefundWarning && affected.length > 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -474,11 +476,14 @@ export const EditTransactionModal = ({
                         <p className="font-medium text-amber-800 dark:text-amber-200">
                           Attention : impact sur l{"'"}accès
                         </p>
-                        <p className="mt-1 text-sm text-amber-700 dark:text-amber-300">
-                          {accessImpact.restoredExpiresAt !== null
-                            ? `Le remboursement ramènera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} à son échéance précédente (${formatExpiration(accessImpact.restoredExpiresAt)}).`
-                            : `Le remboursement révoquera l'accès ${accessImpact.accessType === "exam" ? "aux examens" : "à l'entraînement"} de l'utilisateur : aucune autre transaction ne le couvre.`}
-                        </p>
+                        {affected.map((impact) => (
+                          <p
+                            key={impact.accessType}
+                            className="mt-1 text-sm text-amber-700 dark:text-amber-300"
+                          >
+                            {describeAccessImpact(impact, "Le remboursement")}
+                          </p>
+                        ))}
                       </div>
                     </motion.div>
                   )}
