@@ -70,14 +70,8 @@ export default defineConfig({
         // Recadrage image : canvas/Image natifs non rendus par happy-dom.
         "lib/crop-image.ts",
         // Layout/Navigation (pas de logique metier)
-        "components/shared/app-sidebar.tsx",
-        "components/shared/site-header.tsx",
-        "components/shared/dashboard-shell.tsx",
         "components/shared/footer.tsx",
         "components/shared/marketing-shell.tsx",
-        "components/shared/nav-main.tsx",
-        "components/shared/nav-secondary.tsx",
-        "components/shared/generic-nav-user.tsx",
         "components/shared/theme-toggle.tsx",
         "components/theme-provider.tsx",
         "components/marketing-header/**",

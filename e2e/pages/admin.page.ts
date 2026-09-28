@@ -11,8 +11,8 @@ export class AdminPage extends BasePage {
   }
 
   async waitForReady() {
-    // "Tableau de bord" apparaît 3× (lien sidebar + h1 header + h1 page) → cibler
-    // un heading (le premier = h1 du header sticky).
+    // "Tableau de bord" apparaît dans la SideNav, la barre du haut et le h1 de
+    // la page → cibler le heading.
     await expect(
       this.page.getByRole("heading", { name: "Tableau de bord" }).first(),
     ).toBeVisible({ timeout: 15_000 })

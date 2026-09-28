@@ -1,5 +1,5 @@
-import { DashboardShell } from "@/components/shared/dashboard-shell"
 import { OnboardingGuard } from "@/components/shared/onboarding-guard"
+import { StudentShell } from "@/components/shared/shell/student-shell"
 import { requireSession } from "@/lib/auth-guards"
 import { toSessionUser } from "@/lib/session-user"
 
@@ -14,9 +14,7 @@ export default async function DashboardLayout({
   return (
     <>
       <OnboardingGuard hasUsername={!!session.user.username} />
-      <DashboardShell variant="user" user={toSessionUser(session)}>
-        {children}
-      </DashboardShell>
+      <StudentShell user={toSessionUser(session)}>{children}</StudentShell>
     </>
   )
 }

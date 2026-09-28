@@ -1,14 +1,6 @@
 import {
-  IconChartBar,
-  IconDashboard,
-  IconListDetails,
-  IconReceipt,
-  IconUsers,
-} from "@tabler/icons-react"
-import {
   BookOpen,
   ClipboardList,
-  CreditCard,
   FileQuestionMark,
   LayoutDashboard,
   type LucideIcon,
@@ -16,75 +8,6 @@ import {
   User,
   Users,
 } from "lucide-react"
-
-export const adminNavigation = {
-  navMain: [
-    {
-      title: "Tableau de bord",
-      url: "/admin",
-      icon: IconDashboard,
-    },
-    {
-      title: "Questions",
-      url: "/admin/questions",
-      icon: IconListDetails,
-    },
-    {
-      title: "Examens",
-      url: "/admin/examens",
-      icon: IconChartBar,
-    },
-    {
-      title: "Utilisateurs",
-      url: "/admin/utilisateurs",
-      icon: IconUsers,
-    },
-    {
-      title: "Transactions",
-      url: "/admin/transactions",
-      icon: IconReceipt,
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Profil",
-      url: "/admin/profil",
-      icon: User,
-    },
-  ],
-}
-
-export const dashboardNavigation = {
-  navMain: [
-    {
-      title: "Tableau de bord",
-      url: "/tableau-de-bord",
-      icon: IconDashboard,
-    },
-    {
-      title: "Examen Blanc",
-      url: "/tableau-de-bord/examen-blanc",
-      icon: IconListDetails,
-    },
-    {
-      title: "Entraînement",
-      url: "/tableau-de-bord/entrainement",
-      icon: IconChartBar,
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Profil",
-      url: "/tableau-de-bord/profil",
-      icon: User,
-    },
-    {
-      title: "Abonnements",
-      url: "/tableau-de-bord/abonnements",
-      icon: CreditCard,
-    },
-  ],
-}
 
 export type NavItem = { title: string; url: string; icon: LucideIcon }
 export type NavSection = { heading: string; items: NavItem[] }

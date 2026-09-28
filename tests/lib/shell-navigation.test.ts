@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest"
-import { pageTitle } from "@/lib/page-title"
+import { activeNavUrl, pageTitle } from "@/lib/shell-navigation"
+
+describe("activeNavUrl", () => {
+  it.each([
+    ["/tableau-de-bord", "student", "/tableau-de-bord"],
+    [
+      "/tableau-de-bord/examen-blanc/ex_1/resultats",
+      "student",
+      "/tableau-de-bord/examen-blanc",
+    ],
+    ["/admin/utilisateurs/u_1", "admin", "/admin/utilisateurs"],
+  ] as const)("%s (%s) → lien %s", (pathname, zone, url) => {
+    expect(activeNavUrl(pathname, zone)).toBe(url)
+  })
+
+  it("aucun lien actif sur une page hors menu ou inconnue", () => {
+    expect(activeNavUrl("/tableau-de-bord/bienvenue", "student")).toBeNull()
+    expect(activeNavUrl("/admin/inconnue", "admin")).toBeNull()
+  })
+})
 
 describe("pageTitle — espace étudiant", () => {
   it.each([
