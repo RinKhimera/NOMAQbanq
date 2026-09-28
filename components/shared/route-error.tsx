@@ -18,6 +18,15 @@ type RouteErrorProps = {
   footnote?: string
 }
 
+/** Signale à Sentry l'erreur reçue par un `error.tsx`. */
+export const useReportRouteError = (error: Error & { digest?: string }) => {
+  useEffect(() => {
+    // Doublon SSR voulu : crash serveur = event onRequestError (vraie stack)
+    // + cet event digest ; crash client = cet event seul. Ne pas retirer.
+    Sentry.captureException(error)
+  }, [error])
+}
+
 /** Rendu commun des `error.tsx` : signalement Sentry, réessai, sorties. */
 export const RouteError = ({
   error,
@@ -25,11 +34,7 @@ export const RouteError = ({
   links = [],
   ...props
 }: RouteErrorProps) => {
-  useEffect(() => {
-    // Doublon SSR voulu : crash serveur = event onRequestError (vraie stack)
-    // + cet event digest ; crash client = cet event seul. Ne pas retirer.
-    Sentry.captureException(error)
-  }, [error])
+  useReportRouteError(error)
 
   // Rechargement complet volontaire : depuis une error boundary, l'arbre React
   // est dans un état d'erreur et une navigation client ne le remonte pas.

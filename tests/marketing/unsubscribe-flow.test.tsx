@@ -38,6 +38,17 @@ describe("UnsubscribeFlow", () => {
     ).toBeInTheDocument()
   })
 
+  it("rend le focus au titre de la confirmation, le bouton cliqué ayant disparu", async () => {
+    render(<UnsubscribeFlow token="tok" />)
+    fireEvent.click(screen.getByRole("button", { name: /Me désabonner/ }))
+
+    const title = await screen.findByRole("heading", {
+      level: 1,
+      name: /ne recevrez plus nos rappels/,
+    })
+    await waitFor(() => expect(title).toHaveFocus())
+  })
+
   it("action refusée : message, état inchangé", async () => {
     mocks.unsubscribe.mockResolvedValueOnce({
       success: false,

@@ -4,9 +4,12 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import Link from "next/link"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
-import { AuthCard, AuthDivider } from "@/app/(auth)/_components/auth-card"
 import { CheckEmailNotice } from "@/app/(auth)/_components/check-email-notice"
-import { GoogleButton } from "@/app/(auth)/_components/google-button"
+import {
+  AuthDivider,
+  GoogleButton,
+} from "@/app/(auth)/_components/google-button"
+import { StatusCard } from "@/components/shared/status-card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -72,7 +75,8 @@ export const SignUpForm = () => {
   }
 
   return (
-    <AuthCard
+    <StatusCard
+      size="form"
       title="Créer votre compte"
       description="Gratuit, sans carte de crédit. Accédez à l'évaluation dès aujourd'hui."
     >
@@ -197,6 +201,6 @@ export const SignUpForm = () => {
         </Link>
         .
       </p>
-    </AuthCard>
+    </StatusCard>
   )
 }

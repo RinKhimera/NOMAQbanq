@@ -1,6 +1,7 @@
-import { ShieldOff } from "lucide-react"
+import { Mail, ShieldOff } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
+import { StatusCard, StatusScreen } from "@/components/shared/status-card"
 import { Button } from "@/components/ui/button"
 import { env } from "@/lib/env/server"
 
@@ -18,32 +19,40 @@ export default function SuspendedPage() {
   const supportEmail = env.SUPPORT_EMAIL ?? FALLBACK_SUPPORT_EMAIL
 
   return (
-    <div className="bg-background">
-      <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="bg-card rounded-3xl border border-white/20 p-8 text-center shadow-2xl dark:border-gray-700/50">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-red-500 to-rose-600 shadow-lg">
-            <ShieldOff className="h-8 w-8 text-white" aria-hidden="true" />
-          </div>
-          <h1 className="mb-4 text-3xl font-bold text-gray-900 dark:text-white">
-            Compte suspendu
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            L&apos;accès à ce compte a été suspendu par l&apos;équipe NOMAQbanq.
-            Si vous pensez qu&apos;il s&apos;agit d&apos;une erreur,
-            écrivez-nous à{" "}
-            <a
-              href={`mailto:${supportEmail}`}
-              className="font-medium text-blue-600 underline dark:text-blue-400"
-            >
-              {supportEmail}
-            </a>
-            .
-          </p>
-          <Button asChild variant="outline" className="mt-8 rounded-xl">
-            <Link href="/">Retour à l&apos;accueil</Link>
-          </Button>
-        </div>
-      </div>
-    </div>
+    <StatusScreen>
+      <StatusCard
+        icon={ShieldOff}
+        iconTone="danger"
+        label="Compte suspendu"
+        title="L'accès à ce compte a été suspendu"
+        actions={
+          <>
+            <Button asChild className="max-md:h-11">
+              <a href={`mailto:${supportEmail}`}>
+                <Mail aria-hidden />
+                Contacter le support
+              </a>
+            </Button>
+            <Button asChild variant="outline" className="max-md:h-11">
+              <Link href="/">Retour à l&apos;accueil</Link>
+            </Button>
+          </>
+        }
+        help="Nous répondons généralement sous 24 h."
+      >
+        <p className="text-ink-2 text-[15px] leading-[1.65]">
+          L&apos;accès à ce compte a été suspendu par l&apos;équipe NOMAQbanq.
+          Si vous pensez qu&apos;il s&apos;agit d&apos;une erreur, écrivez-nous
+          à{" "}
+          <a
+            href={`mailto:${supportEmail}`}
+            className="focus-ring text-accent-ink rounded-sm hover:underline"
+          >
+            {supportEmail}
+          </a>
+          .
+        </p>
+      </StatusCard>
+    </StatusScreen>
   )
 }

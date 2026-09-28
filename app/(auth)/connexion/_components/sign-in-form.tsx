@@ -6,9 +6,12 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import { AuthCard, AuthDivider } from "@/app/(auth)/_components/auth-card"
 import { CheckEmailNotice } from "@/app/(auth)/_components/check-email-notice"
-import { GoogleButton } from "@/app/(auth)/_components/google-button"
+import {
+  AuthDivider,
+  GoogleButton,
+} from "@/app/(auth)/_components/google-button"
+import { StatusCard } from "@/components/shared/status-card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -87,7 +90,8 @@ export const SignInForm = () => {
   }
 
   return (
-    <AuthCard
+    <StatusCard
+      size="form"
       title="Bon retour parmi nous"
       description="Connectez-vous à votre compte pour continuer."
     >
@@ -201,6 +205,6 @@ export const SignInForm = () => {
           Inscrivez-vous gratuitement
         </Link>
       </p>
-    </AuthCard>
+    </StatusCard>
   )
 }

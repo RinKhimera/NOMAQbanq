@@ -5,9 +5,9 @@ import { Check, Circle, Link2Off } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Suspense } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
-import { AuthCard } from "@/app/(auth)/_components/auth-card"
+import { StatusCard } from "@/components/shared/status-card"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -53,10 +53,10 @@ function ResetPasswordContent() {
   }
 
   const isSubmitting = form.formState.isSubmitting
-  const [password, confirmPassword] = form.watch([
-    "password",
-    "confirmPassword",
-  ])
+  const [password, confirmPassword] = useWatch({
+    control: form.control,
+    name: ["password", "confirmPassword"],
+  })
   const rules = [
     { label: "8 caractères minimum", met: password.length >= 8 },
     {
@@ -67,7 +67,12 @@ function ResetPasswordContent() {
 
   if (!token) {
     return (
-      <AuthCard title="Ce lien a expiré" icon={Link2Off} iconTone="danger">
+      <StatusCard
+        size="form"
+        title="Ce lien a expiré"
+        icon={Link2Off}
+        iconTone="danger"
+      >
         <p className="text-ink-2 text-[15px] leading-relaxed">
           Les liens de réinitialisation sont valables une durée limitée et ne
           servent qu&apos;une fois. Demandez-en un nouveau.
@@ -83,12 +88,13 @@ function ResetPasswordContent() {
             Retour à la connexion
           </Link>
         </p>
-      </AuthCard>
+      </StatusCard>
     )
   }
 
   return (
-    <AuthCard
+    <StatusCard
+      size="form"
       title="Nouveau mot de passe"
       description="Choisissez un mot de passe que vous n'utilisez pas ailleurs."
     >
@@ -171,7 +177,7 @@ function ResetPasswordContent() {
           </Button>
         </form>
       </Form>
-    </AuthCard>
+    </StatusCard>
   )
 }
 

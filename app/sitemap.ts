@@ -7,6 +7,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // Date de dernière mise à jour majeure du contenu
   const lastContentUpdate = new Date("2026-09-28")
   const legalPagesUpdate = new Date("2026-01-15")
+  const termsUpdate = new Date("2026-09-28")
 
   return [
     // Pages marketing principales
@@ -61,7 +62,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Pages légales
     {
       url: `${baseUrl}/conditions`,
-      lastModified: legalPagesUpdate,
+      lastModified: termsUpdate,
       changeFrequency: "yearly",
       priority: 0.3,
     },

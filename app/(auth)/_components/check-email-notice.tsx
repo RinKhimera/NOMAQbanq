@@ -4,10 +4,10 @@ import { MailCheck } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { StatusCard } from "@/components/shared/status-card"
 import { Button } from "@/components/ui/button"
 import { authClient } from "@/lib/auth-client"
 import { mapAuthError } from "@/lib/auth-errors"
-import { AuthCard } from "./auth-card"
 
 const RESEND_COOLDOWN_SECONDS = 45
 
@@ -52,9 +52,11 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
       : "Confirmez votre adresse courriel"
 
   return (
-    <AuthCard
+    <StatusCard
+      size="form"
       title={title}
       icon={MailCheck}
+      iconTone="success"
       focusTitle
       data-testid="auth-check-email"
     >
@@ -98,6 +100,6 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
       <p className="text-ink-3 text-[13px]">
         Rien reçu ? Vérifiez vos courriels indésirables.
       </p>
-    </AuthCard>
+    </StatusCard>
   )
 }

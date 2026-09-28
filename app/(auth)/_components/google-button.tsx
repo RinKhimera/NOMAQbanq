@@ -42,3 +42,11 @@ export const GoogleButton = ({
     Continuer avec Google
   </Button>
 )
+
+export const AuthDivider = () => (
+  <div className="flex items-center gap-3">
+    <span className="bg-line h-px flex-1" />
+    <span className="type-label shrink-0">ou</span>
+    <span className="bg-line h-px flex-1" />
+  </div>
+)

@@ -6,7 +6,7 @@ import Link from "next/link"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
-import { AuthCard } from "@/app/(auth)/_components/auth-card"
+import { StatusCard } from "@/components/shared/status-card"
 import { Button } from "@/components/ui/button"
 import {
   Form,
@@ -49,7 +49,13 @@ export default function ForgotPasswordPage() {
 
   if (submittedEmail) {
     return (
-      <AuthCard title="Vérifiez votre courriel" icon={MailCheck} focusTitle>
+      <StatusCard
+        size="form"
+        title="Vérifiez votre courriel"
+        icon={MailCheck}
+        iconTone="success"
+        focusTitle
+      >
         <p className="text-ink-2 text-[15px] leading-relaxed">
           Si un compte existe pour{" "}
           <strong className="text-ink font-medium">{submittedEmail}</strong>, un
@@ -70,12 +76,13 @@ export default function ForgotPasswordPage() {
           </button>
           .
         </p>
-      </AuthCard>
+      </StatusCard>
     )
   }
 
   return (
-    <AuthCard
+    <StatusCard
+      size="form"
       title="Mot de passe oublié"
       description="Entrez votre adresse courriel et nous vous enverrons un lien de réinitialisation."
     >
@@ -130,6 +137,6 @@ export default function ForgotPasswordPage() {
         <ShieldCheck aria-hidden className="text-success size-3.5" />
         Lien sécurisé valable une durée limitée
       </p>
-    </AuthCard>
+    </StatusCard>
   )
 }
