@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { PageIntro } from "@/components/shared/page-intro"
 import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -451,30 +452,12 @@ export function ExamenBlancClient({
           transition={{ duration: 0.5 }}
           className="mb-10"
         >
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
-                <GraduationCap className="h-8 w-8 text-white" />
-              </div>
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 shadow-md"
-              >
-                <Trophy className="h-3.5 w-3.5 text-amber-900" />
-              </motion.div>
-            </div>
-            <div>
-              <h1 className="font-display text-3xl font-bold text-gray-900 dark:text-white">
-                Examens Blancs
-              </h1>
-              <p className="mt-1 text-gray-600 dark:text-gray-400">
-                Testez vos connaissances dans les conditions réelles de
-                l&apos;EACMC
-              </p>
-            </div>
-          </div>
+          <PageIntro
+            icon={GraduationCap}
+            colorScheme="blue"
+            title="Examens Blancs"
+            description="Testez vos connaissances dans les conditions réelles de l'EACMC"
+          />
 
           {/* Stats summary */}
           {userStats.completed > 0 && (

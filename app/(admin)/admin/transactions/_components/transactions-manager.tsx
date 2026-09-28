@@ -6,7 +6,7 @@ import { motion } from "motion/react"
 import { usePathname, useRouter } from "next/navigation"
 import { useMemo, useState, useTransition } from "react"
 import { toast } from "sonner"
-import { AdminPageHeader } from "@/components/admin/admin-page-header"
+import { PageIntro } from "@/components/shared/page-intro"
 import { DeleteTransactionDialog } from "@/components/shared/payments/delete-transaction-dialog"
 import { EditTransactionModal } from "@/components/shared/payments/edit-transaction-modal"
 import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
@@ -189,10 +189,10 @@ export const TransactionsManager = ({
 
   return (
     <>
-      <AdminPageHeader
+      <PageIntro
         icon={IconReceipt}
         title="Transactions"
-        subtitle="Gérez les paiements et enregistrez les transactions manuelles"
+        description="Gérez les paiements et enregistrez les transactions manuelles"
         colorScheme="amber"
         actions={
           <Button

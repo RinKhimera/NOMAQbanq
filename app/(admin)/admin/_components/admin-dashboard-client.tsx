@@ -5,13 +5,13 @@ import { motion } from "motion/react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ActivityFeed } from "@/components/admin/dashboard/activity-feed"
 import { AlertsPanel } from "@/components/admin/dashboard/alerts-panel"
 import { DomainChart } from "@/components/admin/dashboard/domain-chart"
 import { QuickActions } from "@/components/admin/dashboard/quick-actions"
 import { RevenueChart } from "@/components/admin/dashboard/revenue-chart"
 import { AdminVitalCards } from "@/components/admin/dashboard/vital-cards"
+import { PageIntro } from "@/components/shared/page-intro"
 import type { AdminActivity, DashboardTrends } from "@/features/analytics/dal"
 import type {
   ExpiringAccessItem,
@@ -71,10 +71,10 @@ export function AdminDashboardClient({
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header */}
-      <AdminPageHeader
+      <PageIntro
         icon={IconLayoutDashboard}
         title="Tableau de bord"
-        subtitle={today}
+        description={today}
         colorScheme="slate"
       />
 

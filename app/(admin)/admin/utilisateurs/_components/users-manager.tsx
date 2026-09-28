@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { DateRange } from "react-day-picker"
 import { toast } from "sonner"
-import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ExportUsersButton } from "@/components/admin/export-users-button"
 import { TablePagination } from "@/components/admin/table-pagination"
+import { PageIntro } from "@/components/shared/page-intro"
 import type { ProductView } from "@/features/payments/dal"
 import { loadUsersPage } from "@/features/users/actions"
 import type {
@@ -220,10 +220,10 @@ export function UsersManager({
 
   return (
     <>
-      <AdminPageHeader
+      <PageIntro
         icon={IconUsers}
         title="Gestion des utilisateurs"
-        subtitle="Consultez et gérez les utilisateurs de la plateforme"
+        description="Consultez et gérez les utilisateurs de la plateforme"
         colorScheme="violet"
         actions={
           exportUsers.length > 0 ? (

@@ -1,17 +1,16 @@
 "use client"
 
-import { ArrowLeft, CreditCard } from "lucide-react"
+import { CreditCard } from "lucide-react"
 import { motion } from "motion/react"
-import Link from "next/link"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { PageIntro } from "@/components/shared/page-intro"
 import { ManualPaymentModal } from "@/components/shared/payments/manual-payment-modal"
 import {
   type Transaction,
   TransactionTable,
   adminTransactionToRow,
 } from "@/components/shared/payments/transaction-table"
-import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -100,22 +99,11 @@ export function UserDetailClient({
 
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* Header with back button */}
-      <div className="flex items-center gap-4">
-        <Button asChild variant="outline" size="icon" className="rounded-xl">
-          <Link href="/admin/utilisateurs">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Détails de l{"'"}utilisateur
-          </h1>
-          <p className="text-muted-foreground">
-            Consultez et gérez les informations de cet utilisateur
-          </p>
-        </div>
-      </div>
+      <PageIntro
+        backHref="/admin/utilisateurs"
+        title="Détails de l'utilisateur"
+        description="Consultez et gérez les informations de cet utilisateur"
+      />
 
       {/* Main content */}
       <div className="grid gap-6 lg:grid-cols-3">

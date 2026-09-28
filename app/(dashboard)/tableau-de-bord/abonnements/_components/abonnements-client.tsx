@@ -14,6 +14,7 @@ import Link from "next/link"
 import { useActionState, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { PageIntro } from "@/components/shared/page-intro"
 import { AccessCard } from "@/components/shared/payments/access-card"
 import {
   type Transaction,
@@ -155,43 +156,40 @@ export const AbonnementsClient = ({
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
-      {/* Header */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-blue-600">Mon Abonnement</h1>
-          <p className="text-muted-foreground">
-            Gérez vos accès et consultez votre historique de paiements
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <ConfirmDialog
-            trigger={
-              <Button
-                variant="outline"
-                disabled={isLoadingPortal}
-                className="rounded-xl"
-              >
-                {isLoadingPortal ? (
-                  <span className="flex items-center gap-2">
-                    <Spinner size="sm" />
-                    Chargement...
-                  </span>
-                ) : (
-                  <>
-                    <Receipt className="mr-2 h-4 w-4" />
-                    Gérer mes factures
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            }
-            title="Ouvrir le portail de facturation"
-            description="Vous allez être redirigé vers le portail Stripe pour gérer vos factures et méthodes de paiement."
-            confirmLabel="Continuer vers Stripe"
-            onConfirm={() => startTransition(() => openPortalAction())}
-          />
-        </div>
-      </div>
+      <PageIntro
+        title="Mon Abonnement"
+        description="Gérez vos accès et consultez votre historique de paiements"
+        actions={
+          <div className="flex gap-3">
+            <ConfirmDialog
+              trigger={
+                <Button
+                  variant="outline"
+                  disabled={isLoadingPortal}
+                  className="rounded-xl"
+                >
+                  {isLoadingPortal ? (
+                    <span className="flex items-center gap-2">
+                      <Spinner size="sm" />
+                      Chargement...
+                    </span>
+                  ) : (
+                    <>
+                      <Receipt className="mr-2 h-4 w-4" />
+                      Gérer mes factures
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </>
+                  )}
+                </Button>
+              }
+              title="Ouvrir le portail de facturation"
+              description="Vous allez être redirigé vers le portail Stripe pour gérer vos factures et méthodes de paiement."
+              confirmLabel="Continuer vers Stripe"
+              onConfirm={() => startTransition(() => openPortalAction())}
+            />
+          </div>
+        }
+      />
 
       {/* Access cards */}
       <div className="grid gap-6 md:grid-cols-2">

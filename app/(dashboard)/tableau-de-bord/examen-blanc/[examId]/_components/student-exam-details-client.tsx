@@ -1,11 +1,12 @@
 "use client"
 
-import { ArrowLeft, ChartColumn, ListChecks } from "lucide-react"
+import { ChartColumn, ListChecks } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
 import { ExamDetails } from "@/app/(admin)/admin/examens/[id]/_components/exam-details"
 import { ExamQuestionsModal } from "@/app/(admin)/admin/examens/[id]/_components/exam-questions-modal"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
+import { PageIntro } from "@/components/shared/page-intro"
 import { Button } from "@/components/ui/button"
 import type { ExamWithQuestions, LeaderboardEntry } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
@@ -35,48 +36,37 @@ export function StudentExamDetailsClient({
 
   return (
     <div className="flex flex-col gap-4 p-4 md:gap-6 lg:p-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
-        <div className="flex items-center gap-3 md:gap-4">
-          <Button
-            className="hover:text-blue-700 dark:hover:text-white"
-            variant="outline"
-            size="sm"
-            asChild
-          >
-            <Link href="/tableau-de-bord/examen-blanc">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour
-            </Link>
-          </Button>
-          <h1 className="font-display text-lg font-semibold text-blue-600 md:text-xl">
-            Détails de l&apos;examen
-          </h1>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            className="hover:text-blue-700 max-[500px]:w-full max-[500px]:justify-start dark:hover:text-white"
-            size="sm"
-            variant="outline"
-            onClick={() => setIsQuestionsOpen(true)}
-          >
-            <ListChecks className="mr-2 h-4 w-4" /> Voir toutes les questions
-          </Button>
-
-          {showResultsLink && (
+      <PageIntro
+        backHref="/tableau-de-bord/examen-blanc"
+        title="Détails de l'examen"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
             <Button
-              className="bg-blue-600 text-white hover:bg-blue-700"
+              className="hover:text-blue-700 max-[500px]:w-full max-[500px]:justify-start dark:hover:text-white"
               size="sm"
-              asChild
+              variant="outline"
+              onClick={() => setIsQuestionsOpen(true)}
             >
-              <Link href={`/tableau-de-bord/examen-blanc/${examId}/resultats`}>
-                <ChartColumn className="mr-2 h-4 w-4" />
-                Voir mes résultats
-              </Link>
+              <ListChecks className="mr-2 h-4 w-4" /> Voir toutes les questions
             </Button>
-          )}
-        </div>
-      </div>
+
+            {showResultsLink && (
+              <Button
+                className="bg-blue-600 text-white hover:bg-blue-700"
+                size="sm"
+                asChild
+              >
+                <Link
+                  href={`/tableau-de-bord/examen-blanc/${examId}/resultats`}
+                >
+                  <ChartColumn className="mr-2 h-4 w-4" />
+                  Voir mes résultats
+                </Link>
+              </Button>
+            )}
+          </div>
+        }
+      />
 
       <ExamDetails
         exam={exam}

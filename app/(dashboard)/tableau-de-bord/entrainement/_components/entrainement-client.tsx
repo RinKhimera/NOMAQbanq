@@ -1,7 +1,8 @@
 "use client"
 
-import { Brain, Sparkles } from "lucide-react"
+import { Brain } from "lucide-react"
 import { motion } from "motion/react"
+import { PageIntro } from "@/components/shared/page-intro"
 import type {
   ActiveTrainingSession,
   DomainsView,
@@ -47,29 +48,12 @@ export function EntrainementClient({
           transition={{ duration: 0.5 }}
           className="mb-10"
         >
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/25">
-                <Brain className="h-8 w-8 text-white" />
-              </div>
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 shadow-md"
-              >
-                <Sparkles className="h-3.5 w-3.5 text-amber-900" />
-              </motion.div>
-            </div>
-            <div>
-              <h1 className="font-display text-3xl font-bold text-gray-900 dark:text-white">
-                Entraînement
-              </h1>
-              <p className="mt-1 text-gray-600 dark:text-gray-400">
-                Pratiquez avec des sessions personnalisées de 5 à 20 questions
-              </p>
-            </div>
-          </div>
+          <PageIntro
+            icon={Brain}
+            colorScheme="emerald"
+            title="Entraînement"
+            description="Pratiquez avec des sessions personnalisées de 5 à 20 questions"
+          />
 
           {/* Stats summary */}
           {stats && stats.totalSessions > 0 && (

@@ -1,5 +1,6 @@
-import { ArrowLeft, User } from "lucide-react"
+import { User } from "lucide-react"
 import Link from "next/link"
+import { PageIntro } from "@/components/shared/page-intro"
 import { Button } from "@/components/ui/button"
 import {
   getAccessStatus,
@@ -28,16 +29,10 @@ export default async function AdminUserDetailPage({
   if (!user) {
     return (
       <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="outline" size="icon" className="rounded-xl">
-            <Link href="/admin/utilisateurs">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Utilisateur non trouvé
-          </h1>
-        </div>
+        <PageIntro
+          backHref="/admin/utilisateurs"
+          title="Utilisateur non trouvé"
+        />
         <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 py-16 dark:border-gray-700">
           <User className="mb-4 h-12 w-12 text-gray-400" />
           <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
