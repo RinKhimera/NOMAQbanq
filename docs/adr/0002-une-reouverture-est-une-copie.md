@@ -38,5 +38,11 @@ une autre date passée restent permis.
 - Un étudiant peut avoir une participation à chacun des deux examens ; les
   deux comptent dans ses statistiques, et le classement de la copie ne compte
   que ses propres participations.
+- La copie partage les questions de l'examen d'origine : dès qu'un ancien
+  participant la démarre, le verrou de clé de réponse diffère la correction de
+  sa participation d'origine (et de tout examen qui partage ces questions)
+  jusqu'à la clôture de la copie. C'est voulu — sans ça, il lirait la clé
+  pendant qu'il la passe — et ça ne touche que ceux qui la passent. Un admin,
+  jamais sous verrou, ne le voit pas.
 - Les réouvertures faites par les dates avant cette règle ont été reprises en
   base (13 copies archivées, issue #250).

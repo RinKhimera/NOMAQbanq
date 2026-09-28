@@ -108,7 +108,8 @@ Un nouvel examen blanc qui reprend le contenu d'un examen clos (questions dans
 leur ordre, réglages, audience) avec de nouvelles dates. L'examen d'origine
 reste clos avec ses participations ; aucun lien entre les deux n'est conservé.
 Un examen clos qui a des participations ne se rouvre jamais en repoussant sa
-date de fin.
+date de fin. Qui passe la réouverture voit la correction de sa participation
+d'origine différée jusqu'à la clôture de la réouverture (mêmes questions).
 _Avoid_ : édition, session, prolongation (qui repousse la fin d'un examen encore ouvert)
 
 **Phase d'examen** :

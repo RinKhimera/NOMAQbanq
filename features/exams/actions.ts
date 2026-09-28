@@ -255,6 +255,18 @@ export const updateExam = async (
         .where(eq(examParticipations.examId, id))
       const hasParticipations = (parts?.n ?? 0) > 0
 
+      // Rouvrir par les dates rendrait l'examen de nouveau ouvert pour ses
+      // anciens participants : verrou de clé sur leurs autres examens, résultats
+      // masqués, reprise impossible (une participation par étudiant). Avant la
+      // garde des questions : c'est ce refus qui dit quoi faire (« Rouvrir »).
+      if (
+        hasParticipations &&
+        !isOpen({ endDate: exam.endDate.getTime() }, now) &&
+        isOpen({ endDate }, now)
+      ) {
+        throw new Error("REOPEN_BY_DATES")
+      }
+
       // Une fois des participations enregistrées, le jeu de questions est figé
       // (le changer fausserait les scores déjà calculés). Refus uniquement si le
       // set envoyé diffère du set courant (ordre compris) ; les métadonnées,
@@ -270,17 +282,6 @@ export const updateExam = async (
           currentIds.length === questionIds.length &&
           currentIds.every((qid, i) => qid === questionIds[i])
         if (!unchanged) throw new Error("HAS_PARTICIPATIONS")
-      }
-
-      // Rouvrir par les dates rendrait l'examen de nouveau ouvert pour ses
-      // anciens participants : verrou de clé sur leurs autres examens, résultats
-      // masqués, reprise impossible (une participation par étudiant).
-      if (
-        hasParticipations &&
-        !isOpen({ endDate: exam.endDate.getTime() }, now) &&
-        isOpen({ endDate }, now)
-      ) {
-        throw new Error("REOPEN_BY_DATES")
       }
 
       await tx

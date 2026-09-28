@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { AdminExamListItem } from "@/features/exams/dal"
 import { isOpen } from "@/lib/exam-phase"
+import { reopenExamHref } from "./reopen-exam-button"
 
 interface ExamActionsProps {
   exam: AdminExamListItem
@@ -72,7 +73,7 @@ export function ExamActions({
         {!isOpen(exam, now) && (
           <DropdownMenuItem asChild>
             <Link
-              href={`/admin/examens/creer?source=${exam.id}`}
+              href={reopenExamHref(exam.id)}
               className="flex items-center gap-2"
             >
               <CopyPlus className="h-4 w-4" />

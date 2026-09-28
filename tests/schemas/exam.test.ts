@@ -71,6 +71,17 @@ describe("Exam Schema", () => {
         expect(result.success).toBe(true)
       })
 
+      it("refuse un titre de plus de 200 caractères, avec un message en français", () => {
+        const result = examFormSchema.safeParse({
+          ...validExam,
+          title: "A".repeat(201),
+        })
+        expect(result.success).toBe(false)
+        expect(result.error?.issues[0]?.message).toBe(
+          "Le titre ne peut pas dépasser 200 caractères",
+        )
+      })
+
       it("should reject empty title", () => {
         const invalid = { ...validExam, title: "" }
         const result = examFormSchema.safeParse(invalid)

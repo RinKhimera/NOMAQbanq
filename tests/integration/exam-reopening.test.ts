@@ -233,6 +233,26 @@ describe("updateExam — les dates d'un examen clos", () => {
     expect(await audienceOf(CLOSED_TAKEN_ID)).toEqual([STUDENT_ID])
   })
 
+  it("renvoie vers « Rouvrir » même quand les questions changent aussi", async () => {
+    asAdmin()
+    const now = Date.now()
+    const res = await updateExam({
+      id: CLOSED_TAKEN_ID,
+      title: `REO clos passé ${suffix}`,
+      startDate: now,
+      endDate: now + 7 * DAY,
+      questionIds: [qIds[1], qIds[0], qIds[2]],
+      enablePause: false,
+      audienceType: "restricted",
+      audienceUserIds: [STUDENT_ID],
+    })
+
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringContaining("Rouvrir"),
+    })
+  })
+
   it("permet de corriger la fin d'un examen clos vers une autre date passée", async () => {
     asAdmin()
     const res = await updateExam({
@@ -322,7 +342,7 @@ describe("getExamReopeningSource — ce qu'une réouverture reprend", () => {
 })
 
 describe("réouverture — une copie créée par createExam", () => {
-  it("l'ancien participant garde ses résultats, n'est sous aucun verrou, et peut passer la copie", async () => {
+  it("l'ancien participant garde ses résultats, peut passer la copie, et sa correction d'origine est différée le temps de la copie", async () => {
     asAdmin()
     const now = Date.now()
     const created = await createExam({
@@ -350,5 +370,11 @@ describe("réouverture — une copie créée par createExam", () => {
 
     const started = await startExam({ examId: created.examId })
     expect(started.success).toBe(true)
+
+    // Participer à la copie ouverte verrouille ses questions, donc celles de
+    // l'examen d'origine : la correction revient à sa clôture.
+    const during = await getParticipantExamResults(CLOSED_TAKEN_ID, STUDENT_ID)
+    if (!during || "error" in during) throw new Error("résultats illisibles")
+    expect(during.questions.every((q) => q.keyWithheld === true)).toBe(true)
   })
 })

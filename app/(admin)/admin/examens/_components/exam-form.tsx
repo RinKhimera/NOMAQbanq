@@ -77,6 +77,14 @@ import {
 } from "@/schemas"
 import { AudienceEligibility } from "./audience-eligibility"
 
+const REOPENING_SUFFIX = " (réouverture)"
+
+/** Titre d'une réouverture ; rouvrir une réouverture ne répète pas le suffixe. */
+const reopeningTitle = (title: string) =>
+  (title.endsWith(REOPENING_SUFFIX)
+    ? title.slice(0, -REOPENING_SUFFIX.length)
+    : title) + REOPENING_SUFFIX
+
 /** Un examen existant dont le formulaire reprend le contenu. */
 export type ExamFormSource = NonNullable<ExamReopeningSource>
 
@@ -153,7 +161,7 @@ export function ExamForm(props: ExamFormProps) {
           title:
             props.mode === "edit"
               ? source.exam.title
-              : `${source.exam.title} (réouverture)`,
+              : reopeningTitle(source.exam.title),
           description: source.exam.description ?? "",
           numberOfQuestions: source.exam.questionCount,
           ...(props.mode === "edit" && {
@@ -467,11 +475,18 @@ export function ExamForm(props: ExamFormProps) {
                                     startField.onChange(range?.from)
                                     endField.onChange(range?.to)
                                   }}
-                                  disabled={(date) => {
-                                    const today = new Date()
-                                    today.setHours(0, 0, 0, 0)
-                                    return date < today
-                                  }}
+                                  // En modification, une date passée corrige
+                                  // la fin d'un examen clos ; `updateExam`
+                                  // refuse seul de le rouvrir.
+                                  disabled={
+                                    props.mode === "edit"
+                                      ? undefined
+                                      : (date) => {
+                                          const today = new Date()
+                                          today.setHours(0, 0, 0, 0)
+                                          return date < today
+                                        }
+                                  }
                                   numberOfMonths={2}
                                   autoFocus
                                 />
