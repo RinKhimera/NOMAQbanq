@@ -51,6 +51,7 @@ export function ExamCard({
         <div onClick={(e) => e.stopPropagation()}>
           <ExamActions
             exam={exam}
+            now={now}
             onDeactivate={onDeactivate}
             onReactivate={onReactivate}
             onEdit={onEdit}

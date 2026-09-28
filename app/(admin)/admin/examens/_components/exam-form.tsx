@@ -61,6 +61,7 @@ import { createExam, updateExam } from "@/features/exams/actions"
 import type {
   EligibleCandidate,
   ExamPickerOption,
+  ExamReopeningSource,
   ExamWithQuestions,
 } from "@/features/exams/dal"
 import { SECONDS_PER_QUESTION } from "@/features/exams/schemas"
@@ -76,15 +77,29 @@ import {
 } from "@/schemas"
 import { AudienceEligibility } from "./audience-eligibility"
 
+const REOPENING_SUFFIX = " (réouverture)"
+
+/** Titre d'une réouverture ; rouvrir une réouverture ne répète pas le suffixe. */
+const reopeningTitle = (title: string) =>
+  (title.endsWith(REOPENING_SUFFIX)
+    ? title.slice(0, -REOPENING_SUFFIX.length)
+    : title) + REOPENING_SUFFIX
+
+/** Un examen existant dont le formulaire reprend le contenu. */
+export type ExamFormPrefill = ExamReopeningSource
+
 /**
  * Formulaire d'examen unifié (création et édition). Le `mode` pilote les données
  * initiales, l'action serveur et les libellés ; le markup est unique.
+ * En création, `source` pré-remplit une réouverture : tout sauf les dates, qui
+ * restent à choisir.
  */
 type ExamFormProps =
   | {
       mode: "create"
       candidates: EligibleCandidate[]
       examOptions: ExamPickerOption[]
+      source?: ExamFormPrefill
     }
   | {
       mode: "edit"
@@ -124,8 +139,16 @@ export function ExamForm(props: ExamFormProps) {
   const SubmitIcon = props.mode === "create" ? Sparkles : Save
 
   // Les données viennent du Server Component (props) → initialisation synchrone.
-  const initialQuestionIds = props.mode === "edit" ? props.questionIds : []
-  const initialAudience = props.mode === "edit" ? props.initialAudience : []
+  const prefill: ExamFormPrefill | undefined =
+    props.mode === "edit"
+      ? {
+          exam: props.exam,
+          questionIds: props.questionIds,
+          audience: props.initialAudience,
+        }
+      : props.source
+  const initialQuestionIds = prefill?.questionIds ?? []
+  const initialAudience = prefill?.audience ?? []
   const [selectedQuestions, setSelectedQuestions] =
     useState<string[]>(initialQuestionIds)
   const [selectedUsers, setSelectedUsers] =
@@ -133,31 +156,35 @@ export function ExamForm(props: ExamFormProps) {
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
-    defaultValues:
-      props.mode === "edit"
-        ? {
-            title: props.exam.title,
-            description: props.exam.description ?? "",
-            numberOfQuestions: props.exam.questionCount,
+    defaultValues: prefill
+      ? {
+          title:
+            props.mode === "edit"
+              ? prefill.exam.title
+              : reopeningTitle(prefill.exam.title),
+          description: prefill.exam.description ?? "",
+          numberOfQuestions: prefill.exam.questionCount,
+          ...(props.mode === "edit" && {
             startDate: new Date(props.exam.startDate),
             endDate: new Date(props.exam.endDate),
-            questionIds: initialQuestionIds,
-            enablePause: props.exam.enablePause,
-            pauseDurationMinutes:
-              props.exam.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES,
-            audienceType: props.exam.audienceType,
-            audienceUserIds: initialAudience.map((u) => u.id),
-          }
-        : {
-            title: "",
-            description: "",
-            numberOfQuestions: 10,
-            questionIds: [],
-            enablePause: false,
-            pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
-            audienceType: "subscribers",
-            audienceUserIds: [],
-          },
+          }),
+          questionIds: initialQuestionIds,
+          enablePause: prefill.exam.enablePause,
+          pauseDurationMinutes:
+            prefill.exam.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES,
+          audienceType: prefill.exam.audienceType,
+          audienceUserIds: initialAudience.map((u) => u.id),
+        }
+      : {
+          title: "",
+          description: "",
+          numberOfQuestions: 10,
+          questionIds: [],
+          enablePause: false,
+          pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
+          audienceType: "subscribers",
+          audienceUserIds: [],
+        },
   })
 
   const numberOfQuestions = useWatch({
@@ -448,11 +475,18 @@ export function ExamForm(props: ExamFormProps) {
                                     startField.onChange(range?.from)
                                     endField.onChange(range?.to)
                                   }}
-                                  disabled={(date) => {
-                                    const today = new Date()
-                                    today.setHours(0, 0, 0, 0)
-                                    return date < today
-                                  }}
+                                  // En modification, une date passée corrige
+                                  // la fin d'un examen clos ; `updateExam`
+                                  // refuse seul de le rouvrir.
+                                  disabled={
+                                    props.mode === "edit"
+                                      ? undefined
+                                      : (date) => {
+                                          const today = new Date()
+                                          today.setHours(0, 0, 0, 0)
+                                          return date < today
+                                        }
+                                  }
                                   numberOfMonths={2}
                                   autoFocus
                                 />

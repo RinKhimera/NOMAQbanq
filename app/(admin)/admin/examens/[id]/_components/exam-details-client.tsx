@@ -10,6 +10,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { ReopenExamButton } from "@/components/admin/reopen-exam-button"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import {
@@ -89,6 +90,12 @@ export function ExamDetailsClient({
               Modifier l&apos;examen
             </Link>
           </Button>
+
+          <ReopenExamButton
+            exam={{ id: examId, endDate: exam.endDate }}
+            now={now}
+            className="max-[500px]:w-full max-[500px]:justify-start"
+          />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

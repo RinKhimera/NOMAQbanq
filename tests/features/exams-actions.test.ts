@@ -239,7 +239,10 @@ describe("updateExam", () => {
   })
 
   it("succes : revalide la liste et la fiche", async () => {
-    setRows({ exams: [{ id: "e1" }], questions: [{ n: 2 }] })
+    setRows({
+      exams: [{ id: "e1", endDate: new Date(Date.now() + 86_400_000) }],
+      questions: [{ n: 2 }],
+    })
     const res = await updateExam(input)
     expect(res).toEqual({ success: true })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/examens/e1")
@@ -250,6 +253,10 @@ describe("updateExam", () => {
     [
       "HAS_PARTICIPATIONS",
       "Cet examen a déjà des participations ; ses questions ne peuvent plus être modifiées.",
+    ],
+    [
+      "REOPEN_BY_DATES",
+      "Cet examen est clos et a déjà des participations : sa date de fin ne peut plus être repoussée dans le futur. Utilisez « Rouvrir » pour en créer une copie avec de nouvelles dates.",
     ],
     [
       "INVALID_QUESTIONS",
