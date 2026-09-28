@@ -5,17 +5,7 @@ import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { abandonTrainingSession } from "@/features/training/actions"
@@ -138,8 +128,8 @@ export const ResumeSessionCard = ({
             Reprendre
           </Button>
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <ConfirmDialog
+            trigger={
               <Button
                 variant="outline"
                 aria-label="Abandonner la session"
@@ -152,26 +142,14 @@ export const ResumeSessionCard = ({
                   <X className="h-4 w-4" />
                 )}
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Abandonner la session ?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Cette action est irréversible. Votre progression actuelle sera
-                  perdue et vous pourrez démarrer une nouvelle session.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Annuler</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleAbandon}
-                  className="bg-red-600 hover:bg-red-700"
-                >
-                  Abandonner
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            }
+            variant="destructive"
+            title="Abandonner la session ?"
+            description="Cette action est irréversible. Votre progression actuelle sera perdue et vous pourrez démarrer une nouvelle session."
+            confirmLabel="Abandonner"
+            pendingLabel="Abandon..."
+            onConfirm={handleAbandon}
+          />
         </div>
       </div>
     </motion.div>

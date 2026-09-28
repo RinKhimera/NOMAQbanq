@@ -13,22 +13,12 @@ import { motion } from "motion/react"
 import Link from "next/link"
 import { useActionState, useState, useTransition } from "react"
 import { toast } from "sonner"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { AccessCard } from "@/components/shared/payments/access-card"
 import {
   type Transaction,
   TransactionTable,
 } from "@/components/shared/payments/transaction-table"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -174,8 +164,8 @@ export const AbonnementsClient = ({
           </p>
         </div>
         <div className="flex gap-3">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <ConfirmDialog
+            trigger={
               <Button
                 variant="outline"
                 disabled={isLoadingPortal}
@@ -194,30 +184,12 @@ export const AbonnementsClient = ({
                   </>
                 )}
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-2xl">
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  Ouvrir le portail de facturation
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  Vous allez être redirigé vers le portail Stripe pour gérer vos
-                  factures et méthodes de paiement.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel className="rounded-xl">
-                  Annuler
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => startTransition(() => openPortalAction())}
-                  className="rounded-xl bg-blue-600 hover:bg-blue-700"
-                >
-                  Continuer vers Stripe
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            }
+            title="Ouvrir le portail de facturation"
+            description="Vous allez être redirigé vers le portail Stripe pour gérer vos factures et méthodes de paiement."
+            confirmLabel="Continuer vers Stripe"
+            onConfirm={() => startTransition(() => openPortalAction())}
+          />
         </div>
       </div>
 

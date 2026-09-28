@@ -3,18 +3,9 @@
 import { ShieldCheck, ShieldOff } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { updateUserRole } from "@/features/users/actions"
 import type { AdminUserDetail } from "@/features/users/dal"
@@ -31,33 +22,27 @@ export const UserRoleSection = ({
 }: UserRoleSectionProps) => {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [isPending, startTransition] = useTransition()
 
   const isSelf = user.id === currentUserId
   const isAdmin = user.role === "admin"
 
-  const handleConfirm = () => {
-    startTransition(async () => {
-      // callAction : un rejet fetch dans une transition remonterait à l'error
-      // boundary au rendu (React 19), pas seulement en unhandled rejection
-      const result = await callAction(() =>
-        updateUserRole({
-          userId: user.id,
-          role: isAdmin ? "user" : "admin",
-        }),
-      )
-      if (result.success) {
-        toast.success(
-          isAdmin
-            ? "Rôle administrateur retiré."
-            : "Utilisateur promu administrateur.",
-        )
-        setOpen(false)
-        router.refresh()
-      } else {
-        toast.error(result.error ?? "Une erreur est survenue.")
-      }
-    })
+  const handleConfirm = async () => {
+    const result = await callAction(() =>
+      updateUserRole({
+        userId: user.id,
+        role: isAdmin ? "user" : "admin",
+      }),
+    )
+    if (!result.success) {
+      toast.error(result.error ?? "Une erreur est survenue.")
+      return false
+    }
+    toast.success(
+      isAdmin
+        ? "Rôle administrateur retiré."
+        : "Utilisateur promu administrateur.",
+    )
+    router.refresh()
   }
 
   return (
@@ -108,41 +93,24 @@ export const UserRoleSection = ({
               : "Promouvoir administrateur"}
           </Button>
 
-          <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {isAdmin
-                    ? "Retirer le rôle administrateur ?"
-                    : "Promouvoir administrateur ?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {user.name} ({user.email}){" "}
-                  {isAdmin
-                    ? "perdra immédiatement l'accès au back-office."
-                    : "obtiendra un accès complet au back-office."}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isPending}>
-                  Annuler
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  data-testid="role-toggle-confirm"
-                  disabled={isPending}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleConfirm()
-                  }}
-                  className={
-                    isAdmin ? "bg-red-600 text-white hover:bg-red-700" : ""
-                  }
-                >
-                  {isAdmin ? "Retirer le rôle" : "Promouvoir"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <ConfirmDialog
+            open={open}
+            onOpenChange={setOpen}
+            variant={isAdmin ? "destructive" : "default"}
+            title={
+              isAdmin
+                ? "Retirer le rôle administrateur ?"
+                : "Promouvoir administrateur ?"
+            }
+            description={`${user.name} (${user.email}) ${
+              isAdmin
+                ? "perdra immédiatement l'accès au back-office."
+                : "obtiendra un accès complet au back-office."
+            }`}
+            confirmLabel={isAdmin ? "Retirer le rôle" : "Promouvoir"}
+            confirmTestId="role-toggle-confirm"
+            onConfirm={handleConfirm}
+          />
         </>
       )}
     </motion.div>

@@ -3,19 +3,10 @@
 import { ShieldCheck, ShieldOff } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
-import { useState, useTransition } from "react"
+import { useState } from "react"
 import { toast } from "sonner"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { BannedPill } from "@/components/shared/status-pill"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { banUser, unbanUser } from "@/features/users/actions"
@@ -65,7 +56,6 @@ export const UserBanSection = ({
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState("")
-  const [isPending, startTransition] = useTransition()
 
   const isSelf = user.id === currentUserId
   const isAdmin = user.role === "admin"
@@ -75,24 +65,19 @@ export const UserBanSection = ({
   const banReasonValid =
     trimmed.length >= REASON_MIN && trimmed.length <= REASON_MAX
 
-  const handleConfirm = () => {
-    startTransition(async () => {
-      // callAction : un rejet fetch dans une transition remonterait à l'error
-      // boundary au rendu (React 19), pas seulement en unhandled rejection.
-      const result = await callAction(() =>
-        user.banned
-          ? unbanUser({ userId: user.id, reason: trimmed || undefined })
-          : banUser({ userId: user.id, reason: trimmed }),
-      )
-      if (result.success) {
-        toast.success(user.banned ? "Suspension levée." : "Compte suspendu.")
-        setOpen(false)
-        setReason("")
-        router.refresh()
-      } else {
-        toast.error(result.error ?? "Une erreur est survenue.")
-      }
-    })
+  const handleConfirm = async () => {
+    const result = await callAction(() =>
+      user.banned
+        ? unbanUser({ userId: user.id, reason: trimmed || undefined })
+        : banUser({ userId: user.id, reason: trimmed }),
+    )
+    if (!result.success) {
+      toast.error(result.error ?? "Une erreur est survenue.")
+      return false
+    }
+    toast.success(user.banned ? "Suspension levée." : "Compte suspendu.")
+    setReason("")
+    router.refresh()
   }
 
   return (
@@ -172,59 +157,42 @@ export const UserBanSection = ({
             {user.banned ? "Lever la suspension" : "Suspendre ce compte"}
           </Button>
 
-          <AlertDialog open={open} onOpenChange={setOpen}>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {user.banned
-                    ? "Lever la suspension ?"
-                    : "Suspendre ce compte ?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {user.name} ({user.email}){" "}
-                  {user.banned
-                    ? "pourra de nouveau se connecter ; ses accès sont inchangés."
-                    : "sera déconnecté partout et ne pourra plus se connecter. Le motif reste interne."}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <div className="space-y-1">
-                <Textarea
-                  data-testid={user.banned ? "unban-reason" : "ban-reason"}
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                  maxLength={REASON_MAX}
-                  placeholder={
-                    user.banned
-                      ? "Motif de la levée (facultatif)"
-                      : "Motif de la suspension (obligatoire, 5 à 500 caractères)"
-                  }
-                  aria-label="Motif"
-                  rows={3}
-                />
-                <p className="text-right text-xs text-gray-400">
-                  {trimmed.length}/{REASON_MAX}
-                </p>
-              </div>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={isPending}>
-                  Annuler
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  data-testid={user.banned ? "unban-confirm" : "ban-confirm"}
-                  disabled={isPending || (!user.banned && !banReasonValid)}
-                  onClick={(e) => {
-                    e.preventDefault()
-                    handleConfirm()
-                  }}
-                  className={
-                    user.banned ? "" : "bg-red-600 text-white hover:bg-red-700"
-                  }
-                >
-                  {user.banned ? "Lever" : "Suspendre"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <ConfirmDialog
+            open={open}
+            onOpenChange={setOpen}
+            variant={user.banned ? "default" : "destructive"}
+            title={
+              user.banned ? "Lever la suspension ?" : "Suspendre ce compte ?"
+            }
+            description={`${user.name} (${user.email}) ${
+              user.banned
+                ? "pourra de nouveau se connecter ; ses accès sont inchangés."
+                : "sera déconnecté partout et ne pourra plus se connecter. Le motif reste interne."
+            }`}
+            confirmLabel={user.banned ? "Lever" : "Suspendre"}
+            confirmTestId={user.banned ? "unban-confirm" : "ban-confirm"}
+            confirmDisabled={!user.banned && !banReasonValid}
+            onConfirm={handleConfirm}
+          >
+            <div className="space-y-1">
+              <Textarea
+                data-testid={user.banned ? "unban-reason" : "ban-reason"}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                maxLength={REASON_MAX}
+                placeholder={
+                  user.banned
+                    ? "Motif de la levée (facultatif)"
+                    : "Motif de la suspension (obligatoire, 5 à 500 caractères)"
+                }
+                aria-label="Motif"
+                rows={3}
+              />
+              <p className="text-right text-xs text-gray-400">
+                {trimmed.length}/{REASON_MAX}
+              </p>
+            </div>
+          </ConfirmDialog>
         </>
       )}
 
