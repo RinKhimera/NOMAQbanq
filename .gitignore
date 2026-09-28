@@ -69,3 +69,5 @@ stripe-audit*.json
 dispute-evidence*.md
 
 .vercel
+
+reprise-corrections*.md

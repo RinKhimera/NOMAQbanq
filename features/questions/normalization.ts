@@ -251,6 +251,26 @@ const isOneSource = (text: string) =>
 const looksLikeSeveralLines = (text: string) =>
   sourceEnds(text) >= 2 || (sourceEnds(text) === 0 && /[^\n]\n[^\n]/.test(text))
 
+/**
+ * Source OpenEvidence aérée : titre, auteurs et revue chacun sur sa ligne,
+ * séparés par une ligne vide (les étiquettes suivent la revue sans ligne vide).
+ */
+const isAiryLayout = (text: string) =>
+  text
+    .split("\n\n")
+    .every(
+      (part) => part.split("\n").filter((l) => !LABEL_LINE.test(l)).length <= 1,
+    )
+
+/**
+ * Lignes non numérotées que la normalisation joindrait sur la foi d'un seul
+ * repère de fin : hors format aéré, rien ne prouve qu'elles forment une seule
+ * source (une page web n'a pas de repère). Au collage l'admin voit le
+ * résultat ; sans relecture, la jointure pourrait fusionner deux sources.
+ */
+const joinsLooseLines = (text: string) =>
+  text.includes("\n") && isOneSource(text) && !isAiryLayout(text)
+
 const nonEmpty = (sources: string[]) => sources.filter((s) => s !== "")
 
 /**
@@ -303,6 +323,7 @@ export function splitReferenceEntry(entry: string): string[] {
 
 export type FormatIssueCode =
   | "multiple-sources"
+  | "loose-lines"
   | "numbering-gap"
   | "text-before-numbering"
   | "same-as-explanation"
@@ -348,6 +369,15 @@ function diagnoseReference(
       "multiple-sources",
       "Ce champ tient sur plusieurs lignes sans numérotation exploitable : s'il contient plusieurs sources, séparez-les par une ligne vide, puis « Découper ».",
     )
+  } else if (
+    parse.sources.length === 0 &&
+    !parse.gap &&
+    joinsLooseLines(text)
+  ) {
+    at(
+      "loose-lines",
+      "Ce champ tient sur plusieurs lignes sans numérotation : remettez une source unique sur une seule ligne, ou séparez plusieurs sources par une ligne vide, puis « Découper ».",
+    )
   }
   if (parse.preambleText !== "") {
     at(
@@ -361,7 +391,10 @@ function diagnoseReference(
       "La numérotation de ce champ est interrompue ou répétée : corrigez-la avant de découper.",
     )
   }
-  if (explanation !== "" && sameText(collapse(text), collapse(explanation))) {
+  if (
+    explanation !== "" &&
+    sameText(collapse(normalizeExplanation(text)), collapse(explanation))
+  ) {
     at(
       "same-as-explanation",
       "Cette référence reprend le texte de l'explication.",
@@ -434,4 +467,86 @@ export function diagnoseCorrection({
       diagnoseReference(entry, index, text),
     ),
   ]
+}
+
+// ===== Reprise de l'existant =====
+
+/**
+ * Motifs qui rendent le découpage douteux : personne ne relit une reprise, donc
+ * la question entière attend un admin. Les autres motifs portent sur le
+ * contenu (lettre coupée, coupures de PDF, appels) ou sont une simple note
+ * (sous-liste FDA) : la mise en forme s'écrit quand même, la question reste
+ * signalée.
+ */
+const BLOCKING_ISSUES: ReadonlySet<FormatIssueCode> = new Set([
+  "multiple-sources",
+  "loose-lines",
+  "numbering-gap",
+  "text-before-numbering",
+  "same-as-explanation",
+  "too-long",
+])
+
+/** Correction telle que stockée : `references` vaut NULL si jamais rempli. */
+export type StoredCorrection = {
+  explanation: string
+  references: string[] | null
+}
+
+/**
+ * Sort d'une question stockée lors de la reprise. `issues` rend la liste
+ * « à vérifier » : sur l'état écrit pour `write` et `skip`, sur l'état stocké
+ * pour `review` quand il porte le motif bloquant — les positions sont alors
+ * celles que l'admin verra dans le formulaire.
+ */
+export type CorrectionPlan =
+  | { action: "write"; next: StoredCorrection; issues: FormatIssue[] }
+  | { action: "skip"; issues: FormatIssue[] }
+  | { action: "review"; issues: FormatIssue[] }
+
+const sameReferences = (a: string[] | null, b: string[] | null) =>
+  a === null || b === null
+    ? a === b
+    : a.length === b.length && a.every((entry, i) => entry === b[i])
+
+export function planCorrection(stored: StoredCorrection): CorrectionPlan {
+  const current: Correction = {
+    explanation: stored.explanation,
+    references: stored.references ?? [],
+  }
+  const references = normalizeReferences(current.references)
+  const next: StoredCorrection = {
+    explanation: normalizeExplanation(current.explanation),
+    // Pas de liste vide à la place d'un champ jamais rempli.
+    references:
+      stored.references === null && references.length === 0 ? null : references,
+  }
+  // Un appel au-delà de la liste trahit une fusion quand c'est le découpage
+  // qui vient de fixer le nombre de sources.
+  const countChanged =
+    references.length !==
+    current.references.filter((entry) => tidy(entry) !== "").length
+  const hasBlocking = (list: FormatIssue[]) =>
+    list.some(
+      (issue) =>
+        BLOCKING_ISSUES.has(issue.code) ||
+        (countChanged && issue.code === "citation-out-of-range"),
+    )
+
+  const issues = diagnoseCorrection({
+    explanation: next.explanation,
+    references,
+  })
+  const before = diagnoseCorrection(current)
+  // « Lignes à joindre » ne se voit que sur l'état stocké : la normalisation
+  // les joint.
+  if (hasBlocking(issues) || before.some((i) => i.code === "loose-lines")) {
+    // Le nettoyage peut seul révéler le motif (deux sources sur une ligne) :
+    // sans ce repli, la question retenue sortirait de la liste sans motif.
+    return { action: "review", issues: hasBlocking(before) ? before : issues }
+  }
+  return next.explanation === stored.explanation &&
+    sameReferences(next.references, stored.references)
+    ? { action: "skip", issues }
+    : { action: "write", next, issues }
 }
