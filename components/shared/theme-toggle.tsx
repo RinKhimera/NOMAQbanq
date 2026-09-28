@@ -46,7 +46,7 @@ export default function ThemeToggle() {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="glass-card border border-gray-200 dark:border-gray-700"
+        className="bg-card border border-gray-200 dark:border-gray-700"
       >
         <DropdownMenuItem
           onClick={() => setTheme("light")}

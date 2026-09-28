@@ -64,10 +64,10 @@ export default function TarifsPageClient({
             viewport={{ once: true }}
             className="mb-12 text-center"
           >
-            <h2 className="font-display text-display-md mb-4 text-gray-900 dark:text-white">
+            <h2 className="font-display mb-4 text-3xl font-semibold tracking-tight text-gray-900 md:text-4xl dark:text-white">
               Pourquoi nous faire confiance ?
             </h2>
-            <p className="text-body-lg mx-auto max-w-2xl text-gray-600 dark:text-gray-300">
+            <p className="mx-auto max-w-2xl text-lg leading-relaxed text-gray-600 dark:text-gray-300">
               Nous nous engageons à vous offrir la meilleure expérience de
               préparation à l{"'"}EACMC.
             </p>
@@ -81,7 +81,7 @@ export default function TarifsPageClient({
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
-                className="group relative overflow-hidden rounded-2xl bg-white p-6 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:bg-gray-800"
+                className="group relative overflow-hidden rounded-2xl bg-white p-6 shadow-lg transition-all duration-300 hover:-translate-y-1 dark:bg-gray-800"
               >
                 {/* Gradient accent on hover */}
                 <div className="absolute inset-0 bg-linear-to-br from-blue-600/5 to-indigo-600/5 opacity-0 transition-opacity group-hover:opacity-100" />
@@ -109,11 +109,8 @@ export default function TarifsPageClient({
         <div className="absolute inset-0 bg-black/20" />
 
         {/* Animated background */}
-        <div className="animate-float absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
-        <div
-          className="animate-float absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-white/10 blur-3xl"
-          style={{ animationDelay: "2s" }}
-        />
+        <div className="absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
 
         <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
           <motion.div
@@ -121,10 +118,10 @@ export default function TarifsPageClient({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="font-display text-display-md mb-6 text-white">
+            <h2 className="font-display mb-6 text-3xl font-semibold tracking-tight text-white md:text-4xl">
               Prêt à commencer votre préparation ?
             </h2>
-            <p className="text-body-lg mx-auto mb-10 max-w-2xl text-blue-100">
+            <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-blue-100">
               Rejoignez des milliers de candidats qui ont réussi grâce à
               NOMAQbanq. Commencez dès maintenant avec un accès instantané.
             </p>
@@ -133,7 +130,7 @@ export default function TarifsPageClient({
               <Button
                 asChild
                 size="lg"
-                className="h-14 rounded-2xl bg-white px-10 text-base font-bold text-blue-600 shadow-xl transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-2xl"
+                className="h-14 rounded-2xl bg-white px-10 text-base font-bold text-blue-600 shadow-xl transition-all duration-300 hover:bg-blue-50"
               >
                 <Link href="/inscription">
                   Créer un compte gratuit
@@ -144,7 +141,7 @@ export default function TarifsPageClient({
                 asChild
                 size="lg"
                 variant="outline"
-                className="glass-card-dark h-14 rounded-2xl border-2 border-white/30 px-10 text-base font-bold text-white transition-all duration-300 hover:bg-white/10"
+                className="h-14 rounded-2xl border-2 border-white/30 px-10 text-base font-bold text-white transition-all duration-300 hover:bg-white/10"
               >
                 <Link href="/evaluation">Essayer gratuitement</Link>
               </Button>

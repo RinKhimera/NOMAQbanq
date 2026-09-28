@@ -53,7 +53,7 @@ function ResetPasswordContent() {
   const isSubmitting = form.formState.isSubmitting
 
   return (
-    <div className="theme-bg">
+    <div className="bg-background">
       <div className="mx-auto flex min-h-175 max-w-7xl items-center justify-center px-4 pt-8 pb-12 sm:px-6 lg:px-8">
         <div className="relative w-full max-w-md">
           {/* Decorative background elements */}

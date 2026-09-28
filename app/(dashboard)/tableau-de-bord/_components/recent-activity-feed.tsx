@@ -120,9 +120,9 @@ export const RecentActivityFeed = ({
                       <div
                         className={cn(
                           "h-2 w-2 rounded-full",
-                          scoreTone === "passing" && "bg-emerald-500",
-                          scoreTone === "failing" && "bg-red-500",
-                          scoreTone === "withheld" && "bg-gray-400",
+                          scoreTone === "passing" && "bg-success",
+                          scoreTone === "failing" && "bg-danger",
+                          scoreTone === "withheld" && "bg-ink-4",
                         )}
                       />
                     </div>
@@ -140,10 +140,10 @@ export const RecentActivityFeed = ({
                       )}
                     >
                       {scoreTone === "passing" && (
-                        <CircleCheck className="h-6 w-6 text-emerald-500" />
+                        <CircleCheck className="text-success h-6 w-6" />
                       )}
                       {scoreTone === "failing" && (
-                        <CircleX className="h-6 w-6 text-red-500" />
+                        <CircleX className="text-danger h-6 w-6" />
                       )}
                       {scoreTone === "withheld" && (
                         <Hourglass className="h-6 w-6 text-gray-500" />

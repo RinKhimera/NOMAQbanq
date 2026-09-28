@@ -67,7 +67,7 @@ export default function DomainCard({ domain }: DomainCardProps) {
   const IconComponent = iconMap[domain.icon] ?? BookOpen
 
   return (
-    <div className="group card-modern relative transform overflow-hidden p-8 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl">
+    <div className="group bg-card shadow-1 relative overflow-hidden rounded-lg border p-8 transition-all duration-500">
       {/* Background gradient on hover */}
       <div className="absolute inset-0 bg-linear-to-br from-blue-600/5 to-indigo-600/5 opacity-0 transition-opacity duration-500 group-hover:opacity-100"></div>
 
@@ -91,10 +91,10 @@ export default function DomainCard({ domain }: DomainCardProps) {
         </p>
 
         {/* Action button */}
-        <div className="translate-y-4 transform opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
+        <div className="translate-y-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100">
           <Button
             asChild
-            className="btn-modern w-full rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 py-4 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl"
+            className="w-full rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 py-4 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700"
           >
             <Link href={`/domaines/${domain.slug}`}>
               Commencer l&apos;évaluation

@@ -13,6 +13,7 @@ import type {
   TrainingScoreHistory,
   TrainingStats,
 } from "@/features/training/dal"
+import { formatPercent } from "@/lib/format"
 import { formatScore } from "@/lib/score"
 import { DashboardHero } from "./dashboard-hero"
 import { DomainMasteryPanel } from "./domain-mastery-panel"
@@ -110,7 +111,7 @@ export const DashboardClient = ({
 
           <VitalCard
             label="Taux de complétion"
-            value={`${completionRate}%`}
+            value={formatPercent(completionRate)}
             icon={Target}
             color="amber"
             delay={0.3}

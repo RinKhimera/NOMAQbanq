@@ -116,15 +116,15 @@ describe("AdminVitalCards", () => {
   it("affiche les indicateurs de tendance positive avec le pourcentage", () => {
     render(<AdminVitalCards {...defaultProps} />)
 
-    // CAD trend +12.5% -> "12.5%"
-    expect(screen.getByText("12.5%")).toBeInTheDocument()
+    // CAD trend +12.5% -> « 12,5 % » (fr-CA, espace insécable)
+    expect(screen.getByText(/^12,5\s%$/)).toBeInTheDocument()
   })
 
   it("affiche les indicateurs de tendance négative", () => {
     render(<AdminVitalCards {...defaultProps} />)
 
-    // XAF trend -5.3% -> "5.3%" (Math.abs)
-    expect(screen.getByText("5.3%")).toBeInTheDocument()
+    // XAF trend -5.3% -> « 5,3 % » (Math.abs)
+    expect(screen.getByText(/^5,3\s%$/)).toBeInTheDocument()
   })
 
   it("affiche le nombre d'examens actifs", () => {
@@ -163,14 +163,14 @@ describe("AdminVitalCards", () => {
       />,
     )
 
-    // Pas de "0.0%" affiché
-    expect(screen.queryByText("0.0%")).not.toBeInTheDocument()
+    // Pas de « 0,0 % » affiché
+    expect(screen.queryByText(/^0,0\s%$/)).not.toBeInTheDocument()
   })
 
   it("affiche le sous-titre de tendance des utilisateurs", () => {
     render(<AdminVitalCards {...defaultProps} />)
 
-    // usersData.trend = 8.2, .toFixed(0) = "8", so "+8% ce mois"
-    expect(screen.getByText("+8% ce mois")).toBeInTheDocument()
+    // usersData.trend = 8.2 → arrondi « +8 % ce mois »
+    expect(screen.getByText(/^\+8\s% ce mois$/)).toBeInTheDocument()
   })
 })

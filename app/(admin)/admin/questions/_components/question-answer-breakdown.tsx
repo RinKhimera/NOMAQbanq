@@ -5,6 +5,7 @@ import { useEffect, useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { QuestionAnswerBreakdown as Breakdown } from "@/features/analytics/dal"
 import { loadQuestionAnswerBreakdown } from "@/features/questions/actions"
+import { formatPercent } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? "s" : ""}`
@@ -68,7 +69,7 @@ export function QuestionAnswerBreakdown({
           >
             {breakdown.successRate === null
               ? `Données insuffisantes (${plural(breakdown.answerCount, "réponse")})`
-              : `${breakdown.successRate} % de réussite sur ${plural(breakdown.answerCount, "réponse")}`}{" "}
+              : `${formatPercent(breakdown.successRate)} de réussite sur ${plural(breakdown.answerCount, "réponse")}`}{" "}
             · première réponse de chaque étudiant
           </p>
           <ul className="space-y-1.5">
@@ -92,7 +93,7 @@ export function QuestionAnswerBreakdown({
                     <span className="truncate">{o.option}</span>
                   </span>
                   <span className="shrink-0 text-xs text-gray-500 tabular-nums">
-                    {o.share} % · {o.count}
+                    {formatPercent(o.share)} · {o.count}
                   </span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-gray-100 dark:bg-gray-800">
@@ -117,7 +118,8 @@ export function QuestionAnswerBreakdown({
                     Formulation antérieure
                   </span>
                   <span className="shrink-0 text-xs text-gray-500 tabular-nums">
-                    {breakdown.formerWording.share} %{" · "}
+                    {formatPercent(breakdown.formerWording.share)}
+                    {" · "}
                     {breakdown.formerWording.count}
                   </span>
                 </div>

@@ -1,14 +1,9 @@
 "use client"
 
 import { motion, useReducedMotion } from "motion/react"
-import { type ScoreTone, scoreTone } from "@/lib/score"
+import { formatScore, scoreTone } from "@/lib/score"
+import { TONE_COLOR } from "@/lib/tone"
 import { cn } from "@/lib/utils"
-
-const RING_COLORS: Record<ScoreTone, { stroke: string; glow: string }> = {
-  success: { stroke: "#10B981", glow: "rgba(16, 185, 129, 0.3)" },
-  warning: { stroke: "#F59E0B", glow: "rgba(245, 158, 11, 0.3)" },
-  danger: { stroke: "#EF4444", glow: "rgba(239, 68, 68, 0.3)" },
-}
 
 interface ScoreRingProps {
   value: number
@@ -31,25 +26,11 @@ export const ScoreRing = ({
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (value / 100) * circumference
 
-  const colors = RING_COLORS[scoreTone(value)]
+  const color = TONE_COLOR[scoreTone(value)]
 
   return (
     <div className={cn("relative", className)}>
-      {/* Glow effect */}
-      <div
-        className="absolute inset-0 rounded-full opacity-50 blur-xl"
-        style={{
-          background: `radial-gradient(circle, ${colors.glow} 0%, transparent 70%)`,
-        }}
-      />
-
-      <svg
-        width={size}
-        height={size}
-        className="-rotate-90 transform"
-        style={{ filter: `drop-shadow(0 0 8px ${colors.glow})` }}
-      >
-        {/* Background circle */}
+      <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -57,18 +38,17 @@ export const ScoreRing = ({
           fill="none"
           stroke="currentColor"
           strokeWidth={strokeWidth}
-          className="text-gray-200 dark:text-gray-700"
+          className="text-surface-2"
         />
 
-        {/* Animated progress circle */}
         <motion.circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={colors.stroke}
+          stroke={color}
           strokeWidth={strokeWidth}
-          strokeLinecap="round"
+          strokeLinecap="butt"
           strokeDasharray={circumference}
           initial={{
             strokeDashoffset: shouldReduceMotion ? offset : circumference,
@@ -77,54 +57,21 @@ export const ScoreRing = ({
           transition={
             shouldReduceMotion
               ? { duration: 0 }
-              : {
-                  duration: 1.5,
-                  ease: [0.16, 1, 0.3, 1],
-                  delay: 0.3,
-                }
+              : { duration: 0.9, ease: [0.2, 0, 0, 1], delay: 0.2 }
           }
-        />
-
-        {/* Inner decorative circles */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius - strokeWidth - 4}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={1}
-          className="text-gray-100 dark:text-gray-800"
-          strokeDasharray="4 4"
         />
       </svg>
 
-      {/* Center content */}
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <motion.span
-          className="font-display text-4xl font-bold tracking-tight"
-          style={{ color: colors.stroke }}
-          initial={
-            shouldReduceMotion
-              ? { opacity: 1, scale: 1 }
-              : { opacity: 0, scale: 0.5 }
-          }
-          animate={{ opacity: 1, scale: 1 }}
-          transition={
-            shouldReduceMotion ? { duration: 0 } : { duration: 0.5, delay: 0.8 }
-          }
+        <span
+          className="font-serif text-4xl font-semibold tracking-tight tabular-nums"
+          style={{ color }}
         >
-          {value}%
-        </motion.span>
-        <motion.span
-          className="text-muted-foreground text-xs font-medium tracking-widest uppercase"
-          initial={shouldReduceMotion ? { opacity: 1 } : { opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={
-            shouldReduceMotion ? { duration: 0 } : { duration: 0.5, delay: 1 }
-          }
-        >
+          {formatScore(value)}
+        </span>
+        <span className="text-ink-3 font-mono text-xs font-medium tracking-[0.06em] uppercase">
           {label}
-        </motion.span>
+        </span>
       </div>
     </div>
   )

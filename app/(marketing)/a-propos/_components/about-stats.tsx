@@ -36,8 +36,7 @@ export default function AboutStats({ stats }: { stats: MarketingStats }) {
         return (
           <div
             key={index}
-            className="card-modern animate-fade-in-scale p-8 text-center transition-all duration-300 hover:shadow-xl"
-            style={{ animationDelay: `${index * 0.1}s` }}
+            className="bg-card shadow-1 rounded-lg border p-8 text-center transition-all duration-300"
           >
             <div
               className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br ${stat.color} shadow-lg`}

@@ -144,7 +144,9 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
               axisLine={false}
               tickMargin={8}
               tickFormatter={(value) =>
-                value === 0 ? "0" : `${(value / 100).toFixed(0)}$`
+                value === 0
+                  ? "0"
+                  : formatCurrency(value, "CAD", { whole: true })
               }
               tick={{ fontSize: 11 }}
               className="text-gray-500"
@@ -158,7 +160,9 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
                 axisLine={false}
                 tickMargin={8}
                 tickFormatter={(value) =>
-                  value === 0 ? "0" : `${(value / 100).toFixed(0)}`
+                  value === 0
+                    ? "0"
+                    : formatCurrency(value, "XAF", { whole: true })
                 }
                 tick={{ fontSize: 11 }}
                 className="text-gray-500"

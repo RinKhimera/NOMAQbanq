@@ -25,12 +25,12 @@ export const SkeletonText = ({
 export const SkeletonCard = ({ className }: { className?: string }) => (
   <div
     className={cn(
-      "rounded-2xl border border-gray-100 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900",
+      "bg-surface border-line shadow-1 rounded-lg border p-6",
       className,
     )}
   >
     <div className="mb-4 flex items-center gap-3">
-      <Skeleton className="h-10 w-10 rounded-xl" />
+      <Skeleton className="h-10 w-10 rounded-lg" />
       <Skeleton className="h-5 w-40" />
     </div>
     <SkeletonText lines={3} />
@@ -50,11 +50,11 @@ export const SkeletonStatRow = ({
       <div
         key={i}
         data-testid="skeleton-stat"
-        className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900"
+        className="bg-surface border-line shadow-1 rounded-lg border p-5"
       >
         <div className="mb-3 flex items-center justify-between">
           <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-9 w-9 rounded-xl" />
+          <Skeleton className="h-9 w-9 rounded-lg" />
         </div>
         <Skeleton className="h-8 w-20" />
         <Skeleton className="mt-2 h-3 w-28" />
@@ -78,12 +78,12 @@ export const SkeletonTable = ({
 }) => (
   <div
     className={cn(
-      "overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900",
+      "bg-surface border-line overflow-hidden rounded-lg border",
       className,
     )}
   >
     <div
-      className="grid gap-4 border-b border-gray-200/80 p-4 dark:border-gray-700/50"
+      className="border-line grid gap-4 border-b p-4"
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
     >
       {Array.from({ length: columns }, (_, i) => (
@@ -93,7 +93,7 @@ export const SkeletonTable = ({
     {Array.from({ length: rows }, (_, r) => (
       <div
         key={r}
-        className="grid gap-4 border-b border-gray-100 p-4 last:border-0 dark:border-gray-800"
+        className="border-line grid gap-4 border-b p-4 last:border-0"
         style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
       >
         {Array.from({ length: columns }, (_, c) => (

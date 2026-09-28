@@ -13,7 +13,7 @@ import Link from "next/link"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
-import { PASS_THRESHOLD, isPassing } from "@/lib/score"
+import { PASS_THRESHOLD, formatScore, isPassing } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 interface Exam {
@@ -99,7 +99,7 @@ const getTrainingAction = (
     return {
       id: "improve-training",
       title: "Continuez à pratiquer",
-      description: `Score moyen : ${trainingStats.averageScore}% — Visez ${PASS_THRESHOLD}%+`,
+      description: `Score moyen : ${formatScore(trainingStats.averageScore)} — Visez ${formatScore(PASS_THRESHOLD)}+`,
       icon: Brain,
       href: "/tableau-de-bord/entrainement",
       priority: "high",

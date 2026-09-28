@@ -1,7 +1,6 @@
 "use client"
 
 import { Funnel } from "lucide-react"
-import type { StatusTone } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -10,17 +9,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { EXAM_STATUS_CONFIG, ExamStatus } from "@/lib/exam-status"
+import { TONE_COLOR } from "@/lib/tone"
 
 interface ExamStatusFilterProps {
   selectedStatuses: ExamStatus[]
   onStatusChange: (statuses: ExamStatus[]) => void
-}
-
-const toneDot: Partial<Record<StatusTone, string>> = {
-  neutral: "#6b7280",
-  info: "#3b82f6",
-  success: "#10b981",
-  danger: "#ef4444",
 }
 
 export function ExamStatusFilter({
@@ -55,7 +48,7 @@ export function ExamStatusFilter({
           {selectedStatuses.length > 0 && (
             <div className="ml-1 flex items-center gap-1">
               {selectedStatuses.map((status) => {
-                const bg = toneDot[EXAM_STATUS_CONFIG[status].tone]
+                const bg = TONE_COLOR[EXAM_STATUS_CONFIG[status].tone]
                 return (
                   <span
                     key={status}
@@ -101,7 +94,7 @@ export function ExamStatusFilter({
             >
               <div
                 className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: toneDot[config.tone] }}
+                style={{ backgroundColor: TONE_COLOR[config.tone] }}
               />
               {config.label}
             </DropdownMenuCheckboxItem>

@@ -65,7 +65,6 @@ export const QuickAccessGrid = () => {
               delay: 0.7 + index * 0.1,
               ease: [0.16, 1, 0.3, 1],
             }}
-            className="perspective-1000"
           >
             <Link
               href={action.href}
@@ -77,11 +76,7 @@ export const QuickAccessGrid = () => {
                   "group relative overflow-hidden rounded-2xl border border-gray-200/50 bg-white/80 p-6 backdrop-blur-sm transition-all duration-500",
                   "dark:border-gray-700/50 dark:bg-gray-900/80",
                   action.hoverBorder,
-                  "hover:-translate-y-2 hover:shadow-xl",
                 )}
-                style={{
-                  transformStyle: "preserve-3d",
-                }}
               >
                 <LinkPendingIndicator className="absolute top-4 right-4 z-10" />
                 {/* Glow effect on hover */}

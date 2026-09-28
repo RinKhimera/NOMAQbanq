@@ -11,14 +11,10 @@ export default function DomainsGrid({ stats }: { stats: MarketingStats }) {
   return (
     <div className="mb-20">
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-        {topDomains.map((domainStat, index) => {
+        {topDomains.map((domainStat) => {
           const metadata = getDomainMetadata(domainStat.domain)
           return (
-            <div
-              key={domainStat.domain}
-              className="animate-fade-in-scale"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
+            <div key={domainStat.domain}>
               <DomainCard
                 domain={{
                   title: domainStat.domain,
@@ -35,7 +31,7 @@ export default function DomainsGrid({ stats }: { stats: MarketingStats }) {
 
       {remainingCount > 0 && (
         <div className="mt-12 text-center">
-          <p className="text-body-lg text-gray-600 dark:text-gray-400">
+          <p className="text-lg leading-relaxed text-gray-600 dark:text-gray-400">
             Et{" "}
             <span className="font-semibold text-blue-600">
               {remainingCount} autres domaines

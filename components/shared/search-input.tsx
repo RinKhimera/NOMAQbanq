@@ -28,10 +28,13 @@ export const SearchInput = ({
     {isSearching ? (
       <Spinner
         size="sm"
-        className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
+        className="text-ink-3 absolute top-1/2 left-3 -translate-y-1/2"
       />
     ) : (
-      <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
+      <Search
+        className="text-ink-3 absolute top-1/2 left-3 size-4 -translate-y-1/2"
+        aria-hidden="true"
+      />
     )}
     <Input
       type="text"

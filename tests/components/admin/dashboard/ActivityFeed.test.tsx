@@ -76,7 +76,7 @@ describe("ActivityFeed", () => {
     expect(container.textContent).toContain("a payé")
     expect(container.textContent).toContain("Manuel")
     // exam_completed (scores haut/moyen/bas + null)
-    expect(container.textContent).toContain("85%")
+    expect(container.textContent).toMatch(/85\s%/)
     expect(container.textContent).toContain("Blanc 4")
   })
 })

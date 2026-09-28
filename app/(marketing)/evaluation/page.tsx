@@ -37,7 +37,7 @@ export const revalidate = 604800
 export default async function EvaluationPage() {
   const stats = await getCachedMarketingStats()
   return (
-    <div className="theme-bg">
+    <div className="bg-background">
       <div className="mx-auto max-w-7xl px-4 pt-8 pb-16 sm:px-6 lg:px-8">
         <EvaluationHeader />
         <EvaluationInstructions />

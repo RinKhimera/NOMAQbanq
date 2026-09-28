@@ -245,8 +245,8 @@ describe("SessionResults", () => {
           answers={revealedAnswers}
         />,
       )
-      expect(screen.getByTestId("score-percentage").textContent).toContain(
-        "33%",
+      expect(screen.getByTestId("score-percentage").textContent).toMatch(
+        /33\s%/,
       )
       expect(screen.getByTestId("score-badge")).toBeInTheDocument()
       expect(screen.getByTestId("score-progress")).toBeInTheDocument()
@@ -262,8 +262,8 @@ describe("SessionResults", () => {
           answers={{ q1: { selected: "A", isCorrect: true } }}
         />,
       )
-      expect(screen.getByTestId("score-percentage").textContent).toContain(
-        "33%",
+      expect(screen.getByTestId("score-percentage").textContent).toMatch(
+        /33\s%/,
       )
       expect(screen.queryByTestId("score-withheld")).not.toBeInTheDocument()
     })
@@ -346,8 +346,8 @@ describe("SessionResults", () => {
           answers={denseAnswers}
         />,
       )
-      expect(screen.getByTestId("score-percentage").textContent).toContain(
-        "33%",
+      expect(screen.getByTestId("score-percentage").textContent).toMatch(
+        /33\s%/,
       )
       expect(screen.getByText("Sans réponse")).toBeInTheDocument()
       expect(screen.getAllByTestId("question-card")).toHaveLength(3)
