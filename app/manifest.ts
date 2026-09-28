@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "NOMAQbanq - Préparation EACMC Partie I",
     short_name: "NOMAQbanq",
     description:
-      "Plateforme francophone de préparation à l'EACMC Partie I. Plus de 5000 QCM, examens blancs et suivi de progression.",
+      "Plateforme francophone de préparation à l'EACMC Partie I. Plus de 3000 QCM, examens blancs et suivi de progression.",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

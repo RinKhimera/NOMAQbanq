@@ -1,299 +1,278 @@
 "use client"
 
-import { ArrowRight, Check, Clock, Crown, Sparkles, Zap } from "lucide-react"
-import { motion } from "motion/react"
+import { ArrowRight, Check } from "lucide-react"
 import { useEffect, useRef } from "react"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { formatCurrency } from "@/lib/format"
+import type { PricedProduct, Savings } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { AccessBadge, getAccessStatus } from "./access-badge"
 
-interface Product {
+type CurrentAccess = { expiresAt: number; daysRemaining: number }
+
+export type PricingCardProduct = PricedProduct & {
   id: string
-  code: string
   name: string
   description: string
-  priceCAD: number
-  durationDays: number
-  accessType: "exam" | "training"
 }
 
-interface CurrentAccess {
-  expiresAt: number
-  daysRemaining: number
-}
-
-interface PricingCardProps {
-  product: Product
-  isPopular?: boolean
-  currentAccess?: CurrentAccess | null
+type PricingCardProps = {
+  product: PricingCardProduct
+  /** `featured` : le Pack Premium, pleine largeur au-dessus des accès séparés. */
+  variant?: "default" | "featured"
+  popular?: boolean
+  savings?: Savings | null
+  /** Accès en cours que ce produit prolonge : le sien, ou les deux pour le Pack Premium. */
+  currentAccess?: {
+    exam?: CurrentAccess | null
+    training?: CurrentAccess | null
+  }
   onPurchase: () => void
   isLoading?: boolean
-  index?: number
 }
 
-const accessTypeConfig = {
+const ACCESS = {
   exam: {
-    gradient: "from-blue-600 via-indigo-600 to-violet-600",
-    lightGradient:
-      "from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50",
-    accentColor: "text-blue-600 dark:text-blue-400",
-    borderAccent: "border-blue-500/20",
-    icon: Zap,
-    label: "Examens Simulés",
+    label: "Examens simulés",
+    shortLabel: "Examens",
+    badgeClass: "bg-accent-soft text-accent-ink border-transparent",
+    dotClass: "bg-accent",
     features: [
       "Accès aux examens blancs complets",
-      "Mode chronométré réaliste",
+      "Chronomètre et conditions d'examen",
       "Correction détaillée",
       "Statistiques de performance",
     ],
   },
   training: {
-    gradient: "from-emerald-600 via-teal-600 to-cyan-600",
-    lightGradient:
-      "from-emerald-50 to-teal-50 dark:from-emerald-950/50 dark:to-teal-950/50",
-    accentColor: "text-emerald-600 dark:text-emerald-400",
-    borderAccent: "border-emerald-500/20",
-    icon: Sparkles,
-    label: "Banque d'Entraînement",
+    label: "Banque d'entraînement",
+    shortLabel: "Entraînement",
+    badgeClass: "bg-success-soft text-success-ink border-transparent",
+    dotClass: "bg-success",
     features: [
-      "5000+ questions d'entraînement",
+      "3000+ questions d'entraînement",
       "Mode tuteur avec explications",
       "Filtrage par domaine médical",
       "Suivi de progression",
     ],
   },
-}
+} as const
 
+const PREMIUM_EXTRAS = [
+  "Statistiques de performance avancées",
+  "Support prioritaire",
+]
+
+const FeatureItem = ({ children }: { children: string }) => (
+  <li className="text-ink-2 flex items-start gap-2.5 text-sm">
+    <Check aria-hidden className="text-success mt-0.5 size-4 shrink-0" />
+    {children}
+  </li>
+)
+
+const TypeBadge = ({ type }: { type: "exam" | "training" }) => (
+  <Badge className={cn("font-mono", ACCESS[type].badgeClass)}>
+    <span aria-hidden className={cn("size-1.5", ACCESS[type].dotClass)} />
+    {ACCESS[type].label}
+  </Badge>
+)
+
+/**
+ * Carte de prix de la vitrine : un accès simple, ou le Pack Premium en
+ * variante `featured`. Le prix affiché vient du catalogue (`products`) ;
+ * Stripe facture le prix résolu au checkout.
+ */
 export const PricingCard = ({
   product,
-  isPopular = false,
+  variant = "default",
+  popular = false,
+  savings,
   currentAccess,
   onPurchase,
   isLoading = false,
-  index = 0,
 }: PricingCardProps) => {
-  const config = accessTypeConfig[product.accessType]
-  const Icon = config.icon
-  const hasAccess = !!currentAccess
-  const accessStatus = getAccessStatus(
-    currentAccess?.expiresAt,
-    currentAccess?.daysRemaining,
-  )
-
-  const isPromo = product.code.includes("promo")
-  const savings = isPromo
-    ? Math.round((1 - product.priceCAD / (50 * 100 * 6)) * 100)
-    : 0
-
-  // Protection contre le double-clic
-  const isClickedRef = useRef(false)
-
+  // Un double-clic partirait avant que `isLoading` ne désactive le bouton.
+  const clickedRef = useRef(false)
   useEffect(() => {
-    if (!isLoading) {
-      isClickedRef.current = false
-    }
+    if (!isLoading) clickedRef.current = false
   }, [isLoading])
-
-  const handlePurchaseClick = () => {
-    if (isClickedRef.current || isLoading) return
-    isClickedRef.current = true
+  const handleClick = () => {
+    if (clickedRef.current || isLoading) return
+    clickedRef.current = true
     onPurchase()
   }
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 40 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.6,
-        delay: index * 0.1,
-        ease: [0.16, 1, 0.3, 1],
-      }}
-      className="group relative"
-    >
-      {/* Popular badge - floating above card */}
-      {isPopular && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8, y: 10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ delay: 0.3 + index * 0.1, duration: 0.4 }}
-          className="absolute -top-4 left-1/2 z-20 -translate-x-1/2"
-        >
-          <div
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold text-white shadow-lg",
-              "bg-linear-to-r",
-              config.gradient,
-            )}
-          >
-            <Crown className="h-4 w-4" />
-            Populaire
-          </div>
-        </motion.div>
-      )}
+  const accesses = (
+    product.isCombo ? (["exam", "training"] as const) : [product.accessType]
+  ).map((type) => ({ type, access: currentAccess?.[type] ?? null }))
+  const hasAccess = accesses.some((a) => a.access)
 
-      {/* Card container */}
-      <div
-        className={cn(
-          "relative overflow-hidden rounded-3xl border-2 bg-white transition-all duration-500",
-          "dark:bg-gray-900",
-          isPopular
-            ? "border-transparent shadow-2xl shadow-blue-500/20 dark:shadow-blue-500/10"
-            : "border-gray-200/80 shadow-xl dark:border-gray-700/50",
-          "hover:-translate-y-2 hover:shadow-2xl",
-          isPopular && "ring-2 ring-blue-500/20 dark:ring-blue-400/20",
+  const accessDetails = hasAccess && (
+    <div className="bg-surface-2 border-line flex flex-col gap-2 rounded-md border p-3">
+      <p className="text-ink-2 text-[13px] font-medium">
+        {product.isCombo ? "Vos accès actuels" : "Votre accès actuel"}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {accesses.map(({ type, access }) =>
+          access ? (
+            <AccessBadge
+              key={type}
+              accessType={type}
+              status={getAccessStatus(access.expiresAt, access.daysRemaining)}
+              daysRemaining={access.daysRemaining}
+              size="sm"
+            />
+          ) : (
+            <span key={type} className="text-ink-3 text-[13px]">
+              {ACCESS[type].shortLabel} : aucun
+            </span>
+          ),
         )}
-      >
-        {/* Gradient background overlay for popular */}
-        {isPopular && (
-          <div
-            className={cn(
-              "absolute inset-0 opacity-[0.03] dark:opacity-[0.08]",
-              "bg-linear-to-br",
-              config.gradient,
-            )}
-          />
-        )}
-
-        {/* Decorative corner gradient */}
-        <div
-          className={cn(
-            "absolute -top-20 -right-20 h-40 w-40 rounded-full opacity-30 blur-3xl transition-opacity duration-500",
-            "bg-linear-to-br",
-            config.gradient,
-            "group-hover:opacity-50",
-          )}
-        />
-
-        {/* Content */}
-        <div className="relative p-8">
-          {/* Header */}
-          <div className="mb-6 flex items-start justify-between">
-            <div className="space-y-2">
-              <div
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-semibold",
-                  "bg-linear-to-r",
-                  config.lightGradient,
-                  config.accentColor,
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {config.label}
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                {product.name}
-              </h3>
-            </div>
-
-            {/* Duration badge */}
-            <div className="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-sm font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-              <Clock className="h-4 w-4" />
-              {product.durationDays} jours
-            </div>
-          </div>
-
-          {/* Price */}
-          <div className="mb-6">
-            <div className="flex items-baseline gap-2">
-              <span
-                className={cn(
-                  "text-5xl font-black tracking-tight",
-                  config.accentColor,
-                )}
-              >
-                {formatCurrency(product.priceCAD)}
-              </span>
-              {isPromo && (
-                <span className="rounded-full bg-green-100 px-2.5 py-1 text-sm font-bold text-green-700 dark:bg-green-900/50 dark:text-green-300">
-                  -{savings}%
-                </span>
-              )}
-            </div>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {product.description}
-            </p>
-          </div>
-
-          {/* Current access status */}
-          {hasAccess && (
-            <div className="mb-6 rounded-xl bg-gray-50 p-4 dark:bg-gray-800/50">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Votre accès actuel
-                </span>
-                <AccessBadge
-                  accessType={product.accessType}
-                  status={accessStatus}
-                  daysRemaining={currentAccess?.daysRemaining}
-                  size="sm"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Features */}
-          <ul className="mb-8 space-y-3">
-            {config.features.map((feature, i) => (
-              <motion.li
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 + index * 0.1 + i * 0.05 }}
-                className="flex items-start gap-3"
-              >
-                <div
-                  className={cn(
-                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full",
-                    "bg-linear-to-br",
-                    config.gradient,
-                  )}
-                >
-                  <Check className="h-3 w-3 text-white" />
-                </div>
-                <span className="text-sm text-gray-600 dark:text-gray-300">
-                  {feature}
-                </span>
-              </motion.li>
-            ))}
-          </ul>
-
-          {/* CTA Button */}
-          <Button
-            onClick={handlePurchaseClick}
-            disabled={isLoading}
-            className={cn(
-              "h-14 w-full rounded-2xl text-base font-bold transition-all duration-300",
-              "shadow-lg hover:shadow-xl",
-              isPopular
-                ? cn(
-                    "bg-linear-to-r text-white hover:opacity-90",
-                    config.gradient,
-                  )
-                : "bg-gray-900 text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100",
-            )}
-          >
-            {isLoading ? (
-              <span className="flex items-center gap-2">
-                <Spinner className="text-white" />
-                Chargement...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                {hasAccess ? "Prolonger l'accès" : "Acheter maintenant"}
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </span>
-            )}
-          </Button>
-
-          {/* Trust indicator */}
-          <p className="mt-4 text-center text-xs text-gray-500 dark:text-gray-400">
-            Paiement sécurisé par Stripe · Accès instantané
-          </p>
-        </div>
       </div>
-    </motion.div>
+    </div>
+  )
+
+  const buttonContent = isLoading ? (
+    <>
+      <Spinner size="sm" />
+      Chargement…
+    </>
+  ) : (
+    <>
+      {variant === "featured"
+        ? hasAccess
+          ? "Prolonger mes accès"
+          : "Choisir Premium"
+        : hasAccess
+          ? "Prolonger l'accès"
+          : "Choisir"}
+      {variant === "featured" && <ArrowRight aria-hidden />}
+    </>
+  )
+
+  if (variant === "featured") {
+    return (
+      <article className="bg-surface border-line-strong grid overflow-hidden rounded-lg border lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4.5 p-6 sm:p-8">
+          <div className="flex flex-wrap gap-2">
+            <Badge className="border-warning-line bg-warning-soft text-warning-ink font-mono">
+              Meilleure offre
+            </Badge>
+            <Badge variant="outline" className="font-mono">
+              Examens + Entraînement
+            </Badge>
+          </div>
+          <h2 className="type-h2 text-ink">{product.name}</h2>
+          <p className="text-ink-2 max-w-110 text-base leading-relaxed">
+            {product.description}
+          </p>
+          <div className="flex flex-wrap items-baseline gap-3">
+            <span className="text-ink font-serif text-[3.5rem] leading-none font-semibold tracking-[-0.02em]">
+              {formatCurrency(product.priceCAD)}
+            </span>
+            {savings && (
+              <span className="text-ink-3 text-lg line-through">
+                {formatCurrency(savings.referenceCAD)}
+              </span>
+            )}
+          </div>
+          <p className="text-ink-2 font-mono text-[13px]">
+            CAD · valide {product.durationDays}j
+            {savings &&
+              ` · vous économisez ${formatCurrency(savings.savedCAD)}`}
+          </p>
+          {accessDetails}
+          <div className="mt-1">
+            <Button
+              size="lg"
+              onClick={handleClick}
+              disabled={isLoading}
+              className="max-sm:w-full"
+            >
+              {buttonContent}
+            </Button>
+          </div>
+        </div>
+        <div className="bg-surface-2 border-line flex flex-col gap-5.5 border-t p-6 sm:p-8 lg:border-t-0 lg:border-l">
+          {(["exam", "training"] as const).map((type) => (
+            <div key={type} className="flex flex-col gap-2.5">
+              <h3 className="type-label">{ACCESS[type].shortLabel}</h3>
+              <ul className="flex flex-col gap-2.5">
+                {ACCESS[type].features.slice(0, 3).map((f) => (
+                  <FeatureItem key={f}>{f}</FeatureItem>
+                ))}
+              </ul>
+            </div>
+          ))}
+          <div className="flex flex-col gap-2.5">
+            <h3 className="type-label">Inclus</h3>
+            <ul className="flex flex-col gap-2.5">
+              {PREMIUM_EXTRAS.map((f) => (
+                <FeatureItem key={f}>{f}</FeatureItem>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </article>
+    )
+  }
+
+  return (
+    <article
+      className={cn(
+        "bg-surface flex h-full flex-col rounded-lg border",
+        popular ? "border-line-strong" : "border-line",
+      )}
+    >
+      <div className="border-line flex flex-col gap-3 border-b px-5.5 py-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TypeBadge type={product.accessType} />
+          {popular && (
+            <Badge variant="outline" className="font-mono">
+              Populaire
+            </Badge>
+          )}
+        </div>
+        <h3 className="text-ink text-base font-semibold">{product.name}</h3>
+        <div className="flex flex-wrap items-baseline gap-2">
+          <span className="text-ink font-serif text-[2.5rem] leading-none font-semibold tracking-[-0.02em]">
+            {formatCurrency(product.priceCAD)}
+          </span>
+          <span className="text-ink-3 font-mono text-xs">
+            CAD · {product.durationDays}j
+          </span>
+        </div>
+        <p
+          className={cn(
+            "min-h-4.5 text-[13px]",
+            savings ? "text-success-ink" : "text-ink-3",
+          )}
+        >
+          {savings
+            ? `Économisez ${savings.percent} % par rapport au mensuel`
+            : "Sans engagement"}
+        </p>
+      </div>
+      <div className="flex flex-1 flex-col gap-4 px-5.5 py-4.5">
+        {accessDetails}
+        <ul className="flex flex-1 flex-col gap-2.5">
+          {ACCESS[product.accessType].features.map((f) => (
+            <FeatureItem key={f}>{f}</FeatureItem>
+          ))}
+        </ul>
+      </div>
+      <div className="px-5.5 pb-5.5">
+        <Button
+          variant={popular ? "default" : "outline"}
+          onClick={handleClick}
+          disabled={isLoading}
+          className="w-full max-md:h-11"
+        >
+          {buttonContent}
+        </Button>
+      </div>
+    </article>
   )
 }

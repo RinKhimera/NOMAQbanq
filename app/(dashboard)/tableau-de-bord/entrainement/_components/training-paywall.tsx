@@ -10,7 +10,7 @@ import { useCheckout } from "@/hooks/use-checkout"
 import { formatCurrency } from "@/lib/format"
 
 const FEATURES = [
-  "Plus de 5000 questions",
+  "Plus de 3000 questions",
   "Sessions personnalisées (5-20 questions)",
   "Corrections détaillées avec explications",
   "Filtrage par domaine médical",

@@ -21,7 +21,7 @@ const accessTypeConfig = {
   training: {
     icon: Sparkles,
     label: "Banque d'Entraînement",
-    description: "Accès à 5000+ questions d'entraînement",
+    description: "Accès à 3000+ questions d'entraînement",
     gradient: "from-emerald-600 to-teal-600",
   },
 }
