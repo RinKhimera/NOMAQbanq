@@ -49,7 +49,7 @@ describe("pageTitle — espace étudiant", () => {
     expect(pageTitle(pathname, "student")).toBe(title)
   })
 
-  it("retombe en français sur une route inconnue, jamais « Dashboard »", () => {
+  it("retombe sur le titre de la zone pour une route inconnue", () => {
     expect(pageTitle("/tableau-de-bord/inconnue", "student")).toBe(
       "Tableau de bord",
     )

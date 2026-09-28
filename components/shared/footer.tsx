@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Logo } from "@/components/shared/shell/logo"
+import { Logo } from "@/components/shared/logo"
 import { FOOTER_LEGAL_LINKS, FOOTER_QUICK_LINKS } from "@/constants"
 import { getAppZoneYear } from "@/lib/app-zone"
 import { cn } from "@/lib/utils"

@@ -4,7 +4,7 @@ import { deploymentEnvLabel } from "@/lib/deployment-env"
 describe("deploymentEnvLabel", () => {
   it.each([
     ["production", "Production"],
-    ["preview", "Preview"],
+    ["preview", "Prévisualisation"],
     ["development", "Développement"],
   ])("VERCEL_ENV=%s → « %s »", (vercelEnv, label) => {
     expect(deploymentEnvLabel(vercelEnv)).toBe(label)

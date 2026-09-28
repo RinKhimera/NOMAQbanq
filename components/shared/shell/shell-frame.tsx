@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { type ReactNode, useState } from "react"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
+import { Logo } from "@/components/shared/logo"
 import ThemeToggle from "@/components/shared/theme-toggle"
 import { Button } from "@/components/ui/button"
 import {
@@ -16,7 +17,6 @@ import {
 } from "@/components/ui/sheet"
 import { type ShellZone, pageTitle } from "@/lib/shell-navigation"
 import { cn } from "@/lib/utils"
-import { Logo } from "./logo"
 import { SideNav } from "./side-nav"
 
 const ZONE_FRAME = {

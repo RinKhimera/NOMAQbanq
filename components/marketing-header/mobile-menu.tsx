@@ -6,8 +6,8 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { HEADER_MENU_ONLY_NAV, HEADER_NAV } from "@/constants"
 import { cn } from "@/lib/utils"
-import { HEADER_NAV, MENU_ONLY_NAV } from "./nav"
 
 const THEMES = [
   { value: "light", label: "Clair", icon: Sun },
@@ -55,7 +55,7 @@ export const MobileMenu = ({
         aria-label="Menu du site"
         className="flex flex-1 flex-col overflow-y-auto px-3 py-2"
       >
-        {[...HEADER_NAV, ...MENU_ONLY_NAV].map((item) => {
+        {[...HEADER_NAV, ...HEADER_MENU_ONLY_NAV].map((item) => {
           const isActive = pathname === item.href
           return (
             <Link

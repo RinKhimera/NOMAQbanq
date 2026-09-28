@@ -4,7 +4,7 @@ import { LayoutDashboard, LogOut, Menu } from "lucide-react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { Logo } from "@/components/shared/shell/logo"
+import { Logo } from "@/components/shared/logo"
 import ThemeToggle from "@/components/shared/theme-toggle"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
@@ -16,12 +16,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetTrigger } from "@/components/ui/sheet"
+import { HEADER_NAV } from "@/constants"
 import { useMounted } from "@/hooks/use-mounted"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { MobileMenu } from "./mobile-menu"
-import { HEADER_NAV } from "./nav"
 
 export const MarketingHeader = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -119,13 +119,14 @@ export const MarketingHeader = () => {
                     </p>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild className="max-md:min-h-11">
                     <Link href="/tableau-de-bord">
                       <LayoutDashboard aria-hidden />
                       <span>Tableau de bord</span>
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem
+                    className="max-md:min-h-11"
                     variant="destructive"
                     onClick={handleSignOut}
                   >

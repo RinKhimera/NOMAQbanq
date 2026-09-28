@@ -12,8 +12,10 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useMounted } from "@/hooks/use-mounted"
 
-// 32 px dans une barre à partir de 1024 px, cible tactile de 44 px sous 768 px.
+// 32 px dans une barre à partir de 1024 px ; cibles tactiles de 44 px sous
+// 768 px, déclencheur et entrées du menu.
 const TRIGGER_SIZE = "size-11 md:size-10 lg:size-8"
+const ITEM_SIZE = "max-md:min-h-11"
 
 /** Icône selon la classe `.dark` : ni thème ni montage lus au rendu. */
 const ThemeIcon = () => (
@@ -55,15 +57,24 @@ export default function ThemeToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
+        <DropdownMenuItem
+          className={ITEM_SIZE}
+          onClick={() => setTheme("light")}
+        >
           <Sun aria-hidden />
           <span>Clair</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
+        <DropdownMenuItem
+          className={ITEM_SIZE}
+          onClick={() => setTheme("dark")}
+        >
           <Moon aria-hidden />
           <span>Sombre</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
+        <DropdownMenuItem
+          className={ITEM_SIZE}
+          onClick={() => setTheme("system")}
+        >
           <Monitor aria-hidden />
           <span>Système</span>
         </DropdownMenuItem>

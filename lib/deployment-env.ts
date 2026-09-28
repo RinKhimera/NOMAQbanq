@@ -1,6 +1,6 @@
 const LABELS: Record<string, string> = {
   production: "Production",
-  preview: "Preview",
+  preview: "Prévisualisation",
   development: "Développement",
 }
 
