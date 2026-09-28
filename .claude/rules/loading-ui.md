@@ -146,8 +146,9 @@ client monté par `app/(dashboard)/layout.tsx`, parce qu'un layout n'a pas accè
 à `pathname` (`node_modules/next/dist/docs/.../layout.md:240`). Mais il ne lit
 PAS la session côté client : le layout la résout déjà et lui passe
 `hasUsername`. Un `useSession()` de plus = un `GET /api/auth/get-session`
-(invocation Vercel + Neon) sur chaque page du dashboard. Même règle pour
-`NavSecondary` (`isUserAdmin` vient de `DashboardShell`).
+(invocation Vercel + Neon) sur chaque page du dashboard. Même règle pour les
+coquilles (`components/shared/shell/`) : l'utilisateur, son rôle compris, leur
+arrive en props par `toSessionUser`.
 
 Conséquence : la prop vient d'un layout qui **ne se re-rend pas à la navigation
 client**. La fin d'onboarding (`onboarding-form.tsx`) fait `router.refresh()`,
@@ -163,8 +164,8 @@ Toutes les routes sous `/tableau-de-bord` et `/admin` sont dynamiques : le
 prefetch par défaut d'un `<Link>` rend le layout côté serveur (→
 `requireSession` → Neon) pour chaque lien entré dans le viewport, et le rejoue
 à l'expiration du cache — une invocation Vercel par lien visible. Les liens
-présents sur chaque page ou en liste — sidebar (logo d'`app-sidebar`,
-`nav-main`, `nav-secondary`) et
+présents sur chaque page ou en liste — coquilles (logo et `SideNav` de
+`components/shared/shell/`, liens de changement de zone) et
 accueil du dashboard (`quick-access-grid`, `next-actions-panel`,
 `recent-activity-feed`, un lien par activité) — sont donc en `prefetch={false}`.
 
