@@ -6,7 +6,9 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
+import { AuthCard, AuthDivider } from "@/app/(auth)/_components/auth-card"
 import { CheckEmailNotice } from "@/app/(auth)/_components/check-email-notice"
+import { GoogleButton } from "@/app/(auth)/_components/google-button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -85,41 +87,15 @@ export const SignInForm = () => {
   }
 
   return (
-    <div className="w-full space-y-5">
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full rounded-xl"
+    <AuthCard
+      title="Bon retour parmi nous"
+      description="Connectez-vous à votre compte pour continuer."
+    >
+      <GoogleButton
         onClick={handleGoogle}
         disabled={isSubmitting || isGoogleLoading}
-        data-testid="auth-google"
-      >
-        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            fill="#4285F4"
-            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
-          />
-          <path
-            fill="#34A853"
-            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
-          />
-          <path
-            fill="#FBBC05"
-            d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"
-          />
-          <path
-            fill="#EA4335"
-            d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.46 14.97.5 12 .5A11 11 0 0 0 2.18 7.06L5.84 9.9c.87-2.6 3.3-4.53 6.16-4.53Z"
-          />
-        </svg>
-        Continuer avec Google
-      </Button>
-
-      <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-        <span className="text-muted-foreground text-xs">ou</span>
-        <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-      </div>
+      />
+      <AuthDivider />
 
       {error && (
         <Alert variant="destructive" data-testid="auth-error-alert">
@@ -136,7 +112,7 @@ export const SignInForm = () => {
                   Vous n&apos;avez pas encore de mot de passe ?{" "}
                   <Link
                     href="/mot-de-passe-oublie"
-                    className="font-medium underline"
+                    className="focus-ring rounded-sm font-medium underline"
                   >
                     Réinitialisez-le
                   </Link>
@@ -153,7 +129,7 @@ export const SignInForm = () => {
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-4"
+          className="flex flex-col gap-5"
           noValidate
         >
           <FormField
@@ -166,8 +142,9 @@ export const SignInForm = () => {
                   <Input
                     type="email"
                     autoComplete="email"
-                    placeholder="vous@exemple.com"
+                    placeholder="vous@exemple.ca"
                     data-testid="auth-email"
+                    className="max-md:h-11"
                     {...field}
                   />
                 </FormControl>
@@ -181,24 +158,23 @@ export const SignInForm = () => {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <div className="flex items-center justify-between">
-                  <FormLabel>Mot de passe</FormLabel>
-                  <Link
-                    href="/mot-de-passe-oublie"
-                    className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    Mot de passe oublié ?
-                  </Link>
-                </div>
+                <FormLabel>Mot de passe</FormLabel>
                 <FormControl>
                   <Input
                     type="password"
                     autoComplete="current-password"
                     placeholder="••••••••"
                     data-testid="auth-password"
+                    className="max-md:h-11"
                     {...field}
                   />
                 </FormControl>
+                <Link
+                  href="/mot-de-passe-oublie"
+                  className="focus-ring text-accent-ink w-fit rounded-sm text-xs hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center"
+                >
+                  Mot de passe oublié ?
+                </Link>
                 <FormMessage />
               </FormItem>
             )}
@@ -206,24 +182,25 @@ export const SignInForm = () => {
 
           <Button
             type="submit"
-            className="w-full rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 font-semibold text-white hover:from-blue-700 hover:to-indigo-700"
+            size="lg"
+            className="w-full"
             disabled={isSubmitting || isGoogleLoading}
             data-testid="auth-submit"
           >
-            {isSubmitting ? "Connexion..." : "Se connecter"}
+            {isSubmitting ? "Connexion…" : "Se connecter"}
           </Button>
         </form>
       </Form>
 
-      <p className="text-muted-foreground text-center text-sm">
-        Nouveau sur NOMAQbanq ?{" "}
+      <p className="text-ink-3 text-center text-sm">
+        Pas encore de compte ?{" "}
         <Link
           href="/inscription"
-          className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+          className="focus-ring text-accent-ink rounded-sm hover:underline"
         >
-          Créer un compte
+          Inscrivez-vous gratuitement
         </Link>
       </p>
-    </div>
+    </AuthCard>
   )
 }

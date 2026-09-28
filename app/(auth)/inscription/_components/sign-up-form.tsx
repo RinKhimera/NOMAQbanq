@@ -4,12 +4,15 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import Link from "next/link"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
+import { AuthCard, AuthDivider } from "@/app/(auth)/_components/auth-card"
 import { CheckEmailNotice } from "@/app/(auth)/_components/check-email-notice"
+import { GoogleButton } from "@/app/(auth)/_components/google-button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -69,41 +72,15 @@ export const SignUpForm = () => {
   }
 
   return (
-    <div className="w-full space-y-5">
-      <Button
-        type="button"
-        variant="outline"
-        className="w-full rounded-xl"
+    <AuthCard
+      title="Créer votre compte"
+      description="Gratuit, sans carte de crédit. Accédez à l'évaluation dès aujourd'hui."
+    >
+      <GoogleButton
         onClick={handleGoogle}
         disabled={isSubmitting || isGoogleLoading}
-        data-testid="auth-google"
-      >
-        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-          <path
-            fill="#4285F4"
-            d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1Z"
-          />
-          <path
-            fill="#34A853"
-            d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23Z"
-          />
-          <path
-            fill="#FBBC05"
-            d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84Z"
-          />
-          <path
-            fill="#EA4335"
-            d="M12 4.75c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 1.46 14.97.5 12 .5A11 11 0 0 0 2.18 7.06L5.84 9.9c.87-2.6 3.3-4.53 6.16-4.53Z"
-          />
-        </svg>
-        Continuer avec Google
-      </Button>
-
-      <div className="flex items-center gap-3">
-        <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-        <span className="text-muted-foreground text-xs">ou</span>
-        <span className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
-      </div>
+      />
+      <AuthDivider />
 
       {error && (
         <Alert variant="destructive" data-testid="auth-error-alert">
@@ -117,7 +94,7 @@ export const SignUpForm = () => {
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-4"
+          className="flex flex-col gap-5"
           noValidate
         >
           <FormField
@@ -132,6 +109,7 @@ export const SignUpForm = () => {
                     autoComplete="name"
                     placeholder="Marie Dupont"
                     data-testid="auth-name"
+                    className="max-md:h-11"
                     {...field}
                   />
                 </FormControl>
@@ -139,7 +117,6 @@ export const SignUpForm = () => {
               </FormItem>
             )}
           />
-
           <FormField
             control={form.control}
             name="email"
@@ -150,8 +127,9 @@ export const SignUpForm = () => {
                   <Input
                     type="email"
                     autoComplete="email"
-                    placeholder="vous@exemple.com"
+                    placeholder="vous@exemple.ca"
                     data-testid="auth-email"
+                    className="max-md:h-11"
                     {...field}
                   />
                 </FormControl>
@@ -159,7 +137,6 @@ export const SignUpForm = () => {
               </FormItem>
             )}
           />
-
           <FormField
             control={form.control}
             name="password"
@@ -172,9 +149,11 @@ export const SignUpForm = () => {
                     autoComplete="new-password"
                     placeholder="••••••••"
                     data-testid="auth-password"
+                    className="max-md:h-11"
                     {...field}
                   />
                 </FormControl>
+                <FormDescription>8 caractères minimum</FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -182,24 +161,42 @@ export const SignUpForm = () => {
 
           <Button
             type="submit"
-            className="w-full rounded-xl bg-linear-to-r from-green-600 to-emerald-600 font-semibold text-white hover:from-green-700 hover:to-emerald-700"
+            size="lg"
+            className="w-full"
             disabled={isSubmitting || isGoogleLoading}
             data-testid="auth-submit"
           >
-            {isSubmitting ? "Création..." : "Créer mon compte"}
+            {isSubmitting ? "Création…" : "Créer mon compte"}
           </Button>
         </form>
       </Form>
 
-      <p className="text-muted-foreground text-center text-sm">
+      <p className="text-ink-3 text-center text-sm">
         Vous avez déjà un compte ?{" "}
         <Link
           href="/connexion"
-          className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+          className="focus-ring text-accent-ink rounded-sm hover:underline"
         >
           Se connecter
         </Link>
       </p>
-    </div>
+      <p className="text-ink-3 text-center text-xs leading-normal">
+        En créant un compte, vous acceptez les{" "}
+        <Link
+          href="/conditions"
+          className="focus-ring text-accent-ink rounded-sm hover:underline"
+        >
+          conditions d&apos;utilisation
+        </Link>{" "}
+        et la{" "}
+        <Link
+          href="/confidentialite"
+          className="focus-ring text-accent-ink rounded-sm hover:underline"
+        >
+          politique de confidentialité
+        </Link>
+        .
+      </p>
+    </AuthCard>
   )
 }
