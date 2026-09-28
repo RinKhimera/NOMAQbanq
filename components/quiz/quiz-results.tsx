@@ -7,6 +7,7 @@ import { flushSync } from "react-dom"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { formatMinutesSeconds } from "@/lib/attempt-clock"
 import { type ScoreTone, scoreTone } from "@/lib/score"
 import { QuestionCard } from "./question-card"
 import QuestionNavigation from "./question-navigation"
@@ -42,12 +43,6 @@ export default function QuizResults({
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(
     new Set(),
   )
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
 
   const getScoreColor = (score: number, total: number) =>
     QUIZ_SCORE_COLOR[scoreTone((score / total) * 100)]
@@ -114,7 +109,7 @@ export default function QuizResults({
                   Temps restant
                 </p>
                 <p className="text-2xl font-bold text-green-600">
-                  {formatTime(timeRemaining)}
+                  {formatMinutesSeconds(timeRemaining)}
                 </p>
               </div>
             </div>

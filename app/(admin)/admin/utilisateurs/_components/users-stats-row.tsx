@@ -12,6 +12,7 @@ import {
   AnimatedStatCardSkeleton,
   AnimatedStatCard as StatCard,
 } from "@/components/admin/animated-stat-card"
+import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface CurrencyRevenue {
@@ -38,25 +39,6 @@ interface UsersStatsRowProps {
 }
 
 export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
-  const formatCAD = (amount: number) => {
-    return new Intl.NumberFormat("fr-CA", {
-      style: "currency",
-      currency: "CAD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount / 100)
-  }
-
-  const formatXAF = (amount: number) => {
-    return (
-      new Intl.NumberFormat("fr-FR", {
-        style: "decimal",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(amount / 100) + " XAF"
-    )
-  }
-
   // Parenthèses indispensables : `??` est MOINS prioritaire que `>`, donc
   // `recent ?? 0 > 0` parse `recent ?? (0 > 0)` → vaut le NOMBRE `recent` (0 si
   // pas de revenu XAF) au lieu d'un booléen → `{hasXAFRevenue && …}` rendait « 0 ».
@@ -132,7 +114,9 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
 
       <StatCard
         label="Revenus CAD (30j)"
-        value={formatCAD(stats.revenueByCurrency.CAD.recent)}
+        value={formatCurrency(stats.revenueByCurrency.CAD.recent, "CAD", {
+          whole: true,
+        })}
         trend={
           stats.revenueByCurrency.CAD.trend !== 0
             ? {
@@ -150,7 +134,9 @@ export function UsersStatsRow({ stats, isLoading }: UsersStatsRowProps) {
       {hasXAFRevenue && (
         <StatCard
           label="Revenus XAF (30j)"
-          value={formatXAF(stats.revenueByCurrency.XAF.recent)}
+          value={formatCurrency(stats.revenueByCurrency.XAF.recent, "XAF", {
+            whole: true,
+          })}
           trend={
             stats.revenueByCurrency.XAF.trend !== 0
               ? {

@@ -9,12 +9,16 @@ import {
   toAppZoneCalendarDay,
 } from "@/lib/app-zone"
 import {
+  formatCalendarDay,
   formatCompactDateTime,
   formatCurrency,
   formatDateTime,
   formatDeadline,
+  formatDuration,
   formatExpiration,
+  formatFileTimestamp,
   formatFullDateTime,
+  formatIsoDay,
   formatLongDateTime,
   formatMediumDate,
   formatPaddedMediumDate,
@@ -65,6 +69,15 @@ describe("formatCurrency", () => {
 
     it("gère explicitement la devise CAD", () => {
       expect(normalizeSpaces(formatCurrency(5000, "CAD"))).toBe("50 $")
+    })
+
+    it("arrondit au dollar quand le montant est un total (whole)", () => {
+      expect(
+        normalizeSpaces(formatCurrency(5050, "CAD", { whole: true })),
+      ).toBe("51 $")
+      expect(
+        normalizeSpaces(formatCurrency(5050, "XAF", { whole: true })),
+      ).toBe("51 XAF")
     })
   })
 
@@ -502,5 +515,42 @@ describe("mois civils et décalages de jours (agrégats admin)", () => {
     expect(
       startOfAppZoneMonth(new Date("2026-08-01T01:00:00Z")).toISOString(),
     ).toBe("2026-07-01T04:00:00.000Z")
+  })
+})
+
+describe("formatCalendarDay", () => {
+  it("formate le jour cliqué dans un calendrier, sans décalage de fuseau", () => {
+    const picked = new Date(2026, 6, 3)
+    expect(formatCalendarDay(picked)).toBe("3 juil. 2026")
+    expect(formatCalendarDay(picked, { year: false })).toBe("3 juil.")
+  })
+})
+
+describe("formatIsoDay", () => {
+  it("formate un jour ISO en libellé court ou long", () => {
+    expect(formatIsoDay("2026-07-03")).toBe("3 juil.")
+    expect(formatIsoDay("2026-07-03", "weekday")).toBe(
+      "vendredi 3 juillet 2026",
+    )
+  })
+
+  it("rend l'entrée telle quelle quand elle n'est pas un jour ISO", () => {
+    expect(formatIsoDay("pas une date")).toBe("pas une date")
+  })
+})
+
+describe("formatDuration", () => {
+  it("heures et minutes au-delà d'une heure, minutes seules en dessous", () => {
+    expect(formatDuration((2 * 60 + 5) * 60_000)).toBe("2h 5min")
+    expect(formatDuration(42 * 60_000 + 30_000)).toBe("42 minutes")
+    expect(formatDuration(0)).toBe("0 minutes")
+  })
+})
+
+describe("formatFileTimestamp", () => {
+  it("horodatage sans caractère interdit dans un nom de fichier", () => {
+    expect(formatFileTimestamp(new Date(2026, 8, 27, 9, 5))).toBe(
+      "27-09-2026_09-05",
+    )
   })
 })

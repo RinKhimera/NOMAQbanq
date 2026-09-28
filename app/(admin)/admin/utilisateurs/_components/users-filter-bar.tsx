@@ -1,6 +1,5 @@
 "use client"
 
-import { format } from "date-fns"
 import { fr } from "date-fns/locale"
 import { Calendar as CalendarIcon, Search, X } from "lucide-react"
 import { useState } from "react"
@@ -21,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
+import { formatCalendarDay } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type RoleFilter = "all" | "admin" | "user"
@@ -83,9 +83,8 @@ export function UsersFilterBar({
 
   const formatDateRange = () => {
     if (!dateRange?.from) return "Toutes les dates"
-    if (!dateRange.to)
-      return format(dateRange.from, "d MMM yyyy", { locale: fr })
-    return `${format(dateRange.from, "d MMM", { locale: fr })} - ${format(dateRange.to, "d MMM yyyy", { locale: fr })}`
+    if (!dateRange.to) return formatCalendarDay(dateRange.from)
+    return `${formatCalendarDay(dateRange.from, { year: false })} - ${formatCalendarDay(dateRange.to)}`
   }
 
   return (

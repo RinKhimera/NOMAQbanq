@@ -34,3 +34,12 @@ export const parseAmountToCents = (
     return Math.round(num * 100)
   }
 }
+
+/** Montant en centimes vers la valeur d'un champ de saisie, inverse de `parseAmountToCents`. */
+export const centsToInputAmount = (
+  cents: number,
+  currency: Currency,
+): string => {
+  const amount = cents / 100
+  return currency === "XAF" ? Math.round(amount).toString() : amount.toFixed(2)
+}

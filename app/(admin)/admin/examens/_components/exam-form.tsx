@@ -1,8 +1,6 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   ArrowLeft,
   Calendar,
@@ -65,6 +63,7 @@ import type {
 } from "@/features/exams/dal"
 import { SECONDS_PER_QUESTION } from "@/features/exams/schemas"
 import type { SelectableUser } from "@/features/users/dal"
+import { formatCalendarDay } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
 import {
@@ -418,15 +417,8 @@ export function ExamForm(props: ExamFormProps) {
                                     <Calendar className="mr-2 h-4 w-4 text-blue-600" />
                                     {startField.value && endField.value ? (
                                       <span className="truncate">
-                                        {format(
-                                          startField.value,
-                                          "d MMM yyyy",
-                                          { locale: fr },
-                                        )}{" "}
-                                        -{" "}
-                                        {format(endField.value, "d MMM yyyy", {
-                                          locale: fr,
-                                        })}
+                                        {formatCalendarDay(startField.value)} -{" "}
+                                        {formatCalendarDay(endField.value)}
                                       </span>
                                     ) : (
                                       <span>Sélectionner</span>

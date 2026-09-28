@@ -3,6 +3,7 @@
 import { Timer } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { formatMinutesSeconds } from "@/lib/attempt-clock"
 
 interface QuizProgressProps {
   currentQuestion: number
@@ -19,12 +20,6 @@ export default function QuizProgress({
   domain,
   objectifCMC,
 }: QuizProgressProps) {
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins}:${secs.toString().padStart(2, "0")}`
-  }
-
   const progress = ((currentQuestion + 1) / totalQuestions) * 100
 
   return (
@@ -56,7 +51,7 @@ export default function QuizProgress({
                 : "text-gray-700 dark:text-gray-300"
             }
           >
-            {formatTime(timeRemaining)}
+            {formatMinutesSeconds(timeRemaining)}
           </span>
         </div>
       </div>

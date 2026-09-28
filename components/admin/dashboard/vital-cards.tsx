@@ -9,6 +9,7 @@ import {
 } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
 import { motion } from "motion/react"
+import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface VitalCardProps {
@@ -226,25 +227,6 @@ export function AdminVitalCards({
   activeExams,
   expiringAccessCount,
 }: AdminVitalCardsProps) {
-  const formatCAD = (amount: number) => {
-    return new Intl.NumberFormat("fr-CA", {
-      style: "currency",
-      currency: "CAD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount / 100)
-  }
-
-  const formatXAF = (amount: number) => {
-    return (
-      new Intl.NumberFormat("fr-FR", {
-        style: "decimal",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(amount / 100) + " XAF"
-    )
-  }
-
   const hasXAFRevenue = revenueByCurrency.XAF.recent > 0
 
   return (
@@ -256,7 +238,9 @@ export function AdminVitalCards({
     >
       <VitalCard
         label="Revenus CAD (30j)"
-        value={formatCAD(revenueByCurrency.CAD.recent)}
+        value={formatCurrency(revenueByCurrency.CAD.recent, "CAD", {
+          whole: true,
+        })}
         trend={
           revenueByCurrency.CAD.trend !== 0
             ? {
@@ -273,7 +257,9 @@ export function AdminVitalCards({
       {hasXAFRevenue && (
         <VitalCard
           label="Revenus XAF (30j)"
-          value={formatXAF(revenueByCurrency.XAF.recent)}
+          value={formatCurrency(revenueByCurrency.XAF.recent, "XAF", {
+            whole: true,
+          })}
           trend={
             revenueByCurrency.XAF.trend !== 0
               ? {

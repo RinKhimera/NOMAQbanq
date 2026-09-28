@@ -1,4 +1,4 @@
-import { format, formatDistanceToNow } from "date-fns"
+import { format, formatDistanceToNow, isValid, parseISO } from "date-fns"
 import { fr } from "date-fns/locale"
 import { inAppZone } from "@/lib/app-zone"
 
@@ -19,10 +19,33 @@ export const APP_TIME_ZONE_LABEL = "heure de l'Est"
 
 /**
  * Journée civile d'une date issue d'un calendrier, lue dans le fuseau du
- * NAVIGATEUR — seul endroit du module où c'est voulu : la valeur d'un date
- * picker désigne la case que l'admin vient de cliquer, pas un instant.
+ * NAVIGATEUR, comme `formatCalendarDay` et `formatFileTimestamp` : la valeur
+ * d'un date picker désigne la case que l'admin vient de cliquer, pas un
+ * instant ; un nom de fichier d'export suit l'horloge de celui qui l'enregistre.
  */
 export const toCalendarDay = (d: Date): string => format(d, "yyyy-MM-dd")
+
+/** « 3 juil. 2026 » d'une date de calendrier, même lecture que `toCalendarDay`. */
+export const formatCalendarDay = (
+  d: Date,
+  { year = true }: { year?: boolean } = {},
+): string => format(d, year ? "d MMM yyyy" : "d MMM", { locale: fr })
+
+/**
+ * Jour ISO (`yyyy-MM-dd`) d'une série agrégée par jour : « 3 juil. », ou
+ * « vendredi 3 juillet 2026 » en `weekday`. Un jour n'est pas un instant, il
+ * n'a pas de fuseau à ancrer.
+ */
+export const formatIsoDay = (
+  iso: string,
+  style: "short" | "weekday" = "short",
+): string => {
+  const day = parseISO(iso)
+  if (!isValid(day)) return iso
+  return format(day, style === "short" ? "d MMM" : "EEEE d MMMM yyyy", {
+    locale: fr,
+  })
+}
 
 /**
  * Formate un montant en cents vers une devise lisible
@@ -32,6 +55,7 @@ export const toCalendarDay = (d: Date): string => format(d, "yyyy-MM-dd")
 export const formatCurrency = (
   amountCents: number,
   currency = "CAD",
+  { whole = false }: { whole?: boolean } = {},
 ): string => {
   const amount = amountCents / 100
 
@@ -50,7 +74,7 @@ export const formatCurrency = (
     style: "currency",
     currency,
     minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
+    maximumFractionDigits: whole ? 0 : 2,
   }).format(amount)
 }
 
@@ -99,6 +123,17 @@ export const formatTimeRemaining = (timestamp: number): string => {
     addSuffix: true,
   })
 }
+
+/** Durée restante : « 2h 5min », ou « 42 minutes » sous l'heure. */
+export const formatDuration = (ms: number): string => {
+  const hours = Math.floor(ms / (1000 * 60 * 60))
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
+  return hours > 0 ? `${hours}h ${minutes}min` : `${minutes} minutes`
+}
+
+/** « 27-09-2026_09-05 » — suffixe de nom de fichier d'export. */
+export const formatFileTimestamp = (d: Date): string =>
+  format(d, "dd-MM-yyyy_HH-mm")
 
 /**
  * Formate un timestamp en date courte

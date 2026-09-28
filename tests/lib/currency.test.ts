@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { parseAmountToCents } from "@/lib/currency"
+import { centsToInputAmount, parseAmountToCents } from "@/lib/currency"
 
 describe("parseAmountToCents", () => {
   describe("CAD", () => {
@@ -97,5 +97,18 @@ describe("parseAmountToCents", () => {
       expect(parseAmountToCents("NaN", "CAD")).toBeNull()
       expect(parseAmountToCents("Infinity", "CAD")).toBeNull()
     })
+  })
+})
+
+describe("centsToInputAmount", () => {
+  it("CAD : deux décimales, relisibles par parseAmountToCents", () => {
+    expect(centsToInputAmount(5050, "CAD")).toBe("50.50")
+    expect(parseAmountToCents(centsToInputAmount(5050, "CAD"), "CAD")).toBe(
+      5050,
+    )
+  })
+
+  it("XAF : entier, sans centimes", () => {
+    expect(centsToInputAmount(2_280_000, "XAF")).toBe("22800")
   })
 })

@@ -9,6 +9,7 @@ import {
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { formatCurrency } from "@/lib/format"
 import { SCORE_TONE_TEXT, scoreTone } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
@@ -66,15 +67,6 @@ const activityConfig = {
   },
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("fr-CA", {
-    style: "currency",
-    currency: "CAD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount / 100)
-}
-
 function ActivityItem({ activity }: { activity: Activity }) {
   const config = activityConfig[activity.type]
   const Icon = config.icon
@@ -104,7 +96,7 @@ function ActivityItem({ activity }: { activity: Activity }) {
             </span>
             <span className="text-muted-foreground"> a payé </span>
             <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(activity.data.amount)}
+              {formatCurrency(activity.data.amount, "CAD", { whole: true })}
             </span>
             <span className="text-muted-foreground">
               {" "}

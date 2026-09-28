@@ -19,20 +19,11 @@ import {
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { abandonTrainingSession } from "@/features/training/actions"
+import { formatDuration } from "@/lib/format"
 
 interface ResumeSessionCardProps {
   session: { id: string; questionCount: number; domain: string | null }
   remainingTimeMs: number
-}
-
-const formatTimeRemaining = (ms: number): string => {
-  const hours = Math.floor(ms / (1000 * 60 * 60))
-  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60))
-
-  if (hours > 0) {
-    return `${hours}h ${minutes}min`
-  }
-  return `${minutes} minutes`
 }
 
 export const ResumeSessionCard = ({
@@ -132,7 +123,7 @@ export const ResumeSessionCard = ({
           <span className="text-sm">
             Expire dans{" "}
             <span className="font-semibold">
-              {formatTimeRemaining(remainingTime)}
+              {formatDuration(remainingTime)}
             </span>
           </span>
         </div>
