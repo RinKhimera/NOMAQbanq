@@ -53,6 +53,10 @@ export const buildServerSchema = () =>
       // sans lui la route `/api/e2e` répond 404. NE JAMAIS définir en prod Vercel
       // (la route refuse aussi si `VERCEL_ENV === "production"`).
       E2E_RESET_SECRET: z.string().optional(),
+      // Posée par Vercel sur chaque déploiement (production, preview,
+      // development), absente sous `bun dev`. Affichée par l'AdminBar ; texte
+      // libre plutôt qu'enum : une valeur imprévue ne doit pas empêcher le boot.
+      VERCEL_ENV: z.string().optional(),
       // AWS S3 (stockage médias) — optionnelles : l'app démarre sans, `lib/aws.ts`
       // lève une erreur claire à l'usage. REGION+ROLE_ARN+BUCKET vont ensemble (refine).
       // Auth via OIDC (AWS_ROLE_ARN) en prod/preview. Clés statiques = fallback dev local.
