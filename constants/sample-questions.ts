@@ -42,7 +42,7 @@ export const HERO_QUESTION_KEY_ONLY: QuizQuestion = {
 export const DOMAIN_SAMPLE_QUESTIONS: Partial<
   Record<MedicalDomain, QuizQuestion>
 > = {
-  "Gynécologie obstétrique": HERO_QUESTION,
+  "Gynécologie obstétrique": HERO_QUESTION_KEY_ONLY,
   Endocrinologie: {
     _id: "exemple-endocrinologie",
     domain: "Endocrinologie",

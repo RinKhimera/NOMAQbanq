@@ -5,7 +5,7 @@ import {
 } from "@/features/marketing/cached"
 import { getAccessStatus } from "@/features/payments/dal"
 import { getCurrentSession } from "@/lib/dal"
-import TarifsPageClient from "./_components/tarifs-page-client"
+import TarifsPageContent from "./_components/tarifs-page"
 
 export const metadata: Metadata = {
   title: "Tarifs",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
 }
 
-export default async function TarifsPage() {
+export default async function TarifsRoute() {
   // Produits publics + accès courant (null si visiteur non connecté) + stats.
   // Page dynamique (session via getAccessStatus) : pas d'ISR ici.
   // `isAuthenticated` descend en prop plutôt que d'être lu côté client : la
@@ -34,7 +34,7 @@ export default async function TarifsPage() {
     getCurrentSession(),
   ])
   return (
-    <TarifsPageClient
+    <TarifsPageContent
       products={products}
       accessStatus={accessStatus}
       stats={stats}

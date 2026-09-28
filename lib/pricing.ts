@@ -14,7 +14,8 @@ export type Savings = {
   percent: number
 }
 
-const MONTH_DAYS = 30
+/** Durée d'un accès mensuel du catalogue. */
+export const MONTH_DAYS = 30
 
 /**
  * Économie d'une formule par rapport aux accès mensuels qu'elle remplace,

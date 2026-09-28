@@ -46,3 +46,14 @@ describe("DemoQuestion", () => {
     expect(screen.getByTestId("answer-option-0")).toHaveFocus()
   })
 })
+
+describe("questions d'exemple des pages domaine", () => {
+  it("ne portent jamais d'explication (DESIGN.md §7)", async () => {
+    const { DOMAIN_SAMPLE_QUESTIONS } =
+      await import("@/constants/sample-questions")
+    const withExplanation = Object.values(DOMAIN_SAMPLE_QUESTIONS)
+      .filter((q) => q?.explanation !== undefined)
+      .map((q) => q?._id)
+    expect(withExplanation).toEqual([])
+  })
+})

@@ -9,7 +9,7 @@ import { ProofLine } from "@/components/marketing/proof-line"
 import type { MarketingStats } from "@/features/marketing/dal"
 import type { AccessStatus, ProductView } from "@/features/payments/dal"
 import { formatCurrency } from "@/lib/format"
-import { savingsOf } from "@/lib/pricing"
+import { MONTH_DAYS, savingsOf } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { PricingGrid } from "./pricing-grid"
 
@@ -36,8 +36,8 @@ const ACCESS_TYPES_INTRO =
 /** Prix de la réponse lus dans le catalogue, comme ceux des cartes au-dessus. */
 const accessTypesAnswer = (products: ProductView[]): string => {
   const exam = products.filter((p) => !p.isCombo && p.accessType === "exam")
-  const monthly = exam.find((p) => p.durationDays === 30)
-  const halfYear = exam.find((p) => p.durationDays === 180)
+  const monthly = exam.find((p) => p.durationDays === MONTH_DAYS)
+  const halfYear = exam.find((p) => p.durationDays === 6 * MONTH_DAYS)
   if (!monthly || !halfYear) {
     return `${ACCESS_TYPES_INTRO} Chacun est offert en formule 1 mois ou 6 mois.`
   }
@@ -68,7 +68,7 @@ const faqOf = (products: ProductView[]): FaqItem[] => [
   },
 ]
 
-export default function TarifsPageClient({
+export default function TarifsPage({
   products,
   accessStatus,
   stats,

@@ -38,7 +38,7 @@ export const faqCategories: FaqCategory[] = [
     questions: [
       {
         q: "Quels sont les types d'accès disponibles ?",
-        a: "Deux types d'accès : l'accès Examens (examens simulés en mode réaliste) et l'accès Entraînement (banque de 3000+ questions avec mode tuteur). Chacun est offert en formule 1 mois (50 $ CA) ou 6 mois (200 $ CA, soit environ 33 % d'économie).",
+        a: "Deux types d'accès : l'accès Examens (examens simulés en mode réaliste) et l'accès Entraînement (banque de 3000+ questions avec mode tuteur). Chacun est offert en formule 1 mois ou 6 mois, la formule 6 mois revenant moins cher : les prix sont affichés sur la page Tarifs.",
       },
       {
         q: "Y a-t-il une période d'essai gratuite ?",

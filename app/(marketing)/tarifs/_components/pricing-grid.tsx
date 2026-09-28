@@ -13,7 +13,7 @@ import { EmptyState } from "@/components/ui/empty-state"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { AccessStatus, ProductView } from "@/features/payments/dal"
 import { useCheckout } from "@/hooks/use-checkout"
-import { savingsOf } from "@/lib/pricing"
+import { MONTH_DAYS, savingsOf } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 
 type AccessFilter = "all" | "exam" | "training"
@@ -162,7 +162,7 @@ export const PricingGrid = ({
             <PricingCard
               key={product.id}
               product={product}
-              popular={product.durationDays > 30}
+              popular={product.durationDays > MONTH_DAYS}
               savings={savingsOf(products, product)}
               currentAccess={currentAccess}
               onPurchase={() => handlePurchase(product.code)}
