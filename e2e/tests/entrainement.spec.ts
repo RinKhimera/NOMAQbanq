@@ -120,9 +120,9 @@ test.describe("Entrainement — session complete", () => {
       timeout: 10_000,
     })
     await expect(page.getByTestId("btn-validate-answer")).toBeHidden()
-    // Exactement une bonne réponse surlignée en vert (état user-correct).
+    // Exactement une option marquée juste.
     await expect(
-      page.locator('[data-testid^="answer-option-"] .border-green-500'),
+      page.locator('[data-testid^="answer-option-"][data-state="correct"]'),
     ).toHaveCount(1)
   })
 

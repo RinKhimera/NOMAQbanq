@@ -99,8 +99,18 @@ Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-acces
 `format-warning-reference-{i}` (correction du formulaire de question admin),
 `{testId}-edit`/`-input`/`-save` (InlineEditField profil), `btn-pause` (bouton
 pause repos du header d'examen), `pause-overlay`/`pause-timer`/`btn-resume-exam`.
-États : `data-selected="true"`, `data-flagged="true"`. Tout nouveau composant
+États : `data-selected="true"`, `data-flagged="true"`, et `data-state` sur
+chaque choix (`default|selected|correct|incorrect|muted`) et chaque case du
+navigateur (`answered|unanswered|correct|incorrect|withheld`) : un état se lit
+par attribut, jamais par une classe de couleur. Tout nouveau composant
 interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
+
+- **Passation** : « Question 3 / 10 » figure dans la barre ET dans la carte →
+  `getByRole("heading", { name: "Question 3 / 10" })` (la carte). Le titre de la
+  série ou de l'examen est le `h1` de la page. Sous 1024 px, le navigateur de
+  questions vit dans le Sheet ouvert par le bouton « Questions » ; la colonne
+  masquée reste dans le DOM, d'où `results-nav-item-{i}` en double quand le
+  Sheet est ouvert.
 
 - **Navigation des coquilles par rôle et nom** :
   `getByRole("navigation", { name: "Navigation de l'espace étudiant" })` (ou

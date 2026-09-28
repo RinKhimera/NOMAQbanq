@@ -244,6 +244,7 @@ export function EvaluationClient({
   if (showWarningDialog) {
     return (
       <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
+        <h1 className="sr-only">{exam.title}</h1>
         <Dialog open={true} onOpenChange={() => {}}>
           <DialogContent
             className="sm:max-w-2xl"
@@ -362,6 +363,7 @@ export function EvaluationClient({
         aria-label="Préparation de l'examen"
         className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-4 lg:p-6"
       >
+        <h1 className="sr-only">{exam.title}</h1>
         <Skeleton className="h-8 w-2/3" />
         <SkeletonText lines={3} />
         <SkeletonCard />
