@@ -3,7 +3,6 @@ import { MARKETING_CLAIMS } from "@/constants"
 import {
   MIN_COMPLETED_PARTICIPATIONS,
   MIN_PUBLISHABLE_SUCCESS_RATE,
-  SUCCESS_SCORE_THRESHOLD,
   resolveSuccessRate,
 } from "@/features/marketing/lib"
 
@@ -39,7 +38,6 @@ describe("resolveSuccessRate", () => {
   })
 
   it("expose des seuils cohérents avec la spec", () => {
-    expect(SUCCESS_SCORE_THRESHOLD).toBe(60)
     expect(MIN_COMPLETED_PARTICIPATIONS).toBe(50)
     expect(MIN_PUBLISHABLE_SUCCESS_RATE).toBe(70)
   })

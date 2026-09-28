@@ -63,7 +63,6 @@ export const DeleteTransactionDialog = ({
       confirmDisabled={impact.status === "loading"}
       onConfirm={handleDelete}
     >
-      {/* Transaction Details */}
       <div className="my-4 rounded-xl border border-gray-200 bg-gray-50/50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
@@ -95,7 +94,6 @@ export const DeleteTransactionDialog = ({
         </div>
       </div>
 
-      {/* Access Impact Warning */}
       {impact.status === "loading" ? (
         <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800/50 dark:text-gray-300">
           <Spinner size="sm" />

@@ -31,19 +31,12 @@ import type {
   TrainingHistoryItem,
   TrainingHistoryPage,
 } from "@/features/training/dal"
-import { SCORE_TONE_TEXT, type ScoreTone, scoreTone } from "@/lib/score"
+import { type ScoreTone, scoreTextClass, scoreTone } from "@/lib/score"
 import { cn } from "@/lib/utils"
 import { DeleteAllSessionsDialog } from "./delete-all-sessions-dialog"
 import { DeleteSessionDialog } from "./delete-session-dialog"
 
 type Session = TrainingHistoryItem
-
-// `null` = score retenu (voir `scoreWithheldFor`) : couleur neutre, la
-// tranche trahirait le score.
-const getScoreColor = (score: number | null) =>
-  score === null
-    ? "text-gray-500 dark:text-gray-400"
-    : SCORE_TONE_TEXT[scoreTone(score)]
 
 const SCORE_BG: Record<ScoreTone, string> = {
   success:
@@ -185,7 +178,7 @@ export const TrainingHistorySection = ({
                         <div
                           className={cn(
                             "font-display text-lg font-bold",
-                            getScoreColor(session.score),
+                            scoreTextClass(session.score),
                           )}
                         >
                           {session.score === null ? (

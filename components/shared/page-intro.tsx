@@ -1,7 +1,6 @@
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import type { ElementType, ReactNode } from "react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -16,12 +15,9 @@ const colorSchemes = {
 type PageIntroProps = {
   title: string
   description?: ReactNode
-  /** Surtitre court (zone, rubrique). */
-  label?: string
   icon?: ElementType
   colorScheme?: keyof typeof colorSchemes
   backHref?: string
-  badge?: { count: number | string; label: string }
   actions?: ReactNode
   className?: string
 }
@@ -30,11 +26,9 @@ type PageIntroProps = {
 export const PageIntro = ({
   title,
   description,
-  label,
   icon: Icon,
   colorScheme = "blue",
   backHref,
-  badge,
   actions,
   className,
 }: PageIntroProps) => (
@@ -68,11 +62,6 @@ export const PageIntro = ({
         </div>
       )}
       <div className="min-w-0">
-        {label && (
-          <p className="text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-400">
-            {label}
-          </p>
-        )}
         <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
           {title}
         </h1>
@@ -84,16 +73,8 @@ export const PageIntro = ({
       </div>
     </div>
 
-    {(badge || actions) && (
+    {actions && (
       <div className="flex shrink-0 flex-wrap items-center gap-3">
-        {badge && (
-          <Badge
-            variant="secondary"
-            className="h-8 shrink-0 bg-gray-100 px-3 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-          >
-            {badge.count} {badge.label}
-          </Badge>
-        )}
         {actions}
       </div>
     )}

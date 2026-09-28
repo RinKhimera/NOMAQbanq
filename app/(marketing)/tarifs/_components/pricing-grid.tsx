@@ -10,6 +10,7 @@ import {
 } from "@/components/shared/payments/access-badge"
 import { PremiumPricingCard } from "@/components/shared/payments/premium-pricing-card"
 import { PricingCard } from "@/components/shared/payments/pricing-card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { AccessStatus, ProductView } from "@/features/payments/dal"
 import { useCheckout } from "@/hooks/use-checkout"
@@ -74,21 +75,12 @@ export const PricingGrid = ({
     return (
       <section className="py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-300 py-20 dark:border-gray-700"
-          >
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-              <PackageX className="h-10 w-10 text-gray-400" />
-            </div>
-            <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
-              Aucune offre disponible
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Les offres seront bientôt disponibles. Revenez plus tard.
-            </p>
-          </motion.div>
+          <EmptyState
+            icons={[PackageX]}
+            title="Aucune offre disponible"
+            description="Les offres seront bientôt disponibles. Revenez plus tard."
+            className="mx-auto"
+          />
         </div>
       </section>
     )

@@ -39,6 +39,12 @@ export const SCORE_TONE_TEXT: Record<ScoreTone, string> = {
   danger: "text-red-600 dark:text-red-400",
 }
 
+/** Couleur d'un score lisible ; neutre quand il est retenu : la tranche le trahirait. */
+export const scoreTextClass = (score: number | null): string =>
+  score === null
+    ? "text-gray-500 dark:text-gray-400"
+    : SCORE_TONE_TEXT[scoreTone(score)]
+
 /** Score affichable, ou « — » quand il est retenu (`null`, voir `scoreWithheldFor`). */
 export const formatScore = (score: number | null): string =>
   score === null ? "—" : `${score}%`

@@ -21,10 +21,9 @@ vi.mock("next/link", () => ({
 }))
 
 describe("PageIntro", () => {
-  it("le titre est l'unique titre de niveau 1, suivi de sa description", () => {
+  it("le titre est de niveau 1, suivi de sa description", () => {
     render(
       <PageIntro
-        label="Comptes"
         title="Utilisateurs"
         description="Gérez les comptes et leurs accès"
       />,
@@ -32,19 +31,17 @@ describe("PageIntro", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "Utilisateurs" }),
     ).toBeInTheDocument()
-    expect(screen.getByText("Comptes")).toBeInTheDocument()
     expect(
       screen.getByText("Gérez les comptes et leurs accès"),
     ).toBeInTheDocument()
   })
 
-  it("lien retour, badge de compte et actions", () => {
+  it("lien retour et actions", () => {
     render(
       <PageIntro
         icon={Users}
         title="Détails de l'utilisateur"
         backHref="/admin/utilisateurs"
-        badge={{ count: 12, label: "utilisateurs" }}
         actions={<button type="button">Exporter</button>}
       />,
     )
@@ -52,7 +49,6 @@ describe("PageIntro", () => {
       "href",
       "/admin/utilisateurs",
     )
-    expect(screen.getByText("12 utilisateurs")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Exporter" })).toBeInTheDocument()
   })
 })

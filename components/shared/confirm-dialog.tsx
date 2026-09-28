@@ -22,7 +22,6 @@ type ConfirmDialogProps = {
   children?: ReactNode
   confirmLabel: ReactNode
   pendingLabel?: ReactNode
-  cancelLabel?: string
   variant?: "default" | "destructive"
   icon?: LucideIcon
   /**
@@ -37,7 +36,6 @@ type ConfirmDialogProps = {
   trigger?: ReactNode
   open?: boolean
   onOpenChange?: (open: boolean) => void
-  className?: string
 }
 
 export const ConfirmDialog = ({
@@ -46,7 +44,6 @@ export const ConfirmDialog = ({
   children,
   confirmLabel,
   pendingLabel,
-  cancelLabel = "Annuler",
   variant = "default",
   icon: Icon,
   onConfirm,
@@ -56,7 +53,6 @@ export const ConfirmDialog = ({
   trigger,
   open,
   onOpenChange,
-  className,
 }: ConfirmDialogProps) => {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const [running, setRunning] = useState(false)
@@ -88,7 +84,7 @@ export const ConfirmDialog = ({
   return (
     <AlertDialog open={isOpen} onOpenChange={setOpen}>
       {trigger && <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>}
-      <AlertDialogContent className={cn("max-w-md rounded-2xl", className)}>
+      <AlertDialogContent className="max-w-md rounded-2xl">
         <AlertDialogHeader>
           {Icon && (
             <div
@@ -123,7 +119,7 @@ export const ConfirmDialog = ({
 
         <AlertDialogFooter className="mt-2 gap-3 sm:gap-3">
           <AlertDialogCancel disabled={pending} className="flex-1 rounded-xl">
-            {cancelLabel}
+            Annuler
           </AlertDialogCancel>
           <AlertDialogAction
             data-testid={confirmTestId}

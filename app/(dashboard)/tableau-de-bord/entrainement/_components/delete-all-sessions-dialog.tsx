@@ -49,7 +49,6 @@ export const DeleteAllSessionsDialog = ({
       pendingLabel="Suppression..."
       onConfirm={handleDelete}
     >
-      {/* Warning */}
       <motion.div
         initial={{ opacity: 0, y: -5 }}
         animate={{ opacity: 1, y: 0 }}

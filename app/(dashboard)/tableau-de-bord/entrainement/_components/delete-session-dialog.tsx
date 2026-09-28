@@ -6,7 +6,7 @@ import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { deleteTrainingSession } from "@/features/training/actions"
-import { SCORE_TONE_TEXT, formatScore, scoreTone } from "@/lib/score"
+import { formatScore, scoreTextClass } from "@/lib/score"
 
 interface Session {
   id: string
@@ -22,11 +22,6 @@ interface DeleteSessionDialogProps {
   onOpenChange: (open: boolean) => void
   onSuccess?: () => void
 }
-
-const getScoreColor = (score: number | null) =>
-  score === null
-    ? "text-gray-500 dark:text-gray-400"
-    : SCORE_TONE_TEXT[scoreTone(score)]
 
 export const DeleteSessionDialog = ({
   session,
@@ -67,7 +62,6 @@ export const DeleteSessionDialog = ({
       pendingLabel="Suppression..."
       onConfirm={handleDelete}
     >
-      {/* Session Details */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -77,7 +71,7 @@ export const DeleteSessionDialog = ({
         <div className="space-y-3 text-sm">
           <div className="flex items-center justify-between">
             <span className="text-gray-500 dark:text-gray-400">Score</span>
-            <span className={`font-bold ${getScoreColor(session.score)}`}>
+            <span className={`font-bold ${scoreTextClass(session.score)}`}>
               {formatScore(session.score)}
             </span>
           </div>
@@ -107,7 +101,6 @@ export const DeleteSessionDialog = ({
         </div>
       </motion.div>
 
-      {/* Warning */}
       <motion.div
         initial={{ opacity: 0, y: -5 }}
         animate={{ opacity: 1, y: 0 }}
