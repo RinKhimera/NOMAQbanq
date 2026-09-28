@@ -175,5 +175,17 @@ describe("MarketingHeader", () => {
         "false",
       )
     })
+
+    it("rend le focus au bouton du menu à la fermeture", async () => {
+      vi.mocked(useCurrentUser).mockReturnValue(deconnecte)
+      render(<MarketingHeader />)
+      const trigger = screen.getByRole("button", { name: "Ouvrir le menu" })
+      await userEvent.click(trigger)
+
+      await userEvent.keyboard("{Escape}")
+
+      expect(screen.queryByRole("dialog")).toBeNull()
+      expect(trigger).toHaveFocus()
+    })
   })
 })
