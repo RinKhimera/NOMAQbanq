@@ -22,33 +22,34 @@ export const FeatureCells = ({
   titleSize = "h4",
   className,
 }: FeatureCellsProps) => (
-  <ol
-    className={cn(
-      "border-line bg-line grid gap-px border-y",
-      COLUMNS[columns],
-      className,
-    )}
-  >
-    {items.map((item, i) => (
-      <li
-        key={item.title}
-        className="bg-background flex flex-col gap-2.5 px-6 pt-7 pb-8"
-      >
-        <span aria-hidden className="text-ink-3 font-mono text-xs tabular-nums">
-          {String(i + 1).padStart(2, "0")}
-        </span>
-        <h3
-          className={cn(
-            "text-ink",
-            titleSize === "h3" ? "type-h3 text-[1.375rem]" : "type-h4",
-          )}
+  // Filets en bordures, rognés à droite et en bas par l'enveloppe : une
+  // rangée incomplète laisse un vide, pas une case pleine de la couleur du filet.
+  <div className={cn("border-line overflow-hidden border-y", className)}>
+    <ol className={cn("-mr-px -mb-px grid", COLUMNS[columns])}>
+      {items.map((item, i) => (
+        <li
+          key={item.title}
+          className="border-line flex flex-col gap-2.5 border-r border-b px-6 pt-7 pb-8"
         >
-          {item.title}
-        </h3>
-        <p className="text-ink-2 text-[15px] leading-relaxed text-pretty">
-          {item.description}
-        </p>
-      </li>
-    ))}
-  </ol>
+          <span
+            aria-hidden
+            className="text-ink-3 font-mono text-xs tabular-nums"
+          >
+            {String(i + 1).padStart(2, "0")}
+          </span>
+          <h3
+            className={cn(
+              "text-ink",
+              titleSize === "h3" ? "type-h3 text-[1.375rem]" : "type-h4",
+            )}
+          >
+            {item.title}
+          </h3>
+          <p className="text-ink-2 text-[15px] leading-relaxed text-pretty">
+            {item.description}
+          </p>
+        </li>
+      ))}
+    </ol>
+  </div>
 )

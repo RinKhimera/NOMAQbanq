@@ -98,21 +98,23 @@ export default function TarifsPageClient({
             accessStatus={accessStatus}
             isAuthenticated={isAuthenticated}
           />
-          <ul className="border-line bg-line grid gap-px overflow-hidden rounded-lg border md:grid-cols-2 lg:grid-cols-3">
-            {FACTS.map((fact) => (
-              <li
-                key={fact.title}
-                className="bg-background flex flex-col gap-1.5 px-6 py-5.5"
-              >
-                <span className="text-ink text-[15px] font-semibold">
-                  {fact.title}
-                </span>
-                <span className="text-ink-2 text-sm leading-normal">
-                  {fact.description}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <div className="border-line overflow-hidden rounded-lg border">
+            <ul className="-mr-px -mb-px grid md:grid-cols-2 lg:grid-cols-3">
+              {FACTS.map((fact) => (
+                <li
+                  key={fact.title}
+                  className="border-line flex flex-col gap-1.5 border-r border-b px-6 py-5.5"
+                >
+                  <span className="text-ink text-[15px] font-semibold">
+                    {fact.title}
+                  </span>
+                  <span className="text-ink-2 text-sm leading-normal">
+                    {fact.description}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 

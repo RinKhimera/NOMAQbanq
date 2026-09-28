@@ -301,10 +301,12 @@ export default function QuizPage() {
                   ? "Choisissez une réponse"
                   : `Réponse ${optionLetter(currentQ.options.indexOf(currentAnswer))} enregistrée`}
               </span>
+              {/* aria-disabled plutôt que disabled : un bouton désactivé perd le
+                  focus, qui tomberait sur <body> à chaque nouvelle question. */}
               <Button
-                onClick={handleNextQuestion}
-                disabled={currentAnswer === null}
-                className="ml-auto min-w-46 max-md:h-11"
+                onClick={() => currentAnswer !== null && handleNextQuestion()}
+                aria-disabled={currentAnswer === null}
+                className="ml-auto min-w-46 aria-disabled:cursor-not-allowed aria-disabled:opacity-50 max-md:h-11"
               >
                 {isLast ? "Voir les résultats" : "Question suivante"}
                 {isLast ? <Check aria-hidden /> : <ArrowRight aria-hidden />}

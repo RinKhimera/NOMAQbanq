@@ -71,7 +71,7 @@ const CONTACT = [
     value: (
       <a
         href="mailto:nomaqbanq@outlook.com"
-        className="focus-ring text-accent-ink rounded-sm hover:underline"
+        className="focus-ring text-accent-ink rounded-sm hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center"
       >
         nomaqbanq@outlook.com
       </a>
@@ -83,7 +83,7 @@ const CONTACT = [
     value: (
       <a
         href="tel:+14388750746"
-        className="focus-ring rounded-sm font-mono tabular-nums hover:underline"
+        className="focus-ring rounded-sm font-mono tabular-nums hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center"
       >
         +1 (438) 875-0746
       </a>

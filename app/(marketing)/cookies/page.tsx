@@ -1,5 +1,5 @@
 import { Metadata } from "next"
-import type { ReactNode } from "react"
+import { Fragment, type ReactNode } from "react"
 import { CtaBand } from "@/components/marketing/cta-band"
 import {
   type LegalArticle,
@@ -60,12 +60,12 @@ const ARTICLES: LegalArticle[] = [
         list: [
           [
             "Session de connexion",
-            <>
+            <Fragment key="entree-1">
               un cookie <Code>better-auth.session_token</Code>, posé par
               l&apos;application elle-même, vous identifie et maintient votre
               session. Il est inaccessible aux scripts (HttpOnly) et transmis
               uniquement en HTTPS
-            </>,
+            </Fragment>,
           ],
           [
             "Sécurité",
@@ -134,11 +134,11 @@ const ARTICLES: LegalArticle[] = [
       },
       {
         note: (
-          <>
+          <Fragment key="entree-2">
             <strong className="text-ink">Attention :</strong> la désactivation
             de certains cookies peut affecter le fonctionnement de la plateforme
             et limiter l&apos;accès à certaines fonctionnalités.
-          </>
+          </Fragment>
         ),
       },
     ],
@@ -178,7 +178,7 @@ const ARTICLES: LegalArticle[] = [
 
 export default function CookiesPage() {
   return (
-    <>
+    <Fragment key="entree-3">
       <LegalDocument
         num="03"
         title="Politique de cookies"
@@ -187,6 +187,6 @@ export default function CookiesPage() {
         articles={ARTICLES}
       />
       <CtaBand />
-    </>
+    </Fragment>
   )
 }

@@ -225,7 +225,8 @@ export default function FonctionnementPage() {
             <Eyebrow>Comparatif</Eyebrow>
             <h2 className="type-h2 text-ink">Quel mode choisir ?</h2>
           </div>
-          <div className="border-line bg-surface overflow-x-auto rounded-lg border">
+          {/* Positionnée : les libellés sr-only (absolus) restent dans la zone qui défile. */}
+          <div className="border-line bg-surface relative overflow-x-auto rounded-lg border">
             <table className="w-full min-w-160 border-collapse text-left text-sm">
               <thead>
                 <tr className="bg-surface-2">

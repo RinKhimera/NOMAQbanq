@@ -66,27 +66,30 @@ export const DomainsBrowser = () => {
               {g.domains.length} domaine{g.domains.length > 1 ? "s" : ""}
             </span>
           </div>
-          <ul className="border-line bg-line grid gap-px border-y md:grid-cols-2 lg:grid-cols-3">
-            {g.domains.map((d) => (
-              <li key={d.slug} className="bg-background">
-                <Link
-                  href={`/domaines/${d.slug}`}
-                  className="group focus-ring hover:bg-surface relative flex h-full flex-col gap-2 px-6 pt-5.5 pb-6 transition-[background-color] duration-(--duration-fast) focus-visible:z-10"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="type-h4 text-ink">{d.name}</h3>
-                    <ArrowUpRight
-                      aria-hidden
-                      className="text-ink-3 size-4 opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 group-focus-visible:opacity-100"
-                    />
-                  </div>
-                  <span className="text-ink-3 text-sm leading-normal text-pretty">
-                    {d.description}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="border-line overflow-hidden border-y">
+            <ul className="-mr-px -mb-px grid md:grid-cols-2 lg:grid-cols-3">
+              {g.domains.map((d) => (
+                <li key={d.slug} className="border-line border-r border-b">
+                  {/* Anneau intérieur : l'enveloppe rogne ce qui dépasse des bords de la grille. */}
+                  <Link
+                    href={`/domaines/${d.slug}`}
+                    className="group hover:bg-surface flex h-full flex-col gap-2 px-6 pt-5.5 pb-6 transition-[background-color] duration-(--duration-fast) outline-none focus-visible:shadow-[inset_0_0_0_3px_var(--accent)]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="type-h4 text-ink">{d.name}</h3>
+                      <ArrowUpRight
+                        aria-hidden
+                        className="text-ink-3 size-4 opacity-0 transition-opacity duration-(--duration-fast) group-hover:opacity-100 group-focus-visible:opacity-100"
+                      />
+                    </div>
+                    <span className="text-ink-3 text-sm leading-normal text-pretty">
+                      {d.description}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       ))}
 
