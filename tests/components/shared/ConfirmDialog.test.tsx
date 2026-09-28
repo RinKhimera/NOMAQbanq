@@ -22,18 +22,24 @@ const renderWithTrigger = (onConfirm: () => unknown) =>
 describe("ConfirmDialog", () => {
   it("s'ouvre depuis son déclencheur et montre titre, description et contenu", async () => {
     renderWithTrigger(vi.fn())
-    await userEvent.click(screen.getByRole("button", { name: "Supprimer la série" }))
+    await userEvent.click(
+      screen.getByRole("button", { name: "Supprimer la série" }),
+    )
     expect(screen.getByRole("alertdialog")).toHaveTextContent(
       "Supprimer cette série ?",
     )
-    expect(screen.getByText("Cette action est irréversible.")).toBeInTheDocument()
+    expect(
+      screen.getByText("Cette action est irréversible."),
+    ).toBeInTheDocument()
     expect(screen.getByText("Détail de la série")).toBeInTheDocument()
   })
 
   it("se ferme après une confirmation réussie", async () => {
     const onConfirm = vi.fn(async () => {})
     renderWithTrigger(onConfirm)
-    await userEvent.click(screen.getByRole("button", { name: "Supprimer la série" }))
+    await userEvent.click(
+      screen.getByRole("button", { name: "Supprimer la série" }),
+    )
     await userEvent.click(screen.getByRole("button", { name: "Supprimer" }))
     expect(onConfirm).toHaveBeenCalledOnce()
     await waitFor(() =>
@@ -43,7 +49,9 @@ describe("ConfirmDialog", () => {
 
   it("reste ouvert quand la confirmation échoue (false)", async () => {
     renderWithTrigger(async () => false)
-    await userEvent.click(screen.getByRole("button", { name: "Supprimer la série" }))
+    await userEvent.click(
+      screen.getByRole("button", { name: "Supprimer la série" }),
+    )
     await userEvent.click(screen.getByRole("button", { name: "Supprimer" }))
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Supprimer" })).toBeEnabled(),
@@ -58,7 +66,9 @@ describe("ConfirmDialog", () => {
         resolve = r
       })
     renderWithTrigger(onConfirm)
-    await userEvent.click(screen.getByRole("button", { name: "Supprimer la série" }))
+    await userEvent.click(
+      screen.getByRole("button", { name: "Supprimer la série" }),
+    )
     await userEvent.click(screen.getByRole("button", { name: "Supprimer" }))
     expect(screen.getByRole("button", { name: /Suppression/ })).toBeDisabled()
     expect(screen.getByRole("button", { name: "Annuler" })).toBeDisabled()

@@ -31,7 +31,10 @@ describe("AccessCard", () => {
 
   it("accès échu (0 jour) : lu comme inactif", () => {
     render(
-      <AccessCard type="exam" access={{ expiresAt: 1_000, daysRemaining: 0 }} />,
+      <AccessCard
+        type="exam"
+        access={{ expiresAt: 1_000, daysRemaining: 0 }}
+      />,
     )
     expect(screen.getByText("Aucun accès actif")).toBeInTheDocument()
     expect(screen.getByText("Expiré")).toBeInTheDocument()
@@ -53,7 +56,9 @@ describe("AccessCard", () => {
         action={(active) => <button>{active ? "Prolonger" : "Activer"}</button>}
       />,
     )
-    expect(screen.getByRole("button", { name: "Prolonger" })).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Prolonger" }),
+    ).toBeInTheDocument()
   })
 
   it("la description n'apparaît qu'en taille normale", () => {
