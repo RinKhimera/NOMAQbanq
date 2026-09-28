@@ -1,12 +1,12 @@
 "use client"
 
 import { ArrowRight, Check } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { type ReactNode, useEffect, useRef, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { optionLetter } from "@/components/quiz/question-card/answer-option"
-import QuizResults from "@/components/quiz/quiz-results"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { SessionHeader } from "@/components/quiz/session/session-header"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { ErrorState } from "@/components/shared/error-state"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -15,8 +15,15 @@ import {
   loadRandomQuizQuestions,
   scoreQuizAnswers,
 } from "@/features/questions/actions"
-import { EVALUATION_ZONES, formatPauseTime, zone } from "@/lib/attempt-clock"
-import { EvaluationSkeleton } from "../_components/evaluation-skeleton"
+import {
+  EVALUATION_ZONES,
+  type TimeZone,
+  formatPauseTime,
+  zone,
+} from "@/lib/attempt-clock"
+import { TONE_COLOR, type Tone } from "@/lib/tone"
+import { EvaluationResults } from "./_components/evaluation-results"
+import { EvaluationSkeleton } from "./_components/evaluation-skeleton"
 
 interface QuizState {
   currentQuestion: number
@@ -26,6 +33,21 @@ interface QuizState {
   totalTime: number
 }
 
+const TIME_BAR_TONE: Record<TimeZone, Tone> = {
+  normal: "info",
+  warning: "warning",
+  critical: "danger",
+}
+
+/** Écran d'état plein cadre (indisponible, session expirée, calcul du score). */
+const SessionStatus = ({ children }: { children: ReactNode }) => (
+  <div className="bg-background grid min-h-screen place-items-center px-4">
+    <div className="flex flex-col items-center gap-3.5 text-center">
+      {children}
+    </div>
+  </div>
+)
+
 export default function QuizPage() {
   const topOfQuizRef = useRef<HTMLDivElement>(null)
   const questionsLoadedRef = useRef(false)
@@ -33,6 +55,7 @@ export default function QuizPage() {
 
   const [quizBundle, setQuizBundle] = useState<QuizBundle | null>(null)
   const [scoreFailed, setScoreFailed] = useState(false)
+  const [isFinishOpen, setIsFinishOpen] = useState(false)
   const quizQuestions = quizBundle ? quizBundle.questions : null
   const [scoredResults, setScoredResults] = useState<{
     score: number
@@ -140,10 +163,7 @@ export default function QuizPage() {
 
   useEffect(() => {
     if (quizState.currentQuestion > 0) {
-      topOfQuizRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      })
+      topOfQuizRef.current?.scrollIntoView({ block: "start" })
     }
   }, [quizState.currentQuestion])
 
@@ -176,7 +196,7 @@ export default function QuizPage() {
     window.location.reload()
   }
 
-  // Attente de contenu : squelette à la forme de la QuestionCard, pas de spinner.
+  // Attente de contenu : squelette à la forme de la passation, pas de spinner.
   if (!quizBundle) {
     return <EvaluationSkeleton />
   }
@@ -185,50 +205,48 @@ export default function QuizPage() {
   // identique quelle que soit la cause — pas d'oracle côté client.
   if (!quizQuestions || quizQuestions.length === 0) {
     return (
-      <ErrorState
-        title="Quiz momentanément indisponible"
-        description="Le quiz est momentanément indisponible. Réessayez plus tard."
-        onRetry={restartQuiz}
-      />
+      <SessionStatus>
+        <ErrorState
+          variant="page"
+          title="Quiz momentanément indisponible"
+          description="Le quiz est momentanément indisponible. Réessayez plus tard."
+          onRetry={restartQuiz}
+        />
+      </SessionStatus>
     )
   }
 
   if (quizState.isCompleted) {
     if (scoreFailed || !quizBundle.token) {
       return (
-        <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
-          <div className="text-center">
-            <p className="mb-4 text-gray-600 dark:text-gray-300">
-              Session expirée — recommencez le quiz.
-            </p>
-            <Button onClick={restartQuiz}>Recommencer</Button>
-          </div>
-        </div>
+        <SessionStatus>
+          <h1 className="type-h3 text-ink">Session expirée</h1>
+          <p className="text-ink-2 text-[15px]">
+            Recommencez l&apos;évaluation pour obtenir votre score.
+          </p>
+          <Button onClick={restartQuiz} className="max-md:h-11">
+            Recommencer
+          </Button>
+        </SessionStatus>
       )
     }
 
     if (!scoredResults) {
       return (
-        <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
-          {/* Écran dédié assumé : transition attendue après un clic explicite. */}
-          <div className="text-center">
-            <div className="mb-4 flex justify-center">
-              <Spinner size="lg" />
-            </div>
-            <p className="text-gray-600 dark:text-gray-300">
-              Calcul du score...
-            </p>
-          </div>
-        </div>
+        // Écran dédié assumé : transition attendue après un clic explicite.
+        <SessionStatus>
+          <Spinner />
+          <h1 className="text-ink-3 font-mono text-[13px]">Calcul du score…</h1>
+        </SessionStatus>
       )
     }
 
     return (
-      <QuizResults
+      <EvaluationResults
         questions={scoredResults.mergedQuestions}
         userAnswers={quizState.userAnswers}
-        score={scoredResults.score}
-        timeRemaining={quizState.timeRemaining}
+        elapsedSeconds={quizState.totalTime - quizState.timeRemaining}
+        totalSeconds={quizState.totalTime}
         onRestart={restartQuiz}
       />
     )
@@ -240,24 +258,34 @@ export default function QuizPage() {
   const isLast = quizState.currentQuestion === quizQuestions.length - 1
   const answeredCount = quizState.userAnswers.filter((a) => a !== null).length
   const remainingMs = quizState.timeRemaining * 1000
+  const timeZone = zone(remainingMs, EVALUATION_ZONES)
 
   return (
-    <div ref={topOfQuizRef} className="bg-background">
-      <div className="mx-auto flex max-w-200 flex-col gap-4 px-4 pt-8 pb-16 sm:px-6">
+    <div ref={topOfQuizRef} className="bg-background min-h-screen">
+      <div className="sticky top-0 z-10">
         <SessionHeader
           title="Évaluation gratuite"
           kind="exam"
           modeLabel="Chronométré"
-          sticky={false}
           currentIndex={quizState.currentQuestion}
           totalQuestions={quizQuestions.length}
           answeredCount={answeredCount}
-          timer={{
-            label: formatPauseTime(remainingMs),
-            zone: zone(remainingMs, EVALUATION_ZONES),
-          }}
+          timer={{ label: formatPauseTime(remainingMs), zone: timeZone }}
+          onFinish={() => setIsFinishOpen(true)}
+          sticky={false}
         />
+        <div aria-hidden className="bg-line h-0.5">
+          <div
+            className="h-full"
+            style={{
+              width: `${(quizState.timeRemaining / quizState.totalTime) * 100}%`,
+              background: TONE_COLOR[TIME_BAR_TONE[timeZone]],
+            }}
+          />
+        </div>
+      </div>
 
+      <main className="mx-auto flex max-w-200 flex-col gap-4 px-4 pt-8 pb-16 sm:px-6">
         <QuestionCard
           variant="exam"
           question={currentQ}
@@ -277,7 +305,7 @@ export default function QuizPage() {
               <Button
                 onClick={handleNextQuestion}
                 disabled={currentAnswer === null}
-                className="min-w-46 max-md:h-11"
+                className="ml-auto min-w-46 max-md:h-11"
               >
                 {isLast ? "Voir les résultats" : "Question suivante"}
                 {isLast ? <Check aria-hidden /> : <ArrowRight aria-hidden />}
@@ -289,7 +317,20 @@ export default function QuizPage() {
           20 secondes par question en moyenne · les corrections s&apos;affichent
           à la fin.
         </p>
-      </div>
+      </main>
+
+      <ConfirmDialog
+        open={isFinishOpen}
+        onOpenChange={setIsFinishOpen}
+        title="Terminer l'évaluation ?"
+        description={`Vous avez répondu à ${answeredCount} question${answeredCount > 1 ? "s" : ""} sur ${quizQuestions.length}. Les questions sans réponse seront comptées comme incorrectes.`}
+        cancelLabel="Continuer"
+        confirmLabel="Terminer"
+        confirmTestId="btn-confirm-finish"
+        onConfirm={() =>
+          setQuizState((prev) => ({ ...prev, isCompleted: true }))
+        }
+      />
     </div>
   )
 }

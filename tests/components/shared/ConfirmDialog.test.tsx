@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { useState } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
@@ -105,5 +106,31 @@ describe("ConfirmDialog", () => {
       />,
     )
     expect(screen.getByRole("button", { name: "Supprimer" })).toBeDisabled()
+  })
+
+  it("contrôlé, sans déclencheur : rend le focus à l'élément qui l'a ouvert", async () => {
+    const Opener = () => {
+      const [open, setOpen] = useState(false)
+      return (
+        <>
+          <Button onClick={() => setOpen(true)}>Terminer</Button>
+          <ConfirmDialog
+            open={open}
+            onOpenChange={setOpen}
+            title="Terminer l'évaluation ?"
+            confirmLabel="Terminer"
+            cancelLabel="Continuer"
+            onConfirm={vi.fn()}
+          />
+        </>
+      )
+    }
+    render(<Opener />)
+    const opener = screen.getByRole("button", { name: "Terminer" })
+
+    await userEvent.click(opener)
+    await userEvent.click(screen.getByRole("button", { name: "Continuer" }))
+
+    await waitFor(() => expect(opener).toHaveFocus())
   })
 })

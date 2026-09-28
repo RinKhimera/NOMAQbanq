@@ -63,6 +63,8 @@ export interface SessionResultsProps {
   answers: AnswersMap
   loadExplanations?: (ids: string[]) => Promise<QuestionExplanationView[]>
   participant?: SessionResultsParticipant
+  /** `false` : la page affiche son propre bilan (évaluation gratuite). */
+  summary?: boolean
 }
 
 const SCORE_LABEL: Record<SessionKind, Record<ScoreTone, string>> = {
@@ -143,6 +145,7 @@ export function SessionResults({
   answers,
   loadExplanations,
   participant,
+  summary: showSummary = true,
 }: SessionResultsProps) {
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(
     new Set([0]),
@@ -317,103 +320,105 @@ export function SessionResults({
           </div>
         )}
 
-        <section className="bg-surface border-line shadow-1 rounded-lg border p-5 sm:p-6">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-col gap-2">
-              {scoreWithheld ? (
-                <span
-                  data-testid="score-withheld"
-                  title={KEY_WITHHELD_MESSAGE}
-                  className="text-warning-ink flex items-center gap-2 text-lg font-semibold"
-                >
-                  <Hourglass className="size-5 shrink-0" aria-hidden />
-                  {SCORE_WITHHELD_MESSAGE}
-                </span>
-              ) : (
-                <span
-                  data-testid="score-percentage"
-                  className={cn(
-                    "font-serif text-5xl font-semibold tabular-nums",
-                    scoreTextClass(shownScore),
-                  )}
-                >
-                  {formatScore(shownScore)}
-                </span>
-              )}
-              <p className="text-ink-2 text-sm">
-                {summary.correct} sur {questions.length - summary.withheld}{" "}
-                questions réussies
-              </p>
-              {!scoreWithheld && (
-                <StatusPill
-                  data-testid="score-badge"
-                  tone={isPassing(shownScore) ? "success" : "warning"}
-                >
-                  {SCORE_LABEL[kind][tone]}
-                </StatusPill>
-              )}
-            </div>
-
-            <div className="bg-line border-line grid grid-cols-2 gap-px overflow-hidden rounded-md border sm:flex">
-              <Stat
-                testId="stat-correct"
-                value={summary.correct}
-                label="Correctes"
-                tone="success"
-                Icon={CircleCheck}
-              />
-              <Stat
-                testId="stat-incorrect"
-                value={summary.incorrect}
-                label="Incorrectes"
-                tone="danger"
-                Icon={CircleX}
-              />
-              {summary.withheld > 0 && (
-                <Stat
-                  testId="stat-withheld"
-                  value={summary.withheld}
-                  label="Différées"
-                  tone="warning"
-                  Icon={Hourglass}
-                  title={KEY_WITHHELD_MESSAGE}
-                />
-              )}
-              {summary.unanswered > 0 && (
-                <Stat
-                  testId="stat-unanswered"
-                  value={summary.unanswered}
-                  label="Sans réponse"
-                  tone="neutral"
-                  Icon={CircleMinus}
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Barre de score : sa largeur EST le score, retenue avec lui. */}
-          {!scoreWithheld && (
-            <div data-testid="score-progress" className="mt-6">
-              <div className="text-ink-3 mb-2 flex items-center justify-between text-xs">
-                <span>Progression</span>
-                <span>Seuil de réussite : {formatScore(PASS_THRESHOLD)}</span>
+        {showSummary && (
+          <section className="bg-surface border-line shadow-1 rounded-lg border p-5 sm:p-6">
+            <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+              <div className="flex flex-col gap-2">
+                {scoreWithheld ? (
+                  <span
+                    data-testid="score-withheld"
+                    title={KEY_WITHHELD_MESSAGE}
+                    className="text-warning-ink flex items-center gap-2 text-lg font-semibold"
+                  >
+                    <Hourglass className="size-5 shrink-0" aria-hidden />
+                    {SCORE_WITHHELD_MESSAGE}
+                  </span>
+                ) : (
+                  <span
+                    data-testid="score-percentage"
+                    className={cn(
+                      "font-serif text-5xl font-semibold tabular-nums",
+                      scoreTextClass(shownScore),
+                    )}
+                  >
+                    {formatScore(shownScore)}
+                  </span>
+                )}
+                <p className="text-ink-2 text-sm">
+                  {summary.correct} sur {questions.length - summary.withheld}{" "}
+                  questions réussies
+                </p>
+                {!scoreWithheld && (
+                  <StatusPill
+                    data-testid="score-badge"
+                    tone={isPassing(shownScore) ? "success" : "warning"}
+                  >
+                    {SCORE_LABEL[kind][tone]}
+                  </StatusPill>
+                )}
               </div>
-              <div className="bg-surface-2 relative h-2 w-full overflow-hidden rounded-full">
-                <div
-                  className="h-full rounded-full"
-                  style={{
-                    width: `${shownScore}%`,
-                    background: TONE_COLOR[tone],
-                  }}
+
+              <div className="bg-line border-line grid grid-cols-2 gap-px overflow-hidden rounded-md border sm:flex">
+                <Stat
+                  testId="stat-correct"
+                  value={summary.correct}
+                  label="Correctes"
+                  tone="success"
+                  Icon={CircleCheck}
                 />
-                <div
-                  className="bg-ink-3 absolute top-0 h-full w-0.5"
-                  style={{ left: `${PASS_THRESHOLD}%` }}
+                <Stat
+                  testId="stat-incorrect"
+                  value={summary.incorrect}
+                  label="Incorrectes"
+                  tone="danger"
+                  Icon={CircleX}
                 />
+                {summary.withheld > 0 && (
+                  <Stat
+                    testId="stat-withheld"
+                    value={summary.withheld}
+                    label="Différées"
+                    tone="warning"
+                    Icon={Hourglass}
+                    title={KEY_WITHHELD_MESSAGE}
+                  />
+                )}
+                {summary.unanswered > 0 && (
+                  <Stat
+                    testId="stat-unanswered"
+                    value={summary.unanswered}
+                    label="Sans réponse"
+                    tone="neutral"
+                    Icon={CircleMinus}
+                  />
+                )}
               </div>
             </div>
-          )}
-        </section>
+
+            {/* Barre de score : sa largeur EST le score, retenue avec lui. */}
+            {!scoreWithheld && (
+              <div data-testid="score-progress" className="mt-6">
+                <div className="text-ink-3 mb-2 flex items-center justify-between text-xs">
+                  <span>Progression</span>
+                  <span>Seuil de réussite : {formatScore(PASS_THRESHOLD)}</span>
+                </div>
+                <div className="bg-surface-2 relative h-2 w-full overflow-hidden rounded-full">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${shownScore}%`,
+                      background: TONE_COLOR[tone],
+                    }}
+                  />
+                  <div
+                    className="bg-ink-3 absolute top-0 h-full w-0.5"
+                    style={{ left: `${PASS_THRESHOLD}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </section>
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           <Button
