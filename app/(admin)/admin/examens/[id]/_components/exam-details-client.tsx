@@ -2,6 +2,7 @@
 
 import {
   ArrowLeft,
+  CopyPlus,
   Ellipsis,
   FileDown,
   FileText,
@@ -28,6 +29,7 @@ import type {
   LeaderboardEntry,
 } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
+import { isOpen } from "@/lib/exam-phase"
 import { cn } from "@/lib/utils"
 import { ExamDetails } from "./exam-details"
 import { ExamQuestionsModal } from "./exam-questions-modal"
@@ -89,6 +91,20 @@ export function ExamDetailsClient({
               Modifier l&apos;examen
             </Link>
           </Button>
+
+          {!isOpen(exam, now) && (
+            <Button
+              className="hover:text-blue-700 max-[500px]:w-full max-[500px]:justify-start dark:hover:text-white"
+              asChild
+              size="sm"
+              variant="outline"
+            >
+              <Link href={`/admin/examens/creer?source=${examId}`}>
+                <CopyPlus className="mr-2 h-4 w-4" />
+                Rouvrir
+              </Link>
+            </Button>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

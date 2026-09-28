@@ -195,6 +195,9 @@ export const createExam = async (
  * (le changer ensuite fausserait les scores déjà enregistrés) : si l'examen a
  * des participations et que le set envoyé diffère du set courant, refus
  * (`HAS_PARTICIPATIONS`). Recalcule `completionTime`.
+ * Repousser dans le futur la fin d'un examen **clos** qui a des participations
+ * est refusé (`REOPEN_BY_DATES`) : une réouverture est une copie
+ * (`docs/adr/0002-une-reouverture-est-une-copie.md`).
  */
 export const updateExam = async (
   input: UpdateExamInput,
@@ -225,12 +228,13 @@ export const updateExam = async (
       // (sinon le count ci-dessous peut lire 0 avant qu'un startExam concurrent
       // ne commite sa participation).
       const [exam] = await tx
-        .select({ id: exams.id })
+        .select({ id: exams.id, endDate: exams.endDate })
         .from(exams)
         .where(eq(exams.id, id))
         .for("update")
         .limit(1)
       if (!exam) throw new Error("NOT_FOUND")
+      const now = Date.now()
 
       const [valid] = await tx
         .select({ n: sql<number>`count(*)`.mapWith(Number) })
@@ -266,6 +270,17 @@ export const updateExam = async (
           currentIds.length === questionIds.length &&
           currentIds.every((qid, i) => qid === questionIds[i])
         if (!unchanged) throw new Error("HAS_PARTICIPATIONS")
+      }
+
+      // Rouvrir par les dates rendrait l'examen de nouveau ouvert pour ses
+      // anciens participants : verrou de clé sur leurs autres examens, résultats
+      // masqués, reprise impossible (une participation par étudiant).
+      if (
+        hasParticipations &&
+        !isOpen({ endDate: exam.endDate.getTime() }, now) &&
+        isOpen({ endDate }, now)
+      ) {
+        throw new Error("REOPEN_BY_DATES")
       }
 
       await tx
@@ -323,6 +338,11 @@ export const updateExam = async (
       if (error.message === "HAS_PARTICIPATIONS") {
         return fail(
           "Cet examen a déjà des participations ; ses questions ne peuvent plus être modifiées.",
+        )
+      }
+      if (error.message === "REOPEN_BY_DATES") {
+        return fail(
+          "Cet examen est clos et a déjà des participations : sa date de fin ne peut plus être repoussée dans le futur. Utilisez « Rouvrir » pour en créer une copie avec de nouvelles dates.",
         )
       }
       if (error.message === "INVALID_QUESTIONS") {

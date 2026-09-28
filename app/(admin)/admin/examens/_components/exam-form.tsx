@@ -61,6 +61,7 @@ import { createExam, updateExam } from "@/features/exams/actions"
 import type {
   EligibleCandidate,
   ExamPickerOption,
+  ExamReopeningSource,
   ExamWithQuestions,
 } from "@/features/exams/dal"
 import { SECONDS_PER_QUESTION } from "@/features/exams/schemas"
@@ -76,15 +77,21 @@ import {
 } from "@/schemas"
 import { AudienceEligibility } from "./audience-eligibility"
 
+/** Un examen existant dont le formulaire reprend le contenu. */
+export type ExamFormSource = NonNullable<ExamReopeningSource>
+
 /**
  * Formulaire d'examen unifié (création et édition). Le `mode` pilote les données
  * initiales, l'action serveur et les libellés ; le markup est unique.
+ * En création, `source` pré-remplit une réouverture : tout sauf les dates, qui
+ * restent à choisir.
  */
 type ExamFormProps =
   | {
       mode: "create"
       candidates: EligibleCandidate[]
       examOptions: ExamPickerOption[]
+      source?: ExamFormSource
     }
   | {
       mode: "edit"
@@ -124,8 +131,16 @@ export function ExamForm(props: ExamFormProps) {
   const SubmitIcon = props.mode === "create" ? Sparkles : Save
 
   // Les données viennent du Server Component (props) → initialisation synchrone.
-  const initialQuestionIds = props.mode === "edit" ? props.questionIds : []
-  const initialAudience = props.mode === "edit" ? props.initialAudience : []
+  const source: ExamFormSource | undefined =
+    props.mode === "edit"
+      ? {
+          exam: props.exam,
+          questionIds: props.questionIds,
+          audience: props.initialAudience,
+        }
+      : props.source
+  const initialQuestionIds = source?.questionIds ?? []
+  const initialAudience = source?.audience ?? []
   const [selectedQuestions, setSelectedQuestions] =
     useState<string[]>(initialQuestionIds)
   const [selectedUsers, setSelectedUsers] =
@@ -133,31 +148,35 @@ export function ExamForm(props: ExamFormProps) {
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
-    defaultValues:
-      props.mode === "edit"
-        ? {
-            title: props.exam.title,
-            description: props.exam.description ?? "",
-            numberOfQuestions: props.exam.questionCount,
+    defaultValues: source
+      ? {
+          title:
+            props.mode === "edit"
+              ? source.exam.title
+              : `${source.exam.title} (réouverture)`,
+          description: source.exam.description ?? "",
+          numberOfQuestions: source.exam.questionCount,
+          ...(props.mode === "edit" && {
             startDate: new Date(props.exam.startDate),
             endDate: new Date(props.exam.endDate),
-            questionIds: initialQuestionIds,
-            enablePause: props.exam.enablePause,
-            pauseDurationMinutes:
-              props.exam.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES,
-            audienceType: props.exam.audienceType,
-            audienceUserIds: initialAudience.map((u) => u.id),
-          }
-        : {
-            title: "",
-            description: "",
-            numberOfQuestions: 10,
-            questionIds: [],
-            enablePause: false,
-            pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
-            audienceType: "subscribers",
-            audienceUserIds: [],
-          },
+          }),
+          questionIds: initialQuestionIds,
+          enablePause: source.exam.enablePause,
+          pauseDurationMinutes:
+            source.exam.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES,
+          audienceType: source.exam.audienceType,
+          audienceUserIds: initialAudience.map((u) => u.id),
+        }
+      : {
+          title: "",
+          description: "",
+          numberOfQuestions: 10,
+          questionIds: [],
+          enablePause: false,
+          pauseDurationMinutes: DEFAULT_PAUSE_DURATION_MINUTES,
+          audienceType: "subscribers",
+          audienceUserIds: [],
+        },
   })
 
   const numberOfQuestions = useWatch({

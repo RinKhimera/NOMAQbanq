@@ -1,6 +1,14 @@
 "use client"
 
-import { Ellipsis, Eye, Pause, Play, SquarePen, Trash2 } from "lucide-react"
+import {
+  CopyPlus,
+  Ellipsis,
+  Eye,
+  Pause,
+  Play,
+  SquarePen,
+  Trash2,
+} from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import {
@@ -11,9 +19,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type { AdminExamListItem } from "@/features/exams/dal"
+import { isOpen } from "@/lib/exam-phase"
 
 interface ExamActionsProps {
   exam: AdminExamListItem
+  now: number
   onDeactivate: (exam: AdminExamListItem) => void
   onReactivate: (examId: string) => void
   onEdit: (exam: AdminExamListItem) => void
@@ -22,6 +32,7 @@ interface ExamActionsProps {
 
 export function ExamActions({
   exam,
+  now,
   onDeactivate,
   onReactivate,
   onEdit,
@@ -57,6 +68,18 @@ export function ExamActions({
           <SquarePen className="h-4 w-4" />
           Modifier
         </DropdownMenuItem>
+
+        {!isOpen(exam, now) && (
+          <DropdownMenuItem asChild>
+            <Link
+              href={`/admin/examens/creer?source=${exam.id}`}
+              className="flex items-center gap-2"
+            >
+              <CopyPlus className="h-4 w-4" />
+              Rouvrir
+            </Link>
+          </DropdownMenuItem>
+        )}
 
         {exam.isActive ? (
           <DropdownMenuItem
