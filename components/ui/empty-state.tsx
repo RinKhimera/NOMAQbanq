@@ -19,6 +19,23 @@ interface EmptyStateProps {
   iconClassName?: string
 }
 
+const IconTile = ({
+  icon: Icon,
+  className,
+}: {
+  icon: LucideIcon
+  className?: string
+}) => (
+  <div
+    className={cn(
+      "bg-surface border-line grid size-12 place-items-center rounded-lg border",
+      className,
+    )}
+  >
+    <Icon className="text-ink-3 size-6" aria-hidden="true" />
+  </div>
+)
+
 export function EmptyState({
   title,
   description,
@@ -39,18 +56,14 @@ export function EmptyState({
         )}
       >
         {Icon && (
-          <div
-            className={cn(
-              "bg-muted mb-3 flex h-12 w-12 items-center justify-center rounded-full",
-              iconClassName,
-            )}
-          >
-            <Icon className="text-muted-foreground h-6 w-6" />
-          </div>
+          <Icon
+            className={cn("text-ink-3 mb-3 size-8", iconClassName)}
+            aria-hidden="true"
+          />
         )}
-        <p className="text-foreground font-medium">{title}</p>
+        <p className="text-ink font-medium">{title}</p>
         {description && (
-          <p className="text-muted-foreground mt-1 text-sm whitespace-pre-line">
+          <p className="text-ink-3 mt-1 text-sm whitespace-pre-line">
             {description}
           </p>
         )}
@@ -72,63 +85,20 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "bg-background border-border hover:border-border/80 text-center",
-        "w-full max-w-155 rounded-xl border p-14",
-        "group hover:bg-muted/50 transition duration-500 hover:duration-200",
+        "bg-surface border-line w-full max-w-155 rounded-lg border p-14 text-center",
         className,
       )}
     >
-      <div className="isolate flex justify-center">
-        {icons.length === 3 ? (
-          <>
-            <div
-              className={cn(
-                "bg-background ring-border relative top-1.5 left-2.5 grid size-12 -rotate-6 place-items-center rounded-xl shadow-lg ring-1 transition duration-500 group-hover:-translate-x-5 group-hover:-translate-y-0.5 group-hover:-rotate-12 group-hover:duration-200",
-                iconClassName,
-              )}
-            >
-              {React.createElement(icons[0], {
-                className: "w-6 h-6 text-muted-foreground",
-              })}
-            </div>
-            <div
-              className={cn(
-                "bg-background ring-border relative z-10 grid size-12 place-items-center rounded-xl shadow-lg ring-1 transition duration-500 group-hover:-translate-y-0.5 group-hover:duration-200",
-                iconClassName,
-              )}
-            >
-              {React.createElement(icons[1], {
-                className: "w-6 h-6 text-muted-foreground",
-              })}
-            </div>
-            <div
-              className={cn(
-                "bg-background ring-border relative top-1.5 right-2.5 grid size-12 rotate-6 place-items-center rounded-xl shadow-lg ring-1 transition duration-500 group-hover:translate-x-5 group-hover:-translate-y-0.5 group-hover:rotate-12 group-hover:duration-200",
-                iconClassName,
-              )}
-            >
-              {React.createElement(icons[2], {
-                className: "w-6 h-6 text-muted-foreground",
-              })}
-            </div>
-          </>
-        ) : (
-          <div
-            className={cn(
-              "bg-background ring-border grid size-12 place-items-center rounded-xl shadow-lg ring-1 transition duration-500 group-hover:-translate-y-0.5 group-hover:duration-200",
-              iconClassName,
-            )}
-          >
-            {icons[0] &&
-              React.createElement(icons[0], {
-                className: "w-6 h-6 text-muted-foreground",
-              })}
-          </div>
-        )}
-      </div>
-      <h2 className="text-foreground mt-6 font-medium">{title}</h2>
+      {icons.length > 0 && (
+        <div className="flex justify-center gap-2">
+          {icons.slice(0, 3).map((icon, index) => (
+            <IconTile key={index} icon={icon} className={iconClassName} />
+          ))}
+        </div>
+      )}
+      <h2 className="text-ink mt-6 font-medium">{title}</h2>
       {description && (
-        <p className="text-muted-foreground mt-1 text-sm whitespace-pre-line">
+        <p className="text-ink-3 mt-1 text-sm whitespace-pre-line">
           {description}
         </p>
       )}
@@ -137,7 +107,7 @@ export function EmptyState({
           type="button"
           onClick={action.onClick}
           variant="outline"
-          className={cn("mt-4", "shadow-sm active:shadow-none")}
+          className="mt-4"
         >
           {action.label}
         </Button>

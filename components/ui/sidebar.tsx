@@ -481,7 +481,7 @@ export const sidebarMenuButtonVariants = cva(
         link: "text-muted-foreground hover:bg-blue-500/25 hover:text-blue-700 focus:hover:bg-blue-500/25 focus:hover:text-blue-700  dark:hover:bg-blue-500/20 dark:hover:text-white",
         default: "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
         outline:
-          "bg-background shadow-[0_0_0_1px_hsl(var(--sidebar-border))] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:shadow-[0_0_0_1px_hsl(var(--sidebar-accent))]",
+          "bg-surface border-line hover:bg-sidebar-accent hover:text-sidebar-accent-foreground border",
       },
       size: {
         default: "h-8 text-sm",

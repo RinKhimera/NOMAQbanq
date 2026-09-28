@@ -3,6 +3,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
+/** Le tableau défile dans son conteneur, jamais la page (DESIGN.md §2). */
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
     <div
@@ -43,7 +44,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
     <tfoot
       data-slot="table-footer"
       className={cn(
-        "bg-muted/50 border-t font-medium [&>tr]:last:border-b-0",
+        "bg-surface-2 border-t font-medium [&>tr]:last:border-b-0",
         className,
       )}
       {...props}
@@ -56,7 +57,7 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
     <tr
       data-slot="table-row"
       className={cn(
-        "hover:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
+        "border-line hover:bg-surface-2/60 data-[state=selected]:bg-accent-soft border-b transition-colors",
         className,
       )}
       {...props}
@@ -64,12 +65,13 @@ function TableRow({ className, ...props }: React.ComponentProps<"tr">) {
   )
 }
 
+/** En-tête en libellé mono : capitales, 12 px, `--ink-3`. */
 function TableHead({ className, ...props }: React.ComponentProps<"th">) {
   return (
     <th
       data-slot="table-head"
       className={cn(
-        "text-foreground h-10 px-2 text-left align-middle font-medium whitespace-nowrap has-[[role=checkbox]]:pr-0 *:[[role=checkbox]]:translate-y-0.5",
+        "text-ink-3 h-10 px-3 text-left align-middle font-mono text-xs font-medium tracking-[0.06em] whitespace-nowrap uppercase has-[[role=checkbox]]:pr-0 *:[[role=checkbox]]:translate-y-0.5",
         className,
       )}
       {...props}
@@ -82,7 +84,7 @@ function TableCell({ className, ...props }: React.ComponentProps<"td">) {
     <td
       data-slot="table-cell"
       className={cn(
-        "p-2 align-middle whitespace-nowrap has-[[role=checkbox]]:pr-0 *:[[role=checkbox]]:translate-y-0.5",
+        "px-3 py-2.5 align-middle whitespace-nowrap has-[[role=checkbox]]:pr-0 *:[[role=checkbox]]:translate-y-0.5",
         className,
       )}
       {...props}
@@ -97,7 +99,7 @@ function TableCaption({
   return (
     <caption
       data-slot="table-caption"
-      className={cn("text-muted-foreground mt-4 text-sm", className)}
+      className={cn("text-ink-3 mt-4 text-sm", className)}
       {...props}
     />
   )
