@@ -16,6 +16,7 @@ import type {
   SelectableUser,
   UsersStatsView,
 } from "@/features/users/dal"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { toCalendarDay } from "@/lib/format"
 import { UserSidePanel } from "./user-side-panel"
 import {
@@ -55,19 +56,9 @@ export function UsersManager({
   const initialUserId = searchParams.get("user")
 
   const [searchQuery, setSearchQuery] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE)
-
-  // Debounce ; le reset page se fait ICI (callback async → ESLint OK) pour
-  // éviter un fetch superflu avec l'ancien terme sur une page > 1.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setDebouncedSearch(searchQuery)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(t)
-  }, [searchQuery])
+  const debouncedSearch = useDebouncedValue(searchQuery, 300, () => setPage(1))
 
   const [role, setRole] = useState<RoleFilter>("all")
   const [accessStatus, setAccessStatus] = useState<AccessStatusFilter>("all")

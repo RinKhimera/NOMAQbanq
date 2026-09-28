@@ -1,9 +1,10 @@
 "use client"
 
-import { IconMail, IconSearch, IconUsers } from "@tabler/icons-react"
+import { IconMail, IconUsers } from "@tabler/icons-react"
 import { CircleAlert, Search } from "lucide-react"
 import { motion } from "motion/react"
 import { useMemo, useState } from "react"
+import { SearchInput } from "@/components/shared/search-input"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -14,7 +15,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
-import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { ExamAudienceUser } from "@/features/exams/dal"
 import { cn } from "@/lib/utils"
@@ -66,15 +66,11 @@ export function RestrictedAudienceSection({
       <CardContent className="p-0">
         {/* Barre de recherche */}
         <div className="border-b border-gray-200/60 bg-gray-50/50 p-4 dark:border-gray-700/60 dark:bg-gray-900/50">
-          <div className="relative">
-            <IconSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            <Input
-              placeholder="Rechercher par nom ou email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+          <SearchInput
+            placeholder="Rechercher par nom ou email..."
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+          />
         </div>
 
         {total === 0 ? (

@@ -13,6 +13,7 @@ import { toast } from "sonner"
 import type { ExamPickerOption } from "@/features/exams/dal"
 import { loadQuestionsPage } from "@/features/questions/actions"
 import type { QuestionListItem } from "@/features/questions/dal"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import {
   QuestionBrowserContextState,
   QuestionBrowserMode,
@@ -71,7 +72,6 @@ export function QuestionBrowserProvider({
 }: QuestionBrowserProviderProps) {
   // Filters state
   const [filters, setFilters] = useState<QuestionFilters>(defaultFilters)
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
 
   // Pagination offset numérotée
   const [questions, setQuestions] = useState<QuestionRow[]>([])
@@ -81,15 +81,11 @@ export function QuestionBrowserProvider({
   const [hasLoaded, setHasLoaded] = useState(false)
   const [, startFetch] = useTransition()
 
-  // Debounce search ; le reset page se fait ICI (callback async → ESLint OK),
-  // pas dans updateFilter — sinon fetch superflu avec l'ancien terme.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(filters.searchQuery)
-      setPageState(1)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [filters.searchQuery])
+  // Reset de page au terme débouncé, pas dans updateFilter — sinon fetch
+  // superflu avec l'ancien terme.
+  const debouncedSearchQuery = useDebouncedValue(filters.searchQuery, 300, () =>
+    setPageState(1),
+  )
 
   // Preview panel state (internal, used when not controlled)
   const [internalPreviewId, setInternalPreviewId] = useState<string | null>(

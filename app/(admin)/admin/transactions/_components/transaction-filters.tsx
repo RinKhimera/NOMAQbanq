@@ -1,8 +1,8 @@
 "use client"
 
-import { Funnel, Search, X } from "lucide-react"
+import { Funnel, X } from "lucide-react"
+import { SearchInput } from "@/components/shared/search-input"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -54,15 +54,13 @@ export const TransactionFilters = ({
   return (
     <div className="flex flex-col gap-4 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm sm:flex-row sm:items-center dark:border-gray-700/50 dark:bg-gray-900">
       {/* Search */}
-      <div className="relative flex-1">
-        <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <Input
-          placeholder="Rechercher par email ou nom..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="rounded-xl border-gray-200 bg-gray-50/50 pl-10 dark:border-gray-700 dark:bg-gray-800/50"
-        />
-      </div>
+      <SearchInput
+        placeholder="Rechercher par email ou nom..."
+        value={searchQuery}
+        onValueChange={onSearchChange}
+        containerClassName="flex-1"
+        className="rounded-xl border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50"
+      />
 
       {/* Funnel icon on mobile */}
       <div className="flex items-center gap-3">

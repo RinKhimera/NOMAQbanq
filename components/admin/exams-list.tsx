@@ -1,10 +1,11 @@
 "use client"
 
-import { FileText, Plus, Search } from "lucide-react"
+import { FileText, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { SearchInput } from "@/components/shared/search-input"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -14,7 +15,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
-import { Input } from "@/components/ui/input"
 import {
   deactivateExam,
   deleteExam,
@@ -158,15 +158,12 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
       <CardContent>
         {/* Filtres */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Rechercher par titre..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchInput
+            placeholder="Rechercher par titre..."
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            containerClassName="flex-1"
+          />
           <ExamStatusFilter
             selectedStatuses={selectedStatuses}
             onStatusChange={setSelectedStatuses}

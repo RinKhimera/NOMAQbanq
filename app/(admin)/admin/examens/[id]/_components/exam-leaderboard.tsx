@@ -7,6 +7,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { SearchInput } from "@/components/shared/search-input"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,7 +25,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/ui/empty-state"
-import { Input } from "@/components/ui/input"
 import { deleteParticipation } from "@/features/exams/actions"
 import type { LeaderboardEntry } from "@/features/exams/dal"
 import { formatCompactDateTime } from "@/lib/format"
@@ -109,13 +109,12 @@ export function ExamLeaderboard({
               Les participants classés par score décroissant
             </CardDescription>
           </div>
-          <Input
-            type="search"
+          <SearchInput
             placeholder="Rechercher un participant..."
             aria-label="Rechercher un participant"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="w-full md:w-72"
+            onValueChange={setSearch}
+            containerClassName="w-full md:w-72"
           />
         </div>
       </CardHeader>
