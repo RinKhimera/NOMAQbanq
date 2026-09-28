@@ -3,7 +3,7 @@ import type { ReactNode } from "react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   ExamForm,
-  type ExamFormSource,
+  type ExamFormPrefill,
 } from "@/app/(admin)/admin/examens/_components/exam-form"
 import type { ExamWithQuestions } from "@/features/exams/dal"
 import type { SelectableUser } from "@/features/users/dal"
@@ -42,7 +42,7 @@ vi.mock("@/components/admin/user-multi-select", () => ({
   ),
 }))
 
-const sourceExam: ExamFormSource["exam"] = {
+const sourceExam: ExamFormPrefill["exam"] = {
   title: "Révision 3 (Cardiologie)",
   description: "Épreuve de cardiologie",
   endDate: Date.parse("2026-03-08T00:00:00Z"),
@@ -115,6 +115,22 @@ describe("ExamForm — création pré-remplie depuis un examen source", () => {
       "Alice Dupont",
       "Bob Martin",
     ])
+  })
+
+  it("signale les questions de la source supprimées depuis, à remplacer", () => {
+    render(
+      <ExamForm
+        mode="create"
+        candidates={[]}
+        examOptions={[]}
+        source={{ exam: sourceExam, questionIds: ["q3", "q1"], audience }}
+      />,
+    )
+
+    expect(screen.getByLabelText("Nombre de questions")).toHaveValue(3)
+    expect(
+      screen.getByText(/Sélectionnez encore\s+1 question\(s\)/),
+    ).toBeInTheDocument()
   })
 
   it("n'empile pas le suffixe quand la source est elle-même une réouverture", () => {

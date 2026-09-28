@@ -5,7 +5,7 @@ import {
 } from "@/features/exams/dal"
 import { currentTimeMs } from "@/lib/clock"
 import { isOpen } from "@/lib/exam-phase"
-import { ExamForm, type ExamFormSource } from "../_components/exam-form"
+import { ExamForm, type ExamFormPrefill } from "../_components/exam-form"
 
 /**
  * Examen source d'une réouverture (`?source=<id>`). Une source introuvable ou
@@ -13,7 +13,7 @@ import { ExamForm, type ExamFormSource } from "../_components/exam-form"
  */
 const loadReopeningSource = async (
   sourceId: string | undefined,
-): Promise<ExamFormSource | undefined> => {
+): Promise<ExamFormPrefill | undefined> => {
   if (!sourceId) return undefined
   const source = await getExamReopeningSource(sourceId)
   if (!source || isOpen(source.exam, currentTimeMs())) return undefined

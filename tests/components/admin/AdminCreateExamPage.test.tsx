@@ -1,6 +1,6 @@
 import type { ReactElement } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import type { ExamFormSource } from "@/app/(admin)/admin/examens/_components/exam-form"
+import type { ExamFormPrefill } from "@/app/(admin)/admin/examens/_components/exam-form"
 import AdminCreateExamPage from "@/app/(admin)/admin/examens/creer/page"
 import { getExamReopeningSource } from "@/features/exams/dal"
 
@@ -17,7 +17,7 @@ vi.mock("@/features/exams/dal", () => ({
 const NOW = Date.parse("2026-10-01T12:00:00Z")
 vi.mock("@/lib/clock", () => ({ currentTimeMs: () => NOW }))
 
-const sourceWithEnd = (endDate: number): ExamFormSource => ({
+const sourceWithEnd = (endDate: number): ExamFormPrefill => ({
   exam: {
     title: "Révision 3",
     description: null,
@@ -34,7 +34,7 @@ const sourceWithEnd = (endDate: number): ExamFormSource => ({
 const renderPage = async (source?: string | string[]) =>
   (await AdminCreateExamPage({
     searchParams: Promise.resolve({ source }),
-  })) as ReactElement<{ source?: ExamFormSource }>
+  })) as ReactElement<{ source?: ExamFormPrefill }>
 
 describe("page de création d'examen", () => {
   beforeEach(() => {

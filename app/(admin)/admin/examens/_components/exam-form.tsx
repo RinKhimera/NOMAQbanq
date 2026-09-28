@@ -86,7 +86,7 @@ const reopeningTitle = (title: string) =>
     : title) + REOPENING_SUFFIX
 
 /** Un examen existant dont le formulaire reprend le contenu. */
-export type ExamFormSource = NonNullable<ExamReopeningSource>
+export type ExamFormPrefill = ExamReopeningSource
 
 /**
  * Formulaire d'examen unifié (création et édition). Le `mode` pilote les données
@@ -99,7 +99,7 @@ type ExamFormProps =
       mode: "create"
       candidates: EligibleCandidate[]
       examOptions: ExamPickerOption[]
-      source?: ExamFormSource
+      source?: ExamFormPrefill
     }
   | {
       mode: "edit"
@@ -139,7 +139,7 @@ export function ExamForm(props: ExamFormProps) {
   const SubmitIcon = props.mode === "create" ? Sparkles : Save
 
   // Les données viennent du Server Component (props) → initialisation synchrone.
-  const source: ExamFormSource | undefined =
+  const prefill: ExamFormPrefill | undefined =
     props.mode === "edit"
       ? {
           exam: props.exam,
@@ -147,8 +147,8 @@ export function ExamForm(props: ExamFormProps) {
           audience: props.initialAudience,
         }
       : props.source
-  const initialQuestionIds = source?.questionIds ?? []
-  const initialAudience = source?.audience ?? []
+  const initialQuestionIds = prefill?.questionIds ?? []
+  const initialAudience = prefill?.audience ?? []
   const [selectedQuestions, setSelectedQuestions] =
     useState<string[]>(initialQuestionIds)
   const [selectedUsers, setSelectedUsers] =
@@ -156,23 +156,23 @@ export function ExamForm(props: ExamFormProps) {
 
   const form = useForm<ExamFormValues>({
     resolver: zodResolver(examFormSchema),
-    defaultValues: source
+    defaultValues: prefill
       ? {
           title:
             props.mode === "edit"
-              ? source.exam.title
-              : reopeningTitle(source.exam.title),
-          description: source.exam.description ?? "",
-          numberOfQuestions: source.exam.questionCount,
+              ? prefill.exam.title
+              : reopeningTitle(prefill.exam.title),
+          description: prefill.exam.description ?? "",
+          numberOfQuestions: prefill.exam.questionCount,
           ...(props.mode === "edit" && {
             startDate: new Date(props.exam.startDate),
             endDate: new Date(props.exam.endDate),
           }),
           questionIds: initialQuestionIds,
-          enablePause: source.exam.enablePause,
+          enablePause: prefill.exam.enablePause,
           pauseDurationMinutes:
-            source.exam.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES,
-          audienceType: source.exam.audienceType,
+            prefill.exam.pauseDurationMinutes ?? DEFAULT_PAUSE_DURATION_MINUTES,
+          audienceType: prefill.exam.audienceType,
           audienceUserIds: initialAudience.map((u) => u.id),
         }
       : {

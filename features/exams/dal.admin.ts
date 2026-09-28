@@ -257,7 +257,7 @@ export type ExamReopeningSource = {
   questionIds: string[]
   /** Audience restreinte sans les comptes supprimés (vide pour `subscribers`). */
   audience: ExamAudienceUser[]
-} | null
+}
 
 /**
  * [Admin] Ce qu'une réouverture reprend d'un examen (`CONTEXT.md`). Une
@@ -266,7 +266,7 @@ export type ExamReopeningSource = {
  * les sélecteurs.
  */
 export const getExamReopeningSource = cache(
-  async (examId: string): Promise<ExamReopeningSource> => {
+  async (examId: string): Promise<ExamReopeningSource | null> => {
     await requireRole(["admin"])
     const [[exam], questionRows, audience] = await Promise.all([
       db
