@@ -12,6 +12,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet"
 import { type ShellZone, pageTitle } from "@/lib/shell-navigation"
 import { cn } from "@/lib/utils"
@@ -27,6 +28,9 @@ const ZONE_FRAME = {
     top: "top-0",
     body: "max-w-280",
     sheet: "w-[min(300px,calc(100vw-40px))]",
+    // Hauteur des barres collantes de la coquille : un en-tête collant de page
+    // se pose dessous avec `top-(--shell-offset)`.
+    offset: "[--shell-offset:4rem]",
   },
   admin: {
     homeUrl: "/admin",
@@ -37,6 +41,7 @@ const ZONE_FRAME = {
     top: "top-8",
     body: "max-w-310",
     sheet: "w-[min(288px,calc(100vw-40px))]",
+    offset: "[--shell-offset:6rem]",
   },
 } satisfies Record<ShellZone, Record<string, string>>
 
@@ -64,10 +69,15 @@ export const ShellFrame = ({
   const frame = ZONE_FRAME[zone]
   const admin = zone === "admin"
 
-  // Le Sheet est ouvert POUR une URL : une navigation le referme sans effet.
-  const [menuOpenAt, setMenuOpenAt] = useState<string | null>(null)
-  const menuOpen = menuOpenAt === pathname
-  const closeMenu = () => setMenuOpenAt(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  // Toute navigation referme le Sheet, retour sur la page d'ouverture compris :
+  // le layout reste monté d'une page à l'autre, l'état aussi.
+  const [menuPathname, setMenuPathname] = useState(pathname)
+  if (menuPathname !== pathname) {
+    setMenuPathname(pathname)
+    setMenuOpen(false)
+  }
+  const closeMenu = () => setMenuOpen(false)
 
   const logo = <Logo tagline={frame.tagline} admin={admin} />
 
@@ -79,81 +89,86 @@ export const ShellFrame = ({
   )
 
   return (
-    <div className="bg-background text-ink flex min-h-dvh flex-col">
-      {banner}
-      <div className="flex flex-1">
-        <aside
-          className={cn(
-            "bg-surface border-line sticky hidden shrink-0 flex-col overflow-y-auto border-r lg:flex",
-            frame.side,
-          )}
-        >
-          <div className="border-line flex h-16 shrink-0 items-center border-b px-5">
-            {/* Présent sur chaque page authentifiée : le prefetch par défaut
+    // Le Sheet enveloppe la coquille pour que son déclencheur soit un
+    // `SheetTrigger` : Radix lui rend le focus à la fermeture.
+    <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+      <div
+        className={cn(
+          "bg-background text-ink flex min-h-dvh flex-col",
+          frame.offset,
+        )}
+      >
+        {banner}
+        <div className="flex flex-1">
+          <aside
+            className={cn(
+              "bg-surface border-line sticky hidden shrink-0 flex-col overflow-y-auto border-r lg:flex",
+              frame.side,
+            )}
+          >
+            <div className="border-line flex h-16 shrink-0 items-center border-b px-5">
+              {/* Présent sur chaque page authentifiée : le prefetch par défaut
                 rendrait le layout serveur (session + Neon) à chaque
                 chargement, cf. `.claude/rules/loading-ui.md`. */}
-            <Link
-              href={frame.homeUrl}
-              prefetch={false}
-              className="focus-ring flex flex-1 items-center gap-2 rounded-md"
+              <Link
+                href={frame.homeUrl}
+                prefetch={false}
+                className="focus-ring flex flex-1 items-center gap-2 rounded-md"
+              >
+                {logo}
+                <LinkPendingIndicator className="ml-auto" />
+              </Link>
+            </div>
+            {sideContent()}
+          </aside>
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            <header
+              className={cn(
+                "bg-background border-line sticky z-20 flex h-16 shrink-0 items-center gap-2 border-b px-4 sm:px-6",
+                frame.top,
+              )}
             >
-              {logo}
-              <LinkPendingIndicator className="ml-auto" />
-            </Link>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="-ml-2 max-md:size-11 lg:hidden"
+                  aria-label="Ouvrir le menu"
+                >
+                  <Menu aria-hidden />
+                </Button>
+              </SheetTrigger>
+              <p className="text-ink mr-auto min-w-0 truncate text-base font-semibold">
+                {pageTitle(pathname, zone)}
+              </p>
+              <ThemeToggle />
+            </header>
+            <main
+              className={cn(
+                "flex w-full flex-col gap-5 px-4 pt-6 pb-16 sm:px-6 md:pt-8",
+                frame.body,
+              )}
+            >
+              {children}
+            </main>
           </div>
-          {sideContent()}
-        </aside>
-
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header
-            className={cn(
-              "bg-background border-line sticky z-20 flex h-16 shrink-0 items-center gap-2 border-b px-4 sm:px-6",
-              frame.top,
-            )}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="-ml-2 max-md:size-11 lg:hidden"
-              aria-label="Ouvrir le menu"
-              onClick={() => setMenuOpenAt(pathname)}
-            >
-              <Menu aria-hidden />
-            </Button>
-            <p className="text-ink mr-auto min-w-0 truncate text-base font-semibold">
-              {pageTitle(pathname, zone)}
-            </p>
-            <ThemeToggle />
-          </header>
-          <main
-            className={cn(
-              "flex w-full flex-col gap-5 px-4 pt-6 pb-16 sm:px-6 md:pt-8",
-              frame.body,
-            )}
-          >
-            {children}
-          </main>
         </div>
-      </div>
 
-      <Sheet
-        open={menuOpen}
-        onOpenChange={(open) => setMenuOpenAt(open ? pathname : null)}
-      >
         <SheetContent
           side="left"
           aria-describedby={undefined}
           className={cn("flex flex-col gap-0 p-0", frame.sheet)}
         >
-          <SheetHeader className="border-line h-16 shrink-0 justify-center border-b px-5">
+          <SheetHeader className="border-line h-16 shrink-0 justify-center border-b px-5 text-left">
             <SheetTitle className="text-base">{logo}</SheetTitle>
           </SheetHeader>
           <div className="flex flex-1 flex-col overflow-y-auto">
             {sideContent(closeMenu)}
           </div>
         </SheetContent>
-      </Sheet>
-    </div>
+      </div>
+    </Sheet>
   )
 }
 

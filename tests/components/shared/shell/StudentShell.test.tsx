@@ -161,21 +161,38 @@ describe("StudentShell", () => {
       expect(screen.queryByRole("dialog")).toBeNull()
     })
 
-    it("se referme quand l'URL change", async () => {
+    it("se referme quand l'URL change, et ne se rouvre pas au retour", async () => {
       const { rerender } = renderShell("/tableau-de-bord")
+      const navigateTo = (pathname: string) => {
+        vi.mocked(usePathname).mockReturnValue(pathname)
+        rerender(
+          <StudentShell user={student}>
+            <p>Contenu de la page</p>
+          </StudentShell>,
+        )
+      }
       await userEvent.click(
         screen.getByRole("button", { name: "Ouvrir le menu" }),
       )
       expect(screen.getByRole("dialog")).toBeInTheDocument()
 
-      vi.mocked(usePathname).mockReturnValue("/tableau-de-bord/abonnements")
-      rerender(
-        <StudentShell user={student}>
-          <p>Contenu de la page</p>
-        </StudentShell>,
-      )
+      navigateTo("/tableau-de-bord/abonnements")
+      expect(screen.queryByRole("dialog")).toBeNull()
+
+      // Bouton Précédent : le layout reste monté entre les deux pages.
+      navigateTo("/tableau-de-bord")
+      expect(screen.queryByRole("dialog")).toBeNull()
+    })
+
+    it("rend le focus au bouton du menu à la fermeture", async () => {
+      renderShell("/tableau-de-bord")
+      const trigger = screen.getByRole("button", { name: "Ouvrir le menu" })
+      await userEvent.click(trigger)
+
+      await userEvent.keyboard("{Escape}")
 
       expect(screen.queryByRole("dialog")).toBeNull()
+      expect(trigger).toHaveFocus()
     })
   })
 })
