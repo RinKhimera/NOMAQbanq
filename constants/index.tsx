@@ -5,7 +5,17 @@ import {
   IconReceipt,
   IconUsers,
 } from "@tabler/icons-react"
-import { CreditCard, User } from "lucide-react"
+import {
+  BookOpen,
+  ClipboardList,
+  CreditCard,
+  FileQuestionMark,
+  LayoutDashboard,
+  type LucideIcon,
+  Receipt,
+  User,
+  Users,
+} from "lucide-react"
 
 export const adminNavigation = {
   navMain: [
@@ -75,6 +85,62 @@ export const dashboardNavigation = {
     },
   ],
 }
+
+export type NavItem = { title: string; url: string; icon: LucideIcon }
+export type NavSection = { heading: string; items: NavItem[] }
+
+export const studentNavSections: NavSection[] = [
+  {
+    heading: "Espace étudiant",
+    items: [
+      {
+        title: "Tableau de bord",
+        url: "/tableau-de-bord",
+        icon: LayoutDashboard,
+      },
+      {
+        title: "Entraînement",
+        url: "/tableau-de-bord/entrainement",
+        icon: BookOpen,
+      },
+      {
+        title: "Examens blancs",
+        url: "/tableau-de-bord/examen-blanc",
+        icon: ClipboardList,
+      },
+      {
+        title: "Abonnements",
+        url: "/tableau-de-bord/abonnements",
+        icon: Receipt,
+      },
+      { title: "Profil", url: "/tableau-de-bord/profil", icon: User },
+    ],
+  },
+]
+
+export const adminNavSections: NavSection[] = [
+  {
+    heading: "Pilotage",
+    items: [
+      { title: "Tableau de bord", url: "/admin", icon: LayoutDashboard },
+      { title: "Transactions", url: "/admin/transactions", icon: Receipt },
+    ],
+  },
+  {
+    heading: "Contenu",
+    items: [
+      { title: "Questions", url: "/admin/questions", icon: FileQuestionMark },
+      { title: "Examens blancs", url: "/admin/examens", icon: ClipboardList },
+    ],
+  },
+  {
+    heading: "Comptes",
+    items: [
+      { title: "Utilisateurs", url: "/admin/utilisateurs", icon: Users },
+      { title: "Profil", url: "/admin/profil", icon: User },
+    ],
+  },
+]
 
 /** Paramètre d'URL qui présélectionne un domaine dans l'entraînement. */
 export const TRAINING_DOMAIN_PARAM = "domaine"
