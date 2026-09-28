@@ -2,7 +2,10 @@ import * as z from "zod"
 
 export const examFormSchema = z
   .object({
-    title: z.string().min(3, "Le titre doit contenir au moins 3 caractères"),
+    title: z
+      .string()
+      .min(3, "Le titre doit contenir au moins 3 caractères")
+      .max(200, "Le titre ne peut pas dépasser 200 caractères"),
     description: z.string().optional(),
     startDate: z.date({
       error: "Veuillez sélectionner une date de début",

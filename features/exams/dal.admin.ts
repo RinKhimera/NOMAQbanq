@@ -1,11 +1,13 @@
-import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm"
+import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
 import {
   examAudience,
   examParticipations,
+  examQuestions,
   exams,
+  questions,
   user,
   userAccess,
 } from "@/db/schema"
@@ -237,5 +239,72 @@ export const getExamAudience = cache(
       .where(eq(examAudience.examId, examId))
       .orderBy(asc(user.name))
       .limit(1000)
+  },
+)
+
+export type ExamReopeningSource = {
+  exam: {
+    title: string
+    description: string | null
+    endDate: number
+    enablePause: boolean
+    pauseDurationMinutes: number | null
+    /** Questions de la source, supprimées comprises : le formulaire signale l'écart. */
+    questionCount: number
+    audienceType: "subscribers" | "restricted"
+  }
+  /** Questions non supprimées, dans leur ordre. */
+  questionIds: string[]
+  /** Audience restreinte sans les comptes supprimés (vide pour `subscribers`). */
+  audience: ExamAudienceUser[]
+}
+
+/**
+ * [Admin] Ce qu'une réouverture reprend d'un examen (`CONTEXT.md`). Une
+ * question ou un compte supprimé ferait refuser la création de la copie :
+ * ils sont écartés ici plutôt que laissés à l'admin, qui ne les voit pas dans
+ * les sélecteurs.
+ */
+export const getExamReopeningSource = cache(
+  async (examId: string): Promise<ExamReopeningSource | null> => {
+    await requireRole(["admin"])
+    const [[exam], questionRows, audience] = await Promise.all([
+      db
+        .select({
+          title: exams.title,
+          description: exams.description,
+          endDate: exams.endDate,
+          enablePause: exams.enablePause,
+          pauseDurationMinutes: exams.pauseDurationMinutes,
+          audienceType: exams.audienceType,
+        })
+        .from(exams)
+        .where(eq(exams.id, examId))
+        .limit(1),
+      db
+        .select({ id: questions.id, deletedAt: questions.deletedAt })
+        .from(examQuestions)
+        .innerJoin(questions, eq(questions.id, examQuestions.questionId))
+        .where(eq(examQuestions.examId, examId))
+        .orderBy(asc(examQuestions.position))
+        .limit(1000),
+      db
+        .select({ id: user.id, name: user.name, email: user.email })
+        .from(examAudience)
+        .innerJoin(user, eq(user.id, examAudience.userId))
+        .where(and(eq(examAudience.examId, examId), isNull(user.deletedAt)))
+        .orderBy(asc(user.name))
+        .limit(1000),
+    ])
+    if (!exam) return null
+    return {
+      exam: {
+        ...exam,
+        endDate: exam.endDate.getTime(),
+        questionCount: questionRows.length,
+      },
+      questionIds: questionRows.filter((q) => !q.deletedAt).map((q) => q.id),
+      audience: exam.audienceType === "restricted" ? audience : [],
+    }
   },
 )

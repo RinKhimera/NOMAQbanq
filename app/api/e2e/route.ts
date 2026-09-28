@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, ilike, inArray, lte, notExists } from "drizzle-orm"
+import { and, eq, gt, ilike, inArray, lte, notExists } from "drizzle-orm"
 import { db } from "@/db"
 import {
   examAnswers,
@@ -30,8 +30,9 @@ export const runtime = "nodejs"
 /**
  * Support des tests E2E (reset/cleanup des données de test sur Neon develop).
  * UNE route, deux actions dans le corps :
- *  - `{ action: "reset-exam", userEmail }` : réactive un examen en fenêtre +
- *    supprime la participation du user sur cet examen (cascade réponses) +
+ *  - `{ action: "reset-exam", userEmail }` : garantit un examen en fenêtre
+ *    (sinon en crée un `[E2E]`, jamais en repoussant les dates d'un examen clos,
+ *    `docs/adr/0002`) + supprime la participation du user sur cet examen (cascade réponses) +
  *    ses sessions d'entraînement `in_progress` (cascade items) → passation
  *    rejouable.
  *  - `{ action: "cleanup", prefix }` : supprime les examens préfixés (cascade)
@@ -75,25 +76,10 @@ async function resetExam(userEmail: string) {
     )
     .limit(1)
 
-  let activeExamId = inWindow?.id ?? null
+  let activeExamId: string | null = inWindow?.id ?? null
   if (!activeExamId) {
-    // Aucun en fenêtre → étend la fenêtre de l'examen actif le plus récent.
-    const [latest] = await db
-      .select({ id: exams.id })
-      .from(exams)
-      .where(eq(exams.isActive, true))
-      .orderBy(desc(exams.createdAt))
-      .limit(1)
-    if (latest) {
-      await db
-        .update(exams)
-        .set({
-          startDate: new Date(now.getTime() - 60_000),
-          endDate: new Date(now.getTime() + 30 * DAY_MS),
-        })
-        .where(eq(exams.id, latest.id))
-      activeExamId = latest.id
-    }
+    const seeded = await seedExam({ title: "[E2E] Examen en cours" })
+    activeExamId = "examId" in seeded ? (seeded.examId ?? null) : null
   }
 
   // Supprime la participation du user sur l'examen actif (cascade `exam_answers`).

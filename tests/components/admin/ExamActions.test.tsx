@@ -72,7 +72,9 @@ const createMockExam = (
 })
 
 describe("ExamActions", () => {
-  const defaultCallbacks = {
+  const now = Date.parse("2026-10-01T12:00:00Z")
+  const defaultProps = {
+    now,
     onDeactivate: vi.fn(),
     onReactivate: vi.fn(),
     onEdit: vi.fn(),
@@ -80,19 +82,19 @@ describe("ExamActions", () => {
   }
 
   it("affiche le bouton de déclenchement du menu", () => {
-    render(<ExamActions exam={createMockExam()} {...defaultCallbacks} />)
+    render(<ExamActions exam={createMockExam()} {...defaultProps} />)
 
     expect(screen.getByLabelText("Actions de l'examen")).toBeInTheDocument()
   })
 
   it("affiche le lien 'Voir les détails'", () => {
-    render(<ExamActions exam={createMockExam()} {...defaultCallbacks} />)
+    render(<ExamActions exam={createMockExam()} {...defaultProps} />)
 
     expect(screen.getByText("Voir les détails")).toBeInTheDocument()
   })
 
   it("contient un lien vers la page de détails de l'examen", () => {
-    render(<ExamActions exam={createMockExam()} {...defaultCallbacks} />)
+    render(<ExamActions exam={createMockExam()} {...defaultProps} />)
 
     const link = screen.getByText("Voir les détails").closest("a")
     expect(link?.getAttribute("href")).toBe("/admin/examens/exam456")
@@ -102,7 +104,7 @@ describe("ExamActions", () => {
     render(
       <ExamActions
         exam={createMockExam({ isActive: true })}
-        {...defaultCallbacks}
+        {...defaultProps}
       />,
     )
 
@@ -114,7 +116,7 @@ describe("ExamActions", () => {
     render(
       <ExamActions
         exam={createMockExam({ isActive: false })}
-        {...defaultCallbacks}
+        {...defaultProps}
       />,
     )
 
@@ -125,7 +127,7 @@ describe("ExamActions", () => {
   it("appelle onEdit au clic sur 'Modifier'", () => {
     const onEdit = vi.fn()
     const exam = createMockExam()
-    render(<ExamActions exam={exam} {...defaultCallbacks} onEdit={onEdit} />)
+    render(<ExamActions exam={exam} {...defaultProps} onEdit={onEdit} />)
 
     fireEvent.click(screen.getByText("Modifier"))
 
@@ -136,11 +138,7 @@ describe("ExamActions", () => {
     const onDeactivate = vi.fn()
     const exam = createMockExam({ isActive: true })
     render(
-      <ExamActions
-        exam={exam}
-        {...defaultCallbacks}
-        onDeactivate={onDeactivate}
-      />,
+      <ExamActions exam={exam} {...defaultProps} onDeactivate={onDeactivate} />,
     )
 
     fireEvent.click(screen.getByText("Désactiver"))
@@ -152,11 +150,7 @@ describe("ExamActions", () => {
     const onReactivate = vi.fn()
     const exam = createMockExam({ isActive: false })
     render(
-      <ExamActions
-        exam={exam}
-        {...defaultCallbacks}
-        onReactivate={onReactivate}
-      />,
+      <ExamActions exam={exam} {...defaultProps} onReactivate={onReactivate} />,
     )
 
     fireEvent.click(screen.getByText("Réactiver"))
@@ -167,12 +161,41 @@ describe("ExamActions", () => {
   it("appelle onDelete au clic sur 'Supprimer'", () => {
     const onDelete = vi.fn()
     const exam = createMockExam()
-    render(
-      <ExamActions exam={exam} {...defaultCallbacks} onDelete={onDelete} />,
-    )
+    render(<ExamActions exam={exam} {...defaultProps} onDelete={onDelete} />)
 
     fireEvent.click(screen.getByText("Supprimer"))
 
     expect(onDelete).toHaveBeenCalledWith(exam)
+  })
+
+  it("propose 'Rouvrir' sur un examen clos, vers la création pré-remplie", () => {
+    render(
+      <ExamActions
+        exam={createMockExam({
+          startDate: now - 7 * 86400000,
+          endDate: now - 1,
+        })}
+        {...defaultProps}
+      />,
+    )
+
+    const link = screen.getByText("Rouvrir").closest("a")
+    expect(link?.getAttribute("href")).toBe(
+      "/admin/examens/creer?source=exam456",
+    )
+  })
+
+  it("ne propose pas 'Rouvrir' sur un examen ouvert", () => {
+    render(
+      <ExamActions
+        exam={createMockExam({
+          startDate: now + 86400000,
+          endDate: now + 7 * 86400000,
+        })}
+        {...defaultProps}
+      />,
+    )
+
+    expect(screen.queryByText("Rouvrir")).not.toBeInTheDocument()
   })
 })

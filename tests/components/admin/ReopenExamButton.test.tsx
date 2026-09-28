@@ -1,0 +1,28 @@
+import { render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
+import { describe, expect, it, vi } from "vitest"
+import { ReopenExamButton } from "@/components/admin/reopen-exam-button"
+
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}))
+
+const now = Date.parse("2026-10-01T12:00:00Z")
+
+describe("ReopenExamButton", () => {
+  it("mène à la création pré-remplie depuis un examen clos", () => {
+    render(<ReopenExamButton exam={{ id: "e1", endDate: now - 1 }} now={now} />)
+
+    expect(
+      screen.getByRole("link", { name: "Rouvrir" }).getAttribute("href"),
+    ).toBe("/admin/examens/creer?source=e1")
+  })
+
+  it("n'apparaît pas sur un examen ouvert", () => {
+    render(<ReopenExamButton exam={{ id: "e1", endDate: now + 1 }} now={now} />)
+
+    expect(screen.queryByRole("link", { name: "Rouvrir" })).toBeNull()
+  })
+})

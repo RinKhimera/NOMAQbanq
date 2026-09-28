@@ -51,7 +51,9 @@ here` + `No tests found` (faux « tout est cassé »). Passer par le **script**
 
 ## Route support `/api/e2e` (Drizzle) — actions
 
-- `reset-exam` (`userEmail`) : garantit UN examen actif en fenêtre, supprime la
+- `reset-exam` (`userEmail`) : garantit UN examen actif en fenêtre — à défaut
+  en crée un, `[E2E] Examen en cours`, ramassé par `cleanup` ; jamais en
+  repoussant les dates d'un examen clos (`docs/adr/0002`) —, supprime la
   participation du user dessus (+ cascade réponses) + **TOUTES** ses sessions
   d'entraînement (pas seulement `in_progress`) → remet aussi à zéro la fenêtre du
   rate-limit `MAX_SESSIONS_PER_HOUR` (sinon les sessions accumulées au fil des runs

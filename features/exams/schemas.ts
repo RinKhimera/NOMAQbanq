@@ -11,7 +11,11 @@ export const MAX_PAUSE_MINUTES = 60
 export const DEFAULT_PAUSE_MINUTES = 15
 
 const examFields = {
-  title: z.string().trim().min(1, "Le titre est requis").max(200),
+  title: z
+    .string()
+    .trim()
+    .min(1, "Le titre est requis")
+    .max(200, "Le titre ne peut pas dépasser 200 caractères"),
   description: z.string().trim().max(2000).optional(),
   // Epoch ms (le formulaire convertit ses Date en ms avant l'appel).
   startDate: z.number().int("Date de début invalide"),

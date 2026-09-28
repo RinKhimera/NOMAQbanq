@@ -15,6 +15,7 @@ import { ClipboardCheck } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import ExamStatusBadge from "@/components/admin/exam-status-badge"
+import { ReopenExamButton } from "@/components/admin/reopen-exam-button"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Separator } from "@/components/ui/separator"
@@ -287,6 +288,7 @@ function PanelContent({
             </Link>
           </Button>
         </div>
+        <ReopenExamButton exam={exam} now={now} className="mt-3 w-full" />
       </div>
     </motion.div>
   )
