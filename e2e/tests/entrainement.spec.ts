@@ -77,7 +77,11 @@ test.describe("Entrainement — session complete", () => {
 
     // Finish and assert results page
     await entrainement.finishSession()
-    await expect(page.getByText(/\d+%/).first()).toBeVisible()
+    await expect(
+      page
+        .getByTestId("score-percentage")
+        .or(page.getByTestId("score-withheld")),
+    ).toBeVisible()
     await expect(page.getByText("Correctes", { exact: true })).toBeVisible()
     await expect(page.getByText("Incorrectes", { exact: true })).toBeVisible()
     // <SessionResults> ne rend pas de titre « Révision des questions » : c'est le

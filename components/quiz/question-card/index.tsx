@@ -8,6 +8,7 @@ import {
   Flag,
   Hourglass,
 } from "lucide-react"
+import { Fragment } from "react"
 import { QuestionImageGallery } from "@/components/shared/question-image-gallery"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -175,165 +176,172 @@ export const QuestionCard = ({
         className,
       )}
     >
-      <header className="border-line flex flex-wrap items-center gap-2.5 border-b px-5 py-3">
-        {label && (
-          <h2 className="text-ink font-mono text-xs font-normal">{label}</h2>
-        )}
-        {showDomainBadge && question.domain && (
-          <Badge variant="badge">{question.domain}</Badge>
-        )}
-        {showObjectifBadge && question.objectifCMC && (
-          <Badge className="bg-objective-soft text-objective max-w-full truncate border-transparent">
-            {question.objectifCMC}
-          </Badge>
-        )}
+      {/* Le contenu repart de zéro à chaque question (panneaux repliables
+          compris) ; le pied reste monté, pour que le focus clavier survive à
+          « Suivante ». */}
+      <Fragment key={question._id}>
+        <header className="border-line flex flex-wrap items-center gap-2.5 border-b px-5 py-3">
+          {label && (
+            <h2 className="text-ink font-mono text-xs font-normal">{label}</h2>
+          )}
+          {showDomainBadge && question.domain && (
+            <Badge variant="badge">{question.domain}</Badge>
+          )}
+          {showObjectifBadge && question.objectifCMC && (
+            <Badge className="bg-objective-soft text-objective max-w-full truncate border-transparent">
+              {question.objectifCMC}
+            </Badge>
+          )}
 
-        {isExam && onFlagToggle && (
-          <Button
-            variant="ghost"
-            size="sm"
-            data-testid="btn-flag"
-            data-flagged={isFlagged}
-            aria-pressed={isFlagged}
-            onClick={onFlagToggle}
-            className={cn(
-              "ml-auto h-7 gap-1.5 border px-2 max-md:h-11",
-              isFlagged
-                ? "border-warning-line bg-warning-soft text-warning-ink hover:bg-warning-soft hover:text-warning-ink"
-                : "text-ink-3 border-transparent",
-            )}
-          >
-            <Flag
-              aria-hidden
-              className={cn("size-3.5", isFlagged && "fill-current")}
-            />
-            {isFlagged ? "Marquée" : "Marquer"}
-          </Button>
-        )}
-
-        {isReview && (
-          <div className="ml-auto flex items-center gap-2">
-            <span
+          {isExam && onFlagToggle && (
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="btn-flag"
+              data-flagged={isFlagged}
+              aria-pressed={isFlagged}
+              onClick={onFlagToggle}
               className={cn(
-                "flex items-center gap-1.5 text-sm font-medium",
-                TONE_TEXT[status.tone],
+                "ml-auto h-7 gap-1.5 border px-2 max-md:h-11",
+                isFlagged
+                  ? "border-warning-line bg-warning-soft text-warning-ink hover:bg-warning-soft hover:text-warning-ink"
+                  : "text-ink-3 border-transparent",
               )}
             >
-              <status.Icon aria-hidden className="size-4" />
-              {status.label}
-            </span>
-            {onToggleExpand && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={onToggleExpand}
-                aria-label={
-                  isExpanded ? "Réduire la question" : "Développer la question"
-                }
-                aria-expanded={isExpanded}
-                className="max-md:size-11"
-              >
-                <ChevronDown
-                  aria-hidden
-                  className={cn(isExpanded && "rotate-180")}
-                />
-              </Button>
-            )}
-          </div>
-        )}
-
-        {variant === "default" && actions.length > 0 && (
-          <div className="ml-auto">
-            <QuestionActions actions={actions} />
-          </div>
-        )}
-      </header>
-
-      <div className="flex flex-col gap-5 px-5 pt-6 pb-5">
-        <p
-          className={cn(
-            "font-serif text-lg leading-[1.65] text-pretty",
-            variant === "default" && "line-clamp-3 text-base",
+              <Flag
+                aria-hidden
+                className={cn("size-3.5", isFlagged && "fill-current")}
+              />
+              {isFlagged ? "Marquée" : "Marquer"}
+            </Button>
           )}
-        >
-          {question.question}
-        </p>
 
-        {showImages && (
-          <QuestionImageGallery
-            images={question.images}
-            size="md"
-            maxDisplay={4}
-          />
-        )}
+          {isReview && (
+            <div className="ml-auto flex items-center gap-2">
+              <span
+                className={cn(
+                  "flex items-center gap-1.5 text-sm font-medium",
+                  TONE_TEXT[status.tone],
+                )}
+              >
+                <status.Icon aria-hidden className="size-4" />
+                {status.label}
+              </span>
+              {onToggleExpand && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onToggleExpand}
+                  aria-label={
+                    isExpanded
+                      ? "Réduire la question"
+                      : "Développer la question"
+                  }
+                  aria-expanded={isExpanded}
+                  className="max-md:size-11"
+                >
+                  <ChevronDown
+                    aria-hidden
+                    className={cn(isExpanded && "rotate-180")}
+                  />
+                </Button>
+              )}
+            </div>
+          )}
 
-        {showOptions && (
-          <AnswerOptionList
-            options={question.options}
-            stateOf={stateOf}
-            onSelect={
-              isExam && onAnswerSelect && !isExamReveal && !isExamWithheld
-                ? onAnswerSelect
-                : undefined
-            }
-            disabled={disabled}
-            compact={variant === "default"}
-            className={cn(variant === "default" && "sm:grid sm:grid-cols-2")}
-          />
-        )}
+          {variant === "default" && actions.length > 0 && (
+            <div className="ml-auto">
+              <QuestionActions actions={actions} />
+            </div>
+          )}
+        </header>
 
-        {isReview && isExpanded && isFormerWording && (
-          <div
-            data-testid="former-wording-answer"
-            data-state={reviewStatus}
+        <div className="flex flex-col gap-5 px-5 pt-6 pb-5">
+          <p
             className={cn(
-              "rounded-md border p-3 text-sm",
-              isKeyWithheld
-                ? "border-line bg-surface-2 text-ink-2"
-                : isCorrect
-                  ? "border-success bg-success-soft text-ink"
-                  : "border-danger bg-danger-soft text-ink",
+              "font-serif text-lg leading-[1.65] text-pretty",
+              variant === "default" && "line-clamp-3 text-base",
             )}
           >
-            <p className="text-ink-3 font-mono text-[11px] font-medium tracking-[0.04em] uppercase">
-              Votre réponse (texte de l&apos;option modifié depuis)
-            </p>
-            <p className="mt-1 wrap-break-word">{userAnswer}</p>
-          </div>
-        )}
-
-        {isReview && isKeyCorrected && (
-          <p
-            data-testid="key-corrected-notice"
-            className="text-warning-ink text-sm"
-          >
-            La clé de cette question a été corrigée depuis votre réponse
+            {question.question}
           </p>
-        )}
 
-        {((isReview && isExpanded) || isExamWithheld) && isKeyWithheld && (
-          <KeyWithheldNotice />
-        )}
-      </div>
+          {showImages && (
+            <QuestionImageGallery
+              images={question.images}
+              size="md"
+              maxDisplay={4}
+            />
+          )}
 
-      {isReview &&
-        isExpanded &&
-        !isKeyWithheld &&
-        (explanation !== undefined ? (
-          <RevealPanels
-            explanation={explanation}
-            references={references}
-            images={explanationImages}
-          />
-        ) : (
-          <ExplanationSkeleton />
-        ))}
+          {showOptions && (
+            <AnswerOptionList
+              options={question.options}
+              stateOf={stateOf}
+              onSelect={
+                isExam && onAnswerSelect && !isExamReveal && !isExamWithheld
+                  ? onAnswerSelect
+                  : undefined
+              }
+              disabled={disabled}
+              compact={variant === "default"}
+              className={cn(variant === "default" && "sm:grid sm:grid-cols-2")}
+            />
+          )}
 
-      {/* Pas d'images d'explication en passation : canal réservé à la
+          {isReview && isExpanded && isFormerWording && (
+            <div
+              data-testid="former-wording-answer"
+              data-state={reviewStatus}
+              className={cn(
+                "rounded-md border p-3 text-sm",
+                isKeyWithheld
+                  ? "border-line bg-surface-2 text-ink-2"
+                  : isCorrect
+                    ? "border-success bg-success-soft text-ink"
+                    : "border-danger bg-danger-soft text-ink",
+              )}
+            >
+              <p className="text-ink-3 font-mono text-[11px] font-medium tracking-[0.04em] uppercase">
+                Votre réponse (texte de l&apos;option modifié depuis)
+              </p>
+              <p className="mt-1 wrap-break-word">{userAnswer}</p>
+            </div>
+          )}
+
+          {isReview && isKeyCorrected && (
+            <p
+              data-testid="key-corrected-notice"
+              className="text-warning-ink text-sm"
+            >
+              La clé de cette question a été corrigée depuis votre réponse
+            </p>
+          )}
+
+          {((isReview && isExpanded) || isExamWithheld) && isKeyWithheld && (
+            <KeyWithheldNotice />
+          )}
+        </div>
+
+        {isReview &&
+          isExpanded &&
+          !isKeyWithheld &&
+          (explanation !== undefined ? (
+            <RevealPanels
+              explanation={explanation}
+              references={references}
+              images={explanationImages}
+            />
+          ) : (
+            <ExplanationSkeleton />
+          ))}
+
+        {/* Pas d'images d'explication en passation : canal réservé à la
           correction (anti-triche). */}
-      {isExamReveal && explanation !== undefined && (
-        <RevealPanels explanation={explanation} references={references} />
-      )}
+        {isExamReveal && explanation !== undefined && (
+          <RevealPanels explanation={explanation} references={references} />
+        )}
+      </Fragment>
 
       {footer && (
         <footer className="border-line flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3">

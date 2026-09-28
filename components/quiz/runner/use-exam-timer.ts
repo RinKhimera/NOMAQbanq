@@ -22,6 +22,12 @@ export type UseExamTimerOptions = {
    */
   initialNow: number
   isPaused: boolean
+  /**
+   * Début de la pause en cours (instant serveur). Chargée en pause, la page
+   * fige le chrono à sa valeur de cet instant : le temps déjà passé en pause
+   * n'est pas encore dans `totalPauseDurationMs`, qui ne crédite qu'à la reprise.
+   */
+  pauseStartedAt?: number
   totalPauseDurationMs: number
   onExpire: () => void
 }
@@ -38,6 +44,7 @@ export function useExamTimer({
   totalSeconds,
   initialNow,
   isPaused,
+  pauseStartedAt,
   totalPauseDurationMs,
   onExpire,
 }: UseExamTimerOptions): UseExamTimerResult {
@@ -55,7 +62,9 @@ export function useExamTimer({
   )
 
   const [remainingMs, setRemainingMs] = useState<number>(() =>
-    computeRemaining(initialNow),
+    computeRemaining(
+      isPaused && pauseStartedAt !== undefined ? pauseStartedAt : initialNow,
+    ),
   )
   const now = useAnchoredClock(initialNow)
   const expiredRef = useRef(false)

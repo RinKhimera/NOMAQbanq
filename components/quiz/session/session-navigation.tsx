@@ -50,26 +50,17 @@ export const SessionNavigation = ({
       </Button>
       <div className="flex flex-wrap items-center justify-end gap-2">
         {children}
-        {isLast ? (
-          <Button
-            size="sm"
-            onClick={onFinish}
-            data-testid="btn-finish"
-            className="min-w-33 max-md:h-11"
-          >
-            {finishLabel}
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            onClick={onNext}
-            data-testid="btn-next"
-            className="min-w-33 max-md:h-11"
-          >
-            Suivante
-            <ArrowRight aria-hidden />
-          </Button>
-        )}
+        {/* Un seul bouton, dont le rôle change à la dernière question : deux
+            boutons distincts perdraient le focus clavier au passage. */}
+        <Button
+          size="sm"
+          onClick={isLast ? onFinish : onNext}
+          data-testid={isLast ? "btn-finish" : "btn-next"}
+          className="min-w-33 max-md:h-11"
+        >
+          {isLast ? finishLabel : "Suivante"}
+          {!isLast && <ArrowRight aria-hidden />}
+        </Button>
       </div>
     </div>
   )

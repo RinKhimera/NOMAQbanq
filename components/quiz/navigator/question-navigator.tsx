@@ -47,7 +47,7 @@ type NavigatorPanelProps = {
   /** Passation : la question affichée. Absent en correction. */
   currentIndex?: number
   onSelect: (index: number) => void
-  /** 8 en examen blanc ; 6 au plus sous 768 px, pour des cibles de 44 px. */
+  /** 8 en examen blanc ; 6 sous 768 px et 5 sous 400 px, pour des cibles de 44 px. */
   columns: 5 | 8
   kind: "passation" | "correction"
   title?: string
@@ -87,7 +87,9 @@ export const NavigatorPanel = ({
       <ol
         className={cn(
           "grid max-h-[min(52vh,460px)] gap-1 overflow-y-auto p-0.5",
-          columns === 8 ? "grid-cols-8 max-md:grid-cols-6" : "grid-cols-5",
+          columns === 8
+            ? "grid-cols-8 max-[400px]:grid-cols-5 max-md:grid-cols-6"
+            : "grid-cols-5",
         )}
       >
         {cells.map((cell, index) => {
@@ -106,7 +108,7 @@ export const NavigatorPanel = ({
                 data-testid={
                   kind === "correction"
                     ? `results-nav-item-${index}`
-                    : undefined
+                    : `nav-item-${index}`
                 }
                 data-state={cell.state}
                 aria-label={label}
@@ -204,6 +206,7 @@ export const NavigatorSheet = ({
         <Button
           variant="outline"
           size="sm"
+          data-testid="btn-questions"
           className={cn("max-md:h-11", triggerClassName)}
         >
           <LayoutGrid aria-hidden />

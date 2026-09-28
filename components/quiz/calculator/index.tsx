@@ -115,13 +115,15 @@ export const Calculator = ({
     let handled = true
     if (/^[0-9]$/.test(key)) inputNumber(key)
     else if (key in OPERATOR_SYMBOL) inputOperator(key as Operator)
-    else if (key === "Enter" || key === "=") calculate()
+    // Entrée sur un bouton du panneau l'active (Fermer compris) ; elle ne
+    // calcule que depuis le panneau lui-même.
+    else if ((key === "Enter" && e.target === e.currentTarget) || key === "=")
+      calculate()
     else if (key === "Backspace" || key === "Delete") backspace()
     else if (key === "." || key === ",") inputDecimal()
     else if (key === "c" || key === "C") clear()
     else if (key === "Escape") close()
     else handled = false
-    // Entrée sur un bouton du panneau : on calcule, sans « cliquer » la touche.
     if (handled) e.preventDefault()
   }
 
@@ -149,7 +151,9 @@ export const Calculator = ({
       aria-labelledby={titleId}
       tabIndex={-1}
       onKeyDown={handleKeyDown}
-      className="bg-surface shadow-pop fixed right-4 bottom-4 z-30 w-70 overflow-hidden rounded-lg outline-none"
+      // Sous 1024 px, la carte occupe toute la largeur : en bas, le panneau
+      // masquerait son pied (« Suivante »). Il se pose sous l'en-tête.
+      className="bg-surface shadow-pop fixed top-[calc(var(--shell-offset,0px)+4rem)] right-4 z-30 w-70 overflow-hidden rounded-lg outline-none lg:top-auto lg:bottom-4"
     >
       <div className="border-line flex items-center border-b py-1.5 pr-1.5 pl-3">
         <span

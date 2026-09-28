@@ -17,12 +17,16 @@ type PanelProps = {
   label: string
   count?: number
   defaultOpen: boolean
+  testId: string
   children: ReactNode
 }
 
-const Panel = ({ label, count, defaultOpen, children }: PanelProps) => (
+const Panel = ({ label, count, defaultOpen, testId, children }: PanelProps) => (
   <Collapsible defaultOpen={defaultOpen} className="border-line border-t">
-    <CollapsibleTrigger className="focus-ring group hover:bg-surface-2 flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 px-5 py-3 text-left transition-colors duration-(--duration-fast)">
+    <CollapsibleTrigger
+      data-testid={testId}
+      className="focus-ring group hover:bg-surface-2 flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 px-5 py-3 text-left transition-colors duration-(--duration-fast)"
+    >
       <span className="text-ink-3 font-mono text-xs font-medium tracking-[0.06em] uppercase">
         {label}
         {count !== undefined && <span> · {count}</span>}
@@ -54,7 +58,7 @@ export const RevealPanels = ({
 }: RevealPanelsProps) => (
   <div className="bg-surface-2">
     <div data-testid="explanation-content">
-      <Panel label="Explication" defaultOpen>
+      <Panel label="Explication" defaultOpen testId="panel-explanation">
         <CorrectionExplanation
           explanation={explanation}
           references={references}
@@ -64,7 +68,12 @@ export const RevealPanels = ({
       </Panel>
     </div>
     {references.length > 0 && (
-      <Panel label="Références" count={references.length} defaultOpen={false}>
+      <Panel
+        label="Références"
+        count={references.length}
+        defaultOpen={false}
+        testId="panel-references"
+      >
         <CorrectionReferences
           references={references}
           className="text-ink-2 text-[13px] leading-normal"

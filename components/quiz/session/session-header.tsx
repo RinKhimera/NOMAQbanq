@@ -96,7 +96,7 @@ export const SessionHeader = ({
             onClick={onPause}
             data-testid="btn-pause"
             aria-label="Mettre en pause l'examen"
-            className="max-md:size-11 max-md:px-0 @max-[680px]:size-8 @max-[680px]:px-0"
+            className="max-md:size-11 max-md:px-0"
           >
             <Pause aria-hidden className="size-3.5" />
             <span className="hidden @min-[680px]:inline">Pause</span>

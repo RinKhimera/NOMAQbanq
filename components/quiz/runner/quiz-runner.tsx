@@ -182,6 +182,7 @@ function QuizRunnerInner({
         onPause={
           canTakePause
             ? () => {
+                setIsCalculatorOpen(false)
                 void session.pause()
               }
             : undefined
@@ -237,7 +238,6 @@ function QuizRunnerInner({
 
             {currentQuestion && (
               <QuestionCard
-                key={currentQuestion._id}
                 question={withReveal(currentQuestion)}
                 variant="exam"
                 questionNumber={session.currentIndex + 1}

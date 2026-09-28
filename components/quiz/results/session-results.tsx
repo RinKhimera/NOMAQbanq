@@ -462,7 +462,7 @@ export function SessionResults({
                 key={result.question._id}
                 id={`sr-question-${originalIndex}`}
                 tabIndex={-1}
-                className="scroll-mt-[calc(var(--shell-offset,0px)+6rem)] rounded-lg outline-none"
+                className="scroll-mt-[calc(var(--shell-offset,0px)+7rem)] rounded-lg outline-none"
               >
                 <QuestionCard
                   variant="review"
@@ -490,7 +490,7 @@ export function SessionResults({
         </div>
       </div>
 
-      <aside className="bg-surface border-line sticky top-[calc(var(--shell-offset,0px)+6rem)] hidden w-75 shrink-0 rounded-lg border p-5 lg:block">
+      <aside className="bg-surface border-line sticky top-[calc(var(--shell-offset,0px)+7rem)] hidden w-75 shrink-0 rounded-lg border p-5 lg:block">
         <NavigatorPanel {...navigator} title="Navigation" />
       </aside>
     </div>
@@ -556,11 +556,13 @@ export function SessionResultsHeader({
             <h1 className="text-ink truncate font-serif text-2xl font-semibold">
               {title}
             </h1>
-            {subtitle && <p className="text-ink-3 text-sm">{subtitle}</p>}
+            {subtitle && (
+              <p className="text-ink-3 truncate text-sm">{subtitle}</p>
+            )}
             {percentile != null && (
               <p
                 data-testid="exam-percentile"
-                className="text-accent-ink text-sm font-medium"
+                className="text-accent-ink truncate text-sm font-medium"
               >
                 {formatPercentile(percentile, percentileSubject)}
               </p>

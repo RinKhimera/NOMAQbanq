@@ -131,9 +131,11 @@ export class EntrainementPage extends BasePage {
     ).toBeVisible({ timeout: 15_000 })
   }
 
-  /** Click a navigator item (shared ResultsQuestionNavigator testid) */
+  /** Clique une case du navigateur de correction. */
   async clickNavItem(index: number) {
-    await this.page.getByTestId(`results-nav-item-${index}`).first().click()
+    await this.page
+      .locator(`[data-testid="results-nav-item-${index}"]:visible`)
+      .click()
   }
 
   /**

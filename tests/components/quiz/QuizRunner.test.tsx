@@ -5,6 +5,7 @@ import {
   waitFor,
   within,
 } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import { QuizRunner } from "@/components/quiz/runner/quiz-runner"
 import type {
@@ -157,5 +158,96 @@ describe("QuizRunner", () => {
       screen.queryByRole("dialog", { name: "Calculatrice" }),
     ).not.toBeInTheDocument()
     expect(button).toHaveFocus()
+  })
+
+  it("« Suivante » garde le focus clavier d'une question à l'autre, jusqu'à la fin de la série", () => {
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{}}
+        mode={mode()}
+        callbacks={callbacks()}
+      />,
+    )
+
+    const next = screen.getByTestId("btn-next")
+    next.focus()
+    fireEvent.click(next)
+    expect(screen.getByText("Vignette q2")).toBeInTheDocument()
+    expect(screen.getByTestId("btn-next")).toHaveFocus()
+
+    fireEvent.click(screen.getByTestId("btn-next"))
+    expect(screen.getByTestId("btn-finish")).toHaveFocus()
+  })
+
+  it("mode tuteur : l'explication repliée sur une question est rouverte sur la suivante", () => {
+    const reveal = {
+      correctAnswer: "Aspirine",
+      explanation: "Parce que.",
+      references: [],
+    }
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{
+          q1: { selected: "Héparine", isCorrect: false },
+          q2: { selected: "Aspirine", isCorrect: true },
+        }}
+        initialRevealed={{ q1: reveal, q2: reveal }}
+        mode={mode({ feedback: "immediate" })}
+        callbacks={callbacks()}
+      />,
+    )
+
+    fireEvent.click(screen.getByTestId("panel-explanation"))
+    expect(screen.getByTestId("panel-explanation")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    )
+    fireEvent.click(screen.getByTestId("btn-next"))
+    expect(screen.getByText("Vignette q2")).toBeInTheDocument()
+    expect(screen.getByTestId("panel-explanation")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    )
+  })
+
+  it("les flèches pilotent un panneau ouvert sans changer la question derrière", () => {
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{}}
+        mode={mode()}
+        callbacks={callbacks()}
+      />,
+    )
+
+    fireEvent.click(screen.getByTestId("btn-calculator"))
+    const panel = screen.getByRole("dialog", { name: "Calculatrice" })
+    fireEvent.keyDown(panel, { key: "ArrowRight" })
+    expect(screen.getByText("Vignette q1")).toBeInTheDocument()
+
+    // Jumeau : hors panneau, la flèche change bien de question.
+    fireEvent.keyDown(document.body, { key: "ArrowRight" })
+    expect(screen.getByText("Vignette q2")).toBeInTheDocument()
+  })
+
+  it("Entrée sur « Fermer la calculatrice » la ferme au lieu de calculer", async () => {
+    const user = userEvent.setup()
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{}}
+        mode={mode()}
+        callbacks={callbacks()}
+      />,
+    )
+
+    await user.click(screen.getByTestId("btn-calculator"))
+    screen.getByRole("button", { name: "Fermer la calculatrice" }).focus()
+    await user.keyboard("{Enter}")
+    expect(
+      screen.queryByRole("dialog", { name: "Calculatrice" }),
+    ).not.toBeInTheDocument()
   })
 })

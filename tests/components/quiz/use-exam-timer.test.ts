@@ -8,6 +8,24 @@ beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
 describe("useExamTimer", () => {
+  it("chargé en pleine pause : le chrono reste figé à sa valeur du début de la pause", () => {
+    const start = 1_000_000
+    const pauseStartedAt = start + 20 * 60_000
+    const { result } = renderHook(() =>
+      useExamTimer({
+        serverStartTime: start,
+        // Rechargement 6 min après le début de la pause.
+        initialNow: pauseStartedAt + 6 * 60_000,
+        totalSeconds: 3600,
+        isPaused: true,
+        pauseStartedAt,
+        totalPauseDurationMs: 0,
+        onExpire: vi.fn(),
+      }),
+    )
+    expect(result.current.remainingMs).toBe(40 * 60_000)
+  })
+
   it("décompte et déclenche onExpire à 0", () => {
     const onExpire = vi.fn()
     const start = Date.now()

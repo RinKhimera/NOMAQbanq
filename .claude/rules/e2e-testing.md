@@ -108,9 +108,11 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
 - **Passation** : « Question 3 / 10 » figure dans la barre ET dans la carte →
   `getByRole("heading", { name: "Question 3 / 10" })` (la carte). Le titre de la
   série ou de l'examen est le `h1` de la page. Sous 1024 px, le navigateur de
-  questions vit dans le Sheet ouvert par le bouton « Questions » ; la colonne
-  masquée reste dans le DOM, d'où `results-nav-item-{i}` en double quand le
-  Sheet est ouvert.
+  questions vit dans le Sheet ouvert par `btn-questions` ; la colonne masquée
+  reste dans le DOM, d'où des cases en double quand le Sheet est ouvert → viser
+  `[data-testid="results-nav-item-{i}"]:visible` (passation : `nav-item-{i}`).
+  Panneaux de correction : `panel-explanation`, `panel-references`
+  (`aria-expanded`).
 
 - **Navigation des coquilles par rôle et nom** :
   `getByRole("navigation", { name: "Navigation de l'espace étudiant" })` (ou
