@@ -2,11 +2,11 @@
 
 import { CircleHelp } from "lucide-react"
 import { Eye, Image as ImageIcon } from "lucide-react"
-import { TablePagination } from "@/components/admin/table-pagination"
 import {
   DataTable,
   type DataTableColumn,
 } from "@/components/shared/data-table/data-table"
+import { TablePagination } from "@/components/shared/data-table/table-pagination"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

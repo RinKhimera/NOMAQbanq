@@ -1,18 +1,19 @@
 "use client"
 
-import { ChevronLeft, ChevronRight, FileText } from "lucide-react"
+import { FileText } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import QuestionDetailsDialog from "@/components/admin/question-details-dialog"
 import { QuestionCard, createViewAction } from "@/components/quiz/question-card"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
-import { Button } from "@/components/ui/button"
+import { TablePagination } from "@/components/shared/data-table/table-pagination"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { EmptyState } from "@/components/ui/empty-state"
 import { loadQuestionById } from "@/features/questions/actions"
 import type { QuestionDetail } from "@/features/questions/dal"
 
@@ -33,7 +34,7 @@ export function ExamQuestionsModal({
   onOpenChange,
   enableDetails = false,
 }: ExamQuestionsModalProps) {
-  const [currentPage, setCurrentPage] = useState(0)
+  const [page, setPage] = useState(1)
   // Détails à la demande : on charge le doc complet (avec explication jointe
   // côté serveur) via loadQuestionById quand l'admin ouvre une question.
   const [selectedQuestion, setSelectedQuestion] =
@@ -41,7 +42,7 @@ export function ExamQuestionsModal({
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const totalPages = Math.ceil(questions.length / QUESTIONS_PER_PAGE)
-  const startIndex = currentPage * QUESTIONS_PER_PAGE
+  const startIndex = (page - 1) * QUESTIONS_PER_PAGE
   const currentQuestions = questions.slice(
     startIndex,
     startIndex + QUESTIONS_PER_PAGE,
@@ -72,8 +73,8 @@ export function ExamQuestionsModal({
               <div className="flex flex-col gap-1">
                 <span>Questions liées à l&apos;examen</span>
                 <span className="text-xs font-normal text-gray-500">
-                  Page {currentPage + 1} sur {totalPages || 1} (
-                  {questions.length} questions)
+                  Page {page} sur {totalPages || 1} ({questions.length}{" "}
+                  questions)
                 </span>
               </div>
             </DialogTitle>
@@ -83,9 +84,7 @@ export function ExamQuestionsModal({
           <div className="flex-1 overflow-y-auto p-4">
             <div className="space-y-4">
               {questions.length === 0 ? (
-                <div className="text-center text-gray-500">
-                  Aucune question trouvée
-                </div>
+                <EmptyState size="compact" title="Aucune question trouvée" />
               ) : (
                 currentQuestions.map((q, index) => (
                   <QuestionCard
@@ -106,33 +105,14 @@ export function ExamQuestionsModal({
             </div>
           </div>
 
-          {/* Fixed footer with pagination */}
-          <div className="bg-card sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t p-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
-              disabled={currentPage === 0}
-            >
-              <ChevronLeft className="mr-1 h-4 w-4" />
-              Précédent
-            </Button>
-
-            <span className="text-sm text-gray-600 dark:text-gray-400">
-              Page {currentPage + 1} / {totalPages || 1}
-            </span>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
-              }
-              disabled={currentPage === totalPages - 1}
-            >
-              Suivant
-              <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
+          <div className="bg-card sticky bottom-0 z-10">
+            <TablePagination
+              page={page}
+              pageSize={QUESTIONS_PER_PAGE}
+              total={questions.length}
+              onPageChange={setPage}
+              itemNoun={{ one: "question", many: "questions" }}
+            />
           </div>
         </DialogContent>
       </Dialog>
