@@ -1,12 +1,16 @@
 import { act, renderHook } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { useCheckout } from "@/hooks/use-checkout"
+import { NETWORK_ERROR_MESSAGE } from "@/lib/safe-action"
 
 const createStripeCheckout = vi.hoisted(() => vi.fn())
 const toastError = vi.hoisted(() => vi.fn())
 
 vi.mock("@/features/payments/actions", () => ({ createStripeCheckout }))
 vi.mock("sonner", () => ({ toast: { error: toastError } }))
+vi.mock("next/navigation", () => ({
+  unstable_isUnrecognizedActionError: () => false,
+}))
 
 const paths = { successPath: "/succes", cancelPath: "/tarifs" }
 
@@ -54,5 +58,13 @@ describe("useCheckout", () => {
     await act(() => result.current.checkout("x", paths))
     expect(toastError).toHaveBeenCalledWith("Produit invalide")
     expect(assign).not.toHaveBeenCalled()
+  })
+
+  it("une panne réseau devient un message, jamais un rejet", async () => {
+    createStripeCheckout.mockRejectedValue(new Error("Failed to fetch"))
+    const { result } = renderHook(() => useCheckout())
+    await act(() => result.current.checkout("x", paths))
+    expect(toastError).toHaveBeenCalledWith(NETWORK_ERROR_MESSAGE)
+    expect(result.current.pendingProduct).toBeNull()
   })
 })

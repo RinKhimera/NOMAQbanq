@@ -55,7 +55,12 @@ export function EmptyState({
           </p>
         )}
         {action && (
-          <Button onClick={action.onClick} variant="outline" className="mt-4">
+          <Button
+            type="button"
+            onClick={action.onClick}
+            variant="outline"
+            className="mt-4"
+          >
             {action.label}
           </Button>
         )}
@@ -129,6 +134,7 @@ export function EmptyState({
       )}
       {action && (
         <Button
+          type="button"
           onClick={action.onClick}
           variant="outline"
           className={cn("mt-4", "shadow-sm active:shadow-none")}

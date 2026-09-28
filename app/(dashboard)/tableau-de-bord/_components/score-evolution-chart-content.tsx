@@ -14,7 +14,7 @@ import {
 } from "recharts"
 import { EmptyState } from "@/components/ui/empty-state"
 import { formatExpiration } from "@/lib/format"
-import { isPassing } from "@/lib/score"
+import { PASS_THRESHOLD, isPassing } from "@/lib/score"
 
 interface ScoreHistoryItem {
   examId: string
@@ -222,9 +222,8 @@ export const ScoreEvolutionChartContent = ({
                 r: 7,
               }}
             />
-            {/* Pass threshold line at 60% */}
             <ReferenceLine
-              y={60}
+              y={PASS_THRESHOLD}
               stroke="#10B981"
               strokeDasharray="5 5"
               strokeWidth={2}
@@ -242,7 +241,7 @@ export const ScoreEvolutionChartContent = ({
         <div className="flex items-center gap-2">
           <div className="h-0.5 w-6 bg-emerald-500" />
           <span className="text-gray-600 dark:text-gray-400">
-            Seuil de réussite (60%)
+            Seuil de réussite ({PASS_THRESHOLD}%)
           </span>
         </div>
       </div>

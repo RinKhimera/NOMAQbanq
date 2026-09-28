@@ -14,7 +14,9 @@ describe("AccessCard", () => {
         access={{ expiresAt: 1_000, daysRemaining: 45 }}
       />,
     )
-    expect(screen.getByText("Examens Simulés")).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "Examens Simulés" }),
+    ).toBeInTheDocument()
     expect(screen.getByText("45 jours")).toBeInTheDocument()
     expect(
       screen.getByRole("progressbar", { name: "45 jours restants" }),

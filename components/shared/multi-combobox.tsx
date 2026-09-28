@@ -116,6 +116,7 @@ export function MultiCombobox<T>({
           type="button"
           variant="ghost"
           size="sm"
+          disabled={disabled}
           onClick={() => onChange([])}
           className="h-7 text-xs text-gray-500 hover:text-gray-700"
         >

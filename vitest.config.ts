@@ -107,7 +107,6 @@ export default defineConfig({
         "components/admin/exams-list.tsx",
         "components/admin/questions-list.tsx",
         "components/admin/question-browser/**",
-        "components/admin/modals/**",
         // Quiz tools (complex UI, low logic)
         "components/quiz/calculator/**",
         "components/quiz/lab-values/**",

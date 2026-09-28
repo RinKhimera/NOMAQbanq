@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button"
 import type { QuestionExplanationView } from "@/features/exams/dal"
 import { useIsVisible } from "@/hooks/use-is-visible"
 import {
+  PASS_THRESHOLD,
   SCORE_TONE_TEXT,
   type ScoreTone,
   classify,
@@ -515,7 +516,7 @@ export function SessionResults({
                       Progression
                     </span>
                     <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Seuil de réussite : 60%
+                      Seuil de réussite : {PASS_THRESHOLD}%
                     </span>
                   </div>
                   <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
@@ -525,10 +526,9 @@ export function SessionResults({
                       transition={{ duration: 1, ease: "easeOut" }}
                       className={cn("h-full rounded-full", style.progress)}
                     />
-                    {/* 60% marker */}
                     <div
                       className="absolute top-0 h-full w-0.5 bg-gray-900/30 dark:bg-white/30"
-                      style={{ left: "60%" }}
+                      style={{ left: `${PASS_THRESHOLD}%` }}
                     />
                   </div>
                 </div>

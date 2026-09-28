@@ -94,14 +94,14 @@ export const AccessCard = ({
             />
           </div>
           <div>
-            <p
+            <h3
               className={cn(
                 "text-gray-900 dark:text-white",
                 compact ? "font-medium" : "font-semibold",
               )}
             >
               {config.label}
-            </p>
+            </h3>
             {!compact && (
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 {config.description}

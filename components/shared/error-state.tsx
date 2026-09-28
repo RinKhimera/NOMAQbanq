@@ -31,6 +31,8 @@ export const ErrorState = ({
   details,
   variant = "inline",
 }: ErrorStateProps) => {
+  // Un seul h1 par page : la variante intégrée vit sous l'en-tête de la page.
+  const Heading = variant === "page" ? "h1" : "h2"
   const retry = retryHref ? (
     <Button asChild className="gap-2">
       <Link href={retryHref}>
@@ -65,9 +67,9 @@ export const ErrorState = ({
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
           <Icon className="h-8 w-8 text-red-600 dark:text-red-400" />
         </div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+        <Heading className="text-xl font-semibold text-gray-900 dark:text-white">
           {title}
-        </h1>
+        </Heading>
         {description && (
           <p className="text-gray-600 dark:text-gray-400">{description}</p>
         )}
