@@ -6,6 +6,10 @@ import {
   DataTable,
   type DataTableColumn,
 } from "@/components/shared/data-table/data-table"
+import {
+  AccessBadge,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
@@ -41,53 +45,21 @@ interface UsersTableProps {
   footer?: ReactNode
 }
 
-function AccessBadge({
+function UserAccessBadge({
   type,
   access,
 }: {
   type: "exam" | "training"
   access: AccessInfo | null
 }) {
-  if (!access) {
-    return (
-      <Badge
-        variant="outline"
-        className="border-gray-200 text-gray-400 dark:border-gray-700"
-      >
-        {type === "exam" ? "Exam" : "Train"}: -
-      </Badge>
-    )
-  }
-
-  const isExpiringSoon = access.daysRemaining <= 7
-  const label = type === "exam" ? "Exam" : "Train"
-
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Badge
-            variant="outline"
-            className={cn(
-              "cursor-help",
-              isExpiringSoon
-                ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-                : type === "exam"
-                  ? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
-                  : "border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-600 dark:bg-teal-900/30 dark:text-teal-400",
-            )}
-          >
-            {label}: {access.daysRemaining}j
-          </Badge>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>
-            Expire dans {access.daysRemaining} jour
-            {access.daysRemaining > 1 ? "s" : ""}
-          </p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <AccessBadge
+      accessType={type}
+      status={getAccessStatus(access?.expiresAt, access?.daysRemaining)}
+      daysRemaining={access?.daysRemaining}
+      size="sm"
+      showDetails
+    />
   )
 }
 
@@ -184,8 +156,8 @@ export function UsersTable({
       label: "Accès",
       cell: (user) => (
         <div className="flex gap-1.5">
-          <AccessBadge type="exam" access={user.examAccess} />
-          <AccessBadge type="training" access={user.trainingAccess} />
+          <UserAccessBadge type="exam" access={user.examAccess} />
+          <UserAccessBadge type="training" access={user.trainingAccess} />
         </div>
       ),
     },

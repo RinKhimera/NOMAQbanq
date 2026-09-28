@@ -2,13 +2,16 @@
 
 import {
   IconAlertCircle,
-  IconClock,
   IconMail,
   IconSearch,
   IconUsers,
 } from "@tabler/icons-react"
 import { motion } from "motion/react"
 import { useMemo, useState } from "react"
+import {
+  AccessBadge,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -144,8 +147,7 @@ interface CandidateRowProps {
 function CandidateRow({ candidate, index }: CandidateRowProps) {
   const { user, expiresAt, daysRemaining } = candidate
 
-  const isExpiringSoon = daysRemaining <= 7
-  const isExpiringVerySoon = daysRemaining <= 3
+  const status = getAccessStatus(expiresAt, daysRemaining)
 
   return (
     <motion.div
@@ -174,19 +176,13 @@ function CandidateRow({ candidate, index }: CandidateRowProps) {
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-1">
-        {isExpiringSoon ? (
-          <Badge
-            variant="outline"
-            className={cn(
-              "font-medium",
-              isExpiringVerySoon
-                ? "border-red-200 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-400"
-                : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
-            )}
-          >
-            <IconClock className="mr-1 h-3 w-3" />
-            {daysRemaining}j restants
-          </Badge>
+        {status === "expiring" ? (
+          <AccessBadge
+            accessType="exam"
+            status={status}
+            daysRemaining={daysRemaining}
+            size="sm"
+          />
         ) : (
           <span className="text-xs text-gray-400">
             Expire le {formatMediumDate(expiresAt)}

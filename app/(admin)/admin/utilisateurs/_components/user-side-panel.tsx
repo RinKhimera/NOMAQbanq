@@ -8,19 +8,17 @@ import {
   ExternalLink,
   Mail,
   Plus,
-  Sparkles,
   User,
-  Zap,
 } from "lucide-react"
 import { motion } from "motion/react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { AccessCard } from "@/components/shared/payments/access-card"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import {
   Sheet,
   SheetContent,
@@ -61,110 +59,6 @@ interface UserSidePanelProps {
   users: SelectableUser[]
   /** Appelé après un octroi d'accès → laisse le parent rafraîchir la liste. */
   onMutated?: () => void
-}
-
-const accessTypeConfig = {
-  exam: {
-    icon: Zap,
-    label: "Examens Simulés",
-    gradient: "from-blue-600 to-indigo-600",
-    bgGradient:
-      "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30",
-  },
-  training: {
-    icon: Sparkles,
-    label: "Banque d'Entraînement",
-    gradient: "from-emerald-600 to-teal-600",
-    bgGradient:
-      "from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30",
-  },
-}
-
-function AccessCard({
-  type,
-  access,
-}: {
-  type: "exam" | "training"
-  access: {
-    expiresAt: number
-    daysRemaining: number
-    isActive: boolean
-  } | null
-}) {
-  const config = accessTypeConfig[type]
-  const Icon = config.icon
-  const isActive = access?.isActive ?? false
-  const progressPercent = access
-    ? Math.min((access.daysRemaining / 180) * 100, 100)
-    : 0
-
-  return (
-    <div
-      className={cn(
-        "rounded-xl border p-3 transition-all",
-        isActive
-          ? "border-transparent bg-white shadow-sm dark:bg-gray-800"
-          : "border-dashed border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30",
-      )}
-    >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              "flex h-7 w-7 items-center justify-center rounded-lg",
-              isActive
-                ? cn("bg-linear-to-br", config.gradient)
-                : "bg-gray-200 dark:bg-gray-700",
-            )}
-          >
-            <Icon
-              className={cn(
-                "h-3.5 w-3.5",
-                isActive ? "text-white" : "text-gray-400",
-              )}
-            />
-          </div>
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
-            {config.label}
-          </span>
-        </div>
-        {isActive && access ? (
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-xs",
-              access.daysRemaining <= 7
-                ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-                : "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
-            )}
-          >
-            {access.daysRemaining}j restants
-          </Badge>
-        ) : (
-          <Badge
-            variant="outline"
-            className="border-gray-200 text-xs text-gray-400 dark:border-gray-700"
-          >
-            Aucun accès
-          </Badge>
-        )}
-      </div>
-
-      {isActive && access && (
-        <div className="mt-3 space-y-2">
-          <Progress
-            value={progressPercent}
-            className="h-1.5"
-            aria-label={`${access.daysRemaining} jours restants`}
-          />
-          <p className="flex items-center gap-1.5 text-xs text-gray-500">
-            <Calendar className="h-3 w-3" />
-            Expire le {formatExpiration(access.expiresAt)}
-          </p>
-        </div>
-      )}
-    </div>
-  )
 }
 
 function TransactionItem({ transaction }: { transaction: PanelTransaction }) {
@@ -410,8 +304,8 @@ function PanelContent({
               Ajouter
             </Button>
           </div>
-          <AccessCard type="exam" access={examAccess} />
-          <AccessCard type="training" access={trainingAccess} />
+          <AccessCard type="exam" access={examAccess} size="compact" />
+          <AccessCard type="training" access={trainingAccess} size="compact" />
         </div>
 
         {/* Transactions Section */}

@@ -1,123 +1,15 @@
 "use client"
 
-import { Calendar, Clock, Plus, Sparkles, Zap } from "lucide-react"
+import { Clock, Plus } from "lucide-react"
 import { motion } from "motion/react"
-import {
-  AccessBadge,
-  getAccessStatus,
-} from "@/components/shared/payments/access-badge"
+import { AccessCard } from "@/components/shared/payments/access-card"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import type { AccessInfo } from "@/features/payments/dal"
-import { formatExpiration } from "@/lib/format"
-import { cn } from "@/lib/utils"
 
 interface UserAccessSectionProps {
   examAccess: AccessInfo
   trainingAccess: AccessInfo
   onAddAccess: () => void
-}
-
-const accessTypeConfig = {
-  exam: {
-    icon: Zap,
-    label: "Examens Simulés",
-    gradient: "from-blue-600 to-indigo-600",
-    lightGradient:
-      "from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30",
-  },
-  training: {
-    icon: Sparkles,
-    label: "Banque d'Entraînement",
-    gradient: "from-emerald-600 to-teal-600",
-    lightGradient:
-      "from-emerald-50 to-teal-50 dark:from-emerald-950/30 dark:to-teal-950/30",
-  },
-}
-
-const AccessCard = ({
-  type,
-  access,
-}: {
-  type: "exam" | "training"
-  access: { expiresAt: number; daysRemaining: number } | null
-}) => {
-  const config = accessTypeConfig[type]
-  const Icon = config.icon
-  const status = getAccessStatus(access?.expiresAt, access?.daysRemaining)
-  const isActive = status === "active" || status === "expiring"
-  const progressPercent = access
-    ? Math.min((access.daysRemaining / 180) * 100, 100)
-    : 0
-
-  return (
-    <div
-      className={cn(
-        "rounded-xl border p-4 transition-all",
-        isActive
-          ? "border-transparent bg-white shadow-md dark:bg-gray-900"
-          : "border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30",
-      )}
-    >
-      {/* Header */}
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              "flex h-8 w-8 items-center justify-center rounded-lg",
-              isActive
-                ? cn("bg-linear-to-br", config.gradient)
-                : "bg-gray-200 dark:bg-gray-700",
-            )}
-          >
-            <Icon
-              className={cn(
-                "h-4 w-4",
-                isActive ? "text-white" : "text-gray-400",
-              )}
-            />
-          </div>
-          <span className="font-medium text-gray-900 dark:text-white">
-            {config.label}
-          </span>
-        </div>
-        <AccessBadge
-          accessType={type}
-          status={status}
-          daysRemaining={access?.daysRemaining}
-          size="sm"
-        />
-      </div>
-
-      {/* Details for active access */}
-      {isActive && access && (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-              <span>Temps restant</span>
-              <span>{access.daysRemaining} jours</span>
-            </div>
-            <Progress
-              value={progressPercent}
-              className="h-1.5"
-              aria-label={`${access.daysRemaining} jours restants`}
-            />
-          </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <Calendar className="h-3.5 w-3.5" />
-            Expire le {formatExpiration(access.expiresAt)}
-          </div>
-        </div>
-      )}
-
-      {/* Inactive state */}
-      {!isActive && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Aucun accès actif
-        </p>
-      )}
-    </div>
-  )
 }
 
 export const UserAccessSection = ({
@@ -149,8 +41,8 @@ export const UserAccessSection = ({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <AccessCard type="exam" access={examAccess} />
-        <AccessCard type="training" access={trainingAccess} />
+        <AccessCard type="exam" access={examAccess} size="compact" />
+        <AccessCard type="training" access={trainingAccess} size="compact" />
       </div>
     </motion.div>
   )
