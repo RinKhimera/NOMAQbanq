@@ -53,7 +53,7 @@ ni le thème sombre ni un changement de charte.
 | Ombres                                | `shadow-1` (cartes), `shadow-2`, `shadow-pop` (flottants)                                                                                                                          |
 | Rayons                                | `rounded-xs` 2 px badges · `rounded-sm` 3 px lettres A–E · `rounded-md` 4 px contrôles · `rounded-lg` 6 px cartes et dialogues · `rounded-full` avatar, switch, compteur seulement |
 | Polices                               | `font-sans` (IBM Plex Sans, défaut), `font-serif` (Source Serif 4 : titres, vignettes, grands chiffres), `font-mono` (IBM Plex Mono : libellés, chiffres, chrono, ID)              |
-| Anneau de focus                       | `focus-visible:shadow-focus` (jeton `--focus-ring`), sur tout contrôle                                                                                                             |
+| Anneau de focus                       | `focus-ring` (utilitaire sur le jeton `--focus-ring`), sur tout contrôle                                                                                                           |
 
 Les alias shadcn (`bg-primary`, `text-muted-foreground`, `border-border`,
 `bg-destructive`…) pointent vers ces jetons : ils restent valides jusqu'à la
