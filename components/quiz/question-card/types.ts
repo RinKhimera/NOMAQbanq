@@ -1,80 +1,65 @@
+import type { ReactNode } from "react"
 import type { QuizImage, QuizQuestion } from "@/components/quiz/runner/types"
 
-// ===== Variant Types =====
 export type QuestionCardVariant = "default" | "exam" | "review"
 
-// ===== Question shape =====
 // La forme-pont appartient au moteur de quiz (`runner/types.ts`) ; la carte la
 // consomme telle quelle. `explanation`/`references` peuvent être absents et
 // arriver en différé via `lazy*`.
 export type { QuizQuestion } from "@/components/quiz/runner/types"
 
-// ===== Action Types =====
 export type QuestionActionType =
   "view" | "edit" | "delete" | "add" | "remove" | "permanent-delete"
 
 export type ActionConfig = {
   type: QuestionActionType
   label: string
-  icon: React.ReactNode
+  icon: ReactNode
   variant?: "default" | "destructive"
   onClick: () => void
 }
 
-// ===== Answer Option Types =====
-export type AnswerState =
-  | "default"
-  | "selected"
-  | "correct"
-  | "incorrect"
-  | "user-correct"
-  | "user-incorrect"
+/**
+ * `muted` : choix ni retenu ni juste, une fois la correction affichée. Une clé
+ * retenue n'a pas d'état propre : la réponse reste `selected`, rien n'est
+ * corrigé.
+ */
+export type AnswerOptionState =
+  "default" | "selected" | "correct" | "incorrect" | "muted"
 
 export type AnswerOptionProps = {
   option: string
   index: number
-  state: AnswerState
+  state: AnswerOptionState
   onClick?: () => void
   disabled?: boolean
-  showCheckIcon?: boolean
-  showXIcon?: boolean
   compact?: boolean
+  /** Mention à droite ; par défaut « Bonne réponse » / « Votre réponse ». */
+  statusLabel?: string
 }
 
-// ===== Main Component Props =====
 export type QuestionCardProps = {
-  /** The question data. explanation/references are optional and lazy-loaded
-   *  via getQuestionExplanations — pass them explicitly on the question
-   *  object or via the `lazyExplanation` prop below. */
   question: QuizQuestion
 
-  /** Lazy-loaded explanation/references. If provided, these take priority
-   *  over `question.explanation` and `question.references`. Used by the
-   *  review pages that fetch explanations on expand via a separate query. */
+  /** Correction chargée à la demande, prioritaire sur celle de `question`. */
   lazyExplanation?: string
   lazyReferences?: string[]
-  /** Images d'explication lazy-chargées (correction examen via
-   *  getExamQuestionExplanations). Prioritaires sur `question.explanationImages`.
-   *  Rendues UNIQUEMENT en variant "review" (jamais en passation). */
+  /**
+   * Images d'explication chargées à la demande (correction d'examen).
+   * Rendues UNIQUEMENT en variante `review`, jamais en passation.
+   */
   lazyExplanationImages?: QuizImage[]
 
-  /** Display variant - determines overall layout and behavior */
   variant?: QuestionCardVariant
 
-  // === Interactive mode props (variant="exam") ===
-  /** Currently selected answer */
+  // === Passation (variant="exam") ===
   selectedAnswer?: string | null
-  /** Callback when user selects an answer */
   onAnswerSelect?: (answerIndex: number) => void
-  /** Disable answer selection */
   disabled?: boolean
-  /** Whether the question is flagged for review */
   isFlagged?: boolean
-  /** Callback when user toggles flag status */
   onFlagToggle?: () => void
 
-  // === Review mode props (variant="review") ===
-  /** User's submitted answer for review */
+  // === Correction (variant="review") ===
   userAnswer?: string | null
   /**
    * Verdict enregistré de la réponse, fixé contre la clé du moment : fait
@@ -82,52 +67,22 @@ export type QuestionCardProps = {
    * la carte compare la réponse à la clé actuelle.
    */
   userVerdict?: boolean
-  /** Whether the question review is expanded */
   isExpanded?: boolean
-  /** Toggle expand/collapse callback */
   onToggleExpand?: () => void
-  /** Whether the question was flagged during exam (for review display) */
-  wasFlagged?: boolean
 
-  // === Display options ===
-  /** Question number (1-indexed) */
+  // === Affichage ===
   questionNumber?: number
-  /** Show question image if available */
+  /** Nombre de questions de la série, pour « Question 3 / 10 ». */
+  totalQuestions?: number
   showImage?: boolean
-  /** Show correct answer highlighting */
   showCorrectAnswer?: boolean
-  /** Show domain badge */
   showDomainBadge?: boolean
-  /** Show ObjectifCMC badge */
   showObjectifBadge?: boolean
-  /** Truncate question text (for compact displays) */
-  truncateQuestion?: boolean
+  /** Pied de carte (navigation de la passation). */
+  footer?: ReactNode
 
-  // === Admin actions ===
-  /** Action buttons configuration */
+  // === Admin ===
   actions?: ActionConfig[]
 
-  // === Styling ===
-  /** Additional CSS classes */
   className?: string
-}
-
-// ===== Sub-component Props =====
-export type QuestionHeaderProps = {
-  question: QuizQuestion
-  questionNumber?: number
-  showDomainBadge?: boolean
-  showObjectifBadge?: boolean
-  actions?: ActionConfig[]
-}
-
-export type QuestionContentProps = {
-  question: QuizQuestion
-  showImage?: boolean
-  truncate?: boolean
-}
-
-export type QuestionExplanationProps = {
-  explanation: string
-  references?: string[]
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { EllipsisVertical, Eye, Pencil, Plus, Trash2 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import { Fragment } from "react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { ActionConfig } from "./types"
 
-// ===== Action Creator Helpers =====
 export const createViewAction = (onClick: () => void): ActionConfig => ({
   type: "view",
   label: "Voir les détails",
@@ -60,7 +59,6 @@ export const createRemoveAction = (onClick: () => void): ActionConfig => ({
   onClick,
 })
 
-// ===== Actions Dropdown Component =====
 type QuestionActionsProps = {
   actions: ActionConfig[]
 }
@@ -71,111 +69,31 @@ export const QuestionActions = ({ actions }: QuestionActionsProps) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0 hover:bg-gray-100 dark:hover:bg-gray-700"
-        >
-          <EllipsisVertical className="h-4 w-4" />
+        <Button variant="ghost" size="icon-sm" className="max-md:size-11">
+          <EllipsisVertical />
           <span className="sr-only">Actions</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         {actions.map((action, index) => {
           const isDestructive = action.variant === "destructive"
-          const nextAction = actions[index + 1]
           const showSeparator =
-            index < actions.length - 1 &&
-            nextAction?.variant === "destructive" &&
-            !isDestructive
+            !isDestructive && actions[index + 1]?.variant === "destructive"
 
           return (
-            <div key={action.type}>
+            <Fragment key={action.type}>
               <DropdownMenuItem
+                variant={isDestructive ? "destructive" : "default"}
                 onClick={action.onClick}
-                className={
-                  isDestructive
-                    ? "text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
-                    : ""
-                }
               >
-                <span className="mr-2">{action.icon}</span>
+                {action.icon}
                 {action.label}
               </DropdownMenuItem>
               {showSeparator && <DropdownMenuSeparator />}
-            </div>
+            </Fragment>
           )
         })}
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
-
-// ===== Question Header Component =====
-type QuestionHeaderProps = {
-  questionNumber?: number
-  domain?: string
-  showDomainBadge?: boolean
-  actions?: ActionConfig[]
-}
-
-export const QuestionHeader = ({
-  questionNumber,
-  domain,
-  showDomainBadge = true,
-  actions = [],
-}: QuestionHeaderProps) => {
-  return (
-    <div className="mb-3 flex items-start justify-between gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {questionNumber !== undefined && (
-          <Badge
-            variant="outline"
-            className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-          >
-            Question {questionNumber}
-          </Badge>
-        )}
-        {showDomainBadge && domain && <Badge variant="badge">{domain}</Badge>}
-      </div>
-
-      <QuestionActions actions={actions} />
-    </div>
-  )
-}
-
-// ===== Question Metadata Component =====
-type QuestionMetadataProps = {
-  objectifCMC?: string
-  referencesCount?: number
-  showObjectifBadge?: boolean
-}
-
-export const QuestionMetadata = ({
-  objectifCMC,
-  referencesCount,
-  showObjectifBadge = true,
-}: QuestionMetadataProps) => {
-  if (!showObjectifBadge || !objectifCMC) return null
-
-  return (
-    <div className="mb-3 flex flex-col gap-2 text-sm text-gray-600 sm:flex-row sm:items-center sm:justify-between dark:text-gray-400">
-      <div className="flex min-w-0 flex-1 items-center gap-1">
-        <Badge variant="outline" className="max-w-100 truncate">
-          {objectifCMC}
-        </Badge>
-      </div>
-
-      {referencesCount !== undefined && referencesCount > 0 && (
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Eye className="h-4 w-4 text-gray-400" />
-          <Badge variant="outline" className="whitespace-nowrap">
-            {referencesCount} réf.
-          </Badge>
-        </div>
-      )}
-    </div>
-  )
-}
-
-export default QuestionActions
