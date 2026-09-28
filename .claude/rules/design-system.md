@@ -7,6 +7,84 @@ paths:
 
 # Design system
 
+Application dans le code de `DESIGN.md` (racine), la référence permanente :
+jetons, typographie, ton, règles métier affichées. Le lire avant de créer ou
+de modifier une interface. Ce fichier retient ce qu'on ne devine pas en lisant
+le code et dont la violation fait diverger un écran du reste du site.
+
+## Interdits
+
+Un écran, un composant ou une classe qui emploie l'un de ces effets est à
+reprendre, pas à conserver « en attendant » :
+
+- **dégradés** (`bg-linear-*`, `bg-gradient-*`, `bg-clip-text` +
+  `text-transparent`), sauf le logo ;
+- **verre dépoli** (`backdrop-blur-*`, fonds translucides `bg-white/80`) et
+  **orbes** décoratifs (`blur-3xl` sur une forme colorée) ;
+- **soulèvement ou échelle au survol** (`hover:scale-*`, `hover:-translate-y-*`,
+  `hover:shadow-*` qui grossit) : un survol change un fond ou une bordure,
+  jamais la géométrie ;
+- **emoji** dans l'interface, **tuiles d'icônes colorées** (carré teinté derrière
+  une icône), animations d'entrée décoratives (`animate-fade-in-*`, `motion`
+  pour faire apparaître un bloc) ;
+- **ombres pour structurer** : la structure se fait par un filet de 1 px
+  (`border-line`). Une ombre (`shadow-pop`) est réservée à ce qui flotte
+  (dialogue, menu, popover, toast) ; `shadow-1` aux cartes.
+
+Le verrou automatique (test d'architecture interdisant ces classes dans `app/`
+et `components/`) arrive avec la contraction (#246). D'ici là, la revue tient
+lieu de verrou.
+
+## Jetons sémantiques obligatoires
+
+Les couleurs viennent des jetons de `app/globals.css`, exposés en utilitaires
+Tailwind. **Jamais** une couleur de palette brute (`text-blue-600`,
+`bg-gray-100`, `border-slate-200`, `#2563eb`) dans un composant : elle ne suit
+ni le thème sombre ni un changement de charte.
+
+| Rôle                                  | Utilitaires                                                                                                                                                                        |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Fonds : page, carte/champ, secondaire | `bg-background`, `bg-surface` (= `bg-card`), `bg-surface-2` (survol, piste)                                                                                                        |
+| Texte : principal, courant, libellé   | `text-foreground` (= `text-ink`), `text-ink-2`, `text-ink-3` (= `text-muted-foreground`)                                                                                           |
+| Texte décoratif ou désactivé          | `text-ink-4` — jamais pour un texte informatif (contraste insuffisant)                                                                                                             |
+| Filets et bordures de contrôles       | `border-line` (= `border-border`), `border-line-strong` (= `border-input`)                                                                                                         |
+| Action primaire, focus, sélection     | `bg-accent`/`bg-primary`, `text-accent-ink`, `bg-accent-soft`, `hover:bg-accent-hover`                                                                                             |
+| Tonalités                             | `success`, `danger`, `warning`, `admin`, `objective`, chacune avec `-ink`, `-soft`, `-line` (`text-success-ink`, `bg-danger-soft`, `border-warning-line`)                          |
+| Ombres                                | `shadow-1` (cartes), `shadow-2`, `shadow-pop` (flottants)                                                                                                                          |
+| Rayons                                | `rounded-xs` 2 px badges · `rounded-sm` 3 px lettres A–E · `rounded-md` 4 px contrôles · `rounded-lg` 6 px cartes et dialogues · `rounded-full` avatar, switch, compteur seulement |
+| Polices                               | `font-sans` (IBM Plex Sans, défaut), `font-serif` (Source Serif 4 : titres, vignettes, grands chiffres), `font-mono` (IBM Plex Mono : libellés, chiffres, chrono, ID)              |
+| Anneau de focus                       | `focus-visible:shadow-focus` (jeton `--focus-ring`), sur tout contrôle                                                                                                             |
+
+Les alias shadcn (`bg-primary`, `text-muted-foreground`, `border-border`,
+`bg-destructive`…) pointent vers ces jetons : ils restent valides jusqu'à la
+contraction, mais un nouveau code emploie les noms sémantiques ci-dessus.
+`font-display` est un alias transitoire de `font-serif`.
+
+Le sens des couleurs est fixe (`DESIGN.md` §1) : émeraude = correct,
+entraînement, actif ; rouge = incorrect, critique, suppression ; ambre =
+marqué, expire bientôt, à vérifier ; violet = objectifs du CMC ; orange = zone
+admin, navigation seulement. La correspondance tonalité → classes vit dans
+`lib/tone.ts` ; aucune table de couleurs par tonalité ailleurs.
+
+## Hauteurs de contrôles
+
+Trois hauteurs : **32 px** (`sm`, tableaux denses et actions secondaires),
+**40 px** (`default`, formulaires et barres de filtres), **48 px** (`lg`, action
+primaire d'un héros ou d'un pied de formulaire). Bouton, champ, select,
+combobox et onglets segmentés partagent la même échelle : dans une **barre de
+filtres, tous les contrôles font 40 px**, sans exception. Cibles tactiles de
+44 px minimum sous 768 px (zone de toucher étendue si le contrôle fait 32 px).
+
+## Vocabulaire
+
+Les libellés suivent `CONTEXT.md` : l'étudiant fait une **série** (jamais
+« session d'entraînement » côté étudiant), passe un **examen blanc** et a une
+**participation** (jamais « session d'examen »). Un **accès** (Examens,
+Entraînement) se **prolonge** ; le **Pack Premium** octroie les deux. Casse de
+phrase partout ; capitales réservées aux libellés mono (`font-mono text-xs
+uppercase tracking-[0.06em]`). Vouvoiement, fr-CA, espace insécable avant « ! ? : ; »
+et dans « Partie I », « 85 % ».
+
 ## Catalogue des composants partagés
 
 **Avant de créer un composant, chercher ici.** Un besoin couvert par une

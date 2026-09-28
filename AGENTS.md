@@ -111,9 +111,11 @@ Regles specialisees dans `.claude/rules/`:
 | `admin-ui.md`      | `app/(admin)/**`, `components/admin/**`                                      | Master-detail, stat cards, filtres                                                                          |
 | `seo.md`           | `app/(marketing)/**`, `app/robots.ts`, `app/sitemap.ts`                      | Metadata, pages marketing, claims éditoriaux                                                                |
 | `e2e-testing.md`   | `e2e/**`, `playwright.config.ts`, `components/quiz/**`                       | Playwright, data-testid, auth Better Auth, selectors                                                        |
-| `design-system.md` | `app/**`, `components/**`, `hooks/**`                                        | Catalogue des composants partagés : consulter avant de créer                                                |
+| `design-system.md` | `app/**`, `components/**`, `hooks/**`                                        | Interdits, jetons sémantiques, hauteurs de contrôles, vocabulaire ; catalogue des composants partagés       |
 
 Ajouter les nouveaux patterns au fichier rules correspondant, pas ici.
+
+`DESIGN.md` (racine) est la référence de design permanente : jetons, typographie, ton, règles métier affichées. À lire avant de créer ou modifier une interface ; `design-system.md` en est l'application dans le code.
 
 ## Agent skills
 
