@@ -31,7 +31,7 @@ interface MobileMenuProps {
 }
 
 const rowClass =
-  "focus-ring border-line text-ink-2 hover:bg-surface-2 hover:text-ink flex min-h-11 items-center rounded-md border-b px-3 text-[15px] transition-colors duration-(--duration-base)"
+  "focus-ring border-line text-ink-2 hover:bg-surface-2 hover:text-ink flex min-h-11 items-center rounded-md border-b px-3 text-[15px] transition-[background-color,border-color] duration-(--duration-base)"
 
 export const MobileMenu = ({
   onClose: close,
@@ -97,7 +97,7 @@ export const MobileMenu = ({
                 close()
                 await onSignOut()
               }}
-              className="focus-ring text-danger-ink hover:bg-danger-soft mt-2 flex min-h-11 items-center rounded-md px-3 text-left text-[15px] transition-colors duration-(--duration-base)"
+              className="focus-ring text-danger-ink hover:bg-danger-soft mt-2 flex min-h-11 items-center rounded-md px-3 text-left text-[15px] transition-[background-color,border-color] duration-(--duration-base)"
             >
               Se déconnecter
             </button>
@@ -125,7 +125,7 @@ export const MobileMenu = ({
               aria-pressed={theme === value}
               onClick={() => setTheme(value)}
               className={cn(
-                "focus-ring flex min-h-11 flex-col items-center justify-center gap-1 rounded-md border text-xs transition-colors duration-(--duration-base)",
+                "focus-ring flex min-h-11 flex-col items-center justify-center gap-1 rounded-md border text-xs transition-[background-color,border-color] duration-(--duration-base)",
                 theme === value
                   ? "border-accent bg-accent-soft text-accent-ink"
                   : "border-line-strong bg-surface text-ink-2 hover:bg-surface-2",

@@ -141,7 +141,7 @@ export const MarketingHeader = () => {
                 <span className="hidden items-center gap-4 lg:flex">
                   <Link
                     href="/connexion"
-                    className="focus-ring text-ink-2 hover:text-ink rounded-md text-sm transition-colors duration-(--duration-base)"
+                    className="focus-ring text-ink-2 hover:text-ink rounded-md text-sm transition-[background-color,border-color] duration-(--duration-base)"
                   >
                     Connexion
                   </Link>

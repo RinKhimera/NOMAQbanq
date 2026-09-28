@@ -203,5 +203,7 @@ rend le travail différé (courriel, rappel de panier) sans jamais appeler
   locale « pour aider », ça désactive la conversion automatique.
 - Les prix, durées et libellés ne sont PAS en dur côté client (la grille lit
   `getAvailableProducts`). Seuls quelques **codes** le sont pour la mise en page
-  (`pricing-grid.tsx` isole `premium_access`, la modale de paiement manuel a
-  `exam_access` par défaut).
+  (la modale de paiement manuel a `exam_access` par défaut). La grille
+  isole le produit `isCombo` et affiche les économies par `savingsOf`
+  (`lib/pricing.ts`), calculées depuis les mensuels du catalogue : aucun
+  montant de référence en dur.

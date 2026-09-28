@@ -10,7 +10,7 @@ const CURRENT_YEAR = getAppZoneYear(Date.now())
 
 // Cible tactile de 44 px sous 768 px.
 const linkClass =
-  "focus-ring text-ink-2 hover:text-ink inline-flex w-fit items-center rounded-md text-sm transition-colors duration-(--duration-base) max-md:min-h-11"
+  "focus-ring text-ink-2 hover:text-ink inline-flex w-fit items-center rounded-md text-sm transition-[background-color,border-color] duration-(--duration-base) max-md:min-h-11"
 
 const columnLabel =
   "text-ink-3 font-mono text-xs font-medium tracking-[0.06em] uppercase"
@@ -72,7 +72,7 @@ export default function Footer() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="focus-ring hover:text-ink inline-flex w-fit items-center rounded-md transition-colors duration-(--duration-base) max-md:min-h-11"
+                className="focus-ring hover:text-ink inline-flex w-fit items-center rounded-md transition-[background-color,border-color] duration-(--duration-base) max-md:min-h-11"
               >
                 {link.name}
               </Link>
