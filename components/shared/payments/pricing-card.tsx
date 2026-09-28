@@ -141,10 +141,9 @@ export const PricingCard = ({
     </>
   ) : (
     <>
+      {/* Le combo ouvre une période neuve (access-ledger) : rien à prolonger. */}
       {variant === "featured"
-        ? hasAccess
-          ? "Prolonger mes accès"
-          : "Choisir Premium"
+        ? "Choisir Premium"
         : hasAccess
           ? "Prolonger l'accès"
           : "Choisir"}
@@ -184,6 +183,11 @@ export const PricingCard = ({
               ` · vous économisez ${formatCurrency(savings.savedCAD)}`}
           </p>
           {accessDetails}
+          {hasAccess && (
+            <p className="text-ink-3 text-[13px]">
+              Ne s&apos;ajoute pas au temps restant de vos accès.
+            </p>
+          )}
           <div className="mt-1">
             <Button
               size="lg"

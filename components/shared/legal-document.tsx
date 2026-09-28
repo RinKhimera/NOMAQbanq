@@ -1,6 +1,6 @@
 "use client"
 
-import { Info } from "lucide-react"
+import { ChevronDown, Info } from "lucide-react"
 import Link from "next/link"
 import { type ReactNode, isValidElement, useEffect, useState } from "react"
 import { chipClass } from "@/components/marketing/chip"
@@ -189,6 +189,37 @@ export const LegalDocument = ({
               </a>
             ))}
           </nav>
+
+          {/* Sous 1024 px, le sommaire latéral devient un bloc repliable. */}
+          <details className="group border-line bg-surface rounded-lg border lg:hidden">
+            <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 [&::-webkit-details-marker]:hidden">
+              <span className="type-label">Sommaire</span>
+              <ChevronDown
+                aria-hidden
+                className="text-ink-3 size-4 group-open:rotate-180"
+              />
+            </summary>
+            <nav aria-label="Sommaire du document" className="px-2 pb-2">
+              <ol className="flex flex-col">
+                {articles.map((article, i) => (
+                  <li key={article.id}>
+                    <a
+                      href={`#${article.id}`}
+                      className="focus-ring hover:bg-surface-2 text-ink-2 flex min-h-11 items-center gap-2 rounded-md px-2.5 text-sm transition-[background-color] duration-(--duration-fast)"
+                    >
+                      <span
+                        aria-hidden
+                        className="text-ink-3 w-5 shrink-0 font-mono text-xs tabular-nums"
+                      >
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      {article.title}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          </details>
 
           <article className="flex max-w-180 min-w-0 flex-col">
             {articles.map((article, i) => (

@@ -135,7 +135,7 @@ describe("PricingCard", () => {
       ).toBeInTheDocument()
     })
 
-    it("liste les deux accès en cours, y compris celui qui manque", () => {
+    it("ne promet pas de prolongation : le Pack Premium ouvre une période neuve", () => {
       render(
         <PricingCard
           variant="featured"
@@ -148,7 +148,10 @@ describe("PricingCard", () => {
       expect(screen.getByText("Vos accès actuels")).toBeInTheDocument()
       expect(screen.getByText("Entraînement : aucun")).toBeInTheDocument()
       expect(
-        screen.getByRole("button", { name: "Prolonger mes accès" }),
+        screen.getByRole("button", { name: "Choisir Premium" }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByText("Ne s'ajoute pas au temps restant de vos accès."),
       ).toBeInTheDocument()
     })
   })

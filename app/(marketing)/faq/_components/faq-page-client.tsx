@@ -2,6 +2,7 @@
 
 import { Mail } from "lucide-react"
 import { useState } from "react"
+import { chipClass } from "@/components/marketing/chip"
 import { FaqAccordion } from "@/components/marketing/faq-section"
 import {
   MARKETING_SECTION,
@@ -88,6 +89,25 @@ export default function FaqPageClient() {
               categoryButton(c.id, c.title, c.questions.length),
             )}
           </nav>
+
+          {/* Sous 1024 px, le sommaire latéral devient une rangée de pastilles. */}
+          <div
+            role="group"
+            aria-label="Catégories"
+            className="flex flex-wrap gap-1.5 lg:hidden"
+          >
+            {[{ id: ALL, title: "Toutes" }, ...faqCategories].map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                aria-pressed={category === c.id}
+                onClick={() => setCategory(c.id)}
+                className={chipClass(category === c.id)}
+              >
+                {c.title}
+              </button>
+            ))}
+          </div>
 
           <div className="flex min-w-0 flex-col gap-12">
             {needle && (
