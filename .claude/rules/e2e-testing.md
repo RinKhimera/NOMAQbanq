@@ -118,7 +118,7 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
 - **Strict mode / texte dupliqué** : après la refonte F1, beaucoup de libellés
   apparaissent 2-3× (sidebar **et** contenu, carte **et** graphe, heading **et**
   description). Préférer `getByRole("heading", { name })`, `{ exact: true }`, ou
-  scoper (`page.locator("main")` = le `<main>` du `SidebarInset`). `.first()` en
+  scoper (`page.locator("main")` = le contenu de la page, sans la barre du haut ni la SideNav). `.first()` en
   dernier recours.
 - **Texte responsive** (`hidden sm:inline`) : le texte des boutons nav n'existe pas
   sous 640px → utiliser `getByTestId`.
