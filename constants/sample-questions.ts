@@ -1,8 +1,8 @@
 /**
- * Questions réelles de la banque (relevé du 2026-09-27) montrées sur la
- * vitrine, figées ici pour qu'aucune page publique ne lise Neon. Leur clé est
- * donc publique : ne pas les placer dans un examen blanc. Les questions dont
- * l'énoncé renvoie à une image n'y figurent pas.
+ * Questions écrites pour la vitrine, absentes de la banque : leur clé peut
+ * être publique sans jamais croiser un examen blanc ni le verrou de clé de
+ * réponse. Figées ici pour qu'aucune page publique ne lise Neon. Chacune
+ * repose sur une conduite classique, stable d'une recommandation à l'autre.
  */
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 import type { MedicalDomain } from "@/constants"
@@ -11,24 +11,21 @@ import type { MedicalDomain } from "@/constants"
 export const HERO_QUESTION: QuizQuestion = {
   _id: "exemple-gynecologie-obstetrique",
   domain: "Gynécologie obstétrique",
-  objectifCMC: "Soins intrapartum et post-partum",
+  objectifCMC: "Troubles hypertensifs de la grossesse",
   question:
-    "Une femme de 30 ans, gravida 1, para 0, aborta 0 est emmenée à l’urgence après avoir eu des convulsions. Elle est enceinte de 34 semaines. Avant sa grossesse, elle avait une hypertension artérielle essentielle bien maîtrisée. Elle est consciente pendant toute la durée de l’examen physique. Sa pression artérielle est de 160/105 mm Hg, et sa fréquence cardiaque est de 120/min. Laquelle des mesures suivantes est la plus appropriée à ce stade-ci ?",
+    "Une femme de 26 ans, primigeste, enceinte de 36 semaines, fait une crise convulsive tonico-clonique généralisée à la maison. À l'arrivée à l'urgence, elle est somnolente mais respire spontanément. Sa pression artérielle est de 168/112 mm Hg et l'analyse d'urine révèle une protéinurie à 3+. Elle n'a aucun antécédent d'épilepsie. Laquelle des mesures suivantes est la plus appropriée pour prévenir une récidive des convulsions ?",
   options: [
-    "Administrer du diazépam par voie intraveineuse.",
-    "Donner du lorazépam par voie intrarectale.",
+    "Administrer de la phénytoïne par voie intraveineuse.",
+    "Administrer du lévétiracétam par voie orale.",
     "Administrer du sulfate de magnésium par voie intraveineuse.",
-    "Fournir un bolus de phénytoïne par voie intraveineuse.",
-    "Administrer une perfusion d’hydralazine.",
+    "Instaurer une perfusion continue de diazépam.",
+    "Procéder à une césarienne immédiate, sans autre traitement.",
   ],
   images: [],
   correctAnswer: "Administrer du sulfate de magnésium par voie intraveineuse.",
   explanation:
-    "La principale préoccupation dans ce cas est la prise en charge d’un épisode de convulsions chez une femme enceinte, ce qui laisse soupçonner une éclampsie, une affection caractérisée par la survenue de convulsions dans le contexte de la prééclampsie. La mesure la plus appropriée à ce stade-ci consiste à administrer du sulfate de magnésium par voie intraveineuse, car c’est le traitement de choix pour prévenir d’autres crises convulsives et gérer les épisodes éclamptiques. Le diazépam intraveineux et le lorazépam intrarectal ne sont pas des traitements de première intention contre l’éclampsie et sont habituellement utilisés pour d’autres types de convulsions. La phénytoïne n’est pas efficace contre les crises d’éclampsie et n’est pas recommandée. La perfusion d’hydralazine est utilisée pour traiter l’hypertension artérielle, mais ne répond pas au besoin immédiat de maîtriser les convulsions associées à l’éclampsie.",
-  references: [
-    "Magee LA, Smith GN, Bloch C, et coll. Directive clinique n° 426 : Troubles hypertensifs de la grossesse : Diagnostic, prédiction, prévention et prise en charge.",
-    "Girard P, Quirion A, Bureau Y-A, Sauvé N. Magnesium sulfate for eclampsia prevention: Quality of care evaluation in a tertiary centre in Québec, Canada. Obstetric Medicine. 2014;7(2):71–76.",
-  ],
+    "Une convulsion chez une femme enceinte hypertendue et protéinurique, sans antécédent d'épilepsie, signe une éclampsie. Le sulfate de magnésium intraveineux est le traitement de choix pour prévenir la récidive des convulsions : il est plus efficace que la phénytoïne et que les benzodiazépines dans cette indication. Les antiépileptiques habituels ne sont pas indiqués en première intention. L'accouchement est le traitement définitif de l'éclampsie, mais il se planifie une fois la patiente stabilisée (convulsions maîtrisées, pression artérielle contrôlée), et non à la place du sulfate de magnésium.",
+  references: [],
 }
 
 /**
@@ -41,7 +38,7 @@ export const HERO_QUESTION_KEY_ONLY: QuizQuestion = {
   references: undefined,
 }
 
-/** Une question d'exemple par domaine, quand la banque en fournit une sans image. */
+/** Une question d'exemple par domaine, pour les pages domaine qui en ont une. */
 export const DOMAIN_SAMPLE_QUESTIONS: Partial<
   Record<MedicalDomain, QuizQuestion>
 > = {
@@ -49,65 +46,68 @@ export const DOMAIN_SAMPLE_QUESTIONS: Partial<
   Endocrinologie: {
     _id: "exemple-endocrinologie",
     domain: "Endocrinologie",
-    objectifCMC: "Masse cervicale, goitre, maladie thyroïdienne",
+    objectifCMC: "Diabète",
     question:
-      "Une femme de 30 ans se présente avec des plaintes d'intolérance à la chaleur, d'insomnie, de nervosité et de perte de poids malgré un excellent appétit. Quels sont les changements de TSH et de T4 libre que vous vous attendez le plus à observer ?",
+      "Un homme de 19 ans atteint de diabète de type 1 se présente à l'urgence pour des vomissements et des douleurs abdominales depuis 24 heures. Il est déshydraté et respire rapidement et profondément. La glycémie est de 28 mmol/L, le pH artériel de 7,12, les bicarbonates de 9 mmol/L et la cétonémie est élevée. La kaliémie est de 4,6 mmol/L. Laquelle des mesures suivantes est la plus appropriée en premier lieu ?",
     options: [
-      "Diminution de la TSH, T4 libre normal",
-      "TSH normale, T4 libre augmentée",
-      "Augmentation de la TSH, diminution de la T4 libre",
-      "Diminution de la TSH, augmentation de la T4 libre",
-      "Augmentation de la TSH, augmentation de la T4 libre",
+      "Administrer du bicarbonate de sodium par voie intraveineuse.",
+      "Administrer de l'insuline à action rapide par voie sous-cutanée et donner congé.",
+      "Commencer une réhydratation intraveineuse par une solution saline isotonique.",
+      "Administrer un bolus de potassium par voie intraveineuse.",
+      "Prescrire un jeûne strict et reprendre la glycémie dans 4 heures.",
     ],
     images: [],
-    correctAnswer: "Diminution de la TSH, augmentation de la T4 libre",
+    correctAnswer:
+      "Commencer une réhydratation intraveineuse par une solution saline isotonique.",
   },
   "Gastro-entérologie": {
     _id: "exemple-gastro-enterologie",
     domain: "Gastro-entérologie",
-    objectifCMC: "Douleur abdominale aiguë",
+    objectifCMC: "Hémorragie digestive haute",
     question:
-      "Un homme de 67 ans se présente à votre cabinet avec de fortes douleurs abdominales périombilicales, des vomissements et une diarrhée qui ont commencé soudainement il y a plusieurs heures. Sa température est de 37,0°C, sa tension artérielle est de 110/76 mm Hg et sa fréquence respiratoire est de 28/min. Son abdomen est légèrement distendu, mou et sensible de façon diffuse ; les bruits intestinaux sont normaux. Les autres observations comprennent des poumons clairs, un rythme cardiaque rapide et irrégulier, ainsi qu’un avant-bras et une main gauches pâles sans pouls brachial gauche palpable. Les pouls du bras droit et des membres inférieurs sont normaux. Les analyses chimiques des urines et des selles révèlent la présence de sang. Son taux d’hémoglobine est de 16,4 g/dL (normale 130-180 g/L) et sa numération leucocytaire est de 25 300/mm³ (normale 4 300-10 800). La procédure d’imagerie diagnostique la plus susceptible de produire un diagnostic spécifique de sa douleur abdominale est :",
+      "Un homme de 58 ans qui prend de l'ibuprofène tous les jours pour de l'arthrose se présente à l'urgence après deux épisodes d'hématémèse. Il est pâle et en sueur. Sa pression artérielle est de 86/54 mm Hg et sa fréquence cardiaque de 124/min. Laquelle des mesures suivantes est la plus appropriée en premier lieu ?",
     options: [
-      "Pyélographie intraveineuse",
-      "Échographie de l’aorte abdominale",
-      "Lavement baryté",
-      "Artériographie cœliaque et mésentérique",
-      "Phlébographie par contraste",
+      "Réaliser une endoscopie digestive haute avant toute autre intervention.",
+      "Installer deux voies veineuses de gros calibre et commencer la réanimation liquidienne.",
+      "Demander une tomodensitométrie abdominale avec contraste.",
+      "Administrer un inhibiteur de la pompe à protons par voie orale et observer.",
+      "Poser une sonde nasogastrique et attendre les résultats de laboratoire.",
     ],
     images: [],
-    correctAnswer: "Artériographie cœliaque et mésentérique",
+    correctAnswer:
+      "Installer deux voies veineuses de gros calibre et commencer la réanimation liquidienne.",
   },
   Neurologie: {
     _id: "exemple-neurologie",
     domain: "Neurologie",
     objectifCMC: "Céphalées",
     question:
-      "Un homme de 25 ans se présente avec des céphalées sévères, des douleurs cervicales, une photophobie et de la fièvre. Après plusieurs tests négatifs, vous décidez de procéder à une ponction lombaire, qui révèle une méningite virale.\n\nL'analyse du LCR ne montre pas lequel des éléments suivants ?",
+      "Une femme de 45 ans se présente à l'urgence pour une céphalée d'apparition brutale, maximale en quelques secondes, survenue pendant un effort. Elle la décrit comme « la pire de sa vie ». Elle a vomi une fois et présente une raideur de la nuque. L'examen neurologique ne montre aucun déficit focal. Lequel des examens suivants est le plus approprié en premier lieu ?",
     options: [
-      "Nombre de cellules < 300",
-      "Protéines élevées",
-      "Pression normale",
-      "Chlorure élevé",
-      "Sucre normal",
+      "Une tomodensitométrie cérébrale sans contraste.",
+      "Un électroencéphalogramme.",
+      "Une radiographie du rachis cervical.",
+      "Une imagerie par résonance magnétique des sinus.",
+      "Un traitement d'épreuve par un triptan, puis une réévaluation.",
     ],
     images: [],
-    correctAnswer: "Chlorure élevé",
+    correctAnswer: "Une tomodensitométrie cérébrale sans contraste.",
   },
   Psychiatrie: {
     _id: "exemple-psychiatrie",
     domain: "Psychiatrie",
-    objectifCMC: "Psychose",
+    objectifCMC: "Sevrage à une substance",
     question:
-      "Un homme de 36 ans se présente à votre clinique environ 6 mois après avoir reçu un diagnostic de trouble schizoaffectif. Dans l’intervalle, il a commencé à prendre un antipsychotique atypique et a pris 15 kg. Laquelle des mesures suivantes est la plus appropriée à ce stade-ci ?",
+      "Un homme de 52 ans, hospitalisé depuis deux jours pour une fracture de la cheville, devient agité, tremblant et en sueur. Sa fréquence cardiaque est de 118/min et sa pression artérielle de 158/96 mm Hg. Sa conjointe rapporte qu'il boit environ une douzaine de consommations d'alcool par jour depuis plusieurs années. Lequel des traitements suivants est le plus approprié ?",
     options: [
-      "Prescrire un régime riche en protéines et faible en glucides",
-      "Changer d’antipsychotique atypique",
-      "Conseiller au patient de tolérer cet effet indésirable",
-      "Orienter le patient vers une chirurgie bariatrique.",
+      "Un antipsychotique par voie intramusculaire.",
+      "Une benzodiazépine.",
+      "Un bêtabloquant seul.",
+      "Une contention physique sans médication.",
+      "De la naltrexone par voie orale.",
     ],
     images: [],
-    correctAnswer: "Changer d’antipsychotique atypique",
+    correctAnswer: "Une benzodiazépine.",
   },
   "Santé publique et médecine préventive": {
     _id: "exemple-sante-publique-et-medecine-preventive",
@@ -115,15 +115,15 @@ export const DOMAIN_SAMPLE_QUESTIONS: Partial<
     objectifCMC:
       "Évaluation et mesure de l'état de santé à l'échelle de la population",
     question:
-      "Un pédiatre souhaitait déterminer la relation entre l'otite moyenne chronique chez les jeunes enfants et les antécédents parentaux de telles infections. À partir des dossiers d'un grand cabinet de pédiatrie, il a identifié 50 enfants âgés de un à trois ans qui avaient eu au moins trois infections de l'oreille moyenne au cours de l'année précédente. Cinquante enfants de la même tranche d'âge, traités par le même cabinet pour d'autres maladies, ont également été identifiés. Le pédiatre a interrogé les parents des sujets des deux groupes pour connaître leurs antécédents d'otite moyenne chronique lorsqu'ils étaient jeunes. Parmi les enfants souffrant d'otites à répétition, 30 avaient des antécédents familiaux d'otite moyenne chronique, contre 20 pour les enfants traités pour d'autres maladies. Il s'agit d'un exemple de quel type d'étude parmi les suivants ?",
+      "Un nouveau test de dépistage est évalué chez 1 000 personnes, dont 200 sont atteintes de la maladie selon l'examen de référence. Parmi ces 200 personnes malades, le test est positif chez 180. Laquelle des mesures suivantes correspond à 180 / 200, soit 90 % ?",
     options: [
-      "Essai clinique randomisé",
-      "Essai contrôlé",
-      "Étude cas-témoins",
-      "Étude de cohorte",
-      "Étude transversale",
+      "La spécificité du test.",
+      "La valeur prédictive positive du test.",
+      "La prévalence de la maladie.",
+      "La sensibilité du test.",
+      "La valeur prédictive négative du test.",
     ],
     images: [],
-    correctAnswer: "Étude cas-témoins",
+    correctAnswer: "La sensibilité du test.",
   },
 }
