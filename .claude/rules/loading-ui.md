@@ -16,6 +16,13 @@ justifie dans le code.
 | **Action utilisateur** (bouton, form, upload)   | `<Spinner size="sm">` DANS le déclencheur + `disabled`                                                                                                | Écran d'attente    |
 | **Attente sur un tiers** (Stripe)               | Écran dédié plein cadre, texte explicite                                                                                                              | —                  |
 
+**Une recherche cumule deux lignes de la table.** Le champ est le déclencheur
+de l'attente (la frappe de l'utilisateur) : la ligne « action utilisateur »
+s'applique au champ, d'où le `Spinner size="sm"` à la place de la loupe dans
+`SearchInput` (`isSearching`). La liste qu'elle recharge relève de la ligne
+« rechargement en place » : `<PendingRegion>` sur les résultats, jamais un
+squelette ni un spinner dans la liste. Les deux se montrent ensemble.
+
 ## Invariants
 
 - **Aucun `fixed inset-0` pour un chargement.** Un chargement ne bloque que sa
