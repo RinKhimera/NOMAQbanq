@@ -12,6 +12,8 @@ export const TimerDemo = () => {
   const [seconds, setSeconds] = useState(START)
 
   useEffect(() => {
+    // Animation en boucle : figée quand l'utilisateur réduit les animations.
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
     const id = setInterval(
       () => setSeconds((s) => (s <= 0 ? START : s - 1)),
       1000,

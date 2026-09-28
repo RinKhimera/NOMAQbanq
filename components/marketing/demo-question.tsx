@@ -2,6 +2,7 @@
 
 import { RotateCcw } from "lucide-react"
 import { useRef, useState } from "react"
+import { flushSync } from "react-dom"
 import { QuestionCard } from "@/components/quiz/question-card"
 import { optionLetter } from "@/components/quiz/question-card/answer-option"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
@@ -54,10 +55,18 @@ export const DemoQuestion = ({
     initialAnswer === undefined ? null : question.options[initialAnswer],
   )
   const cardRef = useRef<HTMLDivElement>(null)
+  const statusRef = useRef<HTMLSpanElement>(null)
+
+  // Une fois corrigé, le choix n'est plus un bouton : le focus clavier suit le
+  // statut plutôt que de tomber sur <body>. Rendu synchrone avant de déplacer
+  // le focus, sinon il viserait l'élément d'avant le rendu.
+  const chooseAnswer = (index: number) => {
+    flushSync(() => setAnswer(question.options[index]))
+    if (mode !== "exam") statusRef.current?.focus()
+  }
 
   const restart = () => {
-    setAnswer(null)
-    // « Recommencer » disparaît avec la réponse : le focus revient au premier choix.
+    flushSync(() => setAnswer(null))
     cardRef.current
       ?.querySelector<HTMLButtonElement>("[data-testid='answer-option-0']")
       ?.focus()
@@ -71,11 +80,15 @@ export const DemoQuestion = ({
         questionNumber={questionNumber}
         totalQuestions={totalQuestions}
         selectedAnswer={answer}
-        onAnswerSelect={(i) => setAnswer(question.options[i])}
+        onAnswerSelect={chooseAnswer}
         showCorrectAnswer={mode !== "exam" && answer !== null}
         footer={
           <>
-            <span className="text-ink-3 min-w-0 font-mono text-xs">
+            <span
+              ref={statusRef}
+              tabIndex={-1}
+              className="text-ink-3 focus-ring min-w-0 rounded-sm font-mono text-xs"
+            >
               {answer === null
                 ? pendingLabel
                 : statusOf(mode, question, answer)}

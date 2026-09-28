@@ -41,11 +41,11 @@ const TIME_BAR_TONE: Record<TimeZone, Tone> = {
 
 /** Écran d'état plein cadre (indisponible, session expirée, calcul du score). */
 const SessionStatus = ({ children }: { children: ReactNode }) => (
-  <div className="bg-background grid min-h-screen place-items-center px-4">
+  <main className="bg-background grid min-h-screen place-items-center px-4">
     <div className="flex flex-col items-center gap-3.5 text-center">
       {children}
     </div>
-  </div>
+  </main>
 )
 
 export default function QuizPage() {
@@ -58,7 +58,6 @@ export default function QuizPage() {
   const [isFinishOpen, setIsFinishOpen] = useState(false)
   const quizQuestions = quizBundle ? quizBundle.questions : null
   const [scoredResults, setScoredResults] = useState<{
-    score: number
     mergedQuestions: QuizQuestion[]
   } | null>(null)
 
@@ -155,7 +154,7 @@ export default function QuizPage() {
             explanationImages: scored?.explanationImages ?? [],
           } satisfies QuizQuestion
         })
-        setScoredResults({ score: result.score, mergedQuestions: merged })
+        setScoredResults({ mergedQuestions: merged })
       })
       // Rejet de l'action → même écran que le refus total (pas de loader figé).
       .catch(() => setScoreFailed(true))

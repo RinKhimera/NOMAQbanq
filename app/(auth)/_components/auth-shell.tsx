@@ -1,11 +1,11 @@
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import type { ReactNode } from "react"
+import { publicFigures } from "@/components/marketing/marketing-figures"
 import { Stars } from "@/components/marketing/proof-line"
 import { Logo } from "@/components/shared/logo"
 import ThemeToggle from "@/components/shared/theme-toggle"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import { MARKETING_CLAIMS } from "@/constants"
 import { testimonials } from "@/data/testimonials"
 import type { MarketingStats } from "@/features/marketing/dal"
 
@@ -21,14 +21,7 @@ export const AuthShell = ({
   children: ReactNode
 }) => {
   const [quote] = testimonials
-  const figures = [
-    {
-      value: stats.totalQuestions,
-      label: "QCM basés sur les objectifs du CMC",
-    },
-    { value: stats.successRate, label: "de réussite chez nos candidats" },
-    { value: MARKETING_CLAIMS.rating, label: "note moyenne des candidats" },
-  ]
+  const figures = publicFigures(stats).slice(0, 3)
 
   return (
     <div className="bg-background grid min-h-screen lg:grid-cols-2">

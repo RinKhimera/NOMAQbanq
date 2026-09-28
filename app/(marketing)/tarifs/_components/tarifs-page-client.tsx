@@ -8,6 +8,8 @@ import {
 import { ProofLine } from "@/components/marketing/proof-line"
 import type { MarketingStats } from "@/features/marketing/dal"
 import type { AccessStatus, ProductView } from "@/features/payments/dal"
+import { formatCurrency } from "@/lib/format"
+import { savingsOf } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
 import { PricingGrid } from "./pricing-grid"
 
@@ -28,11 +30,26 @@ const FACTS = [
   },
 ]
 
-const FAQ: FaqItem[] = [
+const ACCESS_TYPES_INTRO =
+  "Deux types d'accès : l'accès Examens (examens simulés en mode réaliste) et l'accès Entraînement (banque de 3000+ questions avec mode tuteur)."
+
+/** Prix de la réponse lus dans le catalogue, comme ceux des cartes au-dessus. */
+const accessTypesAnswer = (products: ProductView[]): string => {
+  const exam = products.filter((p) => !p.isCombo && p.accessType === "exam")
+  const monthly = exam.find((p) => p.durationDays === 30)
+  const halfYear = exam.find((p) => p.durationDays === 180)
+  if (!monthly || !halfYear) {
+    return `${ACCESS_TYPES_INTRO} Chacun est offert en formule 1 mois ou 6 mois.`
+  }
+  const price = (cents: number) => formatCurrency(cents, "CAD", { whole: true })
+  const savings = savingsOf(products, halfYear)
+  return `${ACCESS_TYPES_INTRO} Chacun est offert en formule 1 mois (${price(monthly.priceCAD)} CA) ou 6 mois (${price(halfYear.priceCAD)} CA${savings ? `, soit environ ${savings.percent} % d'économie` : ""}).`
+}
+
+const faqOf = (products: ProductView[]): FaqItem[] => [
   {
     question: "Quels sont les types d'accès disponibles ?",
-    answer:
-      "Deux types d'accès : l'accès Examens (examens simulés en mode réaliste) et l'accès Entraînement (banque de 3000+ questions avec mode tuteur). Chacun est offert en formule 1 mois (50 $ CA) ou 6 mois (200 $ CA, soit environ 33 % d'économie).",
+    answer: accessTypesAnswer(products),
   },
   {
     question: "Comment fonctionne le temps cumulable ?",
@@ -99,7 +116,7 @@ export default function TarifsPageClient({
         </div>
       </section>
 
-      <FaqSection title="Abonnements et tarifs" items={FAQ} />
+      <FaqSection title="Abonnements et tarifs" items={faqOf(products)} />
       <CtaBand />
     </>
   )

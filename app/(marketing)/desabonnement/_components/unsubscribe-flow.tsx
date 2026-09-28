@@ -72,7 +72,9 @@ export function UnsubscribeFlow({ token }: { token: string | null }) {
   if (step === "resubscribed") {
     return (
       <StatusScreen>
+        {/* Une carte par étape : le titre remonté reprend le focus. */}
         <StatusCard
+          key="resubscribed"
           icon={BellRing}
           iconTone="success"
           label="Rappels réactivés"
@@ -92,6 +94,7 @@ export function UnsubscribeFlow({ token }: { token: string | null }) {
     return (
       <StatusScreen>
         <StatusCard
+          key="unsubscribed"
           icon={MailCheck}
           iconTone="success"
           label="Désabonnement confirmé"

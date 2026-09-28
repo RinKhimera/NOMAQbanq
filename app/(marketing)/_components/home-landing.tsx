@@ -89,7 +89,7 @@ const FAQ: FaqItem[] = [
   {
     question: "Puis-je mettre un examen blanc en pause ?",
     answer:
-      "Oui, une fois par examen, jusqu'à 45 minutes. Le chronomètre s'arrête pendant la pause et vos réponses sont conservées.",
+      "Oui, une fois par examen, quand l'examen le prévoit. Le chronomètre s'arrête pendant la pause et vos réponses sont conservées.",
   },
   {
     question: "La plateforme est-elle entièrement en français ?",
@@ -102,9 +102,7 @@ const OfferCard = ({ totalQuestions }: { totalQuestions: string }) => (
   <div className="bg-surface border-line overflow-hidden rounded-lg border">
     <div className="border-line flex items-center justify-between gap-3 border-b px-6 py-5.5">
       <div>
-        <p className="text-ink text-base font-semibold">
-          Accès complet · 3 mois
-        </p>
+        <p className="text-ink text-base font-semibold">Accès complet</p>
         <p className="text-ink-3 text-[13px]">
           Entraînement, examens blancs, suivi
         </p>

@@ -45,6 +45,6 @@ export const savingsOf = (
   return {
     referenceCAD,
     savedCAD,
-    percent: Math.round((savedCAD / referenceCAD) * 100),
+    percent: Math.floor((savedCAD / referenceCAD) * 100),
   }
 }

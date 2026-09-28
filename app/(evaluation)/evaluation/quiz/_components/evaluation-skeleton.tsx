@@ -3,9 +3,10 @@ import { SkeletonText } from "@/components/ui/skeleton-patterns"
 
 /** Forme de la passation : barre de session, puis une QuestionCard. */
 export const EvaluationSkeleton = () => (
-  <output
+  <div
+    role="status"
     aria-label="Chargement de l'évaluation"
-    className="bg-background block min-h-screen"
+    className="bg-background min-h-screen"
   >
     <h1 className="sr-only">Évaluation gratuite</h1>
     <div className="bg-surface border-line flex h-14 items-center justify-between gap-4 border-b px-5">
@@ -27,5 +28,5 @@ export const EvaluationSkeleton = () => (
         </div>
       </div>
     </div>
-  </output>
+  </div>
 )

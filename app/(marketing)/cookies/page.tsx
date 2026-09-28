@@ -73,11 +73,7 @@ const ARTICLES: LegalArticle[] = [
           ],
           [
             "Préférences d'affichage",
-            <>
-              l&apos;état ouvert ou replié du menu latéral (
-              <Code>sidebar_state</Code>). Le thème clair/sombre est mémorisé
-              dans le stockage local du navigateur, pas dans un cookie
-            </>,
+            "le thème clair/sombre est mémorisé dans le stockage local du navigateur, pas dans un cookie",
           ],
         ],
       },
@@ -162,7 +158,6 @@ const ARTICLES: LegalArticle[] = [
             "Cookies de sécurité (connexion Google)",
             "quelques minutes, le temps de la connexion",
           ],
-          ["Préférence du menu latéral", "7 jours"],
         ],
       },
     ],

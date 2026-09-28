@@ -54,7 +54,7 @@ components/quiz/           # Quiz: question-card, calculator, session/
 components/admin/          # Dashboard admin, modals, question-browser
 components/marketing/      # Composites de la vitrine (héros, chiffres, bande CTA, démo de question)
 components/shared/payments # Composants paiement
-hooks/                     # useCurrentUser, useCalculator, useMarketingStats, use-media-query
+hooks/                     # useCurrentUser, useCalculator, use-checkout, use-mounted, use-media-query
 constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 ```
 

@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { MailCheck, ShieldCheck } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
+import { flushSync } from "react-dom"
 import { useForm } from "react-hook-form"
 import { toast } from "sonner"
 import { StatusCard } from "@/components/shared/status-card"
@@ -69,7 +70,11 @@ export default function ForgotPasswordPage() {
           ou{" "}
           <button
             type="button"
-            onClick={() => setSubmittedEmail(null)}
+            onClick={() => {
+              // Le lien disparaît avec la carte : le focus revient au champ.
+              flushSync(() => setSubmittedEmail(null))
+              form.setFocus("email")
+            }}
             className="focus-ring text-accent-ink cursor-pointer rounded-sm hover:underline"
           >
             réessayez

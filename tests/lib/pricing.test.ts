@@ -39,11 +39,12 @@ describe("savingsOf", () => {
   })
 
   it("compare le Pack Premium aux deux accès mensuels sur la même durée", () => {
-    // 350 $ contre 6 × (50 $ + 50 $) = 600 $.
+    // 350 $ contre 6 × (50 $ + 50 $) = 600 $ : 41,67 % arrondi par défaut,
+    // une économie annoncée ne dépasse jamais l'économie réelle.
     expect(savingsOf(catalog, premium)).toEqual({
       referenceCAD: 60000,
       savedCAD: 25000,
-      percent: 42,
+      percent: 41,
     })
   })
 
