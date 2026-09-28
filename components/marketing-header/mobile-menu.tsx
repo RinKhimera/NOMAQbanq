@@ -8,6 +8,7 @@ import { UserAvatar } from "@/components/shared/user-avatar"
 import { SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { HEADER_MENU_ONLY_NAV, HEADER_NAV } from "@/constants"
 import { cn } from "@/lib/utils"
+import { navCurrent } from "./nav-current"
 
 const THEMES = [
   { value: "light", label: "Clair", icon: Sun },
@@ -56,14 +57,14 @@ export const MobileMenu = ({
         className="flex flex-1 flex-col overflow-y-auto px-3 py-2"
       >
         {[...HEADER_NAV, ...HEADER_MENU_ONLY_NAV].map((item) => {
-          const isActive = pathname === item.href
+          const current = navCurrent(pathname, item.href)
           return (
             <Link
               key={item.href}
               href={item.href}
               onClick={close}
-              aria-current={isActive ? "page" : undefined}
-              className={cn(rowClass, isActive && "text-ink font-medium")}
+              aria-current={current}
+              className={cn(rowClass, current && "text-ink font-medium")}
             >
               {item.name}
             </Link>
