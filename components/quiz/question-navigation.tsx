@@ -84,7 +84,7 @@ const QuestionNavigation = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className="glass-card max-h-96 w-80 overflow-y-auto border border-gray-200 dark:border-gray-700"
+            className="bg-card max-h-96 w-80 overflow-y-auto border border-gray-200 dark:border-gray-700"
           >
             <div className="border-b border-gray-200 p-3 dark:border-gray-700">
               <div className="mb-2 flex items-center justify-between">

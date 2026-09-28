@@ -6,15 +6,15 @@ import type { MarketingStats } from "@/features/marketing/dal"
 export default function AboutStory({ stats }: { stats: MarketingStats }) {
   return (
     <div className="mb-20">
-      <div className="animate-slide-in-left">
+      <div>
         <div className="mb-8 inline-flex items-center rounded-full border border-green-200/50 bg-linear-to-r from-green-100 to-emerald-100 px-6 py-3 text-sm font-semibold text-green-700 dark:border-green-700/50 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-300">
           <Heart className="mr-2 h-4 w-4" />
           Notre histoire
         </div>
-        <h2 className="font-display text-display-md mb-8 text-gray-900 dark:text-white">
+        <h2 className="font-display mb-8 text-3xl font-semibold tracking-tight text-gray-900 md:text-4xl dark:text-white">
           D&apos;une initiative à une communauté
         </h2>
-        <div className="text-body space-y-6 leading-relaxed text-gray-700 dark:text-gray-300">
+        <div className="space-y-6 text-base leading-relaxed text-gray-700 dark:text-gray-300">
           <p>
             NOMAQbanq est née d&apos;un constat simple : les candidats
             francophones à l&apos;EACMC manquaient de ressources adaptées à leur

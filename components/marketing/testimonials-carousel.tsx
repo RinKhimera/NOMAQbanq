@@ -70,12 +70,9 @@ export default function TestimonialsCarousel() {
 
         {/* Animated background elements */}
         <div className="absolute top-0 left-0 h-full w-full overflow-hidden">
-          <div className="animate-float absolute -top-20 -left-20 h-40 w-40 rounded-full bg-white/10 blur-2xl"></div>
-          <div
-            className="animate-float absolute -right-20 -bottom-20 h-48 w-48 rounded-full bg-white/10 blur-2xl"
-            style={{ animationDelay: "2s" }}
-          ></div>
-          <div className="absolute top-1/2 left-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 transform rounded-full bg-white/5 blur-xl"></div>
+          <div className="absolute -top-20 -left-20 h-40 w-40 rounded-full bg-white/10 blur-2xl"></div>
+          <div className="absolute -right-20 -bottom-20 h-48 w-48 rounded-full bg-white/10 blur-2xl"></div>
+          <div className="absolute top-1/2 left-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/5 blur-xl"></div>
         </div>
 
         {/* Content Container */}
@@ -101,8 +98,7 @@ export default function TestimonialsCarousel() {
               {[...Array(currentTestimonial.rating)].map((_, i) => (
                 <Star
                   key={i}
-                  className="animate-fade-in-scale h-6 w-6 fill-current text-yellow-300 drop-shadow-lg"
-                  style={{ animationDelay: `${i * 0.1}s` }}
+                  className="h-6 w-6 fill-current text-yellow-300 drop-shadow-lg"
                 />
               ))}
             </div>
@@ -118,7 +114,7 @@ export default function TestimonialsCarousel() {
             <div className="flex items-center justify-center space-x-6">
               <div className="relative">
                 {/* Avatar glow effect */}
-                <div className="animate-pulse-glow absolute inset-0 rounded-full bg-linear-to-br from-blue-400 to-indigo-600 opacity-60 blur-lg"></div>
+                <div className="absolute inset-0 rounded-full bg-linear-to-br from-blue-400 to-indigo-600 opacity-60 blur-lg"></div>
                 <Image
                   src={currentTestimonial.avatar}
                   alt={currentTestimonial.name}
@@ -148,7 +144,7 @@ export default function TestimonialsCarousel() {
           size="icon"
           onClick={handlePrevious}
           disabled={isTransitioning}
-          className="h-14 w-14 transform rounded-2xl border-2 border-gray-200 bg-white/90 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:border-blue-400 hover:bg-white hover:text-blue-600 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-14 w-14 rounded-2xl border-2 border-gray-200 bg-white/90 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:border-blue-400 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ChevronLeft className="h-6 w-6" />
         </Button>
@@ -198,7 +194,7 @@ export default function TestimonialsCarousel() {
           size="icon"
           onClick={handleNext}
           disabled={isTransitioning}
-          className="h-14 w-14 transform rounded-2xl border-2 border-gray-200 bg-white/90 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:border-blue-400 hover:bg-white hover:text-blue-600 hover:shadow-2xl disabled:cursor-not-allowed disabled:opacity-50"
+          className="h-14 w-14 rounded-2xl border-2 border-gray-200 bg-white/90 shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-110 hover:border-blue-400 hover:bg-white hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <ChevronRight className="h-6 w-6" />
         </Button>

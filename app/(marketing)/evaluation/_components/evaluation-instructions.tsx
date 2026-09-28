@@ -29,7 +29,7 @@ const instructions = [
 export default function EvaluationInstructions() {
   return (
     <div className="mb-16">
-      <div className="animate-fade-in-up mb-12 text-center">
+      <div className="mb-12 text-center">
         <h2 className="font-display mb-4 text-3xl font-bold text-gray-900 dark:text-white">
           Comment ça fonctionne
         </h2>
@@ -41,8 +41,7 @@ export default function EvaluationInstructions() {
         {instructions.map((instruction, index) => (
           <div
             key={index}
-            className="card-feature animate-fade-in-scale"
-            style={{ animationDelay: `${index * 0.2}s` }}
+            className="bg-card relative overflow-hidden rounded-lg border p-8"
           >
             <div
               className={`mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br ${instruction.color} shadow-lg`}

@@ -29,7 +29,7 @@ export default function Footer() {
               </div>
               <span className="font-display text-2xl font-bold">NOMAQbanq</span>
             </Link>
-            <p className="text-body mb-8 max-w-md leading-relaxed text-gray-300">
+            <p className="mb-8 max-w-md text-base leading-relaxed text-gray-300">
               La première plateforme francophone de préparation à l&apos;EACMC
               Partie I. Votre succès commence ici.
             </p>
@@ -43,7 +43,7 @@ export default function Footer() {
                 <a
                   key={index}
                   href="#"
-                  className="flex h-12 w-12 transform items-center justify-center rounded-2xl bg-gray-800 transition-all duration-300 hover:scale-110 hover:bg-linear-to-br hover:from-blue-600 hover:to-indigo-600"
+                  className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-800 transition-all duration-300 hover:scale-110 hover:bg-linear-to-br hover:from-blue-600 hover:to-indigo-600"
                 >
                   <Icon className="h-6 w-6" />
                 </a>

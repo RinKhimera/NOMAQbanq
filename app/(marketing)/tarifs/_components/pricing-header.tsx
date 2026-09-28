@@ -31,11 +31,8 @@ export const PricingHeader = ({ stats }: { stats: MarketingStats }) => {
       <div className="absolute inset-0 bg-linear-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/20" />
 
       {/* Animated orbs */}
-      <div className="animate-float absolute -top-40 -right-40 h-80 w-80 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-600/20 blur-3xl" />
-      <div
-        className="animate-float absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-linear-to-br from-purple-400/20 to-pink-600/20 blur-3xl"
-        style={{ animationDelay: "2s" }}
-      />
+      <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-600/20 blur-3xl" />
+      <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-linear-to-br from-purple-400/20 to-pink-600/20 blur-3xl" />
 
       {/* Grid pattern overlay */}
       <div
@@ -67,10 +64,10 @@ export const PricingHeader = ({ stats }: { stats: MarketingStats }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.1 }}
-            className="font-display text-display-lg mb-6 text-gray-900 dark:text-white"
+            className="font-display mb-6 text-4xl font-semibold tracking-tight text-gray-900 md:text-5xl dark:text-white"
           >
             Choisissez votre{" "}
-            <span className="gradient-text">plan de préparation</span>
+            <span className="text-accent-ink">plan de préparation</span>
           </motion.h1>
 
           {/* Description */}
@@ -78,7 +75,7 @@ export const PricingHeader = ({ stats }: { stats: MarketingStats }) => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-body-lg mx-auto max-w-2xl text-gray-600 dark:text-gray-300"
+            className="mx-auto max-w-2xl text-lg leading-relaxed text-gray-600 dark:text-gray-300"
           >
             Investissez dans votre réussite avec nos formules d{"'"}accès
             flexibles. Économisez avec les offres 6 mois et préparez-vous

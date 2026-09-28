@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button"
 
 export default function StartQuizCTA() {
   return (
-    <div className="animate-fade-in-up text-center">
+    <div className="text-center">
       <Button
         asChild
-        className="btn-modern rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 px-12 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-2xl"
+        className="rounded-2xl bg-linear-to-r from-blue-600 to-indigo-600 px-12 py-4 text-lg font-semibold text-white shadow-xl transition-all duration-300 hover:from-blue-700 hover:to-indigo-700"
       >
         <Link href="/evaluation/quiz">
           <Play className="mr-3 h-6 w-6" />

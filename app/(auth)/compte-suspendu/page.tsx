@@ -18,9 +18,9 @@ export default function SuspendedPage() {
   const supportEmail = env.SUPPORT_EMAIL ?? FALLBACK_SUPPORT_EMAIL
 
   return (
-    <div className="theme-bg">
+    <div className="bg-background">
       <div className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
-        <div className="glass-card rounded-3xl border border-white/20 p-8 text-center shadow-2xl dark:border-gray-700/50">
+        <div className="bg-card rounded-3xl border border-white/20 p-8 text-center shadow-2xl dark:border-gray-700/50">
           <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-red-500 to-rose-600 shadow-lg">
             <ShieldOff className="h-8 w-8 text-white" aria-hidden="true" />
           </div>

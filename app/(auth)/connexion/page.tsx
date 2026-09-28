@@ -12,11 +12,11 @@ export const metadata: Metadata = { title: "Connexion" }
 
 export default function ConnexionPage() {
   return (
-    <div className="theme-bg">
+    <div className="bg-background">
       <div className="mx-auto max-w-7xl px-4 pt-8 pb-12 sm:px-6 lg:px-8">
         <div className="grid min-h-175 items-center gap-16 lg:grid-cols-2">
           {/* Left side - Welcome back content - Hidden on mobile, shown on desktop */}
-          <div className="animate-slide-in-left hidden space-y-10 lg:block">
+          <div className="hidden space-y-10 lg:block">
             <Badge
               variant="badge"
               className="mb-8 px-6 py-3 text-sm font-semibold"
@@ -26,17 +26,17 @@ export default function ConnexionPage() {
             </Badge>
 
             <div className="space-y-8">
-              <h1 className="font-display text-display-lg leading-tight text-gray-900 dark:text-white">
+              <h1 className="font-display text-4xl leading-tight font-semibold tracking-tight text-gray-900 md:text-5xl dark:text-white">
                 Bon retour !
-                <span className="gradient-text block">Continuez votre</span>
+                <span className="text-accent-ink block">Continuez votre</span>
                 {/* pb : le line-height serré (0.95) + background-clip:text rognent
                     les jambages (p, g) du dégradé — on rend la zone de peinture. */}
-                <span className="gradient-text block pb-[0.2em]">
+                <span className="text-accent-ink block pb-[0.2em]">
                   apprentissage.
                 </span>
               </h1>
 
-              <p className="text-body-lg max-w-lg leading-relaxed text-gray-600 dark:text-gray-300">
+              <p className="max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-300">
                 Connectez-vous à votre compte NOMAQbanq et reprenez votre
                 préparation à l&apos;EACMC là où vous vous êtes arrêté.
               </p>
@@ -74,7 +74,7 @@ export default function ConnexionPage() {
             </div>
 
             {/* Success story */}
-            <div className="glass-card max-w-md rounded-2xl border border-blue-100 p-6 dark:border-blue-800">
+            <div className="bg-card max-w-md rounded-2xl border border-blue-100 p-6 dark:border-blue-800">
               <div className="mb-4 flex items-center space-x-4">
                 <Image
                   src="https://images.pexels.com/photos/5327585/pexels-photo-5327585.jpeg?auto=compress&cs=tinysrgb&w=60"
@@ -104,7 +104,7 @@ export default function ConnexionPage() {
               </p>
               <Button
                 asChild
-                className="btn-modern transform rounded-2xl bg-linear-to-r from-green-600 to-emerald-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-700 hover:to-emerald-700 hover:shadow-xl"
+                className="rounded-2xl bg-linear-to-r from-green-600 to-emerald-600 px-8 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:from-green-700 hover:to-emerald-700"
               >
                 <Link href="/inscription">
                   Créer un compte gratuit
@@ -115,10 +115,7 @@ export default function ConnexionPage() {
           </div>
 
           {/* Right side - Sign-in form with decorative background - Shown first on mobile */}
-          <div
-            className="animate-slide-in-right relative order-first lg:order-last"
-            style={{ animationDelay: "0.2s" }}
-          >
+          <div className="relative order-first lg:order-last">
             {/* Decorative background elements */}
             <div className="absolute -top-10 -right-10 h-72 w-72 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-400/20 blur-3xl"></div>
             <div className="absolute -bottom-10 -left-10 h-64 w-64 rounded-full bg-linear-to-br from-purple-400/20 to-pink-400/20 blur-3xl"></div>

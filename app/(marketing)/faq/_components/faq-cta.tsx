@@ -11,11 +11,8 @@ export const FaqCta = () => {
       <div className="absolute inset-0 bg-black/20" />
 
       {/* Animated background */}
-      <div className="animate-float absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
-      <div
-        className="animate-float absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-white/10 blur-3xl"
-        style={{ animationDelay: "2s" }}
-      />
+      <div className="absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl" />
+      <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
 
       <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
         <motion.div
@@ -28,10 +25,10 @@ export const FaqCta = () => {
             <Mail className="h-10 w-10 text-white" />
           </div>
 
-          <h2 className="font-display text-display-md mb-6 text-white">
+          <h2 className="font-display mb-6 text-3xl font-semibold tracking-tight text-white md:text-4xl">
             Vous ne trouvez pas votre réponse ?
           </h2>
-          <p className="text-body-lg mx-auto mb-10 max-w-2xl text-blue-100">
+          <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-blue-100">
             Notre équipe est là pour vous aider. Contactez-nous et nous vous
             répondrons dans les plus brefs délais.
           </p>
@@ -40,7 +37,7 @@ export const FaqCta = () => {
             <Button
               asChild
               size="lg"
-              className="h-14 rounded-2xl bg-white px-10 text-base font-bold text-blue-600 shadow-xl transition-all duration-300 hover:scale-105 hover:bg-blue-50 hover:shadow-2xl"
+              className="h-14 rounded-2xl bg-white px-10 text-base font-bold text-blue-600 shadow-xl transition-all duration-300 hover:bg-blue-50"
             >
               <a href="mailto:nomaqbanq@outlook.com">
                 <Mail className="mr-2 h-5 w-5" />
@@ -51,7 +48,7 @@ export const FaqCta = () => {
               asChild
               size="lg"
               variant="outline"
-              className="glass-card-dark h-14 rounded-2xl border-2 border-white/30 px-10 text-base font-bold text-white transition-all duration-300 hover:bg-white/10"
+              className="h-14 rounded-2xl border-2 border-white/30 px-10 text-base font-bold text-white transition-all duration-300 hover:bg-white/10"
             >
               <a href="tel:+14388750746">
                 <Phone className="mr-2 h-5 w-5" />

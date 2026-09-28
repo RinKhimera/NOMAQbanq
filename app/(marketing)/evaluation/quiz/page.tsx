@@ -236,7 +236,7 @@ export default function QuizPage() {
   const currentAnswer = quizState.userAnswers[quizState.currentQuestion]
 
   return (
-    <div ref={topOfQuizRef} className="theme-bg">
+    <div ref={topOfQuizRef} className="bg-background">
       <div className="mx-auto max-w-4xl px-3 pt-8 pb-4 sm:px-4 sm:pb-8 lg:px-8">
         <QuizProgress
           currentQuestion={quizState.currentQuestion}
@@ -260,7 +260,7 @@ export default function QuizPage() {
           <Button
             onClick={handleNextQuestion}
             disabled={currentAnswer === null}
-            className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-2 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-2 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {quizState.currentQuestion < quizQuestions.length - 1 ? (
               <>

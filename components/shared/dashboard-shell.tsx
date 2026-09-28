@@ -7,7 +7,6 @@ import { SiteHeader } from "@/components/shared/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { adminNavigation, dashboardNavigation } from "@/constants"
 import type { SessionUser } from "@/lib/session-user"
-import { cn } from "@/lib/utils"
 
 type DashboardShellProps = {
   children: React.ReactNode
@@ -26,7 +25,6 @@ export const DashboardShell = ({
 
   return (
     <SidebarProvider
-      data-dashboard-mode={variant}
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 72)",
@@ -42,7 +40,7 @@ export const DashboardShell = ({
         isUserAdmin={user.role === "admin"}
         userComponent={<GenericNavUser user={user} isAdmin={isAdmin} />}
       />
-      <SidebarInset className={cn(isAdmin ? "admin-theme-bg" : "theme-bg")}>
+      <SidebarInset className="bg-background">
         <SiteHeader isAdmin={isAdmin} />
         <div className="flex flex-1 flex-col overflow-hidden">
           <div className="@container/main flex flex-1 flex-col gap-4 overflow-auto p-4 md:gap-6 md:p-6">

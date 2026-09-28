@@ -8,11 +8,11 @@ export const metadata: Metadata = { title: "Inscription" }
 
 export default function InscriptionPage() {
   return (
-    <div className="theme-bg">
+    <div className="bg-background">
       <div className="mx-auto max-w-7xl px-4 pt-8 pb-12 sm:px-6 lg:px-8">
         <div className="grid min-h-175 items-center gap-16 lg:grid-cols-2">
           {/* Left side - Hero content - Hidden on mobile, shown on desktop */}
-          <div className="animate-slide-in-left hidden space-y-10 lg:block">
+          <div className="hidden space-y-10 lg:block">
             <Badge
               variant="success_badge"
               className="mb-8 px-6 py-3 text-sm font-semibold"
@@ -22,14 +22,14 @@ export default function InscriptionPage() {
             </Badge>
 
             <div className="space-y-8">
-              <h1 className="font-display text-display-lg leading-tight text-gray-900 dark:text-white">
+              <h1 className="font-display text-4xl leading-tight font-semibold tracking-tight text-gray-900 md:text-5xl dark:text-white">
                 Commencez à transformer vos
-                <span className="gradient-text block">
+                <span className="text-accent-ink block">
                   connaissances en réalité.
                 </span>
               </h1>
 
-              <p className="text-body-lg max-w-lg leading-relaxed text-gray-600 dark:text-gray-300">
+              <p className="max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-300">
                 Créez un compte gratuit et obtenez un accès complet à toutes les
                 fonctionnalités pendant 30 jours. Aucune carte de crédit
                 nécessaire. Approuvé par plus de 4 000 professionnels.
@@ -82,7 +82,7 @@ export default function InscriptionPage() {
             </div>
 
             {/* Reviews */}
-            <div className="glass-card rounded-2xl border border-blue-100 p-6 dark:border-blue-800">
+            <div className="bg-card rounded-2xl border border-blue-100 p-6 dark:border-blue-800">
               <div className="mb-4 flex items-center space-x-4">
                 <div className="flex -space-x-2">
                   {[1, 2, 3, 4, 5].map((i) => (
@@ -121,10 +121,7 @@ export default function InscriptionPage() {
           </div>
 
           {/* Right side - Sign-up form with decorative background - Shown first on mobile */}
-          <div
-            className="animate-slide-in-right relative order-first lg:order-last"
-            style={{ animationDelay: "0.2s" }}
-          >
+          <div className="relative order-first lg:order-last">
             {/* Decorative background elements */}
             <div className="absolute -top-10 -right-10 h-72 w-72 rounded-full bg-linear-to-br from-green-400/20 to-emerald-400/20 blur-3xl"></div>
             <div className="absolute -bottom-10 -left-10 h-64 w-64 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-400/20 blur-3xl"></div>
