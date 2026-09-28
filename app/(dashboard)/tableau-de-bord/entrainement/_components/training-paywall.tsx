@@ -3,12 +3,10 @@
 import { ArrowRight, Brain, Check, Lock, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
 import Link from "next/link"
-import { useActionState, useTransition } from "react"
-import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import { createStripeCheckout } from "@/features/payments/actions"
 import type { ProductView } from "@/features/payments/dal"
+import { useCheckout } from "@/hooks/use-checkout"
 import { formatCurrency } from "@/lib/format"
 
 const FEATURES = [
@@ -25,27 +23,8 @@ export const TrainingPaywall = ({
 }: {
   product: ProductView | null
 }) => {
-  const [, startTransition] = useTransition()
-  const [, purchaseAction, isPending] = useActionState(async () => {
-    if (!product) return null
-
-    try {
-      const res = await createStripeCheckout({
-        productCode: product.code,
-        successPath: "/tableau-de-bord/entrainement",
-        cancelPath: "/tableau-de-bord/entrainement",
-      })
-      if ("error" in res) {
-        toast.error(res.error)
-        return null
-      }
-      window.location.href = res.checkoutUrl
-    } catch {
-      toast.error("Une erreur est survenue. Veuillez réessayer.")
-    }
-
-    return null
-  }, null)
+  const { checkout, pendingProduct } = useCheckout()
+  const isPending = pendingProduct !== null
 
   return (
     <div className="relative min-h-screen overflow-hidden">
@@ -143,7 +122,13 @@ export const TrainingPaywall = ({
               {/* CTA buttons */}
               <div className="space-y-4">
                 <Button
-                  onClick={() => startTransition(purchaseAction)}
+                  onClick={() =>
+                    product &&
+                    checkout(product.code, {
+                      successPath: "/tableau-de-bord/entrainement",
+                      cancelPath: "/tableau-de-bord/entrainement",
+                    })
+                  }
                   disabled={isPending || !product}
                   size="lg"
                   className="h-14 w-full rounded-xl bg-linear-to-r from-emerald-600 to-teal-600 text-lg font-semibold shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl hover:shadow-emerald-500/30"

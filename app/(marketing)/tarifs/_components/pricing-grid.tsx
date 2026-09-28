@@ -4,7 +4,6 @@ import { CircleAlert, PackageX, Sparkles, Zap } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { toast } from "sonner"
 import {
   AccessBadge,
   getAccessStatus,
@@ -12,8 +11,8 @@ import {
 import { PremiumPricingCard } from "@/components/shared/payments/premium-pricing-card"
 import { PricingCard } from "@/components/shared/payments/pricing-card"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createStripeCheckout } from "@/features/payments/actions"
 import type { AccessStatus, ProductView } from "@/features/payments/dal"
+import { useCheckout } from "@/hooks/use-checkout"
 import { cn } from "@/lib/utils"
 
 type AccessFilter = "all" | "exam" | "training"
@@ -30,7 +29,7 @@ export const PricingGrid = ({
   isAuthenticated,
 }: PricingGridProps) => {
   const [filter, setFilter] = useState<AccessFilter>("all")
-  const [loadingProduct, setLoadingProduct] = useState<string | null>(null)
+  const { checkout, pendingProduct: loadingProduct } = useCheckout()
   const router = useRouter()
 
   const handlePurchase = async (productCode: string) => {
@@ -39,27 +38,10 @@ export const PricingGrid = ({
       return
     }
 
-    setLoadingProduct(productCode)
-    try {
-      const res = await createStripeCheckout({
-        productCode,
-        successPath: "/tableau-de-bord/paiement/succes",
-        cancelPath: "/tarifs",
-      })
-      if ("error" in res) {
-        toast.error(res.error)
-        return
-      }
-      window.location.href = res.checkoutUrl
-    } catch {
-      if (!navigator.onLine) {
-        toast.error("Pas de connexion internet. Vérifiez votre réseau.")
-      } else {
-        toast.error("Une erreur est survenue. Veuillez réessayer.")
-      }
-    } finally {
-      setLoadingProduct(null)
-    }
+    await checkout(productCode, {
+      successPath: "/tableau-de-bord/paiement/succes",
+      cancelPath: "/tarifs",
+    })
   }
 
   const premiumProduct = products?.find((p) => p.code === "premium_access")
