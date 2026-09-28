@@ -82,3 +82,7 @@ export const formatPauseTime = (ms: number): string => {
   const seconds = Math.floor((ms % MINUTE) / SECOND)
   return `${pad(minutes)}:${pad(seconds)}`
 }
+
+/** M:SS à partir de secondes (évaluation gratuite). */
+export const formatMinutesSeconds = (seconds: number): string =>
+  `${Math.floor(seconds / 60)}:${pad(seconds % 60)}`

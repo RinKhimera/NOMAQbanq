@@ -5,13 +5,13 @@ import { Plus } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useState, useTransition } from "react"
-import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import {
   QuestionBrowser,
   type QuestionFilters,
   defaultFilters,
 } from "@/components/admin/question-browser"
 import { toQuestionSelection } from "@/components/admin/question-browser/utils"
+import { PageIntro } from "@/components/shared/page-intro"
 import { Button } from "@/components/ui/button"
 import type { ExamPickerOption } from "@/features/exams/dal"
 import type { QuestionStatsEnriched } from "@/features/questions/dal"
@@ -60,10 +60,10 @@ export function QuestionsManager({
 
   return (
     <>
-      <AdminPageHeader
+      <PageIntro
         icon={IconListCheck}
         title="Gestion des Questions"
-        subtitle="Gérez votre banque de questions QCM pour les examens EACMC"
+        description="Gérez votre banque de questions QCM pour les examens EACMC"
         colorScheme="emerald"
         actions={
           <>

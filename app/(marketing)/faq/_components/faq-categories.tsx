@@ -9,6 +9,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"
+import { EmptyState } from "@/components/ui/empty-state"
 import { faqCategories } from "../_data/faq-data"
 
 interface FaqCategoriesProps {
@@ -49,22 +50,12 @@ export const FaqCategories = ({
     return (
       <section className="py-12">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex flex-col items-center justify-center rounded-2xl bg-gray-50 py-16 dark:bg-gray-800/50"
-          >
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-200 dark:bg-gray-700">
-              <SearchX className="h-8 w-8 text-gray-400" />
-            </div>
-            <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">
-              Aucun résultat trouvé
-            </h3>
-            <p className="text-center text-gray-500 dark:text-gray-400">
-              Essayez avec d{"'"}autres termes de recherche ou changez de
-              catégorie.
-            </p>
-          </motion.div>
+          <EmptyState
+            icons={[SearchX]}
+            title="Aucun résultat trouvé"
+            description="Essayez avec d'autres termes de recherche ou changez de catégorie."
+            className="mx-auto"
+          />
         </div>
       </section>
     )

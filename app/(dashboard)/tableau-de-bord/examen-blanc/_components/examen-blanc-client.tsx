@@ -9,6 +9,7 @@ import {
   Clock,
   GraduationCap,
   Hourglass,
+  type LucideIcon,
   TriangleAlert,
   Trophy,
 } from "lucide-react"
@@ -16,15 +17,10 @@ import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
-import { Badge } from "@/components/ui/badge"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { PageIntro } from "@/components/shared/page-intro"
+import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { EmptyState } from "@/components/ui/empty-state"
 import type { ExamListItem } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
@@ -34,10 +30,19 @@ import {
   formatFullDateTime,
   formatPaddedMediumDate,
 } from "@/lib/format"
-import { formatScore } from "@/lib/score"
+import { formatScore, isPassing } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 type ExamVariant = "active" | "upcoming" | "past"
+
+const EXAM_CARD_STATUS: Record<
+  ExamVariant,
+  { tone: StatusTone; icon?: LucideIcon; label: string }
+> = {
+  active: { tone: "success", icon: CircleCheck, label: "Ouvert" },
+  upcoming: { tone: "info", icon: Hourglass, label: "Bientôt" },
+  past: { tone: "neutral", label: "Terminé" },
+}
 
 interface ExamCardProps {
   exam: ExamListItem
@@ -64,9 +69,6 @@ const ExamCard = ({
       hoverBorder: "hover:border-emerald-300 dark:hover:border-emerald-700",
       iconBg: "bg-emerald-500",
       iconColor: "text-emerald-600 dark:text-emerald-400",
-      badgeBg: "bg-emerald-100 dark:bg-emerald-900/50",
-      badgeText: "text-emerald-700 dark:text-emerald-300",
-      badgeBorder: "border-emerald-200 dark:border-emerald-700",
       infoBg: "bg-white/60 dark:bg-gray-800/60",
       titleHover:
         "group-hover:text-emerald-700 dark:group-hover:text-emerald-400",
@@ -78,9 +80,6 @@ const ExamCard = ({
       hoverBorder: "hover:border-blue-300 dark:hover:border-blue-700",
       iconBg: "bg-blue-500",
       iconColor: "text-blue-600 dark:text-blue-400",
-      badgeBg: "bg-blue-100 dark:bg-blue-900/50",
-      badgeText: "text-blue-700 dark:text-blue-300",
-      badgeBorder: "border-blue-200 dark:border-blue-700",
       infoBg: "bg-white/60 dark:bg-gray-800/60",
       titleHover: "group-hover:text-blue-700 dark:group-hover:text-blue-400",
     },
@@ -91,9 +90,6 @@ const ExamCard = ({
       hoverBorder: "hover:border-gray-300 dark:hover:border-gray-600",
       iconBg: "bg-gray-500",
       iconColor: "text-gray-500 dark:text-gray-400",
-      badgeBg: "bg-gray-100 dark:bg-gray-800/50",
-      badgeText: "text-gray-600 dark:text-gray-400",
-      badgeBorder: "border-gray-200 dark:border-gray-600",
       infoBg: "bg-white/50 dark:bg-gray-800/50",
       titleHover: "group-hover:text-gray-700 dark:group-hover:text-gray-300",
     },
@@ -135,29 +131,12 @@ const ExamCard = ({
           >
             {exam.title}
           </h3>
-          <Badge
-            variant="outline"
-            className={cn(
-              "shrink-0 text-xs font-medium",
-              styles.badgeBg,
-              styles.badgeText,
-              styles.badgeBorder,
-            )}
+          <StatusPill
+            tone={EXAM_CARD_STATUS[variant].tone}
+            icon={EXAM_CARD_STATUS[variant].icon}
           >
-            {variant === "active" && (
-              <>
-                <CircleCheck className="mr-1 h-3 w-3" />
-                Ouvert
-              </>
-            )}
-            {variant === "upcoming" && (
-              <>
-                <Hourglass className="mr-1 h-3 w-3" />
-                Bientôt
-              </>
-            )}
-            {variant === "past" && "Terminé"}
-          </Badge>
+            {EXAM_CARD_STATUS[variant].label}
+          </StatusPill>
         </div>
 
         {/* Description */}
@@ -223,14 +202,14 @@ const ExamCard = ({
                   "flex h-12 w-12 items-center justify-center rounded-full",
                   userResult.score === null
                     ? "bg-gray-100 dark:bg-gray-800/60"
-                    : userResult.score >= 60
+                    : isPassing(userResult.score)
                       ? "bg-emerald-100 dark:bg-emerald-900/30"
                       : "bg-amber-100 dark:bg-amber-900/30",
                 )}
               >
                 {userResult.score === null ? (
                   <Hourglass className="h-6 w-6 text-gray-500 dark:text-gray-400" />
-                ) : userResult.score >= 60 ? (
+                ) : isPassing(userResult.score) ? (
                   <Trophy className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                 ) : (
                   <Award className="h-6 w-6 text-amber-600 dark:text-amber-400" />
@@ -422,7 +401,7 @@ export function ExamenBlancClient({
         ? []
         : [exam.userParticipation.score],
     )
-    const passedExams = scores.filter((s) => s >= 60).length
+    const passedExams = scores.filter(isPassing).length
     const averageScore =
       scores.length > 0
         ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length)
@@ -473,30 +452,12 @@ export function ExamenBlancClient({
           transition={{ duration: 0.5 }}
           className="mb-10"
         >
-          <div className="flex items-center gap-4">
-            <div className="relative">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
-                <GraduationCap className="h-8 w-8 text-white" />
-              </div>
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
-                className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 shadow-md"
-              >
-                <Trophy className="h-3.5 w-3.5 text-amber-900" />
-              </motion.div>
-            </div>
-            <div>
-              <h1 className="font-display text-3xl font-bold text-gray-900 dark:text-white">
-                Examens Blancs
-              </h1>
-              <p className="mt-1 text-gray-600 dark:text-gray-400">
-                Testez vos connaissances dans les conditions réelles de
-                l&apos;EACMC
-              </p>
-            </div>
-          </div>
+          <PageIntro
+            icon={GraduationCap}
+            colorScheme="blue"
+            title="Examens Blancs"
+            description="Testez vos connaissances dans les conditions réelles de l'EACMC"
+          />
 
           {/* Stats summary */}
           {userStats.completed > 0 && (
@@ -651,87 +612,59 @@ export function ExamenBlancClient({
         )}
       </div>
 
-      {/* Confirmation dialog */}
-      <Dialog open={confirmationOpen} onOpenChange={setConfirmationOpen}>
-        <DialogContent className="overflow-hidden border-0 bg-white/95 shadow-2xl backdrop-blur-xl sm:max-w-lg dark:bg-gray-900/95">
-          <DialogHeader className="space-y-4">
-            <DialogTitle className="flex items-center gap-3 text-xl">
+      <ConfirmDialog
+        open={confirmationOpen}
+        onOpenChange={setConfirmationOpen}
+        icon={TriangleAlert}
+        title="Confirmer le début de l'examen"
+        description="Vous êtes sur le point de commencer un examen blanc. Voici les conditions :"
+        confirmLabel="Commencer l'examen"
+        onConfirm={confirmStartExam}
+      >
+        <div className="space-y-4">
+          <div className="space-y-3 rounded-xl bg-linear-to-br from-amber-50 to-orange-50 p-4 dark:from-amber-950/30 dark:to-orange-950/30">
+            {[
+              {
+                text: `${selectedExamData?.questionCount ?? 0} questions`,
+                detail: "à répondre",
+              },
+              {
+                text: `${Math.floor((selectedExamData?.completionTime ?? 0) / 60)} minutes`,
+                detail: "pour compléter l'examen",
+              },
+              {
+                text: "Impossible d'interrompre",
+                detail: "une fois commencé",
+              },
+              { text: "Un seul essai", detail: "autorisé" },
+            ].map((item, index) => (
               <motion.div
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                className="flex h-12 w-12 items-center justify-center rounded-full bg-linear-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30"
+                key={index}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1 + index * 0.05 }}
+                className="flex items-center gap-3"
               >
-                <TriangleAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+                <div className="h-2 w-2 rounded-full bg-amber-500" />
+                <span className="text-sm">
+                  <strong className="text-gray-900 dark:text-white">
+                    {item.text}
+                  </strong>{" "}
+                  <span className="text-gray-600 dark:text-gray-400">
+                    {item.detail}
+                  </span>
+                </span>
               </motion.div>
-              Confirmer le début de l&apos;examen
-            </DialogTitle>
-            <div className="space-y-4 pt-2">
-              <p className="text-gray-700 dark:text-gray-300">
-                Vous êtes sur le point de commencer un examen blanc. Voici les
-                conditions :
-              </p>
-              <div className="space-y-3 rounded-xl bg-linear-to-br from-amber-50 to-orange-50 p-4 dark:from-amber-950/30 dark:to-orange-950/30">
-                {[
-                  {
-                    text: `${selectedExamData?.questionCount ?? 0} questions`,
-                    detail: "à répondre",
-                  },
-                  {
-                    text: `${Math.floor((selectedExamData?.completionTime ?? 0) / 60)} minutes`,
-                    detail: "pour compléter l'examen",
-                  },
-                  {
-                    text: "Impossible d'interrompre",
-                    detail: "une fois commencé",
-                  },
-                  { text: "Un seul essai", detail: "autorisé" },
-                ].map((item, index) => (
-                  <motion.div
-                    key={index}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 + index * 0.05 }}
-                    className="flex items-center gap-3"
-                  >
-                    <div className="h-2 w-2 rounded-full bg-amber-500" />
-                    <span className="text-sm">
-                      <strong className="text-gray-900 dark:text-white">
-                        {item.text}
-                      </strong>{" "}
-                      <span className="text-gray-600 dark:text-gray-400">
-                        {item.detail}
-                      </span>
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-              <div className="rounded-lg bg-amber-100/50 p-3 dark:bg-amber-900/20">
-                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                  Assurez-vous d&apos;avoir suffisamment de temps avant de
-                  commencer.
-                </p>
-              </div>
-            </div>
-          </DialogHeader>
-          <DialogFooter className="gap-3 pt-6">
-            <Button
-              variant="outline"
-              onClick={() => setConfirmationOpen(false)}
-              className="font-medium"
-            >
-              Annuler
-            </Button>
-            <Button
-              onClick={confirmStartExam}
-              className="bg-linear-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-lg transition-all hover:from-emerald-700 hover:to-teal-700 hover:shadow-xl"
-            >
-              <CirclePlay className="mr-2 h-4 w-4" />
-              Commencer l&apos;examen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            ))}
+          </div>
+          <div className="rounded-lg bg-amber-100/50 p-3 dark:bg-amber-900/20">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              Assurez-vous d&apos;avoir suffisamment de temps avant de
+              commencer.
+            </p>
+          </div>
+        </div>
+      </ConfirmDialog>
     </div>
   )
 }

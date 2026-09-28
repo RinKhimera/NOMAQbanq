@@ -1,8 +1,6 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { format } from "date-fns"
-import { fr } from "date-fns/locale"
 import {
   ArrowLeft,
   Calendar,
@@ -25,6 +23,7 @@ import {
   QuestionSelectModal,
 } from "@/components/admin/question-browser"
 import { UserMultiSelect } from "@/components/admin/user-multi-select"
+import { PageIntro } from "@/components/shared/page-intro"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -65,6 +64,7 @@ import type {
 } from "@/features/exams/dal"
 import { SECONDS_PER_QUESTION } from "@/features/exams/schemas"
 import type { SelectableUser } from "@/features/users/dal"
+import { formatCalendarDay } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { cn } from "@/lib/utils"
 import {
@@ -258,26 +258,23 @@ export function ExamForm(props: ExamFormProps) {
 
   return (
     <div className="@container flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* En-tête */}
-      <div className="flex flex-col justify-between gap-4 @lg:flex-row @lg:items-center">
-        <div className="space-y-1">
-          <h1 className="bg-linear-to-r from-blue-600 to-indigo-600 bg-clip-text text-2xl font-bold tracking-tight text-transparent md:text-3xl dark:from-blue-400 dark:to-indigo-400">
-            {copy.title}
-          </h1>
-          <p className="text-muted-foreground">{copy.subtitle}</p>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="group w-fit transition-all hover:border-blue-300 hover:bg-blue-50 dark:hover:border-blue-700 dark:hover:bg-blue-950"
-          asChild
-        >
-          <Link href="/admin/examens">
-            <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-            Retour aux examens
-          </Link>
-        </Button>
-      </div>
+      <PageIntro
+        title={copy.title}
+        description={copy.subtitle}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            className="group w-fit transition-all hover:border-blue-300 hover:bg-blue-50 dark:hover:border-blue-700 dark:hover:bg-blue-950"
+            asChild
+          >
+            <Link href="/admin/examens">
+              <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+              Retour aux examens
+            </Link>
+          </Button>
+        }
+      />
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -418,15 +415,8 @@ export function ExamForm(props: ExamFormProps) {
                                     <Calendar className="mr-2 h-4 w-4 text-blue-600" />
                                     {startField.value && endField.value ? (
                                       <span className="truncate">
-                                        {format(
-                                          startField.value,
-                                          "d MMM yyyy",
-                                          { locale: fr },
-                                        )}{" "}
-                                        -{" "}
-                                        {format(endField.value, "d MMM yyyy", {
-                                          locale: fr,
-                                        })}
+                                        {formatCalendarDay(startField.value)} -{" "}
+                                        {formatCalendarDay(endField.value)}
                                       </span>
                                     ) : (
                                       <span>Sélectionner</span>

@@ -16,6 +16,8 @@ import {
 import { QuestionImageGallery } from "@/components/shared/question-image-gallery"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
+import { SkeletonText } from "@/components/ui/skeleton-patterns"
 import { cn } from "@/lib/utils"
 import { KEY_WITHHELD_MESSAGE } from "../runner/types"
 import { AnswerOption } from "./answer-option"
@@ -582,12 +584,8 @@ export const QuestionCard = ({
               />
             ) : (
               <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-900/20">
-                <div className="mb-2 h-4 w-32 animate-pulse rounded bg-blue-200 dark:bg-blue-800" />
-                <div className="space-y-2">
-                  <div className="h-3 w-full animate-pulse rounded bg-blue-200/60 dark:bg-blue-800/60" />
-                  <div className="h-3 w-11/12 animate-pulse rounded bg-blue-200/60 dark:bg-blue-800/60" />
-                  <div className="h-3 w-3/4 animate-pulse rounded bg-blue-200/60 dark:bg-blue-800/60" />
-                </div>
+                <Skeleton className="mb-2 h-4 w-32" />
+                <SkeletonText lines={3} />
               </div>
             )}
           </div>

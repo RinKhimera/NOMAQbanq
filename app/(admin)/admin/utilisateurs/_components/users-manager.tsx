@@ -5,9 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { DateRange } from "react-day-picker"
 import { toast } from "sonner"
-import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ExportUsersButton } from "@/components/admin/export-users-button"
-import { TablePagination } from "@/components/admin/table-pagination"
+import { TablePagination } from "@/components/shared/data-table/table-pagination"
+import { PageIntro } from "@/components/shared/page-intro"
 import type { ProductView } from "@/features/payments/dal"
 import { loadUsersPage } from "@/features/users/actions"
 import type {
@@ -16,6 +16,7 @@ import type {
   SelectableUser,
   UsersStatsView,
 } from "@/features/users/dal"
+import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { toCalendarDay } from "@/lib/format"
 import { UserSidePanel } from "./user-side-panel"
 import {
@@ -55,19 +56,9 @@ export function UsersManager({
   const initialUserId = searchParams.get("user")
 
   const [searchQuery, setSearchQuery] = useState("")
-  const [debouncedSearch, setDebouncedSearch] = useState("")
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(PAGE)
-
-  // Debounce ; le reset page se fait ICI (callback async → ESLint OK) pour
-  // éviter un fetch superflu avec l'ancien terme sur une page > 1.
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setDebouncedSearch(searchQuery)
-      setPage(1)
-    }, 300)
-    return () => clearTimeout(t)
-  }, [searchQuery])
+  const debouncedSearch = useDebouncedValue(searchQuery, 300, () => setPage(1))
 
   const [role, setRole] = useState<RoleFilter>("all")
   const [accessStatus, setAccessStatus] = useState<AccessStatusFilter>("all")
@@ -220,10 +211,10 @@ export function UsersManager({
 
   return (
     <>
-      <AdminPageHeader
+      <PageIntro
         icon={IconUsers}
         title="Gestion des utilisateurs"
-        subtitle="Consultez et gérez les utilisateurs de la plateforme"
+        description="Consultez et gérez les utilisateurs de la plateforme"
         colorScheme="violet"
         actions={
           exportUsers.length > 0 ? (

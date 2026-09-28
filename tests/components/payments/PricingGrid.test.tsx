@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { PricingGrid } from "@/app/(marketing)/tarifs/_components/pricing-grid"
+import { NETWORK_ERROR_MESSAGE } from "@/lib/safe-action"
 
 vi.mock("motion/react", async () => {
   const { motionMockFactory } = await import("../../helpers/motion-mock")
@@ -23,6 +24,7 @@ vi.mock("next/link", () => ({
 const push = vi.fn()
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, refresh: vi.fn() }),
+  unstable_isUnrecognizedActionError: () => false,
 }))
 
 const createStripeCheckout = vi.fn()
@@ -154,30 +156,14 @@ describe("PricingGrid", () => {
     )
   })
 
-  it("distingue une panne réseau d'une erreur générique", async () => {
+  it("annonce une panne réseau, sans rediriger", async () => {
     createStripeCheckout.mockRejectedValue(new Error("Failed to fetch"))
-    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false)
-
-    const { unmount } = render(
-      <PricingGrid products={products} accessStatus={null} isAuthenticated />,
-    )
-    fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
-    await waitFor(() =>
-      expect(toastError).toHaveBeenCalledWith(
-        "Pas de connexion internet. Vérifiez votre réseau.",
-      ),
-    )
-    unmount()
-
-    onLine.mockReturnValue(true)
     render(
       <PricingGrid products={products} accessStatus={null} isAuthenticated />,
     )
     fireEvent.click(screen.getByRole("button", { name: /Acheter maintenant/ }))
     await waitFor(() =>
-      expect(toastError).toHaveBeenCalledWith(
-        "Une erreur est survenue. Veuillez réessayer.",
-      ),
+      expect(toastError).toHaveBeenCalledWith(NETWORK_ERROR_MESSAGE),
     )
   })
 

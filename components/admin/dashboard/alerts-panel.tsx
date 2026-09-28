@@ -7,8 +7,10 @@ import {
   IconClock,
   IconCreditCardOff,
 } from "@tabler/icons-react"
+import { CircleCheck } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { cn } from "@/lib/utils"
 
 interface ExpiringAccess {
@@ -114,17 +116,13 @@ export function AlertsPanel({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center py-6 text-center">
-            <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-              <IconCircleCheck className="h-6 w-6 text-emerald-500" />
-            </div>
-            <p className="font-medium text-gray-900 dark:text-white">
-              Tout va bien
-            </p>
-            <p className="text-muted-foreground text-sm">
-              Aucune alerte à signaler
-            </p>
-          </div>
+          <EmptyState
+            size="compact"
+            icons={[CircleCheck]}
+            title="Tout va bien"
+            description="Aucune alerte à signaler"
+            className="py-6"
+          />
         </CardContent>
       </Card>
     )

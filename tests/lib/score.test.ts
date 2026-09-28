@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
-import { classify, computeScorePercent, summarize } from "@/lib/score"
+import {
+  PASS_THRESHOLD,
+  classify,
+  computeScorePercent,
+  isPassing,
+  scoreTone,
+  summarize,
+} from "@/lib/score"
 
 describe("computeScorePercent", () => {
   it("0 question → 0", () => {
@@ -110,5 +117,22 @@ describe("summarize", () => {
       withheld: 0,
       scoreWithheld: false,
     })
+  })
+})
+
+describe("échelle des scores", () => {
+  it("≥ 80 réussite nette, ≥ 60 réussite juste, en dessous échec", () => {
+    expect(scoreTone(100)).toBe("success")
+    expect(scoreTone(80)).toBe("success")
+    expect(scoreTone(79)).toBe("warning")
+    expect(scoreTone(60)).toBe("warning")
+    expect(scoreTone(59)).toBe("danger")
+    expect(scoreTone(0)).toBe("danger")
+  })
+
+  it("le seuil de réussite est 60 %", () => {
+    expect(PASS_THRESHOLD).toBe(60)
+    expect(isPassing(60)).toBe(true)
+    expect(isPassing(59)).toBe(false)
   })
 })

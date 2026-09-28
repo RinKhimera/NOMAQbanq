@@ -1,6 +1,7 @@
 "use client"
 
 import { Funnel } from "lucide-react"
+import type { StatusTone } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,6 +14,13 @@ import { EXAM_STATUS_CONFIG, ExamStatus } from "@/lib/exam-status"
 interface ExamStatusFilterProps {
   selectedStatuses: ExamStatus[]
   onStatusChange: (statuses: ExamStatus[]) => void
+}
+
+const toneDot: Partial<Record<StatusTone, string>> = {
+  neutral: "#6b7280",
+  info: "#3b82f6",
+  success: "#10b981",
+  danger: "#ef4444",
 }
 
 export function ExamStatusFilter({
@@ -47,12 +55,7 @@ export function ExamStatusFilter({
           {selectedStatuses.length > 0 && (
             <div className="ml-1 flex items-center gap-1">
               {selectedStatuses.map((status) => {
-                const cfg = EXAM_STATUS_CONFIG[status]
-                // Derive a color from className config
-                let bg = "#3b82f6" // default blue
-                if (cfg.className.includes("bg-green")) bg = "#10b981"
-                else if (cfg.className.includes("bg-gray")) bg = "#6b7280"
-                else if (cfg.className.includes("bg-red")) bg = "#ef4444"
+                const bg = toneDot[EXAM_STATUS_CONFIG[status].tone]
                 return (
                   <span
                     key={status}
@@ -98,15 +101,7 @@ export function ExamStatusFilter({
             >
               <div
                 className="h-3 w-3 rounded-full"
-                style={{
-                  backgroundColor: config.className.includes("bg-green")
-                    ? "#10b981"
-                    : config.className.includes("bg-blue")
-                      ? "#3b82f6"
-                      : config.className.includes("bg-gray")
-                        ? "#6b7280"
-                        : "#ef4444",
-                }}
+                style={{ backgroundColor: toneDot[config.tone] }}
               />
               {config.label}
             </DropdownMenuCheckboxItem>

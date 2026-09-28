@@ -1,6 +1,7 @@
 "use client"
 
 import { IconBooks } from "@tabler/icons-react"
+import { BookOpen } from "lucide-react"
 import { Bar, BarChart, Cell, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -9,6 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { EmptyState } from "@/components/ui/empty-state"
 
 interface DomainChartContentProps {
   data: {
@@ -64,12 +66,11 @@ export function DomainChartContent({
           </div>
         </CardHeader>
         <CardContent className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            <div className="text-muted-foreground mb-2 text-4xl">📚</div>
-            <p className="text-muted-foreground text-sm">
-              Ajoutez des questions pour voir la répartition
-            </p>
-          </div>
+          <EmptyState
+            size="compact"
+            icons={[BookOpen]}
+            title="Ajoutez des questions pour voir la répartition"
+          />
         </CardContent>
       </Card>
     )

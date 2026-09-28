@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { ErrorState } from "@/components/shared/error-state"
 import { getNotificationPreferences } from "@/features/notifications/dal"
 import { getAccessStatus } from "@/features/payments/dal"
 import {
@@ -22,16 +23,11 @@ export default async function ProfilPage() {
 
   if (!currentUser) {
     return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center p-4">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Profil introuvable
-          </h1>
-          <p className="mt-2 text-gray-600 dark:text-gray-400">
-            Impossible de charger votre profil. Veuillez réessayer.
-          </p>
-        </div>
-      </div>
+      <ErrorState
+        title="Profil introuvable"
+        description="Impossible de charger votre profil. Veuillez réessayer."
+        retryHref="/tableau-de-bord/profil"
+      />
     )
   }
 

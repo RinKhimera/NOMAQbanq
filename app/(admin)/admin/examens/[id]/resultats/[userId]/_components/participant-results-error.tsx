@@ -1,11 +1,11 @@
 "use client"
 
-import { ArrowLeft, CircleCheckBig, Clock, Trophy, User } from "lucide-react"
+import { CircleCheckBig, Clock, Trophy, User } from "lucide-react"
 import { motion } from "motion/react"
-import Link from "next/link"
+import { PageIntro } from "@/components/shared/page-intro"
+import { StatusPill } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import type { ExamParticipantUser } from "@/features/exams/dal"
 
 interface ParticipantResultsErrorProps {
@@ -32,41 +32,14 @@ export function ParticipantResultsError({
 }: ParticipantResultsErrorProps) {
   return (
     <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
-      {/* Header */}
-      <div className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80">
-        <div className="mx-auto max-w-6xl px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-amber-500 to-orange-600 shadow-lg"
-              >
-                <Clock className="h-6 w-6 text-white" />
-              </motion.div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  Résultats non disponibles
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {examTitle}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Button variant="outline" asChild>
-                <Link
-                  href={`/admin/examens/${examId}`}
-                  className="flex items-center gap-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Retour au classement</span>
-                </Link>
-              </Button>
-            </div>
-          </div>
-        </div>
+      <div className="mx-auto max-w-4xl px-4 pt-8">
+        <PageIntro
+          backHref={`/admin/examens/${examId}`}
+          icon={Clock}
+          colorScheme="amber"
+          title="Résultats non disponibles"
+          description={examTitle}
+        />
       </div>
 
       {/* Main content */}
@@ -124,12 +97,7 @@ export function ParticipantResultsError({
                 <p className="text-amber-800 dark:text-amber-200">{message}</p>
                 {error === "NOT_COMPLETED" && status && (
                   <div className="mt-4">
-                    <Badge
-                      variant="outline"
-                      className="border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-700 dark:bg-amber-900/50 dark:text-amber-200"
-                    >
-                      Statut: {status}
-                    </Badge>
+                    <StatusPill tone="warning">Statut : {status}</StatusPill>
                   </div>
                 )}
               </div>

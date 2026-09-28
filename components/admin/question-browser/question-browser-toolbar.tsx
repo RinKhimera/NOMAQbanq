@@ -1,8 +1,8 @@
 "use client"
 
-import { Search, TriangleAlert, X } from "lucide-react"
+import { TriangleAlert, X } from "lucide-react"
+import { SearchInput } from "@/components/shared/search-input"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -10,7 +10,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Spinner } from "@/components/ui/spinner"
 import { MEDICAL_DOMAINS } from "@/constants"
 import { cn } from "@/lib/utils"
 import { useQuestionBrowser } from "./question-browser-context"
@@ -38,23 +37,14 @@ export function QuestionBrowserToolbar({
     >
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         {/* Search */}
-        <div className="relative flex-1">
-          {isSearching ? (
-            <Spinner
-              size="sm"
-              className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-            />
-          ) : (
-            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          )}
-          <Input
-            type="text"
-            placeholder="Rechercher dans les questions ou objectifs CMC..."
-            value={filters.searchQuery}
-            onChange={(e) => updateFilter("searchQuery", e.target.value)}
-            className="h-10 pr-4 pl-10"
-          />
-        </div>
+        <SearchInput
+          placeholder="Rechercher dans les questions ou objectifs CMC..."
+          value={filters.searchQuery}
+          onValueChange={(value) => updateFilter("searchQuery", value)}
+          containerClassName="flex-1"
+          className="h-10 pr-4"
+          isSearching={isSearching}
+        />
 
         {/* Filters row */}
         <div className="flex flex-wrap items-center gap-2">

@@ -1,8 +1,7 @@
 "use client"
 
 import { IconTrendingUp } from "@tabler/icons-react"
-import { format, parseISO } from "date-fns"
-import { fr } from "date-fns/locale"
+import { ChartColumn } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -11,6 +10,8 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { EmptyState } from "@/components/ui/empty-state"
+import { formatCurrency, formatIsoDay } from "@/lib/format"
 
 interface RevenueChartContentProps {
   data: {
@@ -34,33 +35,6 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
   const totalCAD = data.CAD.reduce((sum, d) => sum + d.revenue, 0)
   const totalXAF = data.XAF.reduce((sum, d) => sum + d.revenue, 0)
   const hasXAFData = totalXAF > 0
-
-  const formatCAD = (value: number) => {
-    return new Intl.NumberFormat("fr-CA", {
-      style: "currency",
-      currency: "CAD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value / 100)
-  }
-
-  const formatXAF = (value: number) => {
-    return (
-      new Intl.NumberFormat("fr-FR", {
-        style: "decimal",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(value / 100) + " XAF"
-    )
-  }
-
-  const formatDate = (dateStr: string) => {
-    try {
-      return format(parseISO(dateStr), "d MMM", { locale: fr })
-    } catch {
-      return dateStr
-    }
-  }
 
   const mergedData = data.CAD.map((cadItem, index) => ({
     date: cadItem.date,
@@ -87,12 +61,11 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
           </div>
         </CardHeader>
         <CardContent className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            <div className="text-muted-foreground mb-2 text-4xl">📊</div>
-            <p className="text-muted-foreground text-sm">
-              Les données apparaîtront ici
-            </p>
-          </div>
+          <EmptyState
+            size="compact"
+            icons={[ChartColumn]}
+            title="Les données apparaîtront ici"
+          />
         </CardContent>
       </Card>
     )
@@ -106,8 +79,12 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
             Revenus (30 jours)
           </CardTitle>
           <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            <span>CAD: {formatCAD(totalCAD)}</span>
-            {hasXAFData && <span>XAF: {formatXAF(totalXAF)}</span>}
+            <span>CAD: {formatCurrency(totalCAD, "CAD", { whole: true })}</span>
+            {hasXAFData && (
+              <span>
+                XAF: {formatCurrency(totalXAF, "XAF", { whole: true })}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
@@ -156,7 +133,7 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => formatDate(value)}
+              tickFormatter={(value) => formatIsoDay(value)}
               interval="preserveStartEnd"
               tick={{ fontSize: 11 }}
               className="text-gray-500"
@@ -208,25 +185,19 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
                         </span>
                         <span className="font-mono font-semibold">
                           {isXAF
-                            ? formatXAF(value as number)
-                            : formatCAD(value as number)}
+                            ? formatCurrency(value as number, "XAF", {
+                                whole: true,
+                              })
+                            : formatCurrency(value as number, "CAD", {
+                                whole: true,
+                              })}
                         </span>
                       </div>
                     )
                   }}
-                  labelFormatter={(label) => {
-                    try {
-                      return format(
-                        parseISO(String(label)),
-                        "EEEE d MMMM yyyy",
-                        {
-                          locale: fr,
-                        },
-                      )
-                    } catch {
-                      return label
-                    }
-                  }}
+                  labelFormatter={(label) =>
+                    formatIsoDay(String(label), "weekday")
+                  }
                 />
               }
             />

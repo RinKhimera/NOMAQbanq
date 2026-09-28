@@ -1,22 +1,6 @@
 "use client"
 
-import { cn } from "@/lib/utils"
-
-const SkeletonPulse = ({
-  className,
-  style,
-}: {
-  className?: string
-  style?: React.CSSProperties
-}) => (
-  <div
-    className={cn(
-      "animate-pulse rounded-xl bg-linear-to-r from-blue-100 via-blue-50 to-blue-100 dark:from-blue-900/20 dark:via-blue-800/10 dark:to-blue-900/20",
-      className,
-    )}
-    style={style}
-  />
-)
+import { Skeleton } from "@/components/ui/skeleton"
 
 export const DashboardSkeleton = () => {
   return (
@@ -26,19 +10,19 @@ export const DashboardSkeleton = () => {
         <div className="flex flex-col items-center gap-6 lg:flex-row lg:justify-between">
           {/* Left - Greeting */}
           <div className="flex flex-col gap-3 text-center lg:text-left">
-            <SkeletonPulse className="mx-auto h-8 w-48 lg:mx-0" />
-            <SkeletonPulse className="mx-auto h-5 w-64 lg:mx-0" />
+            <Skeleton className="mx-auto h-8 w-48 rounded-xl lg:mx-0" />
+            <Skeleton className="mx-auto h-5 w-64 rounded-xl lg:mx-0" />
           </div>
 
           {/* Center - Score Ring */}
           <div className="relative flex items-center justify-center">
-            <SkeletonPulse className="h-40 w-40 rounded-full" />
+            <Skeleton className="h-40 w-40 rounded-full rounded-xl" />
           </div>
 
           {/* Right - Access Status */}
           <div className="flex flex-col gap-3">
-            <SkeletonPulse className="h-16 w-48 rounded-2xl" />
-            <SkeletonPulse className="h-16 w-48 rounded-2xl" />
+            <Skeleton className="h-16 w-48 rounded-2xl rounded-xl" />
+            <Skeleton className="h-16 w-48 rounded-2xl rounded-xl" />
           </div>
         </div>
       </div>
@@ -47,10 +31,10 @@ export const DashboardSkeleton = () => {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Vital Cards */}
         <div className="space-y-4">
-          <SkeletonPulse className="h-6 w-40" />
+          <Skeleton className="h-6 w-40 rounded-xl" />
           <div className="grid grid-cols-2 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <SkeletonPulse
+              <Skeleton
                 key={i}
                 className="h-32 rounded-2xl"
                 style={{ animationDelay: `${i * 100}ms` }}
@@ -61,17 +45,17 @@ export const DashboardSkeleton = () => {
 
         {/* Chart */}
         <div className="space-y-4">
-          <SkeletonPulse className="h-6 w-48" />
-          <SkeletonPulse className="h-64 rounded-2xl" />
+          <Skeleton className="h-6 w-48 rounded-xl" />
+          <Skeleton className="h-64 rounded-2xl rounded-xl" />
         </div>
       </div>
 
       {/* Domain Mastery */}
       <div className="space-y-4">
-        <SkeletonPulse className="h-6 w-48" />
+        <Skeleton className="h-6 w-48 rounded-xl" />
         <div className="space-y-2">
           {[1, 2, 3, 4].map((i) => (
-            <SkeletonPulse
+            <Skeleton
               key={i}
               className="h-16 rounded-xl"
               style={{ animationDelay: `${i * 100}ms` }}
@@ -84,10 +68,10 @@ export const DashboardSkeleton = () => {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Actions */}
         <div className="space-y-4">
-          <SkeletonPulse className="h-6 w-40" />
+          <Skeleton className="h-6 w-40 rounded-xl" />
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <SkeletonPulse
+              <Skeleton
                 key={i}
                 className="h-20 rounded-2xl"
                 style={{ animationDelay: `${i * 100}ms` }}
@@ -98,10 +82,10 @@ export const DashboardSkeleton = () => {
 
         {/* Activity */}
         <div className="space-y-4">
-          <SkeletonPulse className="h-6 w-40" />
+          <Skeleton className="h-6 w-40 rounded-xl" />
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <SkeletonPulse
+              <Skeleton
                 key={i}
                 className="h-16 rounded-xl"
                 style={{ animationDelay: `${i * 100}ms` }}
@@ -113,10 +97,10 @@ export const DashboardSkeleton = () => {
 
       {/* Quick Access */}
       <div className="space-y-4">
-        <SkeletonPulse className="h-6 w-32" />
+        <Skeleton className="h-6 w-32 rounded-xl" />
         <div className="grid gap-4 md:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <SkeletonPulse
+            <Skeleton
               key={i}
               className="h-36 rounded-2xl"
               style={{ animationDelay: `${i * 100}ms` }}

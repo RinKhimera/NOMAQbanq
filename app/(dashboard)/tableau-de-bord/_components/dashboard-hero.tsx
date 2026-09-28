@@ -1,10 +1,13 @@
 "use client"
 
-import { Clock, Shield, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
+import {
+  AccessBadge,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
+import { ScoreRing } from "@/components/shared/score-ring"
 import { getAppZoneHour } from "@/lib/app-zone"
-import { cn } from "@/lib/utils"
-import { ProgressRing } from "./progress-ring"
+import { scoreTone } from "@/lib/score"
 
 interface AccessStatus {
   examAccess: { expiresAt: number; daysRemaining: number } | null
@@ -37,97 +40,13 @@ const getGreetingValue = (now: number) => {
 const getMotivationalMessage = (score: number | null, hasExams: boolean) => {
   if (!hasExams) return "Commencez votre préparation pour l'EACMC Part I"
   if (score === null) return "Vos résultats arrivent à la clôture de l'examen"
-  if (score >= 80) return "Excellent travail ! Continuez sur cette lancée"
-  if (score >= 60) return "Bonne progression ! Vous êtes sur la bonne voie"
+  const tone = scoreTone(score)
+  if (tone === "success")
+    return "Excellent travail ! Continuez sur cette lancée"
+  if (tone === "warning")
+    return "Bonne progression ! Vous êtes sur la bonne voie"
   if (score >= 40) return "Persévérez, chaque examen vous rapproche du succès"
   return "Chaque erreur est une opportunité d'apprentissage"
-}
-
-const AccessBadge = ({
-  type,
-  daysRemaining,
-}: {
-  type: "exam" | "training"
-  daysRemaining: number | null
-}) => {
-  const isActive = daysRemaining !== null && daysRemaining > 0
-  const isExpiring = daysRemaining !== null && daysRemaining <= 7
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.5, delay: 0.6 }}
-      className={cn(
-        "flex items-center gap-3 rounded-2xl border px-4 py-3 backdrop-blur-sm transition-all",
-        isActive
-          ? isExpiring
-            ? "border-amber-500/30 bg-amber-500/10"
-            : "border-emerald-500/30 bg-emerald-500/10"
-          : "border-gray-500/30 bg-gray-500/10",
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-8 w-8 items-center justify-center rounded-lg",
-          isActive
-            ? isExpiring
-              ? "bg-amber-500/20"
-              : "bg-emerald-500/20"
-            : "bg-gray-500/20",
-        )}
-      >
-        {type === "exam" ? (
-          <Shield
-            className={cn(
-              "h-4 w-4",
-              isActive
-                ? isExpiring
-                  ? "text-amber-500"
-                  : "text-emerald-500"
-                : "text-gray-500",
-            )}
-          />
-        ) : (
-          <Sparkles
-            className={cn(
-              "h-4 w-4",
-              isActive
-                ? isExpiring
-                  ? "text-amber-500"
-                  : "text-emerald-500"
-                : "text-gray-500",
-            )}
-          />
-        )}
-      </div>
-
-      <div className="flex flex-col">
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-          {type === "exam" ? "Examens" : "Entraînement"}
-        </span>
-        <span
-          className={cn(
-            "text-sm font-semibold",
-            isActive
-              ? isExpiring
-                ? "text-amber-600 dark:text-amber-400"
-                : "text-emerald-600 dark:text-emerald-400"
-              : "text-gray-600 dark:text-gray-400",
-          )}
-        >
-          {isActive ? (
-            <>
-              <Clock className="mr-1 inline h-3 w-3" />
-              {daysRemaining}j restants
-            </>
-          ) : (
-            "Non actif"
-          )}
-        </span>
-      </div>
-    </motion.div>
-  )
 }
 
 export const DashboardHero = ({
@@ -196,25 +115,29 @@ export const DashboardHero = ({
             transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="flex items-center justify-center"
           >
-            <ProgressRing
-              value={averageScore ?? 0}
-              size={180}
-              strokeWidth={14}
-            />
+            <ScoreRing value={averageScore ?? 0} size={180} strokeWidth={14} />
           </motion.div>
 
           {/* Right - Access Status */}
           <div className="flex flex-col gap-3">
-            <AccessBadge
-              type="exam"
-              daysRemaining={accessStatus?.examAccess?.daysRemaining ?? null}
-            />
-            <AccessBadge
-              type="training"
-              daysRemaining={
-                accessStatus?.trainingAccess?.daysRemaining ?? null
-              }
-            />
+            {(["exam", "training"] as const).map((type) => {
+              const access =
+                type === "exam"
+                  ? accessStatus?.examAccess
+                  : accessStatus?.trainingAccess
+              return (
+                <AccessBadge
+                  key={type}
+                  accessType={type}
+                  status={getAccessStatus(
+                    access?.expiresAt,
+                    access?.daysRemaining,
+                  )}
+                  daysRemaining={access?.daysRemaining}
+                  showDetails
+                />
+              )
+            })}
           </div>
         </div>
       </div>

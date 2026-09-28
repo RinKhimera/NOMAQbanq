@@ -1,38 +1,37 @@
 "use client"
 
 import { motion, useReducedMotion } from "motion/react"
+import { type ScoreTone, scoreTone } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
-interface ProgressRingProps {
+const RING_COLORS: Record<ScoreTone, { stroke: string; glow: string }> = {
+  success: { stroke: "#10B981", glow: "rgba(16, 185, 129, 0.3)" },
+  warning: { stroke: "#F59E0B", glow: "rgba(245, 158, 11, 0.3)" },
+  danger: { stroke: "#EF4444", glow: "rgba(239, 68, 68, 0.3)" },
+}
+
+interface ScoreRingProps {
   value: number
+  label?: string
   size?: number
   strokeWidth?: number
   className?: string
 }
 
-export const ProgressRing = ({
+export const ScoreRing = ({
   value,
+  label = "Score moyen",
   size = 160,
   strokeWidth = 12,
   className,
-}: ProgressRingProps) => {
+}: ScoreRingProps) => {
   const shouldReduceMotion = useReducedMotion()
 
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (value / 100) * circumference
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80)
-      return { stroke: "#10B981", glow: "rgba(16, 185, 129, 0.3)" }
-    if (score >= 60)
-      return { stroke: "#3B82F6", glow: "rgba(59, 130, 246, 0.3)" }
-    if (score >= 40)
-      return { stroke: "#F59E0B", glow: "rgba(245, 158, 11, 0.3)" }
-    return { stroke: "#EF4444", glow: "rgba(239, 68, 68, 0.3)" }
-  }
-
-  const colors = getScoreColor(value)
+  const colors = RING_COLORS[scoreTone(value)]
 
   return (
     <div className={cn("relative", className)}>
@@ -124,7 +123,7 @@ export const ProgressRing = ({
             shouldReduceMotion ? { duration: 0 } : { duration: 0.5, delay: 1 }
           }
         >
-          Score moyen
+          {label}
         </motion.span>
       </div>
     </div>

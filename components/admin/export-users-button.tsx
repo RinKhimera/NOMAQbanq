@@ -12,27 +12,13 @@ import {
 } from "@/components/ui/dropdown-menu"
 import type { ExportUser } from "@/features/users/dal"
 import { csvQuote, downloadCsv, exportRowsToXlsx } from "@/lib/export"
-import { formatShortDate } from "@/lib/format"
+import { formatFileTimestamp, formatShortDate } from "@/lib/format"
 
 interface ExportUsersButtonProps {
   users: ExportUser[]
 }
 
 export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
-  const formatDateTime = () => {
-    const now = new Date()
-    return now
-      .toLocaleString("fr-FR", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-      .replace(/[/:]/g, "-")
-      .replace(", ", "_")
-  }
-
   const prepareExportData = () => {
     return users.map((user) => ({
       Nom: user.name,
@@ -49,7 +35,7 @@ export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
       const data = prepareExportData()
       exportRowsToXlsx(data, {
         sheetName: "Utilisateurs",
-        filename: `utilisateurs_${formatDateTime()}.xlsx`,
+        filename: `utilisateurs_${formatFileTimestamp(new Date())}.xlsx`,
         colWidths: [25, 20, 30, 15, 18, 40], // Nom, Nom d'utilisateur, Email, Rôle, Date d'inscription, Bio
       })
     } catch (error) {
@@ -76,7 +62,7 @@ export const ExportUsersButton = ({ users }: ExportUsersButtonProps) => {
         ),
       ]
 
-      downloadCsv(lines, `utilisateurs_${formatDateTime()}.csv`)
+      downloadCsv(lines, `utilisateurs_${formatFileTimestamp(new Date())}.csv`)
     } catch (error) {
       console.error("Erreur lors de l'export CSV:", error)
     }

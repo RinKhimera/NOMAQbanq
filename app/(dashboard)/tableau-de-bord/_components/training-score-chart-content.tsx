@@ -12,7 +12,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { EmptyState } from "@/components/ui/empty-state"
 import { formatExpiration } from "@/lib/format"
+import { PASS_THRESHOLD, isPassing } from "@/lib/score"
 
 interface TrainingSessionItem {
   sessionId: string
@@ -64,7 +66,7 @@ const AreaChartTooltip = ({
       <div className="mt-2 flex items-center gap-2">
         <div
           className={`h-3 w-3 rounded-full ${
-            item.score >= 60 ? "bg-emerald-500" : "bg-red-500"
+            isPassing(item.score) ? "bg-emerald-500" : "bg-red-500"
           }`}
         />
         <span className="text-lg font-bold text-gray-900 dark:text-white">
@@ -74,27 +76,6 @@ const AreaChartTooltip = ({
     </div>
   )
 }
-
-const EmptyState = () => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 0.5 }}
-    className="flex h-full flex-col items-center justify-center gap-4 py-8"
-  >
-    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-100 dark:bg-purple-900/30">
-      <Brain className="h-8 w-8 text-purple-500" />
-    </div>
-    <div className="text-center">
-      <p className="font-semibold text-gray-900 dark:text-white">
-        Aucune donnée disponible
-      </p>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Complétez des sessions d&apos;entraînement pour voir votre progression
-      </p>
-    </div>
-  </motion.div>
-)
 
 export const TrainingScoreChartContent = ({
   sessions: allSessions,
@@ -118,7 +99,13 @@ export const TrainingScoreChartContent = ({
           </div>
         </div>
         <div className="h-64">
-          <EmptyState />
+          <EmptyState
+            size="compact"
+            icons={[Brain]}
+            title="Aucune donnée disponible"
+            description="Complétez des sessions d'entraînement pour voir votre progression"
+            className="h-full"
+          />
         </div>
       </div>
     )
@@ -247,9 +234,8 @@ export const TrainingScoreChartContent = ({
                   r: 7,
                 }}
               />
-              {/* Ligne seuil de réussite à 60% */}
               <ReferenceLine
-                y={60}
+                y={PASS_THRESHOLD}
                 stroke="#10B981"
                 strokeDasharray="5 5"
                 strokeWidth={2}
@@ -269,7 +255,7 @@ export const TrainingScoreChartContent = ({
           <div className="flex items-center gap-2">
             <div className="h-0.5 w-6 bg-emerald-500" />
             <span className="text-gray-600 dark:text-gray-400">
-              Seuil de réussite (60%)
+              Seuil de réussite ({PASS_THRESHOLD}%)
             </span>
           </div>
         </div>

@@ -1,13 +1,12 @@
 "use client"
 
-import { format } from "date-fns"
 import { fr } from "date-fns/locale"
-import { Calendar as CalendarIcon, Search, X } from "lucide-react"
+import { Calendar as CalendarIcon, X } from "lucide-react"
 import { useState } from "react"
 import { DateRange } from "react-day-picker"
+import { SearchInput } from "@/components/shared/search-input"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
-import { Input } from "@/components/ui/input"
 import {
   Popover,
   PopoverContent,
@@ -20,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Spinner } from "@/components/ui/spinner"
+import { formatCalendarDay } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 export type RoleFilter = "all" | "admin" | "user"
@@ -83,32 +82,22 @@ export function UsersFilterBar({
 
   const formatDateRange = () => {
     if (!dateRange?.from) return "Toutes les dates"
-    if (!dateRange.to)
-      return format(dateRange.from, "d MMM yyyy", { locale: fr })
-    return `${format(dateRange.from, "d MMM", { locale: fr })} - ${format(dateRange.to, "d MMM yyyy", { locale: fr })}`
+    if (!dateRange.to) return formatCalendarDay(dateRange.from)
+    return `${formatCalendarDay(dateRange.from, { year: false })} - ${formatCalendarDay(dateRange.to)}`
   }
 
   return (
     <div className="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-sm dark:border-gray-700/50 dark:bg-gray-900">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         {/* Search */}
-        <div className="relative flex-1">
-          {isSearching ? (
-            <Spinner
-              size="sm"
-              className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2"
-            />
-          ) : (
-            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          )}
-          <Input
-            type="text"
-            placeholder="Rechercher par nom, email ou username..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="h-10 pr-4 pl-10"
-          />
-        </div>
+        <SearchInput
+          placeholder="Rechercher par nom, email ou username..."
+          value={searchQuery}
+          onValueChange={onSearchChange}
+          containerClassName="flex-1"
+          className="h-10 pr-4"
+          isSearching={isSearching}
+        />
 
         {/* Filters row */}
         <div className="flex flex-wrap items-center gap-2">

@@ -1,7 +1,0 @@
-export { AdminDashboardSkeleton } from "./skeleton"
-export { AdminVitalCards } from "./vital-cards"
-export { RevenueChart } from "./revenue-chart"
-export { DomainChart } from "./domain-chart"
-export { ActivityFeed } from "./activity-feed"
-export { QuickActions } from "./quick-actions"
-export { AlertsPanel } from "./alerts-panel"

@@ -4,16 +4,16 @@ import { CircleAlert, PackageX, Sparkles, Zap } from "lucide-react"
 import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { toast } from "sonner"
 import {
   AccessBadge,
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
 import { PremiumPricingCard } from "@/components/shared/payments/premium-pricing-card"
 import { PricingCard } from "@/components/shared/payments/pricing-card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createStripeCheckout } from "@/features/payments/actions"
 import type { AccessStatus, ProductView } from "@/features/payments/dal"
+import { useCheckout } from "@/hooks/use-checkout"
 import { cn } from "@/lib/utils"
 
 type AccessFilter = "all" | "exam" | "training"
@@ -30,7 +30,7 @@ export const PricingGrid = ({
   isAuthenticated,
 }: PricingGridProps) => {
   const [filter, setFilter] = useState<AccessFilter>("all")
-  const [loadingProduct, setLoadingProduct] = useState<string | null>(null)
+  const { checkout, pendingProduct: loadingProduct } = useCheckout()
   const router = useRouter()
 
   const handlePurchase = async (productCode: string) => {
@@ -39,27 +39,10 @@ export const PricingGrid = ({
       return
     }
 
-    setLoadingProduct(productCode)
-    try {
-      const res = await createStripeCheckout({
-        productCode,
-        successPath: "/tableau-de-bord/paiement/succes",
-        cancelPath: "/tarifs",
-      })
-      if ("error" in res) {
-        toast.error(res.error)
-        return
-      }
-      window.location.href = res.checkoutUrl
-    } catch {
-      if (!navigator.onLine) {
-        toast.error("Pas de connexion internet. Vérifiez votre réseau.")
-      } else {
-        toast.error("Une erreur est survenue. Veuillez réessayer.")
-      }
-    } finally {
-      setLoadingProduct(null)
-    }
+    await checkout(productCode, {
+      successPath: "/tableau-de-bord/paiement/succes",
+      cancelPath: "/tarifs",
+    })
   }
 
   const premiumProduct = products?.find((p) => p.code === "premium_access")
@@ -92,21 +75,12 @@ export const PricingGrid = ({
     return (
       <section className="py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-gray-300 py-20 dark:border-gray-700"
-          >
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-              <PackageX className="h-10 w-10 text-gray-400" />
-            </div>
-            <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
-              Aucune offre disponible
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400">
-              Les offres seront bientôt disponibles. Revenez plus tard.
-            </p>
-          </motion.div>
+          <EmptyState
+            icons={[PackageX]}
+            title="Aucune offre disponible"
+            description="Les offres seront bientôt disponibles. Revenez plus tard."
+            className="mx-auto"
+          />
         </div>
       </section>
     )

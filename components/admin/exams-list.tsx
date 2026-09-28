@@ -1,12 +1,11 @@
 "use client"
 
-import { FileText, Plus, Search } from "lucide-react"
+import { FileText, Plus } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { toast } from "sonner"
-import { ExamDeactivateModal } from "@/components/admin/modals/exam-deactivate-modal"
-import { ExamDeleteModal } from "@/components/admin/modals/exam-delete-modal"
-import { ExamEditModal } from "@/components/admin/modals/exam-edit-modal"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { SearchInput } from "@/components/shared/search-input"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -16,7 +15,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
-import { Input } from "@/components/ui/input"
 import {
   deactivateExam,
   deleteExam,
@@ -48,7 +46,6 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
   )
   const [selectedStatuses, setSelectedStatuses] = useState<ExamStatus[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [isPending, setIsPending] = useState(false)
 
   const filteredExams = useMemo(() => {
     let result = exams
@@ -83,17 +80,13 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
   }
 
   const performDeactivate = async (examId: string) => {
-    setIsPending(true)
     const res = await callAction(() => deactivateExam({ examId }))
-    setIsPending(false)
-    if (res.success) {
-      toast.success("Examen désactivé avec succès")
-      setShowDeactivateDialog(false)
-      setSelectedExam(null)
-      router.refresh()
-    } else {
+    if (!res.success) {
       toast.error(res.error ?? "Erreur lors de la désactivation")
+      return false
     }
+    toast.success("Examen désactivé avec succès")
+    router.refresh()
   }
 
   const handleReactivate = async (examId: string) => {
@@ -121,17 +114,13 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
   }
 
   const performDelete = async (examId: string) => {
-    setIsPending(true)
     const res = await callAction(() => deleteExam({ examId }))
-    setIsPending(false)
-    if (res.success) {
-      toast.success("Examen supprimé avec succès")
-      setShowDeleteDialog(false)
-      setSelectedExam(null)
-      router.refresh()
-    } else {
+    if (!res.success) {
       toast.error(res.error ?? "Erreur lors de la suppression")
+      return false
     }
+    toast.success("Examen supprimé avec succès")
+    router.refresh()
   }
 
   if (exams.length === 0) {
@@ -169,15 +158,12 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
       <CardContent>
         {/* Filtres */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <Input
-              placeholder="Rechercher par titre..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          <SearchInput
+            placeholder="Rechercher par titre..."
+            value={searchQuery}
+            onValueChange={setSearchQuery}
+            containerClassName="flex-1"
+          />
           <ExamStatusFilter
             selectedStatuses={selectedStatuses}
             onStatusChange={setSelectedStatuses}
@@ -186,11 +172,10 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
 
         {/* Grille de cards */}
         {filteredExams.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-slate-500 dark:text-slate-400">
-              Aucun examen ne correspond à vos critères de recherche.
-            </p>
-          </div>
+          <EmptyState
+            size="compact"
+            title="Aucun examen ne correspond à vos critères de recherche."
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             {filteredExams.map((exam) => (
@@ -218,19 +203,37 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
         </div>
       </CardContent>
 
-      {/* Modales */}
-      <ExamDeactivateModal
-        exam={selectedExam}
-        isOpen={showDeactivateDialog}
-        onClose={() => setShowDeactivateDialog(false)}
+      <ConfirmDialog
+        open={showDeactivateDialog}
+        onOpenChange={setShowDeactivateDialog}
+        title="Désactiver l'examen en cours"
+        description={
+          <>
+            Des étudiants pourraient déjà être en train de passer cet examen. La
+            désactivation interrompra immédiatement l&apos;accès à l&apos;examen
+            pour tous les utilisateurs. Désactiver{" "}
+            <strong>&quot;{selectedExam?.title}&quot;</strong> ?
+          </>
+        }
+        confirmLabel="Désactiver l'examen"
+        pendingLabel="Désactivation..."
+        variant="destructive"
         onConfirm={() => selectedExam && performDeactivate(selectedExam.id)}
-        isLoading={isPending}
       />
 
-      <ExamEditModal
-        exam={selectedExam}
-        isOpen={showEditDialog}
-        onClose={() => setShowEditDialog(false)}
+      <ConfirmDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        title="Modifier l'examen en cours"
+        description={
+          <>
+            Des étudiants pourraient déjà être en train de passer cet examen. Le
+            modifier pendant qu&apos;il est en cours peut affecter
+            l&apos;expérience des utilisateurs. Modifier{" "}
+            <strong>&quot;{selectedExam?.title}&quot;</strong> ?
+          </>
+        }
+        confirmLabel="Continuer la modification"
         onConfirm={() => {
           if (selectedExam) {
             router.push(`/admin/examens/modifier/${selectedExam.id}`)
@@ -238,12 +241,21 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
         }}
       />
 
-      <ExamDeleteModal
-        exam={selectedExam}
-        isOpen={showDeleteDialog}
-        onClose={() => setShowDeleteDialog(false)}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Supprimer l'examen"
+        description={
+          <>
+            L&apos;examen &quot;{selectedExam?.title}&quot; et toutes ses
+            données (participants, résultats, etc.) seront définitivement
+            supprimés. Cette action est irréversible.
+          </>
+        }
+        confirmLabel="Supprimer définitivement"
+        pendingLabel="Suppression..."
+        variant="destructive"
         onConfirm={() => selectedExam && performDelete(selectedExam.id)}
-        isLoading={isPending}
       />
     </Card>
   )

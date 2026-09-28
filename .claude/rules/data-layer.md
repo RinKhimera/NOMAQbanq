@@ -224,13 +224,13 @@ colonne)` dans le WHERE des canaux de
   s'affiche via `formatDeadline`, qui suffixe « (heure de l'Est) » — sans ça un
   étudiant hors Québec se trompe de plusieurs heures sur la fermeture.
   Exceptions assumées, à ne pas « corriger » sans réfléchir :
-  - date pickers admin (`exam-form`, `users-filter-bar`) : ils formatent la valeur
-    locale du calendrier, cohérente avec ce que l'admin vient de cliquer ;
+  - date pickers admin : `formatCalendarDay` lit la valeur dans le fuseau du
+    navigateur, cohérente avec ce que l'admin vient de cliquer ;
   - `SESSION_DATE_FMT` (`features/users/dal.ts`) : formatage côté DAL, antérieur
     au module et volontairement autonome ;
-  - `getRevenueByDay` : `parseISO` sur du date-only (`YYYY-MM-DD`) rend bien le même
-    jour partout — le bucket SQL est lui aussi un jour de l'Est depuis la
-    correction de #132.
+  - `formatIsoDay` (séries de `getRevenueByDay`) : `parseISO` sur du date-only
+    (`YYYY-MM-DD`) rend bien le même jour partout — le bucket SQL est lui aussi
+    un jour de l'Est depuis la correction de #132.
 - **Filtres et agrégats « par jour » : transporter une journée civile, pas un
   instant.** Un instant ne désigne pas un jour (minuit local à Paris tombe la
   veille à Toronto), et une borne de fin posée sur le minuit du dernier jour

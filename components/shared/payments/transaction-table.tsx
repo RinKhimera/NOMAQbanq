@@ -8,6 +8,7 @@ import {
   Clock,
   CreditCard,
   EllipsisVertical,
+  type LucideIcon,
   Pencil,
   RotateCcw,
   Trash2,
@@ -17,6 +18,7 @@ import {
   DataTable,
   type DataTableColumn,
 } from "@/components/shared/data-table/data-table"
+import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -24,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import type { AdminTransactionView } from "@/features/payments/dal"
 import { formatCurrency, formatShortDate, formatTimeOnly } from "@/lib/format"
@@ -91,131 +94,62 @@ export const adminTransactionToRow = (
 
 const statusConfig: Record<
   TransactionStatus,
-  {
-    label: string
-    icon: typeof CircleCheckBig
-    className: string
-  }
+  { label: string; icon: LucideIcon; tone: StatusTone }
 > = {
-  completed: {
-    label: "Complété",
-    icon: CircleCheckBig,
-    className:
-      "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-  },
-  pending: {
-    label: "En attente",
-    icon: Clock,
-    className:
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-  },
-  failed: {
-    label: "Échoué",
-    icon: CircleX,
-    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  },
-  refunded: {
-    label: "Remboursé",
-    icon: RotateCcw,
-    className:
-      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  },
+  completed: { label: "Complété", icon: CircleCheckBig, tone: "success" },
+  pending: { label: "En attente", icon: Clock, tone: "warning" },
+  failed: { label: "Échoué", icon: CircleX, tone: "danger" },
+  refunded: { label: "Remboursé", icon: RotateCcw, tone: "accent" },
 }
 
 const typeConfig: Record<
   TransactionType,
-  {
-    label: string
-    icon: typeof CreditCard
-    className: string
-  }
+  { label: string; icon: LucideIcon; tone: StatusTone }
 > = {
-  stripe: {
-    label: "Stripe",
-    icon: CreditCard,
-    className:
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  },
-  manual: {
-    label: "Manuel",
-    icon: Banknote,
-    className:
-      "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  },
+  stripe: { label: "Stripe", icon: CreditCard, tone: "info" },
+  manual: { label: "Manuel", icon: Banknote, tone: "neutral" },
 }
 
-const disputeToneClass = {
-  danger: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-  success:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  muted: "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400",
-} as const
+const disputeTone = {
+  danger: "danger",
+  success: "success",
+  muted: "neutral",
+} as const satisfies Record<string, StatusTone>
 
 const DisputeBadge = ({ status }: { status: string | null | undefined }) => {
   const badge = disputeBadge(status)
   if (!badge) return null
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium",
-        disputeToneClass[badge.tone],
-      )}
-    >
-      {badge.label}
-    </span>
-  )
+  return <StatusPill tone={disputeTone[badge.tone]}>{badge.label}</StatusPill>
 }
 
 const StatusBadge = ({ status }: { status: TransactionStatus }) => {
-  const config = statusConfig[status]
-  const Icon = config.icon
-
+  const { label, icon, tone } = statusConfig[status]
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-        config.className,
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {config.label}
-    </span>
+    <StatusPill tone={tone} icon={icon}>
+      {label}
+    </StatusPill>
   )
 }
 
 const TypeBadge = ({ type }: { type: TransactionType }) => {
-  const config = typeConfig[type]
-  const Icon = config.icon
-
+  const { label, icon, tone } = typeConfig[type]
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium",
-        config.className,
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {config.label}
-    </span>
+    <StatusPill tone={tone} icon={icon}>
+      {label}
+    </StatusPill>
   )
 }
 
 const EmptyTransactions = ({ message }: { message: string }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50/50 py-16 dark:border-gray-700 dark:bg-gray-800/30"
-  >
-    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-      <CreditCard className="h-8 w-8 text-gray-400" />
-    </div>
-    <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
-      {message}
-    </p>
-    <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
-      Les transactions apparaîtront ici une fois effectuées
-    </p>
-  </motion.div>
+  <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30">
+    <EmptyState
+      size="compact"
+      icons={[CreditCard]}
+      title={message}
+      description="Les transactions apparaîtront ici une fois effectuées"
+      className="py-16"
+    />
+  </div>
 )
 
 const ManualTransactionMenu = ({

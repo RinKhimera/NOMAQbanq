@@ -86,7 +86,7 @@ export const motionMockFactory = {
       const filtered = filterMotionProps(props)
       return <h2 {...filtered}>{children}</h2>
     },
-    // SVG : utilisé par ProgressRing (dashboard étudiant).
+    // SVG : utilisé par ScoreRing.
     circle: ({
       children,
       ...props

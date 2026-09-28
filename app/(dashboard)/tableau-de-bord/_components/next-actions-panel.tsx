@@ -12,6 +12,8 @@ import { motion } from "motion/react"
 import Link from "next/link"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
+import { PASS_THRESHOLD, isPassing } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 interface Exam {
@@ -90,11 +92,14 @@ const getTrainingAction = (
     }
   }
 
-  if (trainingStats.averageScore !== null && trainingStats.averageScore < 60) {
+  if (
+    trainingStats.averageScore !== null &&
+    !isPassing(trainingStats.averageScore)
+  ) {
     return {
       id: "improve-training",
       title: "Continuez à pratiquer",
-      description: `Score moyen : ${trainingStats.averageScore}% — Visez 60%+`,
+      description: `Score moyen : ${trainingStats.averageScore}% — Visez ${PASS_THRESHOLD}%+`,
       icon: Brain,
       href: "/tableau-de-bord/entrainement",
       priority: "high",
@@ -148,7 +153,7 @@ const getActions = ({
       : null,
 
     // Priority 3: Review if score is low
-    completedExamsCount > 0 && averageScore !== null && averageScore < 60
+    completedExamsCount > 0 && averageScore !== null && !isPassing(averageScore)
       ? {
           id: "review",
           title: "Révisez les domaines faibles",
@@ -164,7 +169,7 @@ const getActions = ({
     getTrainingAction(trainingStats, completedExamsCount),
 
     // Priority 5: Keep going if doing well
-    completedExamsCount > 0 && averageScore !== null && averageScore >= 60
+    completedExamsCount > 0 && averageScore !== null && isPassing(averageScore)
       ? {
           id: "keep-going",
           title: "Maintenez votre niveau",
@@ -268,10 +273,12 @@ export const NextActionsPanel = (props: NextActionsPanelProps) => {
 
         {actions.length === 0 && (
           <div className="rounded-xl border border-gray-200/50 bg-white/80 p-6 text-center backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80">
-            <Sparkles className="mx-auto mb-3 h-8 w-8 text-gray-400" />
-            <p className="text-gray-600 dark:text-gray-400">
-              Aucune action prioritaire pour le moment
-            </p>
+            <EmptyState
+              size="compact"
+              icons={[Sparkles]}
+              title="Aucune action prioritaire pour le moment"
+              className="py-0"
+            />
           </div>
         )}
       </div>

@@ -1,15 +1,17 @@
 "use client"
 
+import { CircleHelp } from "lucide-react"
 import { Eye, Image as ImageIcon } from "lucide-react"
-import { TablePagination } from "@/components/admin/table-pagination"
 import {
   DataTable,
   type DataTableColumn,
 } from "@/components/shared/data-table/data-table"
+import { TablePagination } from "@/components/shared/data-table/table-pagination"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { EmptyState } from "@/components/ui/empty-state"
 import {
   Tooltip,
   TooltipContent,
@@ -22,32 +24,16 @@ import { useQuestionBrowser } from "./question-browser-context"
 import { QuestionBrowserTableProps, QuestionRow, SortBy } from "./types"
 import { getDomainColor, truncateText } from "./utils"
 
-function EmptyState() {
+function NoQuestions() {
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900">
-      <div className="flex flex-col items-center justify-center p-12 text-center">
-        <div className="mb-4 rounded-full bg-gray-100 p-4 dark:bg-gray-800">
-          <svg
-            className="h-8 w-8 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"
-            />
-          </svg>
-        </div>
-        <h3 className="mb-1 text-lg font-semibold text-gray-900 dark:text-white">
-          Aucune question trouvée
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400">
-          Essayez de modifier vos filtres ou ajoutez une nouvelle question.
-        </p>
-      </div>
+      <EmptyState
+        size="compact"
+        icons={[CircleHelp]}
+        title="Aucune question trouvée"
+        description="Essayez de modifier vos filtres ou ajoutez une nouvelle question."
+        className="p-12"
+      />
     </div>
   )
 }
@@ -288,7 +274,7 @@ export function QuestionBrowserTable({ className }: QuestionBrowserTableProps) {
       getRowId={(question) => question._id}
       preferencesKey={`question-browser:${mode}`}
       isLoading={isLoading}
-      empty={<EmptyState />}
+      empty={<NoQuestions />}
       onRowClick={(question) =>
         isSelectMode
           ? toggleSelection(question._id)

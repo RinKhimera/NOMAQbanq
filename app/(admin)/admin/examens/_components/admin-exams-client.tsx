@@ -5,8 +5,8 @@ import { motion } from "motion/react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback } from "react"
-import { AdminPageHeader } from "@/components/admin/admin-page-header"
 import { ExamsList } from "@/components/admin/exams-list"
+import { PageIntro } from "@/components/shared/page-intro"
 import { Button } from "@/components/ui/button"
 import type { AdminExamListItem, ExamsStats } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
@@ -61,10 +61,10 @@ export function AdminExamsClient({
 
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      <AdminPageHeader
+      <PageIntro
         icon={IconClipboardList}
         title="Gestion des Examens"
-        subtitle="Créez, modifiez et gérez les sessions d'évaluation"
+        description="Créez, modifiez et gérez les sessions d'évaluation"
         colorScheme="blue"
         actions={
           <Button

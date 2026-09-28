@@ -6,17 +6,9 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { SearchInput } from "@/components/shared/search-input"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -32,7 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Input } from "@/components/ui/input"
+import { EmptyState } from "@/components/ui/empty-state"
 import { deleteParticipation } from "@/features/exams/actions"
 import type { LeaderboardEntry } from "@/features/exams/dal"
 import { formatCompactDateTime } from "@/lib/format"
@@ -74,7 +66,6 @@ export function ExamLeaderboard({
 
   const [participantToDelete, setParticipantToDelete] =
     useState<ParticipantToDelete | null>(null)
-  const [isDeleting, setIsDeleting] = useState(false)
   const [search, setSearch] = useState("")
 
   const query = foldForSearch(search.trim())
@@ -88,24 +79,20 @@ export function ExamLeaderboard({
   }
 
   const handleConfirmDelete = async () => {
-    if (!participantToDelete) return
-
-    setIsDeleting(true)
+    if (!participantToDelete) return false
     const res = await callAction(() =>
       deleteParticipation({
         participationId: participantToDelete.participationId,
       }),
     )
-    setIsDeleting(false)
-    if (res.success) {
-      toast.success("Participation supprimée avec succès")
-      setParticipantToDelete(null)
-      router.refresh()
-    } else {
+    if (!res.success) {
       toast.error(
         res.error ?? "Erreur lors de la suppression de la participation",
       )
+      return false
     }
+    toast.success("Participation supprimée avec succès")
+    router.refresh()
   }
 
   if (leaderboard.length === 0) return null
@@ -122,21 +109,21 @@ export function ExamLeaderboard({
               Les participants classés par score décroissant
             </CardDescription>
           </div>
-          <Input
-            type="search"
+          <SearchInput
             placeholder="Rechercher un participant..."
             aria-label="Rechercher un participant"
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="w-full md:w-72"
+            onValueChange={setSearch}
+            containerClassName="w-full md:w-72"
           />
         </div>
       </CardHeader>
       <CardContent>
         {rankedEntries.length === 0 && (
-          <p className="text-muted-foreground py-6 text-center text-sm">
-            Aucun participant ne correspond à « {search.trim()} ».
-          </p>
+          <EmptyState
+            size="compact"
+            title={`Aucun participant ne correspond à « ${search.trim()} ».`}
+          />
         )}
         <ul className="space-y-3">
           {rankedEntries.map(({ entry, rank }) => {
@@ -294,45 +281,24 @@ export function ExamLeaderboard({
         </ul>
       </CardContent>
 
-      {/* AlertDialog de confirmation de suppression */}
-      <AlertDialog
+      <ConfirmDialog
         open={participantToDelete !== null}
         onOpenChange={(open) => !open && setParticipantToDelete(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer la participation</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-2">
-                <p>
-                  Êtes-vous sûr de vouloir supprimer la participation de{" "}
-                  <strong>{participantToDelete?.userName}</strong> ?
-                </p>
-                <p>
-                  Score obtenu :{" "}
-                  <strong>
-                    {formatScore(participantToDelete?.score ?? null)}
-                  </strong>
-                </p>
-                <p className="text-red-600 dark:text-red-400">
-                  ⚠️ Cette action est irréversible. Toutes les réponses de ce
-                  participant seront définitivement supprimées.
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              disabled={isDeleting}
-              className="bg-red-600 text-white hover:bg-red-700"
-            >
-              {isDeleting ? "Suppression..." : "Supprimer définitivement"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        variant="destructive"
+        title="Supprimer la participation"
+        description={
+          <>
+            Supprimer la participation de{" "}
+            <strong>{participantToDelete?.userName}</strong> (score :{" "}
+            <strong>{formatScore(participantToDelete?.score ?? null)}</strong>)
+            ? Toutes ses réponses seront définitivement supprimées. Cette action
+            est irréversible.
+          </>
+        }
+        confirmLabel="Supprimer définitivement"
+        pendingLabel="Suppression..."
+        onConfirm={handleConfirmDelete}
+      />
     </Card>
   )
 }

@@ -8,18 +8,8 @@ import {
   QuestionDetailModal,
   useQuestionBrowser,
 } from "@/components/admin/question-browser"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
 import { deleteQuestion } from "@/features/questions/actions"
 import { callAction } from "@/lib/safe-action"
 import { QuestionAnswerBreakdown } from "./question-answer-breakdown"
@@ -41,24 +31,20 @@ function ManageActions({
   onDeleted?: () => void
 }) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
   // Rendu via renderPanel, donc à l'intérieur du QuestionBrowserProvider.
   const { reload } = useQuestionBrowser()
 
   const handleDelete = async () => {
-    setIsDeleting(true)
     const res = await callAction(() => deleteQuestion(questionId))
-    setIsDeleting(false)
     if (!res.success) {
       toast.error(res.error ?? "Erreur lors de la suppression")
-      return
+      return false
     }
     toast.success(
       res.mode === "hard"
         ? "Question supprimée définitivement"
         : "Question archivée : référencée par des examens ou entraînements — médias conservés",
     )
-    setShowDeleteDialog(false)
     reload()
     onDeleted?.()
   }
@@ -82,46 +68,17 @@ function ManageActions({
         </Link>
       </Button>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent
-          onEscapeKeyDown={(event) => {
-            if (isDeleting) event.preventDefault()
-          }}
-        >
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <TriangleAlert className="h-5 w-5 text-red-500" />
-              Supprimer cette question ?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Cette action est irréversible. La question sera définitivement
-              supprimée de la banque de questions.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Annuler</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(event) => {
-                // Radix ferme l'alerte au clic : elle doit rester ouverte, le
-                // spinner visible, jusqu'à la réponse.
-                event.preventDefault()
-                handleDelete()
-              }}
-              disabled={isDeleting}
-              className="bg-red-600 text-white hover:bg-red-700"
-            >
-              {isDeleting ? (
-                <>
-                  <Spinner size="sm" />
-                  Suppression…
-                </>
-              ) : (
-                "Supprimer"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        icon={TriangleAlert}
+        variant="destructive"
+        title="Supprimer cette question ?"
+        description="Cette action est irréversible. La question sera définitivement supprimée de la banque de questions."
+        confirmLabel="Supprimer"
+        pendingLabel="Suppression…"
+        onConfirm={handleDelete}
+      />
     </>
   )
 }

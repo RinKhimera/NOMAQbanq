@@ -1,14 +1,14 @@
 "use client"
 
-import {
-  IconAlertCircle,
-  IconClock,
-  IconMail,
-  IconSearch,
-  IconUsers,
-} from "@tabler/icons-react"
+import { IconMail, IconUsers } from "@tabler/icons-react"
+import { CircleAlert, Search } from "lucide-react"
 import { motion } from "motion/react"
 import { useMemo, useState } from "react"
+import {
+  AccessBadge,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
+import { SearchInput } from "@/components/shared/search-input"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -18,7 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
+import { EmptyState } from "@/components/ui/empty-state"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { EligibleCandidate } from "@/features/exams/dal"
 import { formatMediumDate } from "@/lib/format"
@@ -53,41 +53,26 @@ export function EligibleCandidatesSection({
     <>
       {/* Barre de recherche */}
       <div className="border-b border-gray-200/60 bg-gray-50/50 p-4 dark:border-gray-700/60 dark:bg-gray-900/50">
-        <div className="relative">
-          <IconSearch className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Rechercher par nom ou email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
+        <SearchInput
+          placeholder="Rechercher par nom ou email..."
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+        />
       </div>
 
       {total === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="mb-4 rounded-2xl bg-amber-100 p-4 dark:bg-amber-900/30"
-          >
-            <IconAlertCircle className="h-10 w-10 text-amber-600 dark:text-amber-400" />
-          </motion.div>
-          <p className="font-semibold text-gray-900 dark:text-white">
-            Aucun candidat éligible
-          </p>
-          <p className="mt-1 max-w-sm text-sm text-gray-500">
-            Les utilisateurs doivent avoir un accès exam actif pour pouvoir
-            participer à cet examen.
-          </p>
-        </div>
+        <EmptyState
+          size="compact"
+          icons={[CircleAlert]}
+          title="Aucun candidat éligible"
+          description="Les utilisateurs doivent avoir un accès exam actif pour pouvoir participer à cet examen."
+        />
       ) : filteredCandidates.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <IconSearch className="mb-2 h-8 w-8 text-gray-300" />
-          <p className="text-sm text-gray-500">
-            Aucun résultat pour &quot;{searchQuery}&quot;
-          </p>
-        </div>
+        <EmptyState
+          size="compact"
+          icons={[Search]}
+          title={`Aucun résultat pour "${searchQuery}"`}
+        />
       ) : (
         <ScrollArea className={cn(embedded ? "h-[min(60vh,420px)]" : "h-100")}>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
@@ -144,8 +129,7 @@ interface CandidateRowProps {
 function CandidateRow({ candidate, index }: CandidateRowProps) {
   const { user, expiresAt, daysRemaining } = candidate
 
-  const isExpiringSoon = daysRemaining <= 7
-  const isExpiringVerySoon = daysRemaining <= 3
+  const status = getAccessStatus(expiresAt, daysRemaining)
 
   return (
     <motion.div
@@ -174,19 +158,13 @@ function CandidateRow({ candidate, index }: CandidateRowProps) {
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-1">
-        {isExpiringSoon ? (
-          <Badge
-            variant="outline"
-            className={cn(
-              "font-medium",
-              isExpiringVerySoon
-                ? "border-red-200 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-400"
-                : "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-400",
-            )}
-          >
-            <IconClock className="mr-1 h-3 w-3" />
-            {daysRemaining}j restants
-          </Badge>
+        {status === "expiring" ? (
+          <AccessBadge
+            accessType="exam"
+            status={status}
+            daysRemaining={daysRemaining}
+            size="sm"
+          />
         ) : (
           <span className="text-xs text-gray-400">
             Expire le {formatMediumDate(expiresAt)}

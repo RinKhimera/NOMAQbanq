@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   GRACE_MS,
   formatExamTime,
+  formatMinutesSeconds,
   formatPauseTime,
   isExpired,
   pauseCredit,
@@ -162,5 +163,15 @@ describe("AttemptClock — formats", () => {
     { ms: 60 * MIN, expected: "60:00" },
   ])("formatPauseTime($ms) → $expected", ({ ms, expected }) => {
     expect(formatPauseTime(ms)).toBe(expected)
+  })
+})
+
+describe("formatMinutesSeconds", () => {
+  it.each([
+    { seconds: 0, expected: "0:00" },
+    { seconds: 65, expected: "1:05" },
+    { seconds: 200, expected: "3:20" },
+  ])("formatMinutesSeconds($seconds) → $expected", ({ seconds, expected }) => {
+    expect(formatMinutesSeconds(seconds)).toBe(expected)
   })
 })

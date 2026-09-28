@@ -3,7 +3,8 @@ import { cache } from "react"
 import "server-only"
 import { db } from "@/db"
 import { examParticipations, questions, user } from "@/db/schema"
-import { SUCCESS_SCORE_THRESHOLD, resolveSuccessRate } from "./lib"
+import { PASS_THRESHOLD } from "@/lib/score"
+import { resolveSuccessRate } from "./lib"
 
 export type MarketingStats = {
   totalQuestions: string
@@ -60,7 +61,7 @@ export const getMarketingStats = cache(async (): Promise<MarketingStats> => {
           Number,
         ),
       passed:
-        sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted') and ${examParticipations.score} >= ${SUCCESS_SCORE_THRESHOLD})`.mapWith(
+        sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted') and ${examParticipations.score} >= ${PASS_THRESHOLD})`.mapWith(
           Number,
         ),
     })

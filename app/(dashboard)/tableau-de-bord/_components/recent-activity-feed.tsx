@@ -14,9 +14,10 @@ import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import type { ExamPercentiles } from "@/features/analytics/dal"
 import { canReadResults } from "@/lib/exam-phase"
-import { formatPercentile, formatScore } from "@/lib/score"
+import { formatPercentile, formatScore, isPassing } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 interface RecentExam {
@@ -93,7 +94,7 @@ export const RecentActivityFeed = ({
             const scoreTone =
               exam.score === null
                 ? "withheld"
-                : exam.score >= 60
+                : isPassing(exam.score)
                   ? "passing"
                   : "failing"
             const completedDate = exam.completedAt
@@ -203,19 +204,20 @@ export const RecentActivityFeed = ({
           })
         ) : (
           <div className="rounded-xl border border-gray-200/50 bg-white/80 p-8 text-center backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80">
-            <GraduationCap className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-600" />
-            <p className="font-medium text-gray-900 dark:text-white">
-              Aucun examen complété
-            </p>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Vos résultats apparaîtront ici après chaque examen
-            </p>
-            <Button asChild className="mt-4 bg-blue-500 hover:bg-blue-600">
-              <Link href="/tableau-de-bord/examen-blanc" prefetch={false}>
-                Passer un examen
-                <LinkPendingIndicator className="ml-2" />
-              </Link>
-            </Button>
+            <EmptyState
+              size="compact"
+              icons={[GraduationCap]}
+              title="Aucun examen complété"
+              description="Vos résultats apparaîtront ici après chaque examen"
+              className="py-0"
+            >
+              <Button asChild className="bg-blue-500 hover:bg-blue-600">
+                <Link href="/tableau-de-bord/examen-blanc" prefetch={false}>
+                  Passer un examen
+                  <LinkPendingIndicator className="ml-2" />
+                </Link>
+              </Button>
+            </EmptyState>
           </div>
         )}
       </div>

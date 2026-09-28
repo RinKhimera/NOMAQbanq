@@ -4,29 +4,8 @@ import { ExamStatus, ExamStatusConfig } from "@/types"
 export type { ExamStatus, ExamStatusConfig }
 
 export const EXAM_STATUS_CONFIG: Record<ExamStatus, ExamStatusConfig> = {
-  active: {
-    label: "En cours",
-    variant: "default",
-    className: "bg-gray-200 dark:bg-gray-100 dark:text-gray-500 text-gray-700 ",
-    icon: CirclePlay,
-  },
-  upcoming: {
-    label: "À venir",
-    variant: "secondary",
-    className: "bg-blue-200 dark:bg-blue-100 dark:text-blue-500 text-blue-700 ",
-    icon: Clock,
-  },
-  completed: {
-    label: "Terminé",
-    variant: "secondary",
-    className:
-      "bg-green-200 dark:bg-green-100 dark:text-green-500 text-green-700",
-    icon: CircleCheckBig,
-  },
-  inactive: {
-    label: "Désactivé",
-    variant: "destructive",
-    className: "bg-red-200 dark:bg-red-100 dark:text-red-500 text-red-700 ",
-    icon: CirclePause,
-  },
+  active: { label: "En cours", tone: "neutral", icon: CirclePlay },
+  upcoming: { label: "À venir", tone: "info", icon: Clock },
+  completed: { label: "Terminé", tone: "success", icon: CircleCheckBig },
+  inactive: { label: "Désactivé", tone: "danger", icon: CirclePause },
 }

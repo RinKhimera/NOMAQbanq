@@ -43,7 +43,11 @@ import {
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { updateManualTransaction } from "@/features/payments/actions"
-import { parseAmountToCents } from "@/lib/currency"
+import {
+  type Currency,
+  centsToInputAmount,
+  parseAmountToCents,
+} from "@/lib/currency"
 import { formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
@@ -74,14 +78,6 @@ const currencies = [
   { value: "XAF", label: "XAF (FCFA)", symbol: "FCFA" },
 ] as const
 
-const centsToDisplayAmount = (cents: number, currency: string): string => {
-  const amount = cents / 100
-  if (currency === "XAF") {
-    return Math.round(amount).toString()
-  }
-  return amount.toFixed(2)
-}
-
 export const EditTransactionModal = ({
   transaction,
   open,
@@ -106,12 +102,10 @@ export const EditTransactionModal = ({
 
   useEffect(() => {
     if (transaction && open) {
+      const currency = transaction.currency as Currency
       form.reset({
-        amountInput: centsToDisplayAmount(
-          transaction.amountPaid,
-          transaction.currency,
-        ),
-        currency: transaction.currency as "CAD" | "XAF",
+        amountInput: centsToInputAmount(transaction.amountPaid, currency),
+        currency,
         paymentMethod: (transaction.paymentMethod || "autre") as PaymentMethod,
         notes: transaction.notes || "",
         status: transaction.status as "completed" | "refunded" | undefined,

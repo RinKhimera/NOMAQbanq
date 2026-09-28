@@ -1,13 +1,11 @@
 "use client"
 
 import { IconChevronRight, IconCreditCard } from "@tabler/icons-react"
-import { Sparkles, Zap } from "lucide-react"
 import { motion, useReducedMotion } from "motion/react"
 import Link from "next/link"
+import { AccessCard } from "@/components/shared/payments/access-card"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { cn } from "@/lib/utils"
 
 type AccessInfo = {
   expiresAt: number
@@ -19,99 +17,6 @@ type ProfileSubscriptionCardProps = {
     examAccess: AccessInfo
     trainingAccess: AccessInfo
   } | null
-}
-
-const AccessMiniCard = ({
-  type,
-  access,
-}: {
-  type: "exam" | "training"
-  access: AccessInfo
-}) => {
-  const config = {
-    exam: {
-      icon: Zap,
-      label: "Examens",
-      gradient: "from-blue-500 to-indigo-600",
-      lightBg: "bg-blue-50 dark:bg-blue-950/30",
-      textColor: "text-blue-600 dark:text-blue-400",
-    },
-    training: {
-      icon: Sparkles,
-      label: "Entraînement",
-      gradient: "from-emerald-500 to-teal-600",
-      lightBg: "bg-emerald-50 dark:bg-emerald-950/30",
-      textColor: "text-emerald-600 dark:text-emerald-400",
-    },
-  }
-
-  const { icon: Icon, label, gradient, lightBg, textColor } = config[type]
-  const isActive = access && access.daysRemaining > 0
-  const progressPercent = access
-    ? Math.min((access.daysRemaining / 180) * 100, 100)
-    : 0
-
-  return (
-    <div
-      className={cn(
-        "relative overflow-hidden rounded-xl p-4 transition-all duration-200",
-        isActive ? lightBg : "bg-gray-50 dark:bg-gray-800/50",
-      )}
-    >
-      {/* Active indicator line */}
-      {isActive && (
-        <div
-          className={cn(
-            "absolute inset-x-0 top-0 h-1 bg-linear-to-r",
-            gradient,
-          )}
-        />
-      )}
-
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "flex h-9 w-9 items-center justify-center rounded-lg",
-            isActive
-              ? cn("bg-linear-to-br shadow-md", gradient)
-              : "bg-gray-200 dark:bg-gray-700",
-          )}
-        >
-          <Icon
-            className={cn(
-              "h-4 w-4",
-              isActive ? "text-white" : "text-gray-400 dark:text-gray-500",
-            )}
-          />
-        </div>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {label}
-          </p>
-          {isActive ? (
-            <p className={cn("text-xs font-medium", textColor)}>
-              {access.daysRemaining} jours restants
-            </p>
-          ) : (
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Non actif
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Progress bar for active */}
-      {isActive && (
-        <div className="mt-3">
-          <Progress
-            value={progressPercent}
-            className="h-1.5"
-            aria-label={`${access.daysRemaining} jours restants`}
-          />
-        </div>
-      )}
-    </div>
-  )
 }
 
 export const ProfileSubscriptionCard = ({
@@ -150,13 +55,15 @@ export const ProfileSubscriptionCard = ({
         <CardContent className="p-6">
           {/* Access cards grid */}
           <div className="grid gap-3 sm:grid-cols-2">
-            <AccessMiniCard
+            <AccessCard
               type="exam"
               access={accessStatus?.examAccess ?? null}
+              size="compact"
             />
-            <AccessMiniCard
+            <AccessCard
               type="training"
               access={accessStatus?.trainingAccess ?? null}
+              size="compact"
             />
           </div>
 
