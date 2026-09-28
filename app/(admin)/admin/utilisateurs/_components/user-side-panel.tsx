@@ -16,8 +16,8 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
 import { AccessCard } from "@/components/shared/payments/access-card"
+import { RolePill } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -238,17 +238,7 @@ function PanelContent({
               @{user.username}
             </p>
           )}
-          <Badge
-            variant="outline"
-            className={cn(
-              "mt-2",
-              user.role === "admin"
-                ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-                : "border-gray-200 text-gray-600 dark:border-gray-700 dark:text-gray-400",
-            )}
-          >
-            {user.role === "admin" ? "Administrateur" : "Utilisateur"}
-          </Badge>
+          <RolePill role={user.role} className="mt-2" />
         </div>
 
         {/* User Info */}

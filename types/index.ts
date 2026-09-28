@@ -1,4 +1,5 @@
 import { LucideIcon } from "lucide-react"
+import type { StatusTone } from "@/components/shared/status-pill"
 
 // ===== Testimonial Types =====
 export interface Testimonial {
@@ -34,9 +35,8 @@ export type ExamDoc = {
 
 export type ExamStatusConfig = {
   label: string
-  variant: "default" | "secondary" | "destructive" | "outline"
-  className: string
-  icon: React.ComponentType<{ className?: string }>
+  tone: StatusTone
+  icon: LucideIcon
 }
 
 export type ExamStatItem = {

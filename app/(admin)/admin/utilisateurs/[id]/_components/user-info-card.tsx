@@ -1,15 +1,14 @@
 "use client"
 
-import { Calendar, Check, Copy, Mail, Shield } from "lucide-react"
+import { Calendar, Check, Copy, Mail } from "lucide-react"
 import { motion } from "motion/react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { RolePill } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { AdminUserDetail } from "@/features/users/dal"
 import { formatExpiration } from "@/lib/format"
-import { cn } from "@/lib/utils"
 
 interface UserInfoCardProps {
   user: AdminUserDetail
@@ -49,17 +48,7 @@ export const UserInfoCard = ({ user }: UserInfoCardProps) => {
               <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 {user.name || "Utilisateur"}
               </h2>
-              <Badge
-                className={cn(
-                  "rounded-full",
-                  user.role === "admin"
-                    ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                    : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-                )}
-              >
-                <Shield className="mr-1 h-3 w-3" />
-                {user.role === "admin" ? "Admin" : "Utilisateur"}
-              </Badge>
+              <RolePill role={user.role} />
             </div>
             {user.username && (
               <p className="text-sm text-gray-500 dark:text-gray-400">

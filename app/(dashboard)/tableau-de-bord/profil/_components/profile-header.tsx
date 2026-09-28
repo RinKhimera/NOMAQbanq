@@ -3,10 +3,10 @@
 import { IconCalendar, IconMail } from "@tabler/icons-react"
 import { motion, useReducedMotion } from "motion/react"
 import { AvatarUploader } from "@/components/shared/avatar-uploader"
+import { RolePill } from "@/components/shared/status-pill"
 import { Badge } from "@/components/ui/badge"
 import { CurrentUser } from "@/features/users/dal"
 import { formatExpiration } from "@/lib/format"
-import { cn } from "@/lib/utils"
 
 type ProfileHeaderProps = {
   user: CurrentUser
@@ -120,17 +120,7 @@ export const ProfileHeader = ({ user }: ProfileHeaderProps) => {
             {/* Badges row */}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
               {/* Role badge */}
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium",
-                  user.role === "admin"
-                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-                    : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-                )}
-              >
-                {user.role === "admin" ? "Administrateur" : "Utilisateur"}
-              </Badge>
+              <RolePill role={user.role} />
 
               {/* Registration date */}
               {registrationDate && (

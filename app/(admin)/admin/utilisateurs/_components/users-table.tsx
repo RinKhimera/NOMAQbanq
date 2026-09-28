@@ -1,6 +1,5 @@
 "use client"
 
-import { ShieldOff } from "lucide-react"
 import type { ReactNode } from "react"
 import {
   DataTable,
@@ -11,8 +10,8 @@ import {
   getAccessStatus,
 } from "@/components/shared/payments/access-badge"
 import { RelativeTime } from "@/components/shared/relative-time"
+import { BannedPill, RolePill } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import { Badge } from "@/components/ui/badge"
 import {
   Tooltip,
   TooltipContent,
@@ -129,25 +128,8 @@ export function UsersTable({
       sort: sortOn("role"),
       cell: (user) => (
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge
-            variant={user.role === "admin" ? "default" : "secondary"}
-            className={cn(
-              user.role === "admin"
-                ? "bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/40 dark:text-amber-300"
-                : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400",
-            )}
-          >
-            {user.role === "admin" ? "Admin" : "User"}
-          </Badge>
-          {user.banned && (
-            <Badge
-              data-testid="ban-badge"
-              className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"
-            >
-              <ShieldOff className="mr-1 h-3 w-3" />
-              Suspendu
-            </Badge>
-          )}
+          <RolePill role={user.role} />
+          {user.banned && <BannedPill />}
         </div>
       ),
     },

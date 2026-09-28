@@ -5,6 +5,7 @@ import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { BannedPill } from "@/components/shared/status-pill"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +16,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { banUser, unbanUser } from "@/features/users/actions"
@@ -109,14 +109,7 @@ export const UserBanSection = ({
             Suspension
           </h3>
         </div>
-        {user.banned && (
-          <Badge
-            data-testid="ban-badge"
-            className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400"
-          >
-            Suspendu
-          </Badge>
-        )}
+        {user.banned && <BannedPill />}
       </div>
 
       {user.banned ? (

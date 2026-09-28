@@ -32,19 +32,6 @@ describe("ExamStatusBadge", () => {
     expect(screen.getByText(label)).toBeInTheDocument()
   })
 
-  it.each<{ status: ExamStatus; classFragment: string }>([
-    { status: "active", classFragment: "bg-gray" },
-    { status: "completed", classFragment: "bg-green" },
-  ])(
-    "applique une classe CSS thématique pour $status",
-    ({ status, classFragment }) => {
-      const { container } = render(<ExamStatusBadge status={status} />)
-      expect(
-        container.querySelector(`[class*='${classFragment}']`),
-      ).not.toBeNull()
-    },
-  )
-
   it("applique une className personnalisée", () => {
     const { container } = render(
       <ExamStatusBadge status="active" className="custom-class" />,

@@ -14,7 +14,7 @@ import {
 } from "@tabler/icons-react"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
+import ExamStatusBadge from "@/components/admin/exam-status-badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -172,12 +172,7 @@ function PanelContent({
                     Détails et statistiques de l&apos;examen
                   </SheetDescription>
                 </VisuallyHidden.Root>
-                <Badge
-                  variant="secondary"
-                  className={cn("mt-2 font-medium", statusConfig.className)}
-                >
-                  {statusConfig.label}
-                </Badge>
+                <ExamStatusBadge status={status} className="mt-2" />
               </div>
             </div>
             <Button

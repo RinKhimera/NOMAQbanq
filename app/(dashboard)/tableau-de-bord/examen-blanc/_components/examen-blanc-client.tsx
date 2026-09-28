@@ -9,6 +9,7 @@ import {
   Clock,
   GraduationCap,
   Hourglass,
+  type LucideIcon,
   TriangleAlert,
   Trophy,
 } from "lucide-react"
@@ -16,7 +17,7 @@ import { motion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { useMemo, useState } from "react"
 import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
-import { Badge } from "@/components/ui/badge"
+import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -38,6 +39,15 @@ import { formatScore, isPassing } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 type ExamVariant = "active" | "upcoming" | "past"
+
+const EXAM_CARD_STATUS: Record<
+  ExamVariant,
+  { tone: StatusTone; icon?: LucideIcon; label: string }
+> = {
+  active: { tone: "success", icon: CircleCheck, label: "Ouvert" },
+  upcoming: { tone: "info", icon: Hourglass, label: "Bientôt" },
+  past: { tone: "neutral", label: "Terminé" },
+}
 
 interface ExamCardProps {
   exam: ExamListItem
@@ -64,9 +74,6 @@ const ExamCard = ({
       hoverBorder: "hover:border-emerald-300 dark:hover:border-emerald-700",
       iconBg: "bg-emerald-500",
       iconColor: "text-emerald-600 dark:text-emerald-400",
-      badgeBg: "bg-emerald-100 dark:bg-emerald-900/50",
-      badgeText: "text-emerald-700 dark:text-emerald-300",
-      badgeBorder: "border-emerald-200 dark:border-emerald-700",
       infoBg: "bg-white/60 dark:bg-gray-800/60",
       titleHover:
         "group-hover:text-emerald-700 dark:group-hover:text-emerald-400",
@@ -78,9 +85,6 @@ const ExamCard = ({
       hoverBorder: "hover:border-blue-300 dark:hover:border-blue-700",
       iconBg: "bg-blue-500",
       iconColor: "text-blue-600 dark:text-blue-400",
-      badgeBg: "bg-blue-100 dark:bg-blue-900/50",
-      badgeText: "text-blue-700 dark:text-blue-300",
-      badgeBorder: "border-blue-200 dark:border-blue-700",
       infoBg: "bg-white/60 dark:bg-gray-800/60",
       titleHover: "group-hover:text-blue-700 dark:group-hover:text-blue-400",
     },
@@ -91,9 +95,6 @@ const ExamCard = ({
       hoverBorder: "hover:border-gray-300 dark:hover:border-gray-600",
       iconBg: "bg-gray-500",
       iconColor: "text-gray-500 dark:text-gray-400",
-      badgeBg: "bg-gray-100 dark:bg-gray-800/50",
-      badgeText: "text-gray-600 dark:text-gray-400",
-      badgeBorder: "border-gray-200 dark:border-gray-600",
       infoBg: "bg-white/50 dark:bg-gray-800/50",
       titleHover: "group-hover:text-gray-700 dark:group-hover:text-gray-300",
     },
@@ -135,29 +136,12 @@ const ExamCard = ({
           >
             {exam.title}
           </h3>
-          <Badge
-            variant="outline"
-            className={cn(
-              "shrink-0 text-xs font-medium",
-              styles.badgeBg,
-              styles.badgeText,
-              styles.badgeBorder,
-            )}
+          <StatusPill
+            tone={EXAM_CARD_STATUS[variant].tone}
+            icon={EXAM_CARD_STATUS[variant].icon}
           >
-            {variant === "active" && (
-              <>
-                <CircleCheck className="mr-1 h-3 w-3" />
-                Ouvert
-              </>
-            )}
-            {variant === "upcoming" && (
-              <>
-                <Hourglass className="mr-1 h-3 w-3" />
-                Bientôt
-              </>
-            )}
-            {variant === "past" && "Terminé"}
-          </Badge>
+            {EXAM_CARD_STATUS[variant].label}
+          </StatusPill>
         </div>
 
         {/* Description */}
