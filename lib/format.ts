@@ -62,7 +62,7 @@ export const formatCurrency = (
   if (currency === "XAF") {
     // XAF n'a pas de sous-unités, affichage avec espace comme séparateur de milliers
     return (
-      new Intl.NumberFormat("fr-FR", {
+      new Intl.NumberFormat("fr-CA", {
         style: "decimal",
         minimumFractionDigits: 0,
         maximumFractionDigits: 0,
@@ -77,6 +77,22 @@ export const formatCurrency = (
     maximumFractionDigits: whole ? 0 : 2,
   }).format(amount)
 }
+
+/**
+ * « 85 % » — pourcentage déjà exprimé sur 100 (score, part, tendance).
+ * `digits` décimales (0 par défaut, arrondi half-up), `signed` pour une
+ * tendance (« +12 % », « -3,2 % »). L'espace avant « % » est insécable (fr-CA).
+ */
+export const formatPercent = (
+  value: number,
+  { digits = 0, signed = false }: { digits?: number; signed?: boolean } = {},
+): string =>
+  new Intl.NumberFormat("fr-CA", {
+    style: "percent",
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+    signDisplay: signed ? "always" : "auto",
+  }).format(value / 100)
 
 /**
  * Montant présenté au client par Adaptive Pricing, dans SA devise.

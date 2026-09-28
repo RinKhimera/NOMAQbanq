@@ -11,6 +11,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { EmptyState } from "@/components/ui/empty-state"
+import { formatPercent } from "@/lib/format"
 
 interface DomainChartContentProps {
   data: {
@@ -144,10 +145,11 @@ export function DomainChartContent({
                         </span>
                       </div>
                       <span className="text-muted-foreground text-xs">
-                        {(((value as number) / totalQuestions) * 100).toFixed(
-                          1,
-                        )}
-                        % du total
+                        {formatPercent(
+                          ((value as number) / totalQuestions) * 100,
+                          { digits: 1 },
+                        )}{" "}
+                        du total
                       </span>
                     </div>
                   )}

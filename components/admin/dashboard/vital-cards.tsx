@@ -9,7 +9,7 @@ import {
 } from "@tabler/icons-react"
 import type { Icon } from "@tabler/icons-react"
 import { motion } from "motion/react"
-import { formatCurrency } from "@/lib/format"
+import { formatCurrency, formatPercent } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface VitalCardProps {
@@ -156,7 +156,7 @@ function VitalCard({
                   d="M5 10l7-7m0 0l7 7m-7-7v18"
                 />
               </svg>
-              {Math.abs(trend.value).toFixed(1)}%
+              {formatPercent(Math.abs(trend.value), { digits: 1 })}
             </div>
           )}
 
@@ -284,7 +284,7 @@ export function AdminVitalCards({
         }
         color="emerald"
         delay={hasXAFRevenue ? 0.1 : 0.1}
-        subtitle={`${usersData.trend >= 0 ? "+" : ""}${usersData.trend.toFixed(0)}% ce mois`}
+        subtitle={`${formatPercent(usersData.trend, { signed: true })} ce mois`}
       />
 
       <VitalCard

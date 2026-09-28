@@ -8,7 +8,7 @@ import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatMinutesSeconds } from "@/lib/attempt-clock"
-import { type ScoreTone, scoreTone } from "@/lib/score"
+import { type ScoreTone, computeScorePercent, scoreTone } from "@/lib/score"
 import { QuestionCard } from "./question-card"
 import QuestionNavigation from "./question-navigation"
 
@@ -72,7 +72,7 @@ export default function QuizResults({
   }
 
   const totalQuestions = questions.length
-  const percentage = ((score / totalQuestions) * 100).toFixed(0)
+  const percentage = computeScorePercent(score, totalQuestions)
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-indigo-50 pt-20 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">

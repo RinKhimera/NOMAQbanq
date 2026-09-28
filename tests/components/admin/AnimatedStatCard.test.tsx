@@ -55,7 +55,7 @@ describe("AnimatedStatCard", () => {
         icon={<span />}
       />,
     )
-    expect(screen.getByText("12%")).toBeInTheDocument()
+    expect(screen.getByText(/^12\s%$/)).toBeInTheDocument()
 
     rerender(
       <AnimatedStatCard
@@ -66,7 +66,7 @@ describe("AnimatedStatCard", () => {
         icon={<span />}
       />,
     )
-    expect(screen.getByText("8%")).toBeInTheDocument()
+    expect(screen.getByText(/^8\s%$/)).toBeInTheDocument()
   })
 
   it("ne rend pas de badge de trend sans prop trend", () => {

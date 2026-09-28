@@ -22,6 +22,7 @@ import {
   formatLongDateTime,
   formatMediumDate,
   formatPaddedMediumDate,
+  formatPercent,
   formatPresentmentAmount,
   formatShortDate,
   formatTimeOnly,
@@ -34,6 +35,28 @@ import {
 // heure de Toronto : un formateur qui retomberait sur le fuseau du runtime
 // rendrait de l'UTC et échouerait ici. C'est le filet contre les mismatchs
 // d'hydratation (SSR en UTC vs navigateur en heure locale).
+
+describe("formatPercent", () => {
+  const normalizeSpaces = (str: string) => str.replace(/[  ]/g, " ")
+
+  it("rend un pourcentage fr-CA, espace insécable avant le signe", () => {
+    expect(normalizeSpaces(formatPercent(85))).toBe("85 %")
+    expect(normalizeSpaces(formatPercent(0))).toBe("0 %")
+  })
+
+  it("arrondit à l'entier par défaut, ou au nombre de décimales demandé", () => {
+    expect(normalizeSpaces(formatPercent(57.5))).toBe("58 %")
+    expect(normalizeSpaces(formatPercent(12.34, { digits: 1 }))).toBe("12,3 %")
+  })
+
+  it("préfixe le signe d'une tendance quand on le demande", () => {
+    expect(normalizeSpaces(formatPercent(12, { signed: true }))).toBe("+12 %")
+    expect(
+      normalizeSpaces(formatPercent(-3.2, { signed: true, digits: 1 })),
+    ).toBe("-3,2 %")
+    expect(normalizeSpaces(formatPercent(0, { signed: true }))).toBe("+0 %")
+  })
+})
 
 describe("formatCurrency", () => {
   // Note: Intl.NumberFormat utilise des espaces insécables (\u00A0) dans le formatage

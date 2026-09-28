@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "motion/react"
+import { formatPercent } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 /**
@@ -143,7 +144,7 @@ export function AnimatedStatCard({
                   d="M5 10l7-7m0 0l7 7m-7-7v18"
                 />
               </svg>
-              {Math.abs(trend.value).toFixed(0)}%
+              {formatPercent(Math.abs(trend.value))}
             </div>
           )}
         </div>
