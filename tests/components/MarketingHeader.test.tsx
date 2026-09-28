@@ -1,15 +1,11 @@
-import { act } from "@testing-library/react"
+import { act, render, screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import type { ReactNode } from "react"
-import { hydrateRoot } from "react-dom/client"
+import { type Root, hydrateRoot } from "react-dom/client"
 import { renderToString } from "react-dom/server"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { MarketingHeader } from "@/components/marketing-header"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
-
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../helpers/motion-mock")
-  return motionMockFactory
-})
 
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
@@ -18,8 +14,17 @@ vi.mock("next/image", () => ({
 }))
 
 vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: ReactNode; href: string }) => (
-    <a href={href}>{children}</a>
+  default: ({
+    children,
+    href,
+    ...props
+  }: {
+    children: ReactNode
+    href: string
+  }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
   ),
 }))
 
@@ -61,6 +66,16 @@ const connecte = {
 } as unknown as Session
 
 describe("MarketingHeader", () => {
+  // Les tests d'hydratation montent leur racine à la main : Testing Library
+  // ne la démonte pas.
+  const hydrated: { root: Root; container: HTMLElement }[] = []
+  afterEach(() => {
+    for (const { root, container } of hydrated.splice(0)) {
+      act(() => root.unmount())
+      container.remove()
+    }
+  })
+
   it("hydrate proprement quand la session se résout entre le HTML serveur et l'hydratation", async () => {
     // 1. HTML serveur : aucune session résolue côté serveur.
     vi.mocked(useCurrentUser).mockReturnValue(deconnecte)
@@ -76,9 +91,10 @@ describe("MarketingHeader", () => {
 
     const recoverable: unknown[] = []
     await act(async () => {
-      hydrateRoot(container, <MarketingHeader />, {
+      const root = hydrateRoot(container, <MarketingHeader />, {
         onRecoverableError: (err) => recoverable.push(err),
       })
+      hydrated.push({ root, container })
     })
 
     // 3. Sans la garde, React signale ici un mismatch d'hydratation.
@@ -95,12 +111,69 @@ describe("MarketingHeader", () => {
     document.body.appendChild(container)
 
     await act(async () => {
-      hydrateRoot(container, <MarketingHeader />)
+      const root = hydrateRoot(container, <MarketingHeader />)
+      hydrated.push({ root, container })
     })
 
     // Le nom complet ne vit que dans le contenu du DropdownMenu, fermé par
     // défaut : la branche connectée se reconnaît aux initiales de l'avatar.
     expect(container.textContent).toContain("AD")
     expect(container.textContent).not.toContain("Connexion")
+  })
+
+  describe("visiteur déconnecté", () => {
+    it("propose Domaines, Tarifs et FAQ, la page courante marquée", () => {
+      vi.mocked(useCurrentUser).mockReturnValue(deconnecte)
+      render(<MarketingHeader />)
+
+      const nav = screen.getByRole("navigation", {
+        name: "Navigation principale",
+      })
+      const links = within(nav).getAllByRole("link")
+      expect(links.map((l) => l.textContent)).toEqual([
+        "Domaines",
+        "Tarifs",
+        "FAQ",
+      ])
+      expect(within(nav).getByRole("link", { name: "Tarifs" })).toHaveAttribute(
+        "aria-current",
+        "page",
+      )
+    })
+
+    it("mène à la connexion, à l'essai gratuit et à l'inscription", () => {
+      vi.mocked(useCurrentUser).mockReturnValue(deconnecte)
+      render(<MarketingHeader />)
+
+      expect(screen.getByRole("link", { name: "Connexion" })).toHaveAttribute(
+        "href",
+        "/connexion",
+      )
+      expect(
+        screen.getByRole("link", { name: "Essai gratuit" }),
+      ).toHaveAttribute("href", "/evaluation")
+      expect(screen.getByRole("link", { name: "S'inscrire" })).toHaveAttribute(
+        "href",
+        "/inscription",
+      )
+    })
+
+    it("le menu mobile porte aussi l'essai, À propos, la connexion et le thème", async () => {
+      vi.mocked(useCurrentUser).mockReturnValue(deconnecte)
+      render(<MarketingHeader />)
+
+      await userEvent.click(
+        screen.getByRole("button", { name: "Ouvrir le menu" }),
+      )
+
+      const menu = within(screen.getByRole("dialog"))
+      for (const name of ["Essai gratuit", "À propos", "Connexion"]) {
+        expect(menu.getByRole("link", { name })).toBeInTheDocument()
+      }
+      expect(menu.getByRole("button", { name: "Sombre" })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      )
+    })
   })
 })

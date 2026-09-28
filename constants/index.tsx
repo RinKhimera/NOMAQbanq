@@ -110,9 +110,9 @@ export const FOOTER_QUICK_LINKS = [
   { name: "Accueil", href: "/" },
   { name: "Domaines", href: "/domaines" },
   { name: "Évaluation", href: "/evaluation" },
-  { name: "À propos", href: "/a-propos" },
   { name: "Tarifs", href: "/tarifs" },
   { name: "FAQ", href: "/faq" },
+  { name: "À propos", href: "/a-propos" },
 ] as const
 
 export const FOOTER_LEGAL_LINKS = [
