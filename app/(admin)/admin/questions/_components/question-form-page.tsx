@@ -11,11 +11,14 @@ import {
   Minus,
   Plus,
   Save,
+  Scissors,
   Target,
+  TriangleAlert,
+  Undo2,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { type ClipboardEvent, useEffect, useMemo, useState } from "react"
 import { type FieldErrors, useForm, useWatch } from "react-hook-form"
 import { toast } from "sonner"
 import { QuestionImageUploader } from "@/components/admin/question-image-uploader"
@@ -55,6 +58,14 @@ import {
   updateQuestion,
 } from "@/features/questions/actions"
 import type { QuestionDetail } from "@/features/questions/dal"
+import {
+  type Correction,
+  type FormatIssue,
+  diagnoseCorrection,
+  normalizeExplanation,
+  normalizeReferenceEntry,
+  splitReferenceEntry,
+} from "@/features/questions/normalization"
 import { findDuplicateOption } from "@/features/questions/schemas"
 import { cdnUrl } from "@/lib/cdn"
 import { cn } from "@/lib/utils"
@@ -120,6 +131,75 @@ const buildDefaultValues = (q?: QuestionDetail): QuestionFormValues =>
         objectifCMC: "",
         domain: "",
       }
+
+/** Remplace le champ `index` par `entries` (plusieurs champs après un découpage). */
+const replaceAt = (list: string[], index: number, entries: string[]) => [
+  ...list.slice(0, index),
+  ...entries,
+  ...list.slice(index + 1),
+]
+
+/**
+ * Le texte collé, et le champ tel que le collage brut l'aurait laissé. Seul le
+ * texte collé décide d'intercepter : coller un mot propre dans un champ ancien
+ * ne doit pas reformater tout le champ.
+ */
+const readPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+  const el = e.currentTarget
+  const pasted = e.clipboardData.getData("text/plain")
+  const raw =
+    el.value.slice(0, el.selectionStart) +
+    pasted +
+    el.value.slice(el.selectionEnd)
+  // Les bords du morceau collé ne sont pas une mise en forme à corriger.
+  const text = pasted.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "")
+  return { text, raw }
+}
+
+function FormatWarnings({
+  issues,
+  testId,
+}: {
+  issues: FormatIssue[]
+  testId: string
+}) {
+  if (issues.length === 0) return null
+  return (
+    <div
+      data-testid={testId}
+      className="mt-2 flex gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+    >
+      <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+      <ul className="space-y-1">
+        {issues.map((issue) => (
+          <li key={issue.code}>{issue.message}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function FormatUndoBanner({ onUndo }: { onUndo: () => void }) {
+  return (
+    <div
+      data-testid="format-undo-banner"
+      className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-800 dark:border-teal-800 dark:bg-teal-900/20 dark:text-teal-200"
+    >
+      <span>Mise en forme appliquée</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        data-testid="btn-format-undo"
+        onClick={onUndo}
+        className="h-7 gap-1"
+      >
+        <Undo2 className="h-3.5 w-3.5" />
+        Annuler
+      </Button>
+    </div>
+  )
+}
 
 /**
  * Loader/garde : en édition, charge la question via Server Action puis monte le
@@ -218,27 +298,125 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
     control: form.control,
     name: "correctAnswer",
   })
+  const explanation = useWatch({ control: form.control, name: "explanation" })
 
-  const addReference = () => {
-    const newReferences = [...references, ""]
-    setReferences(newReferences)
-    form.setValue("references", newReferences)
+  // Dernière mise en forme appliquée (collage ou découpage) : l'état brut que
+  // « Annuler » rétablit, et le champ sous lequel s'affiche le bandeau.
+  const [formatUndo, setFormatUndo] = useState<{
+    field: "explanation" | "references"
+    raw: Correction
+  } | null>(null)
+
+  // Non bloquant : rien de tout ça n'entre dans la validation du formulaire.
+  // Mis en cache : un bloc de références peut peser des centaines de milliers
+  // de caractères, et le formulaire se re-rend à chaque frappe d'une option.
+  const issues = useMemo(
+    () => diagnoseCorrection({ explanation: explanation ?? "", references }),
+    [explanation, references],
+  )
+  const canSplit = useMemo(
+    () => references.map((r) => splitReferenceEntry(r).length > 1),
+    [references],
+  )
+  const explanationIssues = issues.filter((i) => i.field === "explanation")
+  const referenceIssues = (index: number) =>
+    issues.filter((i) => i.field === "references" && i.index === index)
+
+  const applyCorrection = (next: Correction) => {
+    writeReferences(next.references)
+    form.setValue("explanation", next.explanation, {
+      shouldValidate: form.formState.isSubmitted,
+    })
   }
+
+  const currentCorrection = (): Correction => ({
+    explanation: form.getValues("explanation"),
+    references,
+  })
+
+  /** Applique une mise en forme en gardant de quoi l'annuler. */
+  const applyFormatted = (
+    field: "explanation" | "references",
+    raw: Correction,
+    next: Correction,
+  ) => {
+    setFormatUndo({ field, raw })
+    applyCorrection(next)
+  }
+
+  const handleExplanationPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
+    const { text, raw } = readPaste(e)
+    if (normalizeExplanation(text) === text) return
+    e.preventDefault()
+    const current = currentCorrection()
+    applyFormatted(
+      "explanation",
+      { ...current, explanation: raw },
+      { ...current, explanation: normalizeExplanation(raw) },
+    )
+  }
+
+  const handleReferencePaste = (
+    index: number,
+    e: ClipboardEvent<HTMLTextAreaElement>,
+  ) => {
+    const { text, raw } = readPaste(e)
+    const pasted = normalizeReferenceEntry(text)
+    if (pasted.length === 1 && pasted[0] === text) return
+    e.preventDefault()
+    const sources = normalizeReferenceEntry(raw)
+    const current = currentCorrection()
+    applyFormatted(
+      "references",
+      { ...current, references: replaceAt(references, index, [raw]) },
+      {
+        ...current,
+        references: replaceAt(
+          references,
+          index,
+          sources.length > 0 ? sources : [""],
+        ),
+      },
+    )
+  }
+
+  const splitReference = (index: number) => {
+    const current = currentCorrection()
+    applyFormatted("references", current, {
+      ...current,
+      references: replaceAt(
+        references,
+        index,
+        splitReferenceEntry(references[index]),
+      ),
+    })
+  }
+
+  const undoFormat = () => {
+    if (!formatUndo) return
+    applyCorrection(formatUndo.raw)
+    setFormatUndo(null)
+  }
+
+  const writeReferences = (next: string[]) => {
+    setReferences(next)
+    form.setValue("references", next)
+  }
+
+  // Toute saisie manuelle clôt la possibilité d'annuler la mise en forme.
+  const editReferences = (next: string[]) => {
+    setFormatUndo(null)
+    writeReferences(next)
+  }
+
+  const addReference = () => editReferences([...references, ""])
 
   const removeReference = (index: number) => {
-    if (references.length > 1) {
-      const newReferences = references.filter((_, i) => i !== index)
-      setReferences(newReferences)
-      form.setValue("references", newReferences)
-    }
+    if (references.length > 1) editReferences(replaceAt(references, index, []))
   }
 
-  const updateReference = (index: number, value: string) => {
-    const newReferences = [...references]
-    newReferences[index] = value
-    setReferences(newReferences)
-    form.setValue("references", newReferences)
-  }
+  const updateReference = (index: number, value: string) =>
+    editReferences(replaceAt(references, index, [value]))
 
   const updateOption = (index: number, value: string) => {
     const prev = options[index]
@@ -643,9 +821,22 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
                     <Textarea
                       placeholder="Explication détaillée de la réponse..."
                       className="min-h-45 resize-none border-gray-200 bg-white focus:border-amber-500 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-800"
+                      data-testid="explanation-input"
                       {...field}
+                      onChange={(e) => {
+                        setFormatUndo(null)
+                        field.onChange(e)
+                      }}
+                      onPaste={handleExplanationPaste}
                     />
                   </FormControl>
+                  {formatUndo?.field === "explanation" && (
+                    <FormatUndoBanner onUndo={undoFormat} />
+                  )}
+                  <FormatWarnings
+                    issues={explanationIssues}
+                    testId="format-warning-explanation"
+                  />
                   <FormDescription className="text-xs">
                     Vous pouvez utiliser des sauts de ligne. Les références
                     peuvent être citées avec [1], [2], etc.
@@ -717,31 +908,60 @@ function QuestionForm({ mode, questionId, question }: QuestionFormProps) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 p-6">
+            {formatUndo?.field === "references" && (
+              <FormatUndoBanner onUndo={undoFormat} />
+            )}
             {references.map((reference, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <Badge
-                  variant="outline"
-                  className="mt-2.5 flex h-7 min-w-8 items-center justify-center border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
-                >
-                  {index + 1}
-                </Badge>
-                <Textarea
-                  placeholder="Référence bibliographique complète..."
-                  value={reference}
-                  onChange={(e) => updateReference(index, e.target.value)}
-                  className="min-h-20 resize-none border-gray-200 bg-white focus:border-teal-500 focus:ring-teal-500 dark:border-gray-700 dark:bg-gray-800"
-                />
-                {references.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeReference(index)}
-                    className="mt-2 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+              <div key={index}>
+                <div className="flex items-start gap-3">
+                  <Badge
+                    variant="outline"
+                    className="mt-2.5 flex h-7 min-w-8 items-center justify-center border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
                   >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                )}
+                    {index + 1}
+                  </Badge>
+                  <Textarea
+                    placeholder="Référence bibliographique complète..."
+                    value={reference}
+                    data-testid={`reference-input-${index}`}
+                    onChange={(e) => updateReference(index, e.target.value)}
+                    onPaste={(e) => handleReferencePaste(index, e)}
+                    className="min-h-20 resize-none border-gray-200 bg-white focus:border-teal-500 focus:ring-teal-500 dark:border-gray-700 dark:bg-gray-800"
+                  />
+                  <div className="mt-2 flex flex-col gap-1">
+                    {canSplit[index] && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        data-testid={`btn-split-reference-${index}`}
+                        onClick={() => splitReference(index)}
+                        className="gap-1 text-teal-700 hover:bg-teal-50 dark:text-teal-300 dark:hover:bg-teal-900/20"
+                      >
+                        <Scissors className="h-4 w-4" />
+                        Découper
+                      </Button>
+                    )}
+                    {references.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        aria-label="Retirer la référence"
+                        onClick={() => removeReference(index)}
+                        className="text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="ml-11">
+                  <FormatWarnings
+                    issues={referenceIssues(index)}
+                    testId={`format-warning-reference-${index}`}
+                  />
+                </div>
               </div>
             ))}
           </CardContent>

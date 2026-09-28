@@ -185,6 +185,104 @@ describe("updateQuestion", () => {
   })
 })
 
+describe("normalisation de la correction à l'enregistrement", () => {
+  const BLOCK =
+    "1.\nSource A.\nLancet. 2020.\n\n\n\n2.\nSource B.\nBMJ. 2021.   \n"
+
+  it("applique la partie sûre sans jamais découper une référence", async () => {
+    const res = await createQuestion({
+      ...base,
+      explanation:
+        "Premier   point.\n[1]\n\n\n\nSecond point, la glycémie[2].\nMedical Council of Canada | Le Conseil médical du Canada | 29\nFin.",
+      references: [BLOCK, "  Source C.  "],
+    })
+    expect(res.success).toBe(true)
+    if (!res.success) return
+    created.push(res.id)
+
+    const q = await getQuestionById(res.id)
+    expect(q?.explanation).toBe(
+      "Premier point. [1]\n\nSecond point, la glycémie [2].\nFin.",
+    )
+    expect(q?.references).toEqual([
+      "1.\nSource A.\nLancet. 2020.\n\n2.\nSource B.\nBMJ. 2021.",
+      "Source C.",
+    ])
+  })
+
+  it("réenregistrer ce qui a été enregistré ne change plus rien", async () => {
+    const nnbsp = "\u202f"
+    const nbsp = "\u00a0"
+    const dirty = {
+      explanation: `  Paragraphe${nnbsp}:  un   point.\n[1]\n\n\n\nSuite${nbsp}!\tfin[2].  `,
+      references: [
+        `  Source A${nnbsp}: Lancet. 2020.  `,
+        "Source B.\n\n\n\nBMJ. 2021.",
+      ],
+    }
+    const id = await makeOne()
+    await updateQuestion({ ...base, ...dirty, id })
+    const first = await getQuestionById(id)
+    expect(first?.explanation).not.toBe(dirty.explanation)
+    expect(first?.explanation).toContain(`Paragraphe${nnbsp}:`)
+    expect(first?.explanation).toContain(`Suite${nbsp}!`)
+
+    const res = await updateQuestion({
+      ...base,
+      id,
+      explanation: first!.explanation,
+      references: first!.references ?? [],
+    })
+    expect(res.success).toBe(true)
+    const second = await getQuestionById(id)
+    expect(second?.explanation).toBe(first?.explanation)
+    expect(second?.references).toEqual(first?.references)
+  })
+
+  it("refuse une explication ou une référence vides une fois mises en forme", async () => {
+    const onlySpaces = await createQuestion({
+      ...base,
+      explanation: "\u202f \n\u00a0",
+    })
+    expect(onlySpaces).toEqual({
+      success: false,
+      error: "L'explication est requise",
+    })
+    const emptyReference = await createQuestion({
+      ...base,
+      references: [
+        "Medical Council of Canada | Le Conseil médical du Canada | 29",
+      ],
+    })
+    expect(emptyReference).toEqual({
+      success: false,
+      error: expect.stringMatching(/^Une référence est vide/),
+    })
+  })
+
+  it("refuse une référence de plus de 2 000 caractères", async () => {
+    const res = await createQuestion({
+      ...base,
+      references: ["x".repeat(2001)],
+    })
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/référence.*2 000 caractères/),
+    })
+  })
+
+  it("refuse une explication au-delà du plafond", async () => {
+    const res = await createQuestion({
+      ...base,
+      explanation: "x".repeat(20_001),
+    })
+    expect(res).toEqual({
+      success: false,
+      error: expect.stringMatching(/explication.*20 000 caractères/),
+    })
+  })
+})
+
 describe("deleteQuestion", () => {
   // La question créée ici n'est jamais référencée (examens/entraînements) →
   // l'hybride part en HARD delete. Le chemin SOFT (référencée) est couvert par

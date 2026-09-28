@@ -1,5 +1,11 @@
 import { z } from "zod"
 import { isMedicalDomain } from "@/constants"
+import {
+  EXPLANATION_MAX_LENGTH,
+  REFERENCE_MAX_LENGTH,
+  normalizeExplanation,
+  tidyReference,
+} from "./normalization"
 
 /**
  * Texte non vide, enregistré tel quel. Options et clé ne sont jamais rognées :
@@ -8,6 +14,45 @@ import { isMedicalDomain } from "@/constants"
  */
 const exactText = (message?: string) =>
   z.string().refine((text) => text.trim().length > 0, message)
+
+// « 20 000 » : espace simple, pas l'espace insécable de toLocaleString, pour
+// un message identique quel que soit le moteur.
+const formatCount = (n: number) => String(n).replace(/\B(?=(\d{3})+$)/g, " ")
+
+// Seule la partie sûre de la normalisation s'applique à l'enregistrement :
+// une référence n'est jamais découpée sans que l'admin l'ait vue. La
+// normalisation garde les espaces fines insécables, d'où le `trim()` du test
+// de vacuité : un texte qui n'est fait que d'elles est vide.
+const hasText = (text: string) => text.trim() !== ""
+
+const explanationField = z
+  .string()
+  .transform(normalizeExplanation)
+  .pipe(
+    z
+      .string()
+      .refine(hasText, "L'explication est requise")
+      .max(
+        EXPLANATION_MAX_LENGTH,
+        `L'explication dépasse ${formatCount(EXPLANATION_MAX_LENGTH)} caractères : vérifiez qu'une page entière n'a pas été collée.`,
+      ),
+  )
+
+const referenceField = z
+  .string()
+  .transform(tidyReference)
+  .pipe(
+    z
+      .string()
+      .refine(
+        hasText,
+        "Une référence est vide une fois mise en forme : retirez-la ou complétez-la.",
+      )
+      .max(
+        REFERENCE_MAX_LENGTH,
+        `Une référence dépasse ${formatCount(REFERENCE_MAX_LENGTH)} caractères : elle contient sans doute plusieurs sources. Découpez-la avant d'enregistrer.`,
+      ),
+  )
 
 // Champs communs création/édition. Une question QCM = 2..8 options, la bonne
 // réponse devant figurer parmi elles (refine sur l'objet complet).
@@ -18,8 +63,11 @@ const questionFields = {
     .min(2, "Au moins 2 options")
     .max(8, "Au plus 8 options"),
   correctAnswer: exactText("La bonne réponse est requise"),
-  explanation: z.string().trim().min(1, "L'explication est requise"),
-  references: z.array(z.string().trim().min(1)).max(50).optional(),
+  explanation: explanationField,
+  references: z
+    .array(referenceField)
+    .max(50, "Au plus 50 références")
+    .optional(),
   objectifCMC: z.string().trim().min(1, "L'objectif CMC est requis"),
   domain: z
     .string()
@@ -78,14 +126,14 @@ export const createQuestionSchema = z
   .refine(correctAnswerInOptions, correctAnswerIssue)
   .superRefine(refineDistinctOptions)
 
-export type CreateQuestionInput = z.infer<typeof createQuestionSchema>
+export type CreateQuestionInput = z.input<typeof createQuestionSchema>
 
 export const updateQuestionSchema = z
   .object({ id: z.string().min(1), ...questionFields })
   .refine(correctAnswerInOptions, correctAnswerIssue)
   .superRefine(refineDistinctOptions)
 
-export type UpdateQuestionInput = z.infer<typeof updateQuestionSchema>
+export type UpdateQuestionInput = z.input<typeof updateQuestionSchema>
 
 export const setQuestionImagesSchema = z.object({
   questionId: z.string().min(1),
