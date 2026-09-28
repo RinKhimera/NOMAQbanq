@@ -28,7 +28,7 @@ const CookiesPage = () => {
       pageType="cookies"
       title="Politique de cookies"
       subtitle="Comprendre comment nous utilisons les cookies et traceurs pour améliorer votre expérience."
-      lastUpdated="15 janvier 2026"
+      lastUpdated="28 septembre 2026"
       articleNumber="03"
       sections={sections}
     >

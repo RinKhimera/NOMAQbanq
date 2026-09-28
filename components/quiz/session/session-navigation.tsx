@@ -1,106 +1,76 @@
 "use client"
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  CircleCheckBig,
-  Flag,
-  Lock,
-} from "lucide-react"
+import { ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import type { SessionNavigationProps } from "./types"
 
+type SessionNavigationProps = {
+  currentIndex: number
+  totalQuestions: number
+  onPrevious: () => void
+  onNext: () => void
+  onFinish: () => void
+  /** « Terminer la série », « Soumettre ». */
+  finishLabel: string
+  /** Mode tuteur : un choix attend sa validation. */
+  onValidate?: () => void
+  isValidating?: boolean
+}
+
+/**
+ * Pied de la carte en passation : « Précédente » à gauche, action primaire à
+ * droite. L'action primaire est UN bouton de largeur minimale fixe, dont le
+ * rôle change (valider le choix en tuteur, question suivante, fin de la
+ * série) : il ne bouge pas, et le focus clavier le suit d'une étape à l'autre.
+ */
 export const SessionNavigation = ({
   currentIndex,
   totalQuestions,
-  isFlagged,
   onPrevious,
   onNext,
-  onToggleFlag,
-  isPreviousLocked = false,
-  isNextLocked = false,
-  accentColor = "emerald",
+  onFinish,
+  finishLabel,
+  onValidate,
+  isValidating = false,
 }: SessionNavigationProps) => {
-  const isFirstQuestion = currentIndex === 0
-  const isLastQuestion = currentIndex === totalQuestions - 1
+  const isLast = currentIndex === totalQuestions - 1
+  const primary = onValidate
+    ? { label: "Valider ma réponse", onClick: onValidate, arrow: false }
+    : isLast
+      ? { label: finishLabel, onClick: onFinish, arrow: false }
+      : { label: "Suivante", onClick: onNext, arrow: true }
 
   return (
     <div
-      className="flex items-center justify-between gap-4"
       data-testid="session-navigation"
+      className="flex flex-1 items-center justify-between gap-2"
     >
-      {/* Previous button */}
       <Button
-        variant="outline"
+        variant="ghost"
+        size="sm"
         onClick={onPrevious}
-        disabled={isFirstQuestion || isPreviousLocked}
+        disabled={currentIndex === 0}
         data-testid="btn-previous"
-        className={cn(
-          "gap-2",
-          isPreviousLocked && "cursor-not-allowed opacity-50",
-        )}
+        className="max-md:h-11"
       >
-        {isPreviousLocked ? (
-          <Lock className="h-4 w-4 text-gray-400" />
-        ) : (
-          <ChevronLeft className="h-4 w-4" />
-        )}
-        <span className="hidden sm:inline">Précédent</span>
+        <ArrowLeft aria-hidden />
+        Précédente
       </Button>
-
-      {/* Flag button */}
       <Button
-        variant="outline"
-        onClick={onToggleFlag}
-        data-testid="btn-flag"
-        data-flagged={isFlagged}
-        className={cn(
-          "gap-2",
-          isFlagged &&
-            "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300",
-        )}
+        size="sm"
+        onClick={primary.onClick}
+        disabled={isValidating}
+        data-testid={
+          onValidate
+            ? "btn-validate-answer"
+            : isLast
+              ? "btn-finish"
+              : "btn-next"
+        }
+        className="min-w-38 max-md:h-11"
       >
-        <Flag className={cn("h-4 w-4", isFlagged && "fill-amber-500")} />
-        <span className="hidden sm:inline">
-          {isFlagged ? "Marquée" : "Marquer"}
-        </span>
+        {primary.label}
+        {primary.arrow && <ArrowRight aria-hidden />}
       </Button>
-
-      {/* Next button or Finish button on last question */}
-      {isLastQuestion ? (
-        <Button
-          onClick={onNext}
-          data-testid="btn-finish"
-          className={cn(
-            "gap-2 shadow-md",
-            accentColor === "blue"
-              ? "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-              : "bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700",
-          )}
-        >
-          <CircleCheckBig className="h-4 w-4" />
-          <span>Terminer</span>
-        </Button>
-      ) : (
-        <Button
-          variant="outline"
-          onClick={onNext}
-          disabled={isNextLocked}
-          data-testid="btn-next"
-          className={cn(
-            "gap-2",
-            isNextLocked && "cursor-not-allowed opacity-50",
-          )}
-        >
-          <span className="hidden sm:inline">Suivant</span>
-          {isNextLocked ? (
-            <Lock className="h-4 w-4 text-gray-400" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </Button>
-      )}
     </div>
   )
 }

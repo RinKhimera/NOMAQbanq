@@ -7,19 +7,10 @@ import {
 } from "@/components/quiz/results/session-results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
-
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
-}))
-
-vi.mock("@/hooks/use-is-visible", () => ({
-  useIsVisible: () => ({ ref: { current: null }, isVisible: true }),
 }))
 
 vi.mock("@/components/quiz/question-card", () => ({
@@ -34,38 +25,6 @@ vi.mock("@/components/quiz/question-card", () => ({
       Q{questionNumber}
     </div>
   ),
-}))
-
-vi.mock("@/components/quiz/results", () => ({
-  ResultsQuestionNavigator: ({
-    questionResults,
-    onNavigateToQuestion,
-  }: {
-    questionResults: {
-      isCorrect: boolean
-      isAnswered: boolean
-      isWithheld?: boolean
-    }[]
-    onNavigateToQuestion: (index: number) => void
-  }) => (
-    <div
-      data-testid="results-navigator"
-      data-unanswered={questionResults.filter((r) => !r.isAnswered).length}
-      data-withheld={questionResults.filter((r) => r.isWithheld).length}
-    >
-      {questionResults.map((_, i) => (
-        <button
-          key={i}
-          data-testid={`nav-${i}`}
-          onClick={() => onNavigateToQuestion(i)}
-        />
-      ))}
-    </div>
-  ),
-}))
-
-vi.mock("@/components/quiz/session/session-toolbar", () => ({
-  SessionToolbar: () => <div data-testid="session-toolbar" />,
 }))
 
 // ============================================
@@ -89,6 +48,12 @@ const questions: QuizQuestion[] = [
 ]
 
 // Dense answers map: q1 correct, q2 incorrect, q3 absent (unanswered)
+const unansweredItems = () =>
+  screen
+    .getAllByTestId(/^results-nav-item-/)
+    .filter((item) => item.dataset.state === "unanswered")
+    .map((item) => item.dataset.testid)
+
 const denseAnswers: AnswersMap = {
   q1: { selected: "A", isCorrect: true },
   q2: { selected: "B", isCorrect: false },
@@ -103,7 +68,7 @@ describe("SessionResults", () => {
     it("compte justes, fausses et sans réponse à partir de questions + answers", () => {
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={denseAnswers}
@@ -131,7 +96,7 @@ describe("SessionResults", () => {
     it("une réponse à clé retenue n'est ni juste ni fausse : tuile « Différées »", () => {
       render(
         <SessionResults
-          accent="emerald"
+          kind="training"
           score={33}
           questions={withheldQuestions}
           answers={withheldAnswers}
@@ -147,7 +112,7 @@ describe("SessionResults", () => {
     it("le filtre « Erreurs » ne retient pas une réponse à clé retenue", () => {
       render(
         <SessionResults
-          accent="emerald"
+          kind="training"
           score={33}
           questions={withheldQuestions}
           answers={withheldAnswers}
@@ -162,7 +127,7 @@ describe("SessionResults", () => {
     it("« X sur N réussies » compte les questions corrigeables, pas les différées", () => {
       render(
         <SessionResults
-          accent="emerald"
+          kind="training"
           score={33}
           questions={withheldQuestions}
           answers={withheldAnswers}
@@ -177,7 +142,7 @@ describe("SessionResults", () => {
       )
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={withheldQuestions}
           answers={withheldAnswers}
@@ -194,16 +159,16 @@ describe("SessionResults", () => {
     it("le navigateur reçoit le marqueur « différée »", () => {
       render(
         <SessionResults
-          accent="emerald"
+          kind="training"
           score={33}
           questions={withheldQuestions}
           answers={withheldAnswers}
         />,
       )
-      const counts = screen
-        .getAllByTestId("results-navigator")
-        .map((n) => Number(n.getAttribute("data-withheld")))
-      expect(counts.some((c) => c === 1)).toBe(true)
+      expect(screen.getByTestId("results-nav-item-1")).toHaveAttribute(
+        "data-state",
+        "withheld",
+      )
     })
 
     // Le score en base agrège TOUTES les réponses : « score × N / 100 −
@@ -212,7 +177,7 @@ describe("SessionResults", () => {
     it("retient le score : ni pourcentage ni badge tant qu'une réponse est différée", () => {
       render(
         <SessionResults
-          accent="emerald"
+          kind="training"
           score={33}
           questions={withheldQuestions}
           answers={withheldAnswers}
@@ -239,7 +204,7 @@ describe("SessionResults", () => {
       }
       render(
         <SessionResults
-          accent="emerald"
+          kind="training"
           score={33}
           questions={revealedQuestions}
           answers={revealedAnswers}
@@ -256,7 +221,7 @@ describe("SessionResults", () => {
     it("une question à clé retenue SANS réponse ne retient pas le score", () => {
       render(
         <SessionResults
-          accent="emerald"
+          kind="training"
           score={33}
           questions={withheldQuestions}
           answers={{ q1: { selected: "A", isCorrect: true } }}
@@ -271,7 +236,7 @@ describe("SessionResults", () => {
     it("un score `null` (retenu par la page) est retenu même sans marqueur sur les questions", () => {
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={null}
           questions={questions}
           answers={denseAnswers}
@@ -340,7 +305,7 @@ describe("SessionResults", () => {
     it("affiche le score et les compteurs", () => {
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={denseAnswers}
@@ -356,7 +321,7 @@ describe("SessionResults", () => {
     it("affiche 'Réussi' pour un score >= 60", () => {
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={80}
           questions={questions}
           answers={denseAnswers}
@@ -368,7 +333,7 @@ describe("SessionResults", () => {
     it("affiche 'À améliorer' pour un score < 60", () => {
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={denseAnswers}
@@ -380,7 +345,7 @@ describe("SessionResults", () => {
     it("n'affiche pas le bloc 'Sans réponse' si tout est répondu", () => {
       render(
         <SessionResults
-          accent="emerald"
+          kind="training"
           score={100}
           questions={questions}
           answers={{ ...denseAnswers, q3: { selected: "A", isCorrect: true } }}
@@ -394,7 +359,7 @@ describe("SessionResults", () => {
     it("le filtre 'Erreurs' masque les correctes et conserve incorrectes + non répondues", () => {
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={denseAnswers}
@@ -429,7 +394,7 @@ describe("SessionResults", () => {
       const renderFiltered = () => {
         render(
           <SessionResults
-            accent="blue"
+            kind="exam"
             score={33}
             questions={questions}
             answers={denseAnswers}
@@ -444,7 +409,7 @@ describe("SessionResults", () => {
 
       it("une question masquée par le filtre « Erreurs » lève le filtre, puis y défile", () => {
         renderFiltered()
-        fireEvent.click(screen.getByTestId("nav-0"))
+        fireEvent.click(screen.getByTestId("results-nav-item-0"))
         expect(screen.getAllByTestId("question-card")).toHaveLength(3)
         expect(screen.getByTestId("btn-filter-errors").textContent).toContain(
           "Erreurs (2)",
@@ -454,7 +419,7 @@ describe("SessionResults", () => {
 
       it("jumeau : une question visible sous le filtre le conserve", () => {
         renderFiltered()
-        fireEvent.click(screen.getByTestId("nav-1"))
+        fireEvent.click(screen.getByTestId("results-nav-item-1"))
         expect(screen.getAllByTestId("question-card")).toHaveLength(2)
         expect(screen.getByTestId("btn-filter-errors").textContent).toContain(
           "Voir toutes",
@@ -466,7 +431,7 @@ describe("SessionResults", () => {
     it("tout déplier / tout replier", () => {
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={denseAnswers}
@@ -483,7 +448,7 @@ describe("SessionResults", () => {
     it("affiche le nom et l'email du participant", () => {
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={denseAnswers}
@@ -502,7 +467,7 @@ describe("SessionResults", () => {
     it("n'affiche pas la carte participant quand absent", () => {
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={denseAnswers}
@@ -512,7 +477,7 @@ describe("SessionResults", () => {
     })
   })
 
-  describe("C1 Step 1b — compat données historiques (answers clairsemées)", () => {
+  describe("compat données historiques (answers clairsemées)", () => {
     /**
      * Older exam participations only had examAnswers rows for ANSWERED questions.
      * The "answers" map is sparse: some question IDs are absent.
@@ -526,7 +491,7 @@ describe("SessionResults", () => {
 
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={sparseAnswers}
@@ -548,20 +513,17 @@ describe("SessionResults", () => {
 
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={sparseAnswers}
         />,
       )
 
-      // The navigator stub renders data-unanswered from the questionResults passed to it
-      const navigators = screen.getAllByTestId("results-navigator")
-      // At least one navigator should report 2 unanswered
-      const unansweredCounts = navigators.map((n) =>
-        Number(n.getAttribute("data-unanswered")),
-      )
-      expect(unansweredCounts.some((c) => c === 2)).toBe(true)
+      expect(unansweredItems()).toEqual([
+        "results-nav-item-1",
+        "results-nav-item-2",
+      ])
     })
 
     it("traite les entrées avec selected vide comme 'non répondues'", () => {
@@ -573,19 +535,18 @@ describe("SessionResults", () => {
 
       render(
         <SessionResults
-          accent="blue"
+          kind="exam"
           score={33}
           questions={questions}
           answers={answersWithEmptySelected}
         />,
       )
 
-      const navigators = screen.getAllByTestId("results-navigator")
-      const unansweredCounts = navigators.map((n) =>
-        Number(n.getAttribute("data-unanswered")),
-      )
       // q2 (empty selected) + q3 (absent) = 2 unanswered
-      expect(unansweredCounts.some((c) => c === 2)).toBe(true)
+      expect(unansweredItems()).toEqual([
+        "results-nav-item-1",
+        "results-nav-item-2",
+      ])
     })
   })
 })

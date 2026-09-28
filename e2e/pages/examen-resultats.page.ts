@@ -22,7 +22,7 @@ export class ExamenResultatsPage extends BasePage {
   async getScorePercent(): Promise<number> {
     const text =
       (await this.page.getByTestId("score-percentage").textContent()) ?? ""
-    const match = text.match(/(\d+)%/)
+    const match = text.match(/(\d+)\s?%/)
     return match ? Number(match[1]) : 0
   }
 
@@ -31,15 +31,16 @@ export class ExamenResultatsPage extends BasePage {
   }
 
   async clickNavigatorItem(index: number) {
-    // The desktop nav is always in DOM (hidden on mobile via CSS). Use first()
-    // in case the mobile FAB variant renders the same testid when opened.
-    await this.page.getByTestId(`results-nav-item-${index}`).first().click()
+    // La colonne du navigateur reste dans le DOM sous 1024 px, masquée : on
+    // vise la case visible (colonne, ou Sheet ouvert).
+    await this.page
+      .locator(`[data-testid="results-nav-item-${index}"]:visible`)
+      .click()
   }
 
   async getNavItemState(index: number): Promise<NavItemState> {
     const state = await this.page
-      .getByTestId(`results-nav-item-${index}`)
-      .first()
+      .locator(`[data-testid="results-nav-item-${index}"]:visible`)
       .getAttribute("data-state")
     return (state as NavItemState) ?? "unanswered"
   }

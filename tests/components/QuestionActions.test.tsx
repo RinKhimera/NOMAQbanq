@@ -3,8 +3,6 @@ import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 import {
   QuestionActions,
-  QuestionHeader,
-  QuestionMetadata,
   createAddAction,
   createDeleteAction,
   createEditAction,
@@ -144,8 +142,9 @@ describe("QuestionActions", () => {
     await waitFor(() => {
       expect(screen.getByText("Retirer de la banque")).toBeInTheDocument()
     })
-    const actionItem = screen.getByText("Retirer de la banque").closest("div")
-    expect(actionItem).toHaveClass("text-red-600")
+    expect(
+      screen.getByRole("menuitem", { name: "Retirer de la banque" }),
+    ).toHaveAttribute("data-variant", "destructive")
   })
 
   it("shows separator between non-destructive and destructive actions", async () => {
@@ -166,123 +165,5 @@ describe("QuestionActions", () => {
     // There should be a separator element (hr or div with role separator) in the portal
     const separators = document.querySelectorAll('[role="separator"]')
     expect(separators.length).toBeGreaterThan(0)
-  })
-})
-
-describe("QuestionHeader", () => {
-  it("renders without question number", () => {
-    render(<QuestionHeader />)
-
-    expect(screen.queryByText(/Question/)).not.toBeInTheDocument()
-  })
-
-  it("renders question number badge when provided", () => {
-    render(<QuestionHeader questionNumber={5} />)
-
-    expect(screen.getByText("Question 5")).toBeInTheDocument()
-  })
-
-  it("renders domain badge when showDomainBadge is true and domain provided", () => {
-    render(<QuestionHeader domain="Cardiologie" showDomainBadge={true} />)
-
-    expect(screen.getByText("Cardiologie")).toBeInTheDocument()
-  })
-
-  it("hides domain badge when showDomainBadge is false", () => {
-    render(<QuestionHeader domain="Cardiologie" showDomainBadge={false} />)
-
-    expect(screen.queryByText("Cardiologie")).not.toBeInTheDocument()
-  })
-
-  it("does not render domain badge when domain is undefined", () => {
-    render(<QuestionHeader showDomainBadge={true} />)
-
-    // Should render without error
-    expect(screen.queryByText("Cardiologie")).not.toBeInTheDocument()
-  })
-
-  it("renders actions dropdown when actions provided", () => {
-    const actions = [createViewAction(vi.fn())]
-    render(<QuestionHeader actions={actions} />)
-
-    expect(screen.getByRole("button", { name: /Actions/i })).toBeInTheDocument()
-  })
-
-  it("does not render actions when array is empty", () => {
-    render(<QuestionHeader actions={[]} />)
-
-    expect(
-      screen.queryByRole("button", { name: /Actions/i }),
-    ).not.toBeInTheDocument()
-  })
-
-  it("combines question number and domain", () => {
-    render(
-      <QuestionHeader
-        questionNumber={3}
-        domain="Neurologie"
-        showDomainBadge={true}
-      />,
-    )
-
-    expect(screen.getByText("Question 3")).toBeInTheDocument()
-    expect(screen.getByText("Neurologie")).toBeInTheDocument()
-  })
-})
-
-describe("QuestionMetadata", () => {
-  it("returns null when showObjectifBadge is false", () => {
-    const { container } = render(
-      <QuestionMetadata objectifCMC="Objectif 1" showObjectifBadge={false} />,
-    )
-    expect(container.firstChild).toBeNull()
-  })
-
-  it("returns null when objectifCMC is undefined", () => {
-    const { container } = render(<QuestionMetadata showObjectifBadge={true} />)
-    expect(container.firstChild).toBeNull()
-  })
-
-  it("renders objectifCMC badge", () => {
-    render(
-      <QuestionMetadata
-        objectifCMC="Identifier les signes cliniques"
-        showObjectifBadge={true}
-      />,
-    )
-
-    expect(
-      screen.getByText("Identifier les signes cliniques"),
-    ).toBeInTheDocument()
-  })
-
-  it("renders references count when provided and greater than 0", () => {
-    render(
-      <QuestionMetadata
-        objectifCMC="Objectif"
-        showObjectifBadge={true}
-        referencesCount={5}
-      />,
-    )
-
-    expect(screen.getByText("5 réf.")).toBeInTheDocument()
-  })
-
-  it("does not render references count when 0", () => {
-    render(
-      <QuestionMetadata
-        objectifCMC="Objectif"
-        showObjectifBadge={true}
-        referencesCount={0}
-      />,
-    )
-
-    expect(screen.queryByText("0 réf.")).not.toBeInTheDocument()
-  })
-
-  it("does not render references count when undefined", () => {
-    render(<QuestionMetadata objectifCMC="Objectif" showObjectifBadge={true} />)
-
-    expect(screen.queryByText(/réf\./)).not.toBeInTheDocument()
   })
 })

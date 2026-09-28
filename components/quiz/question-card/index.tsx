@@ -2,28 +2,25 @@
 
 import {
   ChevronDown,
-  ChevronUp,
-  CircleCheckBig,
+  CircleCheck,
+  CircleMinus,
   CircleX,
   Flag,
   Hourglass,
 } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
-import {
-  CorrectionExplanation,
-  CorrectionReferences,
-} from "@/components/shared/correction"
+import { Fragment } from "react"
 import { QuestionImageGallery } from "@/components/shared/question-image-gallery"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SkeletonText } from "@/components/ui/skeleton-patterns"
+import { type AnswerOutcome, classify } from "@/lib/score"
+import { TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { KEY_WITHHELD_MESSAGE } from "../runner/types"
-import { AnswerOption } from "./answer-option"
+import { AnswerOptionList } from "./answer-option"
 import {
-  QuestionHeader,
-  QuestionMetadata,
+  QuestionActions,
   createAddAction,
   createDeleteAction,
   createEditAction,
@@ -31,9 +28,9 @@ import {
   createRemoveAction,
   createViewAction,
 } from "./question-actions"
-import type { AnswerState, QuestionCardProps } from "./types"
+import { RevealPanels } from "./reveal-panels"
+import type { AnswerOptionState, QuestionCardProps } from "./types"
 
-// ===== Re-export action creators for convenience =====
 export {
   createViewAction,
   createEditAction,
@@ -44,120 +41,40 @@ export {
 }
 export type { ActionConfig, QuestionCardProps } from "./types"
 
-// ===== Helper Functions =====
-const getAnswerState = (
-  option: string,
-  selectedAnswer: string | null | undefined,
-  correctAnswer: string,
-  showCorrectAnswer: boolean,
-  userAnswer?: string | null,
-  isReviewMode?: boolean,
-  isExamReveal?: boolean,
-): AnswerState => {
-  const isCorrectAnswer = option === correctAnswer
-
-  if (isReviewMode && userAnswer !== undefined) {
-    const isUserAnswer = option === userAnswer
-    if (isCorrectAnswer) return "user-correct"
-    if (isUserAnswer && !isCorrectAnswer) return "user-incorrect"
-    return "default"
-  }
-
-  // Révélation tuteur en passation (variant exam) : on colore le choix de
-  // l'utilisateur comme en review (vert = bonne réponse, rouge = choix faux).
-  if (isExamReveal) {
-    const isUserAnswer = selectedAnswer != null && option === selectedAnswer
-    if (isCorrectAnswer) return "user-correct"
-    if (isUserAnswer && !isCorrectAnswer) return "user-incorrect"
-    return "default"
-  }
-
-  if (showCorrectAnswer && option === correctAnswer) {
-    return "correct"
-  }
-
-  // Sélection sans révélation (examen en cours / tuteur en attente)
-  if (selectedAnswer !== undefined && option === selectedAnswer) {
-    return "selected"
-  }
-
-  return "default"
+const REVIEW_STATUS: Record<
+  AnswerOutcome,
+  { label: string; tone: Tone; Icon: typeof CircleX }
+> = {
+  unanswered: { label: "Non répondu", tone: "neutral", Icon: CircleMinus },
+  withheld: { label: "Correction différée", tone: "warning", Icon: Hourglass },
+  correct: { label: "Correct", tone: "success", Icon: CircleCheck },
+  incorrect: { label: "Incorrect", tone: "danger", Icon: CircleX },
 }
 
-// ===== Key Withheld Notice =====
 // Clé retenue par un examen ouvert : tient lieu de correction, en passation
 // tuteur comme en révision, tant que l'examen n'est pas clos.
 const KeyWithheldNotice = () => (
   <div
     data-testid="key-withheld-notice"
-    className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+    className="border-warning-line bg-warning-soft text-warning-ink rounded-md border p-4 text-sm"
   >
     {KEY_WITHHELD_MESSAGE}. Cette question figure dans un examen blanc encore
     ouvert : sa correction sera disponible ici dès sa clôture.
   </div>
 )
 
-// ===== Question Explanation Component =====
-type ExplanationImage = { url: string; storagePath: string; order: number }
+const ExplanationSkeleton = () => (
+  <div className="border-line bg-surface-2 border-t px-5 py-4">
+    <Skeleton className="mb-3 h-3 w-24" />
+    <SkeletonText lines={3} />
+  </div>
+)
 
-type QuestionExplanationProps = {
-  explanation: string
-  references?: string[]
-  explanationImages?: ExplanationImage[]
-}
-
-const QuestionExplanation = ({
-  explanation,
-  references,
-  explanationImages,
-}: QuestionExplanationProps) => {
-  return (
-    // Pas d'animation de `height` : pour la mesurer, Motion fige la page par un
-    // `window.scrollTo`, qui interrompt tout défilement doux en cours (navigation
-    // vers une question, retour en haut). Ce panneau apparaît de façon paresseuse,
-    // souvent en plein défilement.
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="space-y-4"
-    >
-      {/* Explanation */}
-      <div
-        data-testid="explanation-content"
-        className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 backdrop-blur-sm dark:border-blue-800 dark:bg-blue-900/20"
-      >
-        <h4 className="mb-2 text-sm font-semibold text-blue-900 sm:text-base dark:text-blue-100">
-          Explication :
-        </h4>
-        <CorrectionExplanation
-          explanation={explanation}
-          references={references}
-          images={[...(explanationImages ?? [])]
-            .sort((a, b) => a.order - b.order)
-            .map((img) => ({ key: img.storagePath, url: img.url }))}
-          className="text-sm text-blue-800 dark:text-blue-200"
-        />
-      </div>
-
-      {/* References */}
-      {references && references.length > 0 && (
-        <div className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-800/50">
-          <h4 className="mb-3 text-sm font-semibold text-gray-900 sm:text-base dark:text-gray-100">
-            Références :
-          </h4>
-          <CorrectionReferences
-            references={references}
-            className="text-sm text-gray-700 dark:text-gray-300"
-          />
-        </div>
-      )}
-    </motion.div>
-  )
-}
-
-// ===== Main QuestionCard Component =====
+/**
+ * Carte de question : en-tête mono, vignette clinique en serif, choix A–E.
+ * Trois usages : `exam` (passation, révélation tuteur comprise), `review`
+ * (correction repliable) et `default` (liste admin).
+ */
 export const QuestionCard = ({
   question,
   lazyExplanation,
@@ -173,26 +90,26 @@ export const QuestionCard = ({
   userVerdict,
   isExpanded = false,
   onToggleExpand,
-  wasFlagged,
   questionNumber,
+  totalQuestions,
   showImage = true,
   showCorrectAnswer = true,
   showDomainBadge = true,
   showObjectifBadge = true,
-  truncateQuestion = false,
+  footer,
   actions = [],
   className,
 }: QuestionCardProps) => {
-  // L'explication vient soit du document question (queries qui la joignent
-  // côté serveur), soit d'une prop lazy fournie par la page résultats qui
-  // fetche via getQuestionExplanations quand l'user déplie la carte.
-  const effectiveExplanation = lazyExplanation ?? question.explanation
-  const effectiveReferences = lazyReferences ?? question.references
-  // Images d'explication : lazy (correction examen) prioritaires, sinon
-  // embarquées sur la question (correction entraînement / vitrine eager).
-  const effectiveExplanationImages =
-    lazyExplanationImages ?? question.explanationImages
+  const explanation = lazyExplanation ?? question.explanation
+  const references = lazyReferences ?? question.references
+  const explanationImages = [
+    ...(lazyExplanationImages ?? question.explanationImages ?? []),
+  ]
+    .sort((a, b) => a.order - b.order)
+    .map((img) => ({ key: img.storagePath, url: img.url }))
 
+  const isReview = variant === "review"
+  const isExam = variant === "exam"
   const isKeyWithheld = !!question.keyWithheld
 
   const matchesCurrentKey = userAnswer === question.correctAnswer
@@ -205,413 +122,228 @@ export const QuestionCard = ({
     !isFormerWording &&
     userVerdict !== matchesCurrentKey
 
-  const getCardStyles = () => {
-    if (variant === "review") {
-      const wasAnswered = userAnswer !== null
+  // Révélation tuteur : seulement si la correction est montrée ET qu'on
+  // dispose réellement de la clé. La vitrine publique passe par `exam` sans
+  // clé : sans cette garde, le choix y serait marqué faux à tort.
+  const isExamReveal = isExam && showCorrectAnswer && !!question.correctAnswer
+  // Tuteur validé sur une clé retenue : la notice tient lieu de correction.
+  const isExamWithheld = isExam && showCorrectAnswer && isKeyWithheld
 
-      if (!wasAnswered) {
-        return "bg-gray-50 border-gray-200 dark:bg-gray-800/50 dark:border-gray-700"
-      } else if (isKeyWithheld) {
-        return "bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800"
-      } else if (isCorrect) {
-        return "bg-green-50/50 border-green-200 dark:bg-green-900/10 dark:border-green-800"
-      } else {
-        return "bg-red-50/50 border-red-200 dark:bg-red-900/10 dark:border-red-800"
-      }
+  const reviewStatus = classify(
+    question,
+    userAnswer == null ? undefined : { selected: userAnswer, isCorrect },
+  )
+
+  const stateOf = (option: string): AnswerOptionState => {
+    if (isKeyWithheld) {
+      return option === (userAnswer ?? selectedAnswer) ? "selected" : "default"
     }
-
-    return "bg-white border-gray-200 dark:bg-gray-900 dark:border-gray-700"
+    const isKey = option === question.correctAnswer
+    const chosen = isReview ? userAnswer : selectedAnswer
+    if (isReview || isExamReveal) {
+      if (isKey) return "correct"
+      if (chosen != null && option === chosen) return "incorrect"
+      return "muted"
+    }
+    if (variant === "default" && showCorrectAnswer && isKey) return "correct"
+    return selectedAnswer != null && option === selectedAnswer
+      ? "selected"
+      : "default"
   }
 
-  const getReviewStatus = () => {
-    const wasAnswered = userAnswer !== null
+  const label =
+    questionNumber === undefined
+      ? null
+      : isReview
+        ? `Question ${questionNumber}`
+        : `Question ${questionNumber}${totalQuestions ? ` / ${totalQuestions}` : ""}`
 
-    if (!wasAnswered) {
-      return {
-        icon: <CircleX className="h-4 w-4 text-gray-400 sm:h-5 sm:w-5" />,
-        text: "Non répondu",
-        textColor: "text-gray-600 dark:text-gray-400",
-      }
-    } else if (isKeyWithheld) {
-      return {
-        icon: (
-          <Hourglass className="h-4 w-4 text-amber-600 sm:h-5 sm:w-5 dark:text-amber-400" />
-        ),
-        text: "Correction différée",
-        textColor: "text-amber-600 dark:text-amber-400",
-      }
-    } else if (isCorrect) {
-      return {
-        icon: (
-          <CircleCheckBig className="h-4 w-4 text-green-600 sm:h-5 sm:w-5 dark:text-green-400" />
-        ),
-        text: "Correct",
-        textColor: "text-green-600 dark:text-green-400",
-      }
-    } else {
-      return {
-        icon: (
-          <CircleX className="h-4 w-4 text-red-600 sm:h-5 sm:w-5 dark:text-red-400" />
-        ),
-        text: "Incorrect",
-        textColor: "text-red-600 dark:text-red-400",
-      }
-    }
-  }
-
-  const isReviewVariant = variant === "review"
-  const isExamVariant = variant === "exam"
-  const isDefaultVariant = variant === "default"
-  // Révélation tuteur en passation : seulement si on montre la correction ET
-  // qu'on dispose réellement de la bonne réponse. Le `!!question.correctAnswer`
-  // protège la vitrine publique (variant="exam", showCorrectAnswer défaut true,
-  // mais SANS correctAnswer) — sinon le choix serait marqué faux à tort.
-  const isExamReveal =
-    isExamVariant && showCorrectAnswer && !!question.correctAnswer
-  // Passation tuteur validée sur une clé retenue : la notice tient lieu de
-  // correction ; aucune option n'est marquée (pas de bonne réponse connue).
-  const isExamWithheld = isExamVariant && showCorrectAnswer && isKeyWithheld
+  const status = REVIEW_STATUS[reviewStatus]
+  const showOptions = !isReview || isExpanded
+  const showImages =
+    showImage && question.images.length > 0 && variant !== "review"
 
   return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+    <article
+      id={isReview ? `question-${questionNumber}` : undefined}
       className={cn(
-        "rounded-2xl border-2 p-4 transition-shadow duration-300 sm:p-5 lg:p-6",
-        getCardStyles(),
-        isExamVariant && "shadow-lg hover:shadow-xl",
-        isDefaultVariant && "hover:shadow-md",
+        "bg-surface border-line text-ink overflow-hidden rounded-lg border",
         className,
       )}
-      id={isReviewVariant ? `question-${questionNumber}` : undefined}
     >
-      {/* Header */}
-      {!isReviewVariant && !isExamVariant && (
-        <QuestionHeader
-          questionNumber={questionNumber}
-          domain={question.domain}
-          showDomainBadge={showDomainBadge}
-          actions={actions}
-        />
-      )}
+      {/* Le contenu repart de zéro à chaque question (panneaux repliables
+          compris) ; le pied reste monté, pour que le focus clavier survive à
+          « Suivante ». */}
+      <Fragment key={question._id}>
+        <header className="border-line flex flex-wrap items-center gap-2.5 border-b px-5 py-3">
+          {label && (
+            <h2 className="text-ink font-mono text-xs font-normal">{label}</h2>
+          )}
+          {showDomainBadge && question.domain && (
+            <Badge variant="badge">{question.domain}</Badge>
+          )}
+          {showObjectifBadge && question.objectifCMC && (
+            <Badge className="bg-objective-soft text-objective max-w-full truncate border-transparent">
+              {question.objectifCMC}
+            </Badge>
+          )}
 
-      {/* Exam variant header with flag button */}
-      {isExamVariant && (
-        <div className="mb-3 flex items-start justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            {questionNumber !== undefined && (
-              <Badge
-                variant="outline"
-                className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
-              >
-                Question {questionNumber}
-              </Badge>
-            )}
-            {showDomainBadge && question.domain && (
-              <Badge variant="badge">{question.domain}</Badge>
-            )}
-          </div>
-
-          {/* Flag button for exam mode */}
-          {onFlagToggle && (
+          {isExam && onFlagToggle && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={(e) => {
-                e.stopPropagation()
-                onFlagToggle()
-              }}
-              aria-label={
-                isFlagged
-                  ? "Retirer le marquage de la question"
-                  : "Marquer la question pour révision"
-              }
+              data-testid="btn-flag"
+              data-flagged={isFlagged}
               aria-pressed={isFlagged}
+              onClick={onFlagToggle}
               className={cn(
-                "h-8 gap-1.5 px-2 transition-colors",
+                "ml-auto h-7 gap-1.5 border px-2 max-md:h-11",
                 isFlagged
-                  ? "bg-amber-100 text-amber-700 hover:bg-amber-200 hover:text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50"
-                  : "text-gray-500 hover:bg-gray-100 hover:text-amber-600 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-amber-400",
+                  ? "border-warning-line bg-warning-soft text-warning-ink hover:bg-warning-soft hover:text-warning-ink"
+                  : "text-ink-3 border-transparent",
               )}
             >
               <Flag
-                className={cn(
-                  "h-4 w-4",
-                  isFlagged && "fill-amber-500 dark:fill-amber-400",
-                )}
-                aria-hidden="true"
+                aria-hidden
+                className={cn("size-3.5", isFlagged && "fill-current")}
               />
-              <span className="hidden text-xs font-medium sm:inline">
-                {isFlagged ? "Marquée" : "Marquer"}
-              </span>
+              {isFlagged ? "Marquée" : "Marquer"}
             </Button>
           )}
-        </div>
-      )}
 
-      {/* Review variant header with status */}
-      {isReviewVariant && (
-        <div className="mb-4 flex flex-col gap-2">
-          <div className="flex items-start justify-between gap-2 sm:gap-3">
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                {questionNumber !== undefined && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-gray-100 text-gray-800 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100"
-                  >
-                    #{questionNumber}
-                  </Badge>
+          {isReview && (
+            <div className="ml-auto flex items-center gap-2">
+              <span
+                className={cn(
+                  "flex items-center gap-1.5 text-sm font-medium",
+                  TONE_TEXT[status.tone],
                 )}
-                <Badge
-                  variant="secondary"
-                  className="bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-200"
-                >
-                  {question.domain}
-                </Badge>
-                {wasFlagged && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300"
-                  >
-                    <Flag className="mr-1 h-3 w-3 fill-amber-500" />
-                    Marquée
-                  </Badge>
-                )}
-              </div>
-            </div>
-
-            {onToggleExpand && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onToggleExpand}
-                aria-label={
-                  isExpanded ? "Réduire la question" : "Développer la question"
-                }
-                aria-expanded={isExpanded}
-                className="-mt-1 h-8 w-8 shrink-0 p-1"
               >
-                {isExpanded ? (
-                  <ChevronUp className="h-4 w-4" aria-hidden="true" />
-                ) : (
-                  <ChevronDown className="h-4 w-4" aria-hidden="true" />
-                )}
-              </Button>
-            )}
-          </div>
-          <h3 className="text-sm leading-relaxed font-semibold text-gray-900 sm:text-base dark:text-white">
-            {question.question}
-          </h3>
-          {/* Objectif CMC Badge */}
-          <Badge
-            variant="outline"
-            className="w-fit max-w-[320px] border-purple-200 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-200 dark:hover:bg-purple-900/20"
-          >
-            {question.objectifCMC}
-          </Badge>
-          <div className="flex items-center gap-2">
-            {getReviewStatus().icon}
-            <span
-              className={cn(
-                "text-xs font-medium sm:text-sm",
-                getReviewStatus().textColor,
+                <status.Icon aria-hidden className="size-4" />
+                {status.label}
+              </span>
+              {onToggleExpand && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={onToggleExpand}
+                  aria-label={
+                    isExpanded
+                      ? "Réduire la question"
+                      : "Développer la question"
+                  }
+                  aria-expanded={isExpanded}
+                  className="max-md:size-11"
+                >
+                  <ChevronDown
+                    aria-hidden
+                    className={cn(isExpanded && "rotate-180")}
+                  />
+                </Button>
               )}
-            >
-              {getReviewStatus().text}
-            </span>
-          </div>
-          {isKeyCorrected && (
-            <p
-              data-testid="key-corrected-notice"
-              className="text-xs text-amber-700 sm:text-sm dark:text-amber-300"
-            >
-              La clé de cette question a été corrigée depuis votre réponse
-            </p>
+            </div>
           )}
-        </div>
-      )}
 
-      {/* Question text (for non-review variants) */}
-      {!isReviewVariant && (
-        <h2
-          className={cn(
-            "mb-4 leading-relaxed font-semibold text-gray-900 dark:text-white",
-            isExamVariant
-              ? "text-base sm:text-lg lg:text-xl"
-              : "text-sm sm:text-base",
-            truncateQuestion || isDefaultVariant ? "line-clamp-3" : "",
+          {variant === "default" && actions.length > 0 && (
+            <div className="ml-auto">
+              <QuestionActions actions={actions} />
+            </div>
           )}
-        >
-          {question.question}
-        </h2>
-      )}
+        </header>
 
-      {/* Image(s) */}
-      {showImage &&
-        question.images &&
-        question.images.length > 0 &&
-        (isExamVariant || (isDefaultVariant && showImage)) && (
-          <div className="mb-5">
+        <div className="flex flex-col gap-5 px-5 pt-6 pb-5">
+          <p
+            className={cn(
+              "font-serif text-lg leading-[1.65] text-pretty",
+              variant === "default" && "line-clamp-3 text-base",
+            )}
+          >
+            {question.question}
+          </p>
+
+          {showImages && (
             <QuestionImageGallery
               images={question.images}
               size="md"
               maxDisplay={4}
             />
-          </div>
-        )}
-
-      {/* Metadata (objectifCMC, references count) */}
-      {isDefaultVariant && (
-        <QuestionMetadata
-          objectifCMC={question.objectifCMC}
-          referencesCount={question.references?.length}
-          showObjectifBadge={showObjectifBadge}
-        />
-      )}
-
-      {/* Answer options */}
-      <AnimatePresence mode="wait">
-        {(!isReviewVariant || isExpanded) && (
-          <motion.div
-            // Opacité seule, même raison que QuestionExplanation.
-            initial={isReviewVariant ? { opacity: 0 } : false}
-            animate={{ opacity: 1 }}
-            exit={isReviewVariant ? { opacity: 0 } : undefined}
-            transition={{ duration: 0.2 }}
-            role="group"
-            aria-label="Choix de réponse"
-            className={cn(
-              isExamVariant
-                ? "space-y-3"
-                : "grid gap-2 sm:grid-cols-2 sm:gap-3",
-            )}
-          >
-            {question.options.map((option, index) => {
-              // Clé retenue : rien n'est corrigé, la réponse reste « choisie ».
-              const state = isKeyWithheld
-                ? getAnswerState(
-                    option,
-                    userAnswer ?? selectedAnswer,
-                    "",
-                    false,
-                  )
-                : getAnswerState(
-                    option,
-                    selectedAnswer,
-                    question.correctAnswer ?? "",
-                    showCorrectAnswer,
-                    userAnswer,
-                    isReviewVariant,
-                    isExamReveal,
-                  )
-
-              const isCorrectAnswer =
-                !isKeyWithheld && option === question.correctAnswer
-              const isUserAnswer = !isKeyWithheld && option === userAnswer
-              const isSelectedOption =
-                selectedAnswer != null && option === selectedAnswer
-
-              return (
-                <AnswerOption
-                  key={index}
-                  option={option}
-                  index={index}
-                  state={state}
-                  onClick={
-                    isExamVariant && onAnswerSelect
-                      ? () => onAnswerSelect(index)
-                      : undefined
-                  }
-                  disabled={disabled}
-                  showCheckIcon={
-                    (isReviewVariant && isCorrectAnswer) ||
-                    (isDefaultVariant &&
-                      showCorrectAnswer &&
-                      isCorrectAnswer) ||
-                    (isExamReveal && isCorrectAnswer)
-                  }
-                  showXIcon={
-                    (isReviewVariant && isUserAnswer && !isCorrectAnswer) ||
-                    (isExamReveal && isSelectedOption && !isCorrectAnswer)
-                  }
-                  compact={isDefaultVariant}
-                />
-              )
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {isReviewVariant && isExpanded && isFormerWording && (
-        <div
-          data-testid="former-wording-answer"
-          className={cn(
-            "mt-3 rounded-xl border-2 p-3 text-sm",
-            isKeyWithheld
-              ? "border-gray-200 bg-gray-50 text-gray-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-              : isCorrect
-                ? "border-green-500 bg-green-100 text-green-800 dark:border-green-400 dark:bg-green-900/40 dark:text-green-200"
-                : "border-red-500 bg-red-100 text-red-800 dark:border-red-400 dark:bg-red-900/40 dark:text-red-200",
           )}
-        >
-          <p className="text-xs font-semibold">
-            Votre réponse (texte de l&apos;option modifié depuis) :
-          </p>
-          <p className="mt-1 wrap-break-word">{userAnswer}</p>
-        </div>
-      )}
 
-      {/* Explanation and references (for review variant when expanded).
-          `effectiveExplanation` peut être undefined si la query lazy n'a pas
-          encore rendu les données : on affiche un skeleton dans ce cas pour ne
-          pas faire sauter la UI. */}
-      <AnimatePresence>
-        {isReviewVariant && isExpanded && isKeyWithheld && (
-          <div className="mt-4">
-            <KeyWithheldNotice />
-          </div>
-        )}
-        {isReviewVariant && isExpanded && !isKeyWithheld && (
-          <div className="mt-4">
-            {effectiveExplanation !== undefined ? (
-              <QuestionExplanation
-                explanation={effectiveExplanation}
-                references={effectiveReferences}
-                explanationImages={effectiveExplanationImages}
-              />
-            ) : (
-              <div className="rounded-xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-800 dark:bg-blue-900/20">
-                <Skeleton className="mb-2 h-4 w-32" />
-                <SkeletonText lines={3} />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Passation tuteur : la correction + explication se révèlent après
-            validation (variant exam). `isExamReveal` n'est vrai que si le runner
-            montre la correction ET qu'on a réellement la bonne réponse — rien ne
-            fuite en examen / entraînement test (feedback différé) ni sur la
-            vitrine publique (pas de correctAnswer). Pas d'images d'explication
-            ici — canal réservé à la correction (variant review), anti-triche. */}
-        {isExamReveal && effectiveExplanation !== undefined && (
-          <div className="mt-4">
-            <QuestionExplanation
-              explanation={effectiveExplanation}
-              references={effectiveReferences}
+          {showOptions && (
+            <AnswerOptionList
+              options={question.options}
+              stateOf={stateOf}
+              onSelect={
+                isExam && onAnswerSelect && !isExamReveal && !isExamWithheld
+                  ? onAnswerSelect
+                  : undefined
+              }
+              disabled={disabled}
+              compact={variant === "default"}
+              className={cn(variant === "default" && "sm:grid sm:grid-cols-2")}
             />
-          </div>
-        )}
-        {isExamWithheld && (
-          <div className="mt-4">
+          )}
+
+          {isReview && isExpanded && isFormerWording && (
+            <div
+              data-testid="former-wording-answer"
+              data-state={reviewStatus}
+              className={cn(
+                "rounded-md border p-3 text-sm",
+                isKeyWithheld
+                  ? "border-line bg-surface-2 text-ink-2"
+                  : isCorrect
+                    ? "border-success bg-success-soft text-ink"
+                    : "border-danger bg-danger-soft text-ink",
+              )}
+            >
+              <p className="text-ink-3 font-mono text-[11px] font-medium tracking-[0.04em] uppercase">
+                Votre réponse (texte de l&apos;option modifié depuis)
+              </p>
+              <p className="mt-1 wrap-break-word">{userAnswer}</p>
+            </div>
+          )}
+
+          {isReview && isKeyCorrected && (
+            <p
+              data-testid="key-corrected-notice"
+              className="text-warning-ink text-sm"
+            >
+              La clé de cette question a été corrigée depuis votre réponse
+            </p>
+          )}
+
+          {((isReview && isExpanded) || isExamWithheld) && isKeyWithheld && (
             <KeyWithheldNotice />
-          </div>
+          )}
+        </div>
+
+        {isReview &&
+          isExpanded &&
+          !isKeyWithheld &&
+          (explanation !== undefined ? (
+            <RevealPanels
+              explanation={explanation}
+              references={references}
+              images={explanationImages}
+            />
+          ) : (
+            <ExplanationSkeleton />
+          ))}
+
+        {/* Pas d'images d'explication en passation : canal réservé à la
+          correction (anti-triche). */}
+        {isExamReveal && explanation !== undefined && (
+          <RevealPanels explanation={explanation} references={references} />
         )}
-      </AnimatePresence>
-    </motion.div>
+      </Fragment>
+
+      {footer && (
+        <footer className="border-line flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3">
+          {footer}
+        </footer>
+      )}
+    </article>
   )
 }
 

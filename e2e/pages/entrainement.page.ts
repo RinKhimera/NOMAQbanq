@@ -75,7 +75,9 @@ export class EntrainementPage extends BasePage {
 
   async waitForQuestion(questionNum: number, total: number) {
     await expect(
-      this.page.getByText(`Question ${questionNum} / ${total}`),
+      this.page.getByRole("heading", {
+        name: `Question ${questionNum} / ${total}`,
+      }),
     ).toBeVisible({ timeout: 10_000 })
   }
 
@@ -106,13 +108,12 @@ export class EntrainementPage extends BasePage {
   }
 
   async finishSession() {
-    // Click finish — could be in header or session-navigation
     await this.page.getByTestId("btn-finish").click()
 
-    await expect(this.page.getByText("Terminer la session ?")).toBeVisible()
+    await expect(this.page.getByText("Terminer la série ?")).toBeVisible()
 
     const dialog = this.page.locator('[role="alertdialog"], [role="dialog"]')
-    await dialog.getByRole("button", { name: "Terminer" }).click()
+    await dialog.getByRole("button", { name: "Voir les résultats" }).click()
 
     await this.page.waitForURL(/\/resultats/, { timeout: 15_000 })
   }
@@ -130,9 +131,11 @@ export class EntrainementPage extends BasePage {
     ).toBeVisible({ timeout: 15_000 })
   }
 
-  /** Click a navigator item (shared ResultsQuestionNavigator testid) */
+  /** Clique une case du navigateur de correction. */
   async clickNavItem(index: number) {
-    await this.page.getByTestId(`results-nav-item-${index}`).first().click()
+    await this.page
+      .locator(`[data-testid="results-nav-item-${index}"]:visible`)
+      .click()
   }
 
   /**

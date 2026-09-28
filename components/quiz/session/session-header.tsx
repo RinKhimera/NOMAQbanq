@@ -1,135 +1,119 @@
 "use client"
 
-import { CircleCheckBig, Clock, Pause } from "lucide-react"
-import { motion } from "motion/react"
-import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
+import { Pause, Timer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { formatExamTime } from "@/lib/attempt-clock"
+import type { TimeZone } from "@/lib/attempt-clock"
+import { TONE_SOFT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import type { SessionHeaderProps } from "./types"
-import { accentColors } from "./types"
 
+const TIMER: Record<TimeZone, string> = {
+  normal: "border-line-strong text-ink",
+  warning: TONE_SOFT.warning,
+  critical: cn(TONE_SOFT.danger, "border-danger"),
+}
+
+/**
+ * Barre de passation : titre, « Question 12 / 50 », progression, chrono à
+ * paliers, pause et fin. Elle s'adapte à SA largeur (requêtes de conteneur) :
+ * dans la coquille, la SideNav lui retire 264 px.
+ */
 export const SessionHeader = ({
-  config,
+  title,
+  kind,
+  modeLabel,
   currentIndex,
   totalQuestions,
   answeredCount,
+  timer,
+  onPause,
   onFinish,
-  title,
-  icon,
-  backUrl,
-  examActions,
-}: SessionHeaderProps) => {
-  const progressPercent = (answeredCount / totalQuestions) * 100
-  const colors = accentColors[config.accentColor ?? "emerald"]
+  sticky = true,
+}: SessionHeaderProps) => (
+  <header
+    className={cn(
+      "bg-surface border-line text-ink @container border-b",
+      sticky && "sticky top-(--shell-offset,0px) z-10",
+    )}
+  >
+    <div className="flex h-14 items-center gap-2.5 px-3 @min-[680px]:gap-5 @min-[680px]:px-5">
+      <div className="flex min-w-0 flex-[0_1_auto] items-center gap-2.5">
+        <span
+          aria-hidden
+          className={cn(
+            "size-2 shrink-0 rounded-[1px]",
+            kind === "training" ? "bg-success" : "bg-accent",
+          )}
+        />
+        <h1 className="truncate text-[15px] font-semibold">{title}</h1>
+        {modeLabel && (
+          <span className="text-ink-3 hidden font-mono text-xs whitespace-nowrap @min-[880px]:inline">
+            {modeLabel}
+          </span>
+        )}
+      </div>
 
-  return (
-    <motion.header
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="sticky top-0 z-50 border-b border-gray-200/60 bg-white/80 backdrop-blur-xl dark:border-gray-700/60 dark:bg-gray-900/80"
-    >
-      <div className="container mx-auto max-w-7xl px-4">
-        <div className="flex h-16 items-center justify-between gap-4">
-          {/* Left - Logo and title */}
-          <Link
-            href={backUrl}
-            className="flex items-center gap-3 transition-opacity hover:opacity-80"
-          >
-            <div
-              className={cn(
-                "flex h-10 w-10 items-center justify-center rounded-xl shadow-md",
-                config.accentColor === "blue"
-                  ? "bg-linear-to-br from-blue-500 to-indigo-600"
-                  : "bg-linear-to-br from-emerald-500 to-teal-600",
-              )}
-            >
-              {icon}
-            </div>
-            <span className="font-display hidden text-lg font-semibold text-gray-900 sm:block dark:text-white">
-              {title}
-            </span>
-          </Link>
-
-          {/* Center - Progress & Timer */}
-          <div className="flex flex-1 items-center justify-center gap-4">
-            {/* Timer (exam only) */}
-            {config.showTimer && config.timeRemaining !== undefined && (
-              <div
-                className={cn(
-                  "flex items-center gap-2 rounded-xl px-3 py-1.5 font-mono text-sm font-semibold shadow-sm transition-all",
-                  config.isTimeCritical
-                    ? "animate-pulse border-2 border-red-400 bg-red-100 text-red-700 dark:border-red-500 dark:bg-red-900/30 dark:text-red-300"
-                    : config.isTimeRunningOut
-                      ? "border border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                      : "border border-gray-200 bg-white text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200",
-                )}
-              >
-                <Clock className="h-4 w-4" />
-                <span>{formatExamTime(config.timeRemaining)}</span>
-              </div>
+      <div className="flex min-w-0 flex-1 items-center justify-center gap-4">
+        <span className="text-ink-2 font-mono text-[13px] whitespace-nowrap tabular-nums">
+          <span className="hidden @min-[680px]:inline">Question </span>
+          {currentIndex + 1} / {totalQuestions}
+        </span>
+        <div className="hidden max-w-45 min-w-15 flex-[0_1_180px] items-center gap-2.5 @min-[680px]:flex">
+          <Progress
+            value={(answeredCount / totalQuestions) * 100}
+            aria-label="Questions répondues"
+            className={cn(
+              "h-1.5",
+              kind === "training" &&
+                "*:data-[slot=progress-indicator]:bg-success",
             )}
-
-            {/* Question badge */}
-            <Badge variant="outline" className={colors.badge}>
-              Question {currentIndex + 1} / {totalQuestions}
-            </Badge>
-
-            {/* Progress bar */}
-            <div className="hidden w-32 items-center gap-2 sm:flex md:w-48">
-              <Progress
-                value={progressPercent}
-                className={cn(
-                  "h-2",
-                  config.accentColor === "blue"
-                    ? "[&>div]:bg-linear-to-r [&>div]:from-blue-500 [&>div]:to-indigo-500"
-                    : "[&>div]:bg-linear-to-r [&>div]:from-emerald-500 [&>div]:to-teal-500",
-                )}
-              />
-              <span className="text-xs text-gray-500 dark:text-gray-400">
-                {answeredCount}/{totalQuestions}
-              </span>
-            </div>
-          </div>
-
-          {/* Right - Actions */}
-          <div className="flex items-center gap-2">
-            {/* Pause button (exam only) */}
-            {examActions?.canTakePause && examActions?.onTakePause && (
-              <Button
-                onClick={examActions.onTakePause}
-                variant="outline"
-                size="sm"
-                data-testid="btn-pause"
-                aria-label="Mettre en pause l'examen"
-                className="gap-2 border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-900/30"
-              >
-                <Pause className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">Pause</span>
-              </Button>
-            )}
-
-            {/* Finish button */}
-            <Button
-              onClick={onFinish}
-              size="sm"
-              data-testid="btn-header-finish"
-              aria-label="Terminer l'examen"
-              className={cn(
-                "gap-2 shadow-md",
-                config.accentColor === "blue"
-                  ? "bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                  : "bg-linear-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700",
-              )}
-            >
-              <CircleCheckBig className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Terminer</span>
-            </Button>
-          </div>
+          />
+          <span className="text-ink-3 font-mono text-xs tabular-nums">
+            {answeredCount}/{totalQuestions}
+          </span>
         </div>
       </div>
-    </motion.header>
-  )
-}
+
+      <div className="flex shrink-0 items-center gap-2">
+        {timer && (
+          <span
+            role="timer"
+            aria-label="Temps restant"
+            data-zone={timer.zone}
+            className={cn(
+              "inline-flex h-8 items-center gap-2 rounded-md border px-2.5 font-mono text-[15px] font-medium whitespace-nowrap tabular-nums transition-[background-color,border-color] duration-(--duration-base)",
+              TIMER[timer.zone],
+            )}
+          >
+            <Timer aria-hidden className="size-3.75" />
+            {timer.label}
+          </span>
+        )}
+        {onPause && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onPause}
+            data-testid="btn-pause"
+            aria-label="Mettre en pause l'examen"
+            className="max-md:size-11 max-md:px-0"
+          >
+            <Pause aria-hidden className="size-3.5" />
+            <span className="hidden @min-[680px]:inline">Pause</span>
+          </Button>
+        )}
+        {onFinish && (
+          <Button
+            size="sm"
+            onClick={onFinish}
+            data-testid="btn-header-finish"
+            className="max-md:h-11"
+          >
+            Terminer
+          </Button>
+        )}
+      </div>
+    </div>
+  </header>
+)

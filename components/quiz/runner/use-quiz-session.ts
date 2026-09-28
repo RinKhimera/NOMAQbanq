@@ -80,11 +80,7 @@ export type UseQuizSessionResult = {
   resume: () => Promise<boolean>
 
   // Timer (only when mode.timer is set)
-  timer: {
-    remainingMs: number
-    isRunningOut: boolean
-    isCritical: boolean
-  } | null
+  timer: { remainingMs: number } | null
 }
 
 /**
@@ -481,6 +477,7 @@ export function useQuizSession({
     totalSeconds: timerConfig?.totalSeconds ?? 0,
     initialNow: serverNow,
     isPaused,
+    pauseStartedAt,
     totalPauseDurationMs,
     onExpire: autoSubmitOnce,
   })
@@ -514,9 +511,13 @@ export function useQuizSession({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't fire when typing in inputs
+      // Ni pendant la saisie, ni dans un dialogue ou un panneau (calculatrice,
+      // valeurs de labo, navigateur), dont les flèches pilotent leurs propres
+      // contrôles : elles changeraient la question derrière lui.
       const target = e.target as HTMLElement
       if (
+        e.defaultPrevented ||
+        target.closest?.('[role="dialog"], [role="alertdialog"]') ||
         target.tagName === "INPUT" ||
         target.tagName === "TEXTAREA" ||
         target.isContentEditable

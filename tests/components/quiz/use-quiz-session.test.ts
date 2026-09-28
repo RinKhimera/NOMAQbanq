@@ -27,13 +27,11 @@ const makeQuestions = (count: number): QuizQuestion[] =>
 
 const makeMode = (overrides: Partial<QuizMode> = {}): QuizMode => ({
   kind: "training",
-  accent: "emerald",
   timer: null,
   pause: null,
   feedback: "deferred",
   showMeta: false,
-  labels: { title: "Entraînement", finishCta: "Terminer" },
-  backUrl: "/entrainement",
+  labels: { title: "Entraînement" },
   ...overrides,
 })
 

@@ -77,7 +77,11 @@ test.describe("Entrainement — session complete", () => {
 
     // Finish and assert results page
     await entrainement.finishSession()
-    await expect(page.getByText(/\d+%/).first()).toBeVisible()
+    await expect(
+      page
+        .getByTestId("score-percentage")
+        .or(page.getByTestId("score-withheld")),
+    ).toBeVisible()
     await expect(page.getByText("Correctes", { exact: true })).toBeVisible()
     await expect(page.getByText("Incorrectes", { exact: true })).toBeVisible()
     // <SessionResults> ne rend pas de titre « Révision des questions » : c'est le
@@ -120,9 +124,9 @@ test.describe("Entrainement — session complete", () => {
       timeout: 10_000,
     })
     await expect(page.getByTestId("btn-validate-answer")).toBeHidden()
-    // Exactement une bonne réponse surlignée en vert (état user-correct).
+    // Exactement une option marquée juste.
     await expect(
-      page.locator('[data-testid^="answer-option-"] .border-green-500'),
+      page.locator('[data-testid^="answer-option-"][data-state="correct"]'),
     ).toHaveCount(1)
   })
 

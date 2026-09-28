@@ -78,7 +78,7 @@ function Citation({
       <PopoverTrigger
         data-testid="citation"
         aria-label={label}
-        className="cursor-pointer rounded-sm font-semibold underline decoration-dotted underline-offset-2 hover:decoration-solid focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+        className="focus-ring cursor-pointer rounded-sm font-semibold underline decoration-dotted underline-offset-2 hover:decoration-solid"
       >
         {text}
       </PopoverTrigger>

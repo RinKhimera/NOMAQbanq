@@ -110,7 +110,9 @@ export class ExamenBlancPage extends BasePage {
 
   async waitForQuestion(questionNum: number) {
     await expect(
-      this.page.getByText(new RegExp(`Question ${questionNum} /`)),
+      this.page.getByRole("heading", {
+        name: new RegExp(`^Question ${questionNum} /`),
+      }),
     ).toBeVisible({ timeout: 10_000 })
   }
 
@@ -133,7 +135,7 @@ export class ExamenBlancPage extends BasePage {
     await expect(this.page.getByText("Soumettre l'examen ?")).toBeVisible()
 
     const dialog = this.page.locator('[role="alertdialog"], [role="dialog"]')
-    await dialog.getByRole("button", { name: /Terminer l'examen/ }).click()
+    await dialog.getByRole("button", { name: "Soumettre", exact: true }).click()
 
     await this.page.waitForURL(/\/tableau-de-bord\/examen-blanc/, {
       timeout: 15_000,

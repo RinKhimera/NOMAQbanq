@@ -33,7 +33,6 @@ export const SCORE_WITHHELD_MESSAGE =
 
 export type QuizMode = {
   kind: "exam" | "training"
-  accent: "blue" | "emerald"
   timer: {
     serverStartTime: number
     totalSeconds: number
@@ -43,8 +42,7 @@ export type QuizMode = {
   pause: "rest" | null
   feedback: "deferred" | "immediate"
   showMeta: boolean
-  labels: { title: string; finishCta: string }
-  backUrl: string
+  labels: { title: string }
 }
 
 /** Ce que le serveur révèle après une réponse en mode tuteur : la correction complète, ou la clé retenue. */

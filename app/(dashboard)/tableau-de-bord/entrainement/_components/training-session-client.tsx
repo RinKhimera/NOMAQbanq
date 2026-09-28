@@ -91,13 +91,11 @@ export const TrainingSessionClient = ({
 
   const mode: QuizMode = {
     kind: "training",
-    accent: "emerald",
     timer: null,
     pause: null,
     feedback: isTutor ? "immediate" : "deferred",
     showMeta: false,
-    labels: { title: "Entraînement", finishCta: "Terminer" },
-    backUrl: "/tableau-de-bord/entrainement",
+    labels: { title: "Entraînement" },
   }
 
   const callbacks: QuizCallbacks = {

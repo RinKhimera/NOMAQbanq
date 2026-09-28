@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  EVALUATION_ZONES,
   GRACE_MS,
   formatExamTime,
   formatMinutesSeconds,
@@ -142,6 +143,16 @@ describe("AttemptClock — zone", () => {
     { ms: 0, expected: "critical" },
   ])("$ms ms → $expected", ({ ms, expected }) => {
     expect(zone(ms)).toBe(expected)
+  })
+
+  it.each([
+    { ms: 31_000, expected: "normal" },
+    { ms: 30_000, expected: "normal" },
+    { ms: 29_999, expected: "warning" },
+    { ms: 10_000, expected: "warning" },
+    { ms: 9_999, expected: "critical" },
+  ])("évaluation gratuite : $ms ms → $expected", ({ ms, expected }) => {
+    expect(zone(ms, EVALUATION_ZONES)).toBe(expected)
   })
 })
 
