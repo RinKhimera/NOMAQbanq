@@ -8,7 +8,12 @@ import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatMinutesSeconds } from "@/lib/attempt-clock"
-import { type ScoreTone, computeScorePercent, scoreTone } from "@/lib/score"
+import {
+  type ScoreTone,
+  computeScorePercent,
+  formatScore,
+  scoreTone,
+} from "@/lib/score"
 import { QuestionCard } from "./question-card"
 import QuestionNavigation from "./question-navigation"
 
@@ -101,7 +106,7 @@ export default function QuizResults({
                   Score
                 </p>
                 <p className="text-2xl font-bold text-blue-600">
-                  {percentage}%
+                  {formatScore(percentage)}
                 </p>
               </div>
               <div className="rounded-lg bg-green-50 p-4 text-center dark:bg-green-900/20">

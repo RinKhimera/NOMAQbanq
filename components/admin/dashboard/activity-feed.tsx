@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatCurrency } from "@/lib/format"
-import { SCORE_TONE_TEXT, scoreTone } from "@/lib/score"
+import { SCORE_TONE_TEXT, formatScore, scoreTone } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 type Activity =
@@ -128,7 +128,7 @@ function ActivityItem({ activity }: { activity: Activity }) {
                   SCORE_TONE_TEXT[scoreTone(activity.data.score)],
                 )}
               >
-                ({activity.data.score}%)
+                ({formatScore(activity.data.score)})
               </span>
             )}
           </>

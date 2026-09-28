@@ -82,7 +82,7 @@ describe("QuizResults", () => {
     render(<QuizResults {...defaultProps} />)
 
     expect(screen.getByText("3/5")).toBeInTheDocument()
-    expect(screen.getByText("60%")).toBeInTheDocument()
+    expect(screen.getByText(/^60\s%$/)).toBeInTheDocument()
   })
 
   it("affiche la couleur verte pour un score >= 80%", () => {

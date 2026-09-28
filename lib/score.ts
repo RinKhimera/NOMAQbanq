@@ -48,9 +48,12 @@ export const scoreTextClass = (score: number | null): string =>
 export const scoreSoftClass = (score: number | null): string =>
   score === null ? TONE_SOFT.neutral : TONE_SOFT[scoreTone(score)]
 
-/** Score affichable, ou « — » quand il est retenu (`null`, voir `scoreWithheldFor`). */
+/**
+ * Score affichable (« 72 % », espace insécable comme `formatPercent`), ou « — »
+ * quand il est retenu (`null`, voir `scoreWithheldFor`).
+ */
 export const formatScore = (score: number | null): string =>
-  score === null ? "—" : `${score}%`
+  score === null ? "—" : `${score} %`
 
 /**
  * Percentile d'examen en phrase, pour un percentile disponible. `participant` :

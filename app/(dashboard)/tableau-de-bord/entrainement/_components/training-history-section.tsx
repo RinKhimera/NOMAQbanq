@@ -31,7 +31,12 @@ import type {
   TrainingHistoryItem,
   TrainingHistoryPage,
 } from "@/features/training/dal"
-import { scoreSoftClass, scoreTextClass, scoreTone } from "@/lib/score"
+import {
+  formatScore,
+  scoreSoftClass,
+  scoreTextClass,
+  scoreTone,
+} from "@/lib/score"
 import { cn } from "@/lib/utils"
 import { DeleteAllSessionsDialog } from "./delete-all-sessions-dialog"
 import { DeleteSessionDialog } from "./delete-session-dialog"
@@ -174,7 +179,7 @@ export const TrainingHistorySection = ({
                               aria-hidden
                             />
                           ) : (
-                            `${session.score}%`
+                            formatScore(session.score)
                           )}
                         </div>
                       </div>

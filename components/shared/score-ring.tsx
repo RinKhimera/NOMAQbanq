@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, useReducedMotion } from "motion/react"
-import { scoreTone } from "@/lib/score"
+import { formatScore, scoreTone } from "@/lib/score"
 import { TONE_COLOR } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
@@ -67,7 +67,7 @@ export const ScoreRing = ({
           className="font-serif text-4xl font-semibold tracking-tight tabular-nums"
           style={{ color }}
         >
-          {value}%
+          {formatScore(value)}
         </span>
         <span className="text-ink-3 font-mono text-xs font-medium tracking-[0.06em] uppercase">
           {label}

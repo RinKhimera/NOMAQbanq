@@ -313,18 +313,30 @@
   --ease-standard: var(--ease-standard);
 }
 
-/* Anneau de focus unique (`--focus-ring`), sur tout contrôle. */
+/*
+ * Anneau de focus unique (`--focus-ring`), sur tout contrôle. Il passe par la
+ * variable d'anneau de Tailwind pour se CUMULER avec un `shadow-*` posé sur le
+ * même élément (onglet actif, pouce du curseur) au lieu de perdre la cascade
+ * contre lui.
+ */
 @utility focus-ring {
   outline: none;
   &:focus-visible {
     border-color: var(--accent);
-    box-shadow: var(--focus-ring);
+    --tw-ring-shadow: var(--focus-ring);
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+  /* La place de la barre est réservée : pas de saut horizontal entre une page courte et une longue. */
+  html {
+    scrollbar-gutter: stable;
   }
   body {
     @apply bg-background text-foreground font-sans;

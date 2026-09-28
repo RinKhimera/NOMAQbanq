@@ -146,7 +146,7 @@ function ColumnHeader<Row>({ column }: { column: DataTableColumn<Row> }) {
       onClick={onToggle}
       disabled={disabledReason !== undefined}
       title={disabledReason}
-      className="h-auto gap-0 p-0 font-semibold hover:bg-transparent has-[>svg]:px-0"
+      className="text-ink-3 hover:text-ink h-auto gap-0 p-0 text-xs font-semibold hover:bg-transparent has-[>svg]:px-0"
     >
       {content}
       <SortIcon direction={disabledReason ? null : direction} />

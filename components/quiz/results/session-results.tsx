@@ -35,6 +35,7 @@ import {
   type ScoreTone,
   classify,
   formatPercentile,
+  formatScore,
   isPassing,
   scoreTone,
   summarize,
@@ -412,7 +413,7 @@ export function SessionResults({
                         }}
                         className={cn("text-6xl font-bold", style.text)}
                       >
-                        {shownScore}%
+                        {formatScore(shownScore)}
                       </motion.span>
                     )}
                   </div>

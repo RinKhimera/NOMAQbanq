@@ -110,7 +110,7 @@ export const DashboardClient = ({
 
           <VitalCard
             label="Taux de complétion"
-            value={`${completionRate}%`}
+            value={formatScore(completionRate)}
             icon={Target}
             color="amber"
             delay={0.3}

@@ -47,7 +47,7 @@ describe("RecentActivityFeed — score retenu", () => {
     const withheld = screen.getByTitle(SCORE_WITHHELD_MESSAGE)
     expect(withheld.textContent).toBe("—")
     expect(withheld.className).not.toMatch(/red|emerald/)
-    expect(screen.getByText("72%")).toBeInTheDocument()
+    expect(screen.getByText(/^72\s%$/)).toBeInTheDocument()
     expect(screen.queryByText("%")).toBeNull()
   })
 })
