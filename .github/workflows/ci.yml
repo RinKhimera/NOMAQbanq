@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, refonte-v2]
   pull_request:
-    branches: [main]
+    branches: [main, refonte-v2]
 
 # Un nouveau push sur une branche annule le run CI obsolète encore en cours.
 concurrency:
