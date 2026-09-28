@@ -6,6 +6,7 @@ import { QuestionCard } from "@/components/quiz/question-card"
 import QuizProgress from "@/components/quiz/quiz-progress"
 import QuizResults from "@/components/quiz/quiz-results"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
+import { ErrorState } from "@/components/shared/error-state"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import {
@@ -182,14 +183,11 @@ export default function QuizPage() {
   // identique quelle que soit la cause — pas d'oracle côté client.
   if (!quizQuestions || quizQuestions.length === 0) {
     return (
-      <div className="flex items-center justify-center bg-linear-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
-        <div className="text-center">
-          <p className="mb-4 text-gray-600 dark:text-gray-300">
-            Le quiz est momentanément indisponible. Réessayez plus tard.
-          </p>
-          <Button onClick={restartQuiz}>Réessayer</Button>
-        </div>
-      </div>
+      <ErrorState
+        title="Quiz momentanément indisponible"
+        description="Le quiz est momentanément indisponible. Réessayez plus tard."
+        onRetry={restartQuiz}
+      />
     )
   }
 

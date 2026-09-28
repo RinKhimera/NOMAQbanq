@@ -9,7 +9,6 @@ import {
   Copy,
   ExternalLink,
   Image as ImageIcon,
-  RotateCcw,
 } from "lucide-react"
 import { motion } from "motion/react"
 import Image from "next/image"
@@ -19,6 +18,7 @@ import {
   CorrectionExplanation,
   CorrectionReferences,
 } from "@/components/shared/correction"
+import { ErrorState } from "@/components/shared/error-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -330,25 +330,11 @@ function ModalLayout({
           </div>
         )}
         {load.status === "error" && (
-          <div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 text-center">
-            <div className="space-y-1">
-              <p className="font-medium text-gray-900 dark:text-white">
-                Chargement impossible
-              </p>
-              <p className="text-sm text-gray-500">
-                Vérifiez votre connexion, puis réessayez.
-              </p>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={retry}
-              className="gap-2"
-            >
-              <RotateCcw className="h-4 w-4" />
-              Réessayer
-            </Button>
-          </div>
+          <ErrorState
+            title="Chargement impossible"
+            description="Vérifiez votre connexion, puis réessayez."
+            onRetry={retry}
+          />
         )}
         {load.status === "ready" && (
           <QuestionBody
