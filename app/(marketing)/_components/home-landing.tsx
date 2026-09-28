@@ -1,422 +1,264 @@
-"use client"
-
-import {
-  ArrowRight,
-  Award,
-  BookOpen,
-  Brain,
-  ChartColumn,
-  CircleCheckBig,
-  Play,
-  RefreshCw,
-  Settings,
-  Star,
-  Target,
-  Timer,
-  Trophy,
-  Zap,
-} from "lucide-react"
-import Image from "next/image"
+import { ArrowRight, Check } from "lucide-react"
 import Link from "next/link"
+import { CtaBand } from "@/components/marketing/cta-band"
+import { DemoQuestion } from "@/components/marketing/demo-question"
+import { type FaqItem, FaqSection } from "@/components/marketing/faq-section"
+import { FeatureCells } from "@/components/marketing/feature-cells"
+import {
+  MarketingFigures,
+  publicFigures,
+} from "@/components/marketing/marketing-figures"
+import {
+  Eyebrow,
+  MARKETING_SECTION,
+  MARKETING_WRAP,
+  MarketingHero,
+} from "@/components/marketing/marketing-hero"
+import { ProofLine, Stars } from "@/components/marketing/proof-line"
+import { UserAvatar } from "@/components/shared/user-avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { MARKETING_CLAIMS } from "@/constants"
+import { HERO_QUESTION_KEY_ONLY } from "@/constants/sample-questions"
+import { testimonials } from "@/data/testimonials"
 import type { MarketingStats } from "@/features/marketing/dal"
+import { cn } from "@/lib/utils"
+
+const FEATURES = [
+  {
+    title: "Modes chronométré et tuteur",
+    description:
+      "Selon votre emploi du temps et votre objectif, entraînez-vous en conditions d'examen ou avec la correction après chaque question.",
+  },
+  {
+    title: "Points de synthèse",
+    description:
+      "À la fin de chaque cas clinique, les caractéristiques clés et les concepts importants sont résumés pour un rappel rapide.",
+  },
+  {
+    title: "Disciplines",
+    description:
+      "Les matières cliniques sont classées de façon systématique pour tester un domaine précis ou réviser un sujet particulier.",
+  },
+  {
+    title: "Suivi des performances",
+    description:
+      "Dans les deux modes, des commentaires détaillés vous aident à repérer vos points faibles.",
+  },
+  {
+    title: "Niveaux de difficulté",
+    description:
+      "Des questions de niveau facile à avancé, avec des questions pièges pour vous préparer aux conditions réelles.",
+  },
+  {
+    title: "Moyens mnémotechniques",
+    description:
+      "Les points cliniques à haut rendement sont résumés en un mot pour faciliter leur rappel pendant l'examen.",
+  },
+  {
+    title: "Démarrage instantané",
+    description:
+      "Choisissez un sujet et commencez immédiatement, en mode tuteur ou chronométré.",
+  },
+  {
+    title: "Mise à jour continue",
+    description:
+      "Questions, points de synthèse et algorithmes sont révisés en continu pour rester une source fiable.",
+  },
+]
+
+const OFFER = [
+  "Banque de questions pour 1 ou 6 mois",
+  "Basé sur les objectifs du CMC",
+  "Explications simples",
+  "Moyens mnémotechniques",
+  "Tableaux de synthèse et algorithmes",
+  "Apprentissage à votre rythme",
+]
+
+const FAQ: FaqItem[] = [
+  {
+    question: "Les questions suivent-elles le format de l'EACMC Partie I ?",
+    answer:
+      "Oui. Chaque question reprend le format de l'examen : vignette clinique, quatre ou cinq choix et une seule bonne réponse, avec explication et références.",
+  },
+  {
+    question: "Puis-je essayer avant de m'inscrire ?",
+    answer:
+      "Oui. L'évaluation gratuite vous donne accès à une série de questions en conditions réelles, sans carte de crédit.",
+  },
+  {
+    question: "Puis-je mettre un examen blanc en pause ?",
+    answer:
+      "Oui, une fois par examen, jusqu'à 45 minutes. Le chronomètre s'arrête pendant la pause et vos réponses sont conservées.",
+  },
+  {
+    question: "La plateforme est-elle entièrement en français ?",
+    answer:
+      "Oui. NOMAQbanq est la première plateforme francophone de préparation à l'EACMC Partie I.",
+  },
+]
+
+const OfferCard = ({ totalQuestions }: { totalQuestions: string }) => (
+  <div className="bg-surface border-line overflow-hidden rounded-lg border">
+    <div className="border-line flex items-center justify-between gap-3 border-b px-6 py-5.5">
+      <div>
+        <p className="text-ink text-base font-semibold">
+          Accès complet · 3 mois
+        </p>
+        <p className="text-ink-3 text-[13px]">
+          Entraînement, examens blancs, suivi
+        </p>
+      </div>
+      <Badge variant="badge" className="font-mono">
+        {totalQuestions} QCM
+      </Badge>
+    </div>
+    <ul className="flex flex-col gap-3 px-6 py-5">
+      {OFFER.map((item) => (
+        <li
+          key={item}
+          className="text-ink-2 flex items-center gap-2.5 text-[15px]"
+        >
+          <Check aria-hidden className="text-success size-4 shrink-0" />
+          {item}
+        </li>
+      ))}
+    </ul>
+    <div className="flex flex-col gap-2 px-6 pb-6">
+      <Button asChild size="lg" className="w-full">
+        <Link href="/inscription">S&apos;inscrire</Link>
+      </Button>
+      <Button asChild variant="ghost" className="w-full max-md:h-11">
+        <Link href="/tarifs">Voir les tarifs</Link>
+      </Button>
+    </div>
+  </div>
+)
 
 export default function HomeLanding({ stats }: { stats: MarketingStats }) {
-  const features = [
-    {
-      icon: Play,
-      title: "Démarrage instantané",
-      description:
-        "Après avoir créé des questions sur un sujet de votre choix, vous pouvez commencer immédiatement en mode tuteur ou chronométré",
-    },
-    {
-      icon: BookOpen,
-      title: "Points de synthèse",
-      description:
-        "À la fin de chaque cas clinique présenté, les caractéristiques clés et les concepts cliniques importants sont résumés pour un rappel rapide",
-    },
-    {
-      icon: Timer,
-      title: "Modes chronométré / tuteur",
-      description:
-        "Selon votre emploi du temps et votre objectif ultime de préparation à l'examen EACMC partie 1, vous pouvez choisir entre le mode chronométré ou le mode tuteur",
-    },
-    {
-      icon: Target,
-      title: "Disciplines",
-      description:
-        "Les disciplines (matières cliniques) sont placées dans un ordre systématique pour vous permettre de tester vos connaissances dans un domaine spécifique ou de réviser un sujet particulier",
-    },
-    {
-      icon: ChartColumn,
-      title: "Suivi des performances",
-      description:
-        "Quel que soit le mode chronométré ou tuteur lors de l&apos;utilisation de la banque de questions, une série de commentaires sont fournis pour améliorer les performances de l&apos;utilisateur",
-    },
-    {
-      icon: Settings,
-      title: "Niveaux de difficulté",
-      description:
-        "Il y a une combinaison de questions de niveau facile à avancé et des questions piège sont mélangées pour une meilleure préparation à l'examen EACMC partie 1",
-    },
-    {
-      icon: RefreshCw,
-      title: "Mise à jour",
-      description:
-        "Les questions, points de synthèse et algorithmes sont tous sous révision continue pour fournir une source fiable pour les préparations EACMC partie 1",
-    },
-    {
-      icon: Brain,
-      title: "Moyens mnémotechniques",
-      description:
-        "De nombreux moyens mnémotechniques présents pour résumer les points cliniques à haut rendement en un seul mot et faciliter leur rappel pendant l'examen",
-    },
-  ]
+  const [featured, ...others] = testimonials
 
   return (
-    <div className="bg-linear-to-br from-slate-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-800 dark:to-blue-900/30">
-      {/* Hero Section - Ultra modern */}
-      <section className="relative overflow-hidden pt-8 pb-32">
-        {/* Background Elements */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute -top-40 -right-40 h-80 w-80 rounded-full bg-linear-to-br from-blue-400/20 to-indigo-600/20 blur-3xl"></div>
-          <div className="absolute -bottom-40 -left-40 h-96 w-96 rounded-full bg-linear-to-br from-purple-400/20 to-pink-600/20 blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 h-200 w-200 -translate-x-1/2 -translate-y-1/2 rounded-full bg-linear-to-br from-blue-500/5 to-indigo-600/5 blur-3xl"></div>
+    <>
+      <MarketingHero
+        size="display"
+        label="EACMC Partie I · en français"
+        title="Préparez l'EACMC Partie I avec méthode."
+        description="Plus de 3000 QCM basés sur les objectifs du Conseil médical du Canada, des examens blancs chronométrés et un mode tuteur qui explique chaque réponse."
+        aside={
+          <DemoQuestion
+            question={HERO_QUESTION_KEY_ONLY}
+            mode="tutor"
+            questionNumber={12}
+            totalQuestions={50}
+            caption="Exemple de question"
+          />
+        }
+        band={<MarketingFigures figures={publicFigures(stats)} />}
+      >
+        <div className="flex flex-wrap gap-2.5">
+          <Button asChild size="lg">
+            <Link href="/inscription">
+              S&apos;inscrire
+              <ArrowRight aria-hidden />
+            </Link>
+          </Button>
+          <Button asChild size="lg" variant="outline">
+            <Link href="/evaluation">Essayer l&apos;évaluation gratuite</Link>
+          </Button>
         </div>
-
-        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid min-h-175 items-center gap-16 lg:grid-cols-2">
-            {/* Left content */}
-            <div className="space-y-10">
-              <div className="space-y-8">
-                <div className="inline-flex items-center rounded-full border border-blue-200/50 bg-linear-to-r from-blue-100 to-indigo-100 px-4 py-2 text-sm font-semibold text-blue-700 dark:border-blue-700/50 dark:from-blue-900/50 dark:to-indigo-900/50 dark:text-blue-300">
-                  <Award className="mr-2 h-4 w-4" />
-                  Plateforme #1 pour l&apos;EACMC
-                </div>
-
-                <h1 className="font-display text-foreground text-5xl leading-none font-semibold tracking-tight md:text-6xl">
-                  PRÉPAREZ-VOUS
-                  <span className="block">SANS</span>
-                  <span className="block">LIMITES</span>
-                </h1>
-
-                <p className="max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                  Développez vos compétences médicales grâce à des QCM, des
-                  simulations et des évaluations en ligne proposés par les
-                  meilleurs professionnels francophones au Canada.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-4 sm:flex-row">
-                <Button
-                  asChild
-                  variant="btn_modern"
-                  className="h-auto rounded-2xl px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
-                >
-                  <Link href="/inscription">
-                    Inscrivez-vous gratuitement
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="btn_secondary"
-                  className="bg-card h-auto rounded-2xl border px-8 py-4 text-lg font-semibold transition-all duration-300"
-                >
-                  <Link href="/evaluation">
-                    Essayez NOMAQbanq
-                    <Play className="ml-2 h-5 w-5" />
-                  </Link>
-                </Button>
-              </div>
-
-              {/* Trust indicators */}
-              <div className="flex items-center space-x-8 pt-8">
-                <div className="flex items-center space-x-2">
-                  <div className="flex -space-x-2">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div
-                        key={i}
-                        className="h-10 w-10 rounded-full border-2 border-white bg-linear-to-br from-blue-400 to-indigo-600 dark:border-gray-800"
-                      ></div>
-                    ))}
-                  </div>
-                  <div className="ml-3">
-                    <div className="flex items-center space-x-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className="h-4 w-4 fill-current text-yellow-400"
-                        />
-                      ))}
-                    </div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                      {stats.totalUsers} candidats satisfaits
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Right content - Modern hero image */}
-            <div className="relative justify-end lg:flex">
-              <div className="relative">
-                {/* Main image container */}
-                <div className="bg-card relative z-10 rounded-3xl border p-2 shadow-2xl">
-                  <Image
-                    src="/images/home-image.jpg"
-                    alt="Jeune médecin confiant portant une blouse blanche"
-                    className="h-125 w-full rounded-2xl object-cover"
-                    width={500}
-                    height={500}
-                    priority
-                  />
-                </div>
-
-                {/* Floating elements */}
-                <div className="bg-card absolute -top-6 -left-6 z-20 rounded-2xl border p-4 shadow-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-green-400 to-emerald-600">
-                      <CircleCheckBig className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        Certifié EACMC
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Contenu validé
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-card absolute -right-6 -bottom-6 z-20 rounded-2xl border p-4 shadow-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br from-blue-400 to-indigo-600">
-                      <Trophy className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900 dark:text-white">
-                        {stats.successRate} de réussite
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Taux de succès
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-card absolute top-1/2 -left-12 z-20 rounded-xl border p-3 shadow-lg">
-                  <div className="flex items-center space-x-2">
-                    <Star className="h-5 w-5 fill-current text-yellow-500" />
-                    <span className="text-sm font-semibold text-gray-900 dark:text-white">
-                      {MARKETING_CLAIMS.rating}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="pt-2">
+          <ProofLine totalUsers={stats.totalUsers} />
         </div>
-      </section>
+      </MarketingHero>
 
-      {/* Features Section - Ultra modern cards */}
-      <section className="bg-linear-to-br from-gray-50 to-white py-16 md:py-24 dark:from-gray-900 dark:to-gray-800">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-20 text-center">
-            <Badge
-              variant="badge"
-              className="mb-8 px-6 py-3 text-sm font-semibold"
-            >
-              <Zap className="mr-2 h-4 w-4" />
-              Fonctionnalités
-            </Badge>
-            <h2 className="font-display mb-6 text-4xl font-semibold tracking-tight text-gray-900 md:text-5xl dark:text-white">
-              Tout ce dont vous avez besoin pour améliorer vos performances en
-              un seul endroit
-            </h2>
-            <p className="mx-auto max-w-3xl text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-              Une suite complète d&apos;outils conçue pour maximiser votre
-              réussite à l&apos;EACMC
+      <section className={MARKETING_SECTION}>
+        <div className={MARKETING_WRAP}>
+          <div className="mb-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] lg:gap-14">
+            <div className="flex flex-col gap-3.5">
+              <Eyebrow>Fonctionnalités</Eyebrow>
+              <h2 className="type-h1 text-ink">
+                Tout ce qu&apos;il faut pour réviser, au même endroit.
+              </h2>
+            </div>
+            <p className="type-body-lg self-end">
+              Les objectifs du CMC décrivent ce que l&apos;on attend des
+              diplômés qui visent la résidence au Canada. NOMAQbanq organise sa
+              banque de questions autour de ces objectifs.
             </p>
           </div>
+          <FeatureCells items={FEATURES} columns={4} />
+        </div>
+      </section>
 
-          <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className="bg-card relative overflow-hidden rounded-lg border p-8"
-              >
-                <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg">
-                  <feature.icon className="h-8 w-8 text-white" />
+      <section className={cn(MARKETING_SECTION, "bg-surface-2")}>
+        <div className={MARKETING_WRAP}>
+          <Eyebrow>Témoignages</Eyebrow>
+          <div className="mt-6 grid items-start gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:gap-16">
+            <figure className="flex flex-col gap-7">
+              <blockquote className="text-ink font-serif text-[clamp(22px,2.4vw,30px)] leading-[1.4] font-medium text-pretty">
+                « {featured.content} »
+              </blockquote>
+              <figcaption className="flex items-center gap-3">
+                <UserAvatar
+                  name={featured.name}
+                  image={null}
+                  className="size-10"
+                  fallbackClassName="bg-surface text-ink-2 text-sm font-medium"
+                />
+                <div>
+                  <p className="text-ink text-[15px] font-semibold">
+                    {featured.name}
+                  </p>
+                  <p className="text-ink-3 text-[13px]">{featured.role}</p>
                 </div>
-                <h3 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
-                  {feature.title}
-                </h3>
-                <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
-                  {feature.description}
-                </p>
-              </div>
-            ))}
+              </figcaption>
+            </figure>
+            <ul className="border-line-strong flex flex-col border-t">
+              {others.map((t) => (
+                <li
+                  key={t.id}
+                  className="border-line-strong flex flex-col gap-2.5 border-b py-5"
+                >
+                  <Stars rating={t.rating} />
+                  <p className="text-ink-2 line-clamp-3 text-[15px] leading-relaxed">
+                    {t.content}
+                  </p>
+                  <p className="text-ink-3 text-[13px]">
+                    <strong className="text-ink font-semibold">{t.name}</strong>{" "}
+                    · {t.role}
+                  </p>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
-      {/* Pricing Section - Modern and attractive */}
-      <section className="bg-white py-16 md:py-24 dark:bg-gray-900">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid items-center gap-20 lg:grid-cols-2">
-            {/* Left side - Content */}
-            <div className="space-y-8">
-              <div className="inline-flex items-center rounded-full border border-green-200/50 bg-linear-to-r from-green-100 to-emerald-100 px-6 py-3 text-sm font-semibold text-green-700 dark:border-green-700/50 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-300">
-                <BookOpen className="mr-2 h-4 w-4" />
-                BANQUE DE QUESTIONS
-              </div>
-
-              <div className="space-y-6">
-                <h2 className="font-display text-4xl leading-tight font-semibold tracking-tight text-gray-900 md:text-5xl dark:text-white">
-                  Inscrivez-vous pour les questions NOMAQbanq
-                </h2>
-
-                <p className="text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                  Lors de la préparation à l&apos;examen EACMC partie 1, il est
-                  essentiel de réviser les objectifs du Conseil médical du
-                  Canada (CMC). Les objectifs décrivent les qualités requises
-                  des diplômés en médecine et des diplômés médicaux
-                  internationaux (DMI) qui cherchent à entrer en résidence au
-                  Canada.
-                </p>
-
-                <p className="text-base leading-relaxed text-gray-600 dark:text-gray-300">
-                  En vous familiarisant minutieusement avec les objectifs du
-                  CMC, vous pouvez vous assurer d&apos;être adéquatement préparé
-                  à répondre aux attentes de la profession médicale. NOMAQbanq
-                  contient plus de {stats.totalQuestions} questions basées sur
-                  les objectifs du CMC, fournissant un contenu à haut rendement
-                  pour vous aider à réussir vos examens.
-                </p>
-              </div>
-
-              <Button
-                asChild
-                variant="btn_modern"
-                className="h-auto rounded-2xl px-8 py-4 text-lg font-semibold shadow-xl transition-all duration-300"
-              >
-                <Link href="/evaluation">
-                  ESSAYEZ GRATUITEMENT
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-            </div>
-
-            {/* Right side - Pricing card */}
-            <div>
-              <div className="relative">
-                <div className="absolute -inset-1 rounded-3xl bg-linear-to-r from-blue-600 to-indigo-600 opacity-25 blur"></div>
-                <div className="relative overflow-hidden rounded-3xl bg-linear-to-br from-blue-600 to-indigo-700 p-8 text-white shadow-2xl">
-                  <div className="absolute top-0 right-0 h-32 w-32 translate-x-16 -translate-y-16 rounded-full bg-white/10"></div>
-                  <div className="absolute bottom-0 left-0 h-24 w-24 -translate-x-12 translate-y-12 rounded-full bg-white/10"></div>
-
-                  <div className="relative z-10">
-                    <div className="mb-8 flex items-start justify-between">
-                      <div className="rounded-full bg-white/20 px-4 py-2 text-sm font-semibold backdrop-blur-sm">
-                        PLUS DE {stats.totalQuestions} QUESTIONS
-                      </div>
-                    </div>
-
-                    {/* <div className="mb-8">
-                      <div className="mb-2 flex items-baseline">
-                        <span className="text-6xl font-bold">339$</span>
-                        <span className="ml-2 text-xl text-blue-100">
-                          /3 Mois
-                        </span>
-                      </div>
-                      <p className="text-blue-100">
-                        Accès complet à la plateforme
-                      </p>
-                    </div> */}
-
-                    <div className="mb-8 space-y-4">
-                      {[
-                        "Banque de questions pour 3 mois",
-                        "Basé sur les objectifs CMC",
-                        "Explications simples",
-                        "Moyens mnémotechniques mémorables",
-                        "Tableaux de synthèse et algorithmes",
-                        "Apprentissage à rythme personnalisé",
-                      ].map((feature, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center space-x-3"
-                        >
-                          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-400">
-                            <CircleCheckBig className="h-3 w-3 text-green-900" />
-                          </div>
-                          <span className="text-blue-50">{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <Button
-                      asChild
-                      className="w-full cursor-pointer rounded-2xl bg-white py-4 font-semibold text-blue-600 shadow-lg transition-all duration-300 hover:bg-blue-50"
-                    >
-                      <Link href="/inscription">
-                        S&apos;inscrire maintenant
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section - Modern gradient */}
-      <section className="relative overflow-hidden py-32">
-        <div className="absolute inset-0 bg-linear-to-br from-blue-600 via-indigo-700 to-purple-800"></div>
-        <div className="absolute inset-0 bg-black/20"></div>
-
-        {/* Animated background elements */}
-        <div className="absolute top-0 left-0 h-full w-full overflow-hidden">
-          <div className="absolute -top-40 -left-40 h-80 w-80 rounded-full bg-white/10 blur-3xl"></div>
-          <div className="absolute -right-40 -bottom-40 h-96 w-96 rounded-full bg-white/10 blur-3xl"></div>
-        </div>
-
-        <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
-          <div>
-            <h2 className="font-display mb-8 text-4xl font-semibold tracking-tight text-white md:text-5xl">
-              Commencez votre préparation dès aujourd&apos;hui
+      <section className={MARKETING_SECTION}>
+        <div
+          className={cn(
+            MARKETING_WRAP,
+            "grid items-start gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:gap-14",
+          )}
+        >
+          <div className="flex flex-col gap-4">
+            <Eyebrow>Banque de questions</Eyebrow>
+            <h2 className="type-h1 text-ink">
+              Un accès complet, à votre rythme.
             </h2>
-            <p className="mx-auto mb-12 max-w-2xl text-lg leading-relaxed text-blue-100">
-              Rejoignez les candidats qui ont réussi grâce à NOMAQbanq
+            <p className="type-body-lg">
+              Chaque question comprend une vignette clinique, cinq choix, une
+              explication détaillée et un point de synthèse. Commencez par
+              l&apos;évaluation gratuite pour vous situer.
             </p>
-            <div className="flex flex-col justify-center gap-6 sm:flex-row">
-              <Button
-                asChild
-                className="h-auto rounded-2xl bg-white px-12 py-4 text-lg font-semibold text-blue-600 shadow-xl transition-all duration-300 hover:bg-blue-50"
-              >
-                <Link href="/inscription">
-                  Inscription gratuite
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="h-auto rounded-2xl border-2 border-white/30 px-12 py-4 text-lg font-semibold text-white transition-all duration-300 hover:bg-white/10"
-              >
-                <Link href="/tarifs">Voir les tarifs</Link>
-              </Button>
-            </div>
           </div>
+          <OfferCard totalQuestions={stats.totalQuestions} />
         </div>
       </section>
 
-      {/* Footer moved to MainLayout */}
-    </div>
+      <FaqSection title="Questions fréquentes" items={FAQ} />
+      <CtaBand />
+    </>
   )
 }

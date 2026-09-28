@@ -1,11 +1,3 @@
-import {
-  BookOpen,
-  CreditCard,
-  GraduationCap,
-  Shield,
-  Users,
-} from "lucide-react"
-
 export interface FaqQuestion {
   q: string
   a: string
@@ -13,50 +5,44 @@ export interface FaqQuestion {
 
 export interface FaqCategory {
   id: string
-  icon: typeof GraduationCap
   title: string
-  color: string
   questions: FaqQuestion[]
 }
 
 export const faqCategories: FaqCategory[] = [
   {
     id: "plateforme",
-    icon: GraduationCap,
-    title: "Plateforme et Apprentissage",
-    color: "from-blue-500 to-indigo-600",
+    title: "Plateforme et apprentissage",
     questions: [
       {
         q: "Qu'est-ce que NOMAQbanq ?",
-        a: "NOMAQbanq est la première plateforme francophone de préparation à l'EACMC (Examen d'Aptitude du Conseil Médical du Canada) Partie I. Nous offrons une banque de questions complète, des examens blancs, et des outils d'apprentissage adaptés aux médecins diplômés à l'étranger.",
+        a: "NOMAQbanq est la première plateforme francophone de préparation à l'EACMC (Examen d'aptitude du Conseil médical du Canada) Partie I. Nous offrons une banque de questions complète, des examens blancs et des outils d'apprentissage adaptés aux médecins diplômés à l'étranger.",
       },
       {
         q: "Comment fonctionne la plateforme ?",
-        a: "Notre plateforme vous permet de vous entraîner avec des milliers de questions couvrant tous les domaines médicaux. Vous pouvez créer des examens personnalisés, suivre vos progrès, identifier vos points faibles et réviser avec des explications détaillées pour chaque question.",
+        a: "Vous vous entraînez avec des milliers de questions couvrant tous les domaines médicaux. Vous pouvez créer des examens personnalisés, suivre vos progrès, repérer vos points faibles et réviser avec des explications détaillées pour chaque question.",
       },
       {
         q: "Les questions sont-elles similaires à celles de l'EACMC ?",
-        a: "Oui, nos questions sont conçues pour refléter le format, le niveau de difficulté et le contenu de l'EACMC Partie I. Elles sont régulièrement mises à jour et révisées par des médecins qualifiés pour garantir leur pertinence et leur qualité.",
+        a: "Oui. Nos questions reflètent le format, le niveau de difficulté et le contenu de l'EACMC Partie I. Elles sont régulièrement mises à jour et révisées par des médecins qualifiés.",
       },
       {
         q: "Puis-je utiliser la plateforme sur mobile ?",
-        a: "Absolument ! NOMAQbanq est entièrement responsive et fonctionne parfaitement sur tous les appareils : ordinateurs, tablettes et smartphones. Vous pouvez étudier où et quand vous voulez.",
+        a: "Oui. NOMAQbanq fonctionne sur ordinateur, tablette et téléphone.",
       },
     ],
   },
   {
     id: "tarifs",
-    icon: CreditCard,
-    title: "Abonnements et Tarifs",
-    color: "from-green-500 to-emerald-600",
+    title: "Abonnements et tarifs",
     questions: [
       {
         q: "Quels sont les types d'accès disponibles ?",
-        a: "Nous proposons deux types d'accès : l'Accès Examens (examens simulés en mode réaliste) et l'Accès Entraînement (banque de 3000+ questions avec mode tuteur). Chaque type est disponible en formule 1 mois (50 CAD) ou 6 mois (200 CAD, soit ~33% d'économie).",
+        a: "Deux types d'accès : l'accès Examens (examens simulés en mode réaliste) et l'accès Entraînement (banque de 3000+ questions avec mode tuteur). Chacun est offert en formule 1 mois (50 $ CA) ou 6 mois (200 $ CA, soit environ 33 % d'économie).",
       },
       {
         q: "Y a-t-il une période d'essai gratuite ?",
-        a: "Oui ! Vous pouvez créer un compte gratuitement et tester notre section d'évaluation sans engagement. Cela vous permet de découvrir la plateforme avant d'acheter un accès complet.",
+        a: "Oui. Vous pouvez créer un compte gratuitement et essayer la section d'évaluation sans engagement, avant d'acheter un accès complet.",
       },
       {
         q: "Comment fonctionne le temps cumulable ?",
@@ -64,81 +50,74 @@ export const faqCategories: FaqCategory[] = [
       },
       {
         q: "Quels modes de paiement acceptez-vous ?",
-        a: "Nous acceptons les cartes de crédit et débit (Visa, Mastercard, Amex) via Stripe, notre processeur de paiement sécurisé. L'accès est activé instantanément après le paiement.",
+        a: "Les cartes de crédit et de débit (Visa, Mastercard, Amex) via Stripe, notre processeur de paiement sécurisé. L'accès est activé dès le paiement.",
       },
     ],
   },
   {
     id: "contenu",
-    icon: BookOpen,
-    title: "Contenu et Domaines",
-    color: "from-purple-500 to-pink-600",
+    title: "Contenu et domaines",
     questions: [
       {
         q: "Combien de questions sont disponibles ?",
-        a: "Notre banque contient plus de 3 000 questions couvrant tous les domaines de l'EACMC Partie I : médecine interne, chirurgie, pédiatrie, obstétrique-gynécologie, psychiatrie, et bien plus encore.",
+        a: "Notre banque contient plus de 3000 questions couvrant tous les domaines de l'EACMC Partie I : médecine interne, chirurgie, pédiatrie, obstétrique-gynécologie, psychiatrie et d'autres.",
       },
       {
         q: "Les questions sont-elles mises à jour régulièrement ?",
-        a: "Oui, nous ajoutons de nouvelles questions chaque mois et mettons à jour le contenu existant pour refléter les dernières recommandations médicales et les changements dans l'examen.",
+        a: "Oui. Nous ajoutons de nouvelles questions chaque mois et mettons à jour le contenu existant selon les dernières recommandations médicales et les changements de l'examen.",
       },
       {
         q: "Y a-t-il des explications détaillées pour chaque question ?",
-        a: "Chaque question est accompagnée d'une explication complète qui vous aide à comprendre non seulement la bonne réponse, mais aussi pourquoi les autres options sont incorrectes. C'est essentiel pour un apprentissage efficace.",
+        a: "Chaque question est accompagnée d'une explication complète : pourquoi la bonne réponse est correcte, et pourquoi les autres choix ne le sont pas.",
       },
       {
         q: "Puis-je créer mes propres examens personnalisés ?",
-        a: "Oui ! Vous pouvez créer des examens sur mesure en choisissant les domaines, le nombre de questions, et le niveau de difficulté. C'est idéal pour cibler vos révisions sur vos points faibles.",
+        a: "Oui. Choisissez les domaines, le nombre de questions et les objectifs du CMC pour cibler vos révisions.",
       },
     ],
   },
   {
     id: "securite",
-    icon: Shield,
-    title: "Sécurité et Confidentialité",
-    color: "from-orange-500 to-red-600",
+    title: "Sécurité et confidentialité",
     questions: [
       {
         q: "Mes données personnelles sont-elles en sécurité ?",
-        a: "Absolument. Nous utilisons un chiffrement de niveau bancaire pour protéger toutes vos données. Nous ne vendons jamais vos informations personnelles à des tiers et respectons strictement les réglementations sur la protection des données.",
+        a: "Oui. Vos données sont chiffrées. Nous ne vendons jamais vos informations personnelles à des tiers et respectons les réglementations sur la protection des données.",
       },
       {
         q: "Qui a accès à mes résultats d'examens ?",
-        a: "Seul vous avez accès à vos résultats et à votre progression. Vos données sont strictement confidentielles et ne sont jamais partagées sans votre consentement explicite.",
+        a: "Vous seul. Vos résultats et votre progression sont confidentiels et ne sont jamais partagés sans votre consentement explicite.",
       },
       {
         q: "Comment utilisez-vous les cookies ?",
-        a: "Nous utilisons des cookies essentiels pour le fonctionnement du site et des cookies d'analyse (avec votre consentement) pour améliorer votre expérience. Consultez notre politique de cookies pour plus de détails.",
+        a: "Nous utilisons des cookies essentiels au fonctionnement du site et, avec votre consentement, des cookies d'analyse. Consultez notre politique de cookies pour plus de détails.",
       },
     ],
   },
   {
     id: "support",
-    icon: Users,
-    title: "Support et Aide",
-    color: "from-indigo-500 to-blue-600",
+    title: "Support et aide",
     questions: [
       {
         q: "Comment puis-je contacter le support ?",
-        a: "Vous pouvez nous contacter par email à nomaqbanq@outlook.com ou par téléphone au +1 (438) 875-0746. Notre équipe répond généralement sous 24h.",
+        a: "Par courriel à nomaqbanq@outlook.com ou par téléphone au +1 (438) 875-0746. Nous répondons généralement sous 24 h.",
       },
       {
         q: "Y a-t-il une communauté d'utilisateurs ?",
-        a: "Oui ! Nous avons des groupes actifs sur les réseaux sociaux où vous pouvez échanger avec d'autres candidats, partager des conseils et vous encourager mutuellement.",
+        a: "Oui. Des groupes actifs sur les réseaux sociaux permettent d'échanger avec d'autres candidats et de partager des conseils.",
       },
       {
         q: "Proposez-vous des ressources d'apprentissage supplémentaires ?",
-        a: "En plus de notre banque de questions, nous publions régulièrement des articles, des guides de révision et des conseils stratégiques pour maximiser vos chances de réussite à l'examen.",
+        a: "Nous publions régulièrement des articles, des guides de révision et des conseils stratégiques.",
       },
       {
         q: "Puis-je obtenir un remboursement ?",
-        a: "Nous offrons une garantie de satisfaction de 14 jours. Si vous n'êtes pas satisfait de la plateforme, contactez-nous dans les 14 premiers jours pour un remboursement complet.",
+        a: "Une garantie de satisfaction de 14 jours s'applique. Contactez-nous dans les 14 premiers jours pour un remboursement complet.",
       },
     ],
   },
 ]
 
-// Flatten all FAQ questions for schema generation
 export function getAllFaqQuestions(): FaqQuestion[] {
   return faqCategories.flatMap((category) => category.questions)
 }

@@ -1,4 +1,5 @@
 import { Metadata } from "next"
+import { CtaBand } from "@/components/marketing/cta-band"
 import { FaqSchema } from "@/components/seo/faq-schema"
 import FaqPageClient from "./_components/faq-page-client"
 import { getAllFaqQuestions } from "./_data/faq-data"
@@ -35,6 +36,7 @@ export default function FAQPage() {
     <>
       <FaqSchema questions={allQuestions} />
       <FaqPageClient />
+      <CtaBand />
     </>
   )
 }
