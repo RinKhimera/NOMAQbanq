@@ -76,8 +76,7 @@ export const CookiesContent = () => {
             requête ; ils sont supprimés dès la connexion terminée
           </li>
           <li>
-            <strong>Préférences d&apos;affichage :</strong> l&apos;état ouvert
-            ou replié du menu latéral (<code>sidebar_state</code>). Le thème
+            <strong>Préférences d&apos;affichage :</strong> le thème
             clair/sombre est mémorisé dans le stockage local du navigateur, pas
             dans un cookie
           </li>
@@ -187,9 +186,6 @@ export const CookiesContent = () => {
           <li>
             <strong>Cookies de sécurité (connexion Google) :</strong> quelques
             minutes, le temps de la connexion
-          </li>
-          <li>
-            <strong>Préférence du menu latéral :</strong> 7 jours
           </li>
         </ul>
       </LegalSection>
