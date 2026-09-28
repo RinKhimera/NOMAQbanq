@@ -84,7 +84,7 @@ const SCORE_STYLE: Record<
       label: "Excellent !",
     },
     blue: {
-      text: "text-green-600 dark:text-green-400",
+      text: SCORE_TONE_TEXT.success,
       bg: "from-green-500/20 to-emerald-500/20 dark:from-green-500/10 dark:to-emerald-500/10",
       progress: "bg-linear-to-r from-green-500 to-emerald-500",
       label: "Réussi",

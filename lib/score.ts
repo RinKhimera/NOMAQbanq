@@ -3,6 +3,7 @@ import type {
   AnswersMap,
   QuizQuestion,
 } from "@/components/quiz/runner/types"
+import { TONE_SOFT, TONE_TEXT } from "@/lib/tone"
 
 /**
  * AttemptScore — le score d'une tentative et sa lecture. Module pur, partagé
@@ -34,16 +35,18 @@ export const scoreTone = (score: number): ScoreTone => {
 export const isPassing = (score: number): boolean => score >= PASS_THRESHOLD
 
 export const SCORE_TONE_TEXT: Record<ScoreTone, string> = {
-  success: "text-emerald-600 dark:text-emerald-400",
-  warning: "text-amber-600 dark:text-amber-400",
-  danger: "text-red-600 dark:text-red-400",
+  success: TONE_TEXT.success,
+  warning: TONE_TEXT.warning,
+  danger: TONE_TEXT.danger,
 }
 
 /** Couleur d'un score lisible ; neutre quand il est retenu : la tranche le trahirait. */
 export const scoreTextClass = (score: number | null): string =>
-  score === null
-    ? "text-gray-500 dark:text-gray-400"
-    : SCORE_TONE_TEXT[scoreTone(score)]
+  score === null ? "text-ink-3" : SCORE_TONE_TEXT[scoreTone(score)]
+
+/** Fond doux et filet d'une cellule de score ; neutre quand il est retenu. */
+export const scoreSoftClass = (score: number | null): string =>
+  score === null ? TONE_SOFT.neutral : TONE_SOFT[scoreTone(score)]
 
 /** Score affichable, ou « — » quand il est retenu (`null`, voir `scoreWithheldFor`). */
 export const formatScore = (score: number | null): string =>
