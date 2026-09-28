@@ -12,6 +12,7 @@ import {
 import { RelativeTime } from "@/components/shared/relative-time"
 import { BannedPill, RolePill } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
+import { EmptyState } from "@/components/ui/empty-state"
 import {
   Tooltip,
   TooltipContent,
@@ -176,8 +177,8 @@ export function UsersTable({
       onRowClick={onUserSelect}
       rowTone={(user) => (user.id === selectedUserId ? "active" : undefined)}
       empty={
-        <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-8 text-center dark:border-gray-700/50 dark:bg-gray-900">
-          <p className="text-gray-500">Aucun utilisateur trouvé</p>
+        <div className="overflow-hidden rounded-2xl border border-gray-200/80 bg-white dark:border-gray-700/50 dark:bg-gray-900">
+          <EmptyState size="compact" title="Aucun utilisateur trouvé" />
         </div>
       }
       footer={footer}

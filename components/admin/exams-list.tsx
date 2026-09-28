@@ -175,11 +175,10 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
 
         {/* Grille de cards */}
         {filteredExams.length === 0 ? (
-          <div className="py-12 text-center">
-            <p className="text-slate-500 dark:text-slate-400">
-              Aucun examen ne correspond à vos critères de recherche.
-            </p>
-          </div>
+          <EmptyState
+            size="compact"
+            title="Aucun examen ne correspond à vos critères de recherche."
+          />
         ) : (
           <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
             {filteredExams.map((exam) => (

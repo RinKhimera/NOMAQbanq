@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
 import { deleteParticipation } from "@/features/exams/actions"
 import type { LeaderboardEntry } from "@/features/exams/dal"
@@ -120,9 +121,10 @@ export function ExamLeaderboard({
       </CardHeader>
       <CardContent>
         {rankedEntries.length === 0 && (
-          <p className="text-muted-foreground py-6 text-center text-sm">
-            Aucun participant ne correspond à « {search.trim()} ».
-          </p>
+          <EmptyState
+            size="compact"
+            title={`Aucun participant ne correspond à « ${search.trim()} ».`}
+          />
         )}
         <ul className="space-y-3">
           {rankedEntries.map(({ entry, rank }) => {

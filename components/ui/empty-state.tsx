@@ -5,12 +5,16 @@ import { cn } from "@/lib/utils"
 
 interface EmptyStateProps {
   title: string
-  description: string
+  description?: string
   icons?: LucideIcon[]
   action?: {
     label: string
     onClick: () => void
   }
+  /** Action libre (lien, plusieurs boutons) sous le texte. */
+  children?: React.ReactNode
+  /** `compact` : dans une carte, une liste ou un panneau, sans cadre. */
+  size?: "default" | "compact"
   className?: string
   iconClassName?: string
 }
@@ -20,9 +24,46 @@ export function EmptyState({
   description,
   icons = [],
   action,
+  children,
+  size = "default",
   className,
   iconClassName,
 }: EmptyStateProps) {
+  if (size === "compact") {
+    const Icon = icons[0]
+    return (
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center px-4 py-8 text-center",
+          className,
+        )}
+      >
+        {Icon && (
+          <div
+            className={cn(
+              "bg-muted mb-3 flex h-12 w-12 items-center justify-center rounded-full",
+              iconClassName,
+            )}
+          >
+            <Icon className="text-muted-foreground h-6 w-6" />
+          </div>
+        )}
+        <p className="text-foreground font-medium">{title}</p>
+        {description && (
+          <p className="text-muted-foreground mt-1 text-sm whitespace-pre-line">
+            {description}
+          </p>
+        )}
+        {action && (
+          <Button onClick={action.onClick} variant="outline" className="mt-4">
+            {action.label}
+          </Button>
+        )}
+        {children && <div className="mt-4">{children}</div>}
+      </div>
+    )
+  }
+
   return (
     <div
       className={cn(
@@ -81,9 +122,11 @@ export function EmptyState({
         )}
       </div>
       <h2 className="text-foreground mt-6 font-medium">{title}</h2>
-      <p className="text-muted-foreground mt-1 text-sm whitespace-pre-line">
-        {description}
-      </p>
+      {description && (
+        <p className="text-muted-foreground mt-1 text-sm whitespace-pre-line">
+          {description}
+        </p>
+      )}
       {action && (
         <Button
           onClick={action.onClick}
@@ -93,6 +136,7 @@ export function EmptyState({
           {action.label}
         </Button>
       )}
+      {children && <div className="mt-4">{children}</div>}
     </div>
   )
 }

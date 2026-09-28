@@ -1,11 +1,7 @@
 "use client"
 
-import {
-  IconAlertCircle,
-  IconMail,
-  IconSearch,
-  IconUsers,
-} from "@tabler/icons-react"
+import { IconMail, IconSearch, IconUsers } from "@tabler/icons-react"
+import { CircleAlert, Search } from "lucide-react"
 import { motion } from "motion/react"
 import { useMemo, useState } from "react"
 import {
@@ -21,6 +17,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { EligibleCandidate } from "@/features/exams/dal"
@@ -68,29 +65,18 @@ export function EligibleCandidatesSection({
       </div>
 
       {total === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            className="mb-4 rounded-2xl bg-amber-100 p-4 dark:bg-amber-900/30"
-          >
-            <IconAlertCircle className="h-10 w-10 text-amber-600 dark:text-amber-400" />
-          </motion.div>
-          <p className="font-semibold text-gray-900 dark:text-white">
-            Aucun candidat éligible
-          </p>
-          <p className="mt-1 max-w-sm text-sm text-gray-500">
-            Les utilisateurs doivent avoir un accès exam actif pour pouvoir
-            participer à cet examen.
-          </p>
-        </div>
+        <EmptyState
+          size="compact"
+          icons={[CircleAlert]}
+          title="Aucun candidat éligible"
+          description="Les utilisateurs doivent avoir un accès exam actif pour pouvoir participer à cet examen."
+        />
       ) : filteredCandidates.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-          <IconSearch className="mb-2 h-8 w-8 text-gray-300" />
-          <p className="text-sm text-gray-500">
-            Aucun résultat pour &quot;{searchQuery}&quot;
-          </p>
-        </div>
+        <EmptyState
+          size="compact"
+          icons={[Search]}
+          title={`Aucun résultat pour "${searchQuery}"`}
+        />
       ) : (
         <ScrollArea className={cn(embedded ? "h-[min(60vh,420px)]" : "h-100")}>
           <div className="divide-y divide-gray-100 dark:divide-gray-800">

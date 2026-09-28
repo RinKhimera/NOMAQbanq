@@ -3,7 +3,6 @@
 import * as VisuallyHidden from "@radix-ui/react-visually-hidden"
 import {
   IconCalendarEvent,
-  IconClipboardCheck,
   IconClock,
   IconEdit,
   IconExternalLink,
@@ -12,10 +11,12 @@ import {
   IconUsers,
   IconX,
 } from "@tabler/icons-react"
+import { ClipboardCheck } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
 import Link from "next/link"
 import ExamStatusBadge from "@/components/admin/exam-status-badge"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Separator } from "@/components/ui/separator"
 import {
   Sheet,
@@ -75,7 +76,7 @@ export function ExamSidePanel({
               onClose={() => onOpenChange(false)}
             />
           ) : (
-            <EmptyState key="empty" />
+            <NoExamSelected key="empty" />
           )}
         </AnimatePresence>
       </SheetContent>
@@ -83,18 +84,20 @@ export function ExamSidePanel({
   )
 }
 
-function EmptyState() {
+function NoExamSelected() {
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="flex h-full flex-col items-center justify-center p-6 text-center"
+      className="h-full"
     >
-      <div className="mb-4 rounded-2xl bg-gray-100 p-4 dark:bg-gray-800">
-        <IconClipboardCheck className="h-8 w-8 text-gray-400" />
-      </div>
-      <p className="text-sm text-gray-500">Sélectionnez un examen</p>
+      <EmptyState
+        size="compact"
+        icons={[ClipboardCheck]}
+        title="Sélectionnez un examen"
+        className="h-full"
+      />
     </motion.div>
   )
 }

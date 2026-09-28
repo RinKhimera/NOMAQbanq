@@ -19,6 +19,7 @@ import { AccessCard } from "@/components/shared/payments/access-card"
 import { RolePill } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import {
   Sheet,
   SheetContent,
@@ -319,9 +320,7 @@ function PanelContent({
             )}
           </div>
           {recentTransactions.length === 0 ? (
-            <p className="py-4 text-center text-sm text-gray-500">
-              Aucune transaction
-            </p>
+            <EmptyState size="compact" title="Aucune transaction" />
           ) : (
             <div className="space-y-2">
               {recentTransactions.map((tx) => (

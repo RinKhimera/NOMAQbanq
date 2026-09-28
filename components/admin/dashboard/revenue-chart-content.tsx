@@ -1,6 +1,7 @@
 "use client"
 
 import { IconTrendingUp } from "@tabler/icons-react"
+import { ChartColumn } from "lucide-react"
 import { Area, AreaChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -9,6 +10,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { EmptyState } from "@/components/ui/empty-state"
 import { formatCurrency, formatIsoDay } from "@/lib/format"
 
 interface RevenueChartContentProps {
@@ -59,12 +61,11 @@ export function RevenueChartContent({ data }: RevenueChartContentProps) {
           </div>
         </CardHeader>
         <CardContent className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            <div className="text-muted-foreground mb-2 text-4xl">📊</div>
-            <p className="text-muted-foreground text-sm">
-              Les données apparaîtront ici
-            </p>
-          </div>
+          <EmptyState
+            size="compact"
+            icons={[ChartColumn]}
+            title="Les données apparaîtront ici"
+          />
         </CardContent>
       </Card>
     )

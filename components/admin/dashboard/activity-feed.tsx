@@ -6,8 +6,10 @@ import {
   IconCreditCard,
   IconUserPlus,
 } from "@tabler/icons-react"
+import { Inbox } from "lucide-react"
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { formatCurrency } from "@/lib/format"
 import { SCORE_TONE_TEXT, scoreTone } from "@/lib/score"
@@ -167,12 +169,11 @@ export function ActivityFeed({ activities }: ActivityFeedProps) {
           </div>
         </CardHeader>
         <CardContent className="flex flex-1 items-center justify-center">
-          <div className="text-center">
-            <div className="text-muted-foreground mb-2 text-4xl">📋</div>
-            <p className="text-muted-foreground text-sm">
-              Aucune activité récente
-            </p>
-          </div>
+          <EmptyState
+            size="compact"
+            icons={[Inbox]}
+            title="Aucune activité récente"
+          />
         </CardContent>
       </Card>
     )

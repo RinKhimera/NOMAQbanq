@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import { loadTrainingHistory } from "@/features/training/actions"
 import type {
@@ -142,17 +143,12 @@ export const TrainingHistorySection = ({
         {/* Content */}
         <div className="p-4">
           {sessions.length === 0 ? (
-            <div className="py-12 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-                <Target className="h-8 w-8 text-gray-400" />
-              </div>
-              <p className="font-medium text-gray-600 dark:text-gray-400">
-                Aucune session terminée
-              </p>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
-                Commencez votre première session d&apos;entraînement !
-              </p>
-            </div>
+            <EmptyState
+              size="compact"
+              icons={[Target]}
+              title="Aucune session terminée"
+              description="Commencez votre première session d'entraînement !"
+            />
           ) : (
             <div className="space-y-2">
               {sessions.map((session, index) => (

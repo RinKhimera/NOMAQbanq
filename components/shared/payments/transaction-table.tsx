@@ -26,6 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Spinner } from "@/components/ui/spinner"
 import type { AdminTransactionView } from "@/features/payments/dal"
 import { formatCurrency, formatShortDate, formatTimeOnly } from "@/lib/format"
@@ -140,21 +141,15 @@ const TypeBadge = ({ type }: { type: TransactionType }) => {
 }
 
 const EmptyTransactions = ({ message }: { message: string }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50/50 py-16 dark:border-gray-700 dark:bg-gray-800/30"
-  >
-    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-100 dark:bg-gray-800">
-      <CreditCard className="h-8 w-8 text-gray-400" />
-    </div>
-    <p className="text-lg font-medium text-gray-600 dark:text-gray-400">
-      {message}
-    </p>
-    <p className="mt-1 text-sm text-gray-500 dark:text-gray-500">
-      Les transactions apparaîtront ici une fois effectuées
-    </p>
-  </motion.div>
+  <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30">
+    <EmptyState
+      size="compact"
+      icons={[CreditCard]}
+      title={message}
+      description="Les transactions apparaîtront ici une fois effectuées"
+      className="py-16"
+    />
+  </div>
 )
 
 const ManualTransactionMenu = ({

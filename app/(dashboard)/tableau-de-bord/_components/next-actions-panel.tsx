@@ -12,6 +12,7 @@ import { motion } from "motion/react"
 import Link from "next/link"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { PASS_THRESHOLD, isPassing } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
@@ -272,10 +273,12 @@ export const NextActionsPanel = (props: NextActionsPanelProps) => {
 
         {actions.length === 0 && (
           <div className="rounded-xl border border-gray-200/50 bg-white/80 p-6 text-center backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80">
-            <Sparkles className="mx-auto mb-3 h-8 w-8 text-gray-400" />
-            <p className="text-gray-600 dark:text-gray-400">
-              Aucune action prioritaire pour le moment
-            </p>
+            <EmptyState
+              size="compact"
+              icons={[Sparkles]}
+              title="Aucune action prioritaire pour le moment"
+              className="py-0"
+            />
           </div>
         )}
       </div>

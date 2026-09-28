@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
+import { EmptyState } from "@/components/ui/empty-state"
 import { formatExpiration } from "@/lib/format"
 import { isPassing } from "@/lib/score"
 
@@ -71,27 +72,6 @@ const CustomTooltip = ({
   )
 }
 
-const EmptyState = () => (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    transition={{ duration: 0.5 }}
-    className="flex h-full flex-col items-center justify-center gap-4 py-8"
-  >
-    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-100 dark:bg-blue-900/30">
-      <ChartColumn className="h-8 w-8 text-blue-500" />
-    </div>
-    <div className="text-center">
-      <p className="font-semibold text-gray-900 dark:text-white">
-        Aucune donnée disponible
-      </p>
-      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        Complétez des examens pour voir votre progression
-      </p>
-    </div>
-  </motion.div>
-)
-
 export const ScoreEvolutionChartContent = ({
   data: allData,
 }: ScoreEvolutionChartContentProps) => {
@@ -114,7 +94,13 @@ export const ScoreEvolutionChartContent = ({
           </div>
         </div>
         <div className="h-64">
-          <EmptyState />
+          <EmptyState
+            size="compact"
+            icons={[ChartColumn]}
+            title="Aucune donnée disponible"
+            description="Complétez des examens pour voir votre progression"
+            className="h-full"
+          />
         </div>
       </div>
     )

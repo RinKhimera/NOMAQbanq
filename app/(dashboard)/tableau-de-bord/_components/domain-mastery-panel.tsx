@@ -5,6 +5,7 @@ import { motion } from "motion/react"
 import Link from "next/link"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Progress } from "@/components/ui/progress"
 import { trainingDomainUrl } from "@/constants"
 import type { DomainMastery } from "@/features/analytics/dal"
@@ -135,20 +136,20 @@ export const DomainMasteryPanel = ({ domains }: DomainMasteryPanelProps) => {
         </>
       ) : (
         <div className="rounded-xl border border-gray-200/50 bg-white/80 p-8 text-center backdrop-blur-sm dark:border-gray-700/50 dark:bg-gray-900/80">
-          <Stethoscope className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-600" />
-          <p className="font-medium text-gray-900 dark:text-white">
-            Aucune réponse pour l&apos;instant
-          </p>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Vos domaines forts et faibles apparaîtront ici dès vos premières
-            réponses
-          </p>
-          <Button asChild className="mt-4 bg-teal-600 hover:bg-teal-700">
-            <Link href="/tableau-de-bord/entrainement" prefetch={false}>
-              Commencer un entraînement
-              <LinkPendingIndicator className="ml-2" />
-            </Link>
-          </Button>
+          <EmptyState
+            size="compact"
+            icons={[Stethoscope]}
+            title="Aucune réponse pour l'instant"
+            description="Vos domaines forts et faibles apparaîtront ici dès vos premières réponses"
+            className="py-0"
+          >
+            <Button asChild className="bg-teal-600 hover:bg-teal-700">
+              <Link href="/tableau-de-bord/entrainement" prefetch={false}>
+                Commencer un entraînement
+                <LinkPendingIndicator className="ml-2" />
+              </Link>
+            </Button>
+          </EmptyState>
         </div>
       )}
     </motion.div>
