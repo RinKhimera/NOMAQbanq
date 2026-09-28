@@ -1,9 +1,8 @@
-"use client"
-
 import type { LucideIcon } from "lucide-react"
-import { type ComponentProps, type ReactNode, useEffect, useRef } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import { TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
+import { StatusTitle } from "./status-title"
 
 type StatusCardProps = Omit<ComponentProps<"div">, "title"> & {
   title: ReactNode
@@ -39,49 +38,36 @@ export const StatusCard = ({
   className,
   children,
   ...props
-}: StatusCardProps) => {
-  const titleRef = useRef<HTMLHeadingElement>(null)
-  useEffect(() => {
-    if (focusTitle) titleRef.current?.focus()
-  }, [focusTitle])
-
-  return (
-    <div
-      className={cn(
-        "bg-surface border-line shadow-1 flex w-full flex-col gap-5 rounded-lg border p-8 max-[480px]:px-5 max-[480px]:py-6",
-        size === "form" ? "max-w-110" : "max-w-130",
-        className,
-      )}
-      {...props}
-    >
-      <div className="flex flex-col gap-2">
-        {(Icon || label) && (
-          <div className="mb-2 flex items-center gap-2.5">
-            {Icon && (
-              <Icon aria-hidden className={cn("size-5", TONE_TEXT[iconTone])} />
-            )}
-            {label && <span className="type-label">{label}</span>}
-          </div>
-        )}
-        <h1
-          ref={titleRef}
-          tabIndex={focusTitle ? -1 : undefined}
-          className="type-h2 text-ink outline-none"
-        >
-          {title}
-        </h1>
-        {description && <p className="text-ink-3 text-[15px]">{description}</p>}
-      </div>
-      {children}
-      {actions && <div className="flex flex-wrap gap-2.5 pt-1">{actions}</div>}
-      {help && (
-        <div className="border-line text-ink-3 border-t pt-4 text-[13px]">
-          {help}
+}: StatusCardProps) => (
+  <div
+    className={cn(
+      "bg-surface border-line shadow-1 flex w-full flex-col gap-5 rounded-lg border p-8 max-[480px]:px-5 max-[480px]:py-6",
+      size === "form" ? "max-w-110" : "max-w-130",
+      className,
+    )}
+    {...props}
+  >
+    <div className="flex flex-col gap-2">
+      {(Icon || label) && (
+        <div className="mb-2 flex items-center gap-2.5">
+          {Icon && (
+            <Icon aria-hidden className={cn("size-5", TONE_TEXT[iconTone])} />
+          )}
+          {label && <span className="type-label">{label}</span>}
         </div>
       )}
+      <StatusTitle focusOnMount={focusTitle}>{title}</StatusTitle>
+      {description && <p className="text-ink-3 text-[15px]">{description}</p>}
     </div>
-  )
-}
+    {children}
+    {actions && <div className="flex flex-wrap gap-2.5 pt-1">{actions}</div>}
+    {help && (
+      <div className="border-line text-ink-3 border-t pt-4 text-[13px]">
+        {help}
+      </div>
+    )}
+  </div>
+)
 
 /** Fond des pages d'état de la vitrine : trame de points, carte centrée. */
 export const StatusScreen = ({ children }: { children: ReactNode }) => (
