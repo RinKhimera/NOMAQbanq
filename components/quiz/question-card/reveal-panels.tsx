@@ -25,7 +25,7 @@ const Panel = ({ label, count, defaultOpen, testId, children }: PanelProps) => (
   <Collapsible defaultOpen={defaultOpen} className="border-line border-t">
     <CollapsibleTrigger
       data-testid={testId}
-      className="focus-ring group hover:bg-surface-2 flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 px-5 py-3 text-left transition-colors duration-(--duration-fast)"
+      className="focus-ring group hover:bg-surface-2 flex min-h-11 w-full cursor-pointer items-center justify-between gap-3 px-5 py-3 text-left transition-[background-color] duration-(--duration-fast)"
     >
       <span className="text-ink-3 font-mono text-xs font-medium tracking-[0.06em] uppercase">
         {label}

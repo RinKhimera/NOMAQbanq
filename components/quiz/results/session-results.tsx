@@ -24,6 +24,8 @@ import {
   type QuizQuestion,
   SCORE_WITHHELD_MESSAGE,
 } from "@/components/quiz/runner/types"
+import type { SessionKind } from "@/components/quiz/session/types"
+import { SHELL_BLEED } from "@/components/shared/shell/shell-frame"
 import { StatusPill } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
@@ -49,7 +51,7 @@ export interface SessionResultsParticipant {
 }
 
 export interface SessionResultsProps {
-  kind: "training" | "exam"
+  kind: SessionKind
   /**
    * Score enregistré en base, ou `null` quand la page le retient : un score
    * retenu ne doit pas transiter dans le payload client, même caché.
@@ -63,10 +65,10 @@ export interface SessionResultsProps {
   participant?: SessionResultsParticipant
 }
 
-const SCORE_LABEL: Record<"training" | "exam", Record<ScoreTone, string>> = {
+const SCORE_LABEL: Record<SessionKind, Record<ScoreTone, string>> = {
   training: {
-    success: "Excellent !",
-    warning: "Bien joué !",
+    success: "Excellent !",
+    warning: "Bien joué !",
     danger: "Continuez à pratiquer",
   },
   exam: { success: "Réussi", warning: "Réussi", danger: "À améliorer" },
@@ -394,7 +396,7 @@ export function SessionResults({
             <div data-testid="score-progress" className="mt-6">
               <div className="text-ink-3 mb-2 flex items-center justify-between text-xs">
                 <span>Progression</span>
-                <span>Seuil de réussite : {formatScore(PASS_THRESHOLD)}</span>
+                <span>Seuil de réussite : {formatScore(PASS_THRESHOLD)}</span>
               </div>
               <div className="bg-surface-2 relative h-2 w-full overflow-hidden rounded-full">
                 <div
@@ -540,7 +542,12 @@ export function SessionResultsHeader({
   const { tone, Icon, label } = SCORE_STATUS[status]
 
   return (
-    <div className="bg-background border-line sticky top-(--shell-offset,0px) z-10 -mx-4 -mt-6 border-b px-4 py-4 sm:-mx-6 sm:px-6 md:-mt-8">
+    <div
+      className={cn(
+        "bg-background border-line sticky top-(--shell-offset,0px) z-10 border-b px-4 py-4 sm:px-6",
+        SHELL_BLEED,
+      )}
+    >
       <div className="flex items-center justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <span

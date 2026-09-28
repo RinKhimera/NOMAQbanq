@@ -10,15 +10,16 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import { TONE_SOFT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import type { NavigatorCell, NavigatorCellState } from "./cells"
 
 const CELL: Record<NavigatorCellState, string> = {
   unanswered: "bg-surface border-line text-ink-3",
   answered: "bg-surface-2 border-line-strong text-ink",
-  correct: "bg-success-soft border-success-line text-success-ink",
-  incorrect: "bg-danger-soft border-danger-line text-danger-ink",
-  withheld: "bg-warning-soft border-warning-line text-warning-ink",
+  correct: TONE_SOFT.success,
+  incorrect: TONE_SOFT.danger,
+  withheld: TONE_SOFT.warning,
 }
 
 const STATE_LABEL: Record<NavigatorCellState, string> = {
@@ -170,8 +171,7 @@ export const NavigatorPanel = ({
   )
 }
 
-type NavigatorSheetProps = Omit<NavigatorPanelProps, "onSelect"> & {
-  onSelect: (index: number) => void
+type NavigatorSheetProps = NavigatorPanelProps & {
   /**
    * La page déplace elle-même le focus (et défile) après le choix : la
    * sélection n'est alors transmise qu'une fois le Sheet fermé, sans rendre

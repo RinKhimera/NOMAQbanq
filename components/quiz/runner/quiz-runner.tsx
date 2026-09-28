@@ -14,11 +14,13 @@ import { QuestionCard } from "@/components/quiz/question-card"
 import { FinishDialog } from "@/components/quiz/session/finish-dialog"
 import { SessionHeader } from "@/components/quiz/session/session-header"
 import { SessionNavigation } from "@/components/quiz/session/session-navigation"
+import { SHELL_BLEED } from "@/components/shared/shell/shell-frame"
 import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
 import { CalculatorProvider } from "@/hooks/useCalculator"
 import { formatExamTime, zone } from "@/lib/attempt-clock"
+import { cn } from "@/lib/utils"
 import type {
   AnswersMap,
   QuizCallbacks,
@@ -158,7 +160,7 @@ function QuizRunnerInner({
   const isResting = mode.pause === "rest" && session.isPaused
 
   return (
-    <div className="-mx-4 -mt-6 flex flex-col sm:-mx-6 md:-mt-8">
+    <div className={cn("flex flex-col", SHELL_BLEED)}>
       {isResting && (
         <PauseDialog
           isOpen={true}
@@ -263,20 +265,13 @@ function QuizRunnerInner({
                     onNext={session.goNext}
                     onFinish={session.requestFinish}
                     finishLabel={isExam ? "Soumettre" : "Terminer la série"}
-                  >
-                    {hasPendingSelection && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void handleConfirmAnswer()}
-                        disabled={isConfirming}
-                        data-testid="btn-validate-answer"
-                        className="max-md:h-11"
-                      >
-                        Valider ma réponse
-                      </Button>
-                    )}
-                  </SessionNavigation>
+                    onValidate={
+                      hasPendingSelection
+                        ? () => void handleConfirmAnswer()
+                        : undefined
+                    }
+                    isValidating={isConfirming}
+                  />
                 }
               />
             )}

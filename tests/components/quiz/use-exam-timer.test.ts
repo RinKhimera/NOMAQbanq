@@ -129,22 +129,6 @@ describe("useExamTimer", () => {
     // 40 s écoulées − 20 s de pause = 20 s consommées sur 60.
     expect(result.current.remainingMs).toBe(40_000)
   })
-
-  it("expose la zone d'alerte de l'horloge", () => {
-    const start = Date.now()
-    const { result } = renderHook(() =>
-      useExamTimer({
-        serverStartTime: start,
-        initialNow: start,
-        totalSeconds: 4 * 60,
-        isPaused: false,
-        totalPauseDurationMs: 0,
-        onExpire: vi.fn(),
-      }),
-    )
-    expect(result.current.isRunningOut).toBe(true)
-    expect(result.current.isCritical).toBe(true)
-  })
 })
 
 describe("useExamTimer — horloge cliente fausse", () => {

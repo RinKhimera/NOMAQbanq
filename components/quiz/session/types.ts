@@ -1,6 +1,7 @@
+import type { QuizMode } from "@/components/quiz/runner/types"
 import type { TimeZone } from "@/lib/attempt-clock"
 
-export type SessionKind = "training" | "exam"
+export type SessionKind = QuizMode["kind"]
 
 export type SessionHeaderProps = {
   /** Titre de la série ou de l'examen : le `h1` de la page de passation. */

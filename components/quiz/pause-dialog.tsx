@@ -108,7 +108,7 @@ export const PauseDialog = ({
           role="timer"
           aria-label="Temps de pause restant"
           className={cn(
-            "font-mono text-[40px] tabular-nums transition-colors duration-(--duration-base)",
+            "font-mono text-[40px] tabular-nums",
             pauseTimeRemaining < MINUTE_MS ? "text-warning-ink" : "text-ink",
           )}
         >

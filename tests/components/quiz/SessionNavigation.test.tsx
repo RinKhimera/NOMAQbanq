@@ -2,23 +2,24 @@ import { fireEvent, render, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import { SessionNavigation } from "@/components/quiz/session/session-navigation"
 
-const renderAt = (currentIndex: number, children?: React.ReactNode) => {
+type Extra = { onValidate?: () => void; isValidating?: boolean }
+
+const renderAt = (currentIndex: number, extra: Extra = {}) => {
   const handlers = {
     onPrevious: vi.fn(),
     onNext: vi.fn(),
     onFinish: vi.fn(),
   }
-  render(
+  const view = render(
     <SessionNavigation
       currentIndex={currentIndex}
       totalQuestions={3}
       finishLabel="Terminer la série"
       {...handlers}
-    >
-      {children}
-    </SessionNavigation>,
+      {...extra}
+    />,
   )
-  return handlers
+  return { ...handlers, ...view }
 }
 
 describe("SessionNavigation", () => {
@@ -48,10 +49,34 @@ describe("SessionNavigation", () => {
     expect(onFinish).toHaveBeenCalledOnce()
   })
 
-  it("intercale l'action fournie avant l'action primaire", () => {
-    renderAt(0, <button type="button">Valider ma réponse</button>)
+  it("choix en attente (tuteur) : le même bouton valide, puis redevient « Suivante »", () => {
+    const onValidate = vi.fn()
+    const { onNext, rerender } = renderAt(0, { onValidate })
 
-    const buttons = screen.getAllByRole("button").map((b) => b.textContent)
-    expect(buttons).toEqual(["Précédente", "Valider ma réponse", "Suivante"])
+    const primary = screen.getByTestId("btn-validate-answer")
+    expect(primary).toHaveTextContent("Valider ma réponse")
+    expect(screen.queryByTestId("btn-next")).not.toBeInTheDocument()
+    fireEvent.click(primary)
+    expect(onValidate).toHaveBeenCalledOnce()
+    expect(onNext).not.toHaveBeenCalled()
+
+    rerender(
+      <SessionNavigation
+        currentIndex={0}
+        totalQuestions={3}
+        finishLabel="Terminer la série"
+        onPrevious={vi.fn()}
+        onNext={onNext}
+        onFinish={vi.fn()}
+      />,
+    )
+    // Même nœud DOM : le focus clavier le suit.
+    expect(screen.getByTestId("btn-next")).toBe(primary)
+  })
+
+  it("pendant la validation, l'action primaire est verrouillée", () => {
+    renderAt(0, { onValidate: vi.fn(), isValidating: true })
+
+    expect(screen.getByTestId("btn-validate-answer")).toBeDisabled()
   })
 })

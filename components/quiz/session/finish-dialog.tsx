@@ -2,7 +2,27 @@
 
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { cn } from "@/lib/utils"
-import type { FinishDialogProps } from "./types"
+import type { FinishDialogProps, SessionKind } from "./types"
+
+const COPY: Record<
+  SessionKind,
+  Record<"title" | "description" | "confirm" | "pending" | "cancel", string>
+> = {
+  exam: {
+    title: "Soumettre l'examen ?",
+    description: "Une fois soumis, vous ne pourrez plus modifier vos réponses.",
+    confirm: "Soumettre",
+    pending: "Soumission…",
+    cancel: "Revenir à l'examen",
+  },
+  training: {
+    title: "Terminer la série ?",
+    description: "Vous pourrez revoir chaque question et son explication.",
+    confirm: "Voir les résultats",
+    pending: "Calcul du score…",
+    cancel: "Continuer",
+  },
+}
 
 /** Récapitulatif avant la soumission d'un examen ou la fin d'une série. */
 export const FinishDialog = ({
@@ -16,7 +36,7 @@ export const FinishDialog = ({
   kind,
 }: FinishDialogProps) => {
   const unanswered = totalQuestions - answeredCount
-  const exam = kind === "exam"
+  const copy = COPY[kind]
   const cells = [
     { label: "Répondues", value: answeredCount },
     { label: "Sans réponse", value: unanswered, alert: unanswered > 0 },
@@ -27,15 +47,11 @@ export const FinishDialog = ({
     <ConfirmDialog
       open={isOpen}
       onOpenChange={onOpenChange}
-      title={exam ? "Soumettre l'examen ?" : "Terminer la série ?"}
-      description={
-        exam
-          ? "Une fois soumis, vous ne pourrez plus modifier vos réponses."
-          : "Vous pourrez revoir chaque question et son explication."
-      }
-      confirmLabel={exam ? "Soumettre" : "Voir les résultats"}
-      pendingLabel={exam ? "Soumission…" : "Calcul du score…"}
-      cancelLabel={exam ? "Revenir à l'examen" : "Continuer"}
+      title={copy.title}
+      description={copy.description}
+      confirmLabel={copy.confirm}
+      pendingLabel={copy.pending}
+      cancelLabel={copy.cancel}
       isPending={isSubmitting}
       // La page redirige au succès ; un échec laisse le dialogue ouvert,
       // pour réessayer.

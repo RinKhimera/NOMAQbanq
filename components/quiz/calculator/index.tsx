@@ -51,7 +51,7 @@ const Key = ({
     onClick={onClick}
     aria-label={label}
     className={cn(
-      "focus-ring flex h-12 cursor-pointer items-center justify-center font-mono text-base font-medium transition-colors duration-(--duration-fast) select-none focus-visible:relative focus-visible:z-10",
+      "focus-ring flex h-12 cursor-pointer items-center justify-center font-mono text-base font-medium transition-[background-color,border-color] duration-(--duration-fast) select-none focus-visible:relative focus-visible:z-10",
       tone === "digit" && "bg-surface text-ink hover:bg-surface-2",
       tone === "function" && "bg-surface-2 text-ink hover:bg-line",
       tone === "operator" &&

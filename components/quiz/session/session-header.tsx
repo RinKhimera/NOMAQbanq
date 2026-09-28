@@ -4,13 +4,14 @@ import { Pause, Timer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { TimeZone } from "@/lib/attempt-clock"
+import { TONE_SOFT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import type { SessionHeaderProps } from "./types"
 
 const TIMER: Record<TimeZone, string> = {
   normal: "border-line-strong text-ink",
-  warning: "border-warning-line bg-warning-soft text-warning-ink",
-  critical: "border-danger bg-danger-soft text-danger-ink",
+  warning: TONE_SOFT.warning,
+  critical: cn(TONE_SOFT.danger, "border-danger"),
 }
 
 /**
@@ -81,7 +82,7 @@ export const SessionHeader = ({
             aria-label="Temps restant"
             data-zone={timer.zone}
             className={cn(
-              "inline-flex h-8 items-center gap-2 rounded-md border px-2.5 font-mono text-[15px] font-medium whitespace-nowrap tabular-nums transition-colors duration-(--duration-base)",
+              "inline-flex h-8 items-center gap-2 rounded-md border px-2.5 font-mono text-[15px] font-medium whitespace-nowrap tabular-nums transition-[background-color,border-color] duration-(--duration-base)",
               TIMER[timer.zone],
             )}
           >

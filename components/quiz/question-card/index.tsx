@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SkeletonText } from "@/components/ui/skeleton-patterns"
+import { type AnswerOutcome, classify } from "@/lib/score"
 import { TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { KEY_WITHHELD_MESSAGE } from "../runner/types"
@@ -40,10 +41,8 @@ export {
 }
 export type { ActionConfig, QuestionCardProps } from "./types"
 
-type ReviewStatus = "unanswered" | "withheld" | "correct" | "incorrect"
-
 const REVIEW_STATUS: Record<
-  ReviewStatus,
+  AnswerOutcome,
   { label: string; tone: Tone; Icon: typeof CircleX }
 > = {
   unanswered: { label: "Non répondu", tone: "neutral", Icon: CircleMinus },
@@ -130,14 +129,10 @@ export const QuestionCard = ({
   // Tuteur validé sur une clé retenue : la notice tient lieu de correction.
   const isExamWithheld = isExam && showCorrectAnswer && isKeyWithheld
 
-  const reviewStatus: ReviewStatus =
-    userAnswer == null
-      ? "unanswered"
-      : isKeyWithheld
-        ? "withheld"
-        : isCorrect
-          ? "correct"
-          : "incorrect"
+  const reviewStatus = classify(
+    question,
+    userAnswer == null ? undefined : { selected: userAnswer, isCorrect },
+  )
 
   const stateOf = (option: string): AnswerOptionState => {
     if (isKeyWithheld) {

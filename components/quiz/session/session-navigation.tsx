@@ -1,7 +1,6 @@
 "use client"
 
 import { ArrowLeft, ArrowRight } from "lucide-react"
-import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 
 type SessionNavigationProps = {
@@ -12,14 +11,16 @@ type SessionNavigationProps = {
   onFinish: () => void
   /** « Terminer la série », « Soumettre ». */
   finishLabel: string
-  /** Action intercalée avant « Suivante » (validation en mode tuteur). */
-  children?: ReactNode
+  /** Mode tuteur : un choix attend sa validation. */
+  onValidate?: () => void
+  isValidating?: boolean
 }
 
 /**
  * Pied de la carte en passation : « Précédente » à gauche, action primaire à
- * droite, de largeur minimale fixe pour ne pas bouger d'une question à
- * l'autre, ni quand elle devient la fin de la série.
+ * droite. L'action primaire est UN bouton de largeur minimale fixe, dont le
+ * rôle change (valider le choix en tuteur, question suivante, fin de la
+ * série) : il ne bouge pas, et le focus clavier le suit d'une étape à l'autre.
  */
 export const SessionNavigation = ({
   currentIndex,
@@ -28,14 +29,20 @@ export const SessionNavigation = ({
   onNext,
   onFinish,
   finishLabel,
-  children,
+  onValidate,
+  isValidating = false,
 }: SessionNavigationProps) => {
   const isLast = currentIndex === totalQuestions - 1
+  const primary = onValidate
+    ? { label: "Valider ma réponse", onClick: onValidate, arrow: false }
+    : isLast
+      ? { label: finishLabel, onClick: onFinish, arrow: false }
+      : { label: "Suivante", onClick: onNext, arrow: true }
 
   return (
     <div
       data-testid="session-navigation"
-      className="flex flex-1 flex-wrap items-center justify-between gap-2"
+      className="flex flex-1 items-center justify-between gap-2"
     >
       <Button
         variant="ghost"
@@ -48,20 +55,22 @@ export const SessionNavigation = ({
         <ArrowLeft aria-hidden />
         Précédente
       </Button>
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        {children}
-        {/* Un seul bouton, dont le rôle change à la dernière question : deux
-            boutons distincts perdraient le focus clavier au passage. */}
-        <Button
-          size="sm"
-          onClick={isLast ? onFinish : onNext}
-          data-testid={isLast ? "btn-finish" : "btn-next"}
-          className="min-w-33 max-md:h-11"
-        >
-          {isLast ? finishLabel : "Suivante"}
-          {!isLast && <ArrowRight aria-hidden />}
-        </Button>
-      </div>
+      <Button
+        size="sm"
+        onClick={primary.onClick}
+        disabled={isValidating}
+        data-testid={
+          onValidate
+            ? "btn-validate-answer"
+            : isLast
+              ? "btn-finish"
+              : "btn-next"
+        }
+        className="min-w-38 max-md:h-11"
+      >
+        {primary.label}
+        {primary.arrow && <ArrowRight aria-hidden />}
+      </Button>
     </div>
   )
 }

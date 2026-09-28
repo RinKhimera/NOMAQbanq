@@ -80,11 +80,7 @@ export type UseQuizSessionResult = {
   resume: () => Promise<boolean>
 
   // Timer (only when mode.timer is set)
-  timer: {
-    remainingMs: number
-    isRunningOut: boolean
-    isCritical: boolean
-  } | null
+  timer: { remainingMs: number } | null
 }
 
 /**

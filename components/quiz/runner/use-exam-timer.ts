@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useAnchoredClock } from "@/hooks/use-anchored-clock"
-import { remainingMs as clockRemainingMs, zone } from "@/lib/attempt-clock"
+import { remainingMs as clockRemainingMs } from "@/lib/attempt-clock"
 
 export type UseExamTimerOptions = {
   /**
@@ -32,11 +32,7 @@ export type UseExamTimerOptions = {
   onExpire: () => void
 }
 
-export type UseExamTimerResult = {
-  remainingMs: number
-  isRunningOut: boolean
-  isCritical: boolean
-}
+export type UseExamTimerResult = { remainingMs: number }
 
 export function useExamTimer({
   enabled = true,
@@ -94,10 +90,5 @@ export function useExamTimer({
     return () => clearInterval(id)
   }, [enabled, isPaused, computeRemaining, now])
 
-  const timeZone = zone(remainingMs)
-  return {
-    remainingMs,
-    isRunningOut: timeZone !== "normal",
-    isCritical: timeZone === "critical",
-  }
+  return { remainingMs }
 }
