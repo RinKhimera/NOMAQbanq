@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 export default function AboutCTA() {
   return (
     <div>
-      <div className="bg-card shadow-1 relative overflow-hidden rounded-lg border p-12 text-center shadow-2xl">
+      <div className="bg-card shadow-1 relative overflow-hidden rounded-lg border p-12 text-center">
         <div className="absolute inset-0 bg-linear-to-br from-blue-50 to-indigo-50 opacity-50 dark:from-blue-900/20 dark:to-indigo-900/20"></div>
         <div className="relative z-10 mx-auto max-w-3xl">
           <div className="mb-8 inline-flex items-center rounded-full border border-green-200/50 bg-linear-to-r from-green-100 to-emerald-100 px-6 py-3 text-sm font-semibold text-green-700 dark:border-green-700/50 dark:from-green-900/50 dark:to-emerald-900/50 dark:text-green-300">

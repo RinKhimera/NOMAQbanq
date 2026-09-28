@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress"
 import { Spinner } from "@/components/ui/spinner"
 import { useAnchoredClock } from "@/hooks/use-anchored-clock"
 import { formatPauseTime, pauseRemainingMs } from "@/lib/attempt-clock"
-import { formatScore } from "@/lib/score"
+import { formatPercent } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 interface PauseDialogProps {
@@ -156,7 +156,7 @@ export const PauseDialog = ({
         <div className="space-y-2">
           <div className="text-muted-foreground flex justify-between text-sm">
             <span>Progression de la pause</span>
-            <span>{formatScore(Math.round(progress))}</span>
+            <span>{formatPercent(progress)}</span>
           </div>
           <Progress value={progress} className="h-2" />
         </div>

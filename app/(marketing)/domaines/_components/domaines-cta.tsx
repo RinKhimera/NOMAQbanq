@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 export default function DomainesCTA() {
   return (
     <div>
-      <div className="bg-card shadow-1 rounded-lg border p-12 text-center shadow-xl">
+      <div className="bg-card shadow-1 rounded-lg border p-12 text-center">
         <div className="mx-auto max-w-3xl">
           <h2 className="font-display mb-6 text-3xl font-bold text-gray-900 dark:text-white">
             Prêt à commencer votre évaluation ?

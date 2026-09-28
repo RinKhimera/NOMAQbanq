@@ -10,6 +10,7 @@ import {
   AnimatedStatCardSkeleton,
   AnimatedStatCard as StatCard,
 } from "@/components/admin/animated-stat-card"
+import { formatPercent } from "@/lib/format"
 
 interface QuestionsStatsRowProps {
   stats: {
@@ -51,7 +52,7 @@ export function QuestionsStatsRow({
         value={stats.withImagesCount.toLocaleString("fr-CA")}
         color="blue"
         delay={0.05}
-        subtitle={`${stats.totalCount > 0 ? Math.round((stats.withImagesCount / stats.totalCount) * 100) : 0}% du total`}
+        subtitle={`${formatPercent(stats.totalCount > 0 ? (stats.withImagesCount / stats.totalCount) * 100 : 0)} du total`}
         icon={<IconPhoto className="h-5 w-5" />}
       />
 
@@ -60,7 +61,7 @@ export function QuestionsStatsRow({
         value={stats.withoutImagesCount.toLocaleString("fr-CA")}
         color="slate"
         delay={0.1}
-        subtitle={`${stats.totalCount > 0 ? Math.round((stats.withoutImagesCount / stats.totalCount) * 100) : 0}% du total`}
+        subtitle={`${formatPercent(stats.totalCount > 0 ? (stats.withoutImagesCount / stats.totalCount) * 100 : 0)} du total`}
         icon={<IconPhotoOff className="h-5 w-5" />}
       />
 

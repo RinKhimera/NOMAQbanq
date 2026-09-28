@@ -29,11 +29,7 @@ export default function ConnexionPage() {
               <h1 className="font-display text-4xl leading-tight font-semibold tracking-tight text-gray-900 md:text-5xl dark:text-white">
                 Bon retour !
                 <span className="text-accent-ink block">Continuez votre</span>
-                {/* pb : le line-height serré (0.95) + background-clip:text rognent
-                    les jambages (p, g) du dégradé — on rend la zone de peinture. */}
-                <span className="text-accent-ink block pb-[0.2em]">
-                  apprentissage.
-                </span>
+                <span className="text-accent-ink block">apprentissage.</span>
               </h1>
 
               <p className="max-w-lg text-lg leading-relaxed text-gray-600 dark:text-gray-300">

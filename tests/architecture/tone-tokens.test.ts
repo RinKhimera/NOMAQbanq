@@ -14,7 +14,7 @@ const TONES: Tone[] = [
 
 // Verrou d'architecture, pas un test de composant : il ne vérifie aucun rendu,
 // seulement que la table des tonalités nomme des jetons. Un test de composant
-// ne cite jamais une classe CSS (règle de #235).
+// ne cite jamais une classe CSS.
 // Une classe utilitaire de couleur est « sémantique » si elle nomme un jeton
 // de DESIGN.md (`success`, `ink`, `line`…), jamais une teinte de palette brute
 // (`emerald-600`, `gray-400`) : c'est ce qui la fait suivre le thème sombre et

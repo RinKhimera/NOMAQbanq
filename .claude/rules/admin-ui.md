@@ -27,7 +27,7 @@ de la question. Un nouvel usage fournit son pied, il ne recopie pas le contenu.
 
 Pattern `users-stats-row.tsx` et `exams-stats-row.tsx`: cartes KPI avec icone, valeur, trend %, subtitle.
 
-- Couleurs: emerald, blue, amber, teal, slate
+- Couleurs : jetons sémantiques et tonalités de `lib/tone.ts` (voir `design-system.md`), jamais la palette brute
 - Toujours reserver l'espace subtitle pour hauteur uniforme
 
 ## Filtres avances
