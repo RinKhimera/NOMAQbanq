@@ -12,6 +12,19 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useMounted } from "@/hooks/use-mounted"
 
+// 32 px dans une barre à partir de 1024 px ; cibles tactiles de 44 px sous
+// 768 px, déclencheur et entrées du menu.
+const TRIGGER_SIZE = "size-11 md:size-10 lg:size-8"
+const ITEM_SIZE = "max-md:min-h-11"
+
+/** Icône selon la classe `.dark` : ni thème ni montage lus au rendu. */
+const ThemeIcon = () => (
+  <>
+    <Sun aria-hidden className="dark:hidden" />
+    <Moon aria-hidden className="hidden dark:block" />
+  </>
+)
+
 export default function ThemeToggle() {
   const { setTheme } = useTheme()
   const [open, setOpen] = useState(false)
@@ -28,8 +41,8 @@ export default function ThemeToggle() {
   // Rendu d'un placeholder pendant le SSR pour éviter le mismatch d'hydratation
   if (!mounted) {
     return (
-      <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl">
-        <Sun className="h-5 w-5" />
+      <Button variant="ghost" size="icon" className={TRIGGER_SIZE}>
+        <ThemeIcon />
         <span className="sr-only">Changer le thème</span>
       </Button>
     )
@@ -38,35 +51,31 @@ export default function ThemeToggle() {
   return (
     <DropdownMenu modal={false} open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl">
-          <Sun className="h-5 w-5 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-          <Moon className="absolute h-5 w-5 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
+        <Button variant="ghost" size="icon" className={TRIGGER_SIZE}>
+          <ThemeIcon />
           <span className="sr-only">Changer le thème</span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="bg-card border border-gray-200 dark:border-gray-700"
-      >
+      <DropdownMenuContent align="end">
         <DropdownMenuItem
+          className={ITEM_SIZE}
           onClick={() => setTheme("light")}
-          className="cursor-pointer"
         >
-          <Sun className="mr-2 h-4 w-4" />
+          <Sun aria-hidden />
           <span>Clair</span>
         </DropdownMenuItem>
         <DropdownMenuItem
+          className={ITEM_SIZE}
           onClick={() => setTheme("dark")}
-          className="cursor-pointer"
         >
-          <Moon className="mr-2 h-4 w-4" />
+          <Moon aria-hidden />
           <span>Sombre</span>
         </DropdownMenuItem>
         <DropdownMenuItem
+          className={ITEM_SIZE}
           onClick={() => setTheme("system")}
-          className="cursor-pointer"
         >
-          <Monitor className="mr-2 h-4 w-4" />
+          <Monitor aria-hidden />
           <span>Système</span>
         </DropdownMenuItem>
       </DropdownMenuContent>

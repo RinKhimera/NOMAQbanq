@@ -1,133 +1,83 @@
-"use client"
-
-import {
-  IconBrandFacebook,
-  IconBrandInstagram,
-  IconBrandLinkedin,
-  IconBrandX,
-} from "@tabler/icons-react"
-import { Mail, MapPin, Phone, Stethoscope } from "lucide-react"
 import Link from "next/link"
+import { Logo } from "@/components/shared/logo"
 import { FOOTER_LEGAL_LINKS, FOOTER_QUICK_LINKS } from "@/constants"
 import { getAppZoneYear } from "@/lib/app-zone"
+import { cn } from "@/lib/utils"
 
-// Constante module-level pour éviter new Date() à chaque render (pureté React 19).
-// Année ancrée sur le fuseau de la plateforme : `getFullYear()` sur l'heure du
-// runtime fait diverger serveur (UTC) et client le 31 décembre au soir.
+// Au scope du module : pas d'horloge dans le rendu (`react-hooks/purity`).
+// Année du fuseau de la plateforme, pas de celui du runtime (UTC en prod).
 const CURRENT_YEAR = getAppZoneYear(Date.now())
+
+// Cible tactile de 44 px sous 768 px.
+const linkClass =
+  "focus-ring text-ink-2 hover:text-ink inline-flex w-fit items-center rounded-md text-sm transition-colors duration-(--duration-base) max-md:min-h-11"
+
+const columnLabel =
+  "text-ink-3 font-mono text-xs font-medium tracking-[0.06em] uppercase"
 
 export default function Footer() {
   return (
-    <footer className="bg-gray-900 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-12 md:grid-cols-4">
-          {/* Logo and description */}
-          <div className="col-span-1 md:col-span-2">
-            <Link href="/" className="mb-8 flex items-center space-x-3">
-              <div className="rounded-2xl bg-linear-to-br from-blue-600 to-indigo-600 p-3 shadow-lg">
-                <Stethoscope className="h-8 w-8 text-white" />
-              </div>
-              <span className="font-display text-2xl font-bold">NOMAQbanq</span>
+    <footer className="border-line border-t">
+      <div className="mx-auto max-w-6xl px-4 pt-14 pb-8 sm:px-6">
+        <div className="grid grid-cols-1 gap-10 md:grid-cols-[2fr_1fr_1.4fr] md:gap-12">
+          <div className="flex flex-col gap-2">
+            <Link
+              href="/"
+              className="focus-ring flex w-fit items-center rounded-md max-md:min-h-11"
+            >
+              <Logo />
             </Link>
-            <p className="mb-8 max-w-md text-base leading-relaxed text-gray-300">
+            <p className="text-ink-3 max-w-90 text-sm leading-relaxed">
               La première plateforme francophone de préparation à l&apos;EACMC
-              Partie I. Votre succès commence ici.
+              Partie&nbsp;I.
             </p>
-            <div className="flex space-x-4">
-              {[
-                IconBrandFacebook,
-                IconBrandX,
-                IconBrandLinkedin,
-                IconBrandInstagram,
-              ].map((Icon, index) => (
-                <a
-                  key={index}
-                  href="#"
-                  className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-800 transition-all duration-300 hover:scale-110 hover:bg-linear-to-br hover:from-blue-600 hover:to-indigo-600"
-                >
-                  <Icon className="h-6 w-6" />
-                </a>
-              ))}
-            </div>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h3 className="font-display mb-8 text-lg font-semibold">
-              Liens rapides
-            </h3>
-            <ul className="space-y-4">
-              {FOOTER_QUICK_LINKS.map((link) => (
-                <li key={link.name}>
-                  <Link
-                    href={link.href}
-                    className="text-gray-300 underline-offset-4 transition-colors duration-200 hover:text-blue-400 hover:underline"
-                  >
-                    {link.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <nav
+            aria-label="Liens du site"
+            className="flex flex-col gap-2.5 max-md:gap-0"
+          >
+            <p className={columnLabel}>Liens</p>
+            {FOOTER_QUICK_LINKS.map((link) => (
+              <Link key={link.href} href={link.href} className={linkClass}>
+                {link.name}
+              </Link>
+            ))}
+          </nav>
 
-          {/* Contact */}
-          <div>
-            <h3 className="font-display mb-8 text-lg font-semibold">Contact</h3>
-            <ul className="space-y-6">
-              <li>
-                <a
-                  href="mailto:nomaqbanq@outlook.com"
-                  className="group flex items-center space-x-3 text-gray-300 transition-colors duration-200 hover:text-blue-300 focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 focus-visible:outline-none"
-                  aria-label="Envoyer un courriel à nomaqbanq@outlook.com"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20 transition-colors duration-200 group-hover:bg-blue-600/30">
-                    <Mail className="h-5 w-5 text-blue-400" />
-                  </div>
-                  <span>nomaqbanq@outlook.com</span>
-                </a>
-              </li>
-              <li>
-                <a
-                  href="tel:+14388750746"
-                  className="group flex items-center space-x-3 text-gray-300 transition-colors duration-200 hover:text-blue-300 focus-visible:ring-2 focus-visible:ring-blue-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 focus-visible:outline-none"
-                  aria-label="Composer le +1 438 875-0746"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20 transition-colors duration-200 group-hover:bg-blue-600/30">
-                    <Phone className="h-5 w-5 text-blue-400" />
-                  </div>
-                  <span>+1 (438) 875-0746</span>
-                </a>
-              </li>
-              <li className="flex items-start space-x-3">
-                <div className="mt-1 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600/20">
-                  <MapPin className="h-5 w-5 text-blue-400" />
-                </div>
-                <span className="text-gray-300">
-                  114 rue Isabelle
-                  <br />
-                  Gatineau (Québec) J8Y 5H3, Canada
-                </span>
-              </li>
-            </ul>
+          <div className="flex flex-col gap-2.5 max-md:gap-0">
+            <p className={columnLabel}>Contact</p>
+            <a href="mailto:nomaqbanq@outlook.com" className={linkClass}>
+              nomaqbanq@outlook.com
+            </a>
+            <a
+              href="tel:+14388750746"
+              className={cn(linkClass, "font-mono text-[13px]")}
+            >
+              +1 (438) 875-0746
+            </a>
+            <p className="text-ink-3 text-sm">
+              114 rue Isabelle, Gatineau (Québec) J8Y 5H3
+            </p>
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div className="mt-16 flex flex-col items-center justify-between border-t border-gray-800 pt-8 md:flex-row">
-          <p className="text-sm text-gray-400">
-            © {CURRENT_YEAR} NOMAQbanq. Tous droits réservés.
-          </p>
-          <div className="mt-4 flex space-x-8 md:mt-0">
+        <div className="border-line text-ink-3 mt-12 flex flex-wrap justify-between gap-3 border-t pt-5 text-[13px]">
+          <p>© {CURRENT_YEAR} NOMAQbanq</p>
+          <nav
+            aria-label="Liens légaux"
+            className="flex flex-wrap gap-x-5 max-md:flex-col"
+          >
             {FOOTER_LEGAL_LINKS.map((link) => (
               <Link
-                key={link.name}
+                key={link.href}
                 href={link.href}
-                className="text-sm text-gray-400 underline-offset-4 transition-colors duration-200 hover:text-blue-400 hover:underline"
+                className="focus-ring hover:text-ink inline-flex w-fit items-center rounded-md transition-colors duration-(--duration-base) max-md:min-h-11"
               >
                 {link.name}
               </Link>
             ))}
-          </div>
+          </nav>
         </div>
       </div>
     </footer>

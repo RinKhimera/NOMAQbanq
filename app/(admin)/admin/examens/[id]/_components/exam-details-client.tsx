@@ -14,7 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { sidebarMenuButtonVariants } from "@/components/ui/sidebar"
 import type {
   EligibleCandidate,
   ExamAudienceUser,
@@ -85,7 +84,6 @@ export function ExamDetailsClient({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className={cn(
-                    sidebarMenuButtonVariants({ variant: "link" }),
                     "cursor-pointer focus:hover:bg-red-500/15 focus:hover:text-red-500 dark:focus:hover:bg-red-100 dark:focus:hover:text-red-400",
                   )}
                 >
@@ -94,7 +92,6 @@ export function ExamDetailsClient({
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className={cn(
-                    sidebarMenuButtonVariants({ variant: "link" }),
                     "cursor-pointer focus:hover:bg-green-500/15 focus:hover:text-green-500 dark:focus:hover:bg-green-100 dark:focus:hover:text-green-400",
                   )}
                 >

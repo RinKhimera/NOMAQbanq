@@ -42,7 +42,11 @@ export class DashboardPage extends BasePage {
    * À appeler AVANT `waitForReady`, sinon l'assertion ne prouve plus rien.
    */
   async expectNoBlockingOverlay() {
-    await expect(this.page.locator('[data-sidebar="content"]')).toBeVisible({
+    await expect(
+      this.page.getByRole("navigation", {
+        name: "Navigation de l'espace étudiant",
+      }),
+    ).toBeVisible({
       timeout: 5_000,
     })
     await expect(

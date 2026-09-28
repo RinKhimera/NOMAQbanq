@@ -67,7 +67,7 @@ const SheetContent = React.forwardRef<
       {...props}
     >
       {!hideCloseButton && (
-        <SheetPrimitive.Close className="focus-ring text-ink-3 hover:bg-surface-2 hover:text-ink absolute top-4 right-4 flex size-8 items-center justify-center rounded-md transition-colors disabled:pointer-events-none">
+        <SheetPrimitive.Close className="focus-ring text-ink-3 hover:bg-surface-2 hover:text-ink absolute top-4 right-4 flex size-8 items-center justify-center rounded-md transition-colors disabled:pointer-events-none max-md:top-2.5 max-md:right-2.5 max-md:size-11">
           <X className="h-4 w-4" />
           <span className="sr-only">Fermer</span>
         </SheetPrimitive.Close>
