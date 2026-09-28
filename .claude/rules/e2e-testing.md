@@ -102,9 +102,11 @@ pause repos du header d'examen), `pause-overlay`/`pause-timer`/`btn-resume-exam`
 États : `data-selected="true"`, `data-flagged="true"`. Tout nouveau composant
 interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
 
-- **Sidebar = aucun `<nav>`** : la sidebar shadcn ne rend PAS d'élément `<nav>` →
-  `page.locator("nav")` ne matche rien et **timeout** (30 s). Scoper les liens de
-  navigation via `[data-sidebar="content"]` (puis `getByRole("link", { name })`).
+- **Navigation des coquilles par rôle et nom** :
+  `getByRole("navigation", { name: "Navigation de l'espace étudiant" })` (ou
+  `"Navigation de l'administration"`), puis `getByRole("link", { name })`. Sous
+  1024 px la SideNav est masquée et vit dans le Sheet ouvert par « Ouvrir le
+  menu » ; `page.locator("nav")` seul matche aussi les `<nav>` de la page.
 
 ## Gotchas Playwright (à jour)
 
