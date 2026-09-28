@@ -30,6 +30,7 @@ import type {
   TrainingHistoryItem,
   TrainingHistoryPage,
 } from "@/features/training/dal"
+import { SCORE_TONE_TEXT, type ScoreTone, scoreTone } from "@/lib/score"
 import { cn } from "@/lib/utils"
 import { DeleteAllSessionsDialog } from "./delete-all-sessions-dialog"
 import { DeleteSessionDialog } from "./delete-session-dialog"
@@ -38,22 +39,23 @@ type Session = TrainingHistoryItem
 
 // `null` = score retenu (voir `scoreWithheldFor`) : couleur neutre, la
 // tranche trahirait le score.
-const getScoreColor = (score: number | null) => {
-  if (score === null) return "text-gray-500 dark:text-gray-400"
-  if (score >= 80) return "text-emerald-600 dark:text-emerald-400"
-  if (score >= 60) return "text-amber-600 dark:text-amber-400"
-  return "text-red-600 dark:text-red-400"
+const getScoreColor = (score: number | null) =>
+  score === null
+    ? "text-gray-500 dark:text-gray-400"
+    : SCORE_TONE_TEXT[scoreTone(score)]
+
+const SCORE_BG: Record<ScoreTone, string> = {
+  success:
+    "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800",
+  warning:
+    "bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800",
+  danger: "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800",
 }
 
-const getScoreBg = (score: number | null) => {
-  if (score === null)
-    return "bg-gray-100 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
-  if (score >= 80)
-    return "bg-emerald-100 dark:bg-emerald-900/30 border-emerald-200 dark:border-emerald-800"
-  if (score >= 60)
-    return "bg-amber-100 dark:bg-amber-900/30 border-amber-200 dark:border-amber-800"
-  return "bg-red-100 dark:bg-red-900/30 border-red-200 dark:border-red-800"
-}
+const getScoreBg = (score: number | null) =>
+  score === null
+    ? "bg-gray-100 dark:bg-gray-800/60 border-gray-200 dark:border-gray-700"
+    : SCORE_BG[scoreTone(score)]
 
 export const TrainingHistorySection = ({
   initialHistory,
@@ -208,9 +210,10 @@ export const TrainingHistorySection = ({
                         <span className="font-medium text-gray-900 dark:text-white">
                           {session.questionCount} questions
                         </span>
-                        {session.score !== null && session.score >= 80 && (
-                          <Trophy className="h-4 w-4 text-amber-500" />
-                        )}
+                        {session.score !== null &&
+                          scoreTone(session.score) === "success" && (
+                            <Trophy className="h-4 w-4 text-amber-500" />
+                          )}
                       </div>
                       <div className="mt-1 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
                         {session.domain && (

@@ -12,6 +12,7 @@ import { motion } from "motion/react"
 import Link from "next/link"
 import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { Button } from "@/components/ui/button"
+import { PASS_THRESHOLD, isPassing } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 interface Exam {
@@ -90,11 +91,14 @@ const getTrainingAction = (
     }
   }
 
-  if (trainingStats.averageScore !== null && trainingStats.averageScore < 60) {
+  if (
+    trainingStats.averageScore !== null &&
+    !isPassing(trainingStats.averageScore)
+  ) {
     return {
       id: "improve-training",
       title: "Continuez à pratiquer",
-      description: `Score moyen : ${trainingStats.averageScore}% — Visez 60%+`,
+      description: `Score moyen : ${trainingStats.averageScore}% — Visez ${PASS_THRESHOLD}%+`,
       icon: Brain,
       href: "/tableau-de-bord/entrainement",
       priority: "high",
@@ -148,7 +152,7 @@ const getActions = ({
       : null,
 
     // Priority 3: Review if score is low
-    completedExamsCount > 0 && averageScore !== null && averageScore < 60
+    completedExamsCount > 0 && averageScore !== null && !isPassing(averageScore)
       ? {
           id: "review",
           title: "Révisez les domaines faibles",
@@ -164,7 +168,7 @@ const getActions = ({
     getTrainingAction(trainingStats, completedExamsCount),
 
     // Priority 5: Keep going if doing well
-    completedExamsCount > 0 && averageScore !== null && averageScore >= 60
+    completedExamsCount > 0 && averageScore !== null && isPassing(averageScore)
       ? {
           id: "keep-going",
           title: "Maintenez votre niveau",

@@ -2,9 +2,10 @@
 
 import { Clock, Shield, Sparkles } from "lucide-react"
 import { motion } from "motion/react"
+import { ScoreRing } from "@/components/shared/score-ring"
 import { getAppZoneHour } from "@/lib/app-zone"
+import { scoreTone } from "@/lib/score"
 import { cn } from "@/lib/utils"
-import { ProgressRing } from "./progress-ring"
 
 interface AccessStatus {
   examAccess: { expiresAt: number; daysRemaining: number } | null
@@ -37,8 +38,11 @@ const getGreetingValue = (now: number) => {
 const getMotivationalMessage = (score: number | null, hasExams: boolean) => {
   if (!hasExams) return "Commencez votre préparation pour l'EACMC Part I"
   if (score === null) return "Vos résultats arrivent à la clôture de l'examen"
-  if (score >= 80) return "Excellent travail ! Continuez sur cette lancée"
-  if (score >= 60) return "Bonne progression ! Vous êtes sur la bonne voie"
+  const tone = scoreTone(score)
+  if (tone === "success")
+    return "Excellent travail ! Continuez sur cette lancée"
+  if (tone === "warning")
+    return "Bonne progression ! Vous êtes sur la bonne voie"
   if (score >= 40) return "Persévérez, chaque examen vous rapproche du succès"
   return "Chaque erreur est une opportunité d'apprentissage"
 }
@@ -196,11 +200,7 @@ export const DashboardHero = ({
             transition={{ duration: 0.6, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className="flex items-center justify-center"
           >
-            <ProgressRing
-              value={averageScore ?? 0}
-              size={180}
-              strokeWidth={14}
-            />
+            <ScoreRing value={averageScore ?? 0} size={180} strokeWidth={14} />
           </motion.div>
 
           {/* Right - Access Status */}

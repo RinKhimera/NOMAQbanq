@@ -34,7 +34,7 @@ import {
   formatFullDateTime,
   formatPaddedMediumDate,
 } from "@/lib/format"
-import { formatScore } from "@/lib/score"
+import { formatScore, isPassing } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 type ExamVariant = "active" | "upcoming" | "past"
@@ -223,14 +223,14 @@ const ExamCard = ({
                   "flex h-12 w-12 items-center justify-center rounded-full",
                   userResult.score === null
                     ? "bg-gray-100 dark:bg-gray-800/60"
-                    : userResult.score >= 60
+                    : isPassing(userResult.score)
                       ? "bg-emerald-100 dark:bg-emerald-900/30"
                       : "bg-amber-100 dark:bg-amber-900/30",
                 )}
               >
                 {userResult.score === null ? (
                   <Hourglass className="h-6 w-6 text-gray-500 dark:text-gray-400" />
-                ) : userResult.score >= 60 ? (
+                ) : isPassing(userResult.score) ? (
                   <Trophy className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
                 ) : (
                   <Award className="h-6 w-6 text-amber-600 dark:text-amber-400" />
@@ -422,7 +422,7 @@ export function ExamenBlancClient({
         ? []
         : [exam.userParticipation.score],
     )
-    const passedExams = scores.filter((s) => s >= 60).length
+    const passedExams = scores.filter(isPassing).length
     const averageScore =
       scores.length > 0
         ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length)

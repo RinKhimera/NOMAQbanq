@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts"
 import { formatExpiration } from "@/lib/format"
+import { isPassing } from "@/lib/score"
 
 interface TrainingSessionItem {
   sessionId: string
@@ -64,7 +65,7 @@ const AreaChartTooltip = ({
       <div className="mt-2 flex items-center gap-2">
         <div
           className={`h-3 w-3 rounded-full ${
-            item.score >= 60 ? "bg-emerald-500" : "bg-red-500"
+            isPassing(item.score) ? "bg-emerald-500" : "bg-red-500"
           }`}
         />
         <span className="text-lg font-bold text-gray-900 dark:text-white">

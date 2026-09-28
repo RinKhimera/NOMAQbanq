@@ -18,6 +18,27 @@ import type {
 export const computeScorePercent = (correct: number, total: number): number =>
   total > 0 ? Math.floor((200 * correct + total) / (2 * total)) : 0
 
+/** Seuil de réussite d'un examen blanc comme d'une série. */
+export const PASS_THRESHOLD = 60
+const EXCELLENT_THRESHOLD = 80
+
+export type ScoreTone = "success" | "warning" | "danger"
+
+/** Échelle unique des scores : ≥ 80 réussite nette, ≥ 60 réussite juste, sinon échec. */
+export const scoreTone = (score: number): ScoreTone => {
+  if (score >= EXCELLENT_THRESHOLD) return "success"
+  if (score >= PASS_THRESHOLD) return "warning"
+  return "danger"
+}
+
+export const isPassing = (score: number): boolean => score >= PASS_THRESHOLD
+
+export const SCORE_TONE_TEXT: Record<ScoreTone, string> = {
+  success: "text-emerald-600 dark:text-emerald-400",
+  warning: "text-amber-600 dark:text-amber-400",
+  danger: "text-red-600 dark:text-red-400",
+}
+
 /** Score affichable, ou « — » quand il est retenu (`null`, voir `scoreWithheldFor`). */
 export const formatScore = (score: number | null): string =>
   score === null ? "—" : `${score}%`

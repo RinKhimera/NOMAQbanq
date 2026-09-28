@@ -9,6 +9,7 @@ import {
 import { RelativeTime } from "@/components/shared/relative-time"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { SCORE_TONE_TEXT, scoreTone } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 type Activity =
@@ -130,11 +131,7 @@ function ActivityItem({ activity }: { activity: Activity }) {
               <span
                 className={cn(
                   "ml-1 font-semibold",
-                  activity.data.score >= 70
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : activity.data.score >= 50
-                      ? "text-amber-600 dark:text-amber-400"
-                      : "text-rose-600 dark:text-rose-400",
+                  SCORE_TONE_TEXT[scoreTone(activity.data.score)],
                 )}
               >
                 ({activity.data.score}%)

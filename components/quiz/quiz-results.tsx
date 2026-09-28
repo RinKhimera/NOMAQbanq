@@ -7,6 +7,7 @@ import { flushSync } from "react-dom"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { type ScoreTone, scoreTone } from "@/lib/score"
 import { QuestionCard } from "./question-card"
 import QuestionNavigation from "./question-navigation"
 
@@ -16,6 +17,18 @@ interface QuizResultsProps {
   score: number
   timeRemaining: number
   onRestart: () => void
+}
+
+const QUIZ_SCORE_COLOR: Record<ScoreTone, string> = {
+  success: "text-green-600",
+  warning: "text-yellow-600",
+  danger: "text-red-600",
+}
+
+const QUIZ_SCORE_MESSAGE: Record<ScoreTone, string> = {
+  success: "Excellent ! Vous maîtrisez bien le sujet.",
+  warning: "Bien ! Continuez à vous entraîner.",
+  danger: "Vous devez approfondir vos connaissances.",
 }
 
 export default function QuizResults({
@@ -36,19 +49,11 @@ export default function QuizResults({
     return `${mins}:${secs.toString().padStart(2, "0")}`
   }
 
-  const getScoreColor = (score: number, total: number) => {
-    const percentage = (score / total) * 100
-    if (percentage >= 80) return "text-green-600"
-    if (percentage >= 60) return "text-yellow-600"
-    return "text-red-600"
-  }
+  const getScoreColor = (score: number, total: number) =>
+    QUIZ_SCORE_COLOR[scoreTone((score / total) * 100)]
 
-  const getScoreMessage = (score: number, total: number) => {
-    const percentage = (score / total) * 100
-    if (percentage >= 80) return "Excellent ! Vous maîtrisez bien le sujet."
-    if (percentage >= 60) return "Bien ! Continuez à vous entraîner."
-    return "Vous devez approfondir vos connaissances."
-  }
+  const getScoreMessage = (score: number, total: number) =>
+    QUIZ_SCORE_MESSAGE[scoreTone((score / total) * 100)]
 
   const expandAll = () => {
     const allQuestions = new Set(questions.map((_, index) => index + 1))

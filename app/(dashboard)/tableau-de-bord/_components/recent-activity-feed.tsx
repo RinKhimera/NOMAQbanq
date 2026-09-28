@@ -16,7 +16,7 @@ import { RelativeTime } from "@/components/shared/relative-time"
 import { Button } from "@/components/ui/button"
 import type { ExamPercentiles } from "@/features/analytics/dal"
 import { canReadResults } from "@/lib/exam-phase"
-import { formatPercentile, formatScore } from "@/lib/score"
+import { formatPercentile, formatScore, isPassing } from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 interface RecentExam {
@@ -93,7 +93,7 @@ export const RecentActivityFeed = ({
             const scoreTone =
               exam.score === null
                 ? "withheld"
-                : exam.score >= 60
+                : isPassing(exam.score)
                   ? "passing"
                   : "failing"
             const completedDate = exam.completedAt

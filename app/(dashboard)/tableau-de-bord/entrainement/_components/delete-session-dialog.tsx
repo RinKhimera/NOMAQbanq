@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Spinner } from "@/components/ui/spinner"
 import { deleteTrainingSession } from "@/features/training/actions"
-import { formatScore } from "@/lib/score"
+import { SCORE_TONE_TEXT, formatScore, scoreTone } from "@/lib/score"
 
 interface Session {
   id: string
@@ -34,12 +34,10 @@ interface DeleteSessionDialogProps {
   onSuccess?: () => void
 }
 
-const getScoreColor = (score: number | null) => {
-  if (score === null) return "text-gray-500 dark:text-gray-400"
-  if (score >= 80) return "text-emerald-600 dark:text-emerald-400"
-  if (score >= 60) return "text-amber-600 dark:text-amber-400"
-  return "text-red-600 dark:text-red-400"
-}
+const getScoreColor = (score: number | null) =>
+  score === null
+    ? "text-gray-500 dark:text-gray-400"
+    : SCORE_TONE_TEXT[scoreTone(score)]
 
 export const DeleteSessionDialog = ({
   session,

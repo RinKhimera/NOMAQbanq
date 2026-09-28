@@ -29,7 +29,15 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { QuestionExplanationView } from "@/features/exams/dal"
 import { useIsVisible } from "@/hooks/use-is-visible"
-import { classify, formatPercentile, summarize } from "@/lib/score"
+import {
+  SCORE_TONE_TEXT,
+  type ScoreTone,
+  classify,
+  formatPercentile,
+  isPassing,
+  scoreTone,
+  summarize,
+} from "@/lib/score"
 import { cn } from "@/lib/utils"
 
 // ============================================
@@ -61,45 +69,58 @@ export interface SessionResultsProps {
 // Helpers
 // ============================================
 
-const PASS_THRESHOLD = 60
+type Accent = "blue" | "emerald"
 
-const getScoreColor = (score: number, accent: "blue" | "emerald") => {
-  if (score >= 80) {
-    return accent === "emerald"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : "text-green-600 dark:text-green-400"
-  }
-  if (score >= PASS_THRESHOLD) return "text-amber-600 dark:text-amber-400"
-  return "text-red-600 dark:text-red-400"
+const SCORE_STYLE: Record<
+  ScoreTone,
+  Record<Accent, { text: string; bg: string; progress: string; label: string }>
+> = {
+  success: {
+    emerald: {
+      text: SCORE_TONE_TEXT.success,
+      bg: "from-emerald-500/20 to-teal-500/20 dark:from-emerald-500/10 dark:to-teal-500/10",
+      progress: "bg-linear-to-r from-emerald-500 to-teal-500",
+      label: "Excellent !",
+    },
+    blue: {
+      text: "text-green-600 dark:text-green-400",
+      bg: "from-green-500/20 to-emerald-500/20 dark:from-green-500/10 dark:to-emerald-500/10",
+      progress: "bg-linear-to-r from-green-500 to-emerald-500",
+      label: "Réussi",
+    },
+  },
+  warning: {
+    emerald: {
+      text: SCORE_TONE_TEXT.warning,
+      bg: "from-amber-500/20 to-orange-500/20 dark:from-amber-500/10 dark:to-orange-500/10",
+      progress: "bg-linear-to-r from-amber-500 to-orange-500",
+      label: "Bien joué !",
+    },
+    blue: {
+      text: SCORE_TONE_TEXT.warning,
+      bg: "from-amber-500/20 to-orange-500/20 dark:from-amber-500/10 dark:to-orange-500/10",
+      progress: "bg-linear-to-r from-amber-500 to-orange-500",
+      label: "Réussi",
+    },
+  },
+  danger: {
+    emerald: {
+      text: SCORE_TONE_TEXT.danger,
+      bg: "from-red-500/20 to-rose-500/20 dark:from-red-500/10 dark:to-rose-500/10",
+      progress: "bg-linear-to-r from-red-500 to-rose-500",
+      label: "Continuez à pratiquer",
+    },
+    blue: {
+      text: SCORE_TONE_TEXT.danger,
+      bg: "from-red-500/20 to-rose-500/20 dark:from-red-500/10 dark:to-rose-500/10",
+      progress: "bg-linear-to-r from-red-500 to-rose-500",
+      label: "À améliorer",
+    },
+  },
 }
 
-const getScoreBgGradient = (score: number, accent: "blue" | "emerald") => {
-  if (score >= 80) {
-    return accent === "emerald"
-      ? "from-emerald-500/20 to-teal-500/20 dark:from-emerald-500/10 dark:to-teal-500/10"
-      : "from-green-500/20 to-emerald-500/20 dark:from-green-500/10 dark:to-emerald-500/10"
-  }
-  if (score >= PASS_THRESHOLD)
-    return "from-amber-500/20 to-orange-500/20 dark:from-amber-500/10 dark:to-orange-500/10"
-  return "from-red-500/20 to-rose-500/20 dark:from-red-500/10 dark:to-rose-500/10"
-}
-
-const getScoreProgressColor = (score: number, accent: "blue" | "emerald") => {
-  if (score >= 80)
-    return accent === "emerald"
-      ? "bg-linear-to-r from-emerald-500 to-teal-500"
-      : "bg-linear-to-r from-green-500 to-emerald-500"
-  if (score >= PASS_THRESHOLD)
-    return "bg-linear-to-r from-amber-500 to-orange-500"
-  return "bg-linear-to-r from-red-500 to-rose-500"
-}
-
-const getScoreLabel = (score: number, accent: "blue" | "emerald") => {
-  if (score >= 80) return accent === "emerald" ? "Excellent !" : "Réussi"
-  if (score >= PASS_THRESHOLD)
-    return accent === "emerald" ? "Bien joué !" : "Réussi"
-  return accent === "emerald" ? "Continuez à pratiquer" : "À améliorer"
-}
+const scoreStyle = (score: number, accent: Accent) =>
+  SCORE_STYLE[scoreTone(score)][accent]
 
 const KEEP_IN_VIEW_MS = 5000
 const USER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown", "pointerdown"]
@@ -305,7 +326,8 @@ export function SessionResults({
   // Même prédicat que les pages : la parité corps/en-tête est structurelle.
   const scoreWithheld = score === null || summary.scoreWithheld
   const shownScore = score ?? 0
-  const isPassing = shownScore >= PASS_THRESHOLD
+  const passed = isPassing(shownScore)
+  const style = scoreStyle(shownScore, accent)
 
   const accentNavColor = accent
 
@@ -359,7 +381,7 @@ export function SessionResults({
                 // neutralisée avec lui, sinon elle trahit la même information.
                 scoreWithheld
                   ? "from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5"
-                  : getScoreBgGradient(shownScore, accent),
+                  : style.bg,
               )}
             >
               <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
@@ -387,10 +409,7 @@ export function SessionResults({
                           stiffness: 200,
                           damping: 15,
                         }}
-                        className={cn(
-                          "text-6xl font-bold",
-                          getScoreColor(shownScore, accent),
-                        )}
+                        className={cn("text-6xl font-bold", style.text)}
                       >
                         {shownScore}%
                       </motion.span>
@@ -406,12 +425,12 @@ export function SessionResults({
                         data-testid="score-badge"
                         className={cn(
                           "px-4 py-1 text-sm font-semibold",
-                          isPassing
+                          passed
                             ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
                             : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
                         )}
                       >
-                        {getScoreLabel(shownScore, accent)}
+                        {style.label}
                       </Badge>
                     </div>
                   )}
@@ -504,10 +523,7 @@ export function SessionResults({
                       initial={{ width: 0 }}
                       animate={{ width: `${shownScore}%` }}
                       transition={{ duration: 1, ease: "easeOut" }}
-                      className={cn(
-                        "h-full rounded-full",
-                        getScoreProgressColor(shownScore, accent),
-                      )}
+                      className={cn("h-full rounded-full", style.progress)}
                     />
                     {/* 60% marker */}
                     <div
@@ -712,7 +728,7 @@ export function SessionResultsHeader({
   // Réussi/échoué est un bit du score : retenu avec lui.
   let status: ScoreStatus = "failing"
   if (score === null) status = "withheld"
-  else if (score >= PASS_THRESHOLD) status = "passing"
+  else if (isPassing(score)) status = "passing"
   const { gradient, Icon } = SCORE_STATUS_STYLES[status]
   return (
     <div className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80">
