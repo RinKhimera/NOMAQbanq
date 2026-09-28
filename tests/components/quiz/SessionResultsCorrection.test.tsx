@@ -4,11 +4,6 @@ import { describe, expect, it, vi } from "vitest"
 import { SessionResults } from "@/components/quiz/results/session-results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
-
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
@@ -19,14 +14,6 @@ vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
     <img src={src} alt={alt} />
   ),
-}))
-
-vi.mock("@/hooks/use-is-visible", () => ({
-  useIsVisible: () => ({ ref: { current: null }, isVisible: true }),
-}))
-
-vi.mock("@/components/quiz/session/session-toolbar", () => ({
-  SessionToolbar: () => <div data-testid="session-toolbar" />,
 }))
 
 // Page de résultats rendue avec la vraie carte : le libellé de chaque carte doit
@@ -50,7 +37,7 @@ const makeQuestion = (
 const renderResults = (questions: QuizQuestion[], answers: AnswersMap) =>
   render(
     <SessionResults
-      accent="blue"
+      kind="exam"
       score={50}
       questions={questions}
       answers={answers}
@@ -64,7 +51,7 @@ const card = (n: number) => {
 }
 
 const option = (n: number, text: string) =>
-  within(card(n)).getByText(text).closest("div")
+  within(card(n)).getByText(text).closest("[data-testid^='answer-option-']")
 
 describe("correction affichée à l'étudiant", () => {
   it("clé corrigée, verdict enregistré juste : « Correct », mention, clé actuelle surlignée", () => {
@@ -77,7 +64,7 @@ describe("correction affichée à l'étudiant", () => {
     ).toHaveTextContent(
       "La clé de cette question a été corrigée depuis votre réponse",
     )
-    expect(option(1, "Héparine")).toHaveClass("bg-green-100")
+    expect(option(1, "Héparine")).toHaveAttribute("data-state", "correct")
     expect(screen.getByTestId("stat-correct").textContent).toBe("1")
   })
 
@@ -119,7 +106,10 @@ describe("correction affichée à l'étudiant", () => {
     const former = within(card(1)).getByTestId("former-wording-answer")
     expect(former).toHaveTextContent("Votre réponse")
     expect(former).toHaveTextContent("Aspirine")
-    expect(option(1, "Aspirine 100 mg")).toHaveClass("bg-green-100")
+    expect(option(1, "Aspirine 100 mg")).toHaveAttribute(
+      "data-state",
+      "correct",
+    )
   })
 
   it("correction différée inchangée : ni verdict, ni mention", () => {
@@ -146,8 +136,6 @@ describe("correction affichée à l'étudiant", () => {
     )
     const former = within(card(1)).getByTestId("former-wording-answer")
     expect(former).toHaveTextContent("Aspirine")
-    expect(former).toHaveClass("bg-gray-50")
-    expect(former).not.toHaveClass("bg-green-100")
-    expect(former).not.toHaveClass("bg-red-100")
+    expect(former).toHaveAttribute("data-state", "withheld")
   })
 })

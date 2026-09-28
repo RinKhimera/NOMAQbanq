@@ -4,11 +4,6 @@ import { renderToString } from "react-dom/server"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { PauseDialog } from "@/components/quiz/pause-dialog"
 
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
-
 describe("PauseDialog", () => {
   const defaultProps = {
     isOpen: true,
@@ -17,10 +12,12 @@ describe("PauseDialog", () => {
     pauseDurationMinutes: 10,
   }
 
-  it("affiche le titre Pause de repos", () => {
+  it("est un dialogue modal nommé « Examen en pause »", () => {
     render(<PauseDialog {...defaultProps} />)
 
-    expect(screen.getByText("Pause de repos")).toBeInTheDocument()
+    expect(
+      screen.getByRole("dialog", { name: "Examen en pause" }),
+    ).toHaveAttribute("aria-modal", "true")
   })
 
   it("ne rend rien quand isOpen est faux", () => {
@@ -29,20 +26,12 @@ describe("PauseDialog", () => {
     expect(screen.queryByTestId("pause-overlay")).not.toBeInTheDocument()
   })
 
-  it("rend un overlay plein écran bloquant (fixed inset-0)", () => {
-    render(<PauseDialog {...defaultProps} />)
+  it("rappelle le chrono figé de l'examen et la pause unique", () => {
+    render(<PauseDialog {...defaultProps} examTimeLabel="02:14:07" />)
 
-    const overlay = screen.getByTestId("pause-overlay")
-    expect(overlay).toBeInTheDocument()
-    expect(overlay).toHaveClass("fixed", "inset-0", "bg-background")
-    expect(overlay).toHaveAttribute("aria-modal", "true")
-  })
-
-  it("affiche la description de pause", () => {
-    render(<PauseDialog {...defaultProps} />)
-
+    expect(screen.getByText("02:14:07")).toBeInTheDocument()
     expect(
-      screen.getByText(/Prenez une pause bien méritée/),
+      screen.getByText(/C.est votre seule pause pour cet examen/),
     ).toBeInTheDocument()
   })
 
@@ -50,12 +39,6 @@ describe("PauseDialog", () => {
     render(<PauseDialog {...defaultProps} />)
 
     expect(screen.getByTestId("pause-timer")).toBeInTheDocument()
-  })
-
-  it("affiche la barre de progression de la pause", () => {
-    render(<PauseDialog {...defaultProps} />)
-
-    expect(screen.getByText("Progression de la pause")).toBeInTheDocument()
   })
 
   it("n'affiche plus le modèle abandonné de verrouillage par moitié", () => {
@@ -89,15 +72,7 @@ describe("PauseDialog", () => {
 
     const resumeBtn = screen.getByTestId("btn-resume-exam")
     expect(resumeBtn).toBeDisabled()
-    expect(screen.getByText("Reprise en cours...")).toBeInTheDocument()
-  })
-
-  it("affiche les conseils pendant la pause", () => {
-    render(<PauseDialog {...defaultProps} />)
-
-    expect(screen.getByText(/Conseils pendant la pause/)).toBeInTheDocument()
-    expect(screen.getByText(/Étirez-vous/)).toBeInTheDocument()
-    expect(screen.getByText(/Buvez de l'eau/)).toBeInTheDocument()
+    expect(resumeBtn).toHaveTextContent("Reprise en cours…")
   })
 })
 

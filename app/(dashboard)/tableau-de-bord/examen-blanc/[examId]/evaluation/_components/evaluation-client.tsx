@@ -114,15 +114,13 @@ export function EvaluationClient({
   // Mode
   const mode: QuizMode = {
     kind: "exam",
-    accent: "blue",
     timer: serverStartTime
       ? { serverStartTime, totalSeconds: exam.completionTime, initialNow }
       : null,
     pause: exam.enablePause ? "rest" : null,
     feedback: "deferred",
     showMeta: false,
-    labels: { title: exam.title, finishCta: "Terminer l'examen" },
-    backUrl: "/tableau-de-bord/examen-blanc",
+    labels: { title: exam.title },
   }
 
   // Callbacks

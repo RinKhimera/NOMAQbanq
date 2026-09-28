@@ -1,50 +1,46 @@
 "use client"
 
 import {
-  CircleCheckBig,
+  CircleCheck,
+  CircleMinus,
   CircleX,
-  Clock,
   Funnel,
   Hourglass,
   Target,
-  TrendingUp,
   Trophy,
-  User,
 } from "lucide-react"
-import { AnimatePresence, motion } from "motion/react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { flushSync } from "react-dom"
 import { toast } from "sonner"
+import { correctionCells } from "@/components/quiz/navigator/cells"
+import {
+  NavigatorPanel,
+  NavigatorSheet,
+} from "@/components/quiz/navigator/question-navigator"
 import { QuestionCard } from "@/components/quiz/question-card"
-import { ResultsQuestionNavigator } from "@/components/quiz/results"
 import {
   type AnswersMap,
   KEY_WITHHELD_MESSAGE,
   type QuizQuestion,
   SCORE_WITHHELD_MESSAGE,
 } from "@/components/quiz/runner/types"
-import { SessionToolbar } from "@/components/quiz/session/session-toolbar"
+import { StatusPill } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import type { QuestionExplanationView } from "@/features/exams/dal"
-import { useIsVisible } from "@/hooks/use-is-visible"
 import {
   PASS_THRESHOLD,
-  SCORE_TONE_TEXT,
   type ScoreTone,
   classify,
   formatPercentile,
   formatScore,
   isPassing,
+  scoreTextClass,
   scoreTone,
   summarize,
 } from "@/lib/score"
+import { TONE_COLOR, TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
-
-// ============================================
-// Types
-// ============================================
 
 export interface SessionResultsParticipant {
   name: string
@@ -53,7 +49,7 @@ export interface SessionResultsParticipant {
 }
 
 export interface SessionResultsProps {
-  accent: "blue" | "emerald"
+  kind: "training" | "exam"
   /**
    * Score enregistré en base, ou `null` quand la page le retient : un score
    * retenu ne doit pas transiter dans le payload client, même caché.
@@ -67,62 +63,14 @@ export interface SessionResultsProps {
   participant?: SessionResultsParticipant
 }
 
-// ============================================
-// Helpers
-// ============================================
-
-type Accent = "blue" | "emerald"
-
-const SCORE_STYLE: Record<
-  ScoreTone,
-  Record<Accent, { text: string; bg: string; progress: string; label: string }>
-> = {
-  success: {
-    emerald: {
-      text: SCORE_TONE_TEXT.success,
-      bg: "from-emerald-500/20 to-teal-500/20 dark:from-emerald-500/10 dark:to-teal-500/10",
-      progress: "bg-linear-to-r from-emerald-500 to-teal-500",
-      label: "Excellent !",
-    },
-    blue: {
-      text: SCORE_TONE_TEXT.success,
-      bg: "from-green-500/20 to-emerald-500/20 dark:from-green-500/10 dark:to-emerald-500/10",
-      progress: "bg-linear-to-r from-green-500 to-emerald-500",
-      label: "Réussi",
-    },
+const SCORE_LABEL: Record<"training" | "exam", Record<ScoreTone, string>> = {
+  training: {
+    success: "Excellent !",
+    warning: "Bien joué !",
+    danger: "Continuez à pratiquer",
   },
-  warning: {
-    emerald: {
-      text: SCORE_TONE_TEXT.warning,
-      bg: "from-amber-500/20 to-orange-500/20 dark:from-amber-500/10 dark:to-orange-500/10",
-      progress: "bg-linear-to-r from-amber-500 to-orange-500",
-      label: "Bien joué !",
-    },
-    blue: {
-      text: SCORE_TONE_TEXT.warning,
-      bg: "from-amber-500/20 to-orange-500/20 dark:from-amber-500/10 dark:to-orange-500/10",
-      progress: "bg-linear-to-r from-amber-500 to-orange-500",
-      label: "Réussi",
-    },
-  },
-  danger: {
-    emerald: {
-      text: SCORE_TONE_TEXT.danger,
-      bg: "from-red-500/20 to-rose-500/20 dark:from-red-500/10 dark:to-rose-500/10",
-      progress: "bg-linear-to-r from-red-500 to-rose-500",
-      label: "Continuez à pratiquer",
-    },
-    blue: {
-      text: SCORE_TONE_TEXT.danger,
-      bg: "from-red-500/20 to-rose-500/20 dark:from-red-500/10 dark:to-rose-500/10",
-      progress: "bg-linear-to-r from-red-500 to-rose-500",
-      label: "À améliorer",
-    },
-  },
+  exam: { success: "Réussi", warning: "Réussi", danger: "À améliorer" },
 }
-
-const scoreStyle = (score: number, accent: Accent) =>
-  SCORE_STYLE[scoreTone(score)][accent]
 
 const KEEP_IN_VIEW_MS = 5000
 const USER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown", "pointerdown"]
@@ -131,8 +79,7 @@ const USER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown", "pointerdown"]
  * Garde `target` en haut de l'écran tant que la liste change de taille (une
  * explication chargée au-dessus la pousserait hors de l'écran), jusqu'au
  * premier geste de l'utilisateur. L'ancrage natif du défilement ne suffit pas :
- * absent de Safari, et suspendu par les transforms des animations Motion.
- * Renvoie la fonction d'arrêt.
+ * il est absent de Safari. Renvoie la fonction d'arrêt.
  */
 function keepInView(target: HTMLElement, list: HTMLElement): () => void {
   const anchoredTop = target.getBoundingClientRect().top
@@ -156,34 +103,52 @@ function keepInView(target: HTMLElement, list: HTMLElement): () => void {
   return stop
 }
 
-// ============================================
-// Component
-// ============================================
+type StatProps = {
+  testId: string
+  value: number
+  label: string
+  tone: Tone
+  Icon: typeof CircleX
+  title?: string
+}
+
+const Stat = ({ testId, value, label, tone, Icon, title }: StatProps) => (
+  <div className="bg-surface flex flex-col gap-1 px-4 py-3" title={title}>
+    <span className="flex items-center gap-2">
+      <Icon aria-hidden className={cn("size-4", TONE_TEXT[tone])} />
+      <span
+        data-testid={testId}
+        className="text-ink font-mono text-xl tabular-nums"
+      >
+        {value}
+      </span>
+    </span>
+    <span className="text-ink-3 text-xs">{label}</span>
+  </div>
+)
 
 /**
- * Unified results view — used by exam (student + admin) and training results.
+ * Résultats d'une tentative — examen (étudiant et admin) et série.
  *
  * Sparse-answer compat: treats BOTH "no key in answers" AND "entry with
  * no/empty selected" as "non répondu" — une participation dont seules les
  * questions répondues ont une ligne `examAnswers` doit rendre correctement.
  */
 export function SessionResults({
-  accent,
+  kind,
   score,
   questions,
   answers,
   loadExplanations,
   participant,
 }: SessionResultsProps) {
-  const { ref: desktopNavRef, isVisible: isDesktopNavVisible } = useIsVisible()
-
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(
     new Set([0]),
   )
   const [showErrorsOnly, setShowErrorsOnly] = useState(false)
 
-  // Lazy-load explanations: only load newly-expanded questions.
-  // explanationsMap: questionId -> { explanation, references, explanationImages }
+  // Explications chargées à la demande : seules les questions nouvellement
+  // dépliées partent au serveur.
   const [explanationsMap, setExplanationsMap] = useState<
     Map<
       string,
@@ -252,9 +217,6 @@ export function SessionResults({
         const outcome = classify(q, answers[q._id])
         return {
           question: q,
-          isAnswered: outcome !== "unanswered",
-          isWithheld: outcome === "withheld",
-          isCorrect: outcome === "correct",
           isError: outcome === "incorrect" || outcome === "unanswered",
           userAnswer: outcome === "unanswered" ? null : answers[q._id].selected,
           userVerdict:
@@ -268,15 +230,9 @@ export function SessionResults({
     () => summarize(questions, answers),
     [questions, answers],
   )
-
-  const navigatorResults = useMemo(
-    () =>
-      questionResults.map((r) => ({
-        isCorrect: r.isCorrect,
-        isAnswered: r.isAnswered,
-        isWithheld: r.isWithheld,
-      })),
-    [questionResults],
+  const cells = useMemo(
+    () => correctionCells(questions, answers),
+    [questions, answers],
   )
 
   const resultIndexMap = useMemo(
@@ -319,6 +275,7 @@ export function SessionResults({
       // Saut instantané : un défilement doux fige sa destination au départ,
       // qu'une explication chargée au-dessus en cours de route rend fausse.
       target.scrollIntoView({ behavior: "instant", block: "start" })
+      target.focus({ preventScroll: true })
       stopKeepInView.current?.()
       stopKeepInView.current = keepInView(target, list)
     },
@@ -328,368 +285,217 @@ export function SessionResults({
   // Même prédicat que les pages : la parité corps/en-tête est structurelle.
   const scoreWithheld = score === null || summary.scoreWithheld
   const shownScore = score ?? 0
-  const passed = isPassing(shownScore)
-  const style = scoreStyle(shownScore, accent)
+  const tone = scoreTone(shownScore)
+  const errorCount = summary.incorrect + summary.unanswered
 
-  const accentNavColor = accent
+  const navigator = {
+    cells,
+    columns: questions.length > 20 ? 8 : 5,
+    kind: "correction",
+    onSelect: scrollToQuestion,
+  } as const
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
-      {/* Main content */}
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
-          {/* Left column */}
-          <div className="space-y-8">
-            {/* Participant card (admin view) */}
-            {participant && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-4 rounded-2xl border border-gray-200/80 bg-white p-4 shadow-lg dark:border-gray-700/50 dark:bg-gray-800"
-              >
-                <UserAvatar
-                  name={participant.name}
-                  image={participant.image}
-                  className="h-14 w-14"
-                  fallbackClassName="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-gray-400" />
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Résultats de {participant.name}
-                    </h2>
-                  </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {participant.email}
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+    <div className="flex items-start gap-6">
+      <div className="flex min-w-0 flex-1 flex-col gap-5">
+        {participant && (
+          <div className="bg-surface border-line flex items-center gap-4 rounded-lg border p-4">
+            <UserAvatar
+              name={participant.name}
+              image={participant.image}
+              className="size-12"
+            />
+            <div className="min-w-0 flex-1">
+              <h2 className="text-ink truncate text-base font-semibold">
+                Résultats de {participant.name}
+              </h2>
+              <p className="text-ink-3 truncate text-sm">{participant.email}</p>
+            </div>
+            <StatusPill tone="neutral">Participant</StatusPill>
+          </div>
+        )}
+
+        <section className="bg-surface border-line shadow-1 rounded-lg border p-5 sm:p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-col gap-2">
+              {scoreWithheld ? (
+                <span
+                  data-testid="score-withheld"
+                  title={KEY_WITHHELD_MESSAGE}
+                  className="text-warning-ink flex items-center gap-2 text-lg font-semibold"
                 >
-                  Participant
-                </Badge>
-              </motion.div>
-            )}
-
-            {/* Score card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={cn(
-                "rounded-2xl border border-gray-200/80 bg-linear-to-br p-6 shadow-lg dark:border-gray-700/50",
-                // La couleur de la carte suit la tranche du score : elle est
-                // neutralisée avec lui, sinon elle trahit la même information.
-                scoreWithheld
-                  ? "from-amber-500/10 to-orange-500/10 dark:from-amber-500/5 dark:to-orange-500/5"
-                  : style.bg,
+                  <Hourglass className="size-5 shrink-0" aria-hidden />
+                  {SCORE_WITHHELD_MESSAGE}
+                </span>
+              ) : (
+                <span
+                  data-testid="score-percentage"
+                  className={cn(
+                    "font-serif text-5xl font-semibold tabular-nums",
+                    scoreTextClass(shownScore),
+                  )}
+                >
+                  {formatScore(shownScore)}
+                </span>
               )}
-            >
-              <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
-                {/* Score */}
-                <div className="text-center md:text-left">
-                  <div className="mb-2 flex items-center justify-center gap-3 md:justify-start">
-                    {scoreWithheld ? (
-                      <motion.span
-                        data-testid="score-withheld"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        title={KEY_WITHHELD_MESSAGE}
-                        className="flex items-center gap-2 text-xl font-semibold text-amber-700 dark:text-amber-300"
-                      >
-                        <Hourglass className="h-5 w-5 shrink-0" aria-hidden />
-                        {SCORE_WITHHELD_MESSAGE}
-                      </motion.span>
-                    ) : (
-                      <motion.span
-                        data-testid="score-percentage"
-                        initial={{ scale: 0.5, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{
-                          type: "spring",
-                          stiffness: 200,
-                          damping: 15,
-                        }}
-                        className={cn("text-6xl font-bold", style.text)}
-                      >
-                        {formatScore(shownScore)}
-                      </motion.span>
-                    )}
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {summary.correct} sur {questions.length - summary.withheld}{" "}
-                    questions réussies
-                  </p>
-                  {!scoreWithheld && (
-                    <div className="mt-3">
-                      <Badge
-                        data-testid="score-badge"
-                        className={cn(
-                          "px-4 py-1 text-sm font-semibold",
-                          passed
-                            ? "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300"
-                            : "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300",
-                        )}
-                      >
-                        {style.label}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-
-                {/* Stats */}
-                <div className="flex gap-4 md:gap-6">
-                  <div className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60">
-                    <div className="flex items-center gap-2">
-                      <CircleCheckBig className="h-5 w-5 text-green-500" />
-                      <span
-                        data-testid="stat-correct"
-                        className="text-2xl font-bold text-green-600 dark:text-green-400"
-                      >
-                        {summary.correct}
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      Correctes
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60">
-                    <div className="flex items-center gap-2">
-                      <CircleX className="h-5 w-5 text-red-500" />
-                      <span
-                        data-testid="stat-incorrect"
-                        className="text-2xl font-bold text-red-600 dark:text-red-400"
-                      >
-                        {summary.incorrect}
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      Incorrectes
-                    </span>
-                  </div>
-
-                  {summary.withheld > 0 && (
-                    <div
-                      className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60"
-                      title={KEY_WITHHELD_MESSAGE}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Hourglass className="h-5 w-5 text-amber-500" />
-                        <span
-                          data-testid="stat-withheld"
-                          className="text-2xl font-bold text-amber-600 dark:text-amber-400"
-                        >
-                          {summary.withheld}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Différées
-                      </span>
-                    </div>
-                  )}
-
-                  {summary.unanswered > 0 && (
-                    <div className="flex flex-col items-center rounded-xl bg-white/60 px-4 py-3 dark:bg-gray-800/60">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-gray-500" />
-                        <span
-                          data-testid="stat-unanswered"
-                          className="text-2xl font-bold text-gray-600 dark:text-gray-400"
-                        >
-                          {summary.unanswered}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        Sans réponse
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Progress bar : sa largeur EST le score, retenue avec lui. */}
+              <p className="text-ink-2 text-sm">
+                {summary.correct} sur {questions.length - summary.withheld}{" "}
+                questions réussies
+              </p>
               {!scoreWithheld && (
-                <div data-testid="score-progress" className="mt-6">
-                  <div className="mb-2 flex items-center justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Progression
-                    </span>
-                    <span className="font-medium text-gray-700 dark:text-gray-300">
-                      Seuil de réussite : {PASS_THRESHOLD}%
-                    </span>
-                  </div>
-                  <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${shownScore}%` }}
-                      transition={{ duration: 1, ease: "easeOut" }}
-                      className={cn("h-full rounded-full", style.progress)}
-                    />
-                    <div
-                      className="absolute top-0 h-full w-0.5 bg-gray-900/30 dark:bg-white/30"
-                      style={{ left: `${PASS_THRESHOLD}%` }}
-                    />
-                  </div>
-                </div>
+                <StatusPill
+                  data-testid="score-badge"
+                  tone={isPassing(shownScore) ? "success" : "warning"}
+                >
+                  {SCORE_LABEL[kind][tone]}
+                </StatusPill>
               )}
-            </motion.div>
-
-            {/* Filter & Actions */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Button
-                  data-testid="btn-filter-errors"
-                  variant={showErrorsOnly ? "default" : "outline"}
-                  onClick={() => setShowErrorsOnly(!showErrorsOnly)}
-                  className="flex items-center gap-2"
-                  size="sm"
-                >
-                  <Funnel className="h-4 w-4" />
-                  {showErrorsOnly
-                    ? "Voir toutes"
-                    : `Erreurs (${summary.incorrect + summary.unanswered})`}
-                  {showErrorsOnly && (
-                    <Badge
-                      variant="secondary"
-                      className="ml-1 bg-white/20 text-white"
-                    >
-                      {summary.incorrect + summary.unanswered}
-                    </Badge>
-                  )}
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  data-testid="btn-expand-all"
-                  variant="outline"
-                  size="sm"
-                  onClick={expandAll}
-                >
-                  Tout déplier
-                </Button>
-                <Button
-                  data-testid="btn-collapse-all"
-                  variant="outline"
-                  size="sm"
-                  onClick={collapseAll}
-                >
-                  Tout replier
-                </Button>
-              </div>
             </div>
 
-            {/* Questions list */}
-            <div ref={questionListRef} className="space-y-4">
-              <AnimatePresence mode="popLayout">
-                {filteredResults.map((result, index) => {
-                  const originalIndex = resultIndexMap.get(result) ?? index
-                  const expl = explanationsMap.get(result.question._id)
+            <div className="bg-line border-line grid grid-cols-2 gap-px overflow-hidden rounded-md border sm:flex">
+              <Stat
+                testId="stat-correct"
+                value={summary.correct}
+                label="Correctes"
+                tone="success"
+                Icon={CircleCheck}
+              />
+              <Stat
+                testId="stat-incorrect"
+                value={summary.incorrect}
+                label="Incorrectes"
+                tone="danger"
+                Icon={CircleX}
+              />
+              {summary.withheld > 0 && (
+                <Stat
+                  testId="stat-withheld"
+                  value={summary.withheld}
+                  label="Différées"
+                  tone="warning"
+                  Icon={Hourglass}
+                  title={KEY_WITHHELD_MESSAGE}
+                />
+              )}
+              {summary.unanswered > 0 && (
+                <Stat
+                  testId="stat-unanswered"
+                  value={summary.unanswered}
+                  label="Sans réponse"
+                  tone="neutral"
+                  Icon={CircleMinus}
+                />
+              )}
+            </div>
+          </div>
 
-                  // For questions that already have embedded explanation (training),
-                  // use them directly; otherwise use lazy-loaded ones.
-                  const lazyExplanation =
+          {/* Barre de score : sa largeur EST le score, retenue avec lui. */}
+          {!scoreWithheld && (
+            <div data-testid="score-progress" className="mt-6">
+              <div className="text-ink-3 mb-2 flex items-center justify-between text-xs">
+                <span>Progression</span>
+                <span>Seuil de réussite : {formatScore(PASS_THRESHOLD)}</span>
+              </div>
+              <div className="bg-surface-2 relative h-2 w-full overflow-hidden rounded-full">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${shownScore}%`,
+                    background: TONE_COLOR[tone],
+                  }}
+                />
+                <div
+                  className="bg-ink-3 absolute top-0 h-full w-0.5"
+                  style={{ left: `${PASS_THRESHOLD}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </section>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            data-testid="btn-filter-errors"
+            variant={showErrorsOnly ? "default" : "outline"}
+            onClick={() => setShowErrorsOnly(!showErrorsOnly)}
+            aria-pressed={showErrorsOnly}
+            size="sm"
+            className="max-md:h-11"
+          >
+            <Funnel aria-hidden />
+            {showErrorsOnly ? "Voir toutes" : `Erreurs (${errorCount})`}
+          </Button>
+          <NavigatorSheet
+            {...navigator}
+            handsOffFocus
+            triggerClassName="lg:hidden"
+          />
+          <div className="ml-auto flex items-center gap-2">
+            <Button
+              data-testid="btn-expand-all"
+              variant="ghost"
+              size="sm"
+              onClick={expandAll}
+              className="max-md:h-11"
+            >
+              Tout déplier
+            </Button>
+            <Button
+              data-testid="btn-collapse-all"
+              variant="ghost"
+              size="sm"
+              onClick={collapseAll}
+              className="max-md:h-11"
+            >
+              Tout replier
+            </Button>
+          </div>
+        </div>
+
+        <div ref={questionListRef} className="flex flex-col gap-4">
+          {filteredResults.map((result, index) => {
+            const originalIndex = resultIndexMap.get(result) ?? index
+            const expl = explanationsMap.get(result.question._id)
+
+            return (
+              <div
+                key={result.question._id}
+                id={`sr-question-${originalIndex}`}
+                tabIndex={-1}
+                className="scroll-mt-[calc(var(--shell-offset,0px)+6rem)] rounded-lg outline-none"
+              >
+                <QuestionCard
+                  variant="review"
+                  question={result.question}
+                  lazyExplanation={
                     expl?.explanation ?? result.question.explanation
-                  const lazyReferences =
+                  }
+                  lazyReferences={
                     expl?.references ?? result.question.references
-                  const lazyExplanationImages =
+                  }
+                  lazyExplanationImages={
                     expl?.explanationImages ??
                     result.question.explanationImages ??
                     []
-
-                  return (
-                    <motion.div
-                      key={result.question._id}
-                      id={`sr-question-${originalIndex}`}
-                      className="scroll-mt-28"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      // Délai plafonné : une carte lointaine doit être visible
-                      // dès qu'on y navigue (≈ 11 s sur une correction de 230
-                      // questions sans plafond).
-                      transition={{ delay: Math.min(index, 10) * 0.05 }}
-                    >
-                      <QuestionCard
-                        variant="review"
-                        question={result.question}
-                        lazyExplanation={lazyExplanation}
-                        lazyReferences={lazyReferences}
-                        lazyExplanationImages={lazyExplanationImages}
-                        questionNumber={originalIndex + 1}
-                        userAnswer={result.userAnswer}
-                        userVerdict={result.userVerdict}
-                        isExpanded={expandedQuestions.has(originalIndex)}
-                        onToggleExpand={() =>
-                          toggleQuestionExpand(originalIndex)
-                        }
-                      />
-                    </motion.div>
-                  )
-                })}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Right column - Navigation (desktop) */}
-          <div className="hidden lg:block">
-            <div ref={desktopNavRef} className="h-1" />
-            <div className="sticky top-24 space-y-4">
-              <ResultsQuestionNavigator
-                questionResults={navigatorResults}
-                onNavigateToQuestion={scrollToQuestion}
-                variant="desktop"
-                accentColor={accentNavColor}
-                showTips={!participant}
-              />
-
-              {participant && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 }}
-                  className="rounded-xl border border-purple-200 bg-purple-50 p-4 dark:border-purple-800 dark:bg-purple-900/20"
-                >
-                  <div className="mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                    <span className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                      Vue administrateur
-                    </span>
-                  </div>
-                  <p className="text-xs leading-relaxed text-purple-800 dark:text-purple-200">
-                    Vous consultez les résultats de{" "}
-                    {participant.name || "ce participant"}. Utilisez cette vue
-                    pour analyser les performances.
-                  </p>
-                </motion.div>
-              )}
-            </div>
-          </div>
+                  }
+                  questionNumber={originalIndex + 1}
+                  userAnswer={result.userAnswer}
+                  userVerdict={result.userVerdict}
+                  isExpanded={expandedQuestions.has(originalIndex)}
+                  onToggleExpand={() => toggleQuestionExpand(originalIndex)}
+                />
+              </div>
+            )
+          })}
         </div>
       </div>
 
-      {/* Floating toolbar */}
-      <SessionToolbar
-        showScrollTop={true}
-        showNavFab={!isDesktopNavVisible}
-        navFab={
-          <ResultsQuestionNavigator
-            questionResults={navigatorResults}
-            onNavigateToQuestion={scrollToQuestion}
-            variant="mobile"
-            accentColor={accentNavColor}
-          />
-        }
-      />
+      <aside className="bg-surface border-line sticky top-[calc(var(--shell-offset,0px)+6rem)] hidden w-75 shrink-0 rounded-lg border p-5 lg:block">
+        <NavigatorPanel {...navigator} title="Navigation" />
+      </aside>
     </div>
   )
 }
-
-// ============================================
-// Header (exported separately — used by pages)
-// ============================================
 
 interface SessionResultsHeaderProps {
   title: string
@@ -707,15 +513,16 @@ interface SessionResultsHeaderProps {
 
 type ScoreStatus = "passing" | "failing" | "withheld"
 
-const SCORE_STATUS_STYLES: Record<
+const SCORE_STATUS: Record<
   ScoreStatus,
-  { gradient: string; Icon: typeof Trophy }
+  { tone: Tone; Icon: typeof Trophy; label: string }
 > = {
-  passing: { gradient: "from-green-500 to-emerald-600", Icon: Trophy },
-  failing: { gradient: "from-amber-500 to-orange-600", Icon: Target },
-  withheld: { gradient: "from-slate-400 to-slate-500", Icon: Hourglass },
+  passing: { tone: "success", Icon: Trophy, label: "Réussi" },
+  failing: { tone: "warning", Icon: Target, label: "Non réussi" },
+  withheld: { tone: "neutral", Icon: Hourglass, label: "Score retenu" },
 }
 
+/** En-tête des résultats, collant sous les barres de la coquille. */
 export function SessionResultsHeader({
   title,
   subtitle,
@@ -730,54 +537,47 @@ export function SessionResultsHeader({
   let status: ScoreStatus = "failing"
   if (score === null) status = "withheld"
   else if (isPassing(score)) status = "passing"
-  const { gradient, Icon } = SCORE_STATUS_STYLES[status]
-  return (
-    <div className="sticky top-0 z-50 border-b border-gray-200/80 bg-white/80 backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/80">
-      <div className="mx-auto max-w-6xl px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <motion.div
-              data-testid="score-status"
-              data-status={status}
-              title={status === "withheld" ? KEY_WITHHELD_MESSAGE : undefined}
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className={cn(
-                "flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-lg",
-                gradient,
-              )}
-            >
-              <Icon className="h-6 w-6 text-white" />
-            </motion.div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                {title}
-              </h1>
-              {subtitle && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {subtitle}
-                </p>
-              )}
-              {percentile != null && (
-                <p
-                  data-testid="exam-percentile"
-                  className="text-sm font-medium text-blue-600 dark:text-blue-400"
-                >
-                  {formatPercentile(percentile, percentileSubject)}
-                </p>
-              )}
-            </div>
-          </div>
+  const { tone, Icon, label } = SCORE_STATUS[status]
 
-          <div className="flex items-center gap-3">
-            <Button variant="outline" asChild>
-              <a href={backHref} className="flex items-center gap-2">
-                {backIcon}
-                <span className="hidden sm:inline">{backLabel}</span>
-              </a>
-            </Button>
+  return (
+    <div className="bg-background border-line sticky top-(--shell-offset,0px) z-10 -mx-4 -mt-6 border-b px-4 py-4 sm:-mx-6 sm:px-6 md:-mt-8">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            data-testid="score-status"
+            data-status={status}
+            title={status === "withheld" ? KEY_WITHHELD_MESSAGE : label}
+            className={cn("shrink-0", TONE_TEXT[tone])}
+          >
+            <Icon aria-hidden className="size-6" />
+            <span className="sr-only">{label}</span>
+          </span>
+          <div className="min-w-0">
+            <h1 className="text-ink truncate font-serif text-2xl font-semibold">
+              {title}
+            </h1>
+            {subtitle && <p className="text-ink-3 text-sm">{subtitle}</p>}
+            {percentile != null && (
+              <p
+                data-testid="exam-percentile"
+                className="text-accent-ink text-sm font-medium"
+              >
+                {formatPercentile(percentile, percentileSubject)}
+              </p>
+            )}
           </div>
         </div>
+
+        <Button
+          variant="outline"
+          asChild
+          className="max-md:h-11 max-sm:w-11 max-sm:px-0"
+        >
+          <a href={backHref}>
+            {backIcon}
+            <span className="max-sm:sr-only">{backLabel}</span>
+          </a>
+        </Button>
       </div>
     </div>
   )

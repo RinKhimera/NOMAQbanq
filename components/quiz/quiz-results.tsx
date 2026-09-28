@@ -4,7 +4,9 @@ import { Eye, EyeOff, RotateCcw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { flushSync } from "react-dom"
-import type { QuizQuestion } from "@/components/quiz/runner/types"
+import { correctionCells } from "@/components/quiz/navigator/cells"
+import { NavigatorSheet } from "@/components/quiz/navigator/question-navigator"
+import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatMinutesSeconds } from "@/lib/attempt-clock"
@@ -15,7 +17,6 @@ import {
   scoreTone,
 } from "@/lib/score"
 import { QuestionCard } from "./question-card"
-import QuestionNavigation from "./question-navigation"
 
 interface QuizResultsProps {
   questions: QuizQuestion[]
@@ -71,10 +72,23 @@ export default function QuizResults({
     flushSync(() => {
       setExpandedQuestions((prev) => new Set(prev).add(questionNumber))
     })
-    document
-      .getElementById(`question-${questionNumber}`)
-      ?.scrollIntoView({ behavior: "instant", block: "start" })
+    const card = document.getElementById(`question-${questionNumber}`)
+    if (!card) return
+    card.scrollIntoView({ behavior: "instant", block: "start" })
+    card.tabIndex = -1
+    card.focus({ preventScroll: true })
   }
+
+  const answers: AnswersMap = {}
+  questions.forEach((question, index) => {
+    const selected = userAnswers[index]
+    if (selected !== null) {
+      answers[question._id] = {
+        selected,
+        isCorrect: selected === question.correctAnswer,
+      }
+    }
+  })
 
   const totalQuestions = questions.length
   const percentage = computeScorePercent(score, totalQuestions)
@@ -143,7 +157,14 @@ export default function QuizResults({
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             Révision détaillée
           </h2>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap gap-3">
+            <NavigatorSheet
+              cells={correctionCells(questions, answers)}
+              columns={5}
+              kind="correction"
+              handsOffFocus
+              onSelect={(index) => navigateToQuestion(index + 1)}
+            />
             <Button
               variant="outline"
               onClick={expandAll}
@@ -186,15 +207,6 @@ export default function QuizResults({
             />
           ))}
         </div>
-
-        {/* Navigation flottante */}
-        <QuestionNavigation
-          questions={questions}
-          userAnswers={userAnswers}
-          onExpandAll={expandAll}
-          onCollapseAll={collapseAll}
-          onNavigateToQuestion={navigateToQuestion}
-        />
       </div>
     </div>
   )

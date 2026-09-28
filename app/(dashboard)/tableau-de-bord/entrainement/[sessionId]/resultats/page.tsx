@@ -55,7 +55,7 @@ export default async function TrainingResultsPage({
         backIcon={<ArrowLeft className="h-4 w-4" />}
       />
       <SessionResults
-        accent="emerald"
+        kind="training"
         score={score}
         questions={questions}
         answers={answers}

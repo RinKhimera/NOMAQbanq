@@ -1,12 +1,7 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
 import QuizResults from "@/components/quiz/quiz-results"
 import { createMockQuestionDoc } from "../../helpers/mocks"
-
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../../helpers/motion-mock")
-  return motionMockFactory
-})
 
 vi.mock("next/image", () => ({
   default: ({ src, alt }: { src: string; alt: string }) => (
@@ -24,26 +19,6 @@ vi.mock("next/navigation", () => ({
     forward: vi.fn(),
     prefetch: vi.fn(),
   }),
-}))
-
-vi.mock("@/components/quiz/question-navigation", () => ({
-  default: ({
-    questions,
-    onNavigateToQuestion,
-  }: {
-    questions: unknown[]
-    onNavigateToQuestion: (questionNumber: number) => void
-  }) => (
-    <div>
-      {questions.map((_, i) => (
-        <button
-          key={i}
-          data-testid={`nav-${i + 1}`}
-          onClick={() => onNavigateToQuestion(i + 1)}
-        />
-      ))}
-    </div>
-  ),
 }))
 
 describe("QuizResults", () => {
@@ -159,7 +134,7 @@ describe("QuizResults", () => {
     expect(screen.getByText("Quiz Terminé !")).toBeInTheDocument()
   })
 
-  it("naviguer vers une question l'ouvre puis y défile", () => {
+  it("naviguer vers une question depuis le Sheet l'ouvre puis y défile", async () => {
     const scrollIntoView = vi.fn<Element["scrollIntoView"]>()
     const original = Element.prototype.scrollIntoView
     Element.prototype.scrollIntoView = scrollIntoView
@@ -169,11 +144,18 @@ describe("QuizResults", () => {
         screen.queryByRole("button", { name: "Réduire la question" }),
       ).not.toBeInTheDocument()
 
-      fireEvent.click(screen.getByTestId("nav-2"))
+      fireEvent.click(screen.getByRole("button", { name: "Questions" }))
+      fireEvent.click(screen.getByTestId("results-nav-item-1"))
 
-      expect(
-        screen.getAllByRole("button", { name: "Réduire la question" }),
-      ).toHaveLength(1)
+      await waitFor(() =>
+        expect(
+          screen.getAllByRole("button", { name: "Réduire la question" }),
+        ).toHaveLength(1),
+      )
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+      // Le focus suit la question visée, au lieu de revenir au déclencheur
+      // (qui ramènerait la page en haut) ou de se perdre sur <body>.
+      expect(document.activeElement?.id).toBe("question-2")
       expect(
         scrollIntoView.mock.contexts.map((el) => (el as Element).id),
       ).toEqual(["question-2"])

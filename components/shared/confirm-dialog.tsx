@@ -13,6 +13,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { buttonVariants } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 
@@ -21,6 +22,7 @@ type ConfirmDialogProps = {
   description?: ReactNode
   children?: ReactNode
   confirmLabel: ReactNode
+  cancelLabel?: ReactNode
   pendingLabel?: ReactNode
   variant?: "default" | "destructive"
   icon?: LucideIcon
@@ -43,6 +45,7 @@ export const ConfirmDialog = ({
   description,
   children,
   confirmLabel,
+  cancelLabel = "Annuler",
   pendingLabel,
   variant = "default",
   icon: Icon,
@@ -84,7 +87,7 @@ export const ConfirmDialog = ({
   return (
     <AlertDialog open={isOpen} onOpenChange={setOpen}>
       {trigger && <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>}
-      <AlertDialogContent className="max-w-md rounded-2xl">
+      <AlertDialogContent className="max-w-md">
         <AlertDialogHeader>
           {Icon && (
             <div
@@ -118,17 +121,16 @@ export const ConfirmDialog = ({
         {children}
 
         <AlertDialogFooter className="mt-2 gap-3 sm:gap-3">
-          <AlertDialogCancel disabled={pending} className="flex-1 rounded-xl">
-            Annuler
+          <AlertDialogCancel disabled={pending} className="flex-1">
+            {cancelLabel}
           </AlertDialogCancel>
           <AlertDialogAction
             data-testid={confirmTestId}
             onClick={handleConfirm}
             disabled={pending || confirmDisabled}
             className={cn(
-              "flex-1 rounded-xl",
-              destructive &&
-                "bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700",
+              "flex-1",
+              destructive && buttonVariants({ variant: "destructive" }),
             )}
           >
             {pending ? (

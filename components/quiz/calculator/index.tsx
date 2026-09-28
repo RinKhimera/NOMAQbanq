@@ -1,93 +1,94 @@
 "use client"
 
-import { Delete, Divide, Equal, Minus, Plus, X } from "lucide-react"
-import { motion } from "motion/react"
-import { useCallback, useEffect } from "react"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+import { Delete, X } from "lucide-react"
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+  useEffect,
+  useId,
+  useRef,
+} from "react"
 import { useCalculator } from "@/hooks/useCalculator"
 import { cn } from "@/lib/utils"
-import { CalculatorOperation } from "./types"
+import type { CalculatorOperation } from "./types"
+
+type Operator = Exclude<CalculatorOperation, null>
+
+const OPERATOR_SYMBOL: Record<Operator, string> = {
+  "/": "÷",
+  "*": "×",
+  "-": "−",
+  "+": "+",
+}
+
+const OPERATOR_LABEL: Record<Operator, string> = {
+  "/": "Division",
+  "*": "Multiplication",
+  "-": "Soustraction",
+  "+": "Addition",
+}
+
+type KeyProps = {
+  children: ReactNode
+  onClick: () => void
+  tone?: "digit" | "function" | "operator" | "equals"
+  active?: boolean
+  label?: string
+  className?: string
+}
+
+const Key = ({
+  children,
+  onClick,
+  tone = "digit",
+  active = false,
+  label,
+  className,
+}: KeyProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    className={cn(
+      "focus-ring flex h-12 cursor-pointer items-center justify-center font-mono text-base font-medium transition-colors duration-(--duration-fast) select-none focus-visible:relative focus-visible:z-10",
+      tone === "digit" && "bg-surface text-ink hover:bg-surface-2",
+      tone === "function" && "bg-surface-2 text-ink hover:bg-line",
+      tone === "operator" &&
+        (active
+          ? "bg-accent-soft text-accent-ink"
+          : "bg-surface-2 text-accent-ink hover:bg-line"),
+      tone === "equals" &&
+        "bg-accent text-accent-foreground hover:bg-accent-hover",
+      className,
+    )}
+  >
+    {children}
+  </button>
+)
 
 type CalculatorProps = {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
+  /** Reçoit le focus à la fermeture (bouton qui a ouvert la calculatrice). */
+  returnFocusRef?: RefObject<HTMLElement | null>
 }
 
-type ButtonVariant = "number" | "operator" | "action" | "equals"
-
-const CalcButton = ({
-  children,
-  onClick,
-  variant = "number",
-  className,
-  ariaLabel,
-}: {
-  children: React.ReactNode
-  onClick: () => void
-  variant?: ButtonVariant
-  className?: string
-  ariaLabel?: string
-}) => {
-  const baseStyles =
-    "relative flex items-center justify-center rounded-xl font-medium transition-all duration-150 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/50 cursor-pointer select-none"
-
-  const variantStyles: Record<ButtonVariant, string> = {
-    number: cn(
-      "bg-slate-800/80 text-slate-100 text-xl",
-      "hover:bg-slate-700/90 hover:text-white",
-      "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05),0_2px_4px_rgba(0,0,0,0.3)]",
-      "dark:bg-slate-800/80 dark:hover:bg-slate-700/90",
-    ),
-    operator: cn(
-      "bg-linear-to-b from-amber-500/90 to-amber-600/90 text-white text-lg",
-      "hover:from-amber-400/90 hover:to-amber-500/90",
-      "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_2px_8px_rgba(245,158,11,0.3)]",
-    ),
-    action: cn(
-      "bg-slate-700/60 text-slate-300 text-base font-semibold",
-      "hover:bg-slate-600/70 hover:text-slate-100",
-      "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.03),0_2px_4px_rgba(0,0,0,0.2)]",
-    ),
-    equals: cn(
-      "bg-linear-to-b from-cyan-500 to-teal-600 text-white text-lg",
-      "hover:from-cyan-400 hover:to-teal-500",
-      "shadow-[inset_0_1px_0_0_rgba(255,255,255,0.2),0_2px_12px_rgba(6,182,212,0.4)]",
-    ),
-  }
-
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      className={cn(baseStyles, variantStyles[variant], "h-14", className)}
-      whileTap={{ scale: 0.95 }}
-      aria-label={ariaLabel}
-    >
-      {children}
-    </motion.button>
-  )
-}
-
-const OperatorIcon = ({ op }: { op: string }) => {
-  const iconClass = "h-5 w-5"
-  switch (op) {
-    case "+":
-      return <Plus className={iconClass} />
-    case "-":
-      return <Minus className={iconClass} />
-    case "*":
-      return <X className={iconClass} />
-    case "/":
-      return <Divide className={iconClass} />
-    default:
-      return null
-  }
-}
-
-export const Calculator = ({ isOpen, onOpenChange }: CalculatorProps) => {
+/**
+ * Calculatrice d'examen, en panneau flottant non modal : la question reste
+ * lisible et cliquable pendant le calcul. Le clavier ne la pilote que lorsque
+ * le focus est dans le panneau.
+ */
+export const Calculator = ({
+  isOpen,
+  onOpenChange,
+  returnFocusRef,
+}: CalculatorProps) => {
   const {
     display,
+    previousValue,
     operation,
+    shouldResetDisplay,
     inputNumber,
     inputOperator,
     calculate,
@@ -95,223 +96,132 @@ export const Calculator = ({ isOpen, onOpenChange }: CalculatorProps) => {
     inputDecimal,
     backspace,
   } = useCalculator()
-
-  const hasError = display === "Erreur"
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (!isOpen) return
-
-      if (
-        /^[0-9+\-*/.=]$/.test(e.key) ||
-        ["Enter", "Escape", "Backspace", "Delete", "c", "C"].includes(e.key)
-      ) {
-        e.preventDefault()
-      }
-
-      if (/^[0-9]$/.test(e.key)) {
-        inputNumber(e.key)
-      } else if (["+", "-", "*", "/"].includes(e.key)) {
-        inputOperator(e.key as Exclude<CalculatorOperation, null>)
-      } else if (e.key === "Enter" || e.key === "=") {
-        calculate()
-      } else if (e.key === "Escape") {
-        onOpenChange(false)
-      } else if (e.key === "Backspace" || e.key === "Delete") {
-        backspace()
-      } else if (e.key === "." || e.key === ",") {
-        inputDecimal()
-      } else if (e.key.toLowerCase() === "c") {
-        clear()
-      }
-    },
-    [
-      isOpen,
-      inputNumber,
-      inputOperator,
-      calculate,
-      onOpenChange,
-      backspace,
-      inputDecimal,
-      clear,
-    ],
-  )
+  const panelRef = useRef<HTMLDivElement>(null)
+  const titleId = useId()
 
   useEffect(() => {
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [handleKeyDown])
+    if (isOpen) panelRef.current?.focus()
+  }, [isOpen])
 
-  const handleNumber = useCallback(
-    (value: string) => () => inputNumber(value),
-    [inputNumber],
+  if (!isOpen) return null
+
+  const close = () => {
+    onOpenChange(false)
+    returnFocusRef?.current?.focus()
+  }
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const { key } = e
+    let handled = true
+    if (/^[0-9]$/.test(key)) inputNumber(key)
+    else if (key in OPERATOR_SYMBOL) inputOperator(key as Operator)
+    else if (key === "Enter" || key === "=") calculate()
+    else if (key === "Backspace" || key === "Delete") backspace()
+    else if (key === "." || key === ",") inputDecimal()
+    else if (key === "c" || key === "C") clear()
+    else if (key === "Escape") close()
+    else handled = false
+    // Entrée sur un bouton du panneau : on calcule, sans « cliquer » la touche.
+    if (handled) e.preventDefault()
+  }
+
+  const operator = (op: Operator) => (
+    <Key
+      tone="operator"
+      active={operation === op && shouldResetDisplay}
+      label={OPERATOR_LABEL[op]}
+      onClick={() => inputOperator(op)}
+    >
+      {OPERATOR_SYMBOL[op]}
+    </Key>
   )
-
-  const handleOperator = useCallback(
-    (op: Exclude<CalculatorOperation, null>) => () => inputOperator(op),
-    [inputOperator],
+  const digit = (n: string, className?: string) => (
+    <Key onClick={() => inputNumber(n)} className={className}>
+      {n}
+    </Key>
   )
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent
-        className={cn(
-          "max-w-[320px] overflow-hidden rounded-2xl border-0 p-0",
-          "bg-linear-to-b from-slate-900 via-slate-900 to-slate-950",
-          "shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_20px_50px_-12px_rgba(0,0,0,0.8)]",
-        )}
-        aria-describedby="calculator-description"
-        showCloseButton={false}
-      >
-        <DialogTitle className="sr-only">Calculatrice</DialogTitle>
-        <p id="calculator-description" className="sr-only">
-          Calculatrice avec opérations de base. Utilisez le clavier ou les
-          boutons pour effectuer des calculs.
-        </p>
+    <div
+      ref={panelRef}
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby={titleId}
+      tabIndex={-1}
+      onKeyDown={handleKeyDown}
+      className="bg-surface shadow-pop fixed right-4 bottom-4 z-30 w-70 overflow-hidden rounded-lg outline-none"
+    >
+      <div className="border-line flex items-center border-b py-1.5 pr-1.5 pl-3">
+        <span
+          id={titleId}
+          className="text-ink-3 flex-1 font-mono text-[11px] font-medium tracking-[0.06em] uppercase"
+        >
+          Calculatrice
+        </span>
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Fermer la calculatrice"
+          className="focus-ring text-ink-3 hover:bg-surface-2 hover:text-ink grid size-8 cursor-pointer place-items-center rounded-sm max-md:size-11"
+        >
+          <X className="size-3.5" aria-hidden />
+        </button>
+      </div>
 
-        {/* Display Section */}
-        <div className="relative px-5 pt-6 pb-4">
-          {/* Subtle grid pattern background */}
-          <div
-            className="pointer-events-none absolute inset-0 opacity-[0.02]"
-            style={{
-              backgroundImage: `radial-gradient(circle at 1px 1px, white 1px, transparent 0)`,
-              backgroundSize: "24px 24px",
-            }}
-          />
-
-          {/* Operation indicator */}
-          <div className="mb-1 flex h-6 items-center justify-end">
-            {operation && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex items-center gap-1.5 text-amber-400/80"
-              >
-                <OperatorIcon op={operation} />
-              </motion.div>
-            )}
-          </div>
-
-          {/* Main display */}
-          <motion.div
-            className={cn(
-              "relative overflow-hidden rounded-xl px-4 py-3",
-              "bg-slate-950/80",
-              "shadow-[inset_0_2px_4px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.03)]",
-            )}
-          >
-            <motion.div
-              key={display}
-              initial={{ opacity: 0.8, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.1 }}
-              className={cn(
-                "text-right font-mono text-4xl font-light tracking-tight",
-                hasError
-                  ? "text-rose-400"
-                  : "bg-linear-to-r from-slate-100 to-white bg-clip-text text-transparent",
-              )}
-              style={{ fontFeatureSettings: '"tnum"' }}
-            >
-              {display}
-            </motion.div>
-
-            {/* Subtle shine effect */}
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/10 to-transparent" />
-          </motion.div>
+      <div className="bg-surface-2 border-line border-b px-3.5 pt-3.5 pb-2.5 text-right">
+        <div className="text-ink-3 h-4 font-mono text-xs">
+          {previousValue !== null && operation
+            ? `${previousValue} ${OPERATOR_SYMBOL[operation]}`
+            : ""}
         </div>
+        <output
+          aria-live="polite"
+          className={cn(
+            "block truncate font-mono text-[28px] font-medium tabular-nums",
+            display === "Erreur" ? "text-danger-ink" : "text-ink",
+          )}
+        >
+          {display}
+        </output>
+      </div>
 
-        {/* Button Grid */}
-        <div className="relative p-4 pt-0">
-          {/* Separator line */}
-          <div className="absolute inset-x-4 top-0 h-px bg-linear-to-r from-transparent via-slate-700/50 to-transparent" />
-
-          <div className="grid grid-cols-4 gap-2.5 pt-4">
-            {/* Row 1 */}
-            <CalcButton
-              onClick={clear}
-              variant="action"
-              className="col-span-2"
-              ariaLabel="Effacer tout"
-            >
-              AC
-            </CalcButton>
-            <CalcButton
-              onClick={backspace}
-              variant="action"
-              ariaLabel="Supprimer le dernier chiffre"
-            >
-              <Delete className="h-5 w-5" />
-            </CalcButton>
-            <CalcButton
-              onClick={handleOperator("/")}
-              variant="operator"
-              ariaLabel="Division"
-            >
-              <Divide className="h-5 w-5" />
-            </CalcButton>
-
-            {/* Row 2 */}
-            <CalcButton onClick={handleNumber("7")}>7</CalcButton>
-            <CalcButton onClick={handleNumber("8")}>8</CalcButton>
-            <CalcButton onClick={handleNumber("9")}>9</CalcButton>
-            <CalcButton
-              onClick={handleOperator("*")}
-              variant="operator"
-              ariaLabel="Multiplication"
-            >
-              <X className="h-5 w-5" />
-            </CalcButton>
-
-            {/* Row 3 */}
-            <CalcButton onClick={handleNumber("4")}>4</CalcButton>
-            <CalcButton onClick={handleNumber("5")}>5</CalcButton>
-            <CalcButton onClick={handleNumber("6")}>6</CalcButton>
-            <CalcButton
-              onClick={handleOperator("-")}
-              variant="operator"
-              ariaLabel="Soustraction"
-            >
-              <Minus className="h-5 w-5" />
-            </CalcButton>
-
-            {/* Row 4 */}
-            <CalcButton onClick={handleNumber("1")}>1</CalcButton>
-            <CalcButton onClick={handleNumber("2")}>2</CalcButton>
-            <CalcButton onClick={handleNumber("3")}>3</CalcButton>
-            <CalcButton
-              onClick={handleOperator("+")}
-              variant="operator"
-              ariaLabel="Addition"
-            >
-              <Plus className="h-5 w-5" />
-            </CalcButton>
-
-            {/* Row 5 */}
-            <CalcButton onClick={handleNumber("0")} className="col-span-2">
-              0
-            </CalcButton>
-            <CalcButton
-              onClick={inputDecimal}
-              variant="action"
-              ariaLabel="Point décimal"
-            >
-              ,
-            </CalcButton>
-            <CalcButton
-              onClick={calculate}
-              variant="equals"
-              ariaLabel="Calculer le résultat"
-            >
-              <Equal className="h-5 w-5" />
-            </CalcButton>
-          </div>
-        </div>
-
-        {/* Bottom accent line */}
-        <div className="h-1 bg-linear-to-r from-cyan-500/0 via-cyan-500/50 to-cyan-500/0" />
-      </DialogContent>
-    </Dialog>
+      <div className="bg-line grid grid-cols-4 gap-px">
+        <Key
+          tone="function"
+          label="Effacer tout"
+          onClick={clear}
+          className="col-span-2"
+        >
+          C
+        </Key>
+        <Key
+          tone="function"
+          label="Supprimer le dernier chiffre"
+          onClick={backspace}
+        >
+          <Delete className="size-4" aria-hidden />
+        </Key>
+        {operator("/")}
+        {digit("7")}
+        {digit("8")}
+        {digit("9")}
+        {operator("*")}
+        {digit("4")}
+        {digit("5")}
+        {digit("6")}
+        {operator("-")}
+        {digit("1")}
+        {digit("2")}
+        {digit("3")}
+        {operator("+")}
+        {digit("0", "col-span-2")}
+        <Key tone="function" label="Virgule décimale" onClick={inputDecimal}>
+          ,
+        </Key>
+        <Key tone="equals" label="Calculer le résultat" onClick={calculate}>
+          =
+        </Key>
+      </div>
+    </div>
   )
 }

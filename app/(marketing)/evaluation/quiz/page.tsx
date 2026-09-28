@@ -1,11 +1,12 @@
 "use client"
 
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Check } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { QuestionCard } from "@/components/quiz/question-card"
-import QuizProgress from "@/components/quiz/quiz-progress"
+import { optionLetter } from "@/components/quiz/question-card/answer-option"
 import QuizResults from "@/components/quiz/quiz-results"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
+import { SessionHeader } from "@/components/quiz/session/session-header"
 import { ErrorState } from "@/components/shared/error-state"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -14,6 +15,7 @@ import {
   loadRandomQuizQuestions,
   scoreQuizAnswers,
 } from "@/features/questions/actions"
+import { EVALUATION_ZONES, formatPauseTime, zone } from "@/lib/attempt-clock"
 import { EvaluationSkeleton } from "../_components/evaluation-skeleton"
 
 interface QuizState {
@@ -235,43 +237,58 @@ export default function QuizPage() {
   const currentQ = quizQuestions[quizState.currentQuestion]
   const currentAnswer = quizState.userAnswers[quizState.currentQuestion]
 
+  const isLast = quizState.currentQuestion === quizQuestions.length - 1
+  const answeredCount = quizState.userAnswers.filter((a) => a !== null).length
+  const remainingMs = quizState.timeRemaining * 1000
+
   return (
     <div ref={topOfQuizRef} className="bg-background">
-      <div className="mx-auto max-w-4xl px-3 pt-8 pb-4 sm:px-4 sm:pb-8 lg:px-8">
-        <QuizProgress
-          currentQuestion={quizState.currentQuestion}
+      <div className="mx-auto flex max-w-200 flex-col gap-4 px-4 pt-8 pb-16 sm:px-6">
+        <SessionHeader
+          title="Évaluation gratuite"
+          kind="exam"
+          modeLabel="Chronométré"
+          sticky={false}
+          currentIndex={quizState.currentQuestion}
           totalQuestions={quizQuestions.length}
-          timeRemaining={quizState.timeRemaining}
-          domain={currentQ.domain}
-          objectifCMC={currentQ.objectifCMC}
+          answeredCount={answeredCount}
+          timer={{
+            label: formatPauseTime(remainingMs),
+            zone: zone(remainingMs, EVALUATION_ZONES),
+          }}
         />
 
         <QuestionCard
           variant="exam"
           question={currentQ}
+          questionNumber={quizState.currentQuestion + 1}
+          totalQuestions={quizQuestions.length}
           selectedAnswer={currentAnswer}
           onAnswerSelect={handleAnswerSelect}
           showCorrectAnswer={false}
           showImage={true}
+          footer={
+            <>
+              <span className="text-ink-3 min-w-0 font-mono text-xs">
+                {currentAnswer === null
+                  ? "Choisissez une réponse"
+                  : `Réponse ${optionLetter(currentQ.options.indexOf(currentAnswer))} enregistrée`}
+              </span>
+              <Button
+                onClick={handleNextQuestion}
+                disabled={currentAnswer === null}
+                className="min-w-46 max-md:h-11"
+              >
+                {isLast ? "Voir les résultats" : "Question suivante"}
+                {isLast ? <Check aria-hidden /> : <ArrowRight aria-hidden />}
+              </Button>
+            </>
+          }
         />
-
-        {/* Bouton suivant */}
-        <div className="flex justify-end">
-          <Button
-            onClick={handleNextQuestion}
-            disabled={currentAnswer === null}
-            className="rounded-xl bg-linear-to-r from-blue-600 to-indigo-600 px-6 py-2 font-semibold text-white shadow-lg transition-all duration-300 hover:from-blue-700 hover:to-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {quizState.currentQuestion < quizQuestions.length - 1 ? (
-              <>
-                Question suivante
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </>
-            ) : (
-              "Voir les résultats"
-            )}
-          </Button>
-        </div>
+        <p className="text-ink-3 text-[13px]">
+          20 secondes par question en moyenne · les corrections s&apos;affichent
+          à la fin.
+        </p>
       </div>
     </div>
   )

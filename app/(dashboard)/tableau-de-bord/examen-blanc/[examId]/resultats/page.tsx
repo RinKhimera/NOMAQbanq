@@ -77,7 +77,7 @@ export default async function MockExamResultsPage({
         backIcon={<House className="h-4 w-4" />}
       />
       <SessionResults
-        accent="blue"
+        kind="exam"
         score={score}
         questions={questions}
         answers={answers}

@@ -20,13 +20,11 @@ const QUESTIONS: QuizQuestion[] = [
 
 const DEFERRED_MODE: QuizMode = {
   kind: "exam",
-  accent: "blue",
   timer: null,
   pause: null,
   feedback: "deferred",
   showMeta: false,
-  labels: { title: "t", finishCta: "Terminer" },
-  backUrl: "/x",
+  labels: { title: "t" },
 }
 
 const networkReject = () => Promise.reject(new TypeError("Failed to fetch"))

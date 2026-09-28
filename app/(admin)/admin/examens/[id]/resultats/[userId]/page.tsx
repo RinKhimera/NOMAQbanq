@@ -72,7 +72,7 @@ export default async function AdminParticipantResultsPage({
         backIcon={<ArrowLeft className="h-4 w-4" />}
       />
       <SessionResults
-        accent="blue"
+        kind="exam"
         score={score}
         questions={questions}
         answers={answers}

@@ -285,6 +285,7 @@ export const QuestionCard = ({
         {isReview && isExpanded && isFormerWording && (
           <div
             data-testid="former-wording-answer"
+            data-state={reviewStatus}
             className={cn(
               "rounded-md border p-3 text-sm",
               isKeyWithheld
@@ -335,7 +336,7 @@ export const QuestionCard = ({
       )}
 
       {footer && (
-        <footer className="border-line flex items-center justify-between gap-3 border-t px-5 py-3">
+        <footer className="border-line flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3">
           {footer}
         </footer>
       )}
