@@ -2,6 +2,10 @@
 
 import { CircleCheckBig, Eye, Target } from "lucide-react"
 import Image from "next/image"
+import {
+  CorrectionExplanation,
+  CorrectionReferences,
+} from "@/components/shared/correction"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -114,9 +118,15 @@ export default function QuestionDetailsDialog({
             <div className="space-y-2">
               <h3 className="text-lg font-semibold">Explication</h3>
               <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
-                <p className="text-base leading-relaxed">
-                  {question.explanation}
-                </p>
+                <CorrectionExplanation
+                  explanation={question.explanation}
+                  references={question.references}
+                  images={question.explanationImages.map((img) => ({
+                    key: img.id,
+                    url: cdnUrl(img.storagePath),
+                  }))}
+                  className="text-base"
+                />
               </div>
             </div>
 
@@ -125,16 +135,10 @@ export default function QuestionDetailsDialog({
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">Références</h3>
                 <div className="bg-muted rounded-lg p-4">
-                  <ul className="space-y-2">
-                    {question.references.map((reference, index) => (
-                      <li key={index} className="flex items-start gap-2">
-                        <span className="text-muted-foreground mt-1 font-mono text-sm">
-                          [{index + 1}]
-                        </span>
-                        <span className="text-base">{reference}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <CorrectionReferences
+                    references={question.references}
+                    className="text-base"
+                  />
                 </div>
               </div>
             )}

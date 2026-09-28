@@ -9,7 +9,10 @@ import {
   Hourglass,
 } from "lucide-react"
 import { AnimatePresence, motion } from "motion/react"
-import Image from "next/image"
+import {
+  CorrectionExplanation,
+  CorrectionReferences,
+} from "@/components/shared/correction"
 import { QuestionImageGallery } from "@/components/shared/question-image-gallery"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -126,32 +129,14 @@ const QuestionExplanation = ({
         <h4 className="mb-2 text-sm font-semibold text-blue-900 sm:text-base dark:text-blue-100">
           Explication :
         </h4>
-        <p className="text-sm leading-relaxed wrap-break-word whitespace-pre-line text-blue-800 dark:text-blue-200">
-          {explanation}
-        </p>
-
-        {/* Images d'explication (correction uniquement). `url` est déjà l'URL CDN
-            (dérivée côté serveur). Affichées sous le texte de l'explication. */}
-        {explanationImages && explanationImages.length > 0 && (
-          <div
-            data-testid="explanation-images"
-            className="mt-4 flex flex-wrap gap-2"
-          >
-            {[...explanationImages]
-              .sort((a, b) => a.order - b.order)
-              .map((img) => (
-                <Image
-                  key={img.storagePath}
-                  src={img.url}
-                  alt="Image d'explication"
-                  width={800}
-                  height={600}
-                  sizes="(max-width: 768px) 100vw, 700px"
-                  className="h-auto max-h-48 w-auto max-w-full rounded-lg border border-blue-200 dark:border-blue-800"
-                />
-              ))}
-          </div>
-        )}
+        <CorrectionExplanation
+          explanation={explanation}
+          references={references}
+          images={[...(explanationImages ?? [])]
+            .sort((a, b) => a.order - b.order)
+            .map((img) => ({ key: img.storagePath, url: img.url }))}
+          className="text-sm text-blue-800 dark:text-blue-200"
+        />
       </div>
 
       {/* References */}
@@ -160,19 +145,10 @@ const QuestionExplanation = ({
           <h4 className="mb-3 text-sm font-semibold text-gray-900 sm:text-base dark:text-gray-100">
             Références :
           </h4>
-          <div className="space-y-2">
-            {references.map((ref, index) => (
-              <div
-                key={index}
-                className="border-l-2 border-blue-400 pl-3 text-sm leading-relaxed wrap-break-word text-gray-700 dark:border-blue-500 dark:text-gray-300"
-              >
-                <span className="mr-2 font-semibold text-blue-600 dark:text-blue-400">
-                  {index + 1}.
-                </span>
-                {ref}
-              </div>
-            ))}
-          </div>
+          <CorrectionReferences
+            references={references}
+            className="text-sm text-gray-700 dark:text-gray-300"
+          />
         </div>
       )}
     </motion.div>

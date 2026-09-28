@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import { fireEvent, render, screen, within } from "@testing-library/react"
 import { ComponentPropsWithoutRef } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { QuestionCard } from "@/components/quiz/question-card"
@@ -179,6 +179,26 @@ describe("QuestionCard", () => {
         screen.getByText("Paris est la capitale de la France."),
       ).toBeInTheDocument()
       expect(screen.getByText("Atlas géographique, p.12")).toBeInTheDocument()
+    })
+
+    it("mode tuteur révélé : un appel de citation ouvre la référence visée", () => {
+      render(
+        <QuestionCard
+          variant="exam"
+          question={mockQuestion}
+          selectedAnswer="Lyon"
+          showCorrectAnswer={true}
+          lazyExplanation="Paris est la capitale [2]."
+          lazyReferences={["Atlas géographique, p.12", "Guide Michelin"]}
+        />,
+      )
+
+      fireEvent.click(
+        screen.getByRole("button", { name: "Voir la référence 2" }),
+      )
+      expect(
+        within(screen.getByRole("dialog")).getByText("Guide Michelin"),
+      ).toBeInTheDocument()
     })
 
     it("mode tuteur révélé : bonne réponse en vert (✓), mauvais choix en rouge (✗)", () => {

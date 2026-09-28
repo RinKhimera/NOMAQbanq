@@ -15,6 +15,10 @@ import { motion } from "motion/react"
 import Image from "next/image"
 import { type ReactNode, useEffect, useState } from "react"
 import { toast } from "sonner"
+import {
+  CorrectionExplanation,
+  CorrectionReferences,
+} from "@/components/shared/correction"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -232,19 +236,24 @@ function QuestionBody({
 
       <CollapsibleSection title="Explication">
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-900/20">
-          <p className="text-sm leading-relaxed text-blue-800 dark:text-blue-300">
-            {question.explanation}
-          </p>
+          <CorrectionExplanation
+            explanation={question.explanation}
+            references={references}
+            images={question.explanationImages.map((img) => ({
+              key: img.id,
+              url: cdnUrl(img.storagePath),
+            }))}
+            className="text-sm text-blue-800 dark:text-blue-300"
+          />
         </div>
       </CollapsibleSection>
 
       {references.length > 0 && (
         <CollapsibleSection title={`Références (${references.length})`}>
-          <ol className="list-inside list-decimal space-y-1 text-sm text-gray-600 dark:text-gray-400">
-            {references.map((ref, idx) => (
-              <li key={idx}>{ref}</li>
-            ))}
-          </ol>
+          <CorrectionReferences
+            references={references}
+            className="text-sm text-gray-600 dark:text-gray-400"
+          />
         </CollapsibleSection>
       )}
 
