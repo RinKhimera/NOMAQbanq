@@ -165,7 +165,7 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   « le focus reste » y passe à tort. Asserter l'attribut (`aria-disabled`,
   `not.toBeDisabled()`) pendant l'attente, puis le focus.
 - `toHaveTextContent` normalise l'espace insécable, `getByRole({ name })` ne le
-  fait pas : « 70 % » s'écrit `70 %` dans un nom accessible.
+  fait pas : « 70 % » s'écrit `"7000a0%"` dans un nom accessible.
 
 ## Concurrence & état partagé
 
