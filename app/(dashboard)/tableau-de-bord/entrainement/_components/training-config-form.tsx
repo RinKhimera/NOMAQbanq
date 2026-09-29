@@ -593,13 +593,6 @@ export const TrainingConfigForm = ({
             Moins s&apos;il y en a moins parmi les questions retenues.
           </p>
         )}
-        {tooFew && !loading && (
-          <Alert className={TONE_SOFT.warning}>
-            <AlertDescription className="text-warning-ink">
-              {notEnoughQuestions(available)}
-            </AlertDescription>
-          </Alert>
-        )}
         <Button
           size="lg"
           onClick={submit}
@@ -610,6 +603,13 @@ export const TrainingConfigForm = ({
           {isPending ? <Spinner size="sm" /> : <Play aria-hidden />}
           Commencer la série
         </Button>
+        {tooFew && !loading && (
+          <Alert className={TONE_SOFT.warning}>
+            <AlertDescription className="text-warning-ink">
+              {notEnoughQuestions(available)}
+            </AlertDescription>
+          </Alert>
+        )}
         {hasActiveSeries && (
           <p className="text-ink-2 text-[13px] leading-normal">
             Terminez ou abandonnez votre série en cours pour en commencer une

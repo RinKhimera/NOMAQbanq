@@ -144,18 +144,6 @@ export function EvaluationClient({
   )
   const [showStart, setShowStart] = useState(!resuming)
 
-  // Reprise : l'alerte s'efface d'elle-même une fois lue.
-  const wasAway =
-    resuming &&
-    (initialAnswersRaw.length > 0 ||
-      initialNow - (initialSession?.startedAt ?? initialNow) > RESUME_GRACE_MS)
-  const [showResumed, setShowResumed] = useState(wasAway)
-  useEffect(() => {
-    if (!showResumed) return
-    const id = setTimeout(() => setShowResumed(false), RESUME_NOTICE_MS)
-    return () => clearTimeout(id)
-  }, [showResumed])
-
   const totalQuestions = questions.length
   const pauseDurationMinutes =
     exam.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES
@@ -174,6 +162,21 @@ export function EvaluationClient({
   const initialFlags = new Set(
     initialAnswersRaw.filter((r) => r.isFlagged).map((r) => r.questionId),
   )
+
+  // Reprise : l'alerte s'efface d'elle-même une fois lue. `startExam` crée une
+  // ligne par question dès le départ, donc la présence de lignes ne dit rien :
+  // seules une réponse, un marquage ou une vraie absence font une reprise.
+  const wasAway =
+    resuming &&
+    (answeredCount > 0 ||
+      initialFlags.size > 0 ||
+      initialNow - (initialSession?.startedAt ?? initialNow) > RESUME_GRACE_MS)
+  const [showResumed, setShowResumed] = useState(wasAway)
+  useEffect(() => {
+    if (!showResumed) return
+    const id = setTimeout(() => setShowResumed(false), RESUME_NOTICE_MS)
+    return () => clearTimeout(id)
+  }, [showResumed])
 
   // État de pause initial (réhydraté si reprise en pause)
   const initialPause =

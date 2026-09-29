@@ -961,6 +961,18 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(
         list.find((e) => e.id === pastExamId)?.userParticipation?.score,
       ).toBeNull()
+      // « Publié à la fermeture de … » nomme l'examen ouvert qui retient :
+      // la branche titre de `withheldByOpenExamTitle`, corrélée au milieu de
+      // trois jointures, s'exécute ici sur un vrai Postgres.
+      const openTitles = (
+        await db
+          .select({ title: exams.title })
+          .from(exams)
+          .where(inArray(exams.id, [noPauseId, pauseId]))
+      ).map((e) => e.title)
+      expect(openTitles).toContain(
+        list.find((e) => e.id === pastExamId)?.userParticipation?.withheldBy,
+      )
       const recent = await getMyRecentParticipations()
       expect(recent.find((h) => h.examId === pastExamId)?.score).toBeNull()
       const curve = (await getMyDashboard("tout"))?.exams.history ?? []

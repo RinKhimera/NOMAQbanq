@@ -77,7 +77,7 @@ const withheldByOpenExamTitle = (viewer: LockUser) =>
          where akl_q.question_id in (${answeredQuestionIds})
            and akl_e.end_date > now()
            and akl_e.id <> ${ownExamId}
-         order by akl_e.end_date
+         order by akl_e.end_date, akl_e.id
          limit 1
       ) end`
 
@@ -620,19 +620,6 @@ export const getParticipantExamResults = async (
     completionTime: exam.completionTime,
   }
 
-  if (
-    !isAdmin &&
-    exam.audienceType === "subscribers" &&
-    !(await hasAccess("exam"))
-  ) {
-    return {
-      error: "ACCESS_REQUIRED",
-      message: "Accès Examens requis pour la correction.",
-      exam: examView,
-      participantUser: null,
-    }
-  }
-
   const [pUser] = await db
     .select({
       id: user.id,
@@ -683,6 +670,20 @@ export const getParticipantExamResults = async (
       }
     }
     return null
+  }
+
+  // Après la participation : sans elle, il n'y a pas de correction à réserver.
+  if (
+    !isAdmin &&
+    exam.audienceType === "subscribers" &&
+    !(await hasAccess("exam"))
+  ) {
+    return {
+      error: "ACCESS_REQUIRED",
+      message: "Accès Examens requis pour la correction.",
+      exam: examView,
+      participantUser: null,
+    }
   }
 
   if (p.status !== "completed" && p.status !== "auto_submitted") {

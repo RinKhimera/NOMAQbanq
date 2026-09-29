@@ -1,3 +1,4 @@
+import { OnboardingGuard } from "@/components/shared/onboarding-guard"
 import { requireSession } from "@/lib/auth-guards"
 
 // Passation plein écran (série d'entraînement, examen blanc) : hors de la
@@ -8,7 +9,12 @@ export default async function PassationLayout({
 }: {
   children: React.ReactNode
 }) {
-  await requireSession()
+  const session = await requireSession()
 
-  return <div className="bg-background text-ink min-h-dvh">{children}</div>
+  return (
+    <>
+      <OnboardingGuard hasUsername={!!session.user.username} />
+      <div className="bg-background text-ink min-h-dvh">{children}</div>
+    </>
+  )
 }

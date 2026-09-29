@@ -174,8 +174,18 @@ describe("EvaluationClient — câblage du chrono", () => {
     expect(lastBanners).toBeTruthy()
   })
 
+  // `startExam` crée une ligne vide par question : c'est la forme réelle d'une
+  // participation qui vient de démarrer, pas un tableau vide.
+  const freshRows = [
+    { questionId: "q1", selectedAnswer: null, isFlagged: false },
+    { questionId: "q2", selectedAnswer: null, isFlagged: false },
+  ]
+
   it("un départ depuis la liste (participation toute fraîche, rien d'enregistré) n'est pas une reprise", () => {
-    renderClient({ initialAnswersRaw: [], initialNow: SERVER_START + 5_000 })
+    renderClient({
+      initialAnswersRaw: freshRows,
+      initialNow: SERVER_START + 5_000,
+    })
     expect(screen.queryByTestId("resume-alert")).toBeNull()
   })
 
@@ -190,7 +200,10 @@ describe("EvaluationClient — câblage du chrono", () => {
   })
 
   it("une participation sans rien d'enregistré mais commencée il y a longtemps est une reprise", () => {
-    renderClient({ initialAnswersRaw: [], initialNow: SERVER_START + 120_000 })
+    renderClient({
+      initialAnswersRaw: freshRows,
+      initialNow: SERVER_START + 120_000,
+    })
     expect(screen.getByTestId("resume-alert")).toBeInTheDocument()
   })
 })

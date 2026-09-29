@@ -127,6 +127,10 @@ interface ExamenBlancClientProps {
   initialNow: number
 }
 
+const keyOf = (list: { id: string }[]) => list.map((e) => e.id).join(" ")
+const pick = (byId: Map<string, ExamListItem>, key: string) =>
+  key === "" ? [] : key.split(" ").flatMap((id) => byId.get(id) ?? [])
+
 export function ExamenBlancClient({
   exams,
   hasExamAccess,
@@ -140,16 +144,22 @@ export function ExamenBlancClient({
 
   // La DAL trie par ouverture ; les sections lisent la fermeture (terminés,
   // plus récente d'abord) et l'ouverture (à venir, plus proche d'abord).
-  const { active, upcoming, completed } = useMemo(() => {
-    const parts = partition(exams, now)
-    return {
-      active: parts.active,
-      upcoming: parts.upcoming.toSorted((a, b) => a.startDate - b.startDate),
-      completed: parts.completed.toSorted((a, b) => b.endDate - a.endDate),
-    }
-  }, [exams, now])
-  // Les lignes n'affichent rien à la seconde : un tick à la minute leur suffit.
-  const nowMinute = Math.floor(now / 60_000) * 60_000
+  const byId = useMemo(() => new Map(exams.map((e) => [e.id, e])), [exams])
+  const parts = partition(exams, now)
+  // Une section ne change de référence que quand un examen y entre ou en sort,
+  // pas à chaque seconde : `PastExams` est mémoïsé là-dessus.
+  const activeKey = keyOf(parts.active)
+  const upcomingKey = keyOf(parts.upcoming)
+  const completedKey = keyOf(parts.completed)
+  const active = useMemo(() => pick(byId, activeKey), [byId, activeKey])
+  const upcoming = useMemo(
+    () => pick(byId, upcomingKey).toSorted((a, b) => a.startDate - b.startDate),
+    [byId, upcomingKey],
+  )
+  const completed = useMemo(
+    () => pick(byId, completedKey).toSorted((a, b) => b.endDate - a.endDate),
+    [byId, completedKey],
+  )
   const open = useMemo(
     () =>
       sortOpenExams(
@@ -160,7 +170,12 @@ export function ExamenBlancClient({
       ),
     [active, now, hasExamAccess],
   )
-  const stats = useMemo(() => examListStats(exams), [exams])
+  // Les compteurs suivent les sections : un examen désactivé n'y figure pas,
+  // comme sur le tableau de bord.
+  const stats = useMemo(
+    () => examListStats([...active, ...upcoming, ...completed]),
+    [active, upcoming, completed],
+  )
 
   if (exams.length === 0) {
     return (
@@ -246,7 +261,7 @@ export function ExamenBlancClient({
         <NoOpenExam next={upcoming[0]} />
       )}
 
-      <UpcomingExams exams={upcoming} now={nowMinute} />
+      <UpcomingExams exams={upcoming} now={now} />
       <PastExams exams={completed} hasAccess={hasExamAccess} />
 
       <ExamStartDialog

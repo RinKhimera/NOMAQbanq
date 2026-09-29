@@ -21,6 +21,10 @@ export default async function TrainingSessionPage({
   if (data.session.status === "completed") {
     redirect(`/tableau-de-bord/entrainement/${sessionId}/resultats`)
   }
+  // Abandonnée (retour arrière du navigateur) : rien à jouer.
+  if (data.session.status === "abandoned") {
+    redirect("/tableau-de-bord/entrainement")
+  }
 
   // CalculatorProvider est fourni par <QuizRunner> (pas de provider externe).
   return <TrainingSessionClient sessionId={sessionId} initialData={data} />
