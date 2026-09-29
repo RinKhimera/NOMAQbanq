@@ -1,18 +1,17 @@
-import { CircleX, House } from "lucide-react"
+import { BookOpen } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
-import {
-  SessionResults,
-  SessionResultsHeader,
-} from "@/components/quiz/results/session-results"
+import { SessionResults } from "@/components/quiz/results/session-results"
 import type { AnswersMap } from "@/components/quiz/runner/types"
+import { ErrorState } from "@/components/shared/error-state"
 import { Button } from "@/components/ui/button"
 import { getMyExamPercentiles } from "@/features/analytics/dal"
 import { loadExamQuestionExplanations } from "@/features/exams/actions"
 import { getParticipantExamResults } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
+import { formatMediumDate } from "@/lib/format"
 
-export const metadata: Metadata = { title: "Résultats d'examen" }
+export const metadata: Metadata = { title: "Résultats de l'examen" }
 
 export default async function MockExamResultsPage({
   params,
@@ -32,24 +31,17 @@ export default async function MockExamResultsPage({
 
   if (!data || "error" in data) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-linear-to-br from-gray-50 via-white to-blue-50/30 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900/10">
-        <div className="text-center">
-          <CircleX className="mx-auto mb-4 h-16 w-16 text-red-500" />
-          <h2 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">
-            Résultats non disponibles
-          </h2>
-          <p className="mb-4 max-w-md text-gray-600 dark:text-gray-400">
-            Les résultats de cet examen ne sont pas encore disponibles.
-          </p>
-          <Button asChild>
-            <Link href="/tableau-de-bord/examen-blanc">Retour aux examens</Link>
+      <ErrorState
+        title="Résultats non disponibles"
+        description="Les résultats de cet examen sont publiés à sa fermeture."
+        actions={
+          <Button asChild variant="outline">
+            <Link href="/tableau-de-bord/examen-blanc">Examens blancs</Link>
           </Button>
-        </div>
-      </div>
+        }
+      />
     )
   }
-
-  const questions = data.questions
 
   // Map DAL answers → AnswersMap (sparse-safe: absent key == unanswered)
   const answers: AnswersMap = {}
@@ -61,28 +53,36 @@ export default async function MockExamResultsPage({
       }
     }
   }
-
-  // `null` = score retenu par la DAL, jamais transmis au client.
-  const score = data.participant.score
+  const flaggedIds = data.participant.answers
+    .filter((a) => a.isFlagged)
+    .map((a) => a.questionId)
 
   return (
-    <>
-      <SessionResultsHeader
-        title="Résultats de l'examen"
-        subtitle={data.exam.title}
-        score={score}
-        percentile={percentiles[examId] ?? null}
-        backHref="/tableau-de-bord/examen-blanc"
-        backLabel="Tableau de bord"
-        backIcon={<House className="h-4 w-4" />}
-      />
-      <SessionResults
-        kind="exam"
-        score={score}
-        questions={questions}
-        answers={answers}
-        loadExplanations={loadExamQuestionExplanations}
-      />
-    </>
+    <SessionResults
+      kind="exam"
+      // `null` = score retenu par la DAL, jamais transmis au client.
+      score={data.participant.score}
+      questions={data.questions}
+      answers={answers}
+      flaggedIds={flaggedIds}
+      loadExplanations={loadExamQuestionExplanations}
+      percentile={percentiles[examId] ?? null}
+      eyebrow={`${data.exam.title} · fermé le ${formatMediumDate(data.exam.endDate)}`}
+      actions={
+        <>
+          <Button asChild className="max-md:h-11">
+            <Link href="/tableau-de-bord/entrainement">
+              <BookOpen aria-hidden />
+              Réviser en série
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="max-md:h-11">
+            <Link href="/tableau-de-bord">Ma progression</Link>
+          </Button>
+        </>
+      }
+      backHref="/tableau-de-bord/examen-blanc"
+      backLabel="Examens blancs"
+    />
   )
 }

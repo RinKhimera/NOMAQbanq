@@ -9,7 +9,11 @@ import { Button } from "@/components/ui/button"
 import type { ExamInProgress } from "@/features/analytics/dal"
 import type { AccessStatus, LapsedAccess } from "@/features/payments/dal"
 import { remainingMs } from "@/lib/attempt-clock"
-import { formatDateTime, formatExpiration } from "@/lib/format"
+import {
+  formatDateTime,
+  formatExpiration,
+  formatShortDuration,
+} from "@/lib/format"
 import { TONE_SOFT, TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
@@ -17,15 +21,6 @@ const EXPIRED_NEXT_STEP = {
   exam: "Réactivez l'accès pour passer les prochains examens blancs.",
   training: "Réactivez l'accès pour lancer de nouvelles séries.",
 } as const
-
-/** « 4 h 05 », ou « 42 min » sous l'heure. */
-const shortDuration = (ms: number) => {
-  const minutes = Math.floor(ms / 60_000)
-  const hours = Math.floor(minutes / 60)
-  return hours > 0
-    ? `${hours} h ${String(minutes % 60).padStart(2, "0")}`
-    : `${minutes} min`
-}
 
 /** Alerte du tableau de bord : tonalité, icône, titre, texte et action. */
 export const DashboardAlert = ({
@@ -134,7 +129,7 @@ export const DashboardAlerts = ({
         ) : (
           <>
             {progress} questions répondues · environ{" "}
-            <span className="font-mono">{shortDuration(remaining)}</span>{" "}
+            <span className="font-mono">{formatShortDuration(remaining)}</span>{" "}
             restantes. Commencé le {formatDateTime(timing.startedAt)} ;{" "}
             {timing.pauseInProgress
               ? "en pause : le chronomètre reprendra à la fin de la pause."

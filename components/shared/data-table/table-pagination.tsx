@@ -19,6 +19,9 @@ interface TablePaginationProps {
   pageSizeOptions?: number[]
   isLoading?: boolean
   itemNoun?: { one: string; many: string }
+  /** `range` : « 1–10 sur 34 séries » ; `page` : « Page 1 sur 4 ». */
+  summary?: "range" | "page"
+  className?: string
 }
 
 // Numéros affichés : 1, dernière, courante ± 1, avec ellipses. Appelé
@@ -34,6 +37,9 @@ function pageRange(current: number, totalPages: number): (number | "…")[] {
   return range
 }
 
+// Cibles de 44 px sous 1024 px : les numéros de page se touchent au pouce.
+const PAGE_BUTTON = "max-lg:h-11 max-lg:min-w-11"
+
 export function TablePagination({
   page,
   pageSize,
@@ -43,6 +49,8 @@ export function TablePagination({
   pageSizeOptions = [25, 50, 100],
   isLoading,
   itemNoun = { one: "élément", many: "éléments" },
+  summary = "range",
+  className,
 }: TablePaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize))
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1
@@ -50,10 +58,23 @@ export function TablePagination({
   const noun = total === 1 ? itemNoun.one : itemNoun.many
 
   return (
-    <div className="flex flex-col items-center justify-between gap-3 border-t border-gray-100 p-4 sm:flex-row dark:border-gray-800">
+    <div
+      className={cn(
+        "border-line flex flex-col items-center justify-between gap-3 border-t p-4 sm:flex-row",
+        className,
+      )}
+    >
       <div className="flex items-center gap-4">
-        <p className="text-sm text-gray-500">
-          {from}–{to} sur {total.toLocaleString("fr-CA")} {noun}
+        <p className="text-ink-3 text-sm">
+          {summary === "page" ? (
+            <span className="font-mono text-xs">
+              Page {page} sur {totalPages}
+            </span>
+          ) : (
+            <>
+              {from}–{to} sur {total.toLocaleString("fr-CA")} {noun}
+            </>
+          )}
         </p>
         {onPageSizeChange && (
           <Select
@@ -75,13 +96,14 @@ export function TablePagination({
       </div>
 
       {totalPages > 1 && (
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center justify-center gap-1">
           <Button
             type="button"
             variant="outline"
             size="sm"
             onClick={() => onPageChange(page - 1)}
             disabled={page <= 1 || isLoading}
+            className={PAGE_BUTTON}
           >
             Précédent
           </Button>
@@ -89,7 +111,7 @@ export function TablePagination({
             p === "…" ? (
               <span
                 key={`ellipsis-${i}`}
-                className="px-2 text-sm text-gray-400"
+                className="text-ink-4 px-2 text-sm"
                 aria-hidden
               >
                 …
@@ -103,7 +125,11 @@ export function TablePagination({
                 aria-current={p === page ? "page" : undefined}
                 onClick={() => onPageChange(p)}
                 disabled={isLoading}
-                className={cn("min-w-9", p === page && "pointer-events-none")}
+                className={cn(
+                  "min-w-9",
+                  PAGE_BUTTON,
+                  p === page && "pointer-events-none",
+                )}
               >
                 {p}
               </Button>
@@ -115,6 +141,7 @@ export function TablePagination({
             size="sm"
             onClick={() => onPageChange(page + 1)}
             disabled={page >= totalPages || isLoading}
+            className={PAGE_BUTTON}
           >
             Suivant
           </Button>

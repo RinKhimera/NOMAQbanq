@@ -213,6 +213,13 @@ export const QuestionCard = ({
 
           {isReview && (
             <div className="ml-auto flex items-center gap-2">
+              {isFlagged && (
+                <Flag
+                  aria-label="Marquée"
+                  data-testid="review-flag"
+                  className="text-warning size-3.5 fill-current"
+                />
+              )}
               <span
                 className={cn(
                   "flex items-center gap-1.5 text-sm font-medium",

@@ -140,6 +140,15 @@ export const formatTimeRemaining = (timestamp: number): string => {
   })
 }
 
+/** « 4 h 05 », ou « 42 min » sous l'heure : durée courte d'une carte ou d'une alerte. */
+export const formatShortDuration = (ms: number): string => {
+  const minutes = Math.max(0, Math.floor(ms / 60_000))
+  const hours = Math.floor(minutes / 60)
+  return hours > 0
+    ? `${hours} h ${String(minutes % 60).padStart(2, "0")}`
+    : `${minutes} min`
+}
+
 /** Durée restante : « 2h 5min », ou « 42 minutes » sous l'heure. */
 export const formatDuration = (ms: number): string => {
   const hours = Math.floor(ms / (1000 * 60 * 60))

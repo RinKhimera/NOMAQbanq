@@ -14,13 +14,11 @@ import { QuestionCard } from "@/components/quiz/question-card"
 import { FinishDialog } from "@/components/quiz/session/finish-dialog"
 import { SessionHeader } from "@/components/quiz/session/session-header"
 import { SessionNavigation } from "@/components/quiz/session/session-navigation"
-import { SHELL_BLEED } from "@/components/shared/shell/shell-frame"
 import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
 import { CalculatorProvider } from "@/hooks/useCalculator"
 import { formatExamTime, zone } from "@/lib/attempt-clock"
-import { cn } from "@/lib/utils"
 import type {
   AnswersMap,
   QuizCallbacks,
@@ -160,7 +158,7 @@ function QuizRunnerInner({
   const isResting = mode.pause === "rest" && session.isPaused
 
   return (
-    <div className={cn("flex flex-col", SHELL_BLEED)}>
+    <div className="flex flex-col">
       {isResting && (
         <PauseDialog
           isOpen={true}
@@ -193,7 +191,7 @@ function QuizRunnerInner({
       />
 
       {!isResting && (
-        <div className="flex items-start gap-6 px-4 pt-4 sm:px-6 md:pt-6">
+        <div className="mx-auto flex w-full max-w-290 items-start gap-6 px-4 pt-4 pb-16 sm:px-6 md:pt-6">
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
               {!isExam && (
