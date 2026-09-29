@@ -42,7 +42,7 @@ import {
   getExamsWithParticipation,
   getParticipantExamResults,
 } from "@/features/exams/dal"
-import { getTrainingHistory, getTrainingStats } from "@/features/training/dal"
+import { getTrainingHistory } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
@@ -921,18 +921,9 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
   describe("score retenu (scoreWithheldFor)", () => {
     it("getTrainingHistory : null sur la session chevauchant un examen ouvert, lisible sinon", async () => {
       asStudent()
-      const { items } = await getTrainingHistory({ limit: 50 })
+      const { items } = await getTrainingHistory({ pageSize: 50 })
       expect(items.find((s) => s.id === withheldTrainingId)?.score).toBeNull()
       expect(items.find((s) => s.id === readableTrainingId)?.score).toBe(100)
-    })
-
-    it("getTrainingStats : la moyenne exclut la session retenue (une moyenne avant/après la rendrait)", async () => {
-      asStudent()
-      const stats = await getTrainingStats()
-      // Sessions de STUDENT : 40 (retenue), 100 (lisible) et une sans score
-      // (q7, seedée plus haut) → 100, pas 70.
-      expect(stats?.totalSessions).toBe(3)
-      expect(stats?.averageScore).toBe(100)
     })
 
     it("courbe hebdomadaire du tableau de bord : la série retenue n'entre pas dans la moyenne de sa semaine", async () => {

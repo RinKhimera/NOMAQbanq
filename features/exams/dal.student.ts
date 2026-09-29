@@ -465,6 +465,8 @@ export type ExamResultsView =
           questionId: string
           selectedAnswer: string | null
           isCorrect: boolean | null
+          /** Marquée pendant la passation : filtre « Marquées » de la correction. */
+          isFlagged: boolean
         }[]
       }
       participantUser: ExamParticipantUser
@@ -625,6 +627,7 @@ export const getParticipantExamResults = async (
       questionId: examAnswers.questionId,
       selectedAnswer: examAnswers.selectedAnswer,
       isCorrect: examAnswers.isCorrect,
+      isFlagged: examAnswers.isFlagged,
     })
     .from(examAnswers)
     .where(eq(examAnswers.participationId, p.id))
@@ -652,6 +655,7 @@ export const getParticipantExamResults = async (
         selectedAnswer: a.selectedAnswer ?? null,
         // isCorrect + selectedAnswer révèle la clé → masqué si verrouillée.
         isCorrect: lock.has(a.questionId) ? null : (a.isCorrect ?? null),
+        isFlagged: a.isFlagged ?? false,
       })),
     },
     participantUser,

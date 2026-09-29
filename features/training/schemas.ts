@@ -14,6 +14,18 @@ export const REVISION_CRITERION_LABELS: Record<RevisionCriterion, string> = {
   bookmarked: "Marquées",
 }
 
+/** Plafond d'objectifs du CMC par série. */
+export const MAX_OBJECTIFS = 10
+
+/**
+ * Refus « pas assez de questions », même phrase côté formulaire (anticipée
+ * sur les compteurs) et côté serveur (recomptée sous verrou).
+ */
+export const notEnoughQuestions = (available: number): string =>
+  available === 0
+    ? "Aucune question ne correspond à ces filtres. Élargissez la sélection."
+    : `Seulement ${available} question${available > 1 ? "s" : ""} disponible${available > 1 ? "s" : ""} avec ces filtres. Élargissez la sélection.`
+
 export const createTrainingSessionSchema = z
   .object({
     questionCount: z

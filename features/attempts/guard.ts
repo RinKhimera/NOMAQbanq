@@ -270,23 +270,23 @@ export function requireAttempt(
 
 const MESSAGES: Record<RefusalCode, Record<AttemptKind, string>> = {
   NOT_FOUND: {
-    training: "Session introuvable",
+    training: "Série introuvable",
     exam: "Participation introuvable.",
   },
   NOT_IN_PROGRESS: {
-    training: "Cette session n'est plus active",
-    exam: "Cette session d'examen n'est plus active.",
+    training: "Cette série n'est plus active",
+    exam: "Cette participation n'est plus active.",
   },
   NOT_STARTED: {
-    training: "Cette session n'a pas encore été démarrée",
+    training: "Cette série n'a pas encore été commencée",
     exam: "L'examen n'a pas encore été démarré.",
   },
   EXPIRED: {
-    training: "Cette session a expiré",
-    exam: "Cette session d'examen a expiré.",
+    training: "Cette série a expiré",
+    exam: "Cette participation a expiré.",
   },
   OUTSIDE_WINDOW: {
-    training: "Cette session n'est pas disponible à cette période",
+    training: "Cette série n'est pas disponible à cette période",
     exam: "L'examen n'est pas disponible à cette période.",
   },
   ACCESS_EXPIRED: {

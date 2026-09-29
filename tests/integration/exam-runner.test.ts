@@ -415,7 +415,7 @@ describe("saveExamAnswer — budget-temps + anti-race (C2)", () => {
     })
     expect(save).toEqual({
       success: false,
-      error: "Cette session d'examen n'est plus active.",
+      error: "Cette participation n'est plus active.",
       code: "NOT_IN_PROGRESS",
     })
   })

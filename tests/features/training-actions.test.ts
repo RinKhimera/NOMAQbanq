@@ -42,12 +42,19 @@ const { mocks } = vi.hoisted(() => ({
     getPgErrorCode: vi.fn<() => string | undefined>(() => undefined),
     lockedIds: { current: new Set<string>() },
     lockFor: vi.fn(),
-    getTrainingHistory: vi.fn(async () => ({ items: [], nextCursor: null })),
+    getTrainingHistory: vi.fn(async () => ({
+      items: [],
+      total: 0,
+      page: 1,
+      pageSize: 10,
+    })),
     getAvailableObjectifsCMC: vi.fn(async () => ({ objectifs: [] })),
     getRevisionCounts: vi.fn(async () => ({
       failed: 3,
       unseen: 2,
       bookmarked: 1,
+      bookmarkedFailed: 1,
+      bookmarkedUnseen: 0,
     })),
     pickRevisionQuestionIds: vi.fn(async () => ["q1"]),
   },
@@ -141,13 +148,19 @@ afterEach(() => {
 
 describe("lectures gardees", () => {
   it("loadTrainingHistory delegue au DAL apres la garde", async () => {
-    await loadTrainingHistory({ cursor: "c1" })
-    expect(mocks.getTrainingHistory).toHaveBeenCalledWith({ cursor: "c1" })
+    await loadTrainingHistory({ page: 3 })
+    expect(mocks.getTrainingHistory).toHaveBeenCalledWith({ page: 3 })
   })
 
   it("loadRevisionCounts : portee invalide → compteurs a zero, pas de requete", async () => {
     const res = await loadRevisionCounts({ domain: "" })
-    expect(res).toEqual({ failed: 0, unseen: 0, bookmarked: 0 })
+    expect(res).toEqual({
+      failed: 0,
+      unseen: 0,
+      bookmarked: 0,
+      bookmarkedFailed: 0,
+      bookmarkedUnseen: 0,
+    })
     expect(mocks.getRevisionCounts).not.toHaveBeenCalled()
   })
 
@@ -157,7 +170,13 @@ describe("lectures gardees", () => {
       { id: "u1", role: "user" },
       { domain: "Cardiologie" },
     )
-    expect(res).toEqual({ failed: 3, unseen: 2, bookmarked: 1 })
+    expect(res).toEqual({
+      failed: 3,
+      unseen: 2,
+      bookmarked: 1,
+      bookmarkedFailed: 1,
+      bookmarkedUnseen: 0,
+    })
   })
 
   it("loadAvailableObjectifsCMC delegue au DAL", async () => {
@@ -260,7 +279,7 @@ describe("createTrainingSession", () => {
     expect(res).toEqual({
       success: false,
       error:
-        "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
+        "Vous avez déjà une série en cours. Terminez-la ou abandonnez-la pour en commencer une autre.",
     })
     expect(mocks.closeAttempts).not.toHaveBeenCalled()
   })
@@ -268,11 +287,11 @@ describe("createTrainingSession", () => {
   it.each([
     [
       "RATE_LIMIT",
-      "Trop de sessions créées récemment. Réessayez dans une heure.",
+      "Trop de séries créées récemment. Réessayez dans une heure.",
     ],
     [
       "ACTIVE_EXISTS",
-      "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
+      "Vous avez déjà une série en cours. Terminez-la ou abandonnez-la pour en commencer une autre.",
     ],
     [
       "EMPTY_REVISION",
@@ -280,7 +299,15 @@ describe("createTrainingSession", () => {
     ],
     [
       "NOT_ENOUGH:4",
-      "Seulement 4 questions disponibles. Réduisez le nombre demandé.",
+      "Seulement 4 questions disponibles avec ces filtres. Élargissez la sélection.",
+    ],
+    [
+      "NOT_ENOUGH:1",
+      "Seulement 1 question disponible avec ces filtres. Élargissez la sélection.",
+    ],
+    [
+      "NOT_ENOUGH:0",
+      "Aucune question ne correspond à ces filtres. Élargissez la sélection.",
     ],
   ])("%s → message dedie, sans capture", async (thrown, error) => {
     rejectWith(thrown)
@@ -350,7 +377,7 @@ describe("saveTrainingAnswer", () => {
     setRows({ trainingSessionItems: [] })
     expect(await saveTrainingAnswer(input)).toEqual({
       success: false,
-      error: "Cette question ne fait pas partie de la session",
+      error: "Cette question ne fait pas partie de la série",
     })
   })
 
@@ -504,7 +531,7 @@ describe("completeTrainingSession", () => {
   it("id vide → refus", async () => {
     expect(await completeTrainingSession({ sessionId: "" })).toEqual({
       success: false,
-      error: "Session requise",
+      error: "Série requise",
     })
     expect(mocks.requireAttempt).not.toHaveBeenCalled()
   })
@@ -550,7 +577,7 @@ describe("abandonTrainingSession", () => {
   it("id vide → refus", async () => {
     expect(await abandonTrainingSession({ sessionId: "" })).toEqual({
       success: false,
-      error: "Session requise",
+      error: "Série requise",
     })
   })
 
@@ -592,18 +619,18 @@ describe("deleteTrainingSession", () => {
   it("id vide → refus", async () => {
     expect(await deleteTrainingSession({ sessionId: "" })).toEqual({
       success: false,
-      error: "Session requise",
+      error: "Série requise",
     })
   })
 
   // La propriété vit dans le WHERE (id, userId) : la ligne d'autrui est
-  // invisible à la lecture comme à la suppression, donc `Session introuvable`
+  // invisible à la lecture comme à la suppression, donc `Série introuvable`
   // — jamais « ne vous appartient pas », qui confirmerait son existence.
   it.each([
-    [{ trainingSessions: [] }, "Session introuvable"],
+    [{ trainingSessions: [] }, "Série introuvable"],
     [
       { trainingSessions: [session({ status: "in_progress" })] },
-      "Impossible de supprimer une session en cours. Terminez-la ou abandonnez-la d'abord.",
+      "Impossible de supprimer une série en cours. Terminez-la ou abandonnez-la d'abord.",
     ],
   ])("refus : %#", async (rows, error) => {
     setRows(rows)

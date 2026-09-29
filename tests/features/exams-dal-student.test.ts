@@ -287,8 +287,18 @@ describe("getParticipantExamResults — frontiere d'acces", () => {
     expect(q2).toMatchObject({ correctAnswer: "A" })
     expect(q2).not.toHaveProperty("keyWithheld")
     expect(view.participant.answers).toEqual([
-      { questionId: "q1", selectedAnswer: "A", isCorrect: null },
-      { questionId: "q2", selectedAnswer: "B", isCorrect: false },
+      {
+        questionId: "q1",
+        selectedAnswer: "A",
+        isCorrect: null,
+        isFlagged: false,
+      },
+      {
+        questionId: "q2",
+        selectedAnswer: "B",
+        isCorrect: false,
+        isFlagged: false,
+      },
     ])
   })
 

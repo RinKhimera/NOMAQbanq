@@ -7,7 +7,6 @@ import {
   getTrainingHistory,
   getTrainingSessionById,
   getTrainingSessionResults,
-  getTrainingStats,
 } from "@/features/training/dal"
 
 // Couvre les DECISIONS de la DAL entrainement : gardes de session, propriete des
@@ -24,6 +23,8 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
     },
     cdnUrl: vi.fn((p: string) => `https://cdn.test/${p}`),
     lockedIds: { current: new Set<string>() },
+    /** `offset()` reçus, dans l'ordre : la page demandée se lit là. */
+    offsets: { current: [] as number[] },
   }
 
   const table = (name: string) => ({ __table: name })
@@ -40,7 +41,10 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
       where: () => chain,
       groupBy: () => chain,
       orderBy: () => chain,
-      offset: () => chain,
+      offset: (n: number) => {
+        mocks.offsets.current.push(n)
+        return chain
+      },
       limit: () => chain,
       then: (onOk: (v: unknown) => unknown, onErr: (e: unknown) => unknown) =>
         Promise.resolve(
@@ -122,6 +126,7 @@ const sessionRow = (over: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   mocks.rows.current = {}
   mocks.lockedIds.current = new Set()
+  mocks.offsets.current = []
   asUser()
 })
 
@@ -183,17 +188,49 @@ describe("verrou de clé de réponse (examen ouvert)", () => {
   })
 })
 
+describe("session active", () => {
+  it("remonte le mode et le nombre de réponses données", async () => {
+    mocks.rows.current = {
+      training_sessions: [
+        sessionRow({ mode: "tutor", questionCount: 20, answeredCount: 12 }),
+      ],
+    }
+    const active = await getActiveTrainingSession()
+    expect(active?.session).toMatchObject({
+      mode: "tutor",
+      questionCount: 20,
+      answeredCount: 12,
+    })
+    expect(active?.canResume).toBe(true)
+  })
+
+  it("une session dont le TTL est passé ne se reprend pas", async () => {
+    mocks.rows.current = {
+      training_sessions: [
+        sessionRow({ expiresAt: new Date(Date.now() - 1), answeredCount: 0 }),
+      ],
+    }
+    const active = await getActiveTrainingSession()
+    expect(active).toMatchObject({
+      isExpired: true,
+      canResume: false,
+      remainingTimeMs: 0,
+    })
+  })
+})
+
 describe("gardes de session", () => {
   it("chaque lecture rend sa valeur vide sans session", async () => {
     anonymous()
     expect(await getActiveTrainingSession()).toBeNull()
     expect(await getTrainingSessionById("s1")).toBeNull()
     expect(await getTrainingSessionResults("s1")).toBeNull()
-    expect(await getTrainingStats()).toBeNull()
     expect(await getBookmarkedQuestionIds(["q1"])).toEqual([])
     expect(await getTrainingHistory()).toEqual({
       items: [],
-      nextCursor: null,
+      total: 0,
+      page: 1,
+      pageSize: 10,
     })
   })
 
@@ -251,58 +288,54 @@ describe("propriete des sessions (IDOR)", () => {
   })
 })
 
-describe("curseur keyset — entree arbitraire", () => {
-  const encode = (s: string) => Buffer.from(s, "utf8").toString("base64")
+describe("historique paginé", () => {
+  const completedAt = new Date("2026-01-01T00:00:00.000Z")
+  const rows = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      id: `s${i}`,
+      questionCount: 2,
+      score: 50,
+      domain: "CARDIO",
+      mode: "tutor",
+      completedAt,
+      startedAt: completedAt,
+    }))
 
-  beforeEach(() => {
-    mocks.rows.current = { training_sessions: [] }
+  it("rend la page demandée avec le total, le mode et le score de chaque ligne", async () => {
+    mocks.rows.current = { training_sessions: rows(2) }
+    // Le compte et la page lisent la même table : le faux-db sert les lignes
+    // aux deux ; seul le total est lu sur la première (`count` absent → 0).
+    const page = await getTrainingHistory({ page: 3, pageSize: 10 })
+    expect(page).toMatchObject({ page: 3, pageSize: 10 })
+    expect(page.items).toHaveLength(2)
+    expect(page.items[0]).toMatchObject({ id: "s0", mode: "tutor", score: 50 })
+    expect(mocks.offsets.current).toEqual([20])
   })
 
   it.each([
-    ["sans separateur", encode("pas-de-separateur")],
-    ["date invalide", encode("pas-une-date|s1")],
-    ["identifiant vide", encode(`${new Date().toISOString()}|`)],
-    ["base64 arbitraire", "@@@ pas du base64 @@@"],
-  ])("un curseur %s est traite comme une premiere page", async (_, cursor) => {
-    await expect(getTrainingHistory({ cursor })).resolves.toEqual({
-      items: [],
-      nextCursor: null,
-    })
+    ["page nulle", 0, 1],
+    ["page négative", -4, 1],
+    ["page non entière", 2.7, 2],
+    ["page infinie", Number.NaN, 1],
+    ["au-delà de la borne", 10_000, 100],
+  ])("une %s est ramenée dans les bornes", async (_, page, expected) => {
+    mocks.rows.current = { training_sessions: [] }
+    const res = await getTrainingHistory({ page })
+    expect(res.page).toBe(expected)
+    expect(mocks.offsets.current).toEqual([(expected - 1) * 10])
   })
 
-  it("rend un curseur seulement quand une page suivante existe", async () => {
-    const completedAt = new Date("2026-01-01T00:00:00.000Z")
-    mocks.rows.current = {
-      training_sessions: Array.from({ length: 3 }, (_, i) => ({
-        id: `s${i}`,
-        questionCount: 2,
-        score: 50,
-        domain: "CARDIO",
-        completedAt,
-        startedAt: completedAt,
-      })),
-    }
-    const page = await getTrainingHistory({ limit: 2 })
-    expect(page.items).toHaveLength(2)
-    expect(page.nextCursor).not.toBeNull()
-
-    const last = await getTrainingHistory({ limit: 5 })
-    expect(last.nextCursor).toBeNull()
+  it("une taille de page hors bornes est ramenée entre 1 et 50", async () => {
+    mocks.rows.current = { training_sessions: [] }
+    expect((await getTrainingHistory({ pageSize: 500 })).pageSize).toBe(50)
+    expect((await getTrainingHistory({ pageSize: 0 })).pageSize).toBe(1)
   })
 
-  it("une session sans date de fin ne produit pas de curseur", async () => {
+  it("une session sans date de fin garde `completedAt` nul", async () => {
     mocks.rows.current = {
-      training_sessions: Array.from({ length: 2 }, (_, i) => ({
-        id: `s${i}`,
-        questionCount: 2,
-        score: null,
-        domain: null,
-        completedAt: null,
-        startedAt: new Date(),
-      })),
+      training_sessions: [{ ...rows(1)[0], completedAt: null, score: null }],
     }
-    const page = await getTrainingHistory({ limit: 1 })
-    expect(page.nextCursor).toBeNull()
-    expect(page.items[0]).toMatchObject({ completedAt: null })
+    const page = await getTrainingHistory()
+    expect(page.items[0]).toMatchObject({ completedAt: null, score: null })
   })
 })

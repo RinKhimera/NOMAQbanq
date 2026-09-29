@@ -26,17 +26,15 @@ import {
   getAvailableObjectifsCMC,
   getTrainingHistory,
 } from "./dal"
-import {
-  type RevisionCounts,
-  getRevisionCounts,
-  pickRevisionQuestionIds,
-} from "./revision"
+import { getRevisionCounts, pickRevisionQuestionIds } from "./revision"
+import { EMPTY_REVISION_COUNTS, type RevisionCounts } from "./revision-pool"
 import {
   type CreateTrainingSessionInput,
   type RevisionCountsScopeInput,
   type SaveTrainingAnswerInput,
   type SetQuestionBookmarkInput,
   createTrainingSessionSchema,
+  notEnoughQuestions,
   revisionCountsScopeSchema,
   saveTrainingAnswerSchema,
   setQuestionBookmarkSchema,
@@ -55,10 +53,9 @@ const refused = (r: Refusal | { message: string }) =>
 // Lectures (wrappers pour composants clients)
 // ============================================
 
-/** [Auth] Page d'historique (« voir plus »). */
+/** [Auth] Une page de l'historique (pagination numérotée). */
 export const loadTrainingHistory = async (args: {
-  cursor?: string | null
-  limit?: number
+  page: number
 }): Promise<TrainingHistoryPage> => {
   await requireSession()
   return getTrainingHistory(args)
@@ -74,7 +71,7 @@ export const loadRevisionCounts = async (
 ): Promise<RevisionCounts> => {
   const session = await requireSession()
   const parsed = revisionCountsScopeSchema.safeParse(args)
-  if (!parsed.success) return { failed: 0, unseen: 0, bookmarked: 0 }
+  if (!parsed.success) return EMPTY_REVISION_COUNTS
   return getRevisionCounts(viewerOf(session.user), parsed.data)
 }
 
@@ -250,12 +247,12 @@ export const createTrainingSession = async (
     if (error instanceof Error) {
       if (error.message === "RATE_LIMIT") {
         return fail(
-          "Trop de sessions créées récemment. Réessayez dans une heure.",
+          "Trop de séries créées récemment. Réessayez dans une heure.",
         )
       }
       if (error.message === "ACTIVE_EXISTS") {
         return fail(
-          "Vous avez déjà une session en cours. Terminez-la ou attendez son expiration.",
+          "Vous avez déjà une série en cours. Terminez-la ou abandonnez-la pour en commencer une autre.",
         )
       }
       if (error.message === "EMPTY_REVISION") {
@@ -264,9 +261,7 @@ export const createTrainingSession = async (
         )
       }
       if (error.message.startsWith("NOT_ENOUGH:")) {
-        return fail(
-          `Seulement ${error.message.split(":")[1]} questions disponibles. Réduisez le nombre demandé.`,
-        )
+        return fail(notEnoughQuestions(Number(error.message.split(":")[1])))
       }
     }
     captureServerError("[createTrainingSession]", error, { userId })
@@ -336,7 +331,7 @@ export const saveTrainingAnswer = async (
       if (!item) {
         return {
           ok: false as const,
-          message: "Cette question ne fait pas partie de la session",
+          message: "Cette question ne fait pas partie de la série",
         }
       }
       if (!item.options.includes(selectedAnswer)) {
@@ -451,7 +446,7 @@ export const completeTrainingSession = async ({
 }): Promise<CompleteTrainingSessionResult> => {
   const session = await requireSession()
   const actor = viewerOf(session.user)
-  if (!sessionId) return fail("Session requise")
+  if (!sessionId) return fail("Série requise")
 
   try {
     const now = Date.now()
@@ -496,7 +491,7 @@ export const abandonTrainingSession = async ({
 }): Promise<{ success: boolean; error?: string }> => {
   const session = await requireSession()
   const actor = viewerOf(session.user)
-  if (!sessionId) return fail("Session requise")
+  if (!sessionId) return fail("Série requise")
 
   try {
     const now = Date.now()
@@ -534,7 +529,7 @@ export const deleteTrainingSession = async ({
   sessionId: string
 }): Promise<{ success: boolean; error?: string }> => {
   const session = await requireSession()
-  if (!sessionId) return fail("Session requise")
+  if (!sessionId) return fail("Série requise")
 
   try {
     // La propriété vit dans le WHERE : la session d'autrui est introuvable,
@@ -548,10 +543,10 @@ export const deleteTrainingSession = async ({
       .from(trainingSessions)
       .where(owned)
       .limit(1)
-    if (!s) return fail("Session introuvable")
+    if (!s) return fail("Série introuvable")
     if (s.status === "in_progress") {
       return fail(
-        "Impossible de supprimer une session en cours. Terminez-la ou abandonnez-la d'abord.",
+        "Impossible de supprimer une série en cours. Terminez-la ou abandonnez-la d'abord.",
       )
     }
 

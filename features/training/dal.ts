@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
@@ -23,26 +23,6 @@ import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(Math.max(lo, Math.floor(n)), hi)
 
-// Curseur keyset historique = base64("<completedAtISO>|<id>").
-const encodeCursor = (completedAt: Date, id: string): string =>
-  Buffer.from(`${completedAt.toISOString()}|${id}`, "utf8").toString("base64")
-
-const decodeCursor = (
-  cursor: string,
-): { completedAt: Date; id: string } | null => {
-  try {
-    const decoded = Buffer.from(cursor, "base64").toString("utf8")
-    const sep = decoded.indexOf("|")
-    if (sep === -1) return null
-    const completedAt = new Date(decoded.slice(0, sep))
-    const id = decoded.slice(sep + 1)
-    if (!id || Number.isNaN(completedAt.getTime())) return null
-    return { completedAt, id }
-  } catch {
-    return null
-  }
-}
-
 // Questions RÉPONDUES d'une session, corrélées à la ligne `training_sessions`
 // lue — la forme attendue par `scoreWithheldFor`.
 const answeredQuestionIds = sql`
@@ -57,9 +37,6 @@ const readableScore = (viewer: LockUser) =>
   sql<
     number | null
   >`case when ${scoreWithheldFor(viewer, answeredQuestionIds)} then null else coalesce(${trainingSessions.score}, 0) end`
-
-/** `mapWith(Number)` ferait de `null` un `0` — faux « 0 % » quand rien n'est lisible. */
-const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
 
 /** Filtre d'agrégat : seules les sessions dont le score est lisible. */
 export const sessionScoreReadable = (viewer: LockUser) =>
@@ -82,6 +59,9 @@ export type ActiveTrainingSession = {
   session: {
     id: string
     questionCount: number
+    /** Réponses déjà données : « N / M répondues » de la carte « Série en cours ». */
+    answeredCount: number
+    mode: "tutor" | "test"
     domain: string | null
     startedAt: number
     expiresAt: number
@@ -101,6 +81,11 @@ export const getActiveTrainingSession = cache(
       .select({
         id: trainingSessions.id,
         questionCount: trainingSessions.questionCount,
+        answeredCount:
+          sql<number>`(select count(*) from (${answeredQuestionIds}) answered)`.mapWith(
+            Number,
+          ),
+        mode: trainingSessions.mode,
         domain: trainingSessions.domain,
         startedAt: trainingSessions.startedAt,
         expiresAt: trainingSessions.expiresAt,
@@ -123,6 +108,8 @@ export const getActiveTrainingSession = cache(
       session: {
         id: active.id,
         questionCount: active.questionCount,
+        answeredCount: active.answeredCount,
+        mode: active.mode,
         domain: active.domain,
         startedAt: active.startedAt.getTime(),
         expiresAt: expiresMs,
@@ -135,7 +122,7 @@ export const getActiveTrainingSession = cache(
 )
 
 // ============================================
-// Historique (keyset)
+// Historique (pagination numérotée)
 // ============================================
 
 export type TrainingHistoryItem = {
@@ -144,129 +131,82 @@ export type TrainingHistoryItem = {
   /** `null` = score retenu (une réponse en correction différée). */
   score: number | null
   domain: string | null
+  mode: "tutor" | "test"
   completedAt: number | null
   startedAt: number
 }
 
 export type TrainingHistoryPage = {
   items: TrainingHistoryItem[]
-  nextCursor: string | null
+  /** Séries complétées de l'utilisateur, toutes pages confondues. */
+  total: number
+  page: number
+  pageSize: number
 }
+
+export const TRAINING_HISTORY_PAGE_SIZE = 10
 
 /**
- * Historique des sessions **complétées** (keyset sur `(completedAt, id)` desc).
- * `null`/vide si non connecté.
+ * Historique des sessions **complétées**, par pages numérotées (`completedAt`
+ * puis `id` décroissants). Une page hors bornes rend une page vide, jamais une
+ * erreur. Vide si non connecté.
  */
 export const getTrainingHistory = async ({
-  cursor,
-  limit = 5,
+  page = 1,
+  pageSize = TRAINING_HISTORY_PAGE_SIZE,
 }: {
-  cursor?: string | null
-  limit?: number
+  page?: number
+  pageSize?: number
 } = {}): Promise<TrainingHistoryPage> => {
+  const safeSize = clamp(pageSize, 1, 50)
+  // Borne haute : 100 pages de 50, au-delà de ce qu'un historique atteint.
+  const safePage = clamp(Number.isFinite(page) ? page : 1, 1, 100)
+  const empty = { items: [], total: 0, page: safePage, pageSize: safeSize }
   const session = await getCurrentSession()
-  if (!session?.user) return { items: [], nextCursor: null }
+  if (!session?.user) return empty
   const viewer = viewerOf(session.user)
 
-  const safeLimit = clamp(limit, 1, 50)
-  const decoded = cursor ? decodeCursor(cursor) : null
-  const afterCursor = decoded
-    ? or(
-        lt(trainingSessions.completedAt, decoded.completedAt),
-        and(
-          eq(trainingSessions.completedAt, decoded.completedAt),
-          lt(trainingSessions.id, decoded.id),
-        ),
-      )
-    : undefined
-
-  const rows = await db
-    .select({
-      id: trainingSessions.id,
-      questionCount: trainingSessions.questionCount,
-      score: readableScore(viewer),
-      domain: trainingSessions.domain,
-      completedAt: trainingSessions.completedAt,
-      startedAt: trainingSessions.startedAt,
-    })
-    .from(trainingSessions)
-    .where(
-      and(
-        eq(trainingSessions.userId, session.user.id),
-        eq(trainingSessions.status, "completed"),
-        afterCursor,
-      ),
-    )
-    .orderBy(desc(trainingSessions.completedAt), desc(trainingSessions.id))
-    .limit(safeLimit + 1)
-
-  const hasMore = rows.length > safeLimit
-  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows
-
-  const items: TrainingHistoryItem[] = pageRows.map((r) => ({
-    id: r.id,
-    questionCount: r.questionCount,
-    score: r.score,
-    domain: r.domain,
-    completedAt: r.completedAt?.getTime() ?? null,
-    startedAt: r.startedAt.getTime(),
-  }))
-
-  const last = pageRows.at(-1)
-  const nextCursor =
-    hasMore && last?.completedAt
-      ? encodeCursor(last.completedAt, last.id)
-      : null
-
-  return { items, nextCursor }
-}
-
-// ============================================
-// Stats résumé (page entraînement)
-// ============================================
-
-export type TrainingStats = {
-  totalSessions: number
-  totalQuestions: number
-  /** `null` = aucun score lisible (rien de complété, ou tout retenu). */
-  averageScore: number | null
-} | null
-
-/** Stats de l'utilisateur (sessions complétées). `null` si non connecté. */
-export const getTrainingStats = cache(async (): Promise<TrainingStats> => {
-  const session = await getCurrentSession()
-  if (!session?.user) return null
-  const viewer = viewerOf(session.user)
-
-  const [row] = await db
-    .select({
-      totalSessions: sql<number>`count(*)`.mapWith(Number),
-      totalQuestions:
-        sql<number>`coalesce(sum(${trainingSessions.questionCount}), 0)`.mapWith(
-          Number,
-        ),
-      // Une session au score retenu n'entre pas dans la moyenne : avant/après
-      // la restituerait.
-      averageScore: sql<
-        number | null
-      >`round(avg(${trainingSessions.score}) filter (where ${sessionScoreReadable(viewer)}))`.mapWith(
-        nullableNumber,
-      ),
-    })
-    .from(trainingSessions)
-    .where(
-      and(
-        eq(trainingSessions.userId, session.user.id),
-        eq(trainingSessions.status, "completed"),
-      ),
-    )
+  const owned = and(
+    eq(trainingSessions.userId, session.user.id),
+    eq(trainingSessions.status, "completed"),
+  )
+  const [rows, [count]] = await Promise.all([
+    db
+      .select({
+        id: trainingSessions.id,
+        questionCount: trainingSessions.questionCount,
+        score: readableScore(viewer),
+        domain: trainingSessions.domain,
+        mode: trainingSessions.mode,
+        completedAt: trainingSessions.completedAt,
+        startedAt: trainingSessions.startedAt,
+      })
+      .from(trainingSessions)
+      .where(owned)
+      .orderBy(desc(trainingSessions.completedAt), desc(trainingSessions.id))
+      .offset((safePage - 1) * safeSize)
+      .limit(safeSize),
+    db
+      .select({ n: sql<number>`count(*)`.mapWith(Number) })
+      .from(trainingSessions)
+      .where(owned),
+  ])
 
   return {
-    totalSessions: row?.totalSessions ?? 0,
-    totalQuestions: row?.totalQuestions ?? 0,
-    averageScore: row?.averageScore ?? null,
+    items: rows.map((r) => ({
+      id: r.id,
+      questionCount: r.questionCount,
+      score: r.score,
+      domain: r.domain,
+      mode: r.mode,
+      completedAt: r.completedAt?.getTime() ?? null,
+      startedAt: r.startedAt.getTime(),
+    })),
+    total: count?.n ?? 0,
+    page: safePage,
+    pageSize: safeSize,
   }
-})
+}
 
 /**
  * Signets de **l'utilisateur courant** parmi `questionIds`. Un signet est un
@@ -493,12 +433,15 @@ export type TrainingResultsView =
         /** `null` = score retenu (une réponse en correction différée). */
         score: number | null
         questionCount: number
+        mode: "tutor" | "test"
         startedAt: number
         completedAt: number | null
         domain: string | null
       }
       questions: QuizQuestion[]
       answers: TrainingAnswerRecord
+      /** Signets de l'utilisateur courant parmi les questions : filtre « Marquées ». */
+      bookmarkedIds: string[]
     }
   | null
 
@@ -520,6 +463,7 @@ export const getTrainingSessionResults = async (
       status: trainingSessions.status,
       score: trainingSessions.score,
       questionCount: trainingSessions.questionCount,
+      mode: trainingSessions.mode,
       startedAt: trainingSessions.startedAt,
       completedAt: trainingSessions.completedAt,
       domain: trainingSessions.domain,
@@ -556,10 +500,12 @@ export const getTrainingSessionResults = async (
   const questionIds = items.map((i) => i.questionId)
   // Session complétée → révélation : images d'énoncé ET d'explication. Le canal
   // explication reste séparé du pont d'énoncé `images` (anti-fuite en passation).
-  const [imgMap, explImgMap, lock] = await Promise.all([
+  const [imgMap, explImgMap, lock, bookmarkedIds] = await Promise.all([
     fetchImages(questionIds),
     fetchImages(questionIds, "explanation"),
     lockFor(viewerOf(session.user), questionIds),
+    // Un admin qui relit la série d'un étudiant ne voit pas ses propres signets.
+    s.userId === session.user.id ? getBookmarkedQuestionIds(questionIds) : [],
   ])
 
   const questionsView = items.map((i) =>
@@ -592,11 +538,13 @@ export const getTrainingSessionResults = async (
       // `scoreWithheldFor`), jamais transmis au client.
       score: scoreWithheld ? null : (s.score ?? 0),
       questionCount: s.questionCount,
+      mode: s.mode,
       startedAt: s.startedAt.getTime(),
       completedAt: s.completedAt?.getTime() ?? null,
       domain: s.domain,
     },
     questions: questionsView,
     answers,
+    bookmarkedIds,
   }
 }
