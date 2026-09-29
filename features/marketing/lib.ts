@@ -23,5 +23,6 @@ export const resolveSuccessRate = ({
   if (rate < MIN_PUBLISHABLE_SUCCESS_RATE) {
     return MARKETING_CLAIMS.successRate
   }
-  return `${rate}%`
+  // Espace insécable avant « % » (fr-CA), comme MARKETING_CLAIMS.
+  return `${rate} %`
 }

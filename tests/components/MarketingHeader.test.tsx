@@ -28,8 +28,9 @@ vi.mock("next/link", () => ({
   ),
 }))
 
+const route = vi.hoisted(() => ({ pathname: "/tarifs" }))
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/tarifs",
+  usePathname: () => route.pathname,
   useRouter: () => ({ push: vi.fn() }),
 }))
 
@@ -122,7 +123,8 @@ describe("MarketingHeader", () => {
   })
 
   describe("visiteur déconnecté", () => {
-    it("propose Domaines, Tarifs et FAQ, la page courante marquée", () => {
+    it("propose Comment ça marche, Domaines, Tarifs et FAQ, la page courante marquée", () => {
+      route.pathname = "/tarifs"
       vi.mocked(useCurrentUser).mockReturnValue(deconnecte)
       render(<MarketingHeader />)
 
@@ -131,6 +133,7 @@ describe("MarketingHeader", () => {
       })
       const links = within(nav).getAllByRole("link")
       expect(links.map((l) => l.textContent)).toEqual([
+        "Comment ça marche",
         "Domaines",
         "Tarifs",
         "FAQ",
@@ -139,6 +142,20 @@ describe("MarketingHeader", () => {
         "aria-current",
         "page",
       )
+    })
+
+    it("marque la rubrique Domaines depuis une page domaine", () => {
+      route.pathname = "/domaines/cardiologie"
+      vi.mocked(useCurrentUser).mockReturnValue(deconnecte)
+      render(<MarketingHeader />)
+
+      const nav = screen.getByRole("navigation", {
+        name: "Navigation principale",
+      })
+      expect(
+        within(nav).getByRole("link", { name: "Domaines" }),
+      ).toHaveAttribute("aria-current", "true")
+      route.pathname = "/tarifs"
     })
 
     it("mène à la connexion, à l'essai gratuit et à l'inscription", () => {

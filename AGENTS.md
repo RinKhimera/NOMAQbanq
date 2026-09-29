@@ -44,6 +44,7 @@ app/(dashboard)/           # Pages etudiant (protegees par layout requireSession
 app/(admin)/               # Pages admin (protegees par layout requireRole)
 app/(auth)/                # Pages auth Better Auth, sans préfixe /auth (connexion, inscription, mot-de-passe-oublie, reinitialiser-mot-de-passe)
 app/(marketing)/           # Pages marketing + _components/
+app/(evaluation)/          # Passation de l'évaluation gratuite, plein écran (hors coquille vitrine)
 app/api/                   # Route handlers: auth/[...all], stripe/webhook, cron/close-expired, e2e
 features/<domaine>/        # Backend: {schemas,dal,actions,lib,cron}.ts (users/payments/questions/exams/training/analytics/marketing)
 db/                        # Drizzle: schema/** (tables/enums), index.ts (pg Pool)
@@ -51,8 +52,9 @@ lib/                       # auth.ts (Better Auth), dal.ts, auth-guards.ts, aws.
 components/ui/             # shadcn/ui
 components/quiz/           # Quiz: question-card, calculator, session/
 components/admin/          # Dashboard admin, modals, question-browser
+components/marketing/      # Composites de la vitrine (héros, chiffres, bande CTA, démo de question)
 components/shared/payments # Composants paiement
-hooks/                     # useCurrentUser, useCalculator, useMarketingStats, use-media-query
+hooks/                     # useCurrentUser, useCalculator, use-checkout, use-mounted, use-media-query
 constants/index.tsx        # Routes centralisees, MEDICAL_DOMAINS
 ```
 

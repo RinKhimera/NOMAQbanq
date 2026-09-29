@@ -64,6 +64,22 @@ const denseAnswers: AnswersMap = {
 // ============================================
 
 describe("SessionResults", () => {
+  it("sans résumé, ne garde que la correction (la page porte son propre bilan)", () => {
+    render(
+      <SessionResults
+        kind="exam"
+        score={33}
+        questions={questions}
+        answers={denseAnswers}
+        summary={false}
+      />,
+    )
+    expect(screen.queryByTestId("score-percentage")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("stat-correct")).not.toBeInTheDocument()
+    expect(screen.getAllByTestId("question-card")).toHaveLength(3)
+    expect(screen.getByTestId("btn-filter-errors")).toBeInTheDocument()
+  })
+
   describe("compteurs dérivés des réponses", () => {
     it("compte justes, fausses et sans réponse à partir de questions + answers", () => {
       render(

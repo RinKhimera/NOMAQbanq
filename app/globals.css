@@ -314,6 +314,111 @@
   }
 }
 
+/*
+ * Trame de points (DESIGN.md §3) : héros, panneau de marque, bande CTA. Le
+ * fondu masque la trame sur la gauche, où se pose le texte ; le contenu d'un
+ * `bg-dots-fade` doit être positionné pour passer au-dessus du pseudo-élément.
+ */
+@utility bg-dots {
+  background-image: radial-gradient(
+    circle,
+    var(--pattern-dot) 1px,
+    transparent 1.3px
+  );
+  background-size: 22px 22px;
+}
+
+@utility bg-dots-fade {
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(
+      circle,
+      var(--pattern-dot) 1px,
+      transparent 1.3px
+    );
+    background-size: 22px 22px;
+    mask-image: linear-gradient(90deg, transparent 30%, #000 80%);
+  }
+}
+
+/* Échelle typographique (DESIGN.md §2), réduite sous 1024 puis 768 px. */
+:root {
+  --type-display: 4rem;
+  --type-h1: 2.75rem;
+  --type-h2: 2rem;
+  --type-h3: 1.5rem;
+}
+@media (max-width: 1023px) {
+  :root {
+    --type-display: 3.25rem;
+    --type-h1: 2.375rem;
+  }
+}
+@media (max-width: 767px) {
+  :root {
+    --type-display: 2.5rem;
+    --type-h1: 2rem;
+    --type-h2: 1.625rem;
+    --type-h3: 1.25rem;
+  }
+}
+
+@utility type-display {
+  @apply font-serif;
+  font-weight: 600;
+  font-size: var(--type-display);
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+@utility type-h1 {
+  @apply font-serif;
+  font-weight: 600;
+  font-size: var(--type-h1);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+@utility type-h2 {
+  @apply font-serif;
+  font-weight: 600;
+  font-size: var(--type-h2);
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+@utility type-h3 {
+  @apply font-serif;
+  font-weight: 600;
+  font-size: var(--type-h3);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+@utility type-h4 {
+  @apply font-sans;
+  font-weight: 600;
+  font-size: 1.125rem;
+  line-height: 1.35;
+}
+@utility type-body-lg {
+  font-size: 1.125rem;
+  line-height: 1.6;
+  color: var(--ink-2);
+  text-wrap: pretty;
+}
+@utility type-label {
+  @apply font-mono;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
 @layer base {
   * {
     @apply border-border;

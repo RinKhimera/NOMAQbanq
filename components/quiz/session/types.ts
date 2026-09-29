@@ -18,8 +18,10 @@ export type SessionHeaderProps = {
   onPause?: () => void
   /** Absent : pas de bouton « Terminer » (évaluation gratuite). */
   onFinish?: () => void
-  /** `false` hors de la zone étudiante (évaluation gratuite). */
+  /** `false` dans une démo intégrée à une page (vitrine). */
   sticky?: boolean
+  /** `p` quand la barre illustre une page qui porte déjà son `h1`. */
+  titleAs?: "h1" | "p"
 }
 
 export type FinishDialogProps = {

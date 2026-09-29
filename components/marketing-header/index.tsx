@@ -22,6 +22,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { authClient } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import { MobileMenu } from "./mobile-menu"
+import { navCurrent } from "./nav-current"
 
 export const MarketingHeader = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -64,15 +65,15 @@ export const MarketingHeader = () => {
             className="mr-auto hidden items-center gap-6 lg:flex"
           >
             {HEADER_NAV.map((item) => {
-              const isActive = pathname === item.href
+              const current = navCurrent(pathname, item.href)
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  aria-current={isActive ? "page" : undefined}
+                  aria-current={current}
                   className={cn(
-                    "focus-ring rounded-md text-sm transition-colors duration-(--duration-base)",
-                    isActive
+                    "focus-ring rounded-md text-sm",
+                    current
                       ? "text-ink font-medium"
                       : "text-ink-2 hover:text-ink",
                   )}
@@ -140,7 +141,7 @@ export const MarketingHeader = () => {
                 <span className="hidden items-center gap-4 lg:flex">
                   <Link
                     href="/connexion"
-                    className="focus-ring text-ink-2 hover:text-ink rounded-md text-sm transition-colors duration-(--duration-base)"
+                    className="focus-ring text-ink-2 hover:text-ink rounded-md text-sm transition-[background-color,border-color] duration-(--duration-base)"
                   >
                     Connexion
                   </Link>

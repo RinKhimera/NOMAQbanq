@@ -30,6 +30,7 @@ export const SessionHeader = ({
   onPause,
   onFinish,
   sticky = true,
+  titleAs: Title = "h1",
 }: SessionHeaderProps) => (
   <header
     className={cn(
@@ -46,7 +47,7 @@ export const SessionHeader = ({
             kind === "training" ? "bg-success" : "bg-accent",
           )}
         />
-        <h1 className="truncate text-[15px] font-semibold">{title}</h1>
+        <Title className="truncate text-[15px] font-semibold">{title}</Title>
         {modeLabel && (
           <span className="text-ink-3 hidden font-mono text-xs whitespace-nowrap @min-[880px]:inline">
             {modeLabel}

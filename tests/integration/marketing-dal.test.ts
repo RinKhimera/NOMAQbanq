@@ -83,6 +83,15 @@ describe("getMarketingStats — successRate calculé", () => {
     expect(stats).not.toHaveProperty("rating")
   })
 
+  it("ne publie aucun nombre de questions par domaine", async () => {
+    const stats = await getMarketingStats()
+    expect(Object.keys(stats).toSorted()).toEqual([
+      "successRate",
+      "totalQuestions",
+      "totalUsers",
+    ])
+  })
+
   it("câble l'agrégat SQL sur resolveSuccessRate (oracle exact, baseline develop quelconque)", async () => {
     // La branche de test est clonée de develop (scripts/neon-api.ts), donc la
     // baseline n'est JAMAIS vide : l'oracle recalcule l'agrégat réel et exige

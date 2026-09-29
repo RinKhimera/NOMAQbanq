@@ -6,7 +6,9 @@ test.describe("Pages d'authentification", () => {
   }) => {
     await page.goto("/connexion")
 
-    await expect(page.getByText("Connexion sécurisée")).toBeVisible({
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Bon retour parmi nous" }),
+    ).toBeVisible({
       timeout: 15_000,
     })
 
@@ -22,7 +24,7 @@ test.describe("Pages d'authentification", () => {
     await page.goto("/inscription")
 
     await expect(
-      page.getByText("Créez votre compte en quelques secondes"),
+      page.getByRole("heading", { level: 1, name: "Créer votre compte" }),
     ).toBeVisible({ timeout: 15_000 })
 
     await expect(page.getByTestId("auth-email")).toBeVisible()

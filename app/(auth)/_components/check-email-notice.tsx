@@ -1,9 +1,10 @@
 "use client"
 
-import { Mail } from "lucide-react"
+import { MailCheck } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { toast } from "sonner"
+import { StatusCard } from "@/components/shared/status-card"
 import { Button } from "@/components/ui/button"
 import { authClient } from "@/lib/auth-client"
 import { mapAuthError } from "@/lib/auth-errors"
@@ -51,37 +52,32 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
       : "Confirmez votre adresse courriel"
 
   return (
-    <div
-      className="w-full space-y-5 text-center"
+    <StatusCard
+      size="form"
+      title={title}
+      icon={MailCheck}
+      iconTone="success"
+      focusTitle
       data-testid="auth-check-email"
     >
-      <div className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg">
-        <Mail className="h-7 w-7 text-white" />
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-          {title}
-        </h3>
-        {mode === "signup" ? (
-          <p className="text-muted-foreground text-sm">
-            Si <span className="font-medium">{email}</span> n&apos;est pas déjà
-            associée à un compte, un lien de confirmation vient d&apos;y être
-            envoyé. Cliquez-le pour activer votre compte.
-          </p>
-        ) : (
-          <p className="text-muted-foreground text-sm">
-            Votre compte n&apos;est pas encore activé. Nous venons de renvoyer
-            un lien de confirmation à{" "}
-            <span className="font-medium">{email}</span>.
-          </p>
-        )}
-      </div>
+      {mode === "signup" ? (
+        <p className="text-ink-2 text-[15px] leading-relaxed">
+          Si <strong className="text-ink font-medium">{email}</strong>{" "}
+          n&apos;est pas déjà associée à un compte, un lien de confirmation
+          vient d&apos;y être envoyé. Cliquez-le pour activer votre compte.
+        </p>
+      ) : (
+        <p className="text-ink-2 text-[15px] leading-relaxed">
+          Votre compte n&apos;est pas encore activé. Nous venons de renvoyer un
+          lien de confirmation à{" "}
+          <strong className="text-ink font-medium">{email}</strong>.
+        </p>
+      )}
 
       <Button
         type="button"
         variant="outline"
-        className="w-full rounded-xl"
+        className="w-full max-md:h-11"
         onClick={handleResend}
         disabled={isResending || cooldown > 0}
         data-testid="auth-resend"
@@ -90,20 +86,20 @@ export function CheckEmailNotice({ email, mode }: CheckEmailNoticeProps) {
       </Button>
 
       {mode === "signup" && (
-        <p className="text-muted-foreground text-sm">
+        <p className="text-ink-3 text-sm">
           Vous avez déjà un compte ?{" "}
           <Link
             href="/connexion"
-            className="font-medium text-blue-600 hover:underline dark:text-blue-400"
+            className="focus-ring text-accent-ink rounded-sm hover:underline"
           >
             Connectez-vous
           </Link>
         </p>
       )}
 
-      <p className="text-muted-foreground text-xs">
-        Pas reçu ? Vérifiez vos indésirables.
+      <p className="text-ink-3 text-[13px]">
+        Rien reçu ? Vérifiez vos courriels indésirables.
       </p>
-    </div>
+    </StatusCard>
   )
 }

@@ -136,10 +136,15 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   dernier recours.
 - **Texte responsive** (`hidden sm:inline`) : le texte des boutons nav n'existe pas
   sous 640px → utiliser `getByTestId`.
-- **Header sticky `fixed z-50`** : intercepte les clics près du bord →
-  `.scrollIntoViewIfNeeded()` avant le click (ex. `answer-option-0` sur `/evaluation/quiz`).
+- **Évaluation gratuite** : `/evaluation/quiz` vit dans le groupe `(evaluation)`,
+  plein écran, sans en-tête vitrine ; sa barre de session est collante en haut →
+  `.scrollIntoViewIfNeeded()` avant de cliquer un choix. Les résultats reviennent
+  dans l'en-tête et le pied de la vitrine : score dans `score-percentage`
+  (« 72 % », espace insécable → `/^\d+\s%$/`), `h1` « Vous avez obtenu n / N. »,
+  correction de `SessionResults` sans son résumé (pas de `score-badge` ni de
+  `stat-*`).
 - **Pages légales** (`/confidentialite`, `/conditions`, `/cookies`) : titre en h1
-  ET paragraphe → `getByRole("heading", { name })`.
+  ET pastille de navigation → `getByRole("heading", { level: 1, name })`.
 - **Stats marketing dynamiques** : matcher le suffixe par regex, ne pas hardcoder
   les nombres.
 - **Simuler l'offline** : `context.setOffline(true)` PEND indéfiniment en dev

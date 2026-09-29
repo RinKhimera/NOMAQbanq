@@ -1,6 +1,3 @@
-"use client"
-
-import { motion, useReducedMotion } from "motion/react"
 import { formatScore, scoreTone } from "@/lib/score"
 import { TONE_COLOR } from "@/lib/tone"
 import { cn } from "@/lib/utils"
@@ -11,6 +8,8 @@ interface ScoreRingProps {
   size?: number
   strokeWidth?: number
   className?: string
+  /** `data-testid` du pourcentage affiché. */
+  valueTestId?: string
 }
 
 export const ScoreRing = ({
@@ -19,9 +18,8 @@ export const ScoreRing = ({
   size = 160,
   strokeWidth = 12,
   className,
+  valueTestId,
 }: ScoreRingProps) => {
-  const shouldReduceMotion = useReducedMotion()
-
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const offset = circumference - (value / 100) * circumference
@@ -41,7 +39,7 @@ export const ScoreRing = ({
           className="text-surface-2"
         />
 
-        <motion.circle
+        <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
@@ -50,20 +48,13 @@ export const ScoreRing = ({
           strokeWidth={strokeWidth}
           strokeLinecap="butt"
           strokeDasharray={circumference}
-          initial={{
-            strokeDashoffset: shouldReduceMotion ? offset : circumference,
-          }}
-          animate={{ strokeDashoffset: offset }}
-          transition={
-            shouldReduceMotion
-              ? { duration: 0 }
-              : { duration: 0.9, ease: [0.2, 0, 0, 1], delay: 0.2 }
-          }
+          strokeDashoffset={offset}
         />
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
+          data-testid={valueTestId}
           className="font-serif text-4xl font-semibold tracking-tight tabular-nums"
           style={{ color }}
         >

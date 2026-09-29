@@ -1,7 +1,7 @@
 "use client"
 
 import type { LucideIcon } from "lucide-react"
-import { type MouseEvent, type ReactNode, useState } from "react"
+import { type MouseEvent, type ReactNode, useRef, useState } from "react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,6 +59,9 @@ export const ConfirmDialog = ({
 }: ConfirmDialogProps) => {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const [running, setRunning] = useState(false)
+  // Sans déclencheur Radix, rien ne reçoit le focus à la fermeture : on le
+  // rend à l'élément qui avait le focus à l'ouverture.
+  const openerRef = useRef<HTMLElement | null>(null)
   const pending = isPending || running
   const isOpen = open ?? uncontrolledOpen
   const destructive = variant === "destructive"
@@ -87,7 +90,19 @@ export const ConfirmDialog = ({
   return (
     <AlertDialog open={isOpen} onOpenChange={setOpen}>
       {trigger && <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>}
-      <AlertDialogContent className="max-w-md">
+      <AlertDialogContent
+        className="max-w-md"
+        onOpenAutoFocus={() => {
+          if (!trigger && document.activeElement instanceof HTMLElement) {
+            openerRef.current = document.activeElement
+          }
+        }}
+        onCloseAutoFocus={(event) => {
+          if (trigger || !openerRef.current?.isConnected) return
+          event.preventDefault()
+          openerRef.current.focus()
+        }}
+      >
         <AlertDialogHeader>
           {Icon && (
             <div

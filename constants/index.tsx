@@ -107,6 +107,7 @@ export const isMedicalDomain = (domain: string): domain is MedicalDomain => {
 
 // Liens de l'en-tête de la vitrine
 export const HEADER_NAV = [
+  { name: "Comment ça marche", href: "/fonctionnement" },
   { name: "Domaines", href: "/domaines" },
   { name: "Tarifs", href: "/tarifs" },
   { name: "FAQ", href: "/faq" },
@@ -121,6 +122,7 @@ export const HEADER_MENU_ONLY_NAV = [
 // Liens du footer
 export const FOOTER_QUICK_LINKS = [
   { name: "Accueil", href: "/" },
+  { name: "Comment ça marche", href: "/fonctionnement" },
   { name: "Domaines", href: "/domaines" },
   { name: "Évaluation", href: "/evaluation" },
   { name: "Tarifs", href: "/tarifs" },
@@ -143,6 +145,6 @@ export const FOOTER_LEGAL_LINKS = [
  * plancher). `rating` reste 100 % éditorial : aucun système d'avis en base.
  */
 export const MARKETING_CLAIMS = {
-  successRate: "85%",
-  rating: "4.9/5",
+  successRate: "85 %",
+  rating: "4,9/5",
 } as const
