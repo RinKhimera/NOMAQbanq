@@ -7,7 +7,7 @@ import { EntrainementPage } from "../pages/entrainement.page"
  * assertions dans un seul flow complet. Grosse économie de temps sans perte
  * de couverture : chaque étape reste assertée.
  */
-test.describe("Entrainement — session complete", () => {
+test.describe("Entrainement — série complète", () => {
   test.describe.configure({ mode: "serial", timeout: 90_000 })
 
   let entrainement: EntrainementPage
@@ -23,14 +23,17 @@ test.describe("Entrainement — session complete", () => {
       await entrainement.waitForForm()
       await expect(page.getByText("Nombre de questions")).toBeVisible()
       await expect(
-        page.getByRole("button", { name: "Commencer l'entraînement" }),
+        page.getByRole("button", { name: "Commencer la série" }),
       ).toBeVisible()
+      // Récapitulatif collant : disponibles, mode, chronomètre.
+      await expect(page.getByTestId("training-pool")).toBeVisible()
+      await expect(page.getByText("Chronomètre")).toBeVisible()
     } else {
       await expect(
-        page.getByRole("heading", { name: "Débloquez l'Entraînement" }),
+        page.getByRole("heading", { name: "Entraînement non disponible" }),
       ).toBeVisible()
       await expect(
-        page.getByText(/Accédez à notre banque complète/),
+        page.getByRole("link", { name: /Voir les tarifs/ }),
       ).toBeVisible()
     }
   })
@@ -41,7 +44,7 @@ test.describe("Entrainement — session complete", () => {
     await entrainement.goto()
     if (!(await entrainement.hasAccess())) test.skip()
 
-    // Setup session
+    // Configuration de la série
     await entrainement.waitForForm()
     await entrainement.setQuestionCount(5)
     await entrainement.startSession()
@@ -77,25 +80,25 @@ test.describe("Entrainement — session complete", () => {
 
     // Finish and assert results page
     await entrainement.finishSession()
-    await expect(
-      page
-        .getByTestId("score-percentage")
-        .or(page.getByTestId("score-withheld")),
-    ).toBeVisible()
+    await entrainement.gotoResultsFromCurrentUrl()
     await expect(page.getByText("Correctes", { exact: true })).toBeVisible()
     await expect(page.getByText("Incorrectes", { exact: true })).toBeVisible()
-    // <SessionResults> ne rend pas de titre « Révision des questions » : c'est le
-    // badge de score qui confirme l'écran de résultats.
-    await expect(page.getByTestId("score-badge")).toBeVisible()
+    // Score affiché ou retenu : le statut porte l'un des deux états.
+    await expect(page.getByTestId("score-status")).toHaveAttribute(
+      "data-status",
+      /passing|failing|withheld/,
+    )
 
-    // Filter + expand/collapse controls on the results page
-    const filterBtn = page.locator("[data-testid='btn-filter-errors']")
-    await expect(filterBtn).toBeVisible({ timeout: 15_000 })
-    await filterBtn.click()
-    // Le bouton inclut un compteur (« Voir toutes5 ») → toContainText.
-    await expect(filterBtn).toContainText("Voir toutes")
-    await filterBtn.click()
-    await expect(filterBtn).toContainText("Erreurs")
+    // Filtre segmenté Toutes / Incorrectes / Marquées : Q1 est marquée.
+    const errors = page.getByTestId("btn-filter-errors")
+    await expect(errors).toBeVisible({ timeout: 15_000 })
+    await errors.click()
+    await expect(errors).toHaveAttribute("aria-pressed", "true")
+    await page.getByTestId("results-filter-flagged").click()
+    await expect(page.locator("#question-1")).toBeVisible()
+    await expect(page.locator('[id^="question-"]')).toHaveCount(1)
+    await page.getByTestId("results-filter-all").click()
+    await expect(page.locator('[id^="question-"]')).toHaveCount(5)
 
     await page.locator("[data-testid='btn-expand-all']").click()
     await page.locator("[data-testid='btn-collapse-all']").click()
@@ -130,14 +133,24 @@ test.describe("Entrainement — session complete", () => {
     ).toHaveCount(1)
   })
 
-  test("la session apparait dans l'historique", async ({ page }) => {
+  test("la série apparait dans l'historique", async ({ page }) => {
     await entrainement.goto()
     if (!(await entrainement.hasAccess())) test.skip()
 
-    await expect(page.getByText("Historique")).toBeVisible({ timeout: 15_000 })
-    await expect(page.locator("text=/\\d+%/").first()).toBeVisible({
-      timeout: 10_000,
-    })
+    await expect(
+      page.getByRole("heading", { name: "Séries précédentes" }),
+    ).toBeVisible({ timeout: 15_000 })
+    // Tableau ou lignes empilées selon la largeur : la ligne visible porte un
+    // score (« 60 % ») ou un score retenu.
+    await expect(
+      page
+        .locator('[data-testid="history-score"]:visible')
+        .or(page.locator('[data-testid="history-score-withheld"]:visible'))
+        .first(),
+    ).toBeVisible({ timeout: 10_000 })
+    await expect(
+      page.locator('[data-testid="history-row"]:visible').first(),
+    ).toContainText(/Revoir/)
   })
 
   test("outils : calculatrice et valeurs de laboratoire s'ouvrent", async ({

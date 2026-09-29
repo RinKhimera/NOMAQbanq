@@ -1,0 +1,125 @@
+import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+import type { ReactNode } from "react"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ActiveSeriesCard } from "@/app/(dashboard)/tableau-de-bord/entrainement/_components/active-series-card"
+
+const { refresh, toastError, toastSuccess, abandonTrainingSession } =
+  vi.hoisted(() => ({
+    refresh: vi.fn(),
+    toastError: vi.fn(),
+    toastSuccess: vi.fn(),
+    abandonTrainingSession: vi.fn(),
+  }))
+
+vi.mock("next/navigation", async (orig) => ({
+  ...(await orig<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh, push: vi.fn() }),
+}))
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}))
+vi.mock("sonner", () => ({
+  toast: { error: toastError, success: toastSuccess },
+}))
+vi.mock("@/features/training/actions", () => ({ abandonTrainingSession }))
+
+const HOUR = 60 * 60 * 1000
+const NOW = Date.parse("2026-09-29T15:00:00Z")
+
+const session = {
+  id: "s1",
+  questionCount: 20,
+  answeredCount: 12,
+  mode: "tutor" as const,
+  domain: "Pédiatrie",
+  startedAt: NOW - 2 * HOUR - 14 * 60_000,
+  expiresAt: NOW + 21 * HOUR + 46 * 60_000,
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+})
+
+describe("ActiveSeriesCard", () => {
+  it("domaine, mode, progression, âge et expiration depuis l'ancre serveur", () => {
+    render(<ActiveSeriesCard session={session} initialNow={NOW} />)
+    expect(screen.getByText("Pédiatrie · mode tuteur")).toBeInTheDocument()
+    expect(screen.getByText("12 / 20 répondues")).toBeInTheDocument()
+    expect(screen.getByText("2 h 14")).toBeInTheDocument()
+    expect(screen.getByText("21 h 46")).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Reprendre" })).toHaveAttribute(
+      "href",
+      "/tableau-de-bord/entrainement/s1",
+    )
+  })
+
+  it("« Tous les domaines » sans domaine, mode test", () => {
+    render(
+      <ActiveSeriesCard
+        session={{ ...session, domain: null, mode: "test" }}
+        initialNow={NOW}
+      />,
+    )
+    expect(
+      screen.getByText("Tous les domaines · mode test"),
+    ).toBeInTheDocument()
+  })
+
+  it("sous deux heures, l'expiration passe en avertissement", () => {
+    const { unmount } = render(
+      <ActiveSeriesCard
+        session={{ ...session, expiresAt: NOW + 50 * 60_000 }}
+        initialNow={NOW}
+      />,
+    )
+    expect(screen.getByText("50 min").closest("span.inline-flex")).toHaveClass(
+      "text-warning-ink",
+    )
+    unmount()
+    render(<ActiveSeriesCard session={session} initialNow={NOW} />)
+    expect(
+      screen.getByText("21 h 46").closest("span.inline-flex"),
+    ).not.toHaveClass("text-warning-ink")
+  })
+
+  it("abandonner : confirmation, action, rafraîchissement", async () => {
+    abandonTrainingSession.mockResolvedValue({ success: true })
+    render(<ActiveSeriesCard session={session} initialNow={NOW} />)
+
+    await userEvent.click(screen.getByRole("button", { name: "Abandonner" }))
+    expect(
+      screen.getByRole("heading", { name: "Abandonner la série ?" }),
+    ).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole("button", { name: "Abandonner la série" }),
+    )
+
+    expect(abandonTrainingSession).toHaveBeenCalledWith({ sessionId: "s1" })
+    expect(toastSuccess).toHaveBeenCalledWith("Série abandonnée")
+    expect(refresh).toHaveBeenCalled()
+  })
+
+  it("un échec laisse le dialogue ouvert et le signale", async () => {
+    abandonTrainingSession.mockResolvedValue({
+      success: false,
+      error: "Cette série a expiré",
+    })
+    render(<ActiveSeriesCard session={session} initialNow={NOW} />)
+
+    await userEvent.click(screen.getByRole("button", { name: "Abandonner" }))
+    await userEvent.click(
+      screen.getByRole("button", { name: "Abandonner la série" }),
+    )
+
+    expect(toastError).toHaveBeenCalledWith("Erreur", {
+      description: "Cette série a expiré",
+    })
+    expect(refresh).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole("heading", { name: "Abandonner la série ?" }),
+    ).toBeInTheDocument()
+  })
+})

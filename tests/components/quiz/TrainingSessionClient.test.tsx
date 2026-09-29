@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react"
-import userEvent from "@testing-library/user-event"
+import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { TrainingSessionClient } from "@/app/(dashboard)/tableau-de-bord/entrainement/_components/training-session-client"
+import { TrainingSessionClient } from "@/app/(passation)/tableau-de-bord/entrainement/[sessionId]/_components/training-session-client"
 // Type seulement : le module `server-only` est effacé à la compilation.
 import type { TrainingSessionView } from "@/features/training/dal"
 
@@ -31,6 +31,11 @@ const {
 vi.mock("next/navigation", async (orig) => ({
   ...(await orig<typeof import("next/navigation")>()),
   useRouter: () => ({ push }),
+}))
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
 }))
 vi.mock("sonner", () => ({
   toast: { error: toastError, success: toastSuccess },
@@ -126,29 +131,47 @@ describe("TrainingSessionClient — marquage", () => {
   })
 })
 
-describe("TrainingSessionClient — session expirée", () => {
-  it("rend l'écran d'expiration au lieu du runner", () => {
+describe("TrainingSessionClient — série expirée", () => {
+  it("rend l'écran d'expiration au lieu du runner, avec le retour à l'entraînement", () => {
     render(
       <TrainingSessionClient
         sessionId="s1"
         initialData={{ ...initialData, isExpired: true }}
       />,
     )
-    expect(screen.getByText("Session expirée")).toBeInTheDocument()
+    expect(
+      screen.getByRole("heading", { name: "Série expirée" }),
+    ).toBeInTheDocument()
     expect(screen.queryByTestId("runner-stub")).not.toBeInTheDocument()
+    expect(
+      screen.getByRole("link", { name: /Retour à l'entraînement/i }),
+    ).toHaveAttribute("href", "/tableau-de-bord/entrainement")
   })
+})
 
-  it("le bouton de retour ramène à l'entraînement", async () => {
+describe("TrainingSessionClient — titre de la barre", () => {
+  it("nomme le domaine de la série, ou « Tous les domaines »", () => {
+    const { unmount } = render(
+      <TrainingSessionClient sessionId="s1" initialData={initialData} />,
+    )
+    expect(
+      (runnerProps.current as { mode: { labels: { title: string } } }).mode
+        .labels.title,
+    ).toBe("Entraînement · Tous les domaines")
+    unmount()
     render(
       <TrainingSessionClient
         sessionId="s1"
-        initialData={{ ...initialData, isExpired: true }}
+        initialData={{
+          ...initialData,
+          session: { ...initialData.session, domain: "Cardiologie" },
+        }}
       />,
     )
-    await userEvent.click(
-      screen.getByRole("button", { name: /Retour à l'entraînement/i }),
-    )
-    expect(push).toHaveBeenCalledWith("/tableau-de-bord/entrainement")
+    expect(
+      (runnerProps.current as { mode: { labels: { title: string } } }).mode
+        .labels.title,
+    ).toBe("Entraînement · Cardiologie")
   })
 })
 
@@ -202,7 +225,7 @@ describe("TrainingSessionClient — réponses et fin de session", () => {
   it("signale une réponse non enregistrée", async () => {
     saveTrainingAnswer.mockResolvedValue({
       success: false,
-      error: "Session expirée",
+      error: "Série expirée",
     })
 
     const props = mount()
@@ -250,7 +273,7 @@ describe("TrainingSessionClient — réponses et fin de session", () => {
   it("ne redirige pas si la clôture échoue", async () => {
     completeTrainingSession.mockResolvedValue({
       success: false,
-      error: "Session introuvable",
+      error: "Série introuvable",
     })
 
     const props = mount()
@@ -259,7 +282,7 @@ describe("TrainingSessionClient — réponses et fin de session", () => {
     expect(res.ok).toBe(false)
     expect(res.redirectTo).toBeUndefined()
     expect(toastError).toHaveBeenCalledWith("Erreur", {
-      description: "Session introuvable",
+      description: "Série introuvable",
     })
   })
 })

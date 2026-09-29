@@ -25,9 +25,9 @@ export class PaymentPage extends BasePage {
   }
 
   async expectNoPaywall() {
-    await expect(this.page.getByText("Nouvelle session")).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(
+      this.page.getByText("Nouvelle série", { exact: true }),
+    ).toBeVisible({ timeout: 15_000 })
   }
 
   async expectActiveAccess(type: "training" | "exam") {
