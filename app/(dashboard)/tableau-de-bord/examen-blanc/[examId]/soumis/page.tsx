@@ -68,7 +68,7 @@ export default async function ExamSubmittedPage({
             </div>
           ))}
         </dl>
-        <p className="text-ink-2 text-[15px] leading-relaxed">
+        <p className="text-ink-2 text-base leading-relaxed">
           La correction et votre score seront publiés à la fermeture de
           l&apos;examen, le{" "}
           <span className="text-ink font-medium">

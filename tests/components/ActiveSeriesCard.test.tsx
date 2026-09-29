@@ -122,4 +122,32 @@ describe("ActiveSeriesCard", () => {
       screen.getByRole("heading", { name: "Abandonner la série ?" }),
     ).toBeInTheDocument()
   })
+
+  it("expirée : le dit, ne propose plus la reprise, « Retirer » abandonne", async () => {
+    abandonTrainingSession.mockResolvedValue({ success: true })
+    render(
+      <ActiveSeriesCard
+        session={{ ...session, expiresAt: NOW - HOUR }}
+        initialNow={NOW}
+        expired
+      />,
+    )
+    const card = screen.getByTestId("active-series-card")
+    expect(card).toHaveAttribute("data-state", "expired")
+    expect(card).toHaveTextContent("Série expirée")
+    expect(card).toHaveTextContent("ses réponses ne comptent pas")
+    expect(screen.queryByRole("link", { name: /Reprendre/ })).toBeNull()
+
+    await userEvent.click(screen.getByRole("button", { name: "Retirer" }))
+    expect(
+      screen.getByRole("heading", { name: "Retirer la série expirée ?" }),
+    ).toBeInTheDocument()
+    // Le dialogue ouvert rend le reste de la page inerte : un seul « Retirer ».
+    await userEvent.click(screen.getByRole("button", { name: "Retirer" }))
+    expect(abandonTrainingSession).toHaveBeenCalledWith({
+      sessionId: session.id,
+    })
+    expect(toastSuccess).toHaveBeenCalledWith("Série retirée")
+    expect(refresh).toHaveBeenCalled()
+  })
 })

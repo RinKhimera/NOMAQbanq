@@ -20,6 +20,20 @@ export type ConsignesExam = {
   endDate: number
 }
 
+/** Les champs des consignes lus sur un examen de la liste ou de la passation. */
+export const toConsignesExam = (exam: {
+  questionCount: number
+  completionTime: number
+  enablePause: boolean
+  pauseDurationMinutes: number | null
+  endDate: number
+}): ConsignesExam => ({
+  questionCount: exam.questionCount,
+  completionTime: exam.completionTime,
+  pauseDurationMinutes: exam.enablePause ? exam.pauseDurationMinutes : null,
+  endDate: exam.endDate,
+})
+
 const Num = ({ children }: { children: ReactNode }) => (
   <span className="text-ink font-mono">{children}</span>
 )

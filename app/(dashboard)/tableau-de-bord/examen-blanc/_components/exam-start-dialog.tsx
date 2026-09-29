@@ -3,7 +3,10 @@
 import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { ExamConsignesForm } from "@/components/quiz/session/exam-consignes"
+import {
+  ExamConsignesForm,
+  toConsignesExam,
+} from "@/components/quiz/session/exam-consignes"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -72,14 +75,7 @@ export const ExamStartDialog = ({
               </DialogDescription>
             </DialogHeader>
             <ExamConsignesForm
-              exam={{
-                questionCount: exam.questionCount,
-                completionTime: exam.completionTime,
-                pauseDurationMinutes: exam.enablePause
-                  ? exam.pauseDurationMinutes
-                  : null,
-                endDate: exam.endDate,
-              }}
+              exam={toConsignesExam(exam)}
               now={now}
               acknowledged={ack}
               onAcknowledgedChange={setAck}

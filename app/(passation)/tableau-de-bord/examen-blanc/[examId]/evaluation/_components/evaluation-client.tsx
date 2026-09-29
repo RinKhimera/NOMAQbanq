@@ -11,7 +11,10 @@ import type {
   QuizMode,
   QuizQuestion,
 } from "@/components/quiz/runner/types"
-import { ExamConsignesForm } from "@/components/quiz/session/exam-consignes"
+import {
+  ExamConsignesForm,
+  toConsignesExam,
+} from "@/components/quiz/session/exam-consignes"
 import { PassationSkeleton } from "@/components/quiz/session/passation-skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -88,19 +91,12 @@ const StartScreen = ({
         <div className="flex flex-col gap-2">
           <p className="type-label">Examen blanc</p>
           <h1 className="type-h2 text-ink">Commencer {exam.title} ?</h1>
-          <p className="text-ink-3 text-[15px]">
+          <p className="text-ink-3 text-base">
             Prévoyez un moment sans interruption.
           </p>
         </div>
         <ExamConsignesForm
-          exam={{
-            questionCount: exam.questionCount,
-            completionTime: exam.completionTime,
-            pauseDurationMinutes: exam.enablePause
-              ? exam.pauseDurationMinutes
-              : null,
-            endDate: exam.endDate,
-          }}
+          exam={toConsignesExam(exam)}
           now={now}
           acknowledged={ack}
           onAcknowledgedChange={setAck}

@@ -88,7 +88,7 @@ export function MultiChecklist<T>({
             size="sm"
             disabled={disabled}
             onClick={() => onChange([])}
-            className="h-7 px-1 text-[13px] max-lg:h-11"
+            className="h-7 px-1 text-sm max-lg:h-11"
           >
             Tout effacer
           </Button>
@@ -145,9 +145,7 @@ export function MultiChecklist<T>({
           )
         })}
         {options.length === 0 && (
-          <p className="text-ink-3 px-3 py-3.5 text-[13px]">
-            {emptyText(search)}
-          </p>
+          <p className="text-ink-3 px-3 py-3.5 text-sm">{emptyText(search)}</p>
         )}
       </div>
 

@@ -43,7 +43,7 @@ import {
   scoreTone,
   summarize,
 } from "@/lib/score"
-import { TONE_COLOR, type Tone } from "@/lib/tone"
+import { TONE_COLOR, TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
 export interface SessionResultsParticipant {
@@ -192,22 +192,17 @@ const StatRow = ({ testId, value, label, tone, title }: StatRowProps) => (
     <span className="text-ink-3 text-sm">{label}</span>
     <span
       data-testid={testId}
-      className={cn("font-mono text-sm tabular-nums", TONE_TEXT_STAT[tone])}
+      className={cn(
+        "font-mono text-sm tabular-nums",
+        // Seul l'avertissement colore le chiffre ; les autres tons restent
+        // à l'encre, la couleur est portée par le point à gauche.
+        tone === "warning" ? TONE_TEXT.warning : "text-ink",
+      )}
     >
       {value}
     </span>
   </div>
 )
-
-const TONE_TEXT_STAT: Record<Tone, string> = {
-  success: "text-ink",
-  warning: "text-warning-ink",
-  danger: "text-ink",
-  info: "text-ink",
-  accent: "text-ink",
-  admin: "text-ink",
-  neutral: "text-ink",
-}
 
 /**
  * Résultats d'une tentative — examen (étudiant et admin) et série : bilan
@@ -572,7 +567,7 @@ export function SessionResults({
                   className="h-1.5 max-md:col-span-full max-md:row-start-2"
                   aria-label={`${d.domain} : ${d.correct} sur ${d.total}`}
                 />
-                <span className="text-ink-2 text-right font-mono text-[13px] tabular-nums">
+                <span className="text-ink-2 text-right font-mono text-sm tabular-nums">
                   {formatScore(d.percent)}
                 </span>
               </li>

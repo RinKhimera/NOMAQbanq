@@ -1,3 +1,4 @@
+import type { ExamListItem, ExamListParticipation } from "@/features/exams/dal"
 import {
   type AttemptTiming,
   pauseRemainingMs,
@@ -11,23 +12,16 @@ import { isPassing } from "@/lib/score"
  * paramètre (règle d'hydratation, `.claude/rules/loading-ui.md`).
  */
 
-export type ListParticipation = {
-  status: "in_progress" | "completed" | "auto_submitted"
-  /** `null` = score retenu. */
-  score: number | null
-  completedAt: number | null
-  answeredCount: number
-  /** Présent pour une participation démarrée : de quoi lire le temps restant. */
-  timing: AttemptTiming | null
-}
+/** Ce que ces règles lisent d'une participation de la liste (forme de la DAL). */
+export type ListParticipation = Pick<
+  ExamListParticipation,
+  "status" | "score" | "completedAt" | "answeredCount" | "timing"
+>
 
-export type ListExam = {
-  id: string
-  endDate: number
-  completionTime: number
-  audienceType: "subscribers" | "restricted"
-  userParticipation: ListParticipation | null
-}
+export type ListExam = Pick<
+  ExamListItem,
+  "id" | "endDate" | "completionTime" | "audienceType"
+> & { userParticipation: ListParticipation | null }
 
 /**
  * État d'un examen ouvert, dans l'ordre d'affichage : temps écoulé, en cours
@@ -176,5 +170,10 @@ export const groupByMonth = <T extends { endDate: number }>(
   return groups
 }
 
-/** Mois affichés d'emblée ; au-delà, un repli « Afficher les mois précédents ». */
+/**
+ * Groupes de mois affichés d'emblée (un groupe = un mois qui a au moins un
+ * examen) ; au-delà, un repli « Afficher les mois précédents ». Des groupes
+ * plutôt qu'une fenêtre calendaire : un étudiant peu assidu verrait sinon
+ * tout son historique derrière le bouton.
+ */
 export const VISIBLE_MONTHS = 3

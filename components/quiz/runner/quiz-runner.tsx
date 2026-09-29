@@ -3,7 +3,6 @@
 import {
   Calculator as CalculatorIcon,
   FlaskConical,
-  Timer,
   WifiOff,
 } from "lucide-react"
 import { type ReactNode, useRef, useState } from "react"
@@ -26,7 +25,7 @@ import { Button } from "@/components/ui/button"
 import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
 import { useOnline } from "@/hooks/use-online"
 import { CalculatorProvider } from "@/hooks/useCalculator"
-import { EXAM_ZONES, formatExamTime, zone } from "@/lib/attempt-clock"
+import { formatExamTime, zone } from "@/lib/attempt-clock"
 import { TONE_SOFT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import type {
@@ -159,10 +158,6 @@ function QuizRunnerInner({
       : undefined
   const remaining = session.timer?.remainingMs
   const timeIsUp = !!mode.timer && remaining !== undefined && remaining <= 0
-  const minutesLeft =
-    remaining !== undefined && !timeIsUp && remaining < EXAM_ZONES.criticalMs
-      ? Math.max(1, Math.ceil(remaining / 60_000))
-      : null
 
   const cells = passationCells(questions, session.answers, session.flagged)
   const navigator = {
@@ -228,19 +223,6 @@ function QuizRunnerInner({
               </Alert>
             )}
             {banners}
-            {minutesLeft !== null && (
-              <Alert variant="destructive" data-testid="time-low-alert">
-                <Timer aria-hidden />
-                <AlertTitle>
-                  Moins de {minutesLeft} minute{minutesLeft > 1 ? "s" : ""}{" "}
-                  restante{minutesLeft > 1 ? "s" : ""}
-                </AlertTitle>
-                <AlertDescription>
-                  L&apos;examen sera soumis automatiquement à la fin du temps,
-                  avec les réponses enregistrées.
-                </AlertDescription>
-              </Alert>
-            )}
             <div className="flex flex-wrap items-center gap-2">
               {!isExam && (
                 <StatusPill

@@ -32,21 +32,18 @@ import type {
   TrainingHistoryItem,
   TrainingHistoryPage,
 } from "@/features/training/dal"
+import { TRAINING_MODE_LABEL } from "@/features/training/schemas"
 import { formatMediumDate } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { formatScore, scoreTextClass } from "@/lib/score"
+import { TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 
-// Zone de toucher de 44 px des boutons de 32 px des lignes (`design-system.md`).
-const TOUCH =
-  "relative max-md:after:absolute max-md:after:-inset-2.5 max-md:after:content-['']"
-
-const ModePill = ({ mode }: { mode: TrainingHistoryItem["mode"] }) =>
-  mode === "tutor" ? (
-    <StatusPill tone="success">Tuteur</StatusPill>
-  ) : (
-    <StatusPill tone="info">Test</StatusPill>
-  )
+const ModePill = ({ mode }: { mode: TrainingHistoryItem["mode"] }) => (
+  <StatusPill tone={mode === "tutor" ? "success" : "info"}>
+    {TRAINING_MODE_LABEL[mode]}
+  </StatusPill>
+)
 
 const Score = ({ score }: { score: number | null }) => {
   if (score === null) {
@@ -57,7 +54,7 @@ const Score = ({ score }: { score: number | null }) => {
             tabIndex={0}
             data-testid="history-score-withheld"
             aria-label={`Score retenu. ${SCORE_WITHHELD_MESSAGE}.`}
-            className="text-ink-2 focus-ring inline-flex cursor-help items-center gap-1.5 rounded-xs text-[13px]"
+            className="text-ink-2 focus-ring inline-flex cursor-help items-center gap-1.5 rounded-xs text-sm"
           >
             <Hourglass aria-hidden className="size-3.5" />
             Score retenu
@@ -85,7 +82,7 @@ const Actions = ({
   onDelete: (item: TrainingHistoryItem) => void
 }) => (
   <span className="inline-flex items-center gap-1">
-    <Button asChild variant="ghost" size="sm" className={TOUCH}>
+    <Button asChild variant="ghost" size="sm" className={TOUCH_TARGET}>
       <Link href={`/tableau-de-bord/entrainement/${item.id}/resultats`}>
         Revoir
         <span className="sr-only">
@@ -99,7 +96,7 @@ const Actions = ({
       size="icon-sm"
       aria-label="Supprimer cette série"
       onClick={() => onDelete(item)}
-      className={cn("text-ink-3 hover:text-danger-ink", TOUCH)}
+      className={cn("text-ink-3 hover:text-danger-ink", TOUCH_TARGET)}
     >
       <Trash2 aria-hidden className="size-3.5" />
     </Button>
@@ -246,12 +243,12 @@ export const TrainingHistorySection = ({
                 className="border-line flex flex-col gap-1.5 border-t px-5 py-3.5 first:border-t-0"
               >
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-ink min-w-0 text-[15px] font-medium">
+                  <span className="text-ink min-w-0 text-base font-medium">
                     {item.domain ?? "Tous les domaines"}
                   </span>
                   <Score score={item.score} />
                 </div>
-                <div className="text-ink-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[13px]">
+                <div className="text-ink-3 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
                   <span className="font-mono">
                     {formatMediumDate(item.completedAt ?? item.startedAt)}
                   </span>

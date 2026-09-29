@@ -36,14 +36,11 @@ import {
 } from "@/lib/format"
 import { formatScore, scoreTextClass, scoreTone } from "@/lib/score"
 import { TONE_COLOR } from "@/lib/tone"
+import { TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import { InviteTag } from "./open-exam-card"
 
 const HOUR_MS = 60 * 60 * 1000
-
-// Zone de toucher de 44 px du bouton « Résultats » de 32 px (`design-system.md`).
-const TOUCH =
-  "relative max-md:after:absolute max-md:after:-inset-2.5 max-md:after:content-['']"
 
 const Section = ({
   title,
@@ -57,7 +54,7 @@ const Section = ({
   <section className="flex flex-col gap-3">
     <div className="flex items-baseline gap-2">
       <h2 className="type-h4 text-ink">{title}</h2>
-      <span className="text-ink-3 font-mono text-[13px]">{count}</span>
+      <span className="text-ink-3 font-mono text-sm">{count}</span>
     </div>
     {children}
   </section>
@@ -97,7 +94,7 @@ const Row = ({
   >
     <DateBlock at={date} />
     <div className="flex min-w-0 flex-col gap-1">
-      <span className="text-ink text-[15px] leading-snug font-medium text-pretty wrap-anywhere">
+      <span className="text-ink text-base leading-snug font-medium text-pretty wrap-anywhere">
         {exam.title}
       </span>
       <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5">
@@ -270,7 +267,7 @@ const PastRow = ({
               tabIndex={0}
               data-testid="exam-score-withheld"
               aria-label={`Score retenu. ${message}`}
-              className="text-ink-2 focus-ring inline-flex cursor-help items-center gap-1.5 rounded-xs text-[13px]"
+              className="text-ink-2 focus-ring inline-flex cursor-help items-center gap-1.5 rounded-xs text-sm"
             >
               <Hourglass aria-hidden className="size-3.5" />
               Score retenu
@@ -283,13 +280,13 @@ const PastRow = ({
     }
     case "closing":
       score = (
-        <span className="text-ink-2 text-[13px]">
+        <span className="text-ink-2 text-sm">
           Résultats en cours de publication
         </span>
       )
       break
     default:
-      score = <span className="text-ink-3 text-[13px]">Non passé</span>
+      score = <span className="text-ink-3 text-sm">Non passé</span>
   }
 
   return (
@@ -311,7 +308,12 @@ const PastRow = ({
         (locked ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button asChild size="sm" variant="ghost" className={TOUCH}>
+              <Button
+                asChild
+                size="sm"
+                variant="ghost"
+                className={TOUCH_TARGET}
+              >
                 <Link
                   href="/tarifs"
                   aria-label="Résultats, accès requis pour la correction"
@@ -325,7 +327,7 @@ const PastRow = ({
             <TooltipContent>Accès requis pour la correction</TooltipContent>
           </Tooltip>
         ) : (
-          <Button asChild size="sm" variant="ghost" className={TOUCH}>
+          <Button asChild size="sm" variant="ghost" className={TOUCH_TARGET}>
             <Link href={resultsHref}>
               Résultats
               <span className="sr-only"> : {exam.title}</span>

@@ -30,17 +30,26 @@ export function EntrainementClient({
   initialHistory,
   initialNow,
 }: EntrainementClientProps) {
-  const active = activeSession?.canResume ? activeSession.session : null
+  // Une série expirée reste affichée (l'étudiant doit voir qu'elle a expiré)
+  // mais ne bloque pas le formulaire : la création la clôt.
+  const active = activeSession?.session ?? null
+  const expired = activeSession?.isExpired ?? false
 
   return (
     <>
-      {active && <ActiveSeriesCard session={active} initialNow={initialNow} />}
+      {active && (
+        <ActiveSeriesCard
+          session={active}
+          initialNow={initialNow}
+          expired={expired}
+        />
+      )}
       <TrainingConfigForm
         domains={domains.domains}
         totalQuestions={domains.totalQuestions}
         initialDomain={initialDomain}
         initialObjectifs={initialObjectifs}
-        hasActiveSeries={active !== null}
+        hasActiveSeries={active !== null && !expired}
       />
       <TrainingHistorySection initialHistory={initialHistory} />
     </>

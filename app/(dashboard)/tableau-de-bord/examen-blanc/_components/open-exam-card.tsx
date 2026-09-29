@@ -73,7 +73,7 @@ const Sub = ({
 }) => (
   <p
     className={cn(
-      "text-[13px] leading-snug text-pretty",
+      "text-sm leading-snug text-pretty",
       warning ? "text-warning-ink" : "text-ink-3",
     )}
   >
@@ -91,7 +91,7 @@ const Answered = ({
   tone: "warning" | "neutral"
 }) => (
   <div className="flex flex-col gap-1.5">
-    <div className="flex justify-between text-[13px]">
+    <div className="flex justify-between text-sm">
       <span className="text-ink-2">Répondues</span>
       <span className="text-ink font-mono whitespace-nowrap tabular-nums">
         {answered} / {total}
@@ -156,7 +156,7 @@ export const OpenExamCard = ({
           </Button>
         ) : (
           <div className="flex flex-col gap-2">
-            <span className="text-ink-2 inline-flex items-center gap-1.5 text-[13px]">
+            <span className="text-ink-2 inline-flex items-center gap-1.5 text-sm">
               <Lock aria-hidden className="size-3.5" />
               Réservé aux abonnés
             </span>
@@ -282,7 +282,7 @@ export const OpenExamCard = ({
             {exam.title}
           </h2>
           {!compact && exam.description && (
-            <p className="text-ink-2 max-w-140 text-[15px] leading-relaxed">
+            <p className="text-ink-2 max-w-140 text-base leading-relaxed">
               {exam.description}
             </p>
           )}
@@ -300,7 +300,7 @@ export const OpenExamCard = ({
             ].map(([label, value]) => (
               <div key={label} className="flex flex-col gap-0.5">
                 <dt className="type-label">{label}</dt>
-                <dd className="text-ink font-mono text-[15px] tabular-nums">
+                <dd className="text-ink font-mono text-base tabular-nums">
                   {value}
                 </dd>
               </div>

@@ -300,7 +300,7 @@ describe("QuizRunner — alertes et temps écoulé", () => {
     expect(screen.queryByTestId("offline-alert")).not.toBeInTheDocument()
   })
 
-  it("moins de cinq minutes : alerte de fin imminente, pas de dialogue", () => {
+  it("moins de cinq minutes : le chronomètre seul change de palier, aucune alerte ni dialogue", () => {
     // 3600 s de budget, 57 min écoulées → 3 min restantes.
     render(
       <QuizRunner
@@ -310,9 +310,7 @@ describe("QuizRunner — alertes et temps écoulé", () => {
         callbacks={callbacks()}
       />,
     )
-    expect(screen.getByTestId("time-low-alert")).toHaveTextContent(
-      "Moins de 3 minutes restantes",
-    )
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
     expect(screen.queryByTestId("time-up-dialog")).not.toBeInTheDocument()
   })
 

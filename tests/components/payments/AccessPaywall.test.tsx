@@ -55,4 +55,41 @@ describe("AccessPaywall", () => {
       screen.getByRole("link", { name: "Voir ma progression" }),
     ).toHaveAttribute("href", "/tableau-de-bord")
   })
+
+  it("bandeau : une ligne, le prix d'appel et un seul lien vers les tarifs", () => {
+    render(
+      <AccessPaywall
+        type="exam"
+        variant="banner"
+        testId="exam-access-banner"
+        priceFromCents={5000}
+      />,
+    )
+    const banner = screen.getByTestId("exam-access-banner")
+    expect(banner).toHaveTextContent("Accès Examens requis")
+    expect(banner).toHaveTextContent(/à partir de 50\s\$ pour 1 mois/)
+    expect(banner).toHaveTextContent(
+      "Les examens sur invitation restent accessibles.",
+    )
+    expect(screen.getAllByRole("link")).toHaveLength(1)
+    expect(
+      screen.getByRole("link", { name: /Voir les tarifs/ }),
+    ).toHaveAttribute("href", "/tarifs")
+  })
+
+  it("bandeau échu : la date et « Prolonger l'accès »", () => {
+    render(
+      <AccessPaywall
+        type="exam"
+        variant="banner"
+        expiredAt={Date.parse("2026-09-20T12:00:00Z")}
+      />,
+    )
+    expect(screen.getByTestId("access-paywall")).toHaveTextContent(
+      "Votre accès Examens a expiré le 20 septembre 2026",
+    )
+    expect(
+      screen.getByRole("link", { name: /Prolonger l'accès/ }),
+    ).toHaveAttribute("href", "/tarifs")
+  })
 })

@@ -15,6 +15,7 @@ import { MultiChecklist } from "@/components/shared/multi-checklist"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { PendingRegion } from "@/components/ui/pending-region"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import {
   Select,
@@ -43,6 +44,7 @@ import {
   REVISION_CRITERIA,
   REVISION_CRITERION_LABELS,
   type RevisionCriterion,
+  TRAINING_MODE_LABEL,
   notEnoughQuestions,
 } from "@/features/training/schemas"
 import { callAction } from "@/lib/safe-action"
@@ -114,7 +116,7 @@ const ModeCard = ({
     )}
   >
     <span className="flex items-center justify-between gap-2">
-      <span className="text-ink flex items-center gap-2 text-[15px] font-semibold">
+      <span className="text-ink flex items-center gap-2 text-base font-semibold">
         <Icon
           aria-hidden
           className={cn("size-4", checked ? "text-accent-ink" : "text-ink-3")}
@@ -123,7 +125,7 @@ const ModeCard = ({
       </span>
       <RadioGroupItem id={`mode-${value}`} value={value} />
     </span>
-    <span className="text-ink-2 text-[13px] leading-normal font-normal">
+    <span className="text-ink-2 text-sm leading-normal font-normal">
       {description}
     </span>
   </Label>
@@ -384,22 +386,21 @@ export const TrainingConfigForm = ({
           hint={`optionnel, ${MAX_OBJECTIFS} au plus`}
         >
           {domain === ALL_DOMAINS ? (
-            <p className="text-ink-3 text-[13px]">
+            <p className="text-ink-3 text-sm">
               Choisissez un domaine pour cibler ses objectifs.
             </p>
           ) : !objectifsReady ? (
-            <p className="text-ink-3 flex items-center gap-2 text-[13px]">
-              <Spinner size="sm" />
+            <p className="text-ink-3 text-sm" aria-busy="true">
               Chargement des objectifs…
             </p>
           ) : objectifsFor.failed ? (
-            <p className="text-ink-2 flex flex-wrap items-center gap-2 text-[13px]">
+            <p className="text-ink-2 flex flex-wrap items-center gap-2 text-sm">
               Impossible de charger les objectifs de ce domaine.
               <Button
                 type="button"
                 variant="link"
                 size="sm"
-                className="h-auto px-0 text-[13px]"
+                className="h-auto px-0 text-sm"
                 onClick={() => loadObjectifs(domain)}
               >
                 Réessayer
@@ -463,7 +464,7 @@ export const TrainingConfigForm = ({
             ))}
           </div>
           {isRevision && (
-            <p className="text-ink-3 text-[13px]">
+            <p className="text-ink-3 text-sm">
               Avec la révision ciblée, une série peut compter dès 1 question.
             </p>
           )}
@@ -493,7 +494,7 @@ export const TrainingConfigForm = ({
         </Field>
 
         <Field label="Révision ciblée" hint="optionnel, critères cumulables">
-          <div className="flex flex-wrap gap-2" aria-busy={loading}>
+          <PendingRegion isPending={loading} className="flex flex-wrap gap-2">
             {REVISION_CRITERIA.map((criterion) => {
               const isActive = activeCriteria.includes(criterion)
               const value = revisionCounts[criterion]
@@ -506,30 +507,26 @@ export const TrainingConfigForm = ({
                   disabled={countsReady && value === 0}
                   onClick={() => toggleRevision(criterion)}
                   className={cn(
-                    "focus-ring border-line-strong bg-surface text-ink-2 hover:bg-surface-2 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-xs border px-2.5 text-[13px] font-medium transition-[background-color,border-color] disabled:cursor-not-allowed disabled:opacity-50 max-lg:h-11",
+                    "focus-ring border-line-strong bg-surface text-ink-2 hover:bg-surface-2 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-xs border px-2.5 text-sm font-medium transition-[background-color,border-color] disabled:cursor-not-allowed disabled:opacity-50 max-lg:h-11",
                     isActive &&
                       "border-accent bg-accent-soft text-accent-ink hover:bg-accent-soft",
                   )}
                 >
                   {isActive && <Check aria-hidden className="size-3.5" />}
                   {REVISION_CRITERION_LABELS[criterion]}
-                  {loading ? (
-                    <Spinner size="sm" className="text-ink-3" />
-                  ) : (
-                    <span
-                      className={cn(
-                        "font-mono text-xs tabular-nums",
-                        isActive ? "text-accent-ink" : "text-ink-3",
-                      )}
-                    >
-                      {fmt(value)}
-                    </span>
-                  )}
+                  <span
+                    className={cn(
+                      "font-mono text-xs tabular-nums",
+                      isActive ? "text-accent-ink" : "text-ink-3",
+                    )}
+                  >
+                    {countsReady ? fmt(value) : "—"}
+                  </span>
                 </button>
               )
             })}
-          </div>
-          <p className="text-ink-3 text-[13px] leading-normal">
+          </PendingRegion>
+          <p className="text-ink-3 text-sm leading-normal">
             Ratées : dernière réponse fausse, en série comme en examen blanc.
             Non vues : jamais répondues. Marquées : y compris pendant un examen
             blanc.
@@ -554,16 +551,18 @@ export const TrainingConfigForm = ({
         <Recap
           label="Disponibles"
           value={
-            loading ? (
-              <Spinner size="sm" className="text-ink-3" />
-            ) : (
-              <span
-                className="font-mono tabular-nums"
-                data-testid="training-pool"
-              >
-                {fmt(pool)} question{pool > 1 ? "s" : ""}
-              </span>
-            )
+            <PendingRegion isPending={loading} className="inline-flex">
+              {loading ? (
+                <span className="text-ink-3">—</span>
+              ) : (
+                <span
+                  className="font-mono tabular-nums"
+                  data-testid="training-pool"
+                >
+                  {fmt(pool)} question{pool > 1 ? "s" : ""}
+                </span>
+              )}
+            </PendingRegion>
           }
         />
         <Recap
@@ -576,7 +575,7 @@ export const TrainingConfigForm = ({
                 : effectiveCount
           }
         />
-        <Recap label="Mode" value={mode === "tutor" ? "Tuteur" : "Test"} />
+        <Recap label="Mode" value={TRAINING_MODE_LABEL[mode]} />
         <Recap
           label="Révision"
           value={
@@ -589,7 +588,7 @@ export const TrainingConfigForm = ({
         />
         <Recap label="Chronomètre" value="Aucun" />
         {isRevision && !tooFew && (
-          <p className="text-ink-3 -mt-1 text-[13px] leading-normal">
+          <p className="text-ink-3 -mt-1 text-sm leading-normal">
             Moins s&apos;il y en a moins parmi les questions retenues.
           </p>
         )}
@@ -611,7 +610,7 @@ export const TrainingConfigForm = ({
           </Alert>
         )}
         {hasActiveSeries && (
-          <p className="text-ink-2 text-[13px] leading-normal">
+          <p className="text-ink-2 text-sm leading-normal">
             Terminez ou abandonnez votre série en cours pour en commencer une
             autre.
           </p>

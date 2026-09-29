@@ -72,3 +72,9 @@ export const saveTrainingAnswerSchema = z.object({
   selectedAnswer: z.string().min(1),
 })
 export type SaveTrainingAnswerInput = z.infer<typeof saveTrainingAnswerSchema>
+
+/** Libellé étudiant d'un mode ; en minuscule dans une phrase (« mode tuteur »). */
+export const TRAINING_MODE_LABEL: Record<"tutor" | "test", string> = {
+  tutor: "Tuteur",
+  test: "Test",
+}

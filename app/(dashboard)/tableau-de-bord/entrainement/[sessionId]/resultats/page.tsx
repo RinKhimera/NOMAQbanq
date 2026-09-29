@@ -6,6 +6,7 @@ import { SessionResults } from "@/components/quiz/results/session-results"
 import type { AnswersMap } from "@/components/quiz/runner/types"
 import { Button } from "@/components/ui/button"
 import { getTrainingSessionResults } from "@/features/training/dal"
+import { TRAINING_MODE_LABEL } from "@/features/training/schemas"
 
 interface TrainingResultsPageProps {
   params: Promise<{ sessionId: string }>
@@ -46,7 +47,7 @@ export default async function TrainingResultsPage({
       questions={questions}
       answers={answers}
       flaggedIds={bookmarkedIds}
-      eyebrow={`Série terminée · mode ${session.mode === "tutor" ? "tuteur" : "test"}`}
+      eyebrow={`Série terminée · mode ${TRAINING_MODE_LABEL[session.mode].toLowerCase()}`}
       actions={
         <>
           <Button asChild className="max-md:h-11">
