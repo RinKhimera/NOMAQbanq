@@ -1,4 +1,4 @@
-import { BookOpen, Lock } from "lucide-react"
+import { BookOpen } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { SessionResults } from "@/components/quiz/results/session-results"
@@ -32,7 +32,6 @@ export default async function MockExamResultsPage({
   if (data && "error" in data && data.error === "ACCESS_REQUIRED") {
     return (
       <ErrorState
-        icon={Lock}
         title="Accès requis pour la correction"
         description="Votre score reste affiché dans la liste des examens. La correction demande un accès Examens actif."
         actions={

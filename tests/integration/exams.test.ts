@@ -936,12 +936,15 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
     it("participation à un examen encore OUVERT : score retenu sur la liste, l'historique et la moyenne", async () => {
       asStudent()
       const list = await getExamsWithParticipation()
+      // Retenu par son examen propre, ouvert : aucun AUTRE examen ouvert ne
+      // partage la question répondue, donc pas de titre « publié à la
+      // fermeture de … ».
       expect(
-        list.find((e) => e.id === openId)?.userParticipation?.score,
-      ).toBeNull()
+        list.find((e) => e.id === openId)?.userParticipation,
+      ).toMatchObject({ score: null, withheldBy: null })
       expect(
-        list.find((e) => e.id === closedOnlyExamId)?.userParticipation?.score,
-      ).toBe(100)
+        list.find((e) => e.id === closedOnlyExamId)?.userParticipation,
+      ).toMatchObject({ score: 100, withheldBy: null })
 
       const recent = await getMyRecentParticipations()
       expect(recent.find((h) => h.examId === openId)?.score).toBeNull()

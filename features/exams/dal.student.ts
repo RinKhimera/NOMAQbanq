@@ -58,7 +58,10 @@ export const participationScoreReadable = (viewer: LockUser) =>
  * Titre de l'examen encore OUVERT qui retient le score de la ligne lue (une
  * de ses questions y a été répondue), pour « Publié à la fermeture de … » ;
  * `null` si le score est lisible, ou pour un admin. L'examen propre est
- * écarté : ouvert, la ligne se rend « Soumis », sans score.
+ * écarté : ouvert, la ligne se rend « Soumis », sans score. Il se compare via
+ * `ownExamId` (un `sql` imbriqué) : une colonne placée directement dans ce
+ * gabarit serait déqualifiée par le select mono-table et `exam_id` devient
+ * ambigu au milieu des jointures.
  */
 const withheldByOpenExamTitle = (viewer: LockUser) =>
   viewer.role === "admin"
@@ -73,7 +76,7 @@ const withheldByOpenExamTitle = (viewer: LockUser) =>
             on akl_p.exam_id = akl_q.exam_id and akl_p.user_id = ${viewer.id}
          where akl_q.question_id in (${answeredQuestionIds})
            and akl_e.end_date > now()
-           and akl_e.id <> ${examParticipations.examId}
+           and akl_e.id <> ${ownExamId}
          order by akl_e.end_date
          limit 1
       ) end`

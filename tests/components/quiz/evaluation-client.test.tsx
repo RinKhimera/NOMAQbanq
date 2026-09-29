@@ -97,12 +97,21 @@ const renderClient = ({
   enablePause = false,
   initialNow = SERVER_NOW,
   endDate = SERVER_NOW + 3 * 24 * 3_600_000,
+  initialAnswersRaw = [
+    { questionId: "q1", selectedAnswer: "A", isFlagged: true },
+    { questionId: "q2", selectedAnswer: null, isFlagged: false },
+  ],
 }: {
   session?: typeof enCours | null
   questions?: (typeof question)[]
   enablePause?: boolean
   initialNow?: number
   endDate?: number
+  initialAnswersRaw?: {
+    questionId: string
+    selectedAnswer: string | null
+    isFlagged: boolean
+  }[]
 } = {}) =>
   render(
     <EvaluationClient
@@ -117,10 +126,7 @@ const renderClient = ({
       }}
       questions={questions}
       initialSession={session}
-      initialAnswersRaw={[
-        { questionId: "q1", selectedAnswer: "A", isFlagged: true },
-        { questionId: "q2", selectedAnswer: null, isFlagged: false },
-      ]}
+      initialAnswersRaw={initialAnswersRaw}
       initialNow={initialNow}
     />,
   )
@@ -166,6 +172,26 @@ describe("EvaluationClient — câblage du chrono", () => {
       "Vos 1 réponse et vos marquages sont conservés.",
     )
     expect(lastBanners).toBeTruthy()
+  })
+
+  it("un départ depuis la liste (participation toute fraîche, rien d'enregistré) n'est pas une reprise", () => {
+    renderClient({ initialAnswersRaw: [], initialNow: SERVER_START + 5_000 })
+    expect(screen.queryByTestId("resume-alert")).toBeNull()
+  })
+
+  it("une participation fraîche mais déjà marquée est une reprise", () => {
+    renderClient({
+      initialAnswersRaw: [
+        { questionId: "q1", selectedAnswer: null, isFlagged: true },
+      ],
+      initialNow: SERVER_START + 5_000,
+    })
+    expect(screen.getByTestId("resume-alert")).toBeInTheDocument()
+  })
+
+  it("une participation sans rien d'enregistré mais commencée il y a longtemps est une reprise", () => {
+    renderClient({ initialAnswersRaw: [], initialNow: SERVER_START + 120_000 })
+    expect(screen.getByTestId("resume-alert")).toBeInTheDocument()
   })
 })
 

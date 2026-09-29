@@ -36,6 +36,10 @@ import { TONE_SOFT } from "@/lib/tone"
 
 const LIST_HREF = "/tableau-de-bord/examen-blanc"
 const RESUME_NOTICE_MS = 8000
+// Une participation créée depuis le dialogue de la liste arrive ici en
+// quelques secondes : ce n'est pas une reprise tant que rien n'a été
+// répondu ni marqué et que le départ est tout frais.
+const RESUME_GRACE_MS = 60_000
 
 interface EvaluationExam {
   title: string
@@ -141,7 +145,11 @@ export function EvaluationClient({
   const [showStart, setShowStart] = useState(!resuming)
 
   // Reprise : l'alerte s'efface d'elle-même une fois lue.
-  const [showResumed, setShowResumed] = useState(resuming)
+  const wasAway =
+    resuming &&
+    (initialAnswersRaw.length > 0 ||
+      initialNow - (initialSession?.startedAt ?? initialNow) > RESUME_GRACE_MS)
+  const [showResumed, setShowResumed] = useState(wasAway)
   useEffect(() => {
     if (!showResumed) return
     const id = setTimeout(() => setShowResumed(false), RESUME_NOTICE_MS)
