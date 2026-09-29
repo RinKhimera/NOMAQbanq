@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import type { ExamListItem } from "@/features/exams/dal"
 import { pauseRemainingMs } from "@/lib/attempt-clock"
-import { type OpenExamState, shownRemainingMs } from "@/lib/exam-list"
+import {
+  type OpenExamState,
+  budgetExhausted,
+  shownRemainingMs,
+} from "@/lib/exam-list"
 import {
   formatCountdown,
   formatDateTime,
@@ -124,6 +128,10 @@ export const OpenExamCard = ({
   const p = exam.userParticipation
   const evaluationHref = `/tableau-de-bord/examen-blanc/${exam.id}/evaluation`
   const badge = BADGE[state]
+  // Réservé aux abonnés avec une participation dont le temps est écoulé : rien
+  // à reprendre, la clôture viendra du cron à la fermeture.
+  const lockedAfterBudget =
+    state === "locked" && p !== null && budgetExhausted(p, now)
 
   let side: ReactNode
   if (state === "eligible" || state === "locked") {
@@ -152,9 +160,19 @@ export const OpenExamCard = ({
               <Lock aria-hidden className="size-3.5" />
               Réservé aux abonnés
             </span>
+            {lockedAfterBudget && (
+              <Sub>
+                Temps écoulé : votre participation sera soumise à la fermeture
+                de l&apos;examen.
+              </Sub>
+            )}
             <Button asChild size="lg" variant="outline" className="w-full">
               <Link href="/tarifs">
-                {p ? "Prolonger l'accès pour reprendre" : "Voir les tarifs"}
+                {p && !lockedAfterBudget
+                  ? "Prolonger l'accès pour reprendre"
+                  : p
+                    ? "Prolonger l'accès"
+                    : "Voir les tarifs"}
                 <ArrowRight aria-hidden />
               </Link>
             </Button>

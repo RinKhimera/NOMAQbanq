@@ -2,7 +2,14 @@
 
 import { Check, GraduationCap, ListChecks, Play } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { type ReactNode, useEffect, useState, useTransition } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react"
 import { toast } from "sonner"
 import { MultiChecklist } from "@/components/shared/multi-checklist"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -159,31 +166,42 @@ export const TrainingConfigForm = ({
 
   // Objectifs du domaine choisi : ceux de la page pour le domaine demandé,
   // rechargés par action pour tout autre. Suivis par domaine pour ne pas
-  // remonter ceux d'un domaine précédent pendant le chargement.
+  // remonter ceux d'un domaine précédent pendant le chargement ; un échec est
+  // un état à part (relance proposée), jamais un spinner sans fin.
   const [objectifsFor, setObjectifsFor] = useState<{
     domain: string
     list: Objectif[]
-  }>({ domain: domainFromUrl, list: initialObjectifs })
-  const [isObjLoading, startObjLoad] = useTransition()
+    failed: boolean
+  }>({ domain: domainFromUrl, list: initialObjectifs, failed: false })
+  const [, startObjLoad] = useTransition()
+  // Dernier domaine demandé : la réponse d'un domaine quitté entre-temps est
+  // ignorée, sinon elle remplacerait la liste du domaine courant.
+  const latestObjDomain = useRef(domainFromUrl)
+  const loadObjectifs = useCallback(
+    (forDomain: string) => {
+      latestObjDomain.current = forDomain
+      startObjLoad(async () => {
+        let next: { list: Objectif[]; failed: boolean }
+        try {
+          const res = await loadAvailableObjectifsCMC(forDomain)
+          next = { list: res.objectifs, failed: false }
+        } catch {
+          next = { list: [], failed: true }
+        }
+        if (latestObjDomain.current === forDomain) {
+          setObjectifsFor({ domain: forDomain, ...next })
+        }
+      })
+    },
+    [startObjLoad],
+  )
   useEffect(() => {
     if (domain === ALL_DOMAINS || objectifsFor.domain === domain) return
-    startObjLoad(async () => {
-      try {
-        const res = await loadAvailableObjectifsCMC(domain)
-        setObjectifsFor({ domain, list: res.objectifs })
-      } catch {
-        // rejet réseau : la liste affichée resterait celle de l'ANCIEN
-        // domaine — signaler, sinon l'UX ment sans aucun indice
-        toast.error(
-          "Impossible de charger les objectifs du domaine. Vérifiez votre réseau.",
-        )
-      }
-    })
-  }, [domain, objectifsFor.domain])
-  const objectifList =
+    loadObjectifs(domain)
+  }, [domain, objectifsFor.domain, loadObjectifs])
+  const objectifsReady =
     domain !== ALL_DOMAINS && objectifsFor.domain === domain
-      ? objectifsFor.list
-      : []
+  const objectifList = objectifsReady ? objectifsFor.list : []
 
   // Compteurs de révision : recalculés au changement de domaine ou
   // d'objectifs. Clé sérialisée : `objectifs` change d'identité à chaque
@@ -193,9 +211,14 @@ export const TrainingConfigForm = ({
     key: string
     value: RevisionCounts
   } | null>(null)
-  const [isCountsLoading, startCountsLoad] = useTransition()
+  const [, startCountsLoad] = useTransition()
   const countsKey = `${domain}|${objectifsKey}`
+  // Dernière portée demandée : une réponse arrivée après un nouveau changement
+  // (domaine A puis B, A répond en dernier) est ignorée, sinon le formulaire
+  // attendrait une réponse qui ne viendra plus.
+  const latestCountsKey = useRef(countsKey)
   useEffect(() => {
+    latestCountsKey.current = countsKey
     startCountsLoad(async () => {
       try {
         const objectifsCMCs = JSON.parse(objectifsKey) as string[]
@@ -203,19 +226,27 @@ export const TrainingConfigForm = ({
           domain: domain === ALL_DOMAINS ? undefined : domain,
           objectifsCMCs: objectifsCMCs.length > 0 ? objectifsCMCs : undefined,
         })
-        setCounts({ key: `${domain}|${objectifsKey}`, value })
+        if (latestCountsKey.current === countsKey)
+          setCounts({ key: countsKey, value })
       } catch {
         // Sans ça, les pastilles resteraient à 0 en silence — l'étudiant
-        // croirait n'avoir aucun historique.
+        // croirait n'avoir aucun historique. Le formulaire repart sur des
+        // compteurs vides : la révision ciblée se ferme, le reste s'utilise.
         toast.error(
           "Impossible de charger vos compteurs de révision. Vérifiez votre réseau.",
         )
+        if (latestCountsKey.current === countsKey) {
+          setCounts({ key: countsKey, value: EMPTY_REVISION_COUNTS })
+        }
       }
     })
-  }, [domain, objectifsKey])
+  }, [domain, objectifsKey, countsKey])
   const countsReady = counts?.key === countsKey
   const revisionCounts = countsReady ? counts.value : EMPTY_REVISION_COUNTS
-  const loading = isCountsLoading || !countsReady || isObjLoading
+  // « Prêt » se lit sur les données de la portée courante, pas sur l'attente
+  // d'une transition : une requête d'une portée quittée qui traîne ne bloque
+  // rien.
+  const loading = !countsReady || (domain !== ALL_DOMAINS && !objectifsReady)
 
   // ---- Dérivés ----
   const domainCount =
@@ -356,10 +387,23 @@ export const TrainingConfigForm = ({
             <p className="text-ink-3 text-[13px]">
               Choisissez un domaine pour cibler ses objectifs.
             </p>
-          ) : isObjLoading || objectifsFor.domain !== domain ? (
+          ) : !objectifsReady ? (
             <p className="text-ink-3 flex items-center gap-2 text-[13px]">
               <Spinner size="sm" />
               Chargement des objectifs…
+            </p>
+          ) : objectifsFor.failed ? (
+            <p className="text-ink-2 flex flex-wrap items-center gap-2 text-[13px]">
+              Impossible de charger les objectifs de ce domaine.
+              <Button
+                type="button"
+                variant="link"
+                size="sm"
+                className="h-auto px-0 text-[13px]"
+                onClick={() => loadObjectifs(domain)}
+              >
+                Réessayer
+              </Button>
             </p>
           ) : (
             <MultiChecklist<Objectif>

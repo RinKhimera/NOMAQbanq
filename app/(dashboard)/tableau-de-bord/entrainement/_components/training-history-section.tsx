@@ -2,7 +2,6 @@
 
 import { Hourglass, Trash2 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
@@ -117,14 +116,12 @@ export const TrainingHistorySection = ({
 }: {
   initialHistory: TrainingHistoryPage
 }) => {
-  const router = useRouter()
   const [history, setHistory] = useState(initialHistory)
   const [isPending, startTransition] = useTransition()
   const [toDelete, setToDelete] = useState<TrainingHistoryItem | null>(null)
   const [deleteAllOpen, setDeleteAllOpen] = useState(false)
 
   const { items, total, page, pageSize } = history
-  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   const load = (nextPage: number) =>
     startTransition(async () => {
@@ -138,12 +135,12 @@ export const TrainingHistorySection = ({
     })
 
   // Après une suppression, la page courante peut avoir disparu : on relit la
-  // dernière page qui existe encore.
+  // dernière page qui existe encore. L'action a déjà revalidé la route ; un
+  // refresh en plus rechargerait tout le segment sans rien changer ici.
   const reloadAfterDelete = (removed: number) => {
     const remaining = Math.max(0, total - removed)
     const lastPage = Math.max(1, Math.ceil(remaining / pageSize))
     load(Math.min(page, lastPage))
-    router.refresh()
   }
 
   const deleteOne = async () => {
@@ -282,7 +279,6 @@ export const TrainingHistorySection = ({
               className="px-5 md:px-6"
             />
           )}
-          {totalPages === 1 && null}
         </PendingRegion>
       )}
 

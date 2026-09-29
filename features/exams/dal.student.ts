@@ -520,6 +520,13 @@ export type ExamResultsView =
       participantUser: ExamParticipantUser
     }
   | {
+      /** Étudiant sans accès Examens sur un examen `subscribers` : la correction attend un accès actif. */
+      error: "ACCESS_REQUIRED"
+      message: string
+      exam: ExamResultsExam
+      participantUser: ExamParticipantUser
+    }
+  | {
       error: "NOT_COMPLETED"
       message: string
       status: "in_progress" | "completed" | "auto_submitted"
@@ -559,10 +566,12 @@ type ExamResultsExam = {
 
 /**
  * Résultats d'un participant. Admin : toujours. Non-admin : uniquement ses
- * propres résultats ET après `endDate`. Renvoie une union NO_PARTICIPATION /
- * NOT_COMPLETED (admin) / succès / `null`. Questions en forme « pont » avec
- * `correctAnswer` (explications lazy-loadées séparément). Remplace
- * `getParticipantExamResults`.
+ * propres résultats, après `endDate`, et avec un accès Examens actif sur un
+ * examen `subscribers` (le score reste lisible dans la liste ; la correction,
+ * elle, est le service payant — l'audience d'un examen sur invitation vaut
+ * accès). Renvoie une union NO_PARTICIPATION / NOT_COMPLETED (admin) /
+ * ACCESS_REQUIRED (étudiant) / succès / `null`. Questions en forme « pont »
+ * avec `correctAnswer` (explications lazy-loadées séparément).
  */
 export const getParticipantExamResults = async (
   examId: string,
@@ -583,6 +592,7 @@ export const getParticipantExamResults = async (
       startDate: exams.startDate,
       endDate: exams.endDate,
       completionTime: exams.completionTime,
+      audienceType: exams.audienceType,
     })
     .from(exams)
     .where(eq(exams.id, examId))
@@ -605,6 +615,19 @@ export const getParticipantExamResults = async (
     startDate: exam.startDate.getTime(),
     endDate: exam.endDate.getTime(),
     completionTime: exam.completionTime,
+  }
+
+  if (
+    !isAdmin &&
+    exam.audienceType === "subscribers" &&
+    !(await hasAccess("exam"))
+  ) {
+    return {
+      error: "ACCESS_REQUIRED",
+      message: "Accès Examens requis pour la correction.",
+      exam: examView,
+      participantUser: null,
+    }
   }
 
   const [pUser] = await db

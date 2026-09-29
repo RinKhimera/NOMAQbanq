@@ -1,4 +1,4 @@
-import { BookOpen } from "lucide-react"
+import { BookOpen, Lock } from "lucide-react"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { SessionResults } from "@/components/quiz/results/session-results"
@@ -28,6 +28,26 @@ export default async function MockExamResultsPage({
     userId ? getParticipantExamResults(examId, userId) : null,
     getMyExamPercentiles(),
   ])
+
+  if (data && "error" in data && data.error === "ACCESS_REQUIRED") {
+    return (
+      <ErrorState
+        icon={Lock}
+        title="Accès requis pour la correction"
+        description="Votre score reste affiché dans la liste des examens. La correction demande un accès Examens actif."
+        actions={
+          <>
+            <Button asChild>
+              <Link href="/tarifs">Prolonger l&apos;accès</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/tableau-de-bord/examen-blanc">Examens blancs</Link>
+            </Button>
+          </>
+        }
+      />
+    )
+  }
 
   if (!data || "error" in data) {
     return (

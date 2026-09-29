@@ -9,7 +9,7 @@ import {
   TimerOff,
 } from "lucide-react"
 import Link from "next/link"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, memo, useState } from "react"
 import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
@@ -159,8 +159,15 @@ type PastProps = {
   hasAccess: boolean
 }
 
-/** Lignes « Terminés » groupées par mois de fermeture ; les mois anciens repliés. */
-export const PastExams = ({ exams, hasAccess }: PastProps) => {
+/**
+ * Lignes « Terminés » groupées par mois de fermeture ; les mois anciens
+ * repliés. Mémoïsé : la page se rend à la seconde pour les décomptes, ces
+ * lignes n'en dépendent pas.
+ */
+export const PastExams = memo(function PastExams({
+  exams,
+  hasAccess,
+}: PastProps) {
   const [showAll, setShowAll] = useState(false)
   if (exams.length === 0) return null
 
@@ -214,7 +221,7 @@ export const PastExams = ({ exams, hasAccess }: PastProps) => {
       </List>
     </Section>
   )
-}
+})
 
 const PastRow = ({
   exam,

@@ -427,9 +427,11 @@ describe("TrainingConfigForm — domaine et objectifs", () => {
     )
   })
 
-  it("prévient quand les objectifs d'un domaine sont injoignables", async () => {
+  it("objectifs injoignables : message en place et « Réessayer », le reste du formulaire vit", async () => {
     loadRevisionCounts.mockResolvedValue(counts)
-    loadAvailableObjectifsCMC.mockRejectedValue(new Error("Failed to fetch"))
+    loadAvailableObjectifsCMC.mockRejectedValueOnce(
+      new Error("Failed to fetch"),
+    )
     const { rerender } = render(<TrainingConfigForm {...props} />)
     rerender(
       <TrainingConfigForm
@@ -438,10 +440,59 @@ describe("TrainingConfigForm — domaine et objectifs", () => {
         initialObjectifs={[]}
       />,
     )
-    await waitFor(() => {
-      expect(toastError).toHaveBeenCalledWith(
-        "Impossible de charger les objectifs du domaine. Vérifiez votre réseau.",
+    await waitFor(() =>
+      expect(
+        screen.getByText("Impossible de charger les objectifs de ce domaine."),
+      ).toBeInTheDocument(),
+    )
+    await waitFor(() => expect(start()).not.toBeDisabled())
+
+    loadAvailableObjectifsCMC.mockResolvedValue({ objectifs })
+    await userEvent.click(screen.getByRole("button", { name: "Réessayer" }))
+    await waitFor(() =>
+      expect(
+        screen.getByRole("checkbox", { name: /Dyspnée/ }),
+      ).toBeInTheDocument(),
+    )
+  })
+
+  it("compteurs injoignables : le formulaire repart à vide au lieu de rester grisé", async () => {
+    loadAvailableObjectifsCMC.mockResolvedValue({ objectifs })
+    loadRevisionCounts.mockRejectedValue(new Error("Failed to fetch"))
+    render(<TrainingConfigForm {...props} />)
+    await waitFor(() => expect(toastError).toHaveBeenCalled())
+    await waitFor(() => expect(start()).not.toBeDisabled())
+    expect(pool()).toHaveTextContent("3 000 questions")
+    expect(screen.getByTestId("revision-failed")).toBeDisabled()
+  })
+
+  it("une réponse de compteurs arrivée en retard pour une autre portée est ignorée", async () => {
+    loadAvailableObjectifsCMC.mockResolvedValue({ objectifs })
+    let resolveFirst: (v: typeof counts) => void = () => {}
+    loadRevisionCounts
+      .mockImplementationOnce(
+        () =>
+          new Promise<typeof counts>((resolve) => {
+            resolveFirst = resolve
+          }),
       )
-    })
+      .mockResolvedValue({ ...counts, failed: 99 })
+    const { rerender } = render(
+      <TrainingConfigForm {...props} initialDomain="Cardiologie" />,
+    )
+    rerender(
+      <TrainingConfigForm
+        {...props}
+        initialDomain="Neurologie"
+        initialObjectifs={[]}
+      />,
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId("revision-failed")).toHaveTextContent("99"),
+    )
+    // La réponse de Cardiologie arrive après : elle ne remplace pas Neurologie.
+    resolveFirst({ ...counts, failed: 7 })
+    await waitFor(() => expect(start()).not.toBeDisabled())
+    expect(screen.getByTestId("revision-failed")).toHaveTextContent("99")
   })
 })

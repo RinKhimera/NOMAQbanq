@@ -17,6 +17,9 @@ export default async function AdminParticipantResultsPage({
     getExamPercentileForUser(id, userId),
   ])
   if (!data) notFound()
+  // Un admin n'est jamais soumis à l'accès payant : cette branche est
+  // structurellement morte ici, le type seul l'impose.
+  if ("error" in data && data.error === "ACCESS_REQUIRED") notFound()
 
   if ("error" in data) {
     return (

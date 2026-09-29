@@ -51,9 +51,18 @@ export const isEligible = (
   hasAccess: boolean,
 ): boolean => hasAccess || exam.audienceType === "restricted"
 
+/** Le budget de temps d'une participation démarrée est épuisé (ou jamais démarrée). */
+export const budgetExhausted = (
+  participation: Pick<ListParticipation, "timing">,
+  now: number,
+): boolean =>
+  !participation.timing || remainingMs(participation.timing, now) <= 0
+
 /**
  * Une participation en cours sans accès (abonnement échu en route) se rend
- * comme « réservé aux abonnés » : le serveur refuserait chaque réponse.
+ * comme « réservé aux abonnés » : le serveur refuserait chaque réponse, la
+ * clôture aussi — même le temps écoulé, l'examen ne se soumettra qu'à la
+ * fermeture, par le cron.
  */
 export const openExamState = (
   exam: ListExam,
@@ -64,10 +73,11 @@ export const openExamState = (
   if (p && p.status !== "in_progress") return "submitted"
   if (!isEligible(exam, hasAccess)) return "locked"
   if (!p) return "eligible"
-  if (!p.timing || remainingMs(p.timing, now) <= 0) return "elapsed"
+  const timing = p.timing
+  if (!timing || remainingMs(timing, now) <= 0) return "elapsed"
   if (
-    p.timing.pauseInProgress &&
-    pauseRemainingMs(p.timing.pauseInProgress, now) > 0
+    timing.pauseInProgress &&
+    pauseRemainingMs(timing.pauseInProgress, now) > 0
   ) {
     return "paused"
   }

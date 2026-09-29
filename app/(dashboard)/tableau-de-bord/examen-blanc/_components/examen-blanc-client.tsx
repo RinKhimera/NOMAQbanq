@@ -138,10 +138,18 @@ export function ExamenBlancClient({
   // La page suit l'horloge : décomptes à la seconde, bascules ouvert → terminé.
   const now = useClock(initialNow, 1000)
 
-  const { active, upcoming, completed } = useMemo(
-    () => partition(exams, now),
-    [exams, now],
-  )
+  // La DAL trie par ouverture ; les sections lisent la fermeture (terminés,
+  // plus récente d'abord) et l'ouverture (à venir, plus proche d'abord).
+  const { active, upcoming, completed } = useMemo(() => {
+    const parts = partition(exams, now)
+    return {
+      active: parts.active,
+      upcoming: parts.upcoming.toSorted((a, b) => a.startDate - b.startDate),
+      completed: parts.completed.toSorted((a, b) => b.endDate - a.endDate),
+    }
+  }, [exams, now])
+  // Les lignes n'affichent rien à la seconde : un tick à la minute leur suffit.
+  const nowMinute = Math.floor(now / 60_000) * 60_000
   const open = useMemo(
     () =>
       sortOpenExams(
@@ -238,7 +246,7 @@ export function ExamenBlancClient({
         <NoOpenExam next={upcoming[0]} />
       )}
 
-      <UpcomingExams exams={upcoming} now={now} />
+      <UpcomingExams exams={upcoming} now={nowMinute} />
       <PastExams exams={completed} hasAccess={hasExamAccess} />
 
       <ExamStartDialog

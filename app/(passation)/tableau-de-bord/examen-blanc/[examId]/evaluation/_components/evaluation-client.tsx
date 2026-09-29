@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useTransition } from "react"
 import { toast } from "sonner"
-import { ExamConsignes } from "@/app/(dashboard)/tableau-de-bord/examen-blanc/_components/exam-consignes"
 import { QuizRunner } from "@/components/quiz/runner/quiz-runner"
 import type {
   AnswersMap,
@@ -12,10 +11,10 @@ import type {
   QuizMode,
   QuizQuestion,
 } from "@/components/quiz/runner/types"
+import { ExamConsignesForm } from "@/components/quiz/session/exam-consignes"
 import { PassationSkeleton } from "@/components/quiz/session/passation-skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import { Spinner } from "@/components/ui/spinner"
 import { answerNotSavedMessage } from "@/features/attempts/answer-refusal"
 import {
@@ -32,8 +31,6 @@ import type {
   ExamSessionView,
 } from "@/features/exams/dal"
 import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
-import { closesBeforeBudget } from "@/lib/exam-list"
-import { formatCountdown, formatShortDuration } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { TONE_SOFT } from "@/lib/tone"
 
@@ -91,32 +88,20 @@ const StartScreen = ({
             Prévoyez un moment sans interruption.
           </p>
         </div>
-        {closesBeforeBudget(exam, now) && (
-          <Alert className={TONE_SOFT.warning}>
-            <AlertDescription className="text-warning-ink">
-              Cet examen ferme dans {formatCountdown(exam.endDate - now)}, avant
-              la fin des {formatShortDuration(exam.completionTime * 1000)}{" "}
-              prévues : il sera soumis à la fermeture.
-            </AlertDescription>
-          </Alert>
-        )}
-        <ExamConsignes
-          questionCount={exam.questionCount}
-          completionTime={exam.completionTime}
-          pauseDurationMinutes={
-            exam.enablePause ? exam.pauseDurationMinutes : null
-          }
-          endDate={exam.endDate}
+        <ExamConsignesForm
+          exam={{
+            questionCount: exam.questionCount,
+            completionTime: exam.completionTime,
+            pauseDurationMinutes: exam.enablePause
+              ? exam.pauseDurationMinutes
+              : null,
+            endDate: exam.endDate,
+          }}
+          now={now}
+          acknowledged={ack}
+          onAcknowledgedChange={setAck}
+          disabled={isStarting}
         />
-        <label className="text-ink flex cursor-pointer items-center gap-2.5 text-sm max-md:min-h-11">
-          <Checkbox
-            checked={ack}
-            onCheckedChange={(v) => setAck(v === true)}
-            disabled={isStarting}
-            data-testid="exam-consignes-ack"
-          />
-          J&apos;ai lu les consignes.
-        </label>
         <div className="flex flex-wrap justify-end gap-2 max-md:*:flex-1">
           <Button asChild variant="ghost" className="max-md:h-11">
             <Link href={LIST_HREF}>Annuler</Link>

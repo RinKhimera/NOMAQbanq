@@ -162,7 +162,8 @@ describe("TrainingHistorySection", () => {
 
     expect(deleteTrainingSession).toHaveBeenCalledWith({ sessionId: "s1" })
     expect(loadTrainingHistory).toHaveBeenCalledWith({ page: 1 })
-    expect(refresh).toHaveBeenCalled()
+    // L'action a revalidé la route : pas de refresh en plus.
+    expect(refresh).not.toHaveBeenCalled()
     await waitFor(() =>
       expect(
         screen.getByText("Aucune série pour le moment."),
