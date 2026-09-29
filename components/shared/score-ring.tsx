@@ -3,7 +3,8 @@ import { TONE_COLOR } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 
 interface ScoreRingProps {
-  value: number
+  /** `null` = aucun score lisible : anneau vide et « — », jamais un 0 %. */
+  value: number | null
   label?: string
   size?: number
   strokeWidth?: number
@@ -22,9 +23,10 @@ export const ScoreRing = ({
 }: ScoreRingProps) => {
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
-  const offset = circumference - (value / 100) * circumference
+  const offset = circumference - ((value ?? 0) / 100) * circumference
 
-  const color = TONE_COLOR[scoreTone(value)]
+  const color =
+    value === null ? TONE_COLOR.neutral : TONE_COLOR[scoreTone(value)]
 
   return (
     <div className={cn("relative", className)}>
@@ -39,24 +41,29 @@ export const ScoreRing = ({
           className="text-surface-2"
         />
 
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={color}
-          strokeWidth={strokeWidth}
-          strokeLinecap="butt"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-        />
+        {value !== null && (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="butt"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+          />
+        )}
       </svg>
 
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span
           data-testid={valueTestId}
-          className="font-serif text-4xl font-semibold tracking-tight tabular-nums"
-          style={{ color }}
+          className={cn(
+            "font-serif text-4xl font-semibold tracking-tight tabular-nums",
+            value === null && "text-ink-3",
+          )}
+          style={value === null ? undefined : { color }}
         >
           {formatScore(value)}
         </span>

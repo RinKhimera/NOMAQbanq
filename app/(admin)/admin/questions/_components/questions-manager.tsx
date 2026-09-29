@@ -1,6 +1,5 @@
 "use client"
 
-import { IconListCheck } from "@tabler/icons-react"
 import { Plus } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -61,10 +60,8 @@ export function QuestionsManager({
   return (
     <>
       <PageIntro
-        icon={IconListCheck}
         title="Gestion des Questions"
         description="Gérez votre banque de questions QCM pour les examens EACMC"
-        colorScheme="emerald"
         actions={
           <>
             <ExportQuestionsButton

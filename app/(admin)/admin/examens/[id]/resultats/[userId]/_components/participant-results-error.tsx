@@ -35,8 +35,6 @@ export function ParticipantResultsError({
       <div className="mx-auto max-w-4xl px-4 pt-8">
         <PageIntro
           backHref={`/admin/examens/${examId}`}
-          icon={Clock}
-          colorScheme="amber"
           title="Résultats non disponibles"
           description={examTitle}
         />

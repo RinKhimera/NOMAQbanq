@@ -1,23 +1,16 @@
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import type { ElementType, ReactNode } from "react"
+import type { ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-const colorSchemes = {
-  slate: "from-slate-600 to-slate-700 shadow-slate-500/20",
-  blue: "from-blue-600 to-indigo-600 shadow-blue-500/25",
-  violet: "from-violet-600 to-purple-600 shadow-violet-500/25",
-  amber: "from-amber-500 to-orange-600 shadow-amber-500/25",
-  emerald: "from-emerald-500 to-teal-600 shadow-emerald-500/25",
-} as const
-
 type PageIntroProps = {
-  title: string
+  title: ReactNode
+  /** Libellé mono au-dessus du titre (« Compte », date du jour). */
+  eyebrow?: ReactNode
   description?: ReactNode
-  icon?: ElementType
-  colorScheme?: keyof typeof colorSchemes
   backHref?: string
+  /** Passent sous le texte, en pleine largeur, sous 768 px. */
   actions?: ReactNode
   className?: string
 }
@@ -25,48 +18,36 @@ type PageIntroProps = {
 /** En-tête unique des pages de l'app : un seul `h1` par page. */
 export const PageIntro = ({
   title,
+  eyebrow,
   description,
-  icon: Icon,
-  colorScheme = "blue",
   backHref,
   actions,
   className,
 }: PageIntroProps) => (
   <div
     className={cn(
-      "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+      "flex flex-wrap items-end justify-between gap-4 pb-1",
       className,
     )}
   >
-    <div className="flex items-center gap-4">
+    <div className="flex min-w-0 items-start gap-3">
       {backHref && (
         <Button
           asChild
           variant="outline"
           size="icon"
-          className="shrink-0 rounded-xl"
+          className="mt-1 shrink-0 max-md:size-11"
         >
           <Link href={backHref} aria-label="Retour">
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="size-4" />
           </Link>
         </Button>
       )}
-      {Icon && (
-        <div
-          className={cn(
-            "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-linear-to-br shadow-lg",
-            colorSchemes[colorScheme],
-          )}
-        >
-          <Icon className="h-7 w-7 text-white" />
-        </div>
-      )}
-      <div className="min-w-0">
-        <h1 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
-          {title}
-        </h1>
+      <div className="flex min-w-0 flex-col gap-2">
+        {eyebrow && <p className="type-label">{eyebrow}</p>}
+        <h1 className="type-h2 text-ink">{title}</h1>
         {description && (
-          <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-ink-2 max-w-2xl text-[0.9375rem] leading-[1.55]">
             {description}
           </p>
         )}
@@ -74,7 +55,7 @@ export const PageIntro = ({
     </div>
 
     {actions && (
-      <div className="flex shrink-0 flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 max-md:w-full max-md:*:flex-1">
         {actions}
       </div>
     )}

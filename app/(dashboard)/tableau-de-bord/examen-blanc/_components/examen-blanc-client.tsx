@@ -453,8 +453,6 @@ export function ExamenBlancClient({
           className="mb-10"
         >
           <PageIntro
-            icon={GraduationCap}
-            colorScheme="blue"
             title="Examens Blancs"
             description="Testez vos connaissances dans les conditions réelles de l'EACMC"
           />

@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Pencil } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { use } from "react"
 import { PageIntro } from "@/components/shared/page-intro"
@@ -19,8 +19,6 @@ export default function EditQuestionPage({ params }: EditQuestionPageProps) {
   return (
     <div className="@container flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       <PageIntro
-        icon={Pencil}
-        colorScheme="emerald"
         title="Modifier la question"
         description="Modifiez les détails de cette question"
         actions={

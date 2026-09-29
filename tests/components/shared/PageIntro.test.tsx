@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react"
-import { Users } from "lucide-react"
 import type { ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { PageIntro } from "@/components/shared/page-intro"
@@ -39,7 +38,6 @@ describe("PageIntro", () => {
   it("lien retour et actions", () => {
     render(
       <PageIntro
-        icon={Users}
         title="Détails de l'utilisateur"
         backHref="/admin/utilisateurs"
         actions={<button type="button">Exporter</button>}
@@ -50,5 +48,13 @@ describe("PageIntro", () => {
       "/admin/utilisateurs",
     )
     expect(screen.getByRole("button", { name: "Exporter" })).toBeInTheDocument()
+  })
+
+  it("libellé au-dessus du titre, hors du h1", () => {
+    render(<PageIntro eyebrow="Compte" title="Abonnements et accès" />)
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Abonnements et accès" }),
+    ).toBeInTheDocument()
+    expect(screen.getByText("Compte")).toBeInTheDocument()
   })
 })

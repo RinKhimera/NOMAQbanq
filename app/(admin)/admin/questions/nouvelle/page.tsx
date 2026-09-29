@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft, Sparkles } from "lucide-react"
+import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import { PageIntro } from "@/components/shared/page-intro"
 import { Button } from "@/components/ui/button"
@@ -10,8 +10,6 @@ export default function NewQuestionPage() {
   return (
     <div className="@container flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       <PageIntro
-        icon={Sparkles}
-        colorScheme="blue"
         title="Nouvelle question"
         description="Créez une nouvelle question pour la banque QCM"
         actions={
