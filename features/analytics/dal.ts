@@ -31,6 +31,8 @@ import {
   questionSuccessStats,
 } from "./answers-sql"
 
+export * from "./dal.dashboard"
+
 const DAY_MS = 24 * 60 * 60 * 1000
 
 // ============================================

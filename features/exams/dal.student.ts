@@ -55,7 +55,7 @@ const answeredQuestionIds = sql`
 const ownExamId = sql`${examParticipations.examId}`
 
 /** Score enregistré, ou `null` s'il est retenu pour le lecteur (voir `scoreWithheldFor`). */
-const readableScore = (viewer: LockUser) =>
+export const readableParticipationScore = (viewer: LockUser) =>
   sql<
     number | null
   >`case when ${scoreWithheldFor(viewer, answeredQuestionIds, ownExamId)} then null else ${examParticipations.score} end`
@@ -64,7 +64,7 @@ const readableScore = (viewer: LockUser) =>
 const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
 
 /** Filtre d'agrégat : seules les participations dont le score est lisible. */
-const scoreReadable = (viewer: LockUser) =>
+export const participationScoreReadable = (viewer: LockUser) =>
   sql`not ${scoreWithheldFor(viewer, answeredQuestionIds, ownExamId)}`
 
 /**
@@ -163,7 +163,7 @@ export const getExamsWithParticipation = cache(
       const parts = await db
         .select({
           examId: examParticipations.examId,
-          score: readableScore(viewerOf(session.user)),
+          score: readableParticipationScore(viewerOf(session.user)),
           status: examParticipations.status,
           completedAt: examParticipations.completedAt,
         })
@@ -992,7 +992,7 @@ export type MyDashboardStats = {
 // membre (EXISTS corrélé, indexé sur examAudience.userId). Masque les examens
 // restreints confidentiels aux non-membres, même abonnés. Parité avec le
 // filtre de `getExamsWithParticipation`.
-const memberAudienceWhere = (uid: string) =>
+export const memberAudienceWhere = (uid: string) =>
   or(
     eq(exams.audienceType, "subscribers"),
     exists(
@@ -1024,7 +1024,7 @@ export const getMyDashboardStats = cache(
         // avant/après la restituerait.
         averageScore: sql<
           number | null
-        >`round(avg(${examParticipations.score}) filter (where ${examParticipations.status} in ('completed','auto_submitted') and ${scoreReadable(viewer)}))`.mapWith(
+        >`round(avg(${examParticipations.score}) filter (where ${examParticipations.status} in ('completed','auto_submitted') and ${participationScoreReadable(viewer)}))`.mapWith(
           nullableNumber,
         ),
       })
@@ -1090,7 +1090,7 @@ export const getMyRecentExams = cache(async (): Promise<MyRecentExam[]> => {
     .select({
       examId: examParticipations.examId,
       status: examParticipations.status,
-      score: readableScore(viewerOf(session.user)),
+      score: readableParticipationScore(viewerOf(session.user)),
       completedAt: examParticipations.completedAt,
     })
     .from(examParticipations)
@@ -1148,7 +1148,7 @@ export const getMyScoreHistory = cache(
       .select({
         examId: examParticipations.examId,
         examTitle: exams.title,
-        score: readableScore(viewerOf(session.user)),
+        score: readableParticipationScore(viewerOf(session.user)),
         completedAt: examParticipations.completedAt,
       })
       .from(examParticipations)

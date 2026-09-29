@@ -73,7 +73,7 @@ const readableScore = (viewer: LockUser) =>
 const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
 
 /** Filtre d'agrégat : seules les sessions dont le score est lisible. */
-const scoreReadable = (viewer: LockUser) =>
+export const sessionScoreReadable = (viewer: LockUser) =>
   sql`not ${scoreWithheldFor(viewer, answeredQuestionIds)}`
 
 // ============================================
@@ -260,7 +260,7 @@ export const getTrainingStats = cache(async (): Promise<TrainingStats> => {
       // la restituerait.
       averageScore: sql<
         number | null
-      >`round(avg(${trainingSessions.score}) filter (where ${scoreReadable(viewer)}))`.mapWith(
+      >`round(avg(${trainingSessions.score}) filter (where ${sessionScoreReadable(viewer)}))`.mapWith(
         nullableNumber,
       ),
     })
