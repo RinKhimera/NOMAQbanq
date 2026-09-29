@@ -1,5 +1,2 @@
-import { PageSkeleton } from "@/components/ui/skeleton-patterns"
-
-export default function Loading() {
-  return <PageSkeleton />
-}
+// Même page que le profil étudiant (ProfileView) : même squelette.
+export { default } from "@/app/(dashboard)/tableau-de-bord/profil/loading"

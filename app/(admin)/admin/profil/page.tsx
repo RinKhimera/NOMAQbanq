@@ -1,9 +1,4 @@
-import { ProfileAccountSection } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-account-section"
-import { ProfileDangerZone } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-danger-zone"
-import { ProfileHeader } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-header"
-import { ProfilePersonalInfo } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-personal-info"
-import { ProfilePreferences } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-preferences"
-import { ProfileSessions } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-sessions"
+import { ProfileView } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-view"
 import { ErrorState } from "@/components/shared/error-state"
 import { getNotificationPreferences } from "@/features/notifications/dal"
 import {
@@ -31,44 +26,15 @@ export default async function AdminProfilPage() {
     getUserSessions(),
     getNotificationPreferences(),
   ])
-  const googleEnabled = Boolean(
-    env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET,
-  )
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* Header with avatar */}
-      <ProfileHeader user={currentUser} />
-
-      {/* Personal information - editable */}
-      <ProfilePersonalInfo user={currentUser} />
-
-      {/* Account & security */}
-      {methods && (
-        <ProfileAccountSection
-          methods={methods}
-          email={currentUser.email}
-          googleEnabled={googleEnabled}
-          profilePath="/admin/profil"
-        />
-      )}
-
-      {/* Connected devices */}
-      <ProfileSessions sessions={sessions} />
-
-      {/* Preferences */}
-      <ProfilePreferences
-        notificationPreferences={
-          notificationPreferences ?? {
-            examResults: true,
-            accessExpiry: true,
-            marketing: true,
-          }
-        }
-      />
-
-      {/* Danger zone */}
-      <ProfileDangerZone email={currentUser.email} />
-    </div>
+    <ProfileView
+      user={currentUser}
+      methods={methods}
+      sessions={sessions}
+      notificationPreferences={notificationPreferences}
+      googleEnabled={Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)}
+      profilePath="/admin/profil"
+    />
   )
 }

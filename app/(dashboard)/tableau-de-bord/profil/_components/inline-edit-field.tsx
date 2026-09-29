@@ -1,9 +1,7 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { IconCheck, IconPencil, IconX } from "@tabler/icons-react"
-import { type LucideIcon } from "lucide-react"
-import { AnimatePresence, motion, useReducedMotion } from "motion/react"
+import { Pencil } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -15,9 +13,6 @@ import { cn } from "@/lib/utils"
 
 type InlineEditFieldProps = {
   label: string
-  icon: LucideIcon
-  iconColorClass: string
-  iconBgClass: string
   value: string
   placeholder?: string
   emptyText?: string
@@ -27,17 +22,12 @@ type InlineEditFieldProps = {
   inputType?: "input" | "textarea"
   textareaRows?: number
   onSave: (value: string) => Promise<{ success: boolean; error?: string }>
-  readOnly?: boolean
-  badge?: React.ReactNode
   /** Préfixe data-testid stable (ex. "profile-field-name" → -edit/-input/-save). */
   testId?: string
 }
 
 export const InlineEditField = ({
   label,
-  icon: Icon,
-  iconColorClass,
-  iconBgClass,
   value,
   placeholder = "",
   emptyText = "Non défini",
@@ -47,14 +37,15 @@ export const InlineEditField = ({
   inputType = "input",
   textareaRows = 3,
   onSave,
-  readOnly = false,
-  badge,
   testId,
 }: InlineEditFieldProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
-  const prefersReducedMotion = useReducedMotion()
+  const editRef = useRef<HTMLButtonElement>(null)
+  // Le crayon n'existe pas pendant l'édition : à la sortie, le focus lui revient
+  // au lieu de tomber sur <body>.
+  const returnFocus = useRef(false)
 
   const formSchema = z.object({ value: schema })
   const form = useForm({
@@ -67,6 +58,9 @@ export const InlineEditField = ({
       inputRef.current.focus()
       const length = inputRef.current.value.length
       inputRef.current.setSelectionRange(length, length)
+    } else if (!isEditing && returnFocus.current) {
+      returnFocus.current = false
+      editRef.current?.focus()
     }
   }, [isEditing])
 
@@ -76,19 +70,19 @@ export const InlineEditField = ({
     }
   }, [value, isEditing, form])
 
-  const handleEdit = () => {
-    if (readOnly) return
-    setIsEditing(true)
+  const stopEditing = () => {
+    returnFocus.current = true
+    setIsEditing(false)
   }
 
   const handleCancel = () => {
     form.reset({ value: value || "" })
-    setIsEditing(false)
+    stopEditing()
   }
 
   const handleSubmit = async (data: { value: string }) => {
     if (data.value === value) {
-      setIsEditing(false)
+      stopEditing()
       return
     }
 
@@ -97,7 +91,7 @@ export const InlineEditField = ({
     setIsSaving(false)
 
     if (result.success) {
-      setIsEditing(false)
+      stopEditing()
     } else {
       form.setError("value", { message: result.error || "Erreur" })
     }
@@ -107,211 +101,118 @@ export const InlineEditField = ({
     if (e.key === "Escape") {
       handleCancel()
     }
-    // Enter to submit only for single-line inputs
+    // Entrée enregistre un champ d'une ligne ; une biographie garde ses retours.
     if (e.key === "Enter" && inputType === "input" && !e.shiftKey) {
       e.preventDefault()
       form.handleSubmit(handleSubmit)()
     }
   }
 
-  const displayValue = value || emptyText
   // eslint-disable-next-line react-hooks/incompatible-library
   const currentValue = String(form.watch("value") ?? "")
   const errorMessage = form.formState.errors.value?.message
+  const errorId = testId ? `${testId}-error` : undefined
 
-  // Properly handle ref combination for react-hook-form
   const { ref: registerRef, ...registerProps } = form.register("value")
-
-  const motionProps = prefersReducedMotion
-    ? {}
-    : {
-        initial: { opacity: 0, y: -8 },
-        animate: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: -8 },
-        transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] as const },
-      }
+  const fieldProps = {
+    ...registerProps,
+    ref: (e: HTMLInputElement | HTMLTextAreaElement | null) => {
+      registerRef(e)
+      inputRef.current = e
+    },
+    "data-testid": testId ? `${testId}-input` : undefined,
+    placeholder,
+    maxLength,
+    onKeyDown: handleKeyDown,
+    readOnly: isSaving,
+    "aria-label": label,
+    "aria-invalid": !!errorMessage,
+    "aria-describedby": errorMessage ? errorId : undefined,
+  }
 
   return (
     <div
       data-testid={testId}
-      className={cn(
-        "group relative rounded-xl p-4 transition-all duration-200",
-        !readOnly && "hover:bg-gray-50/80 dark:hover:bg-gray-800/50",
-        isEditing && "bg-gray-50/80 dark:bg-gray-800/50",
-      )}
+      className="group border-line grid grid-cols-[9.375rem_minmax(0,1fr)_auto] items-center gap-4 border-t py-3.5 first:border-t-0 first:pt-0 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-x-3 max-md:gap-y-1.5"
     >
-      <div className="flex items-start gap-4">
-        {/* Icon */}
-        <div
-          className={cn(
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200",
-            iconBgClass,
-            isEditing && "scale-95",
-          )}
+      <span className="text-ink-3 text-[0.8125rem] max-md:col-span-full">
+        {label}
+      </span>
+
+      {isEditing ? (
+        <form
+          onSubmit={form.handleSubmit(handleSubmit)}
+          className="col-span-2 flex min-w-0 flex-col gap-2 max-md:col-span-full"
         >
-          <Icon className={cn("h-5 w-5", iconColorClass)} />
-        </div>
+          {inputType === "input" ? (
+            <Input {...fieldProps} className="max-md:h-11" />
+          ) : (
+            <Textarea {...fieldProps} rows={textareaRows} />
+          )}
 
-        {/* Content */}
-        <div className="min-w-0 flex-1">
-          <p className="mb-1.5 text-sm font-medium text-gray-500 dark:text-gray-400">
-            {label}
-          </p>
+          {errorMessage ? (
+            <p id={errorId} className="text-danger-ink text-sm" role="alert">
+              {errorMessage}
+            </p>
+          ) : (
+            showCharCount &&
+            maxLength && (
+              <p className="text-ink-3 font-mono text-xs">
+                {currentValue.length} / {maxLength}
+              </p>
+            )
+          )}
 
-          <AnimatePresence mode="wait" initial={false}>
-            {isEditing ? (
-              <motion.form
-                key="editing"
-                {...motionProps}
-                onSubmit={form.handleSubmit(handleSubmit)}
-                className="space-y-3"
-              >
-                {inputType === "input" ? (
-                  <Input
-                    {...registerProps}
-                    ref={(e) => {
-                      registerRef(e)
-                      inputRef.current = e
-                    }}
-                    data-testid={testId ? `${testId}-input` : undefined}
-                    placeholder={placeholder}
-                    maxLength={maxLength}
-                    onKeyDown={handleKeyDown}
-                    disabled={isSaving}
-                    className={cn(
-                      "h-11 rounded-xl border-gray-200 bg-white text-base transition-all",
-                      "focus:border-blue-400 focus:ring-2 focus:ring-blue-100",
-                      "dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-900/50",
-                      errorMessage &&
-                        "border-red-300 focus:border-red-400 focus:ring-red-100",
-                    )}
-                    aria-label={label}
-                    aria-invalid={!!errorMessage}
-                  />
-                ) : (
-                  <Textarea
-                    {...registerProps}
-                    ref={(e) => {
-                      registerRef(e)
-                      inputRef.current = e
-                    }}
-                    data-testid={testId ? `${testId}-input` : undefined}
-                    placeholder={placeholder}
-                    maxLength={maxLength}
-                    rows={textareaRows}
-                    onKeyDown={handleKeyDown}
-                    disabled={isSaving}
-                    className={cn(
-                      "resize-none rounded-xl border-gray-200 bg-white text-base transition-all",
-                      "focus:border-blue-400 focus:ring-2 focus:ring-blue-100",
-                      "dark:border-gray-700 dark:bg-gray-900 dark:focus:ring-blue-900/50",
-                      errorMessage &&
-                        "border-red-300 focus:border-red-400 focus:ring-red-100",
-                    )}
-                    aria-label={label}
-                    aria-invalid={!!errorMessage}
-                  />
-                )}
-
-                {/* Character count & error */}
-                <div className="flex items-center justify-between">
-                  {errorMessage ? (
-                    <p className="text-sm text-red-500" role="alert">
-                      {errorMessage}
-                    </p>
-                  ) : showCharCount && maxLength ? (
-                    <p
-                      className={cn(
-                        "text-xs transition-colors",
-                        currentValue.length > maxLength * 0.9
-                          ? "text-amber-500"
-                          : "text-gray-400",
-                      )}
-                    >
-                      {currentValue.length}/{maxLength} caractères
-                    </p>
-                  ) : (
-                    <span />
-                  )}
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex gap-2">
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={isSaving}
-                    data-testid={testId ? `${testId}-save` : undefined}
-                    className={cn(
-                      "rounded-lg bg-linear-to-r from-blue-600 to-indigo-600 px-4",
-                      "hover:from-blue-700 hover:to-indigo-700",
-                      "transition-all duration-200",
-                    )}
-                  >
-                    {isSaving ? (
-                      <Spinner size="sm" className="mr-1.5" />
-                    ) : (
-                      <IconCheck className="mr-1.5 h-4 w-4" />
-                    )}
-                    {isSaving ? "Enregistrement..." : "Enregistrer"}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={handleCancel}
-                    disabled={isSaving}
-                    className="rounded-lg px-4"
-                  >
-                    <IconX className="mr-1.5 h-4 w-4" />
-                    Annuler
-                  </Button>
-                </div>
-              </motion.form>
-            ) : (
-              <motion.div
-                key="display"
-                {...motionProps}
-                className="flex items-center gap-3"
-              >
-                {badge ? (
-                  badge
-                ) : (
-                  <p
-                    className={cn(
-                      "text-lg leading-relaxed font-semibold",
-                      value
-                        ? "text-gray-900 dark:text-white"
-                        : "text-gray-400 italic dark:text-gray-500",
-                    )}
-                  >
-                    {displayValue}
-                  </p>
-                )}
-
-                {/* Edit button */}
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={handleEdit}
-                    data-testid={testId ? `${testId}-edit` : undefined}
-                    className={cn(
-                      "cursor-pointer rounded-lg p-2 transition-all duration-200",
-                      "text-gray-400 hover:bg-gray-100 hover:text-gray-600",
-                      "dark:hover:bg-gray-800 dark:hover:text-gray-300",
-                      "opacity-0 group-hover:opacity-100 focus:opacity-100",
-                      "focus:ring-2 focus:ring-blue-500/20 focus:outline-none",
-                    )}
-                    aria-label={`Modifier ${label.toLowerCase()}`}
-                  >
-                    <IconPencil className="h-4 w-4" />
-                  </button>
-                )}
-              </motion.div>
+          <div className="flex gap-2">
+            <Button
+              type="submit"
+              size="sm"
+              aria-disabled={isSaving}
+              onClick={(e) => {
+                if (isSaving) e.preventDefault()
+              }}
+              data-testid={testId ? `${testId}-save` : undefined}
+              className="max-md:h-11"
+            >
+              {isSaving && <Spinner size="sm" />}
+              {isSaving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={handleCancel}
+              aria-disabled={isSaving}
+              className="max-md:h-11"
+            >
+              Annuler
+            </Button>
+          </div>
+        </form>
+      ) : (
+        <>
+          <span
+            className={cn(
+              "min-w-0 text-[0.9375rem] wrap-anywhere",
+              value ? "text-ink" : "text-ink-3",
             )}
-          </AnimatePresence>
-        </div>
-      </div>
+          >
+            {value || emptyText}
+          </span>
+          <Button
+            ref={editRef}
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            onClick={() => setIsEditing(true)}
+            data-testid={testId ? `${testId}-edit` : undefined}
+            aria-label={`Modifier ${label.toLowerCase()}`}
+            className="max-md:size-11"
+          >
+            <Pencil className="size-3.5" aria-hidden="true" />
+          </Button>
+        </>
+      )}
     </div>
   )
 }

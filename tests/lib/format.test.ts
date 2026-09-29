@@ -14,6 +14,7 @@ import {
   formatCurrency,
   formatDateTime,
   formatDayMonth,
+  formatMonthYear,
   formatDeadline,
   formatDuration,
   formatExpiration,
@@ -328,6 +329,15 @@ describe("formatDayMonth", () => {
   it("jour et mois abrégé, dans la journée de l'Est", () => {
     // 1 h UTC le 28 = 21 h le 27 à Toronto.
     expect(formatDayMonth(Date.parse("2026-09-28T01:00:00Z"))).toBe("27 sept.")
+  })
+})
+
+describe("formatMonthYear", () => {
+  it("mois et année, dans le fuseau de l'Est", () => {
+    // 1er avril 2 h UTC = 31 mars 22 h à Toronto.
+    expect(formatMonthYear(Date.parse("2026-04-01T02:00:00Z"))).toBe(
+      "mars 2026",
+    )
   })
 })
 

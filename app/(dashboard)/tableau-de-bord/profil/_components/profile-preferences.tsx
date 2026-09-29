@@ -1,222 +1,53 @@
 "use client"
 
-import { IconMoon, IconSettings, IconSun } from "@tabler/icons-react"
-import { Monitor } from "lucide-react"
-import { motion, useReducedMotion } from "motion/react"
 import { useTheme } from "next-themes"
-import { useSyncExternalStore } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { NotificationPreferences } from "@/features/notifications/dal"
+import { useMounted } from "@/hooks/use-mounted"
 import { cn } from "@/lib/utils"
-import { ProfileNotifications } from "./profile-notifications"
 
-// useSyncExternalStore pour détecter le montage côté client sans setState dans useEffect
-const emptySubscribe = () => () => {}
+const THEMES = [
+  { value: "light", label: "Clair" },
+  { value: "dark", label: "Sombre" },
+  { value: "system", label: "Auto" },
+] as const
 
-const PreferenceItem = ({
-  icon: Icon,
-  iconColorClass,
-  iconBgClass,
-  label,
-  description,
-  children,
-  responsive = false,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  iconColorClass: string
-  iconBgClass: string
-  label: string
-  description: string
-  children: React.ReactNode
-  responsive?: boolean
-}) => {
-  // Version responsive avec container queries
-  if (responsive) {
-    return (
-      <div className="@container rounded-xl p-4 transition-colors">
-        <div className="flex flex-col gap-4 @[420px]:flex-row @[420px]:items-start">
-          <div className="flex items-start gap-4 @[420px]:flex-1">
-            <div
-              className={cn(
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-                iconBgClass,
-              )}
-            >
-              <Icon className={cn("h-5 w-5", iconColorClass)} />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {label}
-                </p>
-              </div>
-              <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-                {description}
-              </p>
-            </div>
-          </div>
-          <div className="w-full @[420px]:w-auto @[420px]:shrink-0">
-            {children}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Version standard (non responsive)
-  return (
-    <div className="flex items-start gap-4 rounded-xl p-4 transition-colors">
-      <div
-        className={cn(
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-          iconBgClass,
-        )}
-      >
-        <Icon className={cn("h-5 w-5", iconColorClass)} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="font-medium text-gray-900 dark:text-white">{label}</p>
-        <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
-          {description}
-        </p>
-      </div>
-      <div className="shrink-0">{children}</div>
-    </div>
-  )
-}
-
-const ThemeOption = ({
-  icon: Icon,
-  label,
-  selected,
-  onClick,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  selected: boolean
-  onClick: () => void
-}) => {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "group relative flex flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 px-3 py-3.5 transition-all duration-200 @[420px]:w-18 @[420px]:flex-none",
-        selected
-          ? "border-amber-400 bg-linear-to-b from-amber-50 to-amber-100/50 shadow-sm dark:border-amber-500 dark:from-amber-900/40 dark:to-amber-900/20"
-          : "border-gray-200/80 bg-gray-50/80 hover:border-amber-300 hover:bg-amber-50/50 dark:border-gray-700/80 dark:bg-gray-800/50 dark:hover:border-amber-600 dark:hover:bg-amber-900/20",
-      )}
-    >
-      {/* Indicateur de sélection */}
-      {selected && (
-        <motion.div
-          layoutId="theme-indicator"
-          className="absolute inset-0 rounded-xl ring-2 ring-amber-400/50 dark:ring-amber-500/50"
-          transition={{ type: "spring", bounce: 0.2, duration: 0.4 }}
-        />
-      )}
-      <Icon
-        className={cn(
-          "relative h-5 w-5 transition-transform duration-200 group-hover:scale-110",
-          selected
-            ? "text-amber-600 dark:text-amber-400"
-            : "text-gray-500 group-hover:text-amber-600 dark:text-gray-400 dark:group-hover:text-amber-400",
-        )}
-      />
-      <span
-        className={cn(
-          "relative text-xs font-medium transition-colors",
-          selected
-            ? "text-amber-700 dark:text-amber-300"
-            : "text-gray-600 group-hover:text-amber-600 dark:text-gray-400 dark:group-hover:text-amber-400",
-        )}
-      >
-        {label}
-      </span>
-    </button>
-  )
-}
-
-export const ProfilePreferences = ({
-  notificationPreferences,
-}: {
-  notificationPreferences: NotificationPreferences
-}) => {
-  const prefersReducedMotion = useReducedMotion()
+/** Thème de l'interface : Clair, Sombre ou Auto (celui du système). */
+export const ProfilePreferences = () => {
   const { theme, setTheme } = useTheme()
-
-  // Detect client-side mounting to avoid hydration mismatch
-  const mounted = useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false,
-  )
-
-  const motionProps = prefersReducedMotion
-    ? {}
-    : {
-        initial: { opacity: 0, y: 20 },
-        animate: { opacity: 1, y: 0 },
-        transition: {
-          duration: 0.5,
-          delay: 0.3,
-          ease: [0.16, 1, 0.3, 1] as const,
-        },
-      }
-
-  // Current theme (default to "system" if not mounted yet)
-  const currentTheme = mounted ? theme : "system"
+  // Le thème ne se lit qu'au navigateur : « Auto » au rendu serveur, pour un
+  // premier rendu identique des deux côtés.
+  const mounted = useMounted()
+  const current = mounted ? (theme ?? "system") : "system"
 
   return (
-    <motion.div {...motionProps}>
-      <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
-        <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
-          <CardTitle className="flex items-center gap-3 text-lg">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-gray-500 to-slate-600 shadow-lg shadow-gray-500/20">
-              <IconSettings className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-display font-semibold text-gray-900 dark:text-white">
-              Préférences
-            </span>
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent className="divide-y divide-gray-100 p-0 dark:divide-gray-800">
-          {/* Email notifications */}
-          <ProfileNotifications preferences={notificationPreferences} />
-
-          {/* Theme preference - working */}
-          <PreferenceItem
-            icon={IconSun}
-            iconColorClass="text-amber-600 dark:text-amber-400"
-            iconBgClass="bg-amber-100 dark:bg-amber-900/30"
-            label="Thème de l'interface"
-            description="Choisissez l'apparence de l'application"
-            responsive
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <span className="text-ink text-[0.9375rem]">
+          Thème de l&apos;interface
+        </span>
+        <span className="text-ink-3 text-[0.8125rem]">
+          Choisissez l&apos;apparence de l&apos;application.
+        </span>
+      </div>
+      <div
+        role="group"
+        aria-label="Thème de l'interface"
+        className="border-line-strong inline-flex overflow-hidden rounded-md border"
+      >
+        {THEMES.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={current === option.value}
+            data-testid={`theme-${option.value}`}
+            onClick={() => setTheme(option.value)}
+            className={cn(
+              "focus-ring border-line-strong text-ink-2 hover:bg-surface-2 aria-pressed:bg-accent-soft aria-pressed:text-accent-ink h-8 border-l px-3 text-sm font-medium transition-[background-color] first:border-l-0 max-md:h-11 max-md:px-4",
+            )}
           >
-            <div className="flex gap-2">
-              <ThemeOption
-                icon={IconSun}
-                label="Clair"
-                selected={currentTheme === "light"}
-                onClick={() => setTheme("light")}
-              />
-              <ThemeOption
-                icon={IconMoon}
-                label="Sombre"
-                selected={currentTheme === "dark"}
-                onClick={() => setTheme("dark")}
-              />
-              <ThemeOption
-                icon={Monitor}
-                label="Auto"
-                selected={currentTheme === "system"}
-                onClick={() => setTheme("system")}
-              />
-            </div>
-          </PreferenceItem>
-        </CardContent>
-      </Card>
-    </motion.div>
+            {option.label}
+          </button>
+        ))}
+      </div>
+    </div>
   )
 }

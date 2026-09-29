@@ -1,7 +1,6 @@
 "use client"
 
 import { zodResolver } from "@hookform/resolvers/zod"
-import { IconKey } from "@tabler/icons-react"
 import {
   type Control,
   type FieldValues,
@@ -10,7 +9,6 @@ import {
 } from "react-hook-form"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Form,
   FormControl,
@@ -20,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Spinner } from "@/components/ui/spinner"
 import { setAccountPassword } from "@/features/users/actions"
 import { authClient } from "@/lib/auth-client"
 import { mapAuthError } from "@/lib/auth-errors"
@@ -31,11 +30,15 @@ import {
   resetPasswordSchema,
 } from "@/schemas/auth"
 
-type Props = { mode: "change" | "set" }
+type Props = {
+  mode: "change" | "set"
+  /** Après un changement réussi : referme le formulaire. */
+  onDone?: () => void
+}
 
-export const ProfilePassword = ({ mode }: Props) => {
+export const ProfilePassword = ({ mode, onDone }: Props) => {
   if (mode === "set") return <SetPasswordForm />
-  return <ChangePasswordForm />
+  return <ChangePasswordForm onDone={onDone} />
 }
 
 const SetPasswordForm = () => {
@@ -60,7 +63,7 @@ const SetPasswordForm = () => {
   }
 
   return (
-    <PasswordCard title="Définir un mot de passe">
+    <PasswordPanel>
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
@@ -81,16 +84,16 @@ const SetPasswordForm = () => {
           />
           <SubmitButton
             pending={form.formState.isSubmitting}
-            label="Définir le mot de passe"
+            label="Enregistrer le mot de passe"
             testId="set-password-submit"
           />
         </form>
       </Form>
-    </PasswordCard>
+    </PasswordPanel>
   )
 }
 
-const ChangePasswordForm = () => {
+const ChangePasswordForm = ({ onDone }: { onDone?: () => void }) => {
   const form = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(changePasswordSchema),
     defaultValues: {
@@ -112,10 +115,11 @@ const ChangePasswordForm = () => {
     }
     toast.success("Mot de passe modifié avec succès")
     form.reset()
+    onDone?.()
   }
 
   return (
-    <PasswordCard title="Modifier le mot de passe">
+    <PasswordPanel note="Vos autres appareils seront déconnectés.">
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
@@ -143,37 +147,28 @@ const ChangePasswordForm = () => {
           />
           <SubmitButton
             pending={form.formState.isSubmitting}
-            label="Modifier le mot de passe"
+            label="Enregistrer le mot de passe"
             testId="security-submit"
           />
         </form>
       </Form>
-    </PasswordCard>
+    </PasswordPanel>
   )
 }
 
 // --- sous-composants partagés ---
 
-const PasswordCard = ({
-  title,
+const PasswordPanel = ({
+  note,
   children,
 }: {
-  title: string
+  note?: string
   children: React.ReactNode
 }) => (
-  <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
-    <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
-      <CardTitle className="flex items-center gap-3 text-lg">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-orange-500 to-amber-600 shadow-lg shadow-orange-500/20">
-          <IconKey className="h-5 w-5 text-white" />
-        </div>
-        <span className="font-display font-semibold text-gray-900 dark:text-white">
-          {title}
-        </span>
-      </CardTitle>
-    </CardHeader>
-    <CardContent className="p-6">{children}</CardContent>
-  </Card>
+  <div className="flex max-w-105 flex-col gap-3 pt-1 pb-4 md:pl-8">
+    {children}
+    {note && <p className="text-ink-3 text-[0.8125rem]">{note}</p>}
+  </div>
 )
 
 function PasswordField<T extends FieldValues>({
@@ -223,12 +218,15 @@ const SubmitButton = ({
 }) => (
   <Button
     type="submit"
-    variant="outline"
-    disabled={pending}
-    className="rounded-xl border-orange-200 text-orange-700 hover:bg-orange-100 hover:text-orange-800 dark:border-orange-800 dark:text-orange-400 dark:hover:bg-orange-900/40"
+    size="sm"
+    aria-disabled={pending}
+    onClick={(e) => {
+      if (pending) e.preventDefault()
+    }}
+    className="max-md:h-11"
     data-testid={testId}
   >
-    <IconKey className="mr-2 h-4 w-4" />
-    {pending ? "En cours..." : label}
+    {pending && <Spinner size="sm" />}
+    {pending ? "Enregistrement…" : label}
   </Button>
 )

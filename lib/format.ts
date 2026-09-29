@@ -219,3 +219,8 @@ export const formatDayMonth = (d: Date | number | string): string => {
 export const formatWeekdayDayMonth = (d: Date | number | string): string => {
   return format(inAppZone(d), "EEEE d MMMM", { locale: fr })
 }
+
+/** « mars 2026 » — ancienneté d'un compte. */
+export const formatMonthYear = (d: Date | number | string): string => {
+  return format(inAppZone(d), "MMMM yyyy", { locale: fr })
+}

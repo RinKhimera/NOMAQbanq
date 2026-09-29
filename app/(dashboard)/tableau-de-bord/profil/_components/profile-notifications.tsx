@@ -1,6 +1,5 @@
 "use client"
 
-import { IconBell } from "@tabler/icons-react"
 import { useState } from "react"
 import { toast } from "sonner"
 import { Switch } from "@/components/ui/switch"
@@ -17,6 +16,8 @@ export const ProfileNotifications = ({
   const [busy, setBusy] = useState(false)
 
   const update = async (next: NotificationPreferences) => {
+    // Pas de `disabled` pendant l'envoi : l'interrupteur perdrait le focus.
+    if (busy) return
     const prev = prefs
     setPrefs(next) // optimistic
     setBusy(true)
@@ -33,26 +34,29 @@ export const ProfileNotifications = ({
   return (
     <div className="flex flex-col">
       <NotifRow
+        id="notif-exam-results"
         label="Résultats d'examen"
-        description="Un email quand vos résultats d'examen sont disponibles."
+        description="Quand un examen blanc ferme et que vos résultats sont publiés."
         checked={prefs.examResults}
-        disabled={busy}
+        pending={busy}
         testId="notif-toggle-exam-results"
         onCheckedChange={(v) => update({ ...prefs, examResults: v })}
       />
       <NotifRow
+        id="notif-access-expiry"
         label="Fin d'accès"
-        description="Un rappel avant l'expiration de votre accès."
+        description="Un rappel quand un accès expire dans 7 jours ou moins."
         checked={prefs.accessExpiry}
-        disabled={busy}
+        pending={busy}
         testId="notif-toggle-access-expiry"
         onCheckedChange={(v) => update({ ...prefs, accessExpiry: v })}
       />
       <NotifRow
+        id="notif-marketing"
         label="Rappels et suggestions"
-        description="Une relance si vous ne venez plus, et un rappel si une commande n'est pas finalisée."
+        description="Relance après 21 jours d'inactivité et rappel d'un paiement non finalisé."
         checked={prefs.marketing}
-        disabled={busy}
+        pending={busy}
         testId="notif-toggle-marketing"
         onCheckedChange={(v) => update({ ...prefs, marketing: v })}
       />
@@ -61,37 +65,41 @@ export const ProfileNotifications = ({
 }
 
 const NotifRow = ({
+  id,
   label,
   description,
   checked,
-  disabled,
+  pending,
   testId,
   onCheckedChange,
 }: {
+  id: string
   label: string
   description: string
   checked: boolean
-  disabled: boolean
+  pending: boolean
   testId: string
   onCheckedChange: (v: boolean) => void
 }) => (
-  <div className="flex items-start gap-4 rounded-xl p-4">
-    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-100 dark:bg-rose-900/30">
-      <IconBell className="h-5 w-5 text-rose-600 dark:text-rose-400" />
-    </div>
-    <div className="min-w-0 flex-1">
-      <p className="font-medium text-gray-900 dark:text-white">{label}</p>
-      <p className="mt-0.5 text-sm text-gray-500 dark:text-gray-400">
+  <div className="border-line flex items-center justify-between gap-4 border-t py-3.5 first:border-t-0 first:pt-0">
+    <div className="flex min-w-0 flex-col gap-0.5">
+      <label htmlFor={id} className="text-ink text-[0.9375rem]">
+        {label}
+      </label>
+      <span id={`${id}-description`} className="text-ink-3 text-[0.8125rem]">
         {description}
-      </p>
+      </span>
     </div>
-    <div className="shrink-0">
+    {/* Zone de toucher de 44 px autour de l'interrupteur, sous 768 px. */}
+    <span className="grid shrink-0 place-items-center max-md:size-11">
       <Switch
+        id={id}
         checked={checked}
-        disabled={disabled}
+        aria-disabled={pending}
+        aria-describedby={`${id}-description`}
         onCheckedChange={onCheckedChange}
         data-testid={testId}
       />
-    </div>
+    </span>
   </div>
 )

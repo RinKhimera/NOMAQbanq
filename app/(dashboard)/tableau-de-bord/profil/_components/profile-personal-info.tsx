@@ -1,23 +1,15 @@
 "use client"
 
-import { IconAt, IconFileText, IconUser } from "@tabler/icons-react"
-import { User } from "lucide-react"
-import { motion, useReducedMotion } from "motion/react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { updateProfile } from "@/features/users/actions"
-import { CurrentUser } from "@/features/users/dal"
+import type { CurrentUser } from "@/features/users/dal"
 import { bioSchema, nameSchema, usernameSchema } from "@/features/users/schemas"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
+import { callAction } from "@/lib/safe-action"
 import { InlineEditField } from "./inline-edit-field"
 
-type ProfilePersonalInfoProps = {
-  user: CurrentUser
-}
-
-export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
-  const prefersReducedMotion = useReducedMotion()
+export const ProfilePersonalInfo = ({ user }: { user: CurrentUser }) => {
   const router = useRouter()
   const { refetch } = useCurrentUser()
 
@@ -25,103 +17,58 @@ export const ProfilePersonalInfo = ({ user }: ProfilePersonalInfoProps) => {
     fieldName: "name" | "username" | "bio",
     value: string,
   ): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const result = await updateProfile({
+    const result = await callAction(() =>
+      updateProfile({
         name: fieldName === "name" ? value : user.name,
         username: fieldName === "username" ? value : user.username || "",
         bio: fieldName === "bio" ? value || undefined : (user.bio ?? undefined),
-      })
-
-      if (result.success) {
-        toast.success("Modification enregistrée")
-        await refetch({ query: { disableCookieCache: true } }).catch(() => {})
-        router.refresh()
-        return { success: true }
-      } else {
-        return {
-          success: false,
-          error: result.error || "Erreur lors de la sauvegarde",
-        }
+      }),
+    )
+    if (!result.success) {
+      return {
+        success: false,
+        error: result.error || "Erreur lors de la sauvegarde",
       }
-    } catch (error) {
-      console.error("Update error:", error)
-      return { success: false, error: "Une erreur est survenue" }
     }
+    toast.success("Modification enregistrée")
+    await refetch({ query: { disableCookieCache: true } }).catch(() => {})
+    router.refresh()
+    return { success: true }
   }
 
-  const motionProps = prefersReducedMotion
-    ? {}
-    : {
-        initial: { opacity: 0, y: 20 },
-        animate: { opacity: 1, y: 0 },
-        transition: {
-          duration: 0.5,
-          delay: 0.1,
-          ease: [0.16, 1, 0.3, 1] as const,
-        },
-      }
-
   return (
-    <motion.div {...motionProps}>
-      <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
-        <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
-          <CardTitle className="flex items-center gap-3 text-lg">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
-              <User className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-display font-semibold text-gray-900 dark:text-white">
-              Informations personnelles
-            </span>
-          </CardTitle>
-        </CardHeader>
-
-        <CardContent className="divide-y divide-gray-100 p-0 dark:divide-gray-800">
-          {/* Name field */}
-          <InlineEditField
-            testId="profile-field-name"
-            label="Nom complet"
-            icon={IconUser}
-            iconColorClass="text-blue-600 dark:text-blue-400"
-            iconBgClass="bg-blue-100 dark:bg-blue-900/30"
-            value={user.name}
-            placeholder="Entrez votre nom complet"
-            schema={nameSchema}
-            maxLength={50}
-            onSave={(value) => handleSaveField("name", value)}
-          />
-
-          {/* Username field */}
-          <InlineEditField
-            label="Nom d'utilisateur"
-            icon={IconAt}
-            iconColorClass="text-purple-600 dark:text-purple-400"
-            iconBgClass="bg-purple-100 dark:bg-purple-900/30"
-            value={user.username || ""}
-            placeholder="votre_username"
-            emptyText="Aucun nom d'utilisateur"
-            schema={usernameSchema}
-            maxLength={20}
-            onSave={(value) => handleSaveField("username", value)}
-          />
-
-          {/* Bio field */}
-          <InlineEditField
-            label="Biographie"
-            icon={IconFileText}
-            iconColorClass="text-indigo-600 dark:text-indigo-400"
-            iconBgClass="bg-indigo-100 dark:bg-indigo-900/30"
-            value={user.bio || ""}
-            placeholder="Parlez-nous un peu de vous..."
-            emptyText="Aucune biographie"
-            schema={bioSchema}
-            maxLength={200}
-            showCharCount
-            inputType="textarea"
-            textareaRows={3}
-            onSave={(value) => handleSaveField("bio", value)}
-          />
-        </CardContent>
-      </Card>
-    </motion.div>
+    <div className="flex flex-col">
+      <InlineEditField
+        testId="profile-field-name"
+        label="Nom complet"
+        value={user.name}
+        placeholder="Entrez votre nom complet"
+        schema={nameSchema}
+        maxLength={50}
+        onSave={(value) => handleSaveField("name", value)}
+      />
+      <InlineEditField
+        testId="profile-field-username"
+        label="Nom d'utilisateur"
+        value={user.username || ""}
+        placeholder="votre_nom_utilisateur"
+        emptyText="Aucun nom d'utilisateur"
+        schema={usernameSchema}
+        maxLength={20}
+        onSave={(value) => handleSaveField("username", value)}
+      />
+      <InlineEditField
+        testId="profile-field-bio"
+        label="Biographie"
+        value={user.bio || ""}
+        placeholder="Parlez brièvement de vous"
+        emptyText="Aucune biographie"
+        schema={bioSchema}
+        maxLength={200}
+        showCharCount
+        inputType="textarea"
+        onSave={(value) => handleSaveField("bio", value)}
+      />
+    </div>
   )
 }

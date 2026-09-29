@@ -1,27 +1,28 @@
 "use client"
 
-import {
-  IconBrandGoogle,
-  IconKey,
-  IconMail,
-  IconPlugConnected,
-} from "@tabler/icons-react"
+import { Globe, KeyRound, Mail } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
+import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { LoginMethods } from "@/features/users/dal"
 import { authClient } from "@/lib/auth-client"
 import { mapAuthError } from "@/lib/auth-errors"
+import { ProfileRow } from "./profile-section"
 
 type Props = {
   methods: LoginMethods
   email: string
   googleEnabled: boolean
   profilePath: string
+  /** Compte Google seul : ouvre le formulaire « définir un mot de passe ». */
   onSetPassword?: () => void
+  /** Mot de passe défini : ouvre ou ferme le formulaire de modification. */
+  onTogglePassword?: () => void
+  passwordFormOpen?: boolean
 }
+
+const ACTION = "max-md:h-11"
 
 export const ProfileLoginMethods = ({
   methods,
@@ -29,6 +30,8 @@ export const ProfileLoginMethods = ({
   googleEnabled,
   profilePath,
   onSetPassword,
+  onTogglePassword,
+  passwordFormOpen = false,
 }: Props) => {
   const [busy, setBusy] = useState(false)
 
@@ -83,91 +86,91 @@ export const ProfileLoginMethods = ({
       toast.error(mapAuthError(error).message)
       return
     }
-    toast.success("Email de vérification envoyé")
+    toast.success("Courriel de vérification envoyé")
+  }
+
+  // Garde sans `disabled` : le bouton garde le focus pendant l'appel.
+  const guarded = (run: () => void) => () => {
+    if (!busy) run()
   }
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
-      <CardHeader className="block border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
-        <CardTitle className="flex items-center gap-3 text-lg">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/20">
-            <IconPlugConnected className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-display font-semibold text-gray-900 dark:text-white">
-            Méthodes de connexion
-          </span>
-        </CardTitle>
-      </CardHeader>
-
-      <CardContent className="space-y-4 p-6">
-        {/* Email + vérification */}
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-4 dark:border-gray-800">
-          <div className="flex items-center gap-3">
-            <IconMail className="h-5 w-5 text-gray-500" />
-            <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                {email}
-              </p>
-              {methods.emailVerified ? (
-                <Badge variant="secondary" className="mt-1">
-                  Vérifié
-                </Badge>
-              ) : (
-                <Badge variant="destructive" className="mt-1">
-                  Non vérifié
-                </Badge>
-              )}
-            </div>
-          </div>
-          {!methods.emailVerified && (
+    <div className="flex flex-col">
+      <ProfileRow
+        icon={<Mail />}
+        title={email}
+        detail="Adresse de connexion · non modifiable"
+        badge={
+          methods.emailVerified ? (
+            <StatusPill tone="success">Vérifiée</StatusPill>
+          ) : (
+            <StatusPill tone="danger">Non vérifiée</StatusPill>
+          )
+        }
+        action={
+          !methods.emailVerified && (
             <Button
               size="sm"
               variant="outline"
-              disabled={busy}
-              onClick={resendVerification}
+              aria-disabled={busy}
+              onClick={guarded(resendVerification)}
               data-testid="login-method-resend-verification"
+              className={ACTION}
             >
-              Renvoyer l&apos;email
+              Renvoyer le courriel
             </Button>
-          )}
-        </div>
+          )
+        }
+      />
 
-        {/* Mot de passe */}
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-4 dark:border-gray-800">
-          <div className="flex items-center gap-3">
-            <IconKey className="h-5 w-5 text-gray-500" />
-            <p className="text-sm font-medium text-gray-900 dark:text-white">
-              Mot de passe {methods.hasPassword ? "défini" : "non défini"}
-            </p>
-          </div>
-          {!methods.hasPassword && (
+      <ProfileRow
+        icon={<KeyRound />}
+        title="Mot de passe"
+        detail={
+          methods.hasPassword
+            ? "Défini"
+            : "Non défini · vous vous connectez avec Google"
+        }
+        action={
+          methods.hasPassword ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onTogglePassword}
+              aria-expanded={passwordFormOpen}
+              data-testid="login-method-change-password"
+              className={ACTION}
+            >
+              {passwordFormOpen ? "Annuler" : "Modifier"}
+            </Button>
+          ) : (
             <Button
               size="sm"
               variant="outline"
               onClick={onSetPassword}
               data-testid="login-method-set-password"
+              className={ACTION}
             >
               Définir un mot de passe
             </Button>
-          )}
-        </div>
+          )
+        }
+      />
 
-        {/* Google */}
-        {googleEnabled && (
-          <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-4 dark:border-gray-800">
-            <div className="flex items-center gap-3">
-              <IconBrandGoogle className="h-5 w-5 text-gray-500" />
-              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                Google {methods.google.linked ? "connecté" : "non connecté"}
-              </p>
-            </div>
-            {methods.google.linked ? (
+      {googleEnabled && (
+        <ProfileRow
+          icon={<Globe />}
+          title="Google"
+          detail={methods.google.linked ? "Lié" : "Non lié"}
+          action={
+            methods.google.linked ? (
               <Button
                 size="sm"
                 variant="outline"
-                disabled={busy}
-                onClick={unlinkGoogle}
+                aria-disabled={busy}
+                onClick={guarded(unlinkGoogle)}
                 data-testid="login-method-google-unlink"
+                className={ACTION}
               >
                 Délier
               </Button>
@@ -175,16 +178,17 @@ export const ProfileLoginMethods = ({
               <Button
                 size="sm"
                 variant="outline"
-                disabled={busy}
-                onClick={linkGoogle}
+                aria-disabled={busy}
+                onClick={guarded(linkGoogle)}
                 data-testid="login-method-google-link"
+                className={ACTION}
               >
-                Lier Google
+                Lier
               </Button>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            )
+          }
+        />
+      )}
+    </div>
   )
 }

@@ -1,107 +1,98 @@
 "use client"
 
-import { IconDeviceLaptop, IconLogout } from "@tabler/icons-react"
+import { Monitor, Smartphone } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
-import { Badge } from "@/components/ui/badge"
+import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   revokeOtherUserSessions,
   revokeUserSession,
 } from "@/features/users/actions"
 import type { UserSession } from "@/features/users/dal"
 import { callAction } from "@/lib/safe-action"
+import { ProfileRow } from "./profile-section"
+
+const MOBILE = /iphone|ipad|android|mobile/i
 
 export const ProfileSessions = ({ sessions }: { sessions: UserSession[] }) => {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
   const hasOthers = sessions.some((s) => !s.isCurrent)
 
-  const revokeOne = async (id: string) => {
+  // Garde sans `disabled` : le bouton cliqué garde le focus pendant l'appel.
+  const run = async (
+    action: () => Promise<{ success: boolean; error?: string }>,
+    done: string,
+  ) => {
+    if (busy) return
     setBusy(true)
-    const res = await callAction(() => revokeUserSession(id))
+    const res = await callAction(action)
     setBusy(false)
     if (!res.success) {
-      toast.error(res.error ?? "Échec de la révocation")
+      toast.error(res.error ?? "Échec de la déconnexion")
       return
     }
-    toast.success("Appareil déconnecté")
+    toast.success(done)
     router.refresh()
   }
 
-  const revokeOthers = async () => {
-    setBusy(true)
-    const res = await callAction(() => revokeOtherUserSessions())
-    setBusy(false)
-    if (!res.success) {
-      toast.error(res.error ?? "Échec")
-      return
-    }
-    toast.success("Autres appareils déconnectés")
-    router.refresh()
+  if (sessions.length === 0) {
+    return <p className="text-ink-3 text-sm">Aucune session active.</p>
   }
 
   return (
-    <Card className="overflow-hidden rounded-2xl border-gray-100 shadow-sm dark:border-gray-800">
-      <CardHeader className="flex flex-row items-center justify-between border-b border-gray-100 bg-gray-50/50 px-6 py-4 dark:border-gray-800 dark:bg-gray-900/50">
-        <CardTitle className="flex items-center gap-3 text-lg">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-linear-to-br from-teal-500 to-emerald-600 shadow-lg shadow-teal-500/20">
-            <IconDeviceLaptop className="h-5 w-5 text-white" />
-          </div>
-          <span className="font-display font-semibold text-gray-900 dark:text-white">
-            Appareils connectés
-          </span>
-        </CardTitle>
-        {hasOthers && (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col">
+        {sessions.map((s) => (
+          <ProfileRow
+            key={s.id}
+            icon={MOBILE.test(s.deviceLabel) ? <Smartphone /> : <Monitor />}
+            title={s.deviceLabel}
+            detail={`${s.ipAddress ?? "IP inconnue"} · actif le ${s.lastActiveLabel}`}
+            badge={
+              s.isCurrent && <StatusPill tone="info">Cet appareil</StatusPill>
+            }
+            action={
+              !s.isCurrent && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  aria-disabled={busy}
+                  onClick={() =>
+                    run(() => revokeUserSession(s.id), "Appareil déconnecté")
+                  }
+                  data-testid={`session-revoke-${s.id}`}
+                  className="max-md:h-11"
+                >
+                  Déconnecter
+                  <span className="sr-only"> : {s.deviceLabel}</span>
+                </Button>
+              )
+            }
+          />
+        ))}
+      </div>
+      {hasOthers && (
+        <div>
           <Button
             size="sm"
             variant="outline"
-            disabled={busy}
-            onClick={revokeOthers}
+            aria-disabled={busy}
+            onClick={() =>
+              run(
+                () => revokeOtherUserSessions(),
+                "Autres appareils déconnectés",
+              )
+            }
             data-testid="session-revoke-others"
+            className="max-md:h-11"
           >
-            <IconLogout className="mr-2 h-4 w-4" />
-            Déconnecter les autres
+            Déconnecter les autres appareils
           </Button>
-        )}
-      </CardHeader>
-
-      <CardContent className="space-y-3 p-6">
-        {sessions.length === 0 && (
-          <p className="text-sm text-gray-500">Aucune session active.</p>
-        )}
-        {sessions.map((s) => (
-          <div
-            key={s.id}
-            className="flex items-center justify-between gap-3 rounded-xl border border-gray-100 p-4 dark:border-gray-800"
-          >
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                  {s.deviceLabel}
-                </p>
-                {s.isCurrent && <Badge variant="secondary">Cet appareil</Badge>}
-              </div>
-              <p className="mt-1 text-xs text-gray-500">
-                {s.ipAddress ?? "IP inconnue"} · actif le {s.lastActiveLabel}
-              </p>
-            </div>
-            {!s.isCurrent && (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={busy}
-                onClick={() => revokeOne(s.id)}
-                data-testid={`session-revoke-${s.id}`}
-              >
-                Déconnecter
-              </Button>
-            )}
-          </div>
-        ))}
-      </CardContent>
-    </Card>
+        </div>
+      )}
+    </div>
   )
 }

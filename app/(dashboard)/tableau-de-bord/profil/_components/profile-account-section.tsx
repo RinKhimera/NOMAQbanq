@@ -12,28 +12,31 @@ type Props = {
   profilePath: string
 }
 
+/** Connexion et sécurité : courriel, mot de passe (formulaire à la demande), Google. */
 export const ProfileAccountSection = ({
   methods,
   email,
   googleEnabled,
   profilePath,
 }: Props) => {
-  // Google-only : le formulaire « définir » n'apparaît qu'à la demande.
-  const [showSetPassword, setShowSetPassword] = useState(false)
+  const [passwordFormOpen, setPasswordFormOpen] = useState(false)
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col">
       <ProfileLoginMethods
         methods={methods}
         email={email}
         googleEnabled={googleEnabled}
         profilePath={profilePath}
-        onSetPassword={() => setShowSetPassword(true)}
+        onSetPassword={() => setPasswordFormOpen(true)}
+        onTogglePassword={() => setPasswordFormOpen((open) => !open)}
+        passwordFormOpen={passwordFormOpen}
       />
-      {methods.hasPassword ? (
-        <ProfilePassword mode="change" />
-      ) : (
-        showSetPassword && <ProfilePassword mode="set" />
+      {passwordFormOpen && (
+        <ProfilePassword
+          mode={methods.hasPassword ? "change" : "set"}
+          onDone={() => setPasswordFormOpen(false)}
+        />
       )}
     </div>
   )
