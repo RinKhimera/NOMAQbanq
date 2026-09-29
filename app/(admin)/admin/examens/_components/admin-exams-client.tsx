@@ -1,6 +1,6 @@
 "use client"
 
-import { IconClipboardList, IconPlus } from "@tabler/icons-react"
+import { IconPlus } from "@tabler/icons-react"
 import { motion } from "motion/react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -62,10 +62,8 @@ export function AdminExamsClient({
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       <PageIntro
-        icon={IconClipboardList}
         title="Gestion des Examens"
         description="Créez, modifiez et gérez les sessions d'évaluation"
-        colorScheme="blue"
         actions={
           <Button
             className="bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25 transition-all hover:from-blue-700 hover:to-indigo-700 hover:shadow-xl hover:shadow-blue-500/30"

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { useRouter } from "next/navigation"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { OnboardingForm } from "@/app/(dashboard)/tableau-de-bord/bienvenue/_components/onboarding-form"
@@ -29,7 +30,7 @@ describe("OnboardingForm (page bienvenue)", () => {
     render(<OnboardingForm defaultName="" defaultBio="" />)
 
     const username = screen.getByPlaceholderText(
-      "votre_nom_utilisateur",
+      "marie_dupont",
     ) as HTMLInputElement
     fireEvent.change(username, { target: { value: "youssouf123" } })
 
@@ -41,13 +42,17 @@ describe("OnboardingForm (page bienvenue)", () => {
 
     render(<OnboardingForm defaultName="" defaultBio="" />)
 
-    fireEvent.change(screen.getByPlaceholderText("Ex: Marie Dupont"), {
+    fireEvent.change(screen.getByPlaceholderText("Marie Dupont"), {
       target: { value: "Youssouf N" },
     })
-    fireEvent.change(screen.getByPlaceholderText("votre_nom_utilisateur"), {
+    fireEvent.change(screen.getByPlaceholderText("marie_dupont"), {
       target: { value: "youssouf123" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /terminer/i }))
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /continuer vers le tableau de bord/i,
+      }),
+    )
 
     await waitFor(() =>
       expect(updateProfile).toHaveBeenCalledWith(
@@ -69,13 +74,17 @@ describe("OnboardingForm (page bienvenue)", () => {
 
     render(<OnboardingForm defaultName="" defaultBio="" />)
 
-    fireEvent.change(screen.getByPlaceholderText("Ex: Marie Dupont"), {
+    fireEvent.change(screen.getByPlaceholderText("Marie Dupont"), {
       target: { value: "Youssouf N" },
     })
-    fireEvent.change(screen.getByPlaceholderText("votre_nom_utilisateur"), {
+    fireEvent.change(screen.getByPlaceholderText("marie_dupont"), {
       target: { value: "youssouf123" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /terminer/i }))
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /continuer vers le tableau de bord/i,
+      }),
+    )
 
     await waitFor(() => expect(updateProfile).toHaveBeenCalled())
     expect(mockRefresh).not.toHaveBeenCalled()
@@ -86,8 +95,7 @@ describe("OnboardingForm (page bienvenue)", () => {
     render(<OnboardingForm defaultName="Youssouf N" defaultBio="Résident" />)
 
     expect(
-      (screen.getByPlaceholderText("Ex: Marie Dupont") as HTMLInputElement)
-        .value,
+      (screen.getByPlaceholderText("Marie Dupont") as HTMLInputElement).value,
     ).toBe("Youssouf N")
     expect(
       (
@@ -96,5 +104,51 @@ describe("OnboardingForm (page bienvenue)", () => {
         ) as HTMLTextAreaElement
       ).value,
     ).toBe("Résident")
+  })
+
+  it("met le nom d'utilisateur en minuscules à la saisie", async () => {
+    render(<OnboardingForm defaultName="" defaultBio="" />)
+    const username = screen.getByPlaceholderText(
+      "marie_dupont",
+    ) as HTMLInputElement
+    await userEvent.type(username, "Marie_D")
+    expect(username.value).toBe("marie_d")
+  })
+
+  it("compte les caractères de la biographie", async () => {
+    render(<OnboardingForm defaultName="" defaultBio="" />)
+    expect(screen.getByTestId("bio-counter")).toHaveTextContent("0 / 200")
+    await userEvent.type(
+      screen.getByPlaceholderText("Parlez brièvement de vous"),
+      "Résident",
+    )
+    expect(screen.getByTestId("bio-counter")).toHaveTextContent("8 / 200")
+  })
+
+  it("garde le focus sur le bouton quand l'enregistrement échoue", async () => {
+    let fail: (r: { success: false; error: string }) => void = () => {}
+    vi.mocked(updateProfile).mockReturnValue(
+      new Promise((resolve) => {
+        fail = resolve
+      }),
+    )
+    render(<OnboardingForm defaultName="Youssouf N" defaultBio="" />)
+    await userEvent.type(
+      screen.getByPlaceholderText("marie_dupont"),
+      "youssouf",
+    )
+    const submit = screen.getByRole("button", {
+      name: /continuer vers le tableau de bord/i,
+    })
+    await userEvent.click(submit)
+    // Pendant l'envoi : verrouillé par aria-disabled, jamais `disabled`, qui
+    // ferait tomber le focus sur <body> dans un vrai navigateur.
+    await waitFor(() => expect(submit).toHaveAttribute("aria-disabled", "true"))
+    expect(submit).not.toBeDisabled()
+    fail({ success: false, error: "Ce nom d'utilisateur est déjà pris !" })
+    await waitFor(() =>
+      expect(submit).not.toHaveAttribute("aria-disabled", "true"),
+    )
+    expect(submit).toHaveFocus()
   })
 })

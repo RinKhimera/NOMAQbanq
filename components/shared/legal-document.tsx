@@ -1,6 +1,6 @@
 "use client"
 
-import { ChevronDown, Info } from "lucide-react"
+import { Info } from "lucide-react"
 import Link from "next/link"
 import { type ReactNode, isValidElement, useEffect, useState } from "react"
 import { chipClass } from "@/components/marketing/chip"
@@ -9,6 +9,7 @@ import {
   MARKETING_WRAP,
   MarketingHero,
 } from "@/components/marketing/marketing-hero"
+import { SectionNav } from "@/components/shared/section-nav"
 import { cn } from "@/lib/utils"
 
 type ListBlock = { list: (ReactNode | [string, ReactNode])[] }
@@ -162,64 +163,13 @@ export const LegalDocument = ({
             "grid items-start gap-8 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-16",
           )}
         >
-          <nav
-            aria-label="Sommaire"
-            className="sticky top-22 hidden flex-col gap-0.5 lg:flex"
-          >
-            <span className="type-label px-2.5 pb-2">Sommaire</span>
-            {articles.map((article, i) => (
-              <a
-                key={article.id}
-                href={`#${article.id}`}
-                aria-current={active === article.id ? "location" : undefined}
-                className={cn(
-                  "focus-ring flex min-h-9 items-start gap-2 rounded-md px-2.5 py-1.5 text-sm transition-[background-color] duration-(--duration-fast)",
-                  active === article.id
-                    ? "bg-surface-2 text-ink font-medium"
-                    : "text-ink-2 hover:bg-surface-2",
-                )}
-              >
-                <span
-                  aria-hidden
-                  className="text-ink-3 w-5 shrink-0 pt-px font-mono text-xs tabular-nums"
-                >
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <span>{article.title}</span>
-              </a>
-            ))}
-          </nav>
-
-          {/* Sous 1024 px, le sommaire latéral devient un bloc repliable. */}
-          <details className="group border-line bg-surface rounded-lg border lg:hidden">
-            <summary className="focus-ring flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-lg px-4 [&::-webkit-details-marker]:hidden">
-              <span className="type-label">Sommaire</span>
-              <ChevronDown
-                aria-hidden
-                className="text-ink-3 size-4 group-open:rotate-180"
-              />
-            </summary>
-            <nav aria-label="Sommaire du document" className="px-2 pb-2">
-              <ol className="flex flex-col">
-                {articles.map((article, i) => (
-                  <li key={article.id}>
-                    <a
-                      href={`#${article.id}`}
-                      className="focus-ring hover:bg-surface-2 text-ink-2 flex min-h-11 items-center gap-2 rounded-md px-2.5 text-sm transition-[background-color] duration-(--duration-fast)"
-                    >
-                      <span
-                        aria-hidden
-                        className="text-ink-3 w-5 shrink-0 font-mono text-xs tabular-nums"
-                      >
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      {article.title}
-                    </a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-          </details>
+          <SectionNav
+            items={articles}
+            active={active}
+            numbered
+            mobileLabel="Sommaire du document"
+            className="top-22"
+          />
 
           <article className="flex max-w-180 min-w-0 flex-col">
             {articles.map((article, i) => (

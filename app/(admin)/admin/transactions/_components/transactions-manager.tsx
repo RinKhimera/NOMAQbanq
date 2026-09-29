@@ -1,6 +1,5 @@
 "use client"
 
-import { IconReceipt } from "@tabler/icons-react"
 import { Plus } from "lucide-react"
 import { motion } from "motion/react"
 import { usePathname, useRouter } from "next/navigation"
@@ -190,10 +189,8 @@ export const TransactionsManager = ({
   return (
     <>
       <PageIntro
-        icon={IconReceipt}
         title="Transactions"
         description="Gérez les paiements et enregistrez les transactions manuelles"
-        colorScheme="amber"
         actions={
           <Button
             onClick={() => setShowManualPaymentModal(true)}

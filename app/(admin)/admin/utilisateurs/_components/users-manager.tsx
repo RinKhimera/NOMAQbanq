@@ -1,6 +1,5 @@
 "use client"
 
-import { IconUsers } from "@tabler/icons-react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import { DateRange } from "react-day-picker"
@@ -212,10 +211,8 @@ export function UsersManager({
   return (
     <>
       <PageIntro
-        icon={IconUsers}
         title="Gestion des utilisateurs"
         description="Consultez et gérez les utilisateurs de la plateforme"
-        colorScheme="violet"
         actions={
           exportUsers.length > 0 ? (
             <ExportUsersButton users={exportUsers} />

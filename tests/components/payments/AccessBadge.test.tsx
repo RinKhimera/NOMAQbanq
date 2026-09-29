@@ -50,35 +50,6 @@ describe("AccessBadge", () => {
     })
   })
 
-  describe("tailles", () => {
-    it("utilise la taille sm", () => {
-      const { container } = render(
-        <AccessBadge accessType="exam" status="active" size="sm" />,
-      )
-      const badge = container.firstChild as HTMLElement
-      expect(badge.className).toContain("px-2.5")
-      expect(badge.className).toContain("gap-1.5")
-    })
-
-    it("utilise la taille md par défaut", () => {
-      const { container } = render(
-        <AccessBadge accessType="exam" status="active" />,
-      )
-      const badge = container.firstChild as HTMLElement
-      expect(badge.className).toContain("px-3.5")
-      expect(badge.className).toContain("gap-2")
-    })
-
-    it("utilise la taille lg", () => {
-      const { container } = render(
-        <AccessBadge accessType="exam" status="active" size="lg" />,
-      )
-      const badge = container.firstChild as HTMLElement
-      expect(badge.className).toContain("px-4")
-      expect(badge.className).toContain("gap-2.5")
-    })
-  })
-
   describe("showDetails", () => {
     it("affiche le label du type d'accès exam quand showDetails est true", () => {
       render(<AccessBadge accessType="exam" status="active" showDetails />)

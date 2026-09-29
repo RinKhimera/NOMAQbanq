@@ -3,11 +3,6 @@ import { type ReactNode } from "react"
 import { describe, expect, it, vi } from "vitest"
 import { DomainMasteryPanel } from "@/app/(dashboard)/tableau-de-bord/_components/domain-mastery-panel"
 
-vi.mock("motion/react", async () => {
-  const { motionMockFactory } = await import("../helpers/motion-mock")
-  return motionMockFactory
-})
-
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
@@ -38,17 +33,21 @@ describe("DomainMasteryPanel", () => {
     ])
   })
 
-  it("donne la maîtrise sur le nombre de questions comptées", () => {
+  it("donne la maîtrise de chaque domaine pratiqué", () => {
     render(<DomainMasteryPanel domains={domains} />)
     const psychiatrie = rows()[0]!
     expect(psychiatrie).toHaveTextContent("45 %")
-    expect(psychiatrie).toHaveTextContent("sur 20 questions")
+    expect(
+      within(psychiatrie).getByRole("progressbar", {
+        name: "Maîtrise en Psychiatrie",
+      }),
+    ).toBeInTheDocument()
   })
 
   it("marque un domaine sous 5 questions comme peu fiable", () => {
     render(<DomainMasteryPanel domains={domains} />)
     const pediatrie = rows()[2]!
-    expect(pediatrie).toHaveTextContent("Peu de données")
+    expect(pediatrie).toHaveTextContent("Sur 3 questions · peu de données")
     expect(pediatrie.dataset.significant).toBe("false")
   })
 
@@ -77,7 +76,7 @@ describe("DomainMasteryPanel", () => {
   it("mène à la révision de chaque domaine", () => {
     render(<DomainMasteryPanel domains={domains} />)
     expect(
-      within(rows()[0]!).getByRole("link", { name: /Réviser ce domaine/ }),
+      within(rows()[0]!).getByRole("link", { name: "Réviser Psychiatrie" }),
     ).toHaveAttribute(
       "href",
       "/tableau-de-bord/entrainement?domaine=Psychiatrie",
@@ -92,7 +91,7 @@ describe("DomainMasteryPanel", () => {
     )
     expect(screen.queryAllByTestId("domain-mastery-row")).toHaveLength(0)
     expect(
-      screen.getByRole("link", { name: /Commencer un entraînement/ }),
+      screen.getByRole("link", { name: /Commencer une série/ }),
     ).toHaveAttribute("href", "/tableau-de-bord/entrainement")
   })
 })

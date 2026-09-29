@@ -1,16 +1,4 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  exists,
-  gte,
-  inArray,
-  isNotNull,
-  lte,
-  or,
-  sql,
-} from "drizzle-orm"
+import { and, asc, desc, eq, exists, inArray, lte, or, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
@@ -55,16 +43,13 @@ const answeredQuestionIds = sql`
 const ownExamId = sql`${examParticipations.examId}`
 
 /** Score enregistré, ou `null` s'il est retenu pour le lecteur (voir `scoreWithheldFor`). */
-const readableScore = (viewer: LockUser) =>
+export const readableParticipationScore = (viewer: LockUser) =>
   sql<
     number | null
   >`case when ${scoreWithheldFor(viewer, answeredQuestionIds, ownExamId)} then null else ${examParticipations.score} end`
 
-/** `mapWith(Number)` ferait de `null` un `0` — faux « 0 % » quand rien n'est lisible. */
-const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
-
 /** Filtre d'agrégat : seules les participations dont le score est lisible. */
-const scoreReadable = (viewer: LockUser) =>
+export const participationScoreReadable = (viewer: LockUser) =>
   sql`not ${scoreWithheldFor(viewer, answeredQuestionIds, ownExamId)}`
 
 /**
@@ -163,7 +148,7 @@ export const getExamsWithParticipation = cache(
       const parts = await db
         .select({
           examId: examParticipations.examId,
-          score: readableScore(viewerOf(session.user)),
+          score: readableParticipationScore(viewerOf(session.user)),
           status: examParticipations.status,
           completedAt: examParticipations.completedAt,
         })
@@ -973,26 +958,12 @@ export const getExamLeaderboard = async (
 // Dashboard étudiant
 // ============================================
 
-export type MyDashboardStats = {
-  availableExamsCount: number
-  completedExamsCount: number
-  /** `null` = aucun score lisible (rien de complété, ou tout retenu). */
-  averageScore: number | null
-}
-
-/**
- * Stats résumé du dashboard étudiant. `availableExamsCount` = nombre d'examens
- * actifs (sans filtre de fenêtre) si l'utilisateur a un accès
- * examen actif, sinon 0 — `hasAccess(uid)` interroge l'entitlement réel (pas de
- * bypass admin). Moyenne sur les participations complétées. `null` si non
- * connecté.
- */
 // Prédicat d'audience pour les lectures « mes examens » du dashboard : inclut
 // les examens ouverts (`subscribers`) et les examens restreints dont `uid` est
 // membre (EXISTS corrélé, indexé sur examAudience.userId). Masque les examens
 // restreints confidentiels aux non-membres, même abonnés. Parité avec le
 // filtre de `getExamsWithParticipation`.
-const memberAudienceWhere = (uid: string) =>
+export const memberAudienceWhere = (uid: string) =>
   or(
     eq(exams.audienceType, "subscribers"),
     exists(
@@ -1004,203 +975,3 @@ const memberAudienceWhere = (uid: string) =>
         ),
     ),
   )
-
-export const getMyDashboardStats = cache(
-  async (): Promise<MyDashboardStats | null> => {
-    const session = await getCurrentSession()
-    if (!session?.user) return null
-    const uid = session.user.id
-    const viewer = viewerOf(session.user)
-
-    const hasExamAccess = await hasAccess("exam", uid)
-
-    const [agg] = await db
-      .select({
-        completed:
-          sql<number>`count(*) filter (where ${examParticipations.status} in ('completed','auto_submitted'))`.mapWith(
-            Number,
-          ),
-        // Une participation au score retenu n'entre pas dans la moyenne :
-        // avant/après la restituerait.
-        averageScore: sql<
-          number | null
-        >`round(avg(${examParticipations.score}) filter (where ${examParticipations.status} in ('completed','auto_submitted') and ${scoreReadable(viewer)}))`.mapWith(
-          nullableNumber,
-        ),
-      })
-      .from(examParticipations)
-      .where(eq(examParticipations.userId, uid))
-
-    let availableExamsCount = 0
-    if (hasExamAccess) {
-      const [c] = await db
-        .select({ n: sql<number>`count(*)`.mapWith(Number) })
-        .from(exams)
-        .where(and(eq(exams.isActive, true), memberAudienceWhere(uid)))
-      availableExamsCount = c?.n ?? 0
-    }
-
-    return {
-      availableExamsCount,
-      completedExamsCount: agg?.completed ?? 0,
-      averageScore: agg?.averageScore ?? null,
-    }
-  },
-)
-
-export type MyRecentExam = {
-  id: string
-  title: string
-  startDate: number
-  endDate: number
-  isCompleted: boolean
-  /** `null` = non complété, ou score retenu (examen encore ouvert). */
-  score: number | null
-  completedAt: number | null
-}
-
-/**
- * Examens actifs de l'utilisateur (accès examen requis), enrichis du statut de
- * participation, complétés d'abord (par date desc), 5 max. Remplace
- * `examStats.getMyRecentExams`. `[]` sans accès / non connecté.
- */
-export const getMyRecentExams = cache(async (): Promise<MyRecentExam[]> => {
-  const session = await getCurrentSession()
-  if (!session?.user) return []
-  const uid = session.user.id
-
-  if (!(await hasAccess("exam", uid))) return []
-
-  const activeExams = await db
-    .select({
-      id: exams.id,
-      title: exams.title,
-      startDate: exams.startDate,
-      endDate: exams.endDate,
-    })
-    .from(exams)
-    .where(and(eq(exams.isActive, true), memberAudienceWhere(uid)))
-    // Ordre stable : rend déterministe le sous-ensemble retenu au-delà de 200.
-    .orderBy(desc(exams.startDate))
-    .limit(200)
-  if (activeExams.length === 0) return []
-
-  const examIds = activeExams.map((e) => e.id)
-  const parts = await db
-    .select({
-      examId: examParticipations.examId,
-      status: examParticipations.status,
-      score: readableScore(viewerOf(session.user)),
-      completedAt: examParticipations.completedAt,
-    })
-    .from(examParticipations)
-    .where(
-      and(
-        eq(examParticipations.userId, uid),
-        inArray(examParticipations.examId, examIds),
-      ),
-    )
-  const partMap = new Map(parts.map((p) => [p.examId, p]))
-
-  return activeExams
-    .map((e) => {
-      const p = partMap.get(e.id)
-      const isCompleted =
-        p?.status === "completed" || p?.status === "auto_submitted"
-      return {
-        id: e.id,
-        title: e.title,
-        startDate: e.startDate.getTime(),
-        endDate: e.endDate.getTime(),
-        isCompleted,
-        score: isCompleted ? (p?.score ?? null) : null,
-        completedAt: p?.completedAt?.getTime() ?? null,
-      }
-    })
-    .sort((a, b) => {
-      if (a.completedAt && b.completedAt) return b.completedAt - a.completedAt
-      if (a.completedAt && !b.completedAt) return -1
-      if (!a.completedAt && b.completedAt) return 1
-      return b.startDate - a.startDate
-    })
-    .slice(0, 5)
-})
-
-export type MyScoreHistoryItem = {
-  examId: string
-  examTitle: string
-  /** `null` = score retenu (examen encore ouvert, ou réponse différée). */
-  score: number | null
-  completedAt: number
-}
-
-/**
- * 10 derniers examens complétés (ordre chronologique ASC pour le graphique).
- * Lecture DESC + `reverse()`. Remplace `examStats.getMyScoreHistory`.
- */
-export const getMyScoreHistory = cache(
-  async (): Promise<MyScoreHistoryItem[]> => {
-    const session = await getCurrentSession()
-    if (!session?.user) return []
-    const uid = session.user.id
-
-    const rows = await db
-      .select({
-        examId: examParticipations.examId,
-        examTitle: exams.title,
-        score: readableScore(viewerOf(session.user)),
-        completedAt: examParticipations.completedAt,
-      })
-      .from(examParticipations)
-      .innerJoin(exams, eq(exams.id, examParticipations.examId))
-      .where(
-        and(
-          eq(examParticipations.userId, uid),
-          inArray(examParticipations.status, ["completed", "auto_submitted"]),
-          isNotNull(examParticipations.completedAt),
-        ),
-      )
-      .orderBy(desc(examParticipations.completedAt))
-      .limit(10)
-
-    return rows.reverse().map((r) => ({
-      examId: r.examId,
-      examTitle: r.examTitle,
-      score: r.score,
-      completedAt: r.completedAt?.getTime() ?? 0,
-    }))
-  },
-)
-
-export type MyAvailableExam = { id: string; title: string }
-
-/**
- * Examens actifs DANS la fenêtre de dates. Admin : tous ; user : seulement avec
- * accès examen actif. Sert au panneau « prochaines actions » (compte). Remplace
- * `exams.getMyAvailableExams`. `[]` sans accès / non connecté.
- */
-export const getMyAvailableExams = cache(
-  async (): Promise<MyAvailableExam[]> => {
-    const session = await getCurrentSession()
-    if (!session?.user) return []
-    const isAdmin = session.user.role === "admin"
-
-    if (!isAdmin && !(await hasAccess("exam", session.user.id))) return []
-
-    const now = new Date()
-    return db
-      .select({ id: exams.id, title: exams.title })
-      .from(exams)
-      .where(
-        and(
-          eq(exams.isActive, true),
-          lte(exams.startDate, now),
-          gte(exams.endDate, now),
-          // Admin : preview de tout. Sinon : ouverts + restreints dont
-          // l'utilisateur est membre — masque les restreints aux non-membres.
-          isAdmin ? undefined : memberAudienceWhere(session.user.id),
-        ),
-      )
-      .limit(100)
-  },
-)

@@ -135,6 +135,33 @@ colonne)` dans le WHERE des canaux de
   `getTrainingSessionById`) ne le portent pas. Corollaire :
   `completeTrainingSession`/`finalizeExam` ne renvoient plus le décompte des
   justes au navigateur.
+- **Tableau de bord étudiant** (`features/analytics/dal.dashboard.ts`) :
+  `getMyDashboard(period)` porte la période (`lib/dashboard-period.ts`,
+  journées civiles de l'Est, aujourd'hui compris) et la tendance contre la
+  période précédente de même durée. Filtrés : score moyen, séries, courbes ;
+  toujours sur « Tout » : examens complétés, disponibles, anneau N / M. Une
+  participation soumise à un examen encore ouvert COMPTE comme complétée (le
+  compte ne révèle rien) mais son score retenu sort de toute moyenne, de la
+  courbe et du « N / M réussis ». Le taux de complétion divise par les examens
+  disponibles (actifs, dans l'audience) les participations à CES examens :
+  jamais celles d'un examen désactivé depuis. Moyennes et tendance au
+  PLANCHER (`floor`, tendance calculée sur les moyennes brutes) : 59,67 ne
+  s'affiche jamais 60 % « réussite », un recul de 1,7 s'affiche −2. La
+  courbe d'entraînement est une moyenne par semaine civile
+  (`date_trunc('week', … at time zone …)`), bornée strictement par la
+  période : une semaine entamée avant ne compte que ses jours dans la
+  période (`startDay`, libellé « Depuis le … ») ; une semaine sans série
+  lisible n'a pas de point, jamais un point à 0.
+- **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
+  sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
+  renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou
+  passer par une jointure.
+- **Helper pur dans un module `"use client"`** : appelé depuis un Server
+  Component, il devient une référence client et casse au rendu
+  (`getAccessStatus`). Un module de helpers purs ne porte pas `"use client"`.
+- **Une participation `in_progress` survit à son budget** : le cron ne la clôt
+  qu'à la fermeture de l'examen. Une lecture « examen en cours » teste le
+  budget (`remainingMs`) avant d'afficher un temps restant.
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
   transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une
@@ -281,6 +308,9 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   (`prices`, `seedCheckoutSession`, `customers`, `nextEvent`) /
   `stripeBox.reset()`. Même raison que le Mailer : un verbe Stripe ajouté au
   port sans son faux ne compile plus, un faux partiel ne masque plus un appel.
+- Les fichiers d'intégration tournent en série (`fileParallelism: false`) : un
+  test jumeau qui compare deux comptes sur une table globale (`count(*)`) est
+  déterministe. Cibler un fichier : `bun run test:integration -- <fichier>`.
 - Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants

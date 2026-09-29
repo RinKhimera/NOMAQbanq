@@ -71,12 +71,13 @@ test.describe("Profil utilisateur", () => {
     }
   })
 
-  test("la carte d'abonnement est visible", async ({ page }) => {
+  test("le sommaire mène aux sections du profil", async ({ page }) => {
     const main = page.locator("main")
-
-    // ProfileSubscriptionCard should be present
     await expect(
-      main.getByText(/Abonnement|Accès|Sécurité/).first(),
+      main.getByRole("heading", { level: 2, name: "Connexion et sécurité" }),
     ).toBeVisible({ timeout: 15_000 })
+    await expect(
+      main.getByRole("heading", { level: 2, name: "Supprimer le compte" }),
+    ).toBeAttached()
   })
 })

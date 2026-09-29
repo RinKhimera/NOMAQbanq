@@ -1,15 +1,4 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  inArray,
-  isNotNull,
-  isNull,
-  lt,
-  or,
-  sql,
-} from "drizzle-orm"
+import { and, asc, desc, eq, inArray, isNull, lt, or, sql } from "drizzle-orm"
 import { cache } from "react"
 import "server-only"
 import type { QuizQuestion } from "@/components/quiz/runner/types"
@@ -73,7 +62,7 @@ const readableScore = (viewer: LockUser) =>
 const nullableNumber = (v: unknown) => (v === null ? null : Number(v))
 
 /** Filtre d'agrégat : seules les sessions dont le score est lisible. */
-const scoreReadable = (viewer: LockUser) =>
+export const sessionScoreReadable = (viewer: LockUser) =>
   sql`not ${scoreWithheldFor(viewer, answeredQuestionIds)}`
 
 // ============================================
@@ -260,7 +249,7 @@ export const getTrainingStats = cache(async (): Promise<TrainingStats> => {
       // la restituerait.
       averageScore: sql<
         number | null
-      >`round(avg(${trainingSessions.score}) filter (where ${scoreReadable(viewer)}))`.mapWith(
+      >`round(avg(${trainingSessions.score}) filter (where ${sessionScoreReadable(viewer)}))`.mapWith(
         nullableNumber,
       ),
     })
@@ -301,64 +290,6 @@ export const getBookmarkedQuestionIds = async (
     )
   return rows.map((r) => r.questionId)
 }
-
-// ============================================
-// Historique de score (graphique dashboard)
-// ============================================
-
-export type TrainingScoreHistory = {
-  sessions: {
-    sessionId: string
-    /** `null` = score retenu (une réponse en correction différée). */
-    score: number | null
-    completedAt: number
-    questionCount: number
-    domain: string
-  }[]
-}
-
-/**
- * Historique de score d'entraînement pour le dashboard : 10 dernières sessions
- * complétées (ordre chronologique ASC). `domain` null → « Tous domaines ».
- * Vide si non connecté.
- */
-export const getMyTrainingScoreHistory = cache(
-  async (): Promise<TrainingScoreHistory> => {
-    const session = await getCurrentSession()
-    if (!session?.user) return { sessions: [] }
-    const uid = session.user.id
-    const viewer = viewerOf(session.user)
-
-    const completedWhere = and(
-      eq(trainingSessions.userId, uid),
-      eq(trainingSessions.status, "completed"),
-    )
-
-    // 10 dernières complétées : lecture DESC + reverse → ASC chronologique.
-    const recent = await db
-      .select({
-        id: trainingSessions.id,
-        score: readableScore(viewer),
-        completedAt: trainingSessions.completedAt,
-        questionCount: trainingSessions.questionCount,
-        domain: trainingSessions.domain,
-      })
-      .from(trainingSessions)
-      .where(and(completedWhere, isNotNull(trainingSessions.completedAt)))
-      .orderBy(desc(trainingSessions.completedAt))
-      .limit(10)
-
-    const sessions = recent.reverse().map((s) => ({
-      sessionId: s.id,
-      score: s.score,
-      completedAt: s.completedAt?.getTime() ?? 0,
-      questionCount: s.questionCount,
-      domain: s.domain ?? "Tous domaines",
-    }))
-
-    return { sessions }
-  },
-)
 
 // ============================================
 // Domaines + objectifs CMC (config form)

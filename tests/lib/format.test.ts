@@ -13,6 +13,7 @@ import {
   formatCompactDateTime,
   formatCurrency,
   formatDateTime,
+  formatDayMonth,
   formatDeadline,
   formatDuration,
   formatExpiration,
@@ -21,12 +22,14 @@ import {
   formatIsoDay,
   formatLongDateTime,
   formatMediumDate,
+  formatMonthYear,
   formatPaddedMediumDate,
   formatPercent,
   formatPresentmentAmount,
   formatShortDate,
   formatTimeOnly,
   formatTimeRemaining,
+  formatWeekdayDayMonth,
   formatWeekdayLongDate,
   toCalendarDay,
 } from "@/lib/format"
@@ -318,6 +321,30 @@ describe("formatWeekdayLongDate", () => {
   it("inclut le jour de la semaine en français", () => {
     expect(formatWeekdayLongDate(new Date("2024-03-15T12:00:00Z"))).toBe(
       "vendredi 15 mars 2024",
+    )
+  })
+})
+
+describe("formatDayMonth", () => {
+  it("jour et mois abrégé, dans la journée de l'Est", () => {
+    // 1 h UTC le 28 = 21 h le 27 à Toronto.
+    expect(formatDayMonth(Date.parse("2026-09-28T01:00:00Z"))).toBe("27 sept.")
+  })
+})
+
+describe("formatMonthYear", () => {
+  it("mois et année, dans le fuseau de l'Est", () => {
+    // 1er avril 2 h UTC = 31 mars 22 h à Toronto.
+    expect(formatMonthYear(Date.parse("2026-04-01T02:00:00Z"))).toBe(
+      "mars 2026",
+    )
+  })
+})
+
+describe("formatWeekdayDayMonth", () => {
+  it("jour de la semaine, quantième et mois, sans l'année", () => {
+    expect(formatWeekdayDayMonth(Date.parse("2026-09-27T15:00:00Z"))).toBe(
+      "dimanche 27 septembre",
     )
   })
 })

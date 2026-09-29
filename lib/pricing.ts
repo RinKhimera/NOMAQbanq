@@ -49,3 +49,21 @@ export const savingsOf = (
     percent: Math.floor((savedCAD / referenceCAD) * 100),
   }
 }
+
+/** Accès simple mensuel le moins cher, tous types confondus ou d'un type : le prix d'appel. */
+export const cheapestMonthly = <P extends PricedProduct>(
+  catalog: readonly P[],
+  type?: PricedProduct["accessType"],
+): P | undefined =>
+  catalog
+    .filter(
+      (p) =>
+        !p.isCombo &&
+        p.durationDays === MONTH_DAYS &&
+        (type === undefined || p.accessType === type),
+    )
+    .toSorted((a, b) => a.priceCAD - b.priceCAD)[0]
+
+/** Durée d'une formule en mois du catalogue (180 jours → 6). */
+export const monthsOf = (product: Pick<PricedProduct, "durationDays">) =>
+  Math.round(product.durationDays / MONTH_DAYS)

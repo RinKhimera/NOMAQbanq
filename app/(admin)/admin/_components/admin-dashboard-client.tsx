@@ -1,6 +1,5 @@
 "use client"
 
-import { IconLayoutDashboard } from "@tabler/icons-react"
 import { motion } from "motion/react"
 import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
@@ -71,12 +70,7 @@ export function AdminDashboardClient({
   return (
     <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
       {/* Header */}
-      <PageIntro
-        icon={IconLayoutDashboard}
-        title="Tableau de bord"
-        description={today}
-        colorScheme="slate"
-      />
+      <PageIntro title="Tableau de bord" description={today} />
 
       {/* Vital cards */}
       <AdminVitalCards

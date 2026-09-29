@@ -1,6 +1,5 @@
 "use client"
 
-import { Brain } from "lucide-react"
 import { motion } from "motion/react"
 import { PageIntro } from "@/components/shared/page-intro"
 import type {
@@ -49,8 +48,6 @@ export function EntrainementClient({
           className="mb-10"
         >
           <PageIntro
-            icon={Brain}
-            colorScheme="emerald"
             title="Entraînement"
             description="Pratiquez avec des sessions personnalisées de 5 à 20 questions"
           />

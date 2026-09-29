@@ -65,6 +65,36 @@ export const getAccessStatus = cache(
   },
 )
 
+export type LapsedAccess = {
+  /** Échéance passée de l'accès Examens (epoch ms) ; `null` = actif ou jamais eu. */
+  exam: number | null
+  training: number | null
+}
+
+/**
+ * Accès échus de l'utilisateur courant, pour « Votre accès a expiré le … ».
+ * Au plus 2 lignes (UNIQUE(user_id, access_type)).
+ */
+export const getMyLapsedAccess = cache(async (): Promise<LapsedAccess> => {
+  const session = await getCurrentSession()
+  if (!session?.user) return { exam: null, training: null }
+  const rows = await db
+    .select({
+      accessType: userAccess.accessType,
+      expiresAt: userAccess.expiresAt,
+    })
+    .from(userAccess)
+    .where(
+      and(
+        eq(userAccess.userId, session.user.id),
+        lt(userAccess.expiresAt, new Date()),
+      ),
+    )
+  const lapsed = (type: AccessType) =>
+    rows.find((r) => r.accessType === type)?.expiresAt.getTime() ?? null
+  return { exam: lapsed("exam"), training: lapsed("training") }
+})
+
 /**
  * Entitlement RÉEL d'une cible à l'instant `now`, lu par l'exécuteur donné
  * (`db` ou la transaction en cours : une garde d'écriture ne doit jamais
