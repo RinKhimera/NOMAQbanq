@@ -8,7 +8,7 @@ import { expect, test } from "../fixtures/base"
  *
  * Isolation (3.B) : ce fichier SEEDE son propre examen `subscribers` dédié et
  * le CONSOMME (auto-submit). Sans ça, il consommait l'unique examen actif
- * partagé et cassait les specs `examen-blanc*` suivantes (« Déjà passé »).
+ * partagé et cassait les specs `examen-blanc*` suivantes (« Soumis »).
  */
 
 const SECRET = process.env.E2E_RESET_SECRET

@@ -1,7 +1,8 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
+import type { ReactNode } from "react"
 import { toast } from "sonner"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { EvaluationClient } from "@/app/(dashboard)/tableau-de-bord/examen-blanc/[examId]/evaluation/_components/evaluation-client"
+import { EvaluationClient } from "@/app/(passation)/tableau-de-bord/examen-blanc/[examId]/evaluation/_components/evaluation-client"
 import type { QuizCallbacks, QuizMode } from "@/components/quiz/runner/types"
 import { startExam } from "@/features/exams/actions"
 import { callAction } from "@/lib/safe-action"
@@ -12,23 +13,36 @@ const refresh = vi.fn()
 /** Le runner est stubbé : on teste le câblage et les callbacks, pas le moteur. */
 let lastMode: QuizMode | undefined
 let lastCallbacks: QuizCallbacks | undefined
+let lastBanners: ReactNode
 
 vi.mock("@/components/quiz/runner/quiz-runner", () => ({
   QuizRunner: ({
     mode,
     callbacks,
+    banners,
   }: {
     mode: QuizMode
     callbacks: QuizCallbacks
+    banners?: ReactNode
   }) => {
     lastMode = mode
     lastCallbacks = callbacks
-    return <div data-testid="quiz-runner-stub" />
+    lastBanners = banners
+    return (
+      <div data-testid="quiz-runner-stub">
+        <div data-testid="banners">{banners}</div>
+      </div>
+    )
   },
 }))
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, refresh }),
+}))
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
 }))
 
 vi.mock("sonner", () => ({
@@ -82,20 +96,24 @@ const renderClient = ({
   questions = [question],
   enablePause = false,
   initialNow = SERVER_NOW,
+  endDate = SERVER_NOW + 3 * 24 * 3_600_000,
 }: {
   session?: typeof enCours | null
   questions?: (typeof question)[]
   enablePause?: boolean
   initialNow?: number
+  endDate?: number
 } = {}) =>
   render(
     <EvaluationClient
       examId="exam-1"
       exam={{
-        title: "Examen",
+        title: "Examen blanc 26",
+        questionCount: 230,
         completionTime: 3600,
         enablePause,
         pauseDurationMinutes: enablePause ? 15 : null,
+        endDate,
       }}
       questions={questions}
       initialSession={session}
@@ -111,6 +129,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   lastMode = undefined
   lastCallbacks = undefined
+  lastBanners = undefined
 })
 
 describe("EvaluationClient — câblage du chrono", () => {
@@ -140,71 +159,103 @@ describe("EvaluationClient — câblage du chrono", () => {
     expect(lastMode?.pause).toBeNull()
     expect(screen.getByTestId("quiz-runner-stub")).toBeTruthy()
   })
+
+  it("une reprise annonce les réponses conservées, pas un démarrage", () => {
+    renderClient()
+    expect(screen.getByTestId("resume-alert")).toHaveTextContent(
+      "Vos 1 réponse et vos marquages sont conservés.",
+    )
+    expect(lastBanners).toBeTruthy()
+  })
 })
 
-describe("EvaluationClient — écran de règles", () => {
-  it("montre les règles quand aucune participation n'existe", () => {
+describe("EvaluationClient — écran de consignes", () => {
+  it("montre les consignes quand aucune participation n'existe, bouton inactif avant lecture", () => {
     renderClient({ session: null, questions: [] })
 
-    expect(screen.getByText(/Règles importantes/)).toBeTruthy()
+    expect(
+      screen.getByRole("heading", { name: "Commencer Examen blanc 26 ?" }),
+    ).toBeTruthy()
+    expect(screen.getByText(/230 questions/)).toBeTruthy()
+    expect(screen.getByText("Aucune pause pour cet examen.")).toBeTruthy()
+    expect(screen.getByTestId("btn-start-exam")).toBeDisabled()
+    expect(screen.queryByTestId("quiz-runner-stub")).toBeNull()
   })
 
-  it("annonce la pause repos quand l'examen l'autorise", () => {
+  it("annonce la pause quand l'examen l'autorise", () => {
     renderClient({ session: null, questions: [], enablePause: true })
 
-    expect(screen.getByText(/Pause repos disponible/)).toBeTruthy()
+    expect(screen.getByText(/Une seule pause, jusqu'à/)).toBeTruthy()
+    expect(screen.getByText(/15 min/)).toBeTruthy()
   })
 
-  it("quitte vers la liste sur Annuler", () => {
-    renderClient({ session: null, questions: [] })
-    fireEvent.click(screen.getByRole("button", { name: "Annuler" }))
+  it("prévient quand l'examen ferme avant la fin de la durée prévue", () => {
+    renderClient({
+      session: null,
+      questions: [],
+      endDate: SERVER_NOW + 20 * 60_000,
+    })
+    expect(screen.getByText(/il sera soumis à la fermeture/)).toBeTruthy()
+  })
 
-    expect(push).toHaveBeenCalledWith(LISTE)
+  it("« Annuler » ramène à la liste", () => {
+    renderClient({ session: null, questions: [] })
+    expect(screen.getByRole("link", { name: "Annuler" })).toHaveAttribute(
+      "href",
+      LISTE,
+    )
   })
 })
 
 describe("EvaluationClient — démarrage", () => {
   const demarrer = async () => {
     renderClient({ session: null, questions: [] })
+    fireEvent.click(screen.getByTestId("exam-consignes-ack"))
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: /Je comprends/ }))
+      fireEvent.click(screen.getByTestId("btn-start-exam"))
     })
   }
 
   it("rafraîchit le payload RSC après un démarrage réussi", async () => {
-    vi.mocked(startExam).mockResolvedValue({
+    vi.mocked(callAction).mockResolvedValue({
       success: true,
       startedAt: SERVER_START,
     } as never)
 
     await demarrer()
 
+    expect(vi.mocked(callAction)).toHaveBeenCalled()
     expect(refresh).toHaveBeenCalledTimes(1)
-    expect(toast.success).toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it("passe par startExam", async () => {
+    vi.mocked(callAction).mockImplementation(async (fn) => {
+      await (fn as () => Promise<unknown>)()
+      return { success: true, startedAt: SERVER_START } as never
+    })
+    vi.mocked(startExam).mockResolvedValue({
+      success: true,
+      participationId: "p1",
+      startedAt: SERVER_START,
+    })
+
+    await demarrer()
+
+    expect(startExam).toHaveBeenCalledWith({ examId: "exam-1" })
   })
 
   it("renvoie vers la liste quand le serveur refuse le démarrage", async () => {
-    vi.mocked(startExam).mockResolvedValue({
+    vi.mocked(callAction).mockResolvedValue({
       success: false,
-      error: "Examen déjà passé",
+      error: "Vous avez déjà passé cet examen.",
     } as never)
 
     await demarrer()
 
-    expect(toast.error).toHaveBeenCalledWith("Examen déjà passé")
+    expect(toast.error).toHaveBeenCalledWith("Vous avez déjà passé cet examen.")
     expect(push).toHaveBeenCalledWith(LISTE)
     expect(refresh).not.toHaveBeenCalled()
-  })
-
-  it("renvoie vers la liste quand l'action rejette", async () => {
-    vi.mocked(startExam).mockRejectedValue(new Error("Failed to fetch"))
-
-    await demarrer()
-
-    expect(toast.error).toHaveBeenCalledWith(
-      "Erreur lors du démarrage de l'examen",
-    )
-    expect(push).toHaveBeenCalledWith(LISTE)
   })
 })
 
@@ -388,7 +439,7 @@ describe("EvaluationClient — callbacks", () => {
     expect(toast.error).toHaveBeenCalledWith("Réseau")
   })
 
-  it("confirme la mise en pause, et la signale quand elle échoue", async () => {
+  it("confirme la mise en pause sans toast, et la signale quand elle échoue", async () => {
     renderClient({ enablePause: true })
     vi.mocked(callAction).mockResolvedValue({
       success: true,
@@ -396,13 +447,13 @@ describe("EvaluationClient — callbacks", () => {
       serverNow: 4_000,
     } as never)
     // Le début de pause est l'instant SERVEUR : l'overlay ne lit jamais
-    // l'horloge locale.
+    // l'horloge locale. L'overlay plein écran suffit : pas de toast.
     expect(await lastCallbacks!.onPause!()).toEqual({
       ok: true,
       pauseStartedAt: 4_000,
       serverNow: 4_000,
     })
-    expect(toast.info).toHaveBeenCalled()
+    expect(toast.info).not.toHaveBeenCalled()
 
     vi.mocked(callAction).mockResolvedValue({ success: false } as never)
     expect(await lastCallbacks!.onPause!()).toEqual({ ok: false })

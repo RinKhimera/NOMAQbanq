@@ -55,7 +55,7 @@ test.describe("Examen Blanc — session complete", () => {
     ).toBeVisible()
   })
 
-  test("journey complet : confirmation → warning → timer → réponses → submit", async ({
+  test("journey complet : consignes → timer → réponses → submit", async ({
     examen,
     page,
   }) => {
@@ -64,22 +64,17 @@ test.describe("Examen Blanc — session complete", () => {
     await examen.goto()
     await examen.clickStartExamById(examId)
 
-    // Confirmation dialog content
-    await expect(page.getByText("Confirmer le début de l'examen")).toBeVisible()
-    await expect(page.getByText(/questions à répondre/)).toBeVisible()
-    await expect(page.getByText(/minutes pour compléter/)).toBeVisible()
-    await expect(page.getByText("Un seul essai")).toBeVisible()
+    // Dialogue des consignes : le bouton n'est actif qu'une fois les consignes lues.
+    const dialog = page.getByTestId("exam-start-dialog")
+    await expect(dialog).toBeVisible()
+    await expect(
+      dialog.getByText(/Le chronomètre démarre immédiatement/),
+    ).toBeVisible()
+    await expect(dialog.getByText(/Une seule tentative/)).toBeVisible()
+    await expect(dialog.getByTestId("btn-start-exam")).toBeDisabled()
 
-    // Proceed via the dialog CTA
-    const dialog = page.locator('[role="alertdialog"], [role="dialog"]')
-    await dialog.getByRole("button", { name: "Commencer l'examen" }).click()
-    await page.waitForURL(/\/evaluation/, { timeout: 15_000 })
-
-    // Warning anti-fraude
-    await expect(page.getByText("Règles importantes de l'examen")).toBeVisible({
-      timeout: 10_000,
-    })
-    await expect(page.getByText("Mesures anti-fraude activées")).toBeVisible()
+    // La participation se crée depuis le dialogue ; la passation s'ouvre sur le chrono.
+    await examen.confirmStart()
     await examen.acceptWarningOrResume()
 
     // Timer + first question
@@ -102,11 +97,16 @@ test.describe("Examen Blanc — session complete", () => {
     // Submit from header
     await examen.submitExam()
     await expect(
-      page.locator("[data-sonner-toast]").filter({ hasText: /terminé/i }),
+      page.locator("[data-sonner-toast]").filter({ hasText: /soumis/i }),
     ).toBeVisible({ timeout: 10_000 })
+    // Page « soumis » : la date de publication des résultats.
+    await expect(
+      page.getByRole("heading", { level: 1, name: /soumis$/ }),
+    ).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByText(/publiés à la fermeture/)).toBeVisible()
   })
 
-  test("affiche l'état « Déjà passé » et les stats après soumission", async ({
+  test("affiche la carte « Soumis » et les chiffres après soumission", async ({
     examen,
     page,
   }) => {
@@ -114,15 +114,19 @@ test.describe("Examen Blanc — session complete", () => {
 
     await examen.goto()
 
-    // La carte de l'examen seedé bascule sur « Déjà passé » (preuve que la
-    // soumission a été enregistrée pour CET examen).
+    // La carte de l'examen seedé (encore ouvert) passe en « Soumis », sans
+    // score ni bouton : preuve que la soumission vise CET examen.
     const card = page.getByTestId(`exam-card-${examId}`)
     await expect(card).toBeVisible({ timeout: 15_000 })
-    await expect(card.getByText("Déjà passé")).toBeVisible()
+    await expect(card).toHaveAttribute("data-state", "submitted")
+    await expect(card.getByText("Soumis", { exact: true })).toBeVisible()
+    await expect(card.getByText(/Résultats publiés le/)).toBeVisible()
+    await expect(
+      card.getByRole("button", { name: "Commencer l'examen" }),
+    ).toHaveCount(0)
 
-    // Bloc de stats agrégées présent (regex tolérante au pluriel / au compte —
-    // ne couple pas l'assertion à l'état global des autres examens).
-    await expect(page.getByText(/examens? passés?/)).toBeVisible()
-    await expect(page.getByText(/Score moyen/)).toBeVisible()
+    // Chiffres d'en-tête (VitalCard).
+    await expect(page.getByText("Examens passés")).toBeVisible()
+    await expect(page.getByText("Score moyen")).toBeVisible()
   })
 })
