@@ -2,7 +2,7 @@
 
 > Référence de design **permanente** du produit. À placer à la racine du dépôt, à côté de `CLAUDE.md` / `README.md`.
 > Tout agent (Claude Code ou autre) et tout développeur lit ce fichier **avant** de créer ou modifier une interface.
-> Il décrit _comment l'interface doit être_ ; le dossier de handoff `design_handoff_refonte/` (hors dépôt, fourni par le mainteneur : README, prototypes HTML, captures) décrit _quoi construire maintenant_.
+> Il décrit _comment l'interface doit être_ ; _quoi construire maintenant_ se lit dans la **maquette en ligne**, projet Claude Design « Refonte vitrine NOMAQbanq » (`fd197391-79cf-4028-9ad0-dbbdeeadfdf1`), fichiers à la racine du projet, via l'outil `DesignSync` (`get_file`). C'est la seule source à jour. Toute copie téléchargée (`design_handoff_refonte/`, y compris le sous-dossier du même nom dans le projet en ligne) est antérieure aux révisions : ne pas la suivre. Sans accès à `DesignSync`, s'arrêter et le signaler plutôt qu'implémenter depuis le texte d'une issue.
 
 Design system : **NOMAQbanq v2 « Manuel »**, direction A — éditorial académique et clinique.
 
