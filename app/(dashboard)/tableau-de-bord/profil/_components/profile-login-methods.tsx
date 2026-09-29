@@ -1,7 +1,7 @@
 "use client"
 
 import { Globe, KeyRound, Mail } from "lucide-react"
-import { useState } from "react"
+import { type Ref, useState } from "react"
 import { toast } from "sonner"
 import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,8 @@ type Props = {
   /** Mot de passe défini : ouvre ou ferme le formulaire de modification. */
   onTogglePassword?: () => void
   passwordFormOpen?: boolean
+  /** Bouton « Modifier » : il reprend le focus quand le formulaire se referme. */
+  passwordToggleRef?: Ref<HTMLButtonElement>
 }
 
 const ACTION = "max-md:h-11"
@@ -32,6 +34,7 @@ export const ProfileLoginMethods = ({
   onSetPassword,
   onTogglePassword,
   passwordFormOpen = false,
+  passwordToggleRef,
 }: Props) => {
   const [busy, setBusy] = useState(false)
 
@@ -134,6 +137,7 @@ export const ProfileLoginMethods = ({
         action={
           methods.hasPassword ? (
             <Button
+              ref={passwordToggleRef}
               size="sm"
               variant="outline"
               onClick={onTogglePassword}

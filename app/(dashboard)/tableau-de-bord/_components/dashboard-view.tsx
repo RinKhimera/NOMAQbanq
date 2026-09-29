@@ -99,11 +99,12 @@ export const DashboardView = ({
   now,
 }: DashboardViewProps) => {
   const { exams, training } = dashboard
+  // Numérateur et dénominateur sur le même ensemble d'examens : jamais au-delà
+  // de 100 %, aucun plafond à poser.
   const completionRate =
     exams.availableCount > 0
-      ? Math.min(
-          100,
-          Math.round((exams.completedCount / exams.availableCount) * 100),
+      ? Math.floor(
+          (exams.completedOfAvailableCount / exams.availableCount) * 100,
         )
       : null
 
@@ -156,7 +157,11 @@ export const DashboardView = ({
             label="Examens complétés"
             value={String(exams.completedCount)}
             icon={ClipboardCheck}
-            subtitle={`sur ${exams.availableCount} ${plural(exams.availableCount, "disponible")}`}
+            subtitle={
+              exams.availableCount > 0
+                ? `sur ${exams.availableCount} ${plural(exams.availableCount, "disponible")}`
+                : "aucun examen disponible"
+            }
           />
           <VitalCard
             label="Entraînements"

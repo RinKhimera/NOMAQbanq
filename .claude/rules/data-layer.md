@@ -142,9 +142,15 @@ colonne)` dans le WHERE des canaux de
   toujours sur « Tout » : examens complétés, disponibles, anneau N / M. Une
   participation soumise à un examen encore ouvert COMPTE comme complétée (le
   compte ne révèle rien) mais son score retenu sort de toute moyenne, de la
-  courbe et du « N / M réussis ». La courbe d'entraînement est une moyenne
-  par semaine civile (`date_trunc('week', … at time zone …)`) ; une semaine
-  sans série lisible n'a pas de point, jamais un point à 0.
+  courbe et du « N / M réussis ». Le taux de complétion divise par les examens
+  disponibles (actifs, dans l'audience) les participations à CES examens :
+  jamais celles d'un examen désactivé depuis. Moyennes et tendance au
+  PLANCHER (`floor`, tendance calculée sur les moyennes brutes) : 59,67 ne
+  s'affiche jamais 60 % « réussite », un recul de 1,7 s'affiche −2. La
+  courbe d'entraînement est une moyenne par semaine civile
+  (`date_trunc('week', … at time zone …)`), à partir du lundi de la semaine
+  qui contient le début de la période ; une semaine sans série lisible n'a
+  pas de point, jamais un point à 0.
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
   transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une

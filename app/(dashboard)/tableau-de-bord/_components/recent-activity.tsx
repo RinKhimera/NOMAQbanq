@@ -23,8 +23,8 @@ const activityCopy = (item: ActivityItem) => {
     case "purchase":
       return {
         icon: Receipt,
-        title: item.product ?? "Achat",
-        detail: "Paiement confirmé",
+        title: item.product ?? "Accès",
+        detail: item.manual ? "Accès activé" : "Paiement confirmé",
       }
   }
 }

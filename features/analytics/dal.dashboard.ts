@@ -53,7 +53,7 @@ export type TrainingWeek = {
 
 export type MyDashboard = {
   exams: {
-    /** Moyenne des scores lisibles de la période ; `null` = aucun. */
+    /** Moyenne des scores lisibles de la période, à l'entier inférieur ; `null` = aucun. */
     averageScore: number | null
     /** Écart en points avec la période précédente de même durée ; `null` sur « Tout » ou sans l'une des deux moyennes. */
     averageTrend: number | null
@@ -61,6 +61,8 @@ export type MyDashboard = {
     completedCount: number
     /** Examens actifs accessibles, toutes périodes ; 0 sans accès Examens. */
     availableCount: number
+    /** Participations soumises à ces examens-là : numérateur du taux de complétion. */
+    completedOfAvailableCount: number
     /** Participations au score lisible, toutes périodes. */
     gradedCount: number
     /** Parmi elles, celles au seuil de réussite ou au-dessus. */
@@ -107,6 +109,10 @@ export const getMyDashboard = cache(
       eq(examParticipations.userId, uid),
       inArray(examParticipations.status, [...CLOSED]),
     )
+    // Plancher partout : un score affiché ne surestime jamais (59,67 → 59, pas
+    // 60 %, « réussite »). La tendance aussi, recul compris : −1,7 → −2.
+    const periodAverage = sql`avg(${examParticipations.score}) filter (where ${graded} and ${inPeriod})`
+    const previousAverage = sql`avg(${examParticipations.score}) filter (where ${graded} and ${inPrevious})`
 
     const readableSession = sessionScoreReadable(viewer)
     const sessionInPeriod = from
@@ -116,25 +122,29 @@ export const getMyDashboard = cache(
       eq(trainingSessions.userId, uid),
       eq(trainingSessions.status, "completed"),
       isNotNull(trainingSessions.completedAt),
-      sessionInPeriod,
     )
+    // La courbe part du lundi de la semaine qui contient le début de la
+    // période : son premier point est une semaine entière, comme son libellé.
+    const sessionInPeriodWeeks = from
+      ? sql`${trainingSessions.completedAt} >= (date_trunc('week', ${from}::timestamptz at time zone ${APP_TIME_ZONE}) at time zone ${APP_TIME_ZONE})`
+      : sql`true`
     // Lundi de la semaine CIVILE de l'Est : `date_trunc` sur l'heure locale,
     // pas sur l'instant UTC, sinon un dimanche soir tomberait dans la semaine
     // suivante.
     const weekStart = sql<string>`to_char(date_trunc('week', ${trainingSessions.completedAt} at time zone ${APP_TIME_ZONE}), 'YYYY-MM-DD')`
 
-    const [[exam], history, availableCount, [training], weekly, [anySeries]] =
+    const [[exam], history, available, [training], weekly, [anySeries]] =
       await Promise.all([
         db
           .select({
-            averageScore: sql<
-              number | null
-            >`round(avg(${examParticipations.score}) filter (where ${graded} and ${inPeriod}))`.mapWith(
+            averageScore: sql<number | null>`floor(${periodAverage})`.mapWith(
               nullableNumber,
             ),
-            previousAverage: sql<
+            // Écart des moyennes brutes, en numeric exact : une différence de
+            // moyennes déjà arrondies annoncerait « +1 » pour +0,1.
+            averageTrend: sql<
               number | null
-            >`round(avg(${examParticipations.score}) filter (where ${graded} and ${inPrevious}))`.mapWith(
+            >`floor(${periodAverage} - ${previousAverage})`.mapWith(
               nullableNumber,
             ),
             completedCount: sql<number>`count(*)`.mapWith(Number),
@@ -147,7 +157,7 @@ export const getMyDashboard = cache(
               ),
             overallAverage: sql<
               number | null
-            >`round(avg(${examParticipations.score}) filter (where ${graded}))`.mapWith(
+            >`floor(avg(${examParticipations.score}) filter (where ${graded}))`.mapWith(
               nullableNumber,
             ),
           })
@@ -178,12 +188,12 @@ export const getMyDashboard = cache(
               ),
           })
           .from(trainingSessions)
-          .where(closedSessions),
+          .where(and(closedSessions, sessionInPeriod)),
         db
           .select({
             weekStart,
             averageScore:
-              sql<number>`round(avg(${trainingSessions.score}) filter (where ${readableSession}))`.mapWith(
+              sql<number>`floor(avg(${trainingSessions.score}) filter (where ${readableSession}))`.mapWith(
                 Number,
               ),
             sessionCount:
@@ -192,7 +202,7 @@ export const getMyDashboard = cache(
               ),
           })
           .from(trainingSessions)
-          .where(closedSessions)
+          .where(and(closedSessions, sessionInPeriodWeeks))
           .groupBy(sql`1`)
           .having(
             sql`count(${trainingSessions.score}) filter (where ${readableSession}) > 0`,
@@ -211,18 +221,13 @@ export const getMyDashboard = cache(
           .limit(1),
       ])
 
-    const averageScore = exam?.averageScore ?? null
-    const previousAverage = exam?.previousAverage ?? null
-
     return {
       exams: {
-        averageScore,
-        averageTrend:
-          averageScore !== null && previousAverage !== null
-            ? averageScore - previousAverage
-            : null,
+        averageScore: exam?.averageScore ?? null,
+        averageTrend: exam?.averageTrend ?? null,
         completedCount: exam?.completedCount ?? 0,
-        availableCount,
+        availableCount: available.available,
+        completedOfAvailableCount: available.completed,
         gradedCount: exam?.gradedCount ?? 0,
         passedCount: exam?.passedCount ?? 0,
         overallAverage: exam?.overallAverage ?? null,
@@ -254,13 +259,26 @@ export const getMyDashboard = cache(
  * ouverts aux abonnés, ou restreints dont il est membre. Entitlement réel
  * (`hasAccess` avec `userId`) : un admin sans accès acheté n'en voit aucun.
  */
-const countAvailableExams = async (uid: string): Promise<number> => {
-  if (!(await hasAccess("exam", uid))) return 0
+const countAvailableExams = async (
+  uid: string,
+): Promise<{ available: number; completed: number }> => {
+  if (!(await hasAccess("exam", uid))) return { available: 0, completed: 0 }
+  // Même ensemble au numérateur : une participation à un examen désactivé
+  // depuis ne gonfle pas le taux (au plus une participation par examen).
   const [row] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
+    .select({
+      available: sql<number>`count(*)`.mapWith(Number),
+      // Corrélation écrite qualifiée : sur un select mono-table, Drizzle rend
+      // `exams.id` sans préfixe, et `id` viserait la participation.
+      completed: sql<number>`count(*) filter (where exists (
+        select 1 from exam_participations ep
+         where ep.exam_id = "exams"."id"
+           and ep.user_id = ${uid}
+           and ep.status in ('completed', 'auto_submitted')))`.mapWith(Number),
+    })
     .from(exams)
     .where(and(eq(exams.isActive, true), memberAudienceWhere(uid)))
-  return row?.n ?? 0
+  return { available: row?.available ?? 0, completed: row?.completed ?? 0 }
 }
 
 const questionCountOf =
@@ -335,7 +353,14 @@ export type ActivityItem =
       score: number | null
       at: number
     }
-  | { kind: "purchase"; id: string; product: string | null; at: number }
+  | {
+      kind: "purchase"
+      id: string
+      product: string | null
+      /** Octroi par un admin : un accès activé, pas forcément un paiement. */
+      manual: boolean
+      at: number
+    }
 
 /**
  * Dernières actions de l'utilisateur courant : participations soumises,
@@ -395,6 +420,7 @@ export const getMyRecentActivity = cache(async (): Promise<ActivityItem[]> => {
       .select({
         id: transactions.id,
         product: products.name,
+        type: transactions.type,
         completedAt: transactions.completedAt,
         createdAt: transactions.createdAt,
       })
@@ -403,7 +429,13 @@ export const getMyRecentActivity = cache(async (): Promise<ActivityItem[]> => {
       .where(
         and(eq(transactions.userId, uid), eq(transactions.status, "completed")),
       )
-      .orderBy(desc(transactions.createdAt), desc(transactions.id))
+      // Même date que l'affichage : la complétion, sinon la création.
+      .orderBy(
+        desc(
+          sql`coalesce(${transactions.completedAt}, ${transactions.createdAt})`,
+        ),
+        desc(transactions.id),
+      )
       .limit(ACTIVITY_LIMIT),
   ])
 
@@ -428,6 +460,7 @@ export const getMyRecentActivity = cache(async (): Promise<ActivityItem[]> => {
       kind: "purchase" as const,
       id: r.id,
       product: r.product,
+      manual: r.type === "manual",
       at: (r.completedAt ?? r.createdAt).getTime(),
     })),
   ]

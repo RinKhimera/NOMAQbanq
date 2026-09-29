@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { LoginMethods } from "@/features/users/dal"
 import { ProfileLoginMethods } from "./profile-login-methods"
 import { ProfilePassword } from "./profile-password"
@@ -20,6 +20,7 @@ export const ProfileAccountSection = ({
   profilePath,
 }: Props) => {
   const [passwordFormOpen, setPasswordFormOpen] = useState(false)
+  const toggleRef = useRef<HTMLButtonElement>(null)
 
   return (
     <div className="flex flex-col">
@@ -31,11 +32,16 @@ export const ProfileAccountSection = ({
         onSetPassword={() => setPasswordFormOpen(true)}
         onTogglePassword={() => setPasswordFormOpen((open) => !open)}
         passwordFormOpen={passwordFormOpen}
+        passwordToggleRef={toggleRef}
       />
       {passwordFormOpen && (
         <ProfilePassword
           mode={methods.hasPassword ? "change" : "set"}
-          onDone={() => setPasswordFormOpen(false)}
+          onDone={() => {
+            setPasswordFormOpen(false)
+            // Le bouton « Enregistrer » qui avait le focus disparaît.
+            toggleRef.current?.focus()
+          }}
         />
       )}
     </div>

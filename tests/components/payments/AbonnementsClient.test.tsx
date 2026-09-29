@@ -84,6 +84,24 @@ describe("AbonnementsClient", () => {
     await waitFor(() => expect(createCustomerPortal).toHaveBeenCalledTimes(1))
   })
 
+  it("une erreur passagère laisse le Dialog ouvert pour réessayer", async () => {
+    vi.mocked(createCustomerPortal).mockResolvedValue({
+      success: false,
+      error: "Stripe indisponible",
+    } as never)
+    renderPage()
+    await userEvent.click(
+      screen.getByRole("button", { name: /Gérer mes factures/ }),
+    )
+    await userEvent.click(screen.getByTestId("billing-portal-confirm"))
+    await waitFor(() => expect(createCustomerPortal).toHaveBeenCalledTimes(1))
+    expect(
+      screen.getByRole("alertdialog", {
+        name: "Ouvrir le portail de facturation",
+      }),
+    ).toBeInTheDocument()
+  })
+
   it("annuler rend le focus au bouton qui a ouvert le Dialog", async () => {
     renderPage()
     const trigger = screen.getByRole("button", { name: /Gérer mes factures/ })

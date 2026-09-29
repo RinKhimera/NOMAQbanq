@@ -39,7 +39,15 @@ const STUDENT_ID = createId()
 const EMPTY_ID = createId()
 const TRAINER_ID = createId()
 const REVIEWER_ID = createId()
-const users = [ADMIN_ID, STUDENT_ID, EMPTY_ID, TRAINER_ID, REVIEWER_ID]
+const ARCHIVE_ID = createId()
+const users = [
+  ADMIN_ID,
+  STUDENT_ID,
+  EMPTY_ID,
+  TRAINER_ID,
+  REVIEWER_ID,
+  ARCHIVE_ID,
+]
 const LOCKED_QUESTION = createId()
 let openExam = ""
 const PID = createId()
@@ -56,11 +64,13 @@ const examWith = async ({
   daysAgo,
   score,
   open = false,
+  active = true,
 }: {
   userId?: string
   daysAgo: number
   score?: number
   open?: boolean
+  active?: boolean
 }) => {
   const id = createId()
   examIds.push(id)
@@ -73,7 +83,7 @@ const examWith = async ({
     endDate: open
       ? new Date(NOW + DAY)
       : new Date(completedAt.getTime() + 60_000),
-    isActive: true,
+    isActive: active,
     createdBy: ADMIN_ID,
     completionTime: 3600,
   })
@@ -137,6 +147,7 @@ beforeAll(async () => {
     { id: ADMIN_ID, name: "Adm", email: `sdadm-${suffix}@test.invalid` },
     { id: STUDENT_ID, name: "Stu", email: `sdstu-${suffix}@test.invalid` },
     { id: EMPTY_ID, name: "Empty", email: `sdemp-${suffix}@test.invalid` },
+    { id: ARCHIVE_ID, name: "Arc", email: `sdarc-${suffix}@test.invalid` },
   ])
   await db.insert(products).values({
     id: PID,
@@ -150,7 +161,7 @@ beforeAll(async () => {
     stripePriceId: `price_${suffix}`,
     stripePriceLookupKey: `price_${suffix}`,
   })
-  for (const userId of [STUDENT_ID, EMPTY_ID]) {
+  for (const userId of [STUDENT_ID, EMPTY_ID, ARCHIVE_ID]) {
     const txId = createId()
     await db.insert(transactions).values({
       id: txId,
@@ -200,6 +211,13 @@ beforeAll(async () => {
   // Soumise hier, mais l'examen est encore ouvert : score retenu.
   await examWith({ daysAgo: 1, score: 0, open: true })
   await examWith({ userId: REVIEWER_ID, daysAgo: 1, score: 70, open: true })
+
+  // Moyenne des 7 jours = 59,67 ; la période précédente = 58. L'examen du
+  // troisième jour a été désactivé depuis.
+  await examWith({ userId: ARCHIVE_ID, daysAgo: 2, score: 59 })
+  await examWith({ userId: ARCHIVE_ID, daysAgo: 3, score: 60, active: false })
+  await examWith({ userId: ARCHIVE_ID, daysAgo: 4, score: 60 })
+  await examWith({ userId: ARCHIVE_ID, daysAgo: 10, score: 58 })
 
   await series({ userId: STUDENT_ID, at: new Date(NOW - 2 * DAY) })
   await series({
@@ -355,6 +373,41 @@ describe("getMyDashboard — chiffres sur « Tout »", () => {
   })
 })
 
+describe("getMyDashboard — arrondis qui ne flattent pas", () => {
+  it("moyenne et tendance arrondies à l'entier inférieur", async () => {
+    setSession(ARCHIVE_ID)
+    const d = await getMyDashboard("7")
+    // 59,67 s'afficherait 60 % — « réussite » — à l'arrondi au plus proche.
+    expect(d?.exams.averageScore).toBe(59)
+    // 59,67 − 58 = 1,67 → 1 (et non 60 − 58 = 2).
+    expect(d?.exams.averageTrend).toBe(1)
+  })
+
+  it("« Tout » : moyenne globale arrondie vers le bas, sans tendance", async () => {
+    setSession(ARCHIVE_ID)
+    // Tout : pas de tendance ; 30 j contre les 30 précédents (vides) : null.
+    expect((await getMyDashboard("30"))?.exams.averageTrend).toBeNull()
+    expect((await getMyDashboard("tout"))?.exams.overallAverage).toBe(59) // 59,25
+  })
+})
+
+describe("getMyDashboard — taux de complétion", () => {
+  it("le numérateur ne compte que les examens encore disponibles", async () => {
+    setSession(ARCHIVE_ID)
+    const d = await getMyDashboard("30")
+    expect(d?.exams.completedCount).toBe(4)
+    // L'examen désactivé sort du numérateur comme du dénominateur.
+    expect(d?.exams.completedOfAvailableCount).toBe(3)
+  })
+
+  it("sans accès Examens : rien de disponible, rien au numérateur", async () => {
+    setSession(ADMIN_ID, "user")
+    expect((await getMyDashboard("30"))?.exams.completedOfAvailableCount).toBe(
+      0,
+    )
+  })
+})
+
 describe("getMyDashboard — examens disponibles et audience restreinte", () => {
   it("un examen restreint compte pour un membre, jamais pour un abonné hors audience", async () => {
     const restricted = createId()
@@ -461,7 +514,8 @@ describe("getMyRecentActivity", () => {
     setSession(STUDENT_ID)
     const items = await getMyRecentActivity()
     expect(items.length).toBeLessThanOrEqual(6)
-    expect(items[0]).toMatchObject({ kind: "purchase" })
+    // Octroi manuel : un accès activé, pas un paiement.
+    expect(items[0]).toMatchObject({ kind: "purchase", manual: true })
     expect(items[1]).toMatchObject({ kind: "exam", score: null })
     const times = items.map((i) => i.at)
     expect(times).toEqual([...times].sort((a, b) => b - a))

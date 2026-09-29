@@ -160,16 +160,19 @@ export const AbonnementsClient = ({
       createCustomerPortal("/tableau-de-bord/abonnements"),
     )
     if ("error" in res) {
-      if (!navigator.onLine) {
-        toast.error("Pas de connexion internet. Vérifiez votre réseau.")
-      } else if (res.error.includes("Aucun historique")) {
+      if (res.error.includes("Aucun historique")) {
         toast.error(
           "Aucun achat effectué. Effectuez un premier achat pour accéder à vos factures.",
         )
-      } else {
-        toast.error(res.error)
+        return
       }
-      return
+      toast.error(
+        navigator.onLine
+          ? res.error
+          : "Pas de connexion internet. Vérifiez votre réseau.",
+      )
+      // Échec passager : le Dialog reste ouvert pour réessayer.
+      return false
     }
     setRedirecting(true)
     window.location.href = res.portalUrl
@@ -250,7 +253,13 @@ export const AbonnementsClient = ({
         onConfirm={openPortal}
       />
 
-      <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
+      <section
+        aria-labelledby="acces-title"
+        className="grid grid-cols-2 gap-3 max-md:grid-cols-1"
+      >
+        <h2 id="acces-title" className="sr-only">
+          Vos accès
+        </h2>
         {(["exam", "training"] as const).map((type) => (
           <AccessCard
             key={type}
@@ -270,7 +279,7 @@ export const AbonnementsClient = ({
             )}
           />
         ))}
-      </div>
+      </section>
 
       {missingAccess && <PremiumBanner products={products} />}
 
