@@ -1,3 +1,4 @@
+import type { AccessType } from "@/features/payments/access-ledger"
 import { formatExpiration } from "@/lib/format"
 import { TONE_COLOR, TONE_SOFT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
@@ -5,7 +6,7 @@ import { cn } from "@/lib/utils"
 type AccessStatus = "active" | "expiring" | "expired" | "none"
 
 interface AccessBadgeProps {
-  accessType: "exam" | "training"
+  accessType: AccessType
   status: AccessStatus
   expiresAt?: number
   daysRemaining?: number
@@ -27,7 +28,11 @@ const SIZE = {
   lg: "h-8 px-3 text-sm",
 }
 
-const TYPE_LABEL = { exam: "Examens", training: "Entraînement" }
+/** Nom court d'un accès, tel qu'il s'écrit dans une phrase (« accès Examens »). */
+export const ACCESS_TYPE_LABEL: Record<AccessType, string> = {
+  exam: "Examens",
+  training: "Entraînement",
+}
 
 /** Statut d'un accès : pastille à point coloré, jours restants en mono. */
 export const AccessBadge = ({
@@ -61,7 +66,9 @@ export const AccessBadge = ({
         style={{ backgroundColor: TONE_COLOR[tone] }}
       />
       {showDetails && (
-        <span className="text-ink font-semibold">{TYPE_LABEL[accessType]}</span>
+        <span className="text-ink font-semibold">
+          {ACCESS_TYPE_LABEL[accessType]}
+        </span>
       )}
       <span className="font-mono text-[0.92em]">{statusLabel}</span>
       {showDetails &&

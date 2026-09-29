@@ -21,7 +21,9 @@ import {
   getMyRecentParticipations,
 } from "@/features/analytics/dal"
 import { getMyLapsedAccess } from "@/features/payments/dal"
+import { toAppZoneCalendarDay } from "@/lib/app-zone"
 import { getCurrentSession } from "@/lib/dal"
+import { periodWindow } from "@/lib/dashboard-period"
 import { createId } from "@/lib/ids"
 
 vi.mock("react", async (orig) => {
@@ -211,6 +213,10 @@ beforeAll(async () => {
   // Soumise hier, mais l'examen est encore ouvert : score retenu.
   await examWith({ daysAgo: 1, score: 0, open: true })
   await examWith({ userId: REVIEWER_ID, daysAgo: 1, score: 70, open: true })
+  // Juste dans les 30 jours, et juste avant : la seconde reste hors courbe,
+  // même quand elle tombe dans la même semaine civile.
+  await series({ userId: REVIEWER_ID, at: new Date(NOW - 28 * DAY), score: 50 })
+  await series({ userId: REVIEWER_ID, at: new Date(NOW - 31 * DAY), score: 0 })
 
   // Moyenne des 7 jours = 59,67 ; la période précédente = 58. L'examen du
   // troisième jour a été désactivé depuis.
@@ -468,12 +474,40 @@ describe("getMyDashboard — entraînement", () => {
     setSession(TRAINER_ID)
     const d = await getMyDashboard("tout")
     expect(d?.training.weekly).toEqual([
-      { weekStart: "2026-01-05", averageScore: 70, sessionCount: 2 },
-      { weekStart: "2026-01-19", averageScore: 50, sessionCount: 1 },
-      { weekStart: "2026-01-26", averageScore: 90, sessionCount: 1 },
+      {
+        weekStart: "2026-01-05",
+        startDay: "2026-01-05",
+        averageScore: 70,
+        sessionCount: 2,
+      },
+      {
+        weekStart: "2026-01-19",
+        startDay: "2026-01-19",
+        averageScore: 50,
+        sessionCount: 1,
+      },
+      {
+        weekStart: "2026-01-26",
+        startDay: "2026-01-26",
+        averageScore: 90,
+        sessionCount: 1,
+      },
     ])
     // La série au score retenu reste une série faite.
     expect(d?.training).toMatchObject({ sessionCount: 5, questionCount: 50 })
+  })
+
+  it("la courbe s'arrête au début de la période, semaine tronquée comprise", async () => {
+    setSession(REVIEWER_ID, "user")
+    const d = await getMyDashboard("30")
+    const first = d?.training.weekly[0]
+    const fromDay = toAppZoneCalendarDay(periodWindow("30", Date.now()).from!)
+    expect(first?.averageScore).toBe(50)
+    expect(first?.sessionCount).toBe(1)
+    // Premier jour réellement compté : le lundi, ou le début de la période.
+    expect(first?.startDay).toBe(
+      first && first.weekStart < fromDay ? fromDay : first?.weekStart,
+    )
   })
 
   it("courbe vide quand la période ne contient aucune série", async () => {

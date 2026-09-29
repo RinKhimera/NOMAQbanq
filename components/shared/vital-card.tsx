@@ -13,7 +13,6 @@ type VitalCardProps = {
   subtitle?: ReactNode
   /** Écart en points avec la période précédente ; absent = pas de comparaison. */
   trend?: number | null
-  className?: string
 }
 
 const Trend = ({ points }: { points: number }) => {
@@ -55,18 +54,10 @@ export const VitalCard = ({
   icon: Icon,
   subtitle,
   trend,
-  className,
 }: VitalCardProps) => (
-  <div
-    className={cn(
-      "bg-surface border-line shadow-1 flex flex-col gap-2.5 rounded-lg border p-5",
-      className,
-    )}
-  >
+  <div className="bg-surface border-line shadow-1 flex flex-col gap-2.5 rounded-lg border p-5">
     <div className="flex items-center justify-between gap-2">
-      <span className="text-ink-3 font-mono text-xs font-medium tracking-[0.06em] uppercase">
-        {label}
-      </span>
+      <span className="type-label">{label}</span>
       {Icon && <Icon className="text-ink-4 size-4" aria-hidden="true" />}
     </div>
     <p className="flex items-baseline gap-1.5">

@@ -1,7 +1,10 @@
 import { CircleAlert, ClipboardList, Clock } from "lucide-react"
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { getAccessStatus } from "@/components/shared/payments/access-badge"
+import {
+  ACCESS_TYPE_LABEL,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
 import { Button } from "@/components/ui/button"
 import type { ExamInProgress } from "@/features/analytics/dal"
 import type { AccessStatus, LapsedAccess } from "@/features/payments/dal"
@@ -9,8 +12,6 @@ import { remainingMs } from "@/lib/attempt-clock"
 import { formatDateTime, formatExpiration } from "@/lib/format"
 import { TONE_SOFT, TONE_TEXT, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
-
-const ACCESS_LABEL = { exam: "Examens", training: "Entraînement" } as const
 
 const EXPIRED_NEXT_STEP = {
   exam: "Réactivez l'accès pour passer les prochains examens blancs.",
@@ -26,7 +27,8 @@ const shortDuration = (ms: number) => {
     : `${minutes} min`
 }
 
-const DashboardAlert = ({
+/** Alerte du tableau de bord : tonalité, icône, titre, texte et action. */
+export const DashboardAlert = ({
   tone,
   icon: Icon,
   title,
@@ -57,7 +59,7 @@ const DashboardAlert = ({
   </div>
 )
 
-const AlertLink = ({
+export const AlertLink = ({
   href,
   primary = false,
   children,
@@ -145,7 +147,7 @@ export const DashboardAlerts = ({
 
   for (const type of ["exam", "training"] as const) {
     const info = type === "exam" ? access?.examAccess : access?.trainingAccess
-    const label = ACCESS_LABEL[type]
+    const label = ACCESS_TYPE_LABEL[type]
     if (
       info &&
       getAccessStatus(info.expiresAt, info.daysRemaining) === "expiring"

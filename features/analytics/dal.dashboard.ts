@@ -11,7 +11,7 @@ import {
   trainingSessions,
   transactions,
 } from "@/db/schema"
-import { APP_TIME_ZONE } from "@/lib/app-zone"
+import { APP_TIME_ZONE, toAppZoneCalendarDay } from "@/lib/app-zone"
 import type { AttemptTiming } from "@/lib/attempt-clock"
 import { getCurrentSession } from "@/lib/dal"
 import { type DashboardPeriod, periodWindow } from "@/lib/dashboard-period"
@@ -46,6 +46,8 @@ export type ExamHistoryPoint = {
 export type TrainingWeek = {
   /** Lundi de la semaine, journée civile de l'Est (`YYYY-MM-DD`). */
   weekStart: string
+  /** Premier jour compté : le lundi, ou le début de la période s'il est plus tard. */
+  startDay: string
   averageScore: number
   /** Séries au score lisible de la semaine. */
   sessionCount: number
@@ -96,6 +98,7 @@ export const getMyDashboard = cache(
     const uid = session.user.id
     const viewer = viewerOf(session.user)
     const { from, previousFrom } = periodWindow(period, Date.now())
+    const fromDay = from ? toAppZoneCalendarDay(from) : null
 
     const graded = participationScoreReadable(viewer)
     const inPeriod = from
@@ -123,11 +126,7 @@ export const getMyDashboard = cache(
       eq(trainingSessions.status, "completed"),
       isNotNull(trainingSessions.completedAt),
     )
-    // La courbe part du lundi de la semaine qui contient le début de la
-    // période : son premier point est une semaine entière, comme son libellé.
-    const sessionInPeriodWeeks = from
-      ? sql`${trainingSessions.completedAt} >= (date_trunc('week', ${from}::timestamptz at time zone ${APP_TIME_ZONE}) at time zone ${APP_TIME_ZONE})`
-      : sql`true`
+
     // Lundi de la semaine CIVILE de l'Est : `date_trunc` sur l'heure locale,
     // pas sur l'instant UTC, sinon un dimanche soir tomberait dans la semaine
     // suivante.
@@ -202,7 +201,7 @@ export const getMyDashboard = cache(
               ),
           })
           .from(trainingSessions)
-          .where(and(closedSessions, sessionInPeriodWeeks))
+          .where(and(closedSessions, sessionInPeriod))
           .groupBy(sql`1`)
           .having(
             sql`count(${trainingSessions.score}) filter (where ${readableSession}) > 0`,
@@ -247,7 +246,12 @@ export const getMyDashboard = cache(
       training: {
         sessionCount: training?.sessionCount ?? 0,
         questionCount: training?.questionCount ?? 0,
-        weekly: weekly.reverse(),
+        // Une semaine entamée avant la période ne compte que ses jours dans la
+        // période : son libellé part de là, pas du lundi.
+        weekly: weekly.reverse().map((w) => ({
+          ...w,
+          startDay: fromDay && fromDay > w.weekStart ? fromDay : w.weekStart,
+        })),
       },
       hasHistory: (exam?.completedCount ?? 0) > 0 || anySeries !== undefined,
     }

@@ -1,6 +1,12 @@
 import type { ReactNode } from "react"
 import { cn } from "@/lib/utils"
 
+// Du mobile vers le large : `max-lg:` l'emporterait sur `max-[480px]:` dans
+// le CSS généré, et la grille resterait à deux colonnes sous 480 px.
+/** Grille des quatre VitalCard : 1, 2 puis 4 colonnes. */
+export const VITAL_GRID =
+  "grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4"
+
 type DashboardCardProps = {
   eyebrow: string
   title: string

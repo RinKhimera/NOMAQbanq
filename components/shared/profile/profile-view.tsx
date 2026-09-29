@@ -53,7 +53,11 @@ export const ProfileView = ({
 
     <div className="grid items-start gap-8 lg:grid-cols-[12.5rem_minmax(0,1fr)]">
       <SectionNav
-        items={SECTIONS}
+        // Sans méthodes de connexion, la section n'est pas rendue : son ancre
+        // mènerait nulle part.
+        items={
+          methods ? SECTIONS : SECTIONS.filter((s) => s.id !== "connexion")
+        }
         label="Sections du profil"
         mobileLabel="Sections du profil"
         className="top-[calc(var(--shell-offset)+2rem)]"

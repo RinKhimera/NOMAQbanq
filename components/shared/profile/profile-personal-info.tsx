@@ -4,7 +4,14 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { updateProfile } from "@/features/users/actions"
 import type { CurrentUser } from "@/features/users/dal"
-import { bioSchema, nameSchema, usernameSchema } from "@/features/users/schemas"
+import {
+  BIO_MAX,
+  NAME_MAX,
+  USERNAME_MAX,
+  bioSchema,
+  nameSchema,
+  usernameSchema,
+} from "@/features/users/schemas"
 import { useCurrentUser } from "@/hooks/useCurrentUser"
 import { callAction } from "@/lib/safe-action"
 import { InlineEditField } from "./inline-edit-field"
@@ -44,7 +51,7 @@ export const ProfilePersonalInfo = ({ user }: { user: CurrentUser }) => {
         value={user.name}
         placeholder="Entrez votre nom complet"
         schema={nameSchema}
-        maxLength={50}
+        maxLength={NAME_MAX}
         onSave={(value) => handleSaveField("name", value)}
       />
       <InlineEditField
@@ -54,7 +61,7 @@ export const ProfilePersonalInfo = ({ user }: { user: CurrentUser }) => {
         placeholder="votre_nom_utilisateur"
         emptyText="Aucun nom d'utilisateur"
         schema={usernameSchema}
-        maxLength={20}
+        maxLength={USERNAME_MAX}
         onSave={(value) => handleSaveField("username", value)}
       />
       <InlineEditField
@@ -64,7 +71,7 @@ export const ProfilePersonalInfo = ({ user }: { user: CurrentUser }) => {
         placeholder="Parlez brièvement de vous"
         emptyText="Aucune biographie"
         schema={bioSchema}
-        maxLength={200}
+        maxLength={BIO_MAX}
         showCharCount
         inputType="textarea"
         onSave={(value) => handleSaveField("bio", value)}

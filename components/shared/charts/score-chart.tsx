@@ -1,7 +1,6 @@
 "use client"
 
 import { ChartNoAxesColumn } from "lucide-react"
-import type { ReactNode } from "react"
 import { EmptyState } from "@/components/ui/empty-state"
 import { PASS_THRESHOLD, formatScore } from "@/lib/score"
 import { lazyChart } from "./lazy-chart"
@@ -29,8 +28,6 @@ type ScoreChartProps = {
   /** Nom du graphique pour un lecteur d'écran (« Évolution du score »). */
   label: string
   empty: { title: string; description: string }
-  /** Recours de l'état vide (lien vers une série, un examen). */
-  emptyAction?: ReactNode
 }
 
 /**
@@ -38,12 +35,7 @@ type ScoreChartProps = {
  * montants ont leurs propres graphiques — jamais cette échelle. recharts n'est
  * chargé que s'il y a au moins un point.
  */
-export const ScoreChart = ({
-  data,
-  label,
-  empty,
-  emptyAction,
-}: ScoreChartProps) => {
+export const ScoreChart = ({ data, label, empty }: ScoreChartProps) => {
   if (data.length === 0) {
     return (
       <EmptyState
@@ -52,9 +44,7 @@ export const ScoreChart = ({
         title={empty.title}
         description={empty.description}
         className="min-h-50"
-      >
-        {emptyAction}
-      </EmptyState>
+      />
     )
   }
 

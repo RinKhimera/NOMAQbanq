@@ -148,9 +148,10 @@ colonne)` dans le WHERE des canaux de
   PLANCHER (`floor`, tendance calculée sur les moyennes brutes) : 59,67 ne
   s'affiche jamais 60 % « réussite », un recul de 1,7 s'affiche −2. La
   courbe d'entraînement est une moyenne par semaine civile
-  (`date_trunc('week', … at time zone …)`), à partir du lundi de la semaine
-  qui contient le début de la période ; une semaine sans série lisible n'a
-  pas de point, jamais un point à 0.
+  (`date_trunc('week', … at time zone …)`), bornée strictement par la
+  période : une semaine entamée avant ne compte que ses jours dans la
+  période (`startDay`, libellé « Depuis le … ») ; une semaine sans série
+  lisible n'a pas de point, jamais un point à 0.
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
   transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une

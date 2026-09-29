@@ -1,8 +1,8 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
-import { InlineEditField } from "@/app/(dashboard)/tableau-de-bord/profil/_components/inline-edit-field"
-import { ProfilePreferences } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-preferences"
+import { InlineEditField } from "@/components/shared/profile/inline-edit-field"
+import { ProfilePreferences } from "@/components/shared/profile/profile-preferences"
 import { nameSchema } from "@/features/users/schemas"
 
 const setTheme = vi.fn()

@@ -13,10 +13,10 @@ import { VitalCard } from "@/components/shared/vital-card"
 import { Button } from "@/components/ui/button"
 import type { ProductView } from "@/features/payments/dal"
 import { formatCurrency } from "@/lib/format"
-import { MONTH_DAYS } from "@/lib/pricing"
-import { TONE_SOFT, TONE_TEXT } from "@/lib/tone"
+import { cheapestMonthly, monthsOf } from "@/lib/pricing"
 import { cn } from "@/lib/utils"
-import { GRID_4 } from "./dashboard-view"
+import { AlertLink, DashboardAlert } from "./dashboard-alerts"
+import { VITAL_GRID } from "./dashboard-card"
 
 /**
  * « Examens ou Entraînement dès 50 $ pour 1 mois, ou le Pack Premium : les
@@ -24,15 +24,13 @@ import { GRID_4 } from "./dashboard-view"
  * une offre absente du catalogue disparaît de la phrase.
  */
 export const accessOffer = (products: readonly ProductView[]): string => {
-  const monthly = products
-    .filter((p) => !p.isCombo && p.durationDays === MONTH_DAYS)
-    .toSorted((a, b) => a.priceCAD - b.priceCAD)[0]
+  const monthly = cheapestMonthly(products)
   const combo = products.find((p) => p.isCombo)
   const parts = [
     monthly &&
       `Examens ou Entraînement dès ${formatCurrency(monthly.priceCAD, "CAD", { whole: true })} pour 1 mois`,
     combo &&
-      `le Pack Premium : les deux pendant ${Math.round(combo.durationDays / MONTH_DAYS)} mois pour ${formatCurrency(combo.priceCAD, "CAD", { whole: true })}`,
+      `le Pack Premium : les deux pendant ${monthsOf(combo)} mois pour ${formatCurrency(combo.priceCAD, "CAD", { whole: true })}`,
   ].filter(Boolean)
   if (parts.length === 0)
     return "Choisissez un accès Examens, Entraînement ou le Pack Premium."
@@ -125,7 +123,7 @@ export const DashboardNew = ({
         ))}
       </ol>
 
-      <div className={GRID_4}>
+      <div className={VITAL_GRID}>
         <VitalCard
           label="Score moyen"
           value="—"
@@ -152,34 +150,17 @@ export const DashboardNew = ({
         />
       </div>
 
-      <div
-        className={cn(
-          "flex flex-wrap items-start gap-3 rounded-lg border p-4",
-          TONE_SOFT.info,
-        )}
+      <DashboardAlert
+        tone="info"
+        icon={Info}
+        title="Vos statistiques apparaîtront ici"
+        action={
+          <AlertLink href="/tableau-de-bord/abonnements">Mes accès</AlertLink>
+        }
       >
-        <Info
-          className={cn("mt-0.5 size-4 shrink-0", TONE_TEXT.info)}
-          aria-hidden="true"
-        />
-        <div className="flex min-w-0 flex-1 basis-60 flex-col gap-1">
-          <p className="text-ink text-sm font-semibold">
-            Vos statistiques apparaîtront ici
-          </p>
-          <p className="text-ink-2 text-sm">
-            Score par domaine, évolution et historique des examens se
-            remplissent dès votre première série.
-          </p>
-        </div>
-        <Button
-          asChild
-          size="sm"
-          variant="ghost"
-          className="max-md:h-11 max-md:w-full"
-        >
-          <Link href="/tableau-de-bord/abonnements">Mes accès</Link>
-        </Button>
-      </div>
+        Score par domaine, évolution et historique des examens se remplissent
+        dès votre première série.
+      </DashboardAlert>
     </>
   )
 }

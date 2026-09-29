@@ -1,8 +1,8 @@
 "use client"
 
 import { useTheme } from "next-themes"
+import { SegmentedControl } from "@/components/ui/segmented-control"
 import { useMounted } from "@/hooks/use-mounted"
-import { cn } from "@/lib/utils"
 
 const THEMES = [
   { value: "light", label: "Clair" },
@@ -16,7 +16,7 @@ export const ProfilePreferences = () => {
   // Le thème ne se lit qu'au navigateur : « Auto » au rendu serveur, pour un
   // premier rendu identique des deux côtés.
   const mounted = useMounted()
-  const current = mounted ? (theme ?? "system") : "system"
+  const current = (mounted ? theme : undefined) ?? "system"
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
@@ -28,26 +28,13 @@ export const ProfilePreferences = () => {
           Choisissez l&apos;apparence de l&apos;application.
         </span>
       </div>
-      <div
-        role="group"
-        aria-label="Thème de l'interface"
-        className="border-line-strong inline-flex overflow-hidden rounded-md border"
-      >
-        {THEMES.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            aria-pressed={current === option.value}
-            data-testid={`theme-${option.value}`}
-            onClick={() => setTheme(option.value)}
-            className={cn(
-              "focus-ring border-line-strong text-ink-2 hover:bg-surface-2 aria-pressed:bg-accent-soft aria-pressed:text-accent-ink h-8 border-l px-3 text-sm font-medium transition-[background-color] first:border-l-0 max-md:h-11 max-md:px-4",
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        label="Thème de l'interface"
+        value={current}
+        options={THEMES}
+        onValueChange={setTheme}
+        testIdPrefix="theme"
+      />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
-import { ProfileAccountSection } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-account-section"
+import { ProfileAccountSection } from "@/components/shared/profile/profile-account-section"
 import { authClient } from "@/lib/auth-client"
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }))

@@ -20,11 +20,16 @@ import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
 import { updateProfile } from "@/features/users/actions"
+import {
+  BIO_MAX,
+  NAME_MAX,
+  NAME_MIN,
+  USERNAME_MAX,
+  USERNAME_MIN,
+} from "@/features/users/schemas"
 import { callAction } from "@/lib/safe-action"
 import { UserFormValues, userFormSchema } from "@/schemas/user"
 import { OnboardingStepper } from "./onboarding-stepper"
-
-const BIO_MAX = 200
 
 type OnboardingFormProps = {
   defaultName: string
@@ -109,14 +114,14 @@ export const OnboardingForm = ({
                   <div className="flex items-baseline justify-between gap-3">
                     <FormLabel>Nom complet</FormLabel>
                     <FormDescription className="text-xs">
-                      2 à 50 caractères.
+                      {NAME_MIN} à {NAME_MAX} caractères.
                     </FormDescription>
                   </div>
                   <FormControl>
                     <Input
                       placeholder="Marie Dupont"
                       autoComplete="name"
-                      maxLength={50}
+                      maxLength={NAME_MAX}
                       className="max-md:h-11"
                       {...field}
                     />
@@ -134,7 +139,8 @@ export const OnboardingForm = ({
                   <div className="flex items-baseline justify-between gap-3">
                     <FormLabel>Nom d&apos;utilisateur</FormLabel>
                     <FormDescription className="text-right text-xs">
-                      3 à 20 caractères : lettres, chiffres et « _ »
+                      {USERNAME_MIN} à {USERNAME_MAX} caractères : lettres,
+                      chiffres et « _ »
                     </FormDescription>
                   </div>
                   <FormControl>
@@ -143,7 +149,7 @@ export const OnboardingForm = ({
                       autoComplete="username"
                       autoCapitalize="none"
                       spellCheck={false}
-                      maxLength={20}
+                      maxLength={USERNAME_MAX}
                       className="max-md:h-11"
                       {...field}
                       onChange={(e) =>

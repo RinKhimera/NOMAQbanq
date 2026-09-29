@@ -6,6 +6,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { PageIntro } from "@/components/shared/page-intro"
+import { ACCESS_TYPE_LABEL } from "@/components/shared/payments/access-badge"
 import { AccessCard } from "@/components/shared/payments/access-card"
 import {
   type Transaction,
@@ -14,6 +15,7 @@ import {
 import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import type { AccessType } from "@/features/payments/access-ledger"
 import {
   createCustomerPortal,
   loadMoreMyTransactions,
@@ -26,10 +28,8 @@ import type {
   ProductView,
 } from "@/features/payments/dal"
 import { formatCurrency, formatExpiration } from "@/lib/format"
-import { MONTH_DAYS, savingsOf } from "@/lib/pricing"
+import { cheapestMonthly, monthsOf, savingsOf } from "@/lib/pricing"
 import { callAction } from "@/lib/safe-action"
-
-const ACCESS_LABEL = { exam: "Examens", training: "Entraînement" } as const
 
 const cad = (cents: number) => formatCurrency(cents, "CAD", { whole: true })
 
@@ -54,7 +54,7 @@ const AccessAction = ({
   active,
   lapsed,
 }: {
-  type: "exam" | "training"
+  type: AccessType
   active: boolean
   lapsed: boolean
 }) =>
@@ -69,8 +69,8 @@ const AccessAction = ({
       {/* Le Pack Premium ouvre une période neuve (registre d'accès) : seul
           un accès simple prolonge le temps restant. */}
       <p className="text-ink-3 text-xs">
-        Le temps restant s&apos;ajoute à un nouvel accès {ACCESS_LABEL[type]} ;
-        le Pack Premium ne se cumule pas.
+        Le temps restant s&apos;ajoute à un nouvel accès{" "}
+        {ACCESS_TYPE_LABEL[type]} ; le Pack Premium ne se cumule pas.
       </p>
     </div>
   ) : (
@@ -86,7 +86,7 @@ const PremiumBanner = ({ products }: { products: ProductView[] }) => {
   const combo = products.find((p) => p.isCombo)
   if (!combo) return null
   const savings = savingsOf(products, combo)
-  const months = Math.round(combo.durationDays / MONTH_DAYS)
+  const months = monthsOf(combo)
   return (
     <div className="bg-surface-2 border-line flex flex-wrap items-center justify-between gap-4 rounded-lg border px-6 py-5 max-md:px-5">
       <div className="flex min-w-0 flex-[1_1_20rem] flex-col gap-1.5">
@@ -178,15 +178,7 @@ export const AbonnementsClient = ({
     window.location.href = res.portalUrl
   }
 
-  const monthlyFrom = (type: "exam" | "training") =>
-    products
-      .filter(
-        (p) =>
-          !p.isCombo && p.accessType === type && p.durationDays === MONTH_DAYS,
-      )
-      .toSorted((a, b) => a.priceCAD - b.priceCAD)[0]
-
-  const inactiveNote = (type: "exam" | "training") => {
+  const inactiveNote = (type: AccessType) => {
     const lapsedAt = lapsed[type]
     if (lapsedAt !== null)
       return (
@@ -198,7 +190,7 @@ export const AbonnementsClient = ({
           . Vos résultats restent consultables.
         </>
       )
-    const monthly = monthlyFrom(type)
+    const monthly = cheapestMonthly(products, type)
     return monthly
       ? `Aucun accès actif. À partir de ${cad(monthly.priceCAD)} pour 1 mois.`
       : "Aucun accès actif."

@@ -27,20 +27,15 @@ import { dashboardSummary, weakestDomain } from "@/lib/dashboard-summary"
 import { formatDayMonth, formatIsoDay } from "@/lib/format"
 import { PASS_THRESHOLD, formatScore } from "@/lib/score"
 import { DashboardAlerts } from "./dashboard-alerts"
-import { DashboardCard } from "./dashboard-card"
+import { DashboardCard, VITAL_GRID } from "./dashboard-card"
 import { DomainMasteryPanel } from "./domain-mastery-panel"
 import { PeriodFilter } from "./period-filter"
 import { RecentActivity } from "./recent-activity"
 import { RecentExamsTable } from "./recent-exams-table"
 
-// Du mobile vers le large : `max-lg:` l'emporterait sur `max-[480px]:` dans
-// le CSS généré, et la grille resterait à deux colonnes sous 480 px.
-export const GRID_4 =
-  "grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4"
-
 const plural = (n: number, word: string) => `${word}${n > 1 ? "s" : ""}`
 
-/** Actions de l'en-tête ; les `data-testid` reprennent ceux de l'ancienne grille d'accès rapides. */
+/** Actions de l'en-tête, repérées par `data-testid` dans l'e2e. */
 export const IntroActions = () => (
   <>
     <Button asChild variant="outline" className="max-md:h-11">
@@ -118,9 +113,9 @@ export const DashboardView = ({
   }))
   const weeklyPoints = training.weekly.map((w) => ({
     key: w.weekStart,
-    label: formatIsoDay(w.weekStart),
+    label: formatIsoDay(w.startDay),
     value: w.averageScore,
-    detail: `Semaine du ${formatIsoDay(w.weekStart)} · ${w.sessionCount} ${plural(w.sessionCount, "série")}`,
+    detail: `${w.startDay === w.weekStart ? "Semaine du" : "Depuis le"} ${formatIsoDay(w.startDay)} · ${w.sessionCount} ${plural(w.sessionCount, "série")}`,
   }))
 
   return (
@@ -144,7 +139,7 @@ export const DashboardView = ({
       />
 
       <PeriodFilter value={period}>
-        <div className={GRID_4}>
+        <div className={VITAL_GRID}>
           <VitalCard
             label="Score moyen"
             value={
@@ -213,12 +208,14 @@ export const DashboardView = ({
           <div className="flex flex-1 flex-col items-center justify-center gap-3 py-2">
             <ScoreRing
               value={exams.overallAverage}
+              label="Score global"
               size={148}
               strokeWidth={8}
               valueTestId="readiness-score"
             />
             <p className="text-ink-2 max-w-65 text-center text-[0.8125rem] leading-normal">
-              Seuil de réussite : {formatScore(PASS_THRESHOLD)}.{" "}
+              Sur l&apos;ensemble de vos examens blancs. Seuil de réussite :{" "}
+              {formatScore(PASS_THRESHOLD)}.{" "}
               {exams.gradedCount === 0 ? (
                 "Aucun examen blanc corrigé pour l'instant."
               ) : (

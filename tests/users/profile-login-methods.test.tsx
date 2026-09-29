@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { ProfileLoginMethods } from "@/app/(dashboard)/tableau-de-bord/profil/_components/profile-login-methods"
+import { ProfileLoginMethods } from "@/components/shared/profile/profile-login-methods"
 
 const { unlinkAccount } = vi.hoisted(() => ({
   unlinkAccount: vi.fn(async () => ({ error: null })),
