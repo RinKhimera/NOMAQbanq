@@ -15,7 +15,7 @@ describe("AccessCard", () => {
       />,
     )
     expect(
-      screen.getByRole("heading", { name: "Examens Simulés" }),
+      screen.getByRole("heading", { name: "Examens simulés" }),
     ).toBeInTheDocument()
     expect(screen.getByText("45 jours")).toBeInTheDocument()
     expect(
@@ -26,7 +26,7 @@ describe("AccessCard", () => {
 
   it("sans accès : message d'absence, ni barre ni date", () => {
     render(<AccessCard type="training" access={null} />)
-    expect(screen.getByText("Banque d'Entraînement")).toBeInTheDocument()
+    expect(screen.getByText("Banque d'entraînement")).toBeInTheDocument()
     expect(screen.getByText("Aucun accès actif")).toBeInTheDocument()
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument()
   })
@@ -68,11 +68,23 @@ describe("AccessCard", () => {
       <AccessCard type="exam" access={null} size="compact" />,
     )
     expect(
-      screen.queryByText("Accès aux examens blancs chronométrés"),
+      screen.queryByText("Examens blancs chronométrés, correction détaillée"),
     ).not.toBeInTheDocument()
     rerender(<AccessCard type="exam" access={null} />)
     expect(
-      screen.getByText("Accès aux examens blancs chronométrés"),
+      screen.getByText("Examens blancs chronométrés, correction détaillée"),
     ).toBeInTheDocument()
+  })
+
+  it("inactif : la note fournie remplace le message d'absence", () => {
+    render(
+      <AccessCard
+        type="exam"
+        access={null}
+        inactiveNote="Expiré le 21 septembre 2026."
+      />,
+    )
+    expect(screen.getByText("Expiré le 21 septembre 2026.")).toBeInTheDocument()
+    expect(screen.queryByText("Aucun accès actif")).not.toBeInTheDocument()
   })
 })

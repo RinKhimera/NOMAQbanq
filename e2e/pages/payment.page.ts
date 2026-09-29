@@ -16,7 +16,7 @@ export class PaymentPage extends BasePage {
   async gotoAbonnements() {
     await super.goto("/tableau-de-bord/abonnements")
     await expect(
-      this.page.getByRole("heading", { name: "Mon Abonnement" }),
+      this.page.getByRole("heading", { name: "Abonnements et accès" }),
     ).toBeVisible({ timeout: 15_000 })
   }
 
