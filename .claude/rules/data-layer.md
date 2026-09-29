@@ -135,6 +135,16 @@ colonne)` dans le WHERE des canaux de
   `getTrainingSessionById`) ne le portent pas. Corollaire :
   `completeTrainingSession`/`finalizeExam` ne renvoient plus le décompte des
   justes au navigateur.
+- **Tableau de bord étudiant** (`features/analytics/dal.dashboard.ts`) :
+  `getMyDashboard(period)` porte la période (`lib/dashboard-period.ts`,
+  journées civiles de l'Est, aujourd'hui compris) et la tendance contre la
+  période précédente de même durée. Filtrés : score moyen, séries, courbes ;
+  toujours sur « Tout » : examens complétés, disponibles, anneau N / M. Une
+  participation soumise à un examen encore ouvert COMPTE comme complétée (le
+  compte ne révèle rien) mais son score retenu sort de toute moyenne, de la
+  courbe et du « N / M réussis ». La courbe d'entraînement est une moyenne
+  par semaine civile (`date_trunc('week', … at time zone …)`) ; une semaine
+  sans série lisible n'a pas de point, jamais un point à 0.
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
   transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une

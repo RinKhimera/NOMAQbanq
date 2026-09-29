@@ -85,7 +85,9 @@ squelette ni un spinner dans la liste. Les deux se montrent ensemble.
   Le Server Component descend l'instant du rendu en prop (`initialNow`, via un
   helper d'horloge au scope module pour `react-hooks/purity`) ; le premier rendu
   s'ancre dessus et seul le premier tick, post-hydratation, reprend l'horloge
-  locale. Câblé ainsi dans `dashboard-hero`, `examen-blanc-client`,
+  locale. Câblé ainsi dans le tableau de bord (date du jour, temps restant
+  de l'alerte « examen en cours », `canReadResults` des examens récents),
+  `examen-blanc-client`,
   `admin-dashboard-client`, `useExamTimer` et `PauseDialog` (rendu au premier
   rendu quand la page se charge en pause). **Ce qui déclenche quelque chose
   (auto-soumission, reprise de pause) ne reprend JAMAIS `Date.now()`, même
@@ -166,8 +168,10 @@ prefetch par défaut d'un `<Link>` rend le layout côté serveur (→
 à l'expiration du cache — une invocation Vercel par lien visible. Les liens
 présents sur chaque page ou en liste — coquilles (logo et `SideNav` de
 `components/shared/shell/`, liens de changement de zone) et
-accueil du dashboard (`quick-access-grid`, `next-actions-panel`,
-`recent-activity-feed`, un lien par activité) — sont donc en `prefetch={false}`.
+accueil du dashboard (actions de l'en-tête, maîtrise par domaine, examens
+récents : un lien par ligne) — sont donc en `prefetch={false}`. Le filtre de
+période du tableau de bord ne navigue pas par lien : `router.replace` dans
+une transition, et `<PendingRegion>` sur la zone qu'il recharge.
 
 Le prix, à ne pas oublier : **sans prefetch, le squelette `loading.tsx` de la
 cible n'arrive qu'avec la réponse du serveur** (`loading.md` : « The Fallback UI
