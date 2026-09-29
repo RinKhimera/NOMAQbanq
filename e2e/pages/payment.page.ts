@@ -9,7 +9,7 @@ export class PaymentPage extends BasePage {
   async gotoTarifs() {
     await super.goto("/tarifs")
     await expect(
-      this.page.getByText("Choisissez votre plan de préparation"),
+      this.page.getByRole("heading", { name: "Choisissez votre accès." }),
     ).toBeVisible({ timeout: 15_000 })
   }
 

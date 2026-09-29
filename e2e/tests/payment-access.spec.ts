@@ -11,9 +11,8 @@ test.describe("Paiement et acces — paywall et verification", () => {
         .getByRole("button", { name: /Acheter maintenant|Prolonger/ })
         .first(),
     ).toBeVisible()
-    await expect(
-      page.getByRole("heading", { name: "Paiement sécurisé" }),
-    ).toBeVisible()
+    // Bloc de réassurance de la grille (plus un titre de section).
+    await expect(page.getByText("Paiement sécurisé").first()).toBeVisible()
   })
 
   test("la page abonnements affiche le statut des acces", async ({ page }) => {
