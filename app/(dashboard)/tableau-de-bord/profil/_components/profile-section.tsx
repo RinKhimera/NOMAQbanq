@@ -65,7 +65,11 @@ export const ProfileRow = ({
         {title}
         {badge}
       </span>
-      {detail && <span className="text-ink-3 text-[0.8125rem]">{detail}</span>}
+      {detail && (
+        <span className="text-ink-3 text-[0.8125rem] wrap-anywhere">
+          {detail}
+        </span>
+      )}
     </div>
     {action && <div className="shrink-0 max-md:col-start-2">{action}</div>}
   </div>

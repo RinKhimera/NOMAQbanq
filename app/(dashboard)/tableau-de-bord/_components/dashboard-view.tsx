@@ -33,8 +33,10 @@ import { PeriodFilter } from "./period-filter"
 import { RecentActivity } from "./recent-activity"
 import { RecentExamsTable } from "./recent-exams-table"
 
+// Du mobile vers le large : `max-lg:` l'emporterait sur `max-[480px]:` dans
+// le CSS généré, et la grille resterait à deux colonnes sous 480 px.
 export const GRID_4 =
-  "grid grid-cols-4 gap-3 max-lg:grid-cols-2 max-[480px]:grid-cols-1"
+  "grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 lg:grid-cols-4"
 
 const plural = (n: number, word: string) => `${word}${n > 1 ? "s" : ""}`
 

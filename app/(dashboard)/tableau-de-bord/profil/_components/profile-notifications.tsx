@@ -90,9 +90,11 @@ const NotifRow = ({
         {description}
       </span>
     </div>
-    {/* Zone de toucher de 44 px autour de l'interrupteur, sous 768 px. */}
+    {/* Zone de toucher de 44 px sous 768 px : le pseudo-élément appartient au
+        bouton, une enveloppe plus grande ne recevrait pas le clic. */}
     <span className="grid shrink-0 place-items-center max-md:size-11">
       <Switch
+        className="relative max-md:after:absolute max-md:after:-inset-2.5 max-md:after:content-['']"
         id={id}
         checked={checked}
         aria-disabled={pending}
