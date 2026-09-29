@@ -251,3 +251,109 @@ describe("QuizRunner", () => {
     ).not.toBeInTheDocument()
   })
 })
+
+describe("QuizRunner — alertes et temps écoulé", () => {
+  const examMode = (initialNow: number) =>
+    mode({
+      kind: "exam",
+      timer: { serverStartTime: 1_000_000, totalSeconds: 3600, initialNow },
+    })
+
+  it("rend les bannières de la page au-dessus de la question", () => {
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{}}
+        mode={mode()}
+        callbacks={callbacks()}
+        banners={<p>Reprise de la série</p>}
+      />,
+    )
+    expect(screen.getByText("Reprise de la série")).toBeInTheDocument()
+  })
+
+  it("hors ligne : une alerte prévient que les réponses ne s'enregistrent pas", () => {
+    const onLine = vi.spyOn(navigator, "onLine", "get").mockReturnValue(false)
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{}}
+        mode={mode()}
+        callbacks={callbacks()}
+      />,
+    )
+    expect(screen.getByTestId("offline-alert")).toHaveTextContent(
+      "Connexion perdue",
+    )
+    onLine.mockRestore()
+  })
+
+  it("en ligne : aucune alerte de connexion", () => {
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{}}
+        mode={mode()}
+        callbacks={callbacks()}
+      />,
+    )
+    expect(screen.queryByTestId("offline-alert")).not.toBeInTheDocument()
+  })
+
+  it("moins de cinq minutes : alerte de fin imminente, pas de dialogue", () => {
+    // 3600 s de budget, 57 min écoulées → 3 min restantes.
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{}}
+        mode={examMode(1_000_000 + 57 * 60_000)}
+        callbacks={callbacks()}
+      />,
+    )
+    expect(screen.getByTestId("time-low-alert")).toHaveTextContent(
+      "Moins de 3 minutes restantes",
+    )
+    expect(screen.queryByTestId("time-up-dialog")).not.toBeInTheDocument()
+  })
+
+  it("budget épuisé : dialogue « Temps écoulé » non fermable pendant l'auto-soumission", async () => {
+    const onFinish = vi.fn().mockResolvedValue({ ok: true })
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{ q1: { selected: "Aspirine" } }}
+        mode={examMode(1_000_000 + 2 * 3_600_000)}
+        callbacks={callbacks({ onFinish })}
+      />,
+    )
+    const dialog = await screen.findByTestId("time-up-dialog")
+    expect(dialog).toHaveTextContent("Temps écoulé")
+    expect(dialog).toHaveTextContent("1 réponse sur 3")
+    expect(
+      within(dialog).queryByRole("button", { name: "Close" }),
+    ).not.toBeInTheDocument()
+    await waitFor(() =>
+      expect(onFinish).toHaveBeenCalledWith({ isAutoSubmit: true }),
+    )
+  })
+
+  it("auto-soumission échouée : « Soumettre » la relance", async () => {
+    const onFinish = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: false })
+      .mockResolvedValue({ ok: true })
+    render(
+      <QuizRunner
+        questions={questions}
+        initialAnswers={{}}
+        mode={examMode(1_000_000 + 2 * 3_600_000)}
+        callbacks={callbacks({ onFinish })}
+      />,
+    )
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1))
+    const retry = await screen.findByTestId("btn-time-up-submit")
+    fireEvent.click(retry)
+    await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(2))
+    expect(onFinish).toHaveBeenLastCalledWith({ isAutoSubmit: true })
+  })
+})

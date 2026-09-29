@@ -149,6 +149,20 @@ export const formatShortDuration = (ms: number): string => {
     : `${minutes} min`
 }
 
+/**
+ * Décompte jusqu'à une échéance : « 2 j 3 h » au-delà d'un jour, « 4 h 05 »
+ * au-delà d'une heure, « 12 min 07 s » en dessous. Jamais négatif.
+ */
+export const formatCountdown = (ms: number): string => {
+  const seconds = Math.max(0, Math.floor(ms / 1000))
+  const days = Math.floor(seconds / 86_400)
+  const hours = Math.floor((seconds % 86_400) / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (days > 0) return `${days} j ${hours} h`
+  if (hours > 0) return `${hours} h ${String(minutes).padStart(2, "0")}`
+  return `${minutes} min ${String(seconds % 60).padStart(2, "0")} s`
+}
+
 /** Durée restante : « 2h 5min », ou « 42 minutes » sous l'heure. */
 export const formatDuration = (ms: number): string => {
   const hours = Math.floor(ms / (1000 * 60 * 60))
