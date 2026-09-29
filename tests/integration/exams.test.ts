@@ -17,6 +17,10 @@ import {
   userAccess,
 } from "@/db/schema"
 import {
+  getMyDashboard,
+  getMyRecentParticipations,
+} from "@/features/analytics/dal"
+import {
   createExam,
   deactivateExam,
   deleteParticipation,
@@ -36,15 +40,9 @@ import {
   getExamWithQuestions,
   getExamsStats,
   getExamsWithParticipation,
-  getMyDashboardStats,
-  getMyScoreHistory,
   getParticipantExamResults,
 } from "@/features/exams/dal"
-import {
-  getMyTrainingScoreHistory,
-  getTrainingHistory,
-  getTrainingStats,
-} from "@/features/training/dal"
+import { getTrainingHistory, getTrainingStats } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
@@ -937,15 +935,11 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(stats?.averageScore).toBe(100)
     })
 
-    it("getMyTrainingScoreHistory : point retenu à null", async () => {
+    it("courbe hebdomadaire du tableau de bord : la série retenue n'entre pas dans la moyenne de sa semaine", async () => {
       asStudent()
-      const h = await getMyTrainingScoreHistory()
-      expect(
-        h.sessions.find((s) => s.sessionId === withheldTrainingId)?.score,
-      ).toBeNull()
-      expect(
-        h.sessions.find((s) => s.sessionId === readableTrainingId)?.score,
-      ).toBe(100)
+      const d = await getMyDashboard("tout")
+      // 40 (retenue) et 100 (lisible), closes il y a une heure : 100, pas 70.
+      expect(d?.training.weekly.at(-1)?.averageScore).toBe(100)
     })
 
     it("participation à un examen encore OUVERT : score retenu sur la liste, l'historique et la moyenne", async () => {
@@ -958,9 +952,11 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
         list.find((e) => e.id === closedOnlyExamId)?.userParticipation?.score,
       ).toBe(100)
 
-      const hist = await getMyScoreHistory()
-      expect(hist.find((h) => h.examId === openId)?.score).toBeNull()
-      expect(hist.find((h) => h.examId === closedOnlyExamId)?.score).toBe(100)
+      const recent = await getMyRecentParticipations()
+      expect(recent.find((h) => h.examId === openId)?.score).toBeNull()
+      const curve = (await getMyDashboard("tout"))?.exams.history ?? []
+      expect(curve.some((h) => h.examId === openId)).toBe(false)
+      expect(curve.find((h) => h.examId === closedOnlyExamId)?.score).toBe(100)
     })
 
     it("examen propre CLOS mais question répondue d'un examen OUVERT : retenu sur la liste et l'historique", async () => {
@@ -971,8 +967,10 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(
         list.find((e) => e.id === pastExamId)?.userParticipation?.score,
       ).toBeNull()
-      const hist = await getMyScoreHistory()
-      expect(hist.find((h) => h.examId === pastExamId)?.score).toBeNull()
+      const recent = await getMyRecentParticipations()
+      expect(recent.find((h) => h.examId === pastExamId)?.score).toBeNull()
+      const curve = (await getMyDashboard("tout"))?.exams.history ?? []
+      expect(curve.some((h) => h.examId === pastExamId)).toBe(false)
     })
 
     it("leaderboard : la ligne d'un propriétaire retenu est null pour LUI et pour les autres, et sort du rang", async () => {
@@ -1086,13 +1084,13 @@ describe("score retenu — participation sans réponse", () => {
 
   it("historique et moyenne du tableau de bord : le point ouvert est null, la moyenne ne compte que le clos (0, pas null)", async () => {
     setSession(EMPTY_ID, "user")
-    const hist = await getMyScoreHistory()
-    expect(hist.find((h) => h.examId === emptyOpenId)?.score).toBeNull()
-    expect(hist.find((h) => h.examId === emptyClosedId)?.score).toBe(0)
+    const recent = await getMyRecentParticipations()
+    expect(recent.find((h) => h.examId === emptyOpenId)?.score).toBeNull()
+    expect(recent.find((h) => h.examId === emptyClosedId)?.score).toBe(0)
 
-    const stats = await getMyDashboardStats()
-    expect(stats?.completedExamsCount).toBe(2)
-    expect(stats?.averageScore).toBe(0)
+    const d = await getMyDashboard("tout")
+    expect(d?.exams.completedCount).toBe(2)
+    expect(d?.exams.averageScore).toBe(0)
   })
 
   it("tout retenu : la moyenne est null, jamais 0", async () => {
@@ -1102,9 +1100,10 @@ describe("score retenu — participation sans réponse", () => {
       .set({ endDate: new Date(Date.now() + 60_000) })
       .where(eq(exams.id, emptyClosedId))
     try {
-      const stats = await getMyDashboardStats()
-      expect(stats?.completedExamsCount).toBe(2)
-      expect(stats?.averageScore).toBeNull()
+      const d = await getMyDashboard("tout")
+      expect(d?.exams.completedCount).toBe(2)
+      expect(d?.exams.averageScore).toBeNull()
+      expect(d?.exams.overallAverage).toBeNull()
     } finally {
       await db
         .update(exams)
@@ -1119,7 +1118,7 @@ describe("score retenu — participation sans réponse", () => {
     expect(
       list.find((e) => e.id === emptyAdminOpenId)?.userParticipation,
     ).toMatchObject({ score: 0 })
-    const hist = await getMyScoreHistory()
-    expect(hist.find((h) => h.examId === emptyAdminOpenId)?.score).toBe(0)
+    const recent = await getMyRecentParticipations()
+    expect(recent.find((h) => h.examId === emptyAdminOpenId)?.score).toBe(0)
   })
 })

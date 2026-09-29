@@ -37,7 +37,8 @@ const ADMIN_ID = createId()
 const STUDENT_ID = createId()
 const EMPTY_ID = createId()
 const TRAINER_ID = createId()
-const users = [ADMIN_ID, STUDENT_ID, EMPTY_ID, TRAINER_ID]
+const REVIEWER_ID = createId()
+const users = [ADMIN_ID, STUDENT_ID, EMPTY_ID, TRAINER_ID, REVIEWER_ID]
 const LOCKED_QUESTION = createId()
 let openExam = ""
 const PID = createId()
@@ -131,6 +132,7 @@ const series = async ({
 beforeAll(async () => {
   await db.insert(user).values([
     { id: TRAINER_ID, name: "Tr", email: `sdtr-${suffix}@test.invalid` },
+    { id: REVIEWER_ID, name: "Rev", email: `sdrev-${suffix}@test.invalid` },
     { id: ADMIN_ID, name: "Adm", email: `sdadm-${suffix}@test.invalid` },
     { id: STUDENT_ID, name: "Stu", email: `sdstu-${suffix}@test.invalid` },
     { id: EMPTY_ID, name: "Empty", email: `sdemp-${suffix}@test.invalid` },
@@ -196,6 +198,7 @@ beforeAll(async () => {
   await examWith({ daysAgo: 40, score: 30 })
   // Soumise hier, mais l'examen est encore ouvert : score retenu.
   await examWith({ daysAgo: 1, score: 0, open: true })
+  await examWith({ userId: REVIEWER_ID, daysAgo: 1, score: 70, open: true })
 
   await series({ userId: STUDENT_ID, at: new Date(NOW - 2 * DAY) })
   await series({
@@ -310,6 +313,14 @@ describe("getMyDashboard — score moyen des examens blancs", () => {
     const d = await getMyDashboard("30")
     expect(d?.exams.averageScore).toBeNull()
     expect(d?.exams.averageTrend).toBeNull()
+  })
+
+  it("un admin lit le score brut de sa participation à un examen ouvert", async () => {
+    setSession(REVIEWER_ID, "admin")
+    expect((await getMyDashboard("7"))?.exams.averageScore).toBe(70)
+    // Jumeau : le même compte lu comme étudiant, score retenu.
+    setSession(REVIEWER_ID, "user")
+    expect((await getMyDashboard("7"))?.exams.averageScore).toBeNull()
   })
 
   it("non connecté : null", async () => {

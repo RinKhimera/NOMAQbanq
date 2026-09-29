@@ -4,10 +4,6 @@ import {
   getExamQuestionExplanations,
   getExamSession,
   getExamWithQuestions,
-  getMyAvailableExams,
-  getMyDashboardStats,
-  getMyRecentExams,
-  getMyScoreHistory,
   getParticipantExamResults,
 } from "@/features/exams/dal.student"
 import { lockFor } from "@/features/questions/answer-key-lock"
@@ -145,14 +141,6 @@ describe("gardes de session", () => {
   it("getExamQuestionExplanations renvoie []", async () => {
     anonymous()
     expect(await getExamQuestionExplanations(["q1"])).toEqual([])
-  })
-
-  it("les vues du tableau de bord renvoient leur valeur vide", async () => {
-    anonymous()
-    expect(await getMyRecentExams()).toEqual([])
-    expect(await getMyScoreHistory()).toEqual([])
-    expect(await getMyAvailableExams()).toEqual([])
-    expect(await getMyDashboardStats()).toBeNull()
   })
 })
 
@@ -371,18 +359,6 @@ describe("getExamQuestionExplanations", () => {
       ],
     }
     expect(await getExamQuestionExplanations(["q1"])).toEqual([])
-  })
-})
-
-describe("acces payant du tableau de bord", () => {
-  it("getMyRecentExams renvoie [] sans acces examen", async () => {
-    mocks.hasAccess.mockResolvedValueOnce(false)
-    expect(await getMyRecentExams()).toEqual([])
-  })
-
-  it("getMyRecentExams renvoie [] quand aucun examen actif", async () => {
-    mocks.rows.current = { exams: [] }
-    expect(await getMyRecentExams()).toEqual([])
   })
 })
 

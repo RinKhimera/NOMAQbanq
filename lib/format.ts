@@ -209,3 +209,13 @@ export const formatPaddedMediumDate = (d: Date | number | string): string => {
 export const formatWeekdayLongDate = (d: Date | number | string): string => {
   return format(inAppZone(d), "EEEE d MMMM yyyy", { locale: fr })
 }
+
+/** « 27 sept. » — graduations d'un graphique, dates d'une liste courte. */
+export const formatDayMonth = (d: Date | number | string): string => {
+  return format(inAppZone(d), "d MMM", { locale: fr })
+}
+
+/** « dimanche 27 septembre » — libellé de date du tableau de bord. */
+export const formatWeekdayDayMonth = (d: Date | number | string): string => {
+  return format(inAppZone(d), "EEEE d MMMM", { locale: fr })
+}

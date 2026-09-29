@@ -1,72 +1,91 @@
 import type { Metadata } from "next"
 import {
+  getMyDashboard,
   getMyDomainMastery,
+  getMyExamInProgress,
   getMyExamPercentiles,
+  getMyRecentActivity,
+  getMyRecentParticipations,
 } from "@/features/analytics/dal"
 import {
-  getMyAvailableExams,
-  getMyDashboardStats,
-  getMyRecentExams,
-  getMyScoreHistory,
-} from "@/features/exams/dal"
-import { getAccessStatus } from "@/features/payments/dal"
-import {
-  getMyTrainingScoreHistory,
-  getTrainingStats,
-} from "@/features/training/dal"
+  getAccessStatus,
+  getAvailableProducts,
+  getMyLapsedAccess,
+} from "@/features/payments/dal"
 import { getCurrentSession } from "@/lib/dal"
-import { DashboardClient } from "./_components/dashboard-client"
+import { parsePeriod } from "@/lib/dashboard-period"
+import { formatWeekdayDayMonth } from "@/lib/format"
 import { DashboardErrorState } from "./_components/dashboard-error-state"
+import { DashboardNew } from "./_components/dashboard-new"
+import { DashboardView } from "./_components/dashboard-view"
 
 // Horloge isolée du corps de rendu (react-hooks/purity s'applique aussi côté
-// Server Component) — passée en prop au lieu d'un Date.now() inline.
+// Server Component) : date du jour, temps restant et « Revoir » s'y ancrent.
 const nowMs = () => Date.now()
 
 export const metadata: Metadata = { title: "Tableau de bord" }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
+  const period = parsePeriod((await searchParams).periode)
   const session = await getCurrentSession()
 
   const [
-    stats,
-    availableExams,
-    recentExams,
-    examPercentiles,
-    domainMastery,
-    scoreHistory,
-    accessStatus,
-    trainingStats,
-    trainingScoreHistory,
+    dashboard,
+    access,
+    lapsed,
+    examInProgress,
+    mastery,
+    participations,
+    percentiles,
+    activity,
   ] = await Promise.all([
-    getMyDashboardStats(),
-    getMyAvailableExams(),
-    getMyRecentExams(),
-    getMyExamPercentiles(),
-    getMyDomainMastery(),
-    getMyScoreHistory(),
+    getMyDashboard(period),
     getAccessStatus(),
-    getTrainingStats(),
-    getMyTrainingScoreHistory(),
+    getMyLapsedAccess(),
+    getMyExamInProgress(),
+    getMyDomainMastery(),
+    getMyRecentParticipations(),
+    getMyExamPercentiles(),
+    getMyRecentActivity(),
   ])
 
-  // Le layout dashboard garde déjà la session ; `stats` n'est null que sans
-  // session (cas limite) — état terminal explicite, jamais un squelette.
-  if (!stats) return <DashboardErrorState />
+  // Le layout garde déjà la session ; `null` n'arrive que sans elle (cas
+  // limite) — état terminal explicite, jamais un squelette.
+  if (!dashboard) return <DashboardErrorState />
+
+  const now = nowMs()
+  const isAdmin = session?.user?.role === "admin"
+  const firstName = session?.user?.name?.split(" ")[0] || "étudiant"
+  const hasAccess = Boolean(access?.examAccess || access?.trainingAccess)
+
+  if (!isAdmin && !hasAccess && !dashboard.hasHistory) {
+    return (
+      <DashboardNew
+        firstName={firstName}
+        products={await getAvailableProducts()}
+      />
+    )
+  }
 
   return (
-    <DashboardClient
-      userName={session?.user?.name}
-      isAdmin={session?.user?.role === "admin"}
-      now={nowMs()}
-      stats={stats}
-      availableExams={availableExams}
-      recentExams={recentExams}
-      examPercentiles={examPercentiles}
-      domainMastery={domainMastery}
-      scoreHistory={scoreHistory}
-      accessStatus={accessStatus}
-      trainingStats={trainingStats}
-      trainingScoreHistory={trainingScoreHistory}
+    <DashboardView
+      firstName={firstName}
+      eyebrow={formatWeekdayDayMonth(now)}
+      period={period}
+      dashboard={dashboard}
+      access={access}
+      lapsed={lapsed}
+      examInProgress={examInProgress}
+      mastery={mastery}
+      participations={participations}
+      percentiles={percentiles}
+      activity={activity}
+      isAdmin={isAdmin}
+      now={now}
     />
   )
 }

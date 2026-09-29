@@ -4,7 +4,6 @@ import {
   getActiveTrainingSession,
   getAvailableDomains,
   getBookmarkedQuestionIds,
-  getMyTrainingScoreHistory,
   getTrainingHistory,
   getTrainingSessionById,
   getTrainingSessionResults,
@@ -191,7 +190,6 @@ describe("gardes de session", () => {
     expect(await getTrainingSessionById("s1")).toBeNull()
     expect(await getTrainingSessionResults("s1")).toBeNull()
     expect(await getTrainingStats()).toBeNull()
-    expect(await getMyTrainingScoreHistory()).toEqual({ sessions: [] })
     expect(await getBookmarkedQuestionIds(["q1"])).toEqual([])
     expect(await getTrainingHistory()).toEqual({
       items: [],
