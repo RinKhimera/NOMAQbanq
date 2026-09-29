@@ -159,6 +159,14 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   placeholder DIFFÉRENT (« Rechercher ou créer... ») et les items sont `role="option"`.
   Voir POM `fillObjectifCMC`.
 
+## Tests de composants (Vitest, happy-dom) — pièges voisins
+
+- happy-dom ne retire pas le focus d'un bouton qui passe à `disabled` : un test
+  « le focus reste » y passe à tort. Asserter l'attribut (`aria-disabled`,
+  `not.toBeDisabled()`) pendant l'attente, puis le focus.
+- `toHaveTextContent` normalise l'espace insécable, `getByRole({ name })` ne le
+  fait pas : « 70 % » s'écrit `70 %` dans un nom accessible.
+
 ## Concurrence & état partagé
 
 - **`workers: 1`** (config, toujours) : `chromium-auth`/`chromium-admin` partagent

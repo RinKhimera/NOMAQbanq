@@ -152,6 +152,16 @@ colonne)` dans le WHERE des canaux de
   période : une semaine entamée avant ne compte que ses jours dans la
   période (`startDay`, libellé « Depuis le … ») ; une semaine sans série
   lisible n'a pas de point, jamais un point à 0.
+- **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
+  sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
+  renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou
+  passer par une jointure.
+- **Helper pur dans un module `"use client"`** : appelé depuis un Server
+  Component, il devient une référence client et casse au rendu
+  (`getAccessStatus`). Un module de helpers purs ne porte pas `"use client"`.
+- **Une participation `in_progress` survit à son budget** : le cron ne la clôt
+  qu'à la fermeture de l'examen. Une lecture « examen en cours » teste le
+  budget (`remainingMs`) avant d'afficher un temps restant.
 - **Jamais d'appel au `db` global depuis une fonction exécutée dans une
   transaction** : le pool est à `max: 5` avec `connectionTimeoutMillis: 10_000`
   (`db/index.ts`), donc réclamer une 2ᵉ connexion pendant qu'on en détient une
@@ -298,6 +308,9 @@ of null (reading 'parentNode')`, script inline du streaming React) causés par
   (`prices`, `seedCheckoutSession`, `customers`, `nextEvent`) /
   `stripeBox.reset()`. Même raison que le Mailer : un verbe Stripe ajouté au
   port sans son faux ne compile plus, un faux partiel ne masque plus un appel.
+- Les fichiers d'intégration tournent en série (`fileParallelism: false`) : un
+  test jumeau qui compare deux comptes sur une table globale (`count(*)`) est
+  déterministe. Cibler un fichier : `bun run test:integration -- <fichier>`.
 - Nettoyage `afterAll` : respecter les FK `restrict` — supprimer les tables
   enfants avant les parents (ex. `trainingSessionItems`/`examAnswers` avant
   `questions`). Les FK `cascade` (ex. delete `exams`) emportent leurs enfants

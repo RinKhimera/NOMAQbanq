@@ -13,6 +13,9 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
    de sens est invisible à `tsc`.
 3. **Chiffre qui flatte.** Un percentile, un taux ou un score présenté à l'utilisateur
    s'arrondit dans le sens qui ne le surestime jamais (« mieux que X % » → plancher).
+   Une moyenne s'arrondit au plancher (59,67 ≠ « 60 % réussite ») ; une tendance
+   se calcule sur les moyennes brutes, jamais comme écart de moyennes arrondies,
+   et au plancher aussi : tronquer vers zéro minimise un recul (−1,7 → −1).
 4. **Requête non déterministe.** Un `distinct on` ou un `order by` qui choisit « la
    dernière » ligne doit départager les ex æquo (deux dates égales) par une clé unique,
    même si les `NULL` sont impossibles ; sous `DESC`, Postgres met en plus les `NULL`
@@ -56,3 +59,16 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
     signaler » : l'utilisateur agit sur un avertissement qui n'est pas encore arrivé.
     Distinguer chargement / échec / prêt, et ignorer la réponse d'une requête qui ne
     correspond plus à l'élément affiché.
+17. **Branche d'écran qui escamote une alerte.** Une variante « vide » ou
+    « nouvel utilisateur » choisie sur un sous-ensemble d'états (pas d'accès, pas
+    d'historique) masque ce que l'utilisateur doit voir : examen commencé via une
+    audience restreinte, accès expiré. Lister tous les états qui produisent une
+    alerte avant de décider qui voit la variante.
+18. **Verrou d'attente ARIA sans garde.** `aria-disabled` remplace `disabled` pour
+    garder le focus, mais le clavier et les boutons voisins restent actifs :
+    Entrée resoumet, Échap ou « Annuler » ferment pendant l'envoi et l'échec se
+    perd. Chaque gestionnaire (submit, keydown, cancel) teste l'attente.
+19. **Variantes responsive en conflit (Tailwind v4).** `max-lg:` l'emporte sur
+    `max-[480px]:` dans le CSS généré : la grille reste à deux colonnes sous
+    480 px. Écrire les grilles du mobile vers le large
+    (`grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4`).

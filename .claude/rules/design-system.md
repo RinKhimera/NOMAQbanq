@@ -80,6 +80,10 @@ combobox et onglets segmentés partagent la même échelle : dans une **barre de
 filtres, tous les contrôles font 40 px**, sans exception. Cibles tactiles de
 44 px minimum sous 768 px (zone de toucher étendue si le contrôle fait 32 px).
 
+La zone de 44 px appartient au contrôle lui-même : une enveloppe plus grande ne
+reçoit pas le clic. Étendre par un pseudo-élément du bouton
+(`relative max-md:after:absolute max-md:after:-inset-2.5 max-md:after:content-['']`).
+
 ## Vocabulaire
 
 Les libellés suivent `CONTEXT.md` : l'étudiant fait une **série** (jamais
