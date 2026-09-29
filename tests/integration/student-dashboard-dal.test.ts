@@ -2,6 +2,7 @@ import { eq, inArray } from "drizzle-orm"
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest"
 import { db } from "@/db"
 import {
+  examAudience,
   examParticipations,
   examQuestions,
   exams,
@@ -351,6 +352,36 @@ describe("getMyDashboard — chiffres sur « Tout »", () => {
     expect(d?.exams.availableCount).toBe(0)
     expect(d?.exams.completedCount).toBe(0)
     expect(d?.exams.overallAverage).toBeNull()
+  })
+})
+
+describe("getMyDashboard — examens disponibles et audience restreinte", () => {
+  it("un examen restreint compte pour un membre, jamais pour un abonné hors audience", async () => {
+    const restricted = createId()
+    examIds.push(restricted)
+    await db.insert(exams).values({
+      id: restricted,
+      title: `Restreint ${suffix}`,
+      startDate: new Date(NOW - DAY),
+      endDate: new Date(NOW + DAY),
+      isActive: true,
+      audienceType: "restricted",
+      createdBy: ADMIN_ID,
+      completionTime: 3600,
+    })
+    const count = async (id: string) => {
+      setSession(id)
+      return (await getMyDashboard("30"))?.exams.availableCount ?? -1
+    }
+
+    // Jumeaux : deux abonnés Examens, seul STUDENT est dans l'audience.
+    await db
+      .insert(examAudience)
+      .values({ examId: restricted, userId: STUDENT_ID })
+    expect((await count(STUDENT_ID)) - (await count(EMPTY_ID))).toBe(1)
+
+    await db.delete(examAudience).where(eq(examAudience.examId, restricted))
+    expect((await count(STUDENT_ID)) - (await count(EMPTY_ID))).toBe(0)
   })
 })
 

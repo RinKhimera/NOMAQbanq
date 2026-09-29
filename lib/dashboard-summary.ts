@@ -58,3 +58,28 @@ export const dashboardSummary = ({
     ? sentences.join(" ")
     : "Suivez ici vos scores, vos séries et votre maîtrise par domaine."
 }
+
+/**
+ * Variante « nouvel inscrit » du tableau de bord : rien à montrer, rien à
+ * reprendre. Un examen commencé sans abonnement (audience restreinte) ou un
+ * accès expiré, même jamais utilisé, gardent le tableau complet et ses alertes
+ * (« Reprendre », « Réactiver »).
+ */
+export const isNewcomer = ({
+  isAdmin,
+  hasAccess,
+  hasHistory,
+  hasExamInProgress,
+  hasLapsedAccess,
+}: {
+  isAdmin: boolean
+  hasAccess: boolean
+  hasHistory: boolean
+  hasExamInProgress: boolean
+  hasLapsedAccess: boolean
+}): boolean =>
+  !isAdmin &&
+  !hasAccess &&
+  !hasHistory &&
+  !hasExamInProgress &&
+  !hasLapsedAccess

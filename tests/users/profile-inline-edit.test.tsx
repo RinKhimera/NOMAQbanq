@@ -67,6 +67,33 @@ describe("InlineEditField", () => {
   })
 })
 
+describe("InlineEditField — pendant l'enregistrement", () => {
+  it("ni Entrée ni Échap ni Annuler n'agissent tant que la sauvegarde court", async () => {
+    let settle: (r: { success: boolean }) => void = () => {}
+    const onSave = vi.fn(
+      () =>
+        new Promise<{ success: boolean }>((resolve) => {
+          settle = resolve
+        }),
+    )
+    field(onSave)
+    await userEvent.click(screen.getByTestId("profile-field-name-edit"))
+    await userEvent.type(
+      screen.getByTestId("profile-field-name-input"),
+      " D{Enter}",
+    )
+    await userEvent.keyboard("{Enter}")
+    await userEvent.keyboard("{Escape}")
+    await userEvent.click(screen.getByRole("button", { name: "Annuler" }))
+    expect(onSave).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId("profile-field-name-input")).toBeInTheDocument()
+    settle({ success: true })
+    await waitFor(() =>
+      expect(screen.getByTestId("profile-field-name-edit")).toHaveFocus(),
+    )
+  })
+})
+
 describe("ProfilePreferences", () => {
   it("reflète le thème choisi et le change au clic", async () => {
     render(<ProfilePreferences />)

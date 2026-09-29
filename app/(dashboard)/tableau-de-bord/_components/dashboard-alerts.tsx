@@ -99,30 +99,46 @@ export const DashboardAlerts = ({
   if (examInProgress) {
     const { examId, title, answeredCount, questionCount, timing } =
       examInProgress
+    const remaining = remainingMs(timing, now)
+    // Le cron ne clôt une participation qu'à la fermeture de l'examen : un
+    // budget épuisé bien avant reste « ouvert » jusque-là.
+    const timeUp = remaining === 0
+    const progress = (
+      <span className="font-mono">
+        {answeredCount} / {questionCount}
+      </span>
+    )
     alerts.push(
       <DashboardAlert
         key="exam-in-progress"
-        tone="info"
+        tone={timeUp ? "warning" : "info"}
         icon={ClipboardList}
-        title={`${title} en cours`}
+        title={timeUp ? `${title} : temps écoulé` : `${title} en cours`}
         action={
           <AlertLink
             href={`/tableau-de-bord/examen-blanc/${examId}/evaluation`}
             primary
           >
-            Reprendre
+            {timeUp ? "Terminer l'examen" : "Reprendre"}
           </AlertLink>
         }
       >
-        <span className="font-mono">
-          {answeredCount} / {questionCount}
-        </span>{" "}
-        questions répondues · environ{" "}
-        <span className="font-mono">
-          {shortDuration(remainingMs(timing, now))}
-        </span>{" "}
-        restantes. Commencé le {formatDateTime(timing.startedAt)} ; le
-        chronomètre continue de tourner.
+        {timeUp ? (
+          <>
+            {progress} questions répondues. Le temps imparti est épuisé : ouvrez
+            l&apos;examen pour le soumettre, vos réponses enregistrées sont
+            conservées.
+          </>
+        ) : (
+          <>
+            {progress} questions répondues · environ{" "}
+            <span className="font-mono">{shortDuration(remaining)}</span>{" "}
+            restantes. Commencé le {formatDateTime(timing.startedAt)} ;{" "}
+            {timing.pauseInProgress
+              ? "en pause : le chronomètre reprendra à la fin de la pause."
+              : "le chronomètre continue de tourner."}
+          </>
+        )}
       </DashboardAlert>,
     )
   }

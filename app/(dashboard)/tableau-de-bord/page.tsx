@@ -14,6 +14,7 @@ import {
 } from "@/features/payments/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { parsePeriod } from "@/lib/dashboard-period"
+import { isNewcomer } from "@/lib/dashboard-summary"
 import { formatWeekdayDayMonth } from "@/lib/format"
 import { DashboardErrorState } from "./_components/dashboard-error-state"
 import { DashboardNew } from "./_components/dashboard-new"
@@ -62,7 +63,15 @@ export default async function DashboardPage({
   const firstName = session?.user?.name?.split(" ")[0] || "étudiant"
   const hasAccess = Boolean(access?.examAccess || access?.trainingAccess)
 
-  if (!isAdmin && !hasAccess && !dashboard.hasHistory) {
+  if (
+    isNewcomer({
+      isAdmin,
+      hasAccess,
+      hasHistory: dashboard.hasHistory,
+      hasExamInProgress: examInProgress !== null,
+      hasLapsedAccess: lapsed.exam !== null || lapsed.training !== null,
+    })
+  ) {
     return (
       <DashboardNew
         firstName={firstName}

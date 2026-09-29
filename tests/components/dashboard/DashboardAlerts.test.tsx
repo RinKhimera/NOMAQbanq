@@ -49,6 +49,61 @@ describe("DashboardAlerts", () => {
     )
   })
 
+  it("budget épuisé : temps écoulé, pas « en cours »", () => {
+    render(
+      <DashboardAlerts
+        examInProgress={{
+          examId: "exam-1",
+          title: "Examen blanc de septembre",
+          answeredCount: 40,
+          questionCount: 230,
+          // Commencé il y a 3 jours sur un budget d'une heure.
+          timing: {
+            startedAt: NOW - 3 * DAY,
+            budgetSeconds: 3600,
+            pauseCreditMs: 0,
+          },
+        }}
+        access={null}
+        lapsed={none}
+        now={NOW}
+      />,
+    )
+    expect(
+      screen.getByText("Examen blanc de septembre : temps écoulé"),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/chronomètre continue/)).toBeNull()
+    expect(
+      screen.getByRole("link", { name: "Terminer l'examen" }),
+    ).toHaveAttribute("href", "/tableau-de-bord/examen-blanc/exam-1/evaluation")
+  })
+
+  it("pause en cours : le chronomètre est suspendu", () => {
+    render(
+      <DashboardAlerts
+        examInProgress={{
+          examId: "exam-1",
+          title: "Examen blanc de septembre",
+          answeredCount: 40,
+          questionCount: 230,
+          timing: {
+            startedAt: NOW - 60 * 60_000,
+            budgetSeconds: 318 * 60,
+            pauseCreditMs: 0,
+            pauseInProgress: { startedAt: NOW - 5 * 60_000, capMinutes: 45 },
+          },
+        }}
+        access={null}
+        lapsed={none}
+        now={NOW}
+      />,
+    )
+    expect(
+      screen.getByText(/en pause : le chronomètre reprendra/),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/chronomètre continue/)).toBeNull()
+  })
+
   it("accès à 7 jours ou moins : Prolonger ; au-delà, rien", () => {
     const { rerender } = render(
       <DashboardAlerts

@@ -76,11 +76,14 @@ export const InlineEditField = ({
   }
 
   const handleCancel = () => {
+    // aria-disabled seulement (le focus reste) : la garde vit ici.
+    if (isSaving) return
     form.reset({ value: value || "" })
     stopEditing()
   }
 
   const handleSubmit = async (data: { value: string }) => {
+    if (isSaving) return
     if (data.value === value) {
       stopEditing()
       return

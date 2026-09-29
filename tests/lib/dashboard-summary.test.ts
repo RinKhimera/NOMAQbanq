@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest"
-import { dashboardSummary, weakestDomain } from "@/lib/dashboard-summary"
+import {
+  dashboardSummary,
+  isNewcomer,
+  weakestDomain,
+} from "@/lib/dashboard-summary"
 
 const domain = (name: string, mastery: number | null, answered = 10) => ({
   domain: name,
@@ -64,5 +68,33 @@ describe("dashboardSummary", () => {
     expect(dashboardSummary({ period: "30", trend: null, weakest: null })).toBe(
       "Suivez ici vos scores, vos séries et votre maîtrise par domaine.",
     )
+  })
+})
+
+describe("isNewcomer", () => {
+  const fresh = {
+    isAdmin: false,
+    hasAccess: false,
+    hasHistory: false,
+    hasExamInProgress: false,
+    hasLapsedAccess: false,
+  }
+
+  it("aucun accès, aucun historique, rien en cours : nouvel inscrit", () => {
+    expect(isNewcomer(fresh)).toBe(true)
+  })
+
+  it("un examen commencé (audience restreinte, sans abonnement) garde le tableau complet", () => {
+    expect(isNewcomer({ ...fresh, hasExamInProgress: true })).toBe(false)
+  })
+
+  it("un accès expiré, même jamais utilisé, garde le tableau complet (alerte Réactiver)", () => {
+    expect(isNewcomer({ ...fresh, hasLapsedAccess: true })).toBe(false)
+  })
+
+  it("admin, accès actif ou historique : jamais nouvel inscrit", () => {
+    expect(isNewcomer({ ...fresh, isAdmin: true })).toBe(false)
+    expect(isNewcomer({ ...fresh, hasAccess: true })).toBe(false)
+    expect(isNewcomer({ ...fresh, hasHistory: true })).toBe(false)
   })
 })
