@@ -16,6 +16,7 @@ import {
   profileSchema,
   unbanUserSchema,
   updateUserRoleSchema,
+  usersFiltersSchema,
 } from "@/features/users/schemas"
 import { auth } from "@/lib/auth"
 import { requireRole, requireSession } from "@/lib/auth-guards"
@@ -43,7 +44,9 @@ export const loadUsersForExport = async (
   filters: UsersFilters,
 ): Promise<ExportUser[]> => {
   await requireRole(["admin"])
-  return getUsersForExport(filters)
+  const parsed = usersFiltersSchema.safeParse(filters)
+  if (!parsed.success) return []
+  return getUsersForExport(parsed.data)
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]

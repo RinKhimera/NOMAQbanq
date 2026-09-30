@@ -44,7 +44,7 @@ interface AdminDashboardClientProps {
   expiringAccess: ExpiringAccessItem[]
   recentActivity: AdminActivity[]
   dashboardTrends: DashboardTrends
-  failedPaymentsCount: number
+  failedClientsCount: number
   products: ProductView[]
   /**
    * Horloge serveur du rendu. La date du bandeau se lit dans le fuseau de
@@ -67,7 +67,7 @@ export function AdminDashboardClient({
   expiringAccess,
   recentActivity,
   dashboardTrends,
-  failedPaymentsCount,
+  failedClientsCount,
   products,
   initialNow,
 }: AdminDashboardClientProps) {
@@ -157,7 +157,7 @@ export function AdminDashboardClient({
           <QuickActions onManualPaymentClick={() => setManual(true)} />
           <AlertsPanel
             expiringAccess={expiringAccess}
-            failedPaymentsCount={failedPaymentsCount}
+            failedClientsCount={failedClientsCount}
           />
         </div>
       </div>

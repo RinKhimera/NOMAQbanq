@@ -81,12 +81,21 @@ export const grantedAccessLabel = (t: {
     .map((a) => ACCESS_TYPE_LABEL[a])
     .join(" + ")} · ${t.durationDays} jours`
 
-/** État d'un accès lu dans `user_access` (échéance passée comprise). */
+/**
+ * État d'un accès lu dans `user_access` (échéance passée comprise). Sans
+ * ligne, un paiement remboursé veut dire « retiré », pas « jamais acheté » :
+ * le registre supprime la ligne quand plus rien ne couvre l'accès.
+ */
 export const accessLine = (
   expiresAt: number | null,
   now: number,
+  refunded = false,
 ): { state: "active" | "expired" | "never"; text: string } => {
-  if (expiresAt === null) return { state: "never", text: "Jamais acheté" }
+  if (expiresAt === null)
+    return {
+      state: "never",
+      text: refunded ? "Retiré après remboursement" : "Jamais acheté",
+    }
   if (expiresAt > now)
     return {
       state: "active",

@@ -55,30 +55,28 @@ const TOUCH = "max-lg:min-h-11 pointer-coarse:min-h-11"
 
 const Timeline = ({
   file,
+  writes,
   expandedId,
   onToggle,
   onEdit,
   onDelete,
 }: {
   file: TransactionClientFile
+  writes: number
   expandedId: string | null
   onToggle: (id: string) => void
   onEdit: (t: AdminTransactionView) => void
   onDelete: (t: AdminTransactionView) => void
 }) => {
+  // Les pages plus anciennes ne repartent de zéro qu'après une écriture :
+  // recharger la liste (recherche, tranche) renvoie le même dossier.
   const [older, setOlder] = useState<{
-    base: TransactionClientFile["timeline"]
+    writes: number
     items: AdminTransactionView[]
     cursor: string | null
-  }>({ base: file.timeline, items: [], cursor: file.timeline.nextCursor })
-  // Après une écriture, le serveur renvoie une nouvelle première page : les
-  // transactions plus anciennes repartent de son curseur, pas de l'ancien.
-  if (older.base !== file.timeline)
-    setOlder({
-      base: file.timeline,
-      items: [],
-      cursor: file.timeline.nextCursor,
-    })
+  }>({ writes, items: [], cursor: file.timeline.nextCursor })
+  if (older.writes !== writes)
+    setOlder({ writes, items: [], cursor: file.timeline.nextCursor })
   const [loading, startLoading] = useTransition()
   const items = [...file.timeline.items, ...older.items]
   const remaining = file.transactionCount - items.length
@@ -201,6 +199,7 @@ const Timeline = ({
 /** Dossier d'un client : accès actuels, constat, chronologie de ses transactions. */
 export const ClientFile = ({
   file,
+  writes,
   initialNow,
   initialExpandedId,
   onBack,
@@ -209,6 +208,8 @@ export const ClientFile = ({
   onDelete,
 }: {
   file: TransactionClientFile
+  /** Écritures faites depuis la page : la chronologie repart alors de zéro. */
+  writes: number
   initialNow: number
   initialExpandedId: string | null
   onBack: () => void
@@ -256,18 +257,24 @@ export const ClientFile = ({
             {file.client.email}
           </span>
         </div>
-        <div className="flex flex-wrap gap-2 max-md:w-full max-md:*:flex-1">
-          <Button asChild variant="ghost">
-            <Link href={`/admin/utilisateurs/${file.client.id}`}>
-              <UserRound aria-hidden="true" />
-              Voir la fiche du compte
-            </Link>
-          </Button>
-          <Button type="button" variant="outline" onClick={onNewPayment}>
-            <Plus aria-hidden="true" />
-            Paiement pour ce client
-          </Button>
-        </div>
+        {file.client.deleted ? (
+          <p className="text-ink-3 text-[0.8125rem]">
+            Compte supprimé : aucun paiement ne peut plus lui être enregistré.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2 max-md:w-full max-md:*:flex-1">
+            <Button asChild variant="ghost">
+              <Link href={`/admin/utilisateurs/${file.client.id}`}>
+                <UserRound aria-hidden="true" />
+                Voir la fiche du compte
+              </Link>
+            </Button>
+            <Button type="button" variant="outline" onClick={onNewPayment}>
+              <Plus aria-hidden="true" />
+              Paiement pour ce client
+            </Button>
+          </div>
+        )}
       </div>
 
       <div
@@ -291,7 +298,11 @@ export const ClientFile = ({
 
       <div className="border-line grid grid-cols-2 rounded-md border max-md:grid-cols-1">
         {(["exam", "training"] as const).map((type, i) => {
-          const line = accessLine(file.access[type], initialNow)
+          const line = accessLine(
+            file.access[type],
+            initialNow,
+            file.refunded[type],
+          )
           return (
             <div
               key={type}
@@ -326,6 +337,7 @@ export const ClientFile = ({
 
       <Timeline
         file={file}
+        writes={writes}
         expandedId={expandedId}
         onToggle={toggle}
         onEdit={onEdit}

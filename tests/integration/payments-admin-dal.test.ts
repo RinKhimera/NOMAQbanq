@@ -212,11 +212,6 @@ describe("getTransactionStats (agrégation SQL FILTER + fenêtre 30j)", () => {
       after.revenueByCurrency.XAF.recent -
         baseline.revenueByCurrency.XAF.recent,
     ).toBe(300000)
-
-    // Compteurs (complétées uniquement), accès offert compris.
-    expect(after.totalTransactions - baseline.totalTransactions).toBe(5)
-    expect(after.stripeTransactions - baseline.stripeTransactions).toBe(1)
-    expect(after.manualTransactions - baseline.manualTransactions).toBe(4)
   })
 
   it("compte les acheteurs (montant > 0) et toutes les transactions, tous statuts", async () => {

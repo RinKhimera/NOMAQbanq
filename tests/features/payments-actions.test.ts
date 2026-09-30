@@ -29,7 +29,7 @@ const { mocks } = vi.hoisted(() => ({
     requireRole: vi.fn(async () => ({ user: { id: "admin1", role: "admin" } })),
     getMyTransactions: vi.fn(async () => ({ items: [], nextCursor: null })),
     getAllTransactions: vi.fn(async () => ({ items: [], nextCursor: null })),
-    getTransactionStats: vi.fn(async () => ({ totalTransactions: 0 })),
+    getTransactionStats: vi.fn(async () => ({ buyerCount: 0 })),
     getTransactionAccessImpact: vi.fn<() => Promise<unknown>>(async () => null),
     getAccessStatus: vi.fn<() => Promise<unknown>>(async () => null),
   },

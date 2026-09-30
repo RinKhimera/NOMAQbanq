@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { getUsersHeadline, getUsersWithFilters } from "@/features/users/dal"
+import { USERS_PAGE_SIZE } from "@/features/users/page-size"
 import { currentTimeMs } from "@/lib/clock"
 import { parseUserList, toUsersFilters } from "./_components/user-params"
 import { UsersClient } from "./_components/users-client"
@@ -27,7 +28,7 @@ export default async function UsersPage({
       ...toUsersFilters(state, now),
       sortBy: state.sort,
       sortOrder: state.order,
-      offset: (state.page - 1) * 20,
+      offset: (state.page - 1) * USERS_PAGE_SIZE,
     }),
     getUsersHeadline(),
   ])

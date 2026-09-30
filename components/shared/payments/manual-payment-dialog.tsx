@@ -856,6 +856,10 @@ const EditForm = ({
     transaction.paymentMethod ?? "interac",
   )
   const [note, setNote] = useState(transaction.notes ?? "")
+  // Un paiement en attente ou échoué garde son statut : seule la bascule
+  // complété ↔ remboursé se fait ici.
+  const statusEditable =
+    transaction.status === "completed" || transaction.status === "refunded"
   const [status, setStatus] = useState<"completed" | "refunded">(
     startRefund || transaction.status === "refunded" ? "refunded" : "completed",
   )
@@ -866,7 +870,8 @@ const EditForm = ({
   const cents = parseAmountToCents(money.amount, money.currency)
   const free = cents === 0
   const noteError = manualNoteError(note, free)
-  const refund = status === "refunded" && transaction.status !== "refunded"
+  const refund =
+    statusEditable && status === "refunded" && transaction.status !== "refunded"
   const impact = useAccessImpact(transaction.id, refund)
 
   const submit = async () => {
@@ -880,7 +885,7 @@ const EditForm = ({
         currency: money.currency,
         paymentMethod: free ? null : method,
         notes: note.trim() || undefined,
-        status,
+        status: statusEditable ? status : undefined,
       }),
     )
     setPending(false)
@@ -913,18 +918,20 @@ const EditForm = ({
         ) : (
           <MethodField value={method} onChange={setMethod} />
         )}
-        <Field label="Statut">
-          <SegmentedControl
-            label="Statut"
-            value={status}
-            options={[
-              { value: "completed", label: "Complété" },
-              { value: "refunded", label: "Remboursé" },
-            ]}
-            onValueChange={setStatus}
-            className="w-full *:flex-1"
-          />
-        </Field>
+        {statusEditable && (
+          <Field label="Statut">
+            <SegmentedControl
+              label="Statut"
+              value={status}
+              options={[
+                { value: "completed", label: "Complété" },
+                { value: "refunded", label: "Remboursé" },
+              ]}
+              onValueChange={setStatus}
+              className="w-full *:flex-1"
+            />
+          </Field>
+        )}
         {refund && (
           <AccessImpactPanel
             state={impact}

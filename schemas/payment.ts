@@ -1,15 +1,5 @@
 import * as z from "zod"
 
-export const productCodeSchema = z.enum([
-  "exam_access",
-  "training_access",
-  "exam_access_promo",
-  "training_access_promo",
-  "premium_access",
-])
-
-export type ProductCode = z.infer<typeof productCodeSchema>
-
 export const accessTypeSchema = z.enum(["exam", "training"])
 
 export type AccessType = z.infer<typeof accessTypeSchema>

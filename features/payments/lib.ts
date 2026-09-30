@@ -1,5 +1,6 @@
+import { eq } from "drizzle-orm"
 import "server-only"
-import { transactions } from "@/db/schema"
+import { transactions, user } from "@/db/schema"
 import { createId } from "@/lib/ids"
 import {
   type AppliedGrant,
@@ -43,6 +44,12 @@ export async function grantManualAccess(
 }> {
   const { userId, product } = params
   await lockUser(tx, userId)
+  // Un compte supprimé ou anonymisé ne reçoit plus d'octroi (lu sous le verrou).
+  const [target] = await tx
+    .select({ deletedAt: user.deletedAt })
+    .from(user)
+    .where(eq(user.id, userId))
+  if (target?.deletedAt) throw new Error("USER_NOT_FOUND")
   // Lu APRÈS le verrou : l'attente d'un octroi concurrent ne doit pas avancer
   // l'octroi dans le passé.
   const now = params.now ?? new Date()

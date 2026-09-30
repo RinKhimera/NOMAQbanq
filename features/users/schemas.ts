@@ -66,3 +66,15 @@ export const unbanUserSchema = z.object({
     .max(500, "Le motif ne peut pas dépasser 500 caractères")
     .optional(),
 })
+
+const calendarDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+/** Filtres de la liste des utilisateurs, reçus du client (export). */
+export const usersFiltersSchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  role: z.enum(["admin", "user"]).optional(),
+  segment: z.enum(["all", "active", "expiring", "expired", "never"]).optional(),
+  suspended: z.boolean().optional(),
+  dateFrom: calendarDay.optional(),
+  dateTo: calendarDay.optional(),
+})

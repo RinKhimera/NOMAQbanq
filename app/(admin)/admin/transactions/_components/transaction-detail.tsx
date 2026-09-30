@@ -77,7 +77,9 @@ const detailRows = (t: AdminTransactionView): [string, ReactNode][] => {
     ["Type", transactionTypeLabel(t)],
     t.type === "manual" && [
       "Enregistré par",
-      t.recordedByName ?? <Muted>un compte supprimé</Muted>,
+      // Nul pour un auteur supprimé comme pour une saisie antérieure au
+      // suivi de l'auteur : on ne sait pas lequel.
+      t.recordedByName ?? <Muted>—</Muted>,
     ],
     t.type === "stripe" &&
       t.status !== "failed" && [

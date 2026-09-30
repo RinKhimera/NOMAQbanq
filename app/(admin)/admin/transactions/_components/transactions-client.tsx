@@ -98,6 +98,8 @@ export const TransactionsClient = ({
     transaction: AdminTransactionView
   } | null>(null)
   const [deleting, setDeleting] = useState<AdminTransactionView | null>(null)
+  // Compté après chaque écriture : la chronologie repart des données fraîches.
+  const [writes, setWrites] = useState(0)
 
   const navigate = (params: URLSearchParams, mode: "push" | "replace") =>
     startTransition(() => {
@@ -140,6 +142,7 @@ export const TransactionsClient = ({
 
   const afterWrite = (message: string) => {
     toast.success(message)
+    setWrites((n) => n + 1)
     startTransition(() => router.refresh())
   }
 
@@ -261,7 +264,10 @@ export const TransactionsClient = ({
         >
           {file ? (
             <ClientFile
-              key={file.client.id}
+              // Une navigation vers une autre transaction du même client
+              // (« Voir la transaction ») remonte le dossier sur elle.
+              key={`${file.client.id}:${txId ?? ""}`}
+              writes={writes}
               file={file}
               initialNow={initialNow}
               initialExpandedId={txId}

@@ -25,7 +25,6 @@ const makeTransaction = (
   createdAt: 1700000000000,
   completedAt: 1700000000000,
   paymentMethod: null,
-  notes: null,
   product: { id: "prod_1", code: "exam_access", name: "Accès Examens" },
   ...overrides,
 })

@@ -122,6 +122,10 @@ describe("accessLine", () => {
       state: "never",
       text: "Jamais acheté",
     })
+    expect(accessLine(null, NOW, true)).toEqual({
+      state: "never",
+      text: "Retiré après remboursement",
+    })
   })
 })
 

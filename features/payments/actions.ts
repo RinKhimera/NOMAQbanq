@@ -232,6 +232,14 @@ export const updateManualTransaction = async (
 
       const statusChange =
         data.status && data.status !== transaction.status ? data.status : null
+      // Seul un paiement complété ou remboursé bascule de l'un à l'autre : un
+      // paiement en attente ou échoué ne se complète pas par une modification.
+      if (
+        statusChange &&
+        transaction.status !== "completed" &&
+        transaction.status !== "refunded"
+      )
+        throw new Error("TX_STATUS_LOCKED")
       await tx
         .update(transactions)
         .set({
@@ -265,6 +273,12 @@ export const updateManualTransaction = async (
       return {
         success: false,
         error: "Seules les transactions manuelles peuvent être modifiées",
+      }
+    }
+    if (error instanceof Error && error.message === "TX_STATUS_LOCKED") {
+      return {
+        success: false,
+        error: "Seul un paiement complété ou remboursé change de statut",
       }
     }
     captureServerError("[updateManualTransaction]", error, {

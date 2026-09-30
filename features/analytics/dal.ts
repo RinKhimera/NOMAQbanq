@@ -2,7 +2,6 @@ import {
   and,
   desc,
   eq,
-  gt,
   inArray,
   isNotNull,
   isNull,
@@ -252,29 +251,6 @@ export const getDashboardTrends = async (): Promise<DashboardTrends> => {
     recentUsersCount,
     recentParticipationsCount,
   }
-}
-
-// ============================================
-// Paiements échoués récents (alerte dashboard)
-// ============================================
-
-/** [Admin] Nombre de transactions échouées des 7 derniers jours. Remplace
- * `analytics.getFailedPaymentsCount`. */
-export const getFailedPaymentsCount = async (): Promise<number> => {
-  await requireRole(["admin"])
-
-  const sevenDaysAgo = new Date(Date.now() - 7 * DAY_MS)
-  const [row] = await db
-    .select({ n: sql<number>`count(*)`.mapWith(Number) })
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.status, "failed"),
-        gt(transactions.createdAt, sevenDaysAgo),
-      ),
-    )
-
-  return row?.n ?? 0
 }
 
 // ============================================

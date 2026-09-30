@@ -53,17 +53,17 @@ const AlertRow = ({
   </Link>
 )
 
-/** Alertes : accès qui expirent sous 7 jours, paiements échoués. */
+/** Alertes : accès qui expirent sous 7 jours, clients dont la dernière tentative a échoué (le filtre Échec). */
 export function AlertsPanel({
   expiringAccess,
-  failedPaymentsCount,
+  failedClientsCount,
 }: {
   expiringAccess: ExpiringAccess[]
-  failedPaymentsCount: number
+  failedClientsCount: number
 }) {
   const exam = expiringAccess.filter((a) => a.accessType === "exam")
   const training = expiringAccess.filter((a) => a.accessType === "training")
-  const none = expiringAccess.length === 0 && failedPaymentsCount === 0
+  const none = expiringAccess.length === 0 && failedClientsCount === 0
 
   return (
     <DashboardPanel eyebrow="Suivi" title="Alertes">
@@ -97,13 +97,13 @@ export function AlertsPanel({
               href="/admin/utilisateurs?segment=bientot"
             />
           )}
-          {failedPaymentsCount > 0 && (
+          {failedClientsCount > 0 && (
             <AlertRow
               tone="danger"
               icon={CircleAlert}
               title="Paiements échoués"
-              description={`${failedPaymentsCount} paiement${failedPaymentsCount > 1 ? "s" : ""} ces 7 derniers jours`}
-              count={failedPaymentsCount}
+              description={`${failedClientsCount} client${failedClientsCount > 1 ? "s" : ""} dont la dernière tentative a échoué`}
+              count={failedClientsCount}
               href="/admin/transactions?filtre=echec"
             />
           )}

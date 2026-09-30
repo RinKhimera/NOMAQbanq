@@ -1,40 +1,14 @@
 import { describe, expect, it } from "vitest"
-import { productCode } from "@/db/schema/enums"
 import {
   accessTypeSchema,
   manualNoteError,
   paymentMethodLabel,
   paymentMethodSchema,
-  productCodeSchema,
   transactionStatusSchema,
   transactionTypeSchema,
 } from "@/schemas/payment"
 
 describe("Payment Schema", () => {
-  describe("productCodeSchema", () => {
-    it("accepte chaque code produit de la base, combo compris", () => {
-      expect([...productCodeSchema.options].sort()).toEqual(
-        [...productCode.enumValues].sort(),
-      )
-    })
-
-    it("valide les codes de produits valides", () => {
-      expect(productCodeSchema.safeParse("exam_access").success).toBe(true)
-      expect(productCodeSchema.safeParse("training_access").success).toBe(true)
-      expect(productCodeSchema.safeParse("exam_access_promo").success).toBe(
-        true,
-      )
-      expect(productCodeSchema.safeParse("training_access_promo").success).toBe(
-        true,
-      )
-    })
-
-    it("rejette les codes invalides", () => {
-      expect(productCodeSchema.safeParse("invalid").success).toBe(false)
-      expect(productCodeSchema.safeParse("").success).toBe(false)
-    })
-  })
-
   describe("accessTypeSchema", () => {
     it("valide les types d'accès valides", () => {
       expect(accessTypeSchema.safeParse("exam").success).toBe(true)

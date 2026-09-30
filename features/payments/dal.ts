@@ -215,7 +215,6 @@ export type MyTransactionView = {
   /** Epoch ms ou null tant que non complétée. */
   completedAt: number | null
   paymentMethod: string | null
-  notes: string | null
   product: { id: string; code: string; name: string } | null
 }
 
@@ -295,7 +294,6 @@ export const getMyTransactions = async ({
       createdAt: transactions.createdAt,
       completedAt: transactions.completedAt,
       paymentMethod: transactions.paymentMethod,
-      notes: transactions.notes,
       productId: products.id,
       productCode: products.code,
       productName: products.name,
@@ -349,7 +347,6 @@ export const getMyTransactions = async ({
     createdAt: r.createdAt.getTime(),
     completedAt: r.completedAt ? r.completedAt.getTime() : null,
     paymentMethod: r.paymentMethod,
-    notes: r.notes,
     product: r.productId
       ? { id: r.productId, code: r.productCode!, name: r.productName! }
       : null,
@@ -581,7 +578,6 @@ export type TransactionClientRow = {
   lastStatus: TxStatus
   /** Au moins un litige encore ouvert. */
   openDispute: boolean
-  hasCompleted: boolean
 }
 
 export type TransactionClientsPage = {
@@ -601,13 +597,19 @@ const openDisputeSql = sql`(t.dispute_status is not null and t.dispute_status no
   sql`, `,
 )}))`
 
-// Un client = un acheteur ayant au moins une transaction. La ligne de sa
-// dernière transaction (`distinct on`) donne le statut affiché et le filtre
-// Échec ; le reste est agrégé en une passe.
+// Instant de ce qui est arrivé à une transaction : remboursement, sinon
+// aboutissement, sinon création. Un paiement abouti après une tentative créée
+// plus tard est bien le dernier événement du client.
+const eventAtSql = sql`coalesce(t.refunded_at, t.completed_at, t.created_at)`
+
+// Un client = un acheteur ayant au moins une transaction. Sa transaction au
+// dernier événement (`distinct on`) donne le statut affiché et le filtre
+// Échec ; le reste est agrégé en une passe. La dernière ACTIVITÉ (tri,
+// curseur) reste la dernière création.
 const clientsCte = sql`
   clients as (
     select a.user_id, a.last_at, a.n, a.open_dispute, a.has_dispute,
-           a.has_manual, a.has_completed, l.status as last_status,
+           a.has_manual, l.status as last_status,
            u.name, u.email, u.image
       from (
         select t.user_id,
@@ -615,15 +617,14 @@ const clientsCte = sql`
                count(*)::int as n,
                bool_or(${openDisputeSql}) as open_dispute,
                bool_or(t.dispute_status is not null) as has_dispute,
-               bool_or(t.type = 'manual') as has_manual,
-               bool_or(t.status = 'completed') as has_completed
+               bool_or(t.type = 'manual') as has_manual
           from transactions t
          group by t.user_id
       ) a
       join (
         select distinct on (t.user_id) t.user_id, t.status
           from transactions t
-         order by t.user_id, t.created_at desc, t.id desc
+         order by t.user_id, ${eventAtSql} desc, t.id desc
       ) l on l.user_id = a.user_id
       join "user" u on u.id = a.user_id
   )`
@@ -646,7 +647,6 @@ type ClientSqlRow = {
   last_at: Date | string
   n: number
   open_dispute: boolean
-  has_completed: boolean
   last_status: TxStatus
   name: string
   email: string
@@ -663,7 +663,6 @@ const toClientRow = (r: ClientSqlRow): TransactionClientRow => ({
   transactionCount: Number(r.n),
   lastStatus: r.last_status,
   openDispute: r.open_dispute,
-  hasCompleted: r.has_completed,
 })
 
 /**
@@ -776,6 +775,19 @@ export const getTransactionClients = async ({
   }
 }
 
+/**
+ * [Admin] Clients dont la dernière transaction a échoué : le compteur de
+ * l'alerte du tableau de bord, qui mène au filtre Échec de la même définition.
+ */
+export const getFailedClientsCount = async (): Promise<number> => {
+  await requireRole(["admin"])
+  const res = await db.execute<{ n: number }>(sql`
+    with ${clientsCte}
+    select count(*) filter (where c.last_status = 'failed')::int as n
+      from clients c`)
+  return Number(res.rows[0]?.n ?? 0)
+}
+
 // ============================================
 // [Admin] Dossier d'un client
 // ============================================
@@ -787,7 +799,7 @@ export type ClientVerdict =
       /** Échecs consécutifs depuis la dernière tentative non échouée. */
       failedStreak: number
       lastFailedAt: number
-      /** Au moins un paiement abouti (complété ou remboursé depuis). */
+      /** Au moins un paiement d'un montant > 0 abouti (complété ou remboursé depuis). */
       everPaid: boolean
     }
   | { kind: "refunded"; refundedAt: number }
@@ -795,9 +807,18 @@ export type ClientVerdict =
   | { kind: "pending"; createdAt: number }
 
 export type TransactionClientFile = {
-  client: { id: string; name: string; email: string; image: string | null }
-  /** Epoch ms de `user_access.expires_at`, passé compris ; null = jamais acheté. */
+  client: {
+    id: string
+    name: string
+    email: string
+    image: string | null
+    /** Compte supprimé ou anonymisé : plus aucun octroi possible. */
+    deleted: boolean
+  }
+  /** Epoch ms de `user_access.expires_at`, passé compris ; null = aucune ligne. */
   access: { exam: number | null; training: number | null }
+  /** Sans ligne d'accès mais avec un paiement remboursé : accès retiré, pas « jamais acheté ». */
+  refunded: { exam: boolean; training: boolean }
   verdict: ClientVerdict
   transactionCount: number
   timeline: AdminTransactionsPage
@@ -807,6 +828,9 @@ type FileSqlRow = {
   name: string
   email: string
   image: string | null
+  deleted: boolean
+  refunded_exam: boolean
+  refunded_training: boolean
   n: number
   open_dispute: boolean
   ever_paid: boolean
@@ -862,24 +886,29 @@ export const getTransactionClientFile = async (
   const [summaryResult, accessRows] = await Promise.all([
     db.execute<FileSqlRow>(sql`
       with mine as (
-        select t.*, row_number() over (order by t.created_at desc, t.id desc)::int as rn
+        select t.*, p.is_combo,
+               row_number() over (order by t.created_at desc, t.id desc)::int as rn,
+               row_number() over (order by ${eventAtSql} desc, t.id desc)::int as ev
           from transactions t
+          left join products p on p.id = t.product_id
          where t.user_id = ${userId}
       )
-      select u.name, u.email, u.image,
+      select u.name, u.email, u.image, u.deleted_at is not null as deleted,
              (select count(*)::int from mine) as n,
              (select coalesce(bool_or(${openDisputeSql}), false) from mine t) as open_dispute,
-             (select coalesce(bool_or(t.status in ('completed', 'refunded')), false) from mine t) as ever_paid,
+             (select coalesce(bool_or(t.status in ('completed', 'refunded') and t.amount_paid > 0), false) from mine t) as ever_paid,
+             (select coalesce(bool_or(t.status = 'refunded' and (t.access_type = 'exam' or t.is_combo)), false) from mine t) as refunded_exam,
+             (select coalesce(bool_or(t.status = 'refunded' and (t.access_type = 'training' or t.is_combo)), false) from mine t) as refunded_training,
              l.status as last_status, l.type as last_type,
              l.created_at as last_created, l.completed_at as last_completed,
              l.refunded_at as last_refunded,
              (select count(*)::int from mine f
                where f.status = 'failed'
-                 and f.rn < coalesce((select min(o.rn) from mine o where o.status <> 'failed'), 2147483647)
+                 and f.ev < coalesce((select min(o.ev) from mine o where o.status <> 'failed'), 2147483647)
              ) as failed_streak,
              (select m.rn from mine m where m.id = ${throughTransactionId ?? ""}) as through_rank
         from "user" u
-        join mine l on l.rn = 1
+        join mine l on l.ev = 1
        where u.id = ${userId}`),
     db
       .select({
@@ -908,8 +937,15 @@ export const getTransactionClientFile = async (
     accessRows.find((r) => r.accessType === type)?.expiresAt.getTime() ?? null
 
   return {
-    client: { id: userId, name: s.name, email: s.email, image: s.image },
+    client: {
+      id: userId,
+      name: s.name,
+      email: s.email,
+      image: s.image,
+      deleted: s.deleted,
+    },
     access: { exam: expiry("exam"), training: expiry("training") },
+    refunded: { exam: s.refunded_exam, training: s.refunded_training },
     verdict: verdictOf(s),
     transactionCount: Number(s.n),
     timeline,
@@ -925,10 +961,6 @@ export type TransactionStatsView = {
     CAD: { total: number; recent: number }
     XAF: { total: number; recent: number }
   }
-  totalTransactions: number
-  recentTransactions: number
-  stripeTransactions: number
-  manualTransactions: number
   /** Comptes avec au moins une transaction complétée d'un montant > 0. */
   buyerCount: number
   /** Toutes les transactions, tous statuts. */
@@ -958,19 +990,6 @@ export const getTransactionStats = async (): Promise<TransactionStatsView> => {
           sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.completedAt} > ${thirtyDaysAgo}), 0)`.mapWith(
             Number,
           ),
-        count: sql<number>`count(*)`.mapWith(Number),
-        recentCount:
-          sql<number>`count(*) filter (where ${transactions.completedAt} > ${thirtyDaysAgo})`.mapWith(
-            Number,
-          ),
-        stripeCount:
-          sql<number>`count(*) filter (where ${transactions.type} = 'stripe')`.mapWith(
-            Number,
-          ),
-        manualCount:
-          sql<number>`count(*) filter (where ${transactions.type} = 'manual')`.mapWith(
-            Number,
-          ),
       })
       .from(transactions)
       .where(eq(transactions.status, "completed"))
@@ -990,25 +1009,12 @@ export const getTransactionStats = async (): Promise<TransactionStatsView> => {
     CAD: { total: 0, recent: 0 },
     XAF: { total: 0, recent: 0 },
   }
-  let totalTransactions = 0
-  let recentTransactions = 0
-  let stripeTransactions = 0
-  let manualTransactions = 0
-
   for (const r of rows) {
     revenueByCurrency[r.currency] = { total: r.total, recent: r.recent }
-    totalTransactions += r.count
-    recentTransactions += r.recentCount
-    stripeTransactions += r.stripeCount
-    manualTransactions += r.manualCount
   }
 
   return {
     revenueByCurrency,
-    totalTransactions,
-    recentTransactions,
-    stripeTransactions,
-    manualTransactions,
     buyerCount: overall?.buyers ?? 0,
     transactionCount: overall?.all ?? 0,
   }

@@ -4,6 +4,7 @@ import { db } from "@/db"
 import { products, transactions, user, userAccess } from "@/db/schema"
 import {
   type TransactionClientsPage,
+  getFailedClientsCount,
   getTransactionClientFile,
   getTransactionClients,
 } from "@/features/payments/dal"
@@ -172,7 +173,6 @@ describe("getTransactionClients — tranches de 20 en keyset", () => {
     const only = page.items[0]
     expect(only.lastStatus).toBe("failed")
     expect(only.transactionCount).toBe(2)
-    expect(only.hasCompleted).toBe(false)
   })
 
   it("filtre Litige : au moins un litige, quel qu'en soit l'état", async () => {
@@ -193,6 +193,8 @@ describe("getTransactionClients — tranches de 20 en keyset", () => {
     expect(page.counts.failed - baseline.failed).toBe(2)
     expect(page.counts.dispute - baseline.dispute).toBe(2)
     expect(page.counts.manual - baseline.manual).toBe(1)
+    // L'alerte du tableau de bord compte comme le filtre Échec.
+    expect(await getFailedClientsCount()).toBe(page.counts.failed)
   })
 })
 
@@ -233,5 +235,87 @@ describe("getTransactionClientFile — dossier d'un client", () => {
 
   it("client inconnu → null", async () => {
     expect(await getTransactionClientFile(createId())).toBeNull()
+  })
+})
+
+// Clients isolés par un second jeton : ni échec, ni litige, ni manuel, pour
+// laisser intacts les compteurs et la pagination des suites ci-dessus.
+describe("getTransactionClientFile — constats et lien direct", () => {
+  const token = createId().slice(0, 8)
+  const lateSuccess = { id: createId(), name: `Tard ${token}` }
+  const pendingMany = { id: createId(), name: `Attente ${token}` }
+  const refundedOnly = { id: createId(), name: `Rembourse ${token}` }
+  const seeded = [lateSuccess, pendingMany, refundedOnly]
+  const HOUR = 60 * MINUTE
+  const base = NOW - 10 * DAY
+  const manyIds = Array.from({ length: 12 }, () => createId())
+
+  beforeAll(async () => {
+    await db.insert(user).values(
+      seeded.map((u) => ({
+        ...u,
+        email: `${u.name.toLowerCase().replace(" ", "-")}@test.invalid`,
+      })),
+    )
+    await db.insert(transactions).values([
+      // S1 créé à 10 h, payé à 10 h 10 ; S2 créé à 10 h 05, abandonné.
+      tx(lateSuccess.id, new Date(base), {
+        completedAt: new Date(base + 10 * MINUTE),
+      }),
+      tx(lateSuccess.id, new Date(base + 5 * MINUTE), { status: "failed" }),
+      // 11 paiements aboutis puis un checkout en cours, le plus récent.
+      ...manyIds.map((id, k) =>
+        tx(pendingMany.id, new Date(base + (k + 1) * HOUR), {
+          id,
+          ...(k === 11 ? { status: "pending" as const } : {}),
+        }),
+      ),
+      tx(refundedOnly.id, new Date(base), {
+        status: "refunded",
+        completedAt: new Date(base),
+        refundedAt: new Date(base + DAY),
+      }),
+    ])
+  })
+
+  afterAll(async () => {
+    const ids = seeded.map((u) => u.id)
+    await db.delete(transactions).where(inArray(transactions.userId, ids))
+    await db.delete(user).where(inArray(user.id, ids))
+  })
+
+  it("un paiement abouti après une tentative créée plus tard reste le dernier événement", async () => {
+    const file = await getTransactionClientFile(lateSuccess.id)
+    expect(file?.verdict).toMatchObject({ kind: "completed", manual: false })
+    const page = await getTransactionClients({ q: token, filter: "failed" })
+    expect(page.items).toEqual([])
+    const all = await getTransactionClients({ q: `Tard ${token}` })
+    expect(all.items[0]?.lastStatus).toBe("completed")
+  })
+
+  it("dernier paiement en attente : constat « en attente »", async () => {
+    const file = await getTransactionClientFile(pendingMany.id)
+    expect(file?.verdict.kind).toBe("pending")
+    expect(file?.timeline.items).toHaveLength(8)
+  })
+
+  it("lien direct vers la 10ᵉ transaction : la chronologie s'étend jusqu'à elle", async () => {
+    // Rang 10 depuis la plus récente = le 3ᵉ paiement créé.
+    const file = await getTransactionClientFile(pendingMany.id, {
+      throughTransactionId: manyIds[2],
+    })
+    expect(file?.timeline.items.map((t) => t.id)).toContain(manyIds[2])
+    expect(file?.timeline.items).toHaveLength(12)
+  })
+
+  it("seul paiement remboursé : constat daté, accès retiré et non « jamais acheté »", async () => {
+    const file = await getTransactionClientFile(refundedOnly.id)
+    expect(file?.verdict).toEqual({
+      kind: "refunded",
+      refundedAt: base + DAY,
+    })
+    expect(file?.access.exam).toBeNull()
+    expect(file?.refunded).toEqual({ exam: true, training: false })
+    expect(file?.client.deleted).toBe(false)
   })
 })

@@ -160,7 +160,6 @@ describe("AbonnementsClient", () => {
       createdAt: Date.now() - k * DAY,
       completedAt: Date.now() - k * DAY,
       paymentMethod: null,
-      notes: null,
       product: { id: "p", code: "exam_access", name: "Accès Examens" },
     })
     renderPage(undefined, undefined, {

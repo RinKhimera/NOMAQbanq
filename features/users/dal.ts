@@ -33,6 +33,7 @@ import {
 } from "@/db/schema"
 import type { AccessType } from "@/features/payments/access-ledger"
 import { describeUserAgent } from "@/features/users/lib/user-agent"
+import { USERS_PAGE_SIZE } from "@/features/users/page-size"
 import { startOfAppZoneDay, startOfNextAppZoneDay } from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
@@ -206,9 +207,6 @@ export const searchSelectableUsers = async ({
 // ============================================
 // [Admin] Liste utilisateurs (segments d'accès + filtres + tri + pagination)
 // ============================================
-
-/** Lignes par page de la liste des utilisateurs. */
-export const USERS_PAGE_SIZE = 20
 
 export type UserSegment = "all" | "active" | "expiring" | "expired" | "never"
 
@@ -504,6 +502,8 @@ export type UserFile = {
   }
   /** Epoch ms de `user_access.expires_at`, passé compris ; null = jamais eu. */
   access: { exam: number | null; training: number | null }
+  /** Sans ligne d'accès mais avec un paiement remboursé : accès retiré, pas « jamais eu ». */
+  refunded: { exam: boolean; training: boolean }
   /** Type du paiement qui porte chaque accès (Stripe se rembourse dans Stripe). */
   accessPaidBy: {
     exam: "stripe" | "manual" | null
@@ -625,8 +625,11 @@ export const getUserFile = async (userId: string): Promise<UserFile | null> => {
           sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.status} = 'completed' and ${transactions.currency} = 'XAF'), 0)`.mapWith(
             Number,
           ),
+        refundedExam: sql<boolean>`coalesce(bool_or(${transactions.status} = 'refunded' and (${transactions.accessType} = 'exam' or ${products.isCombo})), false)`,
+        refundedTraining: sql<boolean>`coalesce(bool_or(${transactions.status} = 'refunded' and (${transactions.accessType} = 'training' or ${products.isCombo})), false)`,
       })
       .from(transactions)
+      .leftJoin(products, eq(products.id, transactions.productId))
       .where(eq(transactions.userId, userId)),
     db
       .select({
@@ -650,6 +653,8 @@ export const getUserFile = async (userId: string): Promise<UserFile | null> => {
         status: examParticipations.status,
         score: examParticipations.score,
         examEndsAt: exams.endDate,
+        // Total réel, au-delà des 200 lignes ramenées.
+        total: sql<number>`count(*) over ()`.mapWith(Number),
         at: sql<
           Date | string
         >`coalesce(${examParticipations.completedAt}, ${examParticipations.startedAt}, ${examParticipations.createdAt})`,
@@ -734,6 +739,10 @@ export const getUserFile = async (userId: string): Promise<UserFile | null> => {
       exam: accessOf("exam")?.expiresAt.getTime() ?? null,
       training: accessOf("training")?.expiresAt.getTime() ?? null,
     },
+    refunded: {
+      exam: Boolean(pay?.refundedExam),
+      training: Boolean(pay?.refundedTraining),
+    },
     accessPaidBy: {
       exam: accessOf("exam")?.paidBy ?? null,
       training: accessOf("training")?.paidBy ?? null,
@@ -765,7 +774,7 @@ export const getUserFile = async (userId: string): Promise<UserFile | null> => {
         examEndsAt: p.examEndsAt.getTime(),
         at: ms(p.at)!,
       })),
-      participationCount: participations.length,
+      participationCount: participations[0]?.total ?? 0,
       series:
         series && series.count > 0 && lastSeriesAt !== null
           ? {
@@ -930,7 +939,7 @@ export type AdminStats = {
 
 /**
  * [Admin] Compteurs globaux du dashboard admin : utilisateurs (non supprimés, par
- * rôle — cohérent avec `getUsersStats`), examens (total + actifs en fenêtre),
+ * rôle), examens (total + actifs en fenêtre),
  * participations. Remplace `users.getAdminStats` (qui chargeait jusqu'à 1000
  * users / 500 exams / 2000 participations en JS) par des `count(*)` SQL.
  */

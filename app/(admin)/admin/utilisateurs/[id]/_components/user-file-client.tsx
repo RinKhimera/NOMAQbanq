@@ -138,7 +138,9 @@ const AccessBlock = ({
             <span className="type-label">Accès {ACCESS_TYPE_LABEL[type]}</span>
             {a.state === "never" ? (
               <span className="text-ink-3 font-serif text-xl font-semibold">
-                Jamais eu
+                {file.refunded[type]
+                  ? "Retiré après remboursement"
+                  : "Jamais eu"}
               </span>
             ) : a.state === "expired" ? (
               <span className="text-ink-2 font-serif text-xl font-semibold">
@@ -303,7 +305,7 @@ const Activity = ({ file, now }: { file: UserFile; now: number }) => {
                     <div
                       key={p.id}
                       data-testid={`participation-${p.id}`}
-                      className="border-line grid grid-cols-[minmax(0,1fr)_auto_110px] items-center gap-3 border-t px-3.5 py-2.5 text-sm first:border-t-0 max-md:grid-cols-[minmax(0,1fr)_auto]"
+                      className="border-line grid grid-cols-[minmax(0,1fr)_auto_110px] items-center gap-3 border-t px-3.5 py-2.5 text-sm first:border-t-0 max-md:grid-cols-1 max-md:gap-1.5"
                     >
                       <span className="min-w-0">
                         <span className="text-ink font-medium">
@@ -316,11 +318,11 @@ const Activity = ({ file, now }: { file: UserFile; now: number }) => {
                       </span>
                       <StatusPill
                         tone={st.tone}
-                        className="max-md:col-start-1 max-md:row-start-2 max-md:justify-self-start"
+                        className="justify-self-start md:justify-self-auto"
                       >
                         {st.label}
                       </StatusPill>
-                      <span className="text-right max-md:col-start-2 max-md:row-span-2 max-md:row-start-1">
+                      <span className="text-right max-md:text-left">
                         {p.status === "in_progress" ? (
                           <Muted>—</Muted>
                         ) : (

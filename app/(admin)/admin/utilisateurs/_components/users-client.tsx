@@ -31,6 +31,7 @@ import type {
   UserSegment,
   UsersHeadline,
 } from "@/features/users/dal"
+import { USERS_PAGE_SIZE } from "@/features/users/page-size"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import { formatMediumDate } from "@/lib/format"
 import type { Tone } from "@/lib/tone"
@@ -52,8 +53,6 @@ import {
   toUsersFilters,
   withChange,
 } from "./user-params"
-
-const PAGE_SIZE = 20
 
 const SEGMENTS: { value: UserSegment; label: string }[] = [
   { value: "all", label: "Tous" },
@@ -136,7 +135,7 @@ const UserCell = ({ user }: { user: AdminUserRow }) => (
       image={user.image}
       className="size-7"
     />
-    <span className="flex min-w-0 flex-col gap-px text-[0.8125rem]">
+    <span className="flex max-w-40 min-w-0 flex-col gap-px text-[0.8125rem]">
       <span
         className={cn(
           "font-medium group-hover:underline group-hover:underline-offset-3",
@@ -483,7 +482,7 @@ export const UsersClient = ({
             </PendingRegion>
             <TablePagination
               page={state.page}
-              pageSize={PAGE_SIZE}
+              pageSize={USERS_PAGE_SIZE}
               total={page.total}
               isLoading={isPending}
               itemNoun={{ one: "utilisateur", many: "utilisateurs" }}
