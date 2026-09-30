@@ -390,7 +390,7 @@ describe("IDOR / propriété", () => {
     } as never)
     expect(await deleteTrainingSession({ sessionId: sid })).toEqual({
       success: false,
-      error: "Session introuvable",
+      error: "Série introuvable",
     })
     const [row] = await db
       .select({ id: trainingSessions.id })

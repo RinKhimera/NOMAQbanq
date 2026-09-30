@@ -109,7 +109,7 @@ describe("clôture de session : gardes de statut + expiration", () => {
       expiresAt: new Date(Date.now() - DAY),
     })
     const res = await completeTrainingSession({ sessionId: sid })
-    expect(res).toEqual({ success: false, error: "Cette session a expiré" })
+    expect(res).toEqual({ success: false, error: "Cette série a expiré" })
     expect(await statusOf(sid)).toEqual({ status: "in_progress", score: null })
 
     await closeExpiredTrainingSessions()
