@@ -4,6 +4,7 @@ import {
   getRecentActivity,
 } from "@/features/analytics/dal"
 import {
+  getAvailableProducts,
   getExpiringAccess,
   getRevenueByDay,
   getTransactionStats,
@@ -23,6 +24,7 @@ export default async function AdminDashboardPage() {
     recentActivity,
     dashboardTrends,
     failedPaymentsCount,
+    products,
   ] = await Promise.all([
     getAdminStats(),
     getQuestionStats(),
@@ -32,6 +34,7 @@ export default async function AdminDashboardPage() {
     getRecentActivity(),
     getDashboardTrends(),
     getFailedPaymentsCount(),
+    getAvailableProducts(),
   ])
 
   return (
@@ -44,6 +47,7 @@ export default async function AdminDashboardPage() {
       recentActivity={recentActivity}
       dashboardTrends={dashboardTrends}
       failedPaymentsCount={failedPaymentsCount}
+      products={products}
       initialNow={currentTimeMs()}
     />
   )

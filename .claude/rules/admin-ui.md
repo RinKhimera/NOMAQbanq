@@ -6,13 +6,18 @@ paths:
 
 # Admin UI Rules
 
-## Master-detail avec panel lateral
+## Utilisateurs et transactions : pas de panneau latéral
 
-Pattern utilise dans `/admin/utilisateurs` et `/admin/examens`. Table cliquable -> panel Sheet (420px) avec details.
-
-- URL deep linking: `?user=xxx` ou `?exam=xxx` pour partager un lien direct
-- Composants: `Sheet` de shadcn/ui, animation `motion/react`
-- **Etat derive de l'URL** : Pas de useState+useEffect. Voir `app/(admin)/admin/examens/page.tsx`.
+- **Utilisateurs** : une seule vue détaillée, la page `/admin/utilisateurs/[id]`
+  (fil d'Ariane). La liste (`?q=&role=&periode=&suspendus=1&segment=&tri=&page=`)
+  pagine par offset, 20 lignes, parce qu'elle se trie par colonne.
+- **Transactions** : « dossier client ». Liste des clients à gauche (keyset par
+  20, `?q=&filtre=&apres=|avant=`), dossier à droite (`?client=`), transaction
+  dépliée `?tx=` (posée par `history.replaceState`, sans requête serveur).
+  L'historique d'un compte vit dans son dossier, jamais dans la fiche.
+- **Etat derive de l'URL** : la page serveur lit les paramètres, l'écran client
+  les réécrit dans une transition (rechargement en place, contenu conservé).
+- Le panneau d'examen (`/admin/examens?exam=`) reste un Sheet jusqu'à #245.
 
 ## Détail d'une question : modale, pas panneau
 
@@ -23,13 +28,8 @@ Le détail d'une question s'ouvre dans `QuestionDetailModal`
 640 px, pied fixe : les actions restent visibles quelle que soit la longueur
 de la question. Un nouvel usage fournit son pied, il ne recopie pas le contenu.
 
-## Stat cards avec trends
+## Chiffres clés
 
-Pattern `users-stats-row.tsx` et `exams-stats-row.tsx`: cartes KPI avec icone, valeur, trend %, subtitle.
-
-- Couleurs : jetons sémantiques et tonalités de `lib/tone.ts` (voir `design-system.md`), jamais la palette brute
-- Toujours reserver l'espace subtitle pour hauteur uniforme
-
-## Filtres avances
-
-Pattern `users-filter-bar.tsx`: recherche debounce + Select filters + DateRange picker avec presets.
+`StatBand` (catalogue de `design-system.md`), pas de cartes à icône et
+tendance. Les rangées `AnimatedStatCard` des examens et des questions partent
+avec #245.

@@ -3,11 +3,8 @@ import {
   createCustomerPortal,
   createStripeCheckout,
   deleteManualTransaction,
-  loadAdminTransactions,
-  loadMoreMyTransactions,
+  loadClientTimeline,
   loadTransactionAccessImpact,
-  loadTransactionStats,
-  loadUserAccessStatus,
   recordManualPayment,
   updateManualTransaction,
 } from "@/features/payments/actions"
@@ -157,9 +154,31 @@ describe("recordManualPayment", () => {
   })
 
   it("succes : renvoie l'id et revalide les deux pages admin", async () => {
-    mocks.transaction.mockResolvedValueOnce("tx_abc")
+    const recordedAt = new Date("2026-09-27T15:02:00Z")
+    mocks.transaction.mockResolvedValueOnce({
+      transactionId: "tx_abc",
+      recordedAt,
+      granted: [
+        {
+          accessType: "exam",
+          expiresAt: new Date("2026-10-27T15:02:00Z"),
+          previousExpiresAt: null,
+        },
+      ],
+    })
     const res = await recordManualPayment(manualInput)
-    expect(res).toEqual({ success: true, transactionId: "tx_abc" })
+    expect(res).toEqual({
+      success: true,
+      transactionId: "tx_abc",
+      recordedAt: recordedAt.getTime(),
+      grants: [
+        {
+          accessType: "exam",
+          expiresAt: Date.parse("2026-10-27T15:02:00Z"),
+          previousExpiresAt: null,
+        },
+      ],
+    })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/transactions")
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/utilisateurs")
   })
@@ -542,23 +561,14 @@ describe("createCustomerPortal", () => {
 })
 
 describe("chargeurs de pages (garde + delegation)", () => {
-  it("loadMoreMyTransactions exige une session et passe le curseur", async () => {
-    await loadMoreMyTransactions("cur_1")
-    expect(mocks.requireSession).toHaveBeenCalled()
-    expect(mocks.getMyTransactions).toHaveBeenCalledWith({ cursor: "cur_1" })
-  })
-
-  it("loadAdminTransactions exige le role admin et passe les filtres", async () => {
-    const params = { cursor: null, type: "manual" as const }
-    await loadAdminTransactions(params)
+  it("loadClientTimeline exige le role admin et charge 20 transactions plus anciennes", async () => {
+    await loadClientTimeline("u9", "cur_1")
     expect(mocks.requireRole).toHaveBeenCalledWith(["admin"])
-    expect(mocks.getAllTransactions).toHaveBeenCalledWith(params)
-  })
-
-  it("loadTransactionStats exige le role admin", async () => {
-    await loadTransactionStats()
-    expect(mocks.requireRole).toHaveBeenCalledWith(["admin"])
-    expect(mocks.getTransactionStats).toHaveBeenCalled()
+    expect(mocks.getAllTransactions).toHaveBeenCalledWith({
+      userId: "u9",
+      cursor: "cur_1",
+      limit: 20,
+    })
   })
 
   it("loadTransactionAccessImpact exige le role admin", async () => {
@@ -568,21 +578,5 @@ describe("chargeurs de pages (garde + delegation)", () => {
     const res = await loadTransactionAccessImpact("t1")
     expect(mocks.requireRole).toHaveBeenCalledWith(["admin"])
     expect(res).toEqual({ willAffectAccess: true })
-  })
-
-  it("loadUserAccessStatus : accès inexistant → statut vide plutot que null", async () => {
-    const res = await loadUserAccessStatus("u9")
-    expect(mocks.requireRole).toHaveBeenCalledWith(["admin"])
-    expect(res).toEqual({ examAccess: null, trainingAccess: null })
-  })
-
-  it("loadUserAccessStatus : statut existant transmis tel quel", async () => {
-    const status = {
-      examAccess: { expiresAt: 1, daysRemaining: 2 },
-      trainingAccess: null,
-    }
-    mocks.getAccessStatus.mockResolvedValueOnce(status)
-    const res = await loadUserAccessStatus("u9")
-    expect(res).toEqual(status)
   })
 })

@@ -771,7 +771,7 @@ describe("comptes suspendus", () => {
       stripePriceId: `price_ban_${banned}`,
       stripePriceLookupKey: `price_ban_${banned}`,
     })
-    bannedTxId = await db.transaction((tx) =>
+    ;({ transactionId: bannedTxId } = await db.transaction((tx) =>
       grantManualAccess(tx, {
         userId: banned,
         product: {
@@ -785,7 +785,7 @@ describe("comptes suspendus", () => {
         paymentMethod: "interac",
         recordedBy: banned,
       }),
-    )
+    ))
   })
 
   afterAll(async () => {

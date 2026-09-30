@@ -1,7 +1,12 @@
 import "server-only"
 import { transactions } from "@/db/schema"
 import { createId } from "@/lib/ids"
-import { type Tx, applyGrant, lockUser } from "./access-ledger"
+import {
+  type AppliedGrant,
+  type Tx,
+  applyGrant,
+  lockUser,
+} from "./access-ledger"
 
 export type ProductForGrant = {
   id: string
@@ -14,7 +19,8 @@ export type ProductForGrant = {
  * Paiement manuel : sous verrou `user FOR UPDATE`, insère la transaction
  * `completed` puis confie l'octroi à `applyGrant` (`access-ledger.ts`), qui
  * réécrit `accessExpiresAt` avec le snapshot du cumul. À appeler DANS
- * `db.transaction`. Retourne l'id de la transaction insérée.
+ * `db.transaction`. Retourne l'id de la transaction insérée et l'octroi du
+ * registre (expiration écrite et échéance remplacée, par type d'accès).
  */
 export async function grantManualAccess(
   tx: Tx,
@@ -23,13 +29,18 @@ export async function grantManualAccess(
     product: ProductForGrant
     amountPaid: number
     currency: "CAD" | "XAF"
-    paymentMethod: string
+    /** Nul pour un accès offert (montant nul). */
+    paymentMethod: string | null
     notes?: string | null
     recordedBy: string
     /** Instant de l'octroi (défaut : maintenant) ; injectable par les tests. */
     now?: Date
   },
-): Promise<string> {
+): Promise<{
+  transactionId: string
+  granted: AppliedGrant[]
+  recordedAt: Date
+}> {
   const { userId, product } = params
   await lockUser(tx, userId)
   // Lu APRÈS le verrou : l'attente d'un octroi concurrent ne doit pas avancer
@@ -57,7 +68,7 @@ export async function grantManualAccess(
     completedAt: now,
   })
 
-  await applyGrant(tx, {
+  const granted = await applyGrant(tx, {
     userId,
     product,
     durationDays: product.durationDays,
@@ -65,5 +76,5 @@ export async function grantManualAccess(
     now,
   })
 
-  return transactionId
+  return { transactionId, granted, recordedAt: now }
 }

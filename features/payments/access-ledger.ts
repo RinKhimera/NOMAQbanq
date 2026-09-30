@@ -39,6 +39,9 @@ export type GrantedAccess = {
   expiresAt: Date
 }
 
+/** Un octroi, avec l'échéance qu'il remplace (passée comprise ; null = aucune ligne). */
+export type AppliedGrant = GrantedAccess & { previousExpiresAt: Date | null }
+
 /** Ce que la reconstruction ferait d'un type d'accès, sans rien écrire. */
 export type AccessRebuildPlan = {
   accessType: AccessType
@@ -141,7 +144,7 @@ export async function applyGrant(
     transactionId: string
     now: Date
   },
-): Promise<GrantedAccess[]> {
+): Promise<AppliedGrant[]> {
   const { userId, product, durationDays, transactionId, now } = params
   await lockUser(tx, userId)
 
@@ -175,7 +178,7 @@ export async function applyGrant(
     .returning({ id: transactions.id })
   if (stamped.length === 0) throw new Error("TRANSACTION_NOT_COMPLETED")
 
-  const granted: GrantedAccess[] = []
+  const granted: AppliedGrant[] = []
   for (const accessType of types) {
     const existing = existingByType.get(accessType) ?? null
     const expiresAt = new Date(
@@ -188,7 +191,7 @@ export async function applyGrant(
       transactionId,
       existingExpiresAt: existing,
     })
-    granted.push({ accessType, expiresAt })
+    granted.push({ accessType, expiresAt, previousExpiresAt: existing })
   }
   return granted
 }

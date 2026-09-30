@@ -6,27 +6,31 @@ export class AdminUsersPage extends BasePage {
     super(page)
   }
 
-  async goto() {
-    await super.goto("/admin/utilisateurs")
+  async goto(query = "") {
+    await super.goto(`/admin/utilisateurs${query}`)
   }
 
   async waitForReady() {
-    await expect(this.page.getByText("Gestion des utilisateurs")).toBeVisible({
-      timeout: 15_000,
-    })
+    await expect(
+      this.page.getByRole("heading", { name: "Utilisateurs", level: 1 }),
+    ).toBeVisible({ timeout: 15_000 })
+  }
+
+  get search() {
+    return this.page.getByPlaceholder(/Retrouver un compte/)
   }
 
   async searchUser(query: string) {
-    const searchInput = this.page.getByPlaceholder(/Rechercher/)
-    await searchInput.fill(query)
-    // Wait for debounce (300ms)
-    await this.page.waitForTimeout(500)
+    await this.search.fill(query)
+    await expect(this.page).toHaveURL(new RegExp(`q=${query}`))
   }
 
-  async selectRoleFilter(role: string) {
-    const main = this.page.locator("main")
-    const roleSelect = main.getByText(/Tous les rôles|Étudiants|Admin/i).first()
-    await roleSelect.click()
-    await this.page.getByText(role, { exact: true }).click()
+  /** Ouvre la fiche du premier compte de la liste (grand écran). */
+  async openFirstUser() {
+    await this.page
+      .locator("main table a[href^='/admin/utilisateurs/']")
+      .first()
+      .click()
+    await expect(this.page).toHaveURL(/\/admin\/utilisateurs\/[^/?]+$/)
   }
 }

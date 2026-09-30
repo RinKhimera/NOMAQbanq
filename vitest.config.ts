@@ -79,23 +79,15 @@ export default defineConfig({
         "components/shared/legal-*.tsx",
         // SEO (generation triviale)
         "components/seo/**",
-        // Skeletons / Charts Recharts (wrappers)
-        "components/admin/dashboard/skeleton.tsx",
+        // Squelettes
         "components/admin/admin-list-skeleton.tsx",
         "components/quiz/session/passation-skeleton.tsx",
-        "components/admin/dashboard/domain-chart.tsx",
-        "components/admin/dashboard/domain-chart-content.tsx",
-        "components/admin/dashboard/revenue-chart.tsx",
-        "components/admin/dashboard/revenue-chart-content.tsx",
         // Upload CDN-heavy
         "components/shared/avatar-uploader.tsx",
         "components/admin/question-image-uploader.tsx",
         // Marketing (display pur)
         "components/marketing/**",
         // Modals/forms lourds
-        "components/shared/payments/manual-payment-modal.tsx",
-        "components/shared/payments/edit-transaction-modal.tsx",
-        "components/shared/payments/delete-transaction-dialog.tsx",
         "components/admin/question-form.tsx",
         "components/admin/edit-question-dialog.tsx",
         "components/admin/user-multi-select.tsx",

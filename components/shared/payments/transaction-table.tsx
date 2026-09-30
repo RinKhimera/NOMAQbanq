@@ -1,108 +1,22 @@
 "use client"
 
-import {
-  Banknote,
-  ChevronDown,
-  CircleCheckBig,
-  CircleX,
-  Clock,
-  CreditCard,
-  EllipsisVertical,
-  type LucideIcon,
-  Pencil,
-  RotateCcw,
-  Trash2,
-} from "lucide-react"
-import { motion } from "motion/react"
+import { Banknote, CreditCard, type LucideIcon } from "lucide-react"
+import type { ReactNode } from "react"
 import {
   DataTable,
   type DataTableColumn,
 } from "@/components/shared/data-table/data-table"
 import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/ui/empty-state"
-import { Spinner } from "@/components/ui/spinner"
-import type { AdminTransactionView } from "@/features/payments/dal"
+import type { MyTransactionView } from "@/features/payments/dal"
 import { formatCurrency, formatShortDate, formatTimeOnly } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { disputeBadge } from "./dispute-badge"
+import { ACCESS_TYPE_LABEL } from "./access-badge"
+import { TransactionStatusPill } from "./transaction-status"
 
-type TransactionStatus = "pending" | "completed" | "failed" | "refunded"
-type TransactionType = "stripe" | "manual"
+type TransactionType = MyTransactionView["type"]
 
-// `_id` est un champ-pont qui porte l'id Drizzle (cuid). Conservé tant que des
-// écrans non convertis (admin users/[id]) partagent ce composant.
-interface Transaction {
-  _id: string
-  type: TransactionType
-  status: TransactionStatus
-  amountPaid: number
-  currency: string
-  accessType: "exam" | "training"
-  durationDays: number
-  createdAt: number
-  completedAt?: number | null
-  paymentMethod?: string | null
-  notes?: string | null
-  disputeStatus?: string | null
-  product?: { _id: string; name: string } | null
-  user?: { _id: string; name: string; email: string } | null
-}
-
-interface TransactionTableProps {
-  transactions: Transaction[]
-  showUserColumn?: boolean
-  /** Rechargement en place (filtre, « Charger plus ») : les lignes restent. */
-  isPending?: boolean
-  onLoadMore?: () => void
-  hasMore?: boolean
-  emptyMessage?: string
-  onEditTransaction?: (transaction: Transaction) => void
-  onDeleteTransaction?: (transaction: Transaction) => void
-}
-
-export type { Transaction }
-
-// Adapte le modèle DAL admin (id Drizzle) au contrat `_id` de la table. Partagé
-// par la page transactions et la page détail utilisateur.
-export const adminTransactionToRow = (
-  tx: AdminTransactionView,
-): Transaction => ({
-  _id: tx.id,
-  type: tx.type,
-  status: tx.status,
-  amountPaid: tx.amountPaid,
-  currency: tx.currency,
-  accessType: tx.accessType,
-  durationDays: tx.durationDays,
-  createdAt: tx.createdAt,
-  completedAt: tx.completedAt,
-  paymentMethod: tx.paymentMethod,
-  notes: tx.notes,
-  disputeStatus: tx.disputeStatus,
-  product: tx.product ? { _id: tx.product.id, name: tx.product.name } : null,
-  user: tx.user
-    ? { _id: tx.user.id, name: tx.user.name, email: tx.user.email }
-    : null,
-})
-
-const statusConfig: Record<
-  TransactionStatus,
-  { label: string; icon: LucideIcon; tone: StatusTone }
-> = {
-  completed: { label: "Complété", icon: CircleCheckBig, tone: "success" },
-  pending: { label: "En attente", icon: Clock, tone: "warning" },
-  failed: { label: "Échoué", icon: CircleX, tone: "danger" },
-  refunded: { label: "Remboursé", icon: RotateCcw, tone: "accent" },
-}
-
-const typeConfig: Record<
+const TYPE: Record<
   TransactionType,
   { label: string; icon: LucideIcon; tone: StatusTone }
 > = {
@@ -110,237 +24,99 @@ const typeConfig: Record<
   manual: { label: "Manuel", icon: Banknote, tone: "neutral" },
 }
 
-const disputeTone = {
-  danger: "danger",
-  success: "success",
-  muted: "neutral",
-} as const satisfies Record<string, StatusTone>
-
-const DisputeBadge = ({ status }: { status: string | null | undefined }) => {
-  const badge = disputeBadge(status)
-  if (!badge) return null
-  return <StatusPill tone={disputeTone[badge.tone]}>{badge.label}</StatusPill>
-}
-
-const StatusBadge = ({ status }: { status: TransactionStatus }) => {
-  const { label, icon, tone } = statusConfig[status]
-  return (
-    <StatusPill tone={tone} icon={icon}>
-      {label}
-    </StatusPill>
-  )
-}
-
-const TypeBadge = ({ type }: { type: TransactionType }) => {
-  const { label, icon, tone } = typeConfig[type]
-  return (
-    <StatusPill tone={tone} icon={icon}>
-      {label}
-    </StatusPill>
-  )
-}
-
-const EmptyTransactions = ({ message }: { message: string }) => (
-  <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30">
-    <EmptyState
-      size="compact"
-      icons={[CreditCard]}
-      title={message}
-      description="Les transactions apparaîtront ici une fois effectuées"
-      className="py-16"
-    />
-  </div>
-)
-
-const ManualTransactionMenu = ({
-  transaction,
-  onEdit,
-  onDelete,
-}: {
-  transaction: Transaction
-  onEdit?: (transaction: Transaction) => void
-  onDelete?: (transaction: Transaction) => void
-}) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button type="button" variant="ghost" size="icon" className="h-8 w-8">
-        <EllipsisVertical className="h-4 w-4" />
-        <span className="sr-only">Actions</span>
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end">
-      {onEdit && (
-        <DropdownMenuItem onClick={() => onEdit(transaction)}>
-          <Pencil className="mr-2 h-4 w-4" />
-          Modifier
-        </DropdownMenuItem>
-      )}
-      {onDelete && (
-        <DropdownMenuItem
-          onClick={() => onDelete(transaction)}
-          className="text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
-        >
-          <Trash2 className="mr-2 h-4 w-4" />
-          Supprimer
-        </DropdownMenuItem>
-      )}
-    </DropdownMenuContent>
-  </DropdownMenu>
-)
-
-function transactionColumns(
-  showUserColumn: boolean,
-): DataTableColumn<Transaction>[] {
-  return [
-    {
-      id: "date",
-      label: "Date",
-      cellClassName: "font-medium",
-      cell: (transaction) => (
-        <div className="space-y-0.5">
-          <p className="text-sm text-gray-900 dark:text-white">
-            {formatShortDate(transaction.createdAt)}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {formatTimeOnly(transaction.createdAt)}
-          </p>
-        </div>
-      ),
-    },
-    {
-      id: "product",
-      label: "Produit",
-      cell: (transaction) => (
-        <div className="space-y-0.5">
-          <p className="font-medium text-gray-900 dark:text-white">
-            {transaction.product?.name || "Produit inconnu"}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            {transaction.durationDays} jours ·{" "}
-            {transaction.accessType === "exam" ? "Examens" : "Entraînement"}
-          </p>
-        </div>
-      ),
-    },
-    ...(showUserColumn
-      ? [
-          {
-            id: "user",
-            label: "Utilisateur",
-            visibleFrom: "medium",
-            cell: (transaction) => (
-              <div className="space-y-0.5">
-                <p className="font-medium text-gray-900 dark:text-white">
-                  {transaction.user?.name || "Utilisateur"}
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {transaction.user?.email}
-                </p>
-              </div>
-            ),
-          } satisfies DataTableColumn<Transaction>,
-        ]
-      : []),
-    {
-      id: "type",
-      label: "Type",
-      visibleFrom: "medium",
-      cell: (transaction) => <TypeBadge type={transaction.type} />,
-    },
-    {
-      id: "status",
-      label: "Statut",
-      cell: (transaction) => (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <StatusBadge status={transaction.status} />
-          <DisputeBadge status={transaction.disputeStatus} />
-        </div>
-      ),
-    },
-    {
-      id: "amount",
-      label: "Montant",
-      className: "text-right",
-      cell: (transaction) => (
-        <span
-          className={cn(
-            "text-lg font-bold",
-            transaction.status === "completed"
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-gray-900 dark:text-white",
-          )}
-        >
-          {formatCurrency(transaction.amountPaid, transaction.currency)}
+const columns: DataTableColumn<MyTransactionView>[] = [
+  {
+    id: "date",
+    label: "Date",
+    cell: (t) => (
+      <div className="flex flex-col gap-0.5">
+        <span className="text-ink text-sm">{formatShortDate(t.createdAt)}</span>
+        <span className="text-ink-3 font-mono text-xs">
+          {formatTimeOnly(t.createdAt)}
         </span>
-      ),
+      </div>
+    ),
+  },
+  {
+    id: "product",
+    label: "Produit",
+    cell: (t) => (
+      <div className="flex flex-col gap-0.5">
+        <span className="text-ink font-medium">
+          {t.product?.name ?? "Produit inconnu"}
+        </span>
+        <span className="text-ink-3 text-xs">
+          {t.durationDays} jours · {ACCESS_TYPE_LABEL[t.accessType]}
+        </span>
+      </div>
+    ),
+  },
+  {
+    id: "type",
+    label: "Type",
+    visibleFrom: "medium",
+    cell: (t) => {
+      const { label, icon, tone } = TYPE[t.type]
+      return (
+        <StatusPill tone={tone} icon={icon}>
+          {label}
+        </StatusPill>
+      )
     },
-  ]
-}
+  },
+  {
+    id: "status",
+    label: "Statut",
+    cell: (t) => <TransactionStatusPill status={t.status} />,
+  },
+  {
+    id: "amount",
+    label: "Montant",
+    className: "text-right",
+    cell: (t) => (
+      <span
+        className={cn(
+          "font-mono tabular-nums",
+          t.status === "completed" ? "text-ink" : "text-ink-3",
+          t.status === "refunded" && "line-through",
+        )}
+      >
+        {formatCurrency(t.amountPaid, t.currency)}
+      </span>
+    ),
+  },
+]
 
+/** Historique des paiements de l'étudiant (page Abonnements). */
 export const TransactionTable = ({
   transactions,
-  showUserColumn = false,
   isPending = false,
-  onLoadMore,
-  hasMore = false,
   emptyMessage = "Aucune transaction trouvée",
-  onEditTransaction,
-  onDeleteTransaction,
-}: TransactionTableProps) => {
-  const hasActions = Boolean(onEditTransaction || onDeleteTransaction)
-
-  return (
-    <div className="space-y-4">
-      <DataTable
-        columns={transactionColumns(showUserColumn)}
-        rows={transactions}
-        getRowId={(transaction) => transaction._id}
-        isPending={isPending}
-        empty={<EmptyTransactions message={emptyMessage} />}
-        action={
-          hasActions
-            ? {
-                label: "Actions",
-                cell: (transaction) =>
-                  transaction.type === "manual" && (
-                    <ManualTransactionMenu
-                      transaction={transaction}
-                      onEdit={onEditTransaction}
-                      onDelete={onDeleteTransaction}
-                    />
-                  ),
-              }
-            : undefined
-        }
-      />
-
-      {hasMore && onLoadMore && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="flex justify-center pt-4"
-        >
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => onLoadMore()}
-            disabled={isPending}
-            className="rounded-xl"
-          >
-            {isPending ? (
-              <span className="flex items-center gap-2">
-                <Spinner size="sm" />
-                Chargement...
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                Charger plus
-                <ChevronDown className="h-4 w-4" />
-              </span>
-            )}
-          </Button>
-        </motion.div>
-      )}
-    </div>
-  )
-}
+  footer,
+}: {
+  transactions: MyTransactionView[]
+  /** Rechargement en place (page suivante) : les lignes restent. */
+  isPending?: boolean
+  emptyMessage?: string
+  /** Pied de liste (pagination), rendu sous le tableau. */
+  footer?: ReactNode
+}) => (
+  <div className="flex flex-col">
+    <DataTable
+      columns={columns}
+      rows={transactions}
+      getRowId={(t) => t.id}
+      isPending={isPending}
+      empty={
+        <EmptyState
+          size="compact"
+          icons={[CreditCard]}
+          title={emptyMessage}
+          description="Les transactions apparaîtront ici une fois effectuées."
+          className="py-12"
+        />
+      }
+    />
+    {transactions.length > 0 && footer}
+  </div>
+)

@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react"
 import { loadTransactionAccessImpact } from "@/features/payments/actions"
 import type { AccessImpact } from "@/features/payments/dal"
-import { affectedAccesses } from "./access-impact"
 
 export type AccessImpactState =
   | { status: "loading" }
   | { status: "failed" }
-  | { status: "ready"; affected: AccessImpact[]; loadedAt: number }
+  | { status: "ready"; impacts: AccessImpact[]; loadedAt: number }
 
 type Loaded = {
   transactionId: string
@@ -16,18 +15,18 @@ type Loaded = {
 }
 
 /**
- * Aperçu d'impact d'une transaction, chargé à l'ouverture de la modale. Tant
+ * Aperçu d'impact d'une transaction, chargé quand `enabled` passe à vrai. Tant
  * qu'il n'est pas arrivé pour CETTE transaction, l'état est `loading` : ni
  * « non affecté », ni la réponse d'une transaction ouverte juste avant.
  */
 export const useAccessImpact = (
   transactionId: string | null,
-  open: boolean,
+  enabled: boolean,
 ): AccessImpactState => {
   const [loaded, setLoaded] = useState<Loaded | null>(null)
 
   useEffect(() => {
-    if (!transactionId || !open) return
+    if (!transactionId || !enabled) return
     let current = true
     loadTransactionAccessImpact(transactionId)
       .then((impacts) => {
@@ -45,14 +44,14 @@ export const useAccessImpact = (
     return () => {
       current = false
     }
-  }, [transactionId, open])
+  }, [transactionId, enabled])
 
   if (!loaded || loaded.transactionId !== transactionId)
     return { status: "loading" }
   if (loaded.impacts === null) return { status: "failed" }
   return {
     status: "ready",
-    affected: affectedAccesses(loaded.impacts, loaded.loadedAt),
+    impacts: loaded.impacts,
     loadedAt: loaded.loadedAt,
   }
 }

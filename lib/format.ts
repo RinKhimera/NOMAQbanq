@@ -247,3 +247,12 @@ export const formatWeekdayDayMonth = (d: Date | number | string): string => {
 export const formatMonthYear = (d: Date | number | string): string => {
   return format(inAppZone(d), "MMMM yyyy", { locale: fr })
 }
+
+/** « 11 h 02 » — heure à la française, espaces insécables. */
+export const formatClockTime = (d: Date | number | string): string => {
+  return format(inAppZone(d), "H' h 'mm", { locale: fr })
+}
+
+/** « 27 sept. 2026, 11 h 02 » — horodatage d'une transaction. */
+export const formatMediumDateTime = (d: Date | number | string): string =>
+  `${formatMediumDate(d)}, ${formatClockTime(d)}`

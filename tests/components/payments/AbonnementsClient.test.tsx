@@ -7,21 +7,24 @@ import { createCustomerPortal } from "@/features/payments/actions"
 import type {
   AccessStatus,
   LapsedAccess,
+  MyTransactionView,
+  MyTransactionsPage,
   ProductView,
 } from "@/features/payments/dal"
 
 vi.mock("@/features/payments/actions", () => ({
   createCustomerPortal: vi.fn(),
-  loadMoreMyTransactions: vi.fn(),
+}))
+const push = vi.fn()
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push }),
+  usePathname: () => "/tableau-de-bord/abonnements",
 }))
 vi.mock("sonner", () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
-}))
-vi.mock("@/components/shared/payments/transaction-table", () => ({
-  TransactionTable: () => <div data-testid="transactions" />,
 }))
 
 const DAY = 24 * 60 * 60 * 1000
@@ -48,15 +51,23 @@ const catalog = [
 ]
 const active = { expiresAt: Date.now() + 40 * DAY, daysRemaining: 40 }
 
+const emptyPage: MyTransactionsPage = {
+  items: [],
+  firstIndex: 0,
+  prevCursor: null,
+  nextCursor: null,
+}
+
 const renderPage = (
   access: AccessStatus = { examAccess: active, trainingAccess: null },
   lapsed: LapsedAccess = { exam: null, training: null },
+  page: MyTransactionsPage = emptyPage,
 ) =>
   render(
     <AbonnementsClient
       accessStatus={access}
       lapsed={lapsed}
-      initialTransactions={{ items: [], nextCursor: null }}
+      transactions={page}
       products={catalog}
     />,
   )
@@ -134,5 +145,41 @@ describe("AbonnementsClient", () => {
     expect(
       screen.getByRole("link", { name: /Réactiver l'accès/ }),
     ).toHaveAttribute("href", "/tarifs")
+  })
+
+  it("historique paginé par 10 : page suivante et précédente dans l'URL", async () => {
+    const tx = (k: number): MyTransactionView => ({
+      id: `tx${k}`,
+      type: "stripe",
+      status: "completed",
+      amountPaid: 5000,
+      currency: "CAD",
+      accessType: "exam",
+      durationDays: 30,
+      accessExpiresAt: Date.now(),
+      createdAt: Date.now() - k * DAY,
+      completedAt: Date.now() - k * DAY,
+      paymentMethod: null,
+      notes: null,
+      product: { id: "p", code: "exam_access", name: "Accès Examens" },
+    })
+    renderPage(undefined, undefined, {
+      items: Array.from({ length: 10 }, (_, k) => tx(k + 10)),
+      firstIndex: 10,
+      prevCursor: "haut",
+      nextCursor: "bas",
+    })
+    expect(screen.getByText("lignes 11–20")).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole("button", { name: /Suivant/ }))
+    expect(push).toHaveBeenLastCalledWith(
+      "/tableau-de-bord/abonnements?apres=bas",
+      { scroll: false },
+    )
+    await userEvent.click(screen.getByRole("button", { name: /Précédent/ }))
+    expect(push).toHaveBeenLastCalledWith(
+      "/tableau-de-bord/abonnements?avant=haut",
+      { scroll: false },
+    )
   })
 })

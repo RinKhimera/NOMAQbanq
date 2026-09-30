@@ -1,90 +1,70 @@
 import { expect, test } from "@playwright/test"
 import { AdminTransactionsPage } from "../pages/admin-transactions.page"
 
-test.describe("Admin — Transactions", () => {
-  test.describe.configure({ mode: "serial" })
+// Lecture seule : aucune écriture sur develop (pas d'enregistrement de paiement).
+test.describe("Admin — Transactions (dossier client)", () => {
   test.setTimeout(60_000)
 
-  let transactionsPage: AdminTransactionsPage
+  let transactions: AdminTransactionsPage
 
   test.beforeEach(async ({ page }) => {
-    transactionsPage = new AdminTransactionsPage(page)
+    transactions = new AdminTransactionsPage(page)
+    await transactions.goto()
+    await transactions.waitForReady()
   })
 
-  test("la page transactions charge correctement", async ({ page }) => {
-    await transactionsPage.goto()
-    await transactionsPage.waitForReady()
-
-    // Stats section should be visible
-    const main = page.locator("main")
-    await expect(main.getByText(/Total|Revenus/).first()).toBeVisible({
-      timeout: 15_000,
-    })
+  test("ligne de chiffres, liste des clients, dossier à choisir", async ({
+    page,
+  }) => {
+    await expect(page.getByTestId("transactions-summary")).toContainText(
+      "acheteur",
+    )
+    await expect(transactions.clientList).toBeVisible()
+    await expect(page.getByText("Choisissez un client")).toBeVisible()
   })
 
-  test("le bouton paiement manuel ouvre le modal", async ({ page }) => {
-    await transactionsPage.goto()
-    await transactionsPage.waitForReady()
-    await transactionsPage.openManualPaymentModal()
+  test("ouvrir un client affiche son constat, ses accès et sa chronologie", async ({
+    page,
+  }) => {
+    await transactions.openFirstClient()
+    const file = transactions.clientFile
+    await expect(file.getByText("Accès Examens")).toBeVisible()
+    await expect(file.getByText("Accès Entraînement")).toBeVisible()
 
-    // Modal should be visible with form fields
-    const modal = page.locator("[role='dialog']")
-    await expect(modal).toBeVisible()
-
-    // Close
-    await page.keyboard.press("Escape")
+    // Déplier une transaction : le détail et l'URL suivent.
+    await file.locator("[data-testid^='timeline-'] button").first().click()
+    await expect(file.getByText("Identifiant")).toBeVisible()
+    await expect(page).toHaveURL(/tx=/)
   })
 
-  test("le modal de paiement manuel affiche les champs", async ({ page }) => {
-    await transactionsPage.goto()
-    await transactionsPage.waitForReady()
-    await transactionsPage.openManualPaymentModal()
+  test("filtre et recherche vivent dans l'URL, retour en tête de liste", async ({
+    page,
+  }) => {
+    await page.getByTestId("client-filter-failed").click()
+    await expect(page).toHaveURL(/filtre=echec/)
 
-    const modal = page.locator("[role='dialog']")
-
-    // Should have user selection, product, amount fields
+    await page.getByPlaceholder("Nom ou courriel du client").fill("zzzz-aucun")
+    await expect(page).toHaveURL(/q=zzzz-aucun/)
     await expect(
-      modal.getByText(/Utilisateur|Patient|Client/).first(),
-    ).toBeVisible({ timeout: 5_000 })
-    await expect(modal.getByText(/Produit|Offre/).first()).toBeVisible()
+      page.getByText(/Aucune transaction ne correspond à « zzzz-aucun »/),
+    ).toBeVisible({ timeout: 15_000 })
 
+    await page.getByRole("button", { name: "Effacer les filtres" }).click()
+    await expect(page).not.toHaveURL(/q=|filtre=/)
+  })
+
+  test("le dialogue de paiement manuel propose client, produit et montant", async ({
+    page,
+  }) => {
+    await transactions.openManualPaymentDialog()
+    const dialog = page.getByRole("dialog")
+    await expect(dialog.getByText("Client")).toBeVisible()
+    await expect(dialog.getByText("Produit")).toBeVisible()
+    await expect(dialog.getByLabel("Montant")).toBeVisible()
+
+    // Montant nul : accès offert, motif obligatoire.
+    await dialog.getByLabel("Montant").fill("0")
+    await expect(dialog.getByText("Motif de la gratuité")).toBeVisible()
     await page.keyboard.press("Escape")
-  })
-
-  test("les filtres de transactions fonctionnent", async ({ page }) => {
-    await transactionsPage.goto()
-    await transactionsPage.waitForReady()
-
-    const main = page.locator("main")
-
-    // Look for filter buttons (type and status)
-    const filterBtn = main
-      .getByRole("button", { name: /Tous|Stripe|Manuel|Complété|En attente/i })
-      .first()
-
-    const hasFilter = await filterBtn
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false)
-
-    if (hasFilter) {
-      await filterBtn.click()
-      await page.waitForTimeout(500)
-    }
-  })
-
-  test("la recherche de transactions fonctionne", async ({ page }) => {
-    await transactionsPage.goto()
-    await transactionsPage.waitForReady()
-
-    const searchInput = page.getByPlaceholder(/Rechercher/)
-    const hasSearch = await searchInput
-      .isVisible({ timeout: 5_000 })
-      .catch(() => false)
-
-    if (hasSearch) {
-      await searchInput.fill("test")
-      await page.waitForTimeout(500)
-      await expect(searchInput).toHaveValue("test")
-    }
   })
 })

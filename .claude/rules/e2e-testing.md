@@ -94,7 +94,12 @@ cliquable, rendu partagé `components/shared/correction.tsx`), `citation-popover
 `score-status` (`data-status="passing|failing|withheld"` sur l'en-tête),
 `btn-filter-errors`, `btn-expand-all`, `btn-collapse-all`, `results-nav-item-{i}`.
 Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-access-{titre}`
-(grille dashboard), `exam-side-panel`/`user-side-panel` (panels admin master-détail),
+(grille dashboard), `exam-side-panel` (panneau d'examen admin), `client-{userId}`,
+`client-filter-{all|failed|dispute|manual}`, `client-verdict`,
+`timeline-{transactionId}` (dossier client des transactions),
+`transactions-summary`, `segment-{all|active|expiring|expired|never}`,
+`filter-suspended`, `access-{exam|training}`, `grant-access`,
+`participation-{id}` (liste et fiche utilisateurs),
 `question-detail-modal`/`question-detail-footer` (modale de question admin),
 `explanation-input`, `reference-input-{i}`, `btn-split-reference-{i}`,
 `format-undo-banner`/`btn-format-undo`, `format-warning-explanation`,

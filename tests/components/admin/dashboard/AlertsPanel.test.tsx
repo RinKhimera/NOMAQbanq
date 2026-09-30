@@ -43,7 +43,7 @@ describe("AlertsPanel", () => {
     render(<AlertsPanel expiringAccess={[]} failedPaymentsCount={0} />)
 
     expect(screen.getByText("Tout va bien")).toBeInTheDocument()
-    expect(screen.getByText("Aucune alerte à signaler")).toBeInTheDocument()
+    expect(screen.getByText(/Aucune alerte à signaler/)).toBeInTheDocument()
   })
 
   it("affiche le titre 'Alertes' dans les deux cas", () => {
@@ -186,8 +186,8 @@ describe("AlertsPanel", () => {
     const links = container.querySelectorAll("a")
     const hrefs = Array.from(links).map((a) => a.getAttribute("href"))
 
-    expect(hrefs).toContain("/admin/utilisateurs")
-    expect(hrefs).toContain("/admin/transactions?status=failed")
+    expect(hrefs).toContain("/admin/utilisateurs?segment=bientot")
+    expect(hrefs).toContain("/admin/transactions?filtre=echec")
   })
 
   it("utilise le fallback quand le nom de l'utilisateur est null", () => {

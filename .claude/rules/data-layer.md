@@ -334,7 +334,12 @@ repose sur la **modélisation** (recommandation officielle Next), à maintenir :
   JAMAIS `token`, `password`, ni les tokens OAuth. Afficher à l'utilisateur ses
   propres appareils/méthodes de connexion est un affichage volontaire (comme
   l'activity feed). Hors ce cas, les tables `account`/`session` ne sont lues par
-  aucun DAL métier.
+  aucun DAL métier, avec UNE exception admin : la fiche d'un compte
+  (`getUserFile`) lit les `account.provider_id` distincts d'un autre
+  utilisateur (« Mot de passe », « Google ») et l'absence de ligne `account`
+  (compte importé, jamais reconnecté depuis la migration ; la liste lit la même
+  existence pour masquer la dernière connexion remplie d'office). Rien d'autre :
+  jamais `session`, adresse IP, user agent, jetons ni mot de passe d'autrui.
 - **Session brute jamais propagée au client** : `getCurrentSession`/
   `requireSession`/`requireRole` renvoient l'objet session Better Auth (qui porte
   `session.token`) — l'utiliser comme garde ou en extraire `session.user.id`/

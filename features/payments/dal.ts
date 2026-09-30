@@ -1,4 +1,5 @@
 import { and, asc, desc, eq, gt, gte, lt, ne, or, sql } from "drizzle-orm"
+import { alias } from "drizzle-orm/pg-core"
 import { cache } from "react"
 import "server-only"
 import { type Db, db } from "@/db"
@@ -11,9 +12,20 @@ import {
 } from "@/lib/app-zone"
 import { requireRole, requireSession } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
+import { env } from "@/lib/env/server"
 import { type AccessType, planRebuild } from "./access-ledger"
+import { TERMINAL_DISPUTE_STATUSES, isOpenDispute } from "./dispute"
+import {
+  CLIENT_PAGE_SIZE,
+  MY_TRANSACTIONS_PAGE_SIZE,
+  TIMELINE_FIRST,
+  TIMELINE_MORE,
+} from "./page-sizes"
 
 const DAY_MS = 24 * 60 * 60 * 1000
+
+// Échappe les métacaractères LIKE (%, _, \) : la saisie est cherchée telle quelle.
+const escapeLike = (s: string) => s.replace(/[\\%_]/g, "\\$&")
 
 export type AccessInfo = { expiresAt: number; daysRemaining: number } | null
 export type AccessStatus = {
@@ -209,7 +221,10 @@ export type MyTransactionView = {
 
 export type MyTransactionsPage = {
   items: MyTransactionView[]
-  /** Curseur opaque pour la page suivante ; `null` si terminé. */
+  /** Rang (base 0) de la première ligne dans tout l'historique. */
+  firstIndex: number
+  /** Curseurs opaques des pages voisines ; `null` au bord de la liste. */
+  prevCursor: string | null
   nextCursor: string | null
 }
 
@@ -236,44 +251,35 @@ const decodeCursor = (
 }
 
 /**
- * Historique des transactions de l'utilisateur courant. Remplace
- * `getMyTransactions`. Sémantique conservée :
- *  - filtre `userId = session` ET `status <> 'pending'` (checkouts abandonnés masqués),
- *  - jointure produit en une seule requête (pas de N+1),
- *  - ordre `createdAt DESC, id DESC`.
- * Pagination keyset (pas offset) : le curseur encode `(createdAt, id)` de la
- * dernière ligne. On lit `limit + 1` lignes pour savoir s'il reste une page.
- * Dates renvoyées en epoch ms (attendu par l'UI / les formatters).
+ * Historique des transactions de l'utilisateur courant, les plus récentes
+ * d'abord (`createdAt DESC, id DESC`), checkouts en attente masqués. Jointure
+ * produit en une requête (pas de N+1).
+ *
+ * Pagination keyset dans les deux sens : `after` reçoit le curseur du bas de
+ * la page courante (page suivante), `before` celui de son haut (page
+ * précédente, lue à rebours puis remise dans l'ordre). Le rang de la première
+ * ligne et le total viennent d'un agrégat sur le même filtre : « lignes 11–20 »
+ * sans offset. Dates en epoch ms.
  */
 export const getMyTransactions = async ({
-  cursor,
-  limit = 20,
+  after,
+  before,
+  limit = MY_TRANSACTIONS_PAGE_SIZE,
 }: {
-  cursor?: string | null
+  after?: string | null
+  before?: string | null
   limit?: number
 } = {}): Promise<MyTransactionsPage> => {
   const session = await requireSession()
   const userId = session.user.id
 
   const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100)
-  const decoded = cursor ? decodeCursor(cursor) : null
-
-  // Prédicat "après le curseur" dans l'ordre (createdAt DESC, id DESC) :
-  // createdAt < c  OU  (createdAt = c ET id < cid).
-  const afterCursor = decoded
-    ? or(
-        lt(transactions.createdAt, decoded.createdAt),
-        and(
-          eq(transactions.createdAt, decoded.createdAt),
-          lt(transactions.id, decoded.id),
-        ),
-      )
-    : undefined
-
-  const where = and(
+  const afterKey = after ? decodeCursor(after) : null
+  const beforeKey = before && !afterKey ? decodeCursor(before) : null
+  const key = sql`(${transactions.createdAt}, ${transactions.id})`
+  const mine = and(
     eq(transactions.userId, userId),
     ne(transactions.status, "pending"),
-    afterCursor,
   )
 
   const rows = await db
@@ -296,14 +302,42 @@ export const getMyTransactions = async ({
     })
     .from(transactions)
     .leftJoin(products, eq(products.id, transactions.productId))
-    .where(where)
-    .orderBy(desc(transactions.createdAt), desc(transactions.id))
-    .limit(safeLimit + 1)
+    .where(
+      and(
+        mine,
+        afterKey
+          ? sql`${key} < (${afterKey.createdAt}, ${afterKey.id})`
+          : undefined,
+        beforeKey
+          ? sql`${key} > (${beforeKey.createdAt}, ${beforeKey.id})`
+          : undefined,
+      ),
+    )
+    .orderBy(
+      ...(beforeKey
+        ? [asc(transactions.createdAt), asc(transactions.id)]
+        : [desc(transactions.createdAt), desc(transactions.id)]),
+    )
+    .limit(safeLimit)
+  if (beforeKey) rows.reverse()
 
-  const hasMore = rows.length > safeLimit
-  const pageRows = hasMore ? rows.slice(0, safeLimit) : rows
+  const first = rows[0]
+  const last = rows.at(-1)
+  const [position] = await db
+    .select({
+      total: sql<number>`count(*)`.mapWith(Number),
+      newer: first
+        ? sql<number>`count(*) filter (where ${key} > (${first.createdAt}, ${first.id}))`.mapWith(
+            Number,
+          )
+        : sql<number>`0`.mapWith(Number),
+    })
+    .from(transactions)
+    .where(mine)
+  const firstIndex = position?.newer ?? 0
+  const total = position?.total ?? 0
 
-  const items: MyTransactionView[] = pageRows.map((r) => ({
+  const items: MyTransactionView[] = rows.map((r) => ({
     id: r.id,
     type: r.type,
     status: r.status,
@@ -321,15 +355,20 @@ export const getMyTransactions = async ({
       : null,
   }))
 
-  const last = pageRows.at(-1)
-  const nextCursor =
-    hasMore && last ? encodeCursor(last.createdAt, last.id) : null
-
-  return { items, nextCursor }
+  return {
+    items,
+    firstIndex,
+    prevCursor:
+      first && firstIndex > 0 ? encodeCursor(first.createdAt, first.id) : null,
+    nextCursor:
+      last && firstIndex + rows.length < total
+        ? encodeCursor(last.createdAt, last.id)
+        : null,
+  }
 }
 
 // ============================================
-// [Admin] Toutes les transactions (pagination keyset + filtres)
+// [Admin] Transactions d'un client (pagination keyset)
 // ============================================
 
 type TxStatus = (typeof transactions.status.enumValues)[number]
@@ -341,18 +380,34 @@ export type AdminTransactionView = {
   /** En cents. */
   amountPaid: number
   currency: "CAD" | "XAF"
+  /** Unité mineure de `presentmentCurrency` ; nul hors Adaptive Pricing. */
+  presentmentAmount: number | null
+  presentmentCurrency: string | null
   accessType: "exam" | "training"
+  /** Un produit combo couvre Examens ET Entraînement. */
+  isCombo: boolean
   durationDays: number
+  /** Epoch ms : snapshot du cumul posé à l'octroi. */
+  accessExpiresAt: number
   /** Epoch ms. */
   createdAt: number
   /** Epoch ms ou null tant que non complétée. */
   completedAt: number | null
+  refundedAt: number | null
   paymentMethod: string | null
   notes: string | null
+  /** Nom de l'admin qui a saisi un paiement manuel. */
+  recordedByName: string | null
+  confirmationEmailSentAt: number | null
   /** Statut Stripe brut du litige courant, null sans litige. */
   disputeStatus: string | null
-  product: { id: string; name: string } | null
-  user: { id: string; name: string; email: string } | null
+  stripePaymentIntentId: string | null
+  stripeSessionId: string | null
+  stripeDisputeId: string | null
+  /** Lien vers le Dashboard Stripe, dans le mode de la clé active. */
+  stripeUrl: string | null
+  product: { id: string; code: string; name: string } | null
+  user: { id: string; name: string; email: string }
 }
 
 export type AdminTransactionsPage = {
@@ -360,25 +415,82 @@ export type AdminTransactionsPage = {
   nextCursor: string | null
 }
 
+// Préfixe `/test/` du Dashboard : la clé active dit dans quel mode vivent les
+// identifiants `pi_…` / `dp_…`, que leur préfixe n'encode pas.
+const stripeDashboardBase = () =>
+  /^(sk|rk)_test_/.test(env.STRIPE_SECRET_KEY ?? "")
+    ? "https://dashboard.stripe.com/test"
+    : "https://dashboard.stripe.com"
+
 /**
- * [Admin] Toutes les transactions, filtrables par type/statut/utilisateur.
- * Pagination keyset (même curseur
- * `(createdAt, id)` que `getMyTransactions`) :
- * filtres poussés en SQL (pas de filtrage post-pagination côté JS). Jointures
- * user + produit en une requête (pas de N+1). Garde admin (defense-in-depth :
- * le layout admin garde déjà, mais le DAL ne fait jamais confiance à l'appelant).
+ * Page du Dashboard qui porte l'action : le litige s'il est ouvert, sinon le
+ * paiement, sinon (tentative sans PaymentIntent) une recherche de la session.
+ */
+export const stripeDashboardUrl = (t: {
+  type: "stripe" | "manual"
+  disputeStatus: string | null
+  stripeDisputeId: string | null
+  stripePaymentIntentId: string | null
+  stripeSessionId: string | null
+}): string | null => {
+  if (t.type !== "stripe") return null
+  const base = stripeDashboardBase()
+  if (t.stripeDisputeId && isOpenDispute(t.disputeStatus))
+    return `${base}/disputes/${t.stripeDisputeId}`
+  if (t.stripePaymentIntentId)
+    return `${base}/payments/${t.stripePaymentIntentId}`
+  if (t.stripeSessionId)
+    return `${base}/search?query=${encodeURIComponent(t.stripeSessionId)}`
+  return null
+}
+
+const recorder = alias(user, "recorder")
+
+const adminTransactionColumns = {
+  id: transactions.id,
+  type: transactions.type,
+  status: transactions.status,
+  amountPaid: transactions.amountPaid,
+  currency: transactions.currency,
+  presentmentAmount: transactions.presentmentAmount,
+  presentmentCurrency: transactions.presentmentCurrency,
+  accessType: transactions.accessType,
+  durationDays: transactions.durationDays,
+  accessExpiresAt: transactions.accessExpiresAt,
+  createdAt: transactions.createdAt,
+  completedAt: transactions.completedAt,
+  refundedAt: transactions.refundedAt,
+  paymentMethod: transactions.paymentMethod,
+  notes: transactions.notes,
+  recordedByName: recorder.name,
+  confirmationEmailSentAt: transactions.confirmationEmailSentAt,
+  disputeStatus: transactions.disputeStatus,
+  stripePaymentIntentId: transactions.stripePaymentIntentId,
+  stripeSessionId: transactions.stripeSessionId,
+  stripeDisputeId: transactions.stripeDisputeId,
+  productId: products.id,
+  productCode: products.code,
+  productName: products.name,
+  isCombo: products.isCombo,
+  buyerId: user.id,
+  buyerName: user.name,
+  buyerEmail: user.email,
+}
+
+/**
+ * [Admin] Transactions, les plus récentes d'abord, d'un client ou de tous.
+ * Pagination keyset (même curseur `(createdAt, id)` que `getMyTransactions`).
+ * Jointures acheteur, produit et admin saisissant en une requête (pas de N+1).
+ * Garde admin (le layout garde déjà, mais le DAL ne fait jamais confiance à
+ * l'appelant).
  */
 export const getAllTransactions = async ({
   cursor,
   limit = 20,
-  type,
-  status,
   userId,
 }: {
   cursor?: string | null
   limit?: number
-  type?: "stripe" | "manual"
-  status?: TxStatus
   userId?: string
 } = {}): Promise<AdminTransactionsPage> => {
   await requireRole(["admin"])
@@ -395,38 +507,16 @@ export const getAllTransactions = async ({
       )
     : undefined
 
-  const where = and(
-    type ? eq(transactions.type, type) : undefined,
-    status ? eq(transactions.status, status) : undefined,
-    userId ? eq(transactions.userId, userId) : undefined,
-    afterCursor,
-  )
-
   const rows = await db
-    .select({
-      id: transactions.id,
-      type: transactions.type,
-      status: transactions.status,
-      amountPaid: transactions.amountPaid,
-      currency: transactions.currency,
-      accessType: transactions.accessType,
-      durationDays: transactions.durationDays,
-      createdAt: transactions.createdAt,
-      completedAt: transactions.completedAt,
-      paymentMethod: transactions.paymentMethod,
-      notes: transactions.notes,
-      disputeStatus: transactions.disputeStatus,
-      productId: products.id,
-      productName: products.name,
-      buyerId: user.id,
-      buyerName: user.name,
-      buyerEmail: user.email,
-    })
+    .select(adminTransactionColumns)
     .from(transactions)
     // userId est NOT NULL + FK restrict → l'acheteur existe toujours (innerJoin sûr).
     .innerJoin(user, eq(user.id, transactions.userId))
     .leftJoin(products, eq(products.id, transactions.productId))
-    .where(where)
+    .leftJoin(recorder, eq(recorder.id, transactions.recordedBy))
+    .where(
+      and(userId ? eq(transactions.userId, userId) : undefined, afterCursor),
+    )
     .orderBy(desc(transactions.createdAt), desc(transactions.id))
     .limit(safeLimit + 1)
 
@@ -439,14 +529,27 @@ export const getAllTransactions = async ({
     status: r.status,
     amountPaid: r.amountPaid,
     currency: r.currency,
+    presentmentAmount: r.presentmentAmount,
+    presentmentCurrency: r.presentmentCurrency,
     accessType: r.accessType,
+    isCombo: r.isCombo ?? false,
     durationDays: r.durationDays,
+    accessExpiresAt: r.accessExpiresAt.getTime(),
     createdAt: r.createdAt.getTime(),
-    completedAt: r.completedAt ? r.completedAt.getTime() : null,
+    completedAt: r.completedAt?.getTime() ?? null,
+    refundedAt: r.refundedAt?.getTime() ?? null,
     paymentMethod: r.paymentMethod,
     notes: r.notes,
+    recordedByName: r.recordedByName,
+    confirmationEmailSentAt: r.confirmationEmailSentAt?.getTime() ?? null,
     disputeStatus: r.disputeStatus,
-    product: r.productId ? { id: r.productId, name: r.productName! } : null,
+    stripePaymentIntentId: r.stripePaymentIntentId,
+    stripeSessionId: r.stripeSessionId,
+    stripeDisputeId: r.stripeDisputeId,
+    stripeUrl: stripeDashboardUrl(r),
+    product: r.productId
+      ? { id: r.productId, code: r.productCode!, name: r.productName! }
+      : null,
     user: { id: r.buyerId, name: r.buyerName, email: r.buyerEmail },
   }))
 
@@ -455,6 +558,355 @@ export const getAllTransactions = async ({
     hasMore && last ? encodeCursor(last.createdAt, last.id) : null
 
   return { items, nextCursor }
+}
+
+// ============================================
+// [Admin] Clients des transactions (liste groupée par client)
+// ============================================
+
+export type ClientFilter = "all" | "failed" | "dispute" | "manual"
+
+export type TransactionClientRow = {
+  userId: string
+  name: string
+  email: string
+  image: string | null
+  /** Epoch ms : création de sa transaction la plus récente. */
+  lastActivityAt: number
+  transactionCount: number
+  lastStatus: TxStatus
+  /** Au moins un litige encore ouvert. */
+  openDispute: boolean
+  hasCompleted: boolean
+}
+
+export type TransactionClientsPage = {
+  items: TransactionClientRow[]
+  /** Clients qui répondent à la recherche et au filtre. */
+  total: number
+  /** Rang (base 0) du premier client de la tranche dans `total`. */
+  firstIndex: number
+  prevCursor: string | null
+  nextCursor: string | null
+  /** Effectif de chaque filtre sur l'ensemble des clients, sans la recherche. */
+  counts: { failed: number; dispute: number; manual: number }
+}
+
+const openDisputeSql = sql`(t.dispute_status is not null and t.dispute_status not in (${sql.join(
+  TERMINAL_DISPUTE_STATUSES.map((s) => sql`${s}`),
+  sql`, `,
+)}))`
+
+// Un client = un acheteur ayant au moins une transaction. La ligne de sa
+// dernière transaction (`distinct on`) donne le statut affiché et le filtre
+// Échec ; le reste est agrégé en une passe.
+const clientsCte = sql`
+  clients as (
+    select a.user_id, a.last_at, a.n, a.open_dispute, a.has_dispute,
+           a.has_manual, a.has_completed, l.status as last_status,
+           u.name, u.email, u.image
+      from (
+        select t.user_id,
+               max(t.created_at) as last_at,
+               count(*)::int as n,
+               bool_or(${openDisputeSql}) as open_dispute,
+               bool_or(t.dispute_status is not null) as has_dispute,
+               bool_or(t.type = 'manual') as has_manual,
+               bool_or(t.status = 'completed') as has_completed
+          from transactions t
+         group by t.user_id
+      ) a
+      join (
+        select distinct on (t.user_id) t.user_id, t.status
+          from transactions t
+         order by t.user_id, t.created_at desc, t.id desc
+      ) l on l.user_id = a.user_id
+      join "user" u on u.id = a.user_id
+  )`
+
+const clientFilterSql = (filter: ClientFilter) => {
+  switch (filter) {
+    case "failed":
+      return sql`c.last_status = 'failed'`
+    case "dispute":
+      return sql`c.has_dispute`
+    case "manual":
+      return sql`c.has_manual`
+    default:
+      return sql`true`
+  }
+}
+
+type ClientSqlRow = {
+  user_id: string
+  last_at: Date | string
+  n: number
+  open_dispute: boolean
+  has_completed: boolean
+  last_status: TxStatus
+  name: string
+  email: string
+  image: string | null
+  rn: number
+}
+
+const toClientRow = (r: ClientSqlRow): TransactionClientRow => ({
+  userId: r.user_id,
+  name: r.name,
+  email: r.email,
+  image: r.image,
+  lastActivityAt: new Date(r.last_at).getTime(),
+  transactionCount: Number(r.n),
+  lastStatus: r.last_status,
+  openDispute: r.open_dispute,
+  hasCompleted: r.has_completed,
+})
+
+/**
+ * [Admin] Clients des transactions, par dernière activité décroissante puis
+ * `user_id`, en tranches de 20. Keyset sur `(dernière activité, user_id)` :
+ * `after` / `before` reçoivent le curseur d'un bord de tranche ; `around`
+ * place la tranche sur un client (lien direct vers un dossier). Recherche
+ * `ilike` sur nom et courriel ; les compteurs des filtres portent sur
+ * l'ensemble, sans la recherche. Deux requêtes jointes (tranche, puis total et
+ * compteurs) : jamais tout l'historique vers le serveur d'app.
+ */
+export const getTransactionClients = async ({
+  q,
+  filter = "all",
+  after,
+  before,
+  around,
+  limit = CLIENT_PAGE_SIZE,
+}: {
+  q?: string
+  filter?: ClientFilter
+  after?: string | null
+  before?: string | null
+  around?: string | null
+  limit?: number
+}): Promise<TransactionClientsPage> => {
+  await requireRole(["admin"])
+
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100)
+  const term = q?.trim()
+  const pattern = term ? `%${escapeLike(term)}%` : null
+  const search = pattern
+    ? sql`(c.name ilike ${pattern} or c.email ilike ${pattern})`
+    : sql`true`
+  const ranked = sql`
+    with ${clientsCte},
+    ranked as (
+      select c.*, row_number() over (order by c.last_at desc, c.user_id desc)::int as rn
+        from clients c
+       where ${search} and ${clientFilterSql(filter)}
+    )`
+
+  const afterKey = after ? decodeCursor(after) : null
+  const beforeKey = before ? decodeCursor(before) : null
+
+  let page
+  if (afterKey) {
+    page = db.execute<ClientSqlRow>(sql`${ranked}
+      select * from ranked
+       where (last_at, user_id) < (${afterKey.createdAt}, ${afterKey.id})
+       order by rn limit ${safeLimit}`)
+  } else if (beforeKey) {
+    page = db.execute<ClientSqlRow>(sql`${ranked}
+      select * from (
+        select * from ranked
+         where (last_at, user_id) > (${beforeKey.createdAt}, ${beforeKey.id})
+         order by rn desc limit ${safeLimit}
+      ) p order by rn`)
+  } else if (around) {
+    page = db.execute<ClientSqlRow>(sql`${ranked},
+      anchor as (
+        select coalesce(
+          (select (rn - 1) / ${safeLimit} * ${safeLimit} from ranked where user_id = ${around}),
+          0
+        ) as start
+      )
+      select ranked.* from ranked, anchor
+       where rn > anchor.start
+       order by rn limit ${safeLimit}`)
+  } else {
+    page = db.execute<ClientSqlRow>(sql`${ranked}
+      select * from ranked order by rn limit ${safeLimit}`)
+  }
+
+  const [pageResult, summaryResult] = await Promise.all([
+    page,
+    db.execute<{
+      total: number
+      failed: number
+      dispute: number
+      manual: number
+    }>(sql`
+      with ${clientsCte}
+      select count(*) filter (where ${search} and ${clientFilterSql(filter)})::int as total,
+             count(*) filter (where c.last_status = 'failed')::int as failed,
+             count(*) filter (where c.has_dispute)::int as dispute,
+             count(*) filter (where c.has_manual)::int as manual
+        from clients c`),
+  ])
+
+  const rows = pageResult.rows
+  const summary = summaryResult.rows[0]
+  const total = Number(summary?.total ?? 0)
+  const first = rows[0]
+  const last = rows.at(-1)
+  const cursorOf = (r: ClientSqlRow) =>
+    encodeCursor(new Date(r.last_at), r.user_id)
+
+  return {
+    items: rows.map(toClientRow),
+    total,
+    firstIndex: first ? Number(first.rn) - 1 : 0,
+    prevCursor: first && Number(first.rn) > 1 ? cursorOf(first) : null,
+    nextCursor: last && Number(last.rn) < total ? cursorOf(last) : null,
+    counts: {
+      failed: Number(summary?.failed ?? 0),
+      dispute: Number(summary?.dispute ?? 0),
+      manual: Number(summary?.manual ?? 0),
+    },
+  }
+}
+
+// ============================================
+// [Admin] Dossier d'un client
+// ============================================
+
+export type ClientVerdict =
+  | { kind: "dispute" }
+  | {
+      kind: "failed"
+      /** Échecs consécutifs depuis la dernière tentative non échouée. */
+      failedStreak: number
+      lastFailedAt: number
+      /** Au moins un paiement abouti (complété ou remboursé depuis). */
+      everPaid: boolean
+    }
+  | { kind: "refunded"; refundedAt: number }
+  | { kind: "completed"; completedAt: number; manual: boolean }
+  | { kind: "pending"; createdAt: number }
+
+export type TransactionClientFile = {
+  client: { id: string; name: string; email: string; image: string | null }
+  /** Epoch ms de `user_access.expires_at`, passé compris ; null = jamais acheté. */
+  access: { exam: number | null; training: number | null }
+  verdict: ClientVerdict
+  transactionCount: number
+  timeline: AdminTransactionsPage
+}
+
+type FileSqlRow = {
+  name: string
+  email: string
+  image: string | null
+  n: number
+  open_dispute: boolean
+  ever_paid: boolean
+  last_status: TxStatus
+  last_type: "stripe" | "manual"
+  last_created: Date | string
+  last_completed: Date | string | null
+  last_refunded: Date | string | null
+  failed_streak: number
+  through_rank: number | null
+}
+
+const toMs = (d: Date | string | null): number | null =>
+  d ? new Date(d).getTime() : null
+
+const verdictOf = (s: FileSqlRow): ClientVerdict => {
+  const created = toMs(s.last_created)!
+  if (s.open_dispute) return { kind: "dispute" }
+  switch (s.last_status) {
+    case "failed":
+      return {
+        kind: "failed",
+        failedStreak: Number(s.failed_streak),
+        lastFailedAt: created,
+        everPaid: s.ever_paid,
+      }
+    case "refunded":
+      return { kind: "refunded", refundedAt: toMs(s.last_refunded) ?? created }
+    case "completed":
+      return {
+        kind: "completed",
+        completedAt: toMs(s.last_completed) ?? created,
+        manual: s.last_type === "manual",
+      }
+    default:
+      return { kind: "pending", createdAt: created }
+  }
+}
+
+/**
+ * [Admin] Dossier d'un client : identité, accès actuels lus dans `user_access`
+ * (la source de l'octroi, jamais recalculés depuis les transactions), constat
+ * et début de chronologie. `throughTransactionId` étend la chronologie jusqu'à
+ * cette transaction (lien direct `?tx=`), par pas de 20 au-delà des 8
+ * premières. `null` si le compte n'a aucune transaction.
+ */
+export const getTransactionClientFile = async (
+  userId: string,
+  { throughTransactionId }: { throughTransactionId?: string | null } = {},
+): Promise<TransactionClientFile | null> => {
+  await requireRole(["admin"])
+
+  const [summaryResult, accessRows] = await Promise.all([
+    db.execute<FileSqlRow>(sql`
+      with mine as (
+        select t.*, row_number() over (order by t.created_at desc, t.id desc)::int as rn
+          from transactions t
+         where t.user_id = ${userId}
+      )
+      select u.name, u.email, u.image,
+             (select count(*)::int from mine) as n,
+             (select coalesce(bool_or(${openDisputeSql}), false) from mine t) as open_dispute,
+             (select coalesce(bool_or(t.status in ('completed', 'refunded')), false) from mine t) as ever_paid,
+             l.status as last_status, l.type as last_type,
+             l.created_at as last_created, l.completed_at as last_completed,
+             l.refunded_at as last_refunded,
+             (select count(*)::int from mine f
+               where f.status = 'failed'
+                 and f.rn < coalesce((select min(o.rn) from mine o where o.status <> 'failed'), 2147483647)
+             ) as failed_streak,
+             (select m.rn from mine m where m.id = ${throughTransactionId ?? ""}) as through_rank
+        from "user" u
+        join mine l on l.rn = 1
+       where u.id = ${userId}`),
+    db
+      .select({
+        accessType: userAccess.accessType,
+        expiresAt: userAccess.expiresAt,
+      })
+      .from(userAccess)
+      .where(eq(userAccess.userId, userId)),
+  ])
+
+  const s = summaryResult.rows[0]
+  if (!s) return null
+
+  const rank = s.through_rank === null ? 0 : Number(s.through_rank)
+  const timelineSize =
+    rank > TIMELINE_FIRST
+      ? TIMELINE_FIRST +
+        Math.ceil((rank - TIMELINE_FIRST) / TIMELINE_MORE) * TIMELINE_MORE
+      : TIMELINE_FIRST
+  const timeline = await getAllTransactions({ userId, limit: timelineSize })
+
+  const expiry = (type: AccessType) =>
+    accessRows.find((r) => r.accessType === type)?.expiresAt.getTime() ?? null
+
+  return {
+    client: { id: userId, name: s.name, email: s.email, image: s.image },
+    access: { exam: expiry("exam"), training: expiry("training") },
+    verdict: verdictOf(s),
+    transactionCount: Number(s.n),
+    timeline,
+  }
 }
 
 // ============================================
@@ -470,45 +922,62 @@ export type TransactionStatsView = {
   recentTransactions: number
   stripeTransactions: number
   manualTransactions: number
+  /** Comptes avec au moins une transaction complétée d'un montant > 0. */
+  buyerCount: number
+  /** Toutes les transactions, tous statuts. */
+  transactionCount: number
 }
 
 /**
  * [Admin] Revenus + compteurs sur les transactions complétées via
  * une agrégation SQL `GROUP BY currency` avec `FILTER` pour la fenêtre 30 jours :
- * O(1) lignes ramenées, calcul côté Postgres.
+ * O(1) lignes ramenées, calcul côté Postgres. Un accès offert (montant nul)
+ * compte comme transaction mais ne fait pas un acheteur.
  */
 export const getTransactionStats = async (): Promise<TransactionStatsView> => {
   await requireRole(["admin"])
 
   const thirtyDaysAgo = new Date(Date.now() - 30 * DAY_MS)
 
-  const rows = await db
-    .select({
-      currency: transactions.currency,
-      total: sql<number>`coalesce(sum(${transactions.amountPaid}), 0)`.mapWith(
-        Number,
-      ),
-      recent:
-        sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.completedAt} > ${thirtyDaysAgo}), 0)`.mapWith(
-          Number,
-        ),
-      count: sql<number>`count(*)`.mapWith(Number),
-      recentCount:
-        sql<number>`count(*) filter (where ${transactions.completedAt} > ${thirtyDaysAgo})`.mapWith(
-          Number,
-        ),
-      stripeCount:
-        sql<number>`count(*) filter (where ${transactions.type} = 'stripe')`.mapWith(
-          Number,
-        ),
-      manualCount:
-        sql<number>`count(*) filter (where ${transactions.type} = 'manual')`.mapWith(
-          Number,
-        ),
-    })
-    .from(transactions)
-    .where(eq(transactions.status, "completed"))
-    .groupBy(transactions.currency)
+  const [rows, [overall]] = await Promise.all([
+    db
+      .select({
+        currency: transactions.currency,
+        total:
+          sql<number>`coalesce(sum(${transactions.amountPaid}), 0)`.mapWith(
+            Number,
+          ),
+        recent:
+          sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.completedAt} > ${thirtyDaysAgo}), 0)`.mapWith(
+            Number,
+          ),
+        count: sql<number>`count(*)`.mapWith(Number),
+        recentCount:
+          sql<number>`count(*) filter (where ${transactions.completedAt} > ${thirtyDaysAgo})`.mapWith(
+            Number,
+          ),
+        stripeCount:
+          sql<number>`count(*) filter (where ${transactions.type} = 'stripe')`.mapWith(
+            Number,
+          ),
+        manualCount:
+          sql<number>`count(*) filter (where ${transactions.type} = 'manual')`.mapWith(
+            Number,
+          ),
+      })
+      .from(transactions)
+      .where(eq(transactions.status, "completed"))
+      .groupBy(transactions.currency),
+    db
+      .select({
+        buyers:
+          sql<number>`count(distinct ${transactions.userId}) filter (where ${transactions.status} = 'completed' and ${transactions.amountPaid} > 0)`.mapWith(
+            Number,
+          ),
+        all: sql<number>`count(*)`.mapWith(Number),
+      })
+      .from(transactions),
+  ])
 
   const revenueByCurrency = {
     CAD: { total: 0, recent: 0 },
@@ -533,6 +1002,8 @@ export const getTransactionStats = async (): Promise<TransactionStatsView> => {
     recentTransactions,
     stripeTransactions,
     manualTransactions,
+    buyerCount: overall?.buyers ?? 0,
+    transactionCount: overall?.all ?? 0,
   }
 }
 

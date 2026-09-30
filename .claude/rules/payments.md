@@ -44,6 +44,13 @@ lisant et dont la violation coûte de l'argent ou un accès non rendu.
   `user_access`. La règle est prouvée une fois,
   `tests/integration/access-ledger.test.ts` ; les tests des appelants ne
   gardent que ce qui leur est propre (idempotence, mapping des événements).
+- **Paiement manuel = toujours complété.** Pas d'état « en attente » ni de
+  « Confirmer le paiement ». Un **accès offert** est un paiement manuel à 0 :
+  sans moyen de paiement, motif obligatoire (5 caractères au moins, règle
+  `manualNoteError` partagée client/serveur). Il ne fait pas un acheteur
+  (`getTransactionStats.buyerCount` ne compte qu'un montant > 0). La
+  confirmation affiche l'expiration que `applyGrant` a écrite
+  (`recordManualPayment` → `grants`), jamais un calcul côté client.
 - **Un admin court-circuite `hasAccess`** : aucun paiement requis pour lui.
   Tester un paywall depuis un compte admin ne prouve donc rien.
 

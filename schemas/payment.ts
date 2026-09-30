@@ -36,78 +36,32 @@ export const paymentMethodSchema = z.enum([
 
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>
 
-export const manualPaymentSchema = z
-  .object({
-    userId: z.string().min(1, "L'utilisateur est requis"),
-    productCode: productCodeSchema,
-    amountInput: z.string().min(1, "Le montant est requis"),
-    currency: z.enum(["CAD", "XAF"]),
-    paymentMethod: paymentMethodSchema,
-    notes: z
-      .string()
-      .max(500, "Les notes ne peuvent pas dépasser 500 caractères")
-      .optional(),
-  })
-  .refine(
-    (data) => {
-      const normalized = data.amountInput.replace(",", ".").trim()
-      const num = parseFloat(normalized)
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  cash: "Espèces",
+  interac: "Interac",
+  virement: "Virement bancaire",
+  autre: "Autre",
+}
 
-      if (isNaN(num) || num <= 0) return false
+/** Libellé d'un moyen de paiement manuel ; une valeur hors liste s'affiche telle quelle. */
+export const paymentMethodLabel = (method: string): string =>
+  method in PAYMENT_METHOD_LABEL
+    ? PAYMENT_METHOD_LABEL[method as PaymentMethod]
+    : method
 
-      if (data.currency === "XAF") {
-        // XAF (FCFA) n'a pas de centimes - entiers uniquement
-        return Number.isInteger(num)
-      } else {
-        // CAD permet jusqu'à 2 décimales
-        const decimalPart = normalized.split(".")[1]
-        const decimalPlaces = decimalPart ? decimalPart.length : 0
-        return decimalPlaces <= 2
-      }
-    },
-    {
-      message: "Montant invalide pour la devise sélectionnée",
-      path: ["amountInput"],
-    },
-  )
+export const MANUAL_NOTE_MAX = 500
+export const FREE_REASON_MIN = 5
 
-export type ManualPaymentFormValues = z.infer<typeof manualPaymentSchema>
-
-export const editTransactionSchema = z
-  .object({
-    amountInput: z.string().min(1, "Le montant est requis"),
-    currency: z.enum(["CAD", "XAF"]),
-    paymentMethod: paymentMethodSchema,
-    notes: z
-      .string()
-      .max(500, "Les notes ne peuvent pas dépasser 500 caractères")
-      .optional(),
-    status: z.enum(["completed", "refunded"]).optional(),
-  })
-  .refine(
-    (data) => {
-      const normalized = data.amountInput.replace(",", ".").trim()
-      const num = parseFloat(normalized)
-
-      if (isNaN(num) || num <= 0) return false
-
-      if (data.currency === "XAF") {
-        // XAF (FCFA) n'a pas de centimes - entiers uniquement
-        return Number.isInteger(num)
-      } else {
-        // CAD permet jusqu'à 2 décimales
-        const decimalPart = normalized.split(".")[1]
-        const decimalPlaces = decimalPart ? decimalPart.length : 0
-        return decimalPlaces <= 2
-      }
-    },
-    {
-      message: "Montant invalide pour la devise sélectionnée",
-      path: ["amountInput"],
-    },
-  )
-
-export type EditTransactionFormValues = z.infer<typeof editTransactionSchema>
+/**
+ * Règle de la note d'un paiement manuel. Un accès offert (montant nul) n'a pas
+ * de moyen de paiement : la note en devient le motif, obligatoire.
+ */
+export const manualNoteError = (note: string, free: boolean): string | null => {
+  if (note.length > MANUAL_NOTE_MAX) return "500 caractères au plus."
+  if (free && note.trim().length < FREE_REASON_MIN)
+    return "Indiquez le motif de la gratuité (5 caractères au moins)."
+  return null
+}
 
 // Types pour les accès utilisateur
 export interface AccessInfo {

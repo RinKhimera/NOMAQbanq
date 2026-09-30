@@ -8,6 +8,7 @@ import {
   lockUser,
   rebuildFromTransactions,
 } from "./access-ledger"
+import { TERMINAL_DISPUTE_STATUSES } from "./dispute"
 
 export type PurchaseConfirmationData = {
   /** Null si le compte est anonymisé : aucun courriel à envoyer. */
@@ -186,13 +187,16 @@ export async function completeStripeTransaction(params: {
 
     // La durée vient du snapshot de la transaction (prix/durée au moment de
     // l'achat), pas du produit courant.
-    const grantedAccess = await applyGrant(tx, {
+    const granted = await applyGrant(tx, {
       userId: pending.userId,
       product: { accessType: pending.accessType, isCombo },
       durationDays: pending.durationDays,
       transactionId: pending.id,
       now,
     })
+    const grantedAccess: GrantedAccess[] = granted.map(
+      ({ accessType, expiresAt }) => ({ accessType, expiresAt }),
+    )
 
     return {
       status: "completed",
@@ -262,15 +266,6 @@ export async function failStripeTransaction(params: {
       : { status: "already_processed" }
   })
 }
-
-// Statuts après lesquels Stripe ne renvoie plus de changement d'état pour CE
-// litige (`prevented` existe dans le SDK et est terminal).
-const TERMINAL_DISPUTE_STATUSES = [
-  "won",
-  "lost",
-  "warning_closed",
-  "prevented",
-] as const
 
 export type RecordDisputeResult = {
   status: "recorded" | "kept" | "not_found"

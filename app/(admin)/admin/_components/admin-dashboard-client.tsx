@@ -1,34 +1,40 @@
 "use client"
 
-import { motion } from "motion/react"
-import dynamic from "next/dynamic"
-import { useRouter } from "next/navigation"
+import { Banknote } from "lucide-react"
+import Link from "next/link"
 import { useState } from "react"
 import { ActivityFeed } from "@/components/admin/dashboard/activity-feed"
 import { AlertsPanel } from "@/components/admin/dashboard/alerts-panel"
-import { DomainChart } from "@/components/admin/dashboard/domain-chart"
+import { DashboardPanel } from "@/components/admin/dashboard/dashboard-panel"
 import { QuickActions } from "@/components/admin/dashboard/quick-actions"
-import { RevenueChart } from "@/components/admin/dashboard/revenue-chart"
-import { AdminVitalCards } from "@/components/admin/dashboard/vital-cards"
+import { ColumnChart } from "@/components/shared/charts/column-chart"
+import { ValueBarChart } from "@/components/shared/charts/value-bar-chart"
 import { PageIntro } from "@/components/shared/page-intro"
+import { ManualPaymentFlow } from "@/components/shared/payments/manual-payment-dialog"
+import { StatBand } from "@/components/shared/stat-band"
+import { Button } from "@/components/ui/button"
 import type { AdminActivity, DashboardTrends } from "@/features/analytics/dal"
 import type {
   ExpiringAccessItem,
+  ProductView,
   RevenueByDay,
   TransactionStatsView,
 } from "@/features/payments/dal"
 import type { QuestionStats } from "@/features/questions/dal"
 import type { AdminStats } from "@/features/users/dal"
-import { formatWeekdayLongDate } from "@/lib/format"
+import {
+  formatCurrency,
+  formatIsoDay,
+  formatPercent,
+  formatWeekdayLongDate,
+} from "@/lib/format"
 
-// Lazy-load la modale (ssr:false → uniquement dans un composant client).
-const ManualPaymentModal = dynamic(
-  () =>
-    import("@/components/shared/payments/manual-payment-modal").then((mod) => ({
-      default: mod.ManualPaymentModal,
-    })),
-  { ssr: false },
-)
+const TOP_DOMAINS = 8
+
+const trendText = (trend: number) =>
+  trend === 0
+    ? "stable sur 30 jours"
+    : `${formatPercent(trend, { signed: true })} sur 30 jours`
 
 interface AdminDashboardClientProps {
   adminStats: AdminStats
@@ -39,6 +45,7 @@ interface AdminDashboardClientProps {
   recentActivity: AdminActivity[]
   dashboardTrends: DashboardTrends
   failedPaymentsCount: number
+  products: ProductView[]
   /**
    * Horloge serveur du rendu. La date du bandeau se lit dans le fuseau de
    * l'app : à cheval sur minuit, un `new Date()` local basculerait au jour
@@ -48,9 +55,9 @@ interface AdminDashboardClientProps {
 }
 
 /**
- * Présentation du dashboard admin. Reçoit les données déjà chargées par le Server
- * Component parent (DAL Drizzle). Wrapper client
- * car il porte l'état de la modale de paiement manuel et passe des icônes en props.
+ * Tableau de bord admin sur les indicateurs existants : bande de chiffres,
+ * revenus quotidiens, activité, banque de questions, raccourcis et alertes.
+ * Client pour le dialogue de paiement manuel.
  */
 export function AdminDashboardClient({
   adminStats,
@@ -61,97 +68,105 @@ export function AdminDashboardClient({
   recentActivity,
   dashboardTrends,
   failedPaymentsCount,
+  products,
   initialNow,
 }: AdminDashboardClientProps) {
-  const router = useRouter()
-  const [showManualPaymentModal, setShowManualPaymentModal] = useState(false)
-  const today = formatWeekdayLongDate(initialNow)
+  const [manual, setManual] = useState(false)
+  const cad = (cents: number) => formatCurrency(cents, "CAD", { whole: true })
+  const xafRecent = transactionStats.revenueByCurrency.XAF.recent
+  const domains = [...questionStats.domainStats]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, TOP_DOMAINS)
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* Header */}
-      <PageIntro title="Tableau de bord" description={today} />
-
-      {/* Vital cards */}
-      <AdminVitalCards
-        revenueByCurrency={{
-          CAD: {
-            recent: transactionStats.revenueByCurrency.CAD.recent,
-            trend: dashboardTrends.revenueByCurrency.CAD.trend,
-          },
-          XAF: {
-            recent: transactionStats.revenueByCurrency.XAF.recent,
-            trend: dashboardTrends.revenueByCurrency.XAF.trend,
-          },
-        }}
-        usersData={{
-          total: adminStats.totalUsers,
-          trend: dashboardTrends.usersTrend,
-        }}
-        activeExams={adminStats.activeExams}
-        expiringAccessCount={expiringAccess.length}
+    <div className="flex flex-col gap-5 p-4 lg:p-6">
+      <PageIntro
+        eyebrow={formatWeekdayLongDate(initialNow)}
+        title="Tableau de bord"
+        actions={
+          <Button type="button" onClick={() => setManual(true)}>
+            <Banknote aria-hidden="true" />
+            Enregistrer un paiement
+          </Button>
+        }
       />
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <RevenueChart data={revenueByDay} />
-        </motion.div>
+      <StatBand
+        items={[
+          {
+            label: "Revenus 30 jours",
+            value: cad(transactionStats.revenueByCurrency.CAD.recent),
+            sub:
+              xafRecent > 0
+                ? `XAF : ${formatCurrency(xafRecent, "XAF")}`
+                : trendText(dashboardTrends.revenueByCurrency.CAD?.trend ?? 0),
+          },
+          {
+            label: "Utilisateurs",
+            value: adminStats.totalUsers.toLocaleString("fr-CA"),
+            sub: trendText(dashboardTrends.usersTrend),
+          },
+          {
+            label: "Examens actifs",
+            value: adminStats.activeExams,
+            sub: `${adminStats.totalExams} examens au total`,
+          },
+          {
+            label: "Accès expirant",
+            value: expiringAccess.length,
+            sub: "dans les 7 prochains jours",
+          },
+        ]}
+      />
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+      <div className="grid items-start gap-3 lg:grid-cols-2">
+        <DashboardPanel
+          eyebrow="Revenus"
+          title="Revenus quotidiens"
+          description={`${cad(transactionStats.revenueByCurrency.CAD.recent)} sur 30 jours${xafRecent > 0 ? ` · XAF à part : ${formatCurrency(xafRecent, "XAF")}` : ""}`}
         >
-          <ActivityFeed activities={recentActivity} />
-        </motion.div>
+          <ColumnChart
+            label="Revenus quotidiens en dollars canadiens sur 30 jours"
+            format={cad}
+            data={revenueByDay.CAD.map((d) => ({
+              label: formatIsoDay(d.date),
+              value: d.revenue,
+            }))}
+          />
+        </DashboardPanel>
+        <ActivityFeed activities={recentActivity} />
       </div>
 
-      {/* Bottom row */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
+      <div className="grid items-start gap-3 lg:grid-cols-2">
+        <DashboardPanel
+          eyebrow="Banque"
+          title="Questions par domaine"
+          description={`${questionStats.totalCount.toLocaleString("fr-CA")} questions · visible par l'équipe seulement`}
         >
-          <DomainChart
-            data={questionStats.domainStats}
-            totalQuestions={questionStats.totalCount}
+          <ValueBarChart
+            label={`Les ${TOP_DOMAINS} domaines les plus fournis`}
+            data={domains.map((d) => ({ label: d.domain, value: d.count }))}
           />
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.5 }}
-          className="flex flex-col gap-4"
-        >
-          <QuickActions
-            onManualPaymentClick={() => setShowManualPaymentModal(true)}
-          />
+          <Button asChild variant="ghost" size="sm" className="self-start">
+            <Link href="/admin/questions" prefetch={false}>
+              Voir les {questionStats.domainStats.length} domaines
+            </Link>
+          </Button>
+        </DashboardPanel>
+        <div className="flex flex-col gap-3">
+          <QuickActions onManualPaymentClick={() => setManual(true)} />
           <AlertsPanel
             expiringAccess={expiringAccess}
             failedPaymentsCount={failedPaymentsCount}
           />
-        </motion.div>
+        </div>
       </div>
 
-      {/* Manual payment modal - lazy loaded on demand */}
-      {showManualPaymentModal && (
-        <ManualPaymentModal
-          open={showManualPaymentModal}
-          onOpenChange={setShowManualPaymentModal}
-          onSuccess={() => {
-            // L'action ne revalide que /admin/transactions et /admin/utilisateurs :
-            // on rafraîchit explicitement le dashboard.
-            router.refresh()
-          }}
-        />
-      )}
+      <ManualPaymentFlow
+        open={manual}
+        onOpenChange={setManual}
+        products={products}
+      />
     </div>
   )
 }
