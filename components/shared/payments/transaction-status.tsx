@@ -6,9 +6,8 @@ import {
   RotateCcw,
 } from "lucide-react"
 import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
+import type { TransactionStatus } from "@/schemas/payment"
 import { disputeBadge } from "./dispute-badge"
-
-type TransactionStatus = "pending" | "completed" | "failed" | "refunded"
 
 const TRANSACTION_STATUS: Record<
   TransactionStatus,
@@ -19,6 +18,10 @@ const TRANSACTION_STATUS: Record<
   failed: { label: "Échoué", icon: CircleX, tone: "danger" },
   refunded: { label: "Remboursé", icon: RotateCcw, tone: "neutral" },
 }
+
+/** Tonalité d'un statut de transaction (pastille, repère de chronologie). */
+export const transactionStatusTone = (status: TransactionStatus): StatusTone =>
+  TRANSACTION_STATUS[status].tone
 
 /** Pastille du statut d'une transaction. */
 export const TransactionStatusPill = ({

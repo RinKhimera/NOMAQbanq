@@ -56,7 +56,7 @@ export const ClientList = ({
   return (
     <aside
       aria-label="Clients"
-      className="bg-surface border-line flex min-w-0 flex-col rounded-lg border lg:sticky lg:top-[calc(var(--shell-offset,0px)+1rem)] lg:max-h-[calc(100dvh-var(--shell-offset,0px)-2rem)]"
+      className="bg-surface border-line flex min-w-0 flex-col rounded-lg border lg:sticky lg:top-[calc(var(--shell-offset,0px)+1rem)] lg:h-[calc(100dvh-var(--shell-offset,0px)-2rem)]"
     >
       <div className="border-line flex flex-col gap-2.5 border-b p-3.5">
         <SearchInput
@@ -91,7 +91,7 @@ export const ClientList = ({
       </div>
 
       {clients.items.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 px-5 py-9 text-center">
+        <div className="flex flex-1 flex-col items-center gap-2 px-5 py-9 text-center">
           <SearchX aria-hidden="true" className="text-ink-3 size-5" />
           <p className="text-ink text-[0.9375rem] font-medium">
             Aucune transaction ne correspond

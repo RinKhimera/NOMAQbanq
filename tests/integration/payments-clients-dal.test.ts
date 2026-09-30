@@ -147,6 +147,25 @@ describe("getTransactionClients — tranches de 20 en keyset", () => {
     expect(back.prevCursor).toBeNull()
   })
 
+  it("changer de filtre depuis la 2ᵉ tranche ramène en tête de liste", async () => {
+    const first = await getTransactionClients({ q: suffix })
+    const second = await getTransactionClients({
+      q: suffix,
+      after: first.nextCursor,
+    })
+    expect(second.firstIndex).toBe(20)
+
+    // Changer de filtre repart sans curseur (l'écran retire `apres`/`avant`) :
+    // première tranche du nouveau filtre, pas de tranche précédente.
+    const filtered = await getTransactionClients({
+      q: suffix,
+      filter: "failed",
+    })
+    expect(filtered.firstIndex).toBe(0)
+    expect(filtered.prevCursor).toBeNull()
+    expect(ids(filtered)).toEqual([failOnly.id, failedAfterPaid.id])
+  })
+
   it("« around » place la liste sur la tranche du client demandé", async () => {
     const page = await getTransactionClients({
       q: suffix,

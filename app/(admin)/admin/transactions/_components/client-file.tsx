@@ -21,7 +21,10 @@ import {
   transactionTypeLabel,
   verdictLine,
 } from "@/components/shared/payments/transaction-labels"
-import { TransactionStatusWithDispute } from "@/components/shared/payments/transaction-status"
+import {
+  TransactionStatusWithDispute,
+  transactionStatusTone,
+} from "@/components/shared/payments/transaction-status"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
@@ -32,7 +35,7 @@ import type {
 } from "@/features/payments/dal"
 import { TIMELINE_MORE } from "@/features/payments/page-sizes"
 import { formatClockTime, formatCurrency, formatMediumDate } from "@/lib/format"
-import { TONE_TEXT } from "@/lib/tone"
+import { TONE_COLOR, TONE_TEXT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import { TransactionDetail } from "./transaction-detail"
 
@@ -43,13 +46,6 @@ const VERDICT_ICON: Record<ReturnType<typeof verdictLine>["tone"], LucideIcon> =
     success: CircleCheck,
     warning: Clock,
   }
-
-const DOT: Record<AdminTransactionView["status"], string> = {
-  completed: "bg-success",
-  failed: "bg-danger",
-  refunded: "bg-ink-4",
-  pending: "bg-warning",
-}
 
 const TOUCH = "max-lg:min-h-11 pointer-coarse:min-h-11"
 
@@ -119,10 +115,10 @@ const Timeline = ({
             >
               <span
                 aria-hidden="true"
-                className={cn(
-                  "ring-surface absolute top-4.5 -left-1.25 size-2.25 rounded-xs ring-3",
-                  DOT[t.status],
-                )}
+                className="ring-surface absolute top-4.5 -left-1.25 size-2.25 rounded-xs ring-3"
+                style={{
+                  backgroundColor: TONE_COLOR[transactionStatusTone(t.status)],
+                }}
               />
               <button
                 type="button"
