@@ -29,7 +29,9 @@ test.describe("Admin — Transactions (dossier client)", () => {
     await transactions.openFirstClient()
     const file = transactions.clientFile
     await expect(file.getByText("Accès Examens", { exact: true })).toBeVisible()
-    await expect(file.getByText("Accès Entraînement", { exact: true })).toBeVisible()
+    await expect(
+      file.getByText("Accès Entraînement", { exact: true }),
+    ).toBeVisible()
 
     // Déplier une transaction : le détail et l'URL suivent.
     await file.locator("[data-testid^='timeline-'] button").first().click()

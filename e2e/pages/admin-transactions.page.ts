@@ -28,7 +28,10 @@ export class AdminTransactionsPage extends BasePage {
     // Un clic avant l'hydratation (serveur de dev à froid) ne navigue pas :
     // on recommence jusqu'à ce que l'URL porte le client.
     await expect(async () => {
-      await this.clientList.locator("li [data-testid^='client-']").first().click()
+      await this.clientList
+        .locator("li [data-testid^='client-']")
+        .first()
+        .click()
       await expect(this.page).toHaveURL(/client=/, { timeout: 2_000 })
     }).toPass({ timeout: 30_000 })
     await expect(this.page.getByTestId("client-verdict")).toBeVisible({
