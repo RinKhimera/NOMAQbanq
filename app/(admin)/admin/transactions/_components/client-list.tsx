@@ -106,14 +106,7 @@ export const ClientList = ({
           </Button>
         </div>
       ) : (
-        <ul
-          ref={listRef}
-          aria-busy={isPending}
-          className={cn(
-            "min-h-0 flex-1 overflow-y-auto transition-opacity",
-            isPending && "pointer-events-none opacity-60",
-          )}
-        >
+        <ul ref={listRef} className="min-h-0 flex-1 overflow-y-auto">
           {clients.items.map((c) => {
             const on = c.userId === selectedId
             const label = c.name.trim() || c.email

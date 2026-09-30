@@ -18,8 +18,9 @@ export const parseClientFilter = (value: string | undefined): ClientFilter =>
 
 /**
  * Paramètres de l'URL après un changement de recherche ou de filtre : retour
- * en tête de liste (les curseurs de tranche tombent), client et transaction
- * ouverts conservés.
+ * en tête de liste (les curseurs de tranche tombent), client ouvert conservé.
+ * La transaction dépliée tombe aussi : sans curseur, `tx` placerait la liste
+ * sur la tranche du client au lieu de la tête.
  */
 export const listParams = (
   current: URLSearchParams,
@@ -28,6 +29,7 @@ export const listParams = (
   const next = new URLSearchParams(current)
   next.delete("apres")
   next.delete("avant")
+  next.delete("tx")
   if (changes.q !== undefined) {
     if (changes.q.trim()) next.set("q", changes.q.trim())
     else next.delete("q")

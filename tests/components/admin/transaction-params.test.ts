@@ -16,12 +16,14 @@ describe("parseClientFilter", () => {
 describe("listParams", () => {
   const page2 = new URLSearchParams("apres=abc&client=u1&tx=t1&q=nadia")
 
-  it("changer le filtre ramène en première tranche, dossier conservé", () => {
+  it("changer le filtre ramène en première tranche, dossier conservé, ligne repliée", () => {
     const next = listParams(page2, { filter: "manual" })
     expect(next.get("apres")).toBeNull()
     expect(next.get("filtre")).toBe("manuel")
     expect(next.get("client")).toBe("u1")
     expect(next.get("q")).toBe("nadia")
+    // Sans curseur, `tx` placerait la liste sur la tranche du client.
+    expect(next.get("tx")).toBeNull()
   })
 
   it("changer la recherche ramène en première tranche", () => {

@@ -148,4 +148,9 @@ describe("amountInputError", () => {
       "Deux décimales au plus en CAD.",
     )
   })
+
+  it("montant hors de la colonne integer : trop élevé", () => {
+    expect(amountInputError("25000000", "XAF")).toBe("Montant trop élevé.")
+    expect(amountInputError("10000000", "CAD")).toBeNull()
+  })
 })

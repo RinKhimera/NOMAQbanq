@@ -5,6 +5,8 @@
 export type Currency = "CAD" | "XAF"
 
 const AMOUNT_PATTERN = /^\d+([.,]\d+)?$/
+/** Au-delà, le montant en centièmes sort de la colonne `integer` de Postgres. */
+export const MAX_AMOUNT_CENTS = 1_000_000_000
 
 /**
  * Motif de refus d'un montant saisi, ou `null` s'il est valide pour la devise.
@@ -23,6 +25,8 @@ export const amountInputError = (
     return "En XAF, le montant est un nombre entier."
   if (currency === "CAD" && decimals > 2)
     return "Deux décimales au plus en CAD."
+  if (Number(trimmed.replace(",", ".")) * 100 > MAX_AMOUNT_CENTS)
+    return "Montant trop élevé."
   return null
 }
 

@@ -1,9 +1,14 @@
 import { z } from "zod"
 import { currency, productCode } from "@/db/schema"
+import { MAX_AMOUNT_CENTS } from "@/lib/currency"
 import { MANUAL_NOTE_MAX, manualNoteError } from "@/schemas/payment"
 
 const manualFields = {
-  amountPaid: z.number().int().nonnegative("Montant invalide"), // cents
+  amountPaid: z
+    .number()
+    .int()
+    .nonnegative("Montant invalide")
+    .max(MAX_AMOUNT_CENTS, "Montant trop élevé."), // cents
   currency: z.enum(currency.enumValues),
   paymentMethod: z.string().trim().max(50).nullish(),
   notes: z.string().trim().max(MANUAL_NOTE_MAX).optional(),

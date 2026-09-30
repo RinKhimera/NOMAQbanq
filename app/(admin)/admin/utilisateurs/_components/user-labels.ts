@@ -1,3 +1,4 @@
+import { getAccessStatus } from "@/components/shared/payments/access-badge"
 import { toAppZoneCalendarDay } from "@/lib/app-zone"
 import { formatDayMonth, formatMediumDate } from "@/lib/format"
 
@@ -11,7 +12,7 @@ export type AccessState =
   | { state: "expired"; expiresAt: number }
   | { state: "expiring" | "active"; expiresAt: number; days: number }
 
-/** État d'un accès lu dans `user_access` ; « expire bientôt » sous 7 jours. */
+/** État d'un accès lu dans `user_access` ; le seuil « expire bientôt » est celui de `getAccessStatus`. */
 export const accessState = (
   expiresAt: number | null,
   now: number,
@@ -19,7 +20,12 @@ export const accessState = (
   if (expiresAt === null) return { state: "never" }
   if (expiresAt <= now) return { state: "expired", expiresAt }
   const days = Math.ceil((expiresAt - now) / DAY_MS)
-  return { state: days <= 7 ? "expiring" : "active", expiresAt, days }
+  const state = getAccessStatus(expiresAt, days)
+  return {
+    state: state === "expiring" ? "expiring" : "active",
+    expiresAt,
+    days,
+  }
 }
 
 /** Cellule d'accès de la liste : « 20 j restants », « Expire dans 3 j », « Expiré 17 sept. », « — ». */

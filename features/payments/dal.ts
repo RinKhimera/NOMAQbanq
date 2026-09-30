@@ -484,6 +484,10 @@ const adminTransactionColumns = {
  * Garde admin (le layout garde déjà, mais le DAL ne fait jamais confiance à
  * l'appelant).
  */
+// Plafond de la chronologie chargée d'un coup pour atteindre une transaction
+// liée (`?tx=`) : un dossier compte quelques dizaines de lignes au plus.
+const TIMELINE_MAX = 500
+
 export const getAllTransactions = async ({
   cursor,
   limit = 20,
@@ -495,7 +499,7 @@ export const getAllTransactions = async ({
 } = {}): Promise<AdminTransactionsPage> => {
   await requireRole(["admin"])
 
-  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100)
+  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), TIMELINE_MAX)
   const decoded = cursor ? decodeCursor(cursor) : null
   const afterCursor = decoded
     ? or(
@@ -895,7 +899,10 @@ export const getTransactionClientFile = async (
       ? TIMELINE_FIRST +
         Math.ceil((rank - TIMELINE_FIRST) / TIMELINE_MORE) * TIMELINE_MORE
       : TIMELINE_FIRST
-  const timeline = await getAllTransactions({ userId, limit: timelineSize })
+  const timeline = await getAllTransactions({
+    userId,
+    limit: Math.min(timelineSize, TIMELINE_MAX),
+  })
 
   const expiry = (type: AccessType) =>
     accessRows.find((r) => r.accessType === type)?.expiresAt.getTime() ?? null

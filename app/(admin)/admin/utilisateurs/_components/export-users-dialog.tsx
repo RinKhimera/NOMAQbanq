@@ -38,6 +38,19 @@ const SEGMENT_LABEL = {
   never: "jamais eu d'accès",
 } as const
 
+/** Plafond de `getUsersForExport` (lecture bornée). */
+const EXPORT_MAX = 1000
+
+/**
+ * Cellule CSV sûre : un nom saisi par un étudiant qui commence par = + - @
+ * serait évalué comme formule par un tableur ; `;`, `"` et un saut de ligne
+ * casseraient la ligne.
+ */
+export const csvCell = (value: string): string => {
+  const safe = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
+  return /[;"\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
+}
+
 /** Filtres appliqués, en toutes lettres, pour le résumé du dialogue. */
 export const describeFilters = (s: UserListState): string[] =>
   [
@@ -95,8 +108,7 @@ export const ExportUsersDialog = ({
       toast.error("Export impossible. Réessayez.")
       return
     }
-    const { csvQuote, downloadCsv, exportRowsToXlsx } =
-      await import("@/lib/export")
+    const { downloadCsv, exportRowsToXlsx } = await import("@/lib/export")
     const rows = res.users.map(exportRow)
     const stamp = formatFileTimestamp(new Date())
     if (format === "xlsx") {
@@ -109,11 +121,7 @@ export const ExportUsersDialog = ({
       downloadCsv(
         [
           COLUMNS.join(";"),
-          ...rows.map((r) =>
-            COLUMNS.map((c) =>
-              r[c].includes(";") || r[c].includes('"') ? csvQuote(r[c]) : r[c],
-            ).join(";"),
-          ),
+          ...rows.map((r) => COLUMNS.map((c) => csvCell(r[c])).join(";")),
         ],
         `utilisateurs_${stamp}.csv`,
       )
@@ -149,6 +157,12 @@ export const ExportUsersDialog = ({
               ]}
             />
           </div>
+          {count > EXPORT_MAX && (
+            <p className="text-warning-ink text-[0.8125rem]">
+              L&apos;export est limité aux {EXPORT_MAX.toLocaleString("fr-CA")}{" "}
+              premiers comptes par nom ; affinez les filtres pour le reste.
+            </p>
+          )}
           <div className="flex flex-col gap-1 text-sm">
             <span className="type-label">Colonnes</span>
             <span className="text-ink-2 text-[0.8125rem] leading-relaxed">

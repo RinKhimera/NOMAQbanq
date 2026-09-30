@@ -67,9 +67,18 @@ const Timeline = ({
   onDelete: (t: AdminTransactionView) => void
 }) => {
   const [older, setOlder] = useState<{
+    base: TransactionClientFile["timeline"]
     items: AdminTransactionView[]
     cursor: string | null
-  }>({ items: [], cursor: file.timeline.nextCursor })
+  }>({ base: file.timeline, items: [], cursor: file.timeline.nextCursor })
+  // Après une écriture, le serveur renvoie une nouvelle première page : les
+  // transactions plus anciennes repartent de son curseur, pas de l'ancien.
+  if (older.base !== file.timeline)
+    setOlder({
+      base: file.timeline,
+      items: [],
+      cursor: file.timeline.nextCursor,
+    })
   const [loading, startLoading] = useTransition()
   const items = [...file.timeline.items, ...older.items]
   const remaining = file.transactionCount - items.length
@@ -88,6 +97,7 @@ const Timeline = ({
       try {
         const page = await loadClientTimeline(file.client.id, cursor)
         setOlder((o) => ({
+          ...o,
           items: [...o.items, ...page.items],
           cursor: page.nextCursor,
         }))

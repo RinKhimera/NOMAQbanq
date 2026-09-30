@@ -13,7 +13,7 @@ import {
 } from "@/components/shared/payments/manual-payment-dialog"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
-import { Spinner } from "@/components/ui/spinner"
+import { PendingRegion } from "@/components/ui/pending-region"
 import type {
   AdminTransactionView,
   ClientFilter,
@@ -98,8 +98,6 @@ export const TransactionsClient = ({
     transaction: AdminTransactionView
   } | null>(null)
   const [deleting, setDeleting] = useState<AdminTransactionView | null>(null)
-  // Incrémenté après une écriture : la chronologie repart des données fraîches.
-  const [version, setVersion] = useState(0)
 
   const navigate = (params: URLSearchParams, mode: "push" | "replace") =>
     startTransition(() => {
@@ -142,7 +140,6 @@ export const TransactionsClient = ({
 
   const afterWrite = (message: string) => {
     toast.success(message)
-    setVersion((v) => v + 1)
     startTransition(() => router.refresh())
   }
 
@@ -216,19 +213,20 @@ export const TransactionsClient = ({
     <>
       {intro}
       <SummaryLine stats={stats} />
-      {isPending && (
-        <p
-          role="status"
-          className="bg-surface border-line-strong text-ink-2 sticky top-[calc(var(--shell-offset,0px)+0.5rem)] z-10 mx-auto -mb-2 flex w-fit items-center gap-2 rounded-md border px-3 py-1.5 text-[0.8125rem]"
-        >
-          <Spinner size="sm" />
-          Mise à jour…
-        </p>
-      )}
-      <div
+      {/* Rechargement en place : contenu conservé et grisé ; le mot suffit,
+          sans spinner (loading-ui.md). */}
+      <p
+        role="status"
         className={cn(
-          "grid items-start gap-3 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]",
+          "text-ink-3 -my-2 h-4 text-center text-[0.8125rem]",
+          !isPending && "invisible",
         )}
+      >
+        {isPending ? "Mise à jour…" : ""}
+      </p>
+      <PendingRegion
+        isPending={isPending}
+        className="grid items-start gap-3 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]"
       >
         <div className={cn(selected && "max-lg:hidden")}>
           <ClientList
@@ -256,16 +254,14 @@ export const TransactionsClient = ({
         </div>
         <section
           aria-label="Dossier du client"
-          aria-busy={isPending}
           className={cn(
-            "bg-surface border-line min-w-0 rounded-lg border px-6 py-5 transition-opacity max-md:p-4",
+            "bg-surface border-line min-w-0 rounded-lg border px-6 py-5 max-md:p-4",
             !selected && "max-lg:hidden",
-            isPending && "pointer-events-none opacity-60",
           )}
         >
           {file ? (
             <ClientFile
-              key={`${file.client.id}:${version}`}
+              key={file.client.id}
               file={file}
               initialNow={initialNow}
               initialExpandedId={txId}
@@ -299,7 +295,7 @@ export const TransactionsClient = ({
             />
           )}
         </section>
-      </div>
+      </PendingRegion>
       {dialogs}
     </>
   )
