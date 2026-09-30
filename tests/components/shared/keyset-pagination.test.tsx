@@ -46,6 +46,13 @@ describe("KeysetPagination", () => {
     )
     expect(screen.getByText("21–40 sur 153 clients")).toBeInTheDocument()
     expect(screen.getByText("2 / 8")).toBeInTheDocument()
+    // Flèches seules, nommées pour un lecteur d'écran.
+    expect(
+      screen.getByRole("button", { name: "Page précédente" }),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("button", { name: "Page suivante" }),
+    ).toHaveTextContent("")
   })
 
   it("une seule page : ni boutons ni « page / pages »", () => {

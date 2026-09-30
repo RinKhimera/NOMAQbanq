@@ -36,6 +36,7 @@ import type {
 import { TIMELINE_MORE } from "@/features/payments/page-sizes"
 import { formatClockTime, formatCurrency, formatMediumDate } from "@/lib/format"
 import { TONE_COLOR, TONE_TEXT } from "@/lib/tone"
+import { TOUCH_HEIGHT, TOUCH_MIN_HEIGHT } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import { TransactionDetail } from "./transaction-detail"
 
@@ -46,8 +47,6 @@ const VERDICT_ICON: Record<ReturnType<typeof verdictLine>["tone"], LucideIcon> =
     success: CircleCheck,
     warning: Clock,
   }
-
-const TOUCH = "max-lg:min-h-11 pointer-coarse:min-h-11"
 
 const Timeline = ({
   file,
@@ -127,7 +126,7 @@ const Timeline = ({
                 className={cn(
                   "focus-ring hover:bg-surface-2 grid w-full cursor-pointer grid-cols-[92px_minmax(0,1fr)_auto] items-start gap-3 rounded-md px-2.5 py-3 text-left text-sm max-md:grid-cols-[minmax(0,1fr)_auto]",
                   open && "bg-surface-2",
-                  TOUCH,
+                  TOUCH_MIN_HEIGHT,
                 )}
               >
                 <span className="text-ink-3 font-mono text-xs leading-normal max-md:col-span-2">
@@ -173,7 +172,7 @@ const Timeline = ({
             variant="outline"
             onClick={loadOlder}
             disabled={loading}
-            className="max-lg:h-11 max-md:w-full pointer-coarse:h-11"
+            className={cn("max-md:w-full", TOUCH_HEIGHT)}
           >
             {loading ? (
               <Spinner size="sm" />

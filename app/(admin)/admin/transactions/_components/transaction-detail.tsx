@@ -14,6 +14,7 @@ import {
   formatPresentmentAmount,
 } from "@/lib/format"
 import { TONE_SOFT } from "@/lib/tone"
+import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 
 const Muted = ({ children }: { children: ReactNode }) => (
@@ -157,7 +158,7 @@ export const TransactionDetail = ({
               asChild
               size="sm"
               variant={disputeOpen ? "default" : "outline"}
-              className="max-lg:h-11 pointer-coarse:h-11"
+              className={TOUCH_HEIGHT}
             >
               <a href={t.stripeUrl} target="_blank" rel="noreferrer">
                 <ExternalLink aria-hidden="true" />
@@ -174,7 +175,7 @@ export const TransactionDetail = ({
               size="sm"
               variant="outline"
               onClick={() => onEdit(t)}
-              className="max-lg:h-11 pointer-coarse:h-11"
+              className={TOUCH_HEIGHT}
             >
               <Pencil aria-hidden="true" />
               Modifier
@@ -184,7 +185,10 @@ export const TransactionDetail = ({
               size="sm"
               variant="ghost"
               onClick={() => onDelete(t)}
-              className="text-danger-ink hover:text-danger-ink max-lg:h-11 pointer-coarse:h-11"
+              className={cn(
+                "text-danger-ink hover:text-danger-ink",
+                TOUCH_HEIGHT,
+              )}
             >
               <Trash2 aria-hidden="true" />
               Supprimer

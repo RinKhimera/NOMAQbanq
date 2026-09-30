@@ -1,16 +1,13 @@
 import type { AccessType } from "@/features/payments/access-ledger"
 import type { ManualGrant } from "@/features/payments/actions"
 import type { ClientVerdict } from "@/features/payments/dal"
-import { formatMediumDate, formatMediumDateTime } from "@/lib/format"
+import { NBSP, formatMediumDate, formatMediumDateTime } from "@/lib/format"
 import type { Tone } from "@/lib/tone"
 import { paymentMethodLabel } from "@/schemas/payment"
-import { ACCESS_TYPE_LABEL } from "./access-badge"
+import { ACCESS_TYPE_LABEL, daysUntil } from "./access-badge"
 
 // Règles d'affichage des transactions admin, sans état ni rendu : appelables
 // d'un composant client comme d'un Server Component.
-
-const DAY_MS = 24 * 60 * 60 * 1000
-const NB = " "
 
 /** Constat en une phrase du dossier d'un client, par priorité. */
 export const verdictLine = (
@@ -117,8 +114,8 @@ export const recordedGrantLine = (
   const previous = grant.previousExpiresAt
   if (o.isCombo || previous === null || previous <= o.recordedAt)
     return `accordé jusqu'au ${until}`
-  const remaining = Math.ceil((previous - o.recordedAt) / DAY_MS)
-  return `${remaining}${NB}j restants + ${o.durationDays}${NB}j = ${remaining + o.durationDays}${NB}j · prolongé jusqu'au ${until}`
+  const remaining = daysUntil(previous, o.recordedAt)
+  return `${remaining}${NBSP}j restants + ${o.durationDays}${NBSP}j = ${remaining + o.durationDays}${NBSP}j · prolongé jusqu'au ${until}`
 }
 
 /** Dossier d'un client sur la page Transactions, transaction dépliée. */

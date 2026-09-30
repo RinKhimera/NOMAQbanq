@@ -6,11 +6,13 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { PageIntro } from "@/components/shared/page-intro"
 import {
-  DeleteManualPaymentDialog,
-  EditManualPaymentDialog,
   ManualPaymentFlow,
   type PaymentClient,
 } from "@/components/shared/payments/manual-payment-dialog"
+import {
+  DeleteManualPaymentDialog,
+  EditManualPaymentDialog,
+} from "@/components/shared/payments/manual-payment-edit"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { PendingRegion } from "@/components/ui/pending-region"
@@ -23,13 +25,11 @@ import type {
   TransactionStatsView,
 } from "@/features/payments/dal"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
-import { formatCurrency } from "@/lib/format"
+import { NBSP, formatCurrency } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { ClientFile } from "./client-file"
 import { ClientList } from "./client-list"
 import { listParams } from "./transaction-params"
-
-const NB = " "
 
 const SummaryLine = ({ stats }: { stats: TransactionStatsView }) => {
   const { CAD, XAF } = stats.revenueByCurrency
@@ -40,15 +40,16 @@ const SummaryLine = ({ stats }: { stats: TransactionStatsView }) => {
       className="text-ink-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-xs *:whitespace-nowrap"
     >
       <span>
-        30 jours{NB}: <b className="text-ink font-medium">{cad(CAD.recent)}</b>
+        30 jours{NBSP}:{" "}
+        <b className="text-ink font-medium">{cad(CAD.recent)}</b>
       </span>
       <span>
-        Depuis le début{NB}:{" "}
+        Depuis le début{NBSP}:{" "}
         <b className="text-ink font-medium">{cad(CAD.total)}</b>
       </span>
       {XAF.total > 0 && (
         <span>
-          XAF{NB}:{" "}
+          XAF{NBSP}:{" "}
           <b className="text-ink font-medium">
             {formatCurrency(XAF.total, "XAF")}
           </b>

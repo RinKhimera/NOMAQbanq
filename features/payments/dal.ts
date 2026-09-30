@@ -674,30 +674,31 @@ const toClientRow = (r: ClientSqlRow): TransactionClientRow => ({
  * l'ensemble, sans la recherche. Deux requêtes jointes (tranche, puis total et
  * compteurs) : jamais tout l'historique vers le serveur d'app.
  */
-export const getTransactionClients = async ({
-  q,
-  filter = "all",
-  after,
-  before,
-  around,
-  limit = CLIENT_PAGE_SIZE,
-}: {
-  q?: string
-  filter?: ClientFilter
-  after?: string | null
-  before?: string | null
-  around?: string | null
-  limit?: number
-}): Promise<TransactionClientsPage> => {
-  await requireRole(["admin"])
+export const getTransactionClients = cache(
+  async ({
+    q,
+    filter = "all",
+    after,
+    before,
+    around,
+    limit = CLIENT_PAGE_SIZE,
+  }: {
+    q?: string
+    filter?: ClientFilter
+    after?: string | null
+    before?: string | null
+    around?: string | null
+    limit?: number
+  }): Promise<TransactionClientsPage> => {
+    await requireRole(["admin"])
 
-  const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100)
-  const term = q?.trim()
-  const pattern = term ? `%${escapeLike(term)}%` : null
-  const search = pattern
-    ? sql`(c.name ilike ${pattern} or c.email ilike ${pattern})`
-    : sql`true`
-  const ranked = sql`
+    const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100)
+    const term = q?.trim()
+    const pattern = term ? `%${escapeLike(term)}%` : null
+    const search = pattern
+      ? sql`(c.name ilike ${pattern} or c.email ilike ${pattern})`
+      : sql`true`
+    const ranked = sql`
     with ${clientsCte},
     ranked as (
       select c.*, row_number() over (order by c.last_at desc, c.user_id desc)::int as rn
@@ -705,24 +706,24 @@ export const getTransactionClients = async ({
        where ${search} and ${clientFilterSql(filter)}
     )`
 
-  const afterKey = after ? decodeCursor(after) : null
-  const beforeKey = before ? decodeCursor(before) : null
+    const afterKey = after ? decodeCursor(after) : null
+    const beforeKey = before ? decodeCursor(before) : null
 
-  let page
-  if (afterKey) {
-    page = db.execute<ClientSqlRow>(sql`${ranked}
+    let page
+    if (afterKey) {
+      page = db.execute<ClientSqlRow>(sql`${ranked}
       select * from ranked
        where (last_at, user_id) < (${afterKey.createdAt}, ${afterKey.id})
        order by rn limit ${safeLimit}`)
-  } else if (beforeKey) {
-    page = db.execute<ClientSqlRow>(sql`${ranked}
+    } else if (beforeKey) {
+      page = db.execute<ClientSqlRow>(sql`${ranked}
       select * from (
         select * from ranked
          where (last_at, user_id) > (${beforeKey.createdAt}, ${beforeKey.id})
          order by rn desc limit ${safeLimit}
       ) p order by rn`)
-  } else if (around) {
-    page = db.execute<ClientSqlRow>(sql`${ranked},
+    } else if (around) {
+      page = db.execute<ClientSqlRow>(sql`${ranked},
       anchor as (
         select coalesce(
           (select (rn - 1) / ${safeLimit} * ${safeLimit} from ranked where user_id = ${around}),
@@ -732,61 +733,62 @@ export const getTransactionClients = async ({
       select ranked.* from ranked, anchor
        where rn > anchor.start
        order by rn limit ${safeLimit}`)
-  } else {
-    page = db.execute<ClientSqlRow>(sql`${ranked}
+    } else {
+      page = db.execute<ClientSqlRow>(sql`${ranked}
       select * from ranked order by rn limit ${safeLimit}`)
-  }
+    }
 
-  const [pageResult, summaryResult] = await Promise.all([
-    page,
-    db.execute<{
-      total: number
-      failed: number
-      dispute: number
-      manual: number
-    }>(sql`
+    const [pageResult, summaryResult] = await Promise.all([
+      page,
+      db.execute<{
+        total: number
+        failed: number
+        dispute: number
+        manual: number
+      }>(sql`
       with ${clientsCte}
       select count(*) filter (where ${search} and ${clientFilterSql(filter)})::int as total,
              count(*) filter (where c.last_status = 'failed')::int as failed,
              count(*) filter (where c.has_dispute)::int as dispute,
              count(*) filter (where c.has_manual)::int as manual
         from clients c`),
-  ])
+    ])
 
-  const rows = pageResult.rows
-  const summary = summaryResult.rows[0]
-  const total = Number(summary?.total ?? 0)
-  const first = rows[0]
-  const last = rows.at(-1)
-  const cursorOf = (r: ClientSqlRow) =>
-    encodeCursor(new Date(r.last_at), r.user_id)
+    const rows = pageResult.rows
+    const summary = summaryResult.rows[0]
+    const total = Number(summary?.total ?? 0)
+    const first = rows[0]
+    const last = rows.at(-1)
+    const cursorOf = (r: ClientSqlRow) =>
+      encodeCursor(new Date(r.last_at), r.user_id)
 
-  return {
-    items: rows.map(toClientRow),
-    total,
-    firstIndex: first ? Number(first.rn) - 1 : 0,
-    prevCursor: first && Number(first.rn) > 1 ? cursorOf(first) : null,
-    nextCursor: last && Number(last.rn) < total ? cursorOf(last) : null,
-    counts: {
-      failed: Number(summary?.failed ?? 0),
-      dispute: Number(summary?.dispute ?? 0),
-      manual: Number(summary?.manual ?? 0),
-    },
-  }
-}
+    return {
+      items: rows.map(toClientRow),
+      total,
+      firstIndex: first ? Number(first.rn) - 1 : 0,
+      prevCursor: first && Number(first.rn) > 1 ? cursorOf(first) : null,
+      nextCursor: last && Number(last.rn) < total ? cursorOf(last) : null,
+      counts: {
+        failed: Number(summary?.failed ?? 0),
+        dispute: Number(summary?.dispute ?? 0),
+        manual: Number(summary?.manual ?? 0),
+      },
+    }
+  },
+)
 
 /**
  * [Admin] Clients dont la dernière transaction a échoué : le compteur de
  * l'alerte du tableau de bord, qui mène au filtre Échec de la même définition.
  */
-export const getFailedClientsCount = async (): Promise<number> => {
+export const getFailedClientsCount = cache(async (): Promise<number> => {
   await requireRole(["admin"])
   const res = await db.execute<{ n: number }>(sql`
     with ${clientsCte}
     select count(*) filter (where c.last_status = 'failed')::int as n
       from clients c`)
   return Number(res.rows[0]?.n ?? 0)
-}
+})
 
 // ============================================
 // [Admin] Dossier d'un client
@@ -877,14 +879,15 @@ const verdictOf = (s: FileSqlRow): ClientVerdict => {
  * cette transaction (lien direct `?tx=`), par pas de 20 au-delà des 8
  * premières. `null` si le compte n'a aucune transaction.
  */
-export const getTransactionClientFile = async (
-  userId: string,
-  { throughTransactionId }: { throughTransactionId?: string | null } = {},
-): Promise<TransactionClientFile | null> => {
-  await requireRole(["admin"])
+export const getTransactionClientFile = cache(
+  async (
+    userId: string,
+    { throughTransactionId }: { throughTransactionId?: string | null } = {},
+  ): Promise<TransactionClientFile | null> => {
+    await requireRole(["admin"])
 
-  const [summaryResult, accessRows] = await Promise.all([
-    db.execute<FileSqlRow>(sql`
+    const [summaryResult, accessRows] = await Promise.all([
+      db.execute<FileSqlRow>(sql`
       with mine as (
         select t.*, p.is_combo,
                row_number() over (order by t.created_at desc, t.id desc)::int as rn,
@@ -910,47 +913,48 @@ export const getTransactionClientFile = async (
         from "user" u
         join mine l on l.ev = 1
        where u.id = ${userId}`),
-    db
-      .select({
-        accessType: userAccess.accessType,
-        expiresAt: userAccess.expiresAt,
-      })
-      .from(userAccess)
-      .where(eq(userAccess.userId, userId)),
-  ])
+      db
+        .select({
+          accessType: userAccess.accessType,
+          expiresAt: userAccess.expiresAt,
+        })
+        .from(userAccess)
+        .where(eq(userAccess.userId, userId)),
+    ])
 
-  const s = summaryResult.rows[0]
-  if (!s) return null
+    const s = summaryResult.rows[0]
+    if (!s) return null
 
-  const rank = s.through_rank === null ? 0 : Number(s.through_rank)
-  const timelineSize =
-    rank > TIMELINE_FIRST
-      ? TIMELINE_FIRST +
-        Math.ceil((rank - TIMELINE_FIRST) / TIMELINE_MORE) * TIMELINE_MORE
-      : TIMELINE_FIRST
-  const timeline = await getAllTransactions({
-    userId,
-    limit: Math.min(timelineSize, TIMELINE_MAX),
-  })
+    const rank = s.through_rank === null ? 0 : Number(s.through_rank)
+    const timelineSize =
+      rank > TIMELINE_FIRST
+        ? TIMELINE_FIRST +
+          Math.ceil((rank - TIMELINE_FIRST) / TIMELINE_MORE) * TIMELINE_MORE
+        : TIMELINE_FIRST
+    const timeline = await getAllTransactions({
+      userId,
+      limit: Math.min(timelineSize, TIMELINE_MAX),
+    })
 
-  const expiry = (type: AccessType) =>
-    accessRows.find((r) => r.accessType === type)?.expiresAt.getTime() ?? null
+    const expiry = (type: AccessType) =>
+      accessRows.find((r) => r.accessType === type)?.expiresAt.getTime() ?? null
 
-  return {
-    client: {
-      id: userId,
-      name: s.name,
-      email: s.email,
-      image: s.image,
-      deleted: s.deleted,
-    },
-    access: { exam: expiry("exam"), training: expiry("training") },
-    refunded: { exam: s.refunded_exam, training: s.refunded_training },
-    verdict: verdictOf(s),
-    transactionCount: Number(s.n),
-    timeline,
-  }
-}
+    return {
+      client: {
+        id: userId,
+        name: s.name,
+        email: s.email,
+        image: s.image,
+        deleted: s.deleted,
+      },
+      access: { exam: expiry("exam"), training: expiry("training") },
+      refunded: { exam: s.refunded_exam, training: s.refunded_training },
+      verdict: verdictOf(s),
+      transactionCount: Number(s.n),
+      timeline,
+    }
+  },
+)
 
 // ============================================
 // [Admin] Statistiques transactions (dashboard)

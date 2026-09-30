@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { AccessImpactPanel } from "@/components/shared/payments/access-impact-panel"
 import {
-  AccessImpactPanel,
   ManualPaymentDialog,
   PaymentRecordedDialog,
 } from "@/components/shared/payments/manual-payment-dialog"

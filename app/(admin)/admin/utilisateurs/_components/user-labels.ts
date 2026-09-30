@@ -1,11 +1,11 @@
-import { getAccessStatus } from "@/components/shared/payments/access-badge"
+import {
+  daysUntil,
+  getAccessStatus,
+} from "@/components/shared/payments/access-badge"
 import { toAppZoneCalendarDay } from "@/lib/app-zone"
-import { formatDayMonth, formatMediumDate } from "@/lib/format"
+import { NBSP, formatDayMonth, formatMediumDate } from "@/lib/format"
 
 // Règles d'affichage des comptes (liste et fiche), sans état ni rendu.
-
-const DAY_MS = 24 * 60 * 60 * 1000
-const NB = " "
 
 export type AccessState =
   | { state: "never" }
@@ -19,7 +19,7 @@ export const accessState = (
 ): AccessState => {
   if (expiresAt === null) return { state: "never" }
   if (expiresAt <= now) return { state: "expired", expiresAt }
-  const days = Math.ceil((expiresAt - now) / DAY_MS)
+  const days = daysUntil(expiresAt, now)
   const state = getAccessStatus(expiresAt, days)
   return {
     state: state === "expiring" ? "expiring" : "active",
@@ -36,9 +36,9 @@ export const accessCellText = (a: AccessState): string => {
     case "expired":
       return `Expiré ${formatDayMonth(a.expiresAt)}`
     case "expiring":
-      return `Expire dans ${a.days}${NB}j`
+      return `Expire dans ${a.days}${NBSP}j`
     case "active":
-      return `${a.days}${NB}j restants`
+      return `${a.days}${NBSP}j restants`
   }
 }
 

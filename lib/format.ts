@@ -256,3 +256,6 @@ export const formatClockTime = (d: Date | number | string): string => {
 /** « 27 sept. 2026, 11 h 02 » — horodatage d'une transaction. */
 export const formatMediumDateTime = (d: Date | number | string): string =>
   `${formatMediumDate(d)}, ${formatClockTime(d)}`
+
+/** Espace insécable : « 15 j », « 30 jours : », « 85 % » (fr-CA). */
+export const NBSP = " "

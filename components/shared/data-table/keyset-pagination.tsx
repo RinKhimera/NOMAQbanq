@@ -2,6 +2,7 @@
 
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { TOUCH_HEIGHT, TOUCH_SIZE } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 
 type KeysetPaginationProps = {
@@ -19,9 +20,6 @@ type KeysetPaginationProps = {
   isPending?: boolean
   className?: string
 }
-
-// 44 px sous 1024 px et sur écran tactile, iPad en paysage compris.
-const PAGE_BUTTON = "max-lg:h-11 pointer-coarse:h-11"
 
 /**
  * Pied de liste d'une pagination keyset : Précédent / Suivant, sans numéros
@@ -56,37 +54,64 @@ export const KeysetPagination = ({
           ? `lignes ${from}–${to}`
           : `${from}–${to} sur ${total.toLocaleString("fr-CA")} ${total > 1 ? noun.many : noun.one}`}
       </span>
-      {!single && (
-        <span className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onPrevious}
-            disabled={!onPrevious || isPending}
-            className={PAGE_BUTTON}
-          >
-            <ChevronLeft aria-hidden="true" />
-            Précédent
-          </Button>
-          {pages !== null && pages > 1 && (
-            <span className="min-w-12 text-center font-mono tabular-nums">
+      {!single &&
+        (pages === null ? (
+          // Sans total : Précédent / Suivant en toutes lettres (Abonnements).
+          <span className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onPrevious}
+              disabled={!onPrevious || isPending}
+              className={TOUCH_HEIGHT}
+            >
+              <ChevronLeft aria-hidden="true" />
+              Précédent
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={onNext}
+              disabled={!onNext || isPending}
+              className={TOUCH_HEIGHT}
+            >
+              Suivant
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          </span>
+        ) : (
+          // Avec total : flèches et « page / pages », sur la ligne du compteur
+          // même dans une colonne étroite.
+          <span className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Page précédente"
+              onClick={onPrevious}
+              disabled={!onPrevious || isPending}
+              className={TOUCH_SIZE}
+            >
+              <ChevronLeft aria-hidden="true" />
+            </Button>
+            <span className="min-w-14 text-center font-mono tabular-nums">
               {Math.floor(firstIndex / pageSize) + 1} / {pages}
             </span>
-          )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onNext}
-            disabled={!onNext || isPending}
-            className={PAGE_BUTTON}
-          >
-            Suivant
-            <ChevronRight aria-hidden="true" />
-          </Button>
-        </span>
-      )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Page suivante"
+              onClick={onNext}
+              disabled={!onNext || isPending}
+              className={TOUCH_SIZE}
+            >
+              <ChevronRight aria-hidden="true" />
+            </Button>
+          </span>
+        ))}
     </div>
   )
 }

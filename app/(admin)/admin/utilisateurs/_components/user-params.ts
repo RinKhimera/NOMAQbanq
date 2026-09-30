@@ -4,6 +4,7 @@ import {
   startOfAppZoneMonth,
   toAppZoneCalendarDay,
 } from "@/lib/app-zone"
+import { keyForParam } from "@/lib/url-param"
 
 // Module pur : l'état de la liste des utilisateurs vit dans l'URL, lu par la
 // page serveur et réécrit par l'écran client.
@@ -58,25 +59,19 @@ const SORT_PARAM: Record<UserSort, string> = {
   lastLogin: "connexion",
 }
 
-const keyOf = <K extends string>(
-  table: Record<K, string | null>,
-  value: string | null,
-): K | undefined =>
-  (Object.keys(table) as K[]).find((k) => value !== null && table[k] === value)
-
 const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 export const parseUserList = (params: URLSearchParams): UserListState => {
   const page = Number(params.get("page"))
   return {
     q: params.get("q")?.trim() ?? "",
-    role: keyOf(ROLE_PARAM, params.get("role")) ?? "all",
-    period: keyOf(PERIOD_PARAM, params.get("periode")) ?? "all",
+    role: keyForParam(ROLE_PARAM, params.get("role")) ?? "all",
+    period: keyForParam(PERIOD_PARAM, params.get("periode")) ?? "all",
     from: DAY_PATTERN.test(params.get("du") ?? "") ? params.get("du")! : "",
     to: DAY_PATTERN.test(params.get("au") ?? "") ? params.get("au")! : "",
     suspended: params.get("suspendus") === "1",
-    segment: keyOf(SEGMENT_PARAM, params.get("segment")) ?? "all",
-    sort: keyOf(SORT_PARAM, params.get("tri")) ?? "createdAt",
+    segment: keyForParam(SEGMENT_PARAM, params.get("segment")) ?? "all",
+    sort: keyForParam(SORT_PARAM, params.get("tri")) ?? "createdAt",
     order: params.get("ordre") === "asc" ? "asc" : "desc",
     page: Number.isInteger(page) && page > 1 ? page : 1,
   }
@@ -110,19 +105,23 @@ export const withChange = (
   change: Partial<Omit<UserListState, "page">>,
 ): UserListState => ({ ...s, ...change, page: 1 })
 
+/** Première journée d'inscription (`YYYY-MM-DD`, heure de l'Est) de chaque période. */
+const PERIOD_START: Record<
+  UserPeriod,
+  (s: UserListState, today: string, now: number) => string | undefined
+> = {
+  all: () => undefined,
+  month: (_s, _today, now) =>
+    toAppZoneCalendarDay(startOfAppZoneMonth(new Date(now))),
+  "30": (_s, today) => shiftCalendarDay(today, -30),
+  "90": (_s, today) => shiftCalendarDay(today, -90),
+  custom: (s) => s.from || undefined,
+}
+
 /** Les filtres lus par la DAL ; les périodes deviennent des journées de l'Est. */
 export const toUsersFilters = (s: UserListState, now: number): UsersFilters => {
   const today = toAppZoneCalendarDay(now)
-  const from =
-    s.period === "month"
-      ? toAppZoneCalendarDay(startOfAppZoneMonth(new Date(now)))
-      : s.period === "30"
-        ? shiftCalendarDay(today, -30)
-        : s.period === "90"
-          ? shiftCalendarDay(today, -90)
-          : s.period === "custom"
-            ? s.from || undefined
-            : undefined
+  const from = PERIOD_START[s.period](s, today, now)
   return {
     search: s.q || undefined,
     role: s.role === "all" ? undefined : s.role,

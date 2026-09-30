@@ -81,6 +81,10 @@ export const AccessBadge = ({
   )
 }
 
+/** Jours entiers restants avant `expiresAt`, arrondis au jour supérieur. */
+export const daysUntil = (expiresAt: number, now: number): number =>
+  Math.ceil((expiresAt - now) / (24 * 60 * 60 * 1000))
+
 /**
  * Statut dérivé de `daysRemaining` seul, jamais de l'horloge : ce helper est
  * appelé dans le corps de rendu de composants rendus d'abord côté serveur, où

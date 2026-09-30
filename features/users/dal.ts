@@ -449,7 +449,7 @@ export const getUsersWithFilters = async ({
 export type UsersHeadline = { total: number; newLast30Days: number }
 
 /** [Admin] « N comptes · N nouveaux sur 30 jours » (comptes non supprimés). */
-export const getUsersHeadline = async (): Promise<UsersHeadline> => {
+export const getUsersHeadline = cache(async (): Promise<UsersHeadline> => {
   await requireRole(["admin"])
   const since = new Date(Date.now() - 30 * DAY_MS)
   const [row] = await db
@@ -463,7 +463,7 @@ export const getUsersHeadline = async (): Promise<UsersHeadline> => {
     .from(user)
     .where(isNull(user.deletedAt))
   return { total: row?.total ?? 0, newLast30Days: row?.recent ?? 0 }
-}
+})
 
 // ============================================
 // [Admin] Fiche d'un utilisateur
@@ -561,246 +561,252 @@ const ms = (d: Date | string | null | undefined) =>
  * paiements, participations (score brut, 200 au plus), résumé des séries,
  * marquages. `null` si introuvable ou supprimé.
  */
-export const getUserFile = async (userId: string): Promise<UserFile | null> => {
-  await requireRole(["admin"])
+export const getUserFile = cache(
+  async (userId: string): Promise<UserFile | null> => {
+    await requireRole(["admin"])
 
-  const [row] = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      image: user.image,
-      bio: user.bio,
-      role: user.role,
-      banned: user.banned,
-      createdAt: user.createdAt,
-      lastLoginAt: user.lastLoginAt,
-      notifyExamResults: user.notifyExamResults,
-      notifyAccessExpiry: user.notifyAccessExpiry,
-      notifyMarketing: user.notifyMarketing,
-      welcomeEmailSentAt: user.welcomeEmailSentAt,
-      inactivityReminderSentAt: user.inactivityReminderSentAt,
-      cartReminderSentAt: user.cartReminderSentAt,
-    })
-    .from(user)
-    .where(and(eq(user.id, userId), isNull(user.deletedAt)))
-    .limit(1)
-  if (!row) return null
-
-  const [
-    providers,
-    accessRows,
-    paymentRows,
-    lastPayment,
-    participations,
-    seriesRows,
-    bookmarkRows,
-  ] = await Promise.all([
-    // Exception de confidentialité (data-layer.md) : le fournisseur seul.
-    db
-      .selectDistinct({ providerId: account.providerId })
-      .from(account)
-      .where(eq(account.userId, userId))
-      .orderBy(asc(account.providerId))
-      .limit(10),
-    db
+    const [row] = await db
       .select({
-        accessType: userAccess.accessType,
-        expiresAt: userAccess.expiresAt,
-        expiryReminderSentAt: userAccess.expiryReminderSentAt,
-        paidBy: transactions.type,
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        image: user.image,
+        bio: user.bio,
+        role: user.role,
+        banned: user.banned,
+        createdAt: user.createdAt,
+        lastLoginAt: user.lastLoginAt,
+        notifyExamResults: user.notifyExamResults,
+        notifyAccessExpiry: user.notifyAccessExpiry,
+        notifyMarketing: user.notifyMarketing,
+        welcomeEmailSentAt: user.welcomeEmailSentAt,
+        inactivityReminderSentAt: user.inactivityReminderSentAt,
+        cartReminderSentAt: user.cartReminderSentAt,
       })
-      .from(userAccess)
-      .leftJoin(transactions, eq(transactions.id, userAccess.lastTransactionId))
-      .where(eq(userAccess.userId, userId)),
-    db
-      .select({
-        count: sql<number>`count(*)`.mapWith(Number),
-        totalCad:
-          sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.status} = 'completed' and ${transactions.currency} = 'CAD'), 0)`.mapWith(
-            Number,
+      .from(user)
+      .where(and(eq(user.id, userId), isNull(user.deletedAt)))
+      .limit(1)
+    if (!row) return null
+
+    const [
+      providers,
+      accessRows,
+      paymentRows,
+      lastPayment,
+      participations,
+      seriesRows,
+      bookmarkRows,
+    ] = await Promise.all([
+      // Exception de confidentialité (data-layer.md) : le fournisseur seul.
+      db
+        .selectDistinct({ providerId: account.providerId })
+        .from(account)
+        .where(eq(account.userId, userId))
+        .orderBy(asc(account.providerId))
+        .limit(10),
+      db
+        .select({
+          accessType: userAccess.accessType,
+          expiresAt: userAccess.expiresAt,
+          expiryReminderSentAt: userAccess.expiryReminderSentAt,
+          paidBy: transactions.type,
+        })
+        .from(userAccess)
+        .leftJoin(
+          transactions,
+          eq(transactions.id, userAccess.lastTransactionId),
+        )
+        .where(eq(userAccess.userId, userId)),
+      db
+        .select({
+          count: sql<number>`count(*)`.mapWith(Number),
+          totalCad:
+            sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.status} = 'completed' and ${transactions.currency} = 'CAD'), 0)`.mapWith(
+              Number,
+            ),
+          totalXaf:
+            sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.status} = 'completed' and ${transactions.currency} = 'XAF'), 0)`.mapWith(
+              Number,
+            ),
+          refundedExam: sql<boolean>`coalesce(bool_or(${transactions.status} = 'refunded' and (${transactions.accessType} = 'exam' or ${products.isCombo})), false)`,
+          refundedTraining: sql<boolean>`coalesce(bool_or(${transactions.status} = 'refunded' and (${transactions.accessType} = 'training' or ${products.isCombo})), false)`,
+        })
+        .from(transactions)
+        .leftJoin(products, eq(products.id, transactions.productId))
+        .where(eq(transactions.userId, userId)),
+      db
+        .select({
+          createdAt: transactions.createdAt,
+          productName: products.name,
+          amountPaid: transactions.amountPaid,
+          currency: transactions.currency,
+          status: transactions.status,
+          disputeStatus: transactions.disputeStatus,
+        })
+        .from(transactions)
+        .leftJoin(products, eq(products.id, transactions.productId))
+        .where(eq(transactions.userId, userId))
+        .orderBy(desc(transactions.createdAt), desc(transactions.id))
+        .limit(1),
+      db
+        .select({
+          id: examParticipations.id,
+          examId: exams.id,
+          examTitle: exams.title,
+          status: examParticipations.status,
+          score: examParticipations.score,
+          examEndsAt: exams.endDate,
+          // Total réel, au-delà des 200 lignes ramenées.
+          total: sql<number>`count(*) over ()`.mapWith(Number),
+          at: sql<
+            Date | string
+          >`coalesce(${examParticipations.completedAt}, ${examParticipations.startedAt}, ${examParticipations.createdAt})`,
+        })
+        .from(examParticipations)
+        .innerJoin(exams, eq(exams.id, examParticipations.examId))
+        .where(eq(examParticipations.userId, userId))
+        .orderBy(
+          desc(
+            sql`coalesce(${examParticipations.completedAt}, ${examParticipations.startedAt}, ${examParticipations.createdAt})`,
           ),
-        totalXaf:
-          sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.status} = 'completed' and ${transactions.currency} = 'XAF'), 0)`.mapWith(
-            Number,
-          ),
-        refundedExam: sql<boolean>`coalesce(bool_or(${transactions.status} = 'refunded' and (${transactions.accessType} = 'exam' or ${products.isCombo})), false)`,
-        refundedTraining: sql<boolean>`coalesce(bool_or(${transactions.status} = 'refunded' and (${transactions.accessType} = 'training' or ${products.isCombo})), false)`,
-      })
-      .from(transactions)
-      .leftJoin(products, eq(products.id, transactions.productId))
-      .where(eq(transactions.userId, userId)),
-    db
-      .select({
-        createdAt: transactions.createdAt,
-        productName: products.name,
-        amountPaid: transactions.amountPaid,
-        currency: transactions.currency,
-        status: transactions.status,
-        disputeStatus: transactions.disputeStatus,
-      })
-      .from(transactions)
-      .leftJoin(products, eq(products.id, transactions.productId))
-      .where(eq(transactions.userId, userId))
-      .orderBy(desc(transactions.createdAt), desc(transactions.id))
-      .limit(1),
-    db
-      .select({
-        id: examParticipations.id,
-        examId: exams.id,
-        examTitle: exams.title,
-        status: examParticipations.status,
-        score: examParticipations.score,
-        examEndsAt: exams.endDate,
-        // Total réel, au-delà des 200 lignes ramenées.
-        total: sql<number>`count(*) over ()`.mapWith(Number),
-        at: sql<
-          Date | string
-        >`coalesce(${examParticipations.completedAt}, ${examParticipations.startedAt}, ${examParticipations.createdAt})`,
-      })
-      .from(examParticipations)
-      .innerJoin(exams, eq(exams.id, examParticipations.examId))
-      .where(eq(examParticipations.userId, userId))
-      .orderBy(
-        desc(
-          sql`coalesce(${examParticipations.completedAt}, ${examParticipations.startedAt}, ${examParticipations.createdAt})`,
-        ),
-      )
-      .limit(200),
-    db
-      .select({
-        count: sql<number>`count(*)`.mapWith(Number),
-        lastAt: sql<
-          Date | string | null
-        >`max(coalesce(${trainingSessions.completedAt}, ${trainingSessions.startedAt}))`,
-        average: sql<
-          number | null
-        >`floor(avg(${trainingSessions.score}) filter (where ${trainingSessions.status} = 'completed'))`,
-        tutor:
-          sql<number>`count(*) filter (where ${trainingSessions.mode} = 'tutor')`.mapWith(
-            Number,
-          ),
-      })
-      .from(trainingSessions)
-      .where(eq(trainingSessions.userId, userId)),
-    db
-      .select({ count: sql<number>`count(*)`.mapWith(Number) })
-      .from(questionBookmarks)
-      .where(eq(questionBookmarks.userId, userId)),
-  ])
+        )
+        .limit(200),
+      db
+        .select({
+          count: sql<number>`count(*)`.mapWith(Number),
+          lastAt: sql<
+            Date | string | null
+          >`max(coalesce(${trainingSessions.completedAt}, ${trainingSessions.startedAt}))`,
+          average: sql<
+            number | null
+          >`floor(avg(${trainingSessions.score}) filter (where ${trainingSessions.status} = 'completed'))`,
+          tutor:
+            sql<number>`count(*) filter (where ${trainingSessions.mode} = 'tutor')`.mapWith(
+              Number,
+            ),
+        })
+        .from(trainingSessions)
+        .where(eq(trainingSessions.userId, userId)),
+      db
+        .select({ count: sql<number>`count(*)`.mapWith(Number) })
+        .from(questionBookmarks)
+        .where(eq(questionBookmarks.userId, userId)),
+    ])
 
-  const accessOf = (type: AccessType) =>
-    accessRows.find((r) => r.accessType === type)
-  const pay = paymentRows[0]
-  const last = lastPayment[0]
-  const series = seriesRows[0]
-  const lastSeriesAt = ms(series?.lastAt)
-  const lastParticipation = participations[0]
-  const participationAt = lastParticipation ? ms(lastParticipation.at)! : null
+    const accessOf = (type: AccessType) =>
+      accessRows.find((r) => r.accessType === type)
+    const pay = paymentRows[0]
+    const last = lastPayment[0]
+    const series = seriesRows[0]
+    const lastSeriesAt = ms(series?.lastAt)
+    const lastParticipation = participations[0]
+    const participationAt = lastParticipation ? ms(lastParticipation.at)! : null
 
-  const lastActivity =
-    participationAt !== null &&
-    (lastSeriesAt === null || participationAt >= lastSeriesAt)
-      ? {
-          kind: "participation" as const,
-          label: lastParticipation.examTitle,
-          at: participationAt,
-        }
-      : lastSeriesAt !== null
+    const lastActivity =
+      participationAt !== null &&
+      (lastSeriesAt === null || participationAt >= lastSeriesAt)
         ? {
-            kind: "series" as const,
-            label: `${series.count} série${series.count > 1 ? "s" : ""} au total`,
-            at: lastSeriesAt,
+            kind: "participation" as const,
+            label: lastParticipation.examTitle,
+            at: participationAt,
           }
-        : null
-
-  const imported = providers.length === 0
-  const expiryReminders = accessRows
-    .map((r) => r.expiryReminderSentAt?.getTime() ?? null)
-    .filter((t): t is number => t !== null)
-
-  return {
-    user: {
-      id: row.id,
-      name: row.name,
-      username: row.username,
-      email: row.email,
-      image: row.image,
-      bio: row.bio,
-      role: row.role,
-      banned: row.banned,
-      createdAt: row.createdAt.getTime(),
-      lastLoginAt: imported ? null : ms(row.lastLoginAt),
-      imported,
-      loginMethods: providers.map((p) => p.providerId),
-    },
-    access: {
-      exam: accessOf("exam")?.expiresAt.getTime() ?? null,
-      training: accessOf("training")?.expiresAt.getTime() ?? null,
-    },
-    refunded: {
-      exam: Boolean(pay?.refundedExam),
-      training: Boolean(pay?.refundedTraining),
-    },
-    accessPaidBy: {
-      exam: accessOf("exam")?.paidBy ?? null,
-      training: accessOf("training")?.paidBy ?? null,
-    },
-    payments:
-      pay && pay.count > 0 && last
-        ? {
-            count: pay.count,
-            totalCad: pay.totalCad,
-            totalXaf: pay.totalXaf,
-            last: {
-              createdAt: last.createdAt.getTime(),
-              productName: last.productName,
-              amountPaid: last.amountPaid,
-              currency: last.currency,
-              status: last.status,
-              disputeStatus: last.disputeStatus,
-            },
-          }
-        : null,
-    activity: {
-      lastActivity,
-      participations: participations.map((p) => ({
-        id: p.id,
-        examId: p.examId,
-        examTitle: p.examTitle,
-        status: p.status,
-        score: p.score,
-        examEndsAt: p.examEndsAt.getTime(),
-        at: ms(p.at)!,
-      })),
-      participationCount: participations[0]?.total ?? 0,
-      series:
-        series && series.count > 0 && lastSeriesAt !== null
+        : lastSeriesAt !== null
           ? {
-              count: series.count,
-              lastAt: lastSeriesAt,
-              average: series.average === null ? null : Number(series.average),
-              tutorShare: Math.round((100 * series.tutor) / series.count),
+              kind: "series" as const,
+              label: `${series.count} série${series.count > 1 ? "s" : ""} au total`,
+              at: lastSeriesAt,
+            }
+          : null
+
+    const imported = providers.length === 0
+    const expiryReminders = accessRows
+      .map((r) => r.expiryReminderSentAt?.getTime() ?? null)
+      .filter((t): t is number => t !== null)
+
+    return {
+      user: {
+        id: row.id,
+        name: row.name,
+        username: row.username,
+        email: row.email,
+        image: row.image,
+        bio: row.bio,
+        role: row.role,
+        banned: row.banned,
+        createdAt: row.createdAt.getTime(),
+        lastLoginAt: imported ? null : ms(row.lastLoginAt),
+        imported,
+        loginMethods: providers.map((p) => p.providerId),
+      },
+      access: {
+        exam: accessOf("exam")?.expiresAt.getTime() ?? null,
+        training: accessOf("training")?.expiresAt.getTime() ?? null,
+      },
+      refunded: {
+        exam: Boolean(pay?.refundedExam),
+        training: Boolean(pay?.refundedTraining),
+      },
+      accessPaidBy: {
+        exam: accessOf("exam")?.paidBy ?? null,
+        training: accessOf("training")?.paidBy ?? null,
+      },
+      payments:
+        pay && pay.count > 0 && last
+          ? {
+              count: pay.count,
+              totalCad: pay.totalCad,
+              totalXaf: pay.totalXaf,
+              last: {
+                createdAt: last.createdAt.getTime(),
+                productName: last.productName,
+                amountPaid: last.amountPaid,
+                currency: last.currency,
+                status: last.status,
+                disputeStatus: last.disputeStatus,
+              },
             }
           : null,
-      bookmarkCount: bookmarkRows[0]?.count ?? 0,
-    },
-    communications: {
-      prefs: {
-        examResults: row.notifyExamResults,
-        accessExpiry: row.notifyAccessExpiry,
-        marketing: row.notifyMarketing,
+      activity: {
+        lastActivity,
+        participations: participations.map((p) => ({
+          id: p.id,
+          examId: p.examId,
+          examTitle: p.examTitle,
+          status: p.status,
+          score: p.score,
+          examEndsAt: p.examEndsAt.getTime(),
+          at: ms(p.at)!,
+        })),
+        participationCount: participations[0]?.total ?? 0,
+        series:
+          series && series.count > 0 && lastSeriesAt !== null
+            ? {
+                count: series.count,
+                lastAt: lastSeriesAt,
+                average:
+                  series.average === null ? null : Number(series.average),
+                tutorShare: Math.round((100 * series.tutor) / series.count),
+              }
+            : null,
+        bookmarkCount: bookmarkRows[0]?.count ?? 0,
       },
-      sent: {
-        welcome: ms(row.welcomeEmailSentAt),
-        inactivity: ms(row.inactivityReminderSentAt),
-        cart: ms(row.cartReminderSentAt),
-        expiry: expiryReminders.length ? Math.max(...expiryReminders) : null,
+      communications: {
+        prefs: {
+          examResults: row.notifyExamResults,
+          accessExpiry: row.notifyAccessExpiry,
+          marketing: row.notifyMarketing,
+        },
+        sent: {
+          welcome: ms(row.welcomeEmailSentAt),
+          inactivity: ms(row.inactivityReminderSentAt),
+          cart: ms(row.cartReminderSentAt),
+          expiry: expiryReminders.length ? Math.max(...expiryReminders) : null,
+        },
       },
-    },
-  }
-}
+    }
+  },
+)
 
 // ============================================
 // [Admin] Journal des suspensions

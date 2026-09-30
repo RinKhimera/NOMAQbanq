@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button"
 import type { ProductView } from "@/features/payments/dal"
 import type { UserBanView, UserFile } from "@/features/users/dal"
 import {
+  NBSP,
   formatCurrency,
   formatMediumDate,
   formatMediumDateTime,
@@ -37,8 +38,6 @@ import {
 } from "../../_components/user-labels"
 import { UserBanSection } from "./user-ban-section"
 import { UserRoleSection } from "./user-role-section"
-
-const NB = " "
 
 const Section = ({
   eyebrow,
@@ -159,7 +158,7 @@ const AccessBlock = ({
                   Actif jusqu&apos;au {formatMediumDate(a.expiresAt)}{" "}
                   <span className="font-mono text-[0.8125rem] font-normal">
                     · {a.days}
-                    {NB}j restants
+                    {NBSP}j restants
                   </span>
                 </span>
                 <span className="text-ink-3 text-xs leading-normal">
@@ -333,7 +332,7 @@ const Activity = ({ file, now }: { file: UserFile; now: number }) => {
                             )}
                           >
                             {Math.floor(p.score)}
-                            {NB}%
+                            {NBSP}%
                           </span>
                         )}
                         {held && (
@@ -387,13 +386,13 @@ const Activity = ({ file, now }: { file: UserFile; now: number }) => {
                           )}
                         >
                           {a.series.average}
-                          {NB}%
+                          {NBSP}%
                         </span>
                       </>
                     )}{" "}
                     · tuteur {a.series.tutorShare}
-                    {NB}% / test {100 - a.series.tutorShare}
-                    {NB}%
+                    {NBSP}% / test {100 - a.series.tutorShare}
+                    {NBSP}%
                   </span>
                 </>
               ) : (

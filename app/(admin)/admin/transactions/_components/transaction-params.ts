@@ -1,4 +1,5 @@
 import type { ClientFilter } from "@/features/payments/dal"
+import { keyForParam } from "@/lib/url-param"
 
 // Module pur : lu par la page serveur et par l'écran client (une constante
 // d'un module "use client" deviendrait une référence client côté serveur).
@@ -12,9 +13,7 @@ export const CLIENT_FILTER_PARAM: Record<ClientFilter, string | null> = {
 }
 
 export const parseClientFilter = (value: string | undefined): ClientFilter =>
-  (Object.keys(CLIENT_FILTER_PARAM) as ClientFilter[]).find(
-    (f) => value !== undefined && CLIENT_FILTER_PARAM[f] === value,
-  ) ?? "all"
+  keyForParam(CLIENT_FILTER_PARAM, value) ?? "all"
 
 /**
  * Paramètres de l'URL après un changement de recherche ou de filtre : retour

@@ -47,11 +47,7 @@ export const TransactionStatusWithDispute = ({
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5">
       <TransactionStatusPill status={transaction.status} />
-      {badge && (
-        <StatusPill tone={badge.tone === "muted" ? "neutral" : badge.tone}>
-          {badge.label}
-        </StatusPill>
-      )}
+      {badge && <StatusPill tone={badge.tone}>{badge.label}</StatusPill>}
     </span>
   )
 }
