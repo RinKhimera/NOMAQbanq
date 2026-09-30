@@ -28,8 +28,8 @@ test.describe("Admin — Transactions (dossier client)", () => {
   }) => {
     await transactions.openFirstClient()
     const file = transactions.clientFile
-    await expect(file.getByText("Accès Examens")).toBeVisible()
-    await expect(file.getByText("Accès Entraînement")).toBeVisible()
+    await expect(file.getByText("Accès Examens", { exact: true })).toBeVisible()
+    await expect(file.getByText("Accès Entraînement", { exact: true })).toBeVisible()
 
     // Déplier une transaction : le détail et l'URL suivent.
     await file.locator("[data-testid^='timeline-'] button").first().click()
@@ -58,8 +58,8 @@ test.describe("Admin — Transactions (dossier client)", () => {
   }) => {
     await transactions.openManualPaymentDialog()
     const dialog = page.getByRole("dialog")
-    await expect(dialog.getByText("Client")).toBeVisible()
-    await expect(dialog.getByText("Produit")).toBeVisible()
+    await expect(dialog.getByText("Client", { exact: true })).toBeVisible()
+    await expect(dialog.getByText("Produit", { exact: true })).toBeVisible()
     await expect(dialog.getByLabel("Montant")).toBeVisible()
 
     // Montant nul : accès offert, motif obligatoire.
