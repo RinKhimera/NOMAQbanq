@@ -8,10 +8,8 @@ export class ExamenBlancPage extends BasePage {
 
   async goto() {
     await super.goto("/tableau-de-bord/examen-blanc")
-    // Wait for page content — heading or exam cards
     await this.page
-      .getByText("Examens Blancs")
-      .first()
+      .getByRole("heading", { level: 1, name: "Examens blancs" })
       .waitFor({ state: "visible", timeout: 15_000 })
   }
 
@@ -37,49 +35,34 @@ export class ExamenBlancPage extends BasePage {
     await this.page.getByTestId("btn-pause").click()
   }
 
+  /**
+   * Dialogue des consignes : coche « J'ai lu les consignes », puis
+   * « Commencer l'examen ». La participation se crée ici (startExam) ; la page
+   * de passation s'ouvre directement sur le chronomètre.
+   */
   async confirmStart() {
-    await expect(
-      this.page.getByText("Confirmer le début de l'examen"),
-    ).toBeVisible()
-
-    const dialog = this.page.locator('[role="alertdialog"], [role="dialog"]')
-    await dialog.getByRole("button", { name: "Commencer l'examen" }).click()
+    const dialog = this.page.getByTestId("exam-start-dialog")
+    await expect(dialog).toBeVisible({ timeout: 10_000 })
+    await expect(dialog.getByText("J'ai lu les consignes.")).toBeVisible()
+    await dialog.getByTestId("exam-consignes-ack").click()
+    await dialog.getByTestId("btn-start-exam").click()
 
     await this.page.waitForURL(/\/evaluation/, { timeout: 15_000 })
   }
 
+  /** La passation s'ouvre sur le chronomètre : plus de dialogue de règles. */
   async acceptWarning() {
-    await expect(
-      this.page.getByText("Règles importantes de l'examen"),
-    ).toBeVisible({ timeout: 10_000 })
-
-    await this.page
-      .getByRole("button", { name: /Je comprends.*Commencer/ })
-      .click()
+    await this.waitForTimer()
   }
 
-  /** Accept warning if shown, or wait for timer if session is being resumed */
+  /** Même chose qu'un démarrage : une reprise arrive aussi sur le chronomètre. */
   async acceptWarningOrResume() {
-    const warning = this.page.getByText("Règles importantes de l'examen")
-    const timer = this.page.locator("text=/\\d{2}:\\d{2}:\\d{2}/").first()
-
-    // Wait for either the warning dialog or the timer to appear
-    await warning
-      .or(timer)
-      .first()
-      .waitFor({ state: "visible", timeout: 10_000 })
-
-    if (await warning.isVisible()) {
-      await this.page
-        .getByRole("button", { name: /Je comprends.*Commencer/ })
-        .click()
-    }
-    // If timer is already visible, session was resumed — nothing to do
+    await this.waitForTimer()
   }
 
   async waitForTimer() {
     await expect(this.page.locator("text=/\\d{2}:\\d{2}:\\d{2}/")).toBeVisible({
-      timeout: 10_000,
+      timeout: 15_000,
     })
   }
 
@@ -142,13 +125,12 @@ export class ExamenBlancPage extends BasePage {
     })
   }
 
+  /** « Résultats » de la première ligne d'examen terminé. */
   async goToResults() {
     await this.page
-      .getByRole("button", { name: "Consulter les résultats" })
+      .getByRole("link", { name: /^Résultats/ })
       .first()
       .click()
-    await this.page.waitForURL(/\/resultats|\/examen-blanc\//, {
-      timeout: 15_000,
-    })
+    await this.page.waitForURL(/\/resultats/, { timeout: 15_000 })
   }
 }

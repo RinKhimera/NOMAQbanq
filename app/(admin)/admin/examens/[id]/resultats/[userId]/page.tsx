@@ -1,9 +1,5 @@
-import { ArrowLeft } from "lucide-react"
 import { notFound } from "next/navigation"
-import {
-  SessionResults,
-  SessionResultsHeader,
-} from "@/components/quiz/results/session-results"
+import { SessionResults } from "@/components/quiz/results/session-results"
 import type { AnswersMap } from "@/components/quiz/runner/types"
 import { getExamPercentileForUser } from "@/features/analytics/dal"
 import { loadExamQuestionExplanations } from "@/features/exams/actions"
@@ -21,6 +17,9 @@ export default async function AdminParticipantResultsPage({
     getExamPercentileForUser(id, userId),
   ])
   if (!data) notFound()
+  // Un admin n'est jamais soumis à l'accès payant : cette branche est
+  // structurellement morte ici, le type seul l'impose.
+  if ("error" in data && data.error === "ACCESS_REQUIRED") notFound()
 
   if ("error" in data) {
     return (
@@ -60,25 +59,21 @@ export default async function AdminParticipantResultsPage({
     : undefined
 
   return (
-    <>
-      <SessionResultsHeader
-        title="Résultats de l'examen"
-        subtitle={data.exam.title}
-        score={score}
-        percentile={percentile}
-        percentileSubject="participant"
-        backHref={`/admin/examens/${id}`}
-        backLabel="Retour au classement"
-        backIcon={<ArrowLeft className="h-4 w-4" />}
-      />
-      <SessionResults
-        kind="exam"
-        score={score}
-        questions={questions}
-        answers={answers}
-        loadExplanations={loadExamQuestionExplanations}
-        participant={participant}
-      />
-    </>
+    <SessionResults
+      kind="exam"
+      score={score}
+      questions={questions}
+      answers={answers}
+      flaggedIds={data.participant.answers
+        .filter((a) => a.isFlagged)
+        .map((a) => a.questionId)}
+      loadExplanations={loadExamQuestionExplanations}
+      participant={participant}
+      percentile={percentile}
+      percentileSubject="participant"
+      eyebrow={data.exam.title}
+      backHref={`/admin/examens/${id}`}
+      backLabel="Retour au classement"
+    />
   )
 }

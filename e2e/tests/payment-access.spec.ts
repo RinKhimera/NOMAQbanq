@@ -11,9 +11,8 @@ test.describe("Paiement et acces — paywall et verification", () => {
         .getByRole("button", { name: /Acheter maintenant|Prolonger/ })
         .first(),
     ).toBeVisible()
-    await expect(
-      page.getByRole("heading", { name: "Paiement sécurisé" }),
-    ).toBeVisible()
+    // Bloc de réassurance de la grille (plus un titre de section).
+    await expect(page.getByText("Paiement sécurisé").first()).toBeVisible()
   })
 
   test("la page abonnements affiche le statut des acces", async ({ page }) => {
@@ -37,17 +36,15 @@ test.describe("Paiement et acces — paywall et verification", () => {
   }) => {
     await page.goto("/tableau-de-bord/entrainement")
 
-    // Avec un user qui a acces, on doit voir le formulaire OU la carte de reprise
-    // d'une session en cours (si un test précédent en a laissé une). Sinon paywall.
+    // Avec un user qui a acces, on doit voir le formulaire (la carte « Série en
+    // cours » s'affiche au-dessus, sans le remplacer). Sinon le paywall.
     const hasAccess = await page
-      .getByText("Nouvelle session")
-      .or(page.getByText("Session en cours"))
-      .first()
+      .getByText("Nouvelle série", { exact: true })
       .isVisible({ timeout: 15_000 })
       .catch(() => false)
 
     const hasPaywall = await page
-      .getByText("Débloquez l'Entraînement")
+      .getByTestId("access-paywall")
       .isVisible({ timeout: 5_000 })
       .catch(() => false)
 
@@ -86,14 +83,12 @@ test.describe("Paiement et acces — paywall et verification", () => {
 
     // Si le paywall est visible, verifier le lien
     const paywallVisible = await page
-      .getByText("Débloquez l'Entraînement")
+      .getByTestId("access-paywall")
       .isVisible({ timeout: 15_000 })
       .catch(() => false)
 
     if (paywallVisible) {
-      await page
-        .getByRole("link", { name: /Voir tous les forfaits|tarifs/i })
-        .click()
+      await page.getByRole("link", { name: /Voir les tarifs/ }).click()
       await expect(page).toHaveURL(/\/tarifs/)
     } else {
       // User has access — skip this test gracefully

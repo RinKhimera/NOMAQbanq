@@ -3,7 +3,7 @@ import { type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   SessionResults,
-  SessionResultsHeader,
+  resultsByDomain,
 } from "@/components/quiz/results/session-results"
 import type { AnswersMap, QuizQuestion } from "@/components/quiz/runner/types"
 
@@ -17,11 +17,17 @@ vi.mock("@/components/quiz/question-card", () => ({
   QuestionCard: ({
     questionNumber,
     userAnswer,
+    isFlagged,
   }: {
     questionNumber: number
     userAnswer: string | null
+    isFlagged?: boolean
   }) => (
-    <div data-testid="question-card" data-user-answer={userAnswer ?? "none"}>
+    <div
+      data-testid="question-card"
+      data-user-answer={userAnswer ?? "none"}
+      data-flagged={isFlagged ? "true" : undefined}
+    >
       Q{questionNumber}
     </div>
   ),
@@ -31,11 +37,11 @@ vi.mock("@/components/quiz/question-card", () => ({
 // Fixtures
 // ============================================
 
-const makeQuestion = (id: string): QuizQuestion => ({
+const makeQuestion = (id: string, domain = "Cardiologie"): QuizQuestion => ({
   _id: id,
   question: `Question ${id}`,
   options: ["A", "B", "C", "D"],
-  domain: "Cardiologie",
+  domain,
   objectifCMC: "Obj",
   images: [],
   correctAnswer: "A",
@@ -47,17 +53,20 @@ const questions: QuizQuestion[] = [
   makeQuestion("q3"),
 ]
 
-// Dense answers map: q1 correct, q2 incorrect, q3 absent (unanswered)
 const unansweredItems = () =>
   screen
     .getAllByTestId(/^results-nav-item-/)
     .filter((item) => item.dataset.state === "unanswered")
     .map((item) => item.dataset.testid)
 
+// Dense answers map: q1 correct, q2 incorrect, q3 absent (unanswered)
 const denseAnswers: AnswersMap = {
   q1: { selected: "A", isCorrect: true },
   q2: { selected: "B", isCorrect: false },
 }
+
+const cardTexts = () =>
+  screen.getAllByTestId("question-card").map((c) => c.textContent)
 
 // ============================================
 // Tests
@@ -76,6 +85,7 @@ describe("SessionResults", () => {
     )
     expect(screen.queryByTestId("score-percentage")).not.toBeInTheDocument()
     expect(screen.queryByTestId("stat-correct")).not.toBeInTheDocument()
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument()
     expect(screen.getAllByTestId("question-card")).toHaveLength(3)
     expect(screen.getByTestId("btn-filter-errors")).toBeInTheDocument()
   })
@@ -95,6 +105,19 @@ describe("SessionResults", () => {
       expect(screen.getByTestId("stat-unanswered").textContent).toBe("1")
       expect(screen.queryByTestId("stat-withheld")).not.toBeInTheDocument()
     })
+
+    it("« Non répondues » reste affiché à 0 : la ligne ne disparaît pas", () => {
+      render(
+        <SessionResults
+          kind="training"
+          score={100}
+          questions={questions}
+          answers={{ ...denseAnswers, q3: { selected: "A", isCorrect: true } }}
+        />,
+      )
+      expect(screen.getByText("Non répondues")).toBeInTheDocument()
+      expect(screen.getByTestId("stat-unanswered").textContent).toBe("0")
+    })
   })
 
   describe("correction différée (clé retenue par un examen ouvert)", () => {
@@ -109,7 +132,7 @@ describe("SessionResults", () => {
       q2: { selected: "B" },
     }
 
-    it("une réponse à clé retenue n'est ni juste ni fausse : tuile « Différées »", () => {
+    it("une réponse à clé retenue n'est ni juste ni fausse : ligne « Différées »", () => {
       render(
         <SessionResults
           kind="training"
@@ -125,7 +148,7 @@ describe("SessionResults", () => {
       expect(screen.getByText("Différées")).toBeInTheDocument()
     })
 
-    it("le filtre « Erreurs » ne retient pas une réponse à clé retenue", () => {
+    it("le filtre « Incorrectes » ne retient pas une réponse à clé retenue", () => {
       render(
         <SessionResults
           kind="training"
@@ -135,21 +158,7 @@ describe("SessionResults", () => {
         />,
       )
       fireEvent.click(screen.getByTestId("btn-filter-errors"))
-      const cards = screen.getAllByTestId("question-card")
-      expect(cards).toHaveLength(1)
-      expect(cards[0].textContent).toBe("Q3")
-    })
-
-    it("« X sur N réussies » compte les questions corrigeables, pas les différées", () => {
-      render(
-        <SessionResults
-          kind="training"
-          score={33}
-          questions={withheldQuestions}
-          answers={withheldAnswers}
-        />,
-      )
-      expect(screen.getByText("1 sur 2 questions réussies")).toBeInTheDocument()
+      expect(cardTexts()).toEqual(["Q3"])
     })
 
     it("ne demande pas l'explication d'une question à clé retenue", async () => {
@@ -189,8 +198,8 @@ describe("SessionResults", () => {
 
     // Le score en base agrège TOUTES les réponses : « score × N / 100 −
     // justes affichées » donnerait le nombre de différées justes. Tant qu'une
-    // réponse est différée, le pourcentage et le badge sont retenus.
-    it("retient le score : ni pourcentage ni badge tant qu'une réponse est différée", () => {
+    // réponse est différée, le pourcentage, le badge et le verdict sont retenus.
+    it("retient le score : ni pourcentage, ni badge, ni verdict tant qu'une réponse est différée", () => {
       render(
         <SessionResults
           kind="training"
@@ -201,14 +210,16 @@ describe("SessionResults", () => {
       )
       expect(screen.queryByTestId("score-percentage")).not.toBeInTheDocument()
       expect(screen.queryByTestId("score-badge")).not.toBeInTheDocument()
-      expect(screen.queryByTestId("score-progress")).not.toBeInTheDocument()
+      expect(screen.getByTestId("score-status").dataset.status).toBe("withheld")
       expect(screen.getByTestId("score-withheld").textContent).toBe(
         "Score disponible après la clôture de l'examen",
       )
-      expect(screen.getByText("1 sur 2 questions réussies")).toBeInTheDocument()
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+        "Score retenu jusqu'à la clôture de l'examen blanc.",
+      )
     })
 
-    it("jumeau admin : mêmes réponses sans clé retenue → pourcentage et badge affichés", () => {
+    it("jumeau admin : mêmes réponses sans clé retenue → pourcentage, badge et verdict affichés", () => {
       const revealedQuestions = withheldQuestions.map((q) => ({
         ...q,
         keyWithheld: undefined,
@@ -230,8 +241,11 @@ describe("SessionResults", () => {
         /33\s%/,
       )
       expect(screen.getByTestId("score-badge")).toBeInTheDocument()
-      expect(screen.getByTestId("score-progress")).toBeInTheDocument()
+      expect(screen.getByTestId("score-status").dataset.status).toBe("failing")
       expect(screen.queryByTestId("score-withheld")).not.toBeInTheDocument()
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+        "Continuez à pratiquer. 1 bonne réponse sur 3.",
+      )
     })
 
     it("une question à clé retenue SANS réponse ne retient pas le score", () => {
@@ -256,85 +270,41 @@ describe("SessionResults", () => {
           score={null}
           questions={questions}
           answers={denseAnswers}
+          percentile={75}
         />,
       )
       expect(screen.queryByTestId("score-percentage")).not.toBeInTheDocument()
       expect(screen.getByTestId("score-withheld")).toBeInTheDocument()
-    })
-  })
-
-  describe("SessionResultsHeader", () => {
-    const headerProps = {
-      title: "Résultats",
-      backHref: "/",
-      backLabel: "Retour",
-      backIcon: null,
-    }
-
-    it("score retenu : statut neutre, ni trophée ni cible", () => {
-      render(<SessionResultsHeader {...headerProps} score={null} />)
-      expect(screen.getByTestId("score-status").dataset.status).toBe("withheld")
-    })
-
-    it("jumeau : sans retenue, le statut suit le seuil de réussite", () => {
-      const { unmount } = render(
-        <SessionResultsHeader {...headerProps} score={80} />,
-      )
-      expect(screen.getByTestId("score-status").dataset.status).toBe("passing")
-      unmount()
-      render(<SessionResultsHeader {...headerProps} score={33} />)
-      expect(screen.getByTestId("score-status").dataset.status).toBe("failing")
-    })
-
-    it("situe le participant parmi les autres quand le percentile existe", () => {
-      render(
-        <SessionResultsHeader {...headerProps} score={70} percentile={75} />,
-      )
-      expect(screen.getByTestId("exam-percentile")).toHaveTextContent(
-        "Vous avez fait mieux que 75 % des autres participants",
-      )
-    })
-
-    it("parle du participant, pas du lecteur, quand un admin consulte ses résultats", () => {
-      render(
-        <SessionResultsHeader
-          {...headerProps}
-          score={70}
-          percentile={75}
-          percentileSubject="participant"
-        />,
-      )
-      expect(screen.getByTestId("exam-percentile")).toHaveTextContent(
-        "A fait mieux que 75 % des autres participants",
-      )
-    })
-
-    it("jumeau : sans percentile, aucune position ni « 0 % »", () => {
-      render(
-        <SessionResultsHeader {...headerProps} score={70} percentile={null} />,
-      )
+      // Le percentile compare des scores : retenu avec eux.
       expect(screen.queryByTestId("exam-percentile")).toBeNull()
     })
   })
 
-  describe("score card", () => {
-    it("affiche le score et les compteurs", () => {
+  describe("bilan", () => {
+    it("affiche le score dans l'anneau, le verdict et les compteurs", () => {
       render(
         <SessionResults
           kind="exam"
           score={33}
           questions={questions}
           answers={denseAnswers}
+          eyebrow="Examen blanc 25 · fermé le 21 sept. 2026"
         />,
       )
       expect(screen.getByTestId("score-percentage").textContent).toMatch(
         /33\s%/,
       )
-      expect(screen.getByText("Sans réponse")).toBeInTheDocument()
+      expect(screen.getByText("Non répondues")).toBeInTheDocument()
+      expect(
+        screen.getByText("Examen blanc 25 · fermé le 21 sept. 2026"),
+      ).toBeInTheDocument()
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+        "Non réussi.",
+      )
       expect(screen.getAllByTestId("question-card")).toHaveLength(3)
     })
 
-    it("affiche 'Réussi' pour un score >= 60", () => {
+    it("jumeau : le statut suit le seuil de réussite", () => {
       render(
         <SessionResults
           kind="exam"
@@ -344,6 +314,10 @@ describe("SessionResults", () => {
         />,
       )
       expect(screen.getByTestId("score-badge").textContent).toBe("Réussi")
+      expect(screen.getByTestId("score-status").dataset.status).toBe("passing")
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+        "Réussi.",
+      )
     })
 
     it("affiche 'À améliorer' pour un score < 60", () => {
@@ -358,21 +332,135 @@ describe("SessionResults", () => {
       expect(screen.getByTestId("score-badge").textContent).toBe("À améliorer")
     })
 
-    it("n'affiche pas le bloc 'Sans réponse' si tout est répondu", () => {
+    it("série : le verdict compte les bonnes réponses au pluriel", () => {
       render(
         <SessionResults
           kind="training"
-          score={100}
+          score={67}
           questions={questions}
           answers={{ ...denseAnswers, q3: { selected: "A", isCorrect: true } }}
         />,
       )
-      expect(screen.queryByText("Sans réponse")).not.toBeInTheDocument()
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+        "Bien joué ! 2 bonnes réponses sur 3.",
+      )
+    })
+
+    it("situe le participant parmi les autres quand le percentile existe", () => {
+      render(
+        <SessionResults
+          kind="exam"
+          score={70}
+          questions={questions}
+          answers={denseAnswers}
+          percentile={75}
+        />,
+      )
+      expect(screen.getByTestId("exam-percentile")).toHaveTextContent(
+        "Vous avez fait mieux que 75 % des autres participants",
+      )
+    })
+
+    it("parle du participant, pas du lecteur, quand un admin consulte ses résultats", () => {
+      render(
+        <SessionResults
+          kind="exam"
+          score={70}
+          questions={questions}
+          answers={denseAnswers}
+          percentile={75}
+          percentileSubject="participant"
+        />,
+      )
+      expect(screen.getByTestId("exam-percentile")).toHaveTextContent(
+        "A fait mieux que 75 % des autres participants",
+      )
+    })
+
+    it("jumeau : sans percentile, aucune position ni « 0 % »", () => {
+      render(
+        <SessionResults
+          kind="exam"
+          score={70}
+          questions={questions}
+          answers={denseAnswers}
+          percentile={null}
+        />,
+      )
+      expect(screen.queryByTestId("exam-percentile")).toBeNull()
+    })
+
+    it("rend les actions et le lien de retour de la page", () => {
+      render(
+        <SessionResults
+          kind="training"
+          score={70}
+          questions={questions}
+          answers={denseAnswers}
+          actions={<button type="button">Nouvelle série</button>}
+          backHref="/tableau-de-bord/entrainement"
+          backLabel="Entraînement"
+        />,
+      )
+      expect(
+        screen.getByRole("button", { name: "Nouvelle série" }),
+      ).toBeInTheDocument()
+      expect(
+        screen.getByRole("link", { name: "Entraînement" }),
+      ).toHaveAttribute("href", "/tableau-de-bord/entrainement")
+    })
+  })
+
+  describe("résultats par domaine (examen)", () => {
+    const mixed: QuizQuestion[] = [
+      makeQuestion("q1", "Cardiologie"),
+      makeQuestion("q2", "Cardiologie"),
+      makeQuestion("q3", "Pédiatrie"),
+      {
+        ...makeQuestion("q4", "Neurologie"),
+        correctAnswer: undefined,
+        keyWithheld: true,
+      },
+    ]
+    const answers: AnswersMap = {
+      q1: { selected: "A", isCorrect: true },
+      q2: { selected: "B", isCorrect: false },
+      q4: { selected: "A" },
+    }
+
+    it("resultsByDomain : plancher, sans réponse comptée fausse, clé retenue exclue, tri décroissant", () => {
+      expect(resultsByDomain(mixed, answers)).toEqual([
+        { domain: "Cardiologie", correct: 1, total: 2, percent: 50 },
+        { domain: "Pédiatrie", correct: 0, total: 1, percent: 0 },
+      ])
+    })
+
+    it("un examen affiche la carte par domaine ; une série, non", () => {
+      const { unmount } = render(
+        <SessionResults
+          kind="exam"
+          score={33}
+          questions={mixed}
+          answers={answers}
+        />,
+      )
+      expect(screen.getAllByTestId("domain-result")).toHaveLength(2)
+      expect(screen.getByText("Résultats de cet examen")).toBeInTheDocument()
+      unmount()
+      render(
+        <SessionResults
+          kind="training"
+          score={33}
+          questions={mixed}
+          answers={answers}
+        />,
+      )
+      expect(screen.queryByTestId("domain-result")).not.toBeInTheDocument()
     })
   })
 
   describe("filtres", () => {
-    it("le filtre 'Erreurs' masque les correctes et conserve incorrectes + non répondues", () => {
+    it("« Incorrectes » masque les correctes et conserve incorrectes + non répondues, avec l'effectif", () => {
       render(
         <SessionResults
           kind="exam"
@@ -381,9 +469,45 @@ describe("SessionResults", () => {
           answers={denseAnswers}
         />,
       )
-      fireEvent.click(screen.getByTestId("btn-filter-errors"))
-      // q1 (correcte) masquée → 2 cartes restantes (q2 incorrecte + q3 non répondue)
-      expect(screen.getAllByTestId("question-card")).toHaveLength(2)
+      const errors = screen.getByTestId("btn-filter-errors")
+      expect(errors).toHaveTextContent("Incorrectes2")
+      fireEvent.click(errors)
+      expect(errors).toHaveAttribute("aria-pressed", "true")
+      expect(cardTexts()).toEqual(["Q2", "Q3"])
+      fireEvent.click(screen.getByTestId("results-filter-all"))
+      expect(cardTexts()).toEqual(["Q1", "Q2", "Q3"])
+    })
+
+    it("« Marquées » ne garde que les questions marquées, et le dit quand il n'y en a pas", () => {
+      const { unmount } = render(
+        <SessionResults
+          kind="exam"
+          score={33}
+          questions={questions}
+          answers={denseAnswers}
+          flaggedIds={["q3"]}
+        />,
+      )
+      const flagged = screen.getByTestId("results-filter-flagged")
+      expect(flagged).toHaveTextContent("Marquées1")
+      fireEvent.click(flagged)
+      expect(cardTexts()).toEqual(["Q3"])
+      expect(screen.getByTestId("question-card").dataset.flagged).toBe("true")
+      unmount()
+
+      render(
+        <SessionResults
+          kind="exam"
+          score={33}
+          questions={questions}
+          answers={denseAnswers}
+        />,
+      )
+      fireEvent.click(screen.getByTestId("results-filter-flagged"))
+      expect(screen.queryAllByTestId("question-card")).toHaveLength(0)
+      expect(
+        screen.getByText("Aucune question dans ce filtre."),
+      ).toBeInTheDocument()
     })
 
     describe("navigation vers une question", () => {
@@ -423,12 +547,13 @@ describe("SessionResults", () => {
       const scrolledIds = () =>
         scrollIntoView.mock.contexts.map((el) => (el as Element).id)
 
-      it("une question masquée par le filtre « Erreurs » lève le filtre, puis y défile", () => {
+      it("une question masquée par le filtre « Incorrectes » lève le filtre, puis y défile", () => {
         renderFiltered()
         fireEvent.click(screen.getByTestId("results-nav-item-0"))
         expect(screen.getAllByTestId("question-card")).toHaveLength(3)
-        expect(screen.getByTestId("btn-filter-errors").textContent).toContain(
-          "Erreurs (2)",
+        expect(screen.getByTestId("results-filter-all")).toHaveAttribute(
+          "aria-pressed",
+          "true",
         )
         expect(scrolledIds()).toEqual(["sr-question-0"])
       })
@@ -437,8 +562,9 @@ describe("SessionResults", () => {
         renderFiltered()
         fireEvent.click(screen.getByTestId("results-nav-item-1"))
         expect(screen.getAllByTestId("question-card")).toHaveLength(2)
-        expect(screen.getByTestId("btn-filter-errors").textContent).toContain(
-          "Voir toutes",
+        expect(screen.getByTestId("btn-filter-errors")).toHaveAttribute(
+          "aria-pressed",
+          "true",
         )
         expect(scrolledIds()).toEqual(["sr-question-1"])
       })
@@ -514,11 +640,8 @@ describe("SessionResults", () => {
         />,
       )
 
-      // All 3 questions should render
       expect(screen.getAllByTestId("question-card")).toHaveLength(3)
-
-      // "Sans réponse" block shown because unanswered > 0
-      expect(screen.getByText("Sans réponse")).toBeInTheDocument()
+      expect(screen.getByTestId("stat-unanswered").textContent).toBe("2")
     })
 
     it("le navigateur reçoit le bon compte de non-répondues (sparse)", () => {

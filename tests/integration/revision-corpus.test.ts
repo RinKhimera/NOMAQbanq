@@ -317,7 +317,14 @@ describe("corpus de révision", () => {
 
   it("les compteurs décrivent le même corpus que le tirage", async () => {
     const counts = await getRevisionCounts(AS_USER, { domain: DOMAIN })
-    expect(counts).toEqual({ failed: 0, unseen: 2, bookmarked: 1 })
+    // q5 est marquée ET jamais répondue : le recoupement le dit une fois.
+    expect(counts).toEqual({
+      failed: 0,
+      unseen: 2,
+      bookmarked: 1,
+      bookmarkedFailed: 0,
+      bookmarkedUnseen: 1,
+    })
   })
 })
 

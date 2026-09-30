@@ -8,7 +8,7 @@ import { expect, test } from "../fixtures/base"
  *
  * Isolation (3.B) : ce fichier SEEDE son propre examen `subscribers` dédié et
  * le CONSOMME (auto-submit). Sans ça, il consommait l'unique examen actif
- * partagé et cassait les specs `examen-blanc*` suivantes (« Déjà passé »).
+ * partagé et cassait les specs `examen-blanc*` suivantes (« Soumis »).
  */
 
 const SECRET = process.env.E2E_RESET_SECRET
@@ -47,6 +47,12 @@ test.describe("Examen Blanc — timer expiré et auto-submit", () => {
     test.skip(!SECRET, "E2E_RESET_SECRET requis")
     expect(examId).toBeTruthy()
 
+    // Horloge factice posée AVANT la page : le chrono s'ancre sur
+    // performance.now() (dérive de veille), que Playwright ne remplace que
+    // pour les pages ouvertes après l'installation. Le temps continue de
+    // s'écouler normalement jusqu'au saut.
+    await page.clock.install({ time: new Date() })
+
     await examen.goto()
     await examen.clickStartExamById(examId)
     await examen.confirmStart()
@@ -56,11 +62,6 @@ test.describe("Examen Blanc — timer expiré et auto-submit", () => {
     // Answer the first question so localStorage has data (toast branches on it)
     await examen.waitForQuestion(1)
     await examen.selectAnswer(0)
-
-    // Freeze the page clock at "now" so Date.now() stops advancing on its own.
-    // serverStartTime was captured before install, so elapsed time will equal
-    // the fastForward delta.
-    await page.clock.install({ time: new Date() })
 
     // Advance 3h — dépasse largement le budget-temps de l'examen seedé (5×83 s).
     await page.clock.fastForward(3 * 60 * 60 * 1000)

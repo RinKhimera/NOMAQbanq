@@ -45,6 +45,7 @@ app/(admin)/               # Pages admin (protegees par layout requireRole)
 app/(auth)/                # Pages auth Better Auth, sans préfixe /auth (connexion, inscription, mot-de-passe-oublie, reinitialiser-mot-de-passe)
 app/(marketing)/           # Pages marketing + _components/
 app/(evaluation)/          # Passation de l'évaluation gratuite, plein écran (hors coquille vitrine)
+app/(passation)/           # Passation d'une série ou d'un examen blanc, plein écran (hors coquille étudiant, requireSession)
 app/api/                   # Route handlers: auth/[...all], stripe/webhook, cron/close-expired, e2e
 features/<domaine>/        # Backend: {schemas,dal,actions,lib,cron}.ts (users/payments/questions/exams/training/analytics/marketing)
 db/                        # Drizzle: schema/** (tables/enums), index.ts (pg Pool)

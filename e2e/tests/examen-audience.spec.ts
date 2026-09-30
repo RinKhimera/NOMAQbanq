@@ -69,11 +69,15 @@ test.describe("Examens — audience restreinte (F2)", () => {
     const card = page.getByTestId(`exam-card-${examId}`)
     await expect(card).toBeVisible({ timeout: 15_000 })
 
-    // L'appartenance octroie l'accès → bouton actif, pas de « Non éligible ».
+    // L'appartenance octroie l'accès → bouton actif, pas de « Réservé aux
+    // abonnés » ; le repère « Sur invitation » le dit.
     await expect(
       card.getByRole("button", { name: "Commencer l'examen" }),
     ).toBeVisible()
-    await expect(card.getByText("Non éligible")).toHaveCount(0)
+    await expect(card.getByText("Réservé aux abonnés")).toHaveCount(0)
+    await expect(card.getByText("Sur invitation")).toBeVisible()
+    // Sans abonnement, la liste reste et le bandeau d'accès s'affiche.
+    await expect(page.getByTestId("exam-access-banner")).toBeVisible()
   })
 
   test("outsider : examen restreint absent de la liste", async ({
@@ -94,7 +98,7 @@ test.describe("Examens — audience restreinte (F2)", () => {
 
     await page.goto("/tableau-de-bord/examen-blanc")
     await expect(
-      page.getByRole("heading", { name: "Examens Blancs" }),
+      page.getByRole("heading", { level: 1, name: "Examens blancs" }),
     ).toBeVisible({ timeout: 15_000 })
 
     // Masqué au non-membre (filtre d'audience de getExamsWithParticipation).

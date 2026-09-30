@@ -2,11 +2,20 @@
 
 import { cn } from "@/lib/utils"
 
+export type SegmentedOption<T extends string> = {
+  value: T
+  label: string
+  /** Effectif du segment (« Incorrectes 4 »), en mono à droite du libellé. */
+  count?: number
+  /** Remplace le `data-testid` dérivé de `testIdPrefix` pour ce segment. */
+  testId?: string
+}
+
 type SegmentedControlProps<T extends string> = {
   /** Nom du groupe pour un lecteur d'écran (« Période »). */
   label: string
   value: T
-  options: readonly { value: T; label: string }[]
+  options: readonly SegmentedOption<T>[]
   onValueChange: (value: T) => void
   /** Préfixe des `data-testid` : `${prefix}-${value}`. */
   testIdPrefix?: string
@@ -41,12 +50,18 @@ export const SegmentedControl = <T extends string>({
         type="button"
         aria-pressed={value === option.value}
         data-testid={
-          testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined
+          option.testId ??
+          (testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined)
         }
         onClick={() => onValueChange(option.value)}
-        className="focus-ring text-ink-3 hover:text-ink aria-pressed:bg-surface aria-pressed:text-ink aria-pressed:shadow-1 inline-flex h-full cursor-pointer items-center rounded-sm px-3 text-sm font-medium whitespace-nowrap transition-[background-color,opacity] max-md:px-4"
+        className="focus-ring text-ink-3 hover:text-ink aria-pressed:bg-surface aria-pressed:text-ink aria-pressed:shadow-1 inline-flex h-full cursor-pointer items-center gap-1.5 rounded-sm px-3 text-sm font-medium whitespace-nowrap transition-[background-color,opacity] max-md:px-4"
       >
         {option.label}
+        {option.count !== undefined && (
+          <span className="text-ink-3 font-mono text-xs tabular-nums">
+            {option.count}
+          </span>
+        )}
       </button>
     ))}
   </div>

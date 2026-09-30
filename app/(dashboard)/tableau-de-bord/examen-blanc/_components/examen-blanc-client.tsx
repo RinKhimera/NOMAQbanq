@@ -1,668 +1,219 @@
 "use client"
 
 import {
-  Award,
+  BookOpen,
   CalendarClock,
-  CalendarDays,
   CircleCheck,
-  CirclePlay,
-  Clock,
-  GraduationCap,
-  Hourglass,
-  type LucideIcon,
-  TriangleAlert,
-  Trophy,
+  ClipboardCheck,
+  ClipboardList,
+  Percent,
 } from "lucide-react"
-import { motion } from "motion/react"
-import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { useMemo, useState } from "react"
-import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
-import { ConfirmDialog } from "@/components/shared/confirm-dialog"
-import { PageIntro } from "@/components/shared/page-intro"
-import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
+import { AccessPaywall } from "@/components/shared/payments/access-paywall"
+import { VitalCard } from "@/components/shared/vital-card"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import type { ExamListItem } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
+import { examListStats, openExamState, sortOpenExams } from "@/lib/exam-list"
 import { partition } from "@/lib/exam-phase"
-import {
-  formatDeadline,
-  formatFullDateTime,
-  formatPaddedMediumDate,
-} from "@/lib/format"
-import { formatScore, isPassing } from "@/lib/score"
+import { formatDeadline } from "@/lib/format"
+import { PASS_THRESHOLD, formatScore } from "@/lib/score"
 import { cn } from "@/lib/utils"
+import { ExamStartDialog } from "./exam-start-dialog"
+import { PastExams, UpcomingExams } from "./exam-timeline"
+import { OpenExamCard, SubmittedExamCard } from "./open-exam-card"
 
-type ExamVariant = "active" | "upcoming" | "past"
+type NoOpenProps = { next: ExamListItem | undefined }
 
-const EXAM_CARD_STATUS: Record<
-  ExamVariant,
-  { tone: StatusTone; icon?: LucideIcon; label: string }
-> = {
-  active: { tone: "success", icon: CircleCheck, label: "Ouvert" },
-  upcoming: { tone: "info", icon: Hourglass, label: "Bientôt" },
-  past: { tone: "neutral", label: "Terminé" },
-}
-
-interface ExamCardProps {
-  exam: ExamListItem
-  variant: ExamVariant
-  isEligible: boolean
-  onStart: (examId: string) => void
-  onViewResults: (examId: string) => void
-  index: number
-}
-
-const ExamCard = ({
-  exam,
-  variant,
-  isEligible,
-  onStart,
-  onViewResults,
-  index,
-}: ExamCardProps) => {
-  const variantStyles = {
-    active: {
-      gradient:
-        "from-emerald-50 via-green-50 to-teal-50 dark:from-emerald-950/40 dark:via-green-950/30 dark:to-teal-950/30",
-      border: "border-emerald-200/60 dark:border-emerald-800/40",
-      hoverBorder: "hover:border-emerald-300 dark:hover:border-emerald-700",
-      iconBg: "bg-emerald-500",
-      iconColor: "text-emerald-600 dark:text-emerald-400",
-      infoBg: "bg-white/60 dark:bg-gray-800/60",
-      titleHover:
-        "group-hover:text-emerald-700 dark:group-hover:text-emerald-400",
-    },
-    upcoming: {
-      gradient:
-        "from-blue-50 via-indigo-50 to-violet-50 dark:from-blue-950/40 dark:via-indigo-950/30 dark:to-violet-950/30",
-      border: "border-blue-200/60 dark:border-blue-800/40",
-      hoverBorder: "hover:border-blue-300 dark:hover:border-blue-700",
-      iconBg: "bg-blue-500",
-      iconColor: "text-blue-600 dark:text-blue-400",
-      infoBg: "bg-white/60 dark:bg-gray-800/60",
-      titleHover: "group-hover:text-blue-700 dark:group-hover:text-blue-400",
-    },
-    past: {
-      gradient:
-        "from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-950/40 dark:via-gray-950/30 dark:to-zinc-950/30",
-      border: "border-gray-200/60 dark:border-gray-700/40",
-      hoverBorder: "hover:border-gray-300 dark:hover:border-gray-600",
-      iconBg: "bg-gray-500",
-      iconColor: "text-gray-500 dark:text-gray-400",
-      infoBg: "bg-white/50 dark:bg-gray-800/50",
-      titleHover: "group-hover:text-gray-700 dark:group-hover:text-gray-300",
-    },
-  }
-
-  const styles = variantStyles[variant]
-  const userTaken = exam.userHasTaken
-  const userResult = exam.userParticipation
-  // Score affiché seulement pour une participation réellement complétée.
-  const showScore = userTaken && userResult?.completedAt != null
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.5,
-        delay: 0.1 + index * 0.08,
-        ease: [0.16, 1, 0.3, 1],
-      }}
-    >
-      <div
-        data-testid={`exam-card-${exam.id}`}
-        className={cn(
-          "group relative h-full overflow-hidden rounded-2xl border bg-linear-to-br p-6 shadow-sm backdrop-blur-sm transition-all duration-300",
-          styles.gradient,
-          styles.border,
-          styles.hoverBorder,
-          "hover:-translate-y-1 hover:shadow-lg",
-        )}
-      >
-        {/* Header */}
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <h3
-            className={cn(
-              "font-display text-lg font-bold text-gray-900 transition-colors dark:text-white",
-              styles.titleHover,
-            )}
-          >
-            {exam.title}
-          </h3>
-          <StatusPill
-            tone={EXAM_CARD_STATUS[variant].tone}
-            icon={EXAM_CARD_STATUS[variant].icon}
-          >
-            {EXAM_CARD_STATUS[variant].label}
-          </StatusPill>
-        </div>
-
-        {/* Description */}
-        {exam.description && (
-          <p className="mb-4 line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
-            {exam.description}
-          </p>
-        )}
-
-        {/* Info items */}
-        <div className="mb-6 space-y-2">
-          <div
-            className={cn(
-              "flex items-center gap-3 rounded-lg p-2.5",
-              styles.infoBg,
-            )}
-          >
-            <CalendarDays className={cn("h-4 w-4", styles.iconColor)} />
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              {variant === "active" &&
-                `Jusqu'au ${formatDeadline(exam.endDate)}`}
-              {variant === "upcoming" &&
-                `Ouverture le ${formatDeadline(exam.startDate)}`}
-              {variant === "past" &&
-                `Terminé le ${formatDeadline(exam.endDate)}`}
+const NoOpenExam = ({ next }: NoOpenProps) => (
+  <div className="border-line-strong bg-surface flex flex-wrap items-center gap-4 rounded-lg border border-dashed px-5 py-4.5">
+    <CalendarClock aria-hidden className="text-ink-3 size-4.5" />
+    <div className="min-w-0 flex-[1_1_260px]">
+      <p className="text-ink text-base font-medium">
+        Aucun examen ouvert pour le moment
+      </p>
+      <p className="text-ink-3 text-sm">
+        {next ? (
+          <>
+            Prochain : {next.title}, ouverture le{" "}
+            <span className="text-ink font-mono">
+              {formatDeadline(next.startDate)}
             </span>
-          </div>
-          <div
-            className={cn(
-              "flex items-center gap-3 rounded-lg p-2.5",
-              styles.infoBg,
-            )}
-          >
-            <Clock className={cn("h-4 w-4", styles.iconColor)} />
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              {exam.questionCount} questions •{" "}
-              {Math.floor(exam.completionTime / 60)} min
-            </span>
-          </div>
-        </div>
-
-        {/* Score for past exams */}
-        {variant === "past" && showScore && userResult && (
-          <div className="mb-6 rounded-xl border border-gray-200 bg-white/80 p-4 dark:border-gray-700 dark:bg-gray-800/80">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-medium tracking-wider text-gray-500 uppercase dark:text-gray-400">
-                  Votre score
-                </p>
-                <p
-                  className="mt-1 text-2xl font-bold text-gray-900 dark:text-white"
-                  title={
-                    userResult.score === null
-                      ? SCORE_WITHHELD_MESSAGE
-                      : undefined
-                  }
-                >
-                  {formatScore(userResult.score)}
-                </p>
-              </div>
-              <div
-                className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-full",
-                  userResult.score === null
-                    ? "bg-gray-100 dark:bg-gray-800/60"
-                    : isPassing(userResult.score)
-                      ? "bg-emerald-100 dark:bg-emerald-900/30"
-                      : "bg-amber-100 dark:bg-amber-900/30",
-                )}
-              >
-                {userResult.score === null ? (
-                  <Hourglass className="h-6 w-6 text-gray-500 dark:text-gray-400" />
-                ) : isPassing(userResult.score) ? (
-                  <Trophy className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-                ) : (
-                  <Award className="h-6 w-6 text-amber-600 dark:text-amber-400" />
-                )}
-              </div>
-            </div>
-            {userResult.completedAt != null && (
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                Passé le {formatFullDateTime(userResult.completedAt)}
-              </p>
-            )}
-          </div>
+            .
+          </>
+        ) : (
+          "Le prochain examen apparaîtra ici dès sa planification."
         )}
-
-        {/* Action button */}
-        <div className="mt-auto">
-          {variant === "active" && (
-            <>
-              {userTaken ? (
-                <Button
-                  disabled
-                  className="w-full cursor-not-allowed bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                >
-                  <CircleCheck className="mr-2 h-4 w-4" />
-                  Déjà passé
-                </Button>
-              ) : !isEligible ? (
-                <div className="space-y-2">
-                  <Button
-                    disabled
-                    className="w-full cursor-not-allowed bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                  >
-                    Non éligible
-                  </Button>
-                  <p className="text-center text-xs text-amber-600 dark:text-amber-400">
-                    Vous n&apos;êtes pas autorisé à passer cet examen
-                  </p>
-                </div>
-              ) : (
-                <Button
-                  onClick={() => onStart(exam.id)}
-                  className="w-full cursor-pointer bg-linear-to-r from-emerald-600 to-teal-600 font-semibold text-white shadow-md transition-all duration-200 hover:from-emerald-700 hover:to-teal-700 hover:shadow-lg"
-                >
-                  <CirclePlay className="mr-2 h-4 w-4" />
-                  Commencer l&apos;examen
-                </Button>
-              )}
-            </>
-          )}
-
-          {variant === "upcoming" && (
-            <Button
-              disabled
-              className="w-full cursor-not-allowed bg-blue-100 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-            >
-              <CalendarClock className="mr-2 h-4 w-4" />
-              Disponible le {formatPaddedMediumDate(exam.startDate)}
-            </Button>
-          )}
-
-          {variant === "past" && (
-            <>
-              {userTaken ? (
-                <Button
-                  onClick={() => onViewResults(exam.id)}
-                  variant="outline"
-                  className="w-full cursor-pointer"
-                >
-                  Consulter les résultats
-                </Button>
-              ) : (
-                <Button
-                  disabled
-                  variant="outline"
-                  className="w-full cursor-not-allowed"
-                >
-                  Examen fermé
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </motion.div>
-  )
-}
-
-interface SectionHeaderProps {
-  title: string
-  subtitle?: string
-  variant: ExamVariant
-  count: number
-}
-
-const SectionHeader = ({
-  title,
-  subtitle,
-  variant,
-  count,
-}: SectionHeaderProps) => {
-  const variantStyles = {
-    active: {
-      iconBg: "bg-emerald-100 dark:bg-emerald-900/30",
-      iconColor: "text-emerald-500",
-      titleColor: "text-emerald-700 dark:text-emerald-400",
-      Icon: CircleCheck,
-    },
-    upcoming: {
-      iconBg: "bg-blue-100 dark:bg-blue-900/30",
-      iconColor: "text-blue-500",
-      titleColor: "text-blue-700 dark:text-blue-400",
-      Icon: CalendarClock,
-    },
-    past: {
-      iconBg: "bg-gray-100 dark:bg-gray-800",
-      iconColor: "text-gray-500",
-      titleColor: "text-gray-600 dark:text-gray-400",
-      Icon: Clock,
-    },
-  }
-
-  const styles = variantStyles[variant]
-  const IconComponent = styles.Icon
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.4 }}
-      className="mb-6 flex items-center gap-3"
-    >
-      <div
-        className={cn(
-          "flex h-10 w-10 items-center justify-center rounded-xl",
-          styles.iconBg,
-        )}
-      >
-        <IconComponent className={cn("h-5 w-5", styles.iconColor)} />
-      </div>
-      <div>
-        <h2 className={cn("font-display text-xl font-bold", styles.titleColor)}>
-          {title}
-          <span className="ml-2 text-sm font-normal text-gray-500 dark:text-gray-400">
-            ({count})
-          </span>
-        </h2>
-        {subtitle && (
-          <p className="text-sm text-gray-500 dark:text-gray-400">{subtitle}</p>
-        )}
-      </div>
-    </motion.div>
-  )
-}
+      </p>
+    </div>
+    <Button asChild variant="outline" className="max-md:h-11 max-md:w-full">
+      <Link href="/tableau-de-bord/entrainement">
+        <BookOpen aria-hidden />
+        S&apos;entraîner en attendant
+      </Link>
+    </Button>
+  </div>
+)
 
 interface ExamenBlancClientProps {
   exams: ExamListItem[]
-  /** Accès aux examens `subscribers` (abonnement actif, ou admin). L'éligibilité
-   *  par-examen se calcule ici : un examen `restricted` est toujours éligible
-   *  (sa présence dans la liste implique l'appartenance à l'audience). */
+  /** Accès aux examens `subscribers` (abonnement actif, ou admin). Un examen
+   *  sur invitation reste passable sans lui. */
   hasExamAccess: boolean
+  /** Échéance passée de l'accès Examens (epoch ms) ; `null` = actif ou jamais eu. */
+  accessExpiredAt: number | null
+  /** Prix d'appel mensuel du catalogue, en cents. */
+  priceFromCents: number | null
   initialNow: number
 }
+
+const keyOf = (list: { id: string }[]) => list.map((e) => e.id).join(" ")
+const pick = (byId: Map<string, ExamListItem>, key: string) =>
+  key === "" ? [] : key.split(" ").flatMap((id) => byId.get(id) ?? [])
 
 export function ExamenBlancClient({
   exams,
   hasExamAccess,
+  accessExpiredAt,
+  priceFromCents,
   initialNow,
 }: ExamenBlancClientProps) {
-  const [selectedExam, setSelectedExam] = useState<string | null>(null)
-  const [confirmationOpen, setConfirmationOpen] = useState(false)
-  // Reclasse actifs/à venir/passés en temps réel.
-  const now = useClock(initialNow)
-  const router = useRouter()
+  const [starting, setStarting] = useState<ExamListItem | null>(null)
+  // La page suit l'horloge : décomptes à la seconde, bascules ouvert → terminé.
+  const now = useClock(initialNow, 1000)
 
-  const {
-    active: activeExams,
-    upcoming: upcomingExams,
-    completed: pastExams,
-  } = useMemo(() => partition(exams, now), [exams, now])
+  // La DAL trie par ouverture ; les sections lisent la fermeture (terminés,
+  // plus récente d'abord) et l'ouverture (à venir, plus proche d'abord).
+  const byId = useMemo(() => new Map(exams.map((e) => [e.id, e])), [exams])
+  const parts = partition(exams, now)
+  // Une section ne change de référence que quand un examen y entre ou en sort,
+  // pas à chaque seconde : `PastExams` est mémoïsé là-dessus.
+  const activeKey = keyOf(parts.active)
+  const upcomingKey = keyOf(parts.upcoming)
+  const completedKey = keyOf(parts.completed)
+  const active = useMemo(() => pick(byId, activeKey), [byId, activeKey])
+  const upcoming = useMemo(
+    () => pick(byId, upcomingKey).toSorted((a, b) => a.startDate - b.startDate),
+    [byId, upcomingKey],
+  )
+  const completed = useMemo(
+    () => pick(byId, completedKey).toSorted((a, b) => b.endDate - a.endDate),
+    [byId, completedKey],
+  )
+  const open = useMemo(
+    () =>
+      sortOpenExams(
+        active.map((exam) => ({
+          exam,
+          state: openExamState(exam, now, hasExamAccess),
+        })),
+      ),
+    [active, now, hasExamAccess],
+  )
+  // Les compteurs suivent les sections : un examen désactivé n'y figure pas,
+  // comme sur le tableau de bord.
+  const stats = useMemo(
+    () => examListStats([...active, ...upcoming, ...completed]),
+    [active, upcoming, completed],
+  )
 
-  // Stats utilisateur : basées sur les examens réellement complétés (userHasTaken).
-  // Un score retenu (`null`, examen encore ouvert) ne pèse ni dans les réussis
-  // ni dans la moyenne.
-  const userStats = useMemo(() => {
-    const completedExams = exams.filter((exam) => exam.userHasTaken)
-    const totalCompleted = completedExams.length
-    const scores = completedExams.flatMap((exam) =>
-      exam.userParticipation?.score == null
-        ? []
-        : [exam.userParticipation.score],
+  if (exams.length === 0) {
+    return (
+      <div className="bg-surface border-line rounded-lg border px-6 py-14">
+        <EmptyState
+          size="compact"
+          icons={[ClipboardList]}
+          title="Aucun examen blanc pour l'instant"
+          description="Les examens blancs sont publiés ici avec leur fenêtre d'ouverture. En attendant, les séries d'entraînement couvrent les 22 domaines."
+        >
+          <Button asChild variant="outline" className="max-md:h-11">
+            <Link href="/tableau-de-bord/entrainement">
+              Commencer une série
+            </Link>
+          </Button>
+        </EmptyState>
+      </div>
     )
-    const passedExams = scores.filter(isPassing).length
-    const averageScore =
-      scores.length > 0
-        ? Math.round(scores.reduce((sum, s) => sum + s, 0) / scores.length)
-        : null
-
-    return {
-      total: exams.length,
-      completed: totalCompleted,
-      scored: scores.length,
-      passed: passedExams,
-      averageScore,
-    }
-  }, [exams])
-
-  const handleStartExam = (examId: string) => {
-    setSelectedExam(examId)
-    setConfirmationOpen(true)
   }
 
-  const confirmStartExam = () => {
-    if (selectedExam) {
-      router.push(`/tableau-de-bord/examen-blanc/${selectedExam}/evaluation`)
-    }
-    setConfirmationOpen(false)
-  }
-
-  const handleViewResults = (examId: string) => {
-    router.push(`/tableau-de-bord/examen-blanc/${examId}`)
-  }
-
-  const selectedExamData = selectedExam
-    ? exams.find((exam) => exam.id === selectedExam)
-    : null
+  const compact = open.length > 1
 
   return (
-    <div className="min-h-screen">
-      {/* Background gradient mesh */}
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-1/4 -left-1/4 h-150 w-150 rounded-full bg-linear-to-br from-blue-100/40 to-indigo-100/40 blur-3xl dark:from-blue-900/20 dark:to-indigo-900/20" />
-        <div className="absolute -right-1/4 -bottom-1/4 h-125 w-125 rounded-full bg-linear-to-br from-violet-100/30 to-blue-100/30 blur-3xl dark:from-violet-900/15 dark:to-blue-900/15" />
+    <>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <VitalCard
+          label="Examens passés"
+          value={String(stats.taken)}
+          icon={ClipboardCheck}
+          subtitle="participations soumises"
+        />
+        <VitalCard
+          label="Réussis"
+          value={stats.graded > 0 ? `${stats.passed} / ${stats.graded}` : "—"}
+          icon={CircleCheck}
+          subtitle={`seuil de réussite ${formatScore(PASS_THRESHOLD)}`}
+        />
+        <VitalCard
+          label="Score moyen"
+          value={stats.average === null ? "—" : String(stats.average)}
+          unit="%"
+          icon={Percent}
+          subtitle="scores publiés seulement"
+        />
       </div>
 
-      <div className="container mx-auto max-w-6xl px-4 py-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-10"
-        >
-          <PageIntro
-            title="Examens Blancs"
-            description="Testez vos connaissances dans les conditions réelles de l'EACMC"
-          />
+      {!hasExamAccess && (
+        <AccessPaywall
+          type="exam"
+          variant="banner"
+          testId="exam-access-banner"
+          expiredAt={accessExpiredAt}
+          priceFromCents={priceFromCents}
+        />
+      )}
 
-          {/* Stats summary */}
-          {userStats.completed > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.4 }}
-              className="mt-6 flex flex-wrap gap-6"
-            >
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-blue-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {userStats.completed}
-                  </span>{" "}
-                  examen{userStats.completed > 1 ? "s" : ""} passé
-                  {userStats.completed > 1 ? "s" : ""}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {userStats.scored === 0 ? "—" : userStats.passed}
-                  </span>{" "}
-                  réussi{userStats.passed > 1 ? "s" : ""}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-indigo-500" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  Score moyen :{" "}
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    {formatScore(userStats.averageScore)}
-                  </span>
-                </span>
-              </div>
-            </motion.div>
+      {open.length > 0 ? (
+        <div
+          className={cn(
+            "grid gap-3",
+            open.length === 2 && "grid-cols-1 lg:grid-cols-2",
+            open.length > 2 &&
+              "grid-cols-[repeat(auto-fill,minmax(min(100%,320px),1fr))]",
           )}
-        </motion.div>
-
-        {/* Active exams section */}
-        {activeExams.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="mb-12"
-          >
-            <SectionHeader
-              title="Examens disponibles maintenant"
-              subtitle="Commencez dès maintenant"
-              variant="active"
-              count={activeExams.length}
-            />
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {activeExams.map((exam, index) => (
-                <ExamCard
-                  key={exam.id}
-                  exam={exam}
-                  variant="active"
-                  isEligible={
-                    hasExamAccess || exam.audienceType === "restricted"
-                  }
-                  onStart={handleStartExam}
-                  onViewResults={handleViewResults}
-                  index={index}
-                />
-              ))}
-            </div>
-          </motion.section>
-        )}
-
-        {/* Upcoming exams section */}
-        {upcomingExams.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="mb-12"
-          >
-            <SectionHeader
-              title="Examens à venir"
-              subtitle="Préparez-vous pour les prochains examens"
-              variant="upcoming"
-              count={upcomingExams.length}
-            />
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {upcomingExams.map((exam, index) => (
-                <ExamCard
-                  key={exam.id}
-                  exam={exam}
-                  variant="upcoming"
-                  isEligible={
-                    hasExamAccess || exam.audienceType === "restricted"
-                  }
-                  onStart={handleStartExam}
-                  onViewResults={handleViewResults}
-                  index={index}
-                />
-              ))}
-            </div>
-          </motion.section>
-        )}
-
-        {/* Past exams section */}
-        {pastExams.length > 0 && (
-          <motion.section
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="mb-12"
-          >
-            <SectionHeader
-              title="Examens terminés"
-              subtitle="Consultez vos résultats"
-              variant="past"
-              count={pastExams.length}
-            />
-            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-              {pastExams.map((exam, index) => (
-                <ExamCard
-                  key={exam.id}
-                  exam={exam}
-                  variant="past"
-                  isEligible={
-                    hasExamAccess || exam.audienceType === "restricted"
-                  }
-                  onStart={handleStartExam}
-                  onViewResults={handleViewResults}
-                  index={index}
-                />
-              ))}
-            </div>
-          </motion.section>
-        )}
-
-        {/* Empty state */}
-        {exams.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.4 }}
-            className="flex justify-center py-16"
-          >
-            <EmptyState
-              title="Aucun examen disponible"
-              description="Les examens blancs seront bientôt disponibles.&#10;Revenez plus tard !"
-              icons={[CalendarDays, GraduationCap, Clock]}
-            />
-          </motion.div>
-        )}
-      </div>
-
-      <ConfirmDialog
-        open={confirmationOpen}
-        onOpenChange={setConfirmationOpen}
-        icon={TriangleAlert}
-        title="Confirmer le début de l'examen"
-        description="Vous êtes sur le point de commencer un examen blanc. Voici les conditions :"
-        confirmLabel="Commencer l'examen"
-        onConfirm={confirmStartExam}
-      >
-        <div className="space-y-4">
-          <div className="space-y-3 rounded-xl bg-linear-to-br from-amber-50 to-orange-50 p-4 dark:from-amber-950/30 dark:to-orange-950/30">
-            {[
-              {
-                text: `${selectedExamData?.questionCount ?? 0} questions`,
-                detail: "à répondre",
-              },
-              {
-                text: `${Math.floor((selectedExamData?.completionTime ?? 0) / 60)} minutes`,
-                detail: "pour compléter l'examen",
-              },
-              {
-                text: "Impossible d'interrompre",
-                detail: "une fois commencé",
-              },
-              { text: "Un seul essai", detail: "autorisé" },
-            ].map((item, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 + index * 0.05 }}
-                className="flex items-center gap-3"
-              >
-                <div className="h-2 w-2 rounded-full bg-amber-500" />
-                <span className="text-sm">
-                  <strong className="text-gray-900 dark:text-white">
-                    {item.text}
-                  </strong>{" "}
-                  <span className="text-gray-600 dark:text-gray-400">
-                    {item.detail}
-                  </span>
-                </span>
-              </motion.div>
-            ))}
-          </div>
-          <div className="rounded-lg bg-amber-100/50 p-3 dark:bg-amber-900/20">
-            <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-              Assurez-vous d&apos;avoir suffisamment de temps avant de
-              commencer.
-            </p>
-          </div>
+        >
+          {open.map(({ exam, state }) =>
+            state === "submitted" ? (
+              <SubmittedExamCard
+                key={exam.id}
+                exam={exam}
+                completedAt={exam.userParticipation?.completedAt ?? null}
+              />
+            ) : (
+              <OpenExamCard
+                key={exam.id}
+                exam={exam}
+                state={state}
+                now={now}
+                compact={compact}
+                onStart={setStarting}
+              />
+            ),
+          )}
         </div>
-      </ConfirmDialog>
-    </div>
+      ) : (
+        <NoOpenExam next={upcoming[0]} />
+      )}
+
+      <UpcomingExams exams={upcoming} now={now} />
+      <PastExams exams={completed} hasAccess={hasExamAccess} />
+
+      <ExamStartDialog
+        exam={starting}
+        now={now}
+        onClose={() => setStarting(null)}
+      />
+    </>
   )
 }

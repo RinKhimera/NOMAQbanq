@@ -42,7 +42,7 @@ import {
   getExamsWithParticipation,
   getParticipantExamResults,
 } from "@/features/exams/dal"
-import { getTrainingHistory, getTrainingStats } from "@/features/training/dal"
+import { getTrainingHistory } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
@@ -921,18 +921,9 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
   describe("score retenu (scoreWithheldFor)", () => {
     it("getTrainingHistory : null sur la session chevauchant un examen ouvert, lisible sinon", async () => {
       asStudent()
-      const { items } = await getTrainingHistory({ limit: 50 })
+      const { items } = await getTrainingHistory({ pageSize: 50 })
       expect(items.find((s) => s.id === withheldTrainingId)?.score).toBeNull()
       expect(items.find((s) => s.id === readableTrainingId)?.score).toBe(100)
-    })
-
-    it("getTrainingStats : la moyenne exclut la session retenue (une moyenne avant/après la rendrait)", async () => {
-      asStudent()
-      const stats = await getTrainingStats()
-      // Sessions de STUDENT : 40 (retenue), 100 (lisible) et une sans score
-      // (q7, seedée plus haut) → 100, pas 70.
-      expect(stats?.totalSessions).toBe(3)
-      expect(stats?.averageScore).toBe(100)
     })
 
     it("courbe hebdomadaire du tableau de bord : la série retenue n'entre pas dans la moyenne de sa semaine", async () => {
@@ -945,12 +936,15 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
     it("participation à un examen encore OUVERT : score retenu sur la liste, l'historique et la moyenne", async () => {
       asStudent()
       const list = await getExamsWithParticipation()
+      // Retenu par son examen propre, ouvert : aucun AUTRE examen ouvert ne
+      // partage la question répondue, donc pas de titre « publié à la
+      // fermeture de … ».
       expect(
-        list.find((e) => e.id === openId)?.userParticipation?.score,
-      ).toBeNull()
+        list.find((e) => e.id === openId)?.userParticipation,
+      ).toMatchObject({ score: null, withheldBy: null })
       expect(
-        list.find((e) => e.id === closedOnlyExamId)?.userParticipation?.score,
-      ).toBe(100)
+        list.find((e) => e.id === closedOnlyExamId)?.userParticipation,
+      ).toMatchObject({ score: 100, withheldBy: null })
 
       const recent = await getMyRecentParticipations()
       expect(recent.find((h) => h.examId === openId)?.score).toBeNull()
@@ -967,6 +961,18 @@ describe("Anti-triche : chevauchement training / examen OUVERT", () => {
       expect(
         list.find((e) => e.id === pastExamId)?.userParticipation?.score,
       ).toBeNull()
+      // « Publié à la fermeture de … » nomme l'examen ouvert qui retient :
+      // la branche titre de `withheldByOpenExamTitle`, corrélée au milieu de
+      // trois jointures, s'exécute ici sur un vrai Postgres.
+      const openTitles = (
+        await db
+          .select({ title: exams.title })
+          .from(exams)
+          .where(inArray(exams.id, [noPauseId, pauseId]))
+      ).map((e) => e.title)
+      expect(openTitles).toContain(
+        list.find((e) => e.id === pastExamId)?.userParticipation?.withheldBy,
+      )
       const recent = await getMyRecentParticipations()
       expect(recent.find((h) => h.examId === pastExamId)?.score).toBeNull()
       const curve = (await getMyDashboard("tout"))?.exams.history ?? []

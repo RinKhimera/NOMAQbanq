@@ -11,6 +11,7 @@ import {
 import {
   formatCalendarDay,
   formatCompactDateTime,
+  formatCountdown,
   formatCurrency,
   formatDateTime,
   formatDayMonth,
@@ -27,6 +28,7 @@ import {
   formatPercent,
   formatPresentmentAmount,
   formatShortDate,
+  formatShortDuration,
   formatTimeOnly,
   formatTimeRemaining,
   formatWeekdayDayMonth,
@@ -215,6 +217,23 @@ describe("formatTimeRemaining", () => {
     const result = formatTimeRemaining(nearFuture)
 
     expect(result).toContain("dans")
+  })
+})
+
+describe("formatShortDuration", () => {
+  it("heures et minutes sur deux chiffres, ou minutes seules", () => {
+    expect(formatShortDuration(4 * 3_600_000 + 5 * 60_000)).toBe("4 h 05")
+    expect(formatShortDuration(42 * 60_000)).toBe("42 min")
+    expect(formatShortDuration(-5_000)).toBe("0 min")
+  })
+})
+
+describe("formatCountdown", () => {
+  it("jours, heures ou minutes selon l'échéance, jamais négatif", () => {
+    expect(formatCountdown(2 * 86_400_000 + 3 * 3_600_000)).toBe("2 j 3 h")
+    expect(formatCountdown(4 * 3_600_000 + 5 * 60_000)).toBe("4 h 05")
+    expect(formatCountdown(12 * 60_000 + 7_000)).toBe("12 min 07 s")
+    expect(formatCountdown(-1)).toBe("0 min 00 s")
   })
 })
 

@@ -1,5 +1,5 @@
-import { PageSkeleton } from "@/components/ui/skeleton-patterns"
+import { ExamensSkeleton } from "./_components/examens-skeleton"
 
 export default function Loading() {
-  return <PageSkeleton />
+  return <ExamensSkeleton />
 }

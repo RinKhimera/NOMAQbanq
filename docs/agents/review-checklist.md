@@ -72,3 +72,20 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
     `max-[480px]:` dans le CSS généré : la grille reste à deux colonnes sous
     480 px. Écrire les grilles du mobile vers le large
     (`grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-4`).
+20. **Colonne Drizzle déqualifiée dans un gabarit `sql`.** Dans un
+    `db.select({…}).from(uneTable)` sans jointure, une colonne placée
+    DIRECTEMENT dans un gabarit `sql` (`${table.col}`) est rendue `"col"` ; au
+    milieu d'une sous-requête à jointures, elle devient ambiguë ou se lie à la
+    mauvaise table. Une colonne dans un `sql` IMBRIQUÉ reste qualifiée : passer
+    par une constante `sql` (`ownExamId`), et prouver la requête en intégration
+    sur le chemin qui la RÉSOUT (titre trouvé), pas seulement sur `null`.
+21. **Fonction passée d'un Server Component à un composant client.** Une icône
+    (`icon={Lock}`), un callback ou un `render*` passé depuis `page.tsx` à un
+    `"use client"` plante au rendu RSC ; happy-dom ne le voit jamais. Un
+    composant client partagé prend des chaînes, des nœuds JSX ou une clé.
+22. **Fait déplacé, heuristique périmée.** Un état déduit d'une condition
+    (« participation existante » = reprise) reste vrai en apparence quand le
+    fait qui la produisait se déplace (la participation se crée désormais
+    avant la page). Et la garde ne vaut que testée contre la forme RÉELLE de
+    la donnée (`startExam` crée une ligne par question : la fixture `[]`
+    n'existe pas). Relire chaque heuristique du composant déplacé.

@@ -28,6 +28,12 @@ describe("TablePagination", () => {
     expect(screen.getByRole("button", { name: /précédent/i })).toBeDisabled()
   })
 
+  it("résumé « Page X sur Y » à la place du compteur d'éléments", () => {
+    render(<TablePagination {...base} page={2} summary="page" />)
+    expect(screen.getByText("Page 2 sur 5")).toBeInTheDocument()
+    expect(screen.queryByText(/sur 240 questions/i)).not.toBeInTheDocument()
+  })
+
   it("ne rend pas les contrôles de page quand une seule page", () => {
     render(<TablePagination {...base} total={30} pageSize={50} />)
     expect(screen.queryByRole("button", { name: "2" })).not.toBeInTheDocument()

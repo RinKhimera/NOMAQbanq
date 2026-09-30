@@ -39,7 +39,6 @@ import {
   getTrainingHistory,
   getTrainingSessionById,
   getTrainingSessionResults,
-  getTrainingStats,
 } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
@@ -274,13 +273,19 @@ describe("parcours complet (création → réponses → fin → résultats)", ()
     expect(results.answers[sessionQuestionIds[0]]?.isCorrect).toBe(true)
   })
 
-  it("getTrainingHistory + getTrainingStats : reflètent la session complétée", async () => {
-    const history = await getTrainingHistory({ limit: 10 })
-    expect(history.items.some((s) => s.id === activeSessionId)).toBe(true)
+  it("getTrainingHistory : reflète la session complétée, son mode et le total", async () => {
+    const history = await getTrainingHistory({ page: 1 })
+    const row = history.items.find((s) => s.id === activeSessionId)
+    expect(row).toMatchObject({ mode: "test", score: 20 })
+    expect(history.total).toBeGreaterThanOrEqual(1)
+    expect(history.total).toBeGreaterThanOrEqual(history.items.length)
+  })
 
-    const stats = await getTrainingStats()
-    expect(stats?.totalSessions).toBeGreaterThanOrEqual(1)
-    expect(stats?.averageScore).toBe(20)
+  it("getTrainingHistory : une page hors bornes est vide, le total inchangé", async () => {
+    const first = await getTrainingHistory({ page: 1, pageSize: 1 })
+    const beyond = await getTrainingHistory({ page: 99, pageSize: 1 })
+    expect(beyond.items).toEqual([])
+    expect(beyond.total).toBe(first.total)
   })
 })
 
@@ -385,7 +390,7 @@ describe("IDOR / propriété", () => {
     } as never)
     expect(await deleteTrainingSession({ sessionId: sid })).toEqual({
       success: false,
-      error: "Session introuvable",
+      error: "Série introuvable",
     })
     const [row] = await db
       .select({ id: trainingSessions.id })

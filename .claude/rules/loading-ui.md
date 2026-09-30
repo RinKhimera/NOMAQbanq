@@ -141,6 +141,12 @@ revanche correct — c'est exactement ce qu'on écrirait.
 **À l'ajout d'une route authentifiée, vérifier de quel `loading.tsx` elle
 hérite** avant de conclure qu'elle n'en a pas besoin.
 
+Les pages de passation (`app/(passation)/`, série et examen blanc) vivent hors
+de la coquille : leur `loading.tsx` est `PassationSkeleton` (barre, carte,
+navigateur), pas le squelette de la page de configuration qu'un même URL de
+segment porte dans `(dashboard)`. Les résultats d'une série
+(`entrainement/[sessionId]/resultats`) déclarent le leur pour la même raison.
+
 ## Le garde d'onboarding lit la session du layout, sans la refetcher
 
 `OnboardingGuard` (`components/shared/onboarding-guard.tsx`) reste un composant

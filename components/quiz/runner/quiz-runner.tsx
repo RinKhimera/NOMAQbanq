@@ -1,7 +1,11 @@
 "use client"
 
-import { Calculator as CalculatorIcon, FlaskConical } from "lucide-react"
-import { useRef, useState } from "react"
+import {
+  Calculator as CalculatorIcon,
+  FlaskConical,
+  WifiOff,
+} from "lucide-react"
+import { type ReactNode, useRef, useState } from "react"
 import { Calculator } from "@/components/quiz/calculator"
 import { LabValues } from "@/components/quiz/lab-values"
 import { passationCells } from "@/components/quiz/navigator/cells"
@@ -14,12 +18,15 @@ import { QuestionCard } from "@/components/quiz/question-card"
 import { FinishDialog } from "@/components/quiz/session/finish-dialog"
 import { SessionHeader } from "@/components/quiz/session/session-header"
 import { SessionNavigation } from "@/components/quiz/session/session-navigation"
-import { SHELL_BLEED } from "@/components/shared/shell/shell-frame"
+import { TimeUpDialog } from "@/components/quiz/session/time-up-dialog"
 import { StatusPill } from "@/components/shared/status-pill"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
+import { useOnline } from "@/hooks/use-online"
 import { CalculatorProvider } from "@/hooks/useCalculator"
 import { formatExamTime, zone } from "@/lib/attempt-clock"
+import { TONE_SOFT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
 import type {
   AnswersMap,
@@ -44,6 +51,8 @@ export interface QuizRunnerProps {
   initialRevealed?: Record<string, QuizRevealPayload>
   /** Durée de la pause en minutes (décompte de l'overlay). */
   pauseDurationMinutes?: number
+  /** Alertes de la page au-dessus de la question (reprise d'un examen…). */
+  banners?: ReactNode
   mode: QuizMode
   callbacks: QuizCallbacks
 }
@@ -55,10 +64,12 @@ function QuizRunnerInner({
   initialPause,
   initialRevealed,
   pauseDurationMinutes = DEFAULT_PAUSE_MINUTES,
+  banners,
   mode,
   callbacks,
 }: QuizRunnerProps) {
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
+  const online = useOnline()
   const calculatorButtonRef = useRef<HTMLButtonElement>(null)
   const [isResuming, setIsResuming] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
@@ -145,6 +156,8 @@ function QuizRunnerInner({
           zone: zone(session.timer.remainingMs),
         }
       : undefined
+  const remaining = session.timer?.remainingMs
+  const timeIsUp = !!mode.timer && remaining !== undefined && remaining <= 0
 
   const cells = passationCells(questions, session.answers, session.flagged)
   const navigator = {
@@ -160,7 +173,7 @@ function QuizRunnerInner({
   const isResting = mode.pause === "rest" && session.isPaused
 
   return (
-    <div className={cn("flex flex-col", SHELL_BLEED)}>
+    <div className="flex flex-col">
       {isResting && (
         <PauseDialog
           isOpen={true}
@@ -193,8 +206,23 @@ function QuizRunnerInner({
       />
 
       {!isResting && (
-        <div className="flex items-start gap-6 px-4 pt-4 sm:px-6 md:pt-6">
+        <div className="mx-auto flex w-full max-w-290 items-start gap-6 px-4 pt-4 pb-16 sm:px-6 md:pt-6">
           <div className="flex min-w-0 flex-1 flex-col gap-3">
+            {!online && (
+              <Alert
+                data-testid="offline-alert"
+                className={cn(TONE_SOFT.warning, "[&>svg]:text-warning-ink")}
+              >
+                <WifiOff aria-hidden />
+                <AlertTitle>Connexion perdue</AlertTitle>
+                <AlertDescription>
+                  Vos réponses ne s&apos;enregistrent pas pour l&apos;instant :
+                  réessayez dès le retour de la connexion.
+                  {mode.timer && " Le chronomètre continue."}
+                </AlertDescription>
+              </Alert>
+            )}
+            {banners}
             <div className="flex flex-wrap items-center gap-2">
               {!isExam && (
                 <StatusPill
@@ -293,8 +321,17 @@ function QuizRunnerInner({
         returnFocusRef={calculatorButtonRef}
       />
 
+      {timeIsUp && (
+        <TimeUpDialog
+          answeredCount={session.answeredCount}
+          totalQuestions={totalQuestions}
+          isSubmitting={session.isSubmitting}
+          onRetry={() => void session.confirmFinish({ isAutoSubmit: true })}
+        />
+      )}
+
       <FinishDialog
-        isOpen={session.finishDialogOpen}
+        isOpen={session.finishDialogOpen && !timeIsUp}
         onOpenChange={session.setFinishDialogOpen}
         answeredCount={session.answeredCount}
         totalQuestions={totalQuestions}

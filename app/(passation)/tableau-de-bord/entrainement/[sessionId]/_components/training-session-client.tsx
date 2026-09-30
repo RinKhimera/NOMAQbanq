@@ -1,6 +1,7 @@
 "use client"
 
-import { TriangleAlert } from "lucide-react"
+import { Clock } from "lucide-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { QuizRunner } from "@/components/quiz/runner/quiz-runner"
@@ -10,6 +11,7 @@ import type {
   QuizMode,
   QuizRevealPayload,
 } from "@/components/quiz/runner/types"
+import { StatusCard } from "@/components/shared/status-card"
 import { Button } from "@/components/ui/button"
 import { answerNotSavedMessage } from "@/features/attempts/answer-refusal"
 import {
@@ -33,25 +35,24 @@ export const TrainingSessionClient = ({
 }: TrainingSessionClientProps) => {
   const router = useRouter()
 
-  // Session expirée — garde avant de rendre le runner
+  // Série expirée — garde avant de rendre le runner
   if (initialData.isExpired) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="max-w-md rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center dark:border-amber-800 dark:bg-amber-900/20">
-          <TriangleAlert className="mx-auto mb-4 h-12 w-12 text-amber-500" />
-          <h1 className="font-display mb-2 text-xl font-bold text-amber-900 dark:text-amber-100">
-            Session expirée
-          </h1>
-          <p className="mb-6 text-amber-700 dark:text-amber-300">
-            Cette session a expiré. Veuillez en créer une nouvelle.
-          </p>
-          <Button
-            onClick={() => router.push("/tableau-de-bord/entrainement")}
-            className="bg-amber-500 hover:bg-amber-600"
-          >
-            Retour à l&apos;entraînement
-          </Button>
-        </div>
+      <div className="grid min-h-dvh place-items-center px-4 py-12">
+        <StatusCard
+          icon={Clock}
+          iconTone="warning"
+          label="Entraînement"
+          title="Série expirée"
+          description="Cette série a expiré : une série reste ouverte 24 heures. Composez-en une nouvelle."
+          actions={
+            <Button asChild className="max-md:h-11">
+              <Link href="/tableau-de-bord/entrainement">
+                Retour à l&apos;entraînement
+              </Link>
+            </Button>
+          }
+        />
       </div>
     )
   }
@@ -95,7 +96,9 @@ export const TrainingSessionClient = ({
     pause: null,
     feedback: isTutor ? "immediate" : "deferred",
     showMeta: false,
-    labels: { title: "Entraînement" },
+    labels: {
+      title: `Entraînement · ${initialData.session.domain ?? "Tous les domaines"}`,
+    },
   }
 
   const callbacks: QuizCallbacks = {
@@ -137,7 +140,7 @@ export const TrainingSessionClient = ({
         toast.error("Erreur", { description: res.error })
         return { ok: false }
       }
-      toast.success("Session terminée !", {
+      toast.success("Série terminée !", {
         description: "Vos résultats sont prêts",
       })
       const redirectTo = `/tableau-de-bord/entrainement/${sessionId}/resultats`

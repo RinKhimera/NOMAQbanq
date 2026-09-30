@@ -15,6 +15,7 @@ import {
   trainingSessions,
   user,
 } from "@/db/schema"
+import type { AttemptTiming } from "@/lib/attempt-clock"
 import { getCurrentSession } from "@/lib/dal"
 import { canReadResults } from "@/lib/exam-phase"
 import { hasAccess } from "../payments/dal"
@@ -28,6 +29,7 @@ import {
 } from "../questions/answer-key-lock"
 import { fetchImages, toQuizQuestion } from "../questions/quiz-bridge"
 import { countQuestionsByExam } from "./dal.shared"
+import { DEFAULT_PAUSE_MINUTES } from "./schemas"
 
 // Questions RÉPONDUES d'une participation, corrélées à la ligne
 // `exam_participations` lue — la forme attendue par `scoreWithheldFor`. Avec
@@ -51,6 +53,36 @@ export const readableParticipationScore = (viewer: LockUser) =>
 /** Filtre d'agrégat : seules les participations dont le score est lisible. */
 export const participationScoreReadable = (viewer: LockUser) =>
   sql`not ${scoreWithheldFor(viewer, answeredQuestionIds, ownExamId)}`
+
+/**
+ * Titre de l'examen encore OUVERT qui retient le score de la ligne lue (une
+ * de ses questions y a été répondue), pour « Publié à la fermeture de … » ;
+ * `null` si le score est lisible, ou pour un admin. L'examen propre est
+ * écarté : ouvert, la ligne se rend « Soumis », sans score. Il se compare via
+ * `ownExamId` (un `sql` imbriqué) : une colonne placée directement dans ce
+ * gabarit serait déqualifiée par le select mono-table et `exam_id` devient
+ * ambigu au milieu des jointures.
+ */
+const withheldByOpenExamTitle = (viewer: LockUser) =>
+  viewer.role === "admin"
+    ? sql<string | null>`null`
+    : sql<
+        string | null
+      >`case when ${scoreWithheldFor(viewer, answeredQuestionIds, ownExamId)} then (
+        select akl_e.title
+          from exam_questions akl_q
+          join exams akl_e on akl_e.id = akl_q.exam_id
+          join exam_participations akl_p
+            on akl_p.exam_id = akl_q.exam_id and akl_p.user_id = ${viewer.id}
+         where akl_q.question_id in (${answeredQuestionIds})
+           and akl_e.end_date > now()
+           and akl_e.id <> ${ownExamId}
+         order by akl_e.end_date, akl_e.id
+         limit 1
+      ) end`
+
+/** Réponses données d'une participation (la colonne lue est celle de la ligne). */
+const answeredCountSql = sql<number>`(select count(*) from (${answeredQuestionIds}) answered)`
 
 /**
  * Score de la ligne lue, ou `null` s'il est retenu pour son PROPRIÉTAIRE —
@@ -81,8 +113,19 @@ export type ExamListItem = {
   // même sans abonnement (calcul d'éligibilité par-examen côté client).
   audienceType: "subscribers" | "restricted"
   userHasTaken: boolean
-  /** `score` null = retenu (examen encore ouvert, ou réponse en correction différée). */
-  userParticipation: { score: number | null; completedAt: number | null } | null
+  userParticipation: ExamListParticipation | null
+}
+
+export type ExamListParticipation = {
+  status: "in_progress" | "completed" | "auto_submitted"
+  /** `null` = retenu (examen encore ouvert, ou réponse en correction différée). */
+  score: number | null
+  completedAt: number | null
+  answeredCount: number
+  /** Présent dès que la participation est démarrée : temps restant, pause. */
+  timing: AttemptTiming | null
+  /** Examen ouvert qui retient le score (« Publié à la fermeture de … »). */
+  withheldBy: string | null
 }
 
 /**
@@ -140,17 +183,31 @@ export const getExamsWithParticipation = cache(
     const examIds = rows.map((e) => e.id)
     const countMap = await countQuestionsByExam(examIds)
 
-    const partMap = new Map<
-      string,
-      { score: number | null; status: string; completedAt: Date | null }
-    >()
+    type ParticipationRow = {
+      examId: string
+      score: number | null
+      status: "in_progress" | "completed" | "auto_submitted"
+      startedAt: Date | null
+      completedAt: Date | null
+      pauseStartedAt: Date | null
+      totalPauseDurationMs: number | null
+      answeredCount: number
+      withheldBy: string | null
+    }
+    const partMap = new Map<string, ParticipationRow>()
     if (session?.user) {
+      const viewer = viewerOf(session.user)
       const parts = await db
         .select({
           examId: examParticipations.examId,
-          score: readableParticipationScore(viewerOf(session.user)),
+          score: readableParticipationScore(viewer),
           status: examParticipations.status,
+          startedAt: examParticipations.startedAt,
           completedAt: examParticipations.completedAt,
+          pauseStartedAt: examParticipations.pauseStartedAt,
+          totalPauseDurationMs: examParticipations.totalPauseDurationMs,
+          answeredCount: answeredCountSql.mapWith(Number),
+          withheldBy: withheldByOpenExamTitle(viewer),
         })
         .from(examParticipations)
         .where(
@@ -165,6 +222,19 @@ export const getExamsWithParticipation = cache(
     return rows.map((e) => {
       const p = partMap.get(e.id)
       const taken = p?.status === "completed" || p?.status === "auto_submitted"
+      const timing: AttemptTiming | null = p?.startedAt
+        ? {
+            startedAt: p.startedAt.getTime(),
+            budgetSeconds: e.completionTime,
+            pauseCreditMs: Number(p.totalPauseDurationMs ?? 0),
+            pauseInProgress: p.pauseStartedAt
+              ? {
+                  startedAt: p.pauseStartedAt.getTime(),
+                  capMinutes: e.pauseDurationMinutes ?? DEFAULT_PAUSE_MINUTES,
+                }
+              : null,
+          }
+        : null
       return {
         id: e.id,
         title: e.title,
@@ -179,7 +249,14 @@ export const getExamsWithParticipation = cache(
         audienceType: e.audienceType,
         userHasTaken: taken,
         userParticipation: p
-          ? { score: p.score, completedAt: p.completedAt?.getTime() ?? null }
+          ? {
+              status: p.status,
+              score: p.score,
+              completedAt: p.completedAt?.getTime() ?? null,
+              answeredCount: p.answeredCount,
+              timing,
+              withheldBy: p.withheldBy,
+            }
           : null,
       }
     })
@@ -446,6 +523,13 @@ export type ExamResultsView =
       participantUser: ExamParticipantUser
     }
   | {
+      /** Étudiant sans accès Examens sur un examen `subscribers` : la correction attend un accès actif. */
+      error: "ACCESS_REQUIRED"
+      message: string
+      exam: ExamResultsExam
+      participantUser: ExamParticipantUser
+    }
+  | {
       error: "NOT_COMPLETED"
       message: string
       status: "in_progress" | "completed" | "auto_submitted"
@@ -465,6 +549,8 @@ export type ExamResultsView =
           questionId: string
           selectedAnswer: string | null
           isCorrect: boolean | null
+          /** Marquée pendant la passation : filtre « Marquées » de la correction. */
+          isFlagged: boolean
         }[]
       }
       participantUser: ExamParticipantUser
@@ -483,10 +569,12 @@ type ExamResultsExam = {
 
 /**
  * Résultats d'un participant. Admin : toujours. Non-admin : uniquement ses
- * propres résultats ET après `endDate`. Renvoie une union NO_PARTICIPATION /
- * NOT_COMPLETED (admin) / succès / `null`. Questions en forme « pont » avec
- * `correctAnswer` (explications lazy-loadées séparément). Remplace
- * `getParticipantExamResults`.
+ * propres résultats, après `endDate`, et avec un accès Examens actif sur un
+ * examen `subscribers` (le score reste lisible dans la liste ; la correction,
+ * elle, est le service payant — l'audience d'un examen sur invitation vaut
+ * accès). Renvoie une union NO_PARTICIPATION / NOT_COMPLETED (admin) /
+ * ACCESS_REQUIRED (étudiant) / succès / `null`. Questions en forme « pont »
+ * avec `correctAnswer` (explications lazy-loadées séparément).
  */
 export const getParticipantExamResults = async (
   examId: string,
@@ -507,6 +595,7 @@ export const getParticipantExamResults = async (
       startDate: exams.startDate,
       endDate: exams.endDate,
       completionTime: exams.completionTime,
+      audienceType: exams.audienceType,
     })
     .from(exams)
     .where(eq(exams.id, examId))
@@ -583,6 +672,20 @@ export const getParticipantExamResults = async (
     return null
   }
 
+  // Après la participation : sans elle, il n'y a pas de correction à réserver.
+  if (
+    !isAdmin &&
+    exam.audienceType === "subscribers" &&
+    !(await hasAccess("exam"))
+  ) {
+    return {
+      error: "ACCESS_REQUIRED",
+      message: "Accès Examens requis pour la correction.",
+      exam: examView,
+      participantUser: null,
+    }
+  }
+
   if (p.status !== "completed" && p.status !== "auto_submitted") {
     if (isAdmin) {
       return {
@@ -625,6 +728,7 @@ export const getParticipantExamResults = async (
       questionId: examAnswers.questionId,
       selectedAnswer: examAnswers.selectedAnswer,
       isCorrect: examAnswers.isCorrect,
+      isFlagged: examAnswers.isFlagged,
     })
     .from(examAnswers)
     .where(eq(examAnswers.participationId, p.id))
@@ -652,6 +756,7 @@ export const getParticipantExamResults = async (
         selectedAnswer: a.selectedAnswer ?? null,
         // isCorrect + selectedAnswer révèle la clé → masqué si verrouillée.
         isCorrect: lock.has(a.questionId) ? null : (a.isCorrect ?? null),
+        isFlagged: a.isFlagged ?? false,
       })),
     },
     participantUser,
