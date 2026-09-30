@@ -23,8 +23,8 @@ test.describe("Panneau d'administration", () => {
     ).toBeVisible()
   })
 
-  test("affiche les cartes de statistiques vitales", async () => {
-    await admin.expectVitalCardsVisible()
+  test("affiche la bande de chiffres clés", async () => {
+    await admin.expectStatBandVisible()
   })
 
   test("les actions rapides naviguent correctement", async ({ page }) => {
@@ -50,20 +50,28 @@ test.describe("Panneau d'administration", () => {
   test("le modal de paiement manuel s'ouvre", async ({ page }) => {
     await admin.clickQuickAction("Enregistrer un paiement")
 
-    // ManualPaymentModal should be visible
     await expect(
-      page.locator("[role='dialog']").filter({ hasText: "Paiement manuel" }),
+      page
+        .getByRole("dialog")
+        .filter({ hasText: "Enregistrer un paiement manuel" }),
     ).toBeVisible({ timeout: 10_000 })
 
     // Close the modal
     await page.keyboard.press("Escape")
   })
 
-  test("les sections charts et activite sont presentes", async ({ page }) => {
+  test("revenus, activité, banque et raccourcis sont présents", async ({
+    page,
+  }) => {
     const main = page.locator("main")
-
-    await expect(main.getByText("Actions rapides")).toBeVisible({
-      timeout: 15_000,
-    })
+    for (const title of [
+      "Revenus quotidiens",
+      "Dernières actions",
+      "Questions par domaine",
+      "Actions rapides",
+    ])
+      await expect(main.getByRole("heading", { name: title })).toBeVisible({
+        timeout: 15_000,
+      })
   })
 })

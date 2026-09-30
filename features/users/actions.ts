@@ -7,17 +7,16 @@ import { headers } from "next/headers"
 import { db } from "@/db"
 import { session as sessionTable, user, userBans } from "@/db/schema"
 import {
-  type AdminUsersPage,
-  type UserPanelData,
+  type ExportUser,
   type UsersFilters,
-  getUserPanelData,
-  getUsersWithFilters,
+  getUsersForExport,
 } from "@/features/users/dal"
 import {
   banUserSchema,
   profileSchema,
   unbanUserSchema,
   updateUserRoleSchema,
+  usersFiltersSchema,
 } from "@/features/users/schemas"
 import { auth } from "@/lib/auth"
 import { requireRole, requireSession } from "@/lib/auth-guards"
@@ -38,25 +37,16 @@ import { deleteAccountSchema } from "@/schemas/auth"
 export type UpdateProfileResult = { success: boolean; error?: string }
 
 /**
- * [Admin] Charge une page de la liste filtrée (changement de filtre/tri/recherche
- * et « charger plus » côté client). Garde admin redoublée (la DAL garde aussi).
+ * [Admin] Utilisateurs à exporter selon les filtres courants de la liste,
+ * chargés au clic sur « Exporter ». Garde admin redoublée (la DAL garde aussi).
  */
-export const loadUsersPage = async (
+export const loadUsersForExport = async (
   filters: UsersFilters,
-): Promise<AdminUsersPage> => {
+): Promise<ExportUser[]> => {
   await requireRole(["admin"])
-  return getUsersWithFilters(filters)
-}
-
-/**
- * [Admin] Données du panneau latéral d'un utilisateur (chargées à l'ouverture).
- * `null` si introuvable.
- */
-export const loadUserPanelData = async (
-  userId: string,
-): Promise<UserPanelData | null> => {
-  await requireRole(["admin"])
-  return getUserPanelData(userId)
+  const parsed = usersFiltersSchema.safeParse(filters)
+  if (!parsed.success) return []
+  return getUsersForExport(parsed.data)
 }
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]

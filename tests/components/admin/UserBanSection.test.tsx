@@ -84,7 +84,9 @@ describe("UserBanSection", () => {
       }),
     )
     await waitFor(() => expect(mocks.refresh).toHaveBeenCalled())
-    expect(mocks.toastSuccess).toHaveBeenCalledWith("Compte suspendu.")
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(
+      "Compte suspendu · sessions fermées",
+    )
   })
 
   it("compte suspendu : détail de l'épisode et levée avec motif facultatif", async () => {
@@ -96,10 +98,12 @@ describe("UserBanSection", () => {
       />,
     )
     expect(screen.getByTestId("ban-badge")).toHaveTextContent("Suspendu")
-    expect(screen.getByText("Litige perdu, fraude")).toBeInTheDocument()
+    expect(screen.getByText("Motif : Litige perdu, fraude")).toBeInTheDocument()
     expect(screen.getByText(/par Samuel/)).toBeInTheDocument()
-    expect(screen.getByText("Ancien épisode")).toBeInTheDocument()
-    expect(screen.getByText(/par Ancien admin/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/par Ancien admin : Ancien épisode/),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/par Autre · Erreur/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId("unban-open"))
     fireEvent.click(screen.getByTestId("unban-confirm"))
@@ -109,18 +113,18 @@ describe("UserBanSection", () => {
         reason: undefined,
       }),
     )
-    expect(mocks.toastSuccess).toHaveBeenCalledWith("Suspension levée.")
+    expect(mocks.toastSuccess).toHaveBeenCalledWith("Suspension levée")
   })
 
-  it("sa propre fiche : note, pas de bouton", () => {
+  it("sa propre fiche : bouton indisponible, avec son explication", () => {
     render(
       <UserBanSection user={baseUser} bans={[]} currentUserId={baseUser.id} />,
     )
-    expect(screen.queryByTestId("ban-open")).toBeNull()
+    expect(screen.getByTestId("ban-open")).toBeDisabled()
     expect(screen.getByTestId("ban-self-note")).toBeInTheDocument()
   })
 
-  it("cible admin : note, pas de bouton", () => {
+  it("cible admin : bouton indisponible, avec son explication", () => {
     render(
       <UserBanSection
         user={{ ...baseUser, role: "admin" }}
@@ -128,7 +132,7 @@ describe("UserBanSection", () => {
         currentUserId="viewer"
       />,
     )
-    expect(screen.queryByTestId("ban-open")).toBeNull()
+    expect(screen.getByTestId("ban-open")).toBeDisabled()
     expect(screen.getByTestId("ban-admin-note")).toHaveTextContent(
       "Retirez d'abord le rôle administrateur",
     )

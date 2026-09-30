@@ -4,35 +4,42 @@
 
 export type Currency = "CAD" | "XAF"
 
+const AMOUNT_PATTERN = /^\d+([.,]\d+)?$/
+/** Au-delà, le montant en centièmes sort de la colonne `integer` de Postgres. */
+export const MAX_AMOUNT_CENTS = 1_000_000_000
+
 /**
- * Parse un montant saisi par l'utilisateur en centimes
- * Retourne null si invalide pour la devise donnée
- *
- * CAD: accepte les décimales (max 2), virgule ou point comme séparateur
- * XAF: doit être un entier (pas de centimes)
+ * Motif de refus d'un montant saisi, ou `null` s'il est valide pour la devise.
+ * Zéro est valide : c'est la saisie d'un accès offert.
+ */
+export const amountInputError = (
+  input: string,
+  currency: Currency,
+): string | null => {
+  const trimmed = input.trim()
+  if (!trimmed) return "Indiquez un montant (0 pour un accès offert)."
+  if (!AMOUNT_PATTERN.test(trimmed))
+    return "Le montant doit être positif ou nul."
+  const decimals = trimmed.split(/[.,]/)[1]?.length ?? 0
+  if (currency === "XAF" && decimals > 0)
+    return "En XAF, le montant est un nombre entier."
+  if (currency === "CAD" && decimals > 2)
+    return "Deux décimales au plus en CAD."
+  if (Number(trimmed.replace(",", ".")) * 100 > MAX_AMOUNT_CENTS)
+    return "Montant trop élevé."
+  return null
+}
+
+/**
+ * Montant saisi (virgule ou point) en centièmes, `null` s'il est invalide pour
+ * la devise : entier en XAF, deux décimales au plus en CAD.
  */
 export const parseAmountToCents = (
   input: string,
   currency: Currency,
 ): number | null => {
-  if (!input || input.trim() === "") return null
-
-  const normalized = input.replace(",", ".").trim()
-  const num = parseFloat(normalized)
-
-  if (isNaN(num) || !isFinite(num) || num <= 0) return null
-
-  if (currency === "XAF") {
-    // XAF n'a pas de centimes - doit être un entier
-    if (!Number.isInteger(num)) return null
-    return num * 100
-  } else {
-    // CAD: max 2 décimales
-    const decimalPart = normalized.split(".")[1]
-    const decimalPlaces = decimalPart ? decimalPart.length : 0
-    if (decimalPlaces > 2) return null
-    return Math.round(num * 100)
-  }
+  if (amountInputError(input, currency)) return null
+  return Math.round(Number(input.trim().replace(",", ".")) * 100)
 }
 
 /** Montant en centimes vers la valeur d'un champ de saisie, inverse de `parseAmountToCents`. */

@@ -1,38 +1,46 @@
-import { Suspense } from "react"
-import { getAvailableProducts } from "@/features/payments/dal"
-import {
-  getSelectableUsers,
-  getUsersForExport,
-  getUsersStats,
-  getUsersWithFilters,
-} from "@/features/users/dal"
-import { UsersManager } from "./_components/users-manager"
+import type { Metadata } from "next"
+import { getUsersHeadline, getUsersWithFilters } from "@/features/users/dal"
+import { USERS_PAGE_SIZE } from "@/features/users/page-size"
+import { currentTimeMs } from "@/lib/clock"
+import { parseUserList, toUsersFilters } from "./_components/user-params"
+import { UsersClient } from "./_components/users-client"
 
-// Données initiales côté serveur (DAL admin, garde `requireRole`). Le manager
-// client gère ensuite filtres / tri / pagination / panneau via Server Actions.
-export default async function UsersPage() {
-  const [usersPage, stats, exportUsers, products, selectableUsers] =
-    await Promise.all([
-      getUsersWithFilters({ limit: 50 }),
-      getUsersStats(),
-      getUsersForExport(),
-      getAvailableProducts(),
-      getSelectableUsers(),
-    ])
+export const metadata: Metadata = { title: "Utilisateurs" }
+
+// L'état de la liste (recherche, filtres, segment, tri, page) vit dans l'URL :
+// chaque changement recharge la page serveur, 20 lignes par page.
+export default async function UsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  const raw = await searchParams
+  const params = new URLSearchParams(
+    Object.entries(raw).flatMap(([k, v]) =>
+      typeof v === "string" ? [[k, v]] : [],
+    ),
+  )
+  const state = parseUserList(params)
+  const now = currentTimeMs()
+
+  const [page, headline] = await Promise.all([
+    getUsersWithFilters({
+      ...toUsersFilters(state, now),
+      sortBy: state.sort,
+      sortOrder: state.order,
+      offset: (state.page - 1) * USERS_PAGE_SIZE,
+    }),
+    getUsersHeadline(),
+  ])
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      {/* useSearchParams (deep-link ?user=) → borné par Suspense. */}
-      <Suspense fallback={null}>
-        <UsersManager
-          initialUsers={usersPage.items}
-          initialTotal={usersPage.total}
-          stats={stats}
-          exportUsers={exportUsers}
-          products={products}
-          selectableUsers={selectableUsers}
-        />
-      </Suspense>
+    <div className="flex flex-col gap-5 p-4 lg:p-6">
+      <UsersClient
+        state={state}
+        page={page}
+        headline={headline}
+        initialNow={now}
+      />
     </div>
   )
 }

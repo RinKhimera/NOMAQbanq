@@ -6,6 +6,7 @@ import {
   gt,
   gte,
   ilike,
+  isNotNull,
   isNull,
   lt,
   lte,
@@ -22,34 +23,22 @@ import {
   examParticipations,
   exams,
   products,
+  questionBookmarks,
   session,
+  trainingSessions,
   transactions,
   user,
   userAccess,
   userBans,
 } from "@/db/schema"
+import type { AccessType } from "@/features/payments/access-ledger"
 import { describeUserAgent } from "@/features/users/lib/user-agent"
-import {
-  startOfAppZoneDay,
-  startOfAppZoneMonth,
-  startOfNextAppZoneDay,
-} from "@/lib/app-zone"
+import { USERS_PAGE_SIZE } from "@/features/users/page-size"
+import { startOfAppZoneDay, startOfNextAppZoneDay } from "@/lib/app-zone"
 import { requireRole } from "@/lib/auth-guards"
 import { getCurrentSession } from "@/lib/dal"
 
 const DAY_MS = 24 * 60 * 60 * 1000
-
-export type AccessInfo = { expiresAt: number; daysRemaining: number } | null
-
-const toAccessInfo = (
-  expiresAt: Date | null | undefined,
-  now: number,
-): AccessInfo => {
-  if (!expiresAt) return null
-  const ms = expiresAt.getTime()
-  if (ms <= now) return null
-  return { expiresAt: ms, daysRemaining: Math.ceil((ms - now) / DAY_MS) }
-}
 
 // Échappe les métacaractères LIKE (%, _, \) d'une recherche utilisateur pour
 // que la saisie soit traitée littéralement (sinon `%` agirait comme joker).
@@ -181,23 +170,6 @@ export const getUserSessions = cache(async (): Promise<UserSession[]> => {
 export type SelectableUser = { id: string; name: string; email: string }
 
 /**
- * [Admin] Liste des utilisateurs non-admin sélectionnables (combobox du paiement
- * manuel). Colonnes minimales, exclut les admins
- * et les comptes supprimés, triés par nom. Borné à 500
- * — au-delà, prévoir une recherche serveur paginée.
- */
-export const getSelectableUsers = cache(async (): Promise<SelectableUser[]> => {
-  await requireRole(["admin"])
-
-  return db
-    .select({ id: user.id, name: user.name, email: user.email })
-    .from(user)
-    .where(and(ne(user.role, "admin"), isNull(user.deletedAt)))
-    .orderBy(asc(user.name))
-    .limit(500)
-})
-
-/**
  * [Admin] Recherche serveur d'utilisateurs sélectionnables (picker d'audience
  * d'examen). Tous les utilisateurs non-admin / non supprimés, filtrés par nom ou
  * email (ILIKE, métacaractères échappés). Borné 1–50. Sans terme : début de
@@ -233,8 +205,10 @@ export const searchSelectableUsers = async ({
 }
 
 // ============================================
-// [Admin] Liste utilisateurs (filtres + tri + pagination)
+// [Admin] Liste utilisateurs (segments d'accès + filtres + tri + pagination)
 // ============================================
+
+export type UserSegment = "all" | "active" | "expiring" | "expired" | "never"
 
 export type AdminUserRow = {
   id: string
@@ -242,25 +216,33 @@ export type AdminUserRow = {
   username: string | null
   email: string
   image: string | null
-  bio: string | null
   role: "user" | "admin"
   banned: boolean
   /** Epoch ms. */
   createdAt: number
-  examAccess: AccessInfo
-  trainingAccess: AccessInfo
+  /** Epoch ms de `user_access.expires_at`, passé compris ; null = jamais eu. */
+  examExpiresAt: number | null
+  trainingExpiresAt: number | null
+  /**
+   * Epoch ms. Null pour un compte importé (aucune ligne `account`, jamais
+   * reconnecté) : la valeur remplie d'office à la migration ne dit rien de lui.
+   */
+  lastLoginAt: number | null
 }
 
 export type AdminUsersPage = {
   items: AdminUserRow[]
-  /** Total filtré (pagination numérotée). */
+  /** Total filtré, segment compris (pagination numérotée). */
   total: number
+  /** Effectif de chaque segment sous les autres filtres. */
+  segmentCounts: Record<UserSegment, number>
 }
 
 export type UsersFilters = {
   search?: string
   role?: "admin" | "user"
-  accessStatus?: "active" | "expiring" | "expired" | "never"
+  segment?: UserSegment
+  suspended?: boolean
   /**
    * Journées civiles `YYYY-MM-DD`, bornes **incluses**, interprétées dans le
    * fuseau de la plateforme — pas des instants : c'est la seule forme qui
@@ -269,103 +251,321 @@ export type UsersFilters = {
    */
   dateFrom?: string
   dateTo?: string
-  sortBy?: "name" | "role" | "createdAt"
+}
+
+const examAccess = alias(userAccess, "exam_access")
+const trainingAccess = alias(userAccess, "training_access")
+
+// Un compte sans ligne `account` n'a jamais ouvert de session depuis la
+// migration de juin 2026 (Convex/Clerk) : c'est un compte importé.
+const hasAccount = sql<boolean>`exists (select 1 from ${account} where ${account.userId} = ${user.id})`
+
+/** Segments d'accès, sur les deux jointures `user_access` ; un admin n'y entre pas. */
+const segmentPredicate = (segment: UserSegment, now: Date) => {
+  const in7d = new Date(now.getTime() + 7 * DAY_MS)
+  const student = eq(user.role, "user")
+  const anyActive = or(
+    gt(examAccess.expiresAt, now),
+    gt(trainingAccess.expiresAt, now),
+  )
+  switch (segment) {
+    case "active":
+      return and(student, anyActive)
+    case "expiring":
+      return and(
+        student,
+        or(
+          and(gt(examAccess.expiresAt, now), lte(examAccess.expiresAt, in7d)),
+          and(
+            gt(trainingAccess.expiresAt, now),
+            lte(trainingAccess.expiresAt, in7d),
+          ),
+        ),
+      )
+    case "expired":
+      return and(
+        student,
+        or(isNotNull(examAccess.id), isNotNull(trainingAccess.id)),
+        or(isNull(examAccess.expiresAt), lte(examAccess.expiresAt, now)),
+        or(
+          isNull(trainingAccess.expiresAt),
+          lte(trainingAccess.expiresAt, now),
+        ),
+      )
+    case "never":
+      return and(student, isNull(examAccess.id), isNull(trainingAccess.id))
+    default:
+      return undefined
+  }
+}
+
+const usersBaseWhere = (f: UsersFilters) => {
+  const term = f.search?.trim()
+  return and(
+    isNull(user.deletedAt),
+    f.role ? eq(user.role, f.role) : undefined,
+    f.suspended ? eq(user.banned, true) : undefined,
+    term
+      ? or(
+          ilike(user.name, `%${escapeLike(term)}%`),
+          ilike(user.email, `%${escapeLike(term)}%`),
+          ilike(user.username, `%${escapeLike(term)}%`),
+        )
+      : undefined,
+    f.dateFrom ? gte(user.createdAt, startOfAppZoneDay(f.dateFrom)) : undefined,
+    // Semi-ouvert : la journée de fin compte en entier.
+    f.dateTo ? lt(user.createdAt, startOfNextAppZoneDay(f.dateTo)) : undefined,
+  )
+}
+
+// L'unicité (user_id, access_type) de `user_access` garantit au plus une
+// ligne par jointure : ni doublon de page, ni compte gonflé.
+const segmentCountSql = (segment: UserSegment, now: Date) =>
+  sql<number>`count(*) filter (where ${segmentPredicate(segment, now) ?? sql`true`})`.mapWith(
+    Number,
+  )
+
+/**
+ * [Admin] Utilisateurs filtrés, triés et paginés en SQL : recherche ILIKE
+ * (nom, courriel, nom d'utilisateur), rôle, suspendus, plage d'inscription,
+ * segment d'accès par deux LEFT JOIN aliasés sur `user_access`. Pagination par
+ * offset (tri par colonne) de 20, `total` et compteurs des segments sur le même
+ * WHERE hors segment. « Dernière connexion » vaut null pour un compte importé.
+ */
+export const getUsersWithFilters = async ({
+  sortBy = "createdAt",
+  sortOrder = "desc",
+  offset = 0,
+  limit = USERS_PAGE_SIZE,
+  ...filters
+}: UsersFilters & {
+  sortBy?: "name" | "createdAt" | "lastLogin"
   sortOrder?: "asc" | "desc"
   offset?: number
   limit?: number
-}
-
-/**
- * [Admin] Utilisateurs filtrés/triés/paginés en
- * SQL : recherche ILIKE (nom/email/username), filtre rôle + plage de dates, et
- * **statut d'accès** via deux LEFT JOIN aliasés sur `user_access` (exam/training,
- * au plus 1 ligne chacun grâce à l'unicité). Pagination par offset (liste admin
- * bornée, tri configurable → keyset peu pratique) + `total` filtré (même WHERE,
- * mêmes jointures — pas de gonflage grâce à l'unicité). Garde admin.
- */
-export const getUsersWithFilters = async ({
-  search,
-  role,
-  accessStatus,
-  dateFrom,
-  dateTo,
-  sortBy = "name",
-  sortOrder = "asc",
-  offset = 0,
-  limit = 50,
-}: UsersFilters = {}): Promise<AdminUsersPage> => {
+} = {}): Promise<AdminUsersPage> => {
   await requireRole(["admin"])
 
-  // Bornes dures (la règle « max 1000 docs » s'applique même si l'appelant ment).
   const safeLimit = Math.min(Math.max(1, Math.floor(limit)), 100)
   const safeOffset = Math.max(0, Math.floor(offset))
-
-  const exam = alias(userAccess, "exam_access")
-  const training = alias(userAccess, "training_access")
-
   const now = new Date()
-  const in7d = new Date(now.getTime() + 7 * DAY_MS)
+  const base = usersBaseWhere(filters)
+  const segment = filters.segment ?? "all"
+  const lastLogin = sql`case when ${hasAccount} then ${user.lastLoginAt} end`
 
-  let accessPredicate
-  switch (accessStatus) {
-    case "active":
-      accessPredicate = or(gt(exam.expiresAt, now), gt(training.expiresAt, now))
-      break
-    case "expiring":
-      accessPredicate = or(
-        and(gt(exam.expiresAt, now), lt(exam.expiresAt, in7d)),
-        and(gt(training.expiresAt, now), lt(training.expiresAt, in7d)),
+  const dir = sortOrder === "asc" ? "asc" : "desc"
+  const order =
+    sortBy === "name"
+      ? [
+          sortOrder === "asc"
+            ? asc(sql`lower(${user.name})`)
+            : desc(sql`lower(${user.name})`),
+        ]
+      : sortBy === "lastLogin"
+        ? [sql`${lastLogin} ${sql.raw(dir)} nulls last`]
+        : [sortOrder === "asc" ? asc(user.createdAt) : desc(user.createdAt)]
+
+  const [rows, [counts]] = await Promise.all([
+    db
+      .select({
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        email: user.email,
+        image: user.image,
+        role: user.role,
+        banned: user.banned,
+        createdAt: user.createdAt,
+        examExpiresAt: examAccess.expiresAt,
+        trainingExpiresAt: trainingAccess.expiresAt,
+        lastLoginAt: sql<Date | string | null>`${lastLogin}`,
+      })
+      .from(user)
+      .leftJoin(
+        examAccess,
+        and(eq(examAccess.userId, user.id), eq(examAccess.accessType, "exam")),
       )
-      break
-    case "expired":
-      // A au moins une ligne d'accès, mais aucune active.
-      accessPredicate = and(
-        or(eq(exam.accessType, "exam"), eq(training.accessType, "training")),
-        or(isNull(exam.expiresAt), lte(exam.expiresAt, now)),
-        or(isNull(training.expiresAt), lte(training.expiresAt, now)),
+      .leftJoin(
+        trainingAccess,
+        and(
+          eq(trainingAccess.userId, user.id),
+          eq(trainingAccess.accessType, "training"),
+        ),
       )
-      break
-    case "never":
-      accessPredicate = and(
-        isNull(exam.accessType),
-        isNull(training.accessType),
+      .where(and(base, segmentPredicate(segment, now)))
+      .orderBy(...order, sortOrder === "asc" ? asc(user.id) : desc(user.id))
+      .limit(safeLimit)
+      .offset(safeOffset),
+    db
+      .select({
+        all: segmentCountSql("all", now),
+        active: segmentCountSql("active", now),
+        expiring: segmentCountSql("expiring", now),
+        expired: segmentCountSql("expired", now),
+        never: segmentCountSql("never", now),
+      })
+      .from(user)
+      .leftJoin(
+        examAccess,
+        and(eq(examAccess.userId, user.id), eq(examAccess.accessType, "exam")),
       )
-      break
-    default:
-      accessPredicate = undefined
+      .leftJoin(
+        trainingAccess,
+        and(
+          eq(trainingAccess.userId, user.id),
+          eq(trainingAccess.accessType, "training"),
+        ),
+      )
+      .where(base),
+  ])
+
+  const segmentCounts: Record<UserSegment, number> = {
+    all: counts?.all ?? 0,
+    active: counts?.active ?? 0,
+    expiring: counts?.expiring ?? 0,
+    expired: counts?.expired ?? 0,
+    never: counts?.never ?? 0,
   }
 
-  const searchTerm = search?.trim()
-  const where = and(
-    isNull(user.deletedAt),
-    role ? eq(user.role, role) : undefined,
-    searchTerm
-      ? or(
-          ilike(user.name, `%${escapeLike(searchTerm)}%`),
-          ilike(user.email, `%${escapeLike(searchTerm)}%`),
-          ilike(user.username, `%${escapeLike(searchTerm)}%`),
-        )
-      : undefined,
-    dateFrom ? gte(user.createdAt, startOfAppZoneDay(dateFrom)) : undefined,
-    // Semi-ouvert : la journée de fin compte en entier, sinon `lte` sur son
-    // minuit ne retiendrait que les comptes créés à la seconde près.
-    dateTo ? lt(user.createdAt, startOfNextAppZoneDay(dateTo)) : undefined,
-    accessPredicate,
-  )
+  return {
+    items: rows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      username: r.username,
+      email: r.email,
+      image: r.image,
+      role: r.role,
+      banned: r.banned,
+      createdAt: r.createdAt.getTime(),
+      examExpiresAt: r.examExpiresAt?.getTime() ?? null,
+      trainingExpiresAt: r.trainingExpiresAt?.getTime() ?? null,
+      lastLoginAt: r.lastLoginAt ? new Date(r.lastLoginAt).getTime() : null,
+    })),
+    total: segmentCounts[segment],
+    segmentCounts,
+  }
+}
 
-  // Tri : nom insensible à la casse (lower) ; rôle casté en texte (ordre
-  // alphabétique « admin » < « user », sinon Postgres trierait par ordre de
-  // déclaration de l'enum [user, admin]) ; tie-break stable par id.
-  const sortCol =
-    sortBy === "createdAt"
-      ? user.createdAt
-      : sortBy === "role"
-        ? sql`${user.role}::text`
-        : sql`lower(${user.name})`
-  const dir = sortOrder === "desc" ? desc : asc
+export type UsersHeadline = { total: number; newLast30Days: number }
 
-  const [rows, totalRows] = await Promise.all([
-    db
+/** [Admin] « N comptes · N nouveaux sur 30 jours » (comptes non supprimés). */
+export const getUsersHeadline = cache(async (): Promise<UsersHeadline> => {
+  await requireRole(["admin"])
+  const since = new Date(Date.now() - 30 * DAY_MS)
+  const [row] = await db
+    .select({
+      total: sql<number>`count(*)`.mapWith(Number),
+      recent:
+        sql<number>`count(*) filter (where ${user.createdAt} >= ${since})`.mapWith(
+          Number,
+        ),
+    })
+    .from(user)
+    .where(isNull(user.deletedAt))
+  return { total: row?.total ?? 0, newLast30Days: row?.recent ?? 0 }
+})
+
+// ============================================
+// [Admin] Fiche d'un utilisateur
+// ============================================
+
+export type UserFileParticipation = {
+  id: string
+  examId: string
+  examTitle: string
+  status: "in_progress" | "completed" | "auto_submitted"
+  /** Score brut : un admin n'est jamais retenu par le verrou de clé. */
+  score: number
+  /** Epoch ms : fermeture de l'examen (score non publié à l'étudiant avant). */
+  examEndsAt: number
+  /** Epoch ms : soumission, ou début d'une participation en cours. */
+  at: number
+}
+
+export type UserFile = {
+  user: {
+    id: string
+    name: string
+    username: string | null
+    email: string
+    image: string | null
+    bio: string | null
+    role: "user" | "admin"
+    banned: boolean
+    createdAt: number
+    /** Null pour un compte importé, jamais la valeur remplie d'office. */
+    lastLoginAt: number | null
+    /** Aucune ligne `account` : créé avant la migration, jamais reconnecté. */
+    imported: boolean
+    /** `account.provider_id` distincts (« credential », « google »). */
+    loginMethods: string[]
+  }
+  /** Epoch ms de `user_access.expires_at`, passé compris ; null = jamais eu. */
+  access: { exam: number | null; training: number | null }
+  /** Sans ligne d'accès mais avec un paiement remboursé : accès retiré, pas « jamais eu ». */
+  refunded: { exam: boolean; training: boolean }
+  /** Type du paiement qui porte chaque accès (Stripe se rembourse dans Stripe). */
+  accessPaidBy: {
+    exam: "stripe" | "manual" | null
+    training: "stripe" | "manual" | null
+  }
+  payments: {
+    count: number
+    totalCad: number
+    totalXaf: number
+    last: {
+      createdAt: number
+      productName: string | null
+      amountPaid: number
+      currency: "CAD" | "XAF"
+      status: (typeof transactions.status.enumValues)[number]
+      disputeStatus: string | null
+    }
+  } | null
+  activity: {
+    lastActivity: {
+      kind: "participation" | "series"
+      label: string
+      at: number
+    } | null
+    participations: UserFileParticipation[]
+    participationCount: number
+    series: {
+      count: number
+      lastAt: number
+      /** Moyenne des séries terminées, au plancher ; null sans série notée. */
+      average: number | null
+      /** Part des séries en mode tuteur, en %. */
+      tutorShare: number
+    } | null
+    bookmarkCount: number
+  }
+  communications: {
+    prefs: { examResults: boolean; accessExpiry: boolean; marketing: boolean }
+    sent: {
+      welcome: number | null
+      inactivity: number | null
+      cart: number | null
+      expiry: number | null
+    }
+  }
+}
+
+const ms = (d: Date | string | null | undefined) =>
+  d ? new Date(d).getTime() : null
+
+/**
+ * [Admin] Fiche d'un utilisateur, en une poignée de requêtes bornées lancées
+ * ensemble : identité et préférences, méthodes de connexion
+ * (`account.provider_id` seulement), accès (expiration même passée), résumé des
+ * paiements, participations (score brut, 200 au plus), résumé des séries,
+ * marquages. `null` si introuvable ou supprimé.
+ */
+export const getUserFile = cache(
+  async (userId: string): Promise<UserFile | null> => {
+    await requireRole(["admin"])
+
+    const [row] = await db
       .select({
         id: user.id,
         name: user.name,
@@ -376,331 +576,237 @@ export const getUsersWithFilters = async ({
         role: user.role,
         banned: user.banned,
         createdAt: user.createdAt,
-        examExpiresAt: exam.expiresAt,
-        trainingExpiresAt: training.expiresAt,
+        lastLoginAt: user.lastLoginAt,
+        notifyExamResults: user.notifyExamResults,
+        notifyAccessExpiry: user.notifyAccessExpiry,
+        notifyMarketing: user.notifyMarketing,
+        welcomeEmailSentAt: user.welcomeEmailSentAt,
+        inactivityReminderSentAt: user.inactivityReminderSentAt,
+        cartReminderSentAt: user.cartReminderSentAt,
       })
       .from(user)
-      .leftJoin(
-        exam,
-        and(eq(exam.userId, user.id), eq(exam.accessType, "exam")),
-      )
-      .leftJoin(
-        training,
-        and(eq(training.userId, user.id), eq(training.accessType, "training")),
-      )
-      .where(where)
-      .orderBy(dir(sortCol), dir(user.id))
-      .limit(safeLimit)
-      .offset(safeOffset),
-    // Même WHERE + mêmes jointures que la page : le filtre `accessStatus`
-    // référence les alias, et l'unicité de `user_access` garantit ≤ 1 ligne
-    // par user et par type → count non gonflé.
-    db
-      .select({ n: sql<number>`count(*)`.mapWith(Number) })
-      .from(user)
-      .leftJoin(
-        exam,
-        and(eq(exam.userId, user.id), eq(exam.accessType, "exam")),
-      )
-      .leftJoin(
-        training,
-        and(eq(training.userId, user.id), eq(training.accessType, "training")),
-      )
-      .where(where),
-  ])
+      .where(and(eq(user.id, userId), isNull(user.deletedAt)))
+      .limit(1)
+    if (!row) return null
 
-  const total = totalRows[0]?.n ?? 0
-  const nowMs = now.getTime()
-
-  const items: AdminUserRow[] = rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    username: r.username,
-    email: r.email,
-    image: r.image,
-    bio: r.bio,
-    role: r.role,
-    banned: r.banned,
-    createdAt: r.createdAt.getTime(),
-    examAccess: toAccessInfo(r.examExpiresAt, nowMs),
-    trainingAccess: toAccessInfo(r.trainingExpiresAt, nowMs),
-  }))
-
-  return { items, total }
-}
-
-// ============================================
-// [Admin] Statistiques page utilisateurs
-// ============================================
-
-type CurrencyRevenue = { recent: number; previous: number; trend: number }
-
-export type UsersStatsView = {
-  totalUsers: number
-  newThisMonth: number
-  newThisMonthTrend: number
-  activeExamAccess: number
-  examExpiringCount: number
-  activeTrainingAccess: number
-  trainingExpiringCount: number
-  revenueByCurrency: { CAD: CurrencyRevenue; XAF: CurrencyRevenue }
-}
-
-const trendPct = (recent: number, previous: number) =>
-  previous > 0 ? ((recent - previous) / previous) * 100 : recent > 0 ? 100 : 0
-
-/**
- * [Admin] KPI de la page utilisateurs : 3 agrégations SQL parallèles :
- * compteurs users (mois courant vs précédent), accès actifs/expirants par type,
- * revenus par devise (30 j récents vs 30 j précédents).
- */
-export const getUsersStats = async (): Promise<UsersStatsView> => {
-  await requireRole(["admin"])
-
-  const now = new Date()
-  const nowMs = now.getTime()
-  // Mois civils de l'Est : une inscription du 31 à 21:00 appartient au mois qui
-  // s'achève, pas à celui que le calendrier UTC a déjà entamé.
-  const startOfMonth = startOfAppZoneMonth(now)
-  const startOfLastMonth = startOfAppZoneMonth(now, -1)
-  const in7d = new Date(nowMs + 7 * DAY_MS)
-  const ago30 = new Date(nowMs - 30 * DAY_MS)
-  const ago60 = new Date(nowMs - 60 * DAY_MS)
-
-  const [userRow, accessRow, revRows] = await Promise.all([
-    db
-      .select({
-        total: sql<number>`count(*)`.mapWith(Number),
-        newThisMonth:
-          sql<number>`count(*) filter (where ${user.createdAt} >= ${startOfMonth})`.mapWith(
-            Number,
+    const [
+      providers,
+      accessRows,
+      paymentRows,
+      lastPayment,
+      participations,
+      seriesRows,
+      bookmarkRows,
+    ] = await Promise.all([
+      // Exception de confidentialité (data-layer.md) : le fournisseur seul.
+      db
+        .selectDistinct({ providerId: account.providerId })
+        .from(account)
+        .where(eq(account.userId, userId))
+        .orderBy(asc(account.providerId))
+        .limit(10),
+      db
+        .select({
+          accessType: userAccess.accessType,
+          expiresAt: userAccess.expiresAt,
+          expiryReminderSentAt: userAccess.expiryReminderSentAt,
+          paidBy: transactions.type,
+        })
+        .from(userAccess)
+        .leftJoin(
+          transactions,
+          eq(transactions.id, userAccess.lastTransactionId),
+        )
+        .where(eq(userAccess.userId, userId)),
+      db
+        .select({
+          count: sql<number>`count(*)`.mapWith(Number),
+          totalCad:
+            sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.status} = 'completed' and ${transactions.currency} = 'CAD'), 0)`.mapWith(
+              Number,
+            ),
+          totalXaf:
+            sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.status} = 'completed' and ${transactions.currency} = 'XAF'), 0)`.mapWith(
+              Number,
+            ),
+          refundedExam: sql<boolean>`coalesce(bool_or(${transactions.status} = 'refunded' and (${transactions.accessType} = 'exam' or ${products.isCombo})), false)`,
+          refundedTraining: sql<boolean>`coalesce(bool_or(${transactions.status} = 'refunded' and (${transactions.accessType} = 'training' or ${products.isCombo})), false)`,
+        })
+        .from(transactions)
+        .leftJoin(products, eq(products.id, transactions.productId))
+        .where(eq(transactions.userId, userId)),
+      db
+        .select({
+          createdAt: transactions.createdAt,
+          productName: products.name,
+          amountPaid: transactions.amountPaid,
+          currency: transactions.currency,
+          status: transactions.status,
+          disputeStatus: transactions.disputeStatus,
+        })
+        .from(transactions)
+        .leftJoin(products, eq(products.id, transactions.productId))
+        .where(eq(transactions.userId, userId))
+        .orderBy(desc(transactions.createdAt), desc(transactions.id))
+        .limit(1),
+      db
+        .select({
+          id: examParticipations.id,
+          examId: exams.id,
+          examTitle: exams.title,
+          status: examParticipations.status,
+          score: examParticipations.score,
+          examEndsAt: exams.endDate,
+          // Total réel, au-delà des 200 lignes ramenées.
+          total: sql<number>`count(*) over ()`.mapWith(Number),
+          at: sql<
+            Date | string
+          >`coalesce(${examParticipations.completedAt}, ${examParticipations.startedAt}, ${examParticipations.createdAt})`,
+        })
+        .from(examParticipations)
+        .innerJoin(exams, eq(exams.id, examParticipations.examId))
+        .where(eq(examParticipations.userId, userId))
+        .orderBy(
+          desc(
+            sql`coalesce(${examParticipations.completedAt}, ${examParticipations.startedAt}, ${examParticipations.createdAt})`,
           ),
-        newLastMonth:
-          sql<number>`count(*) filter (where ${user.createdAt} >= ${startOfLastMonth} and ${user.createdAt} < ${startOfMonth})`.mapWith(
-            Number,
-          ),
-      })
-      .from(user)
-      .where(isNull(user.deletedAt)),
-    db
-      .select({
-        activeExam:
-          sql<number>`count(*) filter (where ${userAccess.accessType} = 'exam' and ${userAccess.expiresAt} > ${now})`.mapWith(
-            Number,
-          ),
-        activeTraining:
-          sql<number>`count(*) filter (where ${userAccess.accessType} = 'training' and ${userAccess.expiresAt} > ${now})`.mapWith(
-            Number,
-          ),
-        examExpiring:
-          sql<number>`count(*) filter (where ${userAccess.accessType} = 'exam' and ${userAccess.expiresAt} > ${now} and ${userAccess.expiresAt} < ${in7d})`.mapWith(
-            Number,
-          ),
-        trainingExpiring:
-          sql<number>`count(*) filter (where ${userAccess.accessType} = 'training' and ${userAccess.expiresAt} > ${now} and ${userAccess.expiresAt} < ${in7d})`.mapWith(
-            Number,
-          ),
-      })
-      .from(userAccess),
-    db
-      .select({
-        currency: transactions.currency,
-        recent:
-          sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.completedAt} > ${ago30}), 0)`.mapWith(
-            Number,
-          ),
-        previous:
-          sql<number>`coalesce(sum(${transactions.amountPaid}) filter (where ${transactions.completedAt} > ${ago60} and ${transactions.completedAt} <= ${ago30}), 0)`.mapWith(
-            Number,
-          ),
-      })
-      .from(transactions)
-      .where(eq(transactions.status, "completed"))
-      .groupBy(transactions.currency),
-  ])
+        )
+        .limit(200),
+      db
+        .select({
+          count: sql<number>`count(*)`.mapWith(Number),
+          lastAt: sql<
+            Date | string | null
+          >`max(coalesce(${trainingSessions.completedAt}, ${trainingSessions.startedAt}))`,
+          average: sql<
+            number | null
+          >`floor(avg(${trainingSessions.score}) filter (where ${trainingSessions.status} = 'completed'))`,
+          tutor:
+            sql<number>`count(*) filter (where ${trainingSessions.mode} = 'tutor')`.mapWith(
+              Number,
+            ),
+        })
+        .from(trainingSessions)
+        .where(eq(trainingSessions.userId, userId)),
+      db
+        .select({ count: sql<number>`count(*)`.mapWith(Number) })
+        .from(questionBookmarks)
+        .where(eq(questionBookmarks.userId, userId)),
+    ])
 
-  const u = userRow[0]
-  const a = accessRow[0]
+    const accessOf = (type: AccessType) =>
+      accessRows.find((r) => r.accessType === type)
+    const pay = paymentRows[0]
+    const last = lastPayment[0]
+    const series = seriesRows[0]
+    const lastSeriesAt = ms(series?.lastAt)
+    const lastParticipation = participations[0]
+    const participationAt = lastParticipation ? ms(lastParticipation.at)! : null
 
-  const revenueByCurrency = {
-    CAD: { recent: 0, previous: 0, trend: 0 },
-    XAF: { recent: 0, previous: 0, trend: 0 },
-  }
-  for (const r of revRows) {
-    revenueByCurrency[r.currency] = {
-      recent: r.recent,
-      previous: r.previous,
-      trend: trendPct(r.recent, r.previous),
+    const lastActivity =
+      participationAt !== null &&
+      (lastSeriesAt === null || participationAt >= lastSeriesAt)
+        ? {
+            kind: "participation" as const,
+            label: lastParticipation.examTitle,
+            at: participationAt,
+          }
+        : lastSeriesAt !== null
+          ? {
+              kind: "series" as const,
+              label: `${series.count} série${series.count > 1 ? "s" : ""} au total`,
+              at: lastSeriesAt,
+            }
+          : null
+
+    const imported = providers.length === 0
+    const expiryReminders = accessRows
+      .map((r) => r.expiryReminderSentAt?.getTime() ?? null)
+      .filter((t): t is number => t !== null)
+
+    return {
+      user: {
+        id: row.id,
+        name: row.name,
+        username: row.username,
+        email: row.email,
+        image: row.image,
+        bio: row.bio,
+        role: row.role,
+        banned: row.banned,
+        createdAt: row.createdAt.getTime(),
+        lastLoginAt: imported ? null : ms(row.lastLoginAt),
+        imported,
+        loginMethods: providers.map((p) => p.providerId),
+      },
+      access: {
+        exam: accessOf("exam")?.expiresAt.getTime() ?? null,
+        training: accessOf("training")?.expiresAt.getTime() ?? null,
+      },
+      refunded: {
+        exam: Boolean(pay?.refundedExam),
+        training: Boolean(pay?.refundedTraining),
+      },
+      accessPaidBy: {
+        exam: accessOf("exam")?.paidBy ?? null,
+        training: accessOf("training")?.paidBy ?? null,
+      },
+      payments:
+        pay && pay.count > 0 && last
+          ? {
+              count: pay.count,
+              totalCad: pay.totalCad,
+              totalXaf: pay.totalXaf,
+              last: {
+                createdAt: last.createdAt.getTime(),
+                productName: last.productName,
+                amountPaid: last.amountPaid,
+                currency: last.currency,
+                status: last.status,
+                disputeStatus: last.disputeStatus,
+              },
+            }
+          : null,
+      activity: {
+        lastActivity,
+        participations: participations.map((p) => ({
+          id: p.id,
+          examId: p.examId,
+          examTitle: p.examTitle,
+          status: p.status,
+          score: p.score,
+          examEndsAt: p.examEndsAt.getTime(),
+          at: ms(p.at)!,
+        })),
+        participationCount: participations[0]?.total ?? 0,
+        series:
+          series && series.count > 0 && lastSeriesAt !== null
+            ? {
+                count: series.count,
+                lastAt: lastSeriesAt,
+                average:
+                  series.average === null ? null : Number(series.average),
+                tutorShare: Math.round((100 * series.tutor) / series.count),
+              }
+            : null,
+        bookmarkCount: bookmarkRows[0]?.count ?? 0,
+      },
+      communications: {
+        prefs: {
+          examResults: row.notifyExamResults,
+          accessExpiry: row.notifyAccessExpiry,
+          marketing: row.notifyMarketing,
+        },
+        sent: {
+          welcome: ms(row.welcomeEmailSentAt),
+          inactivity: ms(row.inactivityReminderSentAt),
+          cart: ms(row.cartReminderSentAt),
+          expiry: expiryReminders.length ? Math.max(...expiryReminders) : null,
+        },
+      },
     }
-  }
-
-  return {
-    totalUsers: u?.total ?? 0,
-    newThisMonth: u?.newThisMonth ?? 0,
-    newThisMonthTrend: trendPct(u?.newThisMonth ?? 0, u?.newLastMonth ?? 0),
-    activeExamAccess: a?.activeExam ?? 0,
-    examExpiringCount: a?.examExpiring ?? 0,
-    activeTrainingAccess: a?.activeTraining ?? 0,
-    trainingExpiringCount: a?.trainingExpiring ?? 0,
-    revenueByCurrency,
-  }
-}
-
-// ============================================
-// [Admin] Détail utilisateur + panel latéral
-// ============================================
-
-export type AdminUserDetail = {
-  id: string
-  name: string
-  username: string | null
-  email: string
-  image: string | null
-  bio: string | null
-  role: "user" | "admin"
-  banned: boolean
-  /** Epoch ms. */
-  createdAt: number
-}
-
-/**
- * [Admin] Un utilisateur par id (page détail). Remplace `getUserById`. `null`
- * si introuvable ou supprimé. Garde admin (IDOR : ne jamais exposer un userId
- * arbitraire sans rôle admin — la page détail re-garde aussi `requireRole`).
- */
-export const getUserForAdmin = async (
-  userId: string,
-): Promise<AdminUserDetail | null> => {
-  await requireRole(["admin"])
-
-  const [row] = await db
-    .select({
-      id: user.id,
-      name: user.name,
-      username: user.username,
-      email: user.email,
-      image: user.image,
-      bio: user.bio,
-      role: user.role,
-      banned: user.banned,
-      createdAt: user.createdAt,
-    })
-    .from(user)
-    .where(and(eq(user.id, userId), isNull(user.deletedAt)))
-    .limit(1)
-
-  if (!row) return null
-  return { ...row, createdAt: row.createdAt.getTime() }
-}
-
-export type PanelAccess = {
-  expiresAt: number
-  daysRemaining: number
-  isActive: boolean
-} | null
-
-export type PanelTransaction = {
-  id: string
-  type: "stripe" | "manual"
-  status: (typeof transactions.status.enumValues)[number]
-  amountPaid: number
-  currency: "CAD" | "XAF"
-  /** Unité mineure de `presentmentCurrency`. Nul hors Adaptive Pricing. */
-  presentmentAmount: number | null
-  presentmentCurrency: string | null
-  /** Epoch ms. */
-  createdAt: number
-  product: { name: string } | null
-}
-
-export type UserPanelData = {
-  user: AdminUserDetail
-  examAccess: PanelAccess
-  trainingAccess: PanelAccess
-  recentTransactions: PanelTransaction[]
-  totalTransactionCount: number
-}
-
-const toPanelAccess = (
-  expiresAt: Date | null | undefined,
-  now: number,
-): PanelAccess => {
-  if (!expiresAt) return null
-  const ms = expiresAt.getTime()
-  return {
-    expiresAt: ms,
-    daysRemaining: Math.max(0, Math.ceil((ms - now) / DAY_MS)),
-    isActive: ms > now,
-  }
-}
-
-/**
- * [Admin] Données du panneau latéral : utilisateur + accès (exam/training avec
- * `isActive`) + 5 dernières transactions (produit joint) + total. Remplace
- * `getUserPanelData`. Garde admin.
- */
-export const getUserPanelData = async (
-  userId: string,
-): Promise<UserPanelData | null> => {
-  const detail = await getUserForAdmin(userId)
-  if (!detail) return null
-
-  const [accessRows, txRows, countRows] = await Promise.all([
-    db
-      .select({
-        accessType: userAccess.accessType,
-        expiresAt: userAccess.expiresAt,
-      })
-      .from(userAccess)
-      .where(eq(userAccess.userId, userId)),
-    db
-      .select({
-        id: transactions.id,
-        type: transactions.type,
-        status: transactions.status,
-        amountPaid: transactions.amountPaid,
-        currency: transactions.currency,
-        presentmentAmount: transactions.presentmentAmount,
-        presentmentCurrency: transactions.presentmentCurrency,
-        createdAt: transactions.createdAt,
-        productName: products.name,
-      })
-      .from(transactions)
-      .leftJoin(products, eq(products.id, transactions.productId))
-      .where(eq(transactions.userId, userId))
-      .orderBy(desc(transactions.createdAt), desc(transactions.id))
-      .limit(5),
-    db
-      .select({ count: sql<number>`count(*)`.mapWith(Number) })
-      .from(transactions)
-      .where(eq(transactions.userId, userId)),
-  ])
-
-  const now = Date.now()
-  return {
-    user: detail,
-    examAccess: toPanelAccess(
-      accessRows.find((r) => r.accessType === "exam")?.expiresAt,
-      now,
-    ),
-    trainingAccess: toPanelAccess(
-      accessRows.find((r) => r.accessType === "training")?.expiresAt,
-      now,
-    ),
-    recentTransactions: txRows.map((r) => ({
-      id: r.id,
-      type: r.type,
-      status: r.status,
-      amountPaid: r.amountPaid,
-      currency: r.currency,
-      presentmentAmount: r.presentmentAmount,
-      presentmentCurrency: r.presentmentCurrency,
-      createdAt: r.createdAt.getTime(),
-      product: r.productName ? { name: r.productName } : null,
-    })),
-    totalTransactionCount: countRows[0]?.count ?? 0,
-  }
-}
+  },
+)
 
 // ============================================
 // [Admin] Journal des suspensions
@@ -768,14 +874,20 @@ export type ExportUser = {
   role: "user" | "admin"
   /** Epoch ms. */
   createdAt: number
-  bio: string | null
+  /** Epoch ms, passé compris ; null = jamais eu. */
+  examExpiresAt: number | null
+  trainingExpiresAt: number | null
+  banned: boolean
 }
 
 /**
- * [Admin] Tous les utilisateurs (non supprimés) pour l'export CSV/XLSX. Remplace
- * l'usage export de `getAllUsers`. Borné à 1000.
+ * [Admin] Utilisateurs à exporter selon les filtres courants de la liste
+ * (mêmes filtres et segment que `getUsersWithFilters`), triés par nom.
+ * Borné à 1000.
  */
-export const getUsersForExport = async (): Promise<ExportUser[]> => {
+export const getUsersForExport = async (
+  filters: UsersFilters = {},
+): Promise<ExportUser[]> => {
   await requireRole(["admin"])
 
   const rows = await db
@@ -785,14 +897,37 @@ export const getUsersForExport = async (): Promise<ExportUser[]> => {
       email: user.email,
       role: user.role,
       createdAt: user.createdAt,
-      bio: user.bio,
+      examExpiresAt: examAccess.expiresAt,
+      trainingExpiresAt: trainingAccess.expiresAt,
+      banned: user.banned,
     })
     .from(user)
-    .where(isNull(user.deletedAt))
-    .orderBy(asc(user.name))
+    .leftJoin(
+      examAccess,
+      and(eq(examAccess.userId, user.id), eq(examAccess.accessType, "exam")),
+    )
+    .leftJoin(
+      trainingAccess,
+      and(
+        eq(trainingAccess.userId, user.id),
+        eq(trainingAccess.accessType, "training"),
+      ),
+    )
+    .where(
+      and(
+        usersBaseWhere(filters),
+        segmentPredicate(filters.segment ?? "all", new Date()),
+      ),
+    )
+    .orderBy(asc(sql`lower(${user.name})`), asc(user.id))
     .limit(1000)
 
-  return rows.map((r) => ({ ...r, createdAt: r.createdAt.getTime() }))
+  return rows.map((r) => ({
+    ...r,
+    createdAt: r.createdAt.getTime(),
+    examExpiresAt: r.examExpiresAt?.getTime() ?? null,
+    trainingExpiresAt: r.trainingExpiresAt?.getTime() ?? null,
+  }))
 }
 
 // ============================================
@@ -810,7 +945,7 @@ export type AdminStats = {
 
 /**
  * [Admin] Compteurs globaux du dashboard admin : utilisateurs (non supprimés, par
- * rôle — cohérent avec `getUsersStats`), examens (total + actifs en fenêtre),
+ * rôle), examens (total + actifs en fenêtre),
  * participations. Remplace `users.getAdminStats` (qui chargeait jusqu'à 1000
  * users / 500 exams / 2000 participations en JS) par des `count(*)` SQL.
  */

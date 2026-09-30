@@ -1,118 +1,114 @@
 "use client"
 
-import { ShieldCheck, ShieldOff } from "lucide-react"
-import { motion } from "motion/react"
+import { Info } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { updateUserRole } from "@/features/users/actions"
-import type { AdminUserDetail } from "@/features/users/dal"
+import type { UserFile } from "@/features/users/dal"
 import { callAction } from "@/lib/safe-action"
+import { userLabel } from "../../_components/user-labels"
 
-interface UserRoleSectionProps {
-  user: Pick<AdminUserDetail, "id" | "name" | "email" | "role">
-  currentUserId: string
-}
+/** Raison qui rend une action indisponible, affichée sous son bouton. */
+export const Why = ({
+  testId,
+  children,
+}: {
+  testId?: string
+  children: string
+}) => (
+  <span
+    data-testid={testId}
+    className="text-ink-2 inline-flex items-start gap-1.5 text-[0.8125rem] leading-snug"
+  >
+    <Info aria-hidden="true" className="text-ink-3 mt-0.5 size-3.5 shrink-0" />
+    {children}
+  </span>
+)
 
+/** Rôle : promouvoir ou rétrograder, jamais soi-même ni un compte suspendu. */
 export const UserRoleSection = ({
   user,
   currentUserId,
-}: UserRoleSectionProps) => {
+}: {
+  user: Pick<UserFile["user"], "id" | "name" | "email" | "role" | "banned">
+  currentUserId: string
+}) => {
   const router = useRouter()
   const [open, setOpen] = useState(false)
-
-  const isSelf = user.id === currentUserId
   const isAdmin = user.role === "admin"
+  const label = userLabel(user.name)
+  const why =
+    user.id === currentUserId
+      ? {
+          id: "role-self-note",
+          text: "Vous ne pouvez pas modifier votre propre rôle.",
+        }
+      : !isAdmin && user.banned
+        ? {
+            id: "role-banned-note",
+            text: "Levez d'abord la suspension de ce compte.",
+          }
+        : null
 
-  const handleConfirm = async () => {
+  const confirm = async () => {
     const result = await callAction(() =>
-      updateUserRole({
-        userId: user.id,
-        role: isAdmin ? "user" : "admin",
-      }),
+      updateUserRole({ userId: user.id, role: isAdmin ? "user" : "admin" }),
     )
     if (!result.success) {
       toast.error(result.error ?? "Une erreur est survenue.")
       return false
     }
     toast.success(
-      isAdmin
-        ? "Rôle administrateur retiré."
-        : "Utilisateur promu administrateur.",
+      isAdmin ? "Rôle administrateur retiré" : "Rôle administrateur accordé",
     )
     router.refresh()
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 }}
-      className="rounded-2xl border border-gray-200/80 bg-white p-6 shadow-lg dark:border-gray-700/50 dark:bg-gray-900"
-    >
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-        <h3 className="font-semibold text-gray-900 dark:text-white">
-          Rôle administrateur
-        </h3>
-      </div>
-      <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-        {isAdmin
-          ? "Cet utilisateur a un accès complet au back-office : questions, examens, utilisateurs et transactions."
-          : "Promouvoir cet utilisateur lui donne un accès complet au back-office : questions, examens, utilisateurs et transactions."}
-      </p>
-
-      {isSelf ? (
-        <p
-          data-testid="role-self-note"
-          className="mt-4 text-sm text-gray-400 italic dark:text-gray-500"
-        >
-          Vous ne pouvez pas modifier votre propre rôle.
+    <div className="flex flex-col items-start gap-2.5 text-sm">
+      <div>
+        <p className="text-ink font-medium">
+          {isAdmin ? "Administrateur" : "Étudiant"}
         </p>
-      ) : (
-        <>
-          <Button
-            data-testid="role-toggle-open"
-            variant={isAdmin ? "outline" : "default"}
-            className={
-              isAdmin
-                ? "mt-4 w-full rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/30"
-                : "mt-4 w-full rounded-xl"
-            }
-            onClick={() => setOpen(true)}
-          >
-            {isAdmin ? (
-              <ShieldOff className="mr-2 h-4 w-4" />
-            ) : (
-              <ShieldCheck className="mr-2 h-4 w-4" />
-            )}
-            {isAdmin
-              ? "Retirer le rôle administrateur"
-              : "Promouvoir administrateur"}
-          </Button>
-
-          <ConfirmDialog
-            open={open}
-            onOpenChange={setOpen}
-            variant={isAdmin ? "destructive" : "default"}
-            title={
-              isAdmin
-                ? "Retirer le rôle administrateur ?"
-                : "Promouvoir administrateur ?"
-            }
-            description={`${user.name} (${user.email}) ${
-              isAdmin
-                ? "perdra immédiatement l'accès au back-office."
-                : "obtiendra un accès complet au back-office."
-            }`}
-            confirmLabel={isAdmin ? "Retirer le rôle" : "Promouvoir"}
-            confirmTestId="role-toggle-confirm"
-            onConfirm={handleConfirm}
-          />
-        </>
-      )}
-    </motion.div>
+        <p className="text-ink-3 text-[0.8125rem]">
+          {isAdmin
+            ? "Accès à toute la zone admin."
+            : "Accès selon ses abonnements."}
+        </p>
+      </div>
+      <Button
+        type="button"
+        variant="outline"
+        data-testid="role-toggle-open"
+        disabled={why !== null}
+        onClick={() => setOpen(true)}
+      >
+        {isAdmin
+          ? "Retirer le rôle administrateur"
+          : "Promouvoir administrateur"}
+      </Button>
+      {why && <Why testId={why.id}>{why.text}</Why>}
+      <ConfirmDialog
+        open={open}
+        onOpenChange={setOpen}
+        variant={isAdmin ? "destructive" : "default"}
+        title={
+          isAdmin
+            ? "Retirer le rôle administrateur ?"
+            : `Promouvoir ${label} administrateur ?`
+        }
+        description={
+          isAdmin
+            ? `${label} (${user.email}) redevient étudiant. Ses sessions restent ouvertes ; il perd l'accès à la zone admin à son prochain chargement de page.`
+            : `${label} (${user.email}) accèdera à toute la zone admin, y compris les paiements et les comptes. Un administrateur n'est jamais bloqué par les accès.`
+        }
+        confirmLabel={isAdmin ? "Retirer le rôle" : "Promouvoir"}
+        confirmTestId="role-toggle-confirm"
+        onConfirm={confirm}
+      />
+    </div>
   )
 }

@@ -1,178 +1,114 @@
-"use client"
-
-import {
-  IconAlertTriangle,
-  IconChevronRight,
-  IconCircleCheck,
-  IconClock,
-  IconCreditCardOff,
-} from "@tabler/icons-react"
-import { CircleCheck } from "lucide-react"
+import { ChevronRight, CircleAlert, CircleCheck, Clock } from "lucide-react"
 import Link from "next/link"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { EmptyState } from "@/components/ui/empty-state"
+import type { ExpiringAccessItem } from "@/features/payments/dal"
+import { TONE_TEXT } from "@/lib/tone"
 import { cn } from "@/lib/utils"
+import { DashboardPanel } from "./dashboard-panel"
 
-interface ExpiringAccess {
-  id: string
-  userId: string
-  accessType: "exam" | "training"
-  daysRemaining: number
-  user: {
-    name: string | null
-    email: string | undefined
-  } | null
+type ExpiringAccess = Pick<
+  ExpiringAccessItem,
+  "id" | "accessType" | "daysRemaining"
+> & { user: { name: string | null } | null }
+
+const describeExpiring = (items: ExpiringAccess[]) => {
+  if (items.length === 1) {
+    const [item] = items
+    return `${item.user?.name ?? "1 utilisateur"} - ${item.daysRemaining}j restant${item.daysRemaining > 1 ? "s" : ""}`
+  }
+  const minDays = Math.min(...items.map((i) => i.daysRemaining))
+  return `${items.length} utilisateurs, ${minDays}j minimum`
 }
 
-interface AlertsPanelProps {
-  expiringAccess: ExpiringAccess[]
-  failedPaymentsCount: number
-}
-
-interface AlertItemProps {
-  icon: React.ElementType
-  iconColor: string
-  bgColor: string
-  title: string
-  description: string
-  count?: number
-  href: string
-}
-
-function AlertItem({
+const AlertRow = ({
+  tone,
   icon: Icon,
-  iconColor,
-  bgColor,
   title,
   description,
   count,
   href,
-}: AlertItemProps) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "group flex items-center gap-3 rounded-xl border border-transparent p-3 transition-all duration-200",
-        bgColor,
-        "hover:border-gray-200 dark:hover:border-gray-700",
-      )}
-    >
-      <div
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-          iconColor,
-        )}
-      >
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {title}
-          </p>
-          {count !== undefined && count > 0 && (
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-xs font-semibold text-white">
-              {count}
-            </span>
-          )}
-        </div>
-        <p className="text-muted-foreground truncate text-xs">{description}</p>
-      </div>
-      <IconChevronRight className="text-muted-foreground h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" />
-    </Link>
-  )
-}
+}: {
+  tone: "warning" | "danger"
+  icon: typeof Clock
+  title: string
+  description: string
+  count: number
+  href: string
+}) => (
+  <Link
+    href={href}
+    prefetch={false}
+    className="focus-ring group border-line grid min-h-11 grid-cols-[18px_minmax(0,1fr)_auto_16px] items-center gap-3 border-t py-3 first:border-t-0"
+  >
+    <Icon aria-hidden="true" className={cn("size-4", TONE_TEXT[tone])} />
+    <span className="flex min-w-0 flex-col gap-0.5">
+      <span className="text-ink text-sm font-medium group-hover:underline group-hover:underline-offset-3">
+        {title}
+      </span>
+      <span className="text-ink-3 truncate text-[0.8125rem]">
+        {description}
+      </span>
+    </span>
+    <span className="text-ink font-mono text-sm tabular-nums">{count}</span>
+    <ChevronRight aria-hidden="true" className="text-ink-3 size-4" />
+  </Link>
+)
 
+/** Alertes : accès qui expirent sous 7 jours, clients dont la dernière tentative a échoué (le filtre Échec). */
 export function AlertsPanel({
   expiringAccess,
-  failedPaymentsCount,
-}: AlertsPanelProps) {
-  const hasAlerts = expiringAccess.length > 0 || failedPaymentsCount > 0
-
-  const expiringExamAccess = expiringAccess.filter(
-    (a) => a.accessType === "exam",
-  )
-  const expiringTrainingAccess = expiringAccess.filter(
-    (a) => a.accessType === "training",
-  )
-
-  const getExpiringDescription = (items: ExpiringAccess[]) => {
-    if (items.length === 0) return ""
-    if (items.length === 1) {
-      const item = items[0]
-      return `${item.user?.name ?? "1 utilisateur"} - ${item.daysRemaining}j restant${item.daysRemaining > 1 ? "s" : ""}`
-    }
-    const minDays = Math.min(...items.map((i) => i.daysRemaining))
-    return `${items.length} utilisateurs, ${minDays}j minimum`
-  }
-
-  if (!hasAlerts) {
-    return (
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-base font-semibold">Alertes</CardTitle>
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
-            <IconCircleCheck className="h-5 w-5 text-emerald-500" />
-          </div>
-        </CardHeader>
-        <CardContent>
-          <EmptyState
-            size="compact"
-            icons={[CircleCheck]}
-            title="Tout va bien"
-            description="Aucune alerte à signaler"
-            className="py-6"
-          />
-        </CardContent>
-      </Card>
-    )
-  }
+  failedClientsCount,
+}: {
+  expiringAccess: ExpiringAccess[]
+  failedClientsCount: number
+}) {
+  const exam = expiringAccess.filter((a) => a.accessType === "exam")
+  const training = expiringAccess.filter((a) => a.accessType === "training")
+  const none = expiringAccess.length === 0 && failedClientsCount === 0
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-base font-semibold">Alertes</CardTitle>
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/30">
-          <IconAlertTriangle className="h-5 w-5 text-amber-500" />
+    <DashboardPanel eyebrow="Suivi" title="Alertes">
+      {none ? (
+        <div className="flex items-center gap-2.5 text-sm">
+          <CircleCheck aria-hidden="true" className="text-success size-4" />
+          <span>
+            <span className="text-ink font-medium">Tout va bien</span>
+            <span className="text-ink-3"> · Aucune alerte à signaler</span>
+          </span>
         </div>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {expiringExamAccess.length > 0 && (
-          <AlertItem
-            icon={IconClock}
-            iconColor="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
-            bgColor="bg-amber-50/50 dark:bg-amber-900/10"
-            title="Accès examens expirant"
-            description={getExpiringDescription(expiringExamAccess)}
-            count={expiringExamAccess.length}
-            href="/admin/utilisateurs"
-          />
-        )}
-
-        {expiringTrainingAccess.length > 0 && (
-          <AlertItem
-            icon={IconClock}
-            iconColor="bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400"
-            bgColor="bg-orange-50/50 dark:bg-orange-900/10"
-            title="Accès entraînement expirant"
-            description={getExpiringDescription(expiringTrainingAccess)}
-            count={expiringTrainingAccess.length}
-            href="/admin/utilisateurs"
-          />
-        )}
-
-        {failedPaymentsCount > 0 && (
-          <AlertItem
-            icon={IconCreditCardOff}
-            iconColor="bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
-            bgColor="bg-rose-50/50 dark:bg-rose-900/10"
-            title="Paiements échoués"
-            description={`${failedPaymentsCount} paiement${failedPaymentsCount > 1 ? "s" : ""} ces 7 derniers jours`}
-            count={failedPaymentsCount}
-            href="/admin/transactions?status=failed"
-          />
-        )}
-      </CardContent>
-    </Card>
+      ) : (
+        <div className="flex flex-col">
+          {exam.length > 0 && (
+            <AlertRow
+              tone="warning"
+              icon={Clock}
+              title="Accès examens expirant"
+              description={describeExpiring(exam)}
+              count={exam.length}
+              href="/admin/utilisateurs?segment=bientot"
+            />
+          )}
+          {training.length > 0 && (
+            <AlertRow
+              tone="warning"
+              icon={Clock}
+              title="Accès entraînement expirant"
+              description={describeExpiring(training)}
+              count={training.length}
+              href="/admin/utilisateurs?segment=bientot"
+            />
+          )}
+          {failedClientsCount > 0 && (
+            <AlertRow
+              tone="danger"
+              icon={CircleAlert}
+              title="Paiements échoués"
+              description={`${failedClientsCount} client${failedClientsCount > 1 ? "s" : ""} dont la dernière tentative a échoué`}
+              count={failedClientsCount}
+              href="/admin/transactions?filtre=echec"
+            />
+          )}
+        </div>
+      )}
+    </DashboardPanel>
   )
 }

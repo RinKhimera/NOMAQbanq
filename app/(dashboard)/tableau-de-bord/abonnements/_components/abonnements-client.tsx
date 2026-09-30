@@ -2,52 +2,32 @@
 
 import { ArrowRight, Clock, ExternalLink, Receipt } from "lucide-react"
 import Link from "next/link"
+import { usePathname, useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
+import { KeysetPagination } from "@/components/shared/data-table/keyset-pagination"
 import { PageIntro } from "@/components/shared/page-intro"
 import { ACCESS_TYPE_LABEL } from "@/components/shared/payments/access-badge"
 import { AccessCard } from "@/components/shared/payments/access-card"
-import {
-  type Transaction,
-  TransactionTable,
-} from "@/components/shared/payments/transaction-table"
+import { TransactionTable } from "@/components/shared/payments/transaction-table"
 import { StatusPill } from "@/components/shared/status-pill"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import type { AccessType } from "@/features/payments/access-ledger"
-import {
-  createCustomerPortal,
-  loadMoreMyTransactions,
-} from "@/features/payments/actions"
+import { createCustomerPortal } from "@/features/payments/actions"
 import type {
   AccessStatus,
   LapsedAccess,
-  MyTransactionView,
   MyTransactionsPage,
   ProductView,
 } from "@/features/payments/dal"
+import { MY_TRANSACTIONS_PAGE_SIZE } from "@/features/payments/page-sizes"
 import { formatCurrency, formatExpiration } from "@/lib/format"
 import { cheapestMonthly, monthsOf, savingsOf } from "@/lib/pricing"
 import { callAction } from "@/lib/safe-action"
 
 const cad = (cents: number) => formatCurrency(cents, "CAD", { whole: true })
-
-// Adapte le modèle DAL au contrat (numérique) attendu par TransactionTable.
-const toTableTransaction = (tx: MyTransactionView): Transaction => ({
-  _id: tx.id,
-  type: tx.type,
-  status: tx.status,
-  amountPaid: tx.amountPaid,
-  currency: tx.currency,
-  accessType: tx.accessType,
-  durationDays: tx.durationDays,
-  createdAt: tx.createdAt,
-  completedAt: tx.completedAt ?? undefined,
-  paymentMethod: tx.paymentMethod ?? undefined,
-  notes: tx.notes ?? undefined,
-  product: tx.product ? { _id: tx.product.id, name: tx.product.name } : null,
-})
 
 const AccessAction = ({
   type,
@@ -123,36 +103,26 @@ const PremiumBanner = ({ products }: { products: ProductView[] }) => {
 export const AbonnementsClient = ({
   accessStatus,
   lapsed,
-  initialTransactions,
+  transactions,
   products,
 }: {
   accessStatus: AccessStatus
   lapsed: LapsedAccess
-  initialTransactions: MyTransactionsPage
+  transactions: MyTransactionsPage
   products: ProductView[]
 }) => {
-  const [items, setItems] = useState<MyTransactionView[]>(
-    initialTransactions.items,
-  )
-  const [cursor, setCursor] = useState<string | null>(
-    initialTransactions.nextCursor,
-  )
-  const [isLoadingMore, startLoadMore] = useTransition()
+  const router = useRouter()
+  const pathname = usePathname()
+  const [isPaging, startPaging] = useTransition()
   const [portalOpen, setPortalOpen] = useState(false)
   const [redirecting, setRedirecting] = useState(false)
 
-  const handleLoadMore = () => {
-    if (!cursor) return
-    startLoadMore(async () => {
-      try {
-        const next = await loadMoreMyTransactions(cursor)
-        setItems((prev) => [...prev, ...next.items])
-        setCursor(next.nextCursor)
-      } catch {
-        toast.error("Impossible de charger plus de transactions")
-      }
+  const goTo = (param: "apres" | "avant", cursor: string) =>
+    startPaging(() => {
+      router.push(`${pathname}?${new URLSearchParams({ [param]: cursor })}`, {
+        scroll: false,
+      })
     })
-  }
 
   // Le portail Stripe ne s'ouvre qu'ici, après confirmation dans le Dialog.
   const openPortal = async () => {
@@ -285,11 +255,27 @@ export const AbonnementsClient = ({
         </div>
         <div className="border-line border-t px-6 py-4 max-md:px-5">
           <TransactionTable
-            transactions={items.map(toTableTransaction)}
-            isPending={isLoadingMore}
-            onLoadMore={handleLoadMore}
-            hasMore={cursor !== null}
+            transactions={transactions.items}
+            isPending={isPaging}
             emptyMessage="Aucune transaction pour le moment."
+            footer={
+              <KeysetPagination
+                firstIndex={transactions.firstIndex}
+                count={transactions.items.length}
+                pageSize={MY_TRANSACTIONS_PAGE_SIZE}
+                isPending={isPaging}
+                onPrevious={
+                  transactions.prevCursor
+                    ? () => goTo("avant", transactions.prevCursor!)
+                    : undefined
+                }
+                onNext={
+                  transactions.nextCursor
+                    ? () => goTo("apres", transactions.nextCursor!)
+                    : undefined
+                }
+              />
+            }
           />
         </div>
       </section>

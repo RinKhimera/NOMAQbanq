@@ -20,7 +20,7 @@ import {
 import { hasAccess } from "@/features/payments/dal"
 import { banUser, unbanUser } from "@/features/users/actions"
 import { anonymizeExpiredDeletedAccounts } from "@/features/users/cron"
-import { getUserBans, getUserForAdmin } from "@/features/users/dal"
+import { getUserBans, getUserFile } from "@/features/users/dal"
 import { DELETION_GRACE_MS } from "@/features/users/lib/account-deletion"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
@@ -386,10 +386,10 @@ describe("unbanUser", () => {
 })
 
 describe("DAL admin", () => {
-  it("getUserForAdmin expose `banned`", async () => {
-    expect((await getUserForAdmin(targetId))?.banned).toBe(false)
+  it("getUserFile expose `banned`", async () => {
+    expect((await getUserFile(targetId))?.user.banned).toBe(false)
     await banUser({ userId: targetId, reason: "Motif suffisant" })
-    expect((await getUserForAdmin(targetId))?.banned).toBe(true)
+    expect((await getUserFile(targetId))?.user.banned).toBe(true)
   })
 
   it("getUserBans : ordre décroissant, noms des admins", async () => {

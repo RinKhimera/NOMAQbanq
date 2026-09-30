@@ -89,3 +89,21 @@ mécanisme, pas un fichier : elle revient ailleurs sous une autre forme.
     avant la page). Et la garde ne vaut que testée contre la forme RÉELLE de
     la donnée (`startExam` crée une ligne par question : la fixture `[]`
     n'existe pas). Relire chaque heuristique du composant déplacé.
+23. **Champ interne sérialisé vers l'étudiant sans être affiché.** Une DAL
+    côté étudiant sélectionne une colonne que l'admin remplit (note interne,
+    motif de gratuité) ; aucun composant ne la rend, mais elle part dans le
+    payload RSC d'un composant `"use client"` et se lit dans la source de la
+    page. Pour chaque colonne sélectionnée par une lecture étudiant, trouver
+    son rendu ; sans rendu, la retirer du select et du type.
+24. **État initialisé depuis l'URL, figé sur la même route.** Un
+    `useState(initialX)` alimenté par un paramètre (`?tx=`) n'est lu qu'au
+    montage : une navigation vers la même page avec une autre valeur (« Voir
+    la transaction » depuis le dossier déjà ouvert) garde l'ancien état, et un
+    `useEffect(…, [])` (défilement) ne rejoue pas. Mettre la valeur dans la
+    `key`, ou recaler l'état pendant le rendu quand la prop change.
+25. **« Dernier statut » trié par date de création.** Un paiement créé à
+    10 h 00 et abouti à 10 h 10, suivi d'une tentative créée à 10 h 05 puis
+    abandonnée, laisse la tentative « la plus récente » : le constat annonce
+    un échec qui n'en est pas un. Ordonner par l'instant de l'événement
+    (`coalesce(refunded_at, completed_at, created_at)`), et semer en test des
+    lignes dont l'ordre de création diffère de l'ordre des événements.

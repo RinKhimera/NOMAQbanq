@@ -1,26 +1,68 @@
 import { z } from "zod"
 import { currency, productCode } from "@/db/schema"
+import { MAX_AMOUNT_CENTS } from "@/lib/currency"
+import { MANUAL_NOTE_MAX, manualNoteError } from "@/schemas/payment"
 
-export const recordManualPaymentSchema = z.object({
-  userId: z.string().min(1, "Utilisateur requis"),
-  productCode: z.enum(productCode.enumValues),
-  amountPaid: z.number().int().nonnegative("Montant invalide"), // cents
+const manualFields = {
+  amountPaid: z
+    .number()
+    .int()
+    .nonnegative("Montant invalide")
+    .max(MAX_AMOUNT_CENTS, "Montant trop élevé."), // cents
   currency: z.enum(currency.enumValues),
-  paymentMethod: z.string().trim().min(1, "Méthode de paiement requise"),
-  notes: z.string().trim().max(1000).optional(),
+  paymentMethod: z.string().trim().max(50).nullish(),
+  notes: z.string().trim().max(MANUAL_NOTE_MAX).optional(),
+}
+
+type ManualFields = {
+  amountPaid: number
+  paymentMethod?: string | null
+  notes?: string
+}
+
+// Un accès offert (montant nul) n'a pas de moyen de paiement ; son motif est
+// obligatoire. Un paiement exige son moyen.
+const checkManualPayment = (data: ManualFields, ctx: z.RefinementCtx) => {
+  const free = data.amountPaid === 0
+  if (!free && !data.paymentMethod) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Méthode de paiement requise",
+      path: ["paymentMethod"],
+    })
+  }
+  const noteError = manualNoteError(data.notes ?? "", free)
+  if (noteError) {
+    ctx.addIssue({ code: "custom", message: noteError, path: ["notes"] })
+  }
+}
+
+const withoutMethodWhenFree = <T extends ManualFields>(data: T) => ({
+  ...data,
+  paymentMethod:
+    data.amountPaid === 0 ? null : data.paymentMethod?.trim() || null,
 })
 
-export type RecordManualPaymentInput = z.infer<typeof recordManualPaymentSchema>
+export const recordManualPaymentSchema = z
+  .object({
+    userId: z.string().min(1, "Utilisateur requis"),
+    productCode: z.enum(productCode.enumValues),
+    ...manualFields,
+  })
+  .superRefine(checkManualPayment)
+  .transform(withoutMethodWhenFree)
 
-export const updateManualTransactionSchema = z.object({
-  transactionId: z.string().min(1),
-  amountPaid: z.number().int().nonnegative("Montant invalide"),
-  currency: z.enum(currency.enumValues),
-  paymentMethod: z.string().trim().min(1, "Méthode de paiement requise"),
-  notes: z.string().trim().max(1000).optional(),
-  status: z.enum(["completed", "refunded"]).optional(),
-})
+export type RecordManualPaymentInput = z.input<typeof recordManualPaymentSchema>
 
-export type UpdateManualTransactionInput = z.infer<
+export const updateManualTransactionSchema = z
+  .object({
+    transactionId: z.string().min(1),
+    ...manualFields,
+    status: z.enum(["completed", "refunded"]).optional(),
+  })
+  .superRefine(checkManualPayment)
+  .transform(withoutMethodWhenFree)
+
+export type UpdateManualTransactionInput = z.input<
   typeof updateManualTransactionSchema
 >
