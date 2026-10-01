@@ -71,6 +71,14 @@ export type SummaryCheck = {
   state: SummaryCheckState
 }
 
+const CHECK_STATE_LABEL: Record<SummaryCheckState, string> = {
+  ok: "fait",
+  todo: "à faire",
+  error: "à corriger",
+  locked: "verrouillé",
+  advice: "recommandé",
+}
+
 const CHECK_ICON: Record<SummaryCheckState, [LucideIcon, string]> = {
   ok: [CircleCheck, "text-success"],
   todo: [Circle, "text-ink-4"],
@@ -118,6 +126,7 @@ export const SummaryPanel = ({
           >
             <Icon aria-hidden className={cn("mt-0.5 size-4 shrink-0", color)} />
             {c.label}
+            <span className="sr-only"> : {CHECK_STATE_LABEL[c.state]}</span>
           </li>
         )
       })}

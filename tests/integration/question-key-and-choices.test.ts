@@ -235,6 +235,19 @@ describe("clé confirmée", () => {
     expect((await getQuestionById(id))?.keyConfirmation).not.toBeNull()
   })
 
+  it("un énoncé hérité à espaces de bord ne fait pas tomber la confirmation", async () => {
+    const id = await newQuestion()
+    await db
+      .update(questions)
+      .set({ question: `  ${base.question} ` })
+      .where(eq(questions.id, id))
+    await answerMany(id, 4, 6)
+    await confirmQuestionKey({ id })
+
+    await updateQuestion({ ...base, id, explanation: "Autre explication." })
+    expect((await getQuestionById(id))?.keyConfirmation).not.toBeNull()
+  })
+
   it("ne touche pas à la date de modification", async () => {
     const id = await newQuestion()
     await answerMany(id, 4, 6)

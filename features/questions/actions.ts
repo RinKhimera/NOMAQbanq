@@ -323,8 +323,10 @@ export const updateQuestion = async (
           .limit(1)
         if (open) throw new FrozenChoicesError(open.title)
       }
+      // L'énoncé reçu est rogné : un énoncé hérité à espaces de bord n'a pas
+      // changé pour autant.
       const clearsConfirmation =
-        choicesChanged || current.question !== d.question
+        choicesChanged || current.question.trim() !== d.question
 
       await tx
         .update(questions)

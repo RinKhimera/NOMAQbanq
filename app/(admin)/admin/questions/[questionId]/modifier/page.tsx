@@ -96,10 +96,10 @@ export default async function EditQuestionPage({
           question: question.question,
           options: question.options,
           sources: question.options.map((_, i) => i),
-          keyIndex: Math.max(
-            0,
-            question.options.indexOf(question.correctAnswer),
-          ),
+          // Une clé absente des choix (donnée héritée) n'en désigne aucun.
+          keyIndex: question.options.includes(question.correctAnswer)
+            ? question.options.indexOf(question.correctAnswer)
+            : null,
           explanation: question.explanation,
           references: question.references?.length ? question.references : [""],
           statementImages: toFormImages(question.images),

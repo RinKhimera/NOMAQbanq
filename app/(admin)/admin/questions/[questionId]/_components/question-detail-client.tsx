@@ -25,6 +25,7 @@ import {
 import { optionLetter } from "@/components/quiz/question-card/answer-option"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { CopyId } from "@/components/shared/copy-id"
+import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -48,6 +49,7 @@ import type {
 import { KEY_CONFIRMATION_NOTE_MAX } from "@/features/questions/key-review"
 import { NBSP, formatLongDate, formatMediumDate } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
+import { TOUCH_HEIGHT } from "@/lib/touch-target"
 import {
   type QuestionListState,
   pageOfPosition,
@@ -216,13 +218,26 @@ const Neighbors = ({
     label: string,
   ) =>
     href ? (
-      <Button asChild size="sm" variant="outline" aria-label={label}>
+      <Button
+        asChild
+        size="sm"
+        variant="outline"
+        aria-label={label}
+        className={TOUCH_HEIGHT}
+      >
         <Link href={href} prefetch={false}>
           {children}
+          <LinkPendingIndicator />
         </Link>
       </Button>
     ) : (
-      <Button size="sm" variant="outline" disabled aria-label={label}>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled
+        aria-label={label}
+        className={TOUCH_HEIGHT}
+      >
         {children}
       </Button>
     )
@@ -282,7 +297,8 @@ export const QuestionDetailClient = ({
   const q = file.question
   const listHref = questionListHref(list)
   const editHref = questionEditHref(q.id, list)
-  // Référencée par un examen ou une réponse : elle sera archivée.
+  // Référencée par un examen ou une réponse d'étudiant : archivée à coup sûr.
+  // Sinon le serveur tranche (une série ou une réponse d'admin la retient).
   const archives = file.exams.length > 0 || file.breakdown.answerCount > 0
 
   const remove = async () => {
@@ -350,7 +366,7 @@ export const QuestionDetailClient = ({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Button asChild size="sm" variant="ghost">
+        <Button asChild size="sm" variant="ghost" className={TOUCH_HEIGHT}>
           <Link href={listHref}>
             <ArrowLeft aria-hidden />
             Retour à la liste
@@ -401,7 +417,7 @@ export const QuestionDetailClient = ({
         description={
           archives
             ? `Elle sera archivée : elle reste dans les examens et l'historique des étudiants qui l'utilisent (${answersLabel(file.breakdown.answerCount)}), mais ne sera plus tirée.`
-            : "Elle sera supprimée définitivement."
+            : "Elle sera supprimée définitivement, ou archivée si une série d'entraînement la contient."
         }
         confirmLabel="Supprimer"
         pendingLabel="Suppression…"

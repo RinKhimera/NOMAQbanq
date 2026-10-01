@@ -16,11 +16,10 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   type ClipboardEvent,
-  type MouseEvent,
   type SetStateAction,
   useCallback,
-  useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 import { toast } from "sonner"
@@ -65,8 +64,10 @@ import {
   normalizeReferenceEntry,
   splitReferenceEntry,
 } from "@/features/questions/normalization"
+import { useLeaveGuard } from "@/hooks/use-leave-guard"
 import { NBSP, formatLongDate } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
+import { TOUCH_SIZE } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import {
   type FormImage,
@@ -78,6 +79,7 @@ import {
   blankQuestionForm,
   duplicateOf,
   hasReferences,
+  newQuestionId,
   questionFormChecks,
   snapshotOf,
   toQuestionPayload,
@@ -244,11 +246,20 @@ const ChoicesEditor = ({
         v.keyIndex !== null && v.keyIndex > i ? v.keyIndex - 1 : v.keyIndex,
     }))
   const add = (text: string, source: number | null) =>
-    setValues((v) => ({
-      ...v,
-      options: [...v.options, text],
-      sources: [...v.sources, source],
-    }))
+    setValues((v) => {
+      // Un choix rétabli reprend sa place parmi les choix d'origine.
+      const at =
+        source === null
+          ? v.options.length
+          : v.sources.filter((s) => s !== null && s < source).length
+      return {
+        ...v,
+        options: [...v.options.slice(0, at), text, ...v.options.slice(at)],
+        sources: [...v.sources.slice(0, at), source, ...v.sources.slice(at)],
+        keyIndex:
+          v.keyIndex !== null && v.keyIndex >= at ? v.keyIndex + 1 : v.keyIndex,
+      }
+    })
 
   return (
     <div className="flex flex-col gap-3">
@@ -305,6 +316,7 @@ const ChoicesEditor = ({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
+                  className={TOUCH_SIZE}
                   disabled={isKey}
                   title={
                     isKey
@@ -414,7 +426,10 @@ export const QuestionForm = ({
   const [saveError, setSaveError] = useState<
     { kind: "server"; message: string } | { kind: "images" } | null
   >(null)
-  const [leaveTo, setLeaveTo] = useState<string | null>(null)
+  const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null)
+  // Une création est partie : une réponse perdue en route laisse la question
+  // créée, et le prochain essai la reprend en mise à jour.
+  const createSent = useRef(false)
   const [formatUndo, setFormatUndo] = useState<{
     field: "explanation" | "references"
     raw: Pick<QuestionFormValues, "explanation" | "references">
@@ -436,12 +451,11 @@ export const QuestionForm = ({
     mode === "edit" ? questionHref(questionId, list) : questionListHref(list)
   const backHref = detailHref
 
-  useEffect(() => {
-    if (!dirty || saving) return
-    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
-    window.addEventListener("beforeunload", warn)
-    return () => window.removeEventListener("beforeunload", warn)
-  }, [dirty, saving])
+  useLeaveGuard(
+    dirty && !saving,
+    (leave) => setPendingLeave(() => leave),
+    (href) => router.push(href),
+  )
 
   const checks = questionFormChecks(values, { frozen, showErrors })
   const ok = checks.every((c) => c.state === "ok" || c.state === "locked")
@@ -472,16 +486,13 @@ export const QuestionForm = ({
     answered &&
     !frozen &&
     values.keyIndex !== null &&
-    values.sources[values.keyIndex] !== edit?.originalKeyIndex
+    edit !== null &&
+    edit.originalKeyIndex >= 0 &&
+    values.sources[values.keyIndex] !== edit.originalKeyIndex
 
   const go = (href: string) => {
-    if (dirty && !saving) setLeaveTo(href)
+    if (dirty && !saving) setPendingLeave(() => () => router.push(href))
     else router.push(href)
-  }
-  const guardLink = (href: string) => (e: MouseEvent) => {
-    if (!dirty || saving) return
-    e.preventDefault()
-    setLeaveTo(href)
   }
 
   const applyCorrection = (
@@ -578,10 +589,16 @@ export const QuestionForm = ({
     const payload = toQuestionPayload(values)
     const update = () =>
       callAction(() => updateQuestion({ id: questionId, ...payload }))
-    let res: { success: boolean; error?: string } = created
-      ? await update()
-      : await callAction(() => createQuestion({ id: questionId, ...payload }))
-    if (!res.success && "alreadyExists" in res) res = await update()
+    const retry = createSent.current
+    let res: { success: boolean; error?: string }
+    if (created) res = await update()
+    else {
+      createSent.current = true
+      res = await callAction(() =>
+        createQuestion({ id: questionId, ...payload }),
+      )
+      if (!res.success && "alreadyExists" in res && retry) res = await update()
+    }
     if (!res.success) {
       setSaving(false)
       setSaveError({ kind: "server", message: res.error ?? "" })
@@ -624,8 +641,9 @@ export const QuestionForm = ({
       const next = blankQuestionForm(values)
       setValuesState(next)
       setSnapshot(snapshotOf(next))
-      setQuestionId(crypto.randomUUID())
       setCreated(false)
+      createSent.current = false
+      setQuestionId(newQuestionId())
       setShowErrors(false)
       setFormatUndo(null)
       toast.success("Question enregistrée")
@@ -660,21 +678,13 @@ export const QuestionForm = ({
   return (
     <div className="flex flex-col gap-4 pb-20 lg:pb-0">
       <nav aria-label="Fil d'Ariane" className="text-ink-3 text-sm">
-        <Link
-          href={questionListHref(list)}
-          onClick={guardLink(questionListHref(list))}
-          className="hover:text-ink"
-        >
+        <Link href={questionListHref(list)} className="hover:text-ink">
           Questions
         </Link>
         {edit && (
           <>
             {" › "}
-            <Link
-              href={detailHref}
-              onClick={guardLink(detailHref)}
-              className="hover:text-ink"
-            >
+            <Link href={detailHref} className="hover:text-ink">
               {edit.title}
             </Link>
           </>
@@ -836,6 +846,7 @@ export const QuestionForm = ({
               </div>
             </div>
             <QuestionImageUploader
+              key={`statement-${questionId}`}
               questionId={questionId}
               kind="statement"
               label="Images d'énoncé"
@@ -951,6 +962,7 @@ export const QuestionForm = ({
               />
             </div>
             <QuestionImageUploader
+              key={`explanation-${questionId}`}
               questionId={questionId}
               kind="explanation"
               label="Images d'explication"
@@ -1039,6 +1051,7 @@ export const QuestionForm = ({
                         type="button"
                         size="icon-sm"
                         variant="ghost"
+                        className={TOUCH_SIZE}
                         aria-label={`Retirer la référence ${i + 1}`}
                         disabled={values.references.length === 1}
                         onClick={() =>
@@ -1193,18 +1206,18 @@ export const QuestionForm = ({
       </div>
 
       <ConfirmDialog
-        open={leaveTo !== null}
-        onOpenChange={(open) => !open && setLeaveTo(null)}
+        open={pendingLeave !== null}
+        onOpenChange={(open) => !open && setPendingLeave(null)}
         variant="destructive"
         title={`Quitter sans enregistrer${NBSP}?`}
         description="Vos modifications seront perdues."
         cancelLabel="Continuer la saisie"
         confirmLabel="Quitter sans enregistrer"
         onConfirm={() => {
-          const href = leaveTo
+          const leave = pendingLeave
           setSnapshot(snapshotOf(values))
-          setLeaveTo(null)
-          if (href) router.push(href)
+          setPendingLeave(null)
+          leave?.()
         }}
       />
     </div>

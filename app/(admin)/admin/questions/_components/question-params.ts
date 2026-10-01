@@ -171,6 +171,9 @@ export const questionListHref = (s: QuestionListState) =>
 export const questionHref = (id: string, s: QuestionListState) =>
   withQuery(`/admin/questions/${id}`, serializeQuestionList(s))
 
+export const questionNewHref = (s: QuestionListState) =>
+  withQuery("/admin/questions/nouvelle", serializeQuestionList(s))
+
 export const questionEditHref = (id: string, s: QuestionListState) =>
   withQuery(`/admin/questions/${id}/modifier`, serializeQuestionList(s))
 

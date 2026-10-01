@@ -258,12 +258,16 @@ describe("QuestionForm — création", () => {
   it("une création déjà aboutie (réponse perdue) reprend en mise à jour", async () => {
     const user = userEvent.setup()
     openCreate()
-    createQuestion.mockResolvedValue({
-      success: false,
-      error: "Cette question est déjà enregistrée.",
-      alreadyExists: true,
-    })
+    createQuestion
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({
+        success: false,
+        error: "Cette question est déjà enregistrée.",
+        alreadyExists: true,
+      })
     updateQuestion.mockResolvedValue({ success: true })
+    await user.click(screen.getByTestId("btn-save-question"))
+    expect(await screen.findByTestId("save-error")).toBeInTheDocument()
     await user.click(screen.getByTestId("btn-save-question"))
 
     await waitFor(() =>
@@ -272,6 +276,22 @@ describe("QuestionForm — création", () => {
     expect(updateQuestion).toHaveBeenCalledWith(
       expect.objectContaining({ id: "reserved-1" }),
     )
+  })
+
+  it("jumeau : un identifiant pris dès le premier envoi n'écrase rien", async () => {
+    const user = userEvent.setup()
+    openCreate()
+    createQuestion.mockResolvedValue({
+      success: false,
+      error: "Cette question est déjà enregistrée.",
+      alreadyExists: true,
+    })
+    await user.click(screen.getByTestId("btn-save-question"))
+
+    expect(await screen.findByTestId("save-error")).toHaveTextContent(
+      "déjà enregistrée",
+    )
+    expect(updateQuestion).not.toHaveBeenCalled()
   })
 
   it("« Enregistrer et en créer une autre » garde le domaine et l'objectif", async () => {
@@ -341,6 +361,25 @@ describe("QuestionForm — choix de réponse", () => {
     ).toBeInTheDocument()
   })
 
+  it("« Rétablir » remet un choix retiré à sa place d'origine", async () => {
+    const user = userEvent.setup()
+    openEdit(
+      filled({ options: ["A", "B", "C", "D", "E"], sources: [0, 1, 2, 3, 4] }),
+      editContext({
+        pastCounts: [5, 7, 1, 0, 0],
+        originalOptions: ["A", "B", "C", "D", "E"],
+      }),
+    )
+    await user.click(screen.getByRole("button", { name: "Retirer le choix B" }))
+    expect(screen.getByText(/Choix retiré/)).toBeInTheDocument()
+    await user.click(screen.getByRole("button", { name: "Rétablir" }))
+    expect(screen.getByTestId("option-input-1")).toHaveValue("B")
+    expect(screen.getByTestId("btn-key-0")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    )
+  })
+
   it("choix figés : choix et lettres verrouillés, le reste reste modifiable", async () => {
     openEdit(
       filled(),
@@ -359,6 +398,46 @@ describe("QuestionForm — choix de réponse", () => {
     expect(screen.getByTestId("question-input")).toBeEnabled()
     expect(
       screen.getByText("Choix et clé verrouillés (examen ouvert)"),
+    ).toBeInTheDocument()
+  })
+})
+
+describe("QuestionForm — quitter sans enregistrer", () => {
+  it("un lien de la page retient la sortie, puis la poursuit sur confirmation", async () => {
+    const user = userEvent.setup()
+    render(
+      <>
+        <a href="/page-hors-formulaire">Utilisateurs</a>
+        <QuestionForm
+          mode="edit"
+          initialQuestionId="q1"
+          initial={filled()}
+          objectivesByDomain={{}}
+          list={DEFAULT_QUESTION_LIST}
+          edit={editContext()}
+        />
+      </>,
+    )
+    await user.type(screen.getByTestId("question-input"), " modifié")
+    await user.click(screen.getByRole("link", { name: "Utilisateurs" }))
+    expect(
+      screen.getByRole("button", { name: "Continuer la saisie" }),
+    ).toBeInTheDocument()
+    await user.click(
+      screen.getByRole("button", { name: "Quitter sans enregistrer" }),
+    )
+    await waitFor(() =>
+      expect(push).toHaveBeenCalledWith("/page-hors-formulaire"),
+    )
+  })
+
+  it("le retour arrière est retenu tant que la saisie n'est pas enregistrée", async () => {
+    const user = userEvent.setup()
+    openEdit()
+    await user.type(screen.getByTestId("question-input"), " modifié")
+    window.dispatchEvent(new PopStateEvent("popstate"))
+    expect(
+      await screen.findByRole("button", { name: "Continuer la saisie" }),
     ).toBeInTheDocument()
   })
 })

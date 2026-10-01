@@ -29,6 +29,7 @@ import {
   FilterGroup,
   FilterPanelButton,
 } from "@/components/shared/filter-panel"
+import { LinkPendingIndicator } from "@/components/shared/link-pending-indicator"
 import { PageIntro } from "@/components/shared/page-intro"
 import { SearchInput } from "@/components/shared/search-input"
 import { SearchableSelect } from "@/components/shared/searchable-select"
@@ -69,6 +70,7 @@ import {
   type QuestionTab,
   panelFilterCount,
   questionHref,
+  questionNewHref,
   serializeQuestionList,
   toQuestionFilters,
   withChange,
@@ -173,11 +175,13 @@ const NotUsedSinceField = ({
   onChange: (value: number | null) => void
 }) => {
   const [count, setCount] = useState(value ?? RECENT_EXAMS_DEFAULT)
-  const setN = (n: number) => {
-    const next = Math.max(1, Math.min(NOT_USED_SINCE_MAX, n))
-    setCount(next)
-    onChange(next)
-  }
+  // Le nombre ne recharge la liste qu'une fois la saisie posée : chaque
+  // rechargement recalcule l'agrégat de la banque.
+  useDebouncedValue(count, 400, (n) => {
+    if (value !== null && n !== value) onChange(n)
+  })
+  const setN = (n: number) =>
+    setCount(Math.max(1, Math.min(NOT_USED_SINCE_MAX, n)))
   return (
     <div className="flex flex-col gap-2 text-sm">
       <label className="flex min-h-8 cursor-pointer items-center gap-2">
@@ -190,22 +194,29 @@ const NotUsedSinceField = ({
         />
         Toutes
       </label>
-      <label className="flex min-h-8 cursor-pointer flex-wrap items-center gap-2">
-        <input
-          type="radio"
-          name="not-used-since"
-          checked={value !== null}
-          onChange={() => onChange(count)}
-          className="size-4 accent-(--accent)"
-        />
-        Pas utilisée depuis
-        <span className="border-line-strong inline-flex h-8 items-center rounded-md border">
+      <div className="flex min-h-8 flex-wrap items-center gap-2">
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="radio"
+            name="not-used-since"
+            checked={value !== null}
+            onChange={() => onChange(count)}
+            aria-label={notUsedSinceLabel(count)}
+            className="size-4 accent-(--accent)"
+          />
+          Pas utilisée depuis
+        </label>
+        <span
+          role="group"
+          aria-label="Nombre d'examens"
+          className="border-line-strong inline-flex h-8 items-center rounded-md border"
+        >
           <button
             type="button"
             aria-label="Moins"
             disabled={count <= 1}
             onClick={() => setN(count - 1)}
-            className="focus-ring text-ink-2 hover:bg-surface-2 flex size-8 cursor-pointer items-center justify-center rounded-l-md disabled:cursor-default disabled:opacity-40"
+            className="focus-ring text-ink-2 hover:bg-surface-2 relative flex size-8 cursor-pointer items-center justify-center rounded-l-md disabled:cursor-default disabled:opacity-40 max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']"
           >
             <Minus aria-hidden className="size-3" />
           </button>
@@ -224,13 +235,13 @@ const NotUsedSinceField = ({
             aria-label="Plus"
             disabled={count >= NOT_USED_SINCE_MAX}
             onClick={() => setN(count + 1)}
-            className="focus-ring text-ink-2 hover:bg-surface-2 flex size-8 cursor-pointer items-center justify-center rounded-r-md disabled:cursor-default disabled:opacity-40"
+            className="focus-ring text-ink-2 hover:bg-surface-2 relative flex size-8 cursor-pointer items-center justify-center rounded-r-md disabled:cursor-default disabled:opacity-40 max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']"
           >
             <Plus aria-hidden className="size-3" />
           </button>
         </span>
-        {count > 1 ? "examens" : "examen"}
-      </label>
+        <span aria-hidden>{count > 1 ? "examens" : "examen"}</span>
+      </div>
     </div>
   )
 }
@@ -347,7 +358,8 @@ export const QuestionsClient = ({
     },
   ].filter((c) => !!c)
 
-  const open = (q: QuestionListItem) => router.push(questionHref(q.id, state))
+  const open = (q: QuestionListItem) =>
+    startTransition(() => router.push(questionHref(q.id, state)))
 
   const columns: DataTableColumn<QuestionListItem>[] = [
     {
@@ -365,6 +377,7 @@ export const QuestionsClient = ({
         >
           <QuestionFlags q={q} />
           {q.question}
+          <LinkPendingIndicator className="ml-1.5 inline-flex align-[-2px]" />
         </Link>
       ),
     },
@@ -478,7 +491,7 @@ export const QuestionsClient = ({
               questionCount={list.total}
             />
             <Button asChild>
-              <Link href="/admin/questions/nouvelle">
+              <Link href={questionNewHref(state)}>
                 <Plus aria-hidden />
                 Nouvelle question
               </Link>
@@ -610,7 +623,24 @@ export const QuestionsClient = ({
       )}
 
       <div className="bg-surface border-line overflow-hidden rounded-lg border">
-        {list.items.length === 0 ? (
+        {list.items.length === 0 && list.total > 0 ? (
+          <PendingRegion
+            isPending={isPending}
+            className="flex flex-col items-center gap-2 px-5 py-9 text-center"
+          >
+            <p className="text-ink text-[0.9375rem] font-medium">
+              Cette page n&apos;existe plus.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => go({ ...latest(), page: 1 })}
+            >
+              Revenir à la première page
+            </Button>
+          </PendingRegion>
+        ) : list.items.length === 0 ? (
           <PendingRegion
             isPending={isPending}
             className="flex flex-col items-center gap-2 px-5 py-9 text-center"
@@ -660,6 +690,7 @@ export const QuestionsClient = ({
                       <span className="text-ink line-clamp-2 text-sm">
                         <QuestionFlags q={q} />
                         {q.question}
+                        <LinkPendingIndicator className="ml-1.5 inline-flex align-[-2px]" />
                       </span>
                       <span className="text-ink-3 flex flex-wrap gap-x-1.5 text-xs">
                         <span>{q.domain}</span>

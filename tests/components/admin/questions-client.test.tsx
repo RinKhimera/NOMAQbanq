@@ -129,6 +129,24 @@ describe("QuestionsClient", () => {
     )
   })
 
+  it("« Nouvelle question » emporte la liste d'où l'on vient", () => {
+    renderList({ ...DEFAULT_QUESTION_LIST, domain: "Cardiologie" })
+    expect(
+      screen.getByRole("link", { name: "Nouvelle question" }),
+    ).toHaveAttribute("href", "/admin/questions/nouvelle?domaine=Cardiologie")
+  })
+
+  it("page hors borne : recours vers la première page", () => {
+    renderList(
+      { ...DEFAULT_QUESTION_LIST, page: 9 },
+      list({ items: [], total: 2 }),
+    )
+    fireEvent.click(
+      screen.getByRole("button", { name: "Revenir à la première page" }),
+    )
+    expect(replace).toHaveBeenCalledWith("/admin/questions", { scroll: false })
+  })
+
   it("aucun résultat : message et recours", () => {
     renderList(
       { ...DEFAULT_QUESTION_LIST, q: "brucellose" },

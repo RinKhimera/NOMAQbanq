@@ -415,9 +415,15 @@ const listPage = async (
  * le navigateur de questions du formulaire d'examen. Garde admin.
  */
 export const getQuestionsWithFilters = async (
-  filters: QuestionFiltersInput = {},
+  input: QuestionFiltersInput = {},
 ): Promise<QuestionsPage> => {
   await requireRole(["admin"])
+  // Les clés à vérifier se parcourent d'abord par nombre de réponses : les
+  // plus jouées pèsent le plus sur les scores.
+  const filters: QuestionFiltersInput =
+    input.toVerify && (input.sortBy ?? "createdAt") === "createdAt"
+      ? { ...input, sortBy: "answerCount", sortOrder: "desc" }
+      : input
 
   const countColumn = { n: sql<number>`count(*)`.mapWith(Number) }
   const bankStats = questionSuccessStats()
@@ -545,19 +551,27 @@ export const getQuestionNeighbors = async (
     >`lead(${questions.id}) over (order by ${order})`.as("r_next"),
     total: sql<number>`count(*) over ()`.mapWith(Number).as("r_total"),
   }
-  // Jointure aux statistiques même quand l'ordre n'en dépend pas : une
-  // sous-requête mono-table perdrait la qualification de `questions.id` dans
-  // les EXISTS corrélés des filtres.
-  const ranked = db
-    .$with("ranked")
-    .as(
-      db
-        .with(bankStats)
-        .select(columns)
-        .from(questions)
-        .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
-        .where(listWhere(filters, bankStats)),
-    )
+  // L'agrégat de la banque n'est joint que si l'ordre ou l'onglet en dépend :
+  // chaque ouverture du détail rejoue cette requête.
+  const ranked = needsBankStats(filters)
+    ? db
+        .$with("ranked")
+        .as(
+          db
+            .with(bankStats)
+            .select(columns)
+            .from(questions)
+            .leftJoin(bankStats, eq(bankStats.questionId, questions.id))
+            .where(listWhere(filters, bankStats)),
+        )
+    : db
+        .$with("ranked")
+        .as(
+          db
+            .select(columns)
+            .from(questions)
+            .where(listWhere(filters, bankStats)),
+        )
   const [row] = await db
     .with(ranked)
     .select()
