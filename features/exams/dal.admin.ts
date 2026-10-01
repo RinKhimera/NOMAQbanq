@@ -91,16 +91,25 @@ export type ExamPickerOption = {
   title: string
   /** Epoch ms. */
   startDate: number
+  /** Epoch ms. */
+  endDate: number
+  isActive: boolean
 }
 
 /**
- * [Admin] Examens pour le combobox de filtre « utilisée dans l'examen… » du
- * QuestionBrowser. Colonnes minimales, du plus récent au plus ancien, borné.
+ * [Admin] Examens pour le filtre « examen précis » des questions. Colonnes
+ * minimales, du plus récent au plus ancien, borné.
  */
 export const getExamsForPicker = async (): Promise<ExamPickerOption[]> => {
   await requireRole(["admin"])
   const rows = await db
-    .select({ id: exams.id, title: exams.title, startDate: exams.startDate })
+    .select({
+      id: exams.id,
+      title: exams.title,
+      startDate: exams.startDate,
+      endDate: exams.endDate,
+      isActive: exams.isActive,
+    })
     .from(exams)
     .orderBy(desc(exams.startDate))
     .limit(500)
@@ -108,6 +117,8 @@ export const getExamsForPicker = async (): Promise<ExamPickerOption[]> => {
     id: r.id,
     title: r.title,
     startDate: r.startDate.getTime(),
+    endDate: r.endDate.getTime(),
+    isActive: r.isActive,
   }))
 }
 

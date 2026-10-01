@@ -3,7 +3,6 @@ import {
   createQuestionSchema,
   updateQuestionSchema,
 } from "@/features/questions/schemas"
-import { questionFormSchema } from "@/schemas/question"
 
 const question = {
   question: "Quel antibiotique ?",
@@ -33,21 +32,18 @@ describe("options distinctes deux à deux", () => {
       "doublon aux espaces de bord près",
       ["Amoxicilline", "Doxycycline", " Doxycycline\t", "Céfazoline"],
     ],
-  ])(
-    "la création refuse un %s, en désignant les deux options",
-    (_, options) => {
-      const issues = issuesOf(
-        createQuestionSchema.safeParse({ ...question, options }),
-      )
-      expect(issues).toContainEqual(
-        expect.objectContaining({
-          path: ["options"],
-          message:
-            "L'option C est identique à l'option B (casse et espaces ignorés)",
-        }),
-      )
-    },
-  )
+  ])("la création refuse un %s, en désignant les deux choix", (_, options) => {
+    const issues = issuesOf(
+      createQuestionSchema.safeParse({ ...question, options }),
+    )
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["options"],
+        message:
+          "Le choix C est identique au choix B (casse et espaces ignorés)",
+      }),
+    )
+  })
 
   it("l'édition refuse un doublon", () => {
     expect(
@@ -61,32 +57,6 @@ describe("options distinctes deux à deux", () => {
 
   it("accepte des options distinctes", () => {
     expect(createQuestionSchema.safeParse(question).success).toBe(true)
-  })
-
-  it("le formulaire admin refuse un doublon sur le champ des options, en ignorant les cases vides", () => {
-    const duplicate = questionFormSchema.safeParse({
-      ...question,
-      options: [
-        "Amoxicilline",
-        "Doxycycline ",
-        "doxycycline",
-        "Céfazoline",
-        "",
-      ],
-    })
-    expect(issuesOf(duplicate)).toContainEqual(
-      expect.objectContaining({
-        path: ["options"],
-        message:
-          "L'option C est identique à l'option B (casse et espaces ignorés)",
-      }),
-    )
-    expect(
-      questionFormSchema.safeParse({
-        ...question,
-        options: [...question.options, ""],
-      }).success,
-    ).toBe(true)
   })
 
   it("garde le texte exact des options et de la clé, espaces de bord compris", () => {

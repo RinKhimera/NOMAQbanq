@@ -1,7 +1,9 @@
 /**
  * Zone de toucher de 44 px pour un bouton de 32 px dans une ligne de tableau ou
  * de liste : sur mobile, un pseudo-élément déborde de 10 px de chaque côté sans
- * changer la taille visible du bouton (`design-system.md`, « Hauteurs »).
+ * changer la taille visible du bouton (`design-system.md`, « Hauteurs »). Un
+ * bouton déjà positionné (`absolute`, sur une vignette) le reste :
+ * `cn(TOUCH_TARGET, "absolute …")` remplace `relative`.
  */
 export const TOUCH_TARGET =
   "relative max-md:after:absolute max-md:after:-inset-2.5 max-md:after:content-['']"

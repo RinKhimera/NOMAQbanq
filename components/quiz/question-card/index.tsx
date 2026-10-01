@@ -97,6 +97,7 @@ export const QuestionCard = ({
   showDomainBadge = true,
   showObjectifBadge = true,
   footer,
+  revealExplanationImages = false,
   actions = [],
   className,
 }: QuestionCardProps) => {
@@ -341,7 +342,11 @@ export const QuestionCard = ({
         {/* Pas d'images d'explication en passation : canal réservé à la
           correction (anti-triche). */}
         {isExamReveal && explanation !== undefined && (
-          <RevealPanels explanation={explanation} references={references} />
+          <RevealPanels
+            explanation={explanation}
+            references={references}
+            images={revealExplanationImages ? explanationImages : undefined}
+          />
         )}
       </Fragment>
 

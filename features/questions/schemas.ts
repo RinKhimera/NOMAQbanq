@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { isMedicalDomain } from "@/constants"
+import { KEY_CONFIRMATION_NOTE_MAX } from "./key-review"
 import {
   EXPLANATION_MAX_LENGTH,
   REFERENCE_MAX_LENGTH,
@@ -54,15 +55,15 @@ const referenceField = z
       ),
   )
 
-// Champs communs création/édition. Une question QCM = 2..8 options, la bonne
-// réponse devant figurer parmi elles (refine sur l'objet complet).
+// Champs communs création/édition. Une question = 4 ou 5 choix, la clé de
+// réponse devant figurer parmi eux (refine sur l'objet complet).
 const questionFields = {
-  question: z.string().trim().min(1, "La question est requise"),
+  question: z.string().trim().min(1, "L'énoncé est requis"),
   options: z
-    .array(exactText("Une option ne peut pas être vide"))
-    .min(2, "Au moins 2 options")
-    .max(8, "Au plus 8 options"),
-  correctAnswer: exactText("La bonne réponse est requise"),
+    .array(exactText("Un choix de réponse ne peut pas être vide"))
+    .min(4, "4 choix de réponse au moins")
+    .max(5, "5 choix de réponse au plus"),
+  correctAnswer: exactText("La clé de réponse est requise"),
   explanation: explanationField,
   references: z
     .array(referenceField)
@@ -81,7 +82,7 @@ const correctAnswerInOptions = (d: {
   correctAnswer: string
 }) => d.options.includes(d.correctAnswer)
 const correctAnswerIssue = {
-  message: "La bonne réponse doit figurer parmi les options",
+  message: "La clé de réponse doit figurer parmi les choix",
   path: ["correctAnswer"],
 }
 
@@ -117,12 +118,22 @@ export const refineDistinctOptions = (
   ctx.addIssue({
     code: "custom",
     path: ["options"],
-    message: `L'option ${optionLetter(found.duplicate)} est identique à l'option ${optionLetter(found.first)} (casse et espaces ignorés)`,
+    message: `Le choix ${optionLetter(found.duplicate)} est identique au choix ${optionLetter(found.first)} (casse et espaces ignorés)`,
   })
 }
 
+/**
+ * Identifiant réservé à l'ouverture du formulaire, pour que les images
+ * s'envoient avant la création. Caractères d'URL sûrs seulement : il entre
+ * dans un chemin de stockage.
+ */
+export const QUESTION_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/
+
 export const createQuestionSchema = z
-  .object(questionFields)
+  .object({
+    id: z.string().regex(QUESTION_ID_PATTERN, "Question invalide").optional(),
+    ...questionFields,
+  })
   .refine(correctAnswerInOptions, correctAnswerIssue)
   .superRefine(refineDistinctOptions)
 
@@ -134,6 +145,20 @@ export const updateQuestionSchema = z
   .superRefine(refineDistinctOptions)
 
 export type UpdateQuestionInput = z.input<typeof updateQuestionSchema>
+
+export const confirmQuestionKeySchema = z.object({
+  id: z.string().min(1),
+  note: z
+    .string()
+    .trim()
+    .max(
+      KEY_CONFIRMATION_NOTE_MAX,
+      `${KEY_CONFIRMATION_NOTE_MAX} caractères au plus.`,
+    )
+    .optional(),
+})
+
+export type ConfirmQuestionKeyInput = z.input<typeof confirmQuestionKeySchema>
 
 export const setQuestionImagesSchema = z.object({
   questionId: z.string().min(1),

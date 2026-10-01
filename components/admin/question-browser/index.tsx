@@ -67,9 +67,6 @@ export function QuestionBrowser(props: QuestionBrowserProps) {
     selectedIds,
     onSelectionChange,
     maxSelection = 230,
-    previewQuestionId,
-    onPreviewChange,
-    onFiltersChange,
     examOptions,
   } = props
 
@@ -79,9 +76,6 @@ export function QuestionBrowser(props: QuestionBrowserProps) {
       selectedIds={selectedIds}
       onSelectionChange={onSelectionChange}
       maxSelection={maxSelection}
-      externalPreviewId={previewQuestionId}
-      onPreviewChange={onPreviewChange}
-      onFiltersChange={onFiltersChange}
       examOptions={examOptions}
     >
       <QuestionBrowserContent {...props} />

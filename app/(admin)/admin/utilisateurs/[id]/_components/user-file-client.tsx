@@ -1,17 +1,16 @@
 "use client"
 
 import {
-  Check,
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  Copy,
   Plus,
   Receipt,
   ShieldCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { type ReactNode, useState } from "react"
+import { CopyId } from "@/components/shared/copy-id"
 import { ACCESS_TYPE_LABEL } from "@/components/shared/payments/access-badge"
 import { ManualPaymentFlow } from "@/components/shared/payments/manual-payment-dialog"
 import { clientFileHref } from "@/components/shared/payments/transaction-labels"
@@ -74,29 +73,6 @@ const KV = ({ rows }: { rows: [string, ReactNode][] }) => (
 const Muted = ({ children }: { children: ReactNode }) => (
   <span className="text-ink-3">{children}</span>
 )
-
-const CopyId = ({ id }: { id: string }) => {
-  const [copied, setCopied] = useState(false)
-  return (
-    <button
-      type="button"
-      aria-label="Copier l'identifiant"
-      onClick={() => {
-        void navigator.clipboard?.writeText(id)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1400)
-      }}
-      className="focus-ring text-ink-2 hover:bg-surface-2 -m-1 inline-flex cursor-pointer items-center gap-1.5 rounded-xs p-1 text-xs max-lg:min-h-11"
-    >
-      <span className="font-mono">{id}</span>
-      {copied ? (
-        <Check aria-hidden="true" className="size-3.5" />
-      ) : (
-        <Copy aria-hidden="true" className="size-3.5" />
-      )}
-    </button>
-  )
-}
 
 const AccessBlock = ({
   file,

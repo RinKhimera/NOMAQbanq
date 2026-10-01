@@ -7,6 +7,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core"
 import { createId } from "@/lib/ids"
+import { user } from "./auth"
 import { questionImageKind } from "./enums"
 
 export const questions = pgTable(
@@ -32,6 +33,14 @@ export const questions = pgTable(
       .defaultNow()
       .notNull()
       .$onUpdate(() => new Date()),
+    // Clé confirmée : seule la dernière confirmation est gardée. Effacée par
+    // toute modification de l'énoncé, des options ou de la clé.
+    keyConfirmedAt: timestamp("key_confirmed_at", { withTimezone: true }),
+    keyConfirmedBy: text("key_confirmed_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    keyConfirmedAnswerCount: integer("key_confirmed_answer_count"),
+    keyConfirmedNote: text("key_confirmed_note"),
   },
   (t) => [
     index("questions_domain_idx").on(t.domain),

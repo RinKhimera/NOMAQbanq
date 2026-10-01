@@ -1,34 +1,36 @@
-"use client"
+import type { Metadata } from "next"
+import { getObjectivesByDomain } from "@/features/questions/dal"
+import { requireRole } from "@/lib/auth-guards"
+import { createId } from "@/lib/ids"
+import { QuestionForm } from "../_components/question-form"
+import { blankQuestionForm } from "../_components/question-form-model"
+import {
+  parseQuestionList,
+  toSearchParams,
+} from "../_components/question-params"
 
-import { ArrowLeft } from "lucide-react"
-import Link from "next/link"
-import { PageIntro } from "@/components/shared/page-intro"
-import { Button } from "@/components/ui/button"
-import { QuestionFormPage } from "../_components/question-form-page"
+export const metadata: Metadata = { title: "Nouvelle question" }
 
-export default function NewQuestionPage() {
+export default async function NewQuestionPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
+  await requireRole(["admin"])
+  const list = parseQuestionList(toSearchParams(await searchParams))
+  const objectivesByDomain = await getObjectivesByDomain()
+
   return (
-    <div className="@container flex flex-col gap-6 p-4 md:gap-8 lg:p-6">
-      <PageIntro
-        title="Nouvelle question"
-        description="Créez une nouvelle question pour la banque QCM"
-        actions={
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-fit border-gray-200 hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-            asChild
-          >
-            <Link href="/admin/questions">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour aux questions
-            </Link>
-          </Button>
-        }
+    <div className="flex flex-col gap-4 p-4 lg:p-6">
+      <QuestionForm
+        mode="create"
+        // Réservé dès l'ouverture : les images s'envoient avant la création.
+        initialQuestionId={createId()}
+        initial={blankQuestionForm()}
+        objectivesByDomain={objectivesByDomain}
+        list={list}
+        edit={null}
       />
-
-      {/* Form */}
-      <QuestionFormPage mode="create" />
     </div>
   )
 }

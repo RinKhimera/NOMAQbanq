@@ -341,6 +341,7 @@ describe("répartition des réponses d'une question", () => {
         { option: "C", count: 0, share: 0, isKey: false },
       ],
       formerWording: { count: 0, share: 0 },
+      keySuspect: false,
     })
     expect((await rowOf(q))?.successRate).toBe(breakdown.successRate)
   })
@@ -390,6 +391,7 @@ describe("clé corrigée et option reformulée", () => {
         { option: "C", count: 0, share: 0, isKey: false },
       ],
       formerWording: { count: 7, share: 70 },
+      keySuspect: false,
     })
   })
 

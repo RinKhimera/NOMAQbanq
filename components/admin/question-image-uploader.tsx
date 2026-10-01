@@ -17,13 +17,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import {
-  IconGripVertical,
-  IconPhoto,
-  IconTrash,
-  IconUpload,
-  IconX,
-} from "@tabler/icons-react"
+import { CircleAlert, GripVertical, ImagePlus, X } from "lucide-react"
 import Image from "next/image"
 import {
   type Dispatch,
@@ -33,16 +27,14 @@ import {
   useRef,
   useState,
 } from "react"
-import { useDropzone } from "react-dropzone"
-import { toast } from "sonner"
+import { type FileRejection, useDropzone } from "react-dropzone"
+import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { createQuestionImageUpload } from "@/features/questions/actions"
 import { cdnUrl } from "@/lib/cdn"
+import { callAction } from "@/lib/safe-action"
+import { TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
-
-// ============================================
-// TYPES
-// ============================================
 
 export type QuestionImage = {
   url: string
@@ -50,39 +42,52 @@ export type QuestionImage = {
   order: number
 }
 
-type UploadingImage = {
+type Upload = {
   id: string
   file: File
   preview: string
-  progress: number
-  status: "pending" | "uploading" | "done" | "error"
+  status: "uploading" | "error"
   error?: string
 }
 
 type QuestionImageUploaderProps = {
+  /** Identifiant de la question, réservé par le formulaire avant sa création. */
   questionId: string
   // `statement` = images d'énoncé (visibles en passation) ;
   // `explanation` = images d'explication (visibles à la correction uniquement).
   // Détermine le sous-dossier S3 namespacé côté presign (`createQuestionImageUpload`).
   kind?: "statement" | "explanation"
+  label: string
+  help?: string
   images: QuestionImage[]
-  // Accepte une valeur OU un updater fonctionnel (le parent passe `setImages`) :
-  // permet d'enchaîner plusieurs uploads concurrents sans écraser l'état.
+  // Accepte une valeur OU un updater fonctionnel : plusieurs envois concurrents
+  // ne s'écrasent pas.
   onImagesChange: Dispatch<SetStateAction<QuestionImage[]>>
+  /** Signale au formulaire qu'un envoi est en cours ou en échec. */
+  onPendingChange?: (pending: { uploading: number; failed: number }) => void
   maxImages?: number
   disabled?: boolean
 }
 
-// ============================================
-// SORTABLE IMAGE ITEM
-// ============================================
+const MAX_BYTES = 5 * 1024 * 1024
 
-const SortableImageItem = ({
+const rejectionMessage = (r: FileRejection) => {
+  const code = r.errors[0]?.code
+  if (code === "file-too-large")
+    return `${r.file.name} : Fichier trop volumineux : 5 Mo au plus.`
+  if (code === "file-invalid-type")
+    return `${r.file.name} : Format non supporté. Utilisez JPG, PNG ou WebP.`
+  return `${r.file.name} : fichier refusé.`
+}
+
+const SortableImage = ({
   image,
+  index,
   onRemove,
   disabled,
 }: {
   image: QuestionImage
+  index: number
   onRemove: () => void
   disabled?: boolean
 }) => {
@@ -95,129 +100,77 @@ const SortableImageItem = ({
     isDragging,
   } = useSortable({ id: image.storagePath })
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
   return (
-    <div
+    <li
       ref={setNodeRef}
-      style={style}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "group bg-muted relative aspect-square overflow-hidden rounded-lg border",
-        isDragging && "z-50 opacity-50",
+        "bg-surface-2 border-line relative aspect-square overflow-hidden rounded-md border",
+        isDragging && "z-10 opacity-60",
       )}
     >
       <Image
         src={image.url}
-        alt={`Image ${image.order + 1}`}
+        alt={`Image ${index + 1}`}
         fill
         className="object-cover"
-        sizes="(max-width: 768px) 100vw, 200px"
+        sizes="160px"
       />
-
-      {/* Overlay avec actions */}
-      <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-        {!disabled && (
-          <>
-            <button
-              type="button"
-              {...attributes}
-              {...listeners}
-              className="cursor-grab rounded-md bg-white/90 p-2 text-gray-700 hover:bg-white active:cursor-grabbing"
-            >
-              <IconGripVertical className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onRemove}
-              className="rounded-md bg-red-500/90 p-2 text-white hover:bg-red-600"
-            >
-              <IconTrash className="h-4 w-4" />
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Badge ordre */}
-      <span className="absolute top-2 left-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-xs font-medium text-white">
-        {image.order + 1}
+      <span className="bg-surface text-ink absolute bottom-1 left-1 rounded-xs px-1 font-mono text-[11px]">
+        {index + 1}
       </span>
-    </div>
+      {!disabled && (
+        <>
+          <button
+            type="button"
+            {...attributes}
+            {...listeners}
+            aria-label={`Déplacer l'image ${index + 1} (flèches gauche et droite)`}
+            title="Glisser pour réordonner"
+            className={cn(
+              TOUCH_TARGET,
+              "focus-ring bg-surface text-ink-2 absolute top-1 left-1 flex size-7 cursor-grab items-center justify-center rounded-md active:cursor-grabbing",
+            )}
+          >
+            <GripVertical aria-hidden className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label={`Retirer l'image ${index + 1}`}
+            className={cn(
+              TOUCH_TARGET,
+              "focus-ring bg-surface text-ink-2 hover:text-danger-ink absolute top-1 right-1 flex size-7 cursor-pointer items-center justify-center rounded-md",
+            )}
+          >
+            <X aria-hidden className="size-3.5" />
+          </button>
+        </>
+      )}
+    </li>
   )
 }
 
-// ============================================
-// UPLOADING IMAGE ITEM
-// ============================================
-
-const UploadingImageItem = ({
-  item,
-  onCancel,
-}: {
-  item: UploadingImage
-  onCancel: () => void
-}) => (
-  <div className="bg-muted relative aspect-square overflow-hidden rounded-lg border">
-    <Image
-      src={item.preview}
-      alt="Upload en cours"
-      fill
-      className="object-cover opacity-50"
-      sizes="(max-width: 768px) 100vw, 200px"
-    />
-
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/30 p-2">
-      {item.status === "uploading" && (
-        <>
-          <Spinner size="lg" className="text-white" />
-          <span className="mt-1 text-xs text-white">Téléversement…</span>
-        </>
-      )}
-
-      {item.status === "error" && (
-        <div className="text-center">
-          <IconX className="mx-auto h-6 w-6 text-red-400" />
-          <span className="mt-1 text-xs text-red-300">
-            {item.error || "Erreur"}
-          </span>
-        </div>
-      )}
-
-      {item.status === "pending" && (
-        <span className="text-xs text-white">En attente...</span>
-      )}
-    </div>
-
-    {(item.status === "error" || item.status === "pending") && (
-      <button
-        type="button"
-        onClick={onCancel}
-        className="absolute top-1 right-1 rounded-full bg-red-500 p-1 text-white hover:bg-red-600"
-      >
-        <IconX className="h-3 w-3" />
-      </button>
-    )}
-  </div>
-)
-
-// ============================================
-// MAIN COMPONENT
-// ============================================
-
+/**
+ * Images d'une question : envoi direct vers S3 (presign), ordre par glisser
+ * ou au clavier, erreurs en ligne. La persistance se fait à l'enregistrement
+ * du formulaire (`setQuestionImages`).
+ */
 export const QuestionImageUploader = ({
   questionId,
   kind = "statement",
+  label,
+  help,
   images,
   onImagesChange,
+  onPendingChange,
   maxImages = 10,
   disabled = false,
 }: QuestionImageUploaderProps) => {
-  const [uploadingImages, setUploadingImages] = useState<UploadingImage[]>([])
+  const [uploads, setUploads] = useState<Upload[]>([])
+  const [messages, setMessages] = useState<string[]>([])
 
-  // Suit les object-URLs de prévisualisation pour les révoquer au démontage
-  // (sinon fuite mémoire si le formulaire est quitté pendant/après un upload).
+  // Les object-URLs de prévisualisation sont révoqués au démontage.
   const previewUrlsRef = useRef<Set<string>>(new Set())
   useEffect(() => {
     const urls = previewUrlsRef.current
@@ -227,6 +180,13 @@ export const QuestionImageUploader = ({
     }
   }, [])
 
+  useEffect(() => {
+    onPendingChange?.({
+      uploading: uploads.filter((u) => u.status === "uploading").length,
+      failed: uploads.filter((u) => u.status === "error").length,
+    })
+  }, [uploads, onPendingChange])
+
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -234,201 +194,146 @@ export const QuestionImageUploader = ({
     }),
   )
 
-  const canAddMore = images.length + uploadingImages.length < maxImages
+  const count = images.length + uploads.length
+  const canAddMore = count < maxImages
 
-  // Téléverse chaque fichier déposé via le Server Action `uploadQuestionImage`,
-  // puis ajoute le résultat (url + storagePath) à la liste persistée au save.
-  // Updates fonctionnels (`onImagesChange`/`setUploadingImages`) → sûrs même avec
-  // plusieurs uploads en parallèle. La persistance DB et la suppression CDN des
-  // images retirées se font dans `setQuestionImages` à l'enregistrement.
-  const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
-      if (disabled || acceptedFiles.length === 0) return
+  const fail = (id: string, error: string) =>
+    setUploads((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, status: "error", error } : u)),
+    )
 
-      const remaining = maxImages - images.length - uploadingImages.length
-      const files = acceptedFiles.slice(0, Math.max(0, remaining))
-      if (files.length === 0) {
-        toast.error(`Maximum ${maxImages} images atteint`)
-        return
+  // Presign (garde admin, rate-limit, validation serveur) puis POST direct du
+  // fichier vers S3 ; le chemin `tmp/` rejoint la liste persistée au save.
+  const send = useCallback(
+    async (item: Upload, index: number) => {
+      const presign = await callAction(() =>
+        createQuestionImageUpload({
+          questionId,
+          kind,
+          imageIndex: index,
+          contentType: item.file.type,
+          size: item.file.size,
+        }),
+      )
+      if (!presign.success) return fail(item.id, presign.error)
+
+      const form = new FormData()
+      Object.entries(presign.fields).forEach(([k, v]) => form.append(k, v))
+      form.append("file", item.file) // "file" en dernier (exigence S3 POST)
+      try {
+        const res = await fetch(presign.url, { method: "POST", body: form })
+        if (!res.ok) return fail(item.id, "Échec de l'envoi. Réessayez.")
+      } catch {
+        return fail(item.id, "Connexion perdue. Réessayez.")
       }
 
+      onImagesChange((prev) => [
+        ...prev,
+        {
+          url: cdnUrl(presign.storagePath),
+          storagePath: presign.storagePath,
+          order: prev.length,
+        },
+      ])
+      setUploads((prev) => prev.filter((u) => u.id !== item.id))
+      URL.revokeObjectURL(item.preview)
+      previewUrlsRef.current.delete(item.preview)
+    },
+    [questionId, kind, onImagesChange],
+  )
+
+  const onDrop = useCallback(
+    (accepted: File[], rejected: FileRejection[]) => {
+      if (disabled) return
+      const room = Math.max(0, maxImages - count)
+      const files = accepted.slice(0, room)
+      const skipped = accepted.length - files.length
+      setMessages([
+        ...rejected.map(rejectionMessage),
+        ...(skipped > 0
+          ? [
+              `${maxImages} images au plus : ${skipped} fichier${skipped > 1 ? "s n'ont" : " n'a"} pas été ajouté${skipped > 1 ? "s" : ""}.`,
+            ]
+          : []),
+      ])
       const stamp = Date.now()
-      const queued: UploadingImage[] = files.map((file, i) => ({
+      const queued: Upload[] = files.map((file, i) => ({
         id: `${stamp}-${i}-${file.name}`,
         file,
         preview: URL.createObjectURL(file),
-        progress: 0,
         status: "uploading",
       }))
       queued.forEach((q) => previewUrlsRef.current.add(q.preview))
-      setUploadingImages((prev) => [...prev, ...queued])
-
-      for (let i = 0; i < queued.length; i++) {
-        const item = queued[i]
-        try {
-          // Étape 1 : presigned POST (garde admin + rate-limit + validation
-          // serveur). Étape 2 : POST direct du fichier vers S3. Étape 3 : la
-          // persistance DB est faite par `setQuestionImages` au save.
-          const presign = await createQuestionImageUpload({
-            questionId,
-            kind,
-            imageIndex: images.length + i,
-            contentType: item.file.type,
-            size: item.file.size,
-          })
-          if (!presign.success) {
-            toast.error(presign.error)
-            setUploadingImages((prev) =>
-              prev.map((u) =>
-                u.id === item.id
-                  ? { ...u, status: "error", error: presign.error }
-                  : u,
-              ),
-            )
-            continue
-          }
-
-          const s3Form = new FormData()
-          Object.entries(presign.fields).forEach(([k, v]) =>
-            s3Form.append(k, v),
-          )
-          s3Form.append("file", item.file) // "file" en dernier (exigence S3 POST)
-
-          const s3Res = await fetch(presign.url, {
-            method: "POST",
-            body: s3Form,
-          })
-          if (!s3Res.ok) {
-            toast.error("Échec du téléversement. Réessayez.")
-            setUploadingImages((prev) =>
-              prev.map((u) =>
-                u.id === item.id
-                  ? { ...u, status: "error", error: "Échec S3" }
-                  : u,
-              ),
-            )
-            continue
-          }
-
-          onImagesChange((prev) => [
-            ...prev,
-            {
-              // URL d'affichage dérivée du CDN public (`cdnUrl`) — MÊME hôte que
-              // l'affichage au reload (`question-form-page` mappe aussi via
-              // `cdnUrl`).
-              url: cdnUrl(presign.storagePath),
-              storagePath: presign.storagePath,
-              order: prev.length,
-            },
-          ])
-          setUploadingImages((prev) => {
-            URL.revokeObjectURL(item.preview)
-            previewUrlsRef.current.delete(item.preview)
-            return prev.filter((u) => u.id !== item.id)
-          })
-        } catch {
-          toast.error("Échec du téléversement. Réessayez.")
-          setUploadingImages((prev) =>
-            prev.map((u) =>
-              u.id === item.id
-                ? { ...u, status: "error", error: "Erreur réseau" }
-                : u,
-            ),
-          )
-        }
-      }
+      setUploads((prev) => [...prev, ...queued])
+      queued.forEach((item, i) => void send(item, count + i))
     },
-    [
-      disabled,
-      maxImages,
-      images.length,
-      uploadingImages.length,
-      questionId,
-      kind,
-      onImagesChange,
-    ],
+    [disabled, maxImages, count, send],
   )
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, open, isDragActive } = useDropzone({
     onDrop,
     accept: {
       "image/jpeg": [".jpg", ".jpeg"],
       "image/png": [".png"],
       "image/webp": [".webp"],
     },
-    maxSize: 5 * 1024 * 1024, // 5MB
+    maxSize: MAX_BYTES,
     disabled: disabled || !canAddMore,
+    noClick: true,
     multiple: true,
   })
 
-  // Gestion du drag & drop pour réordonner
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-
-    if (over && active.id !== over.id) {
-      const oldIndex = images.findIndex((img) => img.storagePath === active.id)
-      const newIndex = images.findIndex((img) => img.storagePath === over.id)
-
-      const reorderedImages = arrayMove(images, oldIndex, newIndex).map(
-        (img: QuestionImage, index: number) => ({ ...img, order: index }),
-      )
-
-      onImagesChange(reorderedImages)
-    }
+  const retry = (item: Upload) => {
+    setUploads((prev) =>
+      prev.map((u) =>
+        u.id === item.id ? { ...u, status: "uploading", error: undefined } : u,
+      ),
+    )
+    void send(item, images.length)
   }
 
-  // Retire l'image de la liste locale (ré-indexe l'ordre). La suppression réelle
-  // du fichier sur S3 est déléguée à `setQuestionImages` au moment de
-  // l'enregistrement (chemins retirés calculés côté serveur).
-  const handleRemove = (storagePath: string) => {
-    onImagesChange((prev) =>
-      prev
-        .filter((img) => img.storagePath !== storagePath)
-        .map((img, index) => ({ ...img, order: index })),
+  const dismiss = (item: Upload) => {
+    URL.revokeObjectURL(item.preview)
+    previewUrlsRef.current.delete(item.preview)
+    setUploads((prev) => prev.filter((u) => u.id !== item.id))
+  }
+
+  const handleDragEnd = ({ active, over }: DragEndEvent) => {
+    if (!over || active.id === over.id) return
+    const from = images.findIndex((img) => img.storagePath === active.id)
+    const to = images.findIndex((img) => img.storagePath === over.id)
+    onImagesChange(
+      arrayMove(images, from, to).map((img, order) => ({ ...img, order })),
     )
   }
 
-  // Annuler un upload en attente ou en erreur
-  const handleCancelUpload = (uploadId: string) => {
-    setUploadingImages((prev) => {
-      const item = prev.find((img) => img.id === uploadId)
-      if (item) {
-        URL.revokeObjectURL(item.preview)
-        previewUrlsRef.current.delete(item.preview)
-      }
-      return prev.filter((img) => img.id !== uploadId)
-    })
-  }
+  const remove = (storagePath: string) =>
+    onImagesChange((prev) =>
+      prev
+        .filter((img) => img.storagePath !== storagePath)
+        .map((img, order) => ({ ...img, order })),
+    )
+
+  const failed = uploads.filter((u) => u.status === "error")
 
   return (
-    <div className="space-y-4">
-      {/* Zone de drop */}
-      <div
-        {...getRootProps()}
-        className={cn(
-          "cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors",
-          isDragActive
-            ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-            : "border-muted-foreground/25 hover:border-muted-foreground/50",
-          (disabled || !canAddMore) && "cursor-not-allowed opacity-50",
-        )}
-      >
-        <input {...getInputProps()} />
-        <IconUpload className="text-muted-foreground mx-auto h-10 w-10" />
-        <p className="text-muted-foreground mt-2 text-sm">
-          {isDragActive
-            ? "Déposez les images ici..."
-            : canAddMore
-              ? "Glissez-déposez des images ou cliquez pour sélectionner"
-              : `Maximum ${maxImages} images atteint`}
-        </p>
-        <p className="text-muted-foreground mt-1 text-xs">
-          JPG, PNG, WebP - Max 5MB par image
-        </p>
+    <div
+      {...getRootProps()}
+      className={cn(
+        "flex flex-col gap-2.5 rounded-md",
+        isDragActive && "outline-accent outline-2 outline-offset-4",
+      )}
+    >
+      <input {...getInputProps()} />
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-ink text-sm font-medium">{label}</span>
+        <span className="text-ink-3 font-mono text-xs">
+          {images.length} / {maxImages} images
+        </span>
       </div>
+      {help && <span className="text-ink-3 text-[0.8125rem]">{help}</span>}
 
-      {/* Grille d'images */}
-      {(images.length > 0 || uploadingImages.length > 0) && (
+      {count > 0 && (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -438,38 +343,111 @@ export const QuestionImageUploader = ({
             items={images.map((img) => img.storagePath)}
             strategy={rectSortingStrategy}
           >
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {images.map((image) => (
-                <SortableImageItem
+            <ol
+              aria-label={label}
+              className="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-2"
+            >
+              {images.map((image, i) => (
+                <SortableImage
                   key={image.storagePath}
                   image={image}
-                  onRemove={() => handleRemove(image.storagePath)}
+                  index={i}
+                  onRemove={() => remove(image.storagePath)}
                   disabled={disabled}
                 />
               ))}
-
-              {uploadingImages.map((item) => (
-                <UploadingImageItem
-                  key={item.id}
-                  item={item}
-                  onCancel={() => handleCancelUpload(item.id)}
-                />
+              {uploads.map((u) => (
+                <li
+                  key={u.id}
+                  className={cn(
+                    "bg-surface-2 relative aspect-square overflow-hidden rounded-md border",
+                    u.status === "error" ? "border-danger" : "border-line",
+                  )}
+                >
+                  <Image
+                    src={u.preview}
+                    alt=""
+                    fill
+                    className="object-cover opacity-50"
+                    sizes="160px"
+                  />
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    {u.status === "uploading" ? (
+                      <Spinner size="md" aria-label="Envoi en cours" />
+                    ) : (
+                      <CircleAlert
+                        aria-label="Envoi en échec"
+                        className="text-danger size-5"
+                      />
+                    )}
+                  </span>
+                </li>
               ))}
-            </div>
+            </ol>
           </SortableContext>
         </DndContext>
       )}
 
-      {/* Compteur */}
-      <div className="text-muted-foreground flex items-center justify-between text-sm">
-        <span className="flex items-center gap-1">
-          <IconPhoto className="h-4 w-4" />
-          {images.length} / {maxImages} images
+      <div className="flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={disabled || !canAddMore}
+          onClick={open}
+        >
+          <ImagePlus aria-hidden />
+          Ajouter des images
+        </Button>
+        <span className="text-ink-3 text-xs">
+          JPG, PNG ou WebP · 5 Mo au plus
         </span>
-        {images.length > 1 && !disabled && (
-          <span className="text-xs">Glissez pour réorganiser</span>
-        )}
       </div>
+
+      {(failed.length > 0 || messages.length > 0) && (
+        <ul className="text-danger-ink flex flex-col gap-1 text-[0.8125rem]">
+          {failed.map((u) => (
+            <li key={u.id} className="flex flex-wrap items-center gap-2">
+              <CircleAlert aria-hidden className="size-3.5 shrink-0" />
+              <span>
+                <span className="font-mono">{u.file.name}</span> : {u.error}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => retry(u)}
+              >
+                Réessayer
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                aria-label={`Abandonner ${u.file.name}`}
+                onClick={() => dismiss(u)}
+              >
+                <X aria-hidden />
+              </Button>
+            </li>
+          ))}
+          {messages.map((m, i) => (
+            <li key={m} className="flex flex-wrap items-center gap-2">
+              <CircleAlert aria-hidden className="size-3.5 shrink-0" />
+              <span>{m}</span>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                aria-label="Masquer le message"
+                onClick={() => setMessages(messages.filter((_, j) => j !== i))}
+              >
+                <X aria-hidden />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

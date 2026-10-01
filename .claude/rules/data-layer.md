@@ -157,6 +157,20 @@ colonne)` dans le WHERE des canaux de
   période : une semaine entamée avant ne compte que ses jours dans la
   période (`startDay`, libellé « Depuis le … ») ; une semaine sans série
   lisible n'a pas de point, jamais un point à 0.
+- **Clé à vérifier / clé confirmée = une règle, deux formes** :
+  `keyReview` (`features/questions/key-review.ts`, pure : fiche, formulaire)
+  et `keyToVerifySql` (`features/questions/dal.ts` : onglet, compteur, export),
+  sur les mêmes constantes. Une confirmation tient tant que les réponses n'ont
+  pas doublé (10 nouvelles au moins) ; `updateQuestion` l'efface quand
+  l'énoncé, les options ou la clé changent. **Choix figés** : `updateQuestion`
+  refuse, sous verrou de la ligne, un changement de clé ou d'options tant
+  qu'un examen ouvert (`end_date > now()`) contient la question.
+- **Dernière utilisation** : `notUsedInLastExams(n, colonne)`
+  (`features/questions/last-use.ts`), prédicat corrélé (examens par date
+  d'ouverture, désactivés compris), à reprendre par le compositeur d'examen.
+  Un examen en préparation n'en compte pas (`CONTEXT.md`) : le filtre
+  `finalized_at IS NOT NULL` s'y ajoute avec la colonne (#259), comme sur la
+  garde des choix figés.
 - **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
   sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
   renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou

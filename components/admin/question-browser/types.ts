@@ -75,13 +75,6 @@ export interface QuestionBrowserProps {
   onSelectionChange?: (ids: string[]) => void
   maxSelection?: number
 
-  // Mode browse - controlled preview state (pour URL sync)
-  previewQuestionId?: string | null
-  onPreviewChange?: (id: string | null) => void
-
-  // Filtres appliqués à la liste (recherche différée), pour l'export
-  onFiltersChange?: (filters: QuestionFilters) => void
-
   // Options du combobox « examen précis » (filtre usage). Vide/absent = masqué.
   examOptions?: ExamPickerOption[]
 

@@ -37,7 +37,7 @@ export const AdminListSkeleton = ({
       <Skeleton className="h-8 w-56" />
       <Skeleton className="h-4 w-80 max-w-full" />
     </div>
-    <SkeletonStatRow count={statCount} />
+    {statCount > 0 && <SkeletonStatRow count={statCount} />}
     <div className="flex flex-wrap gap-3">
       <Skeleton className="h-10 min-w-64 flex-1" />
       <Skeleton className="h-10 w-40" />

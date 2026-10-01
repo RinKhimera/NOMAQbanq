@@ -11,12 +11,12 @@ import {
 } from "@/db/schema"
 import { getExamsForPicker } from "@/features/exams/dal"
 import {
-  type QuestionStatsEnriched,
+  type QuestionStats,
+  getObjectivesByDomain,
   getQuestionById,
-  getQuestionStatsEnriched,
+  getQuestionStats,
   getQuestionsForExport,
   getQuestionsWithFilters,
-  getUniqueObjectifsCMC,
 } from "@/features/questions/dal"
 import { requireRole } from "@/lib/auth-guards"
 import { createId } from "@/lib/ids"
@@ -41,7 +41,7 @@ const q3 = createId() // 0 image, "gamma"
 const examId = createId() // examen qui utilise UNIQUEMENT q1
 const creatorId = createId() // créateur de l'examen (FK createdBy)
 
-let baseline: QuestionStatsEnriched
+let baseline: QuestionStats
 
 const mkQuestion = (id: string, label: string, createdAt: Date) =>
   db.insert(questions).values({
@@ -59,7 +59,7 @@ beforeAll(async () => {
     user: { id: "admin", role: "admin" },
   } as never)
 
-  baseline = await getQuestionStatsEnriched()
+  baseline = await getQuestionStats()
 
   const now = Date.now()
   await mkQuestion(q1, `alpha${suffix}`, new Date(now - 3 * DAY))
@@ -232,18 +232,17 @@ describe("getQuestionById", () => {
   })
 })
 
-describe("getUniqueObjectifsCMC", () => {
-  it("inclut l'objectif seedé", async () => {
-    const objs = await getUniqueObjectifsCMC()
-    expect(objs).toContain(OBJ)
+describe("getObjectivesByDomain", () => {
+  it("rattache l'objectif seedé à son domaine", async () => {
+    const byDomain = await getObjectivesByDomain()
+    expect(byDomain[DOMAIN]).toEqual([OBJ])
   })
 })
 
-describe("getQuestionStatsEnriched (delta)", () => {
-  it("total + withImages + répartition domaine", async () => {
-    const after = await getQuestionStatsEnriched()
+describe("getQuestionStats (delta)", () => {
+  it("total + répartition domaine", async () => {
+    const after = await getQuestionStats()
     expect(after.totalCount - baseline.totalCount).toBe(3)
-    expect(after.withImagesCount - baseline.withImagesCount).toBe(1)
     const myDomain = after.domainStats.find((d) => d.domain === DOMAIN)
     expect(myDomain?.count).toBe(3)
   })

@@ -417,6 +417,8 @@ export type QuestionAnswerBreakdown = {
   options: { option: string; count: number; share: number; isKey: boolean }[]
   /** Réponses dont le texte n'est plus une option de la question. */
   formerWording: { count: number; share: number }
+  /** Une option actuelle autre que la clé est plus choisie que les réponses justes. */
+  keySuspect: boolean
 }
 
 /**
@@ -443,6 +445,7 @@ export const getQuestionAnswerBreakdown = async (
       successRate: null,
       options: [],
       formerWording: { count: 0, share: 0 },
+      keySuspect: false,
     }
 
   const stats = questionSuccessStats([questionId])
@@ -456,6 +459,7 @@ export const getQuestionAnswerBreakdown = async (
       .select({
         answerCount: stats.answerCount,
         successRate: stats.successRate,
+        keySuspect: stats.keySuspect,
       })
       .from(stats),
   ])
@@ -485,5 +489,6 @@ export const getQuestionAnswerBreakdown = async (
       count: formerWordingCount,
       share: share(formerWordingCount),
     },
+    keySuspect: summary?.keySuspect ?? false,
   }
 }
