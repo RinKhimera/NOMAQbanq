@@ -80,6 +80,11 @@ export type QuestionCardProps = {
   showObjectifBadge?: boolean
   /** Pied de carte (navigation de la passation). */
   footer?: ReactNode
+  /**
+   * Images d'explication dans la correction révélée de `exam`. Admin
+   * seulement (fiche, aperçu) : jamais en passation.
+   */
+  revealExplanationImages?: boolean
 
   // === Admin ===
   actions?: ActionConfig[]

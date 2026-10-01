@@ -14,6 +14,35 @@ réponse et sa correction. Une même question peut servir dans plusieurs examens
 et dans l'entraînement.
 _Avoid_ : item, QCM (le mot désigne le format, pas l'entité)
 
+**Objectif du CMC** :
+La présentation clinique qu'une question évalue (Dyspnée, Toux, Fatigue…),
+choisie dans le référentiel des objectifs. Un objectif n'appartient à aucun
+domaine : les objectifs d'un domaine sont ceux qu'utilise au moins une de ses
+questions actives, et un même objectif sert plusieurs domaines.
+_Avoid_ : objectif de domaine, objectif d'apprentissage, compétence
+
+**Référentiel des objectifs** :
+La liste des objectifs du CMC, chacun sous un libellé. Toute question porte
+un objectif du référentiel. Il part des valeurs saisies librement et se
+nettoie par la fusion des variantes, jusqu'à ce que chaque objectif n'ait plus
+qu'un libellé. Un nouvel objectif y entre seulement s'il ne double pas un
+objectif existant (même libellé aux accents, casse, ponctuation et espaces
+près).
+_Avoid_ : liste validée, catalogue d'objectifs
+
+**Variante d'objectif** :
+Une graphie libre d'un même objectif, héritée de la saisie libre (« Douleur
+abdominale aigue », « Douleur abdominale aiguë »). La fusion remplace toutes les
+variantes d'un groupe par un seul libellé du référentiel, sans toucher à rien
+d'autre dans les questions.
+_Avoid_ : doublon, alias
+
+**Valeur invalide** :
+Une valeur d'objectif qui n'en est pas une (« - », un énoncé collé) : elle ne
+se choisit nulle part et ne se fusionne pas ; elle se corrige question par
+question, puis disparaît.
+_Avoid_ : objectif vide, objectif corrompu
+
 **Clé de réponse** :
 La bonne option d'une question. Elle ne quitte le serveur que par un canal de
 révélation autorisé.
@@ -90,6 +119,15 @@ quel ; il est retenu à la lecture, jamais recalculé. Un score d'examen est don
 retenu tant que son propre examen est ouvert.
 _Avoid_ : score partiel, score masqué
 
+**Choix figés** :
+L'état d'une question qu'un examen ouvert et finalisé contient : sa clé et le texte de ses
+options ne peuvent pas changer avant la clôture, pour que tous les
+participants soient jugés sur la même clé (le verdict est fixé au moment de la
+réponse). L'énoncé, l'explication, les références et le classement restent
+modifiables. Distinct du verrou de clé de réponse, qui porte sur ce que voit un
+lecteur, pas sur ce qu'un admin peut écrire.
+_Avoid_ : question verrouillée, question gelée
+
 ### Passation
 
 **Examen blanc** :
@@ -104,19 +142,38 @@ le verrou de clé de réponse.
 _Avoid_ : examen actif (l'activation est un réglage administrateur distinct)
 
 **Réouverture** :
-Un nouvel examen blanc qui reprend le contenu d'un examen clos (questions dans
-leur ordre, réglages, audience) avec de nouvelles dates. L'examen d'origine
+Un nouvel examen blanc qui reprend le contenu d'un examen clos (questions,
+réglages, audience) avec de nouvelles dates. L'examen d'origine
 reste clos avec ses participations ; aucun lien entre les deux n'est conservé.
 Un examen clos qui a des participations ne se rouvre jamais en repoussant sa
-date de fin. Qui passe la réouverture voit la correction de sa participation
+date de fin. La réouverture passe par la finalisation : ses questions sont les
+mêmes, dans un ordre remélangé. Qui passe la réouverture voit la correction de sa participation
 d'origine différée jusqu'à la clôture de la réouverture (mêmes questions).
 _Avoid_ : édition, session, prolongation (qui repousse la fin d'un examen encore ouvert)
 
 **Phase d'examen** :
-Ce qu'un examen blanc affiche à un instant donné : à venir, en cours, terminé
-ou désactivé. C'est un terme d'affichage ; un examen à venir ou en cours est
-« ouvert » au sens du verrou.
-_Avoid_ : statut d'examen, état
+Ce qu'un examen blanc affiche à un instant donné : en préparation, à venir, en
+cours, terminé ou désactivé. C'est un terme d'affichage ; un examen à venir ou
+en cours est « ouvert » au sens du verrou. Désactivé prime sur toutes les
+autres phases.
+_Avoid_ : statut d'examen, état, « ouvert » pour la phase en cours, « finalisé »
+(c'est une action, pas une phase)
+
+**Examen en préparation** :
+Un examen blanc enregistré mais pas encore finalisé : son lot de questions peut
+être incomplet, ses dates et son audience absentes ou provisoires. Il n'existe
+pas pour l'étudiant et ne s'ouvre jamais, même à sa date d'ouverture : nul,
+admin compris, ne peut le démarrer. Il ne compte pas dans la dernière
+utilisation d'une question, et ses questions n'ont pas de choix figés.
+_Avoid_ : brouillon, examen non publié
+
+**Finalisation** :
+L'action d'un admin qui fait passer un examen en préparation à examen prêt à
+s'ouvrir : elle vérifie tout (lot complet égal au nombre visé, dates dont la
+fin n'est pas passée, audience restreinte non vide), fixe la durée sur le lot
+réel et mélange l'ordre des questions. Modifier le lot d'un examen finalisé
+sans participation le remet en préparation ; modifier ses autres réglages, non.
+_Avoid_ : publication, validation, clôture (qui ferme une tentative)
 
 **Participation** :
 La tentative d'un étudiant à un examen blanc, avec ses réponses et son score.
@@ -144,7 +201,8 @@ _Avoid_ : attempt, passation (pour désigner une tentative précise)
 L'écriture qui ferme une tentative et fixe son score de clôture, qu'elle vienne
 de l'étudiant (soumission) ou de l'expiration (cron). Une tentative n'est close
 qu'une fois.
-_Avoid_ : finalisation, complétion, fermeture
+_Avoid_ : finalisation (action sur un examen, pas sur une tentative),
+complétion, fermeture
 
 **Score de clôture** :
 Le pourcentage de réponses justes sur le lot de la tentative — toutes ses
@@ -242,6 +300,34 @@ comptées (100 % à l'arrondi près). Une option actuelle autre que la clé, plu
 choisie que les réponses justes, signale une clé de réponse probablement
 erronée ; la formulation antérieure n'entre pas dans cette comparaison.
 _Avoid_ : distribution des distracteurs
+
+**Clé à vérifier** :
+L'état d'une question dont la répartition des réponses, sur un taux de
+réussite significatif, désigne une option actuelle autre que la clé comme plus
+choisie que les réponses justes, et qui n'a pas de clé confirmée en vigueur.
+Il se lève seul quand la clé est corrigée ou l'option reformulée. Distinct de
+la mise en forme à vérifier, qui porte sur le texte, et d'un signalement de
+candidat, qui est humain.
+_Avoid_ : à vérifier (seul), clé suspecte, question à vérifier
+
+**Clé confirmée** :
+Le constat d'un admin, après revue, que la clé d'une clé à vérifier est juste
+(piège, distracteur attirant). Elle retire la question des clés à vérifier
+jusqu'à ce que la question soit modifiée (énoncé, options ou clé) ou que son
+nombre de réponses ait doublé depuis la confirmation ; seule la dernière
+confirmation compte. Elle ne fait pas taire un signalement de candidat.
+_Avoid_ : question validée, faux positif
+
+**Dernière utilisation** :
+L'examen blanc le plus récent, par date d'ouverture, dont le lot contient la
+question. Un examen en préparation n'en compte pas ; un examen désactivé, si.
+_Avoid_ : date d'usage, dernier tirage
+
+**Question récente** :
+Une question dont la dernière utilisation est l'un des derniers examens blancs
+(les trois derniers par défaut). Elle est écartée de la complétion automatique
+d'un examen, sauf si un domaine n'a plus assez d'autres questions.
+_Avoid_ : question déjà utilisée, question grillée
 
 **Date d'une réponse** :
 Le moment qui ordonne les réponses d'un étudiant à une même question, pour en

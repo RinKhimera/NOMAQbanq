@@ -201,6 +201,10 @@ export const formatMediumDate = (d: Date | number | string): string => {
 }
 
 /** « 3 juillet 2026 à 14:05 » — panneaux de détail. */
+/** « 30 septembre 2026 » */
+export const formatLongDate = (d: Date | number | string): string =>
+  format(inAppZone(d), "d MMMM yyyy", { locale: fr })
+
 export const formatLongDateTime = (d: Date | number | string): string => {
   return format(inAppZone(d), "d MMMM yyyy 'à' HH:mm", { locale: fr })
 }

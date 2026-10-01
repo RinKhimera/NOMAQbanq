@@ -100,10 +100,17 @@ Autres testids stables : `exam-card-{id}` (carte examen étudiant), `quick-acces
 `transactions-summary`, `segment-{all|active|expiring|expired|never}`,
 `filter-suspended`, `access-{exam|training}`, `grant-access`,
 `participation-{id}` (liste et fiche utilisateurs),
-`question-detail-modal`/`question-detail-footer` (modale de question admin),
-`explanation-input`, `reference-input-{i}`, `btn-split-reference-{i}`,
-`format-undo-banner`/`btn-format-undo`, `format-warning-explanation`,
-`format-warning-reference-{i}` (correction du formulaire de question admin),
+`question-detail-modal`/`question-detail-footer` (modale de question de la
+constitution d'examen), `tab-{all|toVerify|noReferences}`, `question-row-link`,
+`sort-{createdAt|updatedAt|successRate|answerCount}`, `btn-filter-panel`
+(liste des questions), `question-position`, `btn-edit-question`,
+`btn-delete-question`/`-confirm`, `btn-confirm-key`/`-submit`, `key-to-verify-alert`
+(détail), `question-input`, `option-input-{i}`, `btn-key-{i}`,
+`btn-save-question`, `btn-save-and-new`, `form-checks`, `frozen-choices`,
+`key-corrected`, `explanation-input`, `reference-input-{i}`,
+`btn-split-reference-{i}`, `format-undo-banner`/`btn-format-undo`,
+`explanation-format-warnings`, `reference-format-warnings-{i}` (formulaire de
+question admin),
 `{testId}-edit`/`-input`/`-save` (InlineEditField profil), `btn-pause` (bouton
 pause repos du header d'examen), `pause-overlay`/`pause-timer`/`btn-resume-exam`.
 États : `data-selected="true"`, `data-flagged="true"`, et `data-state` sur
@@ -157,12 +164,10 @@ interactif (quiz, **F2 audience**, etc.) doit recevoir un `data-testid` stable.
   ciblés à la place.
 - **Formulaire question admin** (`/admin/questions/nouvelle`) : le Select de domaine
   (shadcn/Radix) garde un `<select>` natif caché → `getByText(domaine)` matche 2×
-  (l'`<option>` native + l'item Radix) → scoper `getByRole("listbox").getByText(...)`.
-  L'objectif CMC est un combobox Popover+cmdk : le trigger affiche le placeholder
-  comme texte mais N'A PAS de nom accessible (label non associé via `htmlFor`) →
-  le cibler par `getByText("Sélectionner ou créer...")` ; l'input de recherche a un
-  placeholder DIFFÉRENT (« Rechercher ou créer... ») et les items sont `role="option"`.
-  Voir POM `fillObjectifCMC`.
+  (l'`<option>` native + l'item Radix) → ouvrir `#qf-domain` puis scoper
+  `getByRole("listbox").getByText(...)`. L'objectif CMC est un `SearchableSelect`
+  (`#qf-objective`, recherche « Rechercher un objectif », items `role="option"`,
+  « Créer « … » » si absent). Voir POM `fillQuestionForm`.
 
 ## Tests de composants (Vitest, happy-dom) — pièges voisins
 

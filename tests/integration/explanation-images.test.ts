@@ -6,7 +6,7 @@
  *  - les lectures d'ÉNONCÉ ne remontent QUE `kind='statement'`
  *    (`getRandomQuizQuestions`, `getQuestionById.images`) — anti-fuite ;
  *  - les compteurs/filtres ADMIN ne comptent QUE les images d'énoncé
- *    (`getQuestionsWithFilters.imageCount`, `getQuestionStatsEnriched`) ;
+ *    (`getQuestionsWithFilters.imageCount`) ;
  *  - le canal d'EXPLICATION est peuplé à la correction
  *    (`getQuestionById.explanationImages`, `getQuizAnswerKey`,
  *    `getExamQuestionExplanations`, `getTrainingSessionResults`).
@@ -35,7 +35,6 @@ import { getExamQuestionExplanations } from "@/features/exams/dal"
 import { setQuestionImages } from "@/features/questions/actions"
 import {
   getQuestionById,
-  getQuestionStatsEnriched,
   getQuestionsWithFilters,
   getQuizAnswerKey,
   getRandomQuizQuestions,
@@ -343,17 +342,6 @@ describe("compteurs/filtres admin = images d'énoncé seulement", () => {
     expect(idsNo).toContain(qExplOnly)
     expect(idsNo).not.toContain(qBoth)
     expect(idsNo).not.toContain(qStmtOnly)
-  })
-
-  it("getQuestionStatsEnriched.withImagesCount = questions à images d'énoncé", async () => {
-    asAdmin()
-    const stats = await getQuestionStatsEnriched()
-    // qBoth + qStmtOnly comptent (statement) ; qExplOnly/qExam/qTrain NON.
-    // On vérifie via les filtres plutôt que des nombres globaux : la cohérence
-    // avec hasImages a déjà été asserée ; ici on s'assure juste que le compteur
-    // reste >= 2 (au moins nos 2 questions d'énoncé) et reste numérique fini.
-    expect(Number.isFinite(stats.withImagesCount)).toBe(true)
-    expect(stats.withImagesCount).toBeGreaterThanOrEqual(2)
   })
 })
 

@@ -50,11 +50,6 @@ interface QuestionBrowserProviderProps {
   selectedIds?: string[]
   onSelectionChange?: (ids: string[]) => void
   maxSelection?: number
-  // Preview (mode browse - controlled)
-  externalPreviewId?: string | null
-  onPreviewChange?: (id: string | null) => void
-  // Filters callback
-  onFiltersChange?: (filters: QuestionFilters) => void
   // Options du combobox « examen précis » (filtre usage)
   examOptions?: ExamPickerOption[]
 }
@@ -65,9 +60,6 @@ export function QuestionBrowserProvider({
   selectedIds: externalSelectedIds,
   onSelectionChange,
   maxSelection = 230,
-  externalPreviewId,
-  onPreviewChange,
-  onFiltersChange,
   examOptions,
 }: QuestionBrowserProviderProps) {
   // Filters state
@@ -87,25 +79,15 @@ export function QuestionBrowserProvider({
     setPageState(1),
   )
 
-  // Preview panel state (internal, used when not controlled)
-  const [internalPreviewId, setInternalPreviewId] = useState<string | null>(
+  const [previewQuestionId, setPreviewQuestionId] = useState<string | null>(
     null,
   )
-
-  const previewQuestionId =
-    externalPreviewId !== undefined ? externalPreviewId : internalPreviewId
-  const setPreviewQuestionId = onPreviewChange ?? setInternalPreviewId
 
   // Internal selection state (used when not controlled externally)
   const [internalSelectedIds, setInternalSelectedIds] = useState<string[]>([])
 
   const selectedIds = externalSelectedIds ?? internalSelectedIds
   const setSelectedIds = onSelectionChange ?? setInternalSelectedIds
-
-  // La recherche différée : l'export doit suivre ce que la liste affiche.
-  useEffect(() => {
-    onFiltersChange?.({ ...filters, searchQuery: debouncedSearchQuery })
-  }, [filters, debouncedSearchQuery, onFiltersChange])
 
   // Champ par champ : la saisie brute de la recherche ne doit pas relancer la
   // requête, seule sa version différée le fait.

@@ -9,7 +9,7 @@ const HEADERS = [
   "Option C",
   "Option D",
   "Option E",
-  "Réponse correcte",
+  "Clé de réponse",
   "Explication",
   "Domaine",
   "Objectif CMC",

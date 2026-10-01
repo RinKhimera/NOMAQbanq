@@ -92,7 +92,7 @@ export function ExportQuestionsButton({
       "Option C": q.options[2] || "",
       "Option D": q.options[3] || "",
       "Option E": q.options[4] || "",
-      "Réponse correcte": q.correctAnswer,
+      "Clé de réponse": q.correctAnswer,
       Explication: q.explanation,
       Domaine: q.domain,
       "Objectif CMC": q.objectifCMC,
@@ -117,12 +117,8 @@ export function ExportQuestionsButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="gap-2" disabled={isExporting}>
-          {isExporting ? (
-            <Spinner size="sm" />
-          ) : (
-            <Download className="h-4 w-4" />
-          )}
+        <Button variant="outline" disabled={isExporting}>
+          {isExporting ? <Spinner size="sm" /> : <Download aria-hidden />}
           Exporter
         </Button>
       </DropdownMenuTrigger>
@@ -133,12 +129,12 @@ export function ExportQuestionsButton({
           onClick={() => fetchAndExport("xlsx")}
           className="gap-2"
         >
-          <FileSpreadsheet className="h-4 w-4 text-green-600" />
+          <FileSpreadsheet aria-hidden className="text-ink-3 size-4" />
           <div className="flex flex-col">
             <span className="font-medium">Excel (XLSX)</span>
-            <span className="text-muted-foreground text-xs">
-              {questionCount ?? "..."} question
-              {(questionCount ?? 0) > 1 ? "s" : ""}
+            <span className="text-ink-3 text-xs">
+              {questionCount ?? "…"} question
+              {(questionCount ?? 0) > 1 ? "s" : ""} selon les filtres
             </span>
           </div>
         </DropdownMenuItem>
@@ -146,24 +142,20 @@ export function ExportQuestionsButton({
           onClick={() => fetchAndExport("csv")}
           className="gap-2"
         >
-          <FileText className="h-4 w-4 text-blue-600" />
+          <FileText aria-hidden className="text-ink-3 size-4" />
           <div className="flex flex-col">
             <span className="font-medium">CSV</span>
-            <span className="text-muted-foreground text-xs">
-              Compatible tous tableurs
-            </span>
+            <span className="text-ink-3 text-xs">Compatible tous tableurs</span>
           </div>
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => fetchAndExport("json")}
           className="gap-2"
         >
-          <FileBraces className="h-4 w-4 text-amber-600" />
+          <FileBraces aria-hidden className="text-ink-3 size-4" />
           <div className="flex flex-col">
             <span className="font-medium">JSON</span>
-            <span className="text-muted-foreground text-xs">
-              Format structuré
-            </span>
+            <span className="text-ink-3 text-xs">Format structuré</span>
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>

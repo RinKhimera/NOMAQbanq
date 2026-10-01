@@ -28,7 +28,7 @@ describe("domaines médicaux", () => {
 describe("domaine d'une question côté serveur", () => {
   const question = {
     question: "Quel est le traitement de première intention ?",
-    options: ["A", "B"],
+    options: ["A", "B", "C", "D"],
     correctAnswer: "A",
     explanation: "Parce que.",
     objectifCMC: "Objectif",

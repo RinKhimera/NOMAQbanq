@@ -10,6 +10,8 @@ const alertVariants = cva(
         default: "bg-surface text-ink border-line [&>svg]:text-ink-3",
         destructive:
           "border-danger-line bg-danger-soft text-danger-ink [&>svg]:text-danger",
+        warning:
+          "border-warning-line bg-warning-soft text-ink [&>svg]:text-warning",
       },
     },
     defaultVariants: {

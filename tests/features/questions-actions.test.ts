@@ -85,6 +85,8 @@ const { mocks, fakeDb, table } = vi.hoisted(() => {
 
 vi.mock("@/db", () => ({ db: fakeDb }))
 vi.mock("@/db/schema", () => ({
+  examQuestions: table("examQuestions"),
+  exams: table("exams"),
   questionExplanations: table("questionExplanations"),
   questionImages: table("questionImages"),
   questions: table("questions"),
@@ -108,7 +110,6 @@ vi.mock("@/features/questions/dal", () => ({
   getQuestionsWithFilters: vi.fn(async () => ({ items: [] })),
   getQuizAnswerKey: mocks.getQuizAnswerKey,
   getRandomQuizQuestions: mocks.getRandomQuizQuestions,
-  getUniqueObjectifsCMC: vi.fn(async () => []),
 }))
 vi.mock("@/features/questions/quiz-token", () => ({
   signQuizToken: mocks.signQuizToken,
@@ -149,7 +150,7 @@ const EMPTY_SCORE = { score: 0, totalQuestions: 0, questionResults: [] }
 
 const questionInput = {
   question: "Quelle est la reponse ?",
-  options: ["A", "B"],
+  options: ["A", "B", "C", "D"],
   correctAnswer: "A",
   explanation: "parce que",
   objectifCMC: "1-1",
@@ -294,7 +295,7 @@ describe("createQuestion", () => {
     })
     expect(res).toEqual({
       success: false,
-      error: "La bonne réponse doit figurer parmi les options",
+      error: "La clé de réponse doit figurer parmi les choix",
     })
     expect(mocks.transaction).not.toHaveBeenCalled()
   })
@@ -333,12 +334,10 @@ describe("updateQuestion", () => {
     expect(mocks.captureServerError).not.toHaveBeenCalled()
   })
 
-  it("succes : revalide la liste, la page d'edition et les stats publiques", async () => {
+  it("succes : revalide la liste, le détail et les stats publiques", async () => {
     const res = await updateQuestion(input)
     expect(res).toEqual({ success: true })
-    expect(mocks.revalidatePath).toHaveBeenCalledWith(
-      "/admin/questions/q1/modifier",
-    )
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/admin/questions/q1")
     expect(mocks.revalidateTag).toHaveBeenCalledWith("marketing-stats", "max")
   })
 

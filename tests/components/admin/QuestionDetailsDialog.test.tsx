@@ -11,6 +11,8 @@ const question: QuestionDetail = {
   objectifCMC: "OBJ",
   domain: "Cardiologie",
   createdAt: 0,
+  updatedAt: 0,
+  keyConfirmation: null,
   explanation: "Premier paragraphe [1].\n\nSecond paragraphe.",
   references: ["1.\nMotor Delays.\n\n2.\nAutre source."],
   images: [],

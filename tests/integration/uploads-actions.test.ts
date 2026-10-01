@@ -241,16 +241,15 @@ describe("createQuestionImageUpload", () => {
     expect(vi.mocked(createPresignedUpload)).not.toHaveBeenCalled()
   })
 
-  it("rejette un questionId bien formé mais inexistant", async () => {
+  it("accepte un identifiant réservé, pas encore créé (images avant la création)", async () => {
+    const reserved = createId()
     const res = await createQuestionImageUpload({
-      questionId: createId(),
+      questionId: reserved,
       imageIndex: 0,
       contentType: "image/jpeg",
       size: 1000,
     })
-    expect(res.success).toBe(false)
-    if (res.success)
-      throw new Error("presign accorde a une question inexistante")
-    expect(res.error).toContain("introuvable")
+    if (!res.success) throw new Error(res.error)
+    expect(res.storagePath).toMatch(new RegExp(`^tmp/questions/${reserved}/`))
   })
 })

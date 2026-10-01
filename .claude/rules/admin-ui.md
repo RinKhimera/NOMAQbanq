@@ -17,19 +17,30 @@ paths:
   L'historique d'un compte vit dans son dossier, jamais dans la fiche.
 - **Etat derive de l'URL** : la page serveur lit les paramètres, l'écran client
   les réécrit dans une transition (rechargement en place, contenu conservé).
-- Le panneau d'examen (`/admin/examens?exam=`) reste un Sheet jusqu'à #245.
+- Le panneau d'examen (`/admin/examens?exam=`) reste un Sheet jusqu'à #264.
 
-## Détail d'une question : modale, pas panneau
+## Questions : liste et page de détail
 
-Le détail d'une question s'ouvre dans `QuestionDetailModal`
-(`components/admin/question-browser/`), partagée par le navigateur de questions
-(`QuestionManageModal` : Modifier / Supprimer) et la constitution d'examen
-(`QuestionSelectModal` : Ajouter / Retirer, sous quota). Plein écran sous
-640 px, pied fixe : les actions restent visibles quelle que soit la longueur
-de la question. Un nouvel usage fournit son pied, il ne recopie pas le contenu.
+- **Liste** `/admin/questions` : onglets à compteur (Toutes, Clé à vérifier,
+  Sans références, un seul passage SQL : `getQuestionTabCounts`), recherche,
+  domaine, `FilterPanelButton` (images, dernière utilisation, examen précis,
+  objectif dépendant du domaine), 20 lignes par offset. Tout l'état vit dans
+  l'URL (`question-params.ts` :
+  `?q=&onglet=&domaine=&objectif=&images=&depuis=&examen=&tri=&ordre=&page=`).
+- **Détail** `/admin/questions/[id]` : page seule, fil d'Ariane. Elle porte
+  les paramètres de la liste d'où l'on vient : précédent / suivant
+  (`getQuestionNeighbors`, mêmes filtres et même ordre que la liste, à travers
+  les pages), « Retour à la liste », `/modifier` et son retour. Une question
+  ouverte par lien direct est « Hors de la liste filtrée ».
+- **Contenu du détail** : `QuestionDetailContent`
+  (`components/admin/question-detail/`), rendu par la page et, sans actions,
+  par un aperçu en Dialog (`examLinks={false}`). Un nouvel usage le réutilise,
+  il ne recopie pas la répartition ni les alertes.
+- **Constitution d'examen** : jusqu'au compositeur de #264, elle garde
+  `QuestionDetailModal` + `QuestionSelectModal` (`components/admin/question-browser/`).
 
 ## Chiffres clés
 
 `StatBand` (catalogue de `design-system.md`), pas de cartes à icône et
-tendance. Les rangées `AnimatedStatCard` des examens et des questions partent
-avec #245.
+tendance. La liste des questions n'a pas de bande : ses compteurs sont ceux des
+onglets. La rangée `AnimatedStatCard` des examens part avec #264.

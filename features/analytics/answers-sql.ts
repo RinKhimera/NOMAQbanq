@@ -1,6 +1,7 @@
 import { type SQL, inArray, sql } from "drizzle-orm"
 import "server-only"
 import { db } from "@/db"
+import { QUESTION_SUCCESS_MIN_ANSWERS } from "./question-success-threshold"
 
 /*
  * Constructeurs SQL des statistiques de réponses : ils n'exécutent rien et ne
@@ -56,8 +57,7 @@ export const datedAnswersSql = ({
 // Taux de réussite d'une question (admin)
 // ============================================
 
-/** En dessous de ce nombre de réponses, un taux de réussite n'est pas significatif. */
-export const QUESTION_SUCCESS_MIN_ANSWERS = 10
+export { QUESTION_SUCCESS_MIN_ANSWERS }
 
 const studentFirstAnswersSql = (questionIds?: string[]) => sql`
   select distinct on (x.user_id, x.question_id)
