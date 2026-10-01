@@ -7,6 +7,7 @@ import {
   gte,
   inArray,
   isNotNull,
+  isNull,
   lte,
   or,
   sql,
@@ -257,6 +258,24 @@ export const getExamWithQuestions = async (
     .limit(1)
   if (!exam) return null
 
+  const hasParticipation = async () => {
+    const [part] = await db
+      .select({ id: examParticipations.id })
+      .from(examParticipations)
+      .where(
+        and(
+          eq(examParticipations.examId, examId),
+          eq(examParticipations.userId, session.user.id),
+        ),
+      )
+      .limit(1)
+    return Boolean(part)
+  }
+
+  // Examen désactivé : introuvable pour un non-admin, sauf participation
+  // existante (épreuve en cours à finir, résultats à relire après clôture).
+  if (!isAdmin && !exam.isActive && !(await hasParticipation())) return null
+
   // Garde d'audience (anti-fuite du TEXTE des questions d'un examen restreint
   // confidentiel) : un non-admin n'accède à un examen `restricted` que s'il est
   // membre de l'audience OU possède déjà une participation (n'importe quel
@@ -274,19 +293,7 @@ export const getExamWithQuestions = async (
         ),
       )
       .limit(1)
-    if (!allowed) {
-      const [part] = await db
-        .select({ id: examParticipations.id })
-        .from(examParticipations)
-        .where(
-          and(
-            eq(examParticipations.examId, examId),
-            eq(examParticipations.userId, session.user.id),
-          ),
-        )
-        .limit(1)
-      if (!part) return null
-    }
+    if (!allowed && !(await hasParticipation())) return null
   }
 
   // Examen `subscribers` : l'abonnement actif EST l'autorisation (symétrique
@@ -863,6 +870,11 @@ export type LeaderboardEntry = {
     name: string
     username: string | null
     image: string | null
+    /**
+     * Compte hors population du classement étudiant, que seul le classement
+     * admin montre. Un admin supprimé est `deleted`.
+     */
+    flag: "admin" | "deleted" | null
   } | null
   /** `null` = score retenu pour le lecteur (sa propre ligne seulement). */
   score: number | null
@@ -870,10 +882,21 @@ export type LeaderboardEntry = {
 }
 
 /**
- * Classement (participations complétées, score décroissant). Admin : toujours.
- * Non-admin : uniquement après `endDate` ET (a participé OU a un accès examen
- * actif). Sinon `[]`. Remplace `examStats.getExamLeaderboard`.
+ * Classement (participations complétées, score décroissant). Admin : toutes les
+ * participations, comptes admin et supprimés signalés par `flag`. Non-admin :
+ * uniquement après `endDate` ET (a participé OU a un accès examen actif), sur
+ * la population du percentile d'examen (comptes étudiants non supprimés).
+ * Sinon `[]`.
  */
+const leaderboardFlag = (u: {
+  role: string
+  deletedAt: Date | null
+}): NonNullable<LeaderboardEntry["user"]>["flag"] => {
+  if (u.deletedAt) return "deleted"
+  if (u.role === "admin") return "admin"
+  return null
+}
+
 export const getExamLeaderboard = async (
   examId: string,
 ): Promise<LeaderboardEntry[]> => {
@@ -940,6 +963,8 @@ export const getExamLeaderboard = async (
       name: user.name,
       username: user.username,
       image: user.image,
+      role: user.role,
+      deletedAt: user.deletedAt,
     })
     .from(examParticipations)
     .innerJoin(user, eq(user.id, examParticipations.userId))
@@ -947,6 +972,9 @@ export const getExamLeaderboard = async (
       and(
         eq(examParticipations.examId, examId),
         inArray(examParticipations.status, ["completed", "auto_submitted"]),
+        isAdmin
+          ? undefined
+          : and(eq(user.role, "user"), isNull(user.deletedAt)),
       ),
     )
     .orderBy(
@@ -963,6 +991,7 @@ export const getExamLeaderboard = async (
       // Seul le classement admin affiche et recherche le @username.
       username: isAdmin ? r.username : null,
       image: r.image ?? null,
+      flag: leaderboardFlag(r),
     },
     score: r.score,
     completedAt: r.completedAt?.getTime() ?? null,

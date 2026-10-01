@@ -497,6 +497,7 @@ export const startExam = async ({
           startDate: exams.startDate,
           endDate: exams.endDate,
           audienceType: exams.audienceType,
+          isActive: exams.isActive,
         })
         .from(exams)
         .where(eq(exams.id, examId))
@@ -566,6 +567,10 @@ export const startExam = async ({
         }
       }
 
+      // Après la reprise ci-dessus : désactiver un examen ferme les nouvelles
+      // participations sans couper une épreuve en cours.
+      if (!exam.isActive && !isAdmin) throw new Error("EXAM_INACTIVE")
+
       const participationId = createId()
       await tx.insert(examParticipations).values({
         id: participationId,
@@ -610,6 +615,9 @@ export const startExam = async ({
       }
       if (error.message === "ACCESS_EXPIRED") {
         return fail("Votre accès aux examens a expiré.")
+      }
+      if (error.message === "EXAM_INACTIVE") {
+        return fail("Cet examen n'est plus disponible.")
       }
     }
     captureServerError("[startExam]", error, { userId })

@@ -85,7 +85,10 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   d'ordre en commentaire à côté ; ni la route ni son test ne changent.
 - **Passation d'examen — invariante d'accès** : le contenu des questions n'est
   livré/écrit que pour une participation `in_progress` (créée par `startExam`,
-  seul à vérifier audience + fenêtre + accès à la création). La page evaluation
+  seul à vérifier audience + fenêtre + accès + examen actif à la création).
+  Désactiver un examen ferme les NOUVELLES participations et le rend
+  introuvable à qui n'y a pas participé, sans couper une épreuve en cours :
+  `requireAttempt` ne lit pas `isActive`, volontairement. La page evaluation
   ne met les questions dans le payload RSC qu'en `in_progress` (le client
   `router.refresh()` après `startExam`) ; `getExamWithQuestions` re-garde
   `hasAccess("exam")` pour `subscribers` (défense en profondeur — un `null` sur

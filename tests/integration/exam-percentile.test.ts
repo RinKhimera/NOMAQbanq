@@ -13,6 +13,7 @@ import {
   getExamPercentileForUser,
   getMyExamPercentiles,
 } from "@/features/analytics/dal"
+import { getExamLeaderboard } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
 
@@ -313,5 +314,50 @@ describe("percentile d'examen côté admin", () => {
     await expect(
       getExamPercentileForUser(examId, userIds[1]!),
     ).rejects.toThrow()
+  })
+})
+
+describe("classement d'examen : même population que le percentile", () => {
+  const population: Participant[] = [
+    { score: 70 },
+    { score: 40 },
+    { score: 50 },
+    { score: 90 },
+    { score: 60 },
+    { score: 100, role: "admin" },
+    { score: 95, deleted: true },
+  ]
+
+  it("côté étudiant, écarte les comptes admin et supprimés, et le rang recoupe le percentile", async () => {
+    const { examId, userIds } = await seedExam(population)
+    asUser(userIds[0])
+
+    const leaderboard = await getExamLeaderboard(examId)
+    const percentile = (await getMyExamPercentiles())[examId]
+
+    expect(leaderboard.map((e) => e.score)).toEqual([90, 70, 60, 50, 40])
+    const rank = leaderboard.findIndex((e) => e.user?.id === userIds[0])
+    const below = leaderboard.length - 1 - rank
+    expect(percentile).toBe(
+      Math.floor((100 * below) / (leaderboard.length - 1)),
+    )
+  })
+
+  it("côté admin, garde toutes les participations et identifie admins et supprimés", async () => {
+    const { examId, userIds } = await seedExam(population)
+    asUser(createId(), "admin")
+
+    const leaderboard = await getExamLeaderboard(examId)
+
+    expect(leaderboard.map((e) => [e.score, e.user?.flag])).toEqual([
+      [100, "admin"],
+      [95, "deleted"],
+      [90, null],
+      [70, null],
+      [60, null],
+      [50, null],
+      [40, null],
+    ])
+    expect(leaderboard[0]?.user?.id).toBe(userIds[5])
   })
 })

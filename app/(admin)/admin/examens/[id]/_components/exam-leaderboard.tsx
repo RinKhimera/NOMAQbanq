@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -50,6 +51,8 @@ const matchesSearch = (entry: LeaderboardEntry, query: string) =>
   [entry.user?.name, entry.user?.username].some(
     (field) => field && foldForSearch(field).includes(query),
   )
+
+const FLAG_LABELS = { admin: "Admin", deleted: "Supprimé" } as const
 
 interface ParticipantToDelete {
   participationId: string
@@ -166,9 +169,16 @@ export function ExamLeaderboard({
                     className="size-9 shrink-0 @sm:size-10"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium @sm:text-base">
-                      {entry.user?.name}
-                    </p>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p className="truncate text-sm font-medium @sm:text-base">
+                        {entry.user?.name}
+                      </p>
+                      {entry.user?.flag && (
+                        <Badge variant="secondary">
+                          {FLAG_LABELS[entry.user.flag]}
+                        </Badge>
+                      )}
+                    </div>
                     {entry.user?.username && (
                       <p className="text-muted-foreground truncate text-xs @sm:text-sm">
                         @{entry.user.username}

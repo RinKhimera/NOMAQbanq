@@ -24,9 +24,10 @@ const entry = (
   name: string,
   username: string | null,
   score: number | null,
+  flag: "admin" | "deleted" | null = null,
 ): LeaderboardEntry => ({
   participationId,
-  user: { id: `user-${participationId}`, name, username, image: null },
+  user: { id: `user-${participationId}`, name, username, image: null, flag },
   score,
   completedAt: 1700000000000,
 })
@@ -47,6 +48,27 @@ const visibleNames = () =>
   screen
     .getAllByRole("listitem")
     .map((item) => within(item).getAllByRole("paragraph")[0].textContent)
+
+describe("ExamLeaderboard — comptes hors classement étudiant", () => {
+  it("signale un compte admin et un compte supprimé", () => {
+    render(
+      <ExamLeaderboard
+        examId="exam-1"
+        leaderboard={[
+          entry("p1", "Équipe NOMAQbanq", null, 98, "admin"),
+          entry("p2", "Utilisateur supprimé", null, 90, "deleted"),
+          entry("p3", "Paul Durand", "pdurand", 85),
+        ]}
+        isAdmin
+      />,
+    )
+
+    const [admin, deleted, student] = screen.getAllByRole("listitem")
+    expect(within(admin!).getByText("Admin")).toBeInTheDocument()
+    expect(within(deleted!).getByText("Supprimé")).toBeInTheDocument()
+    expect(within(student!).queryByText(/^(Admin|Supprimé)$/)).toBeNull()
+  })
+})
 
 describe("ExamLeaderboard — recherche", () => {
   it("filtre les participants par nom", async () => {
