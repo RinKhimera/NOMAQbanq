@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    # `labeled`/`unlabeled` : poser ou retirer `skip-integration` relance la CI.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 # Un nouveau push sur une branche annule le run CI obsolète encore en cours.
 concurrency:
@@ -58,6 +60,10 @@ jobs:
   integration:
     name: Integration Tests
     runs-on: ubuntu-latest
+    # Label `skip-integration` sur la PR : job sauté. Un job sauté par `if`
+    # rend « Success », donc le check requis du ruleset reste satisfait.
+    # Toujours exécuté sur un push vers main.
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'skip-integration') }}
 
     steps:
       - name: Checkout repository

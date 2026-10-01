@@ -82,6 +82,35 @@ describe("ExamPhase — partition", () => {
       completed: [past],
     })
   })
+
+  it("garde un examen désactivé auquel l'étudiant a participé, classé par ses dates", () => {
+    const running = {
+      id: "r",
+      isActive: false,
+      startDate: NOW - 1,
+      endDate: NOW + 1,
+      userParticipation: { score: null },
+    }
+    const done = {
+      id: "d",
+      isActive: false,
+      startDate: NOW - 2,
+      endDate: NOW - 1,
+      userParticipation: { score: 70 },
+    }
+    const untouched = {
+      id: "x",
+      isActive: false,
+      startDate: NOW - 1,
+      endDate: NOW + 1,
+      userParticipation: null,
+    }
+    expect(partition([running, done, untouched], NOW)).toEqual({
+      active: [running],
+      upcoming: [],
+      completed: [done],
+    })
+  })
 })
 
 describe("ExamPhase — canReadResults", () => {
