@@ -87,12 +87,14 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   livré/écrit que pour une participation `in_progress` (créée par `startExam`,
   seul à vérifier audience + fenêtre + accès + examen actif à la création).
   Désactiver un examen ferme les NOUVELLES participations et le rend
-  introuvable à qui n'y a pas participé, sans couper une épreuve en cours :
-  `requireAttempt` ne lit pas `isActive`, volontairement. La page evaluation
+  introuvable à qui n'y a pas participé (page, liste, classement), sans couper
+  une épreuve en cours : `requireAttempt` ne lit pas `isActive`,
+  volontairement, et la liste garde l'examen pour son participant. La page evaluation
   ne met les questions dans le payload RSC qu'en `in_progress` (le client
   `router.refresh()` après `startExam`) ; `getExamWithQuestions` re-garde
   `hasAccess("exam")` pour `subscribers` (défense en profondeur — un `null` sur
-  la page détail rend la carte paywall, PAS un 404). Budget-temps anti-triche
+  la page détail rend la carte paywall à un non-abonné, PAS un 404 ; un abonné
+  reçoit le 404, il n'a rien à acheter). Budget-temps anti-triche
   gardé À L'ÉCRITURE (verbe `answer` de `requireAttempt`, au-delà de
   `startedAt + completionTime + grâce`), pas seulement à la finalisation.
   `updateExam` et `startExam` prennent un `FOR UPDATE` commun sur la ligne

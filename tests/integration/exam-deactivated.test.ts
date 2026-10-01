@@ -15,7 +15,9 @@ import {
   startExam,
 } from "@/features/exams/actions"
 import {
+  getExamLeaderboard,
   getExamWithQuestions,
+  getExamsWithParticipation,
   getParticipantExamResults,
 } from "@/features/exams/dal"
 import { getCurrentSession } from "@/lib/dal"
@@ -188,5 +190,37 @@ describe("examen désactivé", () => {
     expect(await getExamWithQuestions(examId)).not.toBeNull()
     const results = await getParticipantExamResults(examId, RUNNER_ID)
     expect(results && "participant" in results).toBe(true)
+  })
+
+  it("la liste ne livre un examen désactivé qu'à qui y a participé", async () => {
+    const examId = await seedExam()
+    asUser(RUNNER_ID)
+    expect((await startExam({ examId })).success).toBe(true)
+    await deactivate(examId)
+
+    const ids = async () => (await getExamsWithParticipation()).map((e) => e.id)
+    expect(await ids()).toContain(examId)
+    asUser(NEWCOMER_ID)
+    expect(await ids()).not.toContain(examId)
+    asUser(ADMIN_ID, "admin")
+    expect(await ids()).toContain(examId)
+  })
+
+  it("le classement d'un examen désactivé est vide pour un non-participant", async () => {
+    const examId = await seedExam({ closed: true })
+    await db.insert(examParticipations).values({
+      examId,
+      userId: RUNNER_ID,
+      status: "completed",
+      score: 50,
+      startedAt: new Date(Date.now() - 5 * DAY),
+      completedAt: new Date(Date.now() - 5 * DAY + 1000),
+    })
+    await deactivate(examId)
+
+    asUser(NEWCOMER_ID)
+    expect(await getExamLeaderboard(examId)).toEqual([])
+    asUser(RUNNER_ID)
+    expect(await getExamLeaderboard(examId)).toHaveLength(1)
   })
 })

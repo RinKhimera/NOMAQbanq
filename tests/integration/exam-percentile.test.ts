@@ -360,4 +360,24 @@ describe("classement d'examen : même population que le percentile", () => {
     ])
     expect(leaderboard[0]?.user?.id).toBe(userIds[5])
   })
+
+  it("départage les ex æquo de façon stable, par participation", async () => {
+    const { examId, userIds } = await seedExam([
+      { score: 60 },
+      { score: 60 },
+      { score: 60 },
+      { score: 60 },
+      { score: 60 },
+    ])
+    await db
+      .update(examParticipations)
+      .set({ completedAt: new Date(Date.now() - 5 * DAY) })
+      .where(eq(examParticipations.examId, examId))
+    asUser(userIds[0])
+
+    const order = (await getExamLeaderboard(examId)).map(
+      (e) => e.participationId,
+    )
+    expect(order).toEqual([...order].sort())
+  })
 })

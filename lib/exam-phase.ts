@@ -32,14 +32,23 @@ export const isOpen = (exam: { endDate: number }, now: number): boolean =>
 
 export type ExamPartition<T> = { active: T[]; upcoming: T[]; completed: T[] }
 
-/** Classe les examens actifs par phase ; les désactivés n'apparaissent nulle part. */
-export const partition = <T extends ExamWindow>(
+/**
+ * Classe les examens par phase. Un désactivé n'apparaît que pour qui y a
+ * participé, classé par ses dates : il doit pouvoir reprendre son épreuve ou
+ * relire ses résultats.
+ */
+export const partition = <
+  T extends ExamWindow & { userParticipation?: unknown },
+>(
   exams: readonly T[],
   now: number,
 ): ExamPartition<T> => {
   const out: ExamPartition<T> = { active: [], upcoming: [], completed: [] }
   for (const exam of exams) {
-    const phase = phaseOf(exam, now)
+    const phase = phaseOf(
+      exam.userParticipation ? { ...exam, isActive: true } : exam,
+      now,
+    )
     if (phase !== "inactive") out[phase].push(exam)
   }
   return out

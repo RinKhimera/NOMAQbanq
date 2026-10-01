@@ -134,6 +134,27 @@ export const getExamsWithParticipation = cache(
             : sql`false`,
         )
 
+    // Un examen désactivé n'est livré qu'à qui y a participé (reprise d'une
+    // épreuve en cours, relecture des résultats) ; `partition` le classe.
+    const activeOrTakenWhere = isAdmin
+      ? undefined
+      : or(
+          eq(exams.isActive, true),
+          session?.user
+            ? exists(
+                db
+                  .select({ x: sql`1` })
+                  .from(examParticipations)
+                  .where(
+                    and(
+                      eq(examParticipations.examId, exams.id),
+                      eq(examParticipations.userId, session.user.id),
+                    ),
+                  ),
+              )
+            : sql`false`,
+        )
+
     const rows = await db
       .select({
         id: exams.id,
@@ -148,7 +169,7 @@ export const getExamsWithParticipation = cache(
         audienceType: exams.audienceType,
       })
       .from(exams)
-      .where(audienceWhere)
+      .where(and(audienceWhere, activeOrTakenWhere))
       .orderBy(desc(exams.startDate))
       .limit(100)
     if (rows.length === 0) return []
@@ -881,13 +902,6 @@ export type LeaderboardEntry = {
   completedAt: number | null
 }
 
-/**
- * Classement (participations complétées, score décroissant). Admin : toutes les
- * participations, comptes admin et supprimés signalés par `flag`. Non-admin :
- * uniquement après `endDate` ET (a participé OU a un accès examen actif), sur
- * la population du percentile d'examen (comptes étudiants non supprimés).
- * Sinon `[]`.
- */
 const leaderboardFlag = (u: {
   role: string
   deletedAt: Date | null
@@ -897,13 +911,24 @@ const leaderboardFlag = (u: {
   return null
 }
 
+/**
+ * Classement (participations complétées, score décroissant). Admin : toutes les
+ * participations, comptes admin et supprimés signalés par `flag`. Non-admin :
+ * uniquement après `endDate` ET (a participé OU a un accès examen actif), sur
+ * la population du percentile d'examen (comptes étudiants non supprimés) ;
+ * un examen désactivé exige la participation. Sinon `[]`.
+ */
 export const getExamLeaderboard = async (
   examId: string,
 ): Promise<LeaderboardEntry[]> => {
   const session = await getCurrentSession()
 
   const [exam] = await db
-    .select({ endDate: exams.endDate, audienceType: exams.audienceType })
+    .select({
+      endDate: exams.endDate,
+      audienceType: exams.audienceType,
+      isActive: exams.isActive,
+    })
     .from(exams)
     .where(eq(exams.id, examId))
     .limit(1)
@@ -921,6 +946,18 @@ export const getExamLeaderboard = async (
     )
       return []
 
+    const [part] = await db
+      .select({ id: examParticipations.id })
+      .from(examParticipations)
+      .where(
+        and(
+          eq(examParticipations.examId, examId),
+          eq(examParticipations.userId, session.user.id),
+        ),
+      )
+      .limit(1)
+    if (!exam.isActive && !part) return []
+
     if (exam.audienceType === "restricted") {
       // Examen restreint : seul un membre de l'audience voit le classement
       // (confidentiel) — l'abonnement ou une participation ne suffisent pas.
@@ -935,18 +972,8 @@ export const getExamLeaderboard = async (
         )
         .limit(1)
       if (!member) return []
-    } else {
-      const [part] = await db
-        .select({ id: examParticipations.id })
-        .from(examParticipations)
-        .where(
-          and(
-            eq(examParticipations.examId, examId),
-            eq(examParticipations.userId, session.user.id),
-          ),
-        )
-        .limit(1)
-      if (!part && !(await hasAccess("exam", session.user.id))) return []
+    } else if (!part && !(await hasAccess("exam", session.user.id))) {
+      return []
     }
   }
 
@@ -980,6 +1007,9 @@ export const getExamLeaderboard = async (
     .orderBy(
       sql`${shownScore} desc nulls last`,
       asc(examParticipations.completedAt),
+      // Un lot auto-soumis partage le même `completedAt` : sans clé unique,
+      // l'ordre des ex æquo changerait d'un rendu à l'autre.
+      asc(examParticipations.id),
     )
     .limit(500)
 
