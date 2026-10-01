@@ -109,6 +109,22 @@ const noReferencesSubquery = sql`not exists (
 
 type BankStats = ReturnType<typeof questionSuccessStats>
 
+/** Dernière confirmation de clé d'une ligne `questions`, ou `null`. */
+const toKeyConfirmation = (row: {
+  keyConfirmedAt: Date | null
+  keyConfirmedAnswerCount: number | null
+  keyConfirmedByName?: string | null
+  keyConfirmedNote?: string | null
+}): KeyConfirmation | null =>
+  row.keyConfirmedAt && row.keyConfirmedAnswerCount !== null
+    ? {
+        at: row.keyConfirmedAt.getTime(),
+        byName: row.keyConfirmedByName ?? null,
+        answerCount: row.keyConfirmedAnswerCount,
+        note: row.keyConfirmedNote ?? null,
+      }
+    : null
+
 /**
  * Clé à vérifier, forme SQL de `keyReview` (`./key-review`) : clé suspecte
  * sans confirmation en vigueur. Les statistiques sont jointes en LEFT JOIN :
@@ -218,9 +234,11 @@ const selectionWhere = ({
       ? or(
           ilike(questions.question, pattern),
           ilike(questions.objectifCmc, pattern),
-          // Le texte JSON du tableau : un guillemet ou une barre oblique
-          // inverse y sont échappés, ce que l'admin ne tape pas.
-          sql`${questions.options}::text ilike ${pattern}`,
+          sql`exists (
+            select 1
+              from jsonb_array_elements_text("questions"."options") opt
+             where opt ilike ${pattern}
+          )`,
           eq(questions.id, searchTerm),
         )
       : undefined,
@@ -395,15 +413,7 @@ const listPage = async (
         keyToVerify: keyReview({
           answerCount,
           keySuspect: s?.keySuspect ?? false,
-          confirmation:
-            d.keyConfirmedAt && d.keyConfirmedAnswerCount !== null
-              ? {
-                  at: d.keyConfirmedAt.getTime(),
-                  byName: null,
-                  answerCount: d.keyConfirmedAnswerCount,
-                  note: null,
-                }
-              : null,
+          confirmation: toKeyConfirmation(d),
         }).toVerify,
       },
     ]
@@ -694,15 +704,7 @@ export const getQuestionById = async (
     references: q.references ?? null,
     images,
     explanationImages,
-    keyConfirmation:
-      q.keyConfirmedAt && q.keyConfirmedAnswerCount !== null
-        ? {
-            at: q.keyConfirmedAt.getTime(),
-            byName: q.keyConfirmedByName,
-            answerCount: q.keyConfirmedAnswerCount,
-            note: q.keyConfirmedNote,
-          }
-        : null,
+    keyConfirmation: toKeyConfirmation(q),
   }
 }
 

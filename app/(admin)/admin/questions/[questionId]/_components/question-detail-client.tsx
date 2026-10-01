@@ -15,6 +15,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import {
   answersLabel,
+  percent,
   questionTitle,
 } from "@/components/admin/question-detail/labels"
 import {
@@ -57,9 +58,6 @@ import {
   questionHref,
   questionListHref,
 } from "../../_components/question-params"
-
-const percent = (count: number, total: number) =>
-  total === 0 ? 0 : Math.round((100 * count) / total)
 
 const ConfirmKeyDialog = ({
   file,

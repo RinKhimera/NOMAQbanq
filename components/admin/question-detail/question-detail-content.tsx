@@ -29,6 +29,7 @@ import {
   QUESTION_SUCCESS_MIN_ANSWERS,
   answersLabel,
   isSignificant,
+  percent,
 } from "./labels"
 
 export type QuestionFile = {
@@ -50,9 +51,6 @@ export const topWrongOption = (breakdown: QuestionAnswerBreakdown) => {
   })
   return top
 }
-
-const percent = (count: number, total: number) =>
-  total === 0 ? 0 : Math.round((100 * count) / total)
 
 const Section = ({
   title,

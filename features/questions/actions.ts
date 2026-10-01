@@ -13,7 +13,7 @@ import {
 } from "@/db/schema"
 import { requireRole } from "@/lib/auth-guards"
 import { copyInS3, createPresignedUpload } from "@/lib/aws"
-import { getPgErrorCode } from "@/lib/db-errors"
+import { getPgErrorCode, isPgUniqueViolation } from "@/lib/db-errors"
 import { createId } from "@/lib/ids"
 import { captureServerError } from "@/lib/observability"
 import { consumeQuizRateLimit, getClientIpKey } from "@/lib/quiz-rate-limit"
@@ -253,7 +253,7 @@ export const createQuestion = async (
   } catch (error) {
     // Identifiant réservé déjà pris : une création précédente a abouti sans
     // que sa réponse arrive au navigateur, qui reprend en mise à jour.
-    if (getPgErrorCode(error) === "23505") {
+    if (isPgUniqueViolation(error)) {
       return {
         ...fail("Cette question est déjà enregistrée."),
         alreadyExists: true,

@@ -196,6 +196,11 @@ describe("liste des questions : filtres et compteurs", () => {
     expect(await listIds({ search: "pénicilline" })).toEqual([ids.newest])
   })
 
+  it("jumeau : une recherche ne chevauche pas deux choix", async () => {
+    expect(await listIds({ search: 'Amoxicilline", "' })).toEqual([])
+    expect(await listIds({ search: "line G" })).toEqual([ids.newest])
+  })
+
   it("recherche par identifiant exact, pas par fragment", async () => {
     expect(await listIds({ search: ids.mid })).toEqual([ids.mid])
     expect(await listIds({ search: ids.mid.slice(0, 8) })).toEqual([])

@@ -1,9 +1,5 @@
-import { FileQuestion } from "lucide-react"
 import type { Metadata } from "next"
-import Link from "next/link"
 import { questionTitle } from "@/components/admin/question-detail/labels"
-import { Button } from "@/components/ui/button"
-import { EmptyState } from "@/components/ui/empty-state"
 import { getQuestionAnswerBreakdown } from "@/features/analytics/dal"
 import {
   type QuestionImageView,
@@ -11,12 +7,12 @@ import {
   getQuestionById,
   getQuestionExams,
 } from "@/features/questions/dal"
-import { keyReview } from "@/features/questions/key-review"
 import { requireRole } from "@/lib/auth-guards"
 import { cdnUrl } from "@/lib/cdn"
 import { currentTimeMs } from "@/lib/clock"
-import { isOpen } from "@/lib/exam-phase"
 import { QuestionForm } from "../../_components/question-form"
+import { QuestionNotFound } from "../../_components/question-not-found"
+import { lockingExamOf, reviewOf } from "../../_components/question-page-data"
 import {
   parseQuestionList,
   questionListHref,
@@ -50,40 +46,11 @@ export default async function EditQuestionPage({
     getObjectivesByDomain(),
   ])
 
-  if (!question)
-    return (
-      <div className="flex flex-col gap-4 p-4 lg:p-6">
-        <nav aria-label="Fil d'Ariane" className="text-ink-3 text-sm">
-          <Link href={questionListHref(list)} className="hover:text-ink">
-            Questions
-          </Link>{" "}
-          › <span className="text-ink">Introuvable</span>
-        </nav>
-        <div className="bg-surface border-line rounded-lg border py-12">
-          <EmptyState
-            size="compact"
-            icons={[FileQuestion]}
-            title="Question introuvable"
-            description="Cette question n'existe pas ou a été supprimée."
-          >
-            <Button asChild variant="outline">
-              <Link href={questionListHref(list)}>Retour aux questions</Link>
-            </Button>
-          </EmptyState>
-        </div>
-      </div>
-    )
+  if (!question) return <QuestionNotFound listHref={questionListHref(list)} />
 
   const now = currentTimeMs()
-  const lockingExam =
-    exams
-      .filter((e) => isOpen(e, now))
-      .sort((a, b) => b.endDate - a.endDate)[0] ?? null
-  const review = keyReview({
-    answerCount: breakdown.answerCount,
-    keySuspect: breakdown.keySuspect,
-    confirmation: question.keyConfirmation,
-  })
+  const lockingExam = lockingExamOf(exams, now)
+  const review = reviewOf(question, breakdown)
 
   return (
     <div className="flex flex-col gap-4 p-4 lg:p-6">

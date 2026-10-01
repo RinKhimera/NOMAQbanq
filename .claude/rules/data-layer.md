@@ -168,6 +168,9 @@ colonne)` dans le WHERE des canaux de
 - **Dernière utilisation** : `notUsedInLastExams(n, colonne)`
   (`features/questions/last-use.ts`), prédicat corrélé (examens par date
   d'ouverture, désactivés compris), à reprendre par le compositeur d'examen.
+  Un examen en préparation n'en compte pas (`CONTEXT.md`) : le filtre
+  `finalized_at IS NOT NULL` s'y ajoute avec la colonne (#259), comme sur la
+  garde des choix figés.
 - **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
   sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
   renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou

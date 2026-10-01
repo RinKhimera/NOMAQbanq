@@ -120,7 +120,10 @@ vi.mock("@/lib/aws", () => ({
   copyInS3: vi.fn(async () => undefined),
   createPresignedUpload: vi.fn(async () => ({ url: "", fields: {} })),
 }))
-vi.mock("@/lib/db-errors", () => ({ getPgErrorCode: mocks.getPgErrorCode }))
+vi.mock("@/lib/db-errors", () => ({
+  getPgErrorCode: mocks.getPgErrorCode,
+  isPgUniqueViolation: () => mocks.getPgErrorCode() === "23505",
+}))
 vi.mock("@/lib/observability", () => ({
   captureServerError: mocks.captureServerError,
 }))

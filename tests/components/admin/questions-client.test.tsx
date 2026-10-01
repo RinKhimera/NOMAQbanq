@@ -147,6 +147,24 @@ describe("QuestionsClient", () => {
     expect(replace).toHaveBeenCalledWith("/admin/questions", { scroll: false })
   })
 
+  it("un q d'URL venu d'ailleurs (retour arrière) réaligne le champ de recherche", () => {
+    const { rerender } = renderList({ ...DEFAULT_QUESTION_LIST, q: "toux" })
+    const field = screen.getByPlaceholderText(
+      "Énoncé, choix de réponse, objectif ou identifiant",
+    )
+    expect(field).toHaveValue("toux")
+    rerender(
+      <QuestionsClient
+        state={DEFAULT_QUESTION_LIST}
+        list={list()}
+        objectivesByDomain={{}}
+        exams={[]}
+        initialNow={NOW}
+      />,
+    )
+    expect(field).toHaveValue("")
+  })
+
   it("aucun résultat : message et recours", () => {
     renderList(
       { ...DEFAULT_QUESTION_LIST, q: "brucellose" },

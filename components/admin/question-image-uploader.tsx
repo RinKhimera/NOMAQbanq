@@ -33,6 +33,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { createQuestionImageUpload } from "@/features/questions/actions"
 import { cdnUrl } from "@/lib/cdn"
 import { callAction } from "@/lib/safe-action"
+import { TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 
 export type QuestionImage = {
@@ -126,7 +127,10 @@ const SortableImage = ({
             {...listeners}
             aria-label={`Déplacer l'image ${index + 1} (flèches gauche et droite)`}
             title="Glisser pour réordonner"
-            className="focus-ring bg-surface text-ink-2 absolute top-1 left-1 flex size-7 cursor-grab items-center justify-center rounded-md active:cursor-grabbing max-md:after:absolute max-md:after:-inset-2 max-md:after:content-['']"
+            className={cn(
+              TOUCH_TARGET,
+              "focus-ring bg-surface text-ink-2 absolute top-1 left-1 flex size-7 cursor-grab items-center justify-center rounded-md active:cursor-grabbing",
+            )}
           >
             <GripVertical aria-hidden className="size-3.5" />
           </button>
@@ -134,7 +138,10 @@ const SortableImage = ({
             type="button"
             onClick={onRemove}
             aria-label={`Retirer l'image ${index + 1}`}
-            className="focus-ring bg-surface text-ink-2 hover:text-danger-ink absolute top-1 right-1 flex size-7 cursor-pointer items-center justify-center rounded-md max-md:after:absolute max-md:after:-inset-2 max-md:after:content-['']"
+            className={cn(
+              TOUCH_TARGET,
+              "focus-ring bg-surface text-ink-2 hover:text-danger-ink absolute top-1 right-1 flex size-7 cursor-pointer items-center justify-center rounded-md",
+            )}
           >
             <X aria-hidden className="size-3.5" />
           </button>

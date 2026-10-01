@@ -18,3 +18,7 @@ export { QUESTION_SUCCESS_MIN_ANSWERS }
 /** « Question du 12 sept. 2026 » : une question n'a pas de titre. */
 export const questionTitle = (createdAt: number) =>
   `Question du ${formatMediumDate(createdAt)}`
+
+/** Part arrondie en pourcentage ; 0 sans réponse. */
+export const percent = (count: number, total: number) =>
+  total === 0 ? 0 : Math.round((100 * count) / total)

@@ -59,6 +59,7 @@ import { EXAM_STATUS_CONFIG } from "@/lib/exam-status"
 import { formatMediumDate } from "@/lib/format"
 import { scoreTone } from "@/lib/score"
 import { TONE_COLOR } from "@/lib/tone"
+import { TOUCH_TARGET } from "@/lib/touch-target"
 import { cn } from "@/lib/utils"
 import { ExportQuestionsButton } from "./export-questions-button"
 import {
@@ -216,7 +217,10 @@ const NotUsedSinceField = ({
             aria-label="Moins"
             disabled={count <= 1}
             onClick={() => setN(count - 1)}
-            className="focus-ring text-ink-2 hover:bg-surface-2 relative flex size-8 cursor-pointer items-center justify-center rounded-l-md disabled:cursor-default disabled:opacity-40 max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']"
+            className={cn(
+              TOUCH_TARGET,
+              "focus-ring text-ink-2 hover:bg-surface-2 flex size-8 cursor-pointer items-center justify-center rounded-l-md disabled:cursor-default disabled:opacity-40",
+            )}
           >
             <Minus aria-hidden className="size-3" />
           </button>
@@ -235,7 +239,10 @@ const NotUsedSinceField = ({
             aria-label="Plus"
             disabled={count >= NOT_USED_SINCE_MAX}
             onClick={() => setN(count + 1)}
-            className="focus-ring text-ink-2 hover:bg-surface-2 relative flex size-8 cursor-pointer items-center justify-center rounded-r-md disabled:cursor-default disabled:opacity-40 max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']"
+            className={cn(
+              TOUCH_TARGET,
+              "focus-ring text-ink-2 hover:bg-surface-2 flex size-8 cursor-pointer items-center justify-center rounded-r-md disabled:cursor-default disabled:opacity-40",
+            )}
           >
             <Plus aria-hidden className="size-3" />
           </button>
@@ -268,6 +275,13 @@ export const QuestionsClient = ({
   const pathname = usePathname()
   const [isPending, startTransition] = useTransition()
   const [search, setSearch] = useState(state.q)
+  // Recherche envoyée par la frappe : un `q` d'URL qui en diffère vient
+  // d'ailleurs (retour arrière, lien) et réaligne le champ.
+  const [sentQ, setSentQ] = useState(state.q)
+  if (state.q !== sentQ) {
+    setSentQ(state.q)
+    setSearch(state.q)
+  }
 
   // Dernier état demandé : pendant un rechargement, `state` (les props) est
   // encore l'ancien, et un second changement effacerait le premier.
@@ -289,7 +303,9 @@ export const QuestionsClient = ({
     go(withChange(latest(), c))
 
   useDebouncedValue(search, 300, (value) => {
-    if (value.trim() !== latest().q) change({ q: value.trim() })
+    if (value.trim() === latest().q) return
+    setSentQ(value.trim())
+    change({ q: value.trim() })
   })
 
   const onSort = (field: QuestionSortBy) => {
