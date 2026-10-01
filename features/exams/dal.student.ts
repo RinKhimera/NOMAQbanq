@@ -244,6 +244,21 @@ export type ExamWithQuestions = {
   questions: QuizQuestion[]
 } | null
 
+/** L'utilisateur a une participation à l'examen, quel qu'en soit le statut. */
+const hasParticipation = async (examId: string, userId: string) => {
+  const [part] = await db
+    .select({ id: examParticipations.id })
+    .from(examParticipations)
+    .where(
+      and(
+        eq(examParticipations.examId, examId),
+        eq(examParticipations.userId, userId),
+      ),
+    )
+    .limit(1)
+  return Boolean(part)
+}
+
 /**
  * Examen + questions ordonnées (forme-pont). La clé de réponse n'est jointe que
  * sur `revealKey`, et seulement pour un admin (fiches de détail) : jamais sur la
@@ -279,23 +294,14 @@ export const getExamWithQuestions = async (
     .limit(1)
   if (!exam) return null
 
-  const hasParticipation = async () => {
-    const [part] = await db
-      .select({ id: examParticipations.id })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          eq(examParticipations.userId, session.user.id),
-        ),
-      )
-      .limit(1)
-    return Boolean(part)
-  }
-
   // Examen désactivé : introuvable pour un non-admin, sauf participation
   // existante (épreuve en cours à finir, résultats à relire après clôture).
-  if (!isAdmin && !exam.isActive && !(await hasParticipation())) return null
+  if (
+    !isAdmin &&
+    !exam.isActive &&
+    !(await hasParticipation(examId, session.user.id))
+  )
+    return null
 
   // Garde d'audience (anti-fuite du TEXTE des questions d'un examen restreint
   // confidentiel) : un non-admin n'accède à un examen `restricted` que s'il est
@@ -314,7 +320,8 @@ export const getExamWithQuestions = async (
         ),
       )
       .limit(1)
-    if (!allowed && !(await hasParticipation())) return null
+    if (!allowed && !(await hasParticipation(examId, session.user.id)))
+      return null
   }
 
   // Examen `subscribers` : l'abonnement actif EST l'autorisation (symétrique
@@ -884,6 +891,9 @@ export const getExamSubmissionSummary = cache(
 // Leaderboard
 // ============================================
 
+/** Compte hors population du classement étudiant. */
+export type LeaderboardFlag = "admin" | "deleted"
+
 export type LeaderboardEntry = {
   participationId: string
   user: {
@@ -895,7 +905,7 @@ export type LeaderboardEntry = {
      * Compte hors population du classement étudiant, que seul le classement
      * admin montre. Un admin supprimé est `deleted`.
      */
-    flag: "admin" | "deleted" | null
+    flag: LeaderboardFlag | null
   } | null
   /** `null` = score retenu pour le lecteur (sa propre ligne seulement). */
   score: number | null
@@ -905,7 +915,7 @@ export type LeaderboardEntry = {
 const leaderboardFlag = (u: {
   role: string
   deletedAt: Date | null
-}): NonNullable<LeaderboardEntry["user"]>["flag"] => {
+}): LeaderboardFlag | null => {
   if (u.deletedAt) return "deleted"
   if (u.role === "admin") return "admin"
   return null
@@ -946,17 +956,8 @@ export const getExamLeaderboard = async (
     )
       return []
 
-    const [part] = await db
-      .select({ id: examParticipations.id })
-      .from(examParticipations)
-      .where(
-        and(
-          eq(examParticipations.examId, examId),
-          eq(examParticipations.userId, session.user.id),
-        ),
-      )
-      .limit(1)
-    if (!exam.isActive && !part) return []
+    const participated = await hasParticipation(examId, session.user.id)
+    if (!exam.isActive && !participated) return []
 
     if (exam.audienceType === "restricted") {
       // Examen restreint : seul un membre de l'audience voit le classement
@@ -972,7 +973,7 @@ export const getExamLeaderboard = async (
         )
         .limit(1)
       if (!member) return []
-    } else if (!part && !(await hasAccess("exam", session.user.id))) {
+    } else if (!participated && !(await hasAccess("exam", session.user.id))) {
       return []
     }
   }

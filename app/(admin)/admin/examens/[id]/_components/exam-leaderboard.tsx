@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { deleteParticipation } from "@/features/exams/actions"
-import type { LeaderboardEntry } from "@/features/exams/dal"
+import type { LeaderboardEntry, LeaderboardFlag } from "@/features/exams/dal"
 import { formatCompactDateTime } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { formatScore } from "@/lib/score"
@@ -52,7 +52,10 @@ const matchesSearch = (entry: LeaderboardEntry, query: string) =>
     (field) => field && foldForSearch(field).includes(query),
   )
 
-const FLAG_LABELS = { admin: "Admin", deleted: "Supprimé" } as const
+const FLAG_LABELS: Record<LeaderboardFlag, string> = {
+  admin: "Admin",
+  deleted: "Supprimé",
+}
 
 interface ParticipantToDelete {
   participationId: string
