@@ -16,9 +16,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import type {
+  AdminExam,
   EligibleCandidate,
   ExamAudienceUser,
-  ExamWithQuestions,
   LeaderboardEntry,
 } from "@/features/exams/dal"
 import { useClock } from "@/hooks/use-clock"
@@ -28,7 +28,7 @@ import { ExamQuestionsModal } from "./exam-questions-modal"
 
 interface ExamDetailsClientProps {
   examId: string
-  exam: NonNullable<ExamWithQuestions>["exam"]
+  exam: AdminExam["exam"]
   questions: QuizQuestion[]
   leaderboard: LeaderboardEntry[]
   candidates: EligibleCandidate[]
@@ -71,7 +71,11 @@ export function ExamDetailsClient({
             </Button>
 
             <ReopenExamButton
-              exam={{ id: examId, endDate: exam.endDate }}
+              exam={{
+                id: examId,
+                endDate: exam.endDate,
+                finalizedAt: exam.finalizedAt,
+              }}
               now={now}
               className="max-[500px]:w-full max-[500px]:justify-start"
             />

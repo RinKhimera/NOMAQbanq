@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm"
 import {
   bigint,
   boolean,
+  check,
   index,
   integer,
   pgTable,
@@ -23,9 +24,17 @@ export const exams = pgTable(
       .$defaultFn(() => createId()),
     title: text("title").notNull(),
     description: text("description"),
-    startDate: timestamp("start_date", { withTimezone: true }).notNull(),
-    endDate: timestamp("end_date", { withTimezone: true }).notNull(),
-    completionTime: integer("completion_time").notNull(), // SECONDS
+    // Dates et durée facultatives tant que l'examen est en préparation
+    // (`finalized_at` nul) ; la contrainte `exams_finalized_complete` les exige
+    // dès la finalisation.
+    startDate: timestamp("start_date", { withTimezone: true }),
+    endDate: timestamp("end_date", { withTimezone: true }),
+    completionTime: integer("completion_time"), // SECONDS
+    // `null` = examen en préparation (`CONTEXT.md`). Le défaut garde finalisé un
+    // examen inséré sans état explicite ; seul l'enregistrement d'un examen en
+    // préparation écrit `null`.
+    finalizedAt: timestamp("finalized_at", { withTimezone: true }).defaultNow(),
+    targetQuestionCount: integer("target_question_count").notNull(),
     enablePause: boolean("enable_pause").default(false).notNull(),
     pauseDurationMinutes: integer("pause_duration_minutes"),
     isActive: boolean("is_active").default(true).notNull(),
@@ -49,6 +58,10 @@ export const exams = pgTable(
     index("exams_end_date_idx").on(t.endDate),
     index("exams_is_active_start_date_idx").on(t.isActive, t.startDate),
     index("exams_created_by_idx").on(t.createdBy),
+    check(
+      "exams_finalized_complete",
+      sql`${t.finalizedAt} is null or (${t.startDate} is not null and ${t.endDate} is not null and ${t.completionTime} is not null)`,
+    ),
   ],
 )
 

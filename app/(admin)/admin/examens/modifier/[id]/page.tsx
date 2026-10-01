@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation"
 import {
+  getAdminExam,
   getEligibleExamCandidates,
   getExamAudience,
-  getExamWithQuestions,
 } from "@/features/exams/dal"
 import { ExamForm } from "../../_components/exam-form"
 
@@ -12,7 +12,7 @@ export default async function AdminEditExamPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const data = await getExamWithQuestions(id)
+  const data = await getAdminExam(id)
   if (!data) notFound()
 
   const [candidates, initialAudience] = await Promise.all([

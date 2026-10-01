@@ -138,6 +138,7 @@ const mkExam = async (questionId: string, endDate: Date) => {
     endDate,
     completionTime: 3600,
     createdBy: adminId,
+    targetQuestionCount: 10,
   })
   await db.insert(examQuestions).values({ examId: id, questionId, position: 0 })
 }

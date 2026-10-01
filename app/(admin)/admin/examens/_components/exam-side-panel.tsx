@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/sheet"
 import type { AdminExamListItem } from "@/features/exams/dal"
 import { DEFAULT_PAUSE_MINUTES } from "@/features/exams/schemas"
-import { phaseOf } from "@/lib/exam-phase"
+import { adminPhaseOf } from "@/lib/exam-phase"
 import { EXAM_STATUS_CONFIG } from "@/lib/exam-status"
 import { formatMediumDate, formatTimeOnly } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -116,11 +116,12 @@ function PanelContent({
   now,
   onClose,
 }: PanelContentProps) {
-  const status = phaseOf(exam, now)
+  const status = adminPhaseOf(exam, now)
   const statusConfig = EXAM_STATUS_CONFIG[status]
   const StatusIcon = statusConfig.icon
 
-  const durationMinutes = Math.ceil(exam.completionTime / 60)
+  const durationMinutes =
+    exam.completionTime === null ? null : Math.ceil(exam.completionTime / 60)
 
   return (
     <motion.div
@@ -134,6 +135,8 @@ function PanelContent({
       <div
         className={cn(
           "relative overflow-hidden px-6 pt-5 pb-6",
+          status === "preparation" &&
+            "bg-linear-to-br from-yellow-500/10 via-amber-500/5 to-transparent",
           status === "active" &&
             "bg-linear-to-br from-emerald-500/10 via-teal-500/5 to-transparent",
           status === "upcoming" &&
@@ -159,6 +162,7 @@ function PanelContent({
                 className={cn(
                   "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl shadow-lg",
                   "bg-linear-to-br",
+                  status === "preparation" && "from-yellow-500 to-amber-600",
                   status === "active" && "from-emerald-500 to-teal-600",
                   status === "upcoming" && "from-blue-500 to-indigo-600",
                   status === "completed" && "from-gray-400 to-slate-500",
@@ -212,7 +216,7 @@ function PanelContent({
           <StatCard
             icon={<IconClock className="h-4 w-4" />}
             label="Durée"
-            value={`${durationMinutes} min`}
+            value={durationMinutes === null ? "—" : `${durationMinutes} min`}
             color="blue"
           />
           <StatCard
@@ -246,11 +250,15 @@ function PanelContent({
               <div>
                 <p className="text-xs text-gray-500">Début</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
-                  {formatMediumDate(exam.startDate)}
+                  {exam.startDate === null
+                    ? "—"
+                    : formatMediumDate(exam.startDate)}
                 </p>
-                <p className="text-xs text-gray-500">
-                  {formatTimeOnly(exam.startDate)}
-                </p>
+                {exam.startDate !== null && (
+                  <p className="text-xs text-gray-500">
+                    {formatTimeOnly(exam.startDate)}
+                  </p>
+                )}
               </div>
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
                 <span className="text-xs font-bold text-gray-500">→</span>
@@ -258,11 +266,13 @@ function PanelContent({
               <div className="text-right">
                 <p className="text-xs text-gray-500">Fin</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
-                  {formatMediumDate(exam.endDate)}
+                  {exam.endDate === null ? "—" : formatMediumDate(exam.endDate)}
                 </p>
-                <p className="text-xs text-gray-500">
-                  {formatTimeOnly(exam.endDate)}
-                </p>
+                {exam.endDate !== null && (
+                  <p className="text-xs text-gray-500">
+                    {formatTimeOnly(exam.endDate)}
+                  </p>
+                )}
               </div>
             </div>
           </div>

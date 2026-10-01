@@ -112,6 +112,7 @@ beforeAll(async () => {
     completionTime: 3600,
     isActive: true,
     createdBy: A,
+    targetQuestionCount: 10,
   })
   await db.insert(examParticipations).values({
     id: createId(),

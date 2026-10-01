@@ -23,7 +23,6 @@ import {
   user,
   userAccess,
 } from "@/db/schema"
-import { createExam } from "@/features/exams/actions"
 import { getExamWithQuestions } from "@/features/exams/dal"
 import { setQuestionImages } from "@/features/questions/actions"
 import {
@@ -34,6 +33,7 @@ import {
 import { getTrainingSessionById } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -176,15 +176,14 @@ beforeAll(async () => {
   if (!explRes.success) throw new Error(explRes.error)
 
   const now = Date.now()
-  const r1 = await createExam({
+  examId = await seedExam({
+    createdBy: ADMIN_ID,
     title: `AC Exam ${suffix}`,
     startDate: now - 3600_000,
     endDate: now + 3600_000,
     questionIds: qIds,
     enablePause: false,
   })
-  if (!r1.success) throw new Error(r1.error)
-  examId = r1.examId
 })
 
 afterAll(async () => {

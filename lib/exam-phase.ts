@@ -14,12 +14,44 @@ export type ExamWindow = {
   endDate: number
 }
 
-/** Phase d'affichage : à venir, en cours, terminé ou désactivé. */
-export const phaseOf = (exam: ExamWindow, now: number): ExamStatus => {
+/** Phase d'un examen finalisé : à venir, en cours, terminé ou désactivé. */
+export const phaseOf = (
+  exam: ExamWindow,
+  now: number,
+): Exclude<ExamStatus, "preparation"> => {
   if (!exam.isActive) return "inactive"
   if (now < exam.startDate) return "upcoming"
   if (!isOpen(exam, now)) return "completed"
   return "active"
+}
+
+/**
+ * Phase vue par l'admin, qui voit aussi les examens en préparation : sans
+ * finalisation, leurs dates peuvent manquer. « Désactivé » prime.
+ */
+export type AdminExamWindow = {
+  isActive: boolean
+  finalizedAt: number | null
+  startDate: number | null
+  endDate: number | null
+}
+
+export const adminPhaseOf = (
+  exam: AdminExamWindow,
+  now: number,
+): ExamStatus => {
+  if (!exam.isActive) return "inactive"
+  // Dates nulles sur un examen finalisé : exclu par `exams_finalized_complete`.
+  if (
+    exam.finalizedAt === null ||
+    exam.startDate === null ||
+    exam.endDate === null
+  )
+    return "preparation"
+  return phaseOf(
+    { isActive: true, startDate: exam.startDate, endDate: exam.endDate },
+    now,
+  )
 }
 
 /**

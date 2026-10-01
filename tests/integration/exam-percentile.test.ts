@@ -68,6 +68,7 @@ const seedExam = async (
     endDate: open ? new Date(now + DAY) : new Date(now - DAY),
     completionTime: 3600,
     createdBy: userIds[0],
+    targetQuestionCount: 10,
   })
   await db.insert(examParticipations).values(
     participants.map((p, i) => ({
@@ -108,6 +109,7 @@ const withholdScore = async (examId: string, userId: string) => {
     endDate: new Date(now + DAY),
     completionTime: 3600,
     createdBy: userId,
+    targetQuestionCount: 10,
   })
   await db.insert(examQuestions).values({
     examId: openExamId,

@@ -16,6 +16,7 @@ import type { AttemptTiming } from "@/lib/attempt-clock"
 import { getCurrentSession } from "@/lib/dal"
 import { type DashboardPeriod, periodWindow } from "@/lib/dashboard-period"
 import { PASS_THRESHOLD } from "@/lib/score"
+import { finalizedDate, finalizedDuration } from "../exams/dal.shared"
 import {
   memberAudienceWhere,
   participationScoreReadable,
@@ -281,7 +282,13 @@ const countAvailableExams = async (
            and ep.status in ('completed', 'auto_submitted')))`.mapWith(Number),
     })
     .from(exams)
-    .where(and(eq(exams.isActive, true), memberAudienceWhere(uid)))
+    .where(
+      and(
+        eq(exams.isActive, true),
+        isNotNull(exams.finalizedAt),
+        memberAudienceWhere(uid),
+      ),
+    )
   return { available: row?.available ?? 0, completed: row?.completed ?? 0 }
 }
 
@@ -332,7 +339,7 @@ export const getMyRecentParticipations = cache(
     return rows.map((r) => ({
       ...r,
       completedAt: r.completedAt?.getTime() ?? 0,
-      endDate: r.endDate.getTime(),
+      endDate: finalizedDate(r.endDate),
     }))
   },
 )
@@ -526,7 +533,7 @@ export const getMyExamInProgress = cache(
       questionCount: row.questionCount,
       timing: {
         startedAt: row.startedAt.getTime(),
-        budgetSeconds: row.completionTime,
+        budgetSeconds: finalizedDuration(row.completionTime),
         pauseCreditMs: Number(row.totalPauseDurationMs ?? 0),
         pauseInProgress: row.pauseStartedAt
           ? {

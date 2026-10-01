@@ -10,17 +10,22 @@ import {
 import type {
   EligibleCandidate,
   ExamAudienceUser,
-  ExamWithQuestions,
   LeaderboardEntry,
 } from "@/features/exams/dal"
-import { phaseOf } from "@/lib/exam-phase"
+import { type AdminExamWindow, adminPhaseOf } from "@/lib/exam-phase"
 import { formatDeadline } from "@/lib/format"
 import { EligibleCandidatesSection } from "./eligible-candidates-section"
 import { ExamLeaderboard } from "./exam-leaderboard"
 import { ExamSectionStats } from "./exam-section-stats"
 import { RestrictedAudienceSection } from "./restricted-audience-section"
 
-type ExamMeta = NonNullable<ExamWithQuestions>["exam"]
+type ExamMeta = AdminExamWindow & {
+  id: string
+  title: string
+  description: string | null
+  questionCount: number
+  audienceType: "subscribers" | "restricted"
+}
 
 interface ExamDetailsProps {
   exam: ExamMeta
@@ -41,7 +46,7 @@ export function ExamDetails({
   currentUserId,
   now,
 }: ExamDetailsProps) {
-  const status = phaseOf(exam, now)
+  const status = adminPhaseOf(exam, now)
 
   return (
     <div className="space-y-6">
@@ -67,7 +72,9 @@ export function ExamDetails({
               <div>
                 <p className="text-sm font-medium">Date de début</p>
                 <p className="text-muted-foreground text-sm">
-                  {formatDeadline(exam.startDate)}
+                  {exam.startDate === null
+                    ? "À définir"
+                    : formatDeadline(exam.startDate)}
                 </p>
               </div>
             </div>
@@ -76,7 +83,9 @@ export function ExamDetails({
               <div>
                 <p className="text-sm font-medium">Date de fin</p>
                 <p className="text-muted-foreground text-sm">
-                  {formatDeadline(exam.endDate)}
+                  {exam.endDate === null
+                    ? "À définir"
+                    : formatDeadline(exam.endDate)}
                 </p>
               </div>
             </div>

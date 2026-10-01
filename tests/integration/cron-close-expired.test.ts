@@ -70,6 +70,7 @@ beforeAll(async () => {
     completionTime: 3600,
     isActive: true,
     createdBy: U1,
+    targetQuestionCount: 10,
   })
   await db
     .insert(exams)

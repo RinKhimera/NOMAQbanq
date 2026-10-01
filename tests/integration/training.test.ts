@@ -422,6 +422,7 @@ describe("anti-triche : correction training masquée pendant un examen ouvert", 
       endDate,
       completionTime: 3600,
       createdBy: STUDENT2_ID,
+      targetQuestionCount: 10,
     })
     await db.insert(examQuestions).values({ examId, questionId, position: 0 })
     await db.insert(examParticipations).values({

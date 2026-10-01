@@ -22,7 +22,7 @@ import {
 } from "@/features/exams/actions"
 import type { AdminExamListItem } from "@/features/exams/dal"
 import { currentTimeMs } from "@/lib/clock"
-import { phaseOf } from "@/lib/exam-phase"
+import { adminPhaseOf } from "@/lib/exam-phase"
 import type { ExamStatus } from "@/lib/exam-status"
 import { callAction } from "@/lib/safe-action"
 import { ExamCard } from "./exam-card"
@@ -52,7 +52,7 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
 
     if (selectedStatuses.length > 0) {
       result = result.filter((exam) =>
-        selectedStatuses.includes(phaseOf(exam, now)),
+        selectedStatuses.includes(adminPhaseOf(exam, now)),
       )
     }
 
@@ -71,7 +71,7 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
   // Les gardes d'édition et de désactivation lisent l'horloge AU CLIC : le
   // `now` de rendu (tick de 60 s) sert à l'affichage, pas à une confirmation.
   const handleDeactivate = async (exam: AdminExamListItem) => {
-    if (phaseOf(exam, currentTimeMs()) === "active") {
+    if (adminPhaseOf(exam, currentTimeMs()) === "active") {
       setSelectedExam(exam)
       setShowDeactivateDialog(true)
     } else {
@@ -100,7 +100,7 @@ export function ExamsList({ exams, now, onExamSelect }: ExamsListProps) {
   }
 
   const handleEdit = (exam: AdminExamListItem) => {
-    if (phaseOf(exam, currentTimeMs()) === "active") {
+    if (adminPhaseOf(exam, currentTimeMs()) === "active") {
       setSelectedExam(exam)
       setShowEditDialog(true)
     } else {

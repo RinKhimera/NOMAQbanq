@@ -30,7 +30,6 @@ import {
   trainingSessions,
   user,
 } from "@/db/schema"
-import { createExam } from "@/features/exams/actions"
 import { getExamQuestionExplanations } from "@/features/exams/dal"
 import { setQuestionImages } from "@/features/questions/actions"
 import {
@@ -42,6 +41,7 @@ import {
 import { getTrainingSessionResults } from "@/features/training/dal"
 import { getCurrentSession } from "@/lib/dal"
 import { createId } from "@/lib/ids"
+import { seedExam } from "../helpers/seed-exam"
 
 vi.mock("react", async (orig) => {
   const actual = await orig<typeof import("react")>()
@@ -153,15 +153,14 @@ beforeAll(async () => {
 
   // Examen + participation complétée (qExam) → autorise getExamQuestionExplanations.
   const now = Date.now()
-  const r1 = await createExam({
+  examId = await seedExam({
+    createdBy: ADMIN_ID,
     title: `EX Exam ${suffix}`,
     startDate: now - 3 * DAY,
     endDate: now - DAY,
     questionIds: [qExam],
     enablePause: false,
   })
-  if (!r1.success) throw new Error(r1.error)
-  examId = r1.examId
 
   const partId = createId()
   await db.insert(examParticipations).values({

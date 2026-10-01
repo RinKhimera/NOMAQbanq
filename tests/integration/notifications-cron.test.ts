@@ -80,6 +80,7 @@ beforeAll(async () => {
       endDate: past,
       completionTime: 3600,
       createdBy: creator,
+      targetQuestionCount: 10,
     },
     {
       id: openExam,
@@ -88,6 +89,7 @@ beforeAll(async () => {
       endDate: future,
       completionTime: 3600,
       createdBy: creator,
+      targetQuestionCount: 10,
     },
   ])
   await db.insert(examParticipations).values([
@@ -677,6 +679,7 @@ describe("backfill 0010 (anti-blast historique)", () => {
         endDate: past, // déjà clos
         completionTime: 3600,
         createdBy: creatorBf,
+        targetQuestionCount: 10,
       },
       {
         id: openBf,
@@ -685,6 +688,7 @@ describe("backfill 0010 (anti-blast historique)", () => {
         endDate: future, // encore ouvert
         completionTime: 3600,
         createdBy: creatorBf,
+        targetQuestionCount: 10,
       },
     ])
     await db.insert(examParticipations).values([

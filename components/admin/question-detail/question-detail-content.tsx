@@ -21,7 +21,7 @@ import type { QuestionDetail, QuestionExamUse } from "@/features/questions/dal"
 import type { KeyReview } from "@/features/questions/key-review"
 import type { FormatIssue } from "@/features/questions/normalization"
 import { cdnUrl } from "@/lib/cdn"
-import { phaseOf } from "@/lib/exam-phase"
+import { adminPhaseOf } from "@/lib/exam-phase"
 import { formatDayMonth, formatLongDate, formatMediumDate } from "@/lib/format"
 import { TONE_COLOR, type Tone } from "@/lib/tone"
 import { cn } from "@/lib/utils"
@@ -243,7 +243,9 @@ const AnswerDistribution = ({ file }: { file: QuestionFile }) => {
 }
 
 const examWindow = (e: QuestionExamUse) =>
-  `${formatDayMonth(e.startDate)} → ${formatMediumDate(e.endDate)}`
+  e.startDate === null || e.endDate === null
+    ? "Dates à définir"
+    : `${formatDayMonth(e.startDate)} → ${formatMediumDate(e.endDate)}`
 
 const ExamsUsing = ({
   exams,
@@ -289,7 +291,7 @@ const ExamsUsing = ({
                 ) : (
                   label
                 )}
-                <ExamStatusBadge status={phaseOf(e, now)} />
+                <ExamStatusBadge status={adminPhaseOf(e, now)} />
               </li>
             )
           })}

@@ -319,6 +319,7 @@ async function seedRestrictedExam(opts: {
     isActive: true,
     audienceType: "restricted",
     createdBy: admin.id,
+    targetQuestionCount: 10,
   })
   await db
     .insert(examQuestions)
@@ -413,6 +414,7 @@ async function seedExam(opts: {
     isActive: true,
     audienceType: "subscribers",
     createdBy: admin.id,
+    targetQuestionCount: 10,
   })
   await db
     .insert(examQuestions)

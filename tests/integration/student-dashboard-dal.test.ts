@@ -87,6 +87,7 @@ const examWith = async ({
       : new Date(completedAt.getTime() + 60_000),
     isActive: active,
     createdBy: ADMIN_ID,
+    targetQuestionCount: 10,
     completionTime: 3600,
   })
   if (score !== undefined) {
@@ -426,6 +427,7 @@ describe("getMyDashboard — examens disponibles et audience restreinte", () => 
       isActive: true,
       audienceType: "restricted",
       createdBy: ADMIN_ID,
+      targetQuestionCount: 10,
       completionTime: 3600,
     })
     const count = async (id: string) => {

@@ -112,6 +112,7 @@ const sitExam = async (
     endDate: open ? new Date(now + DAY) : new Date(now - DAY),
     completionTime: 3600,
     createdBy: userId,
+    targetQuestionCount: 10,
   })
   await db.insert(examQuestions).values(
     answers.map((a, position) => ({

@@ -70,6 +70,7 @@ const renderList = (
           title: "Examen blanc 26",
           startDate: NOW - 86_400_000,
           endDate: NOW + 3 * 86_400_000,
+          finalizedAt: NOW - 3 * 86_400_000,
           isActive: true,
         },
       ]}

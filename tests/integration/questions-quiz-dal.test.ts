@@ -110,6 +110,7 @@ beforeAll(async () => {
       endDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
       completionTime: 3600,
       createdBy: examCreatorId,
+      targetQuestionCount: 10,
     },
     {
       id: examClosedId,
@@ -118,6 +119,7 @@ beforeAll(async () => {
       endDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
       completionTime: 3600,
       createdBy: examCreatorId,
+      targetQuestionCount: 10,
     },
   ])
   await db.insert(examQuestions).values([

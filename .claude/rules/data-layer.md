@@ -85,7 +85,8 @@ Patterns du data layer Drizzle (code `features/**` + les écrans qui le câblent
   d'ordre en commentaire à côté ; ni la route ni son test ne changent.
 - **Passation d'examen — invariante d'accès** : le contenu des questions n'est
   livré/écrit que pour une participation `in_progress` (créée par `startExam`,
-  seul à vérifier audience + fenêtre + accès + examen actif à la création).
+  seul à vérifier finalisation + audience + fenêtre + accès + examen actif à
+  la création).
   Désactiver un examen ferme les NOUVELLES participations et le rend
   introuvable à qui n'y a pas participé (page, liste, classement), sans couper
   une épreuve en cours : `requireAttempt` ne lit pas `isActive`,
@@ -164,13 +165,27 @@ colonne)` dans le WHERE des canaux de
   pas doublé (10 nouvelles au moins) ; `updateQuestion` l'efface quand
   l'énoncé, les options ou la clé changent. **Choix figés** : `updateQuestion`
   refuse, sous verrou de la ligne, un changement de clé ou d'options tant
-  qu'un examen ouvert (`end_date > now()`) contient la question.
+  qu'un examen ouvert (`end_date > now()`) et finalisé contient la question.
 - **Dernière utilisation** : `notUsedInLastExams(n, colonne)`
   (`features/questions/last-use.ts`), prédicat corrélé (examens par date
-  d'ouverture, désactivés compris), à reprendre par le compositeur d'examen.
-  Un examen en préparation n'en compte pas (`CONTEXT.md`) : le filtre
-  `finalized_at IS NOT NULL` s'y ajoute avec la colonne (#259), comme sur la
-  garde des choix figés.
+  d'ouverture, désactivés compris, examens en préparation exclus), à
+  reprendre par le compositeur d'examen.
+- **Examen en préparation** (`exams.finalized_at IS NULL`, `CONTEXT.md`) :
+  dates et durée nullables, exigées par la contrainte
+  `exams_finalized_complete` dès la finalisation. Toute lecture étudiante
+  filtre `finalized_at IS NOT NULL` (liste, page, classement, résultats,
+  tableau de bord) et lit les dates par `finalizedDates`/`finalizedDate`
+  (`features/exams/dal.shared.ts`), qui affirment l'invariant ; une lecture
+  qui part d'une participation n'a pas à filtrer (`startExam` refuse un examen
+  non finalisé, admin compris, et le jeu ne repasse en préparation qu'avant
+  la première participation). Côté admin, `getAdminExam` et `adminPhaseOf`.
+  Un compteur par phase filtre `finalized_at` en plus des dates : un examen
+  remis en préparation garde les siennes. Écritures : `saveExam`
+  (« Enregistrer », permissif) et `finalizePreparedExam` partagent avec
+  `createExam`/`updateExam` les étapes de `features/exams/actions.ts`, sous le
+  verrou `exams FOR UPDATE` ; changer le jeu ou le visé d'un examen finalisé
+  le remet en préparation. Un insert brut (fixture, route e2e) est finalisé
+  par le défaut de colonne.
 - **`sql` brut dans un select Drizzle mono-table** : `${exams.id}` y est rendu
   sans préfixe (`"id"`), donc une sous-requête corrélée vise sa propre table et
   renvoie 0 en silence. Écrire la corrélation qualifiée (`"exams"."id"`) ou

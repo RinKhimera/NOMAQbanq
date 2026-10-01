@@ -43,14 +43,12 @@ import {
   confirmQuestionKey,
   deleteQuestion,
 } from "@/features/questions/actions"
-import type {
-  QuestionExamUse,
-  QuestionNeighbors,
-} from "@/features/questions/dal"
+import type { QuestionNeighbors } from "@/features/questions/dal"
 import { KEY_CONFIRMATION_NOTE_MAX } from "@/features/questions/key-review"
 import { NBSP, formatLongDate, formatMediumDate } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { TOUCH_HEIGHT } from "@/lib/touch-target"
+import type { LockingExam } from "../../_components/question-page-data"
 import {
   type QuestionListState,
   pageOfPosition,
@@ -286,7 +284,7 @@ export const QuestionDetailClient = ({
   file: QuestionFile
   list: QuestionListState
   neighbors: QuestionNeighbors | null
-  lockingExam: QuestionExamUse | null
+  lockingExam: LockingExam | null
   initialNow: number
 }) => {
   const router = useRouter()

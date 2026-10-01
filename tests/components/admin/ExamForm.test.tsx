@@ -5,7 +5,7 @@ import {
   ExamForm,
   type ExamFormPrefill,
 } from "@/app/(admin)/admin/examens/_components/exam-form"
-import type { ExamWithQuestions } from "@/features/exams/dal"
+import type { AdminExam } from "@/features/exams/dal"
 import type { SelectableUser } from "@/features/users/dal"
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }))
@@ -157,12 +157,14 @@ describe("ExamForm — création pré-remplie depuis un examen source", () => {
 })
 
 describe("ExamForm — modification", () => {
-  const exam: NonNullable<ExamWithQuestions>["exam"] = {
+  const exam: AdminExam["exam"] = {
     ...sourceExam,
     id: "e1",
     startDate: Date.parse("2026-03-01T12:00:00"),
     endDate: Date.parse("2026-03-08T12:00:00"),
     completionTime: 3 * 83,
+    finalizedAt: Date.parse("2026-02-20T12:00:00"),
+    targetQuestionCount: 3,
     isActive: true,
   }
 

@@ -59,6 +59,7 @@ const seedExam = async ({ closed = false }: { closed?: boolean } = {}) => {
     completionTime: 3600,
     audienceType: "restricted",
     createdBy: ADMIN_ID,
+    targetQuestionCount: 10,
   })
   await db
     .insert(examQuestions)
