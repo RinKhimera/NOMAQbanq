@@ -72,10 +72,10 @@ export default async function MockExamDetailsPage({
   // `revealKey` n'a d'effet que pour un admin (modale des questions).
   const data = await getExamWithQuestions(examId, { revealKey: true })
   if (!data) {
-    // Non-admin + null = pas d'accès (ou examen confidentiel) → carte paywall,
-    // pas un 404 sec (préserve le tunnel d'achat). Admin ne voit null que si
-    // l'examen n'existe pas.
-    if (isAdmin) notFound()
+    // Non-abonné + null → carte paywall, pas un 404 sec (préserve le tunnel
+    // d'achat). Un abonné n'a rien à acheter : son null vaut examen
+    // introuvable (inexistant, désactivé, ou restreint à d'autres).
+    if (isAdmin || (await hasAccess("exam"))) notFound()
     return <ExamAccessDeniedCard />
   }
 

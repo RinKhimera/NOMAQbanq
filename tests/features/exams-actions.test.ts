@@ -345,6 +345,7 @@ describe("startExam", () => {
           startDate: new Date(0),
           endDate: new Date(10_000),
           audienceType: "subscribers",
+          isActive: true,
         },
       ],
     })
@@ -368,6 +369,7 @@ describe("startExam", () => {
           startDate: new Date(0),
           endDate: new Date(10_000),
           audienceType: "restricted",
+          isActive: true,
         },
       ],
       examAudience: [{ userId: "u1" }],
@@ -376,6 +378,27 @@ describe("startExam", () => {
     })
     const res = await startExam({ examId: "e1" })
     expect(res).toMatchObject({ success: true, startedAt: NOW })
+  })
+
+  it("examen désactivé : refuse une nouvelle participation", async () => {
+    setRows({
+      user: [{ id: "u1" }],
+      exams: [
+        {
+          startDate: new Date(0),
+          endDate: new Date(10_000),
+          audienceType: "restricted",
+          isActive: false,
+        },
+      ],
+      examAudience: [{ userId: "u1" }],
+      examParticipations: [],
+      examQuestions: [{ questionId: "q1" }],
+    })
+    expect(await startExam({ examId: "e1" })).toEqual({
+      success: false,
+      error: "Cet examen n'est plus disponible.",
+    })
   })
 
   // Borne du glossaire (« examen ouvert » = date de fin non passée) : cas
@@ -397,6 +420,7 @@ describe("startExam", () => {
           startDate: new Date(0),
           endDate: new Date(endDate),
           audienceType: "restricted",
+          isActive: true,
         },
       ],
       examAudience: [{ userId: "u1" }],

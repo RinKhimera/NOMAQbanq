@@ -38,6 +38,7 @@ bun run email:preview    # Rend chaque courriel (HTML + texte) dans .email-previ
 ```
 
 CI: `.github/workflows/ci.yml` — type-check -> lint -> format:check -> test + coverage (seuil 80%, échoue sous la barre).
+Label de PR `skip-integration` : saute le job « Integration Tests » (rendu « Success », le check requis passe), donc aussi le seuil de couverture agrégée backend. Il reste posé d'un push à l'autre : le retirer après usage. Poser ou retirer un label relance la CI.
 
 ## Structure
 

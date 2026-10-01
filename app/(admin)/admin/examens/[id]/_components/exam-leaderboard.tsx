@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { SCORE_WITHHELD_MESSAGE } from "@/components/quiz/runner/types"
 import { ConfirmDialog } from "@/components/shared/confirm-dialog"
 import { SearchInput } from "@/components/shared/search-input"
+import { StatusPill, type StatusTone } from "@/components/shared/status-pill"
 import { UserAvatar } from "@/components/shared/user-avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,7 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { EmptyState } from "@/components/ui/empty-state"
 import { deleteParticipation } from "@/features/exams/actions"
-import type { LeaderboardEntry } from "@/features/exams/dal"
+import type { LeaderboardEntry, LeaderboardFlag } from "@/features/exams/dal"
 import { formatCompactDateTime } from "@/lib/format"
 import { callAction } from "@/lib/safe-action"
 import { formatScore } from "@/lib/score"
@@ -42,6 +43,12 @@ const matchesSearch = (entry: LeaderboardEntry, query: string) =>
   [entry.user?.name, entry.user?.username].some(
     (field) => field && foldForSearch(field).includes(query),
   )
+
+const FLAG_PILLS: Record<LeaderboardFlag, { label: string; tone: StatusTone }> =
+  {
+    admin: { label: "Admin", tone: "admin" },
+    deleted: { label: "Supprimé", tone: "neutral" },
+  }
 
 interface ParticipantToDelete {
   participationId: string
@@ -153,9 +160,16 @@ export function ExamLeaderboard({
                     className="size-9 shrink-0 @sm:size-10"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium @sm:text-base">
-                      {entry.user?.name}
-                    </p>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <p className="truncate text-sm font-medium @sm:text-base">
+                        {entry.user?.name}
+                      </p>
+                      {entry.user?.flag && (
+                        <StatusPill tone={FLAG_PILLS[entry.user.flag].tone}>
+                          {FLAG_PILLS[entry.user.flag].label}
+                        </StatusPill>
+                      )}
+                    </div>
                     {entry.user?.username && (
                       <p className="text-muted-foreground truncate text-xs @sm:text-sm">
                         @{entry.user.username}

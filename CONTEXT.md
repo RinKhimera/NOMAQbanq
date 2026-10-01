@@ -183,6 +183,15 @@ admin et supprimés. Il n'existe pas en dessous d'un effectif minimal de pairs,
 ni pour un examen ouvert.
 _Avoid_ : rang global, percentile d'entraînement
 
+**Classement d'examen** :
+Les participations terminées d'un examen blanc, par score lisible décroissant,
+qu'un étudiant consulte après la clôture. Sa population est celle du
+percentile d'examen (participations d'étudiants, hors comptes admin et
+supprimés) : rang et percentile comptent les mêmes participants. La fiche admin
+d'un examen montre toutes les participations, comptes admin et supprimés
+signalés.
+_Avoid_ : leaderboard, palmarès
+
 **Maîtrise par domaine** :
 La part de réponses justes d'un étudiant dans un domaine médical, calculée sur
 sa DERNIÈRE réponse à chaque question (entraînement et examens clos). Une
